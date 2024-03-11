@@ -11,6 +11,7 @@ _PYTHON_REQUIRES='>=3.11'
 #  VARIABLES FOR PROCESSING
 _days_init = -7                         # NUMBER OF DAYS BACKWARD FOR START DATE ((Meteocat))
 _days_end = 0                           # NUMBER OF DAYS BACKWARD FOR END DATE ((Meteocat))
+_days_bucket = 10                       # NUMBER OF DAYS OF BUCKET SELECTION FROM METEOCAT (DUE TO THROTTLING RESTRICTIONS)
 _qcodi_variable = "'35'"                # VARIABLE FOR PRECIPITATION = 35 ((Meteocat))
 _qcodi_variable2 = "'35'"               # SECOND VARIABLE RESERVATION (JUST IN CASE) ((Meteocat))
 _codi_estacio = 'ALL'                   # ALL STATIONS - PUT HERE 'codi_estacio' if just want one ((Meteocat))

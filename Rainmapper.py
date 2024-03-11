@@ -32,6 +32,7 @@ from const import   _codi_estacio,\
                     _create_googlemaps_files,\
                     _days_init,\
                     _days_end,\
+                    _days_bucket,\
                     _print_dataframes,\
                     _print_totals,\
                     _last_number_rains,\
@@ -85,6 +86,14 @@ parser.add_argument('--nototals',
                     type=lambda x: not((str(x).lower() in ['true','1','yes'])),
                     default=_print_totals,
                     help='No imprimir Totales (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=True')
+parser.add_argument('--days_bucket', 
+                    dest='_days_bucket',
+                    nargs='?', 
+                    const=_days_bucket,
+                    type=int, 
+                    default=_days_bucket,
+                    help='Dias bucket en lectura de Meteocat (Numerico positivo) -> Const=Default=10')
+
 # Parsear los argumentos de la línea de comandos
 args = parser.parse_args()
 
@@ -92,6 +101,7 @@ _create_meteoclimatic = args._create_meteoclimatic
 _create_meteocat = args._create_meteocat
 _days_init = args._days_init
 _days_end = args._days_end
+_days_bucket = args._days_bucket
 _create_googlemaps_files = args._create_googlemaps_files
 _print_totals = args._print_totals
 
@@ -300,7 +310,12 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     estacions = client.get(socrata_metadades_estacions_xema, \
                        query="SELECT codi_estacio, nom_estacio, nom_comarca, nom_provincia, \
                        nom_municipi, altitud, latitud, longitud ORDER BY codi_estacio", exclude_system_fields='true')
-    estacions_xema = pd.DataFrame.from_records(estacions)
+    
+    # Drop duplicates from 20240306
+    estacions_xema = pd.DataFrame.from_records(estacions).drop_duplicates()
+
+    #save_dataframe(estacions_xema, 'estacions_xema_downloaded', _save_to_csv=True, _save_to_excel=False,_decimal=',')   
+
     estacions_xema.rename(columns={'codi_estacio':'Codi Estació',
                                    'nom_estacio':'Estació',
                                    'nom_comarca':'Comarca',
@@ -324,7 +339,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     estacions_old.set_index(keys=["Codi Estació"],drop=False,inplace=True)
 
     # Identify existing stations
-    existing_stations = estacions_xema[estacions_xema.index.isin(estacions_old.index)]
+    existing_stations = estacions_xema[estacions_xema.index.isin(estacions_old.index)].copy()
 
     # if changes Latitud/Longitud, or Altitud==0 in xema or in local DB
     for index, station in existing_stations.iterrows():
@@ -333,6 +348,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
             estacions_old.loc[index,'Altitud'] == 0 or \
             station['Altitud'] == 0:
             _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
+
             existing_stations.loc[index,'Altitud'] = int(_altitud)
         else:
             existing_stations.loc[index,'Altitud'] = estacions_old.loc[index,'Altitud']
