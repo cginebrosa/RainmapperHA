@@ -1,9 +1,16 @@
 #!/usr/bin/env python
 
 # make sure to install these packages before running:
-# pip install pandas
-# pip install sodapy
-# pip install pymeteoclimatic
+#beautifulsoup4==4.12.3
+#bokeh==3.2.2
+#googlemaps==4.10.0
+#lxml==4.9.3
+#numpy==1.25.2
+#pandas==2.2.2
+#pytz==2023.3.post1
+#Requests==2.32.3
+
+# CHECK requirements.txt
 
 import pandas as pd
 from sodapy_local import Socrata
@@ -20,9 +27,11 @@ from const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
 from const import   _codi_estacio,\
                     _qcodi_variable,\
                     _qcodi_variable2,\
+                    _create_wunderground,\
                     _create_meteoclimatic,\
                     _create_meteocat,\
                     _create_meteocat_conditions,\
+                    _incremental_wunderground,\
                     _incremental_meteocat,\
                     _incremental_meteoclimatic,\
                     _minima_lectura_meteoclimatic,\
@@ -58,6 +67,13 @@ parser.add_argument('--create_meteocat',
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_create_meteocat, 
                     help='Recuperar datos de Meteocat (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
+parser.add_argument('--create_wunderground', 
+                    dest='_create_wunderground', 
+                    nargs='?', 
+                    const=True, 
+                    type=lambda x: (str(x).lower() in ['true','1','yes']),
+                    default=_create_wunderground, 
+                    help='Recuperar datos de Wunderground (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
 parser.add_argument('--days_init', 
                     dest='_days_init', 
                     nargs='?', 
@@ -99,6 +115,7 @@ args = parser.parse_args()
 
 _create_meteoclimatic = args._create_meteoclimatic
 _create_meteocat = args._create_meteocat
+_create_wunderground = args._create_wunderground
 _days_init = args._days_init
 _days_end = args._days_end
 _days_bucket = args._days_bucket
@@ -221,7 +238,7 @@ def get_googlemaps(lat,long):
     if len(administrative_area_level_2) == 0:       # If not found set to "Check lat/long"
         administrative_area_level_2 = ["Not found - Check lat/long"]
     #print(reverse_geocode_result)
-    #print(elevation_result)
+    print('Altitud'+ str(elevation_result))
 
     return elevation_result[-1]['elevation'],locality[0], administrative_area_level_2[0]
 
@@ -312,7 +329,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
                        nom_municipi, altitud, latitud, longitud ORDER BY codi_estacio", exclude_system_fields='true')
     
     # Drop duplicates from 20240306
-    estacions_xema = pd.DataFrame.from_records(estacions).drop_duplicates()
+    estacions_xema = pd.DataFrame.from_records(estacions).drop_duplicates(subset='codi_estacio')
 
     #save_dataframe(estacions_xema, 'estacions_xema_downloaded', _save_to_csv=True, _save_to_excel=False,_decimal=',')   
 
@@ -330,7 +347,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
 
     # Retrieve and update local file
     try:
-        estacions_old = pd.read_csv(_DATA_PATH+'estacions_xema.csv')
+        estacions_old = pd.read_csv(_DATA_PATH+'estacions_xema.csv').drop_duplicates(subset='Codi Estació')
     except FileNotFoundError:
         # If not existing file a new df is created 
         estacions_old = pd.DataFrame(columns=estacions_xema.columns)
@@ -341,14 +358,21 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     # Identify existing stations
     existing_stations = estacions_xema[estacions_xema.index.isin(estacions_old.index)].copy()
 
-    # if changes Latitud/Longitud, or Altitud==0 in xema or in local DB
-    for index, station in existing_stations.iterrows():
-        if  station['Latitud'] != estacions_xema.loc[index,'Latitud'] or \
-            station['Longitud'] != estacions_xema.loc[index,'Longitud'] or \
-            estacions_old.loc[index,'Altitud'] == 0 or \
-            station['Altitud'] == 0:
-            _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
 
+    # if changes Latitud/Longitud, or Altitud==0 in xema or in local DB
+    #print (existing_stations)
+    for index, station in existing_stations.iterrows():
+        #print('Indice:',index  + \
+        #   " - Altitud:" + station['Altitud'] + " - Altitud existing:" + str(estacions_old.loc[index,'Altitud']) + \
+        #   " - Latitud:" + station['Latitud'] + " - Latitud existing:" + estacions_xema.loc[index,'Latitud'] +\
+        #   " - Longitud:" + station['Longitud']  + " - Longitud existing:" + estacions_xema.loc[index,'Longitud'])
+        
+        if  (station['Latitud'] != estacions_xema.loc[index,'Latitud']
+            or station['Longitud'] != estacions_xema.loc[index,'Longitud']): 
+            #or estacions_old.loc[index,'Altitud'] == 0 
+            #or station['Altitud'] == 0):
+            print ('Recuperando Altitud para estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
+            _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
             existing_stations.loc[index,'Altitud'] = int(_altitud)
         else:
             existing_stations.loc[index,'Altitud'] = estacions_old.loc[index,'Altitud']
@@ -361,6 +385,8 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     for index, station in new_stations.iterrows():
         if index == 0:
             print('Checking Googlemaps data...')
+
+        print ('Recuperando Altitud/Municipi/Provincia para nueva estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
 
         _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
         new_stations.loc[index,'Altitud'] = int(_altitud)
@@ -716,6 +742,61 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):     
     
     return csv_incremental
 
+def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):                     # Save incremental Dataframe                    
+    csv=csv_param.copy()
+    #
+    try:
+        # Intentar cargar el archivo CSV
+        #csv_old = pd.read_csv(_DATA_PATH+'Meteoclimatic_incremental.csv',decimal=',')
+        csv_old = read_incremental('Wunderground_incremental')
+
+    except FileNotFoundError:
+        # Si el archivo no se encuentra, crear un DataFrame vacío con las mismas columnas que csv
+        csv_old = pd.DataFrame(columns=csv.columns)
+
+	# Update existing data in csv_old with values in csv just in case readings have changed (it happens!)
+    csv_old.set_index(keys=["Codi Estació","Data Local"],drop=False,inplace=True)
+	#
+    csv.set_index(keys=["Codi Estació","Data Local"],drop=False,inplace=True)
+    csv_old.update(csv)
+	#
+	# Merge new records from csv & csv_old into csv_incremental
+    csv_old.reset_index(drop=True,inplace=True)
+    csv.reset_index(drop=True,inplace=True)
+    csv_incremental = pd.merge(csv, csv_old.drop_duplicates(), on=csv_old.columns.to_list(),
+					how='outer', indicator=False)
+
+    csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
+    csv_incremental.reset_index(drop=True, inplace=True)
+    #print(' ')
+	#
+    ''' 
+    PENDIENTE DE VER SI HAY QUE AÑADIR  
+    # Refresh Station data on incremental local DB from local DB of Stations
+    estacions_wunderground_df = pd.read_csv(_DATA_PATH+'estacions_wunderground.csv',decimal=',')
+
+    estacions_wunderground_df.set_index(keys='Codi Estació',drop=False,inplace=True)
+    csv_incremental.set_index(keys='Codi Estació',drop=False,inplace=True)
+    csv_incremental.update(estacions_wunderground_df)
+    '''   
+    # Filter rain > _minima_lectura_meteoclimatic (Daily rain in Meteoclimatic - Discard minimum readings as are errors) 
+    #csv_incremental = filter_results(csv_incremental,_minima_lectura_meteoclimatic)
+    
+    csv_incremental.reset_index(drop=True, inplace=True)
+
+	# Save incremental Dataframe to csv
+    csv_incremental.to_csv(_DATA_PATH+'Wunderground_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
+	#
+	# Save csv_incremental Dataframe to Excel
+
+    if _save_to_excel:
+        csv_incremental['Altitud'] = csv_incremental['Altitud'].astype(float)
+        csv_incremental['Latitud'] = csv_incremental['Latitud'].astype(float)
+        csv_incremental['Longitud'] = csv_incremental['Longitud'].astype(float)
+        csv_incremental.to_excel(_DATA_PATH+'Wundewrground_incremental.xlsx', index=False) # Save to excel All incremental rain readings
+    
+    return csv_incremental
+
 def create_total_dataframe(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv):               # Create Total Dataframe 
     csv=csv_param.copy()
     #csv['Data Lectura'] = pd.to_datetime(csv['Ultima Lectura'])
@@ -924,7 +1005,7 @@ def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station
     _data_inici = get_data_inici()
     _data_fi = get_data_fi()
     print(" ")
-    print("Dades XEMA & Meteoclimatic de Pluja acumulada:",len(csv_total), "Estacions reportan pluja")
+    print("Dades XEMA & Meteoclimatic & Wunderground de Pluja acumulada:",len(csv_total), "Estacions reportan pluja")
     print("Minima pluja acumulada:",_minimum_rain_toprint, "mm")
     print("Data Inici:", utc_to_local(datetime.strptime(_data_inici,"%d-%m-%Y %H:%M:%S")).strftime("%d-%m-%Y %H:%M:%S"))
     print("Data Fi:", utc_to_local(datetime.strptime(_data_fi,"%d-%m-%Y %H:%M:%S")).strftime("%d-%m-%Y %H:%M:%S"))
@@ -1012,7 +1093,8 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
 
         if  station['Latitud'] != csv_old.loc[index,'Latitud'] or \
             station['Longitud'] != csv_old.loc[index,'Longitud'] or \
-            not _isvalid: 
+            not _isvalid:
+            print ('Recuperando Altitud para estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
             #print('Estacion a actualizar', existing_stations['Codi Estació'][index])
             _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
             #print(_altitud,_municipi,_provincia)
@@ -1024,6 +1106,7 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
     # Get elevation, municipi & provincia for new stations added to 'estacions_meteoclimatic.csv'
     new_stations = csv[ ~csv.index.isin(csv_old.index) ]
     for index, station in new_stations.iterrows():
+        print ('Recuperando Altitud/Municipi/Provincia para nueva estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
         _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
         #new_stations['Altitud'][index] = int(get_googlemaps(station['Latitud'], station['Longitud'],'elevation'))
         new_stations.loc[index,'Altitud'] = int(_altitud)
@@ -1088,6 +1171,315 @@ def create_meteoclimatic(_save_to_csv):
     meteoclimatic_df.sort_values(by=['Codi Estació', 'Data Lectura'], ascending=[True, False],inplace=True)
 
     return meteoclimatic_df                             # Same format than Meteocat and with elevation set
+
+def scrap_wunderground_station(weather_station_url, launchtime):
+
+    session = requests.Session()
+    timeout = 5
+    global START_DATE
+    global END_DATE
+    global UNIT_SYSTEM
+    global FIND_FIRST_DATE
+    global wunderground_header
+
+    global wunderground_file_name
+
+    if FIND_FIRST_DATE:
+        # find first date
+        first_date_with_data = Utils.find_first_data_entry(weather_station_url=weather_station_url, start_date=START_DATE)
+        # if first date found
+        if(first_date_with_data != -1):
+            START_DATE = first_date_with_data
+    
+    url_gen = Utils.date_url_generator(weather_station_url, START_DATE, END_DATE)
+    station_name = weather_station_url.split('/')[-1]
+    file_prefix = station_name
+    
+    if MERGE_DATA:
+        file_prefix = 'MERGED'
+    
+    wunderground_file_name = os.path.join(_script_path,f'{file_prefix}_{START_DATE}_to_{END_DATE}_at_{launchtime}.csv')
+
+    with open(wunderground_file_name, 'a+', newline='') as csvfile:
+        if MONTHLY:
+            fieldnames = ['StationID','Date','Time','StationName','Comarca','Municipi',
+                          'Provincia','Elevation','Latitude','Longitude',
+                          'High','Avg','Low','High_1','Avg_1','Low_1','High_2','Avg_2','Low_2','High_3','Avg_3','Low_3',
+                          'High_4','Low_4','Sum']
+        else:
+            fieldnames = ['StationID','Date', 'Time','StationName','Comarca','Municipi',
+                          'Provincia','Elevation','Latitude','Longitude',
+                          'Temperature','Dew_Point','Humidity',	'Wind','Speed','Gust','Pressure','Precip_Rate',	
+                          'Precip_Accum','UV','Solar']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        if wunderground_header:
+            # Write the correct headers to the CSV file
+            if UNIT_SYSTEM == "metric":
+                if MONTHLY:
+                    writer.writerow({'StationID':'Codi Estació','Date': 'Data', 
+                                    'Time': 'Hora','StationName':'Estació','Comarca':'Comarca','Municipi':'Municipi',
+                                    'Provincia':'Provincia','Elevation':'Altitud','Latitude':'Latitud','Longitude':'Longitud',
+                                    'High': 'TempHigh_C','Avg': 'TempAvg_C','Low': 'TempLow_C',
+                                    'High_1': 'DPHigh_C','Avg_1': 'DPAvg_C', 'Low_1': 'DPLow_C','High_2': 'HumHigh_%',
+                                    'Avg_2': 'HumAvg_%','Low_2': 'HumLow_%','High_3': 'SpeedHigh_kmh','Avg_3': 'SpeedAv_kmh',
+                                    'Low_3': 'SpeedLow_kmh','High_4': 'PressHigh_hPa','Low_4': 'PressLow_hPa','Sum': 'Rain_mm'})
+                else:
+                    # 12:04 AM	24.4 C	18.3 C	69 %	SW	0.0 km/h	0.0 km/h	1,013.88 hPa	0.00 mm	0.00 mm	0	0 w/m²
+                    writer.writerow({'StationID':'Codi Estació','Date': 'Data', 'Time': 'Hora',
+                                    'StationName':'Estació','Comarca':'Comarca','Municipi':'Municipi',
+                                    'Provincia':'Provincia','Elevation':'Altitud','Latitude':'Latitud','Longitude':'Longitud',
+                                    'Temperature': 'Temperature_C','Dew_Point': 'Dew_Point_C',
+                                    'Humidity': 'Humidity_%','Wind': 'Wind','Speed': 'Speed_kmh','Gust': 'Gust_kmh',
+                                    'Pressure': 'Pressure_hPa','Precip_Rate': 'Precip_Rate_mm','Precip_Accum': 'Precip_Accum_mm',
+                                    'UV': 'UV','Solar': 'Solar_w/m2'})
+            elif UNIT_SYSTEM == "imperial":
+                # 12:04 AM	75.9 F	65.0 F	69 %	SW	0.0 mph	0.0 mph	29.94 in	0.00 in	0.00 in	0	0 w/m²
+                writer.writerow({'StationID':'Codi Estació','Date': 'Data', 'Time': 'Hora',
+                                'StationName':'Estació','Comarca':'Comarca','Municipi':'Municipi',
+                                'Provincia':'Provincia','Elevation':'Altitud_f','Latitude':'Latitud','Longitude':'Longitud',
+                                'Temperature': 'Temperature_F','Dew_Point': 'Dew_Point_F',
+                                'Humidity': 'Humidity_%','Wind': 'Wind','Speed': 'Speed_mph','Gust': 'Gust_mph',
+                                'Pressure': 'Pressure_in','Precip_Rate': 'Precip_Rate_in','Precip_Accum': 'Precip_Accum_in',
+                                'UV': 'UV','Solar': 'Solar_w/m2'})
+            else:
+                raise Exception("please set 'unit_system' to either \"metric\" or \"imperial\"! ")
+            wunderground_header = False
+
+        #print(f'url_gen: {list(url_gen)}')
+        for date_string, url in url_gen:
+            try:
+                # Inicio modi
+                print('')
+                print('==================================================================================================')
+                print(f'Retrieving Station Data for {weather_station_url}')                
+
+                #scraper = parseStationData(weather_station_url)
+                scraper = parseStationData(url)
+
+                try:
+                    # html_string se usa mas abajo
+                    html_string = scraper.fetch_data()
+                    end_count(_legend='Fetched data for '+url)
+
+                    # Obtener y mostrar los datos de la estación
+                    #elevation, latitude, longitude, station_name, station_ID, location_name = scraper.get_station_header()
+                    station_ID, station_name, location_name, elevation, latitude, longitude = scraper.get_station_header()
+                    print(f'Código de la estación: {station_ID}')
+                    print(f'Nombre de la estación: {station_name}')
+                    print(f'Municipi: {location_name}')
+                    print(f"Latitud: {latitude}")
+                    print(f"Longitud: {longitude}")
+                    print(f"Altitud: {elevation} m")
+    
+                except Exception as e:
+                    print(e)
+# Fin modi
+                print(f'Scraping data from {url}')
+                history_table = False
+                max_attempts = 10  # Número máximo de intentos
+                attempts = 0  # Contador de intentos
+                while not history_table and attempts < max_attempts:
+                    attempts += 1
+                    #html_string = session.get(url, timeout=timeout)
+                    doc = lh.fromstring(html_string.content)
+                    history_table = doc.xpath('//*[@id="main-page-content"]/div/div/div/lib-history/div[2]/lib-history-table/div/div/div/table/tbody')
+                    if not history_table:
+                        print("refreshing session")
+                        session = requests.Session()
+                        html_string = session.get(url, timeout=timeout)
+
+
+                # parse html table rows
+                #print(f'Parsing html table rows from {url}')
+
+                data_rows = Parser.parse_html_table(date_string, 
+                                                    history_table, 
+                                                    station_ID, 
+                                                    station_name,
+                                                    location_name,
+                                                    elevation,
+                                                    latitude, 
+                                                    longitude)
+
+                # convert to metric system
+                converter = ConvertToSystem(UNIT_SYSTEM)
+                data_to_write = converter.clean_and_convert(data_rows)
+                    
+                print(f'Saving {len(data_to_write)} rows')
+                writer.writerows(data_to_write)
+            except Exception as e:
+                print(e)
+
+def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
+    csv = wunderground_df[['Codi Estació', 
+                            'Estació',
+                            'Comarca',
+                            'Municipi',
+                            'Provincia',
+                            'Altitud',
+                            'Latitud',
+                            'Longitud']].copy().drop_duplicates(subset=['Codi Estació'])
+
+    try:
+        # Try to read local DB of stations
+        csv_old = pd.read_csv(_DATA_PATH+'estacions_wunderground.csv',decimal=',')
+    except FileNotFoundError:
+        # If not existing file a new df is created 
+        csv_old = pd.DataFrame(columns=csv.columns)
+
+    #print(csv_old.info())
+    csv_old.set_index(keys=["Codi Estació"],drop=False,inplace=True)
+    #
+    csv.set_index(keys=["Codi Estació"],drop=False,inplace=True)
+    
+    # Utilizamos una expresión regular para encontrar el último par de paréntesis en Estació y lo eliminamos
+    # Utilizamos apply y una función lambda para aplicar la operación a cada elemento de la columna
+    #csv['Estació'] = csv['Estació'].apply(lambda x: re.sub(r'\([^)]*\)(?=[^()]*$)', '', x))
+
+    # Get elevation for existing stations in 'estacions_wunderground.csv' if not set or changed lat or long
+    existing_stations = csv[csv.index.isin(csv_old.index )].copy()
+
+    for index, station in existing_stations.iterrows():
+        try:
+            _check_altitud = float(csv_old['Altitud'][index])
+            if math.isnan(_check_altitud) or \
+                csv_old.loc[index,'Municipi'] == 'Not set yet' or \
+                csv_old.loc[index,'Provincia'] == 'Not set yet':
+                _isvalid = False
+            else:
+                existing_stations.loc[index,'Altitud'] = csv_old.loc[index,'Altitud']
+                existing_stations.loc[index,'Municipi'] = csv_old.loc[index,'Municipi']
+                existing_stations.loc[index,'Provincia'] = csv_old.loc[index,'Provincia']
+                _isvalid = True
+        except ValueError:
+            _isvalid = False
+
+        if  station['Latitud'] != csv_old.loc[index,'Latitud'] or \
+            station['Longitud'] != csv_old.loc[index,'Longitud'] or \
+            not _isvalid:
+            print ('Actualizando Altitud/Municipi/Provincia para estación existente:'+ station['Codi Estació'] + '-->' + station['Estació'])
+            #print('Estacion a actualizar', existing_stations['Codi Estació'][index])
+            _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
+            #print(_altitud,_municipi,_provincia)
+            #existing_stations['Altitud'][index] = int(get_googlemaps(station['Latitud'], station['Longitud'],'elevation'))
+            existing_stations.loc[index,'Altitud'] = int(_altitud)
+            existing_stations.loc[index,'Municipi'] = _municipi
+            existing_stations.loc[index,'Provincia'] = _provincia
+
+    # Get elevation, municipi & provincia for new stations added to 'estacions_meteoclimatic.csv'
+    new_stations = csv[ ~csv.index.isin(csv_old.index) ].copy()
+    for index, station in new_stations.iterrows():
+        print ('Recuperando Altitud/Municipi/Provincia para nueva estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
+        _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
+        #new_stations['Altitud'][index] = int(get_googlemaps(station['Latitud'], station['Longitud'],'elevation'))
+        new_stations.loc[index,'Altitud'] = int(_altitud)
+        new_stations.loc[index,'Municipi'] = _municipi
+        new_stations.loc[index,'Provincia'] = _provincia
+
+    csv_old.update(existing_stations)
+    csv.update(existing_stations)
+    csv.update(new_stations)
+    #
+    # Merge new records from csv & csv_old into csv_incremental
+    csv_old.reset_index(drop=True,inplace=True)
+    new_stations.reset_index(drop=True,inplace=True)
+    csv_incremental = pd.merge(new_stations, csv_old.drop_duplicates(), on=csv_old.columns.to_list(),
+                how='outer', indicator=False)
+    csv_incremental.sort_values(by=['Codi Estació'], ascending=[True],inplace=True)
+
+    csv_incremental.reset_index(drop=True, inplace=True)
+
+    # Save local DB of Stations for Meteoclimatic - Each new station read is added to local DB
+    csv_incremental.to_csv(_DATA_PATH+'estacions_wunderground.csv',decimal=',',index=False)
+    return csv
+
+def create_wunderground():
+    launchtime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    for url in URLS:
+        url = url.strip()
+        #print(url)
+        scrap_wunderground_station(url, launchtime)
+
+    # Convert to Rainmapper format
+
+    # Move to dataframe and remove temporary created csv file = wunderground_file_name
+    scraper_df = pd.read_csv(wunderground_file_name , decimal=',')
+    os.remove(wunderground_file_name)
+    #print(scraper_df)
+    # Crear dataframe con las columnas del formato Rainmapper
+    new_columns = [
+        'Codi Estació',
+        'Data Lectura',
+        'Estació',
+        'Comarca',
+        'Municipi',
+        'Provincia',
+        'Altitud',
+        'Latitud',    
+        'Longitud',
+        'Ultima Lectura',
+        'Variable',
+        'Total',
+        'Unitat',
+        'max_temp_celsius',
+        'min_temp_celsius',
+        'max_humidity_percent',
+        'min_humidity_percent',
+        'Data Local',
+        'Hora Local'
+                    ]
+    wunderground_df = pd.DataFrame(columns=new_columns)
+    # Llenar nuevo dataframe con valores de scrapper
+    wunderground_df['Codi Estació'] = scraper_df['Codi Estació']
+    wunderground_df['Data Lectura'] = scraper_df['Data'] + ' '+ scraper_df['Hora']
+    wunderground_df['Estació'] = scraper_df['Estació']
+    wunderground_df['Comarca'] = scraper_df['Comarca']
+    wunderground_df['Municipi'] = scraper_df['Municipi']
+    wunderground_df['Provincia'] = scraper_df['Provincia']
+    wunderground_df['Codi Estació'] = scraper_df['Codi Estació']
+    wunderground_df['Altitud'] = scraper_df['Altitud']
+    wunderground_df['Latitud'] = scraper_df['Latitud']
+    wunderground_df['Longitud'] = scraper_df['Longitud']
+    wunderground_df['Ultima Lectura'] = scraper_df['Data']
+    wunderground_df['Variable'] = 'Precipitació'
+    wunderground_df['Total'] = scraper_df['Rain_mm']
+    wunderground_df['Unitat'] = 'mm'
+    wunderground_df['max_temp_celsius'] = scraper_df['TempHigh_C']
+    wunderground_df['min_temp_celsius'] = scraper_df['TempLow_C']
+    wunderground_df['max_humidity_percent'] = scraper_df['HumHigh_%']
+    wunderground_df['min_humidity_percent'] = scraper_df['HumLow_%']
+    wunderground_df['Data Local'] = scraper_df['Data']
+    wunderground_df['Hora Local'] = scraper_df['Hora']
+
+    wunderground_df['Data Lectura'] = pd.to_datetime(wunderground_df['Data Lectura'],format='%Y-%m-%d %H:%M:%S') # 'Data Lectura' como datetime64
+    wunderground_df['Ultima Lectura']= wunderground_df['Data Lectura'].dt.strftime("%Y/%m/%d %H:%M:%S")
+    wunderground_df['Data Local'] = wunderground_df['Data Lectura'].dt.strftime("%Y%m%d") # Set Date as only date from 'Ultima Lectura'
+    wunderground_df['Hora Local'] = wunderground_df['Data Lectura'].dt.strftime("%H:%M:%S")  # Set Time as only time from 'Ultima Lectura'
+    
+    wunderground_df['Total'] = wunderground_df['Total'].astype(float)     # Convierte la columna 'Total' a tipo float
+    wunderground_df['Altitud'] = wunderground_df['Altitud'].astype(str)  # Convierte la columna 'Altitud' a tipo str
+    wunderground_df['Latitud'] = wunderground_df['Latitud'].astype(str)  # Convierte la columna 'Latitud' a tipo str
+    wunderground_df['Longitud'] = wunderground_df['Longitud'].astype(str)  # Convierte la columna 'Longitud' a tipo str
+    wunderground_df['Data Local'] = wunderground_df['Data Local'].astype(str)  # Convierte la columna 'Data Local' a tipo str
+    
+    # Refresh local stations DB  (to not search for elevation in googlemaps all times)
+    refreshed_stations_df = refresh_estacions_wunderground(wunderground_df)
+    # Refresh Update Altitud/Provincia/Població on wunderground_df from local DB stations
+    refreshed_stations_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
+    wunderground_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
+    wunderground_df.update(refreshed_stations_df)
+
+    wunderground_df.reset_index(drop=True,inplace=True)
+    wunderground_df.sort_values(by=['Codi Estació', 'Data Lectura'], ascending=[True, False],inplace=True)
+
+
+    #print(wunderground_df)
+
+    # Save wunderground_df to csv
+    wunderground_df.to_csv(_DATA_PATH+'Wunderground'+'.csv', decimal='.', index=False)
+    return wunderground_df
+
 
 def merge_dataframes(source01_df_param:pd.DataFrame, source02_df_param:pd.DataFrame, printit=False):
     ### Merge data from source01 & source02
@@ -1170,8 +1562,6 @@ def create_grouped(df_to_group_param:pd.DataFrame):
     return filter_results(datos_finales,_minimum_rain_tomap)
 
 def create_last_rains(df:pd.DataFrame, _nrecords):
-    # Tu DataFrame original
-    # df = ...
 
     # Operación 1
     result_step1 = df.groupby(['Codi Estació', 'Data Local'], as_index=False).agg({
@@ -1281,9 +1671,12 @@ print('')
 print("Create Meteoclimatic:",_create_meteoclimatic)
 print("Save incremental Meteoclimatic:",_incremental_meteoclimatic)
 print('')
+print("Create Wunderground:",_create_wunderground)
+print("Save incremental Wunderground:",_incremental_wunderground)
+print('')
 
 #################################
-## Process Meteocalimatic data ##
+## Process Meteoclimatic data ##
 #################################
 if _create_meteoclimatic:
     start_count(_legend='Start processing Meteoclimatic...')
@@ -1296,6 +1689,9 @@ if _create_meteoclimatic:
     
     # Filter results according to settings in parameters
     #meteoclimatic_df = filter_results(meteoclimatic_df,_minima_lectura_meteoclimatic)
+    #print('Meteoclimatic.dtypes')
+
+   # print(meteoclimatic_df.dtypes)
     save_dataframe(meteoclimatic_df, 'Meteoclimatic', _save_to_csv=True, _save_to_excel=False,_decimal=',')   
     if _print_dataframes:
         print('------------------------')
@@ -1310,6 +1706,71 @@ else:
     
     #meteoclimatic_df = pd.read_csv(_DATA_PATH +'Meteoclimatic_incremental.csv',decimal=',',nrows=0)
     #meteoclimatic_df['Data Lectura'] = pd.to_datetime(meteoclimatic_df['Ultima Lectura'])
+
+###############################
+## Process Wunderground data ##
+###############################
+if _create_wunderground:
+    start_count(_legend='Start processing Wunderground...')
+    import config_wunderground
+    import requests
+    import csv
+    import lxml.html as lh
+    from util.UnitConverter import ConvertToSystem
+    from util.Parser import Parser
+    from util.Utils import Utils
+    #inicio modi
+    from util.parseStationData import parseStationData
+
+    # configuration
+    _stations_file = os.path.join(_script_path, 'stations.txt')
+    #stations_file = open('stations.txt', 'r')
+    
+    # Sort stations file an save it again
+    # Paso 1: Abrir el archivo y leer su contenido
+    with open(_stations_file, 'r') as stations_file:
+        lines = stations_file.readlines()  # Leer todas las líneas del archivo
+
+    # Paso 2: Filtrar las líneas en blanco y quitar espacios al inicio y al final
+    lines = [line.strip() for line in lines if line.strip()]  # Eliminar líneas en blanco
+
+    # Paso 3: Ordenar las líneas alfabéticamente
+    lines.sort()
+
+    # Paso 4: Abrir el archivo en modo de escritura y guardar el contenido ordenado
+    with open(_stations_file, 'w') as stations_file:
+        stations_file.writelines(f"{line}\n" for line in lines)  # Escribir las líneas ordenadas
+
+    stations_file = open(_stations_file, 'r')
+
+    URLS = stations_file.readlines()
+    # Date format: YYYY-MM-DD
+    #START_DATE = config_wunderground.START_DATE
+    #END_DATE = config_wunderground.END_DATE
+    START_DATE = datetime.strptime(_start_date,'%Y-%m-%dT%H:%M:%S').date()
+    END_DATE = datetime.strptime(_end_date,'%Y-%m-%dT%H:%M:%S').date()
+    #print(START_DATE, END_DATE)
+
+    MONTHLY = config_wunderground.MONTHLY
+    MERGE_DATA = config_wunderground.MERGE_DATA
+
+    # set to "metric" or "imperial"
+    UNIT_SYSTEM = config_wunderground.UNIT_SYSTEM
+    # find the first data entry automatically
+    FIND_FIRST_DATE = config_wunderground.FIND_FIRST_DATE
+
+    # run processing
+    global wunderground_header
+    wunderground_header = True
+    wunderground_df = create_wunderground()
+    if _incremental_wunderground:                                                   
+        wunderground_incremental = save_incremental_wunderground(wunderground_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
+    else:
+        wunderground_incremental = read_incremental('Wunderground_incremental')
+    end_count(_legend='Finished processing Wunderground')
+else:
+    wunderground_incremental = read_incremental('Wunderground_incremental')
+    wunderground_df = read_incremental('Wunderground_incremental',_nrows=0)
 
 ###########################
 ## Process Meteocat data ##
@@ -1387,21 +1848,29 @@ else:
     meteocat_incremental = read_incremental('Meteocat_incremental')
     meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)
 
+###########################
+## Process Print routine ##
+###########################
+
 if _print_totals:                                              # Create totals per station sorted by precipitacion DESC
     # Defines base date
     start_count(_legend='Start printing routine')
     _base_date = _data_inici_base
     _days_backward = _days_init * -1
     _days_forward = _days_end
+    # Para rutina de immpresion filtrar por fechas, y eliminar llluvias < 0.4 (son errores el 95% de los casos)
     meteoclimatic_df= create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
     meteoclimatic_df=filter_results(meteoclimatic_df,_minima_pluja=0.4)
     meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
     meteocat_df=filter_results(meteocat_df,_minima_pluja=0.4)
+    wunderground_df= create_filtered(wunderground_incremental,_base_date, _days_backward, _days_forward)
+    wunderground_df=filter_results(wunderground_df,_minima_pluja=0.4)
+
+    # Merge de meteocat y meteoclimatic 
     df_toprint = merge_dataframes(meteocat_df, meteoclimatic_df, _print_dataframes)
+    # Añadir al merge wunderground
+    df_toprint = merge_dataframes(df_toprint, wunderground_df, _print_dataframes)
     csv_total= create_total_dataframe(df_toprint, _save_to_csv=False, _save_to_excel=False)
-    #else:
-    #    df_toprint = merge_dataframes(meteocat_df, meteocat_df.iloc[:0,:].copy(),_print_dataframes)
-    #    csv_total= create_total_dataframe(df_toprint, _save_to_csv=True, _save_to_excel=False)
 
     csv_total = filter_results(csv_total,_minima_pluja=_minimum_rain_toprint)
     print_totals_per_station(csv_total)
@@ -1429,10 +1898,13 @@ if _create_monthly_stats:                                                # Creat
 if not _create_googlemaps_files:
     exit()
 
+##################
+## Process Maps ##
+##################
 ##################################################################################
 ### GRABAR csvs PARA PUBLICAR EN GOOGLEMAPS - 90-60-30-21-15-7-1 DAYS desde hoy ##
 ##################################################################################
-if len(meteoclimatic_incremental) == 0 and len(meteocat_incremental) == 0:
+if len(meteoclimatic_incremental) == 0 and len(meteocat_incremental) == 0 and len(wunderground_incremental == 0):
     print(' ')
     print('NO RECORDS RETURNED FOR SELECTION -- Exiting program')
     print(' ')
@@ -1442,25 +1914,27 @@ if len(meteoclimatic_incremental) == 0 and len(meteocat_incremental) == 0:
 _base_date = _data_inici_base
 
 #  RAIN LAST 90 DAYS
-start_count('Start processing 90 days backward map...')
+start_count('Start processing 90 days backward map --> Meteoclimatic EXCLUDED (see tag #Exclude meteoclimatic# in source code).')
 # Defines days backward & forward from _base_date
 _days_backward = 90  
 _days_forward = 1     # Including Today
 
+# Para mapas filtrar ultimos 90 dias de incrementales
 meteoclimatic_df = create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
 meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
+wunderground_df = create_filtered(wunderground_incremental,_base_date, _days_backward, _days_forward)
 
-df_total = merge_dataframes(meteocat_df, meteoclimatic_df)
+# Merge de los 3 dataframes (eliminado meteoclimatic_df de mommento)
+df_total = merge_dataframes(meteocat_df, wunderground_df)
+df_total = merge_dataframes(df_total, meteoclimatic_df) #Exclude meteoclimatic#
 end_count('Finished creating 90 days filtered Dataframe...')
 
 # AQUI crear el DataFrame con las lluvias diarias acumuladas de df_total: --> Solo será de los ultimos 90 dias, pero bueno
 # - Acumuladas por 'Codi Estació' y 'Data Local', sumando 'Total'
-# - Filtrando solo aparezcan 10 resultados por cada 'Codi Estació', los 10 primeros ordenando por 'Data Local' descending
-# - Sacar solo 1 regitro por 'Codi Estació' y con 10 columnas de 'Data_plujaXX' y 10 columnas de 'Pluja_dia_XX' --> Revisar si poner algo mas
+# - Filtrando solo aparezcan 20 resultados por cada 'Codi Estació', los 20 primeros ordenando por 'Data Local' descending
+# - Sacar solo 1 regitro por 'Codi Estació' y con 20 columnas de 'Data_plujaXX' y 20 columnas de 'Pluja_dia_XX' --> Revisar si poner algo mas
 # - Llamarlo df_last_rains y salvarlo como 'Last_rains.csv'
-#print('df_total.info():')
-#print(df_total.info())
-#exit()
+
 df_last_rains= create_last_rains(df_total, _nrecords=_last_number_rains)
 end_count('Finished creating last '+str(_last_number_rains)+' rains...')
 
