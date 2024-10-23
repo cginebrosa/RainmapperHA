@@ -32,5 +32,5 @@ _create_wunderground = True             # Get data from Wrunderground (Wundergro
 _incremental_wunderground = True        # Saves incremental Wunderground data locally (Wunderground)
 _create_googlemaps_files = True         # Creates csv files to map
 _last_number_rains = 20                 # Number of rains to generate for map
-_print_dataframes = False
+_print_dataframes = False               # Debug dataframes Carlos
 #_codi_provincia = '' ## NOT IMPLEMENTED
