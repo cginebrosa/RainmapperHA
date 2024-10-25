@@ -1728,211 +1728,178 @@ print("Create Wunderground:",_create_wunderground)
 print("Save incremental Wunderground:",_incremental_wunderground)
 print('')
 
-def process_meteoclimatic():
-    #################################
-    ## Process Meteoclimatic data ##
-    #################################
-    if _create_meteoclimatic:
-        start_count(_legend='Start processing Meteoclimatic...')
-        meteoclimatic_df = create_meteoclimatic(_save_to_csv=True)
+#################################
+## Process Meteoclimatic data ##
+#################################
+if _create_meteoclimatic:
+    start_count(_legend='Start processing Meteoclimatic...')
+    meteoclimatic_df = create_meteoclimatic(_save_to_csv=True)
     
-        if _incremental_meteoclimatic:                                                   
-            meteoclimatic_incremental = save_incremental_meteoclimatic(meteoclimatic_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
-        else:
-            meteoclimatic_incremental = read_incremental('Meteoclimatic_incremental')
-    
-        # Filter results according to settings in parameters
-        #meteoclimatic_df = filter_results(meteoclimatic_df,_minima_lectura_meteoclimatic)
-        #print('Meteoclimatic.dtypes')
-
-        # print(meteoclimatic_df.dtypes)
-        save_dataframe(meteoclimatic_df, 'Meteoclimatic', _save_to_csv=True, _save_to_excel=False,_decimal=',')   
-        if _print_dataframes:
-            print('------------------------')
-            print('Data from Meteoclimatic:')
-            print('------------------------')
-            print_dataframes(meteoclimatic_df)
-
-        end_count(_legend='Finished processing Meteoclimatic')
+    if _incremental_meteoclimatic:                                                   
+        meteoclimatic_incremental = save_incremental_meteoclimatic(meteoclimatic_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
     else:
         meteoclimatic_incremental = read_incremental('Meteoclimatic_incremental')
-        meteoclimatic_df = read_incremental('Meteoclimatic_incremental',_nrows=0)
     
-        #meteoclimatic_df = pd.read_csv(_DATA_PATH +'Meteoclimatic_incremental.csv',decimal=',',nrows=0)
-        #meteoclimatic_df['Data Lectura'] = pd.to_datetime(meteoclimatic_df['Ultima Lectura'])
+    # Filter results according to settings in parameters
+    #meteoclimatic_df = filter_results(meteoclimatic_df,_minima_lectura_meteoclimatic)
+    #print('Meteoclimatic.dtypes')
+
+   # print(meteoclimatic_df.dtypes)
+    save_dataframe(meteoclimatic_df, 'Meteoclimatic', _save_to_csv=True, _save_to_excel=False,_decimal=',')   
+    if _print_dataframes:
+        print('------------------------')
+        print('Data from Meteoclimatic:')
+        print('------------------------')
+        print_dataframes(meteoclimatic_df)
+
+    end_count(_legend='Finished processing Meteoclimatic')
+else:
+    meteoclimatic_incremental = read_incremental('Meteoclimatic_incremental')
+    meteoclimatic_df = read_incremental('Meteoclimatic_incremental',_nrows=0)
     
-    return meteoclimatic_df, meteoclimatic_incremental
+    #meteoclimatic_df = pd.read_csv(_DATA_PATH +'Meteoclimatic_incremental.csv',decimal=',',nrows=0)
+    #meteoclimatic_df['Data Lectura'] = pd.to_datetime(meteoclimatic_df['Ultima Lectura'])
 
-###############################################
-# Configuracion previa a process_wunderground #
-###############################################
-import config_wunderground
-import requests
-import csv
-import lxml.html as lh
-from util.UnitConverter import ConvertToSystem
-from util.Parser import Parser
-from util.Utils import Utils
-#inicio modi
-from util.parseStationData import parseStationData    
+###############################
+## Process Wunderground data ##
+###############################
+if _create_wunderground:
+    start_count(_legend='Start processing Wunderground...')
+    import config_wunderground
+    import requests
+    import csv
+    import lxml.html as lh
+    from util.UnitConverter import ConvertToSystem
+    from util.Parser import Parser
+    from util.Utils import Utils
+    #inicio modi
+    from util.parseStationData import parseStationData
 
-# configuration
-_stations_file = os.path.join(_script_path, 'stations.txt')
-#stations_file = open('stations.txt', 'r')
+    # configuration
+    _stations_file = os.path.join(_script_path, 'stations.txt')
+    #stations_file = open('stations.txt', 'r')
+    
+    # Sort stations file an save it again
+    # Paso 1: Abrir el archivo y leer su contenido
+    with open(_stations_file, 'r') as stations_file:
+        lines = stations_file.readlines()  # Leer todas las líneas del archivo
 
-# Sort stations file an save it again
-# Paso 1: Abrir el archivo y leer su contenido
-with open(_stations_file, 'r') as stations_file:
-    lines = stations_file.readlines()  # Leer todas las líneas del archivo
+    # Paso 2: Filtrar las líneas en blanco y quitar espacios al inicio y al final
+    lines = [line.strip() for line in lines if line.strip()]  # Eliminar líneas en blanco
 
-# Paso 2: Filtrar las líneas en blanco y quitar espacios al inicio y al final
-lines = [line.strip() for line in lines if line.strip()]  # Eliminar líneas en blanco
+    # Paso 3: Ordenar las líneas alfabéticamente
+    lines.sort()
 
-# Paso 3: Ordenar las líneas alfabéticamente
-lines.sort()
+    # Paso 4: Abrir el archivo en modo de escritura y guardar el contenido ordenado
+    with open(_stations_file, 'w') as stations_file:
+        stations_file.writelines(f"{line}\n" for line in lines)  # Escribir las líneas ordenadas
 
-# Paso 4: Abrir el archivo en modo de escritura y guardar el contenido ordenado
-with open(_stations_file, 'w') as stations_file:
-    stations_file.writelines(f"{line}\n" for line in lines)  # Escribir las líneas ordenadas
+    stations_file = open(_stations_file, 'r')
 
-stations_file = open(_stations_file, 'r')
+    URLS = stations_file.readlines()
+    # Date format: YYYY-MM-DD
+    #START_DATE = config_wunderground.START_DATE
+    #END_DATE = config_wunderground.END_DATE
+    START_DATE = datetime.strptime(_start_date,'%Y-%m-%dT%H:%M:%S').date()
+    END_DATE = datetime.strptime(_end_date,'%Y-%m-%dT%H:%M:%S').date()
+    #print(START_DATE, END_DATE)
 
-URLS = stations_file.readlines()
-# Date format: YYYY-MM-DD
-#START_DATE = config_wunderground.START_DATE
-#END_DATE = config_wunderground.END_DATE
-START_DATE = datetime.strptime(_start_date,'%Y-%m-%dT%H:%M:%S').date()
-END_DATE = datetime.strptime(_end_date,'%Y-%m-%dT%H:%M:%S').date()
-#print(START_DATE, END_DATE)
+    MONTHLY = config_wunderground.MONTHLY
+    MERGE_DATA = config_wunderground.MERGE_DATA
 
-MONTHLY = config_wunderground.MONTHLY
-MERGE_DATA = config_wunderground.MERGE_DATA
+    # set to "metric" or "imperial"
+    UNIT_SYSTEM = config_wunderground.UNIT_SYSTEM
+    # find the first data entry automatically
+    FIND_FIRST_DATE = config_wunderground.FIND_FIRST_DATE
 
-# set to "metric" or "imperial"
-UNIT_SYSTEM = config_wunderground.UNIT_SYSTEM
-# find the first data entry automatically
-FIND_FIRST_DATE = config_wunderground.FIND_FIRST_DATE
-
-def process_wunderground():
-    ###############################
-    ## Process Wunderground data ##
-    ###############################
-    if _create_wunderground:
-        start_count(_legend='Start processing Wunderground...')
-        # run processing
-        global wunderground_header
-        wunderground_header = True
-        wunderground_df = create_wunderground()
-        if _incremental_wunderground:                                                   
-            wunderground_incremental = save_incremental_wunderground(wunderground_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
-        else:
-            wunderground_incremental = read_incremental('Wunderground_incremental')
-        end_count(_legend='Finished processing Wunderground')
+    # run processing
+    global wunderground_header
+    wunderground_header = True
+    wunderground_df = create_wunderground()
+    if _incremental_wunderground:                                                   
+        wunderground_incremental = save_incremental_wunderground(wunderground_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
     else:
         wunderground_incremental = read_incremental('Wunderground_incremental')
-        wunderground_df = read_incremental('Wunderground_incremental',_nrows=0)
+    end_count(_legend='Finished processing Wunderground')
+else:
+    wunderground_incremental = read_incremental('Wunderground_incremental')
+    wunderground_df = read_incremental('Wunderground_incremental',_nrows=0)
 
-    return wunderground_df,wunderground_incremental
+###########################
+## Process Meteocat data ##
+###########################
+if _create_meteocat:
+    start_count(_legend='Start processing Meteocat...')
+    # DEFINE base data for Meteocat connection##
+    # 
+    # Unauthenticated client only works with public data sets. Note 'None'
+    # in place of application token, and no username or password:
+    socrata_domain = "analisi.transparenciacatalunya.cat"
+    socrata_lectures_xema = "nzvn-apee"
+    socrata_metadades_lectures_xema =  "4fb2-n3yi"
+    socrata_metadades_estacions_xema = "yqwd-vj5e"
+    socrata_metadades_variables_xema = "4fb2-n3yi"
+    # If you choose to use a token, run the following command on the terminal (or add it to your .bashrc)
+    # $ export SODAPY_APPTOKEN=<token>
+    #socrata_token = os.environ.get("SODAPY_APPTOKEN")
+    socrata_token = None
 
-###########################################
-# Configuracion previa a process_meteocat #
-###########################################
+    client = Socrata(socrata_domain, socrata_token)
 
-# Unauthenticated client only works with public data sets. Note 'None'
-# in place of application token, and no username or password:
-socrata_domain = "analisi.transparenciacatalunya.cat"
-socrata_lectures_xema = "nzvn-apee"
-socrata_metadades_lectures_xema =  "4fb2-n3yi"
-socrata_metadades_estacions_xema = "yqwd-vj5e"
-socrata_metadades_variables_xema = "4fb2-n3yi"
-# If you choose to use a token, run the following command on the terminal (or add it to your .bashrc)
-# $ export SODAPY_APPTOKEN=<token>
-#socrata_token = os.environ.get("SODAPY_APPTOKEN")
-socrata_token = None
+    # Example authenticated client (needed for non-public datasets):
+    # client = Socrata(analisi.transparenciacatalunya.cat,
+    #                  MyAppToken,
+    #                  username="user@example.com",
+    #                  password="AFakePassword")
 
-client = Socrata(socrata_domain, socrata_token)
+    # Get Metadata for Stations and Variables - Only 1 reading per launch
+    estacions_xema = get_estacions_xema()   # Get info data from estacions at Meteocat
+    variables_xema = get_variables_xema()   # Get info data from variables at Meteocat 
+    end_count(_legend='Processed Meteocat estacions&variables reading from Socrata')
 
-# Example authenticated client (needed for non-public datasets):
-# client = Socrata(analisi.transparenciacatalunya.cat,
-#                  MyAppToken,
-#                  username="user@example.com",
-#                  password="AFakePassword")
+    if _create_meteocat_conditions:
+        meteocat_conditions_xema=get_results_conditions_xema(pd.DataFrame, estacions_xema, variables_xema)
+        # Save current readings from meteocat_conditions_xema to csv
+        #save_dataframe(meteocat_conditions_xema, 'Meteocat_conditions_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
+        if meteocat_conditions_xema.empty:
+            meteocat_conditions_xema = read_incremental('Meteocat_incremental',_nrows=0)
+        end_count(_legend='Processed Meteocat reading conditions temperature.max/min -  humidity.max&min from Socrata')
 
-def process_meteocat():
-    ###########################
-    ## Process Meteocat data ##
-    ###########################
-    if _create_meteocat:
-        start_count(_legend='Start processing Meteocat...')
-        # DEFINE base data for Meteocat connection##
-        # 
+    meteocat_rain_xema = get_results_rain_xema(pd.DataFrame, estacions_xema, variables_xema)
+    if meteocat_rain_xema.empty:
+            meteocat_rain_xema = read_incremental('Meteocat_incremental',_nrows=0)
+    meteocat_df = pd.merge(meteocat_rain_xema, meteocat_conditions_xema.drop_duplicates(), 
+                              on=('Codi Estació','Estació','Data Lectura','Comarca','Municipi','Provincia'),
+					how='left', indicator=False)
+    #save_dataframe(meteocat_merge, 'Meteocat_merged_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
+    #meteocat_df = meteocat_merge
+    end_count(_legend='Processed Meteocat reading precipitation from Socrata')
+    # If no records returned, initialize empty meteocat's dataframes with columns from incremental
+    if meteocat_df.empty:
+        meteocat_incremental = read_incremental('Meteocat_incremental')
+        meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)       
 
-        # Get Metadata for Stations and Variables - Only 1 reading per launch
-        estacions_xema = get_estacions_xema()   # Get info data from estacions at Meteocat
-        variables_xema = get_variables_xema()   # Get info data from variables at Meteocat 
-        end_count(_legend='Processed Meteocat estacions&variables reading from Socrata')
-
-        if _create_meteocat_conditions:
-            meteocat_conditions_xema=get_results_conditions_xema(pd.DataFrame, estacions_xema, variables_xema)
-            # Save current readings from meteocat_conditions_xema to csv
-            #save_dataframe(meteocat_conditions_xema, 'Meteocat_conditions_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
-            if meteocat_conditions_xema.empty:
-                meteocat_conditions_xema = read_incremental('Meteocat_incremental',_nrows=0)
-            end_count(_legend='Processed Meteocat reading conditions temperature.max/min -  humidity.max&min from Socrata')
-
-        meteocat_rain_xema = get_results_rain_xema(pd.DataFrame, estacions_xema, variables_xema)
-        if meteocat_rain_xema.empty:
-                meteocat_rain_xema = read_incremental('Meteocat_incremental',_nrows=0)
-        meteocat_df = pd.merge(meteocat_rain_xema, meteocat_conditions_xema.drop_duplicates(), 
-                                on=('Codi Estació','Estació','Data Lectura','Comarca','Municipi','Provincia'),
-                        how='left', indicator=False)
-        #save_dataframe(meteocat_merge, 'Meteocat_merged_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
-        #meteocat_df = meteocat_merge
-        end_count(_legend='Processed Meteocat reading precipitation from Socrata')
-        # If no records returned, initialize empty meteocat's dataframes with columns from incremental
-        if meteocat_df.empty:
-            meteocat_incremental = read_incremental('Meteocat_incremental')
-            meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)       
-
-        if _incremental_meteocat:
-            #print('Meteocat creado:',meteocat_df.info())                                           
-            meteocat_incremental = save_incremental_meteocat(meteocat_df, _save_to_excel=False) 			 # Saves incremental data to csv. Also to excel depending on param
-            #print('Meteocat incremental:',meteocat_incremental.info())
-        else:
-            meteocat_incremental = read_incremental('Meteocat_incremental')
-        # Filter results according to settings in parameters
-        #meteocat_df = filter_results(meteocat_df, _minima_lectura_meteocat)
-        # Save current readings from meteocat to csv
-        save_dataframe(meteocat_df, 'Meteocat', _save_to_csv=True, _save_to_excel=False,_decimal=',')
-
-        if _print_dataframes:
-            print('-------------------')
-            print('Data from Meteocat:')
-            print('-------------------')
-            print_dataframes(meteocat_df)
-            
-        end_count(_legend='Finished processing Meteocat')
+    if _incremental_meteocat:
+        #print('Meteocat creado:',meteocat_df.info())                                           
+        meteocat_incremental = save_incremental_meteocat(meteocat_df, _save_to_excel=False) 			 # Saves incremental data to csv. Also to excel depending on param
+        #print('Meteocat incremental:',meteocat_incremental.info())
     else:
         meteocat_incremental = read_incremental('Meteocat_incremental')
-        meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)
-    
-    return meteocat_df, meteocat_incremental
+    # Filter results according to settings in parameters
+    #meteocat_df = filter_results(meteocat_df, _minima_lectura_meteocat)
+    # Save current readings from meteocat to csv
+    save_dataframe(meteocat_df, 'Meteocat', _save_to_csv=True, _save_to_excel=False,_decimal=',')
 
-#############################################################################
-# Usa ThreadPoolExecutor para iniciar los threads de los distintos procesos #
-#############################################################################
-with ThreadPoolExecutor(max_workers=_max_threads) as executor:
-        # Crea las tareas en paralelo y mapea los resultados a variables
+    if _print_dataframes:
+        print('-------------------')
+        print('Data from Meteocat:')
+        print('-------------------')
+        print_dataframes(meteocat_df)
         
-        future_meteoclimatic = executor.submit(process_meteoclimatic)
-        future_meteocat = executor.submit(process_meteocat)
-        future_wunderground = executor.submit(process_wunderground)
-
-        # Obtén los resultados
-        meteoclimatic_df, meteoclimatic_incremental = future_meteoclimatic.result()
-        meteocat_df, meteocat_incremental = future_meteocat.result()
-        wunderground_df, wunderground_incremental = future_wunderground.result()
-
+    end_count(_legend='Finished processing Meteocat')
+else:
+    meteocat_incremental = read_incremental('Meteocat_incremental')
+    meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)
 
 ###########################
 ## Process Print routine ##
@@ -2006,7 +1973,7 @@ _days_backward = 90
 _days_forward = 1     # Including Today
 
 # Para mapas filtrar ultimos 90 dias de incrementales
-# Usa ThreadPoolExecutor para gestionar los threads
+    # Usa ThreadPoolExecutor para gestionar los threads
 with ThreadPoolExecutor(max_workers=_max_threads) as executor:
         # Crea las tareas en paralelo y mapea los resultados a variables
         meteoclimatic_df = executor.submit(create_filtered, meteoclimatic_incremental, _base_date, _days_backward, _days_forward).result()
