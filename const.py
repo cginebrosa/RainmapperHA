@@ -33,5 +33,5 @@ _incremental_wunderground = True        # Saves incremental Wunderground data lo
 _create_googlemaps_files = True         # Creates csv files to map
 _last_number_rains = 20                 # Number of rains to generate for map
 _print_dataframes = False               # Debug dataframes by printing
-_max_threads = 1                        # Number of threads for wunderground scrapper
+_max_threads = 3                        # Number of threads for wunderground scrapper
 #_codi_provincia = '' ## NOT IMPLEMENTED

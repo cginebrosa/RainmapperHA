@@ -1728,7 +1728,7 @@ print("Create Wunderground:",_create_wunderground)
 print("Save incremental Wunderground:",_incremental_wunderground)
 print('')
 
-def process_meteoclimatic():
+def process_meteoclimatic():                                        # FOR MULTITHREAD PURPOSES
     #################################
     ## Process Meteoclimatic data ##
     #################################
@@ -1764,7 +1764,7 @@ def process_meteoclimatic():
     return meteoclimatic_df, meteoclimatic_incremental
 
 ###############################################
-# Configuracion previa a process_wunderground #
+# Configuracion previa a process_wunderground #                     # FOR MULTITHREAD PURPOSES
 ###############################################
 import config_wunderground
 import requests
@@ -1813,7 +1813,7 @@ UNIT_SYSTEM = config_wunderground.UNIT_SYSTEM
 # find the first data entry automatically
 FIND_FIRST_DATE = config_wunderground.FIND_FIRST_DATE
 
-def process_wunderground():
+def process_wunderground():                                         # FOR MULTITHREAD PURPOSES
     ###############################
     ## Process Wunderground data ##
     ###############################
@@ -1835,7 +1835,7 @@ def process_wunderground():
     return wunderground_df,wunderground_incremental
 
 ###########################################
-# Configuracion previa a process_meteocat #
+# Configuracion previa a process_meteocat #                         # FOR MULTITHREAD PURPOSES
 ###########################################
 
 # Unauthenticated client only works with public data sets. Note 'None'
@@ -1858,7 +1858,7 @@ client = Socrata(socrata_domain, socrata_token)
 #                  username="user@example.com",
 #                  password="AFakePassword")
 
-def process_meteocat():
+def process_meteocat():                                             # FOR MULTITHREAD PURPOSES
     ###########################
     ## Process Meteocat data ##
     ###########################
