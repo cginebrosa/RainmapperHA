@@ -1944,20 +1944,23 @@ if _print_totals:                                              # Create totals p
     _base_date = _data_inici_base
     _days_backward = _days_init * -1
     _days_forward = _days_end
-    # Para rutina de immpresion filtrar por fechas, y eliminar llluvias < 0.4 (son errores el 95% de los casos)
-    meteoclimatic_df= create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
-    meteoclimatic_df=filter_results(meteoclimatic_df,_minima_pluja=0.4)
-    meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
-    meteocat_df=filter_results(meteocat_df,_minima_pluja=0.4)
-    wunderground_df= create_filtered(wunderground_incremental,_base_date, _days_backward, _days_forward)
-    wunderground_df=filter_results(wunderground_df,_minima_pluja=0.4)
 
+    # Para rutina de impresion filtrar por fechas, y eliminar llluvias < 0.4 (son errores el 95% de los casos)
+
+    meteoclimatic_df= create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
+    meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
+    wunderground_df= create_filtered(wunderground_incremental,_base_date, _days_backward, _days_forward)
+
+    meteoclimatic_df=filter_results(meteoclimatic_df,_minima_pluja=0.4)
+    meteocat_df=filter_results(meteocat_df,_minima_pluja=0.4)
+    wunderground_df=filter_results(wunderground_df,_minima_pluja=0.4)
+    
     # Merge de meteocat y meteoclimatic 
     df_toprint = merge_dataframes(meteocat_df, meteoclimatic_df, _print_dataframes)
     # Añadir al merge wunderground
     df_toprint = merge_dataframes(df_toprint, wunderground_df, _print_dataframes)
+    
     csv_total= create_total_dataframe(df_toprint, _save_to_csv=False, _save_to_excel=False)
-
     csv_total = filter_results(csv_total,_minima_pluja=_minimum_rain_toprint)
     print_totals_per_station(csv_total)
     end_count(_legend='End printing routine')
