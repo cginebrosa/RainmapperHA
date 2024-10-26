@@ -7,6 +7,9 @@ class parseStationData:
     def __init__(self, url):
         self.url = url
         self.soup = None
+        self.headers =  {
+            'Referer': ''  # Referer vacío para simular "noreferrer"
+                        }
 
     def fetch_data_original(self):
         response = requests.get(self.url)
@@ -20,7 +23,9 @@ class parseStationData:
         max_retries = 10
         for attempt in range(max_retries):
             try:
-                response = requests.get(self.url)
+                #response = requests.get(self.url, headers=self.headers)
+                response = requests.get(self.url, headers=self.headers)
+
                 if response.status_code == 200:
                     self.soup = BeautifulSoup(response.content, 'html.parser')
                     return response
