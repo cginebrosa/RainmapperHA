@@ -27,6 +27,7 @@ https://www.wunderground.com/dashboard/pws/ILAAME10
 https://www.wunderground.com/dashboard/pws/ILAAME2
 https://www.wunderground.com/dashboard/pws/ILABAR32
 https://www.wunderground.com/dashboard/pws/ILAMET36
+https://www.wunderground.com/dashboard/pws/ILAMET41
 https://www.wunderground.com/dashboard/pws/ILAMET47
 https://www.wunderground.com/dashboard/pws/ILAMET54
 https://www.wunderground.com/dashboard/pws/ILAMET56

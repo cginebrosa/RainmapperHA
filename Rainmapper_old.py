@@ -1326,7 +1326,8 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                                                     elevation,
                                                     latitude, 
                                                     longitude)
-
+                #AQUI CARLOS
+                print (data_rows)
                 # convert to metric system
                 converter = ConvertToSystem(UNIT_SYSTEM)
                 data_to_write = converter.clean_and_convert(data_rows)
@@ -1425,13 +1426,14 @@ def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
 def create_wunderground():
     launchtime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-    '''for url in URLS:
+    for url in URLS:
         url = url.strip()
         #print(url)
         # INSERTAR THREADS AQUI
         # VER COMO ABRIR 5 THREADS MAXIMO (PONER EN UNA VARIABLE EL NRO DE THREADS?)
-        scrap_wunderground_station(url, launchtime)'''
-    # Define el número de threads que deseas
+        scrap_wunderground_station(url, launchtime)
+    
+    '''# Define el número de threads que deseas
     max_threads = _max_threads
     
     # Usa ThreadPoolExecutor para gestionar los threads
@@ -1451,7 +1453,7 @@ def create_wunderground():
         
         # Opcional: Procesa los resultados (si scrap_wunderground_station retorna algo)
         for future in futures:
-            result = future.result()  # Puedes manejar el resultado aquí si es necesario
+            result = future.result()  # Puedes manejar el resultado aquí si es necesario'''
 
 
     # Convert to Rainmapper format
@@ -1974,7 +1976,7 @@ _days_forward = 1     # Including Today
 
 # Para mapas filtrar ultimos 90 dias de incrementales
     # Usa ThreadPoolExecutor para gestionar los threads
-with ThreadPoolExecutor(max_workers=_max_threads) as executor:
+'''with ThreadPoolExecutor(max_workers=_max_threads) as executor:
         # Crea las tareas en paralelo y mapea los resultados a variables
         meteoclimatic_df = executor.submit(create_filtered, meteoclimatic_incremental, _base_date, _days_backward, _days_forward).result()
         meteocat_df = executor.submit(create_filtered, meteocat_incremental, _base_date, _days_backward, _days_forward).result()
@@ -1983,11 +1985,11 @@ with ThreadPoolExecutor(max_workers=_max_threads) as executor:
         # Obtén los resultados
         #meteoclimatic_df = future_meteoclimatic.result()
         #meteocat_df = future_meteocat.result()
-        #wunderground_df = future_wunderground.result()
+        #wunderground_df = future_wunderground.result()'''
 
-#meteoclimatic_df = create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
-#meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
-#wunderground_df = create_filtered(wunderground_incremental,_base_date, _days_backward, _days_forward)
+meteoclimatic_df = create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
+meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
+wunderground_df = create_filtered(wunderground_incremental,_base_date, _days_backward, _days_forward)
 
 # Merge de los 3 dataframes (eliminado meteoclimatic_df de mommento)
 df_total = merge_dataframes(meteocat_df, wunderground_df)
