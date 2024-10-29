@@ -1435,7 +1435,7 @@ def create_wunderground():
     max_threads = _max_threads
     
     # Usa ThreadPoolExecutor para gestionar los threads
-    with ThreadPoolExecutor(max_workers=max_threads) as executor:
+    with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix="UrlScrapping") as executor:
         futures = []
         # Crea una lista de tareas usando executor.submit()
         for index, url in enumerate(URLS):
@@ -1565,6 +1565,10 @@ def merge_dataframes(source01_df_param:pd.DataFrame, source02_df_param:pd.DataFr
     return csv_completo
 
 def create_filtered(df_to_filter_param:pd.DataFrame, _base_date, _days_backward, _days_forward):
+    # Identifica el thread actual y muestra mensaje al inicio
+    thread_name = threading.current_thread().name
+    print(f"[{thread_name}] Iniciando thread para filtrado dataframe")
+    
     # Define una función para parsear las fechas y aplicar el filtro por rango de fechas
     df_to_filter=df_to_filter_param.copy()
     def custom_date_parser(date, start_date, end_date):
@@ -1734,6 +1738,11 @@ def process_meteoclimatic():                                        # FOR MULTIT
     #################################
     if _create_meteoclimatic:
         start_count(_legend='Start processing Meteoclimatic...')
+        
+        # Identifica el thread actual y muestra mensaje al inicio
+        thread_name = threading.current_thread().name
+        print(f"[{thread_name}] Iniciando thread para Meteoclimatic")
+
         meteoclimatic_df = create_meteoclimatic(_save_to_csv=True)
     
         if _incremental_meteoclimatic:                                                   
@@ -1864,6 +1873,11 @@ def process_meteocat():                                             # FOR MULTIT
     ###########################
     if _create_meteocat:
         start_count(_legend='Start processing Meteocat...')
+
+        # Identifica el thread actual y muestra mensaje al inicio
+        thread_name = threading.current_thread().name
+        print(f"[{thread_name}] Iniciando thread para Meteocat")
+
         # DEFINE base data for Meteocat connection##
         # 
 
@@ -1921,7 +1935,7 @@ def process_meteocat():                                             # FOR MULTIT
 #############################################################################
 # Usa ThreadPoolExecutor para iniciar los threads de los distintos procesos #
 #############################################################################
-with ThreadPoolExecutor(max_workers=_max_threads) as executor:
+with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="MainProcesses") as executor:
         # Crea las tareas en paralelo y mapea los resultados a variables
         
         future_meteoclimatic = executor.submit(process_meteoclimatic)
@@ -2010,16 +2024,16 @@ _days_forward = 1     # Including Today
 
 # Para mapas filtrar ultimos 90 dias de incrementales
 # Usa ThreadPoolExecutor para gestionar los threads
-with ThreadPoolExecutor(max_workers=_max_threads) as executor:
+with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="FilterProcesses") as executor:
         # Crea las tareas en paralelo y mapea los resultados a variables
-        meteoclimatic_df = executor.submit(create_filtered, meteoclimatic_incremental, _base_date, _days_backward, _days_forward).result()
-        meteocat_df = executor.submit(create_filtered, meteocat_incremental, _base_date, _days_backward, _days_forward).result()
-        wunderground_df = executor.submit(create_filtered, wunderground_incremental, _base_date, _days_backward, _days_forward).result()
+        future_meteoclimatic_df = executor.submit(create_filtered, meteoclimatic_incremental, _base_date, _days_backward, _days_forward)
+        future_meteocat_df = executor.submit(create_filtered, meteocat_incremental, _base_date, _days_backward, _days_forward)
+        future_wunderground_df = executor.submit(create_filtered, wunderground_incremental, _base_date, _days_backward, _days_forward)
         
         # Obtén los resultados
-        #meteoclimatic_df = future_meteoclimatic.result()
-        #meteocat_df = future_meteocat.result()
-        #wunderground_df = future_wunderground.result()
+        meteoclimatic_df = future_meteoclimatic_df.result()
+        meteocat_df = future_meteocat_df.result()
+        wunderground_df = future_wunderground_df.result()
 
 #meteoclimatic_df = create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
 #meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
