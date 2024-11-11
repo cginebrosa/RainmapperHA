@@ -55,6 +55,7 @@ https://www.wunderground.com/dashboard/pws/IPRATS9
 https://www.wunderground.com/dashboard/pws/IPUERT172
 https://www.wunderground.com/dashboard/pws/IQUART61
 https://www.wunderground.com/dashboard/pws/IQUERA1
+https://www.wunderground.com/dashboard/pws/ISALDE15
 https://www.wunderground.com/dashboard/pws/ISANTA1415
 https://www.wunderground.com/dashboard/pws/ISANTC8
 https://www.wunderground.com/dashboard/pws/ISANTI181
@@ -64,3 +65,5 @@ https://www.wunderground.com/dashboard/pws/ISORIG4
 https://www.wunderground.com/dashboard/pws/ITOSES6
 https://www.wunderground.com/dashboard/pws/ITRASQUE2
 https://www.wunderground.com/dashboard/pws/IURS1
+https://www.wunderground.com/dashboard/pws/IVALLC5
+https://www.wunderground.com/dashboard/pws/IVALLCEB2
