@@ -394,7 +394,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     estacions_old.update(existing_stations)
     
     # Identify new stations
-    new_stations = estacions_xema[~estacions_xema.index.isin(estacions_old.index)]
+    new_stations = estacions_xema[~estacions_xema.index.isin(estacions_old.index)].copy()
 
     for index, station in new_stations.iterrows():
         if index == 0:
