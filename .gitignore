@@ -6,6 +6,6 @@
 /.vscode
 /__pycache__
 /.venv/
-/Data/Meteocat.csv
-/Data/Meteoclimatic.csv
-/Data/Wunderground.csv
+Data/Meteocat.csv
+Data/Meteoclimatic.csv
+Data/Wunderground.csv
