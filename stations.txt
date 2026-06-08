@@ -1,5 +1,7 @@
 https://www.wunderground.com/dashboard/pws/IALMOS1
+https://www.wunderground.com/dashboard/pws/IALP104
 https://www.wunderground.com/dashboard/pws/IALP84
+https://www.wunderground.com/dashboard/pws/IALP86
 https://www.wunderground.com/dashboard/pws/IARBCI10
 https://www.wunderground.com/dashboard/pws/IAVI14
 https://www.wunderground.com/dashboard/pws/IAVI8

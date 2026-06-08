@@ -359,6 +359,11 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     #estacions_xema['Latitud'] = estacions_xema['Latitud'].astype(float)
     #estacions_xema['Longitud'] = estacions_xema['Longitud'].astype(float)
 
+    ## MODI DE CODEX para pandas ##
+    for col in ['Altitud', 'Latitud', 'Longitud']:
+        estacions_xema[col] = pd.to_numeric(estacions_xema[col], errors='coerce')
+    ## FIN MODI DE CODEX PARA PANDAS ##
+
     # Retrieve and update local file
     try:
         estacions_old = pd.read_csv(_DATA_PATH+'estacions_xema.csv').drop_duplicates(subset='Codi Estació')
@@ -366,6 +371,11 @@ def get_estacions_xema(): # Get estacions data from Meteocat
         # If not existing file a new df is created 
         estacions_old = pd.DataFrame(columns=estacions_xema.columns)
     
+    ## MODI DE CODEX PARA PANDAS ##
+    for col in ['Altitud', 'Latitud', 'Longitud']:
+        estacions_old[col] = pd.to_numeric(estacions_old[col], errors='coerce')
+    ## FIN MODI DE CODEX PARA PANDAS
+
     estacions_xema.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     estacions_old.set_index(keys=["Codi Estació"],drop=False,inplace=True)
 
@@ -378,11 +388,16 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     for index, station in existing_stations.iterrows():
         #print('Indice:',index  + \
         #   " - Altitud:" + station['Altitud'] + " - Altitud existing:" + str(estacions_old.loc[index,'Altitud']) + \
-        #   " - Latitud:" + station['Latitud'] + " - Latitud existing:" + estacions_xema.loc[index,'Latitud'] +\
-        #   " - Longitud:" + station['Longitud']  + " - Longitud existing:" + estacions_xema.loc[index,'Longitud'])
-        
-        if  (station['Latitud'] != estacions_xema.loc[index,'Latitud']
-            or station['Longitud'] != estacions_xema.loc[index,'Longitud']): 
+        #   " - Latitud:" + station['Latitud'] + " - Latitud existing:" + estacions_old.loc[index,'Latitud'] +\
+        #   " - Longitud:" + station['Longitud']  + " - Longitud existing:" + estacions_old.loc[index,'Longitud'])
+
+
+        ## MODI CODEX por bug logico ##       
+        #if  (station['Latitud'] != estacions_xema.loc[index,'Latitud']
+        #    or station['Longitud'] != estacions_xema.loc[index,'Longitud']):
+        if  (station['Latitud'] != estacions_old.loc[index,'Latitud']
+            or station['Longitud'] != estacions_old.loc[index,'Longitud']):        
+        ## FIN MODI CODEX por bug logico ##     
             #or estacions_old.loc[index,'Altitud'] == 0 
             #or station['Altitud'] == 0):
             print ('Recuperando Altitud para estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
