@@ -5,9 +5,9 @@ services:
     environment:
       GMAP_API_KEY: ${GMAP_API_KEY}
     volumes:
-      - ./Data:/app/Data
-      - ./Tomap:/app/Tomap
-      - ./Plots:/app/Plots
+      - ./docker-data/Data:/app/Data
+      - ./docker-data/Tomap:/app/Tomap
+      - ./docker-data/Plots:/app/Plots
     command:
       - python
       - Rainmapper.py
