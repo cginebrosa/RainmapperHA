@@ -1,0 +1,19 @@
+services:
+  rainmapper:
+    build: .
+    image: rainmapperha:test
+    environment:
+      GMAP_API_KEY: ${GMAP_API_KEY}
+    volumes:
+      - ./Data:/app/Data
+      - ./Tomap:/app/Tomap
+      - ./Plots:/app/Plots
+    command:
+      - python
+      - Rainmapper.py
+      - --days_init
+      - "-1"
+      - --days_end
+      - "0"
+      - --create_wunderground
+      - "false"
