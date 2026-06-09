@@ -1184,7 +1184,9 @@ def create_meteoclimatic(_save_to_csv):
     # Extract Provincia & Municipi from Station name on meteoclimatic data
     meteoclimatic_df['Provincia'] = meteoclimatic_df['Estació'].str.extract(r'\((.*?)\)')
     meteoclimatic_df['Municipi_temp'] = meteoclimatic_df['Estació'].str.extract(r'^(.*?) -')
-    meteoclimatic_df['Municipi_temp'].fillna(meteoclimatic_df['Estació'].str.extract(r'^(.*?) \(')[0], inplace=True)
+    # Old pandas < 3.0 style, now avoided because it triggers chained-assignment FutureWarning:
+    # meteoclimatic_df['Municipi_temp'].fillna(meteoclimatic_df['Estació'].str.extract(r'^(.*?) \(')[0], inplace=True)
+    meteoclimatic_df['Municipi_temp'] = meteoclimatic_df['Municipi_temp'].fillna(meteoclimatic_df['Estació'].str.extract(r'^(.*?) \(')[0])  # pandas 3.0-compatible: assign the filled Series back to the original column.
     meteoclimatic_df['Municipi'] = meteoclimatic_df['Municipi_temp']
     meteoclimatic_df.drop(columns=['Municipi_temp'], inplace=True)
     

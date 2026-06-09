@@ -1,13 +1,15 @@
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from bs4 import BeautifulSoup
 
 from meteoclimatic_local.exceptions import MeteoclimaticError, StationNotFound
 from meteoclimatic_local.observation import Observation
+from meteoclimatic_local import __version__
+
 
 import pandas as pd
 
-class MeteoclimaticClient(object):
+class MeteoclimaticClient(object): 
     """
     Entry point class providing clients for the Meteoclimatic service.
     """
@@ -17,14 +19,18 @@ class MeteoclimaticClient(object):
     def weather_at_station(self, station_code):
         url = self._base_url.format(station_code=station_code)
 
+        req = Request(url, headers={"User-Agent": f"pymeteoclimatic/{__version__}"})
+
         try:
-            parse_xml_url = urlopen(url)
+            parse_xml_url = urlopen(req)
         except HTTPError as exc:
-            raise MeteoclimaticError("Error fetching station data [status_code=%d]" %
-                  (exc.getcode(), )) from exc
+            raise MeteoclimaticError(
+                "Error fetching station data [status_code=%d]" % (exc.getcode(),)
+                ) from exc
 
         xml_page = parse_xml_url.read()
         parse_xml_url.close()
+
         soup_page = BeautifulSoup(xml_page, "xml")
         items = soup_page.findAll("item")
 
@@ -38,14 +44,18 @@ class MeteoclimaticClient(object):
     def weather_sel_stations(self, station_code):               ## Added to select stations according to Meteoclimatic specifications
         url = self._base_url.format(station_code=station_code)
 
+        req = Request(url, headers={"User-Agent": f"pymeteoclimatic/{__version__}"})
+
         try:
-            parse_xml_url = urlopen(url)
+            parse_xml_url = urlopen(req)
         except HTTPError as exc:
-            raise MeteoclimaticError("Error fetching station data [status_code=%d]" %
-                  (exc.getcode(), )) from exc
+            raise MeteoclimaticError(
+                "Error fetching station data [status_code=%d]" % (exc.getcode(),)
+                ) from exc
 
         xml_page = parse_xml_url.read()
         parse_xml_url.close()
+
         soup_page = BeautifulSoup(xml_page, "xml")
         items = soup_page.findAll("item")
 
