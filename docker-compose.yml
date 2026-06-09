@@ -3,6 +3,9 @@ services:
     build: .
     image: rainmapperha:test
     environment:
+      RAINMAPPER_MODE: "once"
+      RAINMAPPER_SCHEDULE_TIME: "23:50"
+      RAINMAPPER_TIMEZONE: "Europe/Madrid"
       GMAP_API_KEY: ${GMAP_API_KEY}
       RAINMAPPER_DAYS_INIT: "-1"
       RAINMAPPER_DAYS_END: "0"
