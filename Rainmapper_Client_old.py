@@ -22,13 +22,9 @@ def plot_map(_title, lat, lng, map_type='roadmap', _zoom_level=8,_alpha=0.8):
     df['max_rain_column'] = df[rain_columns].apply(lambda row: row.idxmax() if not all(pd.isna(row)) else np.nan, axis=1)
     df['max_temperature_column'] = df[max_temperature_columns].apply(lambda row: row.idxmax() if not all(pd.isna(row)) else np.nan, axis=1)
     df['min_temperature_column'] = df[min_temperature_columns].apply(lambda row: row.idxmin() if not all(pd.isna(row)) else np.nan, axis=1)
-    # Old pandas < 3.0 style, now avoided because it triggers chained-assignment FutureWarning:
-    # df['max_rain_column'].fillna('Pluja_Diaria_01', inplace=True)
-    # df['max_temperature_column'].fillna('Temp_Max_01', inplace=True)
-    # df['min_temperature_column'].fillna('Temp_Min_01', inplace=True)
-    df['max_rain_column'] = df['max_rain_column'].fillna('Pluja_Diaria_01')  # pandas 3.0-compatible: assign the filled Series back to the original column.
-    df['max_temperature_column'] = df['max_temperature_column'].fillna('Temp_Max_01')  # pandas 3.0-compatible: assign the filled Series back to the original column.
-    df['min_temperature_column'] = df['min_temperature_column'].fillna('Temp_Min_01')  # pandas 3.0-compatible: assign the filled Series back to the original column.
+    df['max_rain_column'].fillna('Pluja_Diaria_01', inplace=True)
+    df['max_temperature_column'].fillna('Temp_Max_01', inplace=True)
+    df['min_temperature_column'].fillna('Temp_Min_01', inplace=True)
 
     #print(df.info())
     #print(df)

@@ -38,6 +38,7 @@ from const import   _codi_estacio,\
                     _create_meteocat_conditions,\
                     _incremental_wunderground,\
                     _incremental_meteocat,\
+                    _meteoclimatic_pattern,\
                     _incremental_meteoclimatic,\
                     _minima_lectura_meteoclimatic,\
                     _minima_lectura_meteocat,\
@@ -1162,7 +1163,7 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
 def create_meteoclimatic(_save_to_csv):
 
     client = MeteoclimaticClient()
-    meteoclimatic_df = client.weather_sel_stations("ESCAT")
+    meteoclimatic_df = client.weather_sel_stations(_meteoclimatic_pattern)
     meteoclimatic_df = create_total_meteoclimatic(meteoclimatic_df, _save_to_excel = False, _save_to_csv=False)
 
     meteoclimatic_df['Data Local'] = meteoclimatic_df['Ultima Lectura']
@@ -1660,7 +1661,16 @@ def create_last_rains(df:pd.DataFrame, _nrecords):
     
     result_step1 = filter_results(result_step1,_minimum_rain_tomap)
     # Operación 2
-    result_step2 = result_step1.groupby('Codi Estació').apply(lambda x: x.nlargest(_nrecords, 'Data Local')).reset_index(drop=True)
+    # Old pandas < 3.0 style, now avoided because DataFrameGroupBy.apply on grouping columns is deprecated:
+    # result_step2 = result_step1.groupby('Codi Estació').apply(lambda x: x.nlargest(_nrecords, 'Data Local')).reset_index(drop=True)
+    # pandas 3.0-compatible style: sort first, then take the newest _nrecords per station while keeping all columns.
+    result_step2 = (
+        result_step1
+        .sort_values(['Codi Estació', 'Data Local'], ascending=[True, False])
+        .groupby('Codi Estació', as_index=False)
+        .head(_nrecords)
+        .reset_index(drop=True)
+    )
     
     # Convertir 'Data Local' al formato YYYY/MM/DD
     result_step2['Data Local'] = pd.to_datetime(result_step2['Data Local']).dt.strftime('%Y/%m/%d')
@@ -2034,7 +2044,7 @@ if len(meteoclimatic_incremental) == 0 and len(meteocat_incremental) == 0 and le
 _base_date = _data_inici_base
 
 #  RAIN LAST 90 DAYS
-start_count('Start processing 90 days backward map --> Meteoclimatic EXCLUDED (see tag #Exclude meteoclimatic# in source code).')
+start_count('Start processing 90 days backward map --> Meteoclimatic NOT EXCLUDED (see tag #Exclude meteoclimatic# in source code).')
 # Defines days backward & forward from _base_date
 _days_backward = 90  
 _days_forward = 1     # Including Today
