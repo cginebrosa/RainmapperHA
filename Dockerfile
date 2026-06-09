@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /app/Data /app/Tomap /app/Plots
+RUN mkdir -p /app/Data /app/Tomap /app/Plots \
+    && chmod +x /app/run.sh
 
-CMD ["python", "Rainmapper.py", "--help"]
+CMD ["/app/run.sh"]

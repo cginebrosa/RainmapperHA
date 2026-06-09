@@ -4,16 +4,10 @@ services:
     image: rainmapperha:test
     environment:
       GMAP_API_KEY: ${GMAP_API_KEY}
+      RAINMAPPER_DAYS_INIT: "-1"
+      RAINMAPPER_DAYS_END: "0"
+      RAINMAPPER_CREATE_WUNDERGROUND: "false"
     volumes:
       - ./docker-data/Data:/app/Data
       - ./docker-data/Tomap:/app/Tomap
       - ./docker-data/Plots:/app/Plots
-    command:
-      - python
-      - Rainmapper.py
-      - --days_init
-      - "-1"
-      - --days_end
-      - "0"
-      - --create_wunderground
-      - "false"
