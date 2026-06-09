@@ -13,9 +13,16 @@ run_rainmapper() {
   echo "Starting Rainmapper..."
 
   python Rainmapper.py \
-    --days_init "${RAINMAPPER_DAYS_INIT:--1}" \
+    --create_meteoclimatic "${RAINMAPPER_CREATE_METEOCLIMATIC:-true}" \
+    --create_meteocat "${RAINMAPPER_CREATE_METEOCAT:-true}" \
+    --create_wunderground "${RAINMAPPER_CREATE_WUNDERGROUND:-true}" \
+    --days_init "${RAINMAPPER_DAYS_INIT:--7}" \
     --days_end "${RAINMAPPER_DAYS_END:-0}" \
-    --create_wunderground "${RAINMAPPER_CREATE_WUNDERGROUND:-false}"
+    --nomaps "${RAINMAPPER_NOMAPS:-false}" \
+    --nototals "${RAINMAPPER_NOTOTALS:-false}" \
+    --days_bucket "${RAINMAPPER_DAYS_BUCKET:-10}" \
+    --max_threads "${RAINMAPPER_MAX_THREADS:-1}" \
+    --max_attempts "${RAINMAPPER_MAX_ATTEMPTS:-3}"
 
   echo "Rainmapper finished."
 }

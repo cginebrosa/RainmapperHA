@@ -124,6 +124,13 @@ parser.add_argument('--max_threads',
                     type=int, 
                     default=_max_threads,
                     help='Numero de threads para wunderground -> Const=Default=1')
+parser.add_argument('--max_attempts', 
+                    dest='_max_attempts',
+                    nargs='?', 
+                    const=_max_attempts,
+                    type=int, 
+                    default=_max_attempts,
+                    help='Numero de reintentos para scrapper wunderground -> Const=Default=3')
 
 # Parsear los argumentos de la línea de comandos
 args = parser.parse_args()
@@ -135,6 +142,7 @@ _days_init = args._days_init
 _days_end = args._days_end
 _days_bucket = args._days_bucket
 _max_threads = args._max_threads
+_max_attempts = args._max_attempts
 _create_googlemaps_files = args._create_googlemaps_files
 _print_totals = args._print_totals
 
