@@ -2,6 +2,8 @@ import requests
 import time
 import re
 from bs4 import BeautifulSoup
+from const import _max_attempts
+
 
 class parseStationData:
     def __init__(self, url):
@@ -20,7 +22,7 @@ class parseStationData:
         return response
     
     def fetch_data(self):
-        max_retries = 10
+        max_retries = _max_attempts
         for attempt in range(max_retries):
             try:
                 #response = requests.get(self.url, headers=self.headers)

@@ -51,6 +51,7 @@ from const import   _codi_estacio,\
                     _print_dataframes,\
                     _print_totals,\
                     _max_threads,\
+                    _max_attempts,\
                     _last_number_rains,\
                     _create_daily_stats,\
                     _create_monthly_stats,\
@@ -1320,7 +1321,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
 # Fin modi
                 print(f'Scraping data from {url}')
                 history_table = False
-                max_attempts = 10  # Número máximo de intentos
+                max_attempts = _max_attempts  # Número máximo de intentos
                 attempts = 0  # Contador de intentos
                 while not history_table and attempts < max_attempts:
                     attempts += 1
