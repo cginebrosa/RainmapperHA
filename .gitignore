@@ -11,3 +11,4 @@ Data/Meteoclimatic.csv
 Data/Wunderground.csv
 MERGED_*.csv
 /docker-data/
+/docker-empty-test/

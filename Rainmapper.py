@@ -100,7 +100,7 @@ parser.add_argument('--nomaps',
                     dest='_create_googlemaps_files', 
                     nargs='?', 
                     const=False, 
-                    type=lambda x: (str(x).lower() in ['true','1','yes']),
+                    type=lambda x: not(str(x).lower() in ['true','1','yes']),
                     default=_create_googlemaps_files,
                     help='No crear Googlemaps files (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=True')
 parser.add_argument('--nototals', 
