@@ -222,6 +222,7 @@ Rainmapper options:
     DAYS_BUCKET=10
     MAX_THREADS=1
     MAX_ATTEMPTS=3
+    METEOCLIMATIC_PATTERN=ESCAT
 
 The longer names are also accepted:
 
@@ -235,6 +236,7 @@ The longer names are also accepted:
     RAINMAPPER_DAYS_BUCKET=10
     RAINMAPPER_MAX_THREADS=1
     RAINMAPPER_MAX_ATTEMPTS=3
+    RAINMAPPER_METEOCLIMATIC_PATTERN=ESCAT
 
 Google Maps API key:
 
@@ -263,3 +265,4 @@ The current Docker Compose setup runs once with these defaults:
     RAINMAPPER_DAYS_BUCKET=10
     RAINMAPPER_MAX_THREADS=1
     RAINMAPPER_MAX_ATTEMPTS=3
+    RAINMAPPER_METEOCLIMATIC_PATTERN=ESCAT

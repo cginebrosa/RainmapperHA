@@ -17,6 +17,7 @@ services:
       RAINMAPPER_DAYS_BUCKET: "10"
       RAINMAPPER_MAX_THREADS: "1"
       RAINMAPPER_MAX_ATTEMPTS: "3"
+      RAINMAPPER_METEOCLIMATIC_PATTERN: "ESCAT"
     volumes:
       - ./docker-data/Data:/app/Data
       - ./docker-data/Tomap:/app/Tomap

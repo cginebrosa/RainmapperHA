@@ -131,6 +131,13 @@ parser.add_argument('--max_attempts',
                     type=int, 
                     default=_max_attempts,
                     help='Numero de reintentos para scrapper wunderground -> Const=Default=3')
+parser.add_argument('--meteoclimatic_pattern',
+                    dest='_meteoclimatic_pattern',
+                    nargs='?',
+                    const=_meteoclimatic_pattern,
+                    type=str,
+                    default=_meteoclimatic_pattern,
+                    help='Patron de estaciones Meteoclimatic a leer del feed RSS -> Const=Default=ESCAT')
 
 # Parsear los argumentos de la línea de comandos
 args = parser.parse_args()
@@ -143,6 +150,7 @@ _days_end = args._days_end
 _days_bucket = args._days_bucket
 _max_threads = args._max_threads
 _max_attempts = args._max_attempts
+_meteoclimatic_pattern = args._meteoclimatic_pattern
 _create_googlemaps_files = args._create_googlemaps_files
 _print_totals = args._print_totals
 
