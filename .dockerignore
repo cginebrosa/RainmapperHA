@@ -10,3 +10,21 @@ Plots
 Tomap
 
 MERGED_*.csv
+
+# Local Docker runtime data
+docker-data
+docker-empty-test
+
+# Project data generated or reconstructed at runtime
+Data/*.csv
+
+# Local tests and old scripts
+_My test files
+Rainmapper_old.py
+Rainmapper_Client_old.py
+weather_scraper_old.py
+stations_test.txt
+
+# Docs and repo metadata not needed in the image
+README_DOCKER.md
+.gitignore
