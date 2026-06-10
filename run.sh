@@ -3,9 +3,20 @@ set -eu
 
 cd /app
 
-MODE="${RAINMAPPER_MODE:-once}"
-SCHEDULE_TIME="${RAINMAPPER_SCHEDULE_TIME:-23:50}"
-TIMEZONE="${RAINMAPPER_TIMEZONE:-${TZ:-Europe/Madrid}}"
+MODE="${MODE:-${RAINMAPPER_MODE:-once}}"
+SCHEDULE_TIME="${SCHEDULE_TIME:-${RAINMAPPER_SCHEDULE_TIME:-23:50}}"
+TIMEZONE="${TIMEZONE:-${RAINMAPPER_TIMEZONE:-${TZ:-Europe/Madrid}}}"
+
+CREATE_METEOCLIMATIC_VALUE="${CREATE_METEOCLIMATIC:-${RAINMAPPER_CREATE_METEOCLIMATIC:-true}}"
+CREATE_METEOCAT_VALUE="${CREATE_METEOCAT:-${RAINMAPPER_CREATE_METEOCAT:-true}}"
+CREATE_WUNDERGROUND_VALUE="${CREATE_WUNDERGROUND:-${RAINMAPPER_CREATE_WUNDERGROUND:-true}}"
+DAYS_INIT_VALUE="${DAYS_INIT:-${RAINMAPPER_DAYS_INIT:--7}}"
+DAYS_END_VALUE="${DAYS_END:-${RAINMAPPER_DAYS_END:-0}}"
+NOMAPS_VALUE="${NOMAPS:-${RAINMAPPER_NOMAPS:-false}}"
+NOTOTALS_VALUE="${NOTOTALS:-${RAINMAPPER_NOTOTALS:-false}}"
+DAYS_BUCKET_VALUE="${DAYS_BUCKET:-${RAINMAPPER_DAYS_BUCKET:-10}}"
+MAX_THREADS_VALUE="${MAX_THREADS:-${RAINMAPPER_MAX_THREADS:-1}}"
+MAX_ATTEMPTS_VALUE="${MAX_ATTEMPTS:-${RAINMAPPER_MAX_ATTEMPTS:-3}}"
 
 export TZ="$TIMEZONE"
 
@@ -13,16 +24,16 @@ run_rainmapper() {
   echo "Starting Rainmapper..."
 
   python Rainmapper.py \
-    --create_meteoclimatic "${RAINMAPPER_CREATE_METEOCLIMATIC:-true}" \
-    --create_meteocat "${RAINMAPPER_CREATE_METEOCAT:-true}" \
-    --create_wunderground "${RAINMAPPER_CREATE_WUNDERGROUND:-true}" \
-    --days_init "${RAINMAPPER_DAYS_INIT:--7}" \
-    --days_end "${RAINMAPPER_DAYS_END:-0}" \
-    --nomaps "${RAINMAPPER_NOMAPS:-false}" \
-    --nototals "${RAINMAPPER_NOTOTALS:-false}" \
-    --days_bucket "${RAINMAPPER_DAYS_BUCKET:-10}" \
-    --max_threads "${RAINMAPPER_MAX_THREADS:-1}" \
-    --max_attempts "${RAINMAPPER_MAX_ATTEMPTS:-3}"
+    --create_meteoclimatic "$CREATE_METEOCLIMATIC_VALUE" \
+    --create_meteocat "$CREATE_METEOCAT_VALUE" \
+    --create_wunderground "$CREATE_WUNDERGROUND_VALUE" \
+    --days_init "$DAYS_INIT_VALUE" \
+    --days_end "$DAYS_END_VALUE" \
+    --nomaps "$NOMAPS_VALUE" \
+    --nototals "$NOTOTALS_VALUE" \
+    --days_bucket "$DAYS_BUCKET_VALUE" \
+    --max_threads "$MAX_THREADS_VALUE" \
+    --max_attempts "$MAX_ATTEMPTS_VALUE"
 
   echo "Rainmapper finished."
 }
@@ -63,6 +74,9 @@ PY
 }
 
 case "$MODE" in
+  help)
+    python Rainmapper.py --help
+    ;;
   once)
     run_rainmapper
     ;;
@@ -76,7 +90,7 @@ case "$MODE" in
     done
     ;;
   *)
-    echo "Invalid RAINMAPPER_MODE: ${MODE}. Use once or schedule."
+    echo "Invalid MODE/RAINMAPPER_MODE: ${MODE}. Use help, once or schedule."
     exit 1
     ;;
 esac

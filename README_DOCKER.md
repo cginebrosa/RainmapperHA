@@ -6,7 +6,7 @@ This repository can run Rainmapper inside Docker.
 
 For Home Assistant, especially on a Raspberry Pi, the recommended approach is:
 
-    RAINMAPPER_MODE=once
+    MODE=once
 
 Then Home Assistant should start the add-on when needed, for example every day at 23:50.
 
@@ -33,9 +33,19 @@ This starts a temporary container, runs Rainmapper once, and removes the contain
 Example:
 
     docker compose run --rm \
-      -e RAINMAPPER_DAYS_INIT=-1 \
-      -e RAINMAPPER_DAYS_END=0 \
-      -e RAINMAPPER_CREATE_WUNDERGROUND=false \
+      -e DAYS_INIT=-1 \
+      -e DAYS_END=0 \
+      -e CREATE_WUNDERGROUND=false \
+      rainmapper
+
+Short variable names are accepted for manual commands. The longer `RAINMAPPER_...` names are also supported for compatibility with `docker-compose.yml`.
+
+## Show Rainmapper help
+
+Run:
+
+    docker compose run --rm \
+      -e MODE=help \
       rainmapper
 
 ## Service mode with Docker Compose
@@ -54,8 +64,8 @@ does not decide whether Rainmapper runs once or stays scheduled.
 
 That behavior is controlled by:
 
-    RAINMAPPER_MODE=once
-    RAINMAPPER_MODE=schedule
+    MODE=once
+    MODE=schedule
 
 With the recommended default:
 
@@ -72,9 +82,9 @@ This is useful for testing or non-Home Assistant deployments.
 Temporary scheduled test:
 
     docker compose run --rm \
-      -e RAINMAPPER_MODE=schedule \
-      -e RAINMAPPER_SCHEDULE_TIME=23:50 \
-      -e RAINMAPPER_TIMEZONE=Europe/Madrid \
+      -e MODE=schedule \
+      -e SCHEDULE_TIME=23:50 \
+      -e TIMEZONE=Europe/Madrid \
       rainmapper
 
 Stop with:
@@ -133,15 +143,33 @@ This local folder is similar to what Home Assistant will later provide through p
 
 Execution mode:
 
+    MODE=help
+    MODE=once
+    MODE=schedule
     RAINMAPPER_MODE=once
     RAINMAPPER_MODE=schedule
 
 Schedule:
 
+    SCHEDULE_TIME=23:50
+    TIMEZONE=Europe/Madrid
     RAINMAPPER_SCHEDULE_TIME=23:50
     RAINMAPPER_TIMEZONE=Europe/Madrid
 
 Rainmapper options:
+
+    CREATE_METEOCLIMATIC=true
+    CREATE_METEOCAT=true
+    CREATE_WUNDERGROUND=true
+    DAYS_INIT=-7
+    DAYS_END=0
+    NOMAPS=false
+    NOTOTALS=false
+    DAYS_BUCKET=10
+    MAX_THREADS=1
+    MAX_ATTEMPTS=3
+
+The longer names are also accepted:
 
     RAINMAPPER_CREATE_METEOCLIMATIC=true
     RAINMAPPER_CREATE_METEOCAT=true
@@ -161,8 +189,8 @@ Google Maps API key:
 ## Example: full temporary run
 
     docker compose run --rm \
-      -e RAINMAPPER_CREATE_WUNDERGROUND=true \
-      -e RAINMAPPER_MAX_ATTEMPTS=3 \
+      -e CREATE_WUNDERGROUND=true \
+      -e MAX_ATTEMPTS=3 \
       rainmapper
 
 ## Current defaults
@@ -176,8 +204,8 @@ The current Docker Compose setup runs once with these defaults:
     RAINMAPPER_CREATE_METEOCLIMATIC=true
     RAINMAPPER_CREATE_METEOCAT=true
     RAINMAPPER_CREATE_WUNDERGROUND=true
-    RAINMAPPER_NOMAPS: "false"
-    RAINMAPPER_NOTOTALS: "false"
-    RAINMAPPER_DAYS_BUCKET: "10"
-    RAINMAPPER_MAX_THREADS: "1"
-    RAINMAPPER_MAX_ATTEMPTS: "3"
+    RAINMAPPER_NOMAPS=false
+    RAINMAPPER_NOTOTALS=false
+    RAINMAPPER_DAYS_BUCKET=10
+    RAINMAPPER_MAX_THREADS=1
+    RAINMAPPER_MAX_ATTEMPTS=3
