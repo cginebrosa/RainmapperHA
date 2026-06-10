@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Enable map wheel/pinch zoom by default in generated Bokeh maps.
+- Enable map pan by default so mobile users can interact without the toolbar.
+
 ## 0.1.4
 
 - Add Home Assistant ingress support for the sidebar.

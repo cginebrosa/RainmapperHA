@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pytz import timezone
 from bokeh.io import output_notebook, output_file, show
 from bokeh.plotting import gmap
-from bokeh.models import ColumnDataSource, HoverTool, ColorBar, GMapOptions
+from bokeh.models import ColumnDataSource, HoverTool, ColorBar, GMapOptions, PanTool, WheelZoomTool
 from bokeh.transform import linear_cmap
 from bokeh.palettes import YlOrRd9 as palette
 #from bokeh.models import ColorBar
@@ -103,6 +103,13 @@ def plot_map(_title, lat, lng, map_type='roadmap', _zoom_level=8,_alpha=0.8):
     p = gmap(_GMAPS_KEY, gmap_options, title=_title, 
              width=bokeh_width, height=bokeh_height, match_aspect=True,
              tools=[hover, 'reset','wheel_zoom', 'pan'],toolbar_location="above")
+
+    wheel_zoom_tool = p.select_one(WheelZoomTool)
+    pan_tool = p.select_one(PanTool)
+    if wheel_zoom_tool is not None:
+        p.toolbar.active_scroll = wheel_zoom_tool
+    if pan_tool is not None:
+        p.toolbar.active_drag = pan_tool
 
     #p.add_tools(HoverTool(tooltips=tooltips, mode='vline'))
 
