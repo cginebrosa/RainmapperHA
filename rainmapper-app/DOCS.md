@@ -69,6 +69,14 @@ all
 
 Ejecuta primero `update` y despues `maps`. Es comodo para una prueba completa, pero normalmente no hace falta usarlo cada dia si solo quieres actualizar datos.
 
+```text
+serve
+```
+
+Arranca un servidor web pequeno para ver los mapas HTML generados en `Plots` desde Home Assistant. Este modo no descarga datos y no genera mapas nuevos; solo muestra los HTML que ya existan en `/share/rainmapper/Plots`.
+
+Para usar la barra lateral de Home Assistant, la app debe estar arrancada en este modo.
+
 ## Configuracion recomendada
 
 Para uso diario:
@@ -141,11 +149,22 @@ El identificador exacto del servicio puede depender de como Home Assistant expon
 
 ## Sidebar
 
-Esta app no muestra la opcion `Show on sidebar` porque no expone una interfaz web propia.
+La app soporta `ingress`, asi que Home Assistant puede mostrarla en la barra lateral.
 
-Home Assistant usa la barra lateral para apps con `ingress` o `webui`, es decir, apps que mantienen una web accesible desde Home Assistant. Rainmapper actualmente es una app de ejecucion puntual: arranca, procesa y termina.
+Para probarlo:
 
-Si mas adelante se crea una pequena interfaz web para consultar los mapas o lanzar acciones, entonces tendria sentido anadir `ingress`, `panel_title` y `panel_icon` para que aparezca en la barra lateral.
+1. Configura `mode: serve`.
+2. Arranca la app.
+3. Activa `Show on sidebar` si Home Assistant muestra esa opcion.
+4. Abre `Rainmapper` desde la barra lateral.
+
+La pagina mostrara una lista de los HTML que haya en:
+
+```text
+/share/rainmapper/Plots
+```
+
+Importante: `serve` mantiene la app viva para poder servir la pagina. Si usas `mode: update`, `maps` o `all`, la app hara su trabajo y terminara, asi que la barra lateral no tendra un servidor vivo al que conectarse.
 
 ## Primer arranque recomendado
 
@@ -201,6 +220,10 @@ Revisa los logs de la app y confirma que el modo es `update` o `all`.
 ### No aparecen mapas HTML
 
 Ejecuta `mode: maps` o `mode: all` y comprueba `/share/rainmapper/Plots`.
+
+### La barra lateral no carga Rainmapper
+
+Comprueba que la app esta arrancada con `mode: serve`. Si la app esta parada, Home Assistant no tiene ningun servidor interno al que conectar.
 
 ### Quiero cambiar estaciones Wunderground
 

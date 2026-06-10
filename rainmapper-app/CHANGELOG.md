@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Add Home Assistant ingress support for the sidebar.
+- Add `serve` mode to browse generated HTML maps from `/share/rainmapper/Plots`.
+
 ## 0.1.3
 
 - Align Docker image labels with the Home Assistant app version.

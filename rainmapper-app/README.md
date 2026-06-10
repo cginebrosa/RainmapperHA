@@ -12,3 +12,5 @@ Datos persistentes:
 - `/share/rainmapper/stations.txt`
 
 El modo recomendado para uso diario en Home Assistant es `update`.
+
+Para ver los mapas desde la barra lateral de Home Assistant, usa `mode: serve` y arranca la app. Esto sirve los HTML generados en `/share/rainmapper/Plots`.

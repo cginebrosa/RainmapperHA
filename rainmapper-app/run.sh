@@ -93,12 +93,16 @@ case "$MODE" in
   maps)
     run_maps
     ;;
+  serve)
+    echo "Starting Rainmapper map server..."
+    python web_server.py --host 0.0.0.0 --port 8099
+    ;;
   all)
     run_update
     run_maps
     ;;
   *)
-    echo "Invalid mode: ${MODE}. Use help, update, maps or all."
+    echo "Invalid mode: ${MODE}. Use help, update, maps, all or serve."
     exit 1
     ;;
 esac
