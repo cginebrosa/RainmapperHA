@@ -1,11 +1,8 @@
 FROM python:3.11-slim
 
-ARG BUILD_VERSION=0.1.0
-ARG BUILD_ARCH=amd64
-
-LABEL io.hass.version="${BUILD_VERSION}" \
+LABEL io.hass.version="0.1.3" \
       io.hass.type="app" \
-      io.hass.arch="${BUILD_ARCH}"
+      io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1

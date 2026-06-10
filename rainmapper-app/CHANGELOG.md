@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Align Docker image labels with the Home Assistant app version.
+- Avoid stale `0.1.0` version labels during local Home Assistant builds.
+
 ## 0.1.2
 
 - Add changelog for Home Assistant update dialog.
