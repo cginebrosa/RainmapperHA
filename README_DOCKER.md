@@ -139,6 +139,22 @@ Before the first run, copy the current CSV data:
 
 This local folder is similar to what Home Assistant will later provide through persistent add-on storage.
 
+## Wunderground stations
+
+The Wunderground station list is read from:
+
+    docker-data/stations.txt
+
+This file is mounted into the container as:
+
+    /app/stations.txt
+
+To add or remove Wunderground stations, edit `docker-data/stations.txt`.
+
+If the file does not exist yet, initialize it from the repository copy:
+
+    cp stations.txt docker-data/stations.txt
+
 ## Environment variables
 
 Execution mode:
