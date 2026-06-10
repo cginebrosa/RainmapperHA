@@ -1,33 +1,207 @@
-# Rainmapper add-on
+# Rainmapper Home Assistant App
 
-Este add-on usa la misma logica de Rainmapper, pero adaptada a Home Assistant.
+Rainmapper descarga datos de lluvia de estaciones meteorologicas y genera los CSV que despues se usan para crear mapas HTML.
 
-## Donde guarda los datos
+Esta app no es una web que quede ejecutandose continuamente. Esta pensada para arrancar, trabajar durante unos minutos y terminar. Por eso consume pocos recursos en una Raspberry Pi y encaja bien con una automatizacion diaria de Home Assistant.
 
-El add-on crea y usa estas carpetas:
+## Como funciona
 
-- `/share/rainmapper/Data`
-- `/share/rainmapper/Tomap`
-- `/share/rainmapper/Plots`
-- `/share/rainmapper/stations.txt`
+La app ejecuta los mismos scripts de Rainmapper dentro de un contenedor Docker controlado por Home Assistant.
 
-Si `stations.txt` no existe, lo crea copiando `stations.example.txt`.
+Flujo habitual:
 
-## Modos
+1. Home Assistant arranca la app manualmente o mediante una automatizacion.
+2. Rainmapper descarga o actualiza datos meteorologicos.
+3. Se generan los CSV de salida en `Tomap`.
+4. La app termina y el contenedor se apaga.
 
-- `update`: descarga datos y genera los CSV de `Tomap`. Es el modo normal para una automatizacion diaria de Home Assistant.
-- `maps`: lee `Tomap` y genera los HTML en `Plots`.
-- `all`: hace primero `update` y despues `maps`.
-- `help`: muestra la ayuda del script.
+## Carpetas persistentes
 
-## Programacion
+La app guarda los datos fuera del contenedor, en la carpeta compartida de Home Assistant:
 
-En Home Assistant lo recomendable es dejar el add-on con `startup: once` y arrancarlo con una automatizacion a la hora deseada, por ejemplo cada dia a las 23:50. Asi el contenedor trabaja, termina y no queda vivo todo el dia consumiendo recursos.
+```text
+/share/rainmapper
+```
 
-El modo `schedule` se mantiene solo en el Docker local de desarrollo, no en el add-on.
+Dentro se usan estas rutas:
 
-## Configuracion importante
+```text
+/share/rainmapper/Data
+/share/rainmapper/Tomap
+/share/rainmapper/Plots
+/share/rainmapper/stations.txt
+```
 
-`meteoclimatic_pattern` permite filtrar estaciones del feed RSS de Meteoclimatic. Por ejemplo, `ESCAT` selecciona estaciones de Cataluna.
+Contenido esperado:
 
-`gmap_api_key` debe configurarse si quieres generar mapas que dependan de Google Maps.
+- `Data`: CSV historicos e incrementales de Meteocat, Meteoclimatic y Wunderground.
+- `Tomap`: CSV preparados para pintar mapas.
+- `Plots`: HTML generados por `Rainmapper_Client.py`.
+- `stations.txt`: lista de estaciones Wunderground que quieres descargar.
+
+Si `stations.txt` no existe, la app lo crea automaticamente copiando una plantilla. Despues puedes editarlo desde la carpeta compartida.
+
+## Modos de ejecucion
+
+`mode` controla que hace la app al arrancar.
+
+```text
+help
+```
+
+Muestra la ayuda de `Rainmapper.py`. Es util para una primera prueba despues de instalar.
+
+```text
+update
+```
+
+Descarga datos y genera los CSV de `Tomap`. Es el modo recomendado para la ejecucion diaria en Home Assistant.
+
+```text
+maps
+```
+
+Lee los CSV de `Tomap` y genera los HTML en `Plots`. No descarga datos nuevos.
+
+```text
+all
+```
+
+Ejecuta primero `update` y despues `maps`. Es comodo para una prueba completa, pero normalmente no hace falta usarlo cada dia si solo quieres actualizar datos.
+
+## Configuracion recomendada
+
+Para uso diario:
+
+```yaml
+mode: update
+timezone: Europe/Madrid
+days_init: -7
+days_end: 0
+create_meteoclimatic: true
+create_meteocat: true
+create_wunderground: true
+meteoclimatic_pattern: ESCAT
+nomaps: false
+nototals: false
+days_bucket: 10
+max_threads: 1
+max_attempts: 3
+```
+
+## Google Maps API key
+
+`gmap_api_key` debe configurarlo cada usuario con su propia clave de Google Maps.
+
+No debe guardarse en GitHub ni dentro de la imagen Docker. Home Assistant la almacena como una opcion de tipo `password`.
+
+Si solo ejecutas `update`, la clave puede no ser necesaria en todas las ejecuciones. Si generas mapas HTML que usan Google Maps, debes configurarla.
+
+## Meteoclimatic pattern
+
+`meteoclimatic_pattern` filtra las estaciones leidas desde el feed RSS de Meteoclimatic.
+
+Ejemplo:
+
+```yaml
+meteoclimatic_pattern: ESCAT
+```
+
+`ESCAT` selecciona estaciones de Cataluna.
+
+## Wunderground stations.txt
+
+La lista de estaciones Wunderground no esta dentro de la imagen de la app. Esta fuera, en:
+
+```text
+/share/rainmapper/stations.txt
+```
+
+Esto permite anadir o quitar estaciones sin reconstruir la app.
+
+## Automatizacion diaria
+
+La app tiene `startup: once`. Esto significa que no esta pensada para quedarse viva todo el dia.
+
+Lo recomendable es crear una automatizacion de Home Assistant que la arranque cada dia, por ejemplo a las 23:50. La app correra, terminara y el contenedor se apagara.
+
+Ejemplo conceptual:
+
+```yaml
+trigger:
+  - platform: time
+    at: "23:50:00"
+action:
+  - service: hassio.addon_start
+    data:
+      addon: rainmapper
+```
+
+El identificador exacto del servicio puede depender de como Home Assistant exponga la app instalada. Conviene seleccionarlo desde el editor visual de automatizaciones si esta disponible.
+
+## Sidebar
+
+Esta app no muestra la opcion `Show on sidebar` porque no expone una interfaz web propia.
+
+Home Assistant usa la barra lateral para apps con `ingress` o `webui`, es decir, apps que mantienen una web accesible desde Home Assistant. Rainmapper actualmente es una app de ejecucion puntual: arranca, procesa y termina.
+
+Si mas adelante se crea una pequena interfaz web para consultar los mapas o lanzar acciones, entonces tendria sentido anadir `ingress`, `panel_title` y `panel_icon` para que aparezca en la barra lateral.
+
+## Primer arranque recomendado
+
+Despues de instalar:
+
+1. Configura `mode: help`.
+2. Arranca la app manualmente.
+3. Revisa los logs.
+4. Si la ayuda aparece correctamente, cambia a `mode: update`.
+5. Copia tus datos historicos a `/share/rainmapper` si quieres conservarlos.
+6. Ejecuta una prueba manual.
+7. Crea la automatizacion diaria.
+
+## Copiar datos desde el Mac
+
+Si vienes del Docker local del Mac, el contenido equivalente esta en `docker-data`.
+
+Copia:
+
+```text
+docker-data/Data        -> /share/rainmapper/Data
+docker-data/Tomap       -> /share/rainmapper/Tomap
+docker-data/Plots       -> /share/rainmapper/Plots
+docker-data/stations.txt -> /share/rainmapper/stations.txt
+```
+
+## Desarrollo
+
+En este repositorio hay dos zonas de trabajo:
+
+```text
+Raiz del repo           -> Docker local del Mac
+rainmapper-app/app      -> codigo empaquetado para Home Assistant
+```
+
+Flujo recomendado:
+
+1. Cambia y prueba el codigo en el Docker local del Mac.
+2. Cuando funcione, copia esos cambios a `rainmapper-app/app`.
+3. Sube los cambios a GitHub.
+4. Actualiza o reinstala la app en Home Assistant.
+
+## Problemas habituales
+
+### La instalacion tarda mucho
+
+Es normal en Raspberry Pi. La imagen instala dependencias Python pesadas como `pandas`, `numpy`, `bokeh` y `lxml`.
+
+### No aparecen datos nuevos
+
+Revisa los logs de la app y confirma que el modo es `update` o `all`.
+
+### No aparecen mapas HTML
+
+Ejecuta `mode: maps` o `mode: all` y comprueba `/share/rainmapper/Plots`.
+
+### Quiero cambiar estaciones Wunderground
+
+Edita `/share/rainmapper/stations.txt` y vuelve a ejecutar la app. No hace falta reconstruir la imagen.
