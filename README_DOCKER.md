@@ -6,7 +6,7 @@ This repository can run Rainmapper inside Docker.
 
 For Home Assistant, especially on a Raspberry Pi, the recommended approach is:
 
-    MODE=once
+    MODE=update
 
 Then Home Assistant should start the add-on when needed, for example every day at 23:50.
 
@@ -28,6 +28,8 @@ Run with the defaults from `docker-compose.yml`:
 
 This starts a temporary container, runs Rainmapper once, and removes the container when it finishes.
 
+`MODE=once` is kept as an alias for `MODE=update`.
+
 ## Run once with temporary parameters
 
 Example:
@@ -39,6 +41,30 @@ Example:
       rainmapper
 
 Short variable names are accepted for manual commands. The longer `RAINMAPPER_...` names are also supported for compatibility with `docker-compose.yml`.
+
+## Run modes
+
+Update weather data and generate `Tomap` CSV files:
+
+    docker compose run --rm \
+      -e MODE=update \
+      rainmapper
+
+Generate map HTML files from existing `Tomap` CSV files:
+
+    docker compose run --rm \
+      -e MODE=maps \
+      rainmapper
+
+Update weather data and then generate map HTML files:
+
+    docker compose run --rm \
+      -e MODE=all \
+      rainmapper
+
+`MODE=maps` runs `Rainmapper_Client.py` and writes HTML files to:
+
+    docker-data/Plots/
 
 ## Show Rainmapper help
 
@@ -65,6 +91,9 @@ does not decide whether Rainmapper runs once or stays scheduled.
 That behavior is controlled by:
 
     MODE=once
+    MODE=update
+    MODE=maps
+    MODE=all
     MODE=schedule
 
 With the recommended default:
@@ -75,9 +104,11 @@ the service runs once and then stops.
 
 ## Internal scheduled mode
 
-Scheduled mode keeps the container alive and runs Rainmapper every day at the configured time.
+Scheduled mode keeps the container alive and runs the update task every day at the configured time.
 
 This is useful for testing or non-Home Assistant deployments.
+
+Scheduled mode runs `Rainmapper.py` only. It does not generate map HTML files.
 
 Temporary scheduled test:
 
@@ -161,8 +192,14 @@ Execution mode:
 
     MODE=help
     MODE=once
+    MODE=update
+    MODE=maps
+    MODE=all
     MODE=schedule
     RAINMAPPER_MODE=once
+    RAINMAPPER_MODE=update
+    RAINMAPPER_MODE=maps
+    RAINMAPPER_MODE=all
     RAINMAPPER_MODE=schedule
 
 Schedule:

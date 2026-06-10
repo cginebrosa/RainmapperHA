@@ -20,7 +20,7 @@ MAX_ATTEMPTS_VALUE="${MAX_ATTEMPTS:-${RAINMAPPER_MAX_ATTEMPTS:-3}}"
 
 export TZ="$TIMEZONE"
 
-run_rainmapper() {
+run_update() {
   echo "Starting Rainmapper..."
 
   python Rainmapper.py \
@@ -36,6 +36,12 @@ run_rainmapper() {
     --max_attempts "$MAX_ATTEMPTS_VALUE"
 
   echo "Rainmapper finished."
+}
+
+run_maps() {
+  echo "Starting Rainmapper maps..."
+  python Rainmapper_Client.py
+  echo "Rainmapper maps finished."
 }
 
 seconds_until_schedule() {
@@ -77,8 +83,15 @@ case "$MODE" in
   help)
     python Rainmapper.py --help
     ;;
-  once)
-    run_rainmapper
+  once|update)
+    run_update
+    ;;
+  maps)
+    run_maps
+    ;;
+  all)
+    run_update
+    run_maps
     ;;
   schedule)
     echo "Rainmapper scheduled daily at ${SCHEDULE_TIME} (${TIMEZONE})."
@@ -86,11 +99,11 @@ case "$MODE" in
       sleep_seconds="$(seconds_until_schedule)"
       echo "Next run in ${sleep_seconds} seconds."
       sleep "$sleep_seconds"
-      run_rainmapper
+      run_update
     done
     ;;
   *)
-    echo "Invalid MODE/RAINMAPPER_MODE: ${MODE}. Use help, once or schedule."
+    echo "Invalid MODE/RAINMAPPER_MODE: ${MODE}. Use help, once, update, maps, all or schedule."
     exit 1
     ;;
 esac
