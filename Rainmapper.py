@@ -1307,7 +1307,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                 print(f'Retrieving Station Data for {weather_station_url}')                
 
                 #scraper = parseStationData(weather_station_url)
-                scraper = parseStationData(url)
+                scraper = parseStationData(url, max_attempts=_max_attempts)
 
                 try:
                     # html_string se usa mas abajo

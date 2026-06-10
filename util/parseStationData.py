@@ -6,8 +6,9 @@ from const import _max_attempts
 
 
 class parseStationData:
-    def __init__(self, url):
+    def __init__(self, url, max_attempts=_max_attempts):
         self.url = url
+        self.max_attempts = max_attempts
         self.soup = None
         self.headers =  {
             'Referer': ''  # Referer vacío para simular "noreferrer"
@@ -22,7 +23,7 @@ class parseStationData:
         return response
     
     def fetch_data(self):
-        max_retries = _max_attempts
+        max_retries = self.max_attempts
         for attempt in range(max_retries):
             try:
                 #response = requests.get(self.url, headers=self.headers)
