@@ -2,7 +2,7 @@
 
 Rainmapper descarga datos de lluvia de estaciones meteorologicas y genera los CSV que despues se usan para crear mapas HTML.
 
-Esta app no es una web que quede ejecutandose continuamente. Esta pensada para arrancar, trabajar durante unos minutos y terminar. Por eso consume pocos recursos en una Raspberry Pi y encaja bien con una automatizacion diaria de Home Assistant.
+La app se queda abierta como un servicio ligero. Sirve una webUI para Home Assistant, permite lanzar ejecuciones manuales, muestra los mapas generados y puede ejecutar un schedule interno.
 
 ## Como funciona
 
@@ -10,10 +10,11 @@ La app ejecuta los mismos scripts de Rainmapper dentro de un contenedor Docker c
 
 Flujo habitual:
 
-1. Home Assistant arranca la app manualmente o mediante una automatizacion.
-2. Rainmapper descarga o actualiza datos meteorologicos.
-3. Se generan los CSV de salida en `Tomap`.
-4. La app termina y el contenedor se apaga.
+1. Home Assistant arranca la app como servicio.
+2. La webUI queda disponible mediante ingress y sidebar.
+3. Desde la webUI puedes lanzar `update`, `maps` o `all`.
+4. Si el schedule interno esta activado, la app ejecuta la accion configurada cada dia.
+5. Los datos y mapas se guardan en `/share/rainmapper`.
 
 ## Carpetas persistentes
 
@@ -73,17 +74,20 @@ Ejecuta primero `update` y despues `maps`. Es comodo para una prueba completa, p
 serve
 ```
 
-Arranca un servidor web pequeno para ver los mapas HTML generados en `Plots` desde Home Assistant. Este modo no descarga datos y no genera mapas nuevos; solo muestra los HTML que ya existan en `/share/rainmapper/Plots`.
+Arranca la app como servicio web. Muestra una portada de Rainmapper con botones para ejecutar `update`, `maps` y `all`, estado de la ultima ejecucion, logs recientes y enlaces a los mapas HTML generados en `Plots`.
 
-Para usar la barra lateral de Home Assistant, la app debe estar arrancada en este modo.
+Para usar la barra lateral de Home Assistant, la app debe estar arrancada en este modo. Este es el modo recomendado para uso normal en HA.
 
 ## Configuracion recomendada
 
 Para uso diario:
 
 ```yaml
-mode: update
+mode: serve
 timezone: Europe/Madrid
+schedule_enabled: true
+schedule_time: "23:50"
+scheduled_action: all
 days_init: -7
 days_end: 0
 create_meteoclimatic: true
@@ -129,23 +133,19 @@ Esto permite anadir o quitar estaciones sin reconstruir la app.
 
 ## Automatizacion diaria
 
-La app tiene `startup: once`. Esto significa que no esta pensada para quedarse viva todo el dia.
+La app puede programar ejecuciones por si misma mientras esta arrancada en `mode: serve`.
 
-Lo recomendable es crear una automatizacion de Home Assistant que la arranque cada dia, por ejemplo a las 23:50. La app correra, terminara y el contenedor se apagara.
-
-Ejemplo conceptual:
+Configuracion recomendada:
 
 ```yaml
-trigger:
-  - platform: time
-    at: "23:50:00"
-action:
-  - service: hassio.addon_start
-    data:
-      addon: rainmapper
+schedule_enabled: true
+schedule_time: "23:50"
+scheduled_action: all
 ```
 
-El identificador exacto del servicio puede depender de como Home Assistant exponga la app instalada. Conviene seleccionarlo desde el editor visual de automatizaciones si esta disponible.
+Con esto, Rainmapper se queda vivo como servicio y ejecuta `all` cada dia a las 23:50.
+
+Tambien puedes dejar `schedule_enabled: false` y lanzar ejecuciones manuales desde la webUI.
 
 ## Sidebar
 
@@ -158,7 +158,12 @@ Para probarlo:
 3. Activa `Show on sidebar` si Home Assistant muestra esa opcion.
 4. Abre `Rainmapper` desde la barra lateral.
 
-La pagina mostrara una lista de los HTML que haya en:
+La pagina mostrara:
+
+- botones para ejecutar `update`, `maps` y `all`;
+- estado de la ultima ejecucion;
+- proxima ejecucion programada;
+- enlaces a los HTML que haya en:
 
 ```text
 /share/rainmapper/Plots
@@ -173,10 +178,10 @@ Despues de instalar:
 1. Configura `mode: help`.
 2. Arranca la app manualmente.
 3. Revisa los logs.
-4. Si la ayuda aparece correctamente, cambia a `mode: update`.
+4. Si la ayuda aparece correctamente, cambia a `mode: serve`.
 5. Copia tus datos historicos a `/share/rainmapper` si quieres conservarlos.
-6. Ejecuta una prueba manual.
-7. Crea la automatizacion diaria.
+6. Ejecuta una prueba manual desde la webUI.
+7. Activa `schedule_enabled` si quieres programacion diaria.
 
 ## Copiar datos desde el Mac
 
@@ -224,6 +229,10 @@ Ejecuta `mode: maps` o `mode: all` y comprueba `/share/rainmapper/Plots`.
 ### La barra lateral no carga Rainmapper
 
 Comprueba que la app esta arrancada con `mode: serve`. Si la app esta parada, Home Assistant no tiene ningun servidor interno al que conectar.
+
+### El schedule no se ejecuta
+
+Comprueba que la app esta arrancada en `mode: serve`, que `schedule_enabled` esta en `true`, y que `schedule_time` usa formato `HH:MM`.
 
 ### Quiero cambiar estaciones Wunderground
 

@@ -1,8 +1,8 @@
 # Rainmapper
 
-Rainmapper es una app de Home Assistant para actualizar datos de lluvia de estaciones meteorologicas y generar los ficheros que usa Rainmapper para sus mapas.
+Rainmapper es una app de Home Assistant para actualizar datos de lluvia de estaciones meteorologicas, generar mapas HTML y consultarlos desde la barra lateral de Home Assistant.
 
-La app esta pensada para ejecutarse bajo demanda o mediante una automatizacion diaria. Arranca, procesa los datos, escribe los resultados en `/share/rainmapper` y termina.
+La app se queda abierta como un servicio ligero. Desde su webUI puedes lanzar `update`, `maps` o `all`, ver el estado de la ultima ejecucion, consultar logs recientes y abrir los mapas generados.
 
 Datos persistentes:
 
@@ -11,6 +11,6 @@ Datos persistentes:
 - `/share/rainmapper/Plots`
 - `/share/rainmapper/stations.txt`
 
-El modo recomendado para uso diario en Home Assistant es `update`.
+El modo recomendado para Home Assistant es `serve`.
 
-Para ver los mapas desde la barra lateral de Home Assistant, usa `mode: serve` y arranca la app. Esto sirve los HTML generados en `/share/rainmapper/Plots`.
+Puedes activar el schedule interno para ejecutar `all` cada dia a una hora concreta, por ejemplo a las `23:50`.

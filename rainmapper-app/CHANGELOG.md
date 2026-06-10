@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Make the Home Assistant app work as a long-running sidebar service.
+- Add a Rainmapper landing page with run buttons, map links, status, and recent logs.
+- Add internal scheduling options for `update`, `maps`, or `all`.
+
 ## 0.1.5
 
 - Enable map wheel/pinch zoom by default in generated Bokeh maps.
