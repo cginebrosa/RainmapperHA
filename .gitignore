@@ -7,7 +7,7 @@
 /.vscode
 /__pycache__
 /.venv/
-/Data/*.csv
+/Data/
 MERGED_*.csv
 /docker-data/
 /docker-empty-test/

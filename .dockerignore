@@ -16,7 +16,7 @@ docker-data
 docker-empty-test
 
 # Project data generated or reconstructed at runtime
-Data/*.csv
+Data
 
 # Local tests and old scripts
 _My test files
