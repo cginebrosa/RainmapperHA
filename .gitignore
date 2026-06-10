@@ -11,3 +11,10 @@
 MERGED_*.csv
 /docker-data/
 /docker-empty-test/
+
+# Local tests and old scripts
+/_My test files/
+/Rainmapper_old.py
+/Rainmapper_Client_old.py
+/weather_scraper_old.py
+/stations_test.txt

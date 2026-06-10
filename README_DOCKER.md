@@ -163,10 +163,11 @@ Docker uses this local folder for generated and persistent data:
 
 It is ignored by Git.
 
-Before the first run, copy the current CSV data:
+Before the first run, create the persistent folders:
 
     mkdir -p docker-data/Data docker-data/Tomap docker-data/Plots
-    cp Data/*.csv docker-data/Data/
+
+Rainmapper can rebuild its CSV files in `docker-data/Data` on first run. If you already have historical CSV files, copy them into `docker-data/Data` before running the container.
 
 This local folder is similar to what Home Assistant will later provide through persistent add-on storage.
 
@@ -184,7 +185,7 @@ To add or remove Wunderground stations, edit `docker-data/stations.txt`.
 
 If the file does not exist yet, initialize it from the repository copy:
 
-    cp stations.txt docker-data/stations.txt
+    cp stations.example.txt docker-data/stations.txt
 
 ## Environment variables
 
