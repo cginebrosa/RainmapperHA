@@ -3,12 +3,11 @@
 /Tomap
 /meteoclimatic_local/__pycache__
 /.DS_Store
+**/.DS_Store
 /.vscode
 /__pycache__
 /.venv/
-Data/Meteocat.csv
-Data/Meteoclimatic.csv
-Data/Wunderground.csv
+/Data/*.csv
 MERGED_*.csv
 /docker-data/
 /docker-empty-test/
