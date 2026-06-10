@@ -1,0 +1,42 @@
+name: Rainmapper
+version: "0.1.0"
+slug: rainmapper
+description: Descarga datos meteorologicos y genera ficheros Tomap/Plots para Rainmapper.
+arch:
+  - aarch64
+  - amd64
+startup: once
+boot: manual
+map:
+  - type: share
+    read_only: false
+options:
+  mode: update
+  timezone: Europe/Madrid
+  days_init: -7
+  days_end: 0
+  create_meteoclimatic: true
+  create_meteocat: true
+  create_wunderground: true
+  meteoclimatic_pattern: ESCAT
+  nomaps: false
+  nototals: false
+  days_bucket: 10
+  max_threads: 1
+  max_attempts: 3
+  gmap_api_key: ""
+schema:
+  mode: list(help|update|maps|all)
+  timezone: str
+  days_init: int
+  days_end: int
+  create_meteoclimatic: bool
+  create_meteocat: bool
+  create_wunderground: bool
+  meteoclimatic_pattern: str
+  nomaps: bool
+  nototals: bool
+  days_bucket: int
+  max_threads: int
+  max_attempts: int
+  gmap_api_key: password

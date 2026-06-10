@@ -30,3 +30,4 @@ stations.example.txt
 # Docs and repo metadata not needed in the image
 README_DOCKER.md
 .gitignore
+/addons/
