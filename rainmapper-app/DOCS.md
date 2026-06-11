@@ -162,7 +162,9 @@ La pagina mostrara:
 
 - botones para ejecutar `update`, `maps` y `all`;
 - estado de la ultima ejecucion;
+- duracion de la ultima ejecucion;
 - proxima ejecucion programada;
+- log completo de la ultima ejecucion;
 - enlaces a los HTML que haya en:
 
 ```text
@@ -225,6 +227,10 @@ Revisa los logs de la app y confirma que el modo es `update` o `all`.
 ### No aparecen mapas HTML
 
 Ejecuta `mode: maps` o `mode: all` y comprueba `/share/rainmapper/Plots`.
+
+### El log parece corto o antiguo
+
+La webUI muestra el contenido completo de `/share/rainmapper/last_run.log`, pero ese archivo solo guarda la ultima ejecucion. Cada nuevo `update`, `maps` o `all` sobrescribe el log anterior.
 
 ### La barra lateral no carga Rainmapper
 

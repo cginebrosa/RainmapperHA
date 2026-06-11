@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Keep `last_run.log` limited to the latest run instead of appending forever.
+- Show the full latest log in the webUI.
+- Add run duration in `HH:MM:SS`.
+- Auto-refresh the webUI every 15 seconds.
+- Show generation date/time for each generated map.
+- Add a startup banner with app, runtime, schedule, and data path information.
+
 ## 0.2.0
 
 - Make the Home Assistant app work as a long-running sidebar service.

@@ -24,6 +24,7 @@ RUN_STATE = {
     "action": "",
     "started_at": "",
     "finished_at": "",
+    "duration": "",
     "exit_code": "",
     "last_message": "Ready.",
     "last_scheduled_date": "",
@@ -45,6 +46,7 @@ def html_page(title: str, body: str) -> bytes:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="15">
   <title>{html.escape(title)}</title>
   <style>
     :root {{
@@ -167,7 +169,6 @@ def html_page(title: str, body: str) -> bytes:
       margin: 0;
       padding: 12px;
       overflow: auto;
-      max-height: 360px;
       white-space: pre-wrap;
       font-size: 12px;
     }}
@@ -188,6 +189,33 @@ def format_size(size: int) -> str:
             return f"{size:.0f} {unit}"
         size /= 1024
     return f"{size:.1f} GB"
+
+
+def format_duration(start_text: str, finish_text: str) -> str:
+    if not start_text:
+        return "-"
+
+    try:
+        start = datetime.fromisoformat(start_text)
+    except ValueError:
+        return "-"
+
+    if finish_text:
+        try:
+            finish = datetime.fromisoformat(finish_text)
+        except ValueError:
+            return "-"
+    else:
+        finish = datetime.now(get_timezone())
+
+    total_seconds = max(0, int((finish - start).total_seconds()))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+
+def format_datetime_from_timestamp(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, tz=get_timezone()).isoformat(timespec="seconds")
 
 
 def get_timezone() -> ZoneInfo:
@@ -248,6 +276,7 @@ def run_action(action: str, source: str) -> bool:
                 "action": action,
                 "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
                 "finished_at": "",
+                "duration": "",
                 "exit_code": "",
                 "last_message": f"Running {action} from {source}.",
             }
@@ -263,8 +292,8 @@ def _run_action_thread(action: str, source: str) -> None:
     exit_code = 0
     started = datetime.now(get_timezone())
 
-    with LOG_PATH.open("a", encoding="utf-8") as log_file:
-        log_file.write(f"\n=== {started.isoformat(timespec='seconds')} - {action} ({source}) ===\n")
+    with LOG_PATH.open("w", encoding="utf-8") as log_file:
+        log_file.write(f"=== {started.isoformat(timespec='seconds')} - {action} ({source}) ===\n")
         log_file.flush()
 
         actions = ["update", "maps"] if action == "all" else [action]
@@ -288,7 +317,9 @@ def _run_action_thread(action: str, source: str) -> None:
                 break
 
         finished = datetime.now(get_timezone())
+        duration = format_duration(started.isoformat(timespec="seconds"), finished.isoformat(timespec="seconds"))
         log_file.write(f"=== finished with exit code {exit_code} at {finished.isoformat(timespec='seconds')} ===\n")
+        log_file.write(f"=== duration {duration} ===\n")
 
     message = "Finished successfully." if exit_code == 0 else f"Finished with exit code {exit_code}."
     with RUN_LOCK:
@@ -296,6 +327,7 @@ def _run_action_thread(action: str, source: str) -> None:
             {
                 "running": False,
                 "finished_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+                "duration": format_duration(RUN_STATE["started_at"], datetime.now(get_timezone()).isoformat(timespec="seconds")),
                 "exit_code": str(exit_code),
                 "last_message": message,
             }
@@ -341,11 +373,10 @@ def scheduler_loop() -> None:
             RUN_STATE["last_scheduled_date"] = today_key
 
 
-def tail_log(lines: int = 80) -> str:
+def read_log() -> str:
     if not LOG_PATH.exists():
         return "No logs yet."
-    content = LOG_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
-    return "\n".join(content[-lines:])
+    return LOG_PATH.read_text(encoding="utf-8", errors="replace")
 
 
 class RainmapperHandler(BaseHTTPRequestHandler):
@@ -403,6 +434,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             message = RUN_STATE["last_message"]
             started_at = RUN_STATE["started_at"] or "-"
             finished_at = RUN_STATE["finished_at"] or "-"
+            duration = RUN_STATE["duration"] or format_duration(RUN_STATE["started_at"], RUN_STATE["finished_at"])
             exit_code = RUN_STATE["exit_code"] or "-"
 
         status_class = "ok" if not running else "danger"
@@ -421,6 +453,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Action</span><span class="value">{html.escape(action)}</span></div>
           <div class="card"><span class="label">Started</span><span class="value">{html.escape(started_at)}</span></div>
           <div class="card"><span class="label">Finished</span><span class="value">{html.escape(finished_at)}</span></div>
+          <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
         </div>
@@ -437,7 +470,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "<h2>Maps</h2>"
             f"{self.render_map_list()}"
             "<h2>Last log</h2>"
-            f"<pre>{html.escape(tail_log())}</pre>"
+            f"<pre>{html.escape(read_log())}</pre>"
         )
         self.send_bytes(200, html_page("Rainmapper", body), "text/html; charset=utf-8")
 
@@ -454,11 +487,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             stat = file_path.stat()
             name = file_path.name
             title = name.removesuffix(".html").replace("_", " ")
+            generated_at = format_datetime_from_timestamp(stat.st_mtime)
             items.append(
                 "<li>"
                 f'<a class="map-link" href="file/{html.escape(name)}">'
                 f"{html.escape(title)}"
-                f'<span class="meta">{html.escape(name)} - {format_size(stat.st_size)}</span>'
+                f'<span class="meta">{html.escape(name)} - {format_size(stat.st_size)} - {html.escape(generated_at)}</span>'
                 "</a>"
                 "</li>"
             )
