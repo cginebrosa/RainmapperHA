@@ -4,6 +4,7 @@ import argparse
 import html
 import mimetypes
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -40,7 +41,7 @@ RUN_STATE = {
     "duration": "",
     "exit_code": "",
     "last_message": "Ready.",
-    "last_scheduled_date": "",
+    "last_scheduled_key": "",
     "last_published_at": "",
     "last_publish_message": "Not published yet.",
 }
@@ -242,6 +243,65 @@ def get_timezone() -> ZoneInfo:
         return ZoneInfo("UTC")
 
 
+def schedule_times() -> list[str]:
+    configured = env("RAINMAPPER_SCHEDULE_TIME", "23:50")
+    matches = re.findall(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", configured)
+    normalized = sorted({f"{int(hour):02}:{minute}" for hour, minute in matches})
+    return normalized
+
+
+def schedule_days() -> set[int]:
+    configured = env("RAINMAPPER_SCHEDULE_DAYS", "all").strip().lower()
+    if not configured or configured == "all":
+        return set(range(7))
+
+    aliases = {
+        "0": 0,
+        "1": 0,
+        "mon": 0,
+        "monday": 0,
+        "lun": 0,
+        "lunes": 0,
+        "2": 1,
+        "tue": 1,
+        "tuesday": 1,
+        "mar": 1,
+        "martes": 1,
+        "3": 2,
+        "wed": 2,
+        "wednesday": 2,
+        "mie": 2,
+        "miercoles": 2,
+        "4": 3,
+        "thu": 3,
+        "thursday": 3,
+        "jue": 3,
+        "jueves": 3,
+        "5": 4,
+        "fri": 4,
+        "friday": 4,
+        "vie": 4,
+        "viernes": 4,
+        "6": 5,
+        "sat": 5,
+        "saturday": 5,
+        "sab": 5,
+        "sabado": 5,
+        "7": 6,
+        "sun": 6,
+        "sunday": 6,
+        "dom": 6,
+        "domingo": 6,
+    }
+
+    days = set()
+    for token in re.split(r"[,;|\s-]+", configured):
+        token = token.strip()
+        if token in aliases:
+            days.add(aliases[token])
+    return days
+
+
 def command_for(action: str) -> list[str]:
     update_command = [
         "python",
@@ -405,19 +465,29 @@ def next_schedule_text() -> str:
     if not bool_env("RAINMAPPER_SCHEDULE_ENABLED"):
         return "Disabled"
 
-    schedule_time = env("RAINMAPPER_SCHEDULE_TIME", "23:50")
-    try:
-        hour_text, minute_text = schedule_time.split(":", 1)
-        hour = int(hour_text)
-        minute = int(minute_text)
-    except ValueError:
+    times = schedule_times()
+    days = schedule_days()
+    if not times:
         return "Invalid schedule time"
+    if not days:
+        return "Invalid schedule days"
 
     now = datetime.now(get_timezone())
-    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if target <= now:
-        target += timedelta(days=1)
-    return target.isoformat(timespec="minutes")
+    candidates = []
+    for day_offset in range(8):
+        candidate_day = now.date() + timedelta(days=day_offset)
+        if candidate_day.weekday() not in days:
+            continue
+        for schedule_time in times:
+            hour_text, minute_text = schedule_time.split(":", 1)
+            candidate = datetime.combine(candidate_day, datetime.min.time(), tzinfo=get_timezone())
+            candidate = candidate.replace(hour=int(hour_text), minute=int(minute_text))
+            if candidate > now:
+                candidates.append(candidate)
+
+    if not candidates:
+        return "No upcoming schedule"
+    return min(candidates).isoformat(timespec="minutes")
 
 
 def scheduler_loop() -> None:
@@ -426,17 +496,21 @@ def scheduler_loop() -> None:
         if not bool_env("RAINMAPPER_SCHEDULE_ENABLED"):
             continue
 
-        schedule_time = env("RAINMAPPER_SCHEDULE_TIME", "23:50")
+        times = schedule_times()
+        days = schedule_days()
         scheduled_action = env("RAINMAPPER_SCHEDULED_ACTION", "all")
         now = datetime.now(get_timezone())
-        today_key = now.date().isoformat()
+        current_time = now.strftime("%H:%M")
+        scheduled_key = f"{now.date().isoformat()} {current_time}"
 
-        if now.strftime("%H:%M") != schedule_time:
+        if now.weekday() not in days:
             continue
-        if RUN_STATE["last_scheduled_date"] == today_key:
+        if current_time not in times:
+            continue
+        if RUN_STATE["last_scheduled_key"] == scheduled_key:
             continue
         if run_action(scheduled_action, "schedule"):
-            RUN_STATE["last_scheduled_date"] = today_key
+            RUN_STATE["last_scheduled_key"] = scheduled_key
 
 
 def read_log() -> str:

@@ -118,6 +118,7 @@ mode: serve
 timezone: Europe/Madrid
 schedule_enabled: true
 schedule_time: "23:50"
+schedule_days: all
 scheduled_action: all
 days_init: -7
 days_end: 0
@@ -172,12 +173,37 @@ Configuracion recomendada:
 ```yaml
 schedule_enabled: true
 schedule_time: "23:50"
+schedule_days: all
 scheduled_action: all
 ```
 
 Con esto, Rainmapper se queda vivo como servicio y ejecuta `all` cada dia a las 23:50.
 
 Tambien puedes dejar `schedule_enabled: false` y lanzar ejecuciones manuales desde la webUI.
+
+`schedule_time` tambien acepta varias horas en el mismo campo. Puedes separarlas con comas, punto y coma, espacios o guiones:
+
+```yaml
+schedule_time: "06:00, 12:00, 18:00, 23:50"
+```
+
+o:
+
+```yaml
+schedule_time: "06:00-12:00-18:00-23:50"
+```
+
+`schedule_days` permite limitar los dias de ejecucion. Usa `all` para todos los dias, o una lista separada por comas:
+
+```yaml
+schedule_days: "mon,tue,wed,thu,fri"
+```
+
+Tambien acepta nombres en espanol:
+
+```yaml
+schedule_days: "lunes,martes,miercoles,jueves,viernes"
+```
 
 ## Sidebar
 
@@ -275,7 +301,7 @@ Comprueba que la app esta arrancada con `mode: serve`. Si la app esta parada, Ho
 
 ### El schedule no se ejecuta
 
-Comprueba que la app esta arrancada en `mode: serve`, que `schedule_enabled` esta en `true`, y que `schedule_time` usa formato `HH:MM`.
+Comprueba que la app esta arrancada en `mode: serve`, que `schedule_enabled` esta en `true`, y que `schedule_time` contiene horas validas en formato `HH:MM`. Si usas `schedule_days`, confirma que incluye el dia actual o usa `all`.
 
 ### Quiero cambiar estaciones Wunderground
 

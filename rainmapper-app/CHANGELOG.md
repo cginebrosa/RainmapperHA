@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4
+
+- Allow multiple daily schedule times in `schedule_time`.
+- Add optional `schedule_days` filtering for scheduled runs.
+
 ## 0.2.3
 
 - Publish generated maps automatically to Home Assistant `/local/Plots`.
