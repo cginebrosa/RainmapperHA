@@ -4,6 +4,7 @@ import argparse
 import html
 import mimetypes
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -15,8 +16,20 @@ from zoneinfo import ZoneInfo
 
 
 PLOTS_PATH = Path("/app/Plots")
+PUBLIC_PLOTS_PATH = Path("/config/www/Plots")
+PUBLIC_PLOTS_TMP_PATH = Path("/config/www/.rainmapper-plots-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
+
+PUBLIC_MAP_NAMES = {
+    "01_Tomap_Last_day.html": "rain_01d.html",
+    "02_Tomap_Last_week.html": "rain_07d.html",
+    "03_Tomap_Last_two_weeks.html": "rain_14d.html",
+    "04_Tomap_Last_three_weeks.html": "rain_21d.html",
+    "05_Tomap_Last_month.html": "rain_30d.html",
+    "06_Tomap_Last_two_months.html": "rain_60d.html",
+    "07_Tomap_Last_three_months.html": "rain_90d.html",
+}
 
 RUN_LOCK = threading.Lock()
 RUN_STATE = {
@@ -28,6 +41,8 @@ RUN_STATE = {
     "exit_code": "",
     "last_message": "Ready.",
     "last_scheduled_date": "",
+    "last_published_at": "",
+    "last_publish_message": "Not published yet.",
 }
 
 
@@ -264,6 +279,45 @@ def command_for(action: str) -> list[str]:
     raise ValueError(f"Invalid action: {action}")
 
 
+def public_name_for(file_path: Path) -> str:
+    return PUBLIC_MAP_NAMES.get(file_path.name, file_path.name)
+
+
+def publish_maps(log_file) -> tuple[bool, str]:
+    if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
+        return True, "Publishing to /local/Plots is disabled."
+
+    if not Path("/config").exists():
+        return False, "Cannot publish maps: /config is not available in this container."
+
+    html_files = sorted(PLOTS_PATH.glob("*.html"))
+    if not html_files:
+        return False, "Cannot publish maps: no HTML files found in /share/rainmapper/Plots."
+
+    PUBLIC_PLOTS_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(PUBLIC_PLOTS_TMP_PATH, ignore_errors=True)
+    PUBLIC_PLOTS_TMP_PATH.mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    for source_path in html_files:
+        target_name = public_name_for(source_path)
+        shutil.copy2(source_path, PUBLIC_PLOTS_TMP_PATH / target_name)
+        copied += 1
+
+    shutil.rmtree(PUBLIC_PLOTS_PATH, ignore_errors=True)
+    PUBLIC_PLOTS_TMP_PATH.rename(PUBLIC_PLOTS_PATH)
+
+    published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
+    message = f"Published {copied} map file(s) to /local/Plots at {published_at}."
+    log_file.write(f"=== {message} ===\n")
+    log_file.flush()
+    with RUN_LOCK:
+        RUN_STATE["last_published_at"] = published_at
+        RUN_STATE["last_publish_message"] = message
+    print(message, flush=True)
+    return True, message
+
+
 def run_action(action: str, source: str) -> bool:
     if action not in {"update", "maps", "all"}:
         return False
@@ -320,6 +374,12 @@ def _run_action_thread(action: str, source: str) -> None:
             print(f"Rainmapper step '{current_action}' finished with exit code {exit_code}.", flush=True)
             if exit_code != 0:
                 break
+            if current_action == "maps":
+                publish_ok, publish_message = publish_maps(log_file)
+                if not publish_ok:
+                    print(publish_message, flush=True)
+                    log_file.write(f"=== {publish_message} ===\n")
+                    log_file.flush()
 
         finished = datetime.now(get_timezone())
         duration = format_duration(started.isoformat(timespec="seconds"), finished.isoformat(timespec="seconds"))
@@ -442,6 +502,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             finished_at = RUN_STATE["finished_at"] or "-"
             duration = RUN_STATE["duration"] or format_duration(RUN_STATE["started_at"], RUN_STATE["finished_at"])
             exit_code = RUN_STATE["exit_code"] or "-"
+            last_published_at = RUN_STATE["last_published_at"] or "-"
+            last_publish_message = RUN_STATE["last_publish_message"]
 
         status_class = "ok" if not running else "danger"
         status_text = "Running" if running else "Idle"
@@ -462,8 +524,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
+          <div class="card"><span class="label">Public maps</span><span class="value">/local/Plots</span></div>
+          <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
         </div>
         <p>{html.escape(message)}</p>
+        <p>{html.escape(last_publish_message)}</p>
         """
 
         body = (

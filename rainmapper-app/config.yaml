@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.2"
+version: "0.2.3"
 slug: rainmapper
 description: Descarga datos meteorologicos y genera ficheros Tomap/Plots para Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -15,6 +15,9 @@ panel_title: Rainmapper
 map:
   - type: share
     read_only: false
+  - type: homeassistant_config
+    read_only: false
+    path: /config
 options:
   mode: serve
   timezone: Europe/Madrid
@@ -32,6 +35,7 @@ options:
   days_bucket: 10
   max_threads: 1
   max_attempts: 3
+  publish_to_www: true
   gmap_api_key: ""
 schema:
   mode: list(help|update|maps|all|serve)
@@ -50,4 +54,5 @@ schema:
   days_bucket: int
   max_threads: int
   max_attempts: int
+  publish_to_www: bool
   gmap_api_key: password

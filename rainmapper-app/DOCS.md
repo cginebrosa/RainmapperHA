@@ -15,6 +15,7 @@ Flujo habitual:
 3. Desde la webUI puedes lanzar `update`, `maps` o `all`.
 4. Si el schedule interno esta activado, la app ejecuta la accion configurada cada dia.
 5. Los datos y mapas se guardan en `/share/rainmapper`.
+6. Si `publish_to_www` esta activado, los mapas HTML tambien se copian a `/config/www/Plots`.
 
 ## Carpetas persistentes
 
@@ -41,6 +42,36 @@ Contenido esperado:
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
 
 Si `stations.txt` no existe, la app lo crea automaticamente copiando una plantilla. Despues puedes editarlo desde la carpeta compartida.
+
+## Mapas publicados en /local/Plots
+
+Si `publish_to_www` esta activado, cada vez que `maps` termina correctamente la app copia una version publica de los mapas a:
+
+```text
+/config/www/Plots
+```
+
+Home Assistant sirve esa carpeta como:
+
+```text
+/local/Plots
+```
+
+Por ejemplo:
+
+```text
+/local/Plots/rain_01d.html
+/local/Plots/rain_07d.html
+/local/Plots/rain_14d.html
+/local/Plots/rain_21d.html
+/local/Plots/rain_30d.html
+/local/Plots/rain_60d.html
+/local/Plots/rain_90d.html
+```
+
+La carpeta interna `/share/rainmapper/Plots` sigue siendo la salida principal de Rainmapper. La carpeta `/config/www/Plots` es solo una copia publicada para acceder a los mapas desde Home Assistant.
+
+Al publicar, la app recrea `/config/www/Plots` completa. Asi evita dejar HTML antiguos que ya no correspondan a la ultima generacion.
 
 ## Modos de ejecucion
 
@@ -99,6 +130,7 @@ nototals: false
 days_bucket: 10
 max_threads: 1
 max_attempts: 3
+publish_to_www: true
 ```
 
 ## Google Maps API key
@@ -164,6 +196,7 @@ La pagina mostrara:
 - estado de la ultima ejecucion;
 - duracion de la ultima ejecucion;
 - proxima ejecucion programada;
+- informacion de la ultima publicacion en `/local/Plots`;
 - log completo de la ultima ejecucion;
 - enlaces a los HTML que haya en:
 
@@ -227,6 +260,10 @@ Revisa los logs de la app y confirma que el modo es `update` o `all`.
 ### No aparecen mapas HTML
 
 Ejecuta `mode: maps` o `mode: all` y comprueba `/share/rainmapper/Plots`.
+
+### No aparecen mapas en /local/Plots
+
+Comprueba que `publish_to_www` esta en `true` y ejecuta `maps` o `all`. La publicacion solo ocurre cuando la generacion de mapas termina correctamente.
 
 ### El log parece corto o antiguo
 

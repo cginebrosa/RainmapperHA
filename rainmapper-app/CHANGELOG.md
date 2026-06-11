@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3
+
+- Publish generated maps automatically to Home Assistant `/local/Plots`.
+- Publish public map filenames as `rain_01d.html`, `rain_07d.html`, `rain_14d.html`, `rain_21d.html`, `rain_30d.html`, `rain_60d.html`, and `rain_90d.html`.
+
 ## 0.2.2
 
 - Improve startup banner coloring in the Home Assistant log viewer.

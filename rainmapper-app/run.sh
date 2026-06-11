@@ -114,6 +114,7 @@ DAYS_BUCKET_VALUE="$(option days_bucket 10)"
 MAX_THREADS_VALUE="$(option max_threads 1)"
 MAX_ATTEMPTS_VALUE="$(option max_attempts 3)"
 METEOCLIMATIC_PATTERN_VALUE="$(option meteoclimatic_pattern ESCAT)"
+PUBLISH_TO_WWW_VALUE="$(option publish_to_www true)"
 GMAP_API_KEY_VALUE="$(option gmap_api_key '')"
 
 export TZ="$TIMEZONE"
@@ -134,6 +135,7 @@ export RAINMAPPER_DAYS_BUCKET="$DAYS_BUCKET_VALUE"
 export RAINMAPPER_MAX_THREADS="$MAX_THREADS_VALUE"
 export RAINMAPPER_MAX_ATTEMPTS="$MAX_ATTEMPTS_VALUE"
 export RAINMAPPER_METEOCLIMATIC_PATTERN="$METEOCLIMATIC_PATTERN_VALUE"
+export RAINMAPPER_PUBLISH_TO_WWW="$PUBLISH_TO_WWW_VALUE"
 cd /app
 
 print_startup_banner
