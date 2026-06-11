@@ -53,37 +53,36 @@ PY
   green="\033[32m"
   reset="\033[0m"
 
-  printf "%b" "$blue"
-  cat <<EOF
--------------------------------------------------------------------------------
+  print_blue() {
+    printf "%b%s%b\n" "$blue" "$1" "$reset"
+  }
 
-App: Rainmapper
-Home Assistant app for weather data updates and generated rain maps
+  print_green() {
+    printf "%b%s%b\n" "$green" "$1" "$reset"
+  }
 
--------------------------------------------------------------------------------
-App version: ${RAINMAPPER_APP_VERSION:-unknown}
-Mode: ${MODE}
-Schedule enabled: ${SCHEDULE_ENABLED_VALUE}
-Schedule time: ${SCHEDULE_TIME_VALUE}
-Scheduled action: ${SCHEDULED_ACTION_VALUE}
-Timezone: ${TIMEZONE}
-
-System: ${system_version} (${architecture})
-Python: ${python_version}
-Data path: ${SHARE_ROOT}
-Maps path: ${SHARE_ROOT}/Plots
-
--------------------------------------------------------------------------------
-EOF
-  printf "%b" "$green"
-  cat <<EOF
-Please share the above information when looking for help or support,
-for example in GitHub issues, forums or chat.
-EOF
-  printf "%b" "$blue"
-  cat <<EOF
--------------------------------------------------------------------------------
-EOF
+  print_blue "-------------------------------------------------------------------------------"
+  print_blue ""
+  print_blue "App: Rainmapper"
+  print_blue "Home Assistant app for weather data updates and generated rain maps"
+  print_blue ""
+  print_blue "-------------------------------------------------------------------------------"
+  print_blue "App version: ${RAINMAPPER_APP_VERSION:-unknown}"
+  print_blue "Mode: ${MODE}"
+  print_blue "Schedule enabled: ${SCHEDULE_ENABLED_VALUE}"
+  print_blue "Schedule time: ${SCHEDULE_TIME_VALUE}"
+  print_blue "Scheduled action: ${SCHEDULED_ACTION_VALUE}"
+  print_blue "Timezone: ${TIMEZONE}"
+  print_blue ""
+  print_blue "System: ${system_version} (${architecture})"
+  print_blue "Python: ${python_version}"
+  print_blue "Data path: ${SHARE_ROOT}"
+  print_blue "Maps path: ${SHARE_ROOT}/Plots"
+  print_blue ""
+  print_blue "-------------------------------------------------------------------------------"
+  print_green "Please share the above information when looking for help or support,"
+  print_green "for example in GitHub issues, forums or chat."
+  print_blue "-------------------------------------------------------------------------------"
   printf "%b" "$reset"
 }
 

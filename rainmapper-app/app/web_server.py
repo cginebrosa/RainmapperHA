@@ -168,6 +168,7 @@ def html_page(title: str, body: str) -> bytes:
     pre {{
       margin: 0;
       padding: 12px;
+      max-height: 60vh;
       overflow: auto;
       white-space: pre-wrap;
       font-size: 12px;
@@ -291,6 +292,7 @@ def _run_action_thread(action: str, source: str) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     exit_code = 0
     started = datetime.now(get_timezone())
+    print(f"Starting Rainmapper action '{action}' from {source}.", flush=True)
 
     with LOG_PATH.open("w", encoding="utf-8") as log_file:
         log_file.write(f"=== {started.isoformat(timespec='seconds')} - {action} ({source}) ===\n")
@@ -298,6 +300,9 @@ def _run_action_thread(action: str, source: str) -> None:
 
         actions = ["update", "maps"] if action == "all" else [action]
         for current_action in actions:
+            print(f"Running Rainmapper step '{current_action}'.", flush=True)
+            log_file.write(f"=== running step {current_action} ===\n")
+            log_file.flush()
             command = command_for(current_action)
             process = subprocess.Popen(
                 command,
@@ -309,10 +314,10 @@ def _run_action_thread(action: str, source: str) -> None:
             )
             assert process.stdout is not None
             for line in process.stdout:
-                print(line, end="")
                 log_file.write(line)
                 log_file.flush()
             exit_code = process.wait()
+            print(f"Rainmapper step '{current_action}' finished with exit code {exit_code}.", flush=True)
             if exit_code != 0:
                 break
 
@@ -322,6 +327,7 @@ def _run_action_thread(action: str, source: str) -> None:
         log_file.write(f"=== duration {duration} ===\n")
 
     message = "Finished successfully." if exit_code == 0 else f"Finished with exit code {exit_code}."
+    print(f"Rainmapper action '{action}' finished with exit code {exit_code} in {duration}.", flush=True)
     with RUN_LOCK:
         RUN_STATE.update(
             {
@@ -383,7 +389,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     server_version = "Rainmapper/0.2"
 
     def log_message(self, format: str, *args: object) -> None:
-        print(f"{self.address_string()} - {format % args}")
+        pass
 
     def send_bytes(self, status: int, content: bytes, content_type: str) -> None:
         self.send_response(status)

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+- Improve startup banner coloring in the Home Assistant log viewer.
+- Keep verbose Rainmapper output in the webUI `last_run.log` without flooding the Home Assistant system log.
+- Stop logging every webUI auto-refresh request to the Home Assistant system log.
+- Keep the webUI log panel scrollable instead of making the whole page grow indefinitely.
+
 ## 0.2.1
 
 - Keep `last_run.log` limited to the latest run instead of appending forever.
