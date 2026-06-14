@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.11
+
+- Add a WebUI link to the Home Assistant app settings page.
+- Return to the WebUI after enabling or disabling Wunderground station groups.
+
 ## 0.2.10
 
 - Move Wunderground error cards to a separate two-column row in the WebUI.

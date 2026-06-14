@@ -63,6 +63,11 @@ def bool_env(name: str, default: bool = False) -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
+def addon_settings_url() -> str:
+    addon_slug = env("RAINMAPPER_ADDON_SLUG", "d2750097_rainmapper").strip() or "d2750097_rainmapper"
+    return f"/hassio/addon/{addon_slug}/config"
+
+
 def html_page(title: str, body: str) -> bytes:
     return f"""<!doctype html>
 <html lang="en">
@@ -152,7 +157,8 @@ def html_page(title: str, body: str) -> bytes:
       display: inline-block;
       margin: 0 8px 8px 0;
     }}
-    button {{
+    button,
+    .button-link {{
       min-height: 40px;
       padding: 0 14px;
       border: 1px solid var(--line);
@@ -161,8 +167,17 @@ def html_page(title: str, body: str) -> bytes:
       color: var(--fg);
       font: inherit;
     }}
+    .button-link {{
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+      margin: 0 8px 8px 0;
+      box-sizing: border-box;
+    }}
     button:hover,
-    button:focus {{
+    button:focus,
+    .button-link:hover,
+    .button-link:focus {{
       border-color: var(--accent);
     }}
     button.primary {{
@@ -825,9 +840,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
-    def redirect_home(self) -> None:
+    def redirect_home(self, current_path: str) -> None:
+        segments = [segment for segment in current_path.split("/") if segment]
+        location = "../" * len(segments) if segments else "./"
         self.send_response(303)
-        self.send_header("Location", "../")
+        self.send_header("Location", location)
         self.end_headers()
 
     def do_GET(self) -> None:
@@ -855,7 +872,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         if path.startswith("/run/"):
             action = path.removeprefix("/run/")
             run_action(action, "web")
-            self.redirect_home()
+            self.redirect_home(path)
             return
 
         if path.startswith("/stations/"):
@@ -867,7 +884,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     changed = update_station_group(parts[3], enable=parts[2] == "enable")
                     with RUN_LOCK:
                         RUN_STATE["last_message"] = f"Updated {changed} station line(s) in stations.txt."
-                self.redirect_home()
+                self.redirect_home(path)
                 return
 
         self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
@@ -896,6 +913,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         <form method="post" action="run/update"><button {disabled}>Run update</button></form>
         <form method="post" action="run/maps"><button {disabled}>Generate maps</button></form>
         <form method="post" action="run/all"><button class="primary" {disabled}>Run all</button></form>
+        <a class="button-link" target="_top" href="{html.escape(addon_settings_url())}">App settings</a>
         """
 
         if progress_percent and progress_total:
