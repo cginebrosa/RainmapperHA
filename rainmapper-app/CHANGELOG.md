@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.10
+
+- Move Wunderground error cards to a separate two-column row in the WebUI.
+
 ## 0.2.9
 
 - Show municipality, province, and altitude for Wunderground error stations.

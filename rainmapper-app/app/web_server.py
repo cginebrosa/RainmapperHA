@@ -115,6 +115,17 @@ def html_page(title: str, body: str) -> bytes:
       gap: 12px;
       margin: 16px 0 8px;
     }}
+    .station-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0 8px;
+    }}
+    @media (max-width: 760px) {{
+      .station-grid {{
+        grid-template-columns: 1fr;
+      }}
+    }}
     .card,
     .empty,
     pre {{
@@ -917,6 +928,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
           <div class="card"><span class="label">Public maps</span><span class="value">/local/Plots</span></div>
           <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
+        </div>
+        <div class="station-grid">
           {station_controls}
         </div>
         <p>{html.escape(message)}</p>
