@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.9
+
+- Show municipality, province, and altitude for Wunderground error stations.
+- Refresh the WebUI every 5 seconds while monitoring runs.
+
 ## 0.2.8
 
 - Keep disabled Wunderground station groups tagged in stations.txt so they can be re-enabled later.

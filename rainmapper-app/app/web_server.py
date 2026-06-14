@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import html
 import mimetypes
 import os
@@ -22,6 +23,7 @@ PUBLIC_PLOTS_TMP_PATH = Path("/config/www/.rainmapper-plots-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
 STATIONS_PATH = Path("/app/stations.txt")
+WUNDERGROUND_STATIONS_DB_PATH = Path("/app/Data/estacions_wunderground.csv")
 
 PUBLIC_MAP_NAMES = {
     "01_Tomap_Last_day.html": "rain_01d.html",
@@ -67,7 +69,7 @@ def html_page(title: str, body: str) -> bytes:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="15">
+  <meta http-equiv="refresh" content="5">
   <title>{html.escape(title)}</title>
   <style>
     :root {{
@@ -212,6 +214,18 @@ def html_page(title: str, body: str) -> bytes:
       font-size: 13px;
       line-height: 1.45;
       word-break: break-word;
+    }}
+    .station-details {{
+      margin: 6px 0 0;
+      padding-left: 18px;
+      display: block;
+      list-style: disc;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }}
+    .station-details li {{
+      margin: 3px 0;
     }}
     pre {{
       margin: 0;
@@ -509,6 +523,47 @@ def station_ids_for_group(group_name: str) -> list[str]:
     return sorted(set(failed_groups.get(group_name, [])) | set(disabled_groups.get(group_name, [])))
 
 
+def wunderground_station_metadata() -> dict[str, dict[str, str]]:
+    if not WUNDERGROUND_STATIONS_DB_PATH.exists():
+        return {}
+
+    metadata: dict[str, dict[str, str]] = {}
+    try:
+        with WUNDERGROUND_STATIONS_DB_PATH.open("r", encoding="utf-8-sig", newline="") as csv_file:
+            reader = csv.DictReader(csv_file)
+            for row in reader:
+                station_id = (row.get("Codi Estació") or "").strip().upper()
+                if not station_id:
+                    continue
+                metadata[station_id] = {
+                    "municipality": (row.get("Municipi") or "").strip(),
+                    "province": (row.get("Provincia") or "").strip(),
+                    "altitude": (row.get("Altitud") or "").strip(),
+                }
+    except Exception:
+        return {}
+    return metadata
+
+
+def station_detail_text(station_id: str, metadata: dict[str, dict[str, str]]) -> str:
+    info = metadata.get(station_id.upper(), {})
+    municipality = info.get("municipality") or "unknown municipality"
+    province = info.get("province") or "unknown province"
+    altitude = info.get("altitude") or "unknown altitude"
+    altitude_text = f"{altitude} m" if altitude not in {"", "unknown altitude", "Not set yet"} else altitude
+    return f"{station_id} - {municipality}, {province} - Altitud: {altitude_text}"
+
+
+def station_detail_list(station_ids: list[str], metadata: dict[str, dict[str, str]]) -> str:
+    if not station_ids:
+        return '<span class="station-list">None</span>'
+    items = "".join(
+        f"<li>{html.escape(station_detail_text(station_id, metadata))}</li>"
+        for station_id in station_ids
+    )
+    return f'<ul class="station-details">{items}</ul>'
+
+
 def update_station_group(group_name: str, enable: bool) -> int:
     station_ids = station_ids_for_group(group_name)
     if not station_ids or not STATIONS_PATH.exists():
@@ -540,14 +595,17 @@ def update_station_group(group_name: str, enable: bool) -> int:
 def station_group_card(title: str, group_name: str, station_ids: list[str], disabled_ids: list[str], disabled: str) -> str:
     active_count = len(station_ids)
     disabled_count = len(disabled_ids)
-    stations = ", ".join(station_ids) if station_ids else "None"
-    disabled_stations = ", ".join(disabled_ids) if disabled_ids else "None"
+    metadata = wunderground_station_metadata()
+    current_details = station_detail_list(station_ids, metadata)
+    disabled_details = station_detail_list(disabled_ids, metadata)
     return f"""
       <div class="card">
         <span class="label">{html.escape(title)}</span>
         <span class="value">{active_count} current / {disabled_count} disabled</span>
-        <span class="station-list">Current: {html.escape(stations)}</span>
-        <span class="station-list">Disabled: {html.escape(disabled_stations)}</span>
+        <span class="station-list">Current:</span>
+        {current_details}
+        <span class="station-list">Disabled:</span>
+        {disabled_details}
         <div class="station-actions">
           <form method="post" action="stations/disable/{html.escape(group_name)}"><button {disabled}>Disable all</button></form>
           <form method="post" action="stations/enable/{html.escape(group_name)}"><button {disabled}>Enable all</button></form>
