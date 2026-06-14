@@ -428,6 +428,9 @@ def update_run_progress(raw_line: str) -> None:
             RUN_STATE.update(updates)
 
 
+DISABLED_MARKER_PREFIX = "rainmapper-disabled:"
+
+
 def station_id_from_failed_line(line: str) -> str:
     match = re.match(r"^-\s+([^\s(]+)", line.strip())
     return match.group(1) if match else ""
@@ -454,32 +457,78 @@ def failed_wunderground_groups() -> dict[str, list[str]]:
     return {key: sorted(set(value)) for key, value in groups.items()}
 
 
-def station_line_matches(line: str, station_id: str) -> bool:
+def disabled_station_groups() -> dict[str, list[str]]:
+    groups = {"404": [], "parse": []}
+    if not STATIONS_PATH.exists():
+        return groups
+
+    marker = f"# {DISABLED_MARKER_PREFIX}"
+    for raw_line in STATIONS_PATH.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = raw_line.strip()
+        if not stripped.startswith(marker):
+            continue
+        payload = stripped[2:].strip()
+        reason, _, station_line = payload.partition(" ")
+        group_name = reason.removeprefix(DISABLED_MARKER_PREFIX).strip()
+        if group_name not in groups:
+            continue
+        station_id = station_id_from_station_line(station_line)
+        if station_id:
+            groups[group_name].append(station_id)
+
+    return {key: sorted(set(value)) for key, value in groups.items()}
+
+
+def station_id_from_station_line(line: str) -> str:
+    match = re.search(r"/pws/([A-Z0-9]+)", line, re.IGNORECASE)
+    if match:
+        return match.group(1).upper()
+    tokens = re.findall(r"[A-Z][A-Z0-9]{2,}", line.upper())
+    return tokens[-1] if tokens else ""
+
+
+def station_line_payload(line: str) -> str:
     stripped = line.lstrip()
     if stripped.startswith("#"):
         stripped = stripped[1:].lstrip()
-    return re.search(rf"(?<![A-Z0-9]){re.escape(station_id)}(?![A-Z0-9])", stripped, re.IGNORECASE) is not None
+    for group_name in ("404", "parse"):
+        marker = f"{DISABLED_MARKER_PREFIX}{group_name}"
+        if stripped.startswith(marker):
+            return stripped.removeprefix(marker).lstrip()
+    return stripped
+
+
+def station_line_matches(line: str, station_id: str) -> bool:
+    payload = station_line_payload(line)
+    return re.search(rf"(?<![A-Z0-9]){re.escape(station_id)}(?![A-Z0-9])", payload, re.IGNORECASE) is not None
+
+
+def station_ids_for_group(group_name: str) -> list[str]:
+    failed_groups = failed_wunderground_groups()
+    disabled_groups = disabled_station_groups()
+    return sorted(set(failed_groups.get(group_name, [])) | set(disabled_groups.get(group_name, [])))
 
 
 def update_station_group(group_name: str, enable: bool) -> int:
-    groups = failed_wunderground_groups()
-    station_ids = groups.get(group_name, [])
+    station_ids = station_ids_for_group(group_name)
     if not station_ids or not STATIONS_PATH.exists():
         return 0
 
     changed = 0
     updated_lines = []
+    marker = f"# {DISABLED_MARKER_PREFIX}{group_name} "
     for line in STATIONS_PATH.read_text(encoding="utf-8", errors="replace").splitlines():
         stripped = line.lstrip()
         indent = line[: len(line) - len(stripped)]
-        commented = stripped.startswith("#")
+        payload = station_line_payload(line)
+        disabled_for_group = stripped.startswith(marker.strip()) or stripped.startswith(marker)
         matches = any(station_line_matches(line, station_id) for station_id in station_ids)
 
-        if matches and enable and commented:
-            updated_lines.append(indent + stripped[1:].lstrip())
+        if matches and enable and disabled_for_group:
+            updated_lines.append(indent + payload)
             changed += 1
-        elif matches and not enable and not commented:
-            updated_lines.append(indent + "# " + stripped)
+        elif matches and not enable and not disabled_for_group and not stripped.startswith("#"):
+            updated_lines.append(indent + marker + stripped)
             changed += 1
         else:
             updated_lines.append(line)
@@ -488,14 +537,17 @@ def update_station_group(group_name: str, enable: bool) -> int:
     return changed
 
 
-def station_group_card(title: str, group_name: str, station_ids: list[str], disabled: str) -> str:
-    count = len(station_ids)
+def station_group_card(title: str, group_name: str, station_ids: list[str], disabled_ids: list[str], disabled: str) -> str:
+    active_count = len(station_ids)
+    disabled_count = len(disabled_ids)
     stations = ", ".join(station_ids) if station_ids else "None"
+    disabled_stations = ", ".join(disabled_ids) if disabled_ids else "None"
     return f"""
       <div class="card">
         <span class="label">{html.escape(title)}</span>
-        <span class="value">{count}</span>
-        <span class="station-list">{html.escape(stations)}</span>
+        <span class="value">{active_count} current / {disabled_count} disabled</span>
+        <span class="station-list">Current: {html.escape(stations)}</span>
+        <span class="station-list">Disabled: {html.escape(disabled_stations)}</span>
         <div class="station-actions">
           <form method="post" action="stations/disable/{html.escape(group_name)}"><button {disabled}>Disable all</button></form>
           <form method="post" action="stations/enable/{html.escape(group_name)}"><button {disabled}>Enable all</button></form>
@@ -788,9 +840,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             progress_html = '<span class="value">-</span><span class="progress-text">No active station progress</span>'
 
         station_groups = failed_wunderground_groups()
+        disabled_groups = disabled_station_groups()
         station_controls = (
-            station_group_card("Wunderground 404", "404", station_groups["404"], disabled)
-            + station_group_card("Wunderground parse errors", "parse", station_groups["parse"], disabled)
+            station_group_card("Wunderground 404", "404", station_groups["404"], disabled_groups["404"], disabled)
+            + station_group_card("Wunderground parse errors", "parse", station_groups["parse"], disabled_groups["parse"], disabled)
         )
 
         status = f"""

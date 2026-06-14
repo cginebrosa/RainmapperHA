@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.8
+
+- Keep disabled Wunderground station groups tagged in stations.txt so they can be re-enabled later.
+
 ## 0.2.7
 
 - Add WebUI controls to disable or enable Wunderground stations by error group.
