@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.7
+
+- Add WebUI controls to disable or enable Wunderground stations by error group.
+
+## 0.2.6
+
+- Add WebUI current step and Wunderground progress cards.
+
 ## 0.2.5
 
 - Añade el modo configurable de log detallado de Wunderground.

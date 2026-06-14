@@ -21,6 +21,7 @@ PUBLIC_PLOTS_PATH = Path("/config/www/Plots")
 PUBLIC_PLOTS_TMP_PATH = Path("/config/www/.rainmapper-plots-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
+STATIONS_PATH = Path("/app/stations.txt")
 
 PUBLIC_MAP_NAMES = {
     "01_Tomap_Last_day.html": "rain_01d.html",
@@ -41,6 +42,10 @@ RUN_STATE = {
     "duration": "",
     "exit_code": "",
     "last_message": "Ready.",
+    "current_step": "Idle",
+    "progress_current": "",
+    "progress_total": "",
+    "progress_percent": "",
     "last_scheduled_key": "",
     "last_published_at": "",
     "last_publish_message": "Not published yet.",
@@ -180,6 +185,33 @@ def html_page(title: str, body: str) -> bytes:
     .empty {{
       padding: 16px;
       color: var(--muted);
+    }}
+    progress {{
+      display: block;
+      width: 100%;
+      height: 10px;
+      margin-top: 8px;
+      accent-color: var(--accent);
+    }}
+    .progress-text {{
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .station-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }}
+    .station-list {{
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      word-break: break-word;
     }}
     pre {{
       margin: 0;
@@ -345,6 +377,133 @@ def public_name_for(file_path: Path) -> str:
     return PUBLIC_MAP_NAMES.get(file_path.name, file_path.name)
 
 
+def clear_progress() -> dict[str, str]:
+    return {
+        "progress_current": "",
+        "progress_total": "",
+        "progress_percent": "",
+    }
+
+
+def update_run_progress(raw_line: str) -> None:
+    line = raw_line.strip()
+    if not line:
+        return
+
+    updates: dict[str, str] = {}
+    progress_match = re.search(
+        r"(?:Procesando estaciones Wunderground|Processing Wunderground stations)\s+(\d+)\s+(?:de|from)\s+(\d+)",
+        line,
+        re.IGNORECASE,
+    )
+    if progress_match:
+        current = int(progress_match.group(1))
+        total = int(progress_match.group(2))
+        percent = int(round((current / total) * 100)) if total else 0
+        updates.update(
+            {
+                "current_step": "Running Wunderground",
+                "progress_current": str(current),
+                "progress_total": str(total),
+                "progress_percent": str(percent),
+            }
+        )
+    elif line.startswith("Start processing Meteoclimatic"):
+        updates.update({"current_step": "Running Meteoclimatic", **clear_progress()})
+    elif line.startswith("Start processing Meteocat"):
+        updates.update({"current_step": "Running Meteocat", **clear_progress()})
+    elif line.startswith("Start processing Wunderground"):
+        updates.update({"current_step": "Running Wunderground", **clear_progress()})
+    elif line.startswith("Start printing routine"):
+        updates.update({"current_step": "Printing totals", **clear_progress()})
+    elif line.startswith("Start processing") and "map" in line.lower():
+        updates.update({"current_step": "Generating map files", **clear_progress()})
+    elif line.startswith("Starting Rainmapper maps"):
+        updates.update({"current_step": "Generating maps", **clear_progress()})
+    elif line.startswith("Rainmapper maps finished"):
+        updates.update({"current_step": "Maps finished", **clear_progress()})
+
+    if updates:
+        with RUN_LOCK:
+            RUN_STATE.update(updates)
+
+
+def station_id_from_failed_line(line: str) -> str:
+    match = re.match(r"^-\s+([^\s(]+)", line.strip())
+    return match.group(1) if match else ""
+
+
+def failed_wunderground_groups() -> dict[str, list[str]]:
+    groups = {"404": [], "parse": []}
+    if not LOG_PATH.exists():
+        return groups
+
+    for raw_line in LOG_PATH.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line.startswith("-"):
+            continue
+        station_id = station_id_from_failed_line(line)
+        if not station_id:
+            continue
+        lower_line = line.lower()
+        if "status code=404" in lower_line:
+            groups["404"].append(station_id)
+        elif "list index out of range" in lower_line:
+            groups["parse"].append(station_id)
+
+    return {key: sorted(set(value)) for key, value in groups.items()}
+
+
+def station_line_matches(line: str, station_id: str) -> bool:
+    stripped = line.lstrip()
+    if stripped.startswith("#"):
+        stripped = stripped[1:].lstrip()
+    return re.search(rf"(?<![A-Z0-9]){re.escape(station_id)}(?![A-Z0-9])", stripped, re.IGNORECASE) is not None
+
+
+def update_station_group(group_name: str, enable: bool) -> int:
+    groups = failed_wunderground_groups()
+    station_ids = groups.get(group_name, [])
+    if not station_ids or not STATIONS_PATH.exists():
+        return 0
+
+    changed = 0
+    updated_lines = []
+    for line in STATIONS_PATH.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.lstrip()
+        indent = line[: len(line) - len(stripped)]
+        commented = stripped.startswith("#")
+        matches = any(station_line_matches(line, station_id) for station_id in station_ids)
+
+        if matches and enable and commented:
+            updated_lines.append(indent + stripped[1:].lstrip())
+            changed += 1
+        elif matches and not enable and not commented:
+            updated_lines.append(indent + "# " + stripped)
+            changed += 1
+        else:
+            updated_lines.append(line)
+
+    STATIONS_PATH.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+    return changed
+
+
+def station_group_card(title: str, group_name: str, station_ids: list[str], disabled: str) -> str:
+    count = len(station_ids)
+    stations = ", ".join(station_ids) if station_ids else "None"
+    return f"""
+      <div class="card">
+        <span class="label">{html.escape(title)}</span>
+        <span class="value">{count}</span>
+        <span class="station-list">{html.escape(stations)}</span>
+        <div class="station-actions">
+          <form method="post" action="stations/disable/{html.escape(group_name)}"><button {disabled}>Disable all</button></form>
+          <form method="post" action="stations/enable/{html.escape(group_name)}"><button {disabled}>Enable all</button></form>
+        </div>
+      </div>
+    """
+
+
 def publish_maps(log_file) -> tuple[bool, str]:
     if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
         return True, "Publishing to /local/Plots is disabled."
@@ -396,6 +555,10 @@ def run_action(action: str, source: str) -> bool:
                 "duration": "",
                 "exit_code": "",
                 "last_message": f"Running {action} from {source}.",
+                "current_step": f"Queued {action}",
+                "progress_current": "",
+                "progress_total": "",
+                "progress_percent": "",
             }
         )
 
@@ -417,6 +580,8 @@ def _run_action_thread(action: str, source: str) -> None:
         actions = ["update", "maps"] if action == "all" else [action]
         for current_action in actions:
             print(f"Running Rainmapper step '{current_action}'.", flush=True)
+            with RUN_LOCK:
+                RUN_STATE.update({"current_step": f"Running {current_action}", **clear_progress()})
             log_file.write(f"=== running step {current_action} ===\n")
             log_file.flush()
             command = command_for(current_action)
@@ -430,6 +595,7 @@ def _run_action_thread(action: str, source: str) -> None:
             )
             assert process.stdout is not None
             for line in process.stdout:
+                update_run_progress(line)
                 log_file.write(line)
                 log_file.flush()
             exit_code = process.wait()
@@ -458,6 +624,10 @@ def _run_action_thread(action: str, source: str) -> None:
                 "duration": format_duration(RUN_STATE["started_at"], datetime.now(get_timezone()).isoformat(timespec="seconds")),
                 "exit_code": str(exit_code),
                 "last_message": message,
+                "current_step": "Idle" if exit_code == 0 else "Finished with error",
+                "progress_current": "",
+                "progress_total": "",
+                "progress_percent": "",
             }
         )
     STATUS_PATH.write_text(message + "\n", encoding="utf-8")
@@ -567,6 +737,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.redirect_home()
             return
 
+        if path.startswith("/stations/"):
+            parts = path.split("/")
+            if len(parts) == 4 and parts[2] in {"enable", "disable"} and parts[3] in {"404", "parse"}:
+                with RUN_LOCK:
+                    running = RUN_STATE["running"]
+                if not running:
+                    changed = update_station_group(parts[3], enable=parts[2] == "enable")
+                    with RUN_LOCK:
+                        RUN_STATE["last_message"] = f"Updated {changed} station line(s) in stations.txt."
+                self.redirect_home()
+                return
+
         self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
 
     def render_index(self) -> None:
@@ -580,6 +762,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             exit_code = RUN_STATE["exit_code"] or "-"
             last_published_at = RUN_STATE["last_published_at"] or "-"
             last_publish_message = RUN_STATE["last_publish_message"]
+            current_step = RUN_STATE["current_step"] or "-"
+            progress_current = RUN_STATE["progress_current"]
+            progress_total = RUN_STATE["progress_total"]
+            progress_percent = RUN_STATE["progress_percent"]
 
         status_class = "ok" if not running else "danger"
         status_text = "Running" if running else "Idle"
@@ -591,10 +777,28 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         <form method="post" action="run/all"><button class="primary" {disabled}>Run all</button></form>
         """
 
+        if progress_percent and progress_total:
+            progress_value = html.escape(progress_percent)
+            progress_label = html.escape(f"{progress_percent}% ({progress_current}/{progress_total})")
+            progress_html = (
+                f'<span class="value">{progress_label}</span>'
+                f'<progress max="100" value="{progress_value}"></progress>'
+            )
+        else:
+            progress_html = '<span class="value">-</span><span class="progress-text">No active station progress</span>'
+
+        station_groups = failed_wunderground_groups()
+        station_controls = (
+            station_group_card("Wunderground 404", "404", station_groups["404"], disabled)
+            + station_group_card("Wunderground parse errors", "parse", station_groups["parse"], disabled)
+        )
+
         status = f"""
         <div class="grid">
           <div class="card"><span class="label">Status</span><span class="value {status_class}">{status_text}</span></div>
           <div class="card"><span class="label">Action</span><span class="value">{html.escape(action)}</span></div>
+          <div class="card"><span class="label">Current step</span><span class="value">{html.escape(current_step)}</span></div>
+          <div class="card"><span class="label">Progress</span>{progress_html}</div>
           <div class="card"><span class="label">Started</span><span class="value">{html.escape(started_at)}</span></div>
           <div class="card"><span class="label">Finished</span><span class="value">{html.escape(finished_at)}</span></div>
           <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
@@ -602,6 +806,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
           <div class="card"><span class="label">Public maps</span><span class="value">/local/Plots</span></div>
           <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
+          {station_controls}
         </div>
         <p>{html.escape(message)}</p>
         <p>{html.escape(last_publish_message)}</p>
