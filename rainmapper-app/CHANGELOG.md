@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.13
+
+- Do not show disabled Wunderground error stations as current in the WebUI cards.
+
 ## 0.2.12
 
 - Make WebUI action buttons work reliably behind Home Assistant ingress.

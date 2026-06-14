@@ -949,9 +949,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         station_groups = failed_wunderground_groups()
         disabled_groups = disabled_station_groups()
+        active_station_groups = {
+            group_name: sorted(set(station_groups[group_name]) - set(disabled_groups[group_name]))
+            for group_name in ("404", "parse")
+        }
         station_controls = (
-            station_group_card("Wunderground 404", "404", station_groups["404"], disabled_groups["404"], disabled)
-            + station_group_card("Wunderground parse errors", "parse", station_groups["parse"], disabled_groups["parse"], disabled)
+            station_group_card("Wunderground 404", "404", active_station_groups["404"], disabled_groups["404"], disabled)
+            + station_group_card("Wunderground parse errors", "parse", active_station_groups["parse"], disabled_groups["parse"], disabled)
         )
 
         status = f"""
