@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 from zoneinfo import ZoneInfo
 
 
@@ -65,7 +65,7 @@ def bool_env(name: str, default: bool = False) -> bool:
 
 def addon_settings_url() -> str:
     addon_slug = env("RAINMAPPER_ADDON_SLUG", "d2750097_rainmapper").strip() or "d2750097_rainmapper"
-    return f"/hassio/addon/{addon_slug}/config"
+    return f"/hassio/addon/{addon_slug}/configuration"
 
 
 def html_page(title: str, body: str) -> bytes:
@@ -633,8 +633,8 @@ def station_group_card(title: str, group_name: str, station_ids: list[str], disa
         <span class="station-list">Disabled:</span>
         {disabled_details}
         <div class="station-actions">
-          <form method="post" action="stations/disable/{html.escape(group_name)}"><button {disabled}>Disable all</button></form>
-          <form method="post" action="stations/enable/{html.escape(group_name)}"><button {disabled}>Enable all</button></form>
+          <form method="post" action=""><input type="hidden" name="station_action" value="disable"><input type="hidden" name="station_group" value="{html.escape(group_name)}"><button {disabled}>Disable all</button></form>
+          <form method="post" action=""><input type="hidden" name="station_action" value="enable"><input type="hidden" name="station_group" value="{html.escape(group_name)}"><button {disabled}>Enable all</button></form>
         </div>
       </div>
     """
@@ -840,12 +840,22 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
-    def redirect_home(self, current_path: str) -> None:
-        segments = [segment for segment in current_path.split("/") if segment]
-        location = "../" * len(segments) if segments else "./"
+    def redirect_home(self) -> None:
         self.send_response(303)
-        self.send_header("Location", location)
+        self.send_header("Location", "./")
         self.end_headers()
+
+    def redirect_settings(self) -> None:
+        settings_url = html.escape(addon_settings_url(), quote=True)
+        body = f"""
+        <h1>Opening app settings...</h1>
+        <p>If Home Assistant does not open the settings page automatically, use this link:</p>
+        <p><a class="button-link" target="_top" href="{settings_url}">Open app settings</a></p>
+        <script>
+          window.top.location.href = "{settings_url}";
+        </script>
+        """
+        self.send_bytes(200, html_page("App settings", body), "text/html; charset=utf-8")
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -853,6 +863,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/":
             self.render_index()
+            return
+
+        if path == "/settings":
+            self.redirect_settings()
             return
 
         if path.startswith("/file/"):
@@ -865,29 +879,36 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "text/html; charset=utf-8",
         )
 
-    def do_POST(self) -> None:
-        parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/")
+    def read_form(self) -> dict[str, list[str]]:
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        payload = self.rfile.read(length).decode("utf-8", errors="replace") if length else ""
+        return parse_qs(payload)
 
-        if path.startswith("/run/"):
-            action = path.removeprefix("/run/")
+    def form_value(self, form: dict[str, list[str]], name: str) -> str:
+        values = form.get(name, [])
+        return values[0] if values else ""
+
+    def do_POST(self) -> None:
+        form = self.read_form()
+        action = self.form_value(form, "run_action")
+        if action:
             run_action(action, "web")
-            self.redirect_home(path)
+            self.redirect_home()
             return
 
-        if path.startswith("/stations/"):
-            parts = path.split("/")
-            if len(parts) == 4 and parts[2] in {"enable", "disable"} and parts[3] in {"404", "parse"}:
+        station_action = self.form_value(form, "station_action")
+        station_group = self.form_value(form, "station_group")
+        if station_action in {"enable", "disable"} and station_group in {"404", "parse"}:
+            with RUN_LOCK:
+                running = RUN_STATE["running"]
+            if not running:
+                changed = update_station_group(station_group, enable=station_action == "enable")
                 with RUN_LOCK:
-                    running = RUN_STATE["running"]
-                if not running:
-                    changed = update_station_group(parts[3], enable=parts[2] == "enable")
-                    with RUN_LOCK:
-                        RUN_STATE["last_message"] = f"Updated {changed} station line(s) in stations.txt."
-                self.redirect_home(path)
-                return
+                    RUN_STATE["last_message"] = f"Updated {changed} station line(s) in stations.txt."
+            self.redirect_home()
+            return
 
-        self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
+        self.redirect_home()
 
     def render_index(self) -> None:
         with RUN_LOCK:
@@ -910,10 +931,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         disabled = "disabled" if running else ""
 
         controls = f"""
-        <form method="post" action="run/update"><button {disabled}>Run update</button></form>
-        <form method="post" action="run/maps"><button {disabled}>Generate maps</button></form>
-        <form method="post" action="run/all"><button class="primary" {disabled}>Run all</button></form>
-        <a class="button-link" target="_top" href="{html.escape(addon_settings_url())}">App settings</a>
+        <form method="post" action=""><input type="hidden" name="run_action" value="update"><button {disabled}>Run update</button></form>
+        <form method="post" action=""><input type="hidden" name="run_action" value="maps"><button {disabled}>Generate maps</button></form>
+        <form method="post" action=""><input type="hidden" name="run_action" value="all"><button class="primary" {disabled}>Run all</button></form>
+        <a class="button-link" href="./settings">App settings</a>
         """
 
         if progress_percent and progress_total:

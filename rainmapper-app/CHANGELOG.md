@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.12
+
+- Make WebUI action buttons work reliably behind Home Assistant ingress.
+- Add an intermediate settings page for opening Home Assistant app settings.
+- Use the Home Assistant Configuration tab route for the app settings link.
+
 ## 0.2.11
 
 - Add a WebUI link to the Home Assistant app settings page.
