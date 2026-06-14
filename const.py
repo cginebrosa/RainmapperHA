@@ -36,4 +36,5 @@ _last_number_rains = 21                 # Number of rains to generate for map
 _print_dataframes = False               # Debug dataframes by printing (be careful, A LOT OF PRINTING RESULTS!!!)
 _max_threads = 1                        # Number of threads for multithreading
 _max_attempts = 3                       # Number of attempts to scrap url from Wunderground
+_wunderground_full_log = False          # Imprimir log detallado de estaciones Wunderground
 #_codi_provincia = '' ## NOT IMPLEMENTED

@@ -24,7 +24,7 @@ from meteoclimatic_local.client import MeteoclimaticClient
 from const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
 
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 
@@ -52,6 +52,7 @@ from const import   _codi_estacio,\
                     _print_totals,\
                     _max_threads,\
                     _max_attempts,\
+                    _wunderground_full_log,\
                     _last_number_rains,\
                     _create_daily_stats,\
                     _create_monthly_stats,\
@@ -131,6 +132,13 @@ parser.add_argument('--max_attempts',
                     type=int, 
                     default=_max_attempts,
                     help='Numero de reintentos para scrapper wunderground -> Const=Default=3')
+parser.add_argument('--wunderground_full_log',
+                    dest='_wunderground_full_log',
+                    nargs='?',
+                    const=True,
+                    type=lambda x: (str(x).lower() in ['true','1','yes']),
+                    default=_wunderground_full_log,
+                    help='Imprimir log detallado de Wunderground (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=False')
 parser.add_argument('--meteoclimatic_pattern',
                     dest='_meteoclimatic_pattern',
                     nargs='?',
@@ -150,9 +158,15 @@ _days_end = args._days_end
 _days_bucket = args._days_bucket
 _max_threads = args._max_threads
 _max_attempts = args._max_attempts
+_wunderground_full_log = args._wunderground_full_log
 _meteoclimatic_pattern = args._meteoclimatic_pattern
 _create_googlemaps_files = args._create_googlemaps_files
 _print_totals = args._print_totals
+
+
+def wunderground_log(message=""):
+    if _wunderground_full_log:
+        print(message)
 
 #print(_create_meteocat)
 #print(_days_init)
@@ -1223,9 +1237,8 @@ def create_meteoclimatic(_save_to_csv):
 
 def scrap_wunderground_station(weather_station_url, launchtime):
 
-    # Identifica el thread actual y muestra mensaje al inicio
     thread_name = threading.current_thread().name
-    print(f"[{thread_name}] Iniciando thread para URL: {weather_station_url} en launchtime: {launchtime}")
+    wunderground_log(f"[{thread_name}] Iniciando thread para URL: {weather_station_url} en launchtime: {launchtime}")
 
     session = requests.Session()
     timeout = 5
@@ -1247,6 +1260,10 @@ def scrap_wunderground_station(weather_station_url, launchtime):
     url_gen = Utils.date_url_generator(weather_station_url, START_DATE, END_DATE)
     station_name = weather_station_url.split('/')[-1]
     file_prefix = station_name
+    summary_station_id = station_name
+    summary_station_name = ''
+    summary_rows = 0
+    summary_errors = []
     
     if MERGE_DATA:
         file_prefix = 'MERGED'
@@ -1309,33 +1326,37 @@ def scrap_wunderground_station(weather_station_url, launchtime):
         #print(f'url_gen: {list(url_gen)}')
         for date_string, url in url_gen:
             try:
-                # Inicio modi
-                print('')
-                print('==================================================================================================')
-                print(f'Retrieving Station Data for {weather_station_url}')                
+                wunderground_log('')
+                wunderground_log('==================================================================================================')
+                wunderground_log(f'Retrieving Station Data for {weather_station_url}')                
 
                 #scraper = parseStationData(weather_station_url)
-                scraper = parseStationData(url, max_attempts=_max_attempts)
+                scraper = parseStationData(url, max_attempts=_max_attempts, full_log=_wunderground_full_log)
 
                 try:
                     # html_string se usa mas abajo
                     html_string = scraper.fetch_data()
-                    end_count(_legend='Fetched data for '+url)
+                    if _wunderground_full_log:
+                        end_count(_legend='Fetched data for '+url)
 
                     # Obtener y mostrar los datos de la estación
                     #elevation, latitude, longitude, station_name, station_ID, location_name = scraper.get_station_header()
                     station_ID, station_name, location_name, elevation, latitude, longitude = scraper.get_station_header()
-                    print(f'Código de la estación: {station_ID}')
-                    print(f'Nombre de la estación: {station_name}')
-                    print(f'Municipi: {location_name}')
-                    print(f"Latitud: {latitude}")
-                    print(f"Longitud: {longitude}")
-                    print(f"Altitud: {elevation} m")
+                    summary_station_id = station_ID
+                    summary_station_name = station_name
+                    wunderground_log(f'Código de la estación: {station_ID}')
+                    wunderground_log(f'Nombre de la estación: {station_name}')
+                    wunderground_log(f'Municipi: {location_name}')
+                    wunderground_log(f"Latitud: {latitude}")
+                    wunderground_log(f"Longitud: {longitude}")
+                    wunderground_log(f"Altitud: {elevation} m")
     
                 except Exception as e:
-                    print(e)
+                    summary_errors.append(str(e))
+                    wunderground_log(str(e))
+                    continue
 # Fin modi
-                print(f'Scraping data from {url}')
+                wunderground_log(f'Scraping data from {url}')
                 history_table = False
                 max_attempts = _max_attempts  # Número máximo de intentos
                 attempts = 0  # Contador de intentos
@@ -1345,7 +1366,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                     doc = lh.fromstring(html_string.content)
                     history_table = doc.xpath('//*[@id="main-page-content"]/div/div/div/lib-history/div[2]/lib-history-table/div/div/div/table/tbody')
                     if not history_table:
-                        print("refreshing session")
+                        wunderground_log("refreshing session")
                         session = requests.Session()
                         html_string = session.get(url, timeout=timeout)
 
@@ -1363,16 +1384,26 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                                                     longitude)
 
                 # convert to metric system
-                converter = ConvertToSystem(UNIT_SYSTEM)
+                converter = ConvertToSystem(UNIT_SYSTEM, full_log=_wunderground_full_log)
                 data_to_write = converter.clean_and_convert(data_rows)
+                summary_rows += len(data_to_write)
                     
-                print(f'Saving {len(data_to_write)} rows')
+                wunderground_log(f'Saving {len(data_to_write)} rows')
                 with file_lock:
                     writer.writerows(data_to_write)
             except Exception as e:
-                print(e)
+                summary_errors.append(str(e))
+                wunderground_log(str(e))
     
-    print(f"[{thread_name}] Terminando thread para URL: {weather_station_url}")
+    wunderground_log(f"[{thread_name}] Terminando thread para URL: {weather_station_url}")
+    return {
+        'url': weather_station_url,
+        'station_id': summary_station_id,
+        'station_name': summary_station_name,
+        'rows': summary_rows,
+        'ok': summary_rows > 0,
+        'errors': summary_errors,
+    }
 
 def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
     csv = wunderground_df[['Codi Estació', 
@@ -1457,6 +1488,35 @@ def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
     csv_incremental.to_csv(_DATA_PATH+'estacions_wunderground.csv',decimal=',',index=False)
     return csv
 
+
+
+def print_wunderground_progress(completed, total):
+    print(f'Procesando estaciones Wunderground {completed} de {total}')
+
+def print_wunderground_summary(results):
+    updated = [result for result in results if result.get('ok')]
+    failed = [result for result in results if not result.get('ok')]
+
+    print('')
+    print('Resumen Wunderground:')
+    print('--------------------')
+    print(f'Estaciones solicitadas: {len(results)}')
+    print(f'Estaciones actualizadas: {len(updated)}')
+    print(f'Estaciones fallidas: {len(failed)}')
+
+    if failed:
+        print('')
+        print('Estaciones Wunderground fallidas:')
+        for result in failed:
+            station = result.get('station_id') or result.get('url')
+            station_name = result.get('station_name') or ''
+            errors = result.get('errors') or ['No rows returned']
+            last_error = errors[-1]
+            if station_name:
+                print(f'- {station} ({station_name}) - {last_error}')
+            else:
+                print(f'- {station} - {last_error}')
+
 def create_wunderground():
     launchtime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
@@ -1468,25 +1528,43 @@ def create_wunderground():
         scrap_wunderground_station(url, launchtime)'''
     # Define el número de threads que deseas
     max_threads = _max_threads
+    results = []
+    station_urls = [url.strip() for url in URLS if url.strip() and not url.strip().startswith('#')]
+    total_stations = len(station_urls)
+    completed_stations = 0
+    progress_step = max(1, math.ceil(total_stations / 10))
+    next_progress = progress_step
+
+    print(f'Procesando estaciones Wunderground 0 de {total_stations}')
+    
+    def register_wunderground_result(result):
+        nonlocal completed_stations, next_progress
+        results.append(result)
+        completed_stations += 1
+        if completed_stations >= next_progress or completed_stations == total_stations:
+            print_wunderground_progress(completed_stations, total_stations)
+            while next_progress <= completed_stations:
+                next_progress += progress_step
     
     # Usa ThreadPoolExecutor para gestionar los threads
     with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix="UrlScrapping") as executor:
         futures = []
         # Crea una lista de tareas usando executor.submit()
-        for index, url in enumerate(URLS):
-            url = url.strip()
-
+        for index, url in enumerate(station_urls):
             if index == 0:
                 # Procesa la primera URL sin threads
-                print(f"Procesando primera URL sin threads: {url}")
-                scrap_wunderground_station(url, launchtime)
+                wunderground_log(f"Procesando primera URL sin threads: {url}")
+                register_wunderground_result(scrap_wunderground_station(url, launchtime))
             else:
                 # Procesa el resto de las URLs usando threads
                 futures.append(executor.submit(scrap_wunderground_station, url, launchtime))
         
-        # Opcional: Procesa los resultados (si scrap_wunderground_station retorna algo)
-        for future in futures:
-            result = future.result()  # Puedes manejar el resultado aquí si es necesario
+        # Procesa los resultados a medida que terminan
+        for future in as_completed(futures):
+            register_wunderground_result(future.result())
+
+    print_wunderground_summary(results)
+
 
 
     # Convert to Rainmapper format

@@ -2,13 +2,14 @@ import requests
 import time
 import re
 from bs4 import BeautifulSoup
-from const import _max_attempts
+from const import _max_attempts, _wunderground_full_log
 
 
 class parseStationData:
-    def __init__(self, url, max_attempts=_max_attempts):
+    def __init__(self, url, max_attempts=_max_attempts, full_log=_wunderground_full_log):
         self.url = url
         self.max_attempts = max_attempts
+        self.full_log = full_log
         self.soup = None
         self.headers =  {
             'Referer': ''  # Referer vacío para simular "noreferrer"
@@ -24,22 +25,26 @@ class parseStationData:
     
     def fetch_data(self):
         max_retries = self.max_attempts
+        last_status = 'no response'
         for attempt in range(max_retries):
             try:
                 #response = requests.get(self.url, headers=self.headers)
                 response = requests.get(self.url, headers=self.headers)
+                last_status = response.status_code
 
                 if response.status_code == 200:
                     self.soup = BeautifulSoup(response.content, 'html.parser')
                     return response
-                else:
+                elif self.full_log:
                     print(f'Error al conectar: {response.status_code}. Intento {attempt + 1} de {max_retries}')
             except requests.RequestException as e:
-                print(f'Excepción al intentar conectar: {e}. Intento {attempt + 1} de {max_retries}')
+                last_status = str(e)
+                if self.full_log:
+                    print(f'Excepción al intentar conectar: {e}. Intento {attempt + 1} de {max_retries}')
             # Esperar un poco antes de intentar de nuevo (opcional)
             time.sleep(1)
         
-        raise Exception(f'Error al conectar después de {max_retries} intentos. Status code={response.status_code}')
+        raise Exception(f'Error al conectar después de {max_retries} intentos. Status code={last_status}')
     
             
     def get_station_header(self):

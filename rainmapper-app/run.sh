@@ -115,6 +115,7 @@ NOTOTALS_VALUE="$(option nototals false)"
 DAYS_BUCKET_VALUE="$(option days_bucket 10)"
 MAX_THREADS_VALUE="$(option max_threads 1)"
 MAX_ATTEMPTS_VALUE="$(option max_attempts 3)"
+WUNDERGROUND_FULL_LOG_VALUE="$(option wunderground_full_log false)"
 METEOCLIMATIC_PATTERN_VALUE="$(option meteoclimatic_pattern ESCAT)"
 PUBLISH_TO_WWW_VALUE="$(option publish_to_www true)"
 GMAP_API_KEY_VALUE="$(option gmap_api_key '')"
@@ -137,6 +138,7 @@ export RAINMAPPER_NOTOTALS="$NOTOTALS_VALUE"
 export RAINMAPPER_DAYS_BUCKET="$DAYS_BUCKET_VALUE"
 export RAINMAPPER_MAX_THREADS="$MAX_THREADS_VALUE"
 export RAINMAPPER_MAX_ATTEMPTS="$MAX_ATTEMPTS_VALUE"
+export RAINMAPPER_WUNDERGROUND_FULL_LOG="$WUNDERGROUND_FULL_LOG_VALUE"
 export RAINMAPPER_METEOCLIMATIC_PATTERN="$METEOCLIMATIC_PATTERN_VALUE"
 export RAINMAPPER_PUBLISH_TO_WWW="$PUBLISH_TO_WWW_VALUE"
 cd /app
@@ -156,6 +158,7 @@ run_update() {
     --days_bucket "$DAYS_BUCKET_VALUE" \
     --max_threads "$MAX_THREADS_VALUE" \
     --max_attempts "$MAX_ATTEMPTS_VALUE" \
+    --wunderground_full_log "$WUNDERGROUND_FULL_LOG_VALUE" \
     --meteoclimatic_pattern "$METEOCLIMATIC_PATTERN_VALUE"
   echo "Rainmapper update finished."
 }

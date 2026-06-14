@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5
+
+- Añade el modo configurable de log detallado de Wunderground.
+- Muestra siempre un resumen de Wunderground con las estaciones fallidas.
+- Muestra el progreso de Wunderground cada 10% de estaciones procesadas.
+
 ## 0.2.4
 
 - Allow multiple daily schedule times in `schedule_time`.

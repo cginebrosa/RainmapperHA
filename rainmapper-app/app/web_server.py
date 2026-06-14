@@ -326,6 +326,8 @@ def command_for(action: str) -> list[str]:
         env("RAINMAPPER_MAX_THREADS", "1"),
         "--max_attempts",
         env("RAINMAPPER_MAX_ATTEMPTS", "3"),
+        "--wunderground_full_log",
+        env("RAINMAPPER_WUNDERGROUND_FULL_LOG", "false"),
         "--meteoclimatic_pattern",
         env("RAINMAPPER_METEOCLIMATIC_PATTERN", "ESCAT"),
     ]
