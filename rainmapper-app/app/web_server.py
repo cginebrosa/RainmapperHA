@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import html
+import json
 import mimetypes
 import os
 import re
@@ -14,6 +15,7 @@ from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
+from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 
@@ -63,9 +65,28 @@ def bool_env(name: str, default: bool = False) -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
+def supervisor_addon_slug() -> str:
+    token = env("SUPERVISOR_TOKEN").strip()
+    if not token:
+        return ""
+
+    try:
+        request = Request(
+            "http://supervisor/addons/self/info",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        return ""
+
+    data = payload.get("data", payload) if isinstance(payload, dict) else {}
+    return str(data.get("slug") or "").strip()
+
+
 def addon_settings_url() -> str:
-    addon_slug = env("RAINMAPPER_ADDON_SLUG", "d2750097_rainmapper").strip() or "d2750097_rainmapper"
-    return f"/hassio/addon/{addon_slug}/configuration"
+    addon_slug = supervisor_addon_slug() or env("RAINMAPPER_ADDON_SLUG", "d2750097_rainmapper").strip() or "d2750097_rainmapper"
+    return f"/config/app/{addon_slug}/config"
 
 
 def html_page(title: str, body: str) -> bytes:
@@ -849,7 +870,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         settings_url = html.escape(addon_settings_url(), quote=True)
         body = f"""
         <h1>Opening app settings...</h1>
-        <p>If Home Assistant does not open the settings page automatically, use this link:</p>
+        <p>If Home Assistant does not open the app settings automatically, use this link:</p>
         <p><a class="button-link" target="_top" href="{settings_url}">Open app settings</a></p>
         <script>
           window.top.location.href = "{settings_url}";

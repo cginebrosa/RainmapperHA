@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.15
+
+- Build the WebUI app settings link from the Home Assistant Supervisor self-info API when available.
+
+## 0.2.14
+
+- Point the WebUI app settings link to the Home Assistant app configuration page.
+
 ## 0.2.13
 
 - Do not show disabled Wunderground error stations as current in the WebUI cards.
