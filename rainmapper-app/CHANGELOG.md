@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.25
+
+- Keep rainfall legend compact while restoring range labels and right alignment.
+
 ## 0.2.24
 
 - Make the Leaflet rainfall legend more compact on mobile screens.

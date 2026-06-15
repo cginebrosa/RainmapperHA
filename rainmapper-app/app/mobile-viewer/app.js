@@ -64,11 +64,11 @@ L.control.layers(
 ).addTo(map);
 
 const RAIN_LEGEND_STEPS = [
-  { label: "0", color: "#4ea5ff" },
-  { label: "5", color: "#ffd166" },
-  { label: "15", color: "#ff9f32" },
-  { label: "30", color: "#ff4b2f" },
-  { label: "60", color: "#c0002b" },
+  { label: "0-4.9", color: "#4ea5ff" },
+  { label: "5-14.9", color: "#ffd166" },
+  { label: "15-29.9", color: "#ff9f32" },
+  { label: "30-59.9", color: "#ff4b2f" },
+  { label: "60-99.9", color: "#c0002b" },
   { label: "100+", color: "#7a001f" },
 ];
 

@@ -155,6 +155,16 @@ main {
   left: 0;
 }
 
+.leaflet-left .leaflet-control {
+  clear: left;
+  float: left;
+}
+
+.leaflet-right .leaflet-control {
+  clear: right;
+  float: right;
+}
+
 .leaflet-control-zoom {
   display: none;
 }
@@ -199,7 +209,7 @@ main {
   margin: 0 8px 8px 0;
   padding: 6px 7px;
   text-align: right;
-  width: 58px;
+  width: 86px;
 }
 
 .rain-legend-title {
@@ -341,7 +351,7 @@ main {
     font-size: 10px;
     margin: 0 6px 6px 0;
     padding: 5px 6px;
-    width: 52px;
+    width: 78px;
   }
 
   .rain-legend-title {
