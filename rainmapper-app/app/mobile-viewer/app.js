@@ -216,9 +216,9 @@ async function loadMap(fileName) {
     },
     onEachFeature: (feature, layer) => {
       layer.bindPopup(popupContent(feature.properties || {}), {
+        autoPan: false,
         maxWidth: 320,
         minWidth: 250,
-        autoPanPadding: [18, 92],
       });
     },
   }).addTo(map);

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.28
+
+- Disable Leaflet popup auto-panning so station popups do not move the map.
+
 ## 0.2.27
 
 - Move the rain period selector into the header row and compact the map layer selector.
