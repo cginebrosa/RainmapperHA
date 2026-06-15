@@ -33,10 +33,17 @@ const streetLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/v
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
 });
 
-const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
+const minimalLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  maxZoom: 20,
   noWrap: true,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  subdomains: "abcd",
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+});
+
+const topographicLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+  maxZoom: 17,
+  noWrap: true,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
 });
 
 const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
@@ -45,13 +52,35 @@ const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/
   attribution: "Tiles &copy; Esri",
 });
 
+const hybridSatelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 19,
+  noWrap: true,
+  attribution: "Tiles &copy; Esri",
+});
+
+const hybridLabelsLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 19,
+  noWrap: true,
+  attribution: "Labels &copy; Esri",
+});
+
+const hybridRoadsLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 19,
+  noWrap: true,
+  attribution: "Roads &copy; Esri",
+});
+
+const hybridLayer = L.layerGroup([hybridSatelliteLayer, hybridRoadsLayer, hybridLabelsLayer]);
+
 streetLayer.addTo(map);
 
 L.control.layers(
   {
     "Street": streetLayer,
-    "OpenStreetMap": osmLayer,
+    "Minimal": minimalLayer,
+    "Topographic": topographicLayer,
     "Satellite": satelliteLayer,
+    "Hybrid": hybridLayer,
   },
   {},
   { position: "topright" },

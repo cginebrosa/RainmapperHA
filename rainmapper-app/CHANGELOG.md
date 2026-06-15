@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.19
+
+- Add Leaflet base maps without API keys: Street, Minimal, Topographic, Satellite, and Hybrid.
+
 ## 0.2.18
 
 - Point the Leaflet viewer button to `/local/rainmapper-mobile/index.html` for reliable Home Assistant static serving.
