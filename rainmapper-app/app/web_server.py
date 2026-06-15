@@ -20,8 +20,13 @@ from zoneinfo import ZoneInfo
 
 
 PLOTS_PATH = Path("/app/Plots")
+TOMAP_PATH = Path("/app/Tomap")
+PUBLIC_DATA_PATH = Path("/app/PublicData")
 PUBLIC_PLOTS_PATH = Path("/config/www/Plots")
 PUBLIC_PLOTS_TMP_PATH = Path("/config/www/.rainmapper-plots-tmp")
+MOBILE_VIEWER_ASSETS_PATH = Path("/app/mobile-viewer")
+PUBLIC_MOBILE_PATH = Path("/config/www/rainmapper-mobile")
+PUBLIC_MOBILE_TMP_PATH = Path("/config/www/.rainmapper-mobile-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
 STATIONS_PATH = Path("/app/stations.txt")
@@ -201,9 +206,19 @@ def html_page(title: str, body: str) -> bytes:
     .button-link:focus {{
       border-color: var(--accent);
     }}
-    button.primary {{
+    button.primary,
+    .button-link.primary {{
       background: #06344a;
       border-color: var(--accent);
+    }}
+    .viewer-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 16px;
+    }}
+    .viewer-actions .button-link {{
+      margin: 0;
     }}
     ul {{
       list-style: none;
@@ -696,6 +711,66 @@ def publish_maps(log_file) -> tuple[bool, str]:
     return True, message
 
 
+def publish_mobile_viewer(log_file) -> tuple[bool, str]:
+    if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
+        return True, "Publishing mobile viewer to /local/rainmapper-mobile is disabled."
+
+    if not Path("/config").exists():
+        return False, "Cannot publish mobile viewer: /config is not available in this container."
+
+    if not MOBILE_VIEWER_ASSETS_PATH.exists():
+        return False, "Cannot publish mobile viewer: mobile viewer assets are missing."
+
+    PUBLIC_DATA_PATH.mkdir(parents=True, exist_ok=True)
+    process = subprocess.run(
+        [
+            "python",
+            "tomap_to_geojson.py",
+            "--input-dir",
+            str(TOMAP_PATH),
+            "--output-dir",
+            str(PUBLIC_DATA_PATH),
+        ],
+        cwd="/app",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if process.stdout:
+        log_file.write(process.stdout)
+        log_file.flush()
+    if process.returncode != 0:
+        return False, "Cannot publish mobile viewer: GeoJSON generation failed."
+
+    PUBLIC_MOBILE_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(PUBLIC_MOBILE_TMP_PATH, ignore_errors=True)
+    PUBLIC_MOBILE_TMP_PATH.mkdir(parents=True, exist_ok=True)
+
+    for asset_name in ("index.html", "app.js", "style.css"):
+        shutil.copy2(MOBILE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MOBILE_TMP_PATH / asset_name)
+
+    data_path = PUBLIC_MOBILE_TMP_PATH / "data"
+    data_path.mkdir()
+    copied = 0
+    for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
+        shutil.copy2(source_path, data_path / source_path.name)
+        copied += 1
+
+    shutil.rmtree(PUBLIC_MOBILE_PATH, ignore_errors=True)
+    PUBLIC_MOBILE_TMP_PATH.rename(PUBLIC_MOBILE_PATH)
+
+    published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
+    message = f"Published mobile viewer with {copied} GeoJSON file(s) to /local/rainmapper-mobile at {published_at}."
+    log_file.write(f"=== {message} ===\n")
+    log_file.flush()
+    with RUN_LOCK:
+        previous_message = RUN_STATE["last_publish_message"]
+        RUN_STATE["last_published_at"] = published_at
+        RUN_STATE["last_publish_message"] = f"{previous_message} {message}".strip()
+    print(message, flush=True)
+    return True, message
+
+
 def run_action(action: str, source: str) -> bool:
     if action not in {"update", "maps", "all"}:
         return False
@@ -761,6 +836,11 @@ def _run_action_thread(action: str, source: str) -> None:
                 break
             if current_action == "maps":
                 publish_ok, publish_message = publish_maps(log_file)
+                if not publish_ok:
+                    print(publish_message, flush=True)
+                    log_file.write(f"=== {publish_message} ===\n")
+                    log_file.flush()
+                publish_ok, publish_message = publish_mobile_viewer(log_file)
                 if not publish_ok:
                     print(publish_message, flush=True)
                     log_file.write(f"=== {publish_message} ===\n")
@@ -990,7 +1070,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
-          <div class="card"><span class="label">Public maps</span><span class="value">/local/Plots</span></div>
+          <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
+          <div class="card"><span class="label">Leaflet viewer</span><span class="value">/local/rainmapper-mobile</span></div>
           <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
         </div>
         <div class="station-grid">
@@ -1007,7 +1088,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             f"{controls}"
             "<h2>Status</h2>"
             f"{status}"
-            "<h2>Maps</h2>"
+            "<h2>Viewers</h2>"
+            '<div class="viewer-actions">'
+            '<a class="button-link primary" href="/local/rainmapper-mobile/" target="_top">Open Leaflet viewer</a>'
+            '<a class="button-link" href="/local/Plots/rain_21d.html" target="_top">Open Bokeh 21 days</a>'
+            "</div>"
+            '<h2 id="maps">Maps</h2>'
             f"{self.render_map_list()}"
             "<h2>Last log</h2>"
             f"<pre>{html.escape(read_log())}</pre>"

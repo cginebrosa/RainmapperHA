@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.17
+
+- Add GeoJSON export for the seven generated Tomap periods: 1, 7, 14, 21, 30, 60, and 90 days.
+- Publish a Leaflet mobile viewer to `/local/rainmapper-mobile` after map generation.
+- Add WebUI viewer buttons for the Leaflet viewer and existing Bokeh maps.
+
 ## 0.2.16
 
 - Speed up map filtering by using vectorized pandas date masks.

@@ -23,4 +23,5 @@ services:
       - ./docker-data/Data:/app/Data
       - ./docker-data/Tomap:/app/Tomap
       - ./docker-data/Plots:/app/Plots
+      - ./docker-data/PublicData:/app/PublicData
       - ./docker-data/stations.txt:/app/stations.txt

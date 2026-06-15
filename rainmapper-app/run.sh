@@ -79,6 +79,7 @@ PY
   print_blue "Python: ${python_version}"
   print_blue "Data path: ${SHARE_ROOT}"
   print_blue "Maps path: ${SHARE_ROOT}/Plots"
+  print_blue "Mobile data path: ${SHARE_ROOT}/PublicData"
   print_blue ""
   print_blue "-------------------------------------------------------------------------------"
   print_green "Please share the above information when looking for help or support,"
@@ -87,16 +88,17 @@ PY
   printf "%b" "$reset"
 }
 
-mkdir -p "$SHARE_ROOT/Data" "$SHARE_ROOT/Tomap" "$SHARE_ROOT/Plots"
+mkdir -p "$SHARE_ROOT/Data" "$SHARE_ROOT/Tomap" "$SHARE_ROOT/Plots" "$SHARE_ROOT/PublicData"
 
 if [ ! -f "$SHARE_ROOT/stations.txt" ]; then
   cp /app/stations.example.txt "$SHARE_ROOT/stations.txt"
 fi
 
-rm -rf /app/Data /app/Tomap /app/Plots /app/stations.txt
+rm -rf /app/Data /app/Tomap /app/Plots /app/PublicData /app/stations.txt
 ln -s "$SHARE_ROOT/Data" /app/Data
 ln -s "$SHARE_ROOT/Tomap" /app/Tomap
 ln -s "$SHARE_ROOT/Plots" /app/Plots
+ln -s "$SHARE_ROOT/PublicData" /app/PublicData
 ln -s "$SHARE_ROOT/stations.txt" /app/stations.txt
 
 MODE="$(option mode serve)"
