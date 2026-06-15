@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.16
+
+- Speed up map filtering by using vectorized pandas date masks.
+- Allow map generation with short rebuilt histories by filling missing last-rain columns.
+
 ## 0.2.15
 
 - Build the WebUI app settings link from the Home Assistant Supervisor self-info API when available.

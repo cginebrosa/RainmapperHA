@@ -290,18 +290,53 @@ def get_googlemaps(lat,long):
 
 ## END GENERIC FUNCTION DEFINITIONS
 #In[5] ## DATA RETRIEVAL functions
+_INCREMENTAL_COLUMNS = [
+    'Codi Estació',
+    'Data Lectura',
+    'Estació',
+    'Comarca',
+    'Municipi',
+    'Provincia',
+    'Altitud',
+    'Latitud',
+    'Longitud',
+    'Ultima Lectura',
+    'Variable',
+    'Total',
+    'Unitat',
+    'Data Local',
+    'Hora Local',
+    'max_temp_celsius',
+    'min_temp_celsius',
+    'max_humidity_percent',
+    'min_humidity_percent',
+]
+
+def create_empty_incremental():
+    return pd.DataFrame(columns=_INCREMENTAL_COLUMNS)
+
 def read_incremental(_dataframe, _nrows=None):
+    csv_path = _DATA_PATH + _dataframe + '.csv'
+    if not os.path.exists(csv_path):
+        return create_empty_incremental()
+
     if _nrows is None:
-        df = pd.read_csv(_DATA_PATH + _dataframe + '.csv', decimal=',')
+        df = pd.read_csv(csv_path, decimal=',')
     else:
-        df = pd.read_csv(_DATA_PATH + _dataframe + '.csv', decimal=',', nrows=_nrows)
+        df = pd.read_csv(csv_path, decimal=',', nrows=_nrows)
     #df['Data Lectura'] = pd.to_datetime(df['Ultima Lectura'])       # Construye 'Data Lectura' como datetime64
-    df['Data Lectura'] = pd.to_datetime(df['Data Lectura'],format='%Y-%m-%d %H:%M:%S') # 'Data Lectura' como datetime64
-    df['Total'] = df['Total'].astype(float)     # Convierte la columna 'Total' a tipo float
-    df['Altitud'] = df['Altitud'].astype(str)  # Convierte la columna 'Altitud' a tipo str
-    df['Latitud'] = df['Latitud'].astype(str)  # Convierte la columna 'Latitud' a tipo str
-    df['Longitud'] = df['Longitud'].astype(str)  # Convierte la columna 'Longitud' a tipo str
-    df['Data Local'] = df['Data Local'].astype(str)  # Convierte la columna 'Data Local' a tipo str
+    if 'Data Lectura' in df.columns:
+        df['Data Lectura'] = pd.to_datetime(df['Data Lectura'],format='%Y-%m-%d %H:%M:%S', errors='coerce') # 'Data Lectura' como datetime64
+    if 'Total' in df.columns:
+        df['Total'] = df['Total'].astype(float)     # Convierte la columna 'Total' a tipo float
+    if 'Altitud' in df.columns:
+        df['Altitud'] = df['Altitud'].astype(str)  # Convierte la columna 'Altitud' a tipo str
+    if 'Latitud' in df.columns:
+        df['Latitud'] = df['Latitud'].astype(str)  # Convierte la columna 'Latitud' a tipo str
+    if 'Longitud' in df.columns:
+        df['Longitud'] = df['Longitud'].astype(str)  # Convierte la columna 'Longitud' a tipo str
+    if 'Data Local' in df.columns:
+        df['Data Local'] = df['Data Local'].astype(str)  # Convierte la columna 'Data Local' a tipo str
 
     return df
 
@@ -1681,25 +1716,16 @@ def create_filtered(df_to_filter_param:pd.DataFrame, _base_date, _days_backward,
     # Identifica el thread actual y muestra mensaje al inicio
     thread_name = threading.current_thread().name
     print(f"[{thread_name}] Iniciando thread para filtrado dataframe")
-    
-    # Define una función para parsear las fechas y aplicar el filtro por rango de fechas
-    df_to_filter=df_to_filter_param.copy()
-    def custom_date_parser(date, start_date, end_date):
-        parsed_date = pd.to_datetime(date, format='%Y%m%d', errors='coerce')
-        if start_date <= parsed_date <= end_date:
-            return parsed_date
-        else:
-            return None
-    # Calcula start_date y end_date en función de la fecha base y los días hacia atrás y hacia adelante
+
+    df_to_filter = df_to_filter_param.copy()
     start_date = _base_date - timedelta(days=_days_backward)
     end_date = _base_date + timedelta(days=_days_forward)
 
-    df_to_filter['Data Local'] = df_to_filter['Data Local'].apply(lambda x: custom_date_parser(x, start_date, end_date))
-        
-    #print(df_to_group.info())
-    df_to_filter = df_to_filter.dropna(subset=['Data Local'])  # Elimina filas con fechas fuera del rango
-    #print(df_to_group.info())
-    return df_to_filter
+    if not pd.api.types.is_datetime64_any_dtype(df_to_filter['Data Local']):
+        df_to_filter['Data Local'] = pd.to_datetime(df_to_filter['Data Local'], format='%Y%m%d', errors='coerce')
+
+    date_mask = (df_to_filter['Data Local'] >= start_date) & (df_to_filter['Data Local'] <= end_date)
+    return df_to_filter.loc[date_mask].copy()
 
 def create_grouped(df_to_group_param:pd.DataFrame):
     df_to_group=df_to_group_param.copy()
@@ -1782,10 +1808,21 @@ def create_last_rains(df:pd.DataFrame, _nrecords):
     #print(result_step3.info())
     #print(_nrecords)
 
+    expected_value_columns = [
+        'Data Local',
+        'Total',
+        'max_humidity_percent',
+        'max_temp_celsius',
+        'min_humidity_percent',
+        'min_temp_celsius',
+    ]
+    expected_columns = pd.MultiIndex.from_product([expected_value_columns, range(1, _nrecords + 1)])
+    result_step3 = result_step3.reindex(columns=expected_columns)
+
     # Renombrar las columnas 'Data Local' a 'Data_Pluja{i:02}' y convertirlas al formato DD/MM/YYYY
     for i in range(1, _nrecords+1):
         column_name = f'Data_Pluja{i:02}'
-        result_step3[('Data Local', i)] = pd.to_datetime(result_step3[('Data Local', i)]).dt.strftime('%d/%m/%Y')
+        result_step3[('Data Local', i)] = pd.to_datetime(result_step3[('Data Local', i)], errors='coerce').dt.strftime('%d/%m/%Y')
     
     #print(result_step3.info())
     #print(result_step3)
@@ -2129,7 +2166,7 @@ if not _create_googlemaps_files:
 ##################################################################################
 ### GRABAR csvs PARA PUBLICAR EN GOOGLEMAPS - 90-60-30-21-15-7-1 DAYS desde hoy ##
 ##################################################################################
-if len(meteoclimatic_incremental) == 0 and len(meteocat_incremental) == 0 and len(wunderground_incremental == 0):
+if len(meteoclimatic_incremental) == 0 and len(meteocat_incremental) == 0 and len(wunderground_incremental) == 0:
     print(' ')
     print('NO RECORDS RETURNED FOR SELECTION -- Exiting program')
     print(' ')
