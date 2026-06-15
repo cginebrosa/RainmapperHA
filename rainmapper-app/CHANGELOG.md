@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.21
+
+- Keep only Topographic and Hybrid map layers in the Leaflet viewer.
+- Use Hybrid as the default Leaflet base map.
+
 ## 0.2.20
 
 - Add cache-busting query strings to Leaflet viewer assets so browsers load updated map layers.

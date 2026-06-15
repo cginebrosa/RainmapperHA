@@ -26,30 +26,10 @@ const map = L.map("map", {
   maxBoundsViscosity: 0.4,
 }).setView([41.7, 2.1], 8);
 
-const streetLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-  maxZoom: 20,
-  noWrap: true,
-  subdomains: "abcd",
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-});
-
-const minimalLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-  maxZoom: 20,
-  noWrap: true,
-  subdomains: "abcd",
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-});
-
 const topographicLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
   maxZoom: 17,
   noWrap: true,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
-});
-
-const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-  maxZoom: 19,
-  noWrap: true,
-  attribution: "Tiles &copy; Esri",
 });
 
 const hybridSatelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
@@ -72,14 +52,11 @@ const hybridRoadsLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/res
 
 const hybridLayer = L.layerGroup([hybridSatelliteLayer, hybridRoadsLayer, hybridLabelsLayer]);
 
-streetLayer.addTo(map);
+hybridLayer.addTo(map);
 
 L.control.layers(
   {
-    "Street": streetLayer,
-    "Minimal": minimalLayer,
     "Topographic": topographicLayer,
-    "Satellite": satelliteLayer,
     "Hybrid": hybridLayer,
   },
   {},
