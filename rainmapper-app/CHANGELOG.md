@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.24
+
+- Make the Leaflet rainfall legend more compact on mobile screens.
+
 ## 0.2.23
 
 - Add a rainfall color legend to the Leaflet mobile viewer.
