@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.26
+
+- Move the rainfall legend to the lower left and make the layer selector more compact.
+
 ## 0.2.25
 
 - Keep rainfall legend compact while restoring range labels and right alignment.

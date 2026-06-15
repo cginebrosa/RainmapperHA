@@ -73,12 +73,12 @@ const RAIN_LEGEND_STEPS = [
 ];
 
 function addRainLegend() {
-  const legend = L.control({ position: "bottomright" });
+  const legend = L.control({ position: "bottomleft" });
   legend.onAdd = () => {
     const container = L.DomUtil.create("div", "rain-legend");
     L.DomEvent.disableClickPropagation(container);
     container.innerHTML = `
-      <div class="rain-legend-title">Rain (mm)</div>
+      <div class="rain-legend-title">Rain</div>
       ${RAIN_LEGEND_STEPS.map((step) => `
         <div class="rain-legend-row">
           <span class="rain-legend-swatch" style="background:${step.color}"></span>
