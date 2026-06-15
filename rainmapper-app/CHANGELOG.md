@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.18
+
+- Point the Leaflet viewer button to `/local/rainmapper-mobile/index.html` for reliable Home Assistant static serving.
+
 ## 0.2.17
 
 - Add GeoJSON export for the seven generated Tomap periods: 1, 7, 14, 21, 30, 60, and 90 days.

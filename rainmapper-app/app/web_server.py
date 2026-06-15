@@ -713,7 +713,7 @@ def publish_maps(log_file) -> tuple[bool, str]:
 
 def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
-        return True, "Publishing mobile viewer to /local/rainmapper-mobile is disabled."
+        return True, "Publishing mobile viewer to /local/rainmapper-mobile/index.html is disabled."
 
     if not Path("/config").exists():
         return False, "Cannot publish mobile viewer: /config is not available in this container."
@@ -760,7 +760,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     PUBLIC_MOBILE_TMP_PATH.rename(PUBLIC_MOBILE_PATH)
 
     published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
-    message = f"Published mobile viewer with {copied} GeoJSON file(s) to /local/rainmapper-mobile at {published_at}."
+    message = f"Published mobile viewer with {copied} GeoJSON file(s) to /local/rainmapper-mobile/index.html at {published_at}."
     log_file.write(f"=== {message} ===\n")
     log_file.flush()
     with RUN_LOCK:
@@ -1071,7 +1071,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
           <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
-          <div class="card"><span class="label">Leaflet viewer</span><span class="value">/local/rainmapper-mobile</span></div>
+          <div class="card"><span class="label">Leaflet viewer</span><span class="value">/local/rainmapper-mobile/index.html</span></div>
           <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
         </div>
         <div class="station-grid">
@@ -1090,7 +1090,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             f"{status}"
             "<h2>Viewers</h2>"
             '<div class="viewer-actions">'
-            '<a class="button-link primary" href="/local/rainmapper-mobile/" target="_top">Open Leaflet viewer</a>'
+            '<a class="button-link primary" href="/local/rainmapper-mobile/index.html" target="_top">Open Leaflet viewer</a>'
             '<a class="button-link" href="/local/Plots/rain_21d.html" target="_top">Open Bokeh 21 days</a>'
             "</div>"
             '<h2 id="maps">Maps</h2>'
