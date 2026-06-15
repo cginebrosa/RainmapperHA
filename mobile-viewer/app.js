@@ -63,6 +63,36 @@ L.control.layers(
   { position: "topright" },
 ).addTo(map);
 
+const RAIN_LEGEND_STEPS = [
+  { label: "0-4.9", color: "#4ea5ff" },
+  { label: "5-14.9", color: "#ffd166" },
+  { label: "15-29.9", color: "#ff9f32" },
+  { label: "30-59.9", color: "#ff4b2f" },
+  { label: "60-99.9", color: "#c0002b" },
+  { label: "100+", color: "#7a001f" },
+];
+
+function addRainLegend() {
+  const legend = L.control({ position: "bottomright" });
+  legend.onAdd = () => {
+    const container = L.DomUtil.create("div", "rain-legend");
+    L.DomEvent.disableClickPropagation(container);
+    container.innerHTML = `
+      <div class="rain-legend-title">Rain (mm)</div>
+      ${RAIN_LEGEND_STEPS.map((step) => `
+        <div class="rain-legend-row">
+          <span class="rain-legend-swatch" style="background:${step.color}"></span>
+          <span>${step.label}</span>
+        </div>
+      `).join("")}
+    `;
+    return container;
+  };
+  legend.addTo(map);
+}
+
+addRainLegend();
+
 let stationLayer = null;
 
 function rainColor(total) {

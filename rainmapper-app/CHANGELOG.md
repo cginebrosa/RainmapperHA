@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.23
+
+- Add a rainfall color legend to the Leaflet mobile viewer.
+
 ## 0.2.22
 
 - Allow multiple Meteoclimatic RSS patterns in `meteoclimatic_pattern`.
