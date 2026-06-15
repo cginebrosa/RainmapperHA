@@ -19,6 +19,7 @@ import pytz
 import os
 import math
 import re
+import time as time_module
 import googlemaps
 from meteoclimatic_local.client import MeteoclimaticClient
 from const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
@@ -145,7 +146,7 @@ parser.add_argument('--meteoclimatic_pattern',
                     const=_meteoclimatic_pattern,
                     type=str,
                     default=_meteoclimatic_pattern,
-                    help='Patron de estaciones Meteoclimatic a leer del feed RSS -> Const=Default=ESCAT')
+                    help='Patron(es) de estaciones Meteoclimatic a leer del feed RSS. Separar multiples patrones con coma, punto y coma o " - " -> Const=Default=ESCAT')
 
 # Parsear los argumentos de la línea de comandos
 args = parser.parse_args()
@@ -167,6 +168,14 @@ _print_totals = args._print_totals
 def wunderground_log(message=""):
     if _wunderground_full_log:
         print(message)
+
+def parse_meteoclimatic_patterns(pattern_text):
+    patterns = [
+        pattern.strip()
+        for pattern in re.split(r"\s+-\s+|[,;\n]+", str(pattern_text))
+        if pattern.strip()
+    ]
+    return patterns or [_meteoclimatic_pattern]
 
 #print(_create_meteocat)
 #print(_days_init)
@@ -1229,7 +1238,32 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
 def create_meteoclimatic(_save_to_csv):
 
     client = MeteoclimaticClient()
-    meteoclimatic_df = client.weather_sel_stations(_meteoclimatic_pattern)
+    patterns = parse_meteoclimatic_patterns(_meteoclimatic_pattern)
+    print("Meteoclimatic patterns:", ", ".join(patterns))
+
+    meteoclimatic_frames = []
+    failed_patterns = []
+    for pattern_index, pattern in enumerate(patterns):
+        if pattern_index > 0:
+            time_module.sleep(2)
+        try:
+            pattern_df = client.weather_sel_stations(pattern)
+            print(f"Meteoclimatic pattern {pattern}: {len(pattern_df)} station(s)")
+            if not pattern_df.empty:
+                meteoclimatic_frames.append(pattern_df)
+        except Exception as exc:
+            failed_patterns.append((pattern, exc))
+            print(f"Meteoclimatic pattern {pattern} failed: {exc}")
+
+    if not meteoclimatic_frames:
+        if failed_patterns:
+            failed_text = ", ".join(pattern for pattern, _ in failed_patterns)
+            raise RuntimeError(f"No Meteoclimatic data recovered. Failed pattern(s): {failed_text}")
+        raise RuntimeError("No Meteoclimatic data recovered.")
+
+    meteoclimatic_df = pd.concat(meteoclimatic_frames, ignore_index=True)
+    meteoclimatic_df.drop_duplicates(subset=["Codi Estació"], keep="first", inplace=True)
+    meteoclimatic_df.reset_index(drop=True, inplace=True)
     meteoclimatic_df = create_total_meteoclimatic(meteoclimatic_df, _save_to_excel = False, _save_to_csv=False)
 
     meteoclimatic_df['Data Local'] = meteoclimatic_df['Ultima Lectura']

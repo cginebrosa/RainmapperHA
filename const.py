@@ -15,7 +15,7 @@ _days_bucket = 10                       # NUMBER OF DAYS OF BUCKET SELECTION FRO
 _qcodi_variable = "'35'"                # VARIABLE FOR PRECIPITATION = 35 ((Meteocat))
 _qcodi_variable2 = "'35'"               # SECOND VARIABLE RESERVATION (JUST IN CASE) ((Meteocat))
 _codi_estacio = 'ALL'                   # ALL STATIONS - PUT HERE 'codi_estacio' if just want one ((Meteocat))
-_meteoclimatic_pattern = 'ESCAT'        # Station pattern to select from Meteoclimatic RSS feed
+_meteoclimatic_pattern = 'ESCAT'        # Station pattern(s) to select from Meteoclimatic RSS feed. Use comma, semicolon, or " - " for multiple patterns.
 _minima_lectura_meteoclimatic = 0       # RAIN per reading must be >=     For Meteoclimatic stations
 _minima_lectura_meteocat = 0            # RAIN per reading must be >=     For Meteocat stations
 _minimum_rain_toprint = 1               # MINIMUM RAIN per period to output to print ((Meteocat & Meteoclimatic))

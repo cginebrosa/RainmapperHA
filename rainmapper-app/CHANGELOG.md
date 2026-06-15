@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.22
+
+- Allow multiple Meteoclimatic RSS patterns in `meteoclimatic_pattern`.
+- Accept comma, semicolon, or ` - ` separated patterns, with a short delay between feed requests.
+
 ## 0.2.21
 
 - Keep only Topographic and Hybrid map layers in the Leaflet viewer.
