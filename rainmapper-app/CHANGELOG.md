@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.20
+
+- Add cache-busting query strings to Leaflet viewer assets so browsers load updated map layers.
+
 ## 0.2.19
 
 - Add Leaflet base maps without API keys: Street, Minimal, Topographic, Satellite, and Hybrid.
