@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.27
+
+- Move the rain period selector into the header row and compact the map layer selector.
+
 ## 0.2.26
 
 - Move the rainfall legend to the lower left and make the layer selector more compact.

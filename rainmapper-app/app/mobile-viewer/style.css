@@ -28,9 +28,9 @@ body {
   align-items: center;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
-  display: flex;
+  display: grid;
   gap: 16px;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 76px;
   padding: 10px 14px;
 }
@@ -176,14 +176,11 @@ main {
   color: var(--text);
   font-size: 12px;
   margin: 8px;
-  padding: 6px 8px;
+  padding: 4px 8px;
 }
 
 .leaflet-control-layers-toggle {
-  color: var(--text);
-  display: block;
-  min-height: 26px;
-  min-width: 26px;
+  display: none;
 }
 
 .leaflet-control-layers-toggle::before {
@@ -192,7 +189,7 @@ main {
 }
 
 .leaflet-control-layers-list {
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 .leaflet-control-layers label {
@@ -337,18 +334,40 @@ main {
 
 @media (max-width: 640px) {
   .topbar {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 8px;
-    min-height: 112px;
+    align-items: center;
+    gap: 10px;
+    min-height: 72px;
+    padding: 8px 10px;
   }
 
   main {
-    height: calc(100% - 112px);
+    height: calc(100% - 72px);
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  p {
+    font-size: 12px;
+    margin-top: 3px;
   }
 
   select {
-    width: 100%;
+    font-size: 13px;
+    min-width: 96px;
+    padding: 8px 28px 8px 10px;
+    width: auto;
+  }
+
+  .leaflet-control-layers {
+    font-size: 11px;
+    margin: 6px;
+    padding: 3px 7px;
+  }
+
+  .leaflet-control-layers label {
+    line-height: 1.3;
   }
 
   .rain-legend {
