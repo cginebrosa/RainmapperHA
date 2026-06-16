@@ -61,7 +61,6 @@ const map = new maplibregl.Map({
   style: currentStyle.url,
   center: INITIAL_CENTER,
   zoom: INITIAL_ZOOM,
-  maxBounds: DISPLAY_BOUNDS,
   attributionControl: true,
 });
 

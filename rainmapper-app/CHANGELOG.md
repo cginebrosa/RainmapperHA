@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.39
+
+- Remove the MapLibre navigation bounds so edge stations can be inspected more comfortably.
+
 ## 0.2.38
 
 - Reload the current MapLibre period data after base style changes so station markers remain visible.
