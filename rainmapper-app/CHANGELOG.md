@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.38
+
+- Reload the current MapLibre period data after base style changes so station markers remain visible.
+
 ## 0.2.37
 
 - Restore MapLibre station markers after switching base map styles.

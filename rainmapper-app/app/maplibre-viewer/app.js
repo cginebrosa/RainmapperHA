@@ -138,14 +138,23 @@ function addStationLayer() {
   return true;
 }
 
-function addStationLayerWhenReady(attempt = 0) {
-  if (addStationLayer()) {
+function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
+  if (!map.isStyleLoaded()) {
+    if (attempt < 40) {
+      window.setTimeout(() => reloadCurrentPeriodAfterStyleChange(center, zoom, attempt + 1), 100);
+    }
     return;
   }
 
-  if (attempt < 30) {
-    window.setTimeout(() => addStationLayerWhenReady(attempt + 1), 100);
-  }
+  map.jumpTo({ center, zoom });
+  const selectedPeriod = document.getElementById("map-selector").value;
+  loadMap(selectedPeriod)
+    .then(() => {
+      map.jumpTo({ center, zoom });
+    })
+    .catch((error) => {
+      document.getElementById("summary").textContent = error.message;
+    });
 }
 
 function popupContent(properties) {
@@ -301,14 +310,22 @@ function renderLayerSwitcher() {
     if (!nextStyle) {
       return;
     }
+
     currentStyle = nextStyle;
     const center = map.getCenter();
     const zoom = map.getZoom();
-    map.once("style.load", () => {
-      map.jumpTo({ center, zoom });
-      addStationLayerWhenReady();
-    });
+    let reloadedCurrentPeriod = false;
+    const reloadOnce = () => {
+      if (reloadedCurrentPeriod) {
+        return;
+      }
+      reloadedCurrentPeriod = true;
+      reloadCurrentPeriodAfterStyleChange(center, zoom);
+    };
+
+    map.once("idle", reloadOnce);
     map.setStyle(currentStyle.url);
+    window.setTimeout(reloadOnce, 600);
   });
 }
 
