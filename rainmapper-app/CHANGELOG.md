@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.36
+
+- Add a separate experimental MapLibre viewer with OpenFreeMap Liberty and Bright styles.
+- Add optional Jawg Streets and Terrain vector styles to the MapLibre viewer when a Jawg access token is configured.
+- Rename Leaflet viewer source folders while keeping the legacy rainmapper-mobile URL temporarily available.
+
+## 0.2.35
+
+- Restore Leaflet raster tile settings after retina tiles made labels too small.
+
 ## 0.2.34
 
 - Improve raster tile sharpness in the Leaflet viewer on high-density screens.

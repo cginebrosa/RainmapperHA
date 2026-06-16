@@ -1,0 +1,513 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b1117;
+  --panel: #111923;
+  --border: #263646;
+  --text: #eef4fb;
+  --muted: #9aacbd;
+  --accent: #49b7ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.topbar {
+  align-items: center;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 76px;
+  padding: 10px 14px;
+}
+
+.topbar-title {
+  min-width: 0;
+}
+
+h1 {
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.generated {
+  align-self: center;
+  color: var(--muted);
+  display: grid;
+  font-size: 10px;
+  gap: 1px;
+  justify-items: center;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.generated time {
+  color: var(--text);
+  font-size: 12px;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+select {
+  appearance: none;
+  background: #172331;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  min-width: 112px;
+  padding: 10px 34px 10px 12px;
+  justify-self: end;
+}
+
+main {
+  height: calc(100% - 76px);
+  position: relative;
+}
+
+#map {
+  height: 100%;
+  width: 100%;
+}
+
+/* Leaflet layout fallback for mobile browsers if the CDN stylesheet is delayed or blocked. */
+.leaflet-container {
+  background: #ddd;
+  overflow: hidden;
+  position: relative;
+  touch-action: pan-x pan-y;
+}
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+  left: 0;
+  position: absolute;
+  top: 0;
+}
+
+.leaflet-tile {
+  border: 0;
+  filter: inherit;
+  height: 256px;
+  user-select: none;
+  width: 256px;
+}
+
+.leaflet-tile-container {
+  pointer-events: none;
+}
+
+.leaflet-pane {
+  z-index: 400;
+}
+
+.leaflet-tile-pane {
+  z-index: 200;
+}
+
+.leaflet-overlay-pane {
+  z-index: 400;
+}
+
+.leaflet-marker-pane {
+  z-index: 600;
+}
+
+.leaflet-tooltip-pane {
+  z-index: 650;
+}
+
+.leaflet-popup-pane {
+  z-index: 700;
+}
+
+.leaflet-control {
+  pointer-events: auto;
+  position: relative;
+  z-index: 800;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  pointer-events: none;
+  position: absolute;
+  z-index: 1000;
+}
+
+.leaflet-top {
+  top: 0;
+}
+
+.leaflet-right {
+  right: 0;
+}
+
+.leaflet-bottom {
+  bottom: 0;
+}
+
+.leaflet-left {
+  left: 0;
+}
+
+.leaflet-left .leaflet-control {
+  clear: left;
+  float: left;
+}
+
+.leaflet-right .leaflet-control {
+  clear: right;
+  float: right;
+}
+
+.leaflet-control-zoom {
+  display: none;
+}
+
+.leaflet-control-layers {
+  background: rgba(16, 24, 32, 0.94);
+  border: 1px solid rgba(180, 198, 214, 0.35);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  margin: 8px;
+  padding: 4px 8px;
+}
+
+.leaflet-control-layers-toggle {
+  display: none;
+}
+
+.leaflet-control-layers-toggle::before {
+  content: "";
+  font-weight: 700;
+}
+
+.leaflet-control-layers-list {
+  margin-top: 0;
+}
+
+.leaflet-control-layers label {
+  display: block;
+  line-height: 1.45;
+}
+
+.rain-legend {
+  background: rgba(16, 24, 32, 0.88);
+  border: 1px solid rgba(180, 198, 214, 0.35);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 11px;
+  margin: 0 0 8px 8px;
+  padding: 6px 7px;
+  text-align: left;
+  width: 86px;
+}
+
+.rain-legend-title {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.rain-legend-row {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: 12px 1fr;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.rain-legend-row span:last-child {
+  text-align: right;
+}
+
+.rain-legend-swatch {
+  border: 1px solid rgba(17, 25, 35, 0.85);
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #101820;
+  color: var(--text);
+}
+
+.leaflet-popup-content {
+  font-size: 14px;
+  margin: 12px;
+  max-height: min(54vh, 440px);
+  overflow-y: auto;
+  width: min(76vw, 320px) !important;
+}
+
+.popup-title {
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.popup-row {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.popup-row strong {
+  color: var(--text);
+}
+
+.history {
+  border-top: 1px solid rgba(154, 172, 189, 0.25);
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.history summary {
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+  list-style-position: outside;
+  margin-bottom: 6px;
+}
+
+.history-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.history-table th {
+  color: #6f8294;
+  font-weight: 700;
+  padding: 0 4px 4px;
+  text-align: right;
+}
+
+.history-table th:first-child {
+  text-align: left;
+}
+
+.history-table td {
+  color: var(--text);
+  font-weight: 700;
+  padding: 2px 4px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.history-table td:first-child {
+  color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.history-table th:nth-child(1),
+.history-table td:nth-child(1) {
+  width: 42%;
+}
+
+.history-table th:nth-child(2),
+.history-table td:nth-child(2) {
+  width: 22%;
+}
+
+.history-table th:nth-child(3),
+.history-table td:nth-child(3),
+.history-table th:nth-child(4),
+.history-table td:nth-child(4) {
+  width: 18%;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    align-items: center;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    min-height: 72px;
+    padding: 8px 10px;
+  }
+
+  main {
+    height: calc(100% - 72px);
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  p {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+
+  .generated {
+    font-size: 9px;
+  }
+
+  .generated time {
+    font-size: 11px;
+  }
+
+  select {
+    font-size: 13px;
+    min-width: 92px;
+    padding: 8px 28px 8px 10px;
+    width: auto;
+  }
+
+  .leaflet-control-layers {
+    font-size: 11px;
+    margin: 6px;
+    padding: 3px 7px;
+  }
+
+  .leaflet-control-layers label {
+    line-height: 1.3;
+  }
+
+  .rain-legend {
+    font-size: 10px;
+    margin: 0 0 6px 6px;
+    padding: 5px 6px;
+    width: 78px;
+  }
+
+  .rain-legend-title {
+    font-size: 10px;
+    margin-bottom: 3px;
+  }
+
+  .rain-legend-row {
+    gap: 5px;
+    grid-template-columns: 10px 1fr;
+    line-height: 1.25;
+  }
+
+  .rain-legend-swatch {
+    height: 8px;
+    width: 8px;
+  }
+}
+
+.maplibregl-canvas {
+  display: block;
+}
+
+.maplibregl-ctrl-top-left {
+  display: none;
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(16, 24, 32, 0.72) !important;
+  color: var(--text) !important;
+  font-size: 10px;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: #9ab7ff !important;
+}
+
+.maplibre-layer-switcher {
+  background: rgba(16, 24, 32, 0.94);
+  border: 1px solid rgba(180, 198, 214, 0.35);
+  border-radius: 8px;
+  color: var(--text);
+  display: grid;
+  font-size: 12px;
+  gap: 6px;
+  padding: 8px 10px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 10;
+}
+
+.maplibre-layer-switcher label {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.maplibre-layer-switcher input {
+  accent-color: var(--accent);
+  height: 16px;
+  width: 16px;
+}
+
+.maplibre-rain-legend {
+  bottom: 20px;
+  left: 8px;
+  position: absolute;
+  z-index: 10;
+}
+
+.maplibregl-popup-content {
+  background: rgba(11, 17, 23, 0.96);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text);
+  font: inherit;
+  padding: 14px 16px;
+}
+
+.maplibregl-popup-tip {
+  display: none;
+}
+
+.maplibregl-popup {
+  z-index: 20;
+}
+
+@media (max-width: 520px) {
+  .maplibre-layer-switcher {
+    font-size: 12px;
+    gap: 4px;
+    padding: 6px 8px;
+  }
+
+  .maplibre-rain-legend {
+    bottom: 14px;
+  }
+}

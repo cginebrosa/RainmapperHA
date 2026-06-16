@@ -24,9 +24,13 @@ TOMAP_PATH = Path("/app/Tomap")
 PUBLIC_DATA_PATH = Path("/app/PublicData")
 PUBLIC_PLOTS_PATH = Path("/config/www/Plots")
 PUBLIC_PLOTS_TMP_PATH = Path("/config/www/.rainmapper-plots-tmp")
-MOBILE_VIEWER_ASSETS_PATH = Path("/app/mobile-viewer")
-PUBLIC_MOBILE_PATH = Path("/config/www/rainmapper-mobile")
-PUBLIC_MOBILE_TMP_PATH = Path("/config/www/.rainmapper-mobile-tmp")
+LEAFLET_VIEWER_ASSETS_PATH = Path("/app/leaflet-viewer")
+PUBLIC_LEAFLET_PATH = Path("/config/www/rainmapper-leaflet")
+PUBLIC_LEAFLET_TMP_PATH = Path("/config/www/.rainmapper-leaflet-tmp")
+PUBLIC_LEGACY_MOBILE_PATH = Path("/config/www/rainmapper-mobile")
+MAPLIBRE_VIEWER_ASSETS_PATH = Path("/app/maplibre-viewer")
+PUBLIC_MAPLIBRE_PATH = Path("/config/www/rainmapper-maplibre")
+PUBLIC_MAPLIBRE_TMP_PATH = Path("/config/www/.rainmapper-maplibre-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
 STATIONS_PATH = Path("/app/stations.txt")
@@ -122,9 +126,9 @@ def html_page(title: str, body: str) -> bytes:
       color: var(--fg);
     }}
     main {{
-      max-width: 980px;
+      max-width: 1440px;
       margin: 0 auto;
-      padding: 24px 16px 40px;
+      padding: 24px 20px 40px;
     }}
     h1 {{
       margin: 0 0 8px;
@@ -142,7 +146,7 @@ def html_page(title: str, body: str) -> bytes:
     }}
     .grid {{
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 12px;
       margin: 16px 0 8px;
     }}
@@ -153,6 +157,9 @@ def html_page(title: str, body: str) -> bytes:
       margin: 16px 0 8px;
     }}
     @media (max-width: 760px) {{
+      main {{
+        padding: 20px 12px 36px;
+      }}
       .station-grid {{
         grid-template-columns: 1fr;
       }}
@@ -713,13 +720,13 @@ def publish_maps(log_file) -> tuple[bool, str]:
 
 def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
-        return True, "Publishing mobile viewer to /local/rainmapper-mobile/index.html is disabled."
+        return True, "Publishing viewers to /local/rainmapper-leaflet/index.html and /local/rainmapper-maplibre/index.html is disabled."
 
     if not Path("/config").exists():
-        return False, "Cannot publish mobile viewer: /config is not available in this container."
+        return False, "Cannot publish viewers: /config is not available in this container."
 
-    if not MOBILE_VIEWER_ASSETS_PATH.exists():
-        return False, "Cannot publish mobile viewer: mobile viewer assets are missing."
+    if not LEAFLET_VIEWER_ASSETS_PATH.exists():
+        return False, "Cannot publish Leaflet viewer: Leaflet viewer assets are missing."
 
     PUBLIC_DATA_PATH.mkdir(parents=True, exist_ok=True)
     process = subprocess.run(
@@ -740,33 +747,57 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
         log_file.write(process.stdout)
         log_file.flush()
     if process.returncode != 0:
-        return False, "Cannot publish mobile viewer: GeoJSON generation failed."
+        return False, "Cannot publish viewers: GeoJSON generation failed."
 
-    PUBLIC_MOBILE_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
-    shutil.rmtree(PUBLIC_MOBILE_TMP_PATH, ignore_errors=True)
-    PUBLIC_MOBILE_TMP_PATH.mkdir(parents=True, exist_ok=True)
+    PUBLIC_LEAFLET_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(PUBLIC_LEAFLET_TMP_PATH, ignore_errors=True)
+    PUBLIC_LEAFLET_TMP_PATH.mkdir(parents=True, exist_ok=True)
 
     for asset_name in ("index.html", "app.js", "style.css"):
-        shutil.copy2(MOBILE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MOBILE_TMP_PATH / asset_name)
+        shutil.copy2(LEAFLET_VIEWER_ASSETS_PATH / asset_name, PUBLIC_LEAFLET_TMP_PATH / asset_name)
 
     viewer_config = {
         "jawgmapsAccessToken": env("JAWGMAPS_API_KEY"),
     }
     config_js = "window.RAINMAPPER_CONFIG = " + json.dumps(viewer_config) + ";\n"
-    (PUBLIC_MOBILE_TMP_PATH / "config.js").write_text(config_js)
+    (PUBLIC_LEAFLET_TMP_PATH / "config.js").write_text(config_js)
 
-    data_path = PUBLIC_MOBILE_TMP_PATH / "data"
+    data_path = PUBLIC_LEAFLET_TMP_PATH / "data"
     data_path.mkdir()
     copied = 0
     for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
         shutil.copy2(source_path, data_path / source_path.name)
         copied += 1
 
-    shutil.rmtree(PUBLIC_MOBILE_PATH, ignore_errors=True)
-    PUBLIC_MOBILE_TMP_PATH.rename(PUBLIC_MOBILE_PATH)
+    shutil.rmtree(PUBLIC_LEAFLET_PATH, ignore_errors=True)
+    PUBLIC_LEAFLET_TMP_PATH.rename(PUBLIC_LEAFLET_PATH)
+    shutil.rmtree(PUBLIC_LEGACY_MOBILE_PATH, ignore_errors=True)
+    shutil.copytree(PUBLIC_LEAFLET_PATH, PUBLIC_LEGACY_MOBILE_PATH)
+
+    if not MAPLIBRE_VIEWER_ASSETS_PATH.exists():
+        return False, "Cannot publish MapLibre viewer: MapLibre viewer assets are missing."
+
+    PUBLIC_MAPLIBRE_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(PUBLIC_MAPLIBRE_TMP_PATH, ignore_errors=True)
+    PUBLIC_MAPLIBRE_TMP_PATH.mkdir(parents=True, exist_ok=True)
+
+    for asset_name in ("index.html", "app.js", "style.css"):
+        shutil.copy2(MAPLIBRE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MAPLIBRE_TMP_PATH / asset_name)
+    (PUBLIC_MAPLIBRE_TMP_PATH / "config.js").write_text(config_js)
+
+    maplibre_data_path = PUBLIC_MAPLIBRE_TMP_PATH / "data"
+    maplibre_data_path.mkdir()
+    for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
+        shutil.copy2(source_path, maplibre_data_path / source_path.name)
+
+    shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
+    PUBLIC_MAPLIBRE_TMP_PATH.rename(PUBLIC_MAPLIBRE_PATH)
 
     published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
-    message = f"Published mobile viewer with {copied} GeoJSON file(s) to /local/rainmapper-mobile/index.html at {published_at}."
+    message = (
+        f"Published mobile viewers with {copied} GeoJSON file(s) to "
+        f"/local/rainmapper-leaflet/index.html, /local/rainmapper-mobile/index.html, and /local/rainmapper-maplibre/index.html at {published_at}."
+    )
     log_file.write(f"=== {message} ===\n")
     log_file.flush()
     with RUN_LOCK:
@@ -1077,7 +1108,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
           <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
-          <div class="card"><span class="label">Leaflet viewer</span><span class="value">/local/rainmapper-mobile/index.html</span></div>
+          <div class="card"><span class="label">Leaflet viewer</span><span class="value">/local/rainmapper-leaflet/index.html</span></div>
+          <div class="card"><span class="label">MapLibre viewer</span><span class="value">/local/rainmapper-maplibre/index.html</span></div>
           <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
         </div>
         <div class="station-grid">
@@ -1096,7 +1128,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             f"{status}"
             "<h2>Viewers</h2>"
             '<div class="viewer-actions">'
-            '<a class="button-link primary" href="/local/rainmapper-mobile/index.html" target="_top">Open Leaflet viewer</a>'
+            '<a class="button-link primary" href="/local/rainmapper-leaflet/index.html" target="_top">Open Leaflet viewer</a>'
+            '<a class="button-link primary" href="/local/rainmapper-maplibre/index.html" target="_top">Open MapLibre viewer</a>'
             '<a class="button-link" href="/local/Plots/rain_21d.html" target="_top">Open Bokeh 21 days</a>'
             "</div>"
             '<h2 id="maps">Maps</h2>'
