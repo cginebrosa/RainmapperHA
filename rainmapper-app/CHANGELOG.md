@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.41
+
+- Document the Bokeh, Leaflet, and MapLibre map viewers and their public URLs.
+
 ## 0.2.40
 
 - Add `ignore_stations_tomap.txt` to exclude selected stations from generated GeoJSON maps without deleting historical data.

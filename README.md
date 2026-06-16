@@ -66,6 +66,16 @@ y Home Assistant los sirve como:
 /local/Plots/rain_90d.html
 ```
 
+## Visores de mapas
+
+RainmapperHA publica tres visores:
+
+- Bokeh / HTML clasico: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 30, 60 y 90 dias.
+- Leaflet: `/local/rainmapper-leaflet/index.html` (`/local/rainmapper-mobile/index.html` se mantiene como ruta compatible antigua).
+- MapLibre: `/local/rainmapper-maplibre/index.html`.
+
+Leaflet y MapLibre usan GeoJSON generados desde `Tomap`. El fichero `ignore_stations_tomap.txt` solo afecta a estos visores nuevos.
+
 ## Google Maps API key
 
 Cada instalacion debe usar su propia Google Maps API key.

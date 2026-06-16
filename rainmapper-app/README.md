@@ -6,6 +6,13 @@ La app se queda abierta como un servicio ligero. Desde su webUI puedes lanzar `u
 
 Cuando `publish_to_www` esta activado, cada generacion de mapas publica una copia en `/config/www/Plots`, accesible desde Home Assistant como `/local/Plots`.
 
+Visores publicados:
+
+- Bokeh / HTML clasico: `/local/Plots/rain_21d.html` y equivalentes.
+- Leaflet: `/local/rainmapper-leaflet/index.html`.
+- Leaflet legacy: `/local/rainmapper-mobile/index.html`.
+- MapLibre: `/local/rainmapper-maplibre/index.html`.
+
 La programacion interna puede ejecutar Rainmapper una o varias veces al dia usando `schedule_time`, por ejemplo `06:00, 12:00, 18:00, 23:50`, y se puede limitar por dias con `schedule_days`.
 
 Datos persistentes:

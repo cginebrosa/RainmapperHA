@@ -77,6 +77,69 @@ La carpeta interna `/share/rainmapper/Plots` sigue siendo la salida principal de
 
 Al publicar, la app recrea `/config/www/Plots` completa. Asi evita dejar HTML antiguos que ya no correspondan a la ultima generacion.
 
+## Visores de mapas
+
+Rainmapper publica tres formas de consultar los mapas. Durante la transicion conviven las tres para poder comparar calidad, rendimiento y uso en movil.
+
+### Bokeh / HTML clasico
+
+Ruta publica:
+
+```text
+/local/Plots
+```
+
+Ejemplos:
+
+```text
+/local/Plots/rain_01d.html
+/local/Plots/rain_07d.html
+/local/Plots/rain_14d.html
+/local/Plots/rain_21d.html
+/local/Plots/rain_30d.html
+/local/Plots/rain_60d.html
+/local/Plots/rain_90d.html
+```
+
+Este visor usa los HTML generados por `Rainmapper_Client.py`. Es el visor original y sigue siendo util como referencia, pero en movil es menos comodo.
+
+### Leaflet viewer
+
+Ruta publica actual:
+
+```text
+/local/rainmapper-leaflet/index.html
+```
+
+Ruta compatible antigua:
+
+```text
+/local/rainmapper-mobile/index.html
+```
+
+El visor Leaflet usa los GeoJSON publicados en `/config/www/rainmapper-data`. Es mas ligero que Bokeh y esta pensado para movil.
+
+### MapLibre viewer
+
+Ruta publica:
+
+```text
+/local/rainmapper-maplibre/index.html
+```
+
+El visor MapLibre tambien usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas vectoriales como OpenFreeMap y, si se configura `jawgmaps_api_key`, estilos de JawgMaps como Streets y Terrain.
+
+### Que se regenera en cada caso
+
+Cuando ejecutas `maps` o `all`:
+
+- se regeneran los HTML clasicos en `/share/rainmapper/Plots`;
+- si `publish_to_www` esta activo, se publican en `/config/www/Plots`;
+- se regeneran los GeoJSON desde `Tomap`;
+- se publican los datos y visores Leaflet/MapLibre en `/config/www`.
+
+Si editas `ignore_stations_tomap.txt`, ejecuta `maps` o `all` para que Leaflet y MapLibre reflejen el cambio.
+
 ## Modos de ejecucion
 
 `mode` controla que hace la app al arrancar.

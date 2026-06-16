@@ -203,6 +203,13 @@ Use one station code per line:
 
 The file is created automatically if it does not exist. Existing files are not overwritten. The filter only applies when generating GeoJSON for the viewers; downloads and historical CSV files remain unchanged.
 
+The Home Assistant app publishes the new viewers as:
+
+    /local/rainmapper-leaflet/index.html
+    /local/rainmapper-maplibre/index.html
+
+The old Bokeh HTML maps remain available under `/local/Plots` when `publish_to_www` is enabled.
+
 ## Environment variables
 
 Execution mode:
