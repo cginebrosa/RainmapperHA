@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.37
+
+- Restore MapLibre station markers after switching base map styles.
+
 ## 0.2.36
 
 - Add a separate experimental MapLibre viewer with OpenFreeMap Liberty and Bright styles.

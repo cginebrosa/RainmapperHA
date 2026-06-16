@@ -109,7 +109,7 @@ function prepareFeature(feature) {
 
 function addStationLayer() {
   if (!currentData || !map.isStyleLoaded()) {
-    return;
+    return false;
   }
 
   if (map.getLayer(CIRCLE_LAYER_ID)) {
@@ -135,6 +135,17 @@ function addStationLayer() {
       "circle-stroke-width": 1.2,
     },
   });
+  return true;
+}
+
+function addStationLayerWhenReady(attempt = 0) {
+  if (addStationLayer()) {
+    return;
+  }
+
+  if (attempt < 30) {
+    window.setTimeout(() => addStationLayerWhenReady(attempt + 1), 100);
+  }
 }
 
 function popupContent(properties) {
@@ -294,8 +305,8 @@ function renderLayerSwitcher() {
     const center = map.getCenter();
     const zoom = map.getZoom();
     map.once("style.load", () => {
-      addStationLayer();
       map.jumpTo({ center, zoom });
+      addStationLayerWhenReady();
     });
     map.setStyle(currentStyle.url);
   });
