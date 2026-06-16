@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.34
+
+- Improve raster tile sharpness in the Leaflet viewer on high-density screens.
+- Increase Jawg layer zoom support for Street and Terrain maps.
+
 ## 0.2.33
 
 - Add optional Jawg Maps Street and Terrain layers to the Leaflet viewer when a Jawg access token is configured.
