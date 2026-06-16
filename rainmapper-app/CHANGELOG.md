@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.32
+
+- Preserve the Leaflet map center and zoom when switching rain periods after the initial load.
+
 ## 0.2.31
 
 - Align the Leaflet viewer header as three columns: title, generation time, and period selector.

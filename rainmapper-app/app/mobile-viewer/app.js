@@ -94,6 +94,7 @@ function addRainLegend() {
 addRainLegend();
 
 let stationLayer = null;
+let hasLoadedInitialMap = false;
 
 function rainColor(total) {
   if (total >= 100) return "#7a001f";
@@ -231,7 +232,9 @@ async function loadMap(fileName) {
     ...data,
     features: visibleFeatures,
   };
+  const preserveView = hasLoadedInitialMap;
 
+  map.closePopup();
   if (stationLayer) {
     stationLayer.remove();
   }
@@ -260,6 +263,11 @@ async function loadMap(fileName) {
   updateSummary(fileName, count);
   updateGeneratedAt(data.metadata?.generated_at);
 
+  if (preserveView) {
+    return;
+  }
+
+  hasLoadedInitialMap = true;
   if (count > 0) {
     map.fitBounds(stationLayer.getBounds(), { padding: [24, 24] });
   } else {
