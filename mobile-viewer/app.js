@@ -180,6 +180,39 @@ function updateSummary(fileName, count) {
   summary.textContent = `${periods[fileName]} · ${count} station${count === 1 ? "" : "s"}`;
 }
 
+function updateGeneratedAt(generatedAt) {
+  const generatedElement = document.getElementById("generated-at");
+  if (!generatedElement) {
+    return;
+  }
+
+  if (!generatedAt) {
+    generatedElement.textContent = "-";
+    generatedElement.removeAttribute("datetime");
+    return;
+  }
+
+  const generatedDate = new Date(generatedAt);
+  if (Number.isNaN(generatedDate.getTime())) {
+    generatedElement.textContent = generatedAt;
+    generatedElement.setAttribute("datetime", generatedAt);
+    return;
+  }
+
+  const datePart = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(generatedDate);
+  const timePart = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(generatedDate);
+  generatedElement.textContent = `${datePart} - ${timePart}`;
+  generatedElement.setAttribute("datetime", generatedAt);
+}
+
 async function loadMap(fileName) {
   const url = `${DATA_BASE}${fileName}`;
   const response = await fetch(url, { cache: "no-store" });
@@ -225,6 +258,7 @@ async function loadMap(fileName) {
 
   const count = visibleFeatures.length;
   updateSummary(fileName, count);
+  updateGeneratedAt(data.metadata?.generated_at);
 
   if (count > 0) {
     map.fitBounds(stationLayer.getBounds(), { padding: [24, 24] });

@@ -47,6 +47,30 @@ p {
   margin: 4px 0 0;
 }
 
+.topbar-side {
+  align-items: end;
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.generated {
+  color: var(--muted);
+  display: grid;
+  font-size: 10px;
+  gap: 1px;
+  justify-items: end;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.generated time {
+  color: var(--text);
+  font-size: 12px;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 select {
   appearance: none;
   background: #172331;
@@ -351,6 +375,18 @@ main {
   p {
     font-size: 12px;
     margin-top: 3px;
+  }
+
+  .topbar-side {
+    gap: 5px;
+  }
+
+  .generated {
+    font-size: 9px;
+  }
+
+  .generated time {
+    font-size: 11px;
   }
 
   select {

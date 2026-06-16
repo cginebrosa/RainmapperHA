@@ -1307,6 +1307,8 @@ def create_meteoclimatic(_save_to_csv):
 def scrap_wunderground_station(weather_station_url, launchtime):
 
     thread_name = threading.current_thread().name
+    station_started_at = datetime.now()
+    station_start_time = time_module.perf_counter()
     wunderground_log(f"[{thread_name}] Iniciando thread para URL: {weather_station_url} en launchtime: {launchtime}")
 
     session = requests.Session()
@@ -1464,14 +1466,20 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                 summary_errors.append(str(e))
                 wunderground_log(str(e))
     
-    wunderground_log(f"[{thread_name}] Terminando thread para URL: {weather_station_url}")
+    duration_seconds = time_module.perf_counter() - station_start_time
+    wunderground_log(f"[{thread_name}] Terminando thread para URL: {weather_station_url} ({duration_seconds:.1f}s)")
     return {
         'url': weather_station_url,
+        'id_ejecucion': launchtime,
         'station_id': summary_station_id,
         'station_name': summary_station_name,
         'rows': summary_rows,
         'ok': summary_rows > 0,
         'errors': summary_errors,
+        'duration_seconds': duration_seconds,
+        'timestamp_lectura': station_started_at.isoformat(timespec='seconds'),
+        'fecha_lectura': station_started_at.strftime('%Y%m%d'),
+        'hora_lectura': station_started_at.strftime('%H:%M:%S'),
     }
 
 def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
@@ -1562,9 +1570,68 @@ def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
 def print_wunderground_progress(completed, total):
     print(f'Procesando estaciones Wunderground {completed} de {total}')
 
+def format_wunderground_duration(seconds):
+    if seconds is None:
+        return '-'
+    return f'{seconds:.1f}s'
+
+def format_wunderground_station(result):
+    station = result.get('station_id') or result.get('url')
+    station_name = result.get('station_name') or ''
+    if station_name:
+        return f'{station} ({station_name})'
+    return station
+
+def save_wunderground_metrics(results):
+    if not results:
+        return
+
+    metrics_path = os.path.join(_DATA_PATH, 'metricas_wunderground.csv')
+    os.makedirs(_DATA_PATH, exist_ok=True)
+    fieldnames = [
+        'id_ejecucion',
+        'timestamp_lectura',
+        'fecha_lectura',
+        'hora_lectura',
+        'codi_estacio',
+        'estacion',
+        'url',
+        'tiempo_lectura_s',
+        'ok',
+        'filas',
+        'ultimo_error',
+    ]
+    write_header = not os.path.exists(metrics_path) or os.path.getsize(metrics_path) == 0
+
+    with open(metrics_path, 'a', newline='', encoding='utf-8') as metrics_file:
+        writer = csv.DictWriter(metrics_file, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+
+        for result in results:
+            errors = result.get('errors') or []
+            duration_seconds = result.get('duration_seconds')
+            writer.writerow({
+                'timestamp_lectura': result.get('timestamp_lectura', ''),
+                'id_ejecucion': result.get('id_ejecucion', ''),
+                'fecha_lectura': result.get('fecha_lectura', ''),
+                'hora_lectura': result.get('hora_lectura', ''),
+                'codi_estacio': result.get('station_id', ''),
+                'estacion': result.get('station_name', ''),
+                'url': result.get('url', ''),
+                'tiempo_lectura_s': f'{duration_seconds:.3f}' if isinstance(duration_seconds, (int, float)) else '',
+                'ok': result.get('ok', False),
+                'filas': result.get('rows', 0),
+                'ultimo_error': errors[-1] if errors else '',
+            })
+
 def print_wunderground_summary(results):
     updated = [result for result in results if result.get('ok')]
     failed = [result for result in results if not result.get('ok')]
+    timed_results = [
+        result for result in results
+        if isinstance(result.get('duration_seconds'), (int, float))
+    ]
 
     print('')
     print('Resumen Wunderground:')
@@ -1573,18 +1640,42 @@ def print_wunderground_summary(results):
     print(f'Estaciones actualizadas: {len(updated)}')
     print(f'Estaciones fallidas: {len(failed)}')
 
+    if timed_results:
+        sorted_by_duration = sorted(timed_results, key=lambda result: result['duration_seconds'])
+        durations = [result['duration_seconds'] for result in sorted_by_duration]
+        duration_count = len(durations)
+        duration_middle = duration_count // 2
+        if duration_count % 2:
+            median_duration = durations[duration_middle]
+        else:
+            median_duration = (durations[duration_middle - 1] + durations[duration_middle]) / 2
+        average_duration = sum(durations) / duration_count
+        fastest = sorted_by_duration[0]
+        slowest = sorted_by_duration[-1]
+
+        print('')
+        print('Tiempos Wunderground:')
+        print(f'Tiempo medio por estación: {format_wunderground_duration(average_duration)}')
+        print(f'Mediana por estación: {format_wunderground_duration(median_duration)}')
+        print(f'Estación más rápida: {format_wunderground_station(fastest)} - {format_wunderground_duration(fastest["duration_seconds"])}')
+        print(f'Estación más lenta: {format_wunderground_station(slowest)} - {format_wunderground_duration(slowest["duration_seconds"])}')
+        print('Estaciones más lentas:')
+        for result in reversed(sorted_by_duration[-10:]):
+            status = 'OK' if result.get('ok') else 'ERROR'
+            rows = result.get('rows', 0)
+            print(f'- {format_wunderground_station(result)} - {format_wunderground_duration(result["duration_seconds"])} - {status} - {rows} filas')
+
     if failed:
         print('')
         print('Estaciones Wunderground fallidas:')
         for result in failed:
-            station = result.get('station_id') or result.get('url')
-            station_name = result.get('station_name') or ''
             errors = result.get('errors') or ['No rows returned']
             last_error = errors[-1]
-            if station_name:
-                print(f'- {station} ({station_name}) - {last_error}')
-            else:
-                print(f'- {station} - {last_error}')
+            print(f'- {format_wunderground_station(result)} - {last_error}')
+
+    save_wunderground_metrics(results)
+    print('')
+    print(f'Metricas Wunderground guardadas en {_DATA_PATH}metricas_wunderground.csv')
 
 def create_wunderground():
     launchtime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]

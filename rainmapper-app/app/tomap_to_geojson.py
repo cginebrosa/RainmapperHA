@@ -30,7 +30,7 @@ def clean_value(value):
     return value
 
 
-def dataframe_to_geojson(df):
+def dataframe_to_geojson(df, generated_at=None):
     features = []
     for record in df.to_dict(orient="records"):
         try:
@@ -60,6 +60,9 @@ def dataframe_to_geojson(df):
 
     return {
         "type": "FeatureCollection",
+        "metadata": {
+            "generated_at": generated_at,
+        },
         "features": features,
     }
 
@@ -71,7 +74,7 @@ def convert_file(input_file, output_file):
         raise ValueError(f"{input_file} is missing columns: {', '.join(sorted(missing_columns))}")
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    geojson = dataframe_to_geojson(df)
+    geojson = dataframe_to_geojson(df, generated_at=datetime.now().astimezone().isoformat(timespec="seconds"))
     output_file.write_text(
         json.dumps(geojson, ensure_ascii=False, allow_nan=False),
         encoding="utf-8",

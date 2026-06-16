@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.30
+
+- Save Wunderground station timing metrics to `Data/metricas_wunderground.csv`.
+- Show the selected map generation time in the Leaflet viewer header.
+
+## 0.2.29
+
+- Add Wunderground station timing metrics: average, median, fastest, slowest, and top slow stations.
+
 ## 0.2.28
 
 - Disable Leaflet popup auto-panning so station popups do not move the map.
