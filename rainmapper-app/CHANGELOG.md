@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.33
+
+- Add optional Jawg Maps Street and Terrain layers to the Leaflet viewer when a Jawg access token is configured.
+
 ## 0.2.32
 
 - Preserve the Leaflet map center and zoom when switching rain periods after the initial load.

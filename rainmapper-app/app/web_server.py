@@ -749,6 +749,12 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     for asset_name in ("index.html", "app.js", "style.css"):
         shutil.copy2(MOBILE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MOBILE_TMP_PATH / asset_name)
 
+    viewer_config = {
+        "jawgmapsAccessToken": env("JAWGMAPS_API_KEY"),
+    }
+    config_js = "window.RAINMAPPER_CONFIG = " + json.dumps(viewer_config) + ";\n"
+    (PUBLIC_MOBILE_TMP_PATH / "config.js").write_text(config_js)
+
     data_path = PUBLIC_MOBILE_TMP_PATH / "data"
     data_path.mkdir()
     copied = 0

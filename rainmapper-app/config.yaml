@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.32"
+version: "0.2.33"
 slug: rainmapper
 description: Descarga datos meteorologicos y genera ficheros Tomap/Plots para Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -39,6 +39,7 @@ options:
   wunderground_full_log: false
   publish_to_www: true
   gmap_api_key: ""
+  jawgmaps_api_key: ""
 schema:
   mode: list(help|update|maps|all|serve)
   timezone: str
@@ -60,3 +61,4 @@ schema:
   wunderground_full_log: bool
   publish_to_www: bool
   gmap_api_key: password
+  jawgmaps_api_key: password

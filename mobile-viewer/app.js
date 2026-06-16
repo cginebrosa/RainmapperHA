@@ -32,6 +32,19 @@ const topographicLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
 });
 
+const jawgAccessToken = window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "";
+
+function createJawgLayer(style) {
+  return L.tileLayer(`https://tile.jawg.io/${style}/{z}/{x}/{y}.png?access-token=${encodeURIComponent(jawgAccessToken)}`, {
+    maxZoom: 18,
+    noWrap: true,
+    attribution: 'Tiles courtesy of <a href="https://www.jawg.io/">Jawg Maps</a> - Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  });
+}
+
+const jawgStreetLayer = jawgAccessToken ? createJawgLayer("jawg-streets") : null;
+const jawgTerrainLayer = jawgAccessToken ? createJawgLayer("jawg-terrain") : null;
+
 const hybridSatelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 19,
   noWrap: true,
@@ -54,11 +67,21 @@ const hybridLayer = L.layerGroup([hybridSatelliteLayer, hybridRoadsLayer, hybrid
 
 hybridLayer.addTo(map);
 
+const baseLayers = {
+  "Topographic": topographicLayer,
+  "Hybrid": hybridLayer,
+};
+
+if (jawgStreetLayer) {
+  baseLayers["Street"] = jawgStreetLayer;
+}
+
+if (jawgTerrainLayer) {
+  baseLayers["Terrain"] = jawgTerrainLayer;
+}
+
 L.control.layers(
-  {
-    "Topographic": topographicLayer,
-    "Hybrid": hybridLayer,
-  },
+  baseLayers,
   {},
   { position: "topright" },
 ).addTo(map);
