@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.40
+
+- Add `ignore_stations_tomap.txt` to exclude selected stations from generated GeoJSON maps without deleting historical data.
+- Make the MapLibre station popup match the Leaflet popup behavior more closely on mobile.
+
 ## 0.2.39
 
 - Remove the MapLibre navigation bounds so edge stations can be inspected more comfortably.

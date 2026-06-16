@@ -32,6 +32,7 @@ Dentro se usan estas rutas:
 /share/rainmapper/Tomap
 /share/rainmapper/Plots
 /share/rainmapper/stations.txt
+/share/rainmapper/ignore_stations_tomap.txt
 ```
 
 Contenido esperado:
@@ -40,8 +41,11 @@ Contenido esperado:
 - `Tomap`: CSV preparados para pintar mapas.
 - `Plots`: HTML generados por `Rainmapper_Client.py`.
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
+- `ignore_stations_tomap.txt`: lista opcional de estaciones que no deben aparecer en los GeoJSON usados por Leaflet/MapLibre.
 
 Si `stations.txt` no existe, la app lo crea automaticamente copiando una plantilla. Despues puedes editarlo desde la carpeta compartida.
+
+Si `ignore_stations_tomap.txt` no existe, la app lo crea automaticamente con una linea de comentario. Si ya existe, no se sobrescribe durante los updates.
 
 ## Mapas publicados en /local/Plots
 
@@ -163,6 +167,32 @@ La lista de estaciones Wunderground no esta dentro de la imagen de la app. Esta 
 ```
 
 Esto permite anadir o quitar estaciones sin reconstruir la app.
+
+## Ignorar estaciones en los visores Leaflet/MapLibre
+
+Para ocultar estaciones con datos anomalos en los visores nuevos sin borrar historico, edita:
+
+```text
+/share/rainmapper/ignore_stations_tomap.txt
+```
+
+Formato:
+
+```text
+# Stations ignored when generating GeoJSON / new maps
+IOLVAN2
+IGUARD34
+```
+
+Reglas:
+
+- Una estacion por linea.
+- Las lineas vacias se ignoran.
+- Puedes usar comentarios con `#`.
+- El filtro no afecta a `Data`, `Tomap` ni a la descarga diaria.
+- Solo afecta a los GeoJSON publicados para Leaflet y MapLibre.
+
+Para recuperar una estacion, borra su linea y vuelve a ejecutar `maps` o `all`.
 
 ## Automatizacion diaria
 

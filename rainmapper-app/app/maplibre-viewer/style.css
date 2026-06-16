@@ -489,7 +489,10 @@ main {
   box-shadow: none;
   color: var(--text);
   font: inherit;
-  padding: 14px 16px;
+  max-height: min(54vh, 440px);
+  overflow-y: auto;
+  padding: 12px;
+  width: min(76vw, 320px);
 }
 
 .maplibregl-popup-tip {

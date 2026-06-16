@@ -165,7 +165,7 @@ It is ignored by Git.
 
 Before the first run, create the persistent folders:
 
-    mkdir -p docker-data/Data docker-data/Tomap docker-data/Plots
+    mkdir -p docker-data/Data docker-data/Tomap docker-data/Plots docker-data/PublicData
 
 Rainmapper can rebuild its CSV files in `docker-data/Data` on first run. If you already have historical CSV files, copy them into `docker-data/Data` before running the container.
 
@@ -186,6 +186,22 @@ To add or remove Wunderground stations, edit `docker-data/stations.txt`.
 If the file does not exist yet, initialize it from the repository copy:
 
     cp stations.example.txt docker-data/stations.txt
+
+## Ignored stations for GeoJSON maps
+
+The Leaflet and MapLibre viewers can hide stations with anomalous map values without deleting historical data.
+
+Edit:
+
+    docker-data/ignore_stations_tomap.txt
+
+Use one station code per line:
+
+    # Stations ignored when generating GeoJSON / new maps
+    IOLVAN2
+    IGUARD34
+
+The file is created automatically if it does not exist. Existing files are not overwritten. The filter only applies when generating GeoJSON for the viewers; downloads and historical CSV files remain unchanged.
 
 ## Environment variables
 

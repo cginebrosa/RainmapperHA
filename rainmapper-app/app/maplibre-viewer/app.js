@@ -344,8 +344,9 @@ map.on("click", CIRCLE_LAYER_ID, (event) => {
   currentPopup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true,
-    maxWidth: "340px",
-    anchor: "right",
+    maxWidth: "320px",
+    anchor: "left",
+    offset: 8,
   })
     .setLngLat(coordinates)
     .setHTML(popupContent(feature.properties || {}))

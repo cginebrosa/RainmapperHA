@@ -3,6 +3,7 @@ set -eu
 
 CONFIG_PATH="/data/options.json"
 SHARE_ROOT="/share/rainmapper"
+IGNORE_STATIONS_TOMAP_FILE="$SHARE_ROOT/ignore_stations_tomap.txt"
 
 option() {
   key="$1"
@@ -94,12 +95,17 @@ if [ ! -f "$SHARE_ROOT/stations.txt" ]; then
   cp /app/stations.example.txt "$SHARE_ROOT/stations.txt"
 fi
 
-rm -rf /app/Data /app/Tomap /app/Plots /app/PublicData /app/stations.txt
+if [ ! -f "$IGNORE_STATIONS_TOMAP_FILE" ]; then
+  printf "%s\n" "# Stations ignored when generating GeoJSON / new maps" > "$IGNORE_STATIONS_TOMAP_FILE"
+fi
+
+rm -rf /app/Data /app/Tomap /app/Plots /app/PublicData /app/stations.txt /app/ignore_stations_tomap.txt
 ln -s "$SHARE_ROOT/Data" /app/Data
 ln -s "$SHARE_ROOT/Tomap" /app/Tomap
 ln -s "$SHARE_ROOT/Plots" /app/Plots
 ln -s "$SHARE_ROOT/PublicData" /app/PublicData
 ln -s "$SHARE_ROOT/stations.txt" /app/stations.txt
+ln -s "$IGNORE_STATIONS_TOMAP_FILE" /app/ignore_stations_tomap.txt
 
 MODE="$(option mode serve)"
 TIMEZONE="$(option timezone Europe/Madrid)"
@@ -127,6 +133,7 @@ export TZ="$TIMEZONE"
 export GMAP_API_KEY="$GMAP_API_KEY_VALUE"
 export JAWGMAPS_API_KEY="$JAWGMAPS_API_KEY_VALUE"
 export RAINMAPPER_MODE="$MODE"
+export RAINMAPPER_IGNORE_STATIONS_TOMAP_FILE="/app/ignore_stations_tomap.txt"
 export RAINMAPPER_TIMEZONE="$TIMEZONE"
 export RAINMAPPER_SCHEDULE_ENABLED="$SCHEDULE_ENABLED_VALUE"
 export RAINMAPPER_SCHEDULE_TIME="$SCHEDULE_TIME_VALUE"

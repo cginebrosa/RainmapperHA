@@ -14,6 +14,9 @@ Datos persistentes:
 - `/share/rainmapper/Tomap`
 - `/share/rainmapper/Plots`
 - `/share/rainmapper/stations.txt`
+- `/share/rainmapper/ignore_stations_tomap.txt`
+
+`ignore_stations_tomap.txt` se crea automaticamente si no existe y no se sobrescribe en updates. Pon un codigo de estacion por linea para ocultarla de los visores Leaflet/MapLibre sin borrar ni alterar sus datos historicos.
 
 El modo recomendado para Home Assistant es `serve`.
 

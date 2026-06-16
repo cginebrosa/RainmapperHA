@@ -20,9 +20,11 @@ services:
       RAINMAPPER_MAX_ATTEMPTS: "3"
       RAINMAPPER_WUNDERGROUND_FULL_LOG: "false"
       RAINMAPPER_METEOCLIMATIC_PATTERN: "ESCAT"
+      RAINMAPPER_IGNORE_STATIONS_TOMAP_FILE: "/rainmapper-data/ignore_stations_tomap.txt"
     volumes:
       - ./docker-data/Data:/app/Data
       - ./docker-data/Tomap:/app/Tomap
       - ./docker-data/Plots:/app/Plots
       - ./docker-data/PublicData:/app/PublicData
       - ./docker-data/stations.txt:/app/stations.txt
+      - ./docker-data:/rainmapper-data

@@ -43,7 +43,10 @@ La app guarda los datos fuera del contenedor:
 /share/rainmapper/Tomap
 /share/rainmapper/Plots
 /share/rainmapper/stations.txt
+/share/rainmapper/ignore_stations_tomap.txt
 ```
+
+`ignore_stations_tomap.txt` permite excluir estaciones concretas solo de los GeoJSON usados por Leaflet/MapLibre. Las descargas y los CSV historicos no se modifican.
 
 Si `publish_to_www` esta activado, los mapas tambien se publican en:
 

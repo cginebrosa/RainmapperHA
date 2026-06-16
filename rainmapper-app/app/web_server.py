@@ -737,6 +737,8 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
             str(TOMAP_PATH),
             "--output-dir",
             str(PUBLIC_DATA_PATH),
+            "--ignore-stations-file",
+            "/app/ignore_stations_tomap.txt",
         ],
         cwd="/app",
         stdout=subprocess.PIPE,

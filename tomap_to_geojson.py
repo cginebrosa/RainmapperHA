@@ -3,6 +3,7 @@
 import argparse
 import json
 import math
+import os
 from datetime import date, datetime
 from pathlib import Path
 
@@ -20,6 +21,12 @@ TOMAP_FILES = {
 }
 
 
+DEFAULT_IGNORE_STATIONS_FILE = os.environ.get(
+    "RAINMAPPER_IGNORE_STATIONS_TOMAP_FILE",
+    "ignore_stations_tomap.txt",
+)
+
+
 def clean_value(value):
     if pd.isna(value):
         return None
@@ -30,7 +37,40 @@ def clean_value(value):
     return value
 
 
-def dataframe_to_geojson(df):
+def load_ignore_station_codes(ignore_stations_file):
+    if not ignore_stations_file:
+        return set()
+
+    path = Path(ignore_stations_file)
+    if not path.exists():
+        return set()
+
+    station_codes = set()
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if line:
+            station_codes.add(line.upper())
+    return station_codes
+
+
+def filter_ignored_stations(df, ignore_station_codes):
+    if not ignore_station_codes:
+        return df, 0
+
+    if "Codi Estació" not in df.columns:
+        print("Cannot filter ignored stations: column 'Codi Estació' is missing.")
+        return df, 0
+
+    station_codes = df["Codi Estació"].astype(str).str.strip().str.upper()
+    keep_rows = ~station_codes.isin(ignore_station_codes)
+    ignored_count = int((~keep_rows).sum())
+    if ignored_count == 0:
+        return df, 0
+
+    return df.loc[keep_rows].copy(), ignored_count
+
+
+def dataframe_to_geojson(df, generated_at=None):
     features = []
     for record in df.to_dict(orient="records"):
         try:
@@ -60,26 +100,39 @@ def dataframe_to_geojson(df):
 
     return {
         "type": "FeatureCollection",
+        "metadata": {
+            "generated_at": generated_at,
+        },
         "features": features,
     }
 
 
-def convert_file(input_file, output_file):
+def convert_file(input_file, output_file, ignore_station_codes):
     df = pd.read_csv(input_file)
     missing_columns = {"Latitud", "Longitud"} - set(df.columns)
     if missing_columns:
         raise ValueError(f"{input_file} is missing columns: {', '.join(sorted(missing_columns))}")
 
+    df, ignored_count = filter_ignored_stations(df, ignore_station_codes)
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    geojson = dataframe_to_geojson(df)
+    geojson = dataframe_to_geojson(
+        df,
+        generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+    )
     output_file.write_text(
         json.dumps(geojson, ensure_ascii=False, allow_nan=False),
         encoding="utf-8",
     )
-    return len(geojson["features"])
+    return len(geojson["features"]), ignored_count
 
 
-def convert_all(input_dir, output_dir):
+def convert_all(input_dir, output_dir, ignore_stations_file):
+    ignore_station_codes = load_ignore_station_codes(ignore_stations_file)
+    if ignore_station_codes:
+        print(
+            f"Ignoring {len(ignore_station_codes)} station code(s) from {ignore_stations_file} when generating GeoJSON."
+        )
+
     converted = []
     for csv_name, geojson_name in TOMAP_FILES.items():
         input_file = input_dir / csv_name
@@ -88,9 +141,10 @@ def convert_all(input_dir, output_dir):
             print(f"Skipping missing Tomap file: {input_file}")
             continue
 
-        feature_count = convert_file(input_file, output_file)
+        feature_count, ignored_count = convert_file(input_file, output_file, ignore_station_codes)
         converted.append(output_file)
-        print(f"Generated {output_file} with {feature_count} station(s)")
+        ignored_text = f", ignored {ignored_count} station(s)" if ignored_count else ""
+        print(f"Generated {output_file} with {feature_count} station(s){ignored_text}")
 
     return converted
 
@@ -109,6 +163,14 @@ def parse_args():
         default="PublicData",
         help="Directory where GeoJSON files will be written. Default: PublicData",
     )
+    parser.add_argument(
+        "--ignore-stations-file",
+        default=DEFAULT_IGNORE_STATIONS_FILE,
+        help=(
+            "Text file with one station code per line to ignore when generating GeoJSON. "
+            "Empty lines and lines starting with # are ignored."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -116,7 +178,7 @@ def main():
     args = parse_args()
     input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
-    converted = convert_all(input_dir, output_dir)
+    converted = convert_all(input_dir, output_dir, args.ignore_stations_file)
 
     if not converted:
         raise SystemExit("No GeoJSON files were generated.")
