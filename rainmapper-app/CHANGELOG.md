@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.31
+
+- Align the Leaflet viewer header as three columns: title, generation time, and period selector.
+
 ## 0.2.30
 
 - Save Wunderground station timing metrics to `Data/metricas_wunderground.csv`.

@@ -29,10 +29,14 @@ body {
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   min-height: 76px;
   padding: 10px 14px;
+}
+
+.topbar-title {
+  min-width: 0;
 }
 
 h1 {
@@ -47,20 +51,15 @@ p {
   margin: 4px 0 0;
 }
 
-.topbar-side {
-  align-items: end;
-  display: grid;
-  gap: 6px;
-  justify-items: end;
-}
-
 .generated {
+  align-self: center;
   color: var(--muted);
   display: grid;
   font-size: 10px;
   gap: 1px;
-  justify-items: end;
+  justify-items: center;
   line-height: 1.2;
+  text-align: center;
   text-transform: uppercase;
 }
 
@@ -80,6 +79,7 @@ select {
   font: inherit;
   min-width: 112px;
   padding: 10px 34px 10px 12px;
+  justify-self: end;
 }
 
 main {
@@ -359,7 +359,8 @@ main {
 @media (max-width: 640px) {
   .topbar {
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     min-height: 72px;
     padding: 8px 10px;
   }
@@ -377,10 +378,6 @@ main {
     margin-top: 3px;
   }
 
-  .topbar-side {
-    gap: 5px;
-  }
-
   .generated {
     font-size: 9px;
   }
@@ -391,7 +388,7 @@ main {
 
   select {
     font-size: 13px;
-    min-width: 96px;
+    min-width: 92px;
     padding: 8px 28px 8px 10px;
     width: auto;
   }

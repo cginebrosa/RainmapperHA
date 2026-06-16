@@ -10,29 +10,27 @@
       integrity="sha256-p4NxAoJBhIINfQzCZqOzyzyDP1CrDdNLK1skZbKkW3s="
       crossorigin=""
     >
-    <link rel="stylesheet" href="style.css?v=0.2.30">
+    <link rel="stylesheet" href="style.css?v=0.2.31">
   </head>
   <body>
     <header class="topbar">
-      <div>
+      <div class="topbar-title">
         <h1>Rainmapper</h1>
         <p id="summary">Loading map data...</p>
       </div>
-      <div class="topbar-side">
-        <div class="generated">
-          <span>Generated</span>
-          <time id="generated-at">-</time>
-        </div>
-        <select id="map-selector" aria-label="Rain period">
-          <option value="01d.geojson">1 day</option>
-          <option value="07d.geojson">7 days</option>
-          <option value="14d.geojson">14 days</option>
-          <option value="21d.geojson" selected>21 days</option>
-          <option value="30d.geojson">30 days</option>
-          <option value="60d.geojson">60 days</option>
-          <option value="90d.geojson">90 days</option>
-        </select>
+      <div class="generated">
+        <span>Generated</span>
+        <time id="generated-at">-</time>
       </div>
+      <select id="map-selector" aria-label="Rain period">
+        <option value="01d.geojson">1 day</option>
+        <option value="07d.geojson">7 days</option>
+        <option value="14d.geojson">14 days</option>
+        <option value="21d.geojson" selected>21 days</option>
+        <option value="30d.geojson">30 days</option>
+        <option value="60d.geojson">60 days</option>
+        <option value="90d.geojson">90 days</option>
+      </select>
     </header>
 
     <main>
@@ -44,6 +42,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="app.js?v=0.2.30"></script>
+    <script src="app.js?v=0.2.31"></script>
   </body>
 </html>
