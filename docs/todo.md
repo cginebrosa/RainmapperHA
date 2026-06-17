@@ -107,8 +107,8 @@ Continuar con mejoras de bajo riesgo o decidir si se aborda la separacion estruc
   - Criterio de solucion: definir fixtures minimos y pruebas funcionales versionadas.
 
 ## Validaciones pendientes
-- [ ] `docker compose build rainmapper` tras cambios de Docker local.
-- [ ] `docker compose run --rm -e MODE=help rainmapper`.
+- [x] `docker compose build rainmapper` tras cambios de Docker local.
+- [x] `docker compose run --rm -e MODE=help rainmapper`.
 - [ ] `docker compose run --rm -e MODE=all rainmapper` en datos de prueba antes de tocar historicos reales.
 - [x] Actualizacion HA desde GitHub tras bump de version.
 - [x] `Run all` desde webUI HA.
