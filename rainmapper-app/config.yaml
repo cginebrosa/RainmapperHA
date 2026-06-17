@@ -1,7 +1,7 @@
 name: Rainmapper
-version: "0.2.44"
+version: "0.2.45"
 slug: rainmapper
-description: Descarga datos meteorologicos y genera ficheros Tomap/Plots para Rainmapper.
+description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
 arch:
   - aarch64

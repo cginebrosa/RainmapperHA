@@ -164,6 +164,32 @@ Abrir la configuracion requiere un clic adicional, pero la pagina es mas portabl
 ### Estado
 Confirmada, modificada en `0.2.44`.
 
+## 2026-06-17 - Ingles para webUI HA y changelog
+
+### Decision
+Usar ingles para los textos visibles de la webUI de Home Assistant, metadata de la app HA y `rainmapper-app/CHANGELOG.md`.
+
+### Motivo
+Home Assistant y el changelog son superficies de usuario/soporte donde conviene mantener un idioma consistente y portable.
+
+### Alternativas consideradas
+Mantener mezcla de ingles/espanol o traducir tambien todos los logs internos en el mismo cambio.
+
+### Consecuencias
+La version `0.2.45` corrige los textos visibles detectados y traduce entradas antiguas del changelog. Los logs internos del core quedan como tarea separada para evitar un cambio mas amplio sobre scripts de datos.
+
+### Ficheros afectados
+- `rainmapper-app/app/web_server.py`
+- `rainmapper-app/config.yaml`
+- `rainmapper-app/Dockerfile`
+- `rainmapper-app/CHANGELOG.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+- `docs/decisions.md`
+
+### Estado
+Confirmada.
+
 ## 2026-06-17 - Usar GeoJSON como capa comun para visores nuevos (fecha aproximada)
 
 ### Decision

@@ -1,11 +1,11 @@
 # TODO
 
 ## Proximo paso recomendado
-Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y homogeneizar idioma de logs/UI.
+Subir y validar la actualizacion HA `0.2.45`; despues continuar con la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
-  - Contexto: `rainmapper-app/config.yaml` indica `0.2.44`; `rainmapper-app/Dockerfile` conserva ahora labels/env `0.2.44`.
+  - Contexto: `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y `rainmapper-app/CHANGELOG.md` deben avanzar juntos en cada bump de version.
   - Ficheros relacionados: `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: version alineada en metadata HA, labels Docker y changelog.
   - Estado: resuelto.
@@ -43,9 +43,10 @@ Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA 
   - Estado: resuelto en version `0.2.42`.
 
 - [ ] Homogeneizar idioma de logs y UI
-  - Contexto: hay mensajes en ingles, espanol y algun comentario mixto.
+  - Contexto: la webUI visible de HA, metadata HA y changelog quedan en ingles desde `0.2.45`; los logs internos del core aun mezclan ingles/espanol.
   - Ficheros relacionados: `Rainmapper.py`, `Rainmapper_Client.py`, `web_server.py`, visores.
-  - Criterio de aceptacion: idioma definido para usuario final y logs operativos.
+  - Criterio de aceptacion: idioma definido y aplicado tambien para logs operativos del core.
+  - Estado: parcialmente resuelto; queda revisar logs internos antes de marcarlo completo.
   - Riesgo si no se hace: peor soporte y documentacion menos clara.
 
 - [x] Validar portabilidad del enlace App settings
@@ -118,7 +119,8 @@ Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA 
 - [x] Confirmar cuando retirar la ruta legacy `/local/rainmapper-mobile`.
 - [ ] Confirmar si el repo debe quedar privado o publico para distribucion futura.
 - [ ] Confirmar si Jawg permite restringir token por dominio y si se usara en publico.
-- [ ] Confirmar idioma final de UI/logs: ingles, espanol o catalan.
+- [x] Confirmar idioma final de UI visible HA/changelog: ingles.
+- [ ] Confirmar si los logs internos del core deben quedar tambien en ingles.
 
 ## Ideas futuras
 - App iOS/Android con login y autorizacion por mapa/zona.

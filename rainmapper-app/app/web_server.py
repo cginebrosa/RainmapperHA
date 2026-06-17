@@ -646,7 +646,7 @@ def station_detail_text(station_id: str, metadata: dict[str, dict[str, str]]) ->
     province = info.get("province") or "unknown province"
     altitude = info.get("altitude") or "unknown altitude"
     altitude_text = f"{altitude} m" if altitude not in {"", "unknown altitude", "Not set yet"} else altitude
-    return f"{station_id} - {municipality}, {province} - Altitud: {altitude_text}"
+    return f"{station_id} - {municipality}, {province} - Altitude: {altitude_text}"
 
 
 def station_detail_list(station_ids: list[str], metadata: dict[str, dict[str, str]]) -> str:

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.45
+
+- Keep Home Assistant visible UI and metadata text in English.
+- Translate older Spanish changelog entries to English.
+
 ## 0.2.44
 
 - Show only the recommended App settings link by default and move alternate settings routes into an advanced fallback section.
@@ -174,9 +179,9 @@
 
 ## 0.2.5
 
-- Añade el modo configurable de log detallado de Wunderground.
-- Muestra siempre un resumen de Wunderground con las estaciones fallidas.
-- Muestra el progreso de Wunderground cada 10% de estaciones procesadas.
+- Add configurable detailed Wunderground logging.
+- Always show a Wunderground summary with failed stations.
+- Show Wunderground progress every 10% of processed stations.
 
 ## 0.2.4
 
