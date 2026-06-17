@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.61
+
+- Improve Spanish Home Assistant app documentation for multiple Meteoclimatic patterns and option coverage.
+- Document optional Jawg layers, Wunderground diagnostic logging, source toggles, and day range options.
+
 ## 0.2.60
 
 - Rename the MapLibre source filter group title from `Stations` to `Source`.

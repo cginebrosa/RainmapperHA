@@ -188,14 +188,26 @@ days_end: 0
 create_meteoclimatic: true
 create_meteocat: true
 create_wunderground: true
-meteoclimatic_pattern: ESCAT
+meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 nomaps: false
 nototals: false
 days_bucket: 10
 max_threads: 1
 max_attempts: 3
+wunderground_full_log: false
 publish_to_www: true
+gmap_api_key: ""
+jawgmaps_api_key: ""
 ```
+
+Notas rapidas:
+
+- `mode: serve` es el modo normal para usar webUI, sidebar y schedule interno.
+- `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
+- `max_threads: 1` es conservador para Raspberry Pi y para Wunderground.
+- `gmap_api_key` es necesaria para los mapas Bokeh/Google Maps.
+- `jawgmaps_api_key` es opcional; si esta vacia, las capas Jawg no aparecen en Leaflet/MapLibre.
+- `wunderground_full_log: true` aumenta mucho el detalle del log de Wunderground y normalmente solo conviene para diagnostico.
 
 ## Google Maps API key
 
@@ -209,13 +221,83 @@ Si solo ejecutas `update`, la clave puede no ser necesaria en todas las ejecucio
 
 `meteoclimatic_pattern` filtra las estaciones leidas desde el feed RSS de Meteoclimatic.
 
-Ejemplo:
+Puedes indicar un patron unico:
 
 ```yaml
 meteoclimatic_pattern: ESCAT
 ```
 
 `ESCAT` selecciona estaciones de Cataluna.
+
+Tambien puedes indicar varios patrones. Se aceptan separadores con coma, punto y coma o ` - `:
+
+```yaml
+meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
+```
+
+Ejemplos equivalentes:
+
+```yaml
+meteoclimatic_pattern: "ESCAT,ESARA,ESCLM"
+meteoclimatic_pattern: "ESCAT - ESARA - ESCLM"
+```
+
+La app leera las estaciones que coincidan con cualquiera de los patrones indicados. Si el valor esta mal escrito o no coincide con estaciones del feed, esa fuente puede devolver menos estaciones de las esperadas.
+
+## Rango de dias
+
+`days_init` y `days_end` controlan el rango de fechas usado en la descarga de datos.
+
+Configuracion habitual:
+
+```yaml
+days_init: -7
+days_end: 0
+```
+
+Esto descarga desde 7 dias atras hasta hoy. Normalmente no hace falta cambiarlo salvo para reconstrucciones o pruebas concretas.
+
+## Fuentes de datos
+
+Estas opciones permiten activar o desactivar fuentes:
+
+```yaml
+create_meteoclimatic: true
+create_meteocat: true
+create_wunderground: true
+```
+
+Si desactivas una fuente, no se descargan datos nuevos de esa fuente en `update` o `all`.
+
+## Wunderground
+
+`max_threads` controla el paralelismo al leer estaciones Wunderground. En Raspberry Pi se recomienda mantener:
+
+```yaml
+max_threads: 1
+```
+
+`max_attempts` define cuantos reintentos se hacen por estacion:
+
+```yaml
+max_attempts: 3
+```
+
+`wunderground_full_log` activa log detallado por estacion:
+
+```yaml
+wunderground_full_log: false
+```
+
+Usa `true` solo para diagnostico porque el log puede crecer mucho.
+
+## Claves de mapas
+
+`gmap_api_key` es la clave de Google Maps usada por los mapas HTML clasicos Bokeh/Google Maps. No debe guardarse en Git.
+
+`jawgmaps_api_key` es opcional y activa capas Jawg en Leaflet/MapLibre. Si se deja vacia, esas capas no se muestran en los selectores de mapas.
+
+Si algun dia se usa una clave Jawg en mapas accesibles publicamente, conviene restringirla por dominio desde el proveedor si la cuenta lo permite.
 
 ## Wunderground stations.txt
 

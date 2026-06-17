@@ -29,3 +29,11 @@ Datos persistentes:
 El modo recomendado para Home Assistant es `serve`.
 
 Puedes activar el schedule interno para ejecutar `all` cada dia a una hora concreta, por ejemplo a las `23:50`.
+
+`meteoclimatic_pattern` acepta uno o varios patrones de Meteoclimatic. Puedes separarlos con coma, punto y coma o ` - `, por ejemplo:
+
+```yaml
+meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
+```
+
+Las claves `gmap_api_key` y `jawgmaps_api_key` no deben guardarse en Git. `jawgmaps_api_key` es opcional; si esta vacia, las capas Jawg no aparecen en Leaflet/MapLibre.
