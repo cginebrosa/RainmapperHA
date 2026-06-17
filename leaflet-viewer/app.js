@@ -32,7 +32,7 @@ const topographicLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
 });
 
-const jawgAccessToken = window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "";
+const jawgAccessToken = (window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "").trim();
 
 function createJawgLayer(style) {
   return L.tileLayer(`https://tile.jawg.io/${style}/{z}/{x}/{y}.png?access-token=${encodeURIComponent(jawgAccessToken)}`, {

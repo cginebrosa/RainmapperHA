@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en HA/iPhone la version `0.2.52` de MapLibre con capas Hybrid, Topographic y Satellite+. Si funciona bien, decidir si MapLibre puede pasar a visor principal unico y Leaflet queda como fallback temporal.
+Validar en HA/iPhone la version `0.2.53`: MapLibre con capas Hybrid, Topographic y Satellite+, y Leaflet sin capas Jawg cuando `jawgmaps_api_key` esta vacia. Si funciona bien, decidir si MapLibre puede pasar a visor principal unico y Leaflet queda como fallback temporal.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -17,7 +17,7 @@ Validar en HA/iPhone la version `0.2.52` de MapLibre con capas Hybrid, Topograph
   - Estado: validado por el usuario en movil.
 
 - [ ] Validar MapLibre raster en HA/iPhone
-  - Contexto: MapLibre `0.2.52` incorpora Satellite+ como base por defecto, Hybrid raster, Topographic raster y estilos vectoriales.
+  - Contexto: MapLibre `0.2.53` incorpora Satellite+ como base por defecto, Hybrid raster, Topographic raster y estilos vectoriales; Leaflet debe ocultar Jawg si `jawgmaps_api_key` esta vacia.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
   - Criterio de aceptacion: Hybrid, Topographic y Satellite+ cargan correctamente, el cambio entre capas conserva marcadores, periodo, vista y popup en movil.
   - Riesgo si no se hace: decidir retirada de Leaflet sin confirmar que MapLibre cubre bien las capas raster que interesan.

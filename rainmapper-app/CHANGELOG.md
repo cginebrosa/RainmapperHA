@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.53
+
+- Refresh Leaflet viewer asset cache busters and ignore whitespace-only Jawg tokens so optional Jawg layers disappear when the API key is empty.
+
 ## 0.2.52
 
 - Fix the Home Assistant WebUI status panel layout so status cards stay grouped in three explicit rows.
