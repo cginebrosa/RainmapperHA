@@ -442,3 +442,26 @@ Es valido para pruebas privadas, pero no para producto publico con permisos por 
 
 ### Estado
 Confirmada para pruebas, revisable antes de publicacion.
+
+## 2026-06-17 - Futura app movil con API propia antes de producto publico
+
+### Decision
+Para una futura app iOS/Android publica o bajo suscripcion, no depender directamente de Home Assistant como backend publico. Mantener HA como motor privado de generacion y disenar una API/backend intermedio para autenticacion, permisos, filtros y serving controlado de datos.
+
+### Motivo
+Los visores actuales y GeoJSON estaticos funcionan bien para uso privado, pero no dan control granular por usuario, mapa o zona. Una app comercial necesita autorizacion en servidor, revocacion de acceso y una forma segura de aplicar favoritos y filtros.
+
+### Alternativas consideradas
+Consumir directamente los GeoJSON publicados en `/local/...` desde la app movil, convertir HA en backend publico, o migrar inmediatamente todos los datos a una base de datos nueva.
+
+### Consecuencias
+La primera fase de app movil deberia definir API, auth y permisos antes de producto publico. La migracion a base de datos queda como fase posterior si GeoJSON/CSV dejan de ser suficientes.
+
+### Ficheros afectados
+- `docs/mobile-app-architecture.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+- `docs/decisions.md`
+
+### Estado
+Propuesta inicial confirmada a nivel de diseno; pendiente de implementacion.

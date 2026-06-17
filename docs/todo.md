@@ -89,13 +89,14 @@ Continuar con mejoras de bajo riesgo o decidir si se aborda la separacion estruc
   - Criterio de aceptacion: decision tecnica documentada.
   - Riesgo si no se hace: se acumulan CSV sin explotacion.
 
-- [ ] Disenar futura app iOS/Android
+- [x] Disenar futura app iOS/Android
   - Contexto: objetivo a largo plazo incluye app movil con autenticacion y permisos.
-  - Ficheros relacionados: pendiente de definir.
+  - Ficheros relacionados: `docs/mobile-app-architecture.md`.
   - Criterio de aceptacion: arquitectura propuesta para API, auth, permisos y serving de mapas.
   - Ideas funcionales iniciales:
     - Lista de estaciones favoritas para mostrar en el mapa solo esas estaciones.
     - Filtro por cantidad minima de lluvia en el periodo seleccionado para mostrar solo estaciones que superen ese umbral.
+  - Estado: resuelto a nivel de diseno inicial; no implementado.
   - Riesgo si no se hace: el visor publico actual no controla quien accede a que.
 
 ## Bugs abiertos

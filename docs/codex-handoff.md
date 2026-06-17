@@ -35,6 +35,7 @@ Confirmado en el repositorio:
 - [todo.md](todo.md)
 - [decisions.md](decisions.md)
 - [history-safety.md](history-safety.md)
+- [mobile-app-architecture.md](mobile-app-architecture.md)
 
 Tambien existen documentos de uso:
 
@@ -58,6 +59,7 @@ Tambien existen documentos de uso:
 - `scripts/sync-app-files.sh`: sincroniza scripts raiz y visores hacia `rainmapper-app/app` como practica operativa mientras exista duplicidad.
 - `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
 - `scripts/check-history.py`: valida CSV historicos y permite comparar una copia antes/despues.
+- `docs/mobile-app-architecture.md`: arquitectura inicial propuesta para futura app iOS/Android con API, auth, permisos, favoritos y filtro de lluvia minima.
 - `rainmapper-app/`: app de Home Assistant.
 - `rainmapper-app/app/`: copia operativa de scripts Python y visores que entran en la imagen de HA.
 - `rainmapper-app/app/web_server.py`: webUI, schedule, publicacion a `/config/www`, controles de estaciones y ejecucion de jobs.
@@ -163,6 +165,7 @@ Tambien existen documentos de uso:
 - Autenticacion/autorizacion real para una futura app publica iOS/Android.
 - Definir modelo de producto/acceso si se venden mapas o zonas.
 - Ideas para futura app iOS/Android: favoritos de estaciones y filtro por lluvia minima en el periodo seleccionado.
+- Arquitectura inicial de app movil documentada en [mobile-app-architecture.md](mobile-app-architecture.md).
 
 ## Bugs abiertos o problemas conocidos
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`; mitigada operativamente con `scripts/sync-app-files.sh` y smoke test, sin refactor estructural todavia.
