@@ -101,7 +101,7 @@ Hay varios entry points segun entorno:
 - Ruta: `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`.
 - Responsabilidad: visor web movil basado en Leaflet y GeoJSON.
 - Dependencias: Leaflet CDN, tiles raster.
-- Relacion: publicado a `/local/rainmapper-leaflet` y legacy `/local/rainmapper-mobile`.
+- Relacion: publicado a `/local/rainmapper-leaflet`.
 
 ### MapLibre viewer
 - Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.

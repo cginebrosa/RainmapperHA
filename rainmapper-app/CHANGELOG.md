@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.42
+
+- Remove the legacy `/local/rainmapper-mobile` publication path.
+- Keep publishing Leaflet at `/local/rainmapper-leaflet` and MapLibre at `/local/rainmapper-maplibre`.
+
 ## 0.2.41
 
 - Document the Bokeh, Leaflet, and MapLibre map viewers and their public URLs.

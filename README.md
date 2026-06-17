@@ -191,7 +191,6 @@ docker-data/ignore_stations_tomap.txt
 ## Visores de mapas
 - Bokeh clasico: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 30, 60 y 90 dias.
 - Leaflet: `/local/rainmapper-leaflet/index.html`.
-- Leaflet legacy: `/local/rainmapper-mobile/index.html`.
 - MapLibre: `/local/rainmapper-maplibre/index.html`.
 
 ## Documentacion de continuidad

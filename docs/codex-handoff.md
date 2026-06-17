@@ -34,6 +34,7 @@ Confirmado en el repositorio:
 - [architecture.md](architecture.md)
 - [todo.md](todo.md)
 - [decisions.md](decisions.md)
+- [history-safety.md](history-safety.md)
 
 Tambien existen documentos de uso:
 
@@ -101,18 +102,18 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.41`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish.
+- Estado actual: version `0.2.42`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.41`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.42`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
 - Proposito: visor Leaflet estatico.
 - Estado actual: funcional, con capas Topographic/Hybrid y Jawg opcional, leyenda, selector de periodo, popups moviles y preservacion de vista al cambiar periodo.
-- Riesgos: hay ruta legacy `/local/rainmapper-mobile`; no eliminar hasta decidir migracion.
+- Riesgos: se publica solo en `/local/rainmapper-leaflet`; la ruta legacy `/local/rainmapper-mobile` fue retirada porque Cloudflare ya redirige a los visores actuales.
 
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
 - Proposito: visor experimental MapLibre con mapas vectoriales.
@@ -134,7 +135,6 @@ Tambien existen documentos de uso:
 - Publicacion de mapas a `/config/www`: `web_server.py`.
 - Mapas Bokeh publicados en `/local/Plots`: `Rainmapper_Client.py`, `web_server.py`.
 - Leaflet viewer publicado en `/local/rainmapper-leaflet/index.html`: `leaflet-viewer/`, `web_server.py`.
-- Ruta legacy `/local/rainmapper-mobile/index.html`: `web_server.py`.
 - MapLibre viewer publicado en `/local/rainmapper-maplibre/index.html`: `maplibre-viewer/`, `web_server.py`.
 - GeoJSON para 1/7/14/21/30/60/90 dias: `tomap_to_geojson.py`.
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `tomap_to_geojson.py`.
@@ -148,15 +148,14 @@ Tambien existen documentos de uso:
 ## Funcionalidades parcialmente implementadas
 - MapLibre viewer: funcional y validado en movil; se mantiene publicado junto a Leaflet de momento.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
-- Ruta legacy `/local/rainmapper-mobile`: mantenida por compatibilidad, pendiente decidir retirada.
+- Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 - App settings link: usa Supervisor self-info y fallback; funciona en la instalacion actual, portabilidad pendiente de validar en otra HA.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.41`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.42`.
 - Internacionalizacion: mensajes mezclan ingles y espanol; no hay sistema i18n.
 
 ## Funcionalidades pendientes
 - Mantener Leaflet y MapLibre publicados de momento; revisar mas adelante si uno pasa a principal unico.
 - Decidir retirada de Bokeh o mantenerlo como referencia.
-- Retirar ruta legacy `/local/rainmapper-mobile` cuando no sea necesaria.
 - Crear tests automaticos o al menos smoke tests versionados.
 - Mejorar separacion entre core de datos, webUI y visores.
 - Analitica historica de metricas Wunderground, posiblemente con InfluxDB/Grafana.
@@ -166,7 +165,7 @@ Tambien existen documentos de uso:
 ## Bugs abiertos o problemas conocidos
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`.
 - No hay tests formales detectados.
-- Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` en RPi para no cargarla.
+- Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` en RPi para no cargarla. Aun asi, el rendimiento actual es aceptable: update completo + generacion de mapas tarda unos 7 minutos. Observabilidad/timeout queda en baja prioridad hasta acumular mas observaciones.
 - Jawg Maps en navegador implica que el token de tiles puede ser visible al cliente; debe restringirse por dominio si el proveedor lo permite.
 - Los historicos CSV son el valor central del proyecto; no deben borrarse ni reescribirse sin backup. Ver [history-safety.md](history-safety.md).
 - Algunas carpetas generadas (`Data`, `Tomap`, `Plots`, `docker-data`, `docker-empty-test`) existen localmente pero estan ignoradas por Git.
@@ -279,7 +278,7 @@ Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar l
 6. `update` ejecuta `Rainmapper.py` y actualiza CSV historicos y `Tomap`.
 7. `maps` ejecuta `Rainmapper_Client.py`, genera Bokeh HTML y despues `tomap_to_geojson.py` para los visores nuevos.
 8. Si `publish_to_www` esta activo, la app copia HTML y visores a `/config/www`.
-9. HA sirve los resultados como `/local/Plots`, `/local/rainmapper-leaflet`, `/local/rainmapper-mobile` y `/local/rainmapper-maplibre`.
+9. HA sirve los resultados como `/local/Plots`, `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 
 ## Integraciones externas
 - Meteocat / Socrata: usado desde `Rainmapper.py` y `sodapy_local`. Endpoint exacto/datasets: pendiente de confirmar en detalle.
@@ -314,7 +313,7 @@ Detalle en [decisions.md](decisions.md).
 - Antes de tocar pandas o escritura CSV, usar `./scripts/backup-data.sh` y `./scripts/check-history.py` sobre una copia.
 
 ## Proximo paso recomendado
-Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y empezar a mejorar observabilidad/timeout de Wunderground.
+Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y homogeneizar idioma de logs/UI o validar portabilidad del enlace App settings.
 
 ## Prompt recomendado para nueva sesion de Codex
 "Lee primero docs/codex-handoff.md. Después consulta docs/architecture.md, docs/todo.md y docs/decisions.md. No modifiques código todavía. Primero resume el objetivo de la app, el estado actual, los ficheros clave, lo que funciona, lo que falta y el siguiente paso recomendado."

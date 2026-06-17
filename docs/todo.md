@@ -1,11 +1,11 @@
 # TODO
 
 ## Proximo paso recomendado
-Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y empezar a mejorar observabilidad/timeout de Wunderground.
+Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y homogeneizar idioma de logs/UI o validar portabilidad del enlace App settings.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
-  - Contexto: `rainmapper-app/config.yaml` indica `0.2.41`; `rainmapper-app/Dockerfile` conserva ahora labels/env `0.2.41`.
+  - Contexto: `rainmapper-app/config.yaml` indica `0.2.42`; `rainmapper-app/Dockerfile` conserva ahora labels/env `0.2.42`.
   - Ficheros relacionados: `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: version alineada en metadata HA, labels Docker y changelog.
   - Estado: resuelto.
@@ -36,23 +36,11 @@ Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA 
   - Estado: decision temporal tomada; Leaflet y MapLibre se mantienen publicados de momento. Bokeh sigue como referencia/compatibilidad.
   - Riesgo aceptado: complejidad y mantenimiento de varios visores hasta nueva revision.
 
-- [ ] Planificar retirada de `/local/rainmapper-mobile`
-  - Contexto: ruta legacy mantenida por compatibilidad tras renombrar Leaflet viewer.
-  - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper-app/DOCS.md`, `README.md`.
-  - Criterio de aceptacion: fecha/version de retirada o decision de mantener indefinidamente.
-  - Riesgo si no se hace: rutas duplicadas y confusion de usuarios.
-
-- [ ] Mejorar observabilidad de Wunderground
-  - Contexto: Wunderground es el cuello de botella; ya existe `metricas_wunderground.csv`.
-  - Ficheros relacionados: `Rainmapper.py`, `Data/metricas_wunderground.csv`.
-  - Criterio de aceptacion: metricas revisables y comparables por ejecucion; posible export futuro a InfluxDB/Grafana.
-  - Riesgo si no se hace: optimizacion a ciegas del scraper.
-
-- [ ] Revisar timeout del scraper Wunderground
-  - Contexto: algunas estaciones pueden tardar o fallar.
-  - Ficheros relacionados: `Rainmapper.py`, `util/`.
-  - Criterio de aceptacion: timeout configurable y errores registrados sin bloquear toda la ejecucion.
-  - Riesgo si no se hace: estaciones lentas penalizan todo el run.
+- [x] Retirar `/local/rainmapper-mobile`
+  - Contexto: la ruta legacy ya no se usa porque Cloudflare redirige a `rainmapper-leaflet` y `rainmapper-maplibre`.
+  - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper-app/DOCS.md`, `README.md`, `rainmapper-app/README.md`.
+  - Criterio de aceptacion: dejar de publicar `/local/rainmapper-mobile` y limpiar la carpeta antigua al publicar mapas.
+  - Estado: resuelto en version `0.2.42`.
 
 - [ ] Homogeneizar idioma de logs y UI
   - Contexto: hay mensajes en ingles, espanol y algun comentario mixto.
@@ -78,6 +66,20 @@ Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA 
   - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py`.
   - Criterio de aceptacion: una unica fuente de verdad para core compartida por Docker local y HA.
   - Riesgo si no se hace: mantenimiento manual permanente.
+
+- [ ] Mejorar observabilidad de Wunderground
+  - Contexto: Wunderground es el cuello de botella, pero todavia no hay suficientes observaciones de tiempos y el rendimiento actual es aceptable.
+  - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos.
+  - Ficheros relacionados: `Rainmapper.py`, `Data/metricas_wunderground.csv`.
+  - Criterio de aceptacion: metricas revisables y comparables por ejecucion; posible export futuro a InfluxDB/Grafana.
+  - Riesgo si no se hace: optimizacion a ciegas del scraper si el rendimiento empeora en el futuro.
+
+- [ ] Revisar timeout del scraper Wunderground
+  - Contexto: algunas estaciones pueden tardar o fallar, pero el tiempo global actual es aceptable y conviene acumular mas observaciones antes de cambiarlo.
+  - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos.
+  - Ficheros relacionados: `Rainmapper.py`, `util/`.
+  - Criterio de aceptacion: timeout configurable y errores registrados sin bloquear toda la ejecucion.
+  - Riesgo si no se hace: estaciones lentas podrian penalizar todo el run si el rendimiento empeora.
 
 - [ ] Evaluar InfluxDB/Grafana para metricas
   - Contexto: el usuario ya tiene interes en analitica de tiempos de estaciones.
@@ -113,7 +115,7 @@ Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA 
 
 ## Preguntas pendientes para el usuario
 - [x] Confirmar si MapLibre debe sustituir a Leaflet como visor principal o si ambos se mantienen.
-- [ ] Confirmar cuando retirar la ruta legacy `/local/rainmapper-mobile`.
+- [x] Confirmar cuando retirar la ruta legacy `/local/rainmapper-mobile`.
 - [ ] Confirmar si el repo debe quedar privado o publico para distribucion futura.
 - [ ] Confirmar si Jawg permite restringir token por dominio y si se usara en publico.
 - [ ] Confirmar idioma final de UI/logs: ingles, espanol o catalan.

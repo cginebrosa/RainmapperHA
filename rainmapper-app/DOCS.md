@@ -111,12 +111,6 @@ Ruta publica actual:
 /local/rainmapper-leaflet/index.html
 ```
 
-Ruta compatible antigua:
-
-```text
-/local/rainmapper-mobile/index.html
-```
-
 El visor Leaflet usa los GeoJSON publicados en `/config/www/rainmapper-data`. Es mas ligero que Bokeh y esta pensado para movil.
 
 ### MapLibre viewer

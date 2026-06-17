@@ -112,6 +112,32 @@ Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de 
 ### Estado
 Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil y que se mantienen publicados Leaflet y MapLibre de momento.
 
+## 2026-06-17 - Retirar ruta legacy rainmapper-mobile
+
+### Decision
+Dejar de publicar `/local/rainmapper-mobile` desde la app de Home Assistant.
+
+### Motivo
+La ruta legacy ya no se utiliza. Cloudflare tiene redirecciones hacia `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
+
+### Alternativas consideradas
+Mantener `/local/rainmapper-mobile` indefinidamente como alias de compatibilidad.
+
+### Consecuencias
+Se reduce una ruta duplicada y se simplifica la publicacion. En la siguiente generacion de mapas se elimina cualquier carpeta antigua `/config/www/rainmapper-mobile` que quedara publicada.
+
+### Ficheros afectados
+- `rainmapper-app/app/web_server.py`
+- `rainmapper-app/config.yaml`
+- `rainmapper-app/Dockerfile`
+- `rainmapper-app/CHANGELOG.md`
+- `README.md`
+- `rainmapper-app/README.md`
+- `rainmapper-app/DOCS.md`
+
+### Estado
+Confirmada.
+
 ## 2026-06-17 - Usar GeoJSON como capa comun para visores nuevos (fecha aproximada)
 
 ### Decision
@@ -241,7 +267,7 @@ La RPi no debe cargarse excesivamente. El scraper es el cuello de botella, pero 
 Subir threads para acelerar scraping.
 
 ### Consecuencias
-La ejecucion completa tarda mas, pero la carga es estable. Se anaden metricas para entender donde optimizar.
+La ejecucion completa tarda mas, pero la carga es estable. Se anaden metricas para entender donde optimizar. El rendimiento actual es aceptable: update completo + generacion de mapas tarda unos 7 minutos, asi que cambios de timeout/observabilidad quedan en baja prioridad hasta acumular mas datos.
 
 ### Ficheros afectados
 - `rainmapper-app/config.yaml`
@@ -249,7 +275,7 @@ La ejecucion completa tarda mas, pero la carga es estable. Se anaden metricas pa
 - `Rainmapper.py`
 
 ### Estado
-Confirmada, revisable.
+Confirmada, revisable. Modificada el 2026-06-17 para bajar timeout/observabilidad de Wunderground a baja prioridad mientras el tiempo global siga siendo aceptable.
 
 ## 2026-06-17 - Guardar metricas de Wunderground en CSV (fecha aproximada)
 

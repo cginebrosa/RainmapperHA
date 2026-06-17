@@ -27,7 +27,7 @@ PUBLIC_PLOTS_TMP_PATH = Path("/config/www/.rainmapper-plots-tmp")
 LEAFLET_VIEWER_ASSETS_PATH = Path("/app/leaflet-viewer")
 PUBLIC_LEAFLET_PATH = Path("/config/www/rainmapper-leaflet")
 PUBLIC_LEAFLET_TMP_PATH = Path("/config/www/.rainmapper-leaflet-tmp")
-PUBLIC_LEGACY_MOBILE_PATH = Path("/config/www/rainmapper-mobile")
+REMOVED_LEGACY_MOBILE_PATH = Path("/config/www/rainmapper-mobile")
 MAPLIBRE_VIEWER_ASSETS_PATH = Path("/app/maplibre-viewer")
 PUBLIC_MAPLIBRE_PATH = Path("/config/www/rainmapper-maplibre")
 PUBLIC_MAPLIBRE_TMP_PATH = Path("/config/www/.rainmapper-maplibre-tmp")
@@ -773,8 +773,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
 
     shutil.rmtree(PUBLIC_LEAFLET_PATH, ignore_errors=True)
     PUBLIC_LEAFLET_TMP_PATH.rename(PUBLIC_LEAFLET_PATH)
-    shutil.rmtree(PUBLIC_LEGACY_MOBILE_PATH, ignore_errors=True)
-    shutil.copytree(PUBLIC_LEAFLET_PATH, PUBLIC_LEGACY_MOBILE_PATH)
+    shutil.rmtree(REMOVED_LEGACY_MOBILE_PATH, ignore_errors=True)
 
     if not MAPLIBRE_VIEWER_ASSETS_PATH.exists():
         return False, "Cannot publish MapLibre viewer: MapLibre viewer assets are missing."
@@ -798,7 +797,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
     message = (
         f"Published mobile viewers with {copied} GeoJSON file(s) to "
-        f"/local/rainmapper-leaflet/index.html, /local/rainmapper-mobile/index.html, and /local/rainmapper-maplibre/index.html at {published_at}."
+        f"/local/rainmapper-leaflet/index.html and /local/rainmapper-maplibre/index.html at {published_at}."
     )
     log_file.write(f"=== {message} ===\n")
     log_file.flush()
