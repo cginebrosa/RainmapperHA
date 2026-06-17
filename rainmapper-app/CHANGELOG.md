@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.57
+
+- Configure Home Assistant to use a pre-built multi-arch GHCR image instead of building the app locally.
+- Add a GitHub Actions workflow to publish `amd64` and `arm64` images for the app version.
+
 ## 0.2.56
 
 - Fix returning to the MapLibre Satellite+ base layer after switching to another layer.

@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en HA/iPhone MapLibre `0.2.56`: vuelta a Satellite+ tras cambiar de capa, filtro de lluvia minima y parada limpia SIGTERM durante actualizacion/reinicio.
+Validar en GitHub Actions/GHCR y HA la imagen preconstruida `0.2.57`; despues validar en HA/iPhone MapLibre y parada limpia SIGTERM.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -126,12 +126,12 @@ Validar en HA/iPhone MapLibre `0.2.56`: vuelta a Satellite+ tras cambiar de capa
   - Criterio de aceptacion: decision tecnica documentada.
   - Riesgo si no se hace: se acumulan CSV sin explotacion.
 
-- [ ] Preconstruir imagen Docker HA cuando la app este mas estable
+- [ ] Validar imagen Docker HA preconstruida
   - Contexto: Home Assistant construye la app en la RPi durante installs/updates, y la barra de progreso de HA puede quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi.
-  - Ficheros relacionados: `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, futura GitHub Action, GitHub Container Registry.
-  - Criterio de aceptacion: publicar imagen multi-arch `amd64`/`arm64` y configurar HA para descargarla en vez de construirla localmente.
-  - Estado: aplazado hasta que la app este mas terminada; por ahora el tiempo de instalacion es aceptable.
-  - Riesgo si no se hace: updates mas lentos en RPi y progreso de instalacion poco informativo en HA.
+  - Ficheros relacionados: `.github/workflows/build-rainmapper-app.yml`, `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, GitHub Container Registry.
+  - Criterio de aceptacion: GitHub Actions publica imagen multi-arch `amd64`/`arm64` y HA descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin build local.
+  - Estado: implementado en `0.2.57`, pendiente de validar que el paquete GHCR sea accesible por HA y que el update no ejecute build local.
+  - Riesgo si no se valida: HA podria fallar al descargar la imagen si el paquete GHCR queda privado o si la Action no termino antes de actualizar.
 
 - [x] Disenar futura app iOS/Android
   - Contexto: objetivo a largo plazo incluye app movil con autenticacion y permisos.

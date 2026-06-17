@@ -488,3 +488,29 @@ La app futura deberia consumir una API controlada, no rutas `/local/...` de Home
 
 ### Estado
 Confirmada como direccion de diseno/prototipo; pendiente de implementacion.
+
+## 2026-06-17 - Usar imagen preconstruida GHCR para la app HA
+
+### Decision
+Configurar la app de Home Assistant para usar la imagen preconstruida `ghcr.io/cginebrosa/rainmapperha:<version>` y publicar imagen multi-arch `amd64`/`arm64` con GitHub Actions.
+
+### Motivo
+Home Assistant estaba construyendo la imagen en la Raspberry Pi en cada update, con tiempos observados cercanos a 3 minutos incluso para cambios pequenos. La documentacion oficial de Home Assistant recomienda contenedores preconstruidos como metodo preferido porque el usuario solo descarga la imagen final y evita builds locales lentos.
+
+### Alternativas consideradas
+Mantener build local en HA, construir manualmente en Mac y subir imagen a mano, o posponer la preconstruccion hasta una fase mas estable.
+
+### Consecuencias
+Los updates de HA pasan a depender de que GitHub Actions haya publicado la imagen de la version correspondiente antes de actualizar en HA. El paquete GHCR debe ser accesible para Home Assistant; si queda privado, habra que hacerlo publico o configurar autenticacion. Se gana velocidad de instalacion/update en RPi.
+
+### Ficheros afectados
+- `.github/workflows/build-rainmapper-app.yml`
+- `rainmapper-app/config.yaml`
+- `rainmapper-app/Dockerfile`
+- `rainmapper-app/CHANGELOG.md`
+- `README.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+
+### Estado
+Implementada en `0.2.57`, pendiente de validar primer build de GitHub Actions y update HA sin build local.

@@ -147,7 +147,7 @@ Build Docker local:
 docker compose build rainmapper
 ```
 
-Build de Home Assistant: Home Assistant construye la app desde `rainmapper-app/Dockerfile` al instalar o actualizar. Comando CLI especifico: pendiente de confirmar.
+Build de Home Assistant: desde `0.2.57`, Home Assistant debe descargar la imagen preconstruida configurada en `rainmapper-app/config.yaml` (`ghcr.io/cginebrosa/rainmapperha:<version>`). GitHub Actions publica imagen multi-arch `amd64`/`arm64` en GHCR cuando cambian los ficheros de `rainmapper-app/`.
 
 ## Despliegue
 Despliegue Home Assistant confirmado por flujo manual:
