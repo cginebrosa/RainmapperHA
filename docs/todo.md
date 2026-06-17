@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en HA la version `0.2.60` publicada con Buildx local: el update debe aparecer solo despues de existir la imagen en GHCR y la instalacion debe descargar la imagen sin build local.
+Validar en el proximo bump que `scripts/build-push-ha-image.sh` limpia las etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` y conserva solo las dos ultimas versiones locales mas `latest`.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -130,8 +130,8 @@ Validar en HA la version `0.2.60` publicada con Buildx local: el update debe apa
   - Contexto: Home Assistant construye la app en la RPi durante installs/updates, y la barra de progreso de HA puede quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi.
   - Ficheros relacionados: `.github/workflows/build-rainmapper-app.yml`, `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, GitHub Container Registry.
   - Criterio de aceptacion: publicar imagen multi-arch `amd64`/`arm64` en GHCR antes de hacer visible el update en HA; HA descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin build local.
-  - Estado: validado en `0.2.57` con GitHub Actions; desde `0.2.60` el flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
-  - Riesgo residual: requiere login Docker en GHCR desde el Mac y disciplina de publicar imagen antes del commit de version.
+  - Estado: validado en `0.2.57` con GitHub Actions y en `0.2.60` con Buildx local. El flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
+  - Riesgo residual: requiere login Docker en GHCR desde el Mac y disciplina de publicar imagen antes del commit de version. Desde el siguiente bump, validar que la limpieza local del script conserva solo las dos ultimas etiquetas versionadas mas `latest`.
 
 - [x] Validar filtros de visor para futura app movil
   - Contexto: antes de construir la app iOS/Android se quieren probar funciones utiles en el visor web actual.

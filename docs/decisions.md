@@ -527,7 +527,7 @@ GitHub Actions con cache siguio tardando alrededor de 7 minutos y Home Assistant
 Mantener GitHub Actions automatico y esperar a que termine, construir en Home Assistant, o subir imagen manual sin script versionado.
 
 ### Consecuencias
-El flujo de release exige login Docker contra GHCR en el Mac y disciplina de publicar imagen antes de subir el commit de version. A cambio, HA no deberia ofrecer un update cuyo tag de imagen aun no exista. GitHub Actions deja de ejecutarse automaticamente en cada push de `rainmapper-app`.
+El flujo de release exige login Docker contra GHCR en el Mac y disciplina de publicar imagen antes de subir el commit de version. A cambio, HA no deberia ofrecer un update cuyo tag de imagen aun no exista. GitHub Actions deja de ejecutarse automaticamente en cada push de `rainmapper-app`. El script publica la etiqueta versionada y `latest`; Home Assistant usa la etiqueta versionada. Desde el ajuste posterior a `0.2.60`, el script limpia etiquetas locales versionadas antiguas del mismo repositorio y conserva por defecto las dos ultimas mas `latest`.
 
 ### Ficheros afectados
 - `scripts/build-push-ha-image.sh`
@@ -539,7 +539,7 @@ El flujo de release exige login Docker contra GHCR en el Mac y disciplina de pub
 - `docs/decisions.md`
 
 ### Estado
-Implementado en `0.2.60`; pendiente validar instalacion en Home Assistant usando imagen publicada localmente.
+Implementado y validado en `0.2.60`: Home Assistant instalo la imagen publicada localmente desde GHCR sin build local. Modificado despues de validar `0.2.60` para anadir limpieza local de etiquetas antiguas al script de publicacion.
 
 ## 2026-06-17 - Exponer fuente de estacion en GeoJSON y filtros del visor
 

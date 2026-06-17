@@ -147,7 +147,7 @@ Build Docker local:
 docker compose build rainmapper
 ```
 
-Build de Home Assistant: desde `0.2.57`, Home Assistant debe descargar la imagen preconstruida configurada en `rainmapper-app/config.yaml` (`ghcr.io/cginebrosa/rainmapperha:<version>`). Desde `0.2.60`, el flujo normal es publicar la imagen multi-arch `amd64`/`arm64` desde el Mac con `./scripts/build-push-ha-image.sh` antes de subir el commit de version. GitHub Actions queda como fallback manual.
+Build de Home Assistant: desde `0.2.57`, Home Assistant debe descargar la imagen preconstruida configurada en `rainmapper-app/config.yaml` (`ghcr.io/cginebrosa/rainmapperha:<version>`). Desde `0.2.60`, el flujo normal es publicar la imagen multi-arch `amd64`/`arm64` desde el Mac con `./scripts/build-push-ha-image.sh` antes de subir el commit de version. El script publica la etiqueta versionada y `latest`; Home Assistant usa la etiqueta versionada. Tras publicar, el script limpia etiquetas locales versionadas antiguas del mismo repositorio y conserva por defecto las dos ultimas mas `latest`. GitHub Actions queda como fallback manual.
 
 ## Despliegue
 Despliegue Home Assistant confirmado por flujo manual:

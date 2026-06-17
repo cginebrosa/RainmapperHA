@@ -56,7 +56,7 @@ Tambien existen documentos de uso:
 - `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
 - `maplibre-viewer/`: visor MapLibre fuente para pruebas locales/publicacion.
 - `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, reconstruccion con poco historico, versiones y sincronizacion raiz/app HA.
-- `scripts/build-push-ha-image.sh`: publica desde el Mac la imagen multi-arch de la app HA en GHCR usando Docker Buildx.
+- `scripts/build-push-ha-image.sh`: publica desde el Mac la imagen multi-arch de la app HA en GHCR usando Docker Buildx; sube tags `<version>` y `latest`, y limpia etiquetas locales versionadas antiguas conservando por defecto las dos ultimas mas `latest`.
 - `tests/`: tests funcionales iniciales con `unittest`; actualmente cubren `tomap_to_geojson.py` con fixtures versionados.
 - `scripts/sync-app-files.sh`: sincroniza scripts raiz y visores hacia `rainmapper-app/app` como practica operativa mientras exista duplicidad.
 - `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
@@ -165,7 +165,7 @@ Tambien existen documentos de uso:
 - Decidir retirada de Bokeh o mantenerlo como referencia.
 - Crear tests automaticos mas completos; existe smoke test versionado y un primer bloque `unittest` para `tomap_to_geojson.py`, pero faltan fixtures funcionales de Docker/HA/publicacion.
 - Mejorar separacion entre core de datos, webUI y visores.
-- Imagen Docker HA multi-arch preconstruida en GHCR desde `0.2.57`; validado en HA: Supervisor descargo `ghcr.io/cginebrosa/rainmapperha:0.2.57` sin build local y mostro progreso de instalacion. GitHub Actions con cache no redujo el tiempo de build de forma util. Desde `0.2.60`, el flujo normal es publicar la imagen desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version; GitHub Actions queda como fallback manual.
+- Imagen Docker HA multi-arch preconstruida en GHCR desde `0.2.57`; validado en HA: Supervisor descargo `ghcr.io/cginebrosa/rainmapperha:0.2.57` sin build local y mostro progreso de instalacion. GitHub Actions con cache no redujo el tiempo de build de forma util. Desde `0.2.60`, el flujo normal es publicar la imagen desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version; GitHub Actions queda como fallback manual. `0.2.60` fue validada en HA con imagen publicada localmente.
 - Analitica historica de metricas Wunderground, posiblemente con InfluxDB/Grafana.
 - Autenticacion/autorizacion real para una futura app publica iOS/Android.
 - Definir modelo de producto/acceso si se venden mapas o zonas.
