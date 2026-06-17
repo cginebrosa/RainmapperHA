@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Subir y validar la actualizacion HA `0.2.45`; despues continuar con la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional.
+Subir y validar la actualizacion HA `0.2.46`; despues continuar con la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -42,12 +42,12 @@ Subir y validar la actualizacion HA `0.2.45`; despues continuar con la siguiente
   - Criterio de aceptacion: dejar de publicar `/local/rainmapper-mobile` y limpiar la carpeta antigua al publicar mapas.
   - Estado: resuelto en version `0.2.42`.
 
-- [ ] Homogeneizar idioma de logs y UI
-  - Contexto: la webUI visible de HA, metadata HA y changelog quedan en ingles desde `0.2.45`; los logs internos del core aun mezclan ingles/espanol.
-  - Ficheros relacionados: `Rainmapper.py`, `Rainmapper_Client.py`, `web_server.py`, visores.
-  - Criterio de aceptacion: idioma definido y aplicado tambien para logs operativos del core.
-  - Estado: parcialmente resuelto; queda revisar logs internos antes de marcarlo completo.
-  - Riesgo si no se hace: peor soporte y documentacion menos clara.
+- [x] Homogeneizar idioma de logs y UI
+  - Contexto: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core quedan en ingles desde `0.2.46`.
+  - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py`, `web_server.py`, `rainmapper-app/README.md`, `rainmapper-app/DOCS.md`.
+  - Criterio de aceptacion: idioma definido para superficies de usuario final y logs operativos.
+  - Estado: resuelto para webUI/changelog/logs operativos. README/DOCS de la app HA quedan en espanol de momento por ser documentacion de uso propio, no distribucion publica.
+  - Riesgo residual: si la app se distribuye publicamente, convendra traducir README/DOCS a ingles.
 
 - [x] Validar portabilidad del enlace App settings
   - Contexto: funciona en la instalacion actual, pero dependia de slug/fallback y de una unica ruta.
@@ -120,7 +120,7 @@ Subir y validar la actualizacion HA `0.2.45`; despues continuar con la siguiente
 - [ ] Confirmar si el repo debe quedar privado o publico para distribucion futura.
 - [ ] Confirmar si Jawg permite restringir token por dominio y si se usara en publico.
 - [x] Confirmar idioma final de UI visible HA/changelog: ingles.
-- [ ] Confirmar si los logs internos del core deben quedar tambien en ingles.
+- [x] Confirmar si los logs internos del core deben quedar tambien en ingles.
 
 ## Ideas futuras
 - App iOS/Android con login y autorizacion por mapa/zona.

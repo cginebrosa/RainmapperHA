@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.46
+
+- Translate visible core runtime logs to English, including Wunderground progress and summary output.
+- Keep the Home Assistant WebUI progress parser compatible with the previous Spanish Wunderground progress format.
+
 ## 0.2.45
 
 - Keep Home Assistant visible UI and metadata text in English.

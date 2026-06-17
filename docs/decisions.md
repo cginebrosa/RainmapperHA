@@ -127,6 +127,8 @@ Mantener `/local/rainmapper-mobile` indefinidamente como alias de compatibilidad
 Se reduce una ruta duplicada y se simplifica la publicacion. En la siguiente generacion de mapas se elimina cualquier carpeta antigua `/config/www/rainmapper-mobile` que quedara publicada.
 
 ### Ficheros afectados
+- `Rainmapper.py`
+- `rainmapper-app/app/Rainmapper.py`
 - `rainmapper-app/app/web_server.py`
 - `rainmapper-app/config.yaml`
 - `rainmapper-app/Dockerfile`
@@ -176,7 +178,7 @@ Home Assistant y el changelog son superficies de usuario/soporte donde conviene 
 Mantener mezcla de ingles/espanol o traducir tambien todos los logs internos en el mismo cambio.
 
 ### Consecuencias
-La version `0.2.45` corrige los textos visibles detectados y traduce entradas antiguas del changelog. Los logs internos del core quedan como tarea separada para evitar un cambio mas amplio sobre scripts de datos.
+La version `0.2.45` corrige los textos visibles detectados y traduce entradas antiguas del changelog. Modificado en `0.2.46`: los logs operativos principales del core tambien pasan a ingles, incluyendo progreso y resumen Wunderground. README/DOCS de la app HA se mantienen en espanol de momento porque la app es principalmente de uso propio y no una distribucion publica para terceros.
 
 ### Ficheros afectados
 - `rainmapper-app/app/web_server.py`

@@ -61,94 +61,94 @@ from const import   _codi_estacio,\
 
 # Add argument parser
 import argparse
-# Configurar el parser de argumentos
-parser = argparse.ArgumentParser(description='Descripción de tu script')
+# Configure command-line arguments
+parser = argparse.ArgumentParser(description='Rainmapper data update and map preparation script')
 parser.add_argument('--create_meteoclimatic', 
                     dest='_create_meteoclimatic', 
                     nargs='?', 
                     const=True, 
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_create_meteoclimatic,
-                    help='Recuperar datos de Meteoclimatic (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
+                    help='Fetch Meteoclimatic data (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
 parser.add_argument('--create_meteocat', 
                     dest='_create_meteocat', 
                     nargs='?', 
                     const=True, 
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_create_meteocat, 
-                    help='Recuperar datos de Meteocat (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
+                    help='Fetch Meteocat data (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
 parser.add_argument('--create_wunderground', 
                     dest='_create_wunderground', 
                     nargs='?', 
                     const=True, 
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_create_wunderground, 
-                    help='Recuperar datos de Wunderground (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
+                    help='Fetch Wunderground data (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
 parser.add_argument('--days_init', 
                     dest='_days_init', 
                     nargs='?', 
                     const=_days_init,
                     type=int,
                     default= _days_init, 
-                    help='Dias hacia atras para buscar lluvia acumulada (negativo, 0 o positivo(?)) -> Const=Default=-7')
+                    help='Days backward for accumulated rain lookup (negative, 0, or positive) -> Const=Default=-7')
 parser.add_argument('--days_end', 
                     dest='_days_end',
                     nargs='?', 
                     const=_days_end,
                     type=int, 
                     default=_days_end,
-                    help='Dias hacia adelante para buscar lluvia acumulada (negativo, 0 o positivo(?)) -> Const=Default=0')
+                    help='Days forward for accumulated rain lookup (negative, 0, or positive) -> Const=Default=0')
 parser.add_argument('--nomaps', 
                     dest='_create_googlemaps_files', 
                     nargs='?', 
                     const=False, 
                     type=lambda x: not(str(x).lower() in ['true','1','yes']),
                     default=_create_googlemaps_files,
-                    help='No crear Googlemaps files (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=True')
+                    help='Do not create Google Maps files (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=True')
 parser.add_argument('--nototals', 
                     dest='_print_totals', 
                     nargs='?', 
                     const=False, 
                     type=lambda x: not((str(x).lower() in ['true','1','yes'])),
                     default=_print_totals,
-                    help='No imprimir Totales (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=True')
+                    help='Do not print totals (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=True')
 parser.add_argument('--days_bucket', 
                     dest='_days_bucket',
                     nargs='?', 
                     const=_days_bucket,
                     type=int, 
                     default=_days_bucket,
-                    help='Dias bucket en lectura de Meteocat (Numerico positivo) -> Const=Default=10')
+                    help='Day bucket size for Meteocat reads (positive number) -> Const=Default=10')
 parser.add_argument('--max_threads', 
                     dest='_max_threads',
                     nargs='?', 
                     const=_max_threads,
                     type=int, 
                     default=_max_threads,
-                    help='Numero de threads para wunderground -> Const=Default=1')
+                    help='Number of Wunderground threads -> Const=Default=1')
 parser.add_argument('--max_attempts', 
                     dest='_max_attempts',
                     nargs='?', 
                     const=_max_attempts,
                     type=int, 
                     default=_max_attempts,
-                    help='Numero de reintentos para scrapper wunderground -> Const=Default=3')
+                    help='Number of Wunderground scraper retries -> Const=Default=3')
 parser.add_argument('--wunderground_full_log',
                     dest='_wunderground_full_log',
                     nargs='?',
                     const=True,
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_wunderground_full_log,
-                    help='Imprimir log detallado de Wunderground (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=False')
+                    help='Print detailed Wunderground log (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=False')
 parser.add_argument('--meteoclimatic_pattern',
                     dest='_meteoclimatic_pattern',
                     nargs='?',
                     const=_meteoclimatic_pattern,
                     type=str,
                     default=_meteoclimatic_pattern,
-                    help='Patron(es) de estaciones Meteoclimatic a leer del feed RSS. Separar multiples patrones con coma, punto y coma o " - " -> Const=Default=ESCAT')
+                    help='Meteoclimatic station pattern(s) to read from RSS feed. Separate multiple patterns with comma, semicolon, or " - " -> Const=Default=ESCAT')
 
-# Parsear los argumentos de la línea de comandos
+# Parse command-line arguments
 args = parser.parse_args()
 
 _create_meteoclimatic = args._create_meteoclimatic
@@ -293,7 +293,7 @@ def get_googlemaps(lat,long):
     if len(administrative_area_level_2) == 0:       # If not found set to "Check lat/long"
         administrative_area_level_2 = ["Not found - Check lat/long"]
     #print(reverse_geocode_result)
-    print('Altitud'+ str(elevation_result))
+    print('Altitude'+ str(elevation_result))
 
     return elevation_result[-1]['elevation'],locality[0], administrative_area_level_2[0]
 
@@ -476,7 +476,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
         ## FIN MODI CODEX por bug logico ##     
             #or estacions_old.loc[index,'Altitud'] == 0 
             #or station['Altitud'] == 0):
-            print ('Recuperando Altitud para estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
+            print ('Fetching altitude for station:'+ station['Codi Estació'] + '-->' + station['Estació'])
             _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
             existing_stations.loc[index,'Altitud'] = int(_altitud)
         else:
@@ -491,7 +491,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
         if index == 0:
             print('Checking Googlemaps data...')
 
-        print ('Recuperando Altitud/Municipi/Provincia para nueva estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
+        print ('Fetching altitude/municipality/province for new station:'+ station['Codi Estació'] + '-->' + station['Estació'])
 
         _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
         new_stations.loc[index,'Altitud'] = int(_altitud)
@@ -1110,14 +1110,14 @@ def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station
     _data_inici = get_data_inici()
     _data_fi = get_data_fi()
     print(" ")
-    print("Dades XEMA & Meteoclimatic & Wunderground de Pluja acumulada:",len(csv_total), "Estacions reportan pluja")
-    print("Minima pluja acumulada:",_minimum_rain_toprint, "mm")
-    print("Data Inici:", utc_to_local(datetime.strptime(_data_inici,"%d-%m-%Y %H:%M:%S")).strftime("%d-%m-%Y %H:%M:%S"))
-    print("Data Fi:", utc_to_local(datetime.strptime(_data_fi,"%d-%m-%Y %H:%M:%S")).strftime("%d-%m-%Y %H:%M:%S"))
+    print("Accumulated rain data from XEMA, Meteoclimatic, and Wunderground:",len(csv_total), "stations reporting rain")
+    print("Minimum accumulated rain:",_minimum_rain_toprint, "mm")
+    print("Start date:", utc_to_local(datetime.strptime(_data_inici,"%d-%m-%Y %H:%M:%S")).strftime("%d-%m-%Y %H:%M:%S"))
+    print("End date:", utc_to_local(datetime.strptime(_data_fi,"%d-%m-%Y %H:%M:%S")).strftime("%d-%m-%Y %H:%M:%S"))
     if len(csv_total) != 0:
-        print("Codi Estació:"+_codi_estacio+" ("+(csv_total.iloc[-1]["Estació"])+")" 
+        print("Station code:"+_codi_estacio+" ("+(csv_total.iloc[-1]["Estació"])+")"
             if _codi_estacio!='' and _codi_estacio!='ALL' 
-            else "Totes les estacions")               
+            else "All stations")
         print(" ")
     #
     for i in range(len(csv_total)):
@@ -1133,22 +1133,22 @@ def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station
     #   Print records from csv Dataframe in Console 
     #
         if False:
-            print("REGISTRE:" + \
+            print("RECORD:" + \
                     str(i), \
-                    "Estació: "+ \
+                    "Station: "+ \
                     _this_codi_estacio+" - " + \
                     _this_nom_estacio+" [" + _this_nom_municipi+ \
-                    "] - Pluja acumulada:", \
+                    "] - Accumulated rain:", \
                     _this_valor_variable,\
                     _this_unitat, \
-                    "- Ultima lectura: " + \
+                    "- Last reading: " + \
                     _this_ultima_lectura)
         elif True:
-            print(f"REC: {i:<3} Estació: {_this_codi_estacio:<19} - {_this_nom_estacio:<40} [{_this_nom_municipi:<30}] - Pluja acumulada: {_this_valor_variable:<5} {_this_unitat:3} - Ultima pluja: {_this_ultima_lectura:<20}")
+            print(f"REC: {i:<3} Station: {_this_codi_estacio:<19} - {_this_nom_estacio:<40} [{_this_nom_municipi:<30}] - Accumulated rain: {_this_valor_variable:<5} {_this_unitat:3} - Last rain: {_this_ultima_lectura:<20}")
  
         else:
-            print("REGISTRE:"+str(i),"Estació: "+ _codi_estacio+" (UNDEFINED) - Pluja acumulada:"\
-                    ,_valor_variable,_unitat,"- Ultima lectura: "+\
+            print("RECORD:"+str(i),"Station: "+ _codi_estacio+" (UNDEFINED) - Accumulated rain:"\
+                    ,_valor_variable,_unitat,"- Last reading: "+\
                     _ultima_lectura)
     print("")
 
@@ -1199,7 +1199,7 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
         if  station['Latitud'] != csv_old.loc[index,'Latitud'] or \
             station['Longitud'] != csv_old.loc[index,'Longitud'] or \
             not _isvalid:
-            print ('Recuperando Altitud para estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
+            print ('Fetching altitude for station:'+ station['Codi Estació'] + '-->' + station['Estació'])
             #print('Estacion a actualizar', existing_stations['Codi Estació'][index])
             _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
             #print(_altitud,_municipi,_provincia)
@@ -1211,7 +1211,7 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
     # Get elevation, municipi & provincia for new stations added to 'estacions_meteoclimatic.csv'
     new_stations = csv[ ~csv.index.isin(csv_old.index) ]
     for index, station in new_stations.iterrows():
-        print ('Recuperando Altitud/Municipi/Provincia para nueva estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
+        print ('Fetching altitude/municipality/province for new station:'+ station['Codi Estació'] + '-->' + station['Estació'])
         _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
         #new_stations['Altitud'][index] = int(get_googlemaps(station['Latitud'], station['Longitud'],'elevation'))
         new_stations.loc[index,'Altitud'] = int(_altitud)
@@ -1309,7 +1309,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
     thread_name = threading.current_thread().name
     station_started_at = datetime.now()
     station_start_time = time_module.perf_counter()
-    wunderground_log(f"[{thread_name}] Iniciando thread para URL: {weather_station_url} en launchtime: {launchtime}")
+    wunderground_log(f"[{thread_name}] Starting thread for URL: {weather_station_url} at launch time: {launchtime}")
 
     session = requests.Session()
     timeout = 5
@@ -1410,17 +1410,17 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                     if _wunderground_full_log:
                         end_count(_legend='Fetched data for '+url)
 
-                    # Obtener y mostrar los datos de la estación
+                    # Fetch and log station metadata.
                     #elevation, latitude, longitude, station_name, station_ID, location_name = scraper.get_station_header()
                     station_ID, station_name, location_name, elevation, latitude, longitude = scraper.get_station_header()
                     summary_station_id = station_ID
                     summary_station_name = station_name
-                    wunderground_log(f'Código de la estación: {station_ID}')
-                    wunderground_log(f'Nombre de la estación: {station_name}')
-                    wunderground_log(f'Municipi: {location_name}')
-                    wunderground_log(f"Latitud: {latitude}")
-                    wunderground_log(f"Longitud: {longitude}")
-                    wunderground_log(f"Altitud: {elevation} m")
+                    wunderground_log(f'Station code: {station_ID}')
+                    wunderground_log(f'Station name: {station_name}')
+                    wunderground_log(f'Municipality: {location_name}')
+                    wunderground_log(f"Latitude: {latitude}")
+                    wunderground_log(f"Longitude: {longitude}")
+                    wunderground_log(f"Altitude: {elevation} m")
     
                 except Exception as e:
                     summary_errors.append(str(e))
@@ -1467,7 +1467,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                 wunderground_log(str(e))
     
     duration_seconds = time_module.perf_counter() - station_start_time
-    wunderground_log(f"[{thread_name}] Terminando thread para URL: {weather_station_url} ({duration_seconds:.1f}s)")
+    wunderground_log(f"[{thread_name}] Finished thread for URL: {weather_station_url} ({duration_seconds:.1f}s)")
     return {
         'url': weather_station_url,
         'id_ejecucion': launchtime,
@@ -1529,7 +1529,7 @@ def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
         if  station['Latitud'] != csv_old.loc[index,'Latitud'] or \
             station['Longitud'] != csv_old.loc[index,'Longitud'] or \
             not _isvalid:
-            print ('Actualizando Altitud/Municipi/Provincia para estación existente:'+ station['Codi Estació'] + '-->' + station['Estació'])
+            print ('Updating altitude/municipality/province for existing station:'+ station['Codi Estació'] + '-->' + station['Estació'])
             #print('Estacion a actualizar', existing_stations['Codi Estació'][index])
             _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
             #print(_altitud,_municipi,_provincia)
@@ -1541,7 +1541,7 @@ def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
     # Get elevation, municipi & provincia for new stations added to 'estacions_meteoclimatic.csv'
     new_stations = csv[ ~csv.index.isin(csv_old.index) ].copy()
     for index, station in new_stations.iterrows():
-        print ('Recuperando Altitud/Municipi/Provincia para nueva estación:'+ station['Codi Estació'] + '-->' + station['Estació'])
+        print ('Fetching altitude/municipality/province for new station:'+ station['Codi Estació'] + '-->' + station['Estació'])
         _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
         #new_stations['Altitud'][index] = int(get_googlemaps(station['Latitud'], station['Longitud'],'elevation'))
         new_stations.loc[index,'Altitud'] = int(_altitud)
@@ -1568,7 +1568,7 @@ def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
 
 
 def print_wunderground_progress(completed, total):
-    print(f'Procesando estaciones Wunderground {completed} de {total}')
+    print(f'Processing Wunderground stations {completed} from {total}')
 
 def format_wunderground_duration(seconds):
     if seconds is None:
@@ -1634,11 +1634,11 @@ def print_wunderground_summary(results):
     ]
 
     print('')
-    print('Resumen Wunderground:')
+    print('Wunderground summary:')
     print('--------------------')
-    print(f'Estaciones solicitadas: {len(results)}')
-    print(f'Estaciones actualizadas: {len(updated)}')
-    print(f'Estaciones fallidas: {len(failed)}')
+    print(f'Requested stations: {len(results)}')
+    print(f'Updated stations: {len(updated)}')
+    print(f'Failed stations: {len(failed)}')
 
     if timed_results:
         sorted_by_duration = sorted(timed_results, key=lambda result: result['duration_seconds'])
@@ -1654,20 +1654,20 @@ def print_wunderground_summary(results):
         slowest = sorted_by_duration[-1]
 
         print('')
-        print('Tiempos Wunderground:')
-        print(f'Tiempo medio por estación: {format_wunderground_duration(average_duration)}')
-        print(f'Mediana por estación: {format_wunderground_duration(median_duration)}')
-        print(f'Estación más rápida: {format_wunderground_station(fastest)} - {format_wunderground_duration(fastest["duration_seconds"])}')
-        print(f'Estación más lenta: {format_wunderground_station(slowest)} - {format_wunderground_duration(slowest["duration_seconds"])}')
-        print('Estaciones más lentas:')
+        print('Wunderground timings:')
+        print(f'Average time per station: {format_wunderground_duration(average_duration)}')
+        print(f'Median time per station: {format_wunderground_duration(median_duration)}')
+        print(f'Fastest station: {format_wunderground_station(fastest)} - {format_wunderground_duration(fastest["duration_seconds"])}')
+        print(f'Slowest station: {format_wunderground_station(slowest)} - {format_wunderground_duration(slowest["duration_seconds"])}')
+        print('Slowest stations:')
         for result in reversed(sorted_by_duration[-10:]):
             status = 'OK' if result.get('ok') else 'ERROR'
             rows = result.get('rows', 0)
-            print(f'- {format_wunderground_station(result)} - {format_wunderground_duration(result["duration_seconds"])} - {status} - {rows} filas')
+            print(f'- {format_wunderground_station(result)} - {format_wunderground_duration(result["duration_seconds"])} - {status} - {rows} rows')
 
     if failed:
         print('')
-        print('Estaciones Wunderground fallidas:')
+        print('Failed Wunderground stations:')
         for result in failed:
             errors = result.get('errors') or ['No rows returned']
             last_error = errors[-1]
@@ -1675,7 +1675,7 @@ def print_wunderground_summary(results):
 
     save_wunderground_metrics(results)
     print('')
-    print(f'Metricas Wunderground guardadas en {_DATA_PATH}metricas_wunderground.csv')
+    print(f'Wunderground metrics saved to {_DATA_PATH}metricas_wunderground.csv')
 
 def create_wunderground():
     launchtime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -1695,7 +1695,7 @@ def create_wunderground():
     progress_step = max(1, math.ceil(total_stations / 10))
     next_progress = progress_step
 
-    print(f'Procesando estaciones Wunderground 0 de {total_stations}')
+    print(f'Processing Wunderground stations 0 from {total_stations}')
     
     def register_wunderground_result(result):
         nonlocal completed_stations, next_progress
@@ -1713,7 +1713,7 @@ def create_wunderground():
         for index, url in enumerate(station_urls):
             if index == 0:
                 # Procesa la primera URL sin threads
-                wunderground_log(f"Procesando primera URL sin threads: {url}")
+                wunderground_log(f"Processing first URL without threads: {url}")
                 register_wunderground_result(scrap_wunderground_station(url, launchtime))
             else:
                 # Procesa el resto de las URLs usando threads
@@ -1838,9 +1838,9 @@ def merge_dataframes(source01_df_param:pd.DataFrame, source02_df_param:pd.DataFr
     return csv_completo
 
 def create_filtered(df_to_filter_param:pd.DataFrame, _base_date, _days_backward, _days_forward):
-    # Identifica el thread actual y muestra mensaje al inicio
+    # Identify the current thread and log the start message.
     thread_name = threading.current_thread().name
-    print(f"[{thread_name}] Iniciando thread para filtrado dataframe")
+    print(f"[{thread_name}] Starting thread for dataframe filtering")
 
     df_to_filter = df_to_filter_param.copy()
     start_date = _base_date - timedelta(days=_days_backward)
@@ -2023,9 +2023,9 @@ def process_meteoclimatic():                                        # FOR MULTIT
     if _create_meteoclimatic:
         start_count(_legend='Start processing Meteoclimatic...')
         
-        # Identifica el thread actual y muestra mensaje al inicio
+        # Identify the current thread and log the start message.
         thread_name = threading.current_thread().name
-        print(f"[{thread_name}] Iniciando thread para Meteoclimatic")
+        print(f"[{thread_name}] Starting thread for Meteoclimatic")
 
         meteoclimatic_df = create_meteoclimatic(_save_to_csv=True)
     
@@ -2158,9 +2158,9 @@ def process_meteocat():                                             # FOR MULTIT
     if _create_meteocat:
         start_count(_legend='Start processing Meteocat...')
 
-        # Identifica el thread actual y muestra mensaje al inicio
+        # Identify the current thread and log the start message.
         thread_name = threading.current_thread().name
-        print(f"[{thread_name}] Iniciando thread para Meteocat")
+        print(f"[{thread_name}] Starting thread for Meteocat")
 
         # DEFINE base data for Meteocat connection##
         # 
