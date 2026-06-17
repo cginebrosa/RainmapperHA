@@ -22,6 +22,11 @@ const INITIAL_ZOOM = 7;
 const SOURCE_ID = "stations";
 const CIRCLE_LAYER_ID = "station-circles";
 const jawgAccessToken = window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "";
+const stationSources = [
+  { id: "Meteocat", label: "Meteocat" },
+  { id: "Meteoclimatic", label: "Meteoclimatic" },
+  { id: "Wunderground", label: "Wunderground" },
+];
 
 const baseStyles = [
   {
@@ -229,6 +234,7 @@ let currentVisibleFeatures = [];
 let currentPopup = null;
 let hasLoadedInitialMap = false;
 let minRainFilter = 0;
+let enabledStationSources = new Set(stationSources.map((source) => source.id));
 
 function styleDefinition(style) {
   if (!style.style) {
@@ -277,10 +283,12 @@ function visibleFeatures(features) {
 
 function prepareFeature(feature) {
   const total = Number(feature.properties?.Total || 0);
+  const source = feature.properties?.Source || inferStationSource(feature.properties?.["Codi Estació"]);
   return {
     ...feature,
     properties: {
       ...(feature.properties || {}),
+      Source: source,
       rain_color: rainColor(total),
       marker_radius: markerRadius(total),
     },
@@ -292,8 +300,29 @@ function featureRainTotal(feature) {
   return Number.isFinite(total) ? total : 0;
 }
 
+function inferStationSource(stationCode) {
+  const code = String(stationCode || "").trim().toUpperCase();
+  if (code.startsWith("ES") && code.length >= 15) {
+    return "Meteoclimatic";
+  }
+  if (code.startsWith("I")) {
+    return "Wunderground";
+  }
+  if (code) {
+    return "Meteocat";
+  }
+  return "Unknown";
+}
+
+function featureStationSource(feature) {
+  return feature.properties?.Source || inferStationSource(feature.properties?.["Codi Estació"]);
+}
+
 function filteredFeatures(features) {
-  return features.filter((feature) => featureRainTotal(feature) >= minRainFilter);
+  return features.filter((feature) => (
+    featureRainTotal(feature) >= minRainFilter
+    && enabledStationSources.has(featureStationSource(feature))
+  ));
 }
 
 function updateMinRainControl(features) {
@@ -387,6 +416,7 @@ function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
 function popupContent(properties) {
   const station = properties["Codi Estació"] || "";
   const name = properties["Estació"] || "Unknown station";
+  const source = properties.Source || inferStationSource(station);
   const town = properties["Municipi"] || "Unknown town";
   const province = properties["Provincia"] || "";
   const altitude = properties["Altitud"] || "-";
@@ -396,6 +426,7 @@ function popupContent(properties) {
 
   return `
     <div class="popup-title">${station} · ${name}</div>
+    <div class="popup-row"><strong>Source:</strong> ${source}</div>
     <div class="popup-row"><strong>Rain:</strong> ${total} mm</div>
     <div class="popup-row"><strong>Location:</strong> ${town}${province ? `, ${province}` : ""}</div>
     <div class="popup-row"><strong>Altitude:</strong> ${altitude} m</div>
@@ -452,7 +483,12 @@ function recentRainHistory(properties) {
 
 function updateSummary(fileName, count, totalCount = count) {
   const stationText = `${count} station${count === 1 ? "" : "s"}`;
-  const filterText = minRainFilter > 0 ? ` · ${totalCount} total · min ${minRainFilter} mm` : "";
+  const sourceFilterText = enabledStationSources.size < stationSources.length
+    ? ` · sources ${enabledStationSources.size}/${stationSources.length}`
+    : "";
+  const filterText = minRainFilter > 0 || sourceFilterText
+    ? ` · ${totalCount} total${minRainFilter > 0 ? ` · min ${minRainFilter} mm` : ""}${sourceFilterText}`
+    : "";
   document.getElementById("summary").textContent = `${periods[fileName]} · ${stationText}${filterText}`;
 }
 
@@ -565,6 +601,7 @@ function renderSettingsPanel() {
   const toggle = document.getElementById("settings-toggle");
   const panel = document.getElementById("map-settings");
   const slider = document.getElementById("min-rain-filter");
+  const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
 
   toggle.addEventListener("click", () => {
     const isOpen = panel.hasAttribute("hidden");
@@ -576,6 +613,18 @@ function renderSettingsPanel() {
     minRainFilter = Number(event.target.value);
     updateMinRainValue();
     refreshFilteredData();
+  });
+
+  sourceInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      const selectedSources = sourceInputs.filter((sourceInput) => sourceInput.checked);
+      if (selectedSources.length === 0) {
+        input.checked = true;
+        return;
+      }
+      enabledStationSources = new Set(selectedSources.map((sourceInput) => sourceInput.value));
+      refreshFilteredData();
+    });
   });
 }
 

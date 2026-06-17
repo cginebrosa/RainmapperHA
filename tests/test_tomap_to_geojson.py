@@ -16,6 +16,15 @@ FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
 
 
 class TomapToGeojsonTests(unittest.TestCase):
+    def test_infer_station_source_from_station_code_pattern(self):
+        self.assertEqual(tomap_to_geojson.infer_station_source("ESCAT2500000025515A"), "Meteoclimatic")
+        self.assertEqual(tomap_to_geojson.infer_station_source("ES1234567890123"), "Meteoclimatic")
+        self.assertEqual(tomap_to_geojson.infer_station_source("ES00000000000000000"), "Meteoclimatic")
+        self.assertEqual(tomap_to_geojson.infer_station_source("ES123"), "Meteocat")
+        self.assertEqual(tomap_to_geojson.infer_station_source("IGUILS3"), "Wunderground")
+        self.assertEqual(tomap_to_geojson.infer_station_source("Z1"), "Meteocat")
+        self.assertEqual(tomap_to_geojson.infer_station_source(""), "Unknown")
+
     def test_load_ignore_station_codes_supports_comments_case_and_blank_lines(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             ignore_file = Path(tmp_dir) / "ignore_stations_tomap.txt"
@@ -66,6 +75,7 @@ class TomapToGeojsonTests(unittest.TestCase):
         self.assertEqual(feature["geometry"]["coordinates"], [2.1, 41.1])
         self.assertEqual(feature["properties"]["Codi Estació"], "TEST_KEEP")
         self.assertEqual(feature["properties"]["Pluja"], 3.5)
+        self.assertEqual(feature["properties"]["Source"], "Meteocat")
         self.assertNotIn("Latitud", feature["properties"])
         self.assertNotIn("Longitud", feature["properties"])
 

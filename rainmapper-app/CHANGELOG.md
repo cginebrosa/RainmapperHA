@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.58
+
+- Add a MapLibre settings filter to show/hide Meteocat, Meteoclimatic, and Wunderground stations.
+- Add station source metadata to generated GeoJSON files using the current station-code patterns.
+- Enable GitHub Actions Buildx cache for faster pre-built image publishing.
+
 ## 0.2.57
 
 - Configure Home Assistant to use a pre-built multi-arch GHCR image instead of building the app locally.

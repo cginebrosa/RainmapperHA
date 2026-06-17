@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en GitHub Actions/GHCR y HA la imagen preconstruida `0.2.57`; despues validar en HA/iPhone MapLibre y parada limpia SIGTERM.
+Subir el ajuste de cache Buildx/GHA del workflow y despues validar en HA/iPhone MapLibre y parada limpia SIGTERM.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -126,12 +126,18 @@ Validar en GitHub Actions/GHCR y HA la imagen preconstruida `0.2.57`; despues va
   - Criterio de aceptacion: decision tecnica documentada.
   - Riesgo si no se hace: se acumulan CSV sin explotacion.
 
-- [ ] Validar imagen Docker HA preconstruida
+- [x] Validar imagen Docker HA preconstruida
   - Contexto: Home Assistant construye la app en la RPi durante installs/updates, y la barra de progreso de HA puede quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi.
   - Ficheros relacionados: `.github/workflows/build-rainmapper-app.yml`, `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, GitHub Container Registry.
   - Criterio de aceptacion: GitHub Actions publica imagen multi-arch `amd64`/`arm64` y HA descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin build local.
-  - Estado: implementado en `0.2.57`, pendiente de validar que el paquete GHCR sea accesible por HA y que el update no ejecute build local.
-  - Riesgo si no se valida: HA podria fallar al descargar la imagen si el paquete GHCR queda privado o si la Action no termino antes de actualizar.
+  - Estado: validado en `0.2.57`; Supervisor descargo `ghcr.io/cginebrosa/rainmapperha:0.2.57` y no ejecuto build local. En `0.2.58` se anade cache Buildx/GHA para futuras Actions.
+  - Riesgo residual: HA muestra el update en cuanto ve `config.yaml`, aunque la imagen puede no estar publicada aun; esperar a que GitHub Actions este verde antes de actualizar.
+
+- [x] Validar filtros de visor para futura app movil
+  - Contexto: antes de construir la app iOS/Android se quieren probar funciones utiles en el visor web actual.
+  - Ficheros relacionados: `maplibre-viewer/`, `tomap_to_geojson.py`, `tests/test_tomap_to_geojson.py`.
+  - Criterio de aceptacion: MapLibre permite filtrar por lluvia minima y por fuente de estacion; el GeoJSON incluye `Source` para no repetir inferencias en clientes futuros.
+  - Estado: filtro de lluvia minima en `0.2.54`; filtro Meteocat/Meteoclimatic/Wunderground y `Source` en GeoJSON en `0.2.58`.
 
 - [x] Disenar futura app iOS/Android
   - Contexto: objetivo a largo plazo incluye app movil con autenticacion y permisos.

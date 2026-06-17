@@ -70,6 +70,17 @@ def filter_ignored_stations(df, ignore_station_codes):
     return df.loc[keep_rows].copy(), ignored_count
 
 
+def infer_station_source(station_code):
+    code = str(station_code or "").strip().upper()
+    if code.startswith("ES") and len(code) >= 15:
+        return "Meteoclimatic"
+    if code.startswith("I"):
+        return "Wunderground"
+    if code:
+        return "Meteocat"
+    return "Unknown"
+
+
 def dataframe_to_geojson(df, generated_at=None):
     features = []
     for record in df.to_dict(orient="records"):
@@ -87,6 +98,8 @@ def dataframe_to_geojson(df, generated_at=None):
             for key, value in record.items()
             if key not in ("Latitud", "Longitud")
         }
+        if not properties.get("Source"):
+            properties["Source"] = infer_station_source(properties.get("Codi Estació"))
         features.append(
             {
                 "type": "Feature",

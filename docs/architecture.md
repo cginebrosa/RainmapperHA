@@ -105,9 +105,9 @@ Hay varios entry points segun entorno:
 
 ### MapLibre viewer
 - Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.
-- Responsabilidad: visor web experimental con mapas vectoriales y raster.
+- Responsabilidad: visor web experimental con mapas vectoriales/raster y filtros cliente de estaciones.
 - Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y Jawg opcional.
-- Relacion: publicado a `/local/rainmapper-maplibre`. Desde `0.2.47`, Hybrid raster es la capa inicial para acercar comportamiento a Leaflet; desde `0.2.48`, Satellite+ combina imagen Esri con orientacion vectorial OpenFreeMap.
+- Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite filtrar por lluvia minima y por fuente de estacion.
 
 ## Modelo de datos
 Persistencia por CSV:
@@ -122,6 +122,7 @@ Persistencia por CSV:
 Campos relevantes detectados o usados:
 
 - `Codi Estació` / codigo de estacion.
+- `Source` en GeoJSON, inferido por `tomap_to_geojson.py` desde el codigo de estacion: `ES...` con longitud minima 15 para Meteoclimatic, `I...` para Wunderground, resto con codigo para Meteocat.
 - `Latitud`, `Longitud`.
 - lluvia acumulada por periodo.
 - municipio/provincia/altitud.
@@ -201,7 +202,7 @@ Home Assistant:
 - El repo se anade como repositorio de apps/add-ons en HA.
 - HA detecta `repository.yaml` y `rainmapper-app/config.yaml`.
 - Desde `0.2.57`, `rainmapper-app/config.yaml` define `image: ghcr.io/cginebrosa/rainmapperha`, por lo que HA debe descargar la imagen versionada en vez de construirla localmente.
-- `.github/workflows/build-rainmapper-app.yml` publica imagen multi-arch `amd64`/`arm64` en GHCR cuando cambian los ficheros de `rainmapper-app/`.
+- `.github/workflows/build-rainmapper-app.yml` publica imagen multi-arch `amd64`/`arm64` en GHCR cuando cambian los ficheros de `rainmapper-app/`, usando cache Buildx/GHA.
 - Los updates se distribuyen subiendo commits a GitHub, esperando a que GitHub Actions publique la imagen y usando `Check for updates`/`Update` en HA.
 
 ## Convenciones de codigo

@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.56">
+    <link rel="stylesheet" href="style.css?v=0.2.58">
   </head>
   <body>
     <header class="topbar">
@@ -43,6 +43,21 @@
           <output id="min-rain-value" for="min-rain-filter">0 mm</output>
         </div>
         <input id="min-rain-filter" type="range" min="0" max="100" step="1" value="0">
+        <fieldset class="map-settings-group">
+          <legend>Stations</legend>
+          <label>
+            <input type="checkbox" name="station-source" value="Meteocat" checked>
+            <span>Meteocat</span>
+          </label>
+          <label>
+            <input type="checkbox" name="station-source" value="Meteoclimatic" checked>
+            <span>Meteoclimatic</span>
+          </label>
+          <label>
+            <input type="checkbox" name="station-source" value="Wunderground" checked>
+            <span>Wunderground</span>
+          </label>
+        </fieldset>
       </section>
       <div class="rain-legend maplibre-rain-legend">
         <div class="rain-legend-title">Rain</div>
@@ -56,7 +71,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.56"></script>
-    <script src="app.js?v=0.2.56"></script>
+    <script src="config.js?v=0.2.58"></script>
+    <script src="app.js?v=0.2.58"></script>
   </body>
 </html>

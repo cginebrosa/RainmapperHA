@@ -501,7 +501,7 @@ Home Assistant estaba construyendo la imagen en la Raspberry Pi en cada update, 
 Mantener build local en HA, construir manualmente en Mac y subir imagen a mano, o posponer la preconstruccion hasta una fase mas estable.
 
 ### Consecuencias
-Los updates de HA pasan a depender de que GitHub Actions haya publicado la imagen de la version correspondiente antes de actualizar en HA. El paquete GHCR debe ser accesible para Home Assistant; si queda privado, habra que hacerlo publico o configurar autenticacion. Se gana velocidad de instalacion/update en RPi.
+Los updates de HA pasan a depender de que GitHub Actions haya publicado la imagen de la version correspondiente antes de actualizar en HA. El paquete GHCR debe ser accesible para Home Assistant; si queda privado, habra que hacerlo publico o configurar autenticacion. Se gana velocidad de instalacion/update en RPi si el tiempo de GitHub Actions, idealmente con cache Buildx/GHA, resulta aceptable. Si no compensa para pruebas rapidas, queda abierta la alternativa de build/push manual desde Mac.
 
 ### Ficheros afectados
 - `.github/workflows/build-rainmapper-app.yml`
@@ -513,4 +513,28 @@ Los updates de HA pasan a depender de que GitHub Actions haya publicado la image
 - `docs/todo.md`
 
 ### Estado
-Implementada en `0.2.57`, pendiente de validar primer build de GitHub Actions y update HA sin build local.
+Implementada y validada en `0.2.57`: Home Assistant descargo `ghcr.io/cginebrosa/rainmapperha:0.2.57` sin build local. Modificada en `0.2.58` para anadir cache Buildx/GHA en futuras Actions.
+
+## 2026-06-17 - Exponer fuente de estacion en GeoJSON y filtros del visor
+
+### Decision
+Anadir propiedad `Source` a los GeoJSON generados e incorporar en MapLibre Settings un filtro por fuentes Meteocat, Meteoclimatic y Wunderground, junto al filtro existente de lluvia minima.
+
+### Motivo
+La futura app iOS/Android necesitara filtros de estaciones sin depender de logica duplicada en cada cliente. Los CSV `Tomap` actuales no traen una columna de origen, pero los codigos reales permiten una inferencia razonablemente conservadora sin tocar historicos: Meteoclimatic empieza por `ES` y tiene longitud larga, aproximada como minimo 15 caracteres, Wunderground empieza por `I`, y Meteocat usa los codigos restantes con valor.
+
+### Alternativas consideradas
+Filtrar solo en el cliente por patrones de codigo, o modificar el pipeline principal `Rainmapper.py` para anadir origen a los historicos.
+
+### Consecuencias
+Los visores pueden usar `Source` directamente y el cliente futuro tendra un contrato de datos mas claro. La inferencia sigue acoplada al formato actual de codigos; si una fuente cambia su nomenclatura, habra que ajustar `tomap_to_geojson.py` y sus tests. No se modifica el historico CSV.
+
+### Ficheros afectados
+- `tomap_to_geojson.py`
+- `maplibre-viewer/`
+- `rainmapper-app/app/tomap_to_geojson.py`
+- `rainmapper-app/app/maplibre-viewer/`
+- `tests/test_tomap_to_geojson.py`
+
+### Estado
+Implementada en `0.2.58`; pendiente validacion en Home Assistant/iPhone.
