@@ -102,12 +102,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.43`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish.
+- Estado actual: version `0.2.44`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.43`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.44`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -149,8 +149,8 @@ Tambien existen documentos de uso:
 - MapLibre viewer: funcional y validado en movil; se mantiene publicado junto a Leaflet de momento.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
-- App settings link: usa Supervisor self-info y muestra rutas alternativas de configuracion para mejorar portabilidad entre versiones/slug de Home Assistant.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.43`.
+- App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.44`.
 - Internacionalizacion: mensajes mezclan ingles y espanol; no hay sistema i18n.
 
 ## Funcionalidades pendientes

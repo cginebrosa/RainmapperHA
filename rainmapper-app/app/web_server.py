@@ -1011,17 +1011,32 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def render_settings(self) -> None:
-        links_html = []
-        for label, url in addon_settings_links():
-            safe_label = html.escape(label)
-            safe_url = html.escape(url, quote=True)
-            links_html.append(
-                f'<p><a class="button-link" target="_top" href="{safe_url}">{safe_label}</a></p>'
+        settings_links = addon_settings_links()
+        primary_label, primary_url = settings_links[0]
+        primary_link = (
+            f'<p><a class="button-link primary" target="_top" href="{html.escape(primary_url, quote=True)}">'
+            f"{html.escape(primary_label)}</a></p>"
+        )
+        fallback_links = []
+        for label, url in settings_links[1:]:
+            fallback_links.append(
+                f'<p><a class="button-link" target="_top" href="{html.escape(url, quote=True)}">'
+                f"{html.escape(label)}</a></p>"
+            )
+        fallback_html = ""
+        if fallback_links:
+            fallback_html = (
+                "<details>"
+                "<summary>Advanced fallback links</summary>"
+                "<p>Use these only if the recommended link does not work in this Home Assistant installation.</p>"
+                f"{''.join(fallback_links)}"
+                "</details>"
             )
         body = f"""
         <h1>App settings</h1>
-        <p>Open the Rainmapper configuration page in Home Assistant. Use the recommended link first; fallback links are provided for different Home Assistant route versions or addon slug formats.</p>
-        {''.join(links_html)}
+        <p>Open the Rainmapper configuration page in Home Assistant.</p>
+        {primary_link}
+        {fallback_html}
         <p><a class="button-link" href="./">Back to Rainmapper</a></p>
         """
         self.send_bytes(200, html_page("App settings", body), "text/html; charset=utf-8")

@@ -150,7 +150,7 @@ La ruta de configuracion de Home Assistant puede variar por version o por format
 Mantener la redireccion automatica a `/config/app/<slug>/config`.
 
 ### Consecuencias
-Abrir la configuracion requiere un clic adicional, pero la pagina es mas portable y da opciones visibles si cambia la ruta o el slug.
+Abrir la configuracion requiere un clic adicional, pero la pagina es mas portable y da opciones visibles si cambia la ruta o el slug. Modificado en `0.2.44`: solo se muestra el enlace recomendado por defecto; los fallbacks quedan en una seccion avanzada porque en la instalacion actual solo funciona el recomendado.
 
 ### Ficheros afectados
 - `rainmapper-app/app/web_server.py`
@@ -162,7 +162,7 @@ Abrir la configuracion requiere un clic adicional, pero la pagina es mas portabl
 - `docs/architecture.md`
 
 ### Estado
-Confirmada.
+Confirmada, modificada en `0.2.44`.
 
 ## 2026-06-17 - Usar GeoJSON como capa comun para visores nuevos (fecha aproximada)
 

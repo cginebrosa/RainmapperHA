@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.44
+
+- Show only the recommended App settings link by default and move alternate settings routes into an advanced fallback section.
+
 ## 0.2.43
 
 - Make the App settings page more portable by showing the recommended Home Assistant settings route plus fallback routes instead of immediately redirecting to a single URL.
