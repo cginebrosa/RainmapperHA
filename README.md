@@ -97,6 +97,8 @@ Ejecutar update + maps:
 docker compose run --rm -e MODE=all rainmapper
 ```
 
+En Docker local, `MODE=maps` y `MODE=all` actualizan tambien los GeoJSON de `docker-data/PublicData`, que son los datos usados por los visores Leaflet/MapLibre locales.
+
 ## Tests
 Smoke test rapido:
 

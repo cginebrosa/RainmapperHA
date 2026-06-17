@@ -96,13 +96,13 @@ Tambien existen documentos de uso:
 - Riesgos: mucha responsabilidad en un unico fichero. Cambios aqui pueden afectar schedule, webUI, publicacion y acciones manuales.
 
 ### `run.sh`
-- Proposito: wrapper Docker local. Traduce variables de entorno a argumentos de `Rainmapper.py` y `Rainmapper_Client.py`.
-- Estado actual: soporta modos `once/update`, `maps`, `all`, `help`, `schedule`.
+- Proposito: wrapper Docker local. Traduce variables de entorno a argumentos de `Rainmapper.py`, `Rainmapper_Client.py` y `tomap_to_geojson.py`.
+- Estado actual: soporta modos `once/update`, `maps`, `all`, `help`, `schedule`. En `maps/all` genera Bokeh y GeoJSON en `docker-data/PublicData` para que MapLibre/Leaflet locales no lean datos obsoletos.
 - Riesgos: el modo `schedule` local es distinto del modo `serve` de HA; no confundir.
 
 ### `rainmapper-app/run.sh`
 - Proposito: entrypoint de HA. Lee `/data/options.json`, prepara `/share/rainmapper`, crea symlinks, exporta variables y arranca el modo elegido.
-- Estado actual: crea `stations.txt` e `ignore_stations_tomap.txt` si no existen y respeta los ficheros existentes.
+- Estado actual: crea `stations.txt` e `ignore_stations_tomap.txt` si no existen y respeta los ficheros existentes. En modos no-serve `maps/all`, genera tambien GeoJSON en `/share/rainmapper/PublicData`.
 - Riesgos: tocarlo puede romper persistencia de datos o reinstalaciones de HA.
 
 ### `rainmapper-app/config.yaml`

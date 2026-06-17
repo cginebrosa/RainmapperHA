@@ -177,6 +177,12 @@ run_update() {
 run_maps() {
   echo "Starting Rainmapper maps..."
   python Rainmapper_Client.py
+  echo "Starting Rainmapper GeoJSON..."
+  python tomap_to_geojson.py \
+    --input-dir /app/Tomap \
+    --output-dir /app/PublicData \
+    --ignore-stations-file "$IGNORE_STATIONS_TOMAP_FILE"
+  echo "Rainmapper GeoJSON finished."
   echo "Rainmapper maps finished."
 }
 

@@ -156,6 +156,12 @@ Validar en el proximo bump que `scripts/build-push-ha-image.sh` limpia las etiqu
   - Estado: resuelto a nivel de arquitectura; pendiente de implementacion.
 
 ## Bugs abiertos
+- [x] Docker local dejaba GeoJSON obsoletos en `MODE=maps/all`
+  - Sintoma: tras ejecutar Docker local en `MODE=all`, `docker-data/Tomap` se actualizaba pero `docker-data/PublicData/*.geojson` mantenia fechas antiguas, por lo que MapLibre local no mostraba lecturas recientes.
+  - Causa: `run.sh` local solo ejecutaba `Rainmapper_Client.py`; la generacion GeoJSON estaba en `web_server.py` de HA pero no en el wrapper local.
+  - Ficheros relacionados: `run.sh`, `rainmapper-app/run.sh`, `Dockerfile`.
+  - Estado: corregido; `maps/all` ejecuta tambien `tomap_to_geojson.py`.
+
 - [ ] Tests funcionales formales incompletos
   - Sintoma: ya existen fixtures `unittest` para `tomap_to_geojson.py`, pero no hay cobertura funcional formal para runs Docker/HA, publicacion webUI o generacion completa de mapas.
   - Causa probable: proyecto evolucionado por validacion manual.

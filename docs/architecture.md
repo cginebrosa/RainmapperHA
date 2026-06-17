@@ -95,7 +95,7 @@ Hay varios entry points segun entorno:
 - Ruta: `run.sh`.
 - Responsabilidad: ejecutar Rainmapper localmente en Docker y mapear variables cortas/largas.
 - Dependencias: shell, Python para calculo schedule.
-- Relacion: entorno seguro de pruebas en Mac.
+- Relacion: entorno seguro de pruebas en Mac. En `maps/all`, ejecuta `Rainmapper_Client.py` y `tomap_to_geojson.py`, dejando GeoJSON actualizado en `docker-data/PublicData` para los visores locales.
 
 ### Leaflet viewer
 - Ruta: `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`.
@@ -196,6 +196,8 @@ Docker local:
 docker compose build rainmapper
 docker compose run --rm rainmapper
 ```
+
+`MODE=maps` y `MODE=all` generan tanto mapas Bokeh como GeoJSON local en `docker-data/PublicData`.
 
 Home Assistant:
 
