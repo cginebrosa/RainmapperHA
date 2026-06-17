@@ -102,12 +102,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.42`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish.
+- Estado actual: version `0.2.43`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.42`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.43`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -149,8 +149,8 @@ Tambien existen documentos de uso:
 - MapLibre viewer: funcional y validado en movil; se mantiene publicado junto a Leaflet de momento.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
-- App settings link: usa Supervisor self-info y fallback; funciona en la instalacion actual, portabilidad pendiente de validar en otra HA.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.42`.
+- App settings link: usa Supervisor self-info y muestra rutas alternativas de configuracion para mejorar portabilidad entre versiones/slug de Home Assistant.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.43`.
 - Internacionalizacion: mensajes mezclan ingles y espanol; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -313,7 +313,7 @@ Detalle en [decisions.md](decisions.md).
 - Antes de tocar pandas o escritura CSV, usar `./scripts/backup-data.sh` y `./scripts/check-history.py` sobre una copia.
 
 ## Proximo paso recomendado
-Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y homogeneizar idioma de logs/UI o validar portabilidad del enlace App settings.
+Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y homogeneizar idioma de logs/UI.
 
 ## Prompt recomendado para nueva sesion de Codex
 "Lee primero docs/codex-handoff.md. Después consulta docs/architecture.md, docs/todo.md y docs/decisions.md. No modifiques código todavía. Primero resume el objetivo de la app, el estado actual, los ficheros clave, lo que funciona, lo que falta y el siguiente paso recomendado."

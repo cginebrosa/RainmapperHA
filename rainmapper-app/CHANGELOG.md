@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.43
+
+- Make the App settings page more portable by showing the recommended Home Assistant settings route plus fallback routes instead of immediately redirecting to a single URL.
+
 ## 0.2.42
 
 - Remove the legacy `/local/rainmapper-mobile` publication path.

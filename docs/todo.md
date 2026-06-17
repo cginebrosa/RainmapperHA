@@ -1,11 +1,11 @@
 # TODO
 
 ## Proximo paso recomendado
-Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y homogeneizar idioma de logs/UI o validar portabilidad del enlace App settings.
+Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y homogeneizar idioma de logs/UI.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
-  - Contexto: `rainmapper-app/config.yaml` indica `0.2.42`; `rainmapper-app/Dockerfile` conserva ahora labels/env `0.2.42`.
+  - Contexto: `rainmapper-app/config.yaml` indica `0.2.43`; `rainmapper-app/Dockerfile` conserva ahora labels/env `0.2.43`.
   - Ficheros relacionados: `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: version alineada en metadata HA, labels Docker y changelog.
   - Estado: resuelto.
@@ -48,11 +48,11 @@ Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA 
   - Criterio de aceptacion: idioma definido para usuario final y logs operativos.
   - Riesgo si no se hace: peor soporte y documentacion menos clara.
 
-- [ ] Validar portabilidad del enlace App settings
-  - Contexto: funciona en la instalacion actual, pero depende de slug/fallback.
+- [x] Validar portabilidad del enlace App settings
+  - Contexto: funciona en la instalacion actual, pero dependia de slug/fallback y de una unica ruta.
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`.
   - Criterio de aceptacion: probado en otra instalacion HA o documentado como limitacion.
-  - Riesgo si no se hace: enlace roto fuera del entorno actual.
+  - Estado: mejorado en `0.2.43`; la pagina App settings muestra la ruta recomendada calculada con Supervisor self-info y rutas alternativas para distintos formatos de slug/ruta de Home Assistant. Queda validar en otra instalacion si aparece la ocasion.
 
 ## Prioridad baja
 - [x] Crear smoke tests automatizados

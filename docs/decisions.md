@@ -138,6 +138,32 @@ Se reduce una ruta duplicada y se simplifica la publicacion. En la siguiente gen
 ### Estado
 Confirmada.
 
+## 2026-06-17 - App settings con enlaces fallback
+
+### Decision
+La pagina `/settings` de la webUI muestra el enlace recomendado a la configuracion de la app y rutas fallback en vez de redirigir automaticamente a una unica URL.
+
+### Motivo
+La ruta de configuracion de Home Assistant puede variar por version o por formato de slug. Una redireccion automatica a una sola URL podia funcionar en una instalacion y fallar en otra sin dejar alternativas visibles.
+
+### Alternativas consideradas
+Mantener la redireccion automatica a `/config/app/<slug>/config`.
+
+### Consecuencias
+Abrir la configuracion requiere un clic adicional, pero la pagina es mas portable y da opciones visibles si cambia la ruta o el slug.
+
+### Ficheros afectados
+- `rainmapper-app/app/web_server.py`
+- `rainmapper-app/config.yaml`
+- `rainmapper-app/Dockerfile`
+- `rainmapper-app/CHANGELOG.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+- `docs/architecture.md`
+
+### Estado
+Confirmada.
+
 ## 2026-06-17 - Usar GeoJSON como capa comun para visores nuevos (fecha aproximada)
 
 ### Decision

@@ -141,7 +141,7 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 WebUI HA (`web_server.py`):
 
 - `GET /`: pagina principal.
-- `GET /settings`: enlace intermedio a configuracion de la app HA.
+- `GET /settings`: pagina intermedia con enlaces a configuracion de la app HA; usa Supervisor self-info y rutas fallback.
 - `GET /file/<html>`: sirve mapas HTML locales.
 - `POST`: acciones run/update/maps/all y enable/disable de grupos de estaciones.
 

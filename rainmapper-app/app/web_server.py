@@ -93,9 +93,35 @@ def supervisor_addon_slug() -> str:
     return str(data.get("slug") or "").strip()
 
 
-def addon_settings_url() -> str:
-    addon_slug = supervisor_addon_slug() or env("RAINMAPPER_ADDON_SLUG", "d2750097_rainmapper").strip() or "d2750097_rainmapper"
-    return f"/config/app/{addon_slug}/config"
+def addon_slug_candidates() -> list[str]:
+    candidates = [
+        supervisor_addon_slug(),
+        env("RAINMAPPER_ADDON_SLUG").strip(),
+        "d2750097_rainmapper",
+        "rainmapper",
+    ]
+    slugs = []
+    for candidate in candidates:
+        if candidate and candidate not in slugs:
+            slugs.append(candidate)
+    return slugs
+
+
+def addon_settings_links() -> list[tuple[str, str]]:
+    links = []
+    seen_urls = set()
+    for index, addon_slug in enumerate(addon_slug_candidates()):
+        routes = [
+            ("Configuration route", f"/config/app/{addon_slug}/config"),
+            ("Supervisor route", f"/hassio/addon/{addon_slug}/config"),
+        ]
+        for route_label, url in routes:
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            prefix = "Recommended" if index == 0 and route_label == "Configuration route" else route_label
+            links.append((f"{prefix}: {addon_slug}", url))
+    return links
 
 
 def html_page(title: str, body: str) -> bytes:
@@ -984,15 +1010,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "./")
         self.end_headers()
 
-    def redirect_settings(self) -> None:
-        settings_url = html.escape(addon_settings_url(), quote=True)
+    def render_settings(self) -> None:
+        links_html = []
+        for label, url in addon_settings_links():
+            safe_label = html.escape(label)
+            safe_url = html.escape(url, quote=True)
+            links_html.append(
+                f'<p><a class="button-link" target="_top" href="{safe_url}">{safe_label}</a></p>'
+            )
         body = f"""
-        <h1>Opening app settings...</h1>
-        <p>If Home Assistant does not open the app settings automatically, use this link:</p>
-        <p><a class="button-link" target="_top" href="{settings_url}">Open app settings</a></p>
-        <script>
-          window.top.location.href = "{settings_url}";
-        </script>
+        <h1>App settings</h1>
+        <p>Open the Rainmapper configuration page in Home Assistant. Use the recommended link first; fallback links are provided for different Home Assistant route versions or addon slug formats.</p>
+        {''.join(links_html)}
+        <p><a class="button-link" href="./">Back to Rainmapper</a></p>
         """
         self.send_bytes(200, html_page("App settings", body), "text/html; charset=utf-8")
 
@@ -1005,7 +1035,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/settings":
-            self.redirect_settings()
+            self.render_settings()
             return
 
         if path.startswith("/file/"):
