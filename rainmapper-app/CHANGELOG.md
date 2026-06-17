@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.51
+
+- Show the running app version in the Home Assistant WebUI status panel.
+
 ## 0.2.50
 
 - Add app-version cache busters to the Home Assistant WebUI viewer links to avoid stale viewer/config loads.

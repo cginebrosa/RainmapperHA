@@ -144,7 +144,7 @@ WebUI HA (`web_server.py`):
 - `GET /settings`: pagina intermedia con enlaces a configuracion de la app HA; usa Supervisor self-info y rutas fallback.
 - `GET /file/<html>`: sirve mapas HTML locales.
 - `POST`: acciones run/update/maps/all y enable/disable de grupos de estaciones.
-- Los enlaces de la portada hacia visores `/local/...` incluyen `?v=<RAINMAPPER_APP_VERSION>` para reducir cache obsoleta en el frontend de Home Assistant.
+- La portada muestra `RAINMAPPER_APP_VERSION` en el panel de estado y sus enlaces hacia visores `/local/...` incluyen `?v=<RAINMAPPER_APP_VERSION>` para reducir cache obsoleta en el frontend de Home Assistant.
 
 Home Assistant publica:
 

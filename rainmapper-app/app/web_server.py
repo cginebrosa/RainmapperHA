@@ -77,6 +77,10 @@ def cache_busted_url(path: str) -> str:
     return f"{path}{separator}v={version}"
 
 
+def app_version() -> str:
+    return env("RAINMAPPER_APP_VERSION", "unknown").strip() or "unknown"
+
+
 def bool_env(name: str, default: bool = False) -> bool:
     value = env(name, "true" if default else "false").strip().lower()
     return value in {"1", "true", "yes", "on"}
@@ -1155,13 +1159,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         status = f"""
         <div class="grid">
+          <div class="card"><span class="label">Version</span><span class="value">{html.escape(app_version())}</span></div>
           <div class="card"><span class="label">Status</span><span class="value {status_class}">{status_text}</span></div>
           <div class="card"><span class="label">Action</span><span class="value">{html.escape(action)}</span></div>
-          <div class="card"><span class="label">Current step</span><span class="value">{html.escape(current_step)}</span></div>
-          <div class="card"><span class="label">Progress</span>{progress_html}</div>
           <div class="card"><span class="label">Started</span><span class="value">{html.escape(started_at)}</span></div>
           <div class="card"><span class="label">Finished</span><span class="value">{html.escape(finished_at)}</span></div>
           <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
+          <div class="card"><span class="label">Current step</span><span class="value">{html.escape(current_step)}</span></div>
+          <div class="card"><span class="label">Progress</span>{progress_html}</div>
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
           <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
