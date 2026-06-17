@@ -206,11 +206,6 @@ const baseStyles = [
     label: "Liberty",
     url: "https://tiles.openfreemap.org/styles/liberty",
   },
-  {
-    id: "openfreemap-bright",
-    label: "Bright",
-    url: "https://tiles.openfreemap.org/styles/bright",
-  },
 ];
 
 if (jawgAccessToken) {

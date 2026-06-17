@@ -120,7 +120,7 @@ Tambien existen documentos de uso:
 
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
 - Proposito: visor experimental MapLibre con mapas vectoriales y raster.
-- Estado actual: funcional, con Hybrid raster por defecto, Satellite+ raster/vectorial, Topographic raster, OpenFreeMap Liberty/Bright y Jawg Street/Terrain opcional.
+- Estado actual: funcional, con Hybrid raster por defecto, Satellite+ raster/vectorial, Topographic raster, OpenFreeMap Liberty y Jawg Street/Terrain opcional.
 - Riesgos: la base MapLibre ya cubre las capas clave de Leaflet, pero la version `0.2.48` queda pendiente de validacion visual en HA/iPhone antes de decidir si MapLibre pasa a visor principal unico. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales tras probar en movil.
 
 ### `docker-compose.yml`
