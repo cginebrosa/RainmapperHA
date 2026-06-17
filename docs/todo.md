@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Subir y validar la actualizacion HA `0.2.46`; despues continuar con la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional.
+Continuar con mejoras de bajo riesgo o decidir si se aborda la separacion estructural del core duplicado.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -16,10 +16,11 @@ Subir y validar la actualizacion HA `0.2.46`; despues continuar con la siguiente
   - Criterio de aceptacion: cambio de capa mantiene estaciones, cambio de periodo conserva vista, popup es usable y no desplaza/molesta.
   - Estado: validado por el usuario en movil.
 
-- [ ] Mantener sincronizadas raiz y app HA
+- [x] Mantener sincronizadas raiz y app HA
   - Contexto: hay copias de scripts y visores en raiz y dentro de `rainmapper-app/app`.
-  - Ficheros relacionados: `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_to_geojson.py`, `leaflet-viewer/`, `maplibre-viewer/`, `rainmapper-app/app/`.
+  - Ficheros relacionados: `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_to_geojson.py`, `leaflet-viewer/`, `maplibre-viewer/`, `rainmapper-app/app/`, `scripts/sync-app-files.sh`, `scripts/smoke-test.sh`.
   - Criterio de aceptacion: despues de cada cambio funcional, raiz y app contienen la misma version necesaria.
+  - Estado: resuelto como practica operativa: usar `./scripts/sync-app-files.sh` para copiar raiz -> app HA y `./scripts/smoke-test.sh` para verificar sincronizacion.
   - Riesgo si no se hace: Docker local funciona pero HA no, o al reves.
 
 - [x] Proteger el historico CSV antes de cambios de pandas
@@ -92,6 +93,9 @@ Subir y validar la actualizacion HA `0.2.46`; despues continuar con la siguiente
   - Contexto: objetivo a largo plazo incluye app movil con autenticacion y permisos.
   - Ficheros relacionados: pendiente de definir.
   - Criterio de aceptacion: arquitectura propuesta para API, auth, permisos y serving de mapas.
+  - Ideas funcionales iniciales:
+    - Lista de estaciones favoritas para mostrar en el mapa solo esas estaciones.
+    - Filtro por cantidad minima de lluvia en el periodo seleccionado para mostrar solo estaciones que superen ese umbral.
   - Riesgo si no se hace: el visor publico actual no controla quien accede a que.
 
 ## Bugs abiertos
@@ -106,12 +110,12 @@ Subir y validar la actualizacion HA `0.2.46`; despues continuar con la siguiente
 - [ ] `docker compose build rainmapper` tras cambios de Docker local.
 - [ ] `docker compose run --rm -e MODE=help rainmapper`.
 - [ ] `docker compose run --rm -e MODE=all rainmapper` en datos de prueba antes de tocar historicos reales.
-- [ ] Actualizacion HA desde GitHub tras bump de version.
-- [ ] `Run all` desde webUI HA.
-- [ ] Schedule con varias horas y dias.
+- [x] Actualizacion HA desde GitHub tras bump de version.
+- [x] `Run all` desde webUI HA.
+- [x] Schedule con varias horas y dias.
 - [ ] Leaflet en iPhone: cambio periodo conserva posicion, popups, leyenda, Jawg opcional.
 - [x] MapLibre en movil: estilos, marcadores tras cambio de capa, popup, bounds.
-- [ ] `ignore_stations_tomap.txt`: estacion ignorada desaparece de Leaflet/MapLibre pero sigue en historico.
+- [x] `ignore_stations_tomap.txt`: estacion ignorada desaparece de Leaflet/MapLibre pero sigue en historico.
 - [ ] Reconstruccion desde cero con poco historico.
 
 ## Preguntas pendientes para el usuario
@@ -124,6 +128,7 @@ Subir y validar la actualizacion HA `0.2.46`; despues continuar con la siguiente
 
 ## Ideas futuras
 - App iOS/Android con login y autorizacion por mapa/zona.
+- Favoritos de estaciones y filtro por lluvia minima en la futura app movil.
 - API propia entre backend y app movil.
 - Capa de permisos por usuario.
 - Cache/CDN de GeoJSON publicados.

@@ -238,6 +238,31 @@ El smoke test no sustituye pruebas funcionales en Docker/HA ni validacion movil,
 ### Estado
 Confirmada.
 
+## 2026-06-17 - Sincronizacion operativa raiz/app HA sin refactor
+
+### Decision
+Mantener la duplicidad actual entre raiz y `rainmapper-app/app`, pero anadir `scripts/sync-app-files.sh` como comando explicito para copiar scripts raiz y visores a la app HA.
+
+### Motivo
+La duplicidad todavia existe y una refactorizacion estructural del core seria mas amplia. Un comando versionado reduce errores manuales mientras se mantiene el flujo actual.
+
+### Alternativas consideradas
+Refactorizar ya el core en un paquete Python unico o seguir copiando ficheros manualmente.
+
+### Consecuencias
+`scripts/sync-app-files.sh` sincroniza raiz -> app HA y `scripts/smoke-test.sh` verifica que las copias quedan identicas. No elimina la deuda arquitectonica; solo la mitiga operativamente.
+
+### Ficheros afectados
+- `scripts/sync-app-files.sh`
+- `scripts/smoke-test.sh`
+- `README.md`
+- `docs/codex-handoff.md`
+- `docs/architecture.md`
+- `docs/todo.md`
+
+### Estado
+Confirmada.
+
 ## 2026-06-17 - Proteger historicos antes de cambios de escritura CSV
 
 ### Decision

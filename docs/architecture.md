@@ -25,7 +25,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - `rainmapper-app/app/`: codigo que entra en la imagen HA.
 - `leaflet-viewer/`: fuente del visor Leaflet en raiz.
 - `maplibre-viewer/`: fuente del visor MapLibre en raiz.
-- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `backup-data.sh` y `check-history.py`.
+- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `sync-app-files.sh`, `backup-data.sh` y `check-history.py`.
 - `meteoclimatic_local/`: cliente local Meteoclimatic.
 - `sodapy_local/`: copia local/adaptada de Socrata client.
 - `util/`: parser/scraper Wunderground.
@@ -175,6 +175,7 @@ Validaciones existentes/recomendadas:
 
 ```bash
 ./scripts/smoke-test.sh
+./scripts/sync-app-files.sh
 python -m py_compile Rainmapper.py Rainmapper_Client.py tomap_to_geojson.py rainmapper-app/app/web_server.py
 node --check leaflet-viewer/app.js
 node --check maplibre-viewer/app.js
@@ -183,7 +184,7 @@ docker compose run --rm -e MODE=help rainmapper
 git diff --check
 ```
 
-Cobertura: el smoke test valida sintaxis Python/JS/shell, conversion GeoJSON minima, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas siguen siendo principalmente manuales en Docker local, Home Assistant y movil.
+Cobertura: el smoke test valida sintaxis Python/JS/shell, conversion GeoJSON minima con `ignore_stations_tomap.txt`, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. `scripts/sync-app-files.sh` copia scripts raiz y visores a `rainmapper-app/app` como practica operativa, sin resolver aun la duplicidad arquitectonica. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas siguen siendo principalmente manuales en Docker local, Home Assistant y movil.
 
 ## Build y despliegue
 Docker local:

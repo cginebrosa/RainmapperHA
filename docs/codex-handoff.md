@@ -54,7 +54,8 @@ Tambien existen documentos de uso:
 - `docker-compose.yml`: runner Docker local con volumenes persistentes.
 - `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
 - `maplibre-viewer/`: visor MapLibre fuente para pruebas locales/publicacion.
-- `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo, versiones y sincronizacion raiz/app HA.
+- `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, versiones y sincronizacion raiz/app HA.
+- `scripts/sync-app-files.sh`: sincroniza scripts raiz y visores hacia `rainmapper-app/app` como practica operativa mientras exista duplicidad.
 - `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
 - `scripts/check-history.py`: valida CSV historicos y permite comparar una copia antes/despues.
 - `rainmapper-app/`: app de Home Assistant.
@@ -102,7 +103,7 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.46`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish.
+- Estado actual: version `0.2.46`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish. Validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
@@ -156,14 +157,15 @@ Tambien existen documentos de uso:
 ## Funcionalidades pendientes
 - Mantener Leaflet y MapLibre publicados de momento; revisar mas adelante si uno pasa a principal unico.
 - Decidir retirada de Bokeh o mantenerlo como referencia.
-- Crear tests automaticos o al menos smoke tests versionados.
+- Crear tests automaticos mas completos; existe smoke test versionado para checks rapidos.
 - Mejorar separacion entre core de datos, webUI y visores.
 - Analitica historica de metricas Wunderground, posiblemente con InfluxDB/Grafana.
 - Autenticacion/autorizacion real para una futura app publica iOS/Android.
 - Definir modelo de producto/acceso si se venden mapas o zonas.
+- Ideas para futura app iOS/Android: favoritos de estaciones y filtro por lluvia minima en el periodo seleccionado.
 
 ## Bugs abiertos o problemas conocidos
-- Duplicidad de scripts entre raiz y `rainmapper-app/app`.
+- Duplicidad de scripts entre raiz y `rainmapper-app/app`; mitigada operativamente con `scripts/sync-app-files.sh` y smoke test, sin refactor estructural todavia.
 - No hay tests formales detectados.
 - Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` en RPi para no cargarla. Aun asi, el rendimiento actual es aceptable: update completo + generacion de mapas tarda unos 7 minutos. Observabilidad/timeout queda en baja prioridad hasta acumular mas observaciones.
 - Jawg Maps en navegador implica que el token de tiles puede ser visible al cliente; debe restringirse por dominio si el proveedor lo permite.
@@ -247,6 +249,12 @@ Smoke test:
 ./scripts/smoke-test.sh
 ```
 
+Sincronizar copias raiz -> app HA:
+
+```bash
+./scripts/sync-app-files.sh
+```
+
 Validaciones sintacticas usadas/recomendadas:
 
 ```bash
@@ -306,14 +314,14 @@ Detalle en [decisions.md](decisions.md).
 - No borrar ni limpiar `Data`, `Tomap`, `Plots`, `/share/rainmapper` ni `docker-data` sin backup explicito.
 - No modificar `rainmapper-app/run.sh` sin revisar persistencia y symlinks.
 - No modificar `Rainmapper.py` sin revisar impacto en historicos incrementales.
-- Mantener sincronizadas raiz y `rainmapper-app/app` si se cambia core Python o visores.
+- Mantener sincronizadas raiz y `rainmapper-app/app` si se cambia core Python o visores; usar `./scripts/sync-app-files.sh` y validar con `./scripts/smoke-test.sh`.
 - No introducir API keys reales en Git.
 - Validar cambios de visores en movil real, especialmente iPhone.
 - Ejecutar `./scripts/smoke-test.sh` antes de cerrar cambios relevantes.
 - Antes de tocar pandas o escritura CSV, usar `./scripts/backup-data.sh` y `./scripts/check-history.py` sobre una copia.
 
 ## Proximo paso recomendado
-Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y homogeneizar idioma de logs/UI.
+Continuar con mejoras de bajo riesgo o decidir si se aborda la separacion estructural del core duplicado.
 
 ## Prompt recomendado para nueva sesion de Codex
 "Lee primero docs/codex-handoff.md. Después consulta docs/architecture.md, docs/todo.md y docs/decisions.md. No modifiques código todavía. Primero resume el objetivo de la app, el estado actual, los ficheros clave, lo que funciona, lo que falta y el siguiente paso recomendado."

@@ -215,6 +215,7 @@ check_shell_syntax() {
   bash -n rainmapper-app/run.sh
   bash -n scripts/backup-data.sh
   bash -n scripts/smoke-test.sh
+  bash -n scripts/sync-app-files.sh
 }
 
 run_check "Python interpreter is available ($PYTHON_BIN)" require_command "$PYTHON_BIN"
