@@ -15,7 +15,7 @@ Flujo habitual:
 3. Desde la webUI puedes lanzar `update`, `maps` o `all`.
 4. Si el schedule interno esta activado, la app ejecuta la accion configurada cada dia.
 5. Los datos y mapas se guardan en `/share/rainmapper`.
-6. Si `publish_to_www` esta activado, los mapas HTML tambien se copian a `/config/www/Plots`.
+6. Si `publish_to_www` esta activado, los mapas y visores se publican en `/config/www`.
 
 ## Carpetas persistentes
 
@@ -79,7 +79,29 @@ Al publicar, la app recrea `/config/www/Plots` completa. Asi evita dejar HTML an
 
 ## Visores de mapas
 
-Rainmapper publica tres formas de consultar los mapas. Durante la transicion conviven las tres para poder comparar calidad, rendimiento y uso en movil.
+Rainmapper publica tres formas de consultar los mapas. MapLibre es el visor principal recomendado desde la validacion de `0.2.53`. Leaflet se mantiene como fallback publicado y Bokeh queda como visor clasico de referencia/compatibilidad.
+
+### MapLibre viewer
+
+Ruta publica recomendada:
+
+```text
+/local/rainmapper-maplibre/index.html
+```
+
+El visor MapLibre usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, mapas vectoriales como OpenFreeMap, y estilos de JawgMaps si se configura `jawgmaps_api_key`.
+
+Es el visor recomendado para movil y para uso normal porque combina mejor rendimiento movil, capas raster utiles y renderizado vectorial nitido para etiquetas/orientacion.
+
+### Leaflet viewer
+
+Ruta publica fallback:
+
+```text
+/local/rainmapper-leaflet/index.html
+```
+
+El visor Leaflet usa los GeoJSON publicados en `/config/www/rainmapper-data`. Se mantiene publicado como fallback porque es simple, estable y ya esta probado en movil.
 
 ### Bokeh / HTML clasico
 
@@ -102,26 +124,6 @@ Ejemplos:
 ```
 
 Este visor usa los HTML generados por `Rainmapper_Client.py`. Es el visor original y sigue siendo util como referencia, pero en movil es menos comodo.
-
-### Leaflet viewer
-
-Ruta publica actual:
-
-```text
-/local/rainmapper-leaflet/index.html
-```
-
-El visor Leaflet usa los GeoJSON publicados en `/config/www/rainmapper-data`. Es mas ligero que Bokeh y esta pensado para movil.
-
-### MapLibre viewer
-
-Ruta publica:
-
-```text
-/local/rainmapper-maplibre/index.html
-```
-
-El visor MapLibre tambien usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, mapas vectoriales como OpenFreeMap, y estilos de JawgMaps si se configura `jawgmaps_api_key`.
 
 ### Que se regenera en cada caso
 
@@ -310,6 +312,7 @@ La pagina mostrara:
 - duracion de la ultima ejecucion;
 - proxima ejecucion programada;
 - informacion de la ultima publicacion en `/local/Plots`;
+- enlaces a MapLibre, Leaflet y Bokeh publicados;
 - log completo de la ultima ejecucion;
 - enlaces a los HTML que haya en:
 

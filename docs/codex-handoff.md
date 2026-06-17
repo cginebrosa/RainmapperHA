@@ -158,7 +158,6 @@ Tambien existen documentos de uso:
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
-- Revisar documentacion/enlaces para reflejar MapLibre como visor principal recomendado, manteniendo Leaflet como fallback publicado.
 - Decidir retirada de Bokeh o mantenerlo como referencia.
 - Crear tests automaticos mas completos; existe smoke test versionado para checks rapidos, incluyendo `ignore_stations_tomap.txt` y reconstruccion con poco historico.
 - Mejorar separacion entre core de datos, webUI y visores.

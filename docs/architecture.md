@@ -220,4 +220,4 @@ Home Assistant:
 - `web_server.py` concentra demasiadas responsabilidades.
 - Gestion de version dispersa entre `config.yaml`, `CHANGELOG.md`, assets y Dockerfile.
 - API keys de mapas cliente son visibles en navegador si se usan tiles externos con token.
-- Bokeh, Leaflet y MapLibre conviven; falta decidir arquitectura final de visualizacion.
+- Bokeh, Leaflet y MapLibre conviven; MapLibre es el visor principal recomendado, Leaflet queda como fallback publicado y Bokeh como referencia/compatibilidad.

@@ -4,15 +4,15 @@ Rainmapper es una app de Home Assistant para actualizar datos de lluvia de estac
 
 La app se queda abierta como un servicio ligero. Desde su webUI puedes lanzar `update`, `maps` o `all`, ver el estado de la ultima ejecucion, consultar logs recientes y abrir los mapas generados.
 
-Cuando `publish_to_www` esta activado, cada generacion de mapas publica una copia en `/config/www/Plots`, accesible desde Home Assistant como `/local/Plots`.
+Cuando `publish_to_www` esta activado, cada generacion de mapas publica los visores y datos en `/config/www`, accesibles desde Home Assistant como `/local/...`.
 
 Visores publicados:
 
-- Bokeh / HTML clasico: `/local/Plots/rain_21d.html` y equivalentes.
-- Leaflet: `/local/rainmapper-leaflet/index.html`.
-- MapLibre: `/local/rainmapper-maplibre/index.html`.
+- MapLibre recomendado: `/local/rainmapper-maplibre/index.html`.
+- Leaflet fallback: `/local/rainmapper-leaflet/index.html`.
+- Bokeh / HTML clasico como referencia: `/local/Plots/rain_21d.html` y equivalentes.
 
-MapLibre incluye capas raster Hybrid/Topographic, capas vectoriales y una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap.
+MapLibre es el visor principal recomendado. Incluye capas raster Hybrid/Topographic, capas vectoriales y una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap. Leaflet se mantiene publicado como fallback.
 
 La programacion interna puede ejecutar Rainmapper una o varias veces al dia usando `schedule_time`, por ejemplo `06:00, 12:00, 18:00, 23:50`, y se puede limitar por dias con `schedule_days`.
 

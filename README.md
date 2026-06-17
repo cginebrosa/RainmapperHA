@@ -3,7 +3,7 @@
 ## Descripcion
 RainmapperHA empaqueta Rainmapper como app de Home Assistant.
 
-La app descarga datos meteorologicos de estaciones Meteocat, Meteoclimatic y Wunderground, conserva historicos en CSV, genera ficheros `Tomap`, crea mapas HTML clasicos y publica visores web Leaflet/MapLibre pensados para consultar lluvia acumulada desde Home Assistant o movil.
+La app descarga datos meteorologicos de estaciones Meteocat, Meteoclimatic y Wunderground, conserva historicos en CSV, genera ficheros `Tomap`, crea mapas HTML clasicos y publica visores web MapLibre/Leaflet pensados para consultar lluvia acumulada desde Home Assistant o movil.
 
 Objetivo a largo plazo: evolucionar Rainmapper hacia una plataforma de datos y mapas meteorologicos automatizada, con visores moviles y una futura app iOS/Android con autenticacion y control de acceso.
 
@@ -196,9 +196,14 @@ docker-data/ignore_stations_tomap.txt
 `ignore_stations_tomap.txt` excluye estaciones solo de los GeoJSON usados por Leaflet/MapLibre. No borra historicos.
 
 ## Visores de mapas
-- Bokeh clasico: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 30, 60 y 90 dias.
-- Leaflet: `/local/rainmapper-leaflet/index.html`.
+Visor recomendado:
+
 - MapLibre: `/local/rainmapper-maplibre/index.html`.
+
+Visores mantenidos:
+
+- Leaflet fallback: `/local/rainmapper-leaflet/index.html`.
+- Bokeh clasico/referencia: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 30, 60 y 90 dias.
 
 ## Documentacion de continuidad
 - [docs/codex-handoff.md](docs/codex-handoff.md)

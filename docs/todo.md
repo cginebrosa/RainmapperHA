@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Revisar documentacion/enlaces para reflejar MapLibre como visor principal recomendado, manteniendo Leaflet como fallback publicado y Bokeh como referencia/compatibilidad.
+Definir el siguiente bloque de trabajo: mejorar tests funcionales formales o avanzar en la arquitectura/API de la futura app movil.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -62,6 +62,12 @@ Revisar documentacion/enlaces para reflejar MapLibre como visor principal recome
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`.
   - Criterio de aceptacion: probado en otra instalacion HA o documentado como limitacion.
   - Estado: mejorado en `0.2.44`; la pagina App settings muestra el enlace recomendado calculado con Supervisor self-info y deja las rutas alternativas en una seccion avanzada. Queda validar en otra instalacion si aparece la ocasion.
+
+- [x] Revisar documentacion/enlaces tras elegir MapLibre como visor principal
+  - Contexto: MapLibre queda como visor principal recomendado; Leaflet se mantiene publicado como fallback y Bokeh como referencia/compatibilidad.
+  - Ficheros relacionados: `README.md`, `rainmapper-app/README.md`, `rainmapper-app/DOCS.md`, `docs/codex-handoff.md`, `docs/todo.md`.
+  - Criterio de aceptacion: la documentacion de uso presenta MapLibre primero y no induce a pensar que los tres visores tienen el mismo rol operativo.
+  - Estado: resuelto.
 
 ## Prioridad baja
 - [x] Crear smoke tests automatizados
