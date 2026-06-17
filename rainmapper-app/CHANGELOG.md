@@ -3,6 +3,7 @@
 ## 0.2.41
 
 - Document the Bokeh, Leaflet, and MapLibre map viewers and their public URLs.
+- Align Docker image labels and runtime version banner with the Home Assistant app version.
 
 ## 0.2.40
 

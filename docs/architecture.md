@@ -25,6 +25,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - `rainmapper-app/app/`: codigo que entra en la imagen HA.
 - `leaflet-viewer/`: fuente del visor Leaflet en raiz.
 - `maplibre-viewer/`: fuente del visor MapLibre en raiz.
+- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `backup-data.sh` y `check-history.py`.
 - `meteoclimatic_local/`: cliente local Meteoclimatic.
 - `sodapy_local/`: copia local/adaptada de Socrata client.
 - `util/`: parser/scraper Wunderground.
@@ -168,11 +169,12 @@ No incluir secretos en codigo ni documentacion.
 No detectado: `package.json`, `pyproject.toml`, Makefile, ESLint, Prettier, pytest config.
 
 ## Testing
-No hay tests automaticos configurados detectados.
+Hay un smoke test versionado en `scripts/smoke-test.sh`.
 
 Validaciones existentes/recomendadas:
 
 ```bash
+./scripts/smoke-test.sh
 python -m py_compile Rainmapper.py Rainmapper_Client.py tomap_to_geojson.py rainmapper-app/app/web_server.py
 node --check leaflet-viewer/app.js
 node --check maplibre-viewer/app.js
@@ -181,7 +183,7 @@ docker compose run --rm -e MODE=help rainmapper
 git diff --check
 ```
 
-Cobertura: pendiente de confirmar. Las pruebas actuales son principalmente manuales en Docker local, Home Assistant y movil.
+Cobertura: el smoke test valida sintaxis Python/JS/shell, conversion GeoJSON minima, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas siguen siendo principalmente manuales en Docker local, Home Assistant y movil.
 
 ## Build y despliegue
 Docker local:

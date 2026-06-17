@@ -97,16 +97,33 @@ docker compose run --rm -e MODE=all rainmapper
 ```
 
 ## Tests
-No hay tests automaticos configurados detectados.
+Smoke test rapido:
+
+```bash
+./scripts/smoke-test.sh
+```
+
+El smoke test valida sintaxis Python, sintaxis JavaScript, wrappers shell, conversion GeoJSON minima, metadata de version de Home Assistant, sincronizacion entre raiz y `rainmapper-app/app`, y whitespace del diff de Git.
 
 Validaciones manuales/sintacticas recomendadas:
 
 ```bash
+./scripts/smoke-test.sh
 python -m py_compile Rainmapper.py Rainmapper_Client.py tomap_to_geojson.py rainmapper-app/app/web_server.py
 node --check leaflet-viewer/app.js
 node --check maplibre-viewer/app.js
 git diff --check
 ```
+
+## Seguridad de historicos
+Antes de tocar codigo que escriba historicos CSV, crea backup o trabaja sobre una copia:
+
+```bash
+./scripts/backup-data.sh docker-data
+./scripts/check-history.py docker-data/Data
+```
+
+Ver [docs/history-safety.md](docs/history-safety.md).
 
 ## Build
 Build Docker local:

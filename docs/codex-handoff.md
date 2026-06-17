@@ -13,7 +13,7 @@ El proyecto tiene dos empaquetados principales:
 
 La app de Home Assistant esta funcionando como servicio `serve`, con webUI por ingress/sidebar, schedule interno, ejecuciones manuales `update`, `maps` y `all`, publicacion en `/config/www`, visores Bokeh, Leaflet y MapLibre, metricas basicas de Wunderground y fichero manual para ignorar estaciones anomalas en los GeoJSON.
 
-El desarrollo actual esta en fase de mejora de visores y operacion: MapLibre se ha anadido como visor experimental, Leaflet sigue funcionando, Bokeh se mantiene como referencia y compatibilidad. Hay deuda tecnica por duplicidad entre scripts de raiz y scripts copiados dentro de `rainmapper-app/app`.
+El desarrollo actual esta en fase de operacion y mejora incremental de visores: MapLibre ya funciona bien en movil y, de momento, se mantienen publicados tanto Leaflet como MapLibre. Bokeh se mantiene como referencia y compatibilidad. Hay deuda tecnica por duplicidad entre scripts de raiz y scripts copiados dentro de `rainmapper-app/app`.
 
 ## Stack tecnologico detectado
 Confirmado en el repositorio:
@@ -27,7 +27,7 @@ Confirmado en el repositorio:
 - Contenedores: Docker y Docker Compose.
 - Home Assistant: app/add-on con `config.yaml`, ingress y `run.sh`.
 - Persistencia: CSV en filesystem, principalmente `/share/rainmapper` en HA y `docker-data` en Docker local.
-- Testing formal: pendiente de confirmar. No se ha detectado `pytest`, `package.json`, Makefile ni framework de test configurado.
+- Testing formal: existe `scripts/smoke-test.sh` para validaciones rapidas; no se ha detectado `pytest`, `package.json`, Makefile ni framework de test completo.
 - Lint/format formal: pendiente de confirmar. No se ha detectado configuracion dedicada.
 
 ## Documentos de referencia
@@ -53,6 +53,9 @@ Tambien existen documentos de uso:
 - `docker-compose.yml`: runner Docker local con volumenes persistentes.
 - `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
 - `maplibre-viewer/`: visor MapLibre fuente para pruebas locales/publicacion.
+- `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo, versiones y sincronizacion raiz/app HA.
+- `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
+- `scripts/check-history.py`: valida CSV historicos y permite comparar una copia antes/despues.
 - `rainmapper-app/`: app de Home Assistant.
 - `rainmapper-app/app/`: copia operativa de scripts Python y visores que entran en la imagen de HA.
 - `rainmapper-app/app/web_server.py`: webUI, schedule, publicacion a `/config/www`, controles de estaciones y ejecucion de jobs.
@@ -103,8 +106,8 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Detectada posible inconsistencia: `config.yaml` esta en `0.2.41`, pero labels/env del Dockerfile aparecen como `0.2.4`.
-- Riesgos: puede confundir updates o diagnostico de version.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.41`.
+- Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
 - Proposito: visor Leaflet estatico.
@@ -114,7 +117,7 @@ Tambien existen documentos de uso:
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
 - Proposito: visor experimental MapLibre con mapas vectoriales.
 - Estado actual: funcional, con OpenFreeMap Liberty/Bright y Jawg Street/Terrain opcional.
-- Riesgos: el popup movil tiene scroll interno y posicionamiento configurado, pero debe validarse en iPhone/Android antes de dar MapLibre por definitivo.
+- Riesgos: validado como funcional en movil; se mantiene publicado junto a Leaflet de momento, con mayor mantenimiento por doble visor.
 
 ### `docker-compose.yml`
 - Proposito: ejecucion Docker local con volumenes en `docker-data`.
@@ -143,16 +146,15 @@ Tambien existen documentos de uso:
 - Jawg Maps opcional en visores si existe `JAWGMAPS_API_KEY`/`jawgmaps_api_key`.
 
 ## Funcionalidades parcialmente implementadas
-- MapLibre viewer: funcional; queda pendiente validacion final de UX movil frente a Leaflet.
+- MapLibre viewer: funcional y validado en movil; se mantiene publicado junto a Leaflet de momento.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: mantenida por compatibilidad, pendiente decidir retirada.
 - App settings link: usa Supervisor self-info y fallback; funciona en la instalacion actual, portabilidad pendiente de validar en otra HA.
-- Versionado HA: `config.yaml` va por `0.2.41`, pero `rainmapper-app/Dockerfile` parece tener labels/env antiguos.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.41`.
 - Internacionalizacion: mensajes mezclan ingles y espanol; no hay sistema i18n.
 
 ## Funcionalidades pendientes
-- Validar en movil real que el popup de MapLibre ya implementado se comporta de forma equivalente al de Leaflet.
-- Decidir si Leaflet o MapLibre sera visor principal.
+- Mantener Leaflet y MapLibre publicados de momento; revisar mas adelante si uno pasa a principal unico.
 - Decidir retirada de Bokeh o mantenerlo como referencia.
 - Retirar ruta legacy `/local/rainmapper-mobile` cuando no sea necesaria.
 - Crear tests automaticos o al menos smoke tests versionados.
@@ -162,12 +164,11 @@ Tambien existen documentos de uso:
 - Definir modelo de producto/acceso si se venden mapas o zonas.
 
 ## Bugs abiertos o problemas conocidos
-- Posible inconsistencia de version entre `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`.
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`.
 - No hay tests formales detectados.
 - Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` en RPi para no cargarla.
 - Jawg Maps en navegador implica que el token de tiles puede ser visible al cliente; debe restringirse por dominio si el proveedor lo permite.
-- Los historicos CSV son el valor central del proyecto; no deben borrarse ni reescribirse sin backup.
+- Los historicos CSV son el valor central del proyecto; no deben borrarse ni reescribirse sin backup. Ver [history-safety.md](history-safety.md).
 - Algunas carpetas generadas (`Data`, `Tomap`, `Plots`, `docker-data`, `docker-empty-test`) existen localmente pero estan ignoradas por Git.
 
 ## Variables de entorno y configuracion
@@ -241,15 +242,16 @@ mkdir -p docker-data/Data docker-data/Tomap docker-data/Plots docker-data/Public
 cp stations.example.txt docker-data/stations.txt
 ```
 
-Tests automaticos:
+Smoke test:
 
-```text
-pendiente de confirmar
+```bash
+./scripts/smoke-test.sh
 ```
 
 Validaciones sintacticas usadas/recomendadas:
 
 ```bash
+./scripts/smoke-test.sh
 python -m py_compile Rainmapper.py Rainmapper_Client.py tomap_to_geojson.py rainmapper-app/app/web_server.py
 node --check leaflet-viewer/app.js
 node --check maplibre-viewer/app.js
@@ -294,7 +296,7 @@ Resumen:
 - Home Assistant se ejecuta en modo `serve` para mantener sidebar y webUI.
 - Los datos historicos viven fuera del contenedor.
 - Docker local en Mac se conserva como entorno de pruebas.
-- Bokeh, Leaflet y MapLibre conviven durante transicion.
+- Bokeh, Leaflet y MapLibre conviven; Leaflet y MapLibre se mantienen publicados de momento.
 - Los visores nuevos usan GeoJSON generado desde `Tomap`.
 - Las estaciones anomalas se ignoran en GeoJSON mediante fichero manual, sin borrar historico.
 - Wunderground usa un thread por defecto en RPi.
@@ -308,9 +310,11 @@ Detalle en [decisions.md](decisions.md).
 - Mantener sincronizadas raiz y `rainmapper-app/app` si se cambia core Python o visores.
 - No introducir API keys reales en Git.
 - Validar cambios de visores en movil real, especialmente iPhone.
+- Ejecutar `./scripts/smoke-test.sh` antes de cerrar cambios relevantes.
+- Antes de tocar pandas o escritura CSV, usar `./scripts/backup-data.sh` y `./scripts/check-history.py` sobre una copia.
 
 ## Proximo paso recomendado
-Validar en movil real el visor MapLibre completo: cambio de capa, cambio de periodo conservando vista, bounds libres, popup scrollable y usabilidad frente a Leaflet. Despues decidir si MapLibre puede convertirse en visor principal.
+Avanzar en la siguiente prioridad operativa: mantener sincronizadas raiz/app HA durante cada cambio funcional y empezar a mejorar observabilidad/timeout de Wunderground.
 
 ## Prompt recomendado para nueva sesion de Codex
 "Lee primero docs/codex-handoff.md. Después consulta docs/architecture.md, docs/todo.md y docs/decisions.md. No modifiques código todavía. Primero resume el objetivo de la app, el estado actual, los ficheros clave, lo que funciona, lo que falta y el siguiente paso recomendado."

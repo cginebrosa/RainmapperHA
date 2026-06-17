@@ -11,6 +11,7 @@
 MERGED_*.csv
 /docker-data/
 /docker-empty-test/
+/backups/
 
 # Local tests and old scripts
 /_My test files/

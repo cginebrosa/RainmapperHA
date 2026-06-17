@@ -100,7 +100,7 @@ Bokeh es la referencia historica. Leaflet funciona bien en movil. MapLibre permi
 Eliminar Bokeh inmediatamente o sustituir Leaflet por MapLibre de golpe.
 
 ### Consecuencias
-Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de migrar.
+Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de migrar. MapLibre ya esta validado como funcional en movil. Por ahora Leaflet y MapLibre se mantienen publicados a la vez.
 
 ### Ficheros afectados
 - `Rainmapper_Client.py`
@@ -110,7 +110,7 @@ Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de 
 - `rainmapper-app/app/web_server.py`
 
 ### Estado
-Confirmada, revisable.
+Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil y que se mantienen publicados Leaflet y MapLibre de momento.
 
 ## 2026-06-17 - Usar GeoJSON como capa comun para visores nuevos (fecha aproximada)
 
@@ -130,6 +130,55 @@ Parsear directamente CSV `Tomap` en navegador o seguir solo con HTML Bokeh.
 - `tomap_to_geojson.py`
 - `leaflet-viewer/app.js`
 - `maplibre-viewer/app.js`
+
+### Estado
+Confirmada.
+
+## 2026-06-17 - Crear smoke test versionado
+
+### Decision
+Mantener un comando unico `./scripts/smoke-test.sh` para validaciones rapidas del repositorio.
+
+### Motivo
+El proyecto no tiene framework de tests completo y hay riesgo recurrente de errores de sintaxis, metadata HA desalineada o copias raiz/app HA desincronizadas.
+
+### Alternativas consideradas
+Seguir ejecutando comandos manuales sueltos en cada sesion.
+
+### Consecuencias
+El smoke test no sustituye pruebas funcionales en Docker/HA ni validacion movil, pero deja una red basica repetible para cambios pequenos y medianos.
+
+### Ficheros afectados
+- `scripts/smoke-test.sh`
+- `README.md`
+- `docs/architecture.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+
+### Estado
+Confirmada.
+
+## 2026-06-17 - Proteger historicos antes de cambios de escritura CSV
+
+### Decision
+Antes de cambios que puedan escribir o reestructurar historicos CSV, se debe trabajar con backup o copia temporal y validar la salida con `scripts/check-history.py`.
+
+### Motivo
+Los CSV historicos son el activo central del proyecto y pueden corromperse si hay errores en pandas, merges, deduplicado, fechas o escritura de columnas.
+
+### Alternativas consideradas
+Confiar solo en validacion manual despues de ejecutar contra datos reales.
+
+### Consecuencias
+Los cambios de core de datos llevan un paso operativo adicional, pero reducen el riesgo de perdida o corrupcion de historicos.
+
+### Ficheros afectados
+- `scripts/backup-data.sh`
+- `scripts/check-history.py`
+- `docs/history-safety.md`
+- `README.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
 
 ### Estado
 Confirmada.
