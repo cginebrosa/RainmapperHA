@@ -25,47 +25,6 @@ const jawgAccessToken = window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "";
 
 const baseStyles = [
   {
-    id: "esri-hybrid",
-    label: "Hybrid",
-    style: {
-      version: 8,
-      sources: {
-        "esri-imagery": {
-          type: "raster",
-          tiles: [
-            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          ],
-          tileSize: 256,
-          maxzoom: 19,
-          attribution: "Tiles &copy; Esri",
-        },
-        "esri-roads": {
-          type: "raster",
-          tiles: [
-            "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
-          ],
-          tileSize: 256,
-          maxzoom: 19,
-          attribution: "Roads &copy; Esri",
-        },
-        "esri-labels": {
-          type: "raster",
-          tiles: [
-            "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-          ],
-          tileSize: 256,
-          maxzoom: 19,
-          attribution: "Labels &copy; Esri",
-        },
-      },
-      layers: [
-        { id: "esri-imagery", type: "raster", source: "esri-imagery" },
-        { id: "esri-roads", type: "raster", source: "esri-roads" },
-        { id: "esri-labels", type: "raster", source: "esri-labels" },
-      ],
-    },
-  },
-  {
     id: "esri-satellite-vector",
     label: "Satellite+",
     style: {
@@ -175,6 +134,47 @@ const baseStyles = [
             "text-halo-width": 1.8,
           },
         },
+      ],
+    },
+  },
+  {
+    id: "esri-hybrid",
+    label: "Hybrid",
+    style: {
+      version: 8,
+      sources: {
+        "esri-imagery": {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Tiles &copy; Esri",
+        },
+        "esri-roads": {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Roads &copy; Esri",
+        },
+        "esri-labels": {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Labels &copy; Esri",
+        },
+      },
+      layers: [
+        { id: "esri-imagery", type: "raster", source: "esri-imagery" },
+        { id: "esri-roads", type: "raster", source: "esri-roads" },
+        { id: "esri-labels", type: "raster", source: "esri-labels" },
       ],
     },
   },

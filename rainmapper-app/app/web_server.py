@@ -69,6 +69,14 @@ def env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
+def cache_busted_url(path: str) -> str:
+    version = env("RAINMAPPER_APP_VERSION").strip()
+    if not version:
+        return path
+    separator = "&" if "?" in path else "?"
+    return f"{path}{separator}v={version}"
+
+
 def bool_env(name: str, default: bool = False) -> bool:
     value = env(name, "true" if default else "false").strip().lower()
     return value in {"1", "true", "yes", "on"}
@@ -1141,6 +1149,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             station_group_card("Wunderground 404", "404", active_station_groups["404"], disabled_groups["404"], disabled)
             + station_group_card("Wunderground parse errors", "parse", active_station_groups["parse"], disabled_groups["parse"], disabled)
         )
+        leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html")
+        maplibre_url = cache_busted_url("/local/rainmapper-maplibre/index.html")
+        bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html")
 
         status = f"""
         <div class="grid">
@@ -1154,8 +1165,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
           <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
-          <div class="card"><span class="label">Leaflet viewer</span><span class="value">/local/rainmapper-leaflet/index.html</span></div>
-          <div class="card"><span class="label">MapLibre viewer</span><span class="value">/local/rainmapper-maplibre/index.html</span></div>
+          <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
+          <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
           <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
         </div>
         <div class="station-grid">
@@ -1174,9 +1185,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             f"{status}"
             "<h2>Viewers</h2>"
             '<div class="viewer-actions">'
-            '<a class="button-link primary" href="/local/rainmapper-leaflet/index.html" target="_top">Open Leaflet viewer</a>'
-            '<a class="button-link primary" href="/local/rainmapper-maplibre/index.html" target="_top">Open MapLibre viewer</a>'
-            '<a class="button-link" href="/local/Plots/rain_21d.html" target="_top">Open Bokeh 21 days</a>'
+            f'<a class="button-link primary" href="{html.escape(leaflet_url, quote=True)}" target="_top">Open Leaflet viewer</a>'
+            f'<a class="button-link primary" href="{html.escape(maplibre_url, quote=True)}" target="_top">Open MapLibre viewer</a>'
+            f'<a class="button-link" href="{html.escape(bokeh_21d_url, quote=True)}" target="_top">Open Bokeh 21 days</a>'
             "</div>"
             '<h2 id="maps">Maps</h2>'
             f"{self.render_map_list()}"

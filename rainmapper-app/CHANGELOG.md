@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.50
+
+- Add app-version cache busters to the Home Assistant WebUI viewer links to avoid stale viewer/config loads.
+- Make Satellite+ the default MapLibre base style.
+
 ## 0.2.49
 
 - Remove the OpenFreeMap Bright style from the MapLibre layer selector.
