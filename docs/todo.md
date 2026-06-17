@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en HA/iPhone la version `0.2.53`: MapLibre con capas Hybrid, Topographic y Satellite+, y Leaflet sin capas Jawg cuando `jawgmaps_api_key` esta vacia. Si funciona bien, decidir si MapLibre puede pasar a visor principal unico y Leaflet queda como fallback temporal.
+Revisar documentacion/enlaces para reflejar MapLibre como visor principal recomendado, manteniendo Leaflet como fallback publicado y Bokeh como referencia/compatibilidad.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -16,10 +16,11 @@ Validar en HA/iPhone la version `0.2.53`: MapLibre con capas Hybrid, Topographic
   - Criterio de aceptacion: cambio de capa mantiene estaciones, cambio de periodo conserva vista, popup es usable y no desplaza/molesta.
   - Estado: validado por el usuario en movil.
 
-- [ ] Validar MapLibre raster en HA/iPhone
+- [x] Validar MapLibre raster y Leaflet fallback en HA/iPhone
   - Contexto: MapLibre `0.2.53` incorpora Satellite+ como base por defecto, Hybrid raster, Topographic raster y estilos vectoriales; Leaflet debe ocultar Jawg si `jawgmaps_api_key` esta vacia.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
   - Criterio de aceptacion: Hybrid, Topographic y Satellite+ cargan correctamente, el cambio entre capas conserva marcadores, periodo, vista y popup en movil.
+  - Estado: validado por el usuario en HA/iPhone. Leaflet queda como fallback publicado y oculta Jawg cuando no hay API key.
   - Riesgo si no se hace: decidir retirada de Leaflet sin confirmar que MapLibre cubre bien las capas raster que interesan.
 
 - [x] Mantener sincronizadas raiz y app HA
@@ -40,7 +41,7 @@ Validar en HA/iPhone la version `0.2.53`: MapLibre con capas Hybrid, Topographic
   - Contexto: conviven Bokeh, Leaflet y MapLibre; MapLibre ya funciona bien en movil y desde `0.2.47` tambien soporta Hybrid/Topographic raster.
   - Ficheros relacionados: `Rainmapper_Client.py`, `leaflet-viewer/`, `maplibre-viewer/`, `rainmapper-app/app/web_server.py`.
   - Criterio de aceptacion: definir si Bokeh queda como legacy, si Leaflet sigue activo y si MapLibre pasa a principal.
-  - Estado: decision temporal tomada; Leaflet y MapLibre se mantienen publicados de momento. Bokeh sigue como referencia/compatibilidad. Reabrir tras validar MapLibre raster.
+  - Estado: MapLibre queda como visor principal recomendado tras validar `0.2.53`; Leaflet se mantiene publicado como fallback. Bokeh sigue como referencia/compatibilidad.
   - Riesgo aceptado: complejidad y mantenimiento de varios visores hasta nueva revision.
 
 - [x] Retirar `/local/rainmapper-mobile`

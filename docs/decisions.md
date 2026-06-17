@@ -91,7 +91,7 @@ Confirmada.
 ## 2026-06-17 - Mantener Bokeh, Leaflet y MapLibre durante transicion (fecha aproximada)
 
 ### Decision
-No retirar Bokeh todavia; publicar tambien Leaflet y MapLibre.
+No retirar Bokeh todavia; publicar tambien Leaflet y MapLibre. MapLibre queda como visor principal recomendado y Leaflet como fallback.
 
 ### Motivo
 Bokeh es la referencia historica. Leaflet funciona bien en movil. MapLibre permite mapas vectoriales mas nitidos y desde `0.2.47` tambien puede cubrir las capas raster Hybrid y Topographic que antes estaban solo en Leaflet. Desde `0.2.48`, MapLibre tambien prueba Satellite+, combinando imagen Esri con orientacion vectorial OpenFreeMap.
@@ -100,7 +100,7 @@ Bokeh es la referencia historica. Leaflet funciona bien en movil. MapLibre permi
 Eliminar Bokeh inmediatamente o sustituir Leaflet por MapLibre de golpe.
 
 ### Consecuencias
-Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de migrar. MapLibre ya esta validado como funcional en movil. Modificado en `0.2.47`: MapLibre incorpora Hybrid raster por defecto y Topographic raster, manteniendo los estilos vectoriales. Modificado en `0.2.48`: se descarta Tracestrack por ahora porque requiere app key de pago para vector maps y se prueba Satellite+ con OpenFreeMap sobre imagen Esri. Queda validar visualmente en HA/iPhone antes de decidir si puede sustituir a Leaflet.
+Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de migrar. MapLibre ya esta validado como funcional en movil. Modificado en `0.2.47`: MapLibre incorpora Hybrid raster por defecto y Topographic raster, manteniendo los estilos vectoriales. Modificado en `0.2.48`: se descarta Tracestrack por ahora porque requiere app key de pago para vector maps y se prueba Satellite+ con OpenFreeMap sobre imagen Esri. Modificado en `0.2.53`: MapLibre queda como visor principal recomendado tras validacion en HA/iPhone; Leaflet sigue publicado como fallback.
 
 ### Ficheros afectados
 - `Rainmapper_Client.py`
@@ -110,7 +110,7 @@ Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de 
 - `rainmapper-app/app/web_server.py`
 
 ### Estado
-Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil, que se mantienen publicados Leaflet y MapLibre de momento, y que MapLibre `0.2.48` reduce la brecha funcional al anadir Hybrid/Topographic raster y Satellite+.
+Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil, que se mantienen publicados Leaflet y MapLibre, y que MapLibre `0.2.53` pasa a ser el visor principal recomendado. Leaflet queda como fallback.
 
 ## 2026-06-17 - Retirar ruta legacy rainmapper-mobile
 

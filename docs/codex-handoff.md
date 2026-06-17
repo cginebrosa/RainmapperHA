@@ -121,7 +121,7 @@ Tambien existen documentos de uso:
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
 - Proposito: visor experimental MapLibre con mapas vectoriales y raster.
 - Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty y Jawg Street/Terrain opcional.
-- Riesgos: la base MapLibre ya cubre las capas clave de Leaflet, pero la version `0.2.53` queda pendiente de validacion visual en HA/iPhone antes de decidir si MapLibre pasa a visor principal unico. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales tras probar en movil.
+- Riesgos: MapLibre queda validado como visor principal recomendado en `0.2.53`, con Leaflet mantenido como fallback. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales futuros si se detectan problemas.
 
 ### `docker-compose.yml`
 - Proposito: ejecucion Docker local con volumenes en `docker-data`.
@@ -150,7 +150,7 @@ Tambien existen documentos de uso:
 - Satellite+ en MapLibre combina Esri World Imagery con carreteras, limites y etiquetas vectoriales de OpenFreeMap.
 
 ## Funcionalidades parcialmente implementadas
-- Leaflet y MapLibre: funcionales y validados en iPhone; se mantienen publicados ambos de momento. MapLibre `0.2.48` anade Satellite+ sobre las capas Hybrid/Topographic raster de `0.2.47` y puede reducir la necesidad futura de Leaflet si se valida bien.
+- Leaflet y MapLibre: funcionales y validados en iPhone/HA. MapLibre `0.2.53` queda como visor principal recomendado; Leaflet se mantiene publicado como fallback. Bokeh sigue como referencia/compatibilidad.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
@@ -158,8 +158,7 @@ Tambien existen documentos de uso:
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
-- Validar MapLibre/Leaflet `0.2.53` en HA/iPhone; si funciona bien, reevaluar si MapLibre puede pasar a visor principal unico y Leaflet queda como fallback.
-- Mantener Leaflet y MapLibre publicados de momento.
+- Revisar documentacion/enlaces para reflejar MapLibre como visor principal recomendado, manteniendo Leaflet como fallback publicado.
 - Decidir retirada de Bokeh o mantenerlo como referencia.
 - Crear tests automaticos mas completos; existe smoke test versionado para checks rapidos, incluyendo `ignore_stations_tomap.txt` y reconstruccion con poco historico.
 - Mejorar separacion entre core de datos, webUI y visores.
