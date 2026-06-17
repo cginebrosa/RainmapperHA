@@ -202,8 +202,9 @@ Home Assistant:
 - El repo se anade como repositorio de apps/add-ons en HA.
 - HA detecta `repository.yaml` y `rainmapper-app/config.yaml`.
 - Desde `0.2.57`, `rainmapper-app/config.yaml` define `image: ghcr.io/cginebrosa/rainmapperha`, por lo que HA debe descargar la imagen versionada en vez de construirla localmente.
-- `.github/workflows/build-rainmapper-app.yml` publica imagen multi-arch `amd64`/`arm64` en GHCR cuando cambian los ficheros de `rainmapper-app/`, usando cache Buildx/GHA.
-- Los updates se distribuyen subiendo commits a GitHub, esperando a que GitHub Actions publique la imagen y usando `Check for updates`/`Update` en HA.
+- Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version. Esto evita que HA vea un update antes de que exista la imagen en GHCR.
+- `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
+- Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit a GitHub, y usando `Check for updates`/`Update` en HA.
 
 ## Convenciones de codigo
 - Scripts Python monoliticos con constantes globales y funciones procedurales.

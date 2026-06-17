@@ -513,7 +513,33 @@ Los updates de HA pasan a depender de que GitHub Actions haya publicado la image
 - `docs/todo.md`
 
 ### Estado
-Implementada y validada en `0.2.57`: Home Assistant descargo `ghcr.io/cginebrosa/rainmapperha:0.2.57` sin build local. Modificada en `0.2.58` para anadir cache Buildx/GHA en futuras Actions.
+Implementada y validada en `0.2.57`: Home Assistant descargo `ghcr.io/cginebrosa/rainmapperha:0.2.57` sin build local. Modificada en `0.2.58` para anadir cache Buildx/GHA en futuras Actions. Reemplazada como flujo normal en `0.2.60` por build/push local con Buildx antes del commit de version, dejando GitHub Actions como fallback manual.
+
+## 2026-06-17 - Publicar imagen HA con Buildx local antes del commit de version
+
+### Decision
+Usar `scripts/build-push-ha-image.sh` como flujo normal para publicar desde el Mac la imagen multi-arch `ghcr.io/cginebrosa/rainmapperha:<version>` antes de hacer commit/push del cambio de version visible para Home Assistant. GitHub Actions queda disponible solo como workflow manual de fallback.
+
+### Motivo
+GitHub Actions con cache siguio tardando alrededor de 7 minutos y Home Assistant detecta el update en cuanto ve `config.yaml`, aunque la imagen todavia no este publicada. Publicar localmente primero elimina esa ventana y aprovecha que el Mac construye mas rapido que la Raspberry Pi.
+
+### Alternativas consideradas
+Mantener GitHub Actions automatico y esperar a que termine, construir en Home Assistant, o subir imagen manual sin script versionado.
+
+### Consecuencias
+El flujo de release exige login Docker contra GHCR en el Mac y disciplina de publicar imagen antes de subir el commit de version. A cambio, HA no deberia ofrecer un update cuyo tag de imagen aun no exista. GitHub Actions deja de ejecutarse automaticamente en cada push de `rainmapper-app`.
+
+### Ficheros afectados
+- `scripts/build-push-ha-image.sh`
+- `.github/workflows/build-rainmapper-app.yml`
+- `README.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+- `docs/architecture.md`
+- `docs/decisions.md`
+
+### Estado
+Implementado en `0.2.60`; pendiente validar instalacion en Home Assistant usando imagen publicada localmente.
 
 ## 2026-06-17 - Exponer fuente de estacion en GeoJSON y filtros del visor
 

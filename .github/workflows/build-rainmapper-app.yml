@@ -1,12 +1,6 @@
 name: Build Rainmapper HA app image
 
 on:
-  push:
-    branches:
-      - inicial
-    paths:
-      - ".github/workflows/build-rainmapper-app.yml"
-      - "rainmapper-app/**"
   workflow_dispatch:
 
 env:

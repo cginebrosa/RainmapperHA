@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.60
+
+- Rename the MapLibre source filter group title from `Stations` to `Source`.
+- Make GitHub Actions image publishing manual-only; normal HA image publishing now uses local Buildx before the version commit is pushed.
+
 ## 0.2.59
 
 - Classify Meteocat stations only when station codes have two characters.

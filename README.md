@@ -147,15 +147,18 @@ Build Docker local:
 docker compose build rainmapper
 ```
 
-Build de Home Assistant: desde `0.2.57`, Home Assistant debe descargar la imagen preconstruida configurada en `rainmapper-app/config.yaml` (`ghcr.io/cginebrosa/rainmapperha:<version>`). GitHub Actions publica imagen multi-arch `amd64`/`arm64` en GHCR cuando cambian los ficheros de `rainmapper-app/`.
+Build de Home Assistant: desde `0.2.57`, Home Assistant debe descargar la imagen preconstruida configurada en `rainmapper-app/config.yaml` (`ghcr.io/cginebrosa/rainmapperha:<version>`). Desde `0.2.60`, el flujo normal es publicar la imagen multi-arch `amd64`/`arm64` desde el Mac con `./scripts/build-push-ha-image.sh` antes de subir el commit de version. GitHub Actions queda como fallback manual.
 
 ## Despliegue
 Despliegue Home Assistant confirmado por flujo manual:
 
-1. Hacer commit y push a GitHub.
-2. En Home Assistant, ejecutar `Check for updates` del repositorio/app.
-3. Actualizar la app desde la UI de Home Assistant.
-4. Reiniciar/arrancar la app si HA no lo hace automaticamente.
+1. Actualizar version en `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y `rainmapper-app/CHANGELOG.md`.
+2. Ejecutar `./scripts/smoke-test.sh`.
+3. Publicar la imagen con `./scripts/build-push-ha-image.sh`.
+4. Hacer commit y push a GitHub.
+5. En Home Assistant, ejecutar `Check for updates` del repositorio/app.
+6. Actualizar la app desde la UI de Home Assistant.
+7. Reiniciar/arrancar la app si HA no lo hace automaticamente.
 
 No hay pipeline CI/CD detectado.
 

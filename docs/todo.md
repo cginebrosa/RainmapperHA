@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en HA/iPhone la version `0.2.59`: filtros MapLibre por lluvia/fuente, presencia de `Unknown` solo si aparece alguna estacion no clasificada, y ausencia de warnings inesperados en `tomap_to_geojson.py`.
+Validar en HA la version `0.2.60` publicada con Buildx local: el update debe aparecer solo despues de existir la imagen en GHCR y la instalacion debe descargar la imagen sin build local.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -129,9 +129,9 @@ Validar en HA/iPhone la version `0.2.59`: filtros MapLibre por lluvia/fuente, pr
 - [x] Validar imagen Docker HA preconstruida
   - Contexto: Home Assistant construye la app en la RPi durante installs/updates, y la barra de progreso de HA puede quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi.
   - Ficheros relacionados: `.github/workflows/build-rainmapper-app.yml`, `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, GitHub Container Registry.
-  - Criterio de aceptacion: GitHub Actions publica imagen multi-arch `amd64`/`arm64` y HA descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin build local.
-  - Estado: validado en `0.2.57`; Supervisor descargo `ghcr.io/cginebrosa/rainmapperha:0.2.57` y no ejecuto build local. En `0.2.58` se anade cache Buildx/GHA para futuras Actions.
-  - Riesgo residual: HA muestra el update en cuanto ve `config.yaml`, aunque la imagen puede no estar publicada aun; esperar a que GitHub Actions este verde antes de actualizar.
+  - Criterio de aceptacion: publicar imagen multi-arch `amd64`/`arm64` en GHCR antes de hacer visible el update en HA; HA descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin build local.
+  - Estado: validado en `0.2.57` con GitHub Actions; desde `0.2.60` el flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
+  - Riesgo residual: requiere login Docker en GHCR desde el Mac y disciplina de publicar imagen antes del commit de version.
 
 - [x] Validar filtros de visor para futura app movil
   - Contexto: antes de construir la app iOS/Android se quieren probar funciones utiles en el visor web actual.
