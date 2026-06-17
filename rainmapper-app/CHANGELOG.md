@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.52
+
+- Fix the Home Assistant WebUI status panel layout so status cards stay grouped in three explicit rows.
+
 ## 0.2.51
 
 - Show the running app version in the Home Assistant WebUI status panel.
