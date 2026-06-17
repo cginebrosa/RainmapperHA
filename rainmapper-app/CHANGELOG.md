@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.56
+
+- Fix returning to the MapLibre Satellite+ base layer after switching to another layer.
+- Refresh MapLibre viewer asset cache busters.
+
 ## 0.2.55
 
 - Handle SIGTERM/SIGINT in the Home Assistant web server so app updates can stop Rainmapper cleanly, waiting for active jobs before shutdown when possible.

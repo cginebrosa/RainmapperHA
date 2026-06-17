@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en HA la parada limpia SIGTERM de `0.2.55` durante actualizacion/reinicio y validar en HA/iPhone el filtro de lluvia minima de MapLibre.
+Validar en HA/iPhone MapLibre `0.2.56`: vuelta a Satellite+ tras cambiar de capa, filtro de lluvia minima y parada limpia SIGTERM durante actualizacion/reinicio.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -73,7 +73,13 @@ Validar en HA la parada limpia SIGTERM de `0.2.55` durante actualizacion/reinici
   - Contexto: se ha anadido un panel `Settings` al visor MapLibre con slider `Min rain` para validar la UX antes de llevar el concepto a la futura app cross-platform.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`, `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: en HA/iPhone el slider filtra estaciones del periodo actual, conserva cambio de periodo/capa y no bloquea popups ni lectura del mapa.
-  - Estado: pendiente de validacion en Home Assistant `0.2.54`.
+  - Estado: pendiente de validacion en Home Assistant `0.2.56`.
+
+- [ ] Validar vuelta a Satellite+ en MapLibre
+  - Contexto: en `0.2.55`, despues de cambiar desde Satellite+ a otra capa, volver a Satellite+ no refrescaba la capa y quedaba la anterior.
+  - Ficheros relacionados: `maplibre-viewer/app.js`, `maplibre-viewer/index.html`, `rainmapper-app/app/maplibre-viewer/`.
+  - Criterio de aceptacion: en HA/iPhone, Satellite+ vuelve a cargar correctamente tras alternar con Hybrid, Topographic y Liberty.
+  - Estado: corregido en `0.2.56`, pendiente de validacion en Home Assistant.
 
 - [ ] Validar parada limpia SIGTERM en Home Assistant
   - Contexto: Supervisor aviso que Rainmapper `0.2.54` no manejaba SIGTERM durante update y termino con codigo 143.

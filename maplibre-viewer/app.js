@@ -231,7 +231,10 @@ let hasLoadedInitialMap = false;
 let minRainFilter = 0;
 
 function styleDefinition(style) {
-  return style.style || style.url;
+  if (!style.style) {
+    return style.url;
+  }
+  return JSON.parse(JSON.stringify(style.style));
 }
 
 const map = new maplibregl.Map({
