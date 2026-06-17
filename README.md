@@ -103,7 +103,7 @@ Smoke test rapido:
 ./scripts/smoke-test.sh
 ```
 
-El smoke test valida sintaxis Python, sintaxis JavaScript, wrappers shell, conversion GeoJSON minima, metadata de version de Home Assistant, sincronizacion entre raiz y `rainmapper-app/app`, y whitespace del diff de Git.
+El smoke test valida sintaxis Python, sintaxis JavaScript, wrappers shell, conversion GeoJSON minima, reconstruccion con poco historico, metadata de version de Home Assistant, sincronizacion entre raiz y `rainmapper-app/app`, y whitespace del diff de Git.
 
 Para sincronizar las copias empaquetadas en la app de Home Assistant despues de cambios en scripts raiz o visores:
 

@@ -184,7 +184,7 @@ docker compose run --rm -e MODE=help rainmapper
 git diff --check
 ```
 
-Cobertura: el smoke test valida sintaxis Python/JS/shell, conversion GeoJSON minima con `ignore_stations_tomap.txt`, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. `scripts/sync-app-files.sh` copia scripts raiz y visores a `rainmapper-app/app` como practica operativa, sin resolver aun la duplicidad arquitectonica. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas siguen siendo principalmente manuales en Docker local, Home Assistant y movil.
+Cobertura: el smoke test valida sintaxis Python/JS/shell, conversion GeoJSON minima con `ignore_stations_tomap.txt`, reconstruccion con poco historico para columnas `Last*_rains`, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. `scripts/sync-app-files.sh` copia scripts raiz y visores a `rainmapper-app/app` como practica operativa, sin resolver aun la duplicidad arquitectonica. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas siguen siendo principalmente manuales en Docker local, Home Assistant y movil.
 
 ## Build y despliegue
 Docker local:

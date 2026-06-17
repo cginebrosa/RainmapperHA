@@ -113,10 +113,10 @@ Continuar con mejoras de bajo riesgo o decidir si se aborda la separacion estruc
 - [x] Actualizacion HA desde GitHub tras bump de version.
 - [x] `Run all` desde webUI HA.
 - [x] Schedule con varias horas y dias.
-- [ ] Leaflet en iPhone: cambio periodo conserva posicion, popups, leyenda, Jawg opcional.
+- [x] Leaflet en iPhone: cambio periodo conserva posicion, popups, leyenda, Jawg opcional.
 - [x] MapLibre en movil: estilos, marcadores tras cambio de capa, popup, bounds.
 - [x] `ignore_stations_tomap.txt`: estacion ignorada desaparece de Leaflet/MapLibre pero sigue en historico.
-- [ ] Reconstruccion desde cero con poco historico.
+- [x] Reconstruccion desde cero con poco historico.
 
 ## Preguntas pendientes para el usuario
 - [x] Confirmar si MapLibre debe sustituir a Leaflet como visor principal o si ambos se mantienen.

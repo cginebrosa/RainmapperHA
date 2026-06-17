@@ -186,6 +186,125 @@ check_history_fixture() {
   rm -rf "$tmp_dir"
 }
 
+check_short_history_rebuild_fixture() {
+  local tmp_dir
+
+  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/rainmapper-short-history.XXXXXX")" || return 1
+
+  if ! "$PYTHON_BIN" - "$tmp_dir" <<'PY'
+import ast
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+tmp_dir = Path(sys.argv[1])
+maps_path = tmp_dir / "Tomap"
+maps_path.mkdir(parents=True, exist_ok=True)
+
+source = Path("Rainmapper.py").read_text(encoding="utf-8")
+module = ast.parse(source, filename="Rainmapper.py")
+function_node = next(
+    node
+    for node in module.body
+    if isinstance(node, ast.FunctionDef) and node.name == "create_last_rains"
+)
+function_module = ast.Module(body=[function_node], type_ignores=[])
+ast.fix_missing_locations(function_module)
+
+def filter_results(df, _minimum_rain):
+    return df
+
+def save_dataframe_tomap(df, _file_name, _save_to_csv=True, _decimal="."):
+    if _save_to_csv:
+        df.to_csv(maps_path / f"{_file_name}.csv", index=False)
+
+namespace = {
+    "pd": pd,
+    "_minimum_rain_tomap": 0,
+    "_MAPS_PATH": str(maps_path) + "/",
+    "filter_results": filter_results,
+    "save_dataframe_tomap": save_dataframe_tomap,
+}
+exec(compile(function_module, "Rainmapper.py", "exec"), namespace)
+
+df = pd.DataFrame(
+    [
+        {
+            "Codi Estació": "TEST_SHORT",
+            "Data Local": "2026-06-16",
+            "Data Lectura": "2026-06-16 08:00:00",
+            "Estació": "Short History",
+            "Comarca": "Test",
+            "Municipi": "Testville",
+            "Provincia": "Test",
+            "Altitud": 100,
+            "Latitud": 41.1,
+            "Longitud": 2.1,
+            "Ultima Lectura": "2026-06-16 08:00:00",
+            "Variable": "Rain",
+            "Total": 1.2,
+            "Unitat": "mm",
+            "max_temp_celsius": 20.0,
+            "min_temp_celsius": 12.0,
+            "max_humidity_percent": 80.0,
+            "min_humidity_percent": 45.0,
+            "Hora Local": "08:00:00",
+        },
+        {
+            "Codi Estació": "TEST_SHORT",
+            "Data Local": "2026-06-17",
+            "Data Lectura": "2026-06-17 08:00:00",
+            "Estació": "Short History",
+            "Comarca": "Test",
+            "Municipi": "Testville",
+            "Provincia": "Test",
+            "Altitud": 100,
+            "Latitud": 41.1,
+            "Longitud": 2.1,
+            "Ultima Lectura": "2026-06-17 08:00:00",
+            "Variable": "Rain",
+            "Total": 0.8,
+            "Unitat": "mm",
+            "max_temp_celsius": 21.0,
+            "min_temp_celsius": 13.0,
+            "max_humidity_percent": 81.0,
+            "min_humidity_percent": 46.0,
+            "Hora Local": "08:00:00",
+        },
+    ]
+)
+
+result = namespace["create_last_rains"](df, _nrecords=21)
+
+expected_groups = ("Data_Pluja", "Pluja_Diaria", "Hum_Max", "Temp_Max", "Hum_Min", "Temp_Min")
+for group in expected_groups:
+    columns = [column for column in result.columns if column.startswith(f"{group}_")]
+    if len(columns) != 21:
+        raise SystemExit(f"Expected 21 {group} columns, got {len(columns)}")
+
+if result.loc[0, "Codi Estació"] != "TEST_SHORT":
+    raise SystemExit("Unexpected station code in short-history result")
+if result.loc[0, "Data_Pluja_01"] != "17/06/2026":
+    raise SystemExit(f"Unexpected latest rain date: {result.loc[0, 'Data_Pluja_01']}")
+if result.loc[0, "Pluja_Diaria_01"] != 0.8:
+    raise SystemExit(f"Unexpected latest rain amount: {result.loc[0, 'Pluja_Diaria_01']}")
+missing_day_21 = result.loc[0, "Data_Pluja_21"]
+if not (pd.isna(missing_day_21) or str(missing_day_21).lower() == "nan"):
+    raise SystemExit(f"Expected missing day 21 to be empty, got {missing_day_21}")
+
+output_file = maps_path / "Last21_rains.csv"
+if not output_file.exists():
+    raise SystemExit("create_last_rains did not write Last21_rains.csv")
+PY
+  then
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  rm -rf "$tmp_dir"
+}
+
 check_backup_fixture() {
   local tmp_dir source_dir backup_dir backup_count
 
@@ -227,6 +346,7 @@ run_check "Python files compile" check_python_syntax
 run_check "JavaScript files parse" check_js_syntax
 run_check "Tomap to GeoJSON conversion works on a minimal fixture" check_geojson_conversion
 run_check "Historical CSV check works on a minimal fixture" check_history_fixture
+run_check "Short rebuilt histories keep expected last-rain columns" check_short_history_rebuild_fixture
 run_check "Data backup script works on a minimal fixture" check_backup_fixture
 run_check "shell scripts parse" check_shell_syntax
 

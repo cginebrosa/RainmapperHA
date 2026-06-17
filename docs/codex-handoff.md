@@ -13,7 +13,7 @@ El proyecto tiene dos empaquetados principales:
 
 La app de Home Assistant esta funcionando como servicio `serve`, con webUI por ingress/sidebar, schedule interno, ejecuciones manuales `update`, `maps` y `all`, publicacion en `/config/www`, visores Bokeh, Leaflet y MapLibre, metricas basicas de Wunderground y fichero manual para ignorar estaciones anomalas en los GeoJSON.
 
-El desarrollo actual esta en fase de operacion y mejora incremental de visores: MapLibre ya funciona bien en movil y, de momento, se mantienen publicados tanto Leaflet como MapLibre. Bokeh se mantiene como referencia y compatibilidad. Hay deuda tecnica por duplicidad entre scripts de raiz y scripts copiados dentro de `rainmapper-app/app`.
+El desarrollo actual esta en fase de operacion y mejora incremental de visores: Leaflet y MapLibre funcionan bien en iPhone y, de momento, se mantienen publicados ambos. Bokeh se mantiene como referencia y compatibilidad. Hay deuda tecnica por duplicidad entre scripts de raiz y scripts copiados dentro de `rainmapper-app/app`.
 
 ## Stack tecnologico detectado
 Confirmado en el repositorio:
@@ -54,7 +54,7 @@ Tambien existen documentos de uso:
 - `docker-compose.yml`: runner Docker local con volumenes persistentes.
 - `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
 - `maplibre-viewer/`: visor MapLibre fuente para pruebas locales/publicacion.
-- `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, versiones y sincronizacion raiz/app HA.
+- `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, reconstruccion con poco historico, versiones y sincronizacion raiz/app HA.
 - `scripts/sync-app-files.sh`: sincroniza scripts raiz y visores hacia `rainmapper-app/app` como practica operativa mientras exista duplicidad.
 - `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
 - `scripts/check-history.py`: valida CSV historicos y permite comparar una copia antes/despues.
@@ -147,7 +147,7 @@ Tambien existen documentos de uso:
 - Jawg Maps opcional en visores si existe `JAWGMAPS_API_KEY`/`jawgmaps_api_key`.
 
 ## Funcionalidades parcialmente implementadas
-- MapLibre viewer: funcional y validado en movil; se mantiene publicado junto a Leaflet de momento.
+- Leaflet y MapLibre: funcionales y validados en iPhone; se mantienen publicados ambos de momento.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
@@ -157,7 +157,7 @@ Tambien existen documentos de uso:
 ## Funcionalidades pendientes
 - Mantener Leaflet y MapLibre publicados de momento; revisar mas adelante si uno pasa a principal unico.
 - Decidir retirada de Bokeh o mantenerlo como referencia.
-- Crear tests automaticos mas completos; existe smoke test versionado para checks rapidos.
+- Crear tests automaticos mas completos; existe smoke test versionado para checks rapidos, incluyendo `ignore_stations_tomap.txt` y reconstruccion con poco historico.
 - Mejorar separacion entre core de datos, webUI y visores.
 - Analitica historica de metricas Wunderground, posiblemente con InfluxDB/Grafana.
 - Autenticacion/autorizacion real para una futura app publica iOS/Android.
