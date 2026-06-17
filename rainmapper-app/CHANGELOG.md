@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.54
+
+- Add a MapLibre viewer settings panel with a minimum rain filter slider for validating app-style filtering in the current web viewer.
+
 ## 0.2.53
 
 - Refresh Leaflet viewer asset cache busters and ignore whitespace-only Jawg tokens so optional Jawg layers disappear when the API key is empty.

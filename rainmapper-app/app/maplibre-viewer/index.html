@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.53">
+    <link rel="stylesheet" href="style.css?v=0.2.54">
   </head>
   <body>
     <header class="topbar">
@@ -34,6 +34,16 @@
     <main>
       <div id="map"></div>
       <div class="maplibre-layer-switcher" id="layer-switcher"></div>
+      <button class="map-settings-toggle" id="settings-toggle" type="button" aria-expanded="false" aria-controls="map-settings">
+        Settings
+      </button>
+      <section class="map-settings" id="map-settings" aria-label="Map settings" hidden>
+        <div class="map-settings-row">
+          <label for="min-rain-filter">Min rain</label>
+          <output id="min-rain-value" for="min-rain-filter">0 mm</output>
+        </div>
+        <input id="min-rain-filter" type="range" min="0" max="100" step="1" value="0">
+      </section>
       <div class="rain-legend maplibre-rain-legend">
         <div class="rain-legend-title">Rain</div>
         <div class="rain-legend-row"><span class="rain-legend-swatch" style="background:#4ea5ff"></span><span>0-4.9</span></div>
@@ -46,7 +56,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.53"></script>
-    <script src="app.js?v=0.2.53"></script>
+    <script src="config.js?v=0.2.54"></script>
+    <script src="app.js?v=0.2.54"></script>
   </body>
 </html>

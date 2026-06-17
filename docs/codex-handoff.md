@@ -106,12 +106,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.53`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish. La `0.2.46` fue validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA.
+- Estado actual: version `0.2.54`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish. La `0.2.46` fue validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.53`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.54`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -121,7 +121,7 @@ Tambien existen documentos de uso:
 
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
 - Proposito: visor experimental MapLibre con mapas vectoriales y raster.
-- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty y Jawg Street/Terrain opcional.
+- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, Jawg Street/Terrain opcional y panel de settings con filtro cliente por lluvia minima.
 - Riesgos: MapLibre queda validado como visor principal recomendado en `0.2.53`, con Leaflet mantenido como fallback. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales futuros si se detectan problemas.
 
 ### `docker-compose.yml`
@@ -142,6 +142,7 @@ Tambien existen documentos de uso:
 - MapLibre viewer publicado en `/local/rainmapper-maplibre/index.html`: `maplibre-viewer/`, `web_server.py`.
 - GeoJSON para 1/7/14/21/30/60/90 dias: `tomap_to_geojson.py`.
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `tomap_to_geojson.py`.
+- Filtro de lluvia minima en MapLibre: settings del visor aplica filtro cliente sobre el periodo cargado para validar UX de futura app movil.
 - Wunderground full log configurable y resumen de errores: `Rainmapper.py`, `config.yaml`.
 - Control webUI para desactivar/reactivar estaciones Wunderground por 404 o parse error: `web_server.py`.
 - Metricas de tiempos por estacion Wunderground en `Data/metricas_wunderground.csv`: `Rainmapper.py`.
@@ -155,7 +156,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.53`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.54`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -167,11 +168,11 @@ Tambien existen documentos de uso:
 - Autenticacion/autorizacion real para una futura app publica iOS/Android.
 - Definir modelo de producto/acceso si se venden mapas o zonas.
 - Ideas para futura app iOS/Android: favoritos de estaciones y filtro por lluvia minima en el periodo seleccionado.
-- Arquitectura inicial de app movil documentada en [mobile-app-architecture.md](mobile-app-architecture.md).
+- Arquitectura inicial de app movil documentada en [mobile-app-architecture.md](mobile-app-architecture.md), con direccion preferente de prototipo Cloudflare R2 + Worker API + React Native/MapLibre.
 
 ## Bugs abiertos o problemas conocidos
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`; mitigada operativamente con `scripts/sync-app-files.sh` y smoke test, sin refactor estructural todavia.
-- No hay tests formales detectados.
+- Tests formales iniciales existen en `tests/` para GeoJSON; faltan pruebas funcionales completas de Docker/HA/webUI.
 - Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` en RPi para no cargarla. Aun asi, el rendimiento actual es aceptable: update completo + generacion de mapas tarda unos 7 minutos. Observabilidad/timeout queda en baja prioridad hasta acumular mas observaciones.
 - Jawg Maps en navegador implica que el token de tiles puede ser visible al cliente; debe restringirse por dominio si el proveedor lo permite.
 - Los historicos CSV son el valor central del proyecto; no deben borrarse ni reescribirse sin backup. Ver [history-safety.md](history-safety.md).

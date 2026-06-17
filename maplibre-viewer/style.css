@@ -475,6 +475,64 @@ main {
   width: 16px;
 }
 
+.map-settings-toggle {
+  background: rgba(16, 24, 32, 0.94);
+  border: 1px solid rgba(180, 198, 214, 0.35);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  left: 8px;
+  padding: 8px 10px;
+  position: absolute;
+  top: 8px;
+  z-index: 10;
+}
+
+.map-settings-toggle[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.map-settings {
+  background: rgba(16, 24, 32, 0.94);
+  border: 1px solid rgba(180, 198, 214, 0.35);
+  border-radius: 8px;
+  color: var(--text);
+  display: grid;
+  gap: 8px;
+  left: 8px;
+  padding: 10px;
+  position: absolute;
+  top: 52px;
+  width: 210px;
+  z-index: 10;
+}
+
+.map-settings[hidden] {
+  display: none;
+}
+
+.map-settings-row {
+  align-items: center;
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.map-settings output {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.map-settings input[type="range"] {
+  accent-color: var(--accent);
+  width: 100%;
+}
+
 .maplibre-rain-legend {
   bottom: 20px;
   left: 8px;
@@ -512,5 +570,15 @@ main {
 
   .maplibre-rain-legend {
     bottom: 14px;
+  }
+
+  .map-settings-toggle {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .map-settings {
+    top: 44px;
+    width: min(210px, calc(100vw - 16px));
   }
 }

@@ -465,3 +465,26 @@ La primera fase de app movil deberia definir API, auth y permisos antes de produ
 
 ### Estado
 Propuesta inicial confirmada a nivel de diseno; pendiente de implementacion.
+
+## 2026-06-17 - Cloudflare y app cross-platform como direccion de prototipo movil
+
+### Decision
+Para explorar la futura app iOS/Android, tomar como direccion preferente de prototipo una arquitectura con Cloudflare R2 para artefactos GeoJSON, Cloudflare Worker como API ligera y React Native + MapLibre React Native como app cross-platform.
+
+### Motivo
+Cloudflare ya forma parte del acceso externo actual y encaja con artefactos GeoJSON estaticos/cacheables. Workers evita operar un VPS en la primera fase. React Native permite una base comun iOS/Android y MapLibre alinea la app con el visor principal recomendado del proyecto.
+
+### Alternativas consideradas
+App nativa separada Swift/Kotlin, PWA, FastAPI en VPS, Supabase/Firebase como backend principal o consumo directo de GeoJSON publicados por Home Assistant.
+
+### Consecuencias
+La app futura deberia consumir una API controlada, no rutas `/local/...` de Home Assistant. Hay que definir estructura R2, manifiesto `latest.json`, endpoints minimos y una estrategia de auth/permisos antes de producto publico. La implementacion no es inmediata y puede revisarse si el prototipo muestra limitaciones.
+
+### Ficheros afectados
+- `docs/mobile-app-architecture.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+- `docs/decisions.md`
+
+### Estado
+Confirmada como direccion de diseno/prototipo; pendiente de implementacion.

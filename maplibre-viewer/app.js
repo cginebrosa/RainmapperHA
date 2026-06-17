@@ -225,8 +225,10 @@ if (jawgAccessToken) {
 
 let currentStyle = baseStyles[0];
 let currentData = null;
+let currentVisibleFeatures = [];
 let currentPopup = null;
 let hasLoadedInitialMap = false;
+let minRainFilter = 0;
 
 function styleDefinition(style) {
   return style.style || style.url;
@@ -280,6 +282,53 @@ function prepareFeature(feature) {
       marker_radius: markerRadius(total),
     },
   };
+}
+
+function featureRainTotal(feature) {
+  const total = Number(feature.properties?.Total || 0);
+  return Number.isFinite(total) ? total : 0;
+}
+
+function filteredFeatures(features) {
+  return features.filter((feature) => featureRainTotal(feature) >= minRainFilter);
+}
+
+function updateMinRainControl(features) {
+  const maxRain = features.reduce((maxValue, feature) => Math.max(maxValue, featureRainTotal(feature)), 0);
+  const sliderMax = Math.max(10, Math.ceil(maxRain / 10) * 10);
+  const slider = document.getElementById("min-rain-filter");
+  slider.max = String(sliderMax);
+  if (minRainFilter > sliderMax) {
+    minRainFilter = sliderMax;
+    slider.value = String(minRainFilter);
+  }
+  updateMinRainValue();
+}
+
+function updateMinRainValue() {
+  document.getElementById("min-rain-value").textContent = `${minRainFilter} mm`;
+}
+
+function refreshFilteredData() {
+  if (!currentVisibleFeatures.length) {
+    return;
+  }
+
+  const selectedPeriod = document.getElementById("map-selector").value;
+  const features = filteredFeatures(currentVisibleFeatures);
+  currentData = {
+    type: "FeatureCollection",
+    metadata: currentData?.metadata || {},
+    features,
+  };
+
+  if (currentPopup) {
+    currentPopup.remove();
+    currentPopup = null;
+  }
+
+  addStationLayer();
+  updateSummary(selectedPeriod, features.length, currentVisibleFeatures.length);
 }
 
 function addStationLayer() {
@@ -398,8 +447,10 @@ function recentRainHistory(properties) {
   `;
 }
 
-function updateSummary(fileName, count) {
-  document.getElementById("summary").textContent = `${periods[fileName]} · ${count} station${count === 1 ? "" : "s"}`;
+function updateSummary(fileName, count, totalCount = count) {
+  const stationText = `${count} station${count === 1 ? "" : "s"}`;
+  const filterText = minRainFilter > 0 ? ` · ${totalCount} total · min ${minRainFilter} mm` : "";
+  document.getElementById("summary").textContent = `${periods[fileName]} · ${stationText}${filterText}`;
 }
 
 function updateGeneratedAt(generatedAt) {
@@ -451,9 +502,12 @@ async function loadMap(fileName) {
   }
   const data = await response.json();
   const features = visibleFeatures(data.features || []).map(prepareFeature);
+  currentVisibleFeatures = features;
+  updateMinRainControl(features);
+  const filtered = filteredFeatures(features);
   currentData = {
     ...data,
-    features,
+    features: filtered,
   };
 
   if (currentPopup) {
@@ -462,7 +516,7 @@ async function loadMap(fileName) {
   }
 
   addStationLayer();
-  updateSummary(fileName, features.length);
+  updateSummary(fileName, filtered.length, features.length);
   updateGeneratedAt(data.metadata?.generated_at);
 
   if (!hasLoadedInitialMap) {
@@ -504,8 +558,27 @@ function renderLayerSwitcher() {
   });
 }
 
+function renderSettingsPanel() {
+  const toggle = document.getElementById("settings-toggle");
+  const panel = document.getElementById("map-settings");
+  const slider = document.getElementById("min-rain-filter");
+
+  toggle.addEventListener("click", () => {
+    const isOpen = panel.hasAttribute("hidden");
+    panel.toggleAttribute("hidden", !isOpen);
+    toggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  slider.addEventListener("input", (event) => {
+    minRainFilter = Number(event.target.value);
+    updateMinRainValue();
+    refreshFilteredData();
+  });
+}
+
 map.on("load", () => {
   renderLayerSwitcher();
+  renderSettingsPanel();
   loadMap(document.getElementById("map-selector").value).catch((error) => {
     document.getElementById("summary").textContent = error.message;
   });

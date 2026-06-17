@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Definir el siguiente bloque de trabajo: ampliar tests funcionales hacia publicacion/webUI o avanzar en la arquitectura/API de la futura app movil.
+Validar en HA/iPhone el filtro de lluvia minima de MapLibre `0.2.54`; despues decidir si el siguiente bloque sera contrato API/R2 `latest.json` o deuda tecnica de duplicidad raiz/app HA.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -69,6 +69,12 @@ Definir el siguiente bloque de trabajo: ampliar tests funcionales hacia publicac
   - Criterio de aceptacion: la documentacion de uso presenta MapLibre primero y no induce a pensar que los tres visores tienen el mismo rol operativo.
   - Estado: resuelto.
 
+- [ ] Validar filtro de lluvia minima en MapLibre
+  - Contexto: se ha anadido un panel `Settings` al visor MapLibre con slider `Min rain` para validar la UX antes de llevar el concepto a la futura app cross-platform.
+  - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`, `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
+  - Criterio de aceptacion: en HA/iPhone el slider filtra estaciones del periodo actual, conserva cambio de periodo/capa y no bloquea popups ni lectura del mapa.
+  - Estado: pendiente de validacion en Home Assistant `0.2.54`.
+
 ## Prioridad baja
 - [x] Crear smoke tests automatizados
   - Contexto: no hay framework de tests completo, pero existe `scripts/smoke-test.sh`.
@@ -125,6 +131,12 @@ Definir el siguiente bloque de trabajo: ampliar tests funcionales hacia publicac
   - Estado: resuelto a nivel de diseno inicial; no implementado.
   - Riesgo si no se hace: el visor publico actual no controla quien accede a que.
 
+- [x] Documentar direccion Cloudflare + app cross-platform
+  - Contexto: se quiere explorar futura app iOS/Android sin depender de Home Assistant como backend publico.
+  - Ficheros relacionados: `docs/mobile-app-architecture.md`, `docs/decisions.md`, `docs/codex-handoff.md`.
+  - Criterio de aceptacion: documentar Cloudflare R2, Worker API, React Native/MapLibre, pruebas sin stores y primer MVP recomendado.
+  - Estado: resuelto a nivel de arquitectura; pendiente de implementacion.
+
 ## Bugs abiertos
 - [ ] Tests funcionales formales incompletos
   - Sintoma: ya existen fixtures `unittest` para `tomap_to_geojson.py`, pero no hay cobertura funcional formal para runs Docker/HA, publicacion webUI o generacion completa de mapas.
@@ -155,6 +167,8 @@ Definir el siguiente bloque de trabajo: ampliar tests funcionales hacia publicac
 
 ## Ideas futuras
 - App iOS/Android con login y autorizacion por mapa/zona.
+- Prototipo cross-platform con React Native + MapLibre consumiendo Cloudflare Worker API.
+- Publicacion de GeoJSON a Cloudflare R2 con manifiesto `latest.json`.
 - Favoritos de estaciones y filtro por lluvia minima en la futura app movil.
 - API propia entre backend y app movil.
 - Capa de permisos por usuario.
