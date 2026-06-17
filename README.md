@@ -102,10 +102,10 @@ En Docker local, `MODE=maps` y `MODE=all` actualizan tambien los GeoJSON de `doc
 Para ejecutar la secuencia local completa y abrir los visores desde un servidor HTTP local:
 
 ```bash
-./run_docker_local_mode_all.sh
+./local_all.sh
 ```
 
-El script construye la imagen local, ejecuta `MODE=all` y deja servido el repo en `http://127.0.0.1:8080/maplibre-viewer/`. Para cambiar el puerto: `PORT=8081 ./run_docker_local_mode_all.sh`.
+El script construye la imagen local, ejecuta `MODE=all` y deja servido el repo en `http://127.0.0.1:8080/maplibre-viewer/`. Para cambiar el puerto: `PORT=8081 ./local_all.sh`.
 
 ## Tests
 Smoke test rapido:

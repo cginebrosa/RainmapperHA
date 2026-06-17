@@ -98,7 +98,7 @@ Hay varios entry points segun entorno:
 - Relacion: entorno seguro de pruebas en Mac. En `maps/all`, ejecuta `Rainmapper_Client.py` y `tomap_to_geojson.py`, dejando GeoJSON actualizado en `docker-data/PublicData` para los visores locales.
 
 ### Runner local completo
-- Ruta: `run_docker_local_mode_all.sh`.
+- Ruta: `local_all.sh`.
 - Responsabilidad: automatizar la secuencia de prueba local: `docker compose build rainmapper`, `docker compose run --rm -e MODE=all rainmapper` y servidor HTTP local para abrir visores.
 - Dependencias: Docker Compose y `python3`.
 - Relacion: acceso rapido a `http://127.0.0.1:8080/maplibre-viewer/` y `http://127.0.0.1:8080/leaflet-viewer/` tras regenerar datos locales.
