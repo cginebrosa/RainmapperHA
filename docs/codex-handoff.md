@@ -98,7 +98,7 @@ Tambien existen documentos de uso:
 
 ### `run.sh`
 - Proposito: wrapper Docker local. Traduce variables de entorno a argumentos de `Rainmapper.py`, `Rainmapper_Client.py` y `tomap_to_geojson.py`.
-- Estado actual: soporta modos `once/update`, `maps`, `all`, `help`, `schedule`. En `maps/all` genera Bokeh y GeoJSON en `docker-data/PublicData` para que MapLibre/Leaflet locales no lean datos obsoletos.
+- Estado actual: soporta modos `once/update`, `maps`, `all`, `help`, `schedule`. En `maps/all` genera Bokeh y GeoJSON en `docker-data/PublicData` para que MapLibre/Leaflet locales no lean datos obsoletos. Validado el 2026-06-18 con `./local_all.sh`: MapLibre local cargo datos actuales y `01d` mostro 432 estaciones a las 00:37.
 - Riesgos: el modo `schedule` local es distinto del modo `serve` de HA; no confundir.
 
 ### `rainmapper-app/run.sh`

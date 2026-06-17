@@ -69,23 +69,23 @@ Validar en el proximo bump que `scripts/build-push-ha-image.sh` limpia las etiqu
   - Criterio de aceptacion: la documentacion de uso presenta MapLibre primero y no induce a pensar que los tres visores tienen el mismo rol operativo.
   - Estado: resuelto.
 
-- [ ] Validar filtro de lluvia minima en MapLibre
+- [x] Validar filtro de lluvia minima en MapLibre
   - Contexto: se ha anadido un panel `Settings` al visor MapLibre con slider `Min rain` para validar la UX antes de llevar el concepto a la futura app cross-platform.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`, `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: en HA/iPhone el slider filtra estaciones del periodo actual, conserva cambio de periodo/capa y no bloquea popups ni lectura del mapa.
-  - Estado: pendiente de validacion en Home Assistant `0.2.56`.
+  - Estado: validado por el usuario en HA/iPhone; el slider filtra sin romper cambio de periodo/capa ni popups.
 
-- [ ] Validar vuelta a Satellite+ en MapLibre
+- [x] Validar vuelta a Satellite+ en MapLibre
   - Contexto: en `0.2.55`, despues de cambiar desde Satellite+ a otra capa, volver a Satellite+ no refrescaba la capa y quedaba la anterior.
   - Ficheros relacionados: `maplibre-viewer/app.js`, `maplibre-viewer/index.html`, `rainmapper-app/app/maplibre-viewer/`.
   - Criterio de aceptacion: en HA/iPhone, Satellite+ vuelve a cargar correctamente tras alternar con Hybrid, Topographic y Liberty.
-  - Estado: corregido en `0.2.56`, pendiente de validacion en Home Assistant.
+  - Estado: corregido en `0.2.56` y validado por el usuario en HA/iPhone.
 
-- [ ] Validar parada limpia SIGTERM en Home Assistant
+- [x] Validar parada limpia SIGTERM en Home Assistant
   - Contexto: Supervisor aviso que Rainmapper `0.2.54` no manejaba SIGTERM durante update y termino con codigo 143.
   - Ficheros relacionados: `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: al actualizar/reiniciar la app HA, Supervisor no muestra warning de SIGTERM y el proceso sale con codigo 0; si hay un job activo, la app intenta esperar a que termine antes de cerrar.
-  - Estado: corregido en `0.2.55`, pendiente de validacion en Home Assistant.
+  - Estado: corregido en `0.2.55` y validado por el usuario; ya no aparece el warning de SIGTERM del Supervisor.
 
 ## Prioridad baja
 - [x] Crear smoke tests automatizados
@@ -172,7 +172,7 @@ Validar en el proximo bump que `scripts/build-push-ha-image.sh` limpia las etiqu
 ## Validaciones pendientes
 - [x] `docker compose build rainmapper` tras cambios de Docker local.
 - [x] `docker compose run --rm -e MODE=help rainmapper`.
-- [ ] `docker compose run --rm -e MODE=all rainmapper` en datos de prueba antes de tocar historicos reales.
+- [x] `docker compose run --rm -e MODE=all rainmapper` en datos de prueba antes de tocar historicos reales.
 - [x] Actualizacion HA desde GitHub tras bump de version.
 - [x] `Run all` desde webUI HA.
 - [x] Schedule con varias horas y dias.
@@ -180,6 +180,7 @@ Validar en el proximo bump que `scripts/build-push-ha-image.sh` limpia las etiqu
 - [x] MapLibre en movil: estilos, marcadores tras cambio de capa, popup, bounds.
 - [x] `ignore_stations_tomap.txt`: estacion ignorada desaparece de Leaflet/MapLibre pero sigue en historico.
 - [x] Reconstruccion desde cero con poco historico.
+- [x] `./local_all.sh`: build local, `MODE=all`, servidor HTTP local y MapLibre con datos actuales; validado el 2026-06-18 a las 00:37 con 432 estaciones en el periodo de 1 dia.
 
 ## Preguntas pendientes para el usuario
 - [x] Confirmar si MapLibre debe sustituir a Leaflet como visor principal o si ambos se mantienen.
