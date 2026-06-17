@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en HA/iPhone el filtro de lluvia minima de MapLibre `0.2.54`; despues decidir si el siguiente bloque sera contrato API/R2 `latest.json` o deuda tecnica de duplicidad raiz/app HA.
+Validar en HA la parada limpia SIGTERM de `0.2.55` durante actualizacion/reinicio y validar en HA/iPhone el filtro de lluvia minima de MapLibre.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -74,6 +74,12 @@ Validar en HA/iPhone el filtro de lluvia minima de MapLibre `0.2.54`; despues de
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`, `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: en HA/iPhone el slider filtra estaciones del periodo actual, conserva cambio de periodo/capa y no bloquea popups ni lectura del mapa.
   - Estado: pendiente de validacion en Home Assistant `0.2.54`.
+
+- [ ] Validar parada limpia SIGTERM en Home Assistant
+  - Contexto: Supervisor aviso que Rainmapper `0.2.54` no manejaba SIGTERM durante update y termino con codigo 143.
+  - Ficheros relacionados: `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
+  - Criterio de aceptacion: al actualizar/reiniciar la app HA, Supervisor no muestra warning de SIGTERM y el proceso sale con codigo 0; si hay un job activo, la app intenta esperar a que termine antes de cerrar.
+  - Estado: corregido en `0.2.55`, pendiente de validacion en Home Assistant.
 
 ## Prioridad baja
 - [x] Crear smoke tests automatizados

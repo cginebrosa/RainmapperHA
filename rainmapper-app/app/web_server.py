@@ -8,7 +8,9 @@ import mimetypes
 import os
 import re
 import shutil
+import signal
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, timedelta
@@ -47,6 +49,9 @@ PUBLIC_MAP_NAMES = {
 }
 
 RUN_LOCK = threading.Lock()
+SHUTDOWN_EVENT = threading.Event()
+CURRENT_PROCESS_LOCK = threading.Lock()
+CURRENT_PROCESS: subprocess.Popen | None = None
 RUN_STATE = {
     "running": False,
     "action": "",
@@ -63,6 +68,34 @@ RUN_STATE = {
     "last_published_at": "",
     "last_publish_message": "Not published yet.",
 }
+
+
+def set_current_process(process: subprocess.Popen | None) -> None:
+    global CURRENT_PROCESS
+    with CURRENT_PROCESS_LOCK:
+        CURRENT_PROCESS = process
+
+
+def terminate_current_process() -> None:
+    with CURRENT_PROCESS_LOCK:
+        process = CURRENT_PROCESS
+
+    if process is None or process.poll() is not None:
+        return
+
+    print(f"Terminating active Rainmapper subprocess {process.pid}.", flush=True)
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        print(f"Killing active Rainmapper subprocess {process.pid}.", flush=True)
+        process.kill()
+        process.wait(timeout=5)
+
+
+def action_is_running() -> bool:
+    with RUN_LOCK:
+        return bool(RUN_STATE["running"])
 
 
 def env(name: str, default: str = "") -> str:
@@ -920,12 +953,16 @@ def _run_action_thread(action: str, source: str) -> None:
                 text=True,
                 bufsize=1,
             )
-            assert process.stdout is not None
-            for line in process.stdout:
-                update_run_progress(line)
-                log_file.write(line)
-                log_file.flush()
-            exit_code = process.wait()
+            set_current_process(process)
+            try:
+                assert process.stdout is not None
+                for line in process.stdout:
+                    update_run_progress(line)
+                    log_file.write(line)
+                    log_file.flush()
+                exit_code = process.wait()
+            finally:
+                set_current_process(None)
             print(f"Rainmapper step '{current_action}' finished with exit code {exit_code}.", flush=True)
             if exit_code != 0:
                 break
@@ -995,8 +1032,9 @@ def next_schedule_text() -> str:
 
 
 def scheduler_loop() -> None:
-    while True:
-        time.sleep(20)
+    while not SHUTDOWN_EVENT.is_set():
+        if SHUTDOWN_EVENT.wait(20):
+            break
         if not bool_env("RAINMAPPER_SCHEDULE_ENABLED"):
             continue
 
@@ -1275,10 +1313,44 @@ def main() -> None:
     scheduler.start()
 
     server = ThreadingHTTPServer((args.host, args.port), RainmapperHandler)
+    shutdown_requested = False
+
+    def shutdown_after_action_finishes() -> None:
+        while action_is_running():
+            time.sleep(1)
+        server.shutdown()
+
+    def handle_shutdown(signum: int, _frame: object) -> None:
+        nonlocal shutdown_requested
+        signal_name = signal.Signals(signum).name
+        if shutdown_requested:
+            print(f"Received {signal_name} again; forcing Rainmapper subprocess termination.", flush=True)
+            terminate_current_process()
+            threading.Thread(target=server.shutdown, daemon=True).start()
+            return
+
+        shutdown_requested = True
+        print(f"Received {signal_name}; stopping scheduler and preparing clean shutdown.", flush=True)
+        SHUTDOWN_EVENT.set()
+        if action_is_running():
+            print("Rainmapper action is still running; waiting for it to finish before stopping.", flush=True)
+            threading.Thread(target=shutdown_after_action_finishes, daemon=True).start()
+            return
+
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGTERM, handle_shutdown)
+    signal.signal(signal.SIGINT, handle_shutdown)
+
     print(f"Rainmapper server listening on {args.host}:{args.port}")
     print(f"Schedule enabled: {bool_env('RAINMAPPER_SCHEDULE_ENABLED')}")
     print(f"Next schedule: {next_schedule_text()}")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+        print("Rainmapper server stopped cleanly.", flush=True)
+        sys.exit(0)
 
 
 if __name__ == "__main__":

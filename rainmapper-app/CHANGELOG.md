@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.55
+
+- Handle SIGTERM/SIGINT in the Home Assistant web server so app updates can stop Rainmapper cleanly, waiting for active jobs before shutdown when possible.
+
 ## 0.2.54
 
 - Add a MapLibre viewer settings panel with a minimum rain filter slider for validating app-style filtering in the current web viewer.

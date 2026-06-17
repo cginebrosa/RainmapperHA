@@ -192,7 +192,7 @@ case "$MODE" in
     ;;
   serve)
     echo "Starting Rainmapper map server..."
-    python web_server.py --host 0.0.0.0 --port 8099
+    exec python web_server.py --host 0.0.0.0 --port 8099
     ;;
   all)
     run_update
