@@ -122,7 +122,7 @@ Persistencia por CSV:
 Campos relevantes detectados o usados:
 
 - `Codi Estació` / codigo de estacion.
-- `Source` en GeoJSON, inferido por `tomap_to_geojson.py` desde el codigo de estacion: `ES...` con longitud minima 15 para Meteoclimatic, `I...` para Wunderground, resto con codigo para Meteocat.
+- `Source` en GeoJSON, inferido por `tomap_to_geojson.py` desde el codigo de estacion: `ES...` con longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown` con aviso en stdout.
 - `Latitud`, `Longitud`.
 - lluvia acumulada por periodo.
 - municipio/provincia/altitud.

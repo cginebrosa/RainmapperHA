@@ -76,9 +76,32 @@ def infer_station_source(station_code):
         return "Meteoclimatic"
     if code.startswith("I"):
         return "Wunderground"
-    if code:
+    if len(code) == 2:
         return "Meteocat"
     return "Unknown"
+
+
+def add_station_sources(df):
+    if "Codi Estació" not in df.columns:
+        print("Cannot infer station sources: column 'Codi Estació' is missing.")
+        return df, []
+
+    result = df.copy()
+    inferred_sources = result["Codi Estació"].apply(infer_station_source)
+    if "Source" not in result.columns:
+        result["Source"] = inferred_sources
+    else:
+        empty_source = result["Source"].isna() | (result["Source"].astype(str).str.strip() == "")
+        result.loc[empty_source, "Source"] = inferred_sources.loc[empty_source]
+
+    unknown_codes = sorted(
+        {
+            str(code).strip().upper()
+            for code, source in zip(result["Codi Estació"], result["Source"])
+            if str(source).strip().lower() == "unknown" and str(code).strip()
+        }
+    )
+    return result, unknown_codes
 
 
 def dataframe_to_geojson(df, generated_at=None):
@@ -127,6 +150,7 @@ def convert_file(input_file, output_file, ignore_station_codes):
         raise ValueError(f"{input_file} is missing columns: {', '.join(sorted(missing_columns))}")
 
     df, ignored_count = filter_ignored_stations(df, ignore_station_codes)
+    df, unknown_station_codes = add_station_sources(df)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     geojson = dataframe_to_geojson(
         df,
@@ -136,6 +160,12 @@ def convert_file(input_file, output_file, ignore_station_codes):
         json.dumps(geojson, ensure_ascii=False, allow_nan=False),
         encoding="utf-8",
     )
+    if unknown_station_codes:
+        preview = ", ".join(unknown_station_codes[:20])
+        suffix = "..." if len(unknown_station_codes) > 20 else ""
+        print(
+            f"WARNING: {input_file} has {len(unknown_station_codes)} station code(s) with unknown source: {preview}{suffix}"
+        )
     return len(geojson["features"]), ignored_count
 
 

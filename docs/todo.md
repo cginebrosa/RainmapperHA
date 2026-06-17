@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Subir el ajuste de cache Buildx/GHA del workflow y despues validar en HA/iPhone MapLibre y parada limpia SIGTERM.
+Validar en HA/iPhone la version `0.2.59`: filtros MapLibre por lluvia/fuente, presencia de `Unknown` solo si aparece alguna estacion no clasificada, y ausencia de warnings inesperados en `tomap_to_geojson.py`.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -137,7 +137,7 @@ Subir el ajuste de cache Buildx/GHA del workflow y despues validar en HA/iPhone 
   - Contexto: antes de construir la app iOS/Android se quieren probar funciones utiles en el visor web actual.
   - Ficheros relacionados: `maplibre-viewer/`, `tomap_to_geojson.py`, `tests/test_tomap_to_geojson.py`.
   - Criterio de aceptacion: MapLibre permite filtrar por lluvia minima y por fuente de estacion; el GeoJSON incluye `Source` para no repetir inferencias en clientes futuros.
-  - Estado: filtro de lluvia minima en `0.2.54`; filtro Meteocat/Meteoclimatic/Wunderground y `Source` en GeoJSON en `0.2.58`.
+  - Estado: filtro de lluvia minima en `0.2.54`; filtro Meteocat/Meteoclimatic/Wunderground y `Source` en GeoJSON en `0.2.58`; ajuste defensivo `Unknown` y Meteocat longitud 2 en `0.2.59`.
 
 - [x] Disenar futura app iOS/Android
   - Contexto: objetivo a largo plazo incluye app movil con autenticacion y permisos.

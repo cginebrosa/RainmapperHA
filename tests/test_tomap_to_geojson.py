@@ -20,9 +20,10 @@ class TomapToGeojsonTests(unittest.TestCase):
         self.assertEqual(tomap_to_geojson.infer_station_source("ESCAT2500000025515A"), "Meteoclimatic")
         self.assertEqual(tomap_to_geojson.infer_station_source("ES1234567890123"), "Meteoclimatic")
         self.assertEqual(tomap_to_geojson.infer_station_source("ES00000000000000000"), "Meteoclimatic")
-        self.assertEqual(tomap_to_geojson.infer_station_source("ES123"), "Meteocat")
+        self.assertEqual(tomap_to_geojson.infer_station_source("ES123"), "Unknown")
         self.assertEqual(tomap_to_geojson.infer_station_source("IGUILS3"), "Wunderground")
         self.assertEqual(tomap_to_geojson.infer_station_source("Z1"), "Meteocat")
+        self.assertEqual(tomap_to_geojson.infer_station_source("Z12"), "Unknown")
         self.assertEqual(tomap_to_geojson.infer_station_source(""), "Unknown")
 
     def test_load_ignore_station_codes_supports_comments_case_and_blank_lines(self):
@@ -58,11 +59,12 @@ class TomapToGeojsonTests(unittest.TestCase):
             output_file = tmp_path / "01d.geojson"
             shutil.copyfile(FIXTURE_DIR / "tomap_sample.csv", input_file)
 
-            feature_count, ignored_count = tomap_to_geojson.convert_file(
-                input_file,
-                output_file,
-                {"TEST_DROP"},
-            )
+            with redirect_stdout(StringIO()):
+                feature_count, ignored_count = tomap_to_geojson.convert_file(
+                    input_file,
+                    output_file,
+                    {"TEST_DROP"},
+                )
             data = json.loads(output_file.read_text(encoding="utf-8"))
 
         self.assertEqual(feature_count, 1)
@@ -75,9 +77,28 @@ class TomapToGeojsonTests(unittest.TestCase):
         self.assertEqual(feature["geometry"]["coordinates"], [2.1, 41.1])
         self.assertEqual(feature["properties"]["Codi Estació"], "TEST_KEEP")
         self.assertEqual(feature["properties"]["Pluja"], 3.5)
-        self.assertEqual(feature["properties"]["Source"], "Meteocat")
+        self.assertEqual(feature["properties"]["Source"], "Unknown")
         self.assertNotIn("Latitud", feature["properties"])
         self.assertNotIn("Longitud", feature["properties"])
+
+    def test_convert_file_warns_when_station_source_is_unknown(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            input_file = tmp_path / "unknown.csv"
+            output_file = tmp_path / "unknown.geojson"
+            input_file.write_text(
+                "Codi Estació,Latitud,Longitud\nUNKNOWN_CODE,41.1,2.1\n",
+                encoding="utf-8",
+            )
+
+            output = StringIO()
+            with redirect_stdout(output):
+                tomap_to_geojson.convert_file(input_file, output_file, set())
+            data = json.loads(output_file.read_text(encoding="utf-8"))
+
+        self.assertIn("WARNING", output.getvalue())
+        self.assertIn("UNKNOWN_CODE", output.getvalue())
+        self.assertEqual(data["features"][0]["properties"]["Source"], "Unknown")
 
     def test_convert_all_uses_expected_period_output_name(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

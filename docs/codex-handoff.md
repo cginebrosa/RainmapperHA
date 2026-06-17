@@ -106,12 +106,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.58`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, API keys, mapas, fuentes y publish. La `0.2.46` fue validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA.
+- Estado actual: version `0.2.59`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, API keys, mapas, fuentes y publish. La `0.2.46` fue validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.58`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.59`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -143,7 +143,7 @@ Tambien existen documentos de uso:
 - GeoJSON para 1/7/14/21/30/60/90 dias: `tomap_to_geojson.py`.
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `tomap_to_geojson.py`.
 - Filtros en MapLibre: settings del visor aplica filtros cliente por lluvia minima y por fuente de estacion sobre el periodo cargado para validar UX de futura app movil.
-- `Source` en GeoJSON: `tomap_to_geojson.py` anade fuente inferida por codigo de estacion (`ES...` de longitud minima 15 para Meteoclimatic, `I...` para Wunderground, resto con codigo para Meteocat).
+- `Source` en GeoJSON: `tomap_to_geojson.py` anade fuente inferida por codigo de estacion (`ES...` de longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown`). Si aparece `Unknown`, el conversor emite un `WARNING` en stdout.
 - Wunderground full log configurable y resumen de errores: `Rainmapper.py`, `config.yaml`.
 - Control webUI para desactivar/reactivar estaciones Wunderground por 404 o parse error: `web_server.py`.
 - Metricas de tiempos por estacion Wunderground en `Data/metricas_wunderground.csv`: `Rainmapper.py`.
@@ -157,7 +157,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.58`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.59`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes

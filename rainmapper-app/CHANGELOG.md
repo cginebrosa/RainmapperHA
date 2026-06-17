@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.59
+
+- Classify Meteocat stations only when station codes have two characters.
+- Keep unclassified station codes as `Source=Unknown` in GeoJSON and warn during conversion.
+- Show `Unknown` as a selectable MapLibre station-source filter.
+
 ## 0.2.58
 
 - Add a MapLibre settings filter to show/hide Meteocat, Meteoclimatic, and Wunderground stations.

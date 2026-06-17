@@ -26,6 +26,7 @@ const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
   { id: "Meteoclimatic", label: "Meteoclimatic" },
   { id: "Wunderground", label: "Wunderground" },
+  { id: "Unknown", label: "Unknown" },
 ];
 
 const baseStyles = [
@@ -308,7 +309,7 @@ function inferStationSource(stationCode) {
   if (code.startsWith("I")) {
     return "Wunderground";
   }
-  if (code) {
+  if (code.length === 2) {
     return "Meteocat";
   }
   return "Unknown";
