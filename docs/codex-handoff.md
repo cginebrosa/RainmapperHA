@@ -23,7 +23,7 @@ Confirmado en el repositorio:
 - Mapas clasicos: Bokeh 3.2.2 y Google Maps.
 - Visores nuevos: HTML/CSS/JavaScript estatico.
 - Leaflet viewer: Leaflet 1.9.4 via CDN.
-- MapLibre viewer: MapLibre GL JS 4.7.1 via CDN.
+- MapLibre viewer: MapLibre GL JS 4.7.1 via CDN, con estilos raster/vectoriales y capa Satellite+.
 - Contenedores: Docker y Docker Compose.
 - Home Assistant: app/add-on con `config.yaml`, ingress y `run.sh`.
 - Persistencia: CSV en filesystem, principalmente `/share/rainmapper` en HA y `docker-data` en Docker local.
@@ -105,12 +105,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.47`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish. La `0.2.46` fue validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando.
+- Estado actual: version `0.2.48`, ingress, sidebar, opciones de schedule, API keys, mapas, fuentes y publish. La `0.2.46` fue validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.47`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.48`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -120,8 +120,8 @@ Tambien existen documentos de uso:
 
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
 - Proposito: visor experimental MapLibre con mapas vectoriales y raster.
-- Estado actual: funcional, con Hybrid raster por defecto, Topographic raster, OpenFreeMap Liberty/Bright y Jawg Street/Terrain opcional.
-- Riesgos: la base MapLibre ya cubre las capas clave de Leaflet, pero la version `0.2.47` queda pendiente de validacion visual en HA/iPhone antes de decidir si MapLibre pasa a visor principal unico.
+- Estado actual: funcional, con Hybrid raster por defecto, Satellite+ raster/vectorial, Topographic raster, OpenFreeMap Liberty/Bright y Jawg Street/Terrain opcional.
+- Riesgos: la base MapLibre ya cubre las capas clave de Leaflet, pero la version `0.2.48` queda pendiente de validacion visual en HA/iPhone antes de decidir si MapLibre pasa a visor principal unico. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales tras probar en movil.
 
 ### `docker-compose.yml`
 - Proposito: ejecucion Docker local con volumenes en `docker-data`.
@@ -147,17 +147,18 @@ Tambien existen documentos de uso:
 - Meteoclimatic con multiples patrones separados por coma, punto y coma o ` - `: `Rainmapper.py`.
 - Google Maps API key por variable/opcion, sin hardcode confirmado en ficheros inspeccionados.
 - Jawg Maps opcional en visores si existe `JAWGMAPS_API_KEY`/`jawgmaps_api_key`.
+- Satellite+ en MapLibre combina Esri World Imagery con carreteras, limites y etiquetas vectoriales de OpenFreeMap.
 
 ## Funcionalidades parcialmente implementadas
-- Leaflet y MapLibre: funcionales y validados en iPhone; se mantienen publicados ambos de momento. MapLibre `0.2.47` anade Hybrid/Topographic raster y puede reducir la necesidad futura de Leaflet si se valida bien.
+- Leaflet y MapLibre: funcionales y validados en iPhone; se mantienen publicados ambos de momento. MapLibre `0.2.48` anade Satellite+ sobre las capas Hybrid/Topographic raster de `0.2.47` y puede reducir la necesidad futura de Leaflet si se valida bien.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.47`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.48`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
-- Validar MapLibre `0.2.47` con capas raster Hybrid/Topographic en HA/iPhone; si funciona bien, reevaluar si MapLibre puede pasar a visor principal unico.
+- Validar MapLibre `0.2.48` con capas Hybrid/Topographic/Satellite+ en HA/iPhone; si funciona bien, reevaluar si MapLibre puede pasar a visor principal unico.
 - Mantener Leaflet y MapLibre publicados de momento.
 - Decidir retirada de Bokeh o mantenerlo como referencia.
 - Crear tests automaticos mas completos; existe smoke test versionado para checks rapidos, incluyendo `ignore_stations_tomap.txt` y reconstruccion con poco historico.

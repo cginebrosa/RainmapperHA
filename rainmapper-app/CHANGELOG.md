@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.48
+
+- Add a MapLibre Satellite+ style with Esri World Imagery and OpenFreeMap vector orientation labels/roads.
+- Keep Tracestrack out of runtime configuration because its vector maps require a paid app key.
+
 ## 0.2.47
 
 - Add MapLibre raster base maps for Hybrid imagery and Topographic tiles.

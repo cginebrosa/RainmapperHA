@@ -15,6 +15,7 @@ Confirmado en el repositorio:
 - Home Assistant con soporte de apps/add-ons para instalar `rainmapper-app`.
 - Google Maps API key si se usan funciones/mapas que dependen de Google Maps.
 - Jawg Maps access token opcional para capas Jawg en Leaflet/MapLibre.
+- MapLibre con capas raster/vectoriales, incluyendo una capa Satellite+ sin clave adicional.
 
 Versiones exactas de Docker/Home Assistant necesarias: pendiente de confirmar.
 

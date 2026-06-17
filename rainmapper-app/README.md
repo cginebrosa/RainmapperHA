@@ -12,6 +12,8 @@ Visores publicados:
 - Leaflet: `/local/rainmapper-leaflet/index.html`.
 - MapLibre: `/local/rainmapper-maplibre/index.html`.
 
+MapLibre incluye capas raster Hybrid/Topographic, capas vectoriales y una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap.
+
 La programacion interna puede ejecutar Rainmapper una o varias veces al dia usando `schedule_time`, por ejemplo `06:00, 12:00, 18:00, 23:50`, y se puede limitar por dias con `schedule_days`.
 
 Datos persistentes:

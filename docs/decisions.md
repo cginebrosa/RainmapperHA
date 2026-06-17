@@ -94,13 +94,13 @@ Confirmada.
 No retirar Bokeh todavia; publicar tambien Leaflet y MapLibre.
 
 ### Motivo
-Bokeh es la referencia historica. Leaflet funciona bien en movil. MapLibre permite mapas vectoriales mas nitidos y desde `0.2.47` tambien puede cubrir las capas raster Hybrid y Topographic que antes estaban solo en Leaflet.
+Bokeh es la referencia historica. Leaflet funciona bien en movil. MapLibre permite mapas vectoriales mas nitidos y desde `0.2.47` tambien puede cubrir las capas raster Hybrid y Topographic que antes estaban solo en Leaflet. Desde `0.2.48`, MapLibre tambien prueba Satellite+, combinando imagen Esri con orientacion vectorial OpenFreeMap.
 
 ### Alternativas consideradas
 Eliminar Bokeh inmediatamente o sustituir Leaflet por MapLibre de golpe.
 
 ### Consecuencias
-Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de migrar. MapLibre ya esta validado como funcional en movil. Modificado en `0.2.47`: MapLibre incorpora Hybrid raster por defecto y Topographic raster, manteniendo los estilos vectoriales; queda validar visualmente en HA/iPhone antes de decidir si puede sustituir a Leaflet.
+Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de migrar. MapLibre ya esta validado como funcional en movil. Modificado en `0.2.47`: MapLibre incorpora Hybrid raster por defecto y Topographic raster, manteniendo los estilos vectoriales. Modificado en `0.2.48`: se descarta Tracestrack por ahora porque requiere app key de pago para vector maps y se prueba Satellite+ con OpenFreeMap sobre imagen Esri. Queda validar visualmente en HA/iPhone antes de decidir si puede sustituir a Leaflet.
 
 ### Ficheros afectados
 - `Rainmapper_Client.py`
@@ -110,7 +110,7 @@ Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de 
 - `rainmapper-app/app/web_server.py`
 
 ### Estado
-Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil, que se mantienen publicados Leaflet y MapLibre de momento, y que MapLibre `0.2.47` reduce la brecha funcional al anadir Hybrid/Topographic raster.
+Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil, que se mantienen publicados Leaflet y MapLibre de momento, y que MapLibre `0.2.48` reduce la brecha funcional al anadir Hybrid/Topographic raster y Satellite+.
 
 ## 2026-06-17 - Retirar ruta legacy rainmapper-mobile
 

@@ -121,7 +121,7 @@ Ruta publica:
 /local/rainmapper-maplibre/index.html
 ```
 
-El visor MapLibre tambien usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas vectoriales como OpenFreeMap y, si se configura `jawgmaps_api_key`, estilos de JawgMaps como Streets y Terrain.
+El visor MapLibre tambien usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, mapas vectoriales como OpenFreeMap, y estilos de JawgMaps si se configura `jawgmaps_api_key`.
 
 ### Que se regenera en cada caso
 

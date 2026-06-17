@@ -106,8 +106,8 @@ Hay varios entry points segun entorno:
 ### MapLibre viewer
 - Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.
 - Responsabilidad: visor web experimental con mapas vectoriales y raster.
-- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid, OpenTopoMap raster, OpenFreeMap y Jawg opcional.
-- Relacion: publicado a `/local/rainmapper-maplibre`. Desde `0.2.47`, Hybrid raster es la capa inicial para acercar comportamiento a Leaflet.
+- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y Jawg opcional.
+- Relacion: publicado a `/local/rainmapper-maplibre`. Desde `0.2.47`, Hybrid raster es la capa inicial para acercar comportamiento a Leaflet; desde `0.2.48`, Satellite+ combina imagen Esri con orientacion vectorial OpenFreeMap.
 
 ## Modelo de datos
 Persistencia por CSV:

@@ -66,6 +66,119 @@ const baseStyles = [
     },
   },
   {
+    id: "esri-satellite-vector",
+    label: "Satellite+",
+    style: {
+      version: 8,
+      sources: {
+        "esri-imagery": {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Tiles &copy; Esri",
+        },
+        "openmaptiles": {
+          type: "vector",
+          url: "https://tiles.openfreemap.org/planet",
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        },
+      },
+      glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+      layers: [
+        { id: "esri-imagery", type: "raster", source: "esri-imagery" },
+        {
+          id: "satellite-boundary",
+          type: "line",
+          source: "openmaptiles",
+          "source-layer": "boundary",
+          filter: ["all", ["!=", ["get", "maritime"], 1], ["<=", ["get", "admin_level"], 6]],
+          paint: {
+            "line-color": "rgba(255,255,255,0.78)",
+            "line-dasharray": [2, 2],
+            "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.7, 10, 1.4, 14, 2.2],
+          },
+        },
+        {
+          id: "satellite-road-outline",
+          type: "line",
+          source: "openmaptiles",
+          "source-layer": "transportation",
+          filter: ["match", ["get", "class"], ["motorway", "trunk", "primary", "secondary", "tertiary"], true, false],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": "rgba(0,0,0,0.75)",
+            "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 6, 1.4, 10, 2.8, 15, 8],
+          },
+        },
+        {
+          id: "satellite-road",
+          type: "line",
+          source: "openmaptiles",
+          "source-layer": "transportation",
+          filter: ["match", ["get", "class"], ["motorway", "trunk", "primary", "secondary", "tertiary"], true, false],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": ["match", ["get", "class"], ["motorway", "trunk"], "#f6c453", ["primary"], "#ffd37a", "#ffffff"],
+            "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 6, 0.8, 10, 1.6, 15, 5],
+          },
+        },
+        {
+          id: "satellite-minor-road",
+          type: "line",
+          source: "openmaptiles",
+          "source-layer": "transportation",
+          minzoom: 12,
+          filter: ["match", ["get", "class"], ["minor", "service", "track"], true, false],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": "rgba(255,255,255,0.86)",
+            "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 12, 0.6, 16, 3.2],
+          },
+        },
+        {
+          id: "satellite-road-label",
+          type: "symbol",
+          source: "openmaptiles",
+          "source-layer": "transportation_name",
+          minzoom: 12,
+          filter: ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false],
+          layout: {
+            "symbol-placement": "line",
+            "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+            "text-font": ["Noto Sans Regular"],
+            "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 15, 13],
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "rgba(0,0,0,0.8)",
+            "text-halo-width": 1.4,
+          },
+        },
+        {
+          id: "satellite-place-label",
+          type: "symbol",
+          source: "openmaptiles",
+          "source-layer": "place",
+          filter: ["match", ["get", "class"], ["country", "state", "city", "town", "village"], true, false],
+          layout: {
+            "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+            "text-font": ["Noto Sans Bold"],
+            "text-size": ["interpolate", ["linear"], ["zoom"], 4, 11, 8, 14, 12, 18],
+            "text-max-width": 9,
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "rgba(0,0,0,0.9)",
+            "text-halo-width": 1.8,
+          },
+        },
+      ],
+    },
+  },
+  {
     id: "opentopomap",
     label: "Topographic",
     style: {
