@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.47
+
+- Add MapLibre raster base maps for Hybrid imagery and Topographic tiles.
+- Keep existing MapLibre vector styles available and make the Hybrid raster map the default base layer.
+
 ## 0.2.46
 
 - Translate visible core runtime logs to English, including Wunderground progress and summary output.

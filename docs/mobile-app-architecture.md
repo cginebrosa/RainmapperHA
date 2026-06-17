@@ -9,7 +9,7 @@ Este documento es de diseno. No implica implementacion inmediata ni cambia el fu
 - Home Assistant ejecuta Rainmapper en modo `serve`.
 - Rainmapper genera CSV historicos, CSV `Tomap`, HTML Bokeh y GeoJSON para Leaflet/MapLibre.
 - Los visores actuales se publican como contenido estatico en `/config/www` y se sirven via `/local/...`.
-- Leaflet y MapLibre funcionan bien en iPhone.
+- Leaflet y MapLibre funcionan bien en iPhone. Desde `0.2.47`, MapLibre tambien incluye capas raster Hybrid y Topographic, ademas de estilos vectoriales.
 - El acceso externo actual depende de HA/dominio/Cloudflare, sin autenticacion propia de Rainmapper.
 - Docker local se mantiene como entorno de pruebas aislado para cambios de calado.
 
@@ -22,6 +22,8 @@ Home Assistant puede seguir siendo el orquestador privado que genera datos y map
 
 ### Fase 0: Visores actuales
 Mantener Leaflet y MapLibre publicados desde HA para uso privado y validacion visual.
+
+MapLibre queda como candidato preferente a visor unico si la validacion de las capas raster en HA/iPhone es correcta, porque ya puede cubrir mapa hibrido, topografico y estilos vectoriales en una sola tecnologia.
 
 Uso:
 - pruebas personales;

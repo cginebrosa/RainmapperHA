@@ -105,9 +105,9 @@ Hay varios entry points segun entorno:
 
 ### MapLibre viewer
 - Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.
-- Responsabilidad: visor web experimental con mapas vectoriales.
-- Dependencias: MapLibre GL JS CDN, OpenFreeMap, Jawg opcional.
-- Relacion: publicado a `/local/rainmapper-maplibre`.
+- Responsabilidad: visor web experimental con mapas vectoriales y raster.
+- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid, OpenTopoMap raster, OpenFreeMap y Jawg opcional.
+- Relacion: publicado a `/local/rainmapper-maplibre`. Desde `0.2.47`, Hybrid raster es la capa inicial para acercar comportamiento a Leaflet.
 
 ## Modelo de datos
 Persistencia por CSV:
@@ -149,7 +149,7 @@ Home Assistant publica:
 
 - `/local/Plots/...`: Bokeh HTML.
 - Jawg Maps: estilos/capas opcionales con token `JAWGMAPS_API_KEY`/`jawgmaps_api_key`.
-- OpenTopoMap y Esri: tiles raster Leaflet.
+- OpenTopoMap y Esri: tiles raster usados por Leaflet y MapLibre.
 
 No incluir secretos en codigo ni documentacion.
 

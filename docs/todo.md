@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Continuar con mejoras de bajo riesgo o decidir si se aborda la separacion estructural del core duplicado.
+Validar en HA/iPhone la version `0.2.47` de MapLibre con capas raster Hybrid y Topographic. Si funciona bien, decidir si MapLibre puede pasar a visor principal unico y Leaflet queda como fallback temporal.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -11,10 +11,16 @@ Continuar con mejoras de bajo riesgo o decidir si se aborda la separacion estruc
   - Estado: resuelto.
 
 - [x] Validar MapLibre en movil tras los ultimos ajustes
-  - Contexto: MapLibre funciona bien en movil; se mantiene publicado junto a Leaflet de momento.
+  - Contexto: MapLibre funciona bien en movil; se mantiene publicado junto a Leaflet de momento. La `0.2.47` anade capas raster Hybrid/Topographic y requiere validacion visual especifica.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
   - Criterio de aceptacion: cambio de capa mantiene estaciones, cambio de periodo conserva vista, popup es usable y no desplaza/molesta.
   - Estado: validado por el usuario en movil.
+
+- [ ] Validar MapLibre raster en HA/iPhone
+  - Contexto: MapLibre `0.2.47` incorpora Hybrid raster por defecto y Topographic raster, ademas de mantener estilos vectoriales.
+  - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
+  - Criterio de aceptacion: Hybrid y Topographic cargan correctamente, el cambio entre capas conserva marcadores, periodo, vista y popup en movil.
+  - Riesgo si no se hace: decidir retirada de Leaflet sin confirmar que MapLibre cubre bien las capas raster que interesan.
 
 - [x] Mantener sincronizadas raiz y app HA
   - Contexto: hay copias de scripts y visores en raiz y dentro de `rainmapper-app/app`.
@@ -31,10 +37,10 @@ Continuar con mejoras de bajo riesgo o decidir si se aborda la separacion estruc
 
 ## Prioridad media
 - [x] Decidir visor principal
-  - Contexto: conviven Bokeh, Leaflet y MapLibre; MapLibre ya funciona bien en movil.
+  - Contexto: conviven Bokeh, Leaflet y MapLibre; MapLibre ya funciona bien en movil y desde `0.2.47` tambien soporta Hybrid/Topographic raster.
   - Ficheros relacionados: `Rainmapper_Client.py`, `leaflet-viewer/`, `maplibre-viewer/`, `rainmapper-app/app/web_server.py`.
   - Criterio de aceptacion: definir si Bokeh queda como legacy, si Leaflet sigue activo y si MapLibre pasa a principal.
-  - Estado: decision temporal tomada; Leaflet y MapLibre se mantienen publicados de momento. Bokeh sigue como referencia/compatibilidad.
+  - Estado: decision temporal tomada; Leaflet y MapLibre se mantienen publicados de momento. Bokeh sigue como referencia/compatibilidad. Reabrir tras validar MapLibre raster.
   - Riesgo aceptado: complejidad y mantenimiento de varios visores hasta nueva revision.
 
 - [x] Retirar `/local/rainmapper-mobile`

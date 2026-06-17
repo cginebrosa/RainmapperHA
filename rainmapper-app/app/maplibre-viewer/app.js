@@ -25,6 +25,70 @@ const jawgAccessToken = window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "";
 
 const baseStyles = [
   {
+    id: "esri-hybrid",
+    label: "Hybrid",
+    style: {
+      version: 8,
+      sources: {
+        "esri-imagery": {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Tiles &copy; Esri",
+        },
+        "esri-roads": {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Roads &copy; Esri",
+        },
+        "esri-labels": {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Labels &copy; Esri",
+        },
+      },
+      layers: [
+        { id: "esri-imagery", type: "raster", source: "esri-imagery" },
+        { id: "esri-roads", type: "raster", source: "esri-roads" },
+        { id: "esri-labels", type: "raster", source: "esri-labels" },
+      ],
+    },
+  },
+  {
+    id: "opentopomap",
+    label: "Topographic",
+    style: {
+      version: 8,
+      sources: {
+        "opentopomap": {
+          type: "raster",
+          tiles: [
+            "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+            "https://b.tile.opentopomap.org/{z}/{x}/{y}.png",
+            "https://c.tile.opentopomap.org/{z}/{x}/{y}.png",
+          ],
+          tileSize: 256,
+          maxzoom: 17,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+        },
+      },
+      layers: [
+        { id: "opentopomap", type: "raster", source: "opentopomap" },
+      ],
+    },
+  },
+  {
     id: "openfreemap-liberty",
     label: "Liberty",
     url: "https://tiles.openfreemap.org/styles/liberty",
@@ -56,9 +120,13 @@ let currentData = null;
 let currentPopup = null;
 let hasLoadedInitialMap = false;
 
+function styleDefinition(style) {
+  return style.style || style.url;
+}
+
 const map = new maplibregl.Map({
   container: "map",
-  style: currentStyle.url,
+  style: styleDefinition(currentStyle),
   center: INITIAL_CENTER,
   zoom: INITIAL_ZOOM,
   attributionControl: true,
@@ -323,7 +391,7 @@ function renderLayerSwitcher() {
     };
 
     map.once("idle", reloadOnce);
-    map.setStyle(currentStyle.url);
+    map.setStyle(styleDefinition(currentStyle));
     window.setTimeout(reloadOnce, 600);
   });
 }
