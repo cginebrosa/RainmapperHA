@@ -1,13 +1,133 @@
 # RainmapperHA
 
+## Descripcion
 RainmapperHA empaqueta Rainmapper como app de Home Assistant.
 
-La app descarga datos de lluvia de estaciones meteorologicas, genera ficheros intermedios para mapas y crea mapas HTML consultables desde Home Assistant.
+La app descarga datos meteorologicos de estaciones Meteocat, Meteoclimatic y Wunderground, conserva historicos en CSV, genera ficheros `Tomap`, crea mapas HTML clasicos y publica visores web Leaflet/MapLibre pensados para consultar lluvia acumulada desde Home Assistant o movil.
 
-## Home Assistant
+Objetivo a largo plazo: evolucionar Rainmapper hacia una plataforma de datos y mapas meteorologicos automatizada, con visores moviles y una futura app iOS/Android con autenticacion y control de acceso.
 
-La app se instala como repositorio de apps/add-ons de Home Assistant desde este repositorio de GitHub.
+## Requisitos
+Confirmado en el repositorio:
 
+- Python 3.11.
+- Docker y Docker Compose para ejecucion local.
+- Home Assistant con soporte de apps/add-ons para instalar `rainmapper-app`.
+- Google Maps API key si se usan funciones/mapas que dependen de Google Maps.
+- Jawg Maps access token opcional para capas Jawg en Leaflet/MapLibre.
+
+Versiones exactas de Docker/Home Assistant necesarias: pendiente de confirmar.
+
+## Instalacion
+Dependencias Python:
+
+```bash
+pip install -r requirements.txt
+```
+
+Preparar datos persistentes para Docker local:
+
+```bash
+mkdir -p docker-data/Data docker-data/Tomap docker-data/Plots docker-data/PublicData
+cp stations.example.txt docker-data/stations.txt
+```
+
+Instalacion en Home Assistant:
+
+1. Anadir este repositorio como repositorio de apps/add-ons en Home Assistant.
+2. Instalar la app `Rainmapper`.
+3. Configurar `gmap_api_key` y, opcionalmente, `jawgmaps_api_key`.
+4. Usar preferiblemente `mode: serve`.
+
+## Configuracion
+Variables/opciones principales:
+
+- `GMAP_API_KEY`: Google Maps API key para ejecucion local Docker.
+- `JAWGMAPS_API_KEY`: Jawg Maps token opcional para visores locales.
+- `gmap_api_key`: opcion HA equivalente para Google Maps.
+- `jawgmaps_api_key`: opcion HA equivalente para Jawg Maps.
+- `mode`: `help`, `update`, `maps`, `all` o `serve`.
+- `schedule_enabled`: activa schedule interno en HA.
+- `schedule_time`: una o varias horas, por ejemplo `06:00, 12:00, 18:00, 23:50`.
+- `schedule_days`: `all` o dias configurados. Sintaxis exacta aceptada: ver `rainmapper-app/DOCS.md`.
+- `scheduled_action`: `update`, `maps` o `all`.
+- `meteoclimatic_pattern`: patron o patrones RSS Meteoclimatic.
+- `max_threads`: threads Wunderground; por defecto `1`.
+- `max_attempts`: reintentos Wunderground.
+- `wunderground_full_log`: log detallado por estacion.
+- `publish_to_www`: publica mapas y visores en `/config/www`.
+
+No guardar secretos reales en Git.
+
+## Ejecucion en desarrollo
+Build Docker local:
+
+```bash
+docker compose build rainmapper
+```
+
+Ejecutar una vez con configuracion por defecto:
+
+```bash
+docker compose run --rm rainmapper
+```
+
+Ver ayuda:
+
+```bash
+docker compose run --rm -e MODE=help rainmapper
+```
+
+Ejecutar update:
+
+```bash
+docker compose run --rm -e MODE=update rainmapper
+```
+
+Generar mapas:
+
+```bash
+docker compose run --rm -e MODE=maps rainmapper
+```
+
+Ejecutar update + maps:
+
+```bash
+docker compose run --rm -e MODE=all rainmapper
+```
+
+## Tests
+No hay tests automaticos configurados detectados.
+
+Validaciones manuales/sintacticas recomendadas:
+
+```bash
+python -m py_compile Rainmapper.py Rainmapper_Client.py tomap_to_geojson.py rainmapper-app/app/web_server.py
+node --check leaflet-viewer/app.js
+node --check maplibre-viewer/app.js
+git diff --check
+```
+
+## Build
+Build Docker local:
+
+```bash
+docker compose build rainmapper
+```
+
+Build de Home Assistant: Home Assistant construye la app desde `rainmapper-app/Dockerfile` al instalar o actualizar. Comando CLI especifico: pendiente de confirmar.
+
+## Despliegue
+Despliegue Home Assistant confirmado por flujo manual:
+
+1. Hacer commit y push a GitHub.
+2. En Home Assistant, ejecutar `Check for updates` del repositorio/app.
+3. Actualizar la app desde la UI de Home Assistant.
+4. Reiniciar/arrancar la app si HA no lo hace automaticamente.
+
+No hay pipeline CI/CD detectado.
+
+## Uso en Home Assistant
 Modo recomendado:
 
 ```yaml
@@ -22,21 +142,13 @@ publish_to_www: true
 Con `mode: serve`, Rainmapper queda abierto como servicio ligero, aparece en la barra lateral de Home Assistant y permite:
 
 - lanzar `update`, `maps` o `all` manualmente;
-- ver el estado de la ultima ejecucion;
-- consultar el log completo del ultimo trabajo;
-- abrir los mapas HTML generados;
-- ejecutar una o varias programaciones diarias;
-- publicar una copia de los mapas en `/local/Plots`.
-
-Documentacion completa de la app:
-
-- [README de la app](rainmapper-app/README.md)
-- [Documentacion detallada](rainmapper-app/DOCS.md)
-- [Changelog](rainmapper-app/CHANGELOG.md)
+- ver estado, duracion y log de la ultima ejecucion;
+- abrir mapas generados;
+- usar schedule interno;
+- publicar mapas en `/local/Plots`, `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 
 ## Datos persistentes
-
-La app guarda los datos fuera del contenedor:
+En Home Assistant:
 
 ```text
 /share/rainmapper/Data
@@ -46,69 +158,33 @@ La app guarda los datos fuera del contenedor:
 /share/rainmapper/ignore_stations_tomap.txt
 ```
 
-`ignore_stations_tomap.txt` permite excluir estaciones concretas solo de los GeoJSON usados por Leaflet/MapLibre. Las descargas y los CSV historicos no se modifican.
-
-Si `publish_to_www` esta activado, los mapas tambien se publican en:
+En Docker local:
 
 ```text
-/config/www/Plots
+docker-data/Data
+docker-data/Tomap
+docker-data/Plots
+docker-data/PublicData
+docker-data/stations.txt
+docker-data/ignore_stations_tomap.txt
 ```
 
-y Home Assistant los sirve como:
-
-```text
-/local/Plots/rain_01d.html
-/local/Plots/rain_07d.html
-/local/Plots/rain_14d.html
-/local/Plots/rain_21d.html
-/local/Plots/rain_30d.html
-/local/Plots/rain_60d.html
-/local/Plots/rain_90d.html
-```
+`ignore_stations_tomap.txt` excluye estaciones solo de los GeoJSON usados por Leaflet/MapLibre. No borra historicos.
 
 ## Visores de mapas
-
-RainmapperHA publica tres visores:
-
-- Bokeh / HTML clasico: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 30, 60 y 90 dias.
-- Leaflet: `/local/rainmapper-leaflet/index.html` (`/local/rainmapper-mobile/index.html` se mantiene como ruta compatible antigua).
+- Bokeh clasico: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 30, 60 y 90 dias.
+- Leaflet: `/local/rainmapper-leaflet/index.html`.
+- Leaflet legacy: `/local/rainmapper-mobile/index.html`.
 - MapLibre: `/local/rainmapper-maplibre/index.html`.
 
-Leaflet y MapLibre usan GeoJSON generados desde `Tomap`. El fichero `ignore_stations_tomap.txt` solo afecta a estos visores nuevos.
+## Documentacion de continuidad
+- [docs/codex-handoff.md](docs/codex-handoff.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/todo.md](docs/todo.md)
+- [docs/decisions.md](docs/decisions.md)
 
-## Google Maps API key
-
-Cada instalacion debe usar su propia Google Maps API key.
-
-La clave no debe guardarse en GitHub ni dentro de la imagen Docker. En Home Assistant se configura como opcion `gmap_api_key`; en Docker local se lee desde la variable de entorno `GMAP_API_KEY`.
-
-## Docker local
-
-El repositorio tambien conserva un Docker local para probar Rainmapper en Mac antes de copiar cambios a la app de Home Assistant.
-
-Documentacion del Docker local:
-
+## Documentacion adicional
 - [README_DOCKER.md](README_DOCKER.md)
-
-## Estructura del repositorio
-
-```text
-.
-├── Rainmapper.py              # Script principal
-├── Rainmapper_Client.py       # Generacion de mapas HTML
-├── Dockerfile                 # Docker local para Mac/desarrollo
-├── docker-compose.yml         # Runner Docker local
-├── README_DOCKER.md           # Documentacion Docker local
-├── repository.yaml            # Metadata del repositorio para Home Assistant
-└── rainmapper-app/            # App de Home Assistant
-```
-
-## Desarrollo
-
-Flujo recomendado:
-
-1. Probar cambios en el Docker local del Mac.
-2. Copiar los cambios necesarios a `rainmapper-app/app`.
-3. Probar la imagen de la app.
-4. Subir a GitHub.
-5. Actualizar la app desde Home Assistant.
+- [rainmapper-app/README.md](rainmapper-app/README.md)
+- [rainmapper-app/DOCS.md](rainmapper-app/DOCS.md)
+- [rainmapper-app/CHANGELOG.md](rainmapper-app/CHANGELOG.md)
