@@ -99,6 +99,14 @@ docker compose run --rm -e MODE=all rainmapper
 
 En Docker local, `MODE=maps` y `MODE=all` actualizan tambien los GeoJSON de `docker-data/PublicData`, que son los datos usados por los visores Leaflet/MapLibre locales.
 
+Para ejecutar la secuencia local completa y abrir los visores desde un servidor HTTP local:
+
+```bash
+./run_docker_local_mode_all.sh
+```
+
+El script construye la imagen local, ejecuta `MODE=all` y deja servido el repo en `http://127.0.0.1:8080/maplibre-viewer/`. Para cambiar el puerto: `PORT=8081 ./run_docker_local_mode_all.sh`.
+
 ## Tests
 Smoke test rapido:
 

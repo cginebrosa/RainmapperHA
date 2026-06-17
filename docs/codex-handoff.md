@@ -51,6 +51,7 @@ Tambien existen documentos de uso:
 - `tomap_to_geojson.py`: conversor de CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
 - `const.py`: constantes y defaults de ejecucion local.
 - `run.sh`: wrapper Docker local.
+- `run_docker_local_mode_all.sh`: script de conveniencia para construir Docker local, ejecutar `MODE=all` y arrancar un servidor HTTP local para probar MapLibre/Leaflet.
 - `Dockerfile`: imagen Docker local.
 - `docker-compose.yml`: runner Docker local con volumenes persistentes.
 - `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
