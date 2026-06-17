@@ -95,6 +95,13 @@ Validar en HA/iPhone la version `0.2.51` de MapLibre con capas Hybrid, Topograph
   - Criterio de aceptacion: decision tecnica documentada.
   - Riesgo si no se hace: se acumulan CSV sin explotacion.
 
+- [ ] Preconstruir imagen Docker HA cuando la app este mas estable
+  - Contexto: Home Assistant construye la app en la RPi durante installs/updates, y la barra de progreso de HA puede quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi.
+  - Ficheros relacionados: `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, futura GitHub Action, GitHub Container Registry.
+  - Criterio de aceptacion: publicar imagen multi-arch `amd64`/`arm64` y configurar HA para descargarla en vez de construirla localmente.
+  - Estado: aplazado hasta que la app este mas terminada; por ahora el tiempo de instalacion es aceptable.
+  - Riesgo si no se hace: updates mas lentos en RPi y progreso de instalacion poco informativo en HA.
+
 - [x] Disenar futura app iOS/Android
   - Contexto: objetivo a largo plazo incluye app movil con autenticacion y permisos.
   - Ficheros relacionados: `docs/mobile-app-architecture.md`.

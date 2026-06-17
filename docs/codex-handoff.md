@@ -163,6 +163,7 @@ Tambien existen documentos de uso:
 - Decidir retirada de Bokeh o mantenerlo como referencia.
 - Crear tests automaticos mas completos; existe smoke test versionado para checks rapidos, incluyendo `ignore_stations_tomap.txt` y reconstruccion con poco historico.
 - Mejorar separacion entre core de datos, webUI y visores.
+- Preconstruir imagen Docker HA multi-arch mas adelante, cuando la app este mas estable, para acelerar updates en RPi y evitar builds locales lentos.
 - Analitica historica de metricas Wunderground, posiblemente con InfluxDB/Grafana.
 - Autenticacion/autorizacion real para una futura app publica iOS/Android.
 - Definir modelo de producto/acceso si se venden mapas o zonas.

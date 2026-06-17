@@ -188,6 +188,24 @@ def html_page(title: str, body: str) -> bytes:
       gap: 12px;
       margin: 16px 0 8px;
     }}
+    .status-grid {{
+      margin: 16px 0 8px;
+    }}
+    .status-row {{
+      display: grid;
+      gap: 12px;
+      margin: 0 0 12px;
+    }}
+    .status-row:last-child {{
+      margin-bottom: 0;
+    }}
+    .status-row-primary {{
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }}
+    .status-row-secondary,
+    .status-row-publication {{
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
     .station-grid {{
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -198,6 +216,7 @@ def html_page(title: str, body: str) -> bytes:
       main {{
         padding: 20px 12px 36px;
       }}
+      .status-row,
       .station-grid {{
         grid-template-columns: 1fr;
       }}
@@ -1158,21 +1177,27 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html")
 
         status = f"""
-        <div class="grid">
-          <div class="card"><span class="label">Version</span><span class="value">{html.escape(app_version())}</span></div>
-          <div class="card"><span class="label">Status</span><span class="value {status_class}">{status_text}</span></div>
-          <div class="card"><span class="label">Action</span><span class="value">{html.escape(action)}</span></div>
-          <div class="card"><span class="label">Started</span><span class="value">{html.escape(started_at)}</span></div>
-          <div class="card"><span class="label">Finished</span><span class="value">{html.escape(finished_at)}</span></div>
-          <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
-          <div class="card"><span class="label">Current step</span><span class="value">{html.escape(current_step)}</span></div>
-          <div class="card"><span class="label">Progress</span>{progress_html}</div>
-          <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
-          <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
-          <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
-          <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
-          <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
-          <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
+        <div class="status-grid">
+          <div class="status-row status-row-primary">
+            <div class="card"><span class="label">Version</span><span class="value">{html.escape(app_version())}</span></div>
+            <div class="card"><span class="label">Status</span><span class="value {status_class}">{status_text}</span></div>
+            <div class="card"><span class="label">Action</span><span class="value">{html.escape(action)}</span></div>
+            <div class="card"><span class="label">Started</span><span class="value">{html.escape(started_at)}</span></div>
+            <div class="card"><span class="label">Finished</span><span class="value">{html.escape(finished_at)}</span></div>
+            <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
+          </div>
+          <div class="status-row status-row-secondary">
+            <div class="card"><span class="label">Current step</span><span class="value">{html.escape(current_step)}</span></div>
+            <div class="card"><span class="label">Progress</span>{progress_html}</div>
+            <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
+            <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
+          </div>
+          <div class="status-row status-row-publication">
+            <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
+            <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
+            <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
+            <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
+          </div>
         </div>
         <div class="station-grid">
           {station_controls}
