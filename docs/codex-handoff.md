@@ -27,7 +27,7 @@ Confirmado en el repositorio:
 - Contenedores: Docker y Docker Compose.
 - Home Assistant: app/add-on con `config.yaml`, ingress y `run.sh`.
 - Persistencia: CSV en filesystem, principalmente `/share/rainmapper` en HA y `docker-data` en Docker local.
-- Testing formal: existe `scripts/smoke-test.sh` para validaciones rapidas; no se ha detectado `pytest`, `package.json`, Makefile ni framework de test completo.
+- Testing formal: existe `scripts/smoke-test.sh` para validaciones rapidas y `tests/` con `unittest` para fixtures funcionales iniciales de GeoJSON; no se ha detectado `pytest`, `package.json`, Makefile ni framework de test completo.
 - Lint/format formal: pendiente de confirmar. No se ha detectado configuracion dedicada.
 
 ## Documentos de referencia
@@ -56,6 +56,7 @@ Tambien existen documentos de uso:
 - `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
 - `maplibre-viewer/`: visor MapLibre fuente para pruebas locales/publicacion.
 - `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, reconstruccion con poco historico, versiones y sincronizacion raiz/app HA.
+- `tests/`: tests funcionales iniciales con `unittest`; actualmente cubren `tomap_to_geojson.py` con fixtures versionados.
 - `scripts/sync-app-files.sh`: sincroniza scripts raiz y visores hacia `rainmapper-app/app` como practica operativa mientras exista duplicidad.
 - `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
 - `scripts/check-history.py`: valida CSV historicos y permite comparar una copia antes/despues.
@@ -159,7 +160,7 @@ Tambien existen documentos de uso:
 
 ## Funcionalidades pendientes
 - Decidir retirada de Bokeh o mantenerlo como referencia.
-- Crear tests automaticos mas completos; existe smoke test versionado para checks rapidos, incluyendo `ignore_stations_tomap.txt` y reconstruccion con poco historico.
+- Crear tests automaticos mas completos; existe smoke test versionado y un primer bloque `unittest` para `tomap_to_geojson.py`, pero faltan fixtures funcionales de Docker/HA/publicacion.
 - Mejorar separacion entre core de datos, webUI y visores.
 - Preconstruir imagen Docker HA multi-arch mas adelante, cuando la app este mas estable, para acelerar updates en RPi y evitar builds locales lentos.
 - Analitica historica de metricas Wunderground, posiblemente con InfluxDB/Grafana.

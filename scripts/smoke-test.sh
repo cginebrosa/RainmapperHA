@@ -113,6 +113,10 @@ check_js_syntax() {
   node --check rainmapper-app/app/maplibre-viewer/config.js
 }
 
+check_python_unit_tests() {
+  "$PYTHON_BIN" -m unittest discover -s tests
+}
+
 check_geojson_conversion() {
   local tmp_dir input_dir output_dir ignore_file convert_log
 
@@ -344,6 +348,7 @@ run_check "root and Home Assistant app files are synchronized" check_synced_file
 run_check "Leaflet and MapLibre viewer copies are synchronized" check_synced_viewers
 run_check "Python files compile" check_python_syntax
 run_check "JavaScript files parse" check_js_syntax
+run_check "Python unit tests pass" check_python_unit_tests
 run_check "Tomap to GeoJSON conversion works on a minimal fixture" check_geojson_conversion
 run_check "Historical CSV check works on a minimal fixture" check_history_fixture
 run_check "Short rebuilt histories keep expected last-rain columns" check_short_history_rebuild_fixture

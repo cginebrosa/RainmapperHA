@@ -170,12 +170,13 @@ No incluir secretos en codigo ni documentacion.
 No detectado: `package.json`, `pyproject.toml`, Makefile, ESLint, Prettier, pytest config.
 
 ## Testing
-Hay un smoke test versionado en `scripts/smoke-test.sh`.
+Hay un smoke test versionado en `scripts/smoke-test.sh` y un primer bloque de tests funcionales con `unittest` en `tests/`.
 
 Validaciones existentes/recomendadas:
 
 ```bash
 ./scripts/smoke-test.sh
+.venv/bin/python -m unittest discover -s tests
 ./scripts/sync-app-files.sh
 python -m py_compile Rainmapper.py Rainmapper_Client.py tomap_to_geojson.py rainmapper-app/app/web_server.py
 node --check leaflet-viewer/app.js
@@ -185,7 +186,7 @@ docker compose run --rm -e MODE=help rainmapper
 git diff --check
 ```
 
-Cobertura: el smoke test valida sintaxis Python/JS/shell, conversion GeoJSON minima con `ignore_stations_tomap.txt`, reconstruccion con poco historico para columnas `Last*_rains`, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. `scripts/sync-app-files.sh` copia scripts raiz y visores a `rainmapper-app/app` como practica operativa, sin resolver aun la duplicidad arquitectonica. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas siguen siendo principalmente manuales en Docker local, Home Assistant y movil.
+Cobertura: el smoke test valida sintaxis Python/JS/shell, ejecuta `unittest`, conversion GeoJSON minima con `ignore_stations_tomap.txt`, reconstruccion con poco historico para columnas `Last*_rains`, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. Los tests en `tests/test_tomap_to_geojson.py` cubren fixtures funcionales de conversion Tomap -> GeoJSON, estaciones ignoradas, coordenadas invalidas y columnas obligatorias. `scripts/sync-app-files.sh` copia scripts raiz y visores a `rainmapper-app/app` como practica operativa, sin resolver aun la duplicidad arquitectonica. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas de Docker/HA/movil siguen siendo principalmente manuales.
 
 ## Build y despliegue
 Docker local:

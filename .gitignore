@@ -1,4 +1,6 @@
 /sodapy_local/__pycache__
+__pycache__/
+*.pyc
 /Plots
 /Tomap
 /meteoclimatic_local/__pycache__

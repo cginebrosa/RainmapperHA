@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Definir el siguiente bloque de trabajo: mejorar tests funcionales formales o avanzar en la arquitectura/API de la futura app movil.
+Definir el siguiente bloque de trabajo: ampliar tests funcionales hacia publicacion/webUI o avanzar en la arquitectura/API de la futura app movil.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -76,6 +76,12 @@ Definir el siguiente bloque de trabajo: mejorar tests funcionales formales o ava
   - Criterio de aceptacion: comando unico que valide sintaxis Python, JS, conversion GeoJSON minima y wrappers shell.
   - Estado: resuelto con smoke test de sintaxis Python/JS/shell, conversion GeoJSON minima, version HA, sincronizacion raiz/app HA y whitespace Git.
 
+- [x] Crear fixtures funcionales iniciales para GeoJSON
+  - Contexto: Leaflet y MapLibre dependen de GeoJSON generado desde `Tomap`.
+  - Ficheros relacionados: `tests/fixtures/`, `tests/test_tomap_to_geojson.py`, `tomap_to_geojson.py`, `scripts/smoke-test.sh`.
+  - Criterio de aceptacion: tests versionados cubren estaciones ignoradas, coordenadas invalidas, columnas obligatorias y nombres de salida por periodo.
+  - Estado: resuelto como primera cobertura formal con `unittest`, integrada en `./scripts/smoke-test.sh`.
+
 - [ ] Separar core en paquete Python reutilizable
   - Contexto: scripts grandes y duplicados.
   - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py`.
@@ -120,12 +126,12 @@ Definir el siguiente bloque de trabajo: mejorar tests funcionales formales o ava
   - Riesgo si no se hace: el visor publico actual no controla quien accede a que.
 
 ## Bugs abiertos
-- [ ] No hay tests funcionales formales
-  - Sintoma: no existe framework de test completo ni fixtures para validar conversion GeoJSON o runs funcionales.
+- [ ] Tests funcionales formales incompletos
+  - Sintoma: ya existen fixtures `unittest` para `tomap_to_geojson.py`, pero no hay cobertura funcional formal para runs Docker/HA, publicacion webUI o generacion completa de mapas.
   - Causa probable: proyecto evolucionado por validacion manual.
-  - Ficheros relacionados: `scripts/smoke-test.sh`, futuro set de fixtures.
-  - Como reproducir: ejecutar `./scripts/smoke-test.sh`; cubre smoke checks, pero no prueba datos reales ni ejecuciones Docker/HA.
-  - Criterio de solucion: definir fixtures minimos y pruebas funcionales versionadas.
+  - Ficheros relacionados: `scripts/smoke-test.sh`, `tests/`, futuro set de fixtures.
+  - Como reproducir: ejecutar `./scripts/smoke-test.sh`; cubre smoke checks y GeoJSON, pero no prueba ejecuciones Docker/HA reales.
+  - Criterio de solucion: ampliar fixtures y pruebas funcionales para publicacion, webUI y/o ejecuciones controladas.
 
 ## Validaciones pendientes
 - [x] `docker compose build rainmapper` tras cambios de Docker local.
