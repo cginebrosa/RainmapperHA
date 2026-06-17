@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en HA/iPhone la version `0.2.48` de MapLibre con capas Hybrid, Topographic y Satellite+. Si funciona bien, decidir si MapLibre puede pasar a visor principal unico y Leaflet queda como fallback temporal.
+Validar en HA/iPhone la version `0.2.49` de MapLibre con capas Hybrid, Topographic y Satellite+. Si funciona bien, decidir si MapLibre puede pasar a visor principal unico y Leaflet queda como fallback temporal.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA

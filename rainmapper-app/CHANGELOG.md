@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.49
+
+- Remove the OpenFreeMap Bright style from the MapLibre layer selector.
+- Keep Hybrid, Satellite+, Topographic, Liberty, and optional Jawg styles available.
+
 ## 0.2.48
 
 - Add a MapLibre Satellite+ style with Esri World Imagery and OpenFreeMap vector orientation labels/roads.
