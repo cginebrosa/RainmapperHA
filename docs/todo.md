@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en Home Assistant la semantica de exit code global por fuente: `0` exito completo, `2` exito degradado y `1` fallo total/no recuperable.
+Validar en Home Assistant el caso degradado de la semantica de exit code global por fuente: `2` exito degradado con al menos una fuente usable. El caso normal `0` ya fue validado manualmente en HA con `Run all` correcto y mapas generados.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -156,8 +156,9 @@ Validar en Home Assistant la semantica de exit code global por fuente: `0` exito
   - Contexto: actualmente `Rainmapper.py` ejecuta Meteoclimatic, Meteocat y Wunderground en futuros paralelos, pero cualquier excepcion propagada por una fuente hace fallar el `update` completo. Wunderground controla errores por estacion y muestra resumen; Meteoclimatic tolera fallos de patrones individuales si algun patron devuelve datos, pero aborta si no recupera ninguno; Meteocat reintenta desde `0.2.68`, pero aborta si agota intentos.
   - Objetivo: si una de las tres fuentes falla completamente, el proceso general deberia poder continuar con las fuentes que si funcionen, reutilizar o marcar claramente datos antiguos cuando proceda, y dejar trazabilidad visible.
   - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/web_server.py`, `run.sh`, `rainmapper-app/run.sh`, `tomap_to_geojson.py`, `maplibre-viewer/`, documentacion HA.
-  - Estado parcial: desde `0.2.71`, la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground. `Rainmapper.py` escribe `Data/source_status.json`; si una fuente falla completamente intenta reutilizar su incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. El fichero se copia como `data/source_status.json` en Leaflet/MapLibre publicados, y MapLibre muestra badges junto al filtro `Source`. El cambio actual hace que el exit code global distinga `0` exito completo, `2` exito degradado con al menos una fuente usable y `1` fallo total/no recuperable; `Run all` debe continuar a `maps` cuando `update` devuelve `2`.
-  - Criterio de aceptacion pendiente: validar en HA con fallo real o simulado de una fuente que el exit code global y el comportamiento de `Run all` son correctos.
+  - Estado parcial: desde `0.2.71`, la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground. `Rainmapper.py` escribe `Data/source_status.json`; si una fuente falla completamente intenta reutilizar su incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. El fichero se copia como `data/source_status.json` en Leaflet/MapLibre publicados, y MapLibre muestra badges junto al filtro `Source`. Desde `0.2.73`, el exit code global distingue `0` exito completo, `2` exito degradado con al menos una fuente usable y `1` fallo total/no recuperable; `Run all` debe continuar a `maps` cuando `update` devuelve `2`.
+  - Validacion: `0.2.73` fue validada manualmente en HA con `Run all` completo, `Exit code 0` y mapas generados correctamente.
+  - Criterio de aceptacion pendiente: validar en HA con fallo real o simulado de una fuente que `Exit code 2`, los badges de fuente y el comportamiento de `Run all` son correctos.
   - Riesgo si no se hace: un fallo temporal de una fuente puede impedir publicar datos actualizados del resto o, si se cambia sin cuidado, publicar mapas parciales sin advertencia suficiente.
 
 - [x] Retirar Jawg Maps de Leaflet/MapLibre y de la configuracion
@@ -230,6 +231,7 @@ Nota: las validaciones marcadas como resueltas en esta seccion son, salvo que se
 - [x] `docker compose run --rm -e MODE=all rainmapper` en datos de prueba antes de tocar historicos reales.
 - [x] Actualizacion HA desde GitHub tras bump de version.
 - [x] `Run all` desde webUI HA.
+- [x] `Run all` HA `0.2.73` con semantica nueva: caso normal validado con `Exit code 0` y mapas generados correctamente.
 - [x] Schedule con varias horas y dias.
 - [x] Leaflet en iPhone: cambio periodo conserva posicion, popups y leyenda.
 - [x] MapLibre en movil: estilos, marcadores tras cambio de capa, popup, bounds.

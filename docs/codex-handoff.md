@@ -184,7 +184,7 @@ Tambien existen documentos de uso:
 - Definir modelo de producto/acceso si se venden mapas o zonas.
 - Ideas para futura app iOS/Android: favoritos de estaciones y filtro por lluvia minima en el periodo seleccionado.
 - Arquitectura inicial de app movil documentada en [mobile-app-architecture.md](mobile-app-architecture.md), con direccion preferente de prototipo Cloudflare R2 + Worker API + React Native/MapLibre.
-- Completar/validar la ejecucion degradada por fuente: desde `0.2.71`, el core escribe `source_status.json`, reutiliza incrementales previos si una fuente falla, la webUI muestra estado/exit code por fuente y MapLibre muestra badges de estado junto al selector `Source`. Se decide que el exit code global distinga `0` exito completo, `2` exito degradado y `1` fallo total/no recuperable; pendiente validar en HA con fallo real o simulado de una fuente.
+- Completar/validar la ejecucion degradada por fuente: desde `0.2.71`, el core escribe `source_status.json`, reutiliza incrementales previos si una fuente falla, la webUI muestra estado/exit code por fuente y MapLibre muestra badges de estado junto al selector `Source`. Desde `0.2.73`, el exit code global distingue `0` exito completo, `2` exito degradado y `1` fallo total/no recuperable. El caso normal `Run all` con `Exit code 0` y mapas correctos fue validado manualmente en HA; queda pendiente validar en HA con fallo real o simulado de una fuente que el `Exit code 2` se comporta como se espera.
 
 ## Bugs abiertos o problemas conocidos
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`; mitigada operativamente con `scripts/sync-app-files.sh` y smoke test, sin refactor estructural todavia.
