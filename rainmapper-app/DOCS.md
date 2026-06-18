@@ -42,6 +42,7 @@ Contenido esperado:
 - `Plots`: HTML generados por `Rainmapper_Client.py`.
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
 - `ignore_stations_tomap.txt`: lista opcional de estaciones que no deben aparecer en los GeoJSON usados por Leaflet/MapLibre.
+- `Data/source_status.json`: ultimo estado de actualizacion por fuente.
 
 Si `stations.txt` no existe, la app lo crea automaticamente copiando una plantilla. Despues puedes editarlo desde la carpeta compartida.
 
@@ -92,6 +93,8 @@ Ruta publica recomendada:
 El visor MapLibre usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, y mapas vectoriales como OpenFreeMap.
 
 Es el visor recomendado para movil y para uso normal porque combina mejor rendimiento movil, capas raster utiles y renderizado vectorial nitido para etiquetas/orientacion.
+
+En Settings, el filtro `Source` muestra tambien el ultimo estado conocido de Meteocat, Meteoclimatic y Wunderground cuando existe `source_status.json`. Esto permite ver si una fuente esta `OK`, `STALE` o `NOK` mientras se consulta el mapa.
 
 ### Leaflet viewer
 
@@ -418,6 +421,7 @@ La pagina mostrara:
 
 - botones para ejecutar `update`, `maps` y `all`;
 - estado de la ultima ejecucion;
+- estado separado de Meteoclimatic, Meteocat y Wunderground;
 - duracion de la ultima ejecucion;
 - proxima ejecucion programada;
 - informacion de la ultima publicacion en `/local/Plots`;
@@ -430,6 +434,18 @@ La pagina mostrara:
 ```
 
 Importante: `serve` mantiene la app viva para poder servir la pagina. Si usas `mode: update`, `maps` o `all`, la app hara su trabajo y terminara, asi que la barra lateral no tendra un servidor vivo al que conectarse.
+
+### Estado por fuente
+
+La webUI muestra una tarjeta para cada fuente:
+
+- `OK`: la fuente se ha actualizado correctamente.
+- `DISABLED`: la fuente esta desactivada en la configuracion y se usan los datos incrementales ya existentes.
+- `STALE`: la fuente ha fallado, pero Rainmapper ha podido continuar usando su incremental previo.
+- `NOK`: la fuente ha fallado y no habia incremental utilizable para esa fuente.
+- `PENDING`: estado temporal mientras se esta ejecutando.
+
+Si una fuente queda como `STALE`, los mapas pueden mezclar datos nuevos de otras fuentes con datos anteriores de esa fuente. Si queda como `NOK`, revisa el log completo de la ejecucion antes de dar por buena la publicacion.
 
 ## Primer arranque recomendado
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.71
+
+- Add per-source update status for Meteoclimatic, Meteocat, and Wunderground in the Home Assistant webUI.
+- Show per-source status badges in the MapLibre Settings source filter when `source_status.json` is available.
+- Show MapLibre station popups on desktop hover from zoom level 9 without changing mobile tap behavior.
+- Continue an update with previous incremental data when a source fails completely and mark that source as `STALE`.
+- Publish `source_status.json` with Leaflet and MapLibre data for future viewer-side source status.
+
 ## 0.2.70
 
 - Add `Days ago` to station popup rain history in Leaflet and MapLibre.

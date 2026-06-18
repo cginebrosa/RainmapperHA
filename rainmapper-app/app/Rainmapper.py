@@ -19,6 +19,7 @@ import pytz
 import os
 import math
 import re
+import json
 import time as time_module
 import requests
 import googlemaps
@@ -367,6 +368,90 @@ def read_incremental(_dataframe, _nrows=None):
         df['Data Local'] = df['Data Local'].astype(str)  # Convierte la columna 'Data Local' a tipo str
 
     return df
+
+SOURCE_STATUS_PATH = os.path.join(_DATA_PATH, 'source_status.json')
+SOURCE_STATUSES = {}
+
+def write_source_statuses():
+    payload = {
+        'generated_at': datetime.now().isoformat(timespec='seconds'),
+        'sources': SOURCE_STATUSES,
+    }
+    os.makedirs(_DATA_PATH, exist_ok=True)
+    with open(SOURCE_STATUS_PATH, 'w', encoding='utf-8') as status_file:
+        json.dump(payload, status_file, indent=2, ensure_ascii=False)
+
+def record_source_status(source, status, exit_code, message, rows=0, stale_data_used=False, enabled=True):
+    SOURCE_STATUSES[source] = {
+        'status': status,
+        'exit_code': exit_code,
+        'message': str(message),
+        'rows': int(rows) if rows is not None else 0,
+        'stale_data_used': bool(stale_data_used),
+        'enabled': bool(enabled),
+        'updated_at': datetime.now().isoformat(timespec='seconds'),
+    }
+    write_source_statuses()
+
+def initialize_source_statuses():
+    SOURCE_STATUSES.clear()
+    record_source_status('Meteoclimatic', 'PENDING', None, 'Waiting to run.', enabled=_create_meteoclimatic)
+    record_source_status('Meteocat', 'PENDING', None, 'Waiting to run.', enabled=_create_meteocat)
+    record_source_status('Wunderground', 'PENDING', None, 'Waiting to run.', enabled=_create_wunderground)
+
+def collect_source_result(source, future, incremental_name, enabled):
+    try:
+        source_df, source_incremental = future.result()
+        status = 'OK' if enabled else 'DISABLED'
+        message = 'Source processed successfully.' if enabled else 'Source disabled; using existing incremental data.'
+        record_source_status(
+            source,
+            status,
+            0,
+            message,
+            rows=len(source_incremental),
+            stale_data_used=not enabled,
+            enabled=enabled,
+        )
+        return source_df, source_incremental
+    except Exception as exc:
+        print('')
+        print(f'{source} failed: {exc}')
+        print(f'Trying to continue with existing {incremental_name}.csv data...')
+        try:
+            source_incremental = read_incremental(incremental_name)
+            source_df = read_incremental(incremental_name, _nrows=0)
+        except Exception as fallback_exc:
+            print(f'Could not read fallback data for {source}: {fallback_exc}')
+            source_incremental = create_empty_incremental()
+            source_df = create_empty_incremental()
+
+        if len(source_incremental) > 0:
+            message = f'Source failed; reused {len(source_incremental)} existing incremental row(s). Error: {exc}'
+            print(f'{source} status: STALE - {message}')
+            record_source_status(
+                source,
+                'STALE',
+                2,
+                message,
+                rows=len(source_incremental),
+                stale_data_used=True,
+                enabled=enabled,
+            )
+            return source_df, source_incremental
+
+        message = f'Source failed and no existing incremental data was available. Error: {exc}'
+        print(f'{source} status: NOK - {message}')
+        record_source_status(
+            source,
+            'NOK',
+            1,
+            message,
+            rows=0,
+            stale_data_used=False,
+            enabled=enabled,
+        )
+        return source_df, source_incremental
 
 def get_myquery(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _end_date): # Create _myquery for sum records
     _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED 
@@ -2256,6 +2341,8 @@ def process_meteocat():                                             # FOR MULTIT
 #############################################################################
 # Usa ThreadPoolExecutor para iniciar los threads de los distintos procesos #
 #############################################################################
+initialize_source_statuses()
+
 with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="MainProcesses") as executor:
         # Crea las tareas en paralelo y mapea los resultados a variables
         
@@ -2264,9 +2351,24 @@ with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="MainProces
         future_wunderground = executor.submit(process_wunderground)
 
         # Obtén los resultados
-        meteoclimatic_df, meteoclimatic_incremental = future_meteoclimatic.result()
-        meteocat_df, meteocat_incremental = future_meteocat.result()
-        wunderground_df, wunderground_incremental = future_wunderground.result()
+        meteoclimatic_df, meteoclimatic_incremental = collect_source_result(
+            'Meteoclimatic',
+            future_meteoclimatic,
+            'Meteoclimatic_incremental',
+            _create_meteoclimatic,
+        )
+        meteocat_df, meteocat_incremental = collect_source_result(
+            'Meteocat',
+            future_meteocat,
+            'Meteocat_incremental',
+            _create_meteocat,
+        )
+        wunderground_df, wunderground_incremental = collect_source_result(
+            'Wunderground',
+            future_wunderground,
+            'Wunderground_incremental',
+            _create_wunderground,
+        )
 
 
 ###########################

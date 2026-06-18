@@ -63,6 +63,9 @@ run_maps() {
     --input-dir /app/Tomap \
     --output-dir /app/PublicData \
     --ignore-stations-file "$IGNORE_STATIONS_TOMAP_FILE"
+  if [ -f /app/Data/source_status.json ]; then
+    cp /app/Data/source_status.json /app/PublicData/source_status.json
+  fi
   echo "Rainmapper GeoJSON finished."
   echo "Rainmapper maps finished."
 }

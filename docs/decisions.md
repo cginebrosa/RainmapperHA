@@ -1,5 +1,28 @@
 # Decisions
 
+## 2026-06-18 - Permitir update degradado por fuente con estado explicito
+
+### Decision
+Si una fuente completa falla durante `update`, Rainmapper intenta continuar usando su incremental previo y marca la fuente como `STALE` en `Data/source_status.json`. Si no hay incremental utilizable, la marca como `NOK`. La webUI de Home Assistant muestra estado y exit code por fuente.
+
+### Motivo
+Un fallo temporal de Meteocat, Meteoclimatic o Wunderground no deberia impedir publicar datos actualizados de las otras fuentes. Al mismo tiempo, no se deben publicar mapas parciales o con datos reutilizados sin una senal visible.
+
+### Alternativas consideradas
+Mantener el fallo global inmediato ante cualquier excepcion de fuente, o silenciar el fallo y publicar mapas sin trazabilidad.
+
+### Consecuencias
+Los mapas pueden combinar datos frescos con incrementales previos si una fuente cae, pero la webUI deja trazabilidad visible. Pendiente: mostrar ese estado dentro de MapLibre y decidir si el exit code global debe distinguir exito degradado sin bloquear `Run all`.
+
+### Ficheros afectados
+- `Rainmapper.py`
+- `rainmapper-app/app/Rainmapper.py`
+- `rainmapper-app/app/web_server.py`
+- `rainmapper-app/CHANGELOG.md`
+
+### Estado
+Implementada parcialmente en `0.2.71`; pendiente de validacion HA con fallo real o simulado y de completar estado en MapLibre.
+
 ## 2026-06-17 - Ejecutar Home Assistant en modo serve (fecha aproximada)
 
 ### Decision

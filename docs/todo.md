@@ -95,6 +95,12 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Estado: validacion visual manual/reportada en local, HA e iPhone; pendiente de confirmacion reproducible/automatizada y observacion de rendimiento.
   - Riesgo si no se hace: dejar publicada una opcion experimental dependiente de un proveedor externo sin control claro de estabilidad.
 
+- [ ] Revisar ergonomia del panel Settings de MapLibre en movil
+  - Contexto: al anadir badges de estado por fuente, el panel Settings necesita mas ancho. El ajuste actual evita solapes y funciona en iPhone, pero puede sentirse algo ancho.
+  - Ficheros relacionados: `maplibre-viewer/style.css`, `rainmapper-app/app/maplibre-viewer/style.css`.
+  - Criterio de aceptacion: tras usarlo en movil, decidir si se mantiene el ancho actual, se compactan los badges o se cambia Settings a un panel tipo drawer/bottom sheet.
+  - Riesgo si no se hace: el panel sigue siendo funcional, pero podria ocupar demasiado mapa en pantallas pequenas.
+
 - [x] Crear smoke tests automatizados
   - Contexto: no hay framework de tests completo, pero existe `scripts/smoke-test.sh`.
   - Ficheros relacionados: `scripts/smoke-test.sh`, `README.md`, `docs/architecture.md`, `docs/codex-handoff.md`.
@@ -140,11 +146,12 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Criterio de aceptacion: las llamadas Meteocat/Socrata usan timeout configurable y reintentos antes de fallar el run.
   - Estado: corregido en `0.2.68` con `meteocat_request_timeout` y `meteocat_max_attempts`; pendiente de validacion manual en HA.
 
-- [ ] Permitir ejecucion degradada por fuente y mostrar exit code por fuente en la webUI
+- [ ] Completar ejecucion degradada por fuente y estado en visores
   - Contexto: actualmente `Rainmapper.py` ejecuta Meteoclimatic, Meteocat y Wunderground en futuros paralelos, pero cualquier excepcion propagada por una fuente hace fallar el `update` completo. Wunderground controla errores por estacion y muestra resumen; Meteoclimatic tolera fallos de patrones individuales si algun patron devuelve datos, pero aborta si no recupera ninguno; Meteocat reintenta desde `0.2.68`, pero aborta si agota intentos.
   - Objetivo: si una de las tres fuentes falla completamente, el proceso general deberia poder continuar con las fuentes que si funcionen, reutilizar o marcar claramente datos antiguos cuando proceda, y dejar trazabilidad visible.
   - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/web_server.py`, `run.sh`, `rainmapper-app/run.sh`, `tomap_to_geojson.py`, `maplibre-viewer/`, documentacion HA.
-  - Criterio de aceptacion: la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground; el log indica si una fuente fallo, si se reutilizaron historicos previos o si se omitio la fuente; el exit code global distingue exito completo, exito degradado y fallo total. Los datos publicados deben incluir metadata de estado por fuente para que MapLibre pueda mostrar junto al selector `Source` un estado tipo `OK`/`NOK` o equivalente de cada fuente visible en los mapas cargados.
+  - Estado parcial: desde `0.2.71`, la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground. `Rainmapper.py` escribe `Data/source_status.json`; si una fuente falla completamente intenta reutilizar su incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. El fichero se copia como `data/source_status.json` en Leaflet/MapLibre publicados, y MapLibre muestra badges junto al filtro `Source`.
+  - Criterio de aceptacion pendiente: el exit code global debe distinguir exito completo, exito degradado y fallo total sin romper `Run all`; validar en HA con fallo real o simulado de una fuente.
   - Riesgo si no se hace: un fallo temporal de una fuente puede impedir publicar datos actualizados del resto o, si se cambia sin cuidado, publicar mapas parciales sin advertencia suficiente.
 
 - [x] Retirar Jawg Maps de Leaflet/MapLibre y de la configuracion

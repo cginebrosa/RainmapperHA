@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.70">
+    <link rel="stylesheet" href="style.css?v=0.2.71">
   </head>
   <body>
     <header class="topbar">
@@ -57,19 +57,19 @@
           <legend>Source</legend>
           <label>
             <input type="checkbox" name="station-source" value="Meteocat" checked>
-            <span>Meteocat</span>
+            <span>Meteocat</span><span class="source-status-pill" data-source-status="Meteocat">Unknown</span>
           </label>
           <label>
             <input type="checkbox" name="station-source" value="Meteoclimatic" checked>
-            <span>Meteoclimatic</span>
+            <span>Meteoclimatic</span><span class="source-status-pill" data-source-status="Meteoclimatic">Unknown</span>
           </label>
           <label>
             <input type="checkbox" name="station-source" value="Wunderground" checked>
-            <span>Wunderground</span>
+            <span>Wunderground</span><span class="source-status-pill" data-source-status="Wunderground">Unknown</span>
           </label>
           <label>
             <input type="checkbox" name="station-source" value="Unknown" checked>
-            <span>Unknown</span>
+            <span>Unknown</span><span class="source-status-pill source-status-unknown">No status</span>
           </label>
         </fieldset>
         <fieldset class="map-settings-group">
@@ -97,7 +97,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.70"></script>
-    <script src="app.js?v=0.2.70"></script>
+    <script src="config.js?v=0.2.71"></script>
+    <script src="app.js?v=0.2.71"></script>
   </body>
 </html>

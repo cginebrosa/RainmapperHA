@@ -35,6 +35,7 @@ PUBLIC_MAPLIBRE_PATH = Path("/config/www/rainmapper-maplibre")
 PUBLIC_MAPLIBRE_TMP_PATH = Path("/config/www/.rainmapper-maplibre-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
+SOURCE_STATUS_PATH = Path("/app/Data/source_status.json")
 STATIONS_PATH = Path("/app/stations.txt")
 WUNDERGROUND_STATIONS_DB_PATH = Path("/app/Data/estacions_wunderground.csv")
 
@@ -276,6 +277,30 @@ def html_page(title: str, body: str) -> bytes:
     }}
     .ok {{ color: var(--ok); }}
     .danger {{ color: var(--danger); }}
+    .warn {{ color: #ffd166; }}
+    .source-status-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0 8px;
+    }}
+    .source-card .value {{
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
+    }}
+    .source-card .source-message {{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      margin-top: 6px;
+    }}
+    @media (max-width: 760px) {{
+      .source-status-grid {{
+        grid-template-columns: 1fr;
+      }}
+    }}
     form {{
       display: inline-block;
       margin: 0 8px 8px 0;
@@ -727,6 +752,56 @@ def station_detail_list(station_ids: list[str], metadata: dict[str, dict[str, st
     return f'<ul class="station-details">{items}</ul>'
 
 
+def read_source_status() -> dict:
+    if not SOURCE_STATUS_PATH.exists():
+        return {}
+    try:
+        return json.loads(SOURCE_STATUS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def source_status_class(status: str) -> str:
+    normalized = status.upper()
+    if normalized == "OK":
+        return "ok"
+    if normalized in {"STALE", "PENDING", "DISABLED"}:
+        return "warn"
+    if normalized == "NOK":
+        return "danger"
+    return ""
+
+
+def source_status_card(source: str, payload: dict) -> str:
+    status = str(payload.get("status") or "Unknown")
+    exit_code = payload.get("exit_code")
+    rows = payload.get("rows")
+    message = str(payload.get("message") or "No source status yet.")
+    updated_at = str(payload.get("updated_at") or "-")
+    exit_text = "-" if exit_code is None else str(exit_code)
+    rows_text = "-" if rows is None else str(rows)
+    status_class = source_status_class(status)
+    return f"""
+      <div class="card source-card">
+        <span class="label">{html.escape(source)}</span>
+        <span class="value"><span class="{status_class}">{html.escape(status)}</span><span>exit {html.escape(exit_text)}</span></span>
+        <span class="label">Rows</span><span>{html.escape(rows_text)}</span>
+        <span class="label">Updated</span><span>{html.escape(updated_at)}</span>
+        <div class="source-message">{html.escape(message)}</div>
+      </div>
+    """
+
+
+def source_status_cards() -> str:
+    payload = read_source_status()
+    sources = payload.get("sources", {}) if isinstance(payload, dict) else {}
+    cards = []
+    for source in ("Meteoclimatic", "Meteocat", "Wunderground"):
+        source_payload = sources.get(source, {}) if isinstance(sources, dict) else {}
+        cards.append(source_status_card(source, source_payload))
+    return '<div class="source-status-grid">' + "".join(cards) + "</div>"
+
+
 def update_station_group(group_name: str, enable: bool) -> int:
     station_ids = station_ids_for_group(group_name)
     if not station_ids or not STATIONS_PATH.exists():
@@ -862,6 +937,8 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
         shutil.copy2(source_path, data_path / source_path.name)
         copied += 1
+    if SOURCE_STATUS_PATH.exists():
+        shutil.copy2(SOURCE_STATUS_PATH, data_path / SOURCE_STATUS_PATH.name)
 
     shutil.rmtree(PUBLIC_LEAFLET_PATH, ignore_errors=True)
     PUBLIC_LEAFLET_TMP_PATH.rename(PUBLIC_LEAFLET_PATH)
@@ -882,6 +959,8 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     maplibre_data_path.mkdir()
     for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
         shutil.copy2(source_path, maplibre_data_path / source_path.name)
+    if SOURCE_STATUS_PATH.exists():
+        shutil.copy2(SOURCE_STATUS_PATH, maplibre_data_path / SOURCE_STATUS_PATH.name)
 
     shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
     PUBLIC_MAPLIBRE_TMP_PATH.rename(PUBLIC_MAPLIBRE_PATH)
@@ -1212,6 +1291,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             station_group_card("Wunderground 404", "404", active_station_groups["404"], disabled_groups["404"], disabled)
             + station_group_card("Wunderground parse errors", "parse", active_station_groups["parse"], disabled_groups["parse"], disabled)
         )
+        source_controls = source_status_cards()
         leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html")
         maplibre_url = cache_busted_url("/local/rainmapper-maplibre/index.html")
         bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html")
@@ -1239,6 +1319,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
           </div>
         </div>
+        {source_controls}
         <div class="station-grid">
           {station_controls}
         </div>

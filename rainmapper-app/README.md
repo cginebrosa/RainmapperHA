@@ -4,6 +4,8 @@ Rainmapper es una app de Home Assistant para actualizar datos de lluvia de estac
 
 La app se queda abierta como un servicio ligero. Desde su webUI puedes lanzar `update`, `maps` o `all`, ver el estado de la ultima ejecucion, consultar logs recientes y abrir los mapas generados.
 
+La webUI tambien muestra estado separado para Meteoclimatic, Meteocat y Wunderground. Si una fuente falla completamente, Rainmapper intenta continuar con su incremental previo y la marca como `STALE`; si no hay datos reutilizables la marca como `NOK`.
+
 Cuando `publish_to_www` esta activado, cada generacion de mapas publica los visores y datos en `/config/www`, accesibles desde Home Assistant como `/local/...`.
 
 Visores publicados:
@@ -23,6 +25,7 @@ Datos persistentes:
 - `/share/rainmapper/Plots`
 - `/share/rainmapper/stations.txt`
 - `/share/rainmapper/ignore_stations_tomap.txt`
+- `/share/rainmapper/Data/source_status.json`
 
 `ignore_stations_tomap.txt` se crea automaticamente si no existe y no se sobrescribe en updates. Pon un codigo de estacion por linea para ocultarla de los visores Leaflet/MapLibre sin borrar ni alterar sus datos historicos.
 

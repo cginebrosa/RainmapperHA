@@ -65,7 +65,7 @@ Hay varios entry points segun entorno:
 - Ruta: `Rainmapper.py` y `rainmapper-app/app/Rainmapper.py`.
 - Responsabilidad: descarga Meteocat, Meteoclimatic y Wunderground; actualiza historicos; genera `Tomap`; metricas Wunderground.
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps, `meteoclimatic_local`, `sodapy_local`, `util`.
-- Relacion: alimenta `Rainmapper_Client.py` y `tomap_to_geojson.py`.
+- Relacion: alimenta `Rainmapper_Client.py` y `tomap_to_geojson.py`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente.
 
 ### Generador Bokeh
 - Ruta: `Rainmapper_Client.py` y copia en app.
@@ -119,7 +119,7 @@ Hay varios entry points segun entorno:
 - Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.
 - Responsabilidad: visor web experimental con mapas vectoriales/raster y filtros cliente de estaciones.
 - Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y DEM externo Terrarium/Mapzen para el prototipo 3D.
-- Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
+- Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. Desde `0.2.71`, el filtro `Source` muestra badges de estado por fuente si existe `data/source_status.json`; en escritorio, desde zoom 9, la ficha de estacion tambien aparece por hover sin cambiar el comportamiento tactil de movil. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
 
 ## Modelo de datos
 Persistencia por CSV:
@@ -129,6 +129,7 @@ Persistencia por CSV:
 - CSV preparados para mapas en `Tomap/01_Tomap_Last_day.csv`, `02_Tomap_Last_week.csv`, etc.
 - Ultimos registros en `Tomap/LastXX_rains.csv`; por defecto `Last30_rains.csv`, configurable con `RAINMAPPER_LAST_RAINS_HISTORY` o la opcion HA `last_rains_history`.
 - Metricas Wunderground en `Data/metricas_wunderground.csv`.
+- Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat y Wunderground. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo.
 - GeoJSON publicados en `PublicData/*.geojson` y `/config/www/rainmapper-data`.
 
 Campos relevantes detectados o usados:
@@ -145,6 +146,7 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 ## Gestion de estado
 - Estado persistente principal: CSV en filesystem.
 - Estado runtime webUI: diccionario global `RUN_STATE` en `web_server.py`.
+- Estado por fuente: `Data/source_status.json`, leido por `web_server.py` para mostrar tarjetas de estado por fuente. Al publicar visores, se copia tambien a `data/source_status.json` dentro de Leaflet/MapLibre; MapLibre lo usa para mostrar badges junto al filtro `Source`.
 - Estado de logs: `/share/rainmapper/last_run.log` se reescribe por ejecucion.
 - Estado de estaciones desactivadas: comentarios en `stations.txt` con marcadores `rainmapper-disabled`.
 - Estado de estaciones ignoradas en mapas nuevos: `ignore_stations_tomap.txt`.

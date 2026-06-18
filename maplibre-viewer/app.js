@@ -28,6 +28,7 @@ const TERRAIN_TILES = [
 const TERRAIN_ELEVATION_ZOOM = 15;
 const LONG_PRESS_MS = 650;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
+const HOVER_POPUP_MIN_ZOOM = 9;
 const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
   { id: "Meteoclimatic", label: "Meteoclimatic" },
@@ -224,11 +225,13 @@ let currentStyle = baseStyles[0];
 let currentData = null;
 let currentVisibleFeatures = [];
 let currentPopup = null;
+let hoverPopup = null;
 let activeStationPopupProperties = null;
 let hasLoadedInitialMap = false;
 let minRainFilter = 0;
 let lastRainHistoryLimit = 0;
 let enabledStationSources = new Set(stationSources.map((source) => source.id));
+let sourceStatus = {};
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let longPressTimer = null;
@@ -326,6 +329,40 @@ function filteredFeatures(features) {
   ));
 }
 
+function sourceStatusClass(status) {
+  const normalized = String(status || "").toUpperCase();
+  if (normalized === "OK") return "source-status-ok";
+  if (["STALE", "PENDING", "DISABLED"].includes(normalized)) return "source-status-warn";
+  if (normalized === "NOK") return "source-status-danger";
+  return "source-status-unknown";
+}
+
+function updateSourceStatusControls() {
+  document.querySelectorAll("[data-source-status]").forEach((element) => {
+    const sourceName = element.dataset.sourceStatus;
+    const statusPayload = sourceStatus[sourceName] || {};
+    const status = statusPayload.status || "Unknown";
+    const rows = Number(statusPayload.rows);
+    element.textContent = Number.isFinite(rows) && rows > 0 ? `${status} · ${rows}` : status;
+    element.className = `source-status-pill ${sourceStatusClass(status)}`;
+    element.title = statusPayload.message || "No source status available for the loaded data.";
+  });
+}
+
+async function loadSourceStatus() {
+  try {
+    const response = await fetch(`${DATA_BASE}source_status.json`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Cannot load source status: ${response.status}`);
+    }
+    const payload = await response.json();
+    sourceStatus = payload.sources || {};
+  } catch (_error) {
+    sourceStatus = {};
+  }
+  updateSourceStatusControls();
+}
+
 function updateMinRainControl(features) {
   const maxRain = features.reduce((maxValue, feature) => Math.max(maxValue, featureRainTotal(feature)), 0);
   const sliderMax = Math.max(10, Math.ceil(maxRain / 10) * 10);
@@ -389,6 +426,41 @@ function refreshCurrentStationPopup() {
     return;
   }
   currentPopup.setHTML(popupContent(activeStationPopupProperties));
+}
+
+function supportsHoverPopups() {
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
+function closeHoverPopup() {
+  if (!hoverPopup) {
+    return;
+  }
+  hoverPopup.remove();
+  hoverPopup = null;
+}
+
+function showHoverPopup(feature) {
+  if (!supportsHoverPopups() || map.getZoom() < HOVER_POPUP_MIN_ZOOM || currentPopup) {
+    closeHoverPopup();
+    return;
+  }
+
+  const coordinates = feature.geometry.coordinates.slice();
+  const htmlContent = popupContent(feature.properties || {});
+  if (!hoverPopup) {
+    hoverPopup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      maxWidth: "320px",
+      anchor: "left",
+      offset: 8,
+    });
+  }
+  hoverPopup
+    .setLngLat(coordinates)
+    .setHTML(htmlContent)
+    .addTo(map);
 }
 
 function refreshFilteredData() {
@@ -944,6 +1016,7 @@ function renderSettingsPanel() {
     const isOpen = panel.hasAttribute("hidden");
     panel.toggleAttribute("hidden", !isOpen);
     toggle.setAttribute("aria-expanded", String(isOpen));
+    document.body.classList.toggle("settings-open", isOpen);
   });
 
   northToggle.addEventListener("click", () => {
@@ -994,6 +1067,7 @@ map.on("load", () => {
   renderSettingsPanel();
   setupLongPressElevation();
   applyTerrain();
+  loadSourceStatus();
   loadMap(document.getElementById("map-selector").value).catch((error) => {
     document.getElementById("summary").textContent = error.message;
   });
@@ -1030,8 +1104,22 @@ map.on("mouseenter", CIRCLE_LAYER_ID, () => {
   map.getCanvas().style.cursor = "pointer";
 });
 
+map.on("mousemove", CIRCLE_LAYER_ID, (event) => {
+  const feature = event.features?.[0];
+  if (feature) {
+    showHoverPopup(feature);
+  }
+});
+
 map.on("mouseleave", CIRCLE_LAYER_ID, () => {
   map.getCanvas().style.cursor = "";
+  closeHoverPopup();
+});
+
+map.on("zoom", () => {
+  if (map.getZoom() < HOVER_POPUP_MIN_ZOOM) {
+    closeHoverPopup();
+  }
 });
 
 document.getElementById("map-selector").addEventListener("change", (event) => {

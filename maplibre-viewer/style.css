@@ -526,7 +526,7 @@ main {
   padding: 10px;
   position: absolute;
   top: 52px;
-  width: 210px;
+  width: min(300px, calc(100vw - 16px));
   z-index: 10;
 }
 
@@ -582,10 +582,51 @@ main {
   line-height: 1.2;
 }
 
+.map-settings-group label span:nth-of-type(1) {
+  min-width: 0;
+}
+
 .map-settings-group input {
   accent-color: var(--accent);
   height: 15px;
   width: 15px;
+}
+
+.source-status-pill {
+  border: 1px solid rgba(180, 198, 214, 0.22);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: auto;
+  max-width: 130px;
+  overflow: hidden;
+  padding: 2px 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-status-ok {
+  background: rgba(81, 207, 102, 0.14);
+  border-color: rgba(81, 207, 102, 0.45);
+  color: #9ff2ad;
+}
+
+.source-status-warn {
+  background: rgba(255, 209, 102, 0.14);
+  border-color: rgba(255, 209, 102, 0.45);
+  color: #ffe08a;
+}
+
+.source-status-danger {
+  background: rgba(255, 107, 107, 0.14);
+  border-color: rgba(255, 107, 107, 0.45);
+  color: #ffaaa8;
+}
+
+.source-status-unknown {
+  background: rgba(154, 172, 189, 0.10);
+  color: var(--muted);
 }
 
 .maplibre-rain-legend {
@@ -631,6 +672,10 @@ main {
 }
 
 @media (max-width: 520px) {
+  body.settings-open .maplibre-rain-legend {
+    display: none;
+  }
+
   .maplibre-rain-legend {
     bottom: 14px;
   }
@@ -647,7 +692,13 @@ main {
   }
 
   .map-settings {
+    max-height: calc(100% - 58px);
+    overflow-y: auto;
     top: 44px;
-    width: min(210px, calc(100vw - 16px));
+    width: min(300px, calc(100vw - 16px));
+  }
+
+  .source-status-pill {
+    max-width: 116px;
   }
 }
