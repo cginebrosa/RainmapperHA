@@ -140,6 +140,19 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Criterio de aceptacion: las llamadas Meteocat/Socrata usan timeout configurable y reintentos antes de fallar el run.
   - Estado: corregido en `0.2.68` con `meteocat_request_timeout` y `meteocat_max_attempts`; pendiente de validacion manual en HA.
 
+- [ ] Permitir ejecucion degradada por fuente y mostrar exit code por fuente en la webUI
+  - Contexto: actualmente `Rainmapper.py` ejecuta Meteoclimatic, Meteocat y Wunderground en futuros paralelos, pero cualquier excepcion propagada por una fuente hace fallar el `update` completo. Wunderground controla errores por estacion y muestra resumen; Meteoclimatic tolera fallos de patrones individuales si algun patron devuelve datos, pero aborta si no recupera ninguno; Meteocat reintenta desde `0.2.68`, pero aborta si agota intentos.
+  - Objetivo: si una de las tres fuentes falla completamente, el proceso general deberia poder continuar con las fuentes que si funcionen, reutilizar o marcar claramente datos antiguos cuando proceda, y dejar trazabilidad visible.
+  - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/web_server.py`, `run.sh`, `rainmapper-app/run.sh`, `tomap_to_geojson.py`, `maplibre-viewer/`, documentacion HA.
+  - Criterio de aceptacion: la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground; el log indica si una fuente fallo, si se reutilizaron historicos previos o si se omitio la fuente; el exit code global distingue exito completo, exito degradado y fallo total. Los datos publicados deben incluir metadata de estado por fuente para que MapLibre pueda mostrar junto al selector `Source` un estado tipo `OK`/`NOK` o equivalente de cada fuente visible en los mapas cargados.
+  - Riesgo si no se hace: un fallo temporal de una fuente puede impedir publicar datos actualizados del resto o, si se cambia sin cuidado, publicar mapas parciales sin advertencia suficiente.
+
+- [ ] Retirar Jawg Maps de Leaflet/MapLibre y de la configuracion
+  - Contexto: Jawg Street/Terrain eran capas opcionales activadas con `jawgmaps_api_key`, pero MapLibre ya cubre las necesidades actuales con Satellite+, Hybrid, Topographic, Liberty y 3D terrain experimental. Jawg anade gestion de API key, posible restriccion por dominio, dudas de uso no comercial y complejidad de documentacion/soporte.
+  - Ficheros relacionados: `leaflet-viewer/`, `maplibre-viewer/`, `rainmapper-app/config.yaml`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, README/DOCS y docs de contexto.
+  - Criterio de aceptacion: no aparece `jawgmaps_api_key` en opciones HA ni docs principales; `JAWGMAPS_API_KEY` deja de usarse en visores; Leaflet/MapLibre no muestran capas Jawg; quedan actualizadas las decisiones/documentacion indicando que se descarta Jawg por bajo valor frente a complejidad/licencia/API key.
+  - Riesgo si no se hace: mantener una dependencia externa y una clave cliente visible que ya no aporta valor suficiente al flujo actual.
+
 - [ ] Evaluar InfluxDB/Grafana para metricas
   - Contexto: el usuario ya tiene interes en analitica de tiempos de estaciones.
   - Ficheros relacionados: `Rainmapper.py`, futuro exporter.
@@ -214,7 +227,8 @@ Nota: las validaciones marcadas como resueltas en esta seccion son, salvo que se
 - [x] Confirmar si MapLibre debe sustituir a Leaflet como visor principal o si ambos se mantienen.
 - [x] Confirmar cuando retirar la ruta legacy `/local/rainmapper-mobile`.
 - [ ] Confirmar si el repo debe quedar privado o publico para distribucion futura.
-- [ ] Confirmar si Jawg permite restringir token por dominio y si se usara en publico.
+- [x] Confirmar si Jawg permite restringir token por dominio y si se usara en publico.
+  - Estado: se decide retirar Jawg de momento; no hace falta investigar restricciones de token mientras no se use.
 - [x] Confirmar idioma final de UI visible HA/changelog: ingles.
 - [x] Confirmar si los logs internos del core deben quedar tambien en ingles.
 
