@@ -109,22 +109,22 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.65`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, API keys, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
+- Estado actual: version `0.2.69`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.65`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.69`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
 - Proposito: visor Leaflet estatico.
-- Estado actual: funcional, con capas Topographic/Hybrid y Jawg opcional solo si hay API key no vacia, leyenda, selector de periodo, popups moviles y preservacion de vista al cambiar periodo.
+- Estado actual: funcional, con capas Topographic/Hybrid, leyenda, selector de periodo, popups moviles y preservacion de vista al cambiar periodo.
 - Riesgos: se publica solo en `/local/rainmapper-leaflet`; la ruta legacy `/local/rainmapper-mobile` fue retirada. Las redirecciones Cloudflare hacia los visores actuales fueron reportadas por el usuario y quedan pendientes de confirmar fuera del repositorio.
 
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
 - Proposito: visor experimental MapLibre con mapas vectoriales y raster.
-- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, Jawg Street/Terrain opcional, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y prototipo de terreno 3D.
+- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y prototipo de terreno 3D.
 - Riesgos: MapLibre queda como visor principal recomendado por decision de proyecto, con Leaflet mantenido como fallback. Las validaciones en HA/iPhone son manuales/reportadas por el usuario y no estan automatizadas. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales futuros si se detectan problemas. En `0.2.56` se corrige la vuelta a Satellite+ tras cambiar a otra capa clonando el objeto de estilo antes de pasarlo a MapLibre. El terreno 3D usa DEM externo Terrarium/Mapzen, esta apagado por defecto y depende de disponibilidad/CORS/rendimiento del proveedor externo hasta decidir si se generan tiles DEM propios.
 
 ### `docker-compose.yml`
@@ -160,7 +160,7 @@ Tambien existen documentos de uso:
 - Metricas de tiempos por estacion Wunderground en `Data/metricas_wunderground.csv`: `Rainmapper.py`.
 - Meteoclimatic con multiples patrones separados por coma, punto y coma o ` - `: `Rainmapper.py`.
 - Google Maps API key por variable/opcion, sin hardcode confirmado en ficheros inspeccionados.
-- Jawg Maps opcional en visores si existe `JAWGMAPS_API_KEY`/`jawgmaps_api_key`.
+- Jawg Maps retirado desde `0.2.69`: ya no hay `jawgmaps_api_key`, variable `JAWGMAPS_API_KEY` ni capas Jawg en Leaflet/MapLibre.
 - Satellite+ en MapLibre combina Esri World Imagery con carreteras, limites y etiquetas vectoriales de OpenFreeMap.
 - Terrain 3D en MapLibre queda como prototipo apagado por defecto. Hay validacion visual manual/reportada en local, HA e iPhone, pero sigue pendiente de confirmar con una prueba reproducible y con observacion de rendimiento/estabilidad antes de considerarlo estable.
 
@@ -169,7 +169,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.65`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.69`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -189,14 +189,13 @@ Tambien existen documentos de uso:
 - Tests formales iniciales existen en `tests/` para GeoJSON; faltan pruebas funcionales completas de Docker/HA/webUI.
 - La app HA `serve` maneja SIGTERM/SIGINT desde `0.2.55`: `run.sh` usa `exec` para que Python sea PID 1; `web_server.py` detiene el scheduler, espera al job activo antes de cerrar y solo fuerza el subprocess si llega una segunda senal.
 - Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` por defecto en HA para no cargar la RPi. El rendimiento actual aceptable, alrededor de 7 minutos para update completo + generacion de mapas, es un dato operativo reportado por el usuario y pendiente de confirmar automaticamente. Observabilidad/timeout queda en baja prioridad hasta acumular mas observaciones.
-- Jawg Maps en navegador implica que el token de tiles puede ser visible al cliente; debe restringirse por dominio si el proveedor lo permite.
+- Las claves usadas por codigo cliente web serian visibles en navegador; por eso se ha retirado Jawg Maps y cualquier futura clave de tiles cliente debera justificarse y restringirse por dominio si el proveedor lo permite.
 - Los historicos CSV son el valor central del proyecto; no deben borrarse ni reescribirse sin backup. Ver [history-safety.md](history-safety.md).
 - Algunas carpetas generadas (`Data`, `Tomap`, `Plots`, `docker-data`, `docker-empty-test`) existen localmente pero estan ignoradas por Git.
 - El DEM propio de Land/TwoNav `Iberia_HighResolution.CDEM` no fue reconocido por `gdalinfo` en una prueba manual fuera del repo; Land tampoco permitio exportarlo correctamente segun reporte del usuario. Pendiente de confirmar si se retoma. La via recomendada para 3D es validar primero DEM externo y, si aporta valor, estudiar IGN/CNIG/Copernicus o una exportacion estandar GeoTIFF/HGT/ASC.
 
 ## Variables de entorno y configuracion
 - `GMAP_API_KEY`: clave Google Maps; usada por `const.py`, `Rainmapper.py`, mapas Bokeh y por `get_googlemaps()` para obtener altitud, municipio/localidad y provincia cuando se detectan estaciones nuevas o cambios de coordenadas. Obligatoria si se usan funciones que requieren Google Maps; no debe ir en Git.
-- `JAWGMAPS_API_KEY`: token Jawg Maps; usado para activar capas Jawg en Leaflet/MapLibre. Opcional.
 - `SODAPY_APPTOKEN`: token Socrata/Meteocat mencionado solo en codigo comentado; actualmente no se usa porque `socrata_token` se fija a `None`. Pendiente de confirmar si debe reactivarse en el futuro.
 - `SUPERVISOR_TOKEN`: token inyectado por Home Assistant; usado por `web_server.py` para consultar self-info del addon. Lo proporciona HA.
 - `RAINMAPPER_MODE` / `MODE`: modo Docker local (`once`, `update`, `maps`, `all`, `schedule`, `help`).
@@ -319,7 +318,7 @@ Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar l
 - Wunderground: scraping via `requests`, `BeautifulSoup` y parser local en `util/`.
 - Google Maps: `googlemaps` Python client y Bokeh `gmap`; clave en `GMAP_API_KEY`/`gmap_api_key`.
 - Home Assistant Supervisor API: `web_server.py` usa `SUPERVISOR_TOKEN` para resolver informacion del addon.
-- OpenTopoMap / Esri / OpenFreeMap / Jawg Maps: proveedores de tiles/estilos para visores.
+- OpenTopoMap / Esri / OpenFreeMap / Terrarium DEM: proveedores de tiles/estilos/relieve para visores.
 - Cloudflare/domain externo: usado operacionalmente para exponer HA/visor, pero no hay configuracion de Cloudflare versionada en el repo.
 
 ## Decisiones importantes ya tomadas

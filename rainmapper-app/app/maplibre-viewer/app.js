@@ -28,7 +28,6 @@ const TERRAIN_TILES = [
 const TERRAIN_ELEVATION_ZOOM = 15;
 const LONG_PRESS_MS = 650;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
-const jawgAccessToken = window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "";
 const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
   { id: "Meteoclimatic", label: "Meteoclimatic" },
@@ -220,21 +219,6 @@ const baseStyles = [
     url: "https://tiles.openfreemap.org/styles/liberty",
   },
 ];
-
-if (jawgAccessToken) {
-  baseStyles.push(
-    {
-      id: "jawg-streets",
-      label: "Street",
-      url: `https://api.jawg.io/styles/jawg-streets.json?access-token=${encodeURIComponent(jawgAccessToken)}`,
-    },
-    {
-      id: "jawg-terrain",
-      label: "Terrain",
-      url: `https://api.jawg.io/styles/jawg-terrain.json?access-token=${encodeURIComponent(jawgAccessToken)}`,
-    },
-  );
-}
 
 let currentStyle = baseStyles[0];
 let currentData = null;

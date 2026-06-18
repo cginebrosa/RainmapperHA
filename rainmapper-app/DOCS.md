@@ -89,7 +89,7 @@ Ruta publica recomendada:
 /local/rainmapper-maplibre/index.html
 ```
 
-El visor MapLibre usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, mapas vectoriales como OpenFreeMap, y estilos de JawgMaps si se configura `jawgmaps_api_key`.
+El visor MapLibre usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, y mapas vectoriales como OpenFreeMap.
 
 Es el visor recomendado para movil y para uso normal porque combina mejor rendimiento movil, capas raster utiles y renderizado vectorial nitido para etiquetas/orientacion.
 
@@ -200,7 +200,6 @@ max_attempts: 3
 wunderground_full_log: false
 publish_to_www: true
 gmap_api_key: ""
-jawgmaps_api_key: ""
 ```
 
 Notas rapidas:
@@ -211,7 +210,6 @@ Notas rapidas:
 - `max_threads: 1` es conservador para Raspberry Pi y para Wunderground.
 - `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica durante `update` o `all`, cuando Rainmapper reconstruye `Tomap`; `maps` solo regenera HTML/GeoJSON desde los `Tomap` ya existentes.
 - `gmap_api_key` se usa para los mapas Bokeh/Google Maps y para completar metadata de estaciones con servicios de Google.
-- `jawgmaps_api_key` es opcional; si esta vacia, las capas Jawg no aparecen en Leaflet/MapLibre.
 - `wunderground_full_log: true` aumenta mucho el detalle del log de Wunderground y normalmente solo conviene para diagnostico.
 
 ## Google Maps API key
@@ -327,10 +325,6 @@ Usa `true` solo para diagnostico porque el log puede crecer mucho.
 ## Claves de mapas
 
 `gmap_api_key` es la clave de Google Maps. Se usa para los mapas HTML clasicos Bokeh/Google Maps y tambien para completar metadata de estaciones durante `update` mediante consultas de altitud y geocodificacion inversa. No debe guardarse en Git.
-
-`jawgmaps_api_key` es opcional y activa capas Jawg en Leaflet/MapLibre. Si se deja vacia, esas capas no se muestran en los selectores de mapas.
-
-Si algun dia se usa una clave Jawg en mapas accesibles publicamente, conviene restringirla por dominio desde el proveedor si la cuenta lo permite.
 
 ## Wunderground stations.txt
 

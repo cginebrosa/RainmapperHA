@@ -426,7 +426,7 @@ Confirmada.
 ## 2026-06-17 - API keys solo por entorno/configuracion (fecha aproximada)
 
 ### Decision
-No guardar API keys reales en Git. Google y Jawg se configuran por variables/opciones.
+No guardar API keys reales en Git. Google se configura por variables/opciones. Modificada el 2026-06-18: Jawg Maps queda retirado y ya no se configura.
 
 ### Motivo
 Evitar exposicion de credenciales. Ya hubo una alerta historica por una Google API key antigua.
@@ -435,7 +435,7 @@ Evitar exposicion de credenciales. Ya hubo una alerta historica por una Google A
 Hardcodear claves en scripts o HTML.
 
 ### Consecuencias
-Cada instalacion debe configurar sus propias claves. En mapas cliente, tokens de tiles pueden ser visibles en navegador y deben restringirse por dominio si el proveedor lo permite.
+Cada instalacion debe configurar sus propias claves. En mapas cliente, tokens de tiles pueden ser visibles en navegador y deben restringirse por dominio si el proveedor lo permite; por esa razon se evita mantener proveedores opcionales con token cliente si no aportan valor claro.
 
 ### Ficheros afectados
 - `const.py`
@@ -444,7 +444,35 @@ Cada instalacion debe configurar sus propias claves. En mapas cliente, tokens de
 - `maplibre-viewer/config.js`
 
 ### Estado
-Confirmada.
+Confirmada, modificada para retirar Jawg.
+
+## 2026-06-18 - Retirar Jawg Maps
+
+### Decision
+Eliminar las capas Jawg Street/Terrain de Leaflet y MapLibre, y retirar `jawgmaps_api_key`/`JAWGMAPS_API_KEY` de la configuracion.
+
+### Motivo
+MapLibre ya cubre el uso actual con Satellite+, Hybrid, Topographic, Liberty y el prototipo 3D. Jawg anadia una API key visible en cliente, dudas de uso/licencia y complejidad de soporte sin aportar valor suficiente.
+
+### Alternativas consideradas
+Mantener Jawg como capa opcional o investigar restricciones de token por dominio antes de decidir.
+
+### Consecuencias
+Los selectores de mapas quedan mas simples y no hay token Jawg que gestionar. Si en el futuro se necesita otro proveedor con clave cliente, se documentara como nueva decision y se evaluara licencia, costes y restricciones de dominio.
+
+### Ficheros afectados
+- `leaflet-viewer/`
+- `maplibre-viewer/`
+- `docker-compose.yml`
+- `rainmapper-app/config.yaml`
+- `rainmapper-app/run.sh`
+- `rainmapper-app/app/web_server.py`
+- `README.md`
+- `rainmapper-app/README.md`
+- `rainmapper-app/DOCS.md`
+
+### Estado
+Confirmada en `0.2.69`.
 
 ## 2026-06-17 - Exponer visor por dominio/Cloudflare sin auth propia por ahora (fecha aproximada)
 

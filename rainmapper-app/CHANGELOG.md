@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.69
+
+- Remove optional Jawg Maps layers and `jawgmaps_api_key` configuration from Leaflet, MapLibre, Docker local, and the Home Assistant app.
+- Keep MapLibre base maps focused on Satellite+, Hybrid, Topographic, and Liberty to avoid API-key/licensing complexity.
+
 ## 0.2.68
 
 - Add configurable Meteocat/Socrata request timeout and retry attempts to avoid failing a full run on transient read timeouts.

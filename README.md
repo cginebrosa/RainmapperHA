@@ -14,7 +14,6 @@ Confirmado en el repositorio:
 - Docker y Docker Compose para ejecucion local.
 - Home Assistant con soporte de apps/add-ons para instalar `rainmapper-app`.
 - Google Maps API key si se usan funciones/mapas que dependen de Google Maps.
-- Jawg Maps access token opcional para capas Jawg en Leaflet/MapLibre.
 - MapLibre con capas raster/vectoriales, incluyendo una capa Satellite+ sin clave adicional.
 
 Versiones exactas de Docker/Home Assistant necesarias: pendiente de confirmar.
@@ -37,16 +36,14 @@ Instalacion en Home Assistant:
 
 1. Anadir este repositorio como repositorio de apps/add-ons en Home Assistant.
 2. Instalar la app `Rainmapper`.
-3. Configurar `gmap_api_key` y, opcionalmente, `jawgmaps_api_key`.
+3. Configurar `gmap_api_key`.
 4. Usar preferiblemente `mode: serve`.
 
 ## Configuracion
 Variables/opciones principales:
 
 - `GMAP_API_KEY`: Google Maps API key para ejecucion local Docker.
-- `JAWGMAPS_API_KEY`: Jawg Maps token opcional para visores locales.
 - `gmap_api_key`: opcion HA equivalente para Google Maps.
-- `jawgmaps_api_key`: opcion HA equivalente para Jawg Maps.
 - `mode`: `help`, `update`, `maps`, `all` o `serve`.
 - `schedule_enabled`: activa schedule interno en HA.
 - `schedule_time`: una o varias horas, por ejemplo `06:00, 12:00, 18:00, 23:50`.

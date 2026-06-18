@@ -36,7 +36,7 @@ Puedes activar el schedule interno para ejecutar `all` cada dia a una hora concr
 meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 ```
 
-Las claves `gmap_api_key` y `jawgmaps_api_key` no deben guardarse en Git. `gmap_api_key` se usa para los mapas clasicos Bokeh/Google Maps y para completar metadata de estaciones durante `update` cuando hace falta consultar altitud, municipio/localidad o provincia. `jawgmaps_api_key` es opcional; si esta vacia, las capas Jawg no aparecen en Leaflet/MapLibre.
+La clave `gmap_api_key` no debe guardarse en Git. Se usa para los mapas clasicos Bokeh/Google Maps y para completar metadata de estaciones durante `update` cuando hace falta consultar altitud, municipio/localidad o provincia.
 
 `last_rains_history` controla cuantos registros recientes de lluvia se guardan en los CSV `Tomap` y, por tanto, cuantos puede mostrar el popup de una estacion en Leaflet/MapLibre. El valor por defecto es `30`. Este dato se aplica cuando Rainmapper reconstruye `Tomap`, es decir, durante `update` o `all`. El modo `maps` no recalcula `Tomap`; solo convierte los `Tomap` ya existentes en HTML/GeoJSON.
 

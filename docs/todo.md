@@ -17,10 +17,10 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Estado: validado manualmente por el usuario en movil; pendiente de confirmacion automatizada.
 
 - [x] Validar MapLibre raster y Leaflet fallback en HA/iPhone
-  - Contexto: MapLibre `0.2.53` incorpora Satellite+ como base por defecto, Hybrid raster, Topographic raster y estilos vectoriales; Leaflet debe ocultar Jawg si `jawgmaps_api_key` esta vacia.
+  - Contexto: MapLibre `0.2.53` incorpora Satellite+ como base por defecto, Hybrid raster, Topographic raster y estilos vectoriales; Leaflet se mantiene como fallback con Topographic/Hybrid.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
   - Criterio de aceptacion: Hybrid, Topographic y Satellite+ cargan correctamente, el cambio entre capas conserva marcadores, periodo, vista y popup en movil.
-  - Estado: validado manualmente por el usuario en HA/iPhone; pendiente de confirmacion automatizada. Leaflet queda como fallback publicado y oculta Jawg cuando no hay API key.
+  - Estado: validado manualmente por el usuario en HA/iPhone; pendiente de confirmacion automatizada. Leaflet queda como fallback publicado.
   - Riesgo si no se hace: decidir retirada de Leaflet sin confirmar que MapLibre cubre bien las capas raster que interesan.
 
 - [x] Mantener sincronizadas raiz y app HA
@@ -147,10 +147,11 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Criterio de aceptacion: la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground; el log indica si una fuente fallo, si se reutilizaron historicos previos o si se omitio la fuente; el exit code global distingue exito completo, exito degradado y fallo total. Los datos publicados deben incluir metadata de estado por fuente para que MapLibre pueda mostrar junto al selector `Source` un estado tipo `OK`/`NOK` o equivalente de cada fuente visible en los mapas cargados.
   - Riesgo si no se hace: un fallo temporal de una fuente puede impedir publicar datos actualizados del resto o, si se cambia sin cuidado, publicar mapas parciales sin advertencia suficiente.
 
-- [ ] Retirar Jawg Maps de Leaflet/MapLibre y de la configuracion
+- [x] Retirar Jawg Maps de Leaflet/MapLibre y de la configuracion
   - Contexto: Jawg Street/Terrain eran capas opcionales activadas con `jawgmaps_api_key`, pero MapLibre ya cubre las necesidades actuales con Satellite+, Hybrid, Topographic, Liberty y 3D terrain experimental. Jawg anade gestion de API key, posible restriccion por dominio, dudas de uso no comercial y complejidad de documentacion/soporte.
   - Ficheros relacionados: `leaflet-viewer/`, `maplibre-viewer/`, `rainmapper-app/config.yaml`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, README/DOCS y docs de contexto.
   - Criterio de aceptacion: no aparece `jawgmaps_api_key` en opciones HA ni docs principales; `JAWGMAPS_API_KEY` deja de usarse en visores; Leaflet/MapLibre no muestran capas Jawg; quedan actualizadas las decisiones/documentacion indicando que se descarta Jawg por bajo valor frente a complejidad/licencia/API key.
+  - Estado: resuelto en `0.2.69`.
   - Riesgo si no se hace: mantener una dependencia externa y una clave cliente visible que ya no aporta valor suficiente al flujo actual.
 
 - [ ] Evaluar InfluxDB/Grafana para metricas
@@ -217,7 +218,7 @@ Nota: las validaciones marcadas como resueltas en esta seccion son, salvo que se
 - [x] Actualizacion HA desde GitHub tras bump de version.
 - [x] `Run all` desde webUI HA.
 - [x] Schedule con varias horas y dias.
-- [x] Leaflet en iPhone: cambio periodo conserva posicion, popups, leyenda, Jawg opcional.
+- [x] Leaflet en iPhone: cambio periodo conserva posicion, popups y leyenda.
 - [x] MapLibre en movil: estilos, marcadores tras cambio de capa, popup, bounds.
 - [x] `ignore_stations_tomap.txt`: estacion ignorada desaparece de Leaflet/MapLibre pero sigue en historico.
 - [x] Reconstruccion desde cero con poco historico.

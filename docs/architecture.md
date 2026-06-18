@@ -118,7 +118,7 @@ Hay varios entry points segun entorno:
 ### MapLibre viewer
 - Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.
 - Responsabilidad: visor web experimental con mapas vectoriales/raster y filtros cliente de estaciones.
-- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap, Jawg opcional y DEM externo Terrarium/Mapzen para el prototipo 3D.
+- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y DEM externo Terrarium/Mapzen para el prototipo 3D.
 - Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
 
 ## Modelo de datos
@@ -162,7 +162,6 @@ WebUI HA (`web_server.py`):
 Home Assistant publica:
 
 - `/local/Plots/...`: Bokeh HTML.
-- Jawg Maps: estilos/capas opcionales con token `JAWGMAPS_API_KEY`/`jawgmaps_api_key`.
 - OpenTopoMap y Esri: tiles raster usados por Leaflet y MapLibre.
 - Terrarium/Mapzen DEM externo: fuente `raster-dem` opcional para terrain 3D en MapLibre. No se empaqueta dentro de Docker ni se publica desde `/config/www`.
 

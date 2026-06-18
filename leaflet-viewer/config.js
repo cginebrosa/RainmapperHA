@@ -1,3 +1,1 @@
-window.RAINMAPPER_CONFIG = {
-  jawgmapsAccessToken: "",
-};
+window.RAINMAPPER_CONFIG = {};
