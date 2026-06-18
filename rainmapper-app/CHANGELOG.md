@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.66
+
+- Add a MapLibre station popup pointer while keeping the existing square popup styling.
+
 ## 0.2.65
 
 - Refresh Leaflet and MapLibre viewer asset cache busters to match the Home Assistant app version.

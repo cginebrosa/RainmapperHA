@@ -584,7 +584,15 @@ main {
 }
 
 .maplibregl-popup-tip {
+  border: 10px solid transparent;
   display: none;
+  height: 0;
+  width: 0;
+}
+
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: rgba(11, 17, 23, 0.96);
+  display: block;
 }
 
 .maplibregl-popup {
