@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o experimental. Hay validacion visual manual/reportada en local, HA e iPhone, pero falta una confirmacion reproducible/automatizada y observar rendimiento/estabilidad con uso real.
+Validar en Home Assistant la semantica de exit code global por fuente: `0` exito completo, `2` exito degradado y `1` fallo total/no recuperable.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -88,12 +88,11 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Estado: corregido en `0.2.55` y validado manualmente por el usuario; pendiente de confirmacion automatizada. Ya no aparece el warning de SIGTERM del Supervisor segun esa validacion.
 
 ## Prioridad baja
-- [ ] Decidir estabilizacion del prototipo MapLibre 3D terrain
+- [x] Estabilizar MapLibre 3D terrain
   - Contexto: MapLibre puede inclinar/rotar el mapa, pero el relieve real requiere una fuente DEM. Se ha anadido un toggle `3D terrain` y slider `Exaggeration` en Settings usando DEM externo Terrarium/Mapzen.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
-  - Criterio de aceptacion: definir si queda estable, experimental o se retira. Antes de considerarlo estable, confirmar en local/HA/iPhone con prueba reproducible que activar 3D terrain funciona sobre Satellite+, Hybrid, Topographic y Liberty sin romper filtros, cambio de periodo, cambio de capa ni popups; si el DEM externo falla o rinde mal, decidir retirada o DEM propio.
-  - Estado: validacion visual manual/reportada en local, HA e iPhone; pendiente de confirmacion reproducible/automatizada y observacion de rendimiento.
-  - Riesgo si no se hace: dejar publicada una opcion experimental dependiente de un proveedor externo sin control claro de estabilidad.
+  - Criterio de aceptacion: confirmar en local/HA/iPhone que activar 3D terrain funciona sobre Satellite+, Hybrid, Topographic y Liberty sin romper filtros, cambio de periodo, cambio de capa ni popups.
+  - Estado: completado por decision del usuario el 2026-06-18; validado manualmente en local, HA e iPhone y queda como funcionalidad definitiva. Riesgo aceptado: sigue dependiendo del DEM externo Terrarium/Mapzen hasta que se decida si hace falta DEM propio.
 
 - [ ] Revisar ergonomia del panel Settings de MapLibre en movil
   - Contexto: al anadir badges de estado por fuente, el panel Settings necesita mas ancho. El ajuste actual evita solapes y funciona en iPhone, pero puede sentirse algo ancho.
@@ -131,6 +130,7 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos segun reporte del usuario; pendiente de confirmar automaticamente.
   - Ficheros relacionados: `Rainmapper.py`, `Data/metricas_wunderground.csv`.
   - Criterio de aceptacion: metricas revisables y comparables por ejecucion; posible export futuro a InfluxDB/Grafana.
+  - Estado: decision pospuesta; Wunderground se mantiene como esta mientras el tiempo global siga siendo aceptable.
   - Riesgo si no se hace: optimizacion a ciegas del scraper si el rendimiento empeora en el futuro.
 
 - [ ] Definir estrategia legal/comercial para Wunderground antes de una app publica
@@ -152,16 +152,16 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Criterio de aceptacion: las llamadas Meteocat/Socrata usan timeout configurable y reintentos antes de fallar el run.
   - Estado: corregido en `0.2.68` con `meteocat_request_timeout` y `meteocat_max_attempts`; pendiente de validacion manual en HA.
 
-- [ ] Completar ejecucion degradada por fuente y estado en visores
+- [ ] Validar ejecucion degradada por fuente y exit code global
   - Contexto: actualmente `Rainmapper.py` ejecuta Meteoclimatic, Meteocat y Wunderground en futuros paralelos, pero cualquier excepcion propagada por una fuente hace fallar el `update` completo. Wunderground controla errores por estacion y muestra resumen; Meteoclimatic tolera fallos de patrones individuales si algun patron devuelve datos, pero aborta si no recupera ninguno; Meteocat reintenta desde `0.2.68`, pero aborta si agota intentos.
   - Objetivo: si una de las tres fuentes falla completamente, el proceso general deberia poder continuar con las fuentes que si funcionen, reutilizar o marcar claramente datos antiguos cuando proceda, y dejar trazabilidad visible.
   - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/web_server.py`, `run.sh`, `rainmapper-app/run.sh`, `tomap_to_geojson.py`, `maplibre-viewer/`, documentacion HA.
-  - Estado parcial: desde `0.2.71`, la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground. `Rainmapper.py` escribe `Data/source_status.json`; si una fuente falla completamente intenta reutilizar su incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. El fichero se copia como `data/source_status.json` en Leaflet/MapLibre publicados, y MapLibre muestra badges junto al filtro `Source`.
-  - Criterio de aceptacion pendiente: el exit code global debe distinguir exito completo, exito degradado y fallo total sin romper `Run all`; validar en HA con fallo real o simulado de una fuente.
+  - Estado parcial: desde `0.2.71`, la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground. `Rainmapper.py` escribe `Data/source_status.json`; si una fuente falla completamente intenta reutilizar su incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. El fichero se copia como `data/source_status.json` en Leaflet/MapLibre publicados, y MapLibre muestra badges junto al filtro `Source`. El cambio actual hace que el exit code global distinga `0` exito completo, `2` exito degradado con al menos una fuente usable y `1` fallo total/no recuperable; `Run all` debe continuar a `maps` cuando `update` devuelve `2`.
+  - Criterio de aceptacion pendiente: validar en HA con fallo real o simulado de una fuente que el exit code global y el comportamiento de `Run all` son correctos.
   - Riesgo si no se hace: un fallo temporal de una fuente puede impedir publicar datos actualizados del resto o, si se cambia sin cuidado, publicar mapas parciales sin advertencia suficiente.
 
 - [x] Retirar Jawg Maps de Leaflet/MapLibre y de la configuracion
-  - Contexto: Jawg Street/Terrain eran capas opcionales activadas con `jawgmaps_api_key`, pero MapLibre ya cubre las necesidades actuales con Satellite+, Hybrid, Topographic, Liberty y 3D terrain experimental. Jawg anade gestion de API key, posible restriccion por dominio, dudas de uso no comercial y complejidad de documentacion/soporte.
+  - Contexto: Jawg Street/Terrain eran capas opcionales activadas con `jawgmaps_api_key`, pero MapLibre ya cubre las necesidades actuales con Satellite+, Hybrid, Topographic, Liberty y 3D terrain. Jawg anade gestion de API key, posible restriccion por dominio, dudas de uso no comercial y complejidad de documentacion/soporte.
   - Ficheros relacionados: `leaflet-viewer/`, `maplibre-viewer/`, `rainmapper-app/config.yaml`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, README/DOCS y docs de contexto.
   - Criterio de aceptacion: no aparece `jawgmaps_api_key` en opciones HA ni docs principales; `JAWGMAPS_API_KEY` deja de usarse en visores; Leaflet/MapLibre no muestran capas Jawg; quedan actualizadas las decisiones/documentacion indicando que se descarta Jawg por bajo valor frente a complejidad/licencia/API key.
   - Estado: resuelto en `0.2.69`.

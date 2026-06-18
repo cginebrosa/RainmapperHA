@@ -20,6 +20,7 @@ import os
 import math
 import re
 import json
+import sys
 import time as time_module
 import requests
 import googlemaps
@@ -377,9 +378,14 @@ def write_source_statuses():
         'generated_at': datetime.now().isoformat(timespec='seconds'),
         'sources': SOURCE_STATUSES,
     }
-    os.makedirs(_DATA_PATH, exist_ok=True)
-    with open(SOURCE_STATUS_PATH, 'w', encoding='utf-8') as status_file:
-        json.dump(payload, status_file, indent=2, ensure_ascii=False)
+    try:
+        os.makedirs(_DATA_PATH, exist_ok=True)
+        tmp_path = SOURCE_STATUS_PATH + '.tmp'
+        with open(tmp_path, 'w', encoding='utf-8') as status_file:
+            json.dump(payload, status_file, indent=2, ensure_ascii=False)
+        os.replace(tmp_path, SOURCE_STATUS_PATH)
+    except OSError as exc:
+        print(f'WARNING: Could not write source status file {SOURCE_STATUS_PATH}: {exc}')
 
 def record_source_status(source, status, exit_code, message, rows=0, stale_data_used=False, enabled=True):
     SOURCE_STATUSES[source] = {
@@ -452,6 +458,28 @@ def collect_source_result(source, future, incremental_name, enabled):
             enabled=enabled,
         )
         return source_df, source_incremental
+
+def source_exit_code():
+    enabled_sources = [
+        payload for payload in SOURCE_STATUSES.values()
+        if payload.get('enabled', True)
+    ]
+    if not enabled_sources:
+        return 0
+
+    usable_statuses = {'OK', 'STALE'}
+    has_usable_source = any(
+        str(payload.get('status', '')).upper() in usable_statuses
+        for payload in enabled_sources
+    )
+    if not has_usable_source:
+        return 1
+
+    has_degraded_source = any(
+        str(payload.get('status', '')).upper() != 'OK'
+        for payload in enabled_sources
+    )
+    return 2 if has_degraded_source else 0
 
 def get_myquery(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _end_date): # Create _myquery for sum records
     _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED 
@@ -2561,3 +2589,9 @@ save_dataframe_tomap(df_tomap, '01_Tomap_Last_day', _save_to_csv=True, _save_to_
 end_count('Finished processing 1 days backward map')
 
 print('')
+exit_code = source_exit_code()
+if exit_code == 2:
+    print('Rainmapper finished with degraded source status.')
+elif exit_code == 1:
+    print('Rainmapper finished with no usable enabled source.')
+sys.exit(exit_code)

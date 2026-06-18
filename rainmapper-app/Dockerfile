@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.72" \
+LABEL io.hass.version="0.2.73" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.72
+ENV RAINMAPPER_APP_VERSION=0.2.73
 
 WORKDIR /app
 
@@ -16,6 +16,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY app/requirements.txt .
+RUN python -m pip install --no-cache-dir --upgrade pip==26.1.2
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ /app/

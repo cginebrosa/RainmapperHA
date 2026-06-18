@@ -36,6 +36,7 @@ export RAINMAPPER_LAST_RAINS_HISTORY="$LAST_RAINS_HISTORY_VALUE"
 run_update() {
   echo "Starting Rainmapper..."
 
+  set +e
   python Rainmapper.py \
     --create_meteoclimatic "$CREATE_METEOCLIMATIC_VALUE" \
     --create_meteocat "$CREATE_METEOCAT_VALUE" \
@@ -51,8 +52,11 @@ run_update() {
     --max_attempts "$MAX_ATTEMPTS_VALUE" \
     --wunderground_full_log "$WUNDERGROUND_FULL_LOG_VALUE" \
     --meteoclimatic_pattern "$METEOCLIMATIC_PATTERN_VALUE"
+  update_exit_code="$?"
+  set -e
 
-  echo "Rainmapper finished."
+  echo "Rainmapper finished with exit code ${update_exit_code}."
+  return "$update_exit_code"
 }
 
 run_maps() {
@@ -116,8 +120,16 @@ case "$MODE" in
     run_maps
     ;;
   all)
-    run_update
+    update_exit_code=0
+    run_update || update_exit_code="$?"
+    update_exit_code="${update_exit_code:-0}"
+    if [ "$update_exit_code" -eq 1 ]; then
+      exit 1
+    fi
     run_maps
+    if [ "$update_exit_code" -eq 2 ]; then
+      exit 2
+    fi
     ;;
   schedule)
     echo "Rainmapper scheduled daily at ${SCHEDULE_TIME} (${TIMEZONE})."
@@ -125,7 +137,13 @@ case "$MODE" in
       sleep_seconds="$(seconds_until_schedule)"
       echo "Next run in ${sleep_seconds} seconds."
       sleep "$sleep_seconds"
-      run_update
+      update_exit_code=0
+      run_update || update_exit_code="$?"
+      update_exit_code="${update_exit_code:-0}"
+      if [ "$update_exit_code" -eq 1 ]; then
+        exit 1
+      fi
+      unset update_exit_code
     done
     ;;
   *)

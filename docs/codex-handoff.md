@@ -109,12 +109,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.72`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
+- Estado actual: version `0.2.73`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.72`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.73`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -123,8 +123,8 @@ Tambien existen documentos de uso:
 - Riesgos: se publica solo en `/local/rainmapper-leaflet`; la ruta legacy `/local/rainmapper-mobile` fue retirada. Las redirecciones Cloudflare hacia los visores actuales fueron reportadas por el usuario y quedan pendientes de confirmar fuera del repositorio.
 
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
-- Proposito: visor experimental MapLibre con mapas vectoriales y raster.
-- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y prototipo de terreno 3D.
+- Proposito: visor principal MapLibre con mapas vectoriales/raster.
+- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y terreno 3D.
 - Riesgos: MapLibre queda como visor principal recomendado por decision de proyecto, con Leaflet mantenido como fallback. Las validaciones en HA/iPhone son manuales/reportadas por el usuario y no estan automatizadas. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales futuros si se detectan problemas. En `0.2.56` se corrige la vuelta a Satellite+ tras cambiar a otra capa clonando el objeto de estilo antes de pasarlo a MapLibre. El terreno 3D usa DEM externo Terrarium/Mapzen, esta apagado por defecto y depende de disponibilidad/CORS/rendimiento del proveedor externo hasta decidir si se generan tiles DEM propios.
 
 ### `docker-compose.yml`
@@ -152,7 +152,7 @@ Tambien existen documentos de uso:
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `tomap_to_geojson.py`.
 - Filtros en MapLibre: settings del visor aplica filtros cliente por lluvia minima y por fuente de estacion sobre el periodo cargado para validar UX de futura app movil.
 - Popups de estacion en Leaflet/MapLibre: muestran el resumen de estacion, lluvia acumulada, ultima lluvia del historico disponible (`DD/MM/AAAA · mm`) y un desplegable cerrado por defecto con los ultimos registros disponibles en el GeoJSON. El historico anade `Days ago`, mantiene cabecera sticky al hacer scroll y resalta visualmente las filas con lluvia. El visor detecta dinamicamente columnas `Data_Pluja_XX`; MapLibre incluye en Settings el control `Last rains history` para limitar cuantas filas se muestran. Rainmapper genera por defecto 30 registros recientes por estacion, configurable en HA con `last_rains_history` y en Docker local con `RAINMAPPER_LAST_RAINS_HISTORY`/`LAST_RAINS_HISTORY`.
-- Terreno 3D experimental en MapLibre: settings permite activar `3D terrain` y ajustar `Exaggeration` usando un DEM externo Terrarium/Mapzen como fuente `raster-dem`. No se incluye ningun DEM en la imagen Docker.
+- Terreno 3D en MapLibre: settings permite activar `3D terrain` y ajustar `Exaggeration` usando un DEM externo Terrarium/Mapzen como fuente `raster-dem`. No se incluye ningun DEM en la imagen Docker. Validado manualmente por el usuario en local, HA e iPhone; queda como funcionalidad definitiva por decision del 2026-06-18, aceptando la dependencia externa hasta que se decida si hace falta DEM propio.
 - Consulta de altitud en MapLibre: una pulsacion larga sobre el mapa muestra un popup con la altitud del DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB. Se evita `queryTerrainElevation` para esta lectura porque en una prueba manual en Urus/Cerdanya (`42.35406, 1.85317`) devolvio `-4 m` aunque el tile DEM crudo devolvia unos `1259 m`; esta observacion queda pendiente de confirmar automaticamente. En HA no se disparaba la ventana incluso con Chrome limpio y tras generar mapas, por lo que `0.2.65` cambia el disparador de pulsacion larga a eventos propios de MapLibre y `contextmenu`, y ademas alinea los cache-busters internos de los visores. Validacion final en HA/iPhone/Safari Mac reportada por el usuario; pendiente de confirmar mediante prueba automatizada o reproducible.
 - `Source` en GeoJSON: `tomap_to_geojson.py` anade fuente inferida por codigo de estacion (`ES...` de longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown`). Si aparece `Unknown`, el conversor emite un `WARNING` en stdout.
 - Estado por fuente: `Rainmapper.py` escribe `Data/source_status.json` con el ultimo estado de Meteoclimatic, Meteocat y Wunderground. Si una fuente falla completamente, el update intenta continuar con el incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. La webUI de HA muestra esas tarjetas de estado desde `0.2.71` y MapLibre muestra badges de estado junto al filtro `Source` cuando el fichero publicado esta disponible.
@@ -163,14 +163,14 @@ Tambien existen documentos de uso:
 - Google Maps API key por variable/opcion, sin hardcode confirmado en ficheros inspeccionados.
 - Jawg Maps retirado desde `0.2.69`: ya no hay `jawgmaps_api_key`, variable `JAWGMAPS_API_KEY` ni capas Jawg en Leaflet/MapLibre.
 - Satellite+ en MapLibre combina Esri World Imagery con carreteras, limites y etiquetas vectoriales de OpenFreeMap.
-- Terrain 3D en MapLibre queda como prototipo apagado por defecto. Hay validacion visual manual/reportada en local, HA e iPhone, pero sigue pendiente de confirmar con una prueba reproducible y con observacion de rendimiento/estabilidad antes de considerarlo estable.
+- Terrain 3D en MapLibre queda como funcionalidad definitiva, apagada por defecto, validada manualmente en local, HA e iPhone. Sigue dependiendo del DEM externo Terrarium/Mapzen; si esa dependencia falla o el rendimiento empeora, estudiar DEM propio.
 
 ## Funcionalidades parcialmente implementadas
 - Leaflet y MapLibre: funcionales en el codigo y validados manualmente en iPhone/HA segun reporte del usuario; pendiente de confirmacion automatizada. MapLibre `0.2.53` queda como visor principal recomendado; Leaflet se mantiene publicado como fallback. Bokeh sigue como referencia/compatibilidad.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.72`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.73`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -184,13 +184,13 @@ Tambien existen documentos de uso:
 - Definir modelo de producto/acceso si se venden mapas o zonas.
 - Ideas para futura app iOS/Android: favoritos de estaciones y filtro por lluvia minima en el periodo seleccionado.
 - Arquitectura inicial de app movil documentada en [mobile-app-architecture.md](mobile-app-architecture.md), con direccion preferente de prototipo Cloudflare R2 + Worker API + React Native/MapLibre.
-- Completar la ejecucion degradada por fuente: desde `0.2.71`, el core escribe `source_status.json`, reutiliza incrementales previos si una fuente falla, la webUI muestra estado/exit code por fuente y MapLibre muestra badges de estado junto al selector `Source`. Sigue pendiente decidir si el exit code global debe distinguir exito completo frente a exito degradado sin romper `Run all`, y validarlo con un fallo real o simulado en HA.
+- Completar/validar la ejecucion degradada por fuente: desde `0.2.71`, el core escribe `source_status.json`, reutiliza incrementales previos si una fuente falla, la webUI muestra estado/exit code por fuente y MapLibre muestra badges de estado junto al selector `Source`. Se decide que el exit code global distinga `0` exito completo, `2` exito degradado y `1` fallo total/no recuperable; pendiente validar en HA con fallo real o simulado de una fuente.
 
 ## Bugs abiertos o problemas conocidos
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`; mitigada operativamente con `scripts/sync-app-files.sh` y smoke test, sin refactor estructural todavia.
 - Tests formales iniciales existen en `tests/` para GeoJSON; faltan pruebas funcionales completas de Docker/HA/webUI.
 - La app HA `serve` maneja SIGTERM/SIGINT desde `0.2.55`: `run.sh` usa `exec` para que Python sea PID 1; `web_server.py` detiene el scheduler, espera al job activo antes de cerrar y solo fuerza el subprocess si llega una segunda senal.
-- Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` por defecto en HA para no cargar la RPi. El rendimiento actual aceptable, alrededor de 7 minutos para update completo + generacion de mapas, es un dato operativo reportado por el usuario y pendiente de confirmar automaticamente. Observabilidad/timeout queda en baja prioridad hasta acumular mas observaciones.
+- Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` por defecto en HA para no cargar la RPi. El rendimiento actual aceptable, alrededor de 7 minutos para update completo + generacion de mapas, es un dato operativo reportado por el usuario y pendiente de confirmar automaticamente. La decision de cambiar estrategia Wunderground queda pospuesta; de momento se mantiene como esta.
 - Las claves usadas por codigo cliente web serian visibles en navegador; por eso se ha retirado Jawg Maps y cualquier futura clave de tiles cliente debera justificarse y restringirse por dominio si el proveedor lo permite.
 - Los historicos CSV son el valor central del proyecto; no deben borrarse ni reescribirse sin backup. Ver [history-safety.md](history-safety.md).
 - Algunas carpetas generadas (`Data`, `Tomap`, `Plots`, `docker-data`, `docker-empty-test`) existen localmente pero estan ignoradas por Git.

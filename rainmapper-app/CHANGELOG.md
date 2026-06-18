@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.73
+
+- Add global update exit-code semantics: `0` complete success, `2` degraded success, and `1` total/non-recoverable failure.
+- Continue `Run all` through map generation when the update step finishes degraded.
+- Keep source status writes from aborting local Docker runs if the filesystem temporarily refuses `source_status.json`.
+- Upgrade `pip` during Docker builds before installing Python dependencies to reduce transient package download/hash failures.
+- Mark MapLibre 3D terrain as a stable feature after local, Home Assistant, and iPhone validation.
+
 ## 0.2.72
 
 - Keep MapLibre desktop hover popups working after opening and closing a station popup by click.

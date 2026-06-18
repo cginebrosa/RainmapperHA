@@ -165,6 +165,7 @@ print_startup_banner
 
 run_update() {
   echo "Starting Rainmapper update..."
+  set +e
   python Rainmapper.py \
     --create_meteoclimatic "$CREATE_METEOCLIMATIC_VALUE" \
     --create_meteocat "$CREATE_METEOCAT_VALUE" \
@@ -180,7 +181,10 @@ run_update() {
     --max_attempts "$MAX_ATTEMPTS_VALUE" \
     --wunderground_full_log "$WUNDERGROUND_FULL_LOG_VALUE" \
     --meteoclimatic_pattern "$METEOCLIMATIC_PATTERN_VALUE"
-  echo "Rainmapper update finished."
+  update_exit_code="$?"
+  set -e
+  echo "Rainmapper update finished with exit code ${update_exit_code}."
+  return "$update_exit_code"
 }
 
 run_maps() {
@@ -213,8 +217,16 @@ case "$MODE" in
     exec python web_server.py --host 0.0.0.0 --port 8099
     ;;
   all)
-    run_update
+    update_exit_code=0
+    run_update || update_exit_code="$?"
+    update_exit_code="${update_exit_code:-0}"
+    if [ "$update_exit_code" -eq 1 ]; then
+      exit 1
+    fi
     run_maps
+    if [ "$update_exit_code" -eq 2 ]; then
+      exit 2
+    fi
     ;;
   *)
     echo "Invalid mode: ${MODE}. Use help, update, maps, all or serve."

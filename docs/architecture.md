@@ -117,8 +117,8 @@ Hay varios entry points segun entorno:
 
 ### MapLibre viewer
 - Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.
-- Responsabilidad: visor web experimental con mapas vectoriales/raster y filtros cliente de estaciones.
-- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y DEM externo Terrarium/Mapzen para el prototipo 3D.
+- Responsabilidad: visor web principal con mapas vectoriales/raster, filtros cliente de estaciones y terreno 3D opcional.
+- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y DEM externo Terrarium/Mapzen para terreno 3D.
 - Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. Desde `0.2.71`, el filtro `Source` muestra badges de estado por fuente si existe `data/source_status.json`; en escritorio, desde zoom 9, la ficha de estacion tambien aparece por hover sin cambiar el comportamiento tactil de movil. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
 
 ## Modelo de datos

@@ -1011,6 +1011,7 @@ def run_action(action: str, source: str) -> bool:
 def _run_action_thread(action: str, source: str) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     exit_code = 0
+    final_exit_code = 0
     started = datetime.now(get_timezone())
     print(f"Starting Rainmapper action '{action}' from {source}.", flush=True)
 
@@ -1042,10 +1043,14 @@ def _run_action_thread(action: str, source: str) -> None:
                     log_file.write(line)
                     log_file.flush()
                 exit_code = process.wait()
+                if exit_code == 1:
+                    final_exit_code = 1
+                elif exit_code == 2 and final_exit_code == 0:
+                    final_exit_code = 2
             finally:
                 set_current_process(None)
             print(f"Rainmapper step '{current_action}' finished with exit code {exit_code}.", flush=True)
-            if exit_code != 0:
+            if exit_code not in {0, 2}:
                 break
             if current_action == "maps":
                 publish_ok, publish_message = publish_maps(log_file)
@@ -1061,20 +1066,30 @@ def _run_action_thread(action: str, source: str) -> None:
 
         finished = datetime.now(get_timezone())
         duration = format_duration(started.isoformat(timespec="seconds"), finished.isoformat(timespec="seconds"))
-        log_file.write(f"=== finished with exit code {exit_code} at {finished.isoformat(timespec='seconds')} ===\n")
+        if final_exit_code == 0:
+            final_exit_code = exit_code
+        log_file.write(f"=== finished with exit code {final_exit_code} at {finished.isoformat(timespec='seconds')} ===\n")
         log_file.write(f"=== duration {duration} ===\n")
 
-    message = "Finished successfully." if exit_code == 0 else f"Finished with exit code {exit_code}."
-    print(f"Rainmapper action '{action}' finished with exit code {exit_code} in {duration}.", flush=True)
+    if final_exit_code == 0:
+        message = "Finished successfully."
+        current_step = "Idle"
+    elif final_exit_code == 2:
+        message = "Finished with degraded source status."
+        current_step = "Finished degraded"
+    else:
+        message = f"Finished with exit code {final_exit_code}."
+        current_step = "Finished with error"
+    print(f"Rainmapper action '{action}' finished with exit code {final_exit_code} in {duration}.", flush=True)
     with RUN_LOCK:
         RUN_STATE.update(
             {
                 "running": False,
                 "finished_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
                 "duration": format_duration(RUN_STATE["started_at"], datetime.now(get_timezone()).isoformat(timespec="seconds")),
-                "exit_code": str(exit_code),
+                "exit_code": str(final_exit_code),
                 "last_message": message,
-                "current_step": "Idle" if exit_code == 0 else "Finished with error",
+                "current_step": current_step,
                 "progress_current": "",
                 "progress_total": "",
                 "progress_percent": "",

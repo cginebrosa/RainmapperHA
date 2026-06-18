@@ -29,6 +29,8 @@ Confirmada como restriccion de estrategia. No implica cambios de codigo inmediat
 ### Decision
 Si una fuente completa falla durante `update`, Rainmapper intenta continuar usando su incremental previo y marca la fuente como `STALE` en `Data/source_status.json`. Si no hay incremental utilizable, la marca como `NOK`. La webUI de Home Assistant muestra estado y exit code por fuente.
 
+Modificacion del 2026-06-18: el exit code global debe distinguir tres estados: `0` exito completo, `2` exito degradado con al menos una fuente habilitada usable y `1` fallo total/no recuperable. `Run all` debe continuar a `maps` cuando `update` devuelve `2`, pero conservar `2` como resultado final.
+
 ### Motivo
 Un fallo temporal de Meteocat, Meteoclimatic o Wunderground no deberia impedir publicar datos actualizados de las otras fuentes. Al mismo tiempo, no se deben publicar mapas parciales o con datos reutilizados sin una senal visible.
 
@@ -36,7 +38,7 @@ Un fallo temporal de Meteocat, Meteoclimatic o Wunderground no deberia impedir p
 Mantener el fallo global inmediato ante cualquier excepcion de fuente, o silenciar el fallo y publicar mapas sin trazabilidad.
 
 ### Consecuencias
-Los mapas pueden combinar datos frescos con incrementales previos si una fuente cae, pero la webUI deja trazabilidad visible. Pendiente: mostrar ese estado dentro de MapLibre y decidir si el exit code global debe distinguir exito degradado sin bloquear `Run all`.
+Los mapas pueden combinar datos frescos con incrementales previos si una fuente cae, pero la webUI deja trazabilidad visible. MapLibre muestra badges de estado por fuente cuando `source_status.json` esta publicado. El exit code `2` permite automatizaciones y webUI distinguir exito degradado sin tratarlo como fallo total.
 
 ### Ficheros afectados
 - `Rainmapper.py`
@@ -45,7 +47,7 @@ Los mapas pueden combinar datos frescos con incrementales previos si una fuente 
 - `rainmapper-app/CHANGELOG.md`
 
 ### Estado
-Implementada parcialmente en `0.2.71`; pendiente de validacion HA con fallo real o simulado y de completar estado en MapLibre.
+Implementada parcialmente en `0.2.71` y ampliada con semantica global `0/2/1` tras la decision del 2026-06-18; pendiente de validacion HA con fallo real o simulado.
 
 ## 2026-06-17 - Ejecutar Home Assistant en modo serve (fecha aproximada)
 
@@ -261,10 +263,10 @@ Parsear directamente CSV `Tomap` en navegador o seguir solo con HTML Bokeh.
 ### Estado
 Confirmada.
 
-## 2026-06-18 - Probar terreno 3D en MapLibre con DEM externo
+## 2026-06-18 - Usar terreno 3D en MapLibre con DEM externo
 
 ### Decision
-Anadir un prototipo apagado por defecto en MapLibre para activar `3D terrain` usando una fuente externa Terrarium/Mapzen como `raster-dem`.
+Anadir `3D terrain`, apagado por defecto, en MapLibre usando una fuente externa Terrarium/Mapzen como `raster-dem`. Modificado el 2026-06-18: tras validacion manual en local, HA e iPhone, deja de considerarse prototipo experimental y queda como funcionalidad definitiva.
 
 ### Motivo
 MapLibre permite inclinar/rotar la camara, pero para relieve real necesita tiles DEM codificados. Los mapas actuales Satellite+, Hybrid, Topographic y Liberty no contienen elevacion usable por si mismos. El fichero local `Iberia_HighResolution.CDEM` no fue reconocido por GDAL y Land no permitio exportarlo correctamente durante una prueba manual fuera del repo; pendiente de confirmar si se retoma esa via.
@@ -273,7 +275,7 @@ MapLibre permite inclinar/rotar la camara, pero para relieve real necesita tiles
 Incluir un DEM dentro de la imagen Docker, convertir primero datos IGN/CNIG/Copernicus, usar el CDEM de Land/TwoNav o no probar 3D.
 
 ### Consecuencias
-No se aumenta el tamano de la imagen Docker y se puede validar rapido si el 3D aporta valor visual. La opcion queda dependiente de un proveedor externo. La validacion visual inicial en local/HA/iPhone fue reportada por el usuario, pero antes de considerarlo estable queda pendiente una confirmacion reproducible/automatizada y observacion de rendimiento. Si aporta valor, se estudiara generar tiles DEM propios y servirlos fuera de la imagen, por ejemplo desde `/config/www` o Cloudflare R2.
+No se aumenta el tamano de la imagen Docker. La opcion queda dependiente de un proveedor externo; si esa dependencia falla, rinde mal o se quiere mas control, se estudiara generar tiles DEM propios y servirlos fuera de la imagen, por ejemplo desde `/config/www` o Cloudflare R2.
 
 ### Ficheros afectados
 - `maplibre-viewer/`
@@ -283,7 +285,7 @@ No se aumenta el tamano de la imagen Docker y se puede validar rapido si el 3D a
 - `docs/todo.md`
 
 ### Estado
-Prototipo implementado y apagado por defecto. Validacion visual manual/reportada en local/HA/iPhone; pendiente de confirmacion reproducible/automatizada antes de considerarlo estable.
+Funcionalidad definitiva, apagada por defecto. Validacion manual/reportada en local, HA e iPhone; pendiente solo de observacion operativa de rendimiento/dependencia externa.
 
 ## 2026-06-17 - Crear smoke test versionado
 
