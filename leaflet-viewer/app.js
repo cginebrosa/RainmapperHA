@@ -120,11 +120,12 @@ function popupContent(properties) {
   const altitude = properties["Altitud"] || "-";
   const total = Number(properties["Total"] || 0).toFixed(1);
   const lastReading = properties["Ultima Lectura"] || "-";
+  const lastRain = lastRainRecord(properties);
   const rainHistory = recentRainHistory(properties);
 
   return `
     <div class="popup-title">${station} · ${name}</div>
-    <div class="popup-row"><strong>Rain:</strong> ${total} mm</div>
+    <div class="popup-row popup-metrics"><span><strong>Rain:</strong> ${total} mm</span><span><strong>Last:</strong> ${lastRain}</span></div>
     <div class="popup-row"><strong>Location:</strong> ${town}${province ? `, ${province}` : ""}</div>
     <div class="popup-row"><strong>Altitude:</strong> ${altitude} m</div>
     <div class="popup-row"><strong>Last reading:</strong> ${lastReading}</div>
@@ -132,17 +133,60 @@ function popupContent(properties) {
   `;
 }
 
-function recentRainHistory(properties) {
-  const rows = [];
-  const historyIndexes = Object.keys(properties || {})
+function rainHistoryIndexes(properties) {
+  return Object.keys(properties || {})
     .map((key) => {
       const match = key.match(/^Data_Pluja_(\d+)$/);
       return match ? Number(match[1]) : null;
     })
     .filter((index) => Number.isInteger(index) && index > 0)
     .sort((a, b) => a - b);
+}
 
-  for (const index of historyIndexes) {
+function parseRainDate(dateText) {
+  if (!dateText || dateText === "None" || dateText === "NaT" || dateText === "nan") {
+    return null;
+  }
+  const parts = String(dateText).split(/[/-]/).map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) {
+    return null;
+  }
+  const [first, second, third] = parts;
+  const year = first > 1900 ? first : third;
+  const month = second;
+  const day = first > 1900 ? third : first;
+  const parsedDate = new Date(year, month - 1, day);
+  if (parsedDate.getFullYear() !== year || parsedDate.getMonth() !== month - 1 || parsedDate.getDate() !== day) {
+    return null;
+  }
+  return parsedDate;
+}
+
+function formatRainDateDisplay(dateText) {
+  const parsedDate = parseRainDate(dateText);
+  if (!parsedDate) {
+    return "-";
+  }
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
+  return `${day}/${month}/${year}`;
+}
+
+function daysAgo(dateText) {
+  const parsedDate = parseRainDate(dateText);
+  if (!parsedDate) {
+    return "-";
+  }
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const recordMidnight = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
+  return Math.floor((todayMidnight - recordMidnight) / 86400000);
+}
+
+function rainHistoryRecords(properties) {
+  const records = [];
+  for (const index of rainHistoryIndexes(properties)) {
     const suffix = String(index).padStart(2, "0");
     const date = properties[`Data_Pluja_${suffix}`];
     const rain = properties[`Pluja_Diaria_${suffix}`];
@@ -154,12 +198,37 @@ function recentRainHistory(properties) {
     const rainValue = Number(rain);
     const tempMaxValue = Number(tempMax);
     const tempMinValue = Number(tempMin);
+    records.push({
+      date,
+      daysAgo: daysAgo(date),
+      rain,
+      rainValue,
+      tempMaxValue,
+      tempMinValue,
+    });
+  }
+  return records;
+}
+
+function lastRainRecord(properties) {
+  const record = rainHistoryRecords(properties).find((item) => Number.isFinite(item.rainValue) && item.rainValue > 0);
+  if (!record) {
+    return "-";
+  }
+  return `${formatRainDateDisplay(record.date)} · ${record.rainValue.toFixed(1)} mm`;
+}
+
+function recentRainHistory(properties) {
+  const rows = [];
+  for (const record of rainHistoryRecords(properties)) {
+    const hasRain = Number.isFinite(record.rainValue) && record.rainValue > 0;
     rows.push(`
-      <tr>
-        <td>${date}</td>
-        <td>${Number.isFinite(rainValue) ? rainValue.toFixed(1) : rain}</td>
-        <td>${Number.isFinite(tempMaxValue) ? tempMaxValue.toFixed(1) : "-"}</td>
-        <td>${Number.isFinite(tempMinValue) ? tempMinValue.toFixed(1) : "-"}</td>
+      <tr class="${hasRain ? "rainy-day" : ""}">
+        <td>${record.date}</td>
+        <td>${record.daysAgo}</td>
+        <td>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : record.rain}</td>
+        <td>${Number.isFinite(record.tempMaxValue) ? record.tempMaxValue.toFixed(1) : "-"}</td>
+        <td>${Number.isFinite(record.tempMinValue) ? record.tempMinValue.toFixed(1) : "-"}</td>
       </tr>
     `);
   }
@@ -175,6 +244,7 @@ function recentRainHistory(properties) {
         <thead>
           <tr>
             <th>Date</th>
+            <th>Days ago</th>
             <th>Rain</th>
             <th>Tmax</th>
             <th>Tmin</th>

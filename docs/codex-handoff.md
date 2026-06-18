@@ -109,12 +109,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.69`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
+- Estado actual: version `0.2.70`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.69`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.70`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -151,7 +151,7 @@ Tambien existen documentos de uso:
 - GeoJSON para 1/7/14/21/30/60/90 dias: `tomap_to_geojson.py`.
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `tomap_to_geojson.py`.
 - Filtros en MapLibre: settings del visor aplica filtros cliente por lluvia minima y por fuente de estacion sobre el periodo cargado para validar UX de futura app movil.
-- Popups de estacion en Leaflet/MapLibre: muestran el resumen de estacion y un desplegable cerrado por defecto con los ultimos registros disponibles en el GeoJSON. El visor detecta dinamicamente columnas `Data_Pluja_XX`; MapLibre incluye en Settings el control `Last rains history` para limitar cuantas filas se muestran. Rainmapper genera por defecto 30 registros recientes por estacion, configurable en HA con `last_rains_history` y en Docker local con `RAINMAPPER_LAST_RAINS_HISTORY`/`LAST_RAINS_HISTORY`.
+- Popups de estacion en Leaflet/MapLibre: muestran el resumen de estacion, lluvia acumulada, ultima lluvia del historico disponible (`DD/MM/AAAA · mm`) y un desplegable cerrado por defecto con los ultimos registros disponibles en el GeoJSON. El historico anade `Days ago`, mantiene cabecera sticky al hacer scroll y resalta visualmente las filas con lluvia. El visor detecta dinamicamente columnas `Data_Pluja_XX`; MapLibre incluye en Settings el control `Last rains history` para limitar cuantas filas se muestran. Rainmapper genera por defecto 30 registros recientes por estacion, configurable en HA con `last_rains_history` y en Docker local con `RAINMAPPER_LAST_RAINS_HISTORY`/`LAST_RAINS_HISTORY`.
 - Terreno 3D experimental en MapLibre: settings permite activar `3D terrain` y ajustar `Exaggeration` usando un DEM externo Terrarium/Mapzen como fuente `raster-dem`. No se incluye ningun DEM en la imagen Docker.
 - Consulta de altitud en MapLibre: una pulsacion larga sobre el mapa muestra un popup con la altitud del DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB. Se evita `queryTerrainElevation` para esta lectura porque en una prueba manual en Urus/Cerdanya (`42.35406, 1.85317`) devolvio `-4 m` aunque el tile DEM crudo devolvia unos `1259 m`; esta observacion queda pendiente de confirmar automaticamente. En HA no se disparaba la ventana incluso con Chrome limpio y tras generar mapas, por lo que `0.2.65` cambia el disparador de pulsacion larga a eventos propios de MapLibre y `contextmenu`, y ademas alinea los cache-busters internos de los visores. Validacion final en HA/iPhone/Safari Mac reportada por el usuario; pendiente de confirmar mediante prueba automatizada o reproducible.
 - `Source` en GeoJSON: `tomap_to_geojson.py` anade fuente inferida por codigo de estacion (`ES...` de longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown`). Si aparece `Unknown`, el conversor emite un `WARNING` en stdout.
@@ -169,7 +169,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.69`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.70`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.70
+
+- Add `Days ago` to station popup rain history in Leaflet and MapLibre.
+- Highlight rainy history rows and show the latest rain date/amount in the station popup summary.
+
 ## 0.2.69
 
 - Remove optional Jawg Maps layers and `jawgmaps_api_key` configuration from Leaflet, MapLibre, Docker local, and the Home Assistant app.
