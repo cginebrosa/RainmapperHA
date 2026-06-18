@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.65
+
+- Refresh Leaflet and MapLibre viewer asset cache busters to match the Home Assistant app version.
+- Add a smoke-test check to catch stale viewer asset version query strings before publishing.
+- Use MapLibre map events and `contextmenu` as a more robust trigger for long-press terrain elevation popups.
+
 ## 0.2.63
 
 - Add MapLibre long-press terrain elevation popups using direct Terrarium DEM tile decoding.

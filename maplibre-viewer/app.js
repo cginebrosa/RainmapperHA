@@ -615,43 +615,48 @@ function showTerrainPopup(lngLat) {
 }
 
 function setupLongPressElevation() {
-  const canvas = map.getCanvas();
-
-  canvas.addEventListener("pointerdown", (event) => {
-    if (event.button !== undefined && event.button !== 0) {
-      return;
-    }
-
+  function startLongPress(event) {
     didTriggerLongPress = false;
-    longPressStartPoint = { x: event.clientX, y: event.clientY };
-    const canvasRect = canvas.getBoundingClientRect();
-    const point = [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
-    const lngLat = map.unproject(point);
-
+    longPressStartPoint = event.point;
     clearLongPressTimer();
     longPressTimer = window.setTimeout(() => {
       didTriggerLongPress = true;
-      showTerrainPopup(lngLat);
+      showTerrainPopup(event.lngLat);
     }, LONG_PRESS_MS);
-  }, { passive: true });
+  }
 
-  canvas.addEventListener("pointermove", (event) => {
+  function cancelLongPress() {
+    clearLongPressTimer();
+    longPressStartPoint = null;
+  }
+
+  function cancelLongPressOnMove(event) {
     if (!longPressStartPoint) {
       return;
     }
 
-    const deltaX = Math.abs(event.clientX - longPressStartPoint.x);
-    const deltaY = Math.abs(event.clientY - longPressStartPoint.y);
+    const deltaX = Math.abs(event.point.x - longPressStartPoint.x);
+    const deltaY = Math.abs(event.point.y - longPressStartPoint.y);
     if (deltaX > LONG_PRESS_MOVE_TOLERANCE_PX || deltaY > LONG_PRESS_MOVE_TOLERANCE_PX) {
-      clearLongPressTimer();
+      cancelLongPress();
     }
-  }, { passive: true });
+  }
 
-  ["pointerup", "pointercancel", "pointerleave"].forEach((eventName) => {
-    canvas.addEventListener(eventName, () => {
-      clearLongPressTimer();
-      longPressStartPoint = null;
-    }, { passive: true });
+  map.on("mousedown", startLongPress);
+  map.on("touchstart", startLongPress);
+  map.on("mousemove", cancelLongPressOnMove);
+  map.on("touchmove", cancelLongPressOnMove);
+  map.on("mouseup", cancelLongPress);
+  map.on("touchend", cancelLongPress);
+  map.on("dragstart", cancelLongPress);
+
+  map.on("contextmenu", (event) => {
+    if (event.originalEvent?.preventDefault) {
+      event.originalEvent.preventDefault();
+    }
+    didTriggerLongPress = true;
+    cancelLongPress();
+    showTerrainPopup(event.lngLat);
   });
 }
 

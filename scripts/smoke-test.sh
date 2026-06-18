@@ -58,6 +58,33 @@ check_versions() {
   printf 'Home Assistant version: %s\n' "$config_version"
 }
 
+read_ha_version() {
+  sed -n 's/^version:[[:space:]]*"\([^"]*\)".*/\1/p' rainmapper-app/config.yaml | head -n 1
+}
+
+check_viewer_asset_versions() {
+  local config_version stale_refs
+
+  config_version="$(read_ha_version)"
+  if [ -z "$config_version" ]; then
+    printf 'Could not read Home Assistant version.\n' >&2
+    return 1
+  fi
+
+  stale_refs="$(
+    grep -RInE 'href="[^"]+\\?v=|src="[^"]+\\?v=' \
+      leaflet-viewer/index.html \
+      maplibre-viewer/index.html \
+      rainmapper-app/app/leaflet-viewer/index.html \
+      rainmapper-app/app/maplibre-viewer/index.html \
+    | grep -v "?v=${config_version}" || true
+  )"
+  if [ -n "$stale_refs" ]; then
+    printf 'Viewer asset cache-busters do not match Home Assistant version %s:\n%s\n' "$config_version" "$stale_refs" >&2
+    return 1
+  fi
+}
+
 check_synced_files() {
   local files=(
     Rainmapper.py
@@ -344,6 +371,7 @@ check_shell_syntax() {
 run_check "Python interpreter is available ($PYTHON_BIN)" require_command "$PYTHON_BIN"
 run_check "node is available" require_command node
 run_check "Home Assistant version metadata is aligned" check_versions
+run_check "viewer asset cache-busters match Home Assistant version" check_viewer_asset_versions
 run_check "root and Home Assistant app files are synchronized" check_synced_files
 run_check "Leaflet and MapLibre viewer copies are synchronized" check_synced_viewers
 run_check "Python files compile" check_python_syntax
