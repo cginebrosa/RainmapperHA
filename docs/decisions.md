@@ -94,13 +94,13 @@ Confirmada.
 No retirar Bokeh todavia; publicar tambien Leaflet y MapLibre. MapLibre queda como visor principal recomendado y Leaflet como fallback.
 
 ### Motivo
-Bokeh es la referencia historica. Leaflet funciona bien en movil. MapLibre permite mapas vectoriales mas nitidos y desde `0.2.47` tambien puede cubrir las capas raster Hybrid y Topographic que antes estaban solo en Leaflet. Desde `0.2.48`, MapLibre tambien prueba Satellite+, combinando imagen Esri con orientacion vectorial OpenFreeMap.
+Bokeh es la referencia historica. Leaflet funciona bien en movil segun validacion manual/reportada por el usuario; pendiente de confirmacion automatizada. MapLibre permite mapas vectoriales mas nitidos y desde `0.2.47` tambien puede cubrir las capas raster Hybrid y Topographic que antes estaban solo en Leaflet. Desde `0.2.48`, MapLibre tambien prueba Satellite+, combinando imagen Esri con orientacion vectorial OpenFreeMap.
 
 ### Alternativas consideradas
 Eliminar Bokeh inmediatamente o sustituir Leaflet por MapLibre de golpe.
 
 ### Consecuencias
-Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de migrar. MapLibre ya esta validado como funcional en movil. Modificado en `0.2.47`: MapLibre incorpora Hybrid raster por defecto y Topographic raster, manteniendo los estilos vectoriales. Modificado en `0.2.48`: se descarta Tracestrack por ahora porque requiere app key de pago para vector maps y se prueba Satellite+ con OpenFreeMap sobre imagen Esri. Modificado en `0.2.53`: MapLibre queda como visor principal recomendado tras validacion en HA/iPhone; Leaflet sigue publicado como fallback.
+Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de migrar. MapLibre ya esta validado manualmente como funcional en movil segun reporte del usuario; pendiente de confirmacion automatizada. Modificado en `0.2.47`: MapLibre incorpora Hybrid raster por defecto y Topographic raster, manteniendo los estilos vectoriales. Modificado en `0.2.48`: se descarta Tracestrack por ahora porque requiere app key para vector maps; el coste/condiciones exactas quedan pendientes de confirmar si se retoma. Se prueba Satellite+ con OpenFreeMap sobre imagen Esri. Modificado en `0.2.53`: MapLibre queda como visor principal recomendado tras validacion manual en HA/iPhone; Leaflet sigue publicado como fallback.
 
 ### Ficheros afectados
 - `Rainmapper_Client.py`
@@ -110,7 +110,7 @@ Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de 
 - `rainmapper-app/app/web_server.py`
 
 ### Estado
-Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil, que se mantienen publicados Leaflet y MapLibre, y que MapLibre `0.2.53` pasa a ser el visor principal recomendado. Leaflet queda como fallback.
+Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil segun validacion manual/reportada por el usuario, que se mantienen publicados Leaflet y MapLibre, y que MapLibre `0.2.53` pasa a ser el visor principal recomendado. Leaflet queda como fallback.
 
 ## 2026-06-17 - Retirar ruta legacy rainmapper-mobile
 
@@ -118,7 +118,7 @@ Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya fu
 Dejar de publicar `/local/rainmapper-mobile` desde la app de Home Assistant.
 
 ### Motivo
-La ruta legacy ya no se utiliza. Cloudflare tiene redirecciones hacia `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
+La ruta legacy ya no se utiliza. Cloudflare tiene redirecciones hacia `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario; pendiente de confirmar fuera del repositorio.
 
 ### Alternativas consideradas
 Mantener `/local/rainmapper-mobile` indefinidamente como alias de compatibilidad.
@@ -220,13 +220,13 @@ Confirmada.
 Anadir un prototipo apagado por defecto en MapLibre para activar `3D terrain` usando una fuente externa Terrarium/Mapzen como `raster-dem`.
 
 ### Motivo
-MapLibre permite inclinar/rotar la camara, pero para relieve real necesita tiles DEM codificados. Los mapas actuales Satellite+, Hybrid, Topographic y Liberty no contienen elevacion usable por si mismos. El fichero local `Iberia_HighResolution.CDEM` no fue reconocido por GDAL y Land no permitio exportarlo correctamente durante la prueba.
+MapLibre permite inclinar/rotar la camara, pero para relieve real necesita tiles DEM codificados. Los mapas actuales Satellite+, Hybrid, Topographic y Liberty no contienen elevacion usable por si mismos. El fichero local `Iberia_HighResolution.CDEM` no fue reconocido por GDAL y Land no permitio exportarlo correctamente durante una prueba manual fuera del repo; pendiente de confirmar si se retoma esa via.
 
 ### Alternativas consideradas
 Incluir un DEM dentro de la imagen Docker, convertir primero datos IGN/CNIG/Copernicus, usar el CDEM de Land/TwoNav o no probar 3D.
 
 ### Consecuencias
-No se aumenta el tamano de la imagen Docker y se puede validar rapido si el 3D aporta valor visual. La opcion queda dependiente de un proveedor externo y debe validarse en local/HA/iPhone antes de considerarse estable. Si aporta valor, se estudiara generar tiles DEM propios y servirlos fuera de la imagen, por ejemplo desde `/config/www` o Cloudflare R2.
+No se aumenta el tamano de la imagen Docker y se puede validar rapido si el 3D aporta valor visual. La opcion queda dependiente de un proveedor externo. La validacion visual inicial en local/HA/iPhone fue reportada por el usuario, pero antes de considerarlo estable queda pendiente una confirmacion reproducible/automatizada y observacion de rendimiento. Si aporta valor, se estudiara generar tiles DEM propios y servirlos fuera de la imagen, por ejemplo desde `/config/www` o Cloudflare R2.
 
 ### Ficheros afectados
 - `maplibre-viewer/`
@@ -236,7 +236,7 @@ No se aumenta el tamano de la imagen Docker y se puede validar rapido si el 3D a
 - `docs/todo.md`
 
 ### Estado
-Prototipo pendiente de validacion.
+Prototipo implementado y apagado por defecto. Validacion visual manual/reportada en local/HA/iPhone; pendiente de confirmacion reproducible/automatizada antes de considerarlo estable.
 
 ## 2026-06-17 - Crear smoke test versionado
 
@@ -370,7 +370,7 @@ La RPi no debe cargarse excesivamente. El scraper es el cuello de botella, pero 
 Subir threads para acelerar scraping.
 
 ### Consecuencias
-La ejecucion completa tarda mas, pero la carga es estable. Se anaden metricas para entender donde optimizar. El rendimiento actual es aceptable: update completo + generacion de mapas tarda unos 7 minutos, asi que cambios de timeout/observabilidad quedan en baja prioridad hasta acumular mas datos.
+La ejecucion completa tarda mas, pero la carga es estable. Se anaden metricas para entender donde optimizar. El rendimiento actual reportado por el usuario es aceptable: update completo + generacion de mapas tarda unos 7 minutos; pendiente de confirmar automaticamente. Por eso, cambios de timeout/observabilidad quedan en baja prioridad hasta acumular mas datos.
 
 ### Ficheros afectados
 - `rainmapper-app/config.yaml`
@@ -496,7 +496,7 @@ Propuesta inicial confirmada a nivel de diseno; pendiente de implementacion.
 Para explorar la futura app iOS/Android, tomar como direccion preferente de prototipo una arquitectura con Cloudflare R2 para artefactos GeoJSON, Cloudflare Worker como API ligera y React Native + MapLibre React Native como app cross-platform.
 
 ### Motivo
-Cloudflare ya forma parte del acceso externo actual y encaja con artefactos GeoJSON estaticos/cacheables. Workers evita operar un VPS en la primera fase. React Native permite una base comun iOS/Android y MapLibre alinea la app con el visor principal recomendado del proyecto.
+Cloudflare forma parte del acceso externo actual segun reporte del usuario; pendiente de confirmar fuera del repositorio. Encaja con artefactos GeoJSON estaticos/cacheables. Workers evita operar un VPS en la primera fase. React Native permite una base comun iOS/Android y MapLibre alinea la app con el visor principal recomendado del proyecto.
 
 ### Alternativas consideradas
 App nativa separada Swift/Kotlin, PWA, FastAPI en VPS, Supabase/Firebase como backend principal o consumo directo de GeoJSON publicados por Home Assistant.
@@ -525,7 +525,7 @@ Home Assistant estaba construyendo la imagen en la Raspberry Pi en cada update, 
 Mantener build local en HA, construir manualmente en Mac y subir imagen a mano, o posponer la preconstruccion hasta una fase mas estable.
 
 ### Consecuencias
-Los updates de HA pasan a depender de que GitHub Actions haya publicado la imagen de la version correspondiente antes de actualizar en HA. El paquete GHCR debe ser accesible para Home Assistant; si queda privado, habra que hacerlo publico o configurar autenticacion. Se gana velocidad de instalacion/update en RPi si el tiempo de GitHub Actions, idealmente con cache Buildx/GHA, resulta aceptable. Si no compensa para pruebas rapidas, queda abierta la alternativa de build/push manual desde Mac.
+Los updates de HA pasan a depender de que exista en GHCR la imagen de la version correspondiente antes de actualizar en HA. El paquete GHCR debe ser accesible para Home Assistant; si queda privado, habra que hacerlo publico o configurar autenticacion. La mejora de velocidad de instalacion/update en RPi fue validada manualmente por el usuario; pendiente de confirmacion automatizada. GitHub Actions con cache no resulto util segun esa observacion manual, por lo que se reemplazo como flujo normal por build/push local desde Mac.
 
 ### Ficheros afectados
 - `.github/workflows/build-rainmapper-app.yml`
@@ -537,7 +537,7 @@ Los updates de HA pasan a depender de que GitHub Actions haya publicado la image
 - `docs/todo.md`
 
 ### Estado
-Implementada y validada en `0.2.57`: Home Assistant descargo `ghcr.io/cginebrosa/rainmapperha:0.2.57` sin build local. Modificada en `0.2.58` para anadir cache Buildx/GHA en futuras Actions. Reemplazada como flujo normal en `0.2.60` por build/push local con Buildx antes del commit de version, dejando GitHub Actions como fallback manual.
+Implementada en `0.2.57`. La descarga de `ghcr.io/cginebrosa/rainmapperha:0.2.57` sin build local fue validada manualmente por el usuario; pendiente de confirmacion automatizada. Modificada en `0.2.58` para anadir cache Buildx/GHA en futuras Actions. Reemplazada como flujo normal en `0.2.60` por build/push local con Buildx antes del commit de version, dejando GitHub Actions como fallback manual.
 
 ## 2026-06-17 - Publicar imagen HA con Buildx local antes del commit de version
 
@@ -563,7 +563,7 @@ El flujo de release exige login Docker contra GHCR en el Mac y disciplina de pub
 - `docs/decisions.md`
 
 ### Estado
-Implementado y validado en `0.2.60`: Home Assistant instalo la imagen publicada localmente desde GHCR sin build local. Modificado despues de validar `0.2.60` para anadir limpieza local de etiquetas antiguas al script de publicacion.
+Implementado en `0.2.60`: Home Assistant instalo la imagen publicada localmente desde GHCR sin build local segun validacion manual del usuario; pendiente de confirmacion automatizada. Modificado despues de validar `0.2.60` para anadir limpieza local de etiquetas antiguas al script de publicacion.
 
 ## 2026-06-17 - Exponer fuente de estacion en GeoJSON y filtros del visor
 
@@ -587,4 +587,4 @@ Los visores pueden usar `Source` directamente y el cliente futuro tendra un cont
 - `tests/test_tomap_to_geojson.py`
 
 ### Estado
-Implementada en `0.2.58`; modificada en `0.2.59` para clasificar Meteocat solo con codigos de longitud 2 y avisar por `Unknown`. Pendiente validacion en Home Assistant/iPhone.
+Implementada en `0.2.58`; modificada en `0.2.59` para clasificar Meteocat solo con codigos de longitud 2 y avisar por `Unknown`. La inferencia esta cubierta por `tests/test_tomap_to_geojson.py`; la validacion visual en Home Assistant/iPhone fue reportada por el usuario y queda pendiente de automatizar.

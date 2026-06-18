@@ -14,11 +14,11 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - Librerias UI: Leaflet 1.9.4 via CDN, MapLibre GL JS 4.7.1 via CDN.
 - Librerias de estado JS: no detectadas.
 - Librerias de routing JS: no detectadas.
-- Librerias de validacion: pendiente de confirmar.
+- Librerias de validacion: pendiente de confirmar; no se ha detectado framework dedicado.
 - Librerias HTTP/API: `requests`, `sodapy_local`, `googlemaps`.
-- Librerias de testing: no detectadas.
+- Librerias de testing: `unittest` de la libreria estandar en `tests/`; no se ha detectado `pytest`.
 - Base de datos: no hay base de datos detectada; persistencia por CSV.
-- Despliegue: GitHub como repositorio de app HA, Home Assistant construye/instala la app.
+- Despliegue: GitHub como repositorio de app HA y GHCR como registry de imagenes preconstruidas; Home Assistant descarga `ghcr.io/cginebrosa/rainmapperha:<version>` cuando existe la imagen publicada.
 
 ## Estructura de carpetas
 - `rainmapper-app/`: paquete de Home Assistant.
@@ -229,7 +229,7 @@ Home Assistant:
 - Persistencia por CSV y directorios fijos.
 - WebUI construida con HTML generado en Python.
 - JS de visores sin bundler ni framework.
-- Logs mixtos en ingles/espanol.
+- Logs operativos principales y webUI HA en ingles; README/DOCS de la app HA siguen en espanol por decision operativa actual.
 - Errores Wunderground se clasifican por patrones en logs.
 - Cambios de core deben duplicarse en raiz y `rainmapper-app/app`.
 
@@ -237,7 +237,7 @@ Home Assistant:
 - Duplicidad de codigo entre raiz y app HA.
 - Acoplamiento fuerte a nombres/rutas CSV.
 - Scraper Wunderground fragil ante cambios HTML o estaciones desaparecidas.
-- No hay tests automaticos para proteger historicos.
+- Proteccion automatica de historicos limitada: existen `scripts/check-history.py`, `scripts/backup-data.sh` y smoke checks, pero no una suite funcional completa de regresion historica.
 - `web_server.py` concentra demasiadas responsabilidades.
 - Gestion de version dispersa entre `config.yaml`, `CHANGELOG.md`, assets y Dockerfile.
 - API keys de mapas cliente son visibles en navegador si se usan tiles externos con token.

@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ antes de decidir si se mantiene, se retira o se sustituye por tiles DEM propios.
+Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o experimental. Hay validacion visual manual/reportada en local, HA e iPhone, pero falta una confirmacion reproducible/automatizada y observar rendimiento/estabilidad con uso real.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -11,16 +11,16 @@ Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ a
   - Estado: resuelto.
 
 - [x] Validar MapLibre en movil tras los ultimos ajustes
-  - Contexto: MapLibre funciona bien en movil; se mantiene publicado junto a Leaflet de momento. La `0.2.47` anade capas raster Hybrid/Topographic y requiere validacion visual especifica.
+  - Contexto: MapLibre funciona bien en movil segun validacion manual/reportada por el usuario; se mantiene publicado junto a Leaflet de momento. La `0.2.47` anade capas raster Hybrid/Topographic y requiere validacion visual especifica.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
   - Criterio de aceptacion: cambio de capa mantiene estaciones, cambio de periodo conserva vista, popup es usable y no desplaza/molesta.
-  - Estado: validado por el usuario en movil.
+  - Estado: validado manualmente por el usuario en movil; pendiente de confirmacion automatizada.
 
 - [x] Validar MapLibre raster y Leaflet fallback en HA/iPhone
   - Contexto: MapLibre `0.2.53` incorpora Satellite+ como base por defecto, Hybrid raster, Topographic raster y estilos vectoriales; Leaflet debe ocultar Jawg si `jawgmaps_api_key` esta vacia.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
   - Criterio de aceptacion: Hybrid, Topographic y Satellite+ cargan correctamente, el cambio entre capas conserva marcadores, periodo, vista y popup en movil.
-  - Estado: validado por el usuario en HA/iPhone. Leaflet queda como fallback publicado y oculta Jawg cuando no hay API key.
+  - Estado: validado manualmente por el usuario en HA/iPhone; pendiente de confirmacion automatizada. Leaflet queda como fallback publicado y oculta Jawg cuando no hay API key.
   - Riesgo si no se hace: decidir retirada de Leaflet sin confirmar que MapLibre cubre bien las capas raster que interesan.
 
 - [x] Mantener sincronizadas raiz y app HA
@@ -38,14 +38,14 @@ Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ a
 
 ## Prioridad media
 - [x] Decidir visor principal
-  - Contexto: conviven Bokeh, Leaflet y MapLibre; MapLibre ya funciona bien en movil y desde `0.2.47` tambien soporta Hybrid/Topographic raster.
+  - Contexto: conviven Bokeh, Leaflet y MapLibre; MapLibre ya funciona bien en movil segun validacion manual/reportada por el usuario y desde `0.2.47` tambien soporta Hybrid/Topographic raster.
   - Ficheros relacionados: `Rainmapper_Client.py`, `leaflet-viewer/`, `maplibre-viewer/`, `rainmapper-app/app/web_server.py`.
   - Criterio de aceptacion: definir si Bokeh queda como legacy, si Leaflet sigue activo y si MapLibre pasa a principal.
   - Estado: MapLibre queda como visor principal recomendado tras validar `0.2.53`; Leaflet se mantiene publicado como fallback. Bokeh sigue como referencia/compatibilidad.
   - Riesgo aceptado: complejidad y mantenimiento de varios visores hasta nueva revision.
 
 - [x] Retirar `/local/rainmapper-mobile`
-  - Contexto: la ruta legacy ya no se usa porque Cloudflare redirige a `rainmapper-leaflet` y `rainmapper-maplibre`.
+  - Contexto: la ruta legacy ya no se usa porque Cloudflare redirige a `rainmapper-leaflet` y `rainmapper-maplibre` segun reporte del usuario; pendiente de confirmar fuera del repositorio.
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper-app/DOCS.md`, `README.md`, `rainmapper-app/README.md`.
   - Criterio de aceptacion: dejar de publicar `/local/rainmapper-mobile` y limpiar la carpeta antigua al publicar mapas.
   - Estado: resuelto en version `0.2.42`.
@@ -73,26 +73,27 @@ Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ a
   - Contexto: se ha anadido un panel `Settings` al visor MapLibre con slider `Min rain` para validar la UX antes de llevar el concepto a la futura app cross-platform.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`, `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: en HA/iPhone el slider filtra estaciones del periodo actual, conserva cambio de periodo/capa y no bloquea popups ni lectura del mapa.
-  - Estado: validado por el usuario en HA/iPhone; el slider filtra sin romper cambio de periodo/capa ni popups.
+  - Estado: validado manualmente por el usuario en HA/iPhone; pendiente de confirmacion automatizada. El slider filtra sin romper cambio de periodo/capa ni popups segun esa validacion.
 
 - [x] Validar vuelta a Satellite+ en MapLibre
   - Contexto: en `0.2.55`, despues de cambiar desde Satellite+ a otra capa, volver a Satellite+ no refrescaba la capa y quedaba la anterior.
   - Ficheros relacionados: `maplibre-viewer/app.js`, `maplibre-viewer/index.html`, `rainmapper-app/app/maplibre-viewer/`.
   - Criterio de aceptacion: en HA/iPhone, Satellite+ vuelve a cargar correctamente tras alternar con Hybrid, Topographic y Liberty.
-  - Estado: corregido en `0.2.56` y validado por el usuario en HA/iPhone.
+  - Estado: corregido en `0.2.56` y validado manualmente por el usuario en HA/iPhone; pendiente de confirmacion automatizada.
 
 - [x] Validar parada limpia SIGTERM en Home Assistant
   - Contexto: Supervisor aviso que Rainmapper `0.2.54` no manejaba SIGTERM durante update y termino con codigo 143.
   - Ficheros relacionados: `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.
   - Criterio de aceptacion: al actualizar/reiniciar la app HA, Supervisor no muestra warning de SIGTERM y el proceso sale con codigo 0; si hay un job activo, la app intenta esperar a que termine antes de cerrar.
-  - Estado: corregido en `0.2.55` y validado por el usuario; ya no aparece el warning de SIGTERM del Supervisor.
+  - Estado: corregido en `0.2.55` y validado manualmente por el usuario; pendiente de confirmacion automatizada. Ya no aparece el warning de SIGTERM del Supervisor segun esa validacion.
 
 ## Prioridad baja
-- [ ] Validar prototipo MapLibre 3D terrain
+- [ ] Decidir estabilizacion del prototipo MapLibre 3D terrain
   - Contexto: MapLibre puede inclinar/rotar el mapa, pero el relieve real requiere una fuente DEM. Se ha anadido un toggle `3D terrain` y slider `Exaggeration` en Settings usando DEM externo Terrarium/Mapzen.
   - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
-  - Criterio de aceptacion: en local/HA/iPhone, activar 3D terrain funciona sobre Satellite+, Hybrid, Topographic y Liberty sin romper filtros, cambio de periodo, cambio de capa ni popups; si el DEM externo falla o rinde mal, decidir retirada o DEM propio.
-  - Riesgo si no se hace: dejar publicada una opcion experimental dependiente de un proveedor externo sin validar visualmente ni en movil.
+  - Criterio de aceptacion: definir si queda estable, experimental o se retira. Antes de considerarlo estable, confirmar en local/HA/iPhone con prueba reproducible que activar 3D terrain funciona sobre Satellite+, Hybrid, Topographic y Liberty sin romper filtros, cambio de periodo, cambio de capa ni popups; si el DEM externo falla o rinde mal, decidir retirada o DEM propio.
+  - Estado: validacion visual manual/reportada en local, HA e iPhone; pendiente de confirmacion reproducible/automatizada y observacion de rendimiento.
+  - Riesgo si no se hace: dejar publicada una opcion experimental dependiente de un proveedor externo sin control claro de estabilidad.
 
 - [x] Crear smoke tests automatizados
   - Contexto: no hay framework de tests completo, pero existe `scripts/smoke-test.sh`.
@@ -114,14 +115,14 @@ Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ a
 
 - [ ] Mejorar observabilidad de Wunderground
   - Contexto: Wunderground es el cuello de botella, pero todavia no hay suficientes observaciones de tiempos y el rendimiento actual es aceptable.
-  - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos.
+  - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos segun reporte del usuario; pendiente de confirmar automaticamente.
   - Ficheros relacionados: `Rainmapper.py`, `Data/metricas_wunderground.csv`.
   - Criterio de aceptacion: metricas revisables y comparables por ejecucion; posible export futuro a InfluxDB/Grafana.
   - Riesgo si no se hace: optimizacion a ciegas del scraper si el rendimiento empeora en el futuro.
 
 - [ ] Revisar timeout del scraper Wunderground
   - Contexto: algunas estaciones pueden tardar o fallar, pero el tiempo global actual es aceptable y conviene acumular mas observaciones antes de cambiarlo.
-  - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos.
+  - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos segun reporte del usuario; pendiente de confirmar automaticamente.
   - Ficheros relacionados: `Rainmapper.py`, `util/`.
   - Criterio de aceptacion: timeout configurable y errores registrados sin bloquear toda la ejecucion.
   - Riesgo si no se hace: estaciones lentas podrian penalizar todo el run si el rendimiento empeora.
@@ -133,17 +134,17 @@ Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ a
   - Riesgo si no se hace: se acumulan CSV sin explotacion.
 
 - [x] Validar imagen Docker HA preconstruida
-  - Contexto: Home Assistant construye la app en la RPi durante installs/updates, y la barra de progreso de HA puede quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi.
+  - Contexto: antes de usar GHCR, Home Assistant construia la app en la RPi durante installs/updates, y la barra de progreso de HA podia quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi segun validacion manual/reportada por el usuario.
   - Ficheros relacionados: `.github/workflows/build-rainmapper-app.yml`, `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, GitHub Container Registry.
   - Criterio de aceptacion: publicar imagen multi-arch `amd64`/`arm64` en GHCR antes de hacer visible el update en HA; HA descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin build local.
-  - Estado: validado en `0.2.57` con GitHub Actions, en `0.2.60` con Buildx local y en `0.2.61`/`0.2.62`/`0.2.63`/`0.2.65` con limpieza local comprobada. El flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
+  - Estado: el repo soporta imagen GHCR y Buildx local con limpieza de etiquetas antiguas. Validaciones en `0.2.57`, `0.2.60`, `0.2.61`/`0.2.62`/`0.2.63`/`0.2.65` fueron manuales/reportadas por el usuario; pendientes de confirmar automaticamente. El flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
   - Riesgo residual: requiere login Docker en GHCR desde el Mac y disciplina de publicar imagen antes del commit de version.
 
 - [x] Validar filtros de visor para futura app movil
   - Contexto: antes de construir la app iOS/Android se quieren probar funciones utiles en el visor web actual.
   - Ficheros relacionados: `maplibre-viewer/`, `tomap_to_geojson.py`, `tests/test_tomap_to_geojson.py`.
   - Criterio de aceptacion: MapLibre permite filtrar por lluvia minima y por fuente de estacion; el GeoJSON incluye `Source` para no repetir inferencias en clientes futuros.
-  - Estado: filtro de lluvia minima en `0.2.54`; filtro Meteocat/Meteoclimatic/Wunderground y `Source` en GeoJSON en `0.2.58`; ajuste defensivo `Unknown` y Meteocat longitud 2 en `0.2.59`.
+  - Estado: filtro de lluvia minima en `0.2.54`; filtro Meteocat/Meteoclimatic/Wunderground y `Source` en GeoJSON en `0.2.58`; ajuste defensivo `Unknown` y Meteocat longitud 2 en `0.2.59`. Cubierto parcialmente por `tests/test_tomap_to_geojson.py` para inferencia `Source`; validacion visual del visor pendiente de automatizar.
 
 - [x] Disenar futura app iOS/Android
   - Contexto: objetivo a largo plazo incluye app movil con autenticacion y permisos.
@@ -179,9 +180,11 @@ Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ a
   - Sintoma: la pulsacion larga de altitud funcionaba en local pero no en mapas servidos desde HA.
   - Causa: se detecto un problema real de cache-buster (`maplibre-viewer/index.html` seguia referenciando `app.js?v=0.2.62` aunque la app HA estaba en `0.2.63`), pero Chrome limpio tambien fallo tras generar mapas, asi que la causa funcional final era el disparador `pointerdown` directo sobre canvas en HA.
   - Ficheros relacionados: `maplibre-viewer/index.html`, `leaflet-viewer/index.html`, `scripts/smoke-test.sh`.
-  - Estado: corregido en `0.2.65`; el smoke test valida que los cache-busters internos de los visores coinciden con la version HA y MapLibre usa eventos propios del mapa mas `contextmenu` para la pulsacion larga.
+  - Estado: corregido en `0.2.65`; el smoke test valida que los cache-busters internos de los visores coinciden con la version HA y MapLibre usa eventos propios del mapa mas `contextmenu` para la pulsacion larga. Validado manualmente por el usuario en HA tanto en iPhone como en Safari para Mac; pendiente de confirmacion automatizada.
 
 ## Validaciones pendientes
+Nota: las validaciones marcadas como resueltas en esta seccion son, salvo que se indique un script concreto, validaciones manuales/reportadas por el usuario y no pruebas automatizadas reproducibles solo desde el repositorio.
+
 - [x] `docker compose build rainmapper` tras cambios de Docker local.
 - [x] `docker compose run --rm -e MODE=help rainmapper`.
 - [x] `docker compose run --rm -e MODE=all rainmapper` en datos de prueba antes de tocar historicos reales.
@@ -192,7 +195,7 @@ Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ a
 - [x] MapLibre en movil: estilos, marcadores tras cambio de capa, popup, bounds.
 - [x] `ignore_stations_tomap.txt`: estacion ignorada desaparece de Leaflet/MapLibre pero sigue en historico.
 - [x] Reconstruccion desde cero con poco historico.
-- [x] `./local_all.sh`: build local, `MODE=all`, servidor HTTP local y MapLibre con datos actuales; validado el 2026-06-18 a las 00:37 con 432 estaciones en el periodo de 1 dia.
+- [x] `./local_all.sh`: build local, `MODE=all`, servidor HTTP local y MapLibre con datos actuales; validado manualmente por el usuario el 2026-06-18 a las 00:37 con 432 estaciones en el periodo de 1 dia, pendiente de confirmacion automatizada.
 
 ## Preguntas pendientes para el usuario
 - [x] Confirmar si MapLibre debe sustituir a Leaflet como visor principal o si ambos se mantienen.

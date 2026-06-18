@@ -9,8 +9,8 @@ Este documento es de diseno. No implica implementacion inmediata ni cambia el fu
 - Home Assistant ejecuta Rainmapper en modo `serve`.
 - Rainmapper genera CSV historicos, CSV `Tomap`, HTML Bokeh y GeoJSON para Leaflet/MapLibre.
 - Los visores actuales se publican como contenido estatico en `/config/www` y se sirven via `/local/...`.
-- Leaflet y MapLibre funcionan bien en iPhone. Desde `0.2.48`, MapLibre incluye capas raster Hybrid/Topographic, estilos vectoriales y Satellite+.
-- El acceso externo actual depende de HA/dominio/Cloudflare, sin autenticacion propia de Rainmapper.
+- Leaflet y MapLibre funcionan bien en iPhone segun validacion manual/reportada por el usuario; pendiente de confirmacion automatizada. Desde `0.2.48`, MapLibre incluye capas raster Hybrid/Topographic, estilos vectoriales y Satellite+.
+- El acceso externo actual depende de HA/dominio/Cloudflare segun reporte del usuario, sin autenticacion propia de Rainmapper; la configuracion Cloudflare no esta versionada en este repo y queda pendiente de confirmar fuera del repositorio.
 - Docker local se mantiene como entorno de pruebas aislado para cambios de calado.
 
 ## Principio de arquitectura
@@ -39,8 +39,8 @@ App cross-platform
 ```
 
 Motivos:
-- Cloudflare ya forma parte del despliegue externo actual.
-- R2 encaja con artefactos GeoJSON versionados y tiene free tier suficiente para prototipo.
+- Cloudflare ya forma parte del despliegue externo actual segun reporte del usuario; pendiente de confirmar fuera del repositorio.
+- R2 encaja con artefactos GeoJSON versionados. El encaje exacto en el free tier queda pendiente de confirmar con limites/precios vigentes cuando se implemente.
 - Workers permite una API ligera sin administrar VPS.
 - React Native permite una base de codigo comun iOS/Android y MapLibre tiene soporte React Native para ambas plataformas.
 - MapLibre ya es el visor principal recomendado del proyecto, por lo que reutilizar el mismo modelo mental reduce riesgo.
@@ -52,7 +52,7 @@ Esta direccion no implica construir aun la API ni la app. Sirve como referencia 
 ### Fase 0: Visores actuales
 Mantener Leaflet y MapLibre publicados desde HA para uso privado y validacion visual.
 
-MapLibre queda como candidato preferente a visor unico si la validacion de las capas Hybrid/Topographic/Satellite+ en HA/iPhone es correcta, porque ya puede cubrir mapa hibrido, topografico raster y satelite con orientacion vectorial en una sola tecnologia.
+MapLibre queda como candidato preferente a visor unico si la validacion de las capas Hybrid/Topographic/Satellite+ en HA/iPhone se mantiene correcta. La validacion actual es manual/reportada por el usuario; pendiente de confirmacion automatizada. MapLibre ya puede cubrir mapa hibrido, topografico raster y satelite con orientacion vectorial en una sola tecnologia.
 
 Uso:
 - pruebas personales;
@@ -164,11 +164,11 @@ Variante concreta de la opcion B para el prototipo.
 Rainmapper/HA sube o sincroniza GeoJSON a R2. Un Worker expone endpoints `api.nomentero.com` que leen R2, aplican filtros y devuelven JSON a la app.
 
 Ventajas:
-- aprovecha Cloudflare ya existente;
+- aprovecha Cloudflare ya existente segun reporte del usuario; pendiente de confirmar fuera del repositorio;
 - reduce operacion frente a un VPS;
 - permite cache perimetral;
 - no expone rutas internas de Home Assistant;
-- free tier probablemente suficiente para pruebas y beta pequena.
+- free tier probablemente suficiente para pruebas y beta pequena, pendiente de confirmar con limites/precios vigentes antes de implementar.
 
 Inconvenientes:
 - la logica seria TypeScript/JavaScript, no Python;
@@ -300,7 +300,7 @@ La API publica no deberia necesitar permisos de administrador de HA ni exponer r
 Para Cloudflare, esa ubicacion controlada seria R2. La sincronizacion HA -> R2 puede empezar manualmente o con script posterior a `Run all`, y mas adelante integrarse como opcion de publicacion adicional.
 
 ## Cache y publicacion
-Para uso privado, HA/Cloudflare puede ser suficiente.
+Para uso privado, HA/Cloudflare puede ser suficiente; pendiente de confirmar fuera del repositorio segun la configuracion real de Cloudflare.
 
 Para app publica:
 - cachear GeoJSON por mapa/periodo/version de generacion;
