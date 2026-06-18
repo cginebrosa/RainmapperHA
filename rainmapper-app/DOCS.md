@@ -205,17 +205,22 @@ Notas rapidas:
 - `mode: serve` es el modo normal para usar webUI, sidebar y schedule interno.
 - `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
 - `max_threads: 1` es conservador para Raspberry Pi y para Wunderground.
-- `gmap_api_key` es necesaria para los mapas Bokeh/Google Maps.
+- `gmap_api_key` se usa para los mapas Bokeh/Google Maps y para completar metadata de estaciones con servicios de Google.
 - `jawgmaps_api_key` es opcional; si esta vacia, las capas Jawg no aparecen en Leaflet/MapLibre.
 - `wunderground_full_log: true` aumenta mucho el detalle del log de Wunderground y normalmente solo conviene para diagnostico.
 
 ## Google Maps API key
 
-`gmap_api_key` debe configurarlo cada usuario con su propia clave de Google Maps.
+`gmap_api_key` debe configurarlo cada usuario con su propia clave de Google Maps. La app la usa en dos sitios:
+
+- En los mapas HTML clasicos generados por Bokeh/Google Maps.
+- Durante `update`, cuando Rainmapper necesita completar o refrescar metadata de estaciones: altitud, municipio/localidad y provincia. Esto ocurre sobre todo cuando aparece una estacion nueva, cuando cambian sus coordenadas o cuando la metadata guardada esta incompleta.
 
 No debe guardarse en GitHub ni dentro de la imagen Docker. Home Assistant la almacena como una opcion de tipo `password`.
 
-Si solo ejecutas `update`, la clave puede no ser necesaria en todas las ejecuciones. Si generas mapas HTML que usan Google Maps, debes configurarla.
+Si solo ejecutas `update`, la clave puede no usarse en todas las ejecuciones, porque las estaciones ya conocidas conservan su metadata local. Aun asi, puede ser necesaria si hay estaciones nuevas, coordenadas cambiadas o datos de altitud/municipio/provincia pendientes de completar.
+
+La clave debe tener habilitados los servicios de Google necesarios para el uso que hagas: mapas para Bokeh/Google Maps y consultas de elevacion/geocodificacion inversa para completar metadata de estaciones.
 
 ## Meteoclimatic pattern
 
@@ -293,7 +298,7 @@ Usa `true` solo para diagnostico porque el log puede crecer mucho.
 
 ## Claves de mapas
 
-`gmap_api_key` es la clave de Google Maps usada por los mapas HTML clasicos Bokeh/Google Maps. No debe guardarse en Git.
+`gmap_api_key` es la clave de Google Maps. Se usa para los mapas HTML clasicos Bokeh/Google Maps y tambien para completar metadata de estaciones durante `update` mediante consultas de altitud y geocodificacion inversa. No debe guardarse en Git.
 
 `jawgmaps_api_key` es opcional y activa capas Jawg en Leaflet/MapLibre. Si se deja vacia, esas capas no se muestran en los selectores de mapas.
 

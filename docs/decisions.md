@@ -214,6 +214,30 @@ Parsear directamente CSV `Tomap` en navegador o seguir solo con HTML Bokeh.
 ### Estado
 Confirmada.
 
+## 2026-06-18 - Probar terreno 3D en MapLibre con DEM externo
+
+### Decision
+Anadir un prototipo apagado por defecto en MapLibre para activar `3D terrain` usando una fuente externa Terrarium/Mapzen como `raster-dem`.
+
+### Motivo
+MapLibre permite inclinar/rotar la camara, pero para relieve real necesita tiles DEM codificados. Los mapas actuales Satellite+, Hybrid, Topographic y Liberty no contienen elevacion usable por si mismos. El fichero local `Iberia_HighResolution.CDEM` no fue reconocido por GDAL y Land no permitio exportarlo correctamente durante la prueba.
+
+### Alternativas consideradas
+Incluir un DEM dentro de la imagen Docker, convertir primero datos IGN/CNIG/Copernicus, usar el CDEM de Land/TwoNav o no probar 3D.
+
+### Consecuencias
+No se aumenta el tamano de la imagen Docker y se puede validar rapido si el 3D aporta valor visual. La opcion queda dependiente de un proveedor externo y debe validarse en local/HA/iPhone antes de considerarse estable. Si aporta valor, se estudiara generar tiles DEM propios y servirlos fuera de la imagen, por ejemplo desde `/config/www` o Cloudflare R2.
+
+### Ficheros afectados
+- `maplibre-viewer/`
+- `rainmapper-app/app/maplibre-viewer/`
+- `docs/codex-handoff.md`
+- `docs/architecture.md`
+- `docs/todo.md`
+
+### Estado
+Prototipo pendiente de validacion.
+
 ## 2026-06-17 - Crear smoke test versionado
 
 ### Decision

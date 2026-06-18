@@ -21,6 +21,10 @@ const INITIAL_CENTER = [2.1, 41.7];
 const INITIAL_ZOOM = 7;
 const SOURCE_ID = "stations";
 const CIRCLE_LAYER_ID = "station-circles";
+const TERRAIN_SOURCE_ID = "rainmapper-terrain-dem";
+const TERRAIN_TILES = [
+  "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+];
 const jawgAccessToken = window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "";
 const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
@@ -236,6 +240,8 @@ let currentPopup = null;
 let hasLoadedInitialMap = false;
 let minRainFilter = 0;
 let enabledStationSources = new Set(stationSources.map((source) => source.id));
+let terrainEnabled = false;
+let terrainExaggeration = 1;
 
 function styleDefinition(style) {
   if (!style.style) {
@@ -249,6 +255,7 @@ const map = new maplibregl.Map({
   style: styleDefinition(currentStyle),
   center: INITIAL_CENTER,
   zoom: INITIAL_ZOOM,
+  maxPitch: 85,
   attributionControl: true,
 });
 
@@ -364,6 +371,55 @@ function refreshFilteredData() {
   updateSummary(selectedPeriod, features.length, currentVisibleFeatures.length);
 }
 
+function ensureTerrainSource() {
+  if (map.getSource(TERRAIN_SOURCE_ID)) {
+    return;
+  }
+
+  map.addSource(TERRAIN_SOURCE_ID, {
+    type: "raster-dem",
+    tiles: TERRAIN_TILES,
+    tileSize: 256,
+    maxzoom: 15,
+    encoding: "terrarium",
+    attribution: "Elevation tiles &copy; Mapzen",
+  });
+}
+
+function updateTerrainExaggerationValue() {
+  document.getElementById("terrain-exaggeration-value").textContent = `${terrainExaggeration.toFixed(1)}x`;
+}
+
+function applyTerrain() {
+  if (!map.isStyleLoaded()) {
+    return;
+  }
+
+  if (!terrainEnabled) {
+    map.setTerrain(null);
+    return;
+  }
+
+  try {
+    ensureTerrainSource();
+    map.setTerrain({
+      source: TERRAIN_SOURCE_ID,
+      exaggeration: terrainExaggeration,
+    });
+  } catch (error) {
+    terrainEnabled = false;
+    const terrainToggle = document.getElementById("terrain-toggle");
+    const terrainSlider = document.getElementById("terrain-exaggeration");
+    if (terrainToggle) {
+      terrainToggle.checked = false;
+    }
+    if (terrainSlider) {
+      terrainSlider.disabled = true;
+    }
+    console.warn("Cannot enable terrain", error);
+  }
+}
+
 function addStationLayer() {
   if (!currentData || !map.isStyleLoaded()) {
     return false;
@@ -392,6 +448,7 @@ function addStationLayer() {
       "circle-stroke-width": 1.2,
     },
   });
+  applyTerrain();
   return true;
 }
 
@@ -403,6 +460,7 @@ function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
     return;
   }
 
+  applyTerrain();
   map.jumpTo({ center, zoom });
   const selectedPeriod = document.getElementById("map-selector").value;
   loadMap(selectedPeriod)
@@ -600,14 +658,21 @@ function renderLayerSwitcher() {
 
 function renderSettingsPanel() {
   const toggle = document.getElementById("settings-toggle");
+  const northToggle = document.getElementById("north-toggle");
   const panel = document.getElementById("map-settings");
   const slider = document.getElementById("min-rain-filter");
+  const terrainToggle = document.getElementById("terrain-toggle");
+  const terrainSlider = document.getElementById("terrain-exaggeration");
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
 
   toggle.addEventListener("click", () => {
     const isOpen = panel.hasAttribute("hidden");
     panel.toggleAttribute("hidden", !isOpen);
     toggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  northToggle.addEventListener("click", () => {
+    map.easeTo({ bearing: 0, duration: 350 });
   });
 
   slider.addEventListener("input", (event) => {
@@ -627,11 +692,26 @@ function renderSettingsPanel() {
       refreshFilteredData();
     });
   });
+
+  updateTerrainExaggerationValue();
+
+  terrainToggle.addEventListener("change", (event) => {
+    terrainEnabled = event.target.checked;
+    terrainSlider.disabled = !terrainEnabled;
+    applyTerrain();
+  });
+
+  terrainSlider.addEventListener("input", (event) => {
+    terrainExaggeration = Number(event.target.value);
+    updateTerrainExaggerationValue();
+    applyTerrain();
+  });
 }
 
 map.on("load", () => {
   renderLayerSwitcher();
   renderSettingsPanel();
+  applyTerrain();
   loadMap(document.getElementById("map-selector").value).catch((error) => {
     document.getElementById("summary").textContent = error.message;
   });

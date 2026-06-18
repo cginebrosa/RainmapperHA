@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.60">
+    <link rel="stylesheet" href="style.css?v=0.2.62">
   </head>
   <body>
     <header class="topbar">
@@ -33,9 +33,11 @@
 
     <main>
       <div id="map"></div>
-      <div class="maplibre-layer-switcher" id="layer-switcher"></div>
       <button class="map-settings-toggle" id="settings-toggle" type="button" aria-expanded="false" aria-controls="map-settings">
         Settings
+      </button>
+      <button class="map-north-toggle" id="north-toggle" type="button" aria-label="Face north" title="Face north">
+        <span aria-hidden="true"></span>
       </button>
       <section class="map-settings" id="map-settings" aria-label="Map settings" hidden>
         <div class="map-settings-row">
@@ -43,6 +45,9 @@
           <output id="min-rain-value" for="min-rain-filter">0 mm</output>
         </div>
         <input id="min-rain-filter" type="range" min="0" max="100" step="1" value="0">
+        <fieldset class="map-settings-group" id="layer-switcher">
+          <legend>Map</legend>
+        </fieldset>
         <fieldset class="map-settings-group">
           <legend>Source</legend>
           <label>
@@ -62,6 +67,18 @@
             <span>Unknown</span>
           </label>
         </fieldset>
+        <fieldset class="map-settings-group">
+          <legend>Terrain</legend>
+          <label>
+            <input type="checkbox" id="terrain-toggle">
+            <span>3D terrain</span>
+          </label>
+          <div class="map-settings-row">
+            <label for="terrain-exaggeration">Exaggeration</label>
+            <output id="terrain-exaggeration-value" for="terrain-exaggeration">1.0x</output>
+          </div>
+          <input id="terrain-exaggeration" type="range" min="0.5" max="3" step="0.1" value="1" disabled>
+        </fieldset>
       </section>
       <div class="rain-legend maplibre-rain-legend">
         <div class="rain-legend-title">Rain</div>
@@ -75,7 +92,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.60"></script>
-    <script src="app.js?v=0.2.60"></script>
+    <script src="config.js?v=0.2.62"></script>
+    <script src="app.js?v=0.2.62"></script>
   </body>
 </html>

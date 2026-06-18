@@ -103,6 +103,12 @@ Hay varios entry points segun entorno:
 - Dependencias: Docker Compose y `python3`.
 - Relacion: acceso rapido a `http://127.0.0.1:8080/maplibre-viewer/` y `http://127.0.0.1:8080/leaflet-viewer/` tras regenerar datos locales.
 
+### Runner local solo mapas
+- Ruta: `local_maps.sh`.
+- Responsabilidad: automatizar la secuencia de prueba local sin descargar datos nuevos: `docker compose build rainmapper`, `docker compose run --rm -e MODE=maps rainmapper` y servidor HTTP local para abrir visores.
+- Dependencias: Docker Compose y `python3`.
+- Relacion: permite iterar rapido cambios de Leaflet/MapLibre con los `Tomap` existentes.
+
 ### Leaflet viewer
 - Ruta: `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`.
 - Responsabilidad: visor web movil basado en Leaflet y GeoJSON.
@@ -112,8 +118,8 @@ Hay varios entry points segun entorno:
 ### MapLibre viewer
 - Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.
 - Responsabilidad: visor web experimental con mapas vectoriales/raster y filtros cliente de estaciones.
-- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y Jawg opcional.
-- Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite filtrar por lluvia minima y por fuente de estacion.
+- Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap, Jawg opcional y DEM externo Terrarium/Mapzen para el prototipo 3D.
+- Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa.
 
 ## Modelo de datos
 Persistencia por CSV:
@@ -158,6 +164,7 @@ Home Assistant publica:
 - `/local/Plots/...`: Bokeh HTML.
 - Jawg Maps: estilos/capas opcionales con token `JAWGMAPS_API_KEY`/`jawgmaps_api_key`.
 - OpenTopoMap y Esri: tiles raster usados por Leaflet y MapLibre.
+- Terrarium/Mapzen DEM externo: fuente `raster-dem` opcional para terrain 3D en MapLibre. No se empaqueta dentro de Docker ni se publica desde `/config/www`.
 
 No incluir secretos en codigo ni documentacion.
 

@@ -36,4 +36,4 @@ Puedes activar el schedule interno para ejecutar `all` cada dia a una hora concr
 meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 ```
 
-Las claves `gmap_api_key` y `jawgmaps_api_key` no deben guardarse en Git. `jawgmaps_api_key` es opcional; si esta vacia, las capas Jawg no aparecen en Leaflet/MapLibre.
+Las claves `gmap_api_key` y `jawgmaps_api_key` no deben guardarse en Git. `gmap_api_key` se usa para los mapas clasicos Bokeh/Google Maps y para completar metadata de estaciones durante `update` cuando hace falta consultar altitud, municipio/localidad o provincia. `jawgmaps_api_key` es opcional; si esta vacia, las capas Jawg no aparecen en Leaflet/MapLibre.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.62
+
+- Add an experimental MapLibre 3D terrain option using external Terrarium DEM tiles.
+- Move the MapLibre base map selector into Settings to reduce map overlay clutter.
+- Add a MapLibre north-orientation button that resets bearing without changing zoom, pitch, filters, or selected map data.
+- Add `local_maps.sh` to regenerate maps/GeoJSON locally without downloading fresh weather data.
+- Clarify Spanish app documentation for `gmap_api_key`, including station metadata enrichment during updates.
+
 ## 0.2.61
 
 - Improve Spanish Home Assistant app documentation for multiple Meteoclimatic patterns and option coverage.

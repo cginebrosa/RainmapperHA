@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Revisar si conviene traducir `rainmapper-app/README.md` y `rainmapper-app/DOCS.md` a ingles si la app HA se distribuye publicamente. Mientras siga siendo de uso propio, se mantienen en espanol.
+Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ antes de decidir si se mantiene, se retira o se sustituye por tiles DEM propios.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -88,6 +88,12 @@ Revisar si conviene traducir `rainmapper-app/README.md` y `rainmapper-app/DOCS.m
   - Estado: corregido en `0.2.55` y validado por el usuario; ya no aparece el warning de SIGTERM del Supervisor.
 
 ## Prioridad baja
+- [ ] Validar prototipo MapLibre 3D terrain
+  - Contexto: MapLibre puede inclinar/rotar el mapa, pero el relieve real requiere una fuente DEM. Se ha anadido un toggle `3D terrain` y slider `Exaggeration` en Settings usando DEM externo Terrarium/Mapzen.
+  - Ficheros relacionados: `maplibre-viewer/`, `rainmapper-app/app/maplibre-viewer/`.
+  - Criterio de aceptacion: en local/HA/iPhone, activar 3D terrain funciona sobre Satellite+, Hybrid, Topographic y Liberty sin romper filtros, cambio de periodo, cambio de capa ni popups; si el DEM externo falla o rinde mal, decidir retirada o DEM propio.
+  - Riesgo si no se hace: dejar publicada una opcion experimental dependiente de un proveedor externo sin validar visualmente ni en movil.
+
 - [x] Crear smoke tests automatizados
   - Contexto: no hay framework de tests completo, pero existe `scripts/smoke-test.sh`.
   - Ficheros relacionados: `scripts/smoke-test.sh`, `README.md`, `docs/architecture.md`, `docs/codex-handoff.md`.
@@ -130,7 +136,7 @@ Revisar si conviene traducir `rainmapper-app/README.md` y `rainmapper-app/DOCS.m
   - Contexto: Home Assistant construye la app en la RPi durante installs/updates, y la barra de progreso de HA puede quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi.
   - Ficheros relacionados: `.github/workflows/build-rainmapper-app.yml`, `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, GitHub Container Registry.
   - Criterio de aceptacion: publicar imagen multi-arch `amd64`/`arm64` en GHCR antes de hacer visible el update en HA; HA descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin build local.
-  - Estado: validado en `0.2.57` con GitHub Actions, en `0.2.60` con Buildx local y en `0.2.61` con limpieza local comprobada. El flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
+  - Estado: validado en `0.2.57` con GitHub Actions, en `0.2.60` con Buildx local y en `0.2.61`/`0.2.62` con limpieza local comprobada. El flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
   - Riesgo residual: requiere login Docker en GHCR desde el Mac y disciplina de publicar imagen antes del commit de version.
 
 - [x] Validar filtros de visor para futura app movil
