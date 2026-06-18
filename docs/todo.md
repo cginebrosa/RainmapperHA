@@ -113,6 +113,13 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Criterio de aceptacion: una unica fuente de verdad para core compartida por Docker local y HA.
   - Riesgo si no se hace: mantenimiento manual permanente.
 
+- [ ] Extraer generacion de CSV `Tomap` de `Rainmapper.py`
+  - Contexto: ahora `Generate maps`/`MODE=maps` solo consume los `Tomap` existentes para generar Bokeh y GeoJSON. Si cambia una columna derivada de `Tomap`, como el numero de ultimos registros de lluvia por estacion, hace falta `Run all`/`MODE=all` para reconstruirlos.
+  - Nota: desde `0.2.67`, el numero de registros recientes se configura con `last_rains_history`, pero sigue requiriendo `Run all` para reconstruir `Tomap`.
+  - Ficheros relacionados: `Rainmapper.py`, futuro `tomap_builder.py` o equivalente, `run.sh`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `Rainmapper_Client.py`, `tomap_to_geojson.py`.
+  - Criterio de aceptacion: `Generate maps` puede reconstruir los CSV `Tomap` desde historicos `Data/` sin descargar datos nuevos, y despues generar Bokeh/GeoJSON.
+  - Riesgo si no se hace: cambios en el formato de `Tomap` pueden requerir un update completo aunque solo se quiera regenerar mapas.
+
 - [ ] Mejorar observabilidad de Wunderground
   - Contexto: Wunderground es el cuello de botella, pero todavia no hay suficientes observaciones de tiempos y el rendimiento actual es aceptable.
   - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos segun reporte del usuario; pendiente de confirmar automaticamente.
@@ -210,6 +217,7 @@ Nota: las validaciones marcadas como resueltas en esta seccion son, salvo que se
 - Prototipo cross-platform con React Native + MapLibre consumiendo Cloudflare Worker API.
 - Publicacion de GeoJSON a Cloudflare R2 con manifiesto `latest.json`.
 - Favoritos de estaciones y filtro por lluvia minima en la futura app movil.
+- Revisar modelo de limites por plan para `Last rains history`, separando registros publicados en GeoJSON de registros visibles por usuario o suscripcion.
 - API propia entre backend y app movil.
 - Capa de permisos por usuario.
 - Cache/CDN de GeoJSON publicados.

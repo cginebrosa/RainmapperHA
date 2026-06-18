@@ -192,6 +192,7 @@ meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 nomaps: false
 nototals: false
 days_bucket: 10
+last_rains_history: 30
 max_threads: 1
 max_attempts: 3
 wunderground_full_log: false
@@ -205,6 +206,7 @@ Notas rapidas:
 - `mode: serve` es el modo normal para usar webUI, sidebar y schedule interno.
 - `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
 - `max_threads: 1` es conservador para Raspberry Pi y para Wunderground.
+- `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica durante `update` o `all`, cuando Rainmapper reconstruye `Tomap`; `maps` solo regenera HTML/GeoJSON desde los `Tomap` ya existentes.
 - `gmap_api_key` se usa para los mapas Bokeh/Google Maps y para completar metadata de estaciones con servicios de Google.
 - `jawgmaps_api_key` es opcional; si esta vacia, las capas Jawg no aparecen en Leaflet/MapLibre.
 - `wunderground_full_log: true` aumenta mucho el detalle del log de Wunderground y normalmente solo conviene para diagnostico.
@@ -261,6 +263,18 @@ days_end: 0
 ```
 
 Esto descarga desde 7 dias atras hasta hoy. Normalmente no hace falta cambiarlo salvo para reconstrucciones o pruebas concretas.
+
+## Historico reciente en popups
+
+`last_rains_history` controla cuantos registros recientes de lluvia prepara Rainmapper para los popups de estaciones de Leaflet y MapLibre:
+
+```yaml
+last_rains_history: 30
+```
+
+Este valor afecta a la generacion de los CSV `Tomap` y a las columnas `Data_Pluja_XX`, `Pluja_Diaria_XX`, `Temp_Max_XX` y `Temp_Min_XX` que despues llegan al GeoJSON. Se aplica cuando Rainmapper ejecuta `update` o `all`, porque en esos modos reconstruye `Tomap`. Ejecutar solo `maps` no aplica un cambio de `last_rains_history`, porque `maps` no recalcula `Tomap`; solo regenera HTML y GeoJSON desde los `Tomap` ya existentes.
+
+Los visores detectan dinamicamente cuantos registros trae cada GeoJSON. MapLibre ademas muestra un control `Last rains history` en Settings para limitar cuantos de esos registros ya generados se ven en pantalla. Ese control del visor no crea mas historico; solo filtra lo que ya esta publicado.
 
 ## Fuentes de datos
 

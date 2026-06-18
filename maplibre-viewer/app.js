@@ -240,8 +240,10 @@ let currentStyle = baseStyles[0];
 let currentData = null;
 let currentVisibleFeatures = [];
 let currentPopup = null;
+let activeStationPopupProperties = null;
 let hasLoadedInitialMap = false;
 let minRainFilter = 0;
+let lastRainHistoryLimit = 0;
 let enabledStationSources = new Set(stationSources.map((source) => source.id));
 let terrainEnabled = false;
 let terrainExaggeration = 1;
@@ -356,6 +358,55 @@ function updateMinRainValue() {
   document.getElementById("min-rain-value").textContent = `${minRainFilter} mm`;
 }
 
+function rainHistoryIndexes(properties) {
+  return Object.keys(properties || {})
+    .map((key) => {
+      const match = key.match(/^Data_Pluja_(\d+)$/);
+      return match ? Number(match[1]) : null;
+    })
+    .filter((index) => Number.isInteger(index) && index > 0)
+    .sort((a, b) => a - b);
+}
+
+function maxRainHistoryRecords(features) {
+  return features.reduce((maxValue, feature) => (
+    Math.max(maxValue, rainHistoryIndexes(feature.properties || {}).length)
+  ), 0);
+}
+
+function updateLastRainHistoryValue() {
+  const output = document.getElementById("last-rain-history-value");
+  output.textContent = lastRainHistoryLimit > 0 ? `${lastRainHistoryLimit} records` : "-";
+}
+
+function updateLastRainHistoryControl(features) {
+  const maxRecords = maxRainHistoryRecords(features);
+  const slider = document.getElementById("last-rain-history-filter");
+  if (maxRecords <= 0) {
+    lastRainHistoryLimit = 0;
+    slider.disabled = true;
+    slider.max = "1";
+    slider.value = "1";
+    updateLastRainHistoryValue();
+    return;
+  }
+
+  slider.disabled = false;
+  slider.max = String(maxRecords);
+  if (lastRainHistoryLimit <= 0 || lastRainHistoryLimit > maxRecords) {
+    lastRainHistoryLimit = maxRecords;
+  }
+  slider.value = String(lastRainHistoryLimit);
+  updateLastRainHistoryValue();
+}
+
+function refreshCurrentStationPopup() {
+  if (!currentPopup || !activeStationPopupProperties) {
+    return;
+  }
+  currentPopup.setHTML(popupContent(activeStationPopupProperties));
+}
+
 function refreshFilteredData() {
   if (!currentVisibleFeatures.length) {
     return;
@@ -372,6 +423,7 @@ function refreshFilteredData() {
   if (currentPopup) {
     currentPopup.remove();
     currentPopup = null;
+    activeStationPopupProperties = null;
   }
 
   addStationLayer();
@@ -589,6 +641,7 @@ function showTerrainPopup(lngLat) {
   if (currentPopup) {
     currentPopup.remove();
   }
+  activeStationPopupProperties = null;
 
   currentPopup = new maplibregl.Popup({
     closeButton: false,
@@ -662,7 +715,8 @@ function setupLongPressElevation() {
 
 function recentRainHistory(properties) {
   const rows = [];
-  for (let index = 1; index <= 21; index += 1) {
+  const historyIndexes = rainHistoryIndexes(properties).slice(0, lastRainHistoryLimit || undefined);
+  for (const index of historyIndexes) {
     const suffix = String(index).padStart(2, "0");
     const date = properties[`Data_Pluja_${suffix}`];
     const rain = properties[`Pluja_Diaria_${suffix}`];
@@ -689,8 +743,8 @@ function recentRainHistory(properties) {
   }
 
   return `
-    <details class="history" open>
-      <summary>Last 21 rain records</summary>
+    <details class="history">
+      <summary>Last ${rows.length} records</summary>
       <table class="history-table">
         <thead>
           <tr>
@@ -768,6 +822,7 @@ async function loadMap(fileName) {
   const features = visibleFeatures(data.features || []).map(prepareFeature);
   currentVisibleFeatures = features;
   updateMinRainControl(features);
+  updateLastRainHistoryControl(features);
   const filtered = filteredFeatures(features);
   currentData = {
     ...data,
@@ -777,6 +832,7 @@ async function loadMap(fileName) {
   if (currentPopup) {
     currentPopup.remove();
     currentPopup = null;
+    activeStationPopupProperties = null;
   }
 
   addStationLayer();
@@ -827,6 +883,7 @@ function renderSettingsPanel() {
   const northToggle = document.getElementById("north-toggle");
   const panel = document.getElementById("map-settings");
   const slider = document.getElementById("min-rain-filter");
+  const historySlider = document.getElementById("last-rain-history-filter");
   const terrainToggle = document.getElementById("terrain-toggle");
   const terrainSlider = document.getElementById("terrain-exaggeration");
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
@@ -845,6 +902,12 @@ function renderSettingsPanel() {
     minRainFilter = Number(event.target.value);
     updateMinRainValue();
     refreshFilteredData();
+  });
+
+  historySlider.addEventListener("input", (event) => {
+    lastRainHistoryLimit = Number(event.target.value);
+    updateLastRainHistoryValue();
+    refreshCurrentStationPopup();
   });
 
   sourceInputs.forEach((input) => {
@@ -895,6 +958,7 @@ map.on("click", CIRCLE_LAYER_ID, (event) => {
     return;
   }
   const coordinates = feature.geometry.coordinates.slice();
+  activeStationPopupProperties = feature.properties || {};
   currentPopup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true,
@@ -905,6 +969,9 @@ map.on("click", CIRCLE_LAYER_ID, (event) => {
     .setLngLat(coordinates)
     .setHTML(popupContent(feature.properties || {}))
     .addTo(map);
+  currentPopup.on("close", () => {
+    activeStationPopupProperties = null;
+  });
 });
 
 map.on("mouseenter", CIRCLE_LAYER_ID, () => {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.67
+
+- Add `last_rains_history` to Home Assistant options to configure how many recent rain records Rainmapper generates for station popups.
+- Make Leaflet and MapLibre station popups detect available recent-rain columns dynamically; MapLibre can limit displayed rows from Settings.
+
 ## 0.2.66
 
 - Add a MapLibre station popup pointer while keeping the existing square popup styling.

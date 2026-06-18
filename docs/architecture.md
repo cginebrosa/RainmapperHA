@@ -127,7 +127,7 @@ Persistencia por CSV:
 - Historicos incrementales en `Data/*_incremental.csv`.
 - Listados/metadata de estaciones en `Data/estacions_*.csv`.
 - CSV preparados para mapas en `Tomap/01_Tomap_Last_day.csv`, `02_Tomap_Last_week.csv`, etc.
-- Ultimos registros en `Tomap/Last21_rains.csv`.
+- Ultimos registros en `Tomap/LastXX_rains.csv`; por defecto `Last30_rains.csv`, configurable con `RAINMAPPER_LAST_RAINS_HISTORY` o la opcion HA `last_rains_history`.
 - Metricas Wunderground en `Data/metricas_wunderground.csv`.
 - GeoJSON publicados en `PublicData/*.geojson` y `/config/www/rainmapper-data`.
 
@@ -138,7 +138,7 @@ Campos relevantes detectados o usados:
 - `Latitud`, `Longitud`.
 - lluvia acumulada por periodo.
 - municipio/provincia/altitud.
-- historico de ultimas lluvias y temperaturas max/min para popup.
+- historico de ultimas lluvias y temperaturas max/min para popup (`Data_Pluja_XX`, `Pluja_Diaria_XX`, `Temp_Max_XX`, `Temp_Min_XX`). La configuracion por defecto genera hasta 30 registros, `last_rains_history` permite cambiarlo en HA, y los visores detectan dinamicamente cuantos hay en el GeoJSON.
 
 Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y funciones pandas.
 

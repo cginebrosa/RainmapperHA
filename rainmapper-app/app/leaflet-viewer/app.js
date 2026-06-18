@@ -155,7 +155,15 @@ function popupContent(properties) {
 
 function recentRainHistory(properties) {
   const rows = [];
-  for (let index = 1; index <= 21; index += 1) {
+  const historyIndexes = Object.keys(properties || {})
+    .map((key) => {
+      const match = key.match(/^Data_Pluja_(\d+)$/);
+      return match ? Number(match[1]) : null;
+    })
+    .filter((index) => Number.isInteger(index) && index > 0)
+    .sort((a, b) => a - b);
+
+  for (const index of historyIndexes) {
     const suffix = String(index).padStart(2, "0");
     const date = properties[`Data_Pluja_${suffix}`];
     const rain = properties[`Pluja_Diaria_${suffix}`];
@@ -182,8 +190,8 @@ function recentRainHistory(properties) {
   }
 
   return `
-    <details class="history" open>
-      <summary>Last 21 rain records</summary>
+    <details class="history">
+      <summary>Last ${rows.length} records</summary>
       <table class="history-table">
         <thead>
           <tr>

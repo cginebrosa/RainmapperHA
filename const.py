@@ -1,5 +1,12 @@
 import os
 
+def _int_env(name, default):
+    try:
+        value = int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
 _script_path = os.path.dirname(os.path.abspath(__file__))
 _DATA_PATH = os.path.join(_script_path, 'Data/')
 _PLOT_PATH = os.path.join(_script_path, 'Plots/')
@@ -32,7 +39,7 @@ _incremental_meteoclimatic = True       # Saves incremental Meteoclimatic data l
 _create_wunderground = True             # Get data from Wrunderground (Wunderground)
 _incremental_wunderground = True        # Saves incremental Wunderground data locally (Wunderground)
 _create_googlemaps_files = True         # Creates csv files to map
-_last_number_rains = 21                 # Number of rains to generate for map
+_last_number_rains = _int_env('RAINMAPPER_LAST_RAINS_HISTORY', 30)  # Number of recent rain records to generate for map popups
 _print_dataframes = False               # Debug dataframes by printing (be careful, A LOT OF PRINTING RESULTS!!!)
 _max_threads = 1                        # Number of threads for multithreading
 _max_attempts = 3                       # Number of attempts to scrap url from Wunderground

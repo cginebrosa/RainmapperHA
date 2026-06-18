@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.66">
+    <link rel="stylesheet" href="style.css?v=0.2.67">
   </head>
   <body>
     <header class="topbar">
@@ -45,6 +45,11 @@
           <output id="min-rain-value" for="min-rain-filter">0 mm</output>
         </div>
         <input id="min-rain-filter" type="range" min="0" max="100" step="1" value="0">
+        <div class="map-settings-row">
+          <label for="last-rain-history-filter">Last rains history</label>
+          <output id="last-rain-history-value" for="last-rain-history-filter">-</output>
+        </div>
+        <input id="last-rain-history-filter" type="range" min="1" max="1" step="1" value="1" disabled>
         <fieldset class="map-settings-group" id="layer-switcher">
           <legend>Map</legend>
         </fieldset>
@@ -92,7 +97,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.66"></script>
-    <script src="app.js?v=0.2.66"></script>
+    <script src="config.js?v=0.2.67"></script>
+    <script src="app.js?v=0.2.67"></script>
   </body>
 </html>
