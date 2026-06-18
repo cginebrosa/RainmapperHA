@@ -591,6 +591,12 @@ main {
   z-index: 20;
 }
 
+.terrain-note,
+.terrain-coordinates {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 @media (max-width: 520px) {
   .maplibre-rain-legend {
     bottom: 14px;

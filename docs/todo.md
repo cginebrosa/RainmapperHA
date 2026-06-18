@@ -136,7 +136,7 @@ Validar en local/HA/iPhone el prototipo MapLibre `3D terrain` sobre Satellite+ a
   - Contexto: Home Assistant construye la app en la RPi durante installs/updates, y la barra de progreso de HA puede quedarse en 0% hasta terminar. El Mac construye mucho mas rapido que la RPi.
   - Ficheros relacionados: `.github/workflows/build-rainmapper-app.yml`, `rainmapper-app/Dockerfile`, `rainmapper-app/config.yaml`, GitHub Container Registry.
   - Criterio de aceptacion: publicar imagen multi-arch `amd64`/`arm64` en GHCR antes de hacer visible el update en HA; HA descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin build local.
-  - Estado: validado en `0.2.57` con GitHub Actions, en `0.2.60` con Buildx local y en `0.2.61`/`0.2.62` con limpieza local comprobada. El flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
+  - Estado: validado en `0.2.57` con GitHub Actions, en `0.2.60` con Buildx local y en `0.2.61`/`0.2.62`/`0.2.63` con limpieza local comprobada. El flujo normal pasa a Buildx local con `scripts/build-push-ha-image.sh`, dejando Actions como fallback manual.
   - Riesgo residual: requiere login Docker en GHCR desde el Mac y disciplina de publicar imagen antes del commit de version.
 
 - [x] Validar filtros de visor para futura app movil

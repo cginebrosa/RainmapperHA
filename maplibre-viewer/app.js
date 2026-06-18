@@ -25,6 +25,9 @@ const TERRAIN_SOURCE_ID = "rainmapper-terrain-dem";
 const TERRAIN_TILES = [
   "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
 ];
+const TERRAIN_ELEVATION_ZOOM = 15;
+const LONG_PRESS_MS = 650;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
 const jawgAccessToken = window.RAINMAPPER_CONFIG?.jawgmapsAccessToken || "";
 const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
@@ -242,6 +245,10 @@ let minRainFilter = 0;
 let enabledStationSources = new Set(stationSources.map((source) => source.id));
 let terrainEnabled = false;
 let terrainExaggeration = 1;
+let longPressTimer = null;
+let longPressStartPoint = null;
+let didTriggerLongPress = false;
+const terrainTileCache = new Map();
 
 function styleDefinition(style) {
   if (!style.style) {
@@ -494,6 +501,160 @@ function popupContent(properties) {
   `;
 }
 
+function terrainPopupContent(elevation, lngLat, status = "loading") {
+  const latitude = lngLat.lat.toFixed(5);
+  const longitude = lngLat.lng.toFixed(5);
+  if (!Number.isFinite(elevation)) {
+    const altitudeText = status === "error" ? "unavailable" : "loading";
+    const noteText = status === "error"
+      ? "External Terrarium DEM unavailable"
+      : "Loading external Terrarium DEM";
+    return `
+      <div class="popup-title">Terrain</div>
+      <div class="popup-row"><strong>Altitude:</strong> ${altitudeText}</div>
+      <div class="popup-row terrain-note">${noteText}</div>
+      <div class="popup-row terrain-coordinates">${latitude}, ${longitude}</div>
+    `;
+  }
+
+  return `
+    <div class="popup-title">Terrain</div>
+    <div class="popup-row"><strong>Altitude:</strong> ${Math.round(elevation).toLocaleString("en-GB")} m</div>
+    <div class="popup-row terrain-note">External Terrarium DEM</div>
+    <div class="popup-row terrain-coordinates">${latitude}, ${longitude}</div>
+  `;
+}
+
+function terrariumTileForLngLat(lngLat, zoom) {
+  const latitude = Math.max(Math.min(lngLat.lat, 85.05112878), -85.05112878);
+  const longitude = ((((lngLat.lng + 180) % 360) + 360) % 360) - 180;
+  const latRad = latitude * Math.PI / 180;
+  const scale = 2 ** zoom;
+  const xFloat = (longitude + 180) / 360 * scale;
+  const yFloat = (1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2 * scale;
+  const x = Math.min(Math.max(Math.floor(xFloat), 0), scale - 1);
+  const y = Math.min(Math.max(Math.floor(yFloat), 0), scale - 1);
+  const pixelX = Math.min(Math.floor((xFloat - x) * 256), 255);
+  const pixelY = Math.min(Math.floor((yFloat - y) * 256), 255);
+
+  return { x, y, pixelX, pixelY, zoom };
+}
+
+function decodeTerrariumPixel(red, green, blue) {
+  return (red * 256 + green + blue / 256) - 32768;
+}
+
+function loadTerrariumTile(tile) {
+  const cacheKey = `${tile.zoom}/${tile.x}/${tile.y}`;
+  if (terrainTileCache.has(cacheKey)) {
+    return terrainTileCache.get(cacheKey);
+  }
+
+  const tileUrl = TERRAIN_TILES[0]
+    .replace("{z}", tile.zoom)
+    .replace("{x}", tile.x)
+    .replace("{y}", tile.y);
+  const imagePromise = new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Cannot load terrain tile ${tileUrl}`));
+    image.src = tileUrl;
+  });
+
+  terrainTileCache.set(cacheKey, imagePromise);
+  return imagePromise;
+}
+
+async function queryTerrariumElevation(lngLat) {
+  const tile = terrariumTileForLngLat(lngLat, TERRAIN_ELEVATION_ZOOM);
+  const image = await loadTerrariumTile(tile);
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, tile.pixelX, tile.pixelY, 1, 1, 0, 0, 1, 1);
+  const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
+  return decodeTerrariumPixel(red, green, blue);
+}
+
+function clearLongPressTimer() {
+  if (longPressTimer) {
+    window.clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
+function showTerrainPopup(lngLat) {
+  if (currentPopup) {
+    currentPopup.remove();
+  }
+
+  currentPopup = new maplibregl.Popup({
+    closeButton: false,
+    closeOnClick: true,
+    maxWidth: "260px",
+    offset: 8,
+  })
+    .setLngLat(lngLat)
+    .setHTML(terrainPopupContent(null, lngLat))
+    .addTo(map);
+
+  queryTerrariumElevation(lngLat)
+    .then((elevation) => {
+      if (currentPopup && Number.isFinite(elevation)) {
+        currentPopup.setHTML(terrainPopupContent(elevation, lngLat));
+      }
+    })
+    .catch((error) => {
+      console.warn("Cannot query terrain elevation", error);
+      if (currentPopup) {
+        currentPopup.setHTML(terrainPopupContent(null, lngLat, "error"));
+      }
+    });
+}
+
+function setupLongPressElevation() {
+  const canvas = map.getCanvas();
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+
+    didTriggerLongPress = false;
+    longPressStartPoint = { x: event.clientX, y: event.clientY };
+    const canvasRect = canvas.getBoundingClientRect();
+    const point = [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
+    const lngLat = map.unproject(point);
+
+    clearLongPressTimer();
+    longPressTimer = window.setTimeout(() => {
+      didTriggerLongPress = true;
+      showTerrainPopup(lngLat);
+    }, LONG_PRESS_MS);
+  }, { passive: true });
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (!longPressStartPoint) {
+      return;
+    }
+
+    const deltaX = Math.abs(event.clientX - longPressStartPoint.x);
+    const deltaY = Math.abs(event.clientY - longPressStartPoint.y);
+    if (deltaX > LONG_PRESS_MOVE_TOLERANCE_PX || deltaY > LONG_PRESS_MOVE_TOLERANCE_PX) {
+      clearLongPressTimer();
+    }
+  }, { passive: true });
+
+  ["pointerup", "pointercancel", "pointerleave"].forEach((eventName) => {
+    canvas.addEventListener(eventName, () => {
+      clearLongPressTimer();
+      longPressStartPoint = null;
+    }, { passive: true });
+  });
+}
+
 function recentRainHistory(properties) {
   const rows = [];
   for (let index = 1; index <= 21; index += 1) {
@@ -711,6 +872,7 @@ function renderSettingsPanel() {
 map.on("load", () => {
   renderLayerSwitcher();
   renderSettingsPanel();
+  setupLongPressElevation();
   applyTerrain();
   loadMap(document.getElementById("map-selector").value).catch((error) => {
     document.getElementById("summary").textContent = error.message;
@@ -718,6 +880,11 @@ map.on("load", () => {
 });
 
 map.on("click", CIRCLE_LAYER_ID, (event) => {
+  if (didTriggerLongPress) {
+    didTriggerLongPress = false;
+    return;
+  }
+
   const feature = event.features?.[0];
   if (!feature) {
     return;

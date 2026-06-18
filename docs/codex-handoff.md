@@ -109,12 +109,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.62`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, API keys, mapas, fuentes y publish. La `0.2.46` fue validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA.
+- Estado actual: version `0.2.63`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, API keys, mapas, fuentes y publish. La `0.2.46` fue validada en Home Assistant con `Run all`; el log interno sale en ingles y el schedule esta funcionando. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.62`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.63`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -124,7 +124,7 @@ Tambien existen documentos de uso:
 
 ### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
 - Proposito: visor experimental MapLibre con mapas vectoriales y raster.
-- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, Jawg Street/Terrain opcional, boton para orientar de nuevo al norte y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y prototipo de terreno 3D.
+- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, Jawg Street/Terrain opcional, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y prototipo de terreno 3D.
 - Riesgos: MapLibre queda validado como visor principal recomendado en `0.2.53`, con Leaflet mantenido como fallback. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales futuros si se detectan problemas. En `0.2.56` se corrige la vuelta a Satellite+ tras cambiar a otra capa clonando el objeto de estilo antes de pasarlo a MapLibre. El terreno 3D usa DEM externo Terrarium/Mapzen, esta apagado por defecto y depende de disponibilidad/CORS/rendimiento del proveedor externo hasta decidir si se generan tiles DEM propios.
 
 ### `docker-compose.yml`
@@ -152,6 +152,7 @@ Tambien existen documentos de uso:
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `tomap_to_geojson.py`.
 - Filtros en MapLibre: settings del visor aplica filtros cliente por lluvia minima y por fuente de estacion sobre el periodo cargado para validar UX de futura app movil.
 - Terreno 3D experimental en MapLibre: settings permite activar `3D terrain` y ajustar `Exaggeration` usando un DEM externo Terrarium/Mapzen como fuente `raster-dem`. No se incluye ningun DEM en la imagen Docker.
+- Consulta de altitud en MapLibre: una pulsacion larga sobre el mapa muestra un popup con la altitud del DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB. Se evita `queryTerrainElevation` para esta lectura porque en una prueba en Urus/Cerdanya (`42.35406, 1.85317`) devolvio `-4 m` aunque el tile DEM crudo devuelve unos `1259 m`. Validado por el usuario en local, iPhone y Safari del Mac antes de preparar `0.2.63` para HA.
 - `Source` en GeoJSON: `tomap_to_geojson.py` anade fuente inferida por codigo de estacion (`ES...` de longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown`). Si aparece `Unknown`, el conversor emite un `WARNING` en stdout.
 - Wunderground full log configurable y resumen de errores: `Rainmapper.py`, `config.yaml`.
 - Control webUI para desactivar/reactivar estaciones Wunderground por 404 o parse error: `web_server.py`.
@@ -167,7 +168,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.62`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.63`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes

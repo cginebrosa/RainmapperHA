@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.63
+
+- Add MapLibre long-press terrain elevation popups using direct Terrarium DEM tile decoding.
+- Avoid `queryTerrainElevation` for displayed altitude after it returned incorrect negative values in terrain tests.
+
 ## 0.2.62
 
 - Add an experimental MapLibre 3D terrain option using external Terrarium DEM tiles.
