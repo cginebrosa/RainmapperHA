@@ -204,6 +204,8 @@ Tambien existen documentos de uso:
 - `RAINMAPPER_TIMEZONE` / `TIMEZONE`: zona horaria, por defecto `Europe/Madrid`.
 - `RAINMAPPER_DAYS_INIT` / `DAYS_INIT`: inicio de rango relativo de dias.
 - `RAINMAPPER_DAYS_END` / `DAYS_END`: fin de rango relativo de dias.
+- `RAINMAPPER_METEOCAT_REQUEST_TIMEOUT` / `METEOCAT_REQUEST_TIMEOUT`: timeout por intento en peticiones Meteocat/Socrata, por defecto 30 segundos.
+- `RAINMAPPER_METEOCAT_MAX_ATTEMPTS` / `METEOCAT_MAX_ATTEMPTS`: numero de intentos por peticion Meteocat/Socrata, por defecto 3.
 - `RAINMAPPER_CREATE_WUNDERGROUND` / `CREATE_WUNDERGROUND`: activa Wunderground.
 - `RAINMAPPER_CREATE_METEOCLIMATIC` / `CREATE_METEOCLIMATIC`: activa Meteoclimatic.
 - `RAINMAPPER_CREATE_METEOCAT` / `CREATE_METEOCAT`: activa Meteocat.

@@ -192,6 +192,8 @@ meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 nomaps: false
 nototals: false
 days_bucket: 10
+meteocat_request_timeout: 30
+meteocat_max_attempts: 3
 last_rains_history: 30
 max_threads: 1
 max_attempts: 3
@@ -205,6 +207,7 @@ Notas rapidas:
 
 - `mode: serve` es el modo normal para usar webUI, sidebar y schedule interno.
 - `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
+- `meteocat_request_timeout: 30` y `meteocat_max_attempts: 3` hacen que las consultas Meteocat/Socrata reintenten ante timeouts transitorios antes de fallar el run.
 - `max_threads: 1` es conservador para Raspberry Pi y para Wunderground.
 - `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica durante `update` o `all`, cuando Rainmapper reconstruye `Tomap`; `maps` solo regenera HTML/GeoJSON desde los `Tomap` ya existentes.
 - `gmap_api_key` se usa para los mapas Bokeh/Google Maps y para completar metadata de estaciones con servicios de Google.
@@ -287,6 +290,17 @@ create_wunderground: true
 ```
 
 Si desactivas una fuente, no se descargan datos nuevos de esa fuente en `update` o `all`.
+
+## Meteocat / Socrata
+
+Las lecturas de Meteocat se descargan desde `analisi.transparenciacatalunya.cat` mediante Socrata. Si el servidor tarda demasiado, la app reintenta antes de abortar:
+
+```yaml
+meteocat_request_timeout: 30
+meteocat_max_attempts: 3
+```
+
+`meteocat_request_timeout` es el timeout por intento, en segundos. `meteocat_max_attempts` es el numero maximo de intentos por consulta. Si todos los intentos fallan, el `update` falla para evitar publicar mapas incompletos como si fueran correctos.
 
 ## Wunderground
 

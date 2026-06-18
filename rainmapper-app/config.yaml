@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.67"
+version: "0.2.68"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -35,6 +35,8 @@ options:
   nomaps: false
   nototals: false
   days_bucket: 10
+  meteocat_request_timeout: 30
+  meteocat_max_attempts: 3
   last_rains_history: 30
   max_threads: 1
   max_attempts: 3
@@ -58,6 +60,8 @@ schema:
   nomaps: bool
   nototals: bool
   days_bucket: int
+  meteocat_request_timeout: int
+  meteocat_max_attempts: int
   last_rains_history: int
   max_threads: int
   max_attempts: int

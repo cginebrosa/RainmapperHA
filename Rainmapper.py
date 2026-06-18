@@ -20,6 +20,7 @@ import os
 import math
 import re
 import time as time_module
+import requests
 import googlemaps
 from meteoclimatic_local.client import MeteoclimaticClient
 from const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
@@ -49,6 +50,8 @@ from const import   _codi_estacio,\
                     _days_init,\
                     _days_end,\
                     _days_bucket,\
+                    _meteocat_request_timeout,\
+                    _meteocat_max_attempts,\
                     _print_dataframes,\
                     _print_totals,\
                     _max_threads,\
@@ -119,6 +122,20 @@ parser.add_argument('--days_bucket',
                     type=int, 
                     default=_days_bucket,
                     help='Day bucket size for Meteocat reads (positive number) -> Const=Default=10')
+parser.add_argument('--meteocat_request_timeout',
+                    dest='_meteocat_request_timeout',
+                    nargs='?',
+                    const=_meteocat_request_timeout,
+                    type=int,
+                    default=_meteocat_request_timeout,
+                    help='Meteocat/Socrata request timeout in seconds -> Const=Default=30')
+parser.add_argument('--meteocat_max_attempts',
+                    dest='_meteocat_max_attempts',
+                    nargs='?',
+                    const=_meteocat_max_attempts,
+                    type=int,
+                    default=_meteocat_max_attempts,
+                    help='Meteocat/Socrata request attempts before failing -> Const=Default=3')
 parser.add_argument('--max_threads', 
                     dest='_max_threads',
                     nargs='?', 
@@ -157,6 +174,8 @@ _create_wunderground = args._create_wunderground
 _days_init = args._days_init
 _days_end = args._days_end
 _days_bucket = args._days_bucket
+_meteocat_request_timeout = max(1, args._meteocat_request_timeout)
+_meteocat_max_attempts = max(1, args._meteocat_max_attempts)
 _max_threads = args._max_threads
 _max_attempts = args._max_attempts
 _wunderground_full_log = args._wunderground_full_log
@@ -414,7 +433,7 @@ def get_myquery_conditions_all(_codi_estacio,_start_date, _end_date): # Create _
     return _myquery
 
 def get_estacions_xema(): # Get estacions data from Meteocat
-    estacions = client.get(socrata_metadades_estacions_xema, \
+    estacions = socrata_get(socrata_metadades_estacions_xema, "station metadata", \
                        query="SELECT codi_estacio, nom_estacio, nom_comarca, nom_provincia, \
                        nom_municipi, altitud, latitud, longitud ORDER BY codi_estacio", exclude_system_fields='true')
     
@@ -506,7 +525,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     return estacions_incremental
 
 def get_variables_xema(): # Get variables data from Meteocat
-    variables = client.get(socrata_metadades_variables_xema, exclude_system_fields = 'true')
+    variables = socrata_get(socrata_metadades_variables_xema, "variable metadata", exclude_system_fields = 'true')
     variables_xema = pd.DataFrame.from_records(variables)
     variables_xema.rename(columns={'codi_variable':'Codi Variable',
                                    'nom_variable':'Variable',
@@ -521,7 +540,7 @@ def get_variables_xema(): # Get variables data from Meteocat
     return variables_xema
 
 def get_lectures_rain_xema(_myquery):  # Get lectures data from Meteocat
-    lectures = client.get(socrata_lectures_xema, query=_myquery, exclude_system_fields='true')
+    lectures = socrata_get(socrata_lectures_xema, "rain readings", query=_myquery, exclude_system_fields='true')
     lectures_xema = pd.DataFrame.from_records(lectures)
 
     # If no records returned, return an empty dataframe
@@ -544,7 +563,7 @@ def get_lectures_rain_xema(_myquery):  # Get lectures data from Meteocat
     return lectures_xema
 
 def get_lectures_conditions_xema(_myquery):  # Get lectures data from Meteocat
-    lectures = client.get(socrata_lectures_xema, query=_myquery, exclude_system_fields='true')
+    lectures = socrata_get(socrata_lectures_xema, "condition readings", query=_myquery, exclude_system_fields='true')
     lectures_xema = pd.DataFrame.from_records(lectures)
 
     # If no records returned, return an empty dataframe
@@ -2060,7 +2079,6 @@ def process_meteoclimatic():                                        # FOR MULTIT
 # Configuracion previa a process_wunderground #                     # FOR MULTITHREAD PURPOSES
 ###############################################
 import config_wunderground
-import requests
 import csv
 import lxml.html as lh
 from util.UnitConverter import ConvertToSystem
@@ -2143,7 +2161,26 @@ socrata_metadades_variables_xema = "4fb2-n3yi"
 #socrata_token = os.environ.get("SODAPY_APPTOKEN")
 socrata_token = None
 
-client = Socrata(socrata_domain, socrata_token)
+client = Socrata(socrata_domain, socrata_token, timeout=_meteocat_request_timeout)
+
+def socrata_get(dataset_identifier, description, **kwargs):
+    for attempt in range(1, _meteocat_max_attempts + 1):
+        try:
+            return client.get(dataset_identifier, **kwargs)
+        except requests.exceptions.RequestException as exc:
+            if attempt >= _meteocat_max_attempts:
+                print(
+                    f"Meteocat Socrata {description} failed after "
+                    f"{_meteocat_max_attempts} attempt(s): {exc}"
+                )
+                raise
+            wait_seconds = min(5 * attempt, 30)
+            print(
+                f"Meteocat Socrata {description} attempt {attempt}/"
+                f"{_meteocat_max_attempts} failed: {exc}. "
+                f"Retrying in {wait_seconds}s..."
+            )
+            time_module.sleep(wait_seconds)
 
 # Example authenticated client (needed for non-public datasets):
 # client = Socrata(analisi.transparenciacatalunya.cat,

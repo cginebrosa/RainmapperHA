@@ -54,6 +54,8 @@ Variables/opciones principales:
 - `scheduled_action`: `update`, `maps` o `all`.
 - `meteoclimatic_pattern`: patron o patrones RSS Meteoclimatic.
 - `last_rains_history`: registros recientes de lluvia que se guardan en `Tomap` para popups de estaciones; por defecto `30`.
+- `meteocat_request_timeout`: timeout en segundos para peticiones Meteocat/Socrata; por defecto `30`.
+- `meteocat_max_attempts`: reintentos de peticiones Meteocat/Socrata; por defecto `3`.
 - `max_threads`: threads Wunderground; por defecto `1`.
 - `max_attempts`: reintentos Wunderground.
 - `wunderground_full_log`: log detallado por estacion.

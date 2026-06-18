@@ -134,6 +134,12 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Criterio de aceptacion: timeout configurable y errores registrados sin bloquear toda la ejecucion.
   - Riesgo si no se hace: estaciones lentas podrian penalizar todo el run si el rendimiento empeora.
 
+- [x] Hacer Meteocat/Socrata mas tolerante a timeouts transitorios
+  - Contexto: en HA `0.2.67`, un `Run all` fallo despues de Wunderground porque una consulta Meteocat XEMA a `analisi.transparenciacatalunya.cat` supero el timeout por defecto de 10s del cliente Socrata.
+  - Ficheros relacionados: `Rainmapper.py`, `const.py`, `run.sh`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `rainmapper-app/config.yaml`.
+  - Criterio de aceptacion: las llamadas Meteocat/Socrata usan timeout configurable y reintentos antes de fallar el run.
+  - Estado: corregido en `0.2.68` con `meteocat_request_timeout` y `meteocat_max_attempts`; pendiente de validacion manual en HA.
+
 - [ ] Evaluar InfluxDB/Grafana para metricas
   - Contexto: el usuario ya tiene interes en analitica de tiempos de estaciones.
   - Ficheros relacionados: `Rainmapper.py`, futuro exporter.

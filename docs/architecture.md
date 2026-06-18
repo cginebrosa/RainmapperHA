@@ -175,6 +175,7 @@ No incluir secretos en codigo ni documentacion.
 - `docker-compose.yml`: Docker local con volumenes.
 - `rainmapper-app/Dockerfile`: Docker HA app.
 - `rainmapper-app/config.yaml`: metadata y schema HA.
+- Meteocat/Socrata: timeout y reintentos configurables mediante `meteocat_request_timeout` y `meteocat_max_attempts` en HA, o `RAINMAPPER_METEOCAT_REQUEST_TIMEOUT`/`RAINMAPPER_METEOCAT_MAX_ATTEMPTS` en Docker local.
 - `repository.yaml`: metadata repositorio HA.
 - `.gitignore`: excluye datos, caches, venv, tests locales y scripts antiguos.
 - `.dockerignore`: excluye datos locales, repo HA y material no necesario para imagen local.

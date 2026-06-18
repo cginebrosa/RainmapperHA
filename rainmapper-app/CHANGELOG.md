@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.68
+
+- Add configurable Meteocat/Socrata request timeout and retry attempts to avoid failing a full run on transient read timeouts.
+
 ## 0.2.67
 
 - Add `last_rains_history` to Home Assistant options to configure how many recent rain records Rainmapper generates for station popups.

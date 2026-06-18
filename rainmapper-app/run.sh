@@ -76,6 +76,8 @@ PY
   print_blue "Scheduled action: ${SCHEDULED_ACTION_VALUE}"
   print_blue "Timezone: ${TIMEZONE}"
   print_blue "Last rains history: ${LAST_RAINS_HISTORY_VALUE}"
+  print_blue "Meteocat request timeout: ${METEOCAT_REQUEST_TIMEOUT_VALUE}s"
+  print_blue "Meteocat max attempts: ${METEOCAT_MAX_ATTEMPTS_VALUE}"
   print_blue ""
   print_blue "System: ${system_version} (${architecture})"
   print_blue "Python: ${python_version}"
@@ -122,6 +124,8 @@ DAYS_END_VALUE="$(option days_end 0)"
 NOMAPS_VALUE="$(option nomaps false)"
 NOTOTALS_VALUE="$(option nototals false)"
 DAYS_BUCKET_VALUE="$(option days_bucket 10)"
+METEOCAT_REQUEST_TIMEOUT_VALUE="$(option meteocat_request_timeout 30)"
+METEOCAT_MAX_ATTEMPTS_VALUE="$(option meteocat_max_attempts 3)"
 MAX_THREADS_VALUE="$(option max_threads 1)"
 MAX_ATTEMPTS_VALUE="$(option max_attempts 3)"
 WUNDERGROUND_FULL_LOG_VALUE="$(option wunderground_full_log false)"
@@ -149,6 +153,8 @@ export RAINMAPPER_DAYS_END="$DAYS_END_VALUE"
 export RAINMAPPER_NOMAPS="$NOMAPS_VALUE"
 export RAINMAPPER_NOTOTALS="$NOTOTALS_VALUE"
 export RAINMAPPER_DAYS_BUCKET="$DAYS_BUCKET_VALUE"
+export RAINMAPPER_METEOCAT_REQUEST_TIMEOUT="$METEOCAT_REQUEST_TIMEOUT_VALUE"
+export RAINMAPPER_METEOCAT_MAX_ATTEMPTS="$METEOCAT_MAX_ATTEMPTS_VALUE"
 export RAINMAPPER_MAX_THREADS="$MAX_THREADS_VALUE"
 export RAINMAPPER_MAX_ATTEMPTS="$MAX_ATTEMPTS_VALUE"
 export RAINMAPPER_WUNDERGROUND_FULL_LOG="$WUNDERGROUND_FULL_LOG_VALUE"
@@ -170,6 +176,8 @@ run_update() {
     --nomaps "$NOMAPS_VALUE" \
     --nototals "$NOTOTALS_VALUE" \
     --days_bucket "$DAYS_BUCKET_VALUE" \
+    --meteocat_request_timeout "$METEOCAT_REQUEST_TIMEOUT_VALUE" \
+    --meteocat_max_attempts "$METEOCAT_MAX_ATTEMPTS_VALUE" \
     --max_threads "$MAX_THREADS_VALUE" \
     --max_attempts "$MAX_ATTEMPTS_VALUE" \
     --wunderground_full_log "$WUNDERGROUND_FULL_LOG_VALUE" \
