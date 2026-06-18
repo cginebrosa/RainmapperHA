@@ -133,6 +133,12 @@ Decidir si el prototipo MapLibre `3D terrain` queda como funcionalidad estable o
   - Criterio de aceptacion: metricas revisables y comparables por ejecucion; posible export futuro a InfluxDB/Grafana.
   - Riesgo si no se hace: optimizacion a ciegas del scraper si el rendimiento empeora en el futuro.
 
+- [ ] Definir estrategia legal/comercial para Wunderground antes de una app publica
+  - Contexto: el scraping HTML actual funciona para uso propio, pero las condiciones de TWC/Wunderground consultadas el 2026-06-18 no lo hacen apto como base de una app comercial sin permiso escrito. La API/PWS Data Feed oficial tambien limita el uso a personal/no comercial salvo acuerdo separado, y el pricing publico de Weather Data APIs parte de un plan Standard de 500 USD/mes orientado a clientes empresariales.
+  - Ficheros relacionados: `Rainmapper.py`, `util/`, futura API/app movil, documentacion de producto.
+  - Criterio de aceptacion: antes de comercializar mapas o app, decidir entre retirar Wunderground, reemplazarlo por fuentes con licencia compatible, limitarlo a uso privado o negociar derechos con The Weather Company.
+  - Riesgo si no se hace: dependencia de una fuente con coste/licencia incompatible con una app comercial.
+
 - [ ] Revisar timeout del scraper Wunderground
   - Contexto: algunas estaciones pueden tardar o fallar, pero el tiempo global actual es aceptable y conviene acumular mas observaciones antes de cambiarlo.
   - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos segun reporte del usuario; pendiente de confirmar automaticamente.

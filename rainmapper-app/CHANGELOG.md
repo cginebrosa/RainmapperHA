@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.72
+
+- Keep MapLibre desktop hover popups working after opening and closing a station popup by click.
+
 ## 0.2.71
 
 - Add per-source update status for Meteoclimatic, Meteocat, and Wunderground in the Home Assistant webUI.

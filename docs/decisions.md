@@ -1,5 +1,29 @@
 # Decisions
 
+## 2026-06-18 - No basar una app comercial en Wunderground sin acuerdo escrito
+
+### Decision
+Mantener Wunderground como fuente operativa de uso propio por ahora, pero no considerarlo una fuente valida para una futura app comercial sin permiso/acuerdo escrito de The Weather Company.
+
+### Motivo
+La API PWS/Data Feed oficial de The Weather Company requiere API key y el pricing publico de Weather Data APIs muestra un plan Standard de 500 USD/mes, con enfoque enterprise, lo que no encaja con el proyecto actual. Ademas, las condiciones de uso de TWC/Wunderground consultadas el 2026-06-18 limitan el uso general de los servicios y el PWS Data Feed a uso personal/no comercial, prohiben copiar/monitorizar datos mediante scrapers para fines comerciales o no autorizados sin permiso escrito, y exigen acuerdo separado para uso comercial del Data Feed.
+
+### Alternativas consideradas
+Usar la API PWS oficial de The Weather Company, usar scraping HTML de Wunderground como fuente comercial, buscar endpoints no oficiales usados por la web, sustituir Wunderground por fuentes con licencia compatible o negociar derechos.
+
+### Consecuencias
+La optimizacion de Wunderground puede seguir teniendo sentido para uso privado y para la instalacion actual, pero la arquitectura comercial futura debe prever retirar Wunderground, reemplazarlo por otra fuente o negociar licencia. Cualquier investigacion de endpoints no oficiales queda como opcion tecnica de alto riesgo y no como base comercial.
+
+### Ficheros afectados
+- `Rainmapper.py`
+- `util/`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+- `docs/decisions.md`
+
+### Estado
+Confirmada como restriccion de estrategia. No implica cambios de codigo inmediatos.
+
 ## 2026-06-18 - Permitir update degradado por fuente con estado explicito
 
 ### Decision

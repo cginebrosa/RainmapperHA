@@ -1085,6 +1085,10 @@ map.on("click", CIRCLE_LAYER_ID, (event) => {
   }
   const coordinates = feature.geometry.coordinates.slice();
   activeStationPopupProperties = feature.properties || {};
+  closeHoverPopup();
+  if (currentPopup) {
+    currentPopup.remove();
+  }
   currentPopup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true,
@@ -1096,6 +1100,7 @@ map.on("click", CIRCLE_LAYER_ID, (event) => {
     .setHTML(popupContent(feature.properties || {}))
     .addTo(map);
   currentPopup.on("close", () => {
+    currentPopup = null;
     activeStationPopupProperties = null;
   });
 });

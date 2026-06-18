@@ -109,12 +109,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.71`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
+- Estado actual: version `0.2.72`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.71`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.72`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -170,7 +170,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.71`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.72`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -219,6 +219,7 @@ Tambien existen documentos de uso:
 
 ## Riesgos operativos por fuente
 - Meteocat/Socrata: actualmente se consulta sin app token (`socrata_token = None`). Esto puede aplicar limites estrictos de frecuencia/tamano y provocar fallos transitorios, especialmente en consultas grandes. El rango operativo de 7 dias mitiga parcialmente este riesgo. Si los fallos se repiten, valorar reactivar `SODAPY_APPTOKEN` o reducir/fragmentar consultas.
+- Wunderground: actualmente se obtiene por scraping HTML y es el cuello de botella principal. La alternativa oficial PWS/Data Feed de The Weather Company requiere API key y queda descartada para el plan actual por coste/enfoque enterprise visible en pricing publico. Ademas, las condiciones de uso de TWC/Wunderground consultadas el 2026-06-18 limitan los servicios y el PWS Data Feed a uso personal/no comercial, prohiben copiar/monitorizar datos con scrapers para propositos comerciales o no autorizados sin permiso escrito, y exigen acuerdo separado para cualquier uso comercial del Data Feed. Por tanto, los datos Wunderground no deben usarse como base de una app comercial sin permiso/acuerdo escrito de TWC; si se comercializa Rainmapper, habra que retirar Wunderground, sustituirlo por fuentes con licencia compatible o negociar derechos.
 
 ## Comandos importantes
 Instalar dependencias Python localmente:
@@ -345,6 +346,7 @@ Detalle en [decisions.md](decisions.md).
 - No modificar `Rainmapper.py` sin revisar impacto en historicos incrementales.
 - Mantener sincronizadas raiz y `rainmapper-app/app` si se cambia core Python o visores; usar `./scripts/sync-app-files.sh` y validar con `./scripts/smoke-test.sh`.
 - No introducir API keys reales en Git.
+- No basar una futura app comercial en datos Wunderground obtenidos por scraping ni por PWS Data Feed sin permiso/acuerdo escrito de The Weather Company.
 - Validar cambios de visores en movil real, especialmente iPhone.
 - Ejecutar `./scripts/smoke-test.sh` antes de cerrar cambios relevantes.
 - Antes de tocar pandas o escritura CSV, usar `./scripts/backup-data.sh` y `./scripts/check-history.py` sobre una copia.
