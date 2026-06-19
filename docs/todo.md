@@ -130,8 +130,9 @@ Hacer bump/publicacion HA para validar `Run all` en Home Assistant despues de re
 - [ ] Mejorar observabilidad de Wunderground
   - Contexto: Wunderground es el cuello de botella, pero todavia no hay suficientes observaciones de tiempos y el rendimiento actual es aceptable.
   - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos segun reporte del usuario; pendiente de confirmar automaticamente.
+  - Observacion local 2026-06-19: despues de permitir que `docker-compose.yml` propague `MAX_THREADS`, `local_update.sh` paso de `385.69s` con `MAX_THREADS=1` a `196.82s` con `MAX_THREADS=2` y `81.20s` con `MAX_THREADS=3`; Wunderground paso de `0:06:02` a `0:03:03` y despues a `0:01:19`.
   - Ficheros relacionados: `Rainmapper.py`, `Data/metricas_wunderground.csv`.
-  - Criterio de aceptacion: metricas revisables y comparables por ejecucion; posible export futuro a InfluxDB/Grafana.
+  - Criterio de aceptacion: metricas revisables y comparables por ejecucion; validar en HA/RPi si `max_threads=2` o `3` reduce tiempos sin generar timeouts, carga excesiva ni fallos de fuentes; posible export futuro a InfluxDB/Grafana.
   - Estado: decision pospuesta; Wunderground se mantiene como esta mientras el tiempo global siga siendo aceptable.
   - Riesgo si no se hace: optimizacion a ciegas del scraper si el rendimiento empeora en el futuro.
 

@@ -57,6 +57,7 @@ Tambien existen documentos de uso:
 - `local_maps.sh`: script de conveniencia para construir Docker local, ejecutar `MODE=maps` y arrancar un servidor HTTP local sin descargar datos nuevos.
 - `Dockerfile`: imagen Docker local.
 - `docker-compose.yml`: runner Docker local con volumenes persistentes.
+- `docker-compose.yml`: permite probar concurrencia local con `MAX_THREADS=<n>`; antes estaba fijado a 1 y no propagaba overrides del entorno host.
 - `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
 - `maplibre-viewer/`: visor MapLibre fuente para pruebas locales/publicacion.
 - `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, reconstruccion con poco historico, versiones y sincronizacion raiz/app HA.
@@ -198,7 +199,7 @@ Tambien existen documentos de uso:
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`; mitigada operativamente con `scripts/sync-app-files.sh` y smoke test, sin refactor estructural todavia.
 - Tests formales iniciales existen en `tests/` para GeoJSON; faltan pruebas funcionales completas de Docker/HA/webUI.
 - La app HA `serve` maneja SIGTERM/SIGINT desde `0.2.55`: `run.sh` usa `exec` para que Python sea PID 1; `web_server.py` detiene el scheduler, espera al job activo antes de cerrar y solo fuerza el subprocess si llega una segunda senal.
-- Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` por defecto en HA para no cargar la RPi. El rendimiento actual aceptable, alrededor de 7 minutos para update completo + generacion de mapas, es un dato operativo reportado por el usuario y pendiente de confirmar automaticamente. La decision de cambiar estrategia Wunderground queda pospuesta; de momento se mantiene como esta.
+- Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` por defecto en HA para no cargar la RPi. Prueba local del 2026-06-19 tras corregir `docker-compose.yml` para propagar el override: `MAX_THREADS=1` tardo `385.69s`, `MAX_THREADS=2` tardo `196.82s` y `MAX_THREADS=3` tardo `81.20s` en `local_update.sh`; queda validar `max_threads=2` o `3` en HA/RPi antes de cambiar el valor operativo.
 - Las claves usadas por codigo cliente web serian visibles en navegador; por eso se ha retirado Jawg Maps y cualquier futura clave de tiles cliente debera justificarse y restringirse por dominio si el proveedor lo permite.
 - Los historicos CSV son el valor central del proyecto; no deben borrarse ni reescribirse sin backup. Ver [history-safety.md](history-safety.md).
 - Algunas carpetas generadas (`Data`, `Tomap`, `Plots`, `docker-data`, `docker-empty-test`) existen localmente pero estan ignoradas por Git.
