@@ -505,6 +505,15 @@ function updateTerrainExaggerationValue() {
   document.getElementById("terrain-exaggeration-value").textContent = `${terrainExaggeration.toFixed(1)}x`;
 }
 
+function updateTerrainModeButton() {
+  const terrainModeToggle = document.getElementById("terrain-mode-toggle");
+  if (!terrainModeToggle) {
+    return;
+  }
+  terrainModeToggle.textContent = terrainEnabled ? "3D" : "2D";
+  terrainModeToggle.setAttribute("aria-pressed", String(terrainEnabled));
+}
+
 function applyTerrain() {
   if (!map.isStyleLoaded()) {
     return;
@@ -531,8 +540,47 @@ function applyTerrain() {
     if (terrainSlider) {
       terrainSlider.disabled = true;
     }
+    updateTerrainModeButton();
     console.warn("Cannot enable terrain", error);
   }
+}
+
+function setTerrainEnabled(enabled) {
+  const terrainToggle = document.getElementById("terrain-toggle");
+  const terrainSlider = document.getElementById("terrain-exaggeration");
+  terrainEnabled = enabled;
+  if (terrainToggle) {
+    terrainToggle.checked = terrainEnabled;
+  }
+  if (terrainSlider) {
+    terrainSlider.disabled = !terrainEnabled;
+  }
+  updateTerrainModeButton();
+  applyTerrain();
+}
+
+function isEditableKeyboardTarget(target) {
+  if (!target) {
+    return false;
+  }
+
+  const tagName = target.tagName?.toLowerCase();
+  return target.isContentEditable || ["input", "select", "textarea"].includes(tagName);
+}
+
+function setupKeyboardShortcuts() {
+  document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+    if (isEditableKeyboardTarget(event.target)) {
+      return;
+    }
+    if (event.key.toLowerCase() === "t") {
+      event.preventDefault();
+      setTerrainEnabled(!terrainEnabled);
+    }
+  });
 }
 
 function addStationLayer() {
@@ -700,26 +748,34 @@ function showTerrainPopup(lngLat) {
   }
   activeStationPopupProperties = null;
 
-  currentPopup = new maplibregl.Popup({
+  const terrainPopup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true,
     maxWidth: "260px",
+    anchor: "left",
     offset: 8,
   })
     .setLngLat(lngLat)
     .setHTML(terrainPopupContent(null, lngLat))
     .addTo(map);
+  currentPopup = terrainPopup;
+  terrainPopup.on("close", () => {
+    if (currentPopup === terrainPopup) {
+      currentPopup = null;
+      activeStationPopupProperties = null;
+    }
+  });
 
   queryTerrariumElevation(lngLat)
     .then((elevation) => {
-      if (currentPopup && Number.isFinite(elevation)) {
-        currentPopup.setHTML(terrainPopupContent(elevation, lngLat));
+      if (currentPopup === terrainPopup && Number.isFinite(elevation)) {
+        terrainPopup.setHTML(terrainPopupContent(elevation, lngLat));
       }
     })
     .catch((error) => {
       console.warn("Cannot query terrain elevation", error);
-      if (currentPopup) {
-        currentPopup.setHTML(terrainPopupContent(null, lngLat, "error"));
+      if (currentPopup === terrainPopup) {
+        terrainPopup.setHTML(terrainPopupContent(null, lngLat, "error"));
       }
     });
 }
@@ -1010,6 +1066,7 @@ function renderSettingsPanel() {
   const historySlider = document.getElementById("last-rain-history-filter");
   const terrainToggle = document.getElementById("terrain-toggle");
   const terrainSlider = document.getElementById("terrain-exaggeration");
+  const terrainModeToggle = document.getElementById("terrain-mode-toggle");
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
 
   toggle.addEventListener("click", () => {
@@ -1050,9 +1107,11 @@ function renderSettingsPanel() {
   updateTerrainExaggerationValue();
 
   terrainToggle.addEventListener("change", (event) => {
-    terrainEnabled = event.target.checked;
-    terrainSlider.disabled = !terrainEnabled;
-    applyTerrain();
+    setTerrainEnabled(event.target.checked);
+  });
+
+  terrainModeToggle.addEventListener("click", () => {
+    setTerrainEnabled(!terrainEnabled);
   });
 
   terrainSlider.addEventListener("input", (event) => {
@@ -1065,7 +1124,9 @@ function renderSettingsPanel() {
 map.on("load", () => {
   renderLayerSwitcher();
   renderSettingsPanel();
+  setupKeyboardShortcuts();
   setupLongPressElevation();
+  updateTerrainModeButton();
   applyTerrain();
   loadSourceStatus();
   loadMap(document.getElementById("map-selector").value).catch((error) => {

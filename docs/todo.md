@@ -4,6 +4,12 @@
 Dejar correr schedules con `max_threads=3` para observar estabilidad y duraciones reales en HA antes de cambiar mas rendimiento. Si no aparecen problemas, decidir si se mantiene `max_threads=3` como valor operativo recomendado.
 
 ## Prioridad alta
+- [x] Corregir upsert de historicos incrementales por estacion/dia
+  - Contexto: los incrementales no son append puro; las fuentes pueden reenviar una estacion/dia con valores corregidos o campos complementarios incompletos. El patron anterior `update` + `merge` por todas las columnas podia dejar duplicados logicos si la fila nueva traia `NaN`.
+  - Ficheros relacionados: `incremental_upsert.py`, `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py`, `tests/test_incremental_upsert.py`.
+  - Criterio de aceptacion: una sola fila por `Codi Estació` + `Data Local`; valores nuevos no nulos mandan; `NaN` nuevo conserva valor antiguo no nulo.
+  - Estado: resuelto y validado localmente con datos copiados de HA. Meteocat paso de 28 filas duplicadas a 0; Meteoclimatic y Wunderground se mantuvieron sin duplicados. `local_update.sh`, `MODE=maps`, unit tests y smoke test pasaron.
+
 - [x] Corregir inconsistencia de version en la app HA
   - Contexto: `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y `rainmapper-app/CHANGELOG.md` deben avanzar juntos en cada bump de version.
   - Ficheros relacionados: `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile`, `rainmapper-app/CHANGELOG.md`.

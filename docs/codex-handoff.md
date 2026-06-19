@@ -31,6 +31,8 @@ Confirmado en el repositorio:
 - Lint/format formal: pendiente de confirmar. No se ha detectado configuracion dedicada.
 
 ## Documentos de referencia
+`codex-handoff.md` es el punto de entrada, pero no contiene todo el contexto. Antes de cambios relevantes hay que leer tambien los documentos relacionados que apliquen, especialmente arquitectura, tareas, decisiones e historico/seguridad de datos.
+
 - [architecture.md](architecture.md)
 - [todo.md](todo.md)
 - [decisions.md](decisions.md)
@@ -47,6 +49,7 @@ Tambien existen documentos de uso:
 
 ## Estructura relevante del proyecto
 - `Rainmapper.py`: script principal de descarga, normalizacion, historico y estado por fuente.
+- `incremental_upsert.py`: helper comun para actualizar historicos incrementales por clave `Codi Estació` + `Data Local`, evitando duplicados logicos y conservando valores antiguos cuando una descarga nueva trae `NaN`.
 - `tomap_builder.py`: reconstruye CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
 - `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
 - `tomap_to_geojson.py`: conversor de CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
@@ -78,8 +81,13 @@ Tambien existen documentos de uso:
 
 ### `Rainmapper.py`
 - Proposito: descarga datos de Meteocat, Meteoclimatic y Wunderground; actualiza historicos; guarda metricas de Wunderground; escribe `source_status.json`.
-- Estado actual: funcional, con argumentos CLI para fuentes, fechas, threads, intentos, log completo Wunderground y patrones Meteoclimatic multiples. La generacion `Tomap` ya no vive en `Rainmapper.py`; esa responsabilidad esta en `tomap_builder.py`. El fichero de estaciones ignoradas para mapas nuevos se aplica en `tomap_to_geojson.py`, no directamente aqui.
+- Estado actual: funcional, con argumentos CLI para fuentes, fechas, threads, intentos, log completo Wunderground y patrones Meteoclimatic multiples. Actualiza historicos con `incremental_upsert.py`, usando una sola fila por fuente/estacion/dia. La generacion `Tomap` ya no vive en `Rainmapper.py`; esa responsabilidad esta en `tomap_builder.py`. El fichero de estaciones ignoradas para mapas nuevos se aplica en `tomap_to_geojson.py`, no directamente aqui.
 - Riesgos: contiene mucha logica acoplada, pandas sobre CSV historicos y scraping de Wunderground. No tocar sin preservar historicos y probar con Docker local.
+
+### `incremental_upsert.py`
+- Proposito: centraliza el upsert de historicos CSV incrementales.
+- Estado actual: define la identidad logica de lectura como `Codi Estació` + `Data Local`. La fila nueva manda para valores no nulos; si la fila nueva trae `NaN`, conserva el valor antiguo no nulo. Esto evita duplicados como los detectados en Meteocat cuando lluvia y condiciones llegan con distinta disponibilidad.
+- Riesgos: cualquier cambio aqui afecta directamente a `Data/*_incremental.csv`; validar siempre con backup/copia temporal y `scripts/check-history.py`.
 
 ### `tomap_builder.py`
 - Proposito: reconstruye `Tomap/*.csv` y `LastXX_rains.csv` desde `Data/*_incremental.csv`, sin descargar datos nuevos.
@@ -118,12 +126,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.76`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
+- Estado actual: version `0.2.77`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.76`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.77`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -161,11 +169,12 @@ Tambien existen documentos de uso:
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `tomap_to_geojson.py`.
 - Filtros en MapLibre: settings del visor aplica filtros cliente por lluvia minima y por fuente de estacion sobre el periodo cargado para validar UX de futura app movil.
 - Popups de estacion en Leaflet/MapLibre: muestran el resumen de estacion, lluvia acumulada, ultima lluvia del historico disponible (`DD/MM/AAAA · mm`) y un desplegable cerrado por defecto con los ultimos registros disponibles en el GeoJSON. El historico anade `Days ago`, mantiene cabecera sticky al hacer scroll y resalta visualmente las filas con lluvia. El visor detecta dinamicamente columnas `Data_Pluja_XX`; MapLibre incluye en Settings el control `Last rains history` para limitar cuantas filas se muestran. Rainmapper genera por defecto 30 registros recientes por estacion, configurable en HA con `last_rains_history` y en Docker local con `RAINMAPPER_LAST_RAINS_HISTORY`/`LAST_RAINS_HISTORY`.
-- Terreno 3D en MapLibre: settings permite activar `3D terrain` y ajustar `Exaggeration` usando un DEM externo Terrarium/Mapzen como fuente `raster-dem`. No se incluye ningun DEM en la imagen Docker. Validado manualmente por el usuario en local, HA e iPhone; queda como funcionalidad definitiva por decision del 2026-06-18, aceptando la dependencia externa hasta que se decida si hace falta DEM propio.
-- Consulta de altitud en MapLibre: una pulsacion larga sobre el mapa muestra un popup con la altitud del DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB. Se evita `queryTerrainElevation` para esta lectura porque en una prueba manual en Urus/Cerdanya (`42.35406, 1.85317`) devolvio `-4 m` aunque el tile DEM crudo devolvia unos `1259 m`; esta observacion queda pendiente de confirmar automaticamente. En HA no se disparaba la ventana incluso con Chrome limpio y tras generar mapas, por lo que `0.2.65` cambia el disparador de pulsacion larga a eventos propios de MapLibre y `contextmenu`, y ademas alinea los cache-busters internos de los visores. Validacion final en HA/iPhone/Safari Mac reportada por el usuario; pendiente de confirmar mediante prueba automatizada o reproducible.
+- Terreno 3D en MapLibre: settings permite activar `3D terrain` y ajustar `Exaggeration` usando un DEM externo Terrarium/Mapzen como fuente `raster-dem`. La barra superior incluye un boton compacto `2D`/`3D` debajo de `Generated`, y en escritorio la tecla `t` alterna el mismo estado. No se incluye ningun DEM en la imagen Docker. Validado manualmente por el usuario en local, HA e iPhone; queda como funcionalidad definitiva por decision del 2026-06-18, aceptando la dependencia externa hasta que se decida si hace falta DEM propio.
+- Consulta de altitud en MapLibre: una pulsacion larga sobre el mapa muestra un popup con cola apuntando al punto consultado y la altitud del DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB. Se evita `queryTerrainElevation` para esta lectura porque en una prueba manual en Urus/Cerdanya (`42.35406, 1.85317`) devolvio `-4 m` aunque el tile DEM crudo devolvia unos `1259 m`; esta observacion queda pendiente de confirmar automaticamente. En HA no se disparaba la ventana incluso con Chrome limpio y tras generar mapas, por lo que `0.2.65` cambia el disparador de pulsacion larga a eventos propios de MapLibre y `contextmenu`, y ademas alinea los cache-busters internos de los visores. El cierre del popup de terreno limpia el estado activo igual que los popups de estacion para no bloquear el hover posterior en escritorio. Validacion final en HA/iPhone/Safari Mac reportada por el usuario; pendiente de confirmar mediante prueba automatizada o reproducible.
 - `Source` en GeoJSON: `tomap_to_geojson.py` anade fuente inferida por codigo de estacion (`ES...` de longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown`). Si aparece `Unknown`, el conversor emite un `WARNING` en stdout.
 - Estado por fuente: `Rainmapper.py` escribe `Data/source_status.json` con el ultimo estado de Meteoclimatic, Meteocat y Wunderground. Si una fuente falla completamente, el update intenta continuar con el incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. La webUI de HA muestra esas tarjetas de estado desde `0.2.71` y ahora tambien muestra duraciones reales por fuente; Meteocat guarda ademas subtiempos reales de metadata, condiciones, precipitacion, merge y guardado. MapLibre muestra solo badges de estado junto al filtro `Source`; por decision del usuario, los tiempos de proceso no son relevantes para el visor de mapas.
 - Wunderground full log configurable y resumen de errores: `Rainmapper.py`, `config.yaml`.
+- Upsert incremental por fuente: `Rainmapper.py` usa `incremental_upsert.py` para mantener como maximo una fila por `Codi Estació` + `Data Local`. Validacion local 2026-06-19 con datos copiados de HA: Meteocat paso de 316699 filas y 28 filas duplicadas por clave a 316685 filas y 0 duplicados; Meteoclimatic y Wunderground quedaron sin duplicados y con las claves actuales contenidas.
 - Control webUI para desactivar/reactivar estaciones Wunderground por 404 o parse error: `web_server.py`.
 - Metricas de tiempos por estacion Wunderground en `Data/metricas_wunderground.csv`: `Rainmapper.py`.
 - Meteoclimatic con multiples patrones separados por coma, punto y coma o ` - `: `Rainmapper.py`.
@@ -179,7 +188,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.76`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.77`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -354,6 +363,7 @@ Detalle en [decisions.md](decisions.md).
 - No modificar `rainmapper-app/run.sh` sin revisar persistencia y symlinks.
 - No modificar `Rainmapper.py` sin revisar impacto en historicos incrementales.
 - Mantener sincronizadas raiz y `rainmapper-app/app` si se cambia core Python o visores; usar `./scripts/sync-app-files.sh` y validar con `./scripts/smoke-test.sh`.
+- Todo script o modulo nuevo (`.py`, `.sh` u otros) debe incluir documentacion interna en ingles: cabecera de proposito y comentarios/docstrings breves en funciones o bloques no obvios.
 - No introducir API keys reales en Git.
 - No basar una futura app comercial en datos Wunderground obtenidos por scraping ni por PWS Data Feed sin permiso/acuerdo escrito de The Weather Company.
 - Validar cambios de visores en movil real, especialmente iPhone.

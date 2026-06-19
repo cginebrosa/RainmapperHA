@@ -1,7 +1,23 @@
+# rainmapper-disabled:404 https://www.wunderground.com/dashboard/pws/IGUILS3
+# rainmapper-disabled:404 https://www.wunderground.com/dashboard/pws/ILAMET47
+# rainmapper-disabled:404 https://www.wunderground.com/dashboard/pws/INAVS20
+# rainmapper-disabled:404 https://www.wunderground.com/dashboard/pws/IOLIOL2
+# rainmapper-disabled:404 https://www.wunderground.com/dashboard/pws/ISANTC8
+# rainmapper-disabled:404 https://www.wunderground.com/dashboard/pws/ISORIG9
+# rainmapper-disabled:bad_data https://www.wunderground.com/dashboard/pws/IALP86
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/ILABAR32
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/IMAANE5
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/IMONTC89
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/IORDIN8
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/IPRATS9
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/IRIELL15
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/ISANTA1715
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/ITOSES6
+# rainmapper-disabled:parse https://www.wunderground.com/dashboard/pws/IVILAP8
 https://www.wunderground.com/dashboard/pws/IALMOS1
 https://www.wunderground.com/dashboard/pws/IALP104
 https://www.wunderground.com/dashboard/pws/IALP84
-https://www.wunderground.com/dashboard/pws/IALP86
+https://www.wunderground.com/dashboard/pws/IALP87
 https://www.wunderground.com/dashboard/pws/IARBCI10
 https://www.wunderground.com/dashboard/pws/IAVI14
 https://www.wunderground.com/dashboard/pws/IAVI8
@@ -11,16 +27,21 @@ https://www.wunderground.com/dashboard/pws/IBAG67
 https://www.wunderground.com/dashboard/pws/IBELLV25
 https://www.wunderground.com/dashboard/pws/IBREDA236
 https://www.wunderground.com/dashboard/pws/ICAMPE38
+https://www.wunderground.com/dashboard/pws/ICASCA2
 https://www.wunderground.com/dashboard/pws/ICASCA42
 https://www.wunderground.com/dashboard/pws/ICASSE11
+https://www.wunderground.com/dashboard/pws/ICASTE1089
 https://www.wunderground.com/dashboard/pws/ICASTE473
 https://www.wunderground.com/dashboard/pws/ICASTE775
 https://www.wunderground.com/dashboard/pws/ICASTE901
 https://www.wunderground.com/dashboard/pws/ICATALUN154
 https://www.wunderground.com/dashboard/pws/ICRULL2
+https://www.wunderground.com/dashboard/pws/ICUBLA1
 https://www.wunderground.com/dashboard/pws/IDOSRI17
 https://www.wunderground.com/dashboard/pws/IDOSRI23
+https://www.wunderground.com/dashboard/pws/IDOSRI30
 https://www.wunderground.com/dashboard/pws/IDOSRI5
+https://www.wunderground.com/dashboard/pws/IDOSRI8
 https://www.wunderground.com/dashboard/pws/IELPER10
 https://www.wunderground.com/dashboard/pws/IELPER12
 https://www.wunderground.com/dashboard/pws/IELPLA2
@@ -34,16 +55,13 @@ https://www.wunderground.com/dashboard/pws/IGSOL4
 https://www.wunderground.com/dashboard/pws/IGSOL5
 https://www.wunderground.com/dashboard/pws/IGUARD34
 https://www.wunderground.com/dashboard/pws/IGUILS1
-https://www.wunderground.com/dashboard/pws/IGUILS3
 https://www.wunderground.com/dashboard/pws/IISONA3
 https://www.wunderground.com/dashboard/pws/IISONA6
 https://www.wunderground.com/dashboard/pws/ILAAME10
 https://www.wunderground.com/dashboard/pws/ILAAME2
-https://www.wunderground.com/dashboard/pws/ILABAR32
 https://www.wunderground.com/dashboard/pws/ILALEI9
 https://www.wunderground.com/dashboard/pws/ILAMET36
 https://www.wunderground.com/dashboard/pws/ILAMET41
-https://www.wunderground.com/dashboard/pws/ILAMET47
 https://www.wunderground.com/dashboard/pws/ILAMET54
 https://www.wunderground.com/dashboard/pws/ILAMET56
 https://www.wunderground.com/dashboard/pws/ILASEL14
@@ -53,48 +71,45 @@ https://www.wunderground.com/dashboard/pws/ILATOU43
 https://www.wunderground.com/dashboard/pws/ILAVAN3
 https://www.wunderground.com/dashboard/pws/ILLANA4
 https://www.wunderground.com/dashboard/pws/ILLESD1
+https://www.wunderground.com/dashboard/pws/ILLVIA5
 https://www.wunderground.com/dashboard/pws/IMAANE2
-https://www.wunderground.com/dashboard/pws/IMAANE5
 https://www.wunderground.com/dashboard/pws/IMAANE8
 https://www.wunderground.com/dashboard/pws/IMASSA32
+https://www.wunderground.com/dashboard/pws/IMERAN22
 https://www.wunderground.com/dashboard/pws/IMOLL12
 https://www.wunderground.com/dashboard/pws/IMOLL6
 https://www.wunderground.com/dashboard/pws/IMOLL7
 https://www.wunderground.com/dashboard/pws/IMOLL9
-https://www.wunderground.com/dashboard/pws/IMONTC89
 https://www.wunderground.com/dashboard/pws/IMONTF106
 https://www.wunderground.com/dashboard/pws/IMONTF44
 https://www.wunderground.com/dashboard/pws/INAVS17
-https://www.wunderground.com/dashboard/pws/INAVS20
-https://www.wunderground.com/dashboard/pws/IOLIOL2
 https://www.wunderground.com/dashboard/pws/IOLVAN2
 https://www.wunderground.com/dashboard/pws/IOLVAN3
 https://www.wunderground.com/dashboard/pws/IORDIN1
-https://www.wunderground.com/dashboard/pws/IORDIN8
 https://www.wunderground.com/dashboard/pws/IPLANO1
 https://www.wunderground.com/dashboard/pws/IPLANO3
 https://www.wunderground.com/dashboard/pws/IPRATS18
-https://www.wunderground.com/dashboard/pws/IPRATS9
 https://www.wunderground.com/dashboard/pws/IPUERT172
 https://www.wunderground.com/dashboard/pws/IPUIGR11
 https://www.wunderground.com/dashboard/pws/IPUIGR13
 https://www.wunderground.com/dashboard/pws/IPUIGR2
 https://www.wunderground.com/dashboard/pws/IQUART61
 https://www.wunderground.com/dashboard/pws/IQUERA1
-https://www.wunderground.com/dashboard/pws/IRIELL15
+https://www.wunderground.com/dashboard/pws/IRIBES6
+https://www.wunderground.com/dashboard/pws/IRIBES7
 https://www.wunderground.com/dashboard/pws/IRIELL22
 https://www.wunderground.com/dashboard/pws/ISALDE15
-https://www.wunderground.com/dashboard/pws/ISANTA1715
 https://www.wunderground.com/dashboard/pws/ISANTA471
-https://www.wunderground.com/dashboard/pws/ISANTC8
 https://www.wunderground.com/dashboard/pws/ISANTI181
 https://www.wunderground.com/dashboard/pws/ISANTL13
+https://www.wunderground.com/dashboard/pws/ISARRI18
 https://www.wunderground.com/dashboard/pws/ISETCA1
 https://www.wunderground.com/dashboard/pws/ISORIG4
-https://www.wunderground.com/dashboard/pws/ISORIG9
-https://www.wunderground.com/dashboard/pws/ITOSES6
+https://www.wunderground.com/dashboard/pws/ITORTO170
+https://www.wunderground.com/dashboard/pws/ITOSES10
+https://www.wunderground.com/dashboard/pws/ITOSES11
+https://www.wunderground.com/dashboard/pws/ITOSES4
 https://www.wunderground.com/dashboard/pws/ITRASQUE2
 https://www.wunderground.com/dashboard/pws/IURS1
 https://www.wunderground.com/dashboard/pws/IVALLC5
 https://www.wunderground.com/dashboard/pws/IVALLCEB2
-https://www.wunderground.com/dashboard/pws/IVILAP8

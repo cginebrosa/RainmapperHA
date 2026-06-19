@@ -30,6 +30,7 @@ sync_dir() {
 copy_file Rainmapper.py
 copy_file Rainmapper_Client.py
 copy_file const.py
+copy_file incremental_upsert.py
 copy_file requirements.txt
 copy_file stations.example.txt
 copy_file tomap_builder.py

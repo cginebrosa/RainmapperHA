@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.76">
+    <link rel="stylesheet" href="style.css?v=0.2.77">
   </head>
   <body>
     <header class="topbar">
@@ -19,6 +19,9 @@
       <div class="generated">
         <span>Generated</span>
         <time id="generated-at">-</time>
+        <button class="terrain-mode-toggle" id="terrain-mode-toggle" type="button" aria-pressed="false" aria-label="Toggle 3D terrain" title="Toggle 3D terrain">
+          2D
+        </button>
       </div>
       <select id="map-selector" aria-label="Rain period">
         <option value="01d.geojson">1 day</option>
@@ -97,7 +100,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.76"></script>
-    <script src="app.js?v=0.2.76"></script>
+    <script src="config.js?v=0.2.77"></script>
+    <script src="app.js?v=0.2.77"></script>
   </body>
 </html>

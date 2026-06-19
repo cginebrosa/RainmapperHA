@@ -1,5 +1,30 @@
 # Decisions
 
+## 2026-06-19 - Upsert incremental por estacion y dia
+
+### Decision
+Actualizar los historicos `Data/*_incremental.csv` con una regla comun en `incremental_upsert.py`: la identidad logica de una lectura diaria es `Codi Estació` + `Data Local`.
+
+La fila nueva manda para todos los valores no nulos. Si una descarga nueva trae `NaN` en una columna, se conserva el valor antiguo no nulo de esa misma estacion/dia.
+
+### Motivo
+El patron anterior combinaba `csv_old.update(csv)` por `Codi Estació` + `Data Local` con un `merge` posterior por todas las columnas. Eso evitaba duplicados exactos, pero podia dejar duplicados logicos cuando una fila nueva tenia `NaN` en temperatura/humedad y la antigua tenia valores. Se detecto en Meteocat con datos reales copiados de HA: 28 filas duplicadas por clave, algunas recientes de junio de 2026.
+
+### Alternativas consideradas
+Mantener `merge` por todas las columnas, hacer append puro, quedarse siempre con la fila mas completa o migrar ya a SQLite/Parquet.
+
+### Consecuencias
+El CSV sigue siendo el formato persistente, pero la semantica de actualizacion queda explicita y testeada. Se limpian duplicados existentes cuando el incremental se vuelve a guardar. La migracion a SQLite/Parquet queda pospuesta hasta que haya una razon clara de rendimiento, consulta o integridad.
+
+### Ficheros afectados
+- `incremental_upsert.py`
+- `Rainmapper.py`
+- `rainmapper-app/app/Rainmapper.py`
+- `tests/test_incremental_upsert.py`
+
+### Estado
+Implementada y validada localmente con datos copiados de HA. `MAX_THREADS=3 ./local_update.sh` termino con exit code 0; Meteocat quedo en 316685 filas y 0 duplicados por clave; Meteoclimatic y Wunderground quedaron con 0 duplicados. `MODE=maps`, tests unitarios y `./scripts/smoke-test.sh` pasaron correctamente.
+
 ## 2026-06-19 - Medir duraciones por fuente con temporizadores locales
 
 ### Decision

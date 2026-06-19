@@ -42,6 +42,7 @@ Hay varios entry points segun entorno:
 - Docker local: `Dockerfile` ejecuta `/app/run.sh`.
 - Home Assistant: `rainmapper-app/Dockerfile` ejecuta `/run.sh`.
 - Core de datos: `Rainmapper.py`.
+- Upsert de historicos incrementales: `incremental_upsert.py`.
 - Reconstruccion Tomap sin descarga: `tomap_builder.py`.
 - Mapas Bokeh: `Rainmapper_Client.py`.
 - GeoJSON: `tomap_to_geojson.py`.
@@ -69,6 +70,12 @@ Hay varios entry points segun entorno:
 - Responsabilidad: descarga Meteocat, Meteoclimatic y Wunderground; actualiza historicos; escribe estado por fuente; metricas Wunderground.
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps, `meteoclimatic_local`, `sodapy_local`, `util`.
 - Relacion: alimenta `Rainmapper_Client.py` y `tomap_to_geojson.py`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global.
+
+### Upsert incremental
+- Ruta: `incremental_upsert.py` y copia en app.
+- Responsabilidad: combinar descargas actuales con historicos `Data/*_incremental.csv` sin crear duplicados por `Codi Estació` + `Data Local`.
+- Regla: la fila nueva manda para valores no nulos; si la descarga nueva trae `NaN`, se conserva el valor antiguo no nulo para no perder campos complementarios como temperatura/humedad de Meteocat.
+- Relacion: usado por `Rainmapper.py` en Meteocat, Meteoclimatic y Wunderground antes de reescribir los CSV incrementales.
 
 ### Generador Bokeh
 - Ruta: `Rainmapper_Client.py` y copia en app.
@@ -139,6 +146,7 @@ Hay varios entry points segun entorno:
 Persistencia por CSV:
 
 - Historicos incrementales en `Data/*_incremental.csv`.
+- Identidad logica de una fila incremental: `Codi Estació` + `Data Local`. Debe existir como maximo una fila por fuente/estacion/dia; `incremental_upsert.py` aplica esta regla.
 - Listados/metadata de estaciones en `Data/estacions_*.csv`.
 - CSV preparados para mapas en `Tomap/01_Tomap_Last_day.csv`, `02_Tomap_Last_week.csv`, etc.
 - Ultimos registros en `Tomap/LastXX_rains.csv`; por defecto `Last30_rains.csv`, configurable con `RAINMAPPER_LAST_RAINS_HISTORY` o la opcion HA `last_rains_history`.

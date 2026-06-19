@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.77
+
+- Add a compact MapLibre `2D`/`3D` terrain toggle below the generated timestamp.
+- Keep the MapLibre terrain toggle, Settings checkbox, and `t` keyboard shortcut synchronized.
+- Add a pointer tail to long-press terrain elevation popups.
+- Restore desktop station hover popups after closing a terrain elevation popup.
+
 ## 0.2.76
 
 - Add real per-source duration metrics to `source_status.json`.

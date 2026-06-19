@@ -26,6 +26,7 @@ import requests
 import googlemaps
 from meteoclimatic_local.client import MeteoclimaticClient
 from const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
+from incremental_upsert import upsert_incremental
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -935,17 +936,9 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel):          
         # Si el archivo no se encuentra, crear un DataFrame vacío con las mismas columnas que csv
         csv_old = pd.DataFrame(columns=csv.columns)
     #
-	# Update existing data in csv_old with values in csv just in case readings have changed (it happens!)
-    csv_old.set_index(keys=["Codi Estació","Data Local"],drop=False,inplace=True)
-	#
-    csv.set_index(keys=["Codi Estació","Data Local"],drop=False,inplace=True)
-    csv_old.update(csv)
-	#
-	# Merge new records from csv & csv_old into csv_incremental
-    csv_old.reset_index(drop=True,inplace=True)
-    csv.reset_index(drop=True,inplace=True)
-    csv_incremental = pd.merge(csv, csv_old.drop_duplicates(), on=csv_old.columns.to_list(),
-					how='outer', indicator=False)
+    # Upsert by station/day: fresh non-null values win, but fresh NaN values
+    # keep existing non-null fields such as Meteocat temperature/humidity.
+    csv_incremental = upsert_incremental(csv, csv_old)
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
     csv_incremental.reset_index(drop=True, inplace=True)
 	#
@@ -978,17 +971,9 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):     
         # Si el archivo no se encuentra, crear un DataFrame vacío con las mismas columnas que csv
         csv_old = pd.DataFrame(columns=csv.columns)
 
-	# Update existing data in csv_old with values in csv just in case readings have changed (it happens!)
-    csv_old.set_index(keys=["Codi Estació","Data Local"],drop=False,inplace=True)
-	#
-    csv.set_index(keys=["Codi Estació","Data Local"],drop=False,inplace=True)
-    csv_old.update(csv)
-	#
-	# Merge new records from csv & csv_old into csv_incremental
-    csv_old.reset_index(drop=True,inplace=True)
-    csv.reset_index(drop=True,inplace=True)
-    csv_incremental = pd.merge(csv, csv_old.drop_duplicates(), on=csv_old.columns.to_list(),
-					how='outer', indicator=False)
+    # Upsert by station/day: fresh non-null values win, but fresh NaN values
+    # keep existing non-null fields from earlier successful reads.
+    csv_incremental = upsert_incremental(csv, csv_old)
 
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
     csv_incremental.reset_index(drop=True, inplace=True)
@@ -1031,17 +1016,9 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):      
         # Si el archivo no se encuentra, crear un DataFrame vacío con las mismas columnas que csv
         csv_old = pd.DataFrame(columns=csv.columns)
 
-	# Update existing data in csv_old with values in csv just in case readings have changed (it happens!)
-    csv_old.set_index(keys=["Codi Estació","Data Local"],drop=False,inplace=True)
-	#
-    csv.set_index(keys=["Codi Estació","Data Local"],drop=False,inplace=True)
-    csv_old.update(csv)
-	#
-	# Merge new records from csv & csv_old into csv_incremental
-    csv_old.reset_index(drop=True,inplace=True)
-    csv.reset_index(drop=True,inplace=True)
-    csv_incremental = pd.merge(csv, csv_old.drop_duplicates(), on=csv_old.columns.to_list(),
-					how='outer', indicator=False)
+    # Upsert by station/day: fresh non-null values win, but fresh NaN values
+    # keep existing non-null fields from earlier successful reads.
+    csv_incremental = upsert_incremental(csv, csv_old)
 
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
     csv_incremental.reset_index(drop=True, inplace=True)
