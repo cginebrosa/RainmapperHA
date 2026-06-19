@@ -238,47 +238,20 @@ check_history_fixture() {
 check_short_history_rebuild_fixture() {
   local tmp_dir
 
-  # Extract only create_last_rains from Rainmapper.py and execute it against a
-  # short fixture. This protects the popup history columns without running the
-  # full downloader.
+  # Exercise the active Tomap builder against a short fixture. This protects the
+  # popup history columns without running the full downloader.
   tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/rainmapper-short-history.XXXXXX")" || return 1
 
   if ! "$PYTHON_BIN" - "$tmp_dir" <<'PY'
-import ast
 import sys
 from pathlib import Path
 
 import pandas as pd
+import tomap_builder
 
 tmp_dir = Path(sys.argv[1])
 maps_path = tmp_dir / "Tomap"
 maps_path.mkdir(parents=True, exist_ok=True)
-
-source = Path("Rainmapper.py").read_text(encoding="utf-8")
-module = ast.parse(source, filename="Rainmapper.py")
-function_node = next(
-    node
-    for node in module.body
-    if isinstance(node, ast.FunctionDef) and node.name == "create_last_rains"
-)
-function_module = ast.Module(body=[function_node], type_ignores=[])
-ast.fix_missing_locations(function_module)
-
-def filter_results(df, _minimum_rain):
-    return df
-
-def save_dataframe_tomap(df, _file_name, _save_to_csv=True, _decimal="."):
-    if _save_to_csv:
-        df.to_csv(maps_path / f"{_file_name}.csv", index=False)
-
-namespace = {
-    "pd": pd,
-    "_minimum_rain_tomap": 0,
-    "_MAPS_PATH": str(maps_path) + "/",
-    "filter_results": filter_results,
-    "save_dataframe_tomap": save_dataframe_tomap,
-}
-exec(compile(function_module, "Rainmapper.py", "exec"), namespace)
 
 df = pd.DataFrame(
     [
@@ -327,7 +300,12 @@ df = pd.DataFrame(
     ]
 )
 
-result = namespace["create_last_rains"](df, _nrecords=21)
+result = tomap_builder.create_last_rains(
+    df,
+    maps_path,
+    nrecords=21,
+    minimum_rain_tomap=0,
+)
 
 expected_groups = ("Data_Pluja", "Pluja_Diaria", "Hum_Max", "Temp_Max", "Hum_Min", "Temp_Min")
 for group in expected_groups:

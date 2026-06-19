@@ -2024,138 +2024,6 @@ def create_filtered(df_to_filter_param:pd.DataFrame, _base_date, _days_backward,
     date_mask = (df_to_filter['Data Local'] >= start_date) & (df_to_filter['Data Local'] <= end_date)
     return df_to_filter.loc[date_mask].copy()
 
-def create_grouped(df_to_group_param:pd.DataFrame):
-    # Legacy Tomap helper kept during the transition to tomap_builder.py.
-    # TODO: remove after validating that Run all no longer needs inline Tomap generation.
-    df_to_group=df_to_group_param.copy()
-    # Establece 'Ultima Lectura' como índice
-    df_to_group.set_index(['Ultima Lectura'], drop=False, inplace=True)
-
-    # Agrupa por 'Codi Estació', selecciona 'Ultima Lectura' como el último valor y suma la columna 'Total'
-    datos_finales = df_to_group.groupby('Codi Estació').agg({
-        'Codi Estació': 'last',
-        'Estació': 'last',
-        'Comarca': 'last',
-        'Municipi': 'last',
-        'Provincia': 'last',
-        'Altitud': 'last',
-        'Latitud': 'last',
-        'Longitud': 'last',
-        'Ultima Lectura': 'max',
-        'Variable': 'last',
-        'Total': lambda x: round(x.sum(), 1),
-        'Unitat': 'last',
-        'Data Local': 'max'
-    }).sort_values(by=['Total'], ascending=[False]).reset_index(drop=True)  # Establece drop=True para eliminar el índice
-
-    # Resultado final: datos_finales contiene las filas dentro del rango de fechas especificado,
-    # donde 'Ultima Lectura' es el último valor dentro de cada grupo de 'Codi Estació',
-    # y la columna 'Total' se suma para cada grupo de 'Codi Estació'
-    # Se filtra que la lluvia total sea > que la _minimum_rain_toprint
-    #print(datos_finales)
-    #print(datos_finales.info())
-    return filter_results(datos_finales,_minimum_rain_tomap)
-
-def create_last_rains(df:pd.DataFrame, _nrecords):
-    # Legacy Tomap helper kept during the transition to tomap_builder.py.
-    # TODO: remove after validating that Run all no longer needs inline Tomap generation.
-
-    # Operación 1
-    result_step1 = df.groupby(['Codi Estació', 'Data Local'], as_index=False).agg({
-        'Data Lectura': 'first',
-        'Estació': 'first',
-        'Comarca': 'first',
-        'Municipi': 'first',
-        'Provincia': 'first',
-        'Altitud': 'first',
-        'Latitud': 'first',
-        'Longitud': 'first',
-        'Ultima Lectura': 'first',
-        'Variable': 'first',
-        'Total': 'sum',
-        'Unitat': 'first',
-        'max_temp_celsius':'first',
-        'min_temp_celsius':'first',
-        'max_humidity_percent':'first',
-        'min_humidity_percent':'first',
-        'Hora Local': 'first'
-    })
-
-    result_step1 = filter_results(result_step1,_minimum_rain_tomap)
-    # Operación 2
-    # Old pandas < 3.0 style, now avoided because DataFrameGroupBy.apply on grouping columns is deprecated:
-    # result_step2 = result_step1.groupby('Codi Estació').apply(lambda x: x.nlargest(_nrecords, 'Data Local')).reset_index(drop=True)
-    # pandas 3.0-compatible style: sort first, then take the newest _nrecords per station while keeping all columns.
-    result_step2 = (
-        result_step1
-        .sort_values(['Codi Estació', 'Data Local'], ascending=[True, False])
-        .groupby('Codi Estació', as_index=False)
-        .head(_nrecords)
-        .reset_index(drop=True)
-    )
-
-    # Convertir 'Data Local' al formato YYYY/MM/DD
-    result_step2['Data Local'] = pd.to_datetime(result_step2['Data Local']).dt.strftime('%Y/%m/%d')
-    #print (result_step2)
-    # Operación 3
-    result_step3 = result_step2.pivot_table(index='Codi Estació',
-                                            columns=result_step2.groupby('Codi Estació').cumcount().add(1),
-                                            values=['Data Local', 'Total',
-                                                    'max_temp_celsius','min_temp_celsius',
-                                                    'max_humidity_percent','min_humidity_percent',
-                                                    ], aggfunc='first')
-
-    #print(result_step3)
-    #print(result_step3.info())
-    #print(_nrecords)
-
-    expected_value_columns = [
-        'Data Local',
-        'Total',
-        'max_humidity_percent',
-        'max_temp_celsius',
-        'min_humidity_percent',
-        'min_temp_celsius',
-    ]
-    expected_columns = pd.MultiIndex.from_product([expected_value_columns, range(1, _nrecords + 1)])
-    result_step3 = result_step3.reindex(columns=expected_columns)
-
-    # Renombrar las columnas 'Data Local' a 'Data_Pluja{i:02}' y convertirlas al formato DD/MM/YYYY
-    for i in range(1, _nrecords+1):
-        column_name = f'Data_Pluja{i:02}'
-        result_step3[('Data Local', i)] = pd.to_datetime(result_step3[('Data Local', i)], errors='coerce').dt.strftime('%d/%m/%Y')
-
-    #print(result_step3.info())
-    #print(result_step3)
-    #exit()
-    # Renombrar las columnas
-    result_step3.columns =  [f'Data_Pluja_{i:02}' for i in range(1, _nrecords+1)] + \
-                            [f'Pluja_Diaria_{i:02}' for i in range(1, _nrecords+1)] + \
-                            [f'Hum_Max_{i:02}' for i in range(1, _nrecords+1)] + \
-                            [f'Temp_Max_{i:02}' for i in range(1, _nrecords+1)] + \
-                            [f'Hum_Min_{i:02}' for i in range(1, _nrecords+1)] + \
-                            [f'Temp_Min_{i:02}' for i in range(1, _nrecords+1)]
-
-
-    result_step3.reset_index(drop=False,inplace=True)
-    #
-    for i in range(1, _nrecords+1):
-        column_name = f'Data_Pluja_{i:02}'
-        result_step3[column_name] = result_step3[column_name].astype(str).str.split('.').str[0]
-
-    # Redondear las columnas 'Pluja_Diaria{i:02}' a un decimal
-    for i in range(1, _nrecords+1):
-        column_name = f'Pluja_Diaria_{i:02}'
-        result_step3[column_name] = result_step3[column_name].round(decimals=1)
-
-    result_final = result_step3
-
-    #result_final.to_csv(_MAPS_PATH+'Last'+str(_nrecords)+'_rains.csv',decimal=',')
-    result_final.to_csv(_MAPS_PATH+'Last'+str(_nrecords)+'_rains.csv')
-    save_dataframe_tomap(result_final,_file_name='Last'+str(_nrecords)+'_rains',_save_to_csv=True,_decimal='.')
-    return result_final
-
-
 #In[10] ##  MAIN LOOP ##
 #
 # DEFINE BASE DATES FROM 00:00:00 TO 23:59:59 IN TODAY'S DATE
@@ -2528,17 +2396,13 @@ if _create_monthly_stats:                                                # Creat
     create_monthly_dataframe(meteocat_df, _save_to_excel=False)
 #
 
-## Start Tomap removal transition.
-## Inline Tomap generation used to run here. It has been moved to tomap_builder.py
-## so that maps can be rebuilt independently from weather-data downloads.
+## Tomap generation is handled by tomap_builder.py so maps can be rebuilt
+## independently from weather-data downloads.
 ##
-## Operational flow after this change:
+## Operational flow:
 ## - Rainmapper.py updates source data and source_status.json.
 ## - tomap_builder.py rebuilds Tomap/*.csv and LastXX_rains.csv.
 ## - Rainmapper_Client.py and tomap_to_geojson.py generate publishable maps.
-##
-## The legacy helper functions above are kept temporarily for review and easy cleanup.
-## End Tomap removal transition.
 if _create_googlemaps_files:
     print('')
     print('Inline Tomap generation is disabled; Tomap rebuild is handled by tomap_builder.py.')

@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Hacer bump/publicacion HA para validar en Home Assistant las duraciones reales por fuente en la webUI. Si funciona, el siguiente bloque puede ser limpiar las funciones legacy marcadas de `Rainmapper.py` tras la extraccion de `Tomap`.
+Dejar correr schedules con `max_threads=3` para observar estabilidad y duraciones reales en HA antes de cambiar mas rendimiento. Si no aparecen problemas, decidir si se mantiene `max_threads=3` como valor operativo recomendado.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -118,14 +118,13 @@ Hacer bump/publicacion HA para validar en Home Assistant las duraciones reales p
   - Criterio de aceptacion: una unica fuente de verdad para core compartida por Docker local y HA.
   - Riesgo si no se hace: mantenimiento manual permanente.
 
-- [ ] Extraer generacion de CSV `Tomap` de `Rainmapper.py`
+- [x] Extraer generacion de CSV `Tomap` de `Rainmapper.py`
   - Contexto: hasta ahora `Generate maps`/`MODE=maps` solo consumia los `Tomap` existentes para generar Bokeh y GeoJSON. Si cambiaba una columna derivada de `Tomap`, como el numero de ultimos registros de lluvia por estacion, hacia falta `Run all`/`MODE=all` para reconstruirlos.
   - Nota: desde `0.2.67`, el numero de registros recientes se configura con `last_rains_history`; con `tomap_builder.py`, `Generate maps` deberia poder reconstruir ese historico sin `Run all`, pendiente de validacion local/HA.
   - Ficheros relacionados: `Rainmapper.py`, `tomap_builder.py`, `run.sh`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `Rainmapper_Client.py`, `tomap_to_geojson.py`.
-  - Estado parcial: `tomap_builder.py` reconstruye `Tomap` y `LastXX_rains.csv`; `MODE=maps`, `MODE=all` y `Generate maps` lo invocan antes de Bokeh/GeoJSON. En `Rainmapper.py` se ha retirado el bloque ejecutable inline de generacion `Tomap` y se ha dejado un marcador transicional claro. Las funciones legacy `create_grouped` y `create_last_rains` siguen presentes y marcadas para limpieza posterior.
-  - Validacion: tras ejecutar `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que `tomap_builder.py` reconstruye los mismos CSV `Tomap` que el flujo antiguo de `Rainmapper.py` para los datos locales actuales. `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente. `Generate maps` en HA `0.2.74` fue validado manualmente por el usuario. Tras retirar el bloque inline, `local_all.sh` completo termina con `Rainmapper.py` exit code 0, reconstruye Tomap con `tomap_builder.py` y genera GeoJSON.
-  - Criterio de aceptacion pendiente: limpiar funciones legacy marcadas tras haber validado `Run all` en HA.
-  - Riesgo residual: durante esta fase quedan helpers legacy en `Rainmapper.py` para facilitar revision, pero la ejecucion normal ya usa `tomap_builder.py` como unica generacion `Tomap`.
+  - Estado: resuelto. `tomap_builder.py` reconstruye `Tomap` y `LastXX_rains.csv`; `MODE=maps`, `MODE=all` y `Generate maps` lo invocan antes de Bokeh/GeoJSON. En `Rainmapper.py` se han retirado el bloque ejecutable inline de generacion `Tomap` y los helpers legacy `create_grouped` y `create_last_rains`.
+  - Validacion: tras ejecutar `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que `tomap_builder.py` reconstruye los mismos CSV `Tomap` que el flujo antiguo de `Rainmapper.py` para los datos locales actuales. `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente. `Generate maps` en HA `0.2.74` fue validado manualmente por el usuario. Tras retirar el bloque inline, `local_all.sh` completo termina con `Rainmapper.py` exit code 0, reconstruye Tomap con `tomap_builder.py` y genera GeoJSON. Tras limpiar helpers legacy, `MAX_THREADS=3 ./local_update.sh` termina con exit code 0 y las descargas actuales quedan contenidas en sus incrementales.
+  - Riesgo residual: si cambia el schema de historicos incrementales, hay que actualizar `tomap_builder.py` y sus tests.
 
 - [ ] Mejorar observabilidad de Wunderground
   - Contexto: Wunderground es el cuello de botella, pero todavia no hay suficientes observaciones de tiempos y el rendimiento actual es aceptable.

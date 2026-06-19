@@ -80,7 +80,7 @@ Hay varios entry points segun entorno:
 - Ruta: `tomap_builder.py` y copia en app.
 - Responsabilidad: leer historicos `Data/*_incremental.csv` y reconstruir `Tomap/*.csv` y `LastXX_rains.csv` sin ejecutar descargas.
 - Dependencias: pandas, pathlib, constantes locales.
-- Relacion: `run.sh`, `rainmapper-app/run.sh` y `Generate maps` de la webUI lo ejecutan antes de `Rainmapper_Client.py` y `tomap_to_geojson.py`. Es la ruta activa de generacion `Tomap`; el bloque ejecutable inline de `Rainmapper.py` fue retirado de forma transicional, dejando helpers legacy marcados para limpieza posterior.
+- Relacion: `run.sh`, `rainmapper-app/run.sh` y `Generate maps` de la webUI lo ejecutan antes de `Rainmapper_Client.py` y `tomap_to_geojson.py`. Es la ruta activa de generacion `Tomap`; el bloque ejecutable inline y los helpers legacy de `Rainmapper.py` ya fueron retirados.
 
 ### Conversor GeoJSON
 - Ruta: `tomap_to_geojson.py` y copia en app.
