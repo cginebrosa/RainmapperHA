@@ -61,6 +61,13 @@ run_update() {
 
 run_maps() {
   echo "Starting Rainmapper maps..."
+  echo "Rebuilding Rainmapper Tomap..."
+  python tomap_builder.py \
+    --data-dir /app/Data \
+    --maps-dir /app/Tomap \
+    --last-rains-history "$LAST_RAINS_HISTORY_VALUE" \
+    --max-threads "$MAX_THREADS_VALUE"
+  echo "Rainmapper Tomap finished."
   python Rainmapper_Client.py
   echo "Starting Rainmapper GeoJSON..."
   python tomap_to_geojson.py \

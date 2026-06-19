@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Validar en Home Assistant el caso degradado de la semantica de exit code global por fuente: `2` exito degradado con al menos una fuente usable. El caso normal `0` ya fue validado manualmente en HA con `Run all` correcto y mapas generados.
+Decidir si se sube como nueva version HA la extraccion conservadora de `tomap_builder.py`, tras validarla en local con `local_update.sh`, `scripts/compare-tomap-builder.sh` y `local_maps.sh`.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -119,11 +119,13 @@ Validar en Home Assistant el caso degradado de la semantica de exit code global 
   - Riesgo si no se hace: mantenimiento manual permanente.
 
 - [ ] Extraer generacion de CSV `Tomap` de `Rainmapper.py`
-  - Contexto: ahora `Generate maps`/`MODE=maps` solo consume los `Tomap` existentes para generar Bokeh y GeoJSON. Si cambia una columna derivada de `Tomap`, como el numero de ultimos registros de lluvia por estacion, hace falta `Run all`/`MODE=all` para reconstruirlos.
-  - Nota: desde `0.2.67`, el numero de registros recientes se configura con `last_rains_history`, pero sigue requiriendo `Run all` para reconstruir `Tomap`.
-  - Ficheros relacionados: `Rainmapper.py`, futuro `tomap_builder.py` o equivalente, `run.sh`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `Rainmapper_Client.py`, `tomap_to_geojson.py`.
-  - Criterio de aceptacion: `Generate maps` puede reconstruir los CSV `Tomap` desde historicos `Data/` sin descargar datos nuevos, y despues generar Bokeh/GeoJSON.
-  - Riesgo si no se hace: cambios en el formato de `Tomap` pueden requerir un update completo aunque solo se quiera regenerar mapas.
+  - Contexto: hasta ahora `Generate maps`/`MODE=maps` solo consumia los `Tomap` existentes para generar Bokeh y GeoJSON. Si cambiaba una columna derivada de `Tomap`, como el numero de ultimos registros de lluvia por estacion, hacia falta `Run all`/`MODE=all` para reconstruirlos.
+  - Nota: desde `0.2.67`, el numero de registros recientes se configura con `last_rains_history`; con `tomap_builder.py`, `Generate maps` deberia poder reconstruir ese historico sin `Run all`, pendiente de validacion local/HA.
+  - Ficheros relacionados: `Rainmapper.py`, `tomap_builder.py`, `run.sh`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `Rainmapper_Client.py`, `tomap_to_geojson.py`.
+  - Estado parcial: se ha anadido `tomap_builder.py` como version conservadora e independiente, copiando la logica necesaria sin eliminar todavia el bloque equivalente de `Rainmapper.py`. `MODE=maps` y `Generate maps` pasan a reconstruir `Tomap` antes de generar Bokeh/GeoJSON.
+  - Validacion: tras ejecutar `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que `tomap_builder.py` reconstruye los mismos CSV `Tomap` que el flujo antiguo de `Rainmapper.py` para los datos locales actuales. `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente.
+  - Criterio de aceptacion pendiente: validar en HA que `Generate maps` reconstruye `Tomap`, Bokeh y GeoJSON sin descargar datos nuevos.
+  - Riesgo residual: durante esta fase existe duplicidad temporal de logica `Tomap` entre `Rainmapper.py` y `tomap_builder.py`; cuando se retire del core, marcar los bloques eliminados segun criterio del usuario para facilitar recuperacion/revision.
 
 - [ ] Mejorar observabilidad de Wunderground
   - Contexto: Wunderground es el cuello de botella, pero todavia no hay suficientes observaciones de tiempos y el rendimiento actual es aceptable.
@@ -152,14 +154,14 @@ Validar en Home Assistant el caso degradado de la semantica de exit code global 
   - Criterio de aceptacion: las llamadas Meteocat/Socrata usan timeout configurable y reintentos antes de fallar el run.
   - Estado: corregido en `0.2.68` con `meteocat_request_timeout` y `meteocat_max_attempts`; pendiente de validacion manual en HA.
 
-- [ ] Validar ejecucion degradada por fuente y exit code global
+- [x] Validar ejecucion degradada por fuente y exit code global
   - Contexto: actualmente `Rainmapper.py` ejecuta Meteoclimatic, Meteocat y Wunderground en futuros paralelos, pero cualquier excepcion propagada por una fuente hace fallar el `update` completo. Wunderground controla errores por estacion y muestra resumen; Meteoclimatic tolera fallos de patrones individuales si algun patron devuelve datos, pero aborta si no recupera ninguno; Meteocat reintenta desde `0.2.68`, pero aborta si agota intentos.
   - Objetivo: si una de las tres fuentes falla completamente, el proceso general deberia poder continuar con las fuentes que si funcionen, reutilizar o marcar claramente datos antiguos cuando proceda, y dejar trazabilidad visible.
   - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/web_server.py`, `run.sh`, `rainmapper-app/run.sh`, `tomap_to_geojson.py`, `maplibre-viewer/`, documentacion HA.
   - Estado parcial: desde `0.2.71`, la webUI muestra estado/exit code separado para Meteoclimatic, Meteocat y Wunderground. `Rainmapper.py` escribe `Data/source_status.json`; si una fuente falla completamente intenta reutilizar su incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. El fichero se copia como `data/source_status.json` en Leaflet/MapLibre publicados, y MapLibre muestra badges junto al filtro `Source`. Desde `0.2.73`, el exit code global distingue `0` exito completo, `2` exito degradado con al menos una fuente usable y `1` fallo total/no recuperable; `Run all` debe continuar a `maps` cuando `update` devuelve `2`.
   - Validacion: `0.2.73` fue validada manualmente en HA con `Run all` completo, `Exit code 0` y mapas generados correctamente.
-  - Criterio de aceptacion pendiente: validar en HA con fallo real o simulado de una fuente que `Exit code 2`, los badges de fuente y el comportamiento de `Run all` son correctos.
-  - Riesgo si no se hace: un fallo temporal de una fuente puede impedir publicar datos actualizados del resto o, si se cambia sin cuidado, publicar mapas parciales sin advertencia suficiente.
+  - Validacion adicional: el caso degradado `Exit code 2` se da por validado de facto en local por decision del usuario, tras el fallo accidental de lectura/escritura provocado por iCloud que permitio comprobar continuidad del proceso y trazabilidad por fuente.
+  - Estado: resuelto operativamente; una validacion HA con fallo simulado queda como comprobacion opcional, no como bloqueo.
 
 - [x] Retirar Jawg Maps de Leaflet/MapLibre y de la configuracion
   - Contexto: Jawg Street/Terrain eran capas opcionales activadas con `jawgmaps_api_key`, pero MapLibre ya cubre las necesidades actuales con Satellite+, Hybrid, Topographic, Liberty y 3D terrain. Jawg anade gestion de API key, posible restriccion por dominio, dudas de uso no comercial y complejidad de documentacion/soporte.

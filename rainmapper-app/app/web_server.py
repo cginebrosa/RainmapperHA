@@ -569,7 +569,16 @@ def command_for(action: str) -> list[str]:
     if action == "update":
         return update_command
     if action == "maps":
-        return ["python", "Rainmapper_Client.py"]
+        return [
+            "sh",
+            "-c",
+            "python tomap_builder.py "
+            "--data-dir /app/Data "
+            "--maps-dir /app/Tomap "
+            "--last-rains-history \"$RAINMAPPER_LAST_RAINS_HISTORY\" "
+            "--max-threads \"$RAINMAPPER_MAX_THREADS\" "
+            "&& python Rainmapper_Client.py",
+        ]
     if action == "all":
         return update_command + ["&&", "python", "Rainmapper_Client.py"]
     raise ValueError(f"Invalid action: {action}")
@@ -618,6 +627,8 @@ def update_run_progress(raw_line: str) -> None:
         updates.update({"current_step": "Running Wunderground", **clear_progress()})
     elif line.startswith("Start printing routine"):
         updates.update({"current_step": "Printing totals", **clear_progress()})
+    elif line.startswith("Start rebuilding Tomap") or (line.startswith("Start processing") and "Tomap" in line):
+        updates.update({"current_step": "Rebuilding Tomap", **clear_progress()})
     elif line.startswith("Start processing") and "map" in line.lower():
         updates.update({"current_step": "Generating map files", **clear_progress()})
     elif line.startswith("Starting Rainmapper maps"):

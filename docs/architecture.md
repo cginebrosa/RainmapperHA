@@ -26,6 +26,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - `leaflet-viewer/`: fuente del visor Leaflet en raiz.
 - `maplibre-viewer/`: fuente del visor MapLibre en raiz.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `sync-app-files.sh`, `backup-data.sh` y `check-history.py`.
+- `local_update.sh`: runner local solo update, util para refrescar incrementales y comparar el `Tomap` antiguo contra `tomap_builder.py`.
 - `meteoclimatic_local/`: cliente local Meteoclimatic.
 - `sodapy_local/`: copia local/adaptada de Socrata client.
 - `util/`: parser/scraper Wunderground.
@@ -41,6 +42,7 @@ Hay varios entry points segun entorno:
 - Docker local: `Dockerfile` ejecuta `/app/run.sh`.
 - Home Assistant: `rainmapper-app/Dockerfile` ejecuta `/run.sh`.
 - Core de datos: `Rainmapper.py`.
+- Reconstruccion Tomap sin descarga: `tomap_builder.py`.
 - Mapas Bokeh: `Rainmapper_Client.py`.
 - GeoJSON: `tomap_to_geojson.py`.
 - WebUI HA: `rainmapper-app/app/web_server.py`.
@@ -53,11 +55,12 @@ Hay varios entry points segun entorno:
 3. En HA, `serve` arranca `web_server.py`.
 4. El usuario pulsa `Run update`, `Generate maps` o `Run all`, o el schedule dispara una accion.
 5. `Rainmapper.py` descarga datos y actualiza CSV historicos/incrementales.
-6. `Rainmapper.py` produce CSV `Tomap` para los periodos acumulados.
-7. `Rainmapper_Client.py` genera HTML Bokeh en `Plots`.
-8. `tomap_to_geojson.py` genera GeoJSON desde `Tomap`.
-9. `web_server.py` publica HTML, GeoJSON y visores estaticos en `/config/www`.
-10. Home Assistant sirve los mapas por `/local/...`.
+6. `Rainmapper.py` produce CSV `Tomap` para los periodos acumulados durante `update`/`all`; `tomap_builder.py` tambien puede reconstruir esos `Tomap` desde historicos incrementales sin descargar datos nuevos.
+7. En `MODE=maps`/`Generate maps`, `tomap_builder.py` reconstruye `Tomap` antes de generar salidas publicables.
+8. `Rainmapper_Client.py` genera HTML Bokeh en `Plots`.
+9. `tomap_to_geojson.py` genera GeoJSON desde `Tomap`.
+10. `web_server.py` publica HTML, GeoJSON y visores estaticos en `/config/www`.
+11. Home Assistant sirve los mapas por `/local/...`.
 
 ## Componentes, modulos o capas principales
 
@@ -72,6 +75,12 @@ Hay varios entry points segun entorno:
 - Responsabilidad: leer `Tomap` y generar HTML Bokeh en `Plots`.
 - Dependencias: Bokeh, pandas, Google Maps key.
 - Relacion: salida publicada por `web_server.py` a `/config/www/Plots`.
+
+### Reconstructor Tomap
+- Ruta: `tomap_builder.py` y copia en app.
+- Responsabilidad: leer historicos `Data/*_incremental.csv` y reconstruir `Tomap/*.csv` y `LastXX_rains.csv` sin ejecutar descargas.
+- Dependencias: pandas, pathlib, constantes locales.
+- Relacion: `run.sh`, `rainmapper-app/run.sh` y `Generate maps` de la webUI lo ejecutan antes de `Rainmapper_Client.py` y `tomap_to_geojson.py`. Es una extraccion conservadora: la logica equivalente aun existe en `Rainmapper.py` hasta validar completamente el flujo.
 
 ### Conversor GeoJSON
 - Ruta: `tomap_to_geojson.py` y copia en app.
@@ -107,7 +116,12 @@ Hay varios entry points segun entorno:
 - Ruta: `local_maps.sh`.
 - Responsabilidad: automatizar la secuencia de prueba local sin descargar datos nuevos: `docker compose build rainmapper`, `docker compose run --rm -e MODE=maps rainmapper` y servidor HTTP local para abrir visores.
 - Dependencias: Docker Compose y `python3`.
-- Relacion: permite iterar rapido cambios de Leaflet/MapLibre con los `Tomap` existentes.
+- Relacion: permite iterar rapido cambios de Leaflet/MapLibre. Desde la extraccion conservadora de `tomap_builder.py`, `MODE=maps` reconstruye `Tomap` desde `docker-data/Data` antes de generar Bokeh/GeoJSON; si no hay lecturas para el dia actual, el periodo de 1 dia puede quedar vacio aunque existan `Tomap` anteriores.
+
+### Comparador Tomap
+- Ruta: `scripts/compare-tomap-builder.sh`.
+- Responsabilidad: reconstruir `Tomap` en un directorio temporal con `tomap_builder.py` y compararlo con `docker-data/Tomap`.
+- Relacion: sirve para validar que la extraccion conservadora produce la misma salida que el bloque legado de `Rainmapper.py` sin sobrescribir los ficheros actuales.
 
 ### Leaflet viewer
 - Ruta: `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`.

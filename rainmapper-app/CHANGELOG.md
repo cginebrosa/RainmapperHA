@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.74
+
+- Add `tomap_builder.py` to rebuild Tomap CSV files from existing incremental history without downloading new weather data.
+- Make `Generate maps` / `MODE=maps` rebuild Tomap before generating Bokeh and GeoJSON outputs.
+- Add local validation helpers: `local_update.sh` and `scripts/compare-tomap-builder.sh`.
+- Add unit coverage for Tomap rebuild output.
+
 ## 0.2.73
 
 - Add global update exit-code semantics: `0` complete success, `2` degraded success, and `1` total/non-recoverable failure.

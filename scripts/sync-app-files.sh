@@ -32,6 +32,7 @@ copy_file Rainmapper_Client.py
 copy_file const.py
 copy_file requirements.txt
 copy_file stations.example.txt
+copy_file tomap_builder.py
 copy_file tomap_to_geojson.py
 
 sync_dir leaflet-viewer
