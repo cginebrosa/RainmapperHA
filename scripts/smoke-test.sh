@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 set -u
 
+# Fast repository health check for local development. It intentionally avoids
+# network, Docker runs and Home Assistant access; those are validated manually or
+# with dedicated scripts. This script focuses on cheap regressions: syntax,
+# version alignment, root/app synchronization and small functional fixtures.
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Prefer the project virtualenv when available, but keep the script usable on a
+# fresh machine with only python3 installed.
 if [ -n "${PYTHON_BIN:-}" ]; then
   :
 elif [ -x ".venv/bin/python" ]; then
@@ -14,6 +21,7 @@ fi
 
 failures=0
 
+# Run one check and keep going so the developer sees all failures at once.
 run_check() {
   local label="$1"
   shift
@@ -36,6 +44,8 @@ require_command() {
   fi
 }
 
+# Home Assistant version values are repeated in metadata and Docker labels. If
+# they drift, HA updates become confusing and runtime diagnostics are misleading.
 check_versions() {
   local config_version docker_label_version app_env_version
 
@@ -85,6 +95,8 @@ check_viewer_asset_versions() {
   fi
 }
 
+# Root scripts are the development source of truth; rainmapper-app/app contains
+# the copy that goes into the HA image. The sync script must keep them identical.
 check_synced_files() {
   local files=(
     Rainmapper.py
@@ -110,6 +122,8 @@ check_synced_viewers() {
 }
 
 check_python_syntax() {
+  # Compile from source text instead of writing __pycache__ files. This avoids
+  # permission issues in cloud-synced folders and keeps the repo clean.
   "$PYTHON_BIN" - \
     scripts/check-history.py \
     Rainmapper.py \
@@ -147,6 +161,8 @@ check_python_unit_tests() {
 check_geojson_conversion() {
   local tmp_dir input_dir output_dir ignore_file convert_log
 
+  # Use a tiny Tomap fixture to validate ignore_stations_tomap and basic GeoJSON
+  # shape without relying on real generated data.
   tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/rainmapper-smoke.XXXXXX")" || return 1
   input_dir="$tmp_dir/Tomap"
   output_dir="$tmp_dir/PublicData"
@@ -201,6 +217,8 @@ PY
 check_history_fixture() {
   local tmp_dir before_dir after_dir
 
+  # Simulate a safe before/after history comparison: row counts may grow, but
+  # should not shrink unless explicitly allowed.
   tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/rainmapper-history.XXXXXX")" || return 1
   before_dir="$tmp_dir/before/Data"
   after_dir="$tmp_dir/after/Data"
@@ -220,6 +238,9 @@ check_history_fixture() {
 check_short_history_rebuild_fixture() {
   local tmp_dir
 
+  # Extract only create_last_rains from Rainmapper.py and execute it against a
+  # short fixture. This protects the popup history columns without running the
+  # full downloader.
   tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/rainmapper-short-history.XXXXXX")" || return 1
 
   if ! "$PYTHON_BIN" - "$tmp_dir" <<'PY'
@@ -339,6 +360,8 @@ PY
 check_backup_fixture() {
   local tmp_dir source_dir backup_dir backup_count
 
+  # Verify that the backup script creates exactly one archive for a minimal
+  # Rainmapper-like data root.
   tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/rainmapper-backup.XXXXXX")" || return 1
   source_dir="$tmp_dir/source"
   backup_dir="$tmp_dir/backups"
@@ -368,6 +391,7 @@ check_shell_syntax() {
   bash -n scripts/sync-app-files.sh
 }
 
+# Keep these checks ordered from cheap/environmental to more functional tests.
 run_check "Python interpreter is available ($PYTHON_BIN)" require_command "$PYTHON_BIN"
 run_check "node is available" require_command node
 run_check "Home Assistant version metadata is aligned" check_versions

@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""Validate Rainmapper historical CSV files before and after risky changes.
+
+The historical incrementals in Data/ are the most valuable project artifact.
+This script performs lightweight structural checks that are safe to run often:
+it verifies headers, duplicate columns and non-empty row counts, and optionally
+compares a new Data directory with a previous backup/copy.
+"""
+
 import argparse
 import csv
 import sys
@@ -14,6 +22,7 @@ class CsvSummary:
 
 
 def read_csv_summary(path: Path) -> CsvSummary:
+    """Read one CSV and return the minimal metadata needed for safety checks."""
     with path.open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.reader(handle)
         try:
@@ -29,6 +38,7 @@ def read_csv_summary(path: Path) -> CsvSummary:
         if duplicates:
             raise ValueError(f"CSV has duplicate columns: {', '.join(duplicates)}")
 
+        # Count only meaningful data rows so trailing blank lines do not matter.
         rows = 0
         for row in reader:
             if row and any(cell.strip() for cell in row):
@@ -38,6 +48,7 @@ def read_csv_summary(path: Path) -> CsvSummary:
 
 
 def find_csv_files(data_dir: Path) -> list[Path]:
+    """Return CSV files from a candidate Rainmapper Data directory."""
     if not data_dir.exists():
         raise ValueError(f"Data directory does not exist: {data_dir}")
     if not data_dir.is_dir():
@@ -46,6 +57,7 @@ def find_csv_files(data_dir: Path) -> list[Path]:
 
 
 def load_summaries(data_dir: Path) -> dict[str, CsvSummary]:
+    """Load summaries for all CSV files in a Data directory."""
     csv_files = find_csv_files(data_dir)
     if not csv_files:
         raise ValueError(f"No CSV files found in: {data_dir}")
@@ -61,6 +73,7 @@ def compare_summaries(
     after: dict[str, CsvSummary],
     allow_row_drop: bool,
 ) -> list[str]:
+    """Compare a baseline and a new Data directory for destructive changes."""
     errors = []
 
     for name, before_summary in before.items():
@@ -81,12 +94,14 @@ def compare_summaries(
 
 
 def print_summaries(label: str, summaries: dict[str, CsvSummary]) -> None:
+    """Print a compact human-readable summary for each CSV file."""
     print(label)
     for name, summary in summaries.items():
         print(f"  {name}: {summary.rows} row(s), {len(summary.columns)} column(s)")
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI options for standalone shell usage and smoke tests."""
     parser = argparse.ArgumentParser(
         description="Validate Rainmapper historical CSV files before or after risky data changes."
     )
@@ -109,6 +124,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Run validation and return a process exit code."""
     args = parse_args()
 
     try:

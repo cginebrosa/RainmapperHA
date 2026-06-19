@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.75
+
+- Stop running inline Tomap generation inside `Rainmapper.py`; `tomap_builder.py` is now the active Tomap rebuild path for `MODE=maps` and `MODE=all`.
+- Keep legacy Tomap helper functions marked for review before final cleanup.
+- Validate the new local `MODE=all` flow after the inline Tomap removal.
+- Add internal documentation to maintenance scripts.
+
 ## 0.2.74
 
 - Add `tomap_builder.py` to rebuild Tomap CSV files from existing incremental history without downloading new weather data.

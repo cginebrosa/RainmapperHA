@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Create a timestamped backup of the Rainmapper data files that are expensive or
+# impossible to recreate. This script is intentionally conservative: it only reads
+# from the source directory and writes one .tar.gz file into the backup directory.
+
 usage() {
   cat <<'EOF'
 Usage: scripts/backup-data.sh SOURCE_DIR [BACKUP_DIR]
@@ -30,6 +34,7 @@ fi
 SOURCE_DIR="${1%/}"
 BACKUP_DIR="${2:-backups}"
 
+# Refuse to run on missing input so a typo does not create a misleading backup.
 if [ ! -d "$SOURCE_DIR" ]; then
   printf 'Source directory does not exist: %s\n' "$SOURCE_DIR" >&2
   exit 1
@@ -37,14 +42,18 @@ fi
 
 mkdir -p "$BACKUP_DIR"
 
+# Include the source directory name in the archive file so backups from multiple
+# environments can live in the same backup directory.
 timestamp="$(date +%Y%m%d-%H%M%S)"
 source_name="$(basename "$SOURCE_DIR")"
 backup_file="$BACKUP_DIR/rainmapper-${source_name}-${timestamp}.tar.gz"
 
 entries=()
 if [ "$(basename "$SOURCE_DIR")" = "Data" ]; then
+  # Direct Data backups are stored relative to the Data directory itself.
   entries+=(".")
 else
+  # Full Rainmapper roots may contain generated maps and control files alongside Data.
   for entry in Data Tomap Plots PublicData stations.txt ignore_stations_tomap.txt; do
     if [ -e "$SOURCE_DIR/$entry" ]; then
       entries+=("$entry")
@@ -57,6 +66,7 @@ if [ "${#entries[@]}" -eq 0 ]; then
   exit 1
 fi
 
+# Archive only the selected Rainmapper entries, preserving relative paths.
 tar -C "$SOURCE_DIR" -czf "$backup_file" "${entries[@]}"
 
 printf 'Backup created: %s\n' "$backup_file"

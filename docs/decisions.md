@@ -3,7 +3,9 @@
 ## 2026-06-19 - Extraer Tomap de forma conservadora
 
 ### Decision
-Crear `tomap_builder.py` como script independiente para reconstruir CSV `Tomap` desde historicos incrementales `Data/`, y usarlo en `MODE=maps`/`Generate maps` antes de generar Bokeh y GeoJSON. En esta primera fase no se elimina la logica equivalente de `Rainmapper.py`.
+Crear `tomap_builder.py` como script independiente para reconstruir CSV `Tomap` desde historicos incrementales `Data/`, y usarlo en `MODE=maps`/`Generate maps` antes de generar Bokeh y GeoJSON.
+
+Modificacion del 2026-06-19: tras validar `Generate maps` en HA `0.2.74`, se retira el bloque ejecutable inline de generacion `Tomap` de `Rainmapper.py`. Se deja un marcador transicional en el punto donde estaba el bloque y se conservan temporalmente helpers legacy marcados para limpieza posterior.
 
 ### Motivo
 Permite regenerar mapas y GeoJSON tras cambios de formato o de `last_rains_history` sin descargar datos nuevos ni ejecutar un `Run all`. Mantener `Rainmapper.py` intacto reduce el riesgo inicial porque el flujo historico de `Run all` sigue disponible mientras se valida el nuevo builder.
@@ -12,7 +14,7 @@ Permite regenerar mapas y GeoJSON tras cambios de formato o de `last_rains_histo
 Eliminar directamente el bloque `Tomap` de `Rainmapper.py`, importar funciones desde `Rainmapper.py`, o esperar a una separacion completa del core en paquete reutilizable.
 
 ### Consecuencias
-Durante la transicion hay duplicidad de logica `Tomap` entre `Rainmapper.py` y `tomap_builder.py`. Cuando se retire del core, el usuario quiere que los bloques eliminados queden claramente identificados o comentados de forma recuperable para facilitar revision si aparece una regresion.
+La ruta activa de generacion `Tomap` pasa a ser `tomap_builder.py`. Durante la transicion quedan helpers legacy marcados en `Rainmapper.py` para facilitar revision si aparece una regresion. Si `Run all` queda validado en local/HA, el siguiente paso sera limpiar esos helpers.
 
 ### Ficheros afectados
 - `tomap_builder.py`
@@ -23,7 +25,7 @@ Durante la transicion hay duplicidad de logica `Tomap` entre `Rainmapper.py` y `
 - `tests/test_tomap_builder.py`
 
 ### Estado
-Implementada como extraccion conservadora. Pendiente de validacion con `local_maps.sh` y, si se acepta, bump/publicacion de una version HA.
+Implementada como extraccion conservadora y ampliada con retirada transicional del bloque inline de `Rainmapper.py`. `Run all` local queda validado con `local_all.sh` tras este cambio. Pendiente de validar `Run all` en HA antes de limpiar helpers legacy.
 
 ## 2026-06-18 - No basar una app comercial en Wunderground sin acuerdo escrito
 

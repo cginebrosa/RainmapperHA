@@ -26,7 +26,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - `leaflet-viewer/`: fuente del visor Leaflet en raiz.
 - `maplibre-viewer/`: fuente del visor MapLibre en raiz.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `sync-app-files.sh`, `backup-data.sh` y `check-history.py`.
-- `local_update.sh`: runner local solo update, util para refrescar incrementales y comparar el `Tomap` antiguo contra `tomap_builder.py`.
+- `local_update.sh`: runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
 - `meteoclimatic_local/`: cliente local Meteoclimatic.
 - `sodapy_local/`: copia local/adaptada de Socrata client.
 - `util/`: parser/scraper Wunderground.
@@ -55,8 +55,8 @@ Hay varios entry points segun entorno:
 3. En HA, `serve` arranca `web_server.py`.
 4. El usuario pulsa `Run update`, `Generate maps` o `Run all`, o el schedule dispara una accion.
 5. `Rainmapper.py` descarga datos y actualiza CSV historicos/incrementales.
-6. `Rainmapper.py` produce CSV `Tomap` para los periodos acumulados durante `update`/`all`; `tomap_builder.py` tambien puede reconstruir esos `Tomap` desde historicos incrementales sin descargar datos nuevos.
-7. En `MODE=maps`/`Generate maps`, `tomap_builder.py` reconstruye `Tomap` antes de generar salidas publicables.
+6. `tomap_builder.py` reconstruye CSV `Tomap` para los periodos acumulados desde historicos incrementales sin descargar datos nuevos.
+7. En `MODE=maps`, `MODE=all` y `Generate maps`, `tomap_builder.py` reconstruye `Tomap` antes de generar salidas publicables.
 8. `Rainmapper_Client.py` genera HTML Bokeh en `Plots`.
 9. `tomap_to_geojson.py` genera GeoJSON desde `Tomap`.
 10. `web_server.py` publica HTML, GeoJSON y visores estaticos en `/config/www`.
@@ -66,7 +66,7 @@ Hay varios entry points segun entorno:
 
 ### Core de descarga y datos
 - Ruta: `Rainmapper.py` y `rainmapper-app/app/Rainmapper.py`.
-- Responsabilidad: descarga Meteocat, Meteoclimatic y Wunderground; actualiza historicos; genera `Tomap`; metricas Wunderground.
+- Responsabilidad: descarga Meteocat, Meteoclimatic y Wunderground; actualiza historicos; escribe estado por fuente; metricas Wunderground.
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps, `meteoclimatic_local`, `sodapy_local`, `util`.
 - Relacion: alimenta `Rainmapper_Client.py` y `tomap_to_geojson.py`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente.
 
@@ -80,7 +80,7 @@ Hay varios entry points segun entorno:
 - Ruta: `tomap_builder.py` y copia en app.
 - Responsabilidad: leer historicos `Data/*_incremental.csv` y reconstruir `Tomap/*.csv` y `LastXX_rains.csv` sin ejecutar descargas.
 - Dependencias: pandas, pathlib, constantes locales.
-- Relacion: `run.sh`, `rainmapper-app/run.sh` y `Generate maps` de la webUI lo ejecutan antes de `Rainmapper_Client.py` y `tomap_to_geojson.py`. Es una extraccion conservadora: la logica equivalente aun existe en `Rainmapper.py` hasta validar completamente el flujo.
+- Relacion: `run.sh`, `rainmapper-app/run.sh` y `Generate maps` de la webUI lo ejecutan antes de `Rainmapper_Client.py` y `tomap_to_geojson.py`. Es la ruta activa de generacion `Tomap`; el bloque ejecutable inline de `Rainmapper.py` fue retirado de forma transicional, dejando helpers legacy marcados para limpieza posterior.
 
 ### Conversor GeoJSON
 - Ruta: `tomap_to_geojson.py` y copia en app.
@@ -121,7 +121,7 @@ Hay varios entry points segun entorno:
 ### Comparador Tomap
 - Ruta: `scripts/compare-tomap-builder.sh`.
 - Responsabilidad: reconstruir `Tomap` en un directorio temporal con `tomap_builder.py` y compararlo con `docker-data/Tomap`.
-- Relacion: sirve para validar que la extraccion conservadora produce la misma salida que el bloque legado de `Rainmapper.py` sin sobrescribir los ficheros actuales.
+- Relacion: sirve para validar que el builder reproduce los `Tomap` actuales sin sobrescribirlos; despues de retirar el bloque inline de `Rainmapper.py`, ya no compara contra una generacion legacy nueva.
 
 ### Leaflet viewer
 - Ruta: `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`.
@@ -246,6 +246,7 @@ Home Assistant:
 - WebUI construida con HTML generado en Python.
 - JS de visores sin bundler ni framework.
 - Logs operativos principales y webUI HA en ingles; README/DOCS de la app HA siguen en espanol por decision operativa actual.
+- Scripts de mantenimiento/desarrollo (`.py`, `.sh` u otros) deben incluir documentacion interna en ingles: cabecera de proposito y comentarios breves antes de bloques o funciones no obvias. No hace falta comentar cada linea, pero el flujo debe poder entenderse sin depender del historial del chat.
 - Errores Wunderground se clasifican por patrones en logs.
 - Cambios de core deben duplicarse en raiz y `rainmapper-app/app`.
 

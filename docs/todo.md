@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Decidir si se sube como nueva version HA la extraccion conservadora de `tomap_builder.py`, tras validarla en local con `local_update.sh`, `scripts/compare-tomap-builder.sh` y `local_maps.sh`.
+Hacer bump/publicacion HA para validar `Run all` en Home Assistant despues de retirar la generacion inline de `Tomap` de `Rainmapper.py`. Si pasa, limpiar las funciones legacy marcadas.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -122,10 +122,10 @@ Decidir si se sube como nueva version HA la extraccion conservadora de `tomap_bu
   - Contexto: hasta ahora `Generate maps`/`MODE=maps` solo consumia los `Tomap` existentes para generar Bokeh y GeoJSON. Si cambiaba una columna derivada de `Tomap`, como el numero de ultimos registros de lluvia por estacion, hacia falta `Run all`/`MODE=all` para reconstruirlos.
   - Nota: desde `0.2.67`, el numero de registros recientes se configura con `last_rains_history`; con `tomap_builder.py`, `Generate maps` deberia poder reconstruir ese historico sin `Run all`, pendiente de validacion local/HA.
   - Ficheros relacionados: `Rainmapper.py`, `tomap_builder.py`, `run.sh`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `Rainmapper_Client.py`, `tomap_to_geojson.py`.
-  - Estado parcial: se ha anadido `tomap_builder.py` como version conservadora e independiente, copiando la logica necesaria sin eliminar todavia el bloque equivalente de `Rainmapper.py`. `MODE=maps` y `Generate maps` pasan a reconstruir `Tomap` antes de generar Bokeh/GeoJSON.
-  - Validacion: tras ejecutar `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que `tomap_builder.py` reconstruye los mismos CSV `Tomap` que el flujo antiguo de `Rainmapper.py` para los datos locales actuales. `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente.
-  - Criterio de aceptacion pendiente: validar en HA que `Generate maps` reconstruye `Tomap`, Bokeh y GeoJSON sin descargar datos nuevos.
-  - Riesgo residual: durante esta fase existe duplicidad temporal de logica `Tomap` entre `Rainmapper.py` y `tomap_builder.py`; cuando se retire del core, marcar los bloques eliminados segun criterio del usuario para facilitar recuperacion/revision.
+  - Estado parcial: `tomap_builder.py` reconstruye `Tomap` y `LastXX_rains.csv`; `MODE=maps`, `MODE=all` y `Generate maps` lo invocan antes de Bokeh/GeoJSON. En `Rainmapper.py` se ha retirado el bloque ejecutable inline de generacion `Tomap` y se ha dejado un marcador transicional claro. Las funciones legacy `create_grouped` y `create_last_rains` siguen presentes y marcadas para limpieza posterior.
+  - Validacion: tras ejecutar `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que `tomap_builder.py` reconstruye los mismos CSV `Tomap` que el flujo antiguo de `Rainmapper.py` para los datos locales actuales. `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente. `Generate maps` en HA `0.2.74` fue validado manualmente por el usuario. Tras retirar el bloque inline, `local_all.sh` completo termina con `Rainmapper.py` exit code 0, reconstruye Tomap con `tomap_builder.py` y genera GeoJSON.
+  - Criterio de aceptacion pendiente: validar HA `Run all` despues de retirar el bloque inline de `Rainmapper.py`; si pasa, limpiar funciones legacy marcadas.
+  - Riesgo residual: durante esta fase quedan helpers legacy en `Rainmapper.py` para facilitar revision, pero la ejecucion normal ya usa `tomap_builder.py` como unica generacion `Tomap`.
 
 - [ ] Mejorar observabilidad de Wunderground
   - Contexto: Wunderground es el cuello de botella, pero todavia no hay suficientes observaciones de tiempos y el rendimiento actual es aceptable.

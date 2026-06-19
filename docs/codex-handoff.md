@@ -46,13 +46,13 @@ Tambien existen documentos de uso:
 - [../rainmapper-app/CHANGELOG.md](../rainmapper-app/CHANGELOG.md)
 
 ## Estructura relevante del proyecto
-- `Rainmapper.py`: script principal de descarga, normalizacion, historico y generacion de CSV `Tomap`.
+- `Rainmapper.py`: script principal de descarga, normalizacion, historico y estado por fuente.
 - `tomap_builder.py`: reconstruye CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
 - `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
 - `tomap_to_geojson.py`: conversor de CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
 - `const.py`: constantes y defaults de ejecucion local.
 - `run.sh`: wrapper Docker local.
-- `local_update.sh`: script de conveniencia para construir Docker local y ejecutar solo `MODE=update`, sin servidor local.
+- `local_update.sh`: script de conveniencia para construir Docker local y ejecutar solo `MODE=update`, refrescando descargas actuales e incrementales sin reconstruir `Tomap` ni arrancar servidor local.
 - `local_all.sh`: script de conveniencia para construir Docker local, ejecutar `MODE=all` y arrancar un servidor HTTP local para probar MapLibre/Leaflet.
 - `local_maps.sh`: script de conveniencia para construir Docker local, ejecutar `MODE=maps` y arrancar un servidor HTTP local sin descargar datos nuevos.
 - `Dockerfile`: imagen Docker local.
@@ -76,14 +76,14 @@ Tambien existen documentos de uso:
 ## Ficheros clave
 
 ### `Rainmapper.py`
-- Proposito: descarga datos de Meteocat, Meteoclimatic y Wunderground; actualiza historicos; genera CSV `Tomap`; guarda metricas de Wunderground.
-- Estado actual: funcional, con argumentos CLI para fuentes, fechas, threads, intentos, log completo Wunderground y patrones Meteoclimatic multiples. Sigue conservando el bloque historico de generacion `Tomap`. El fichero de estaciones ignoradas para mapas nuevos se aplica en `tomap_to_geojson.py`, no directamente aqui.
+- Proposito: descarga datos de Meteocat, Meteoclimatic y Wunderground; actualiza historicos; guarda metricas de Wunderground; escribe `source_status.json`.
+- Estado actual: funcional, con argumentos CLI para fuentes, fechas, threads, intentos, log completo Wunderground y patrones Meteoclimatic multiples. El bloque ejecutable historico de generacion `Tomap` se ha retirado de forma transicional y ahora esa responsabilidad vive en `tomap_builder.py`. Quedan helpers legacy marcados para limpieza posterior. El fichero de estaciones ignoradas para mapas nuevos se aplica en `tomap_to_geojson.py`, no directamente aqui.
 - Riesgos: contiene mucha logica acoplada, pandas sobre CSV historicos y scraping de Wunderground. No tocar sin preservar historicos y probar con Docker local.
 
 ### `tomap_builder.py`
 - Proposito: reconstruye `Tomap/*.csv` y `LastXX_rains.csv` desde `Data/*_incremental.csv`, sin descargar datos nuevos.
-- Estado actual: extraccion conservadora; copia la logica necesaria de `Rainmapper.py` para que `MODE=maps`/`Generate maps` puedan regenerar `Tomap` antes de Bokeh/GeoJSON. La logica equivalente aun no se ha eliminado de `Rainmapper.py`.
-- Riesgos: durante la transicion hay duplicidad de logica `Tomap` entre este script y `Rainmapper.py`. Cuando se retire del core, el usuario quiere que los bloques eliminados se identifiquen claramente o se comenten de forma recuperable.
+- Estado actual: ruta activa de generacion `Tomap`; copia la logica necesaria de `Rainmapper.py` para que `MODE=maps`, `MODE=all` y `Generate maps` regeneren `Tomap` antes de Bokeh/GeoJSON. El bloque ejecutable equivalente ya no corre dentro de `Rainmapper.py`.
+- Riesgos: quedan helpers legacy marcados en `Rainmapper.py` para facilitar revision y limpieza posterior si `Run all` queda validado.
 
 ### `rainmapper-app/app/Rainmapper.py`
 - Proposito: copia del script principal dentro de la app HA.
@@ -117,12 +117,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.74`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
+- Estado actual: version `0.2.75`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.74`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.75`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -178,14 +178,14 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.74`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.75`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
 - Decidir retirada de Bokeh o mantenerlo como referencia.
 - Crear tests automaticos mas completos; existe smoke test versionado y un primer bloque `unittest` para `tomap_to_geojson.py`, pero faltan fixtures funcionales de Docker/HA/publicacion.
 - Mejorar separacion entre core de datos, webUI y visores.
-- Completar la extraccion de CSV `Tomap`: `tomap_builder.py` ya existe como version conservadora para reconstruir `Tomap` desde historicos sin descargar datos nuevos, y `MODE=maps`/`Generate maps` lo invocan antes de Bokeh/GeoJSON. Validacion local inicial: tras `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que el builder genera los mismos `Tomap` que el flujo antiguo; `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente. Queda validar HA y, en un paso posterior, retirar con cuidado el bloque equivalente de `Rainmapper.py`.
+- Completar la extraccion de CSV `Tomap`: `tomap_builder.py` reconstruye `Tomap` desde historicos sin descargar datos nuevos, y `MODE=maps`/`Generate maps` lo invocan antes de Bokeh/GeoJSON. Validacion local inicial: tras `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que el builder genera los mismos `Tomap` que el flujo antiguo; `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente. `Generate maps` en HA `0.2.74` fue validado manualmente por el usuario. El bloque ejecutable inline de `Rainmapper.py` ya esta retirado de forma transicional; `local_all.sh` completo queda validado en local con `Rainmapper.py` exit code 0, reconstruccion Tomap por `tomap_builder.py` y GeoJSON generado. Queda validar `Run all` en HA y despues limpiar helpers legacy marcados.
 - Imagen Docker HA multi-arch preconstruida en GHCR desde `0.2.57`; el repo confirma `image: ghcr.io/cginebrosa/rainmapperha` y el script `scripts/build-push-ha-image.sh`. La instalacion rapida en HA, el progreso de Supervisor, la poca utilidad del cache de GitHub Actions y la limpieza local observada son validaciones manuales/reportadas por el usuario; pendientes de confirmar automaticamente. Desde `0.2.60`, el flujo normal documentado es publicar la imagen desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version; GitHub Actions queda como fallback manual.
 - Analitica historica de metricas Wunderground, posiblemente con InfluxDB/Grafana.
 - Autenticacion/autorizacion real para una futura app publica iOS/Android.
@@ -321,7 +321,7 @@ Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar l
 3. `run.sh` crea symlinks hacia `/app/Data`, `/app/Tomap`, `/app/Plots`, `/app/PublicData` y exporta variables.
 4. En modo recomendado `serve`, arranca `web_server.py` en `0.0.0.0:8099`.
 5. La webUI permite lanzar `update`, `maps` o `all`.
-6. `update` ejecuta `Rainmapper.py` y actualiza CSV historicos y `Tomap`.
+6. `update` ejecuta `Rainmapper.py` y actualiza CSV historicos y estado por fuente; `maps`/`all` reconstruyen `Tomap` con `tomap_builder.py`.
 7. `maps` ejecuta `Rainmapper_Client.py`, genera Bokeh HTML y despues `tomap_to_geojson.py` para los visores nuevos.
 8. Si `publish_to_www` esta activo, la app copia HTML y visores a `/config/www`.
 9. HA sirve los resultados como `/local/Plots`, `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.

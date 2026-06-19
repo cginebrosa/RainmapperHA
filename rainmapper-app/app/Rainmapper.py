@@ -1985,6 +1985,8 @@ def create_filtered(df_to_filter_param:pd.DataFrame, _base_date, _days_backward,
     return df_to_filter.loc[date_mask].copy()
 
 def create_grouped(df_to_group_param:pd.DataFrame):
+    # Legacy Tomap helper kept during the transition to tomap_builder.py.
+    # TODO: remove after validating that Run all no longer needs inline Tomap generation.
     df_to_group=df_to_group_param.copy()
     # Establece 'Ultima Lectura' como índice
     df_to_group.set_index(['Ultima Lectura'], drop=False, inplace=True)
@@ -2015,6 +2017,8 @@ def create_grouped(df_to_group_param:pd.DataFrame):
     return filter_results(datos_finales,_minimum_rain_tomap)
 
 def create_last_rains(df:pd.DataFrame, _nrecords):
+    # Legacy Tomap helper kept during the transition to tomap_builder.py.
+    # TODO: remove after validating that Run all no longer needs inline Tomap generation.
 
     # Operación 1
     result_step1 = df.groupby(['Codi Estació', 'Data Local'], as_index=False).agg({
@@ -2431,13 +2435,6 @@ if _print_totals:                                              # Create totals p
     end_count(_legend='End printing routine')
 
 
-## Recuperar de Meteocat_incremental.csv los ultimos 3 meses
-## Recuperar de Meteoclimatic_incremental.csv los ultimos 3 meses
-## Hacer Merge de los 2 dataframes
-## Llamar funcion que cree el fichero diario
-## LLamar funcion que cree el fichero semanal
-## etc...
-
 if _create_daily_stats:                                                  # Create daily summary and save to csv
     create_daily_dataframe(meteocat_df, _save_to_excel=False)
 
@@ -2448,145 +2445,20 @@ if _create_monthly_stats:                                                # Creat
     create_monthly_dataframe(meteocat_df, _save_to_excel=False)
 #
 
-############ REVISAR ESTO DE AQUI ABAJO
-if not _create_googlemaps_files:
-    exit()
-
-##################
-## Process Maps ##
-##################
-##################################################################################
-### GRABAR csvs PARA PUBLICAR EN GOOGLEMAPS - 90-60-30-21-15-7-1 DAYS desde hoy ##
-##################################################################################
-if len(meteoclimatic_incremental) == 0 and len(meteocat_incremental) == 0 and len(wunderground_incremental) == 0:
-    print(' ')
-    print('NO RECORDS RETURNED FOR SELECTION -- Exiting program')
-    print(' ')
-    exit()
-
-# Defines base date
-_base_date = _data_inici_base
-
-#  RAIN LAST 90 DAYS
-start_count('Start processing 90 days backward map --> Meteoclimatic NOT EXCLUDED (see tag #Exclude meteoclimatic# in source code).')
-# Defines days backward & forward from _base_date
-_days_backward = 90  
-_days_forward = 1     # Including Today
-
-# Para mapas filtrar ultimos 90 dias de incrementales
-# Usa ThreadPoolExecutor para gestionar los threads
-with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="FilterProcesses") as executor:
-        # Crea las tareas en paralelo y mapea los resultados a variables
-        future_meteoclimatic_df = executor.submit(create_filtered, meteoclimatic_incremental, _base_date, _days_backward, _days_forward)
-        future_meteocat_df = executor.submit(create_filtered, meteocat_incremental, _base_date, _days_backward, _days_forward)
-        future_wunderground_df = executor.submit(create_filtered, wunderground_incremental, _base_date, _days_backward, _days_forward)
-        
-        # Obtén los resultados
-        meteoclimatic_df = future_meteoclimatic_df.result()
-        meteocat_df = future_meteocat_df.result()
-        wunderground_df = future_wunderground_df.result()
-
-#meteoclimatic_df = create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
-#meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
-#wunderground_df = create_filtered(wunderground_incremental,_base_date, _days_backward, _days_forward)
-
-# Merge de los 3 dataframes (eliminado meteoclimatic_df de mommento)
-df_total = merge_dataframes(meteocat_df, wunderground_df)
-df_total = merge_dataframes(df_total, meteoclimatic_df) #Exclude meteoclimatic#
-end_count('Finished creating 90 days filtered Dataframe...')
-
-# AQUI crear el DataFrame con las lluvias diarias acumuladas de df_total: --> Solo será de los ultimos 90 dias, pero bueno
-# - Acumuladas por 'Codi Estació' y 'Data Local', sumando 'Total'
-# - Filtrando solo aparezcan 20 resultados por cada 'Codi Estació', los 20 primeros ordenando por 'Data Local' descending
-# - Sacar solo 1 regitro por 'Codi Estació' y con 20 columnas de 'Data_plujaXX' y 20 columnas de 'Pluja_dia_XX' --> Revisar si poner algo mas
-# - Llamarlo df_last_rains y salvarlo como 'Last_rains.csv'
-
-df_last_rains= create_last_rains(df_total, _nrecords=_last_number_rains)
-end_count('Finished creating last '+str(_last_number_rains)+' rains...')
-
-df_toprint = create_grouped(df_total)
-
-df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
-save_dataframe_tomap(df_tomap, '07_Tomap_Last_three_months', _save_to_csv=True, _save_to_excel=False)
-end_count('Finished processing 90 days backward map')
-
-# RAIN LAST 60 DAYS
-start_count('Start processing 60 days backward map...')
-# Defines days backward & forward from _base_date
-_days_backward = 60  
-#_days_forward = 0     # Including Today
-
-df_toprint = create_filtered(df_total,_base_date, _days_backward, _days_forward)
-df_toprint = create_grouped(df_toprint)
-
-df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
-save_dataframe_tomap(df_tomap, '06_Tomap_Last_two_months', _save_to_csv=True, _save_to_excel=False)
-end_count('Finished processing 60 days backward map')
-
-#  RAIN LAST 30 DAYS
-start_count('Start Processing 30 days backward map...')
-# Defines days backward & forward from _base_date
-_days_backward = 30  
-#_days_forward =0     # Including Today
-
-df_toprint = create_filtered(df_total,_base_date, _days_backward, _days_forward)
-df_toprint = create_grouped(df_toprint)
-
-df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
-save_dataframe_tomap(df_tomap, '05_Tomap_Last_month', _save_to_csv=True, _save_to_excel=False)
-end_count('Finished processing 30 days backward map')
-
-#  RAIN LAST 21 DAYS
-start_count('Start processing 21 days backward map...')
-# Defines days backward & forward from _base_date
-_days_backward = 21  
-#_days_forward = 0     # Including Today
-
-df_toprint = create_filtered(df_total,_base_date, _days_backward, _days_forward)
-df_toprint = create_grouped(df_toprint)
-
-df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
-save_dataframe_tomap(df_tomap, '04_Tomap_Last_three_weeks', _save_to_csv=True, _save_to_excel=False)
-end_count('Finished processing 21 days backward map')
-
-#  RAIN LAST 15 DAYS
-start_count('Start processing 15 days backward map...')
-# Defines days backward & forward from _base_date
-_days_backward = 15       
-#_days_forward = 0     # Including Today
-
-df_toprint = create_filtered(df_total,_base_date, _days_backward, _days_forward)
-df_toprint = create_grouped(df_toprint)
-
-df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
-save_dataframe_tomap(df_tomap, '03_Tomap_Last_two_weeks', _save_to_csv=True, _save_to_excel=False)
-end_count('Finished processing 15 days backward map')
-
-# RAIN LAST 7 DAYS
-start_count('Start processing 7 days backward map...')
-# Defines days backward & forward from _base_date
-_days_backward = 7        
-#_days_forward =0     # Including Today
-
-df_toprint = create_filtered(df_total,_base_date, _days_backward, _days_forward)
-df_toprint = create_grouped(df_toprint)
-
-df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
-save_dataframe_tomap(df_tomap, '02_Tomap_Last_week', _save_to_csv=True, _save_to_excel=False)
-end_count('Finished processing 7 days backward map')
-
-# RAIN LAST 1 DAYS
-start_count('Start processing 1 days backward map...')
-# Defines days backward & forward from _base_date
-_days_backward = 0        
-#_days_forward = 0     # Including Today
-
-df_toprint = create_filtered(df_total,_base_date, _days_backward, _days_forward)
-df_toprint = create_grouped(df_toprint)
-
-df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
-save_dataframe_tomap(df_tomap, '01_Tomap_Last_day', _save_to_csv=True, _save_to_excel=False)
-end_count('Finished processing 1 days backward map')
+## Start Tomap removal transition.
+## Inline Tomap generation used to run here. It has been moved to tomap_builder.py
+## so that maps can be rebuilt independently from weather-data downloads.
+##
+## Operational flow after this change:
+## - Rainmapper.py updates source data and source_status.json.
+## - tomap_builder.py rebuilds Tomap/*.csv and LastXX_rains.csv.
+## - Rainmapper_Client.py and tomap_to_geojson.py generate publishable maps.
+##
+## The legacy helper functions above are kept temporarily for review and easy cleanup.
+## End Tomap removal transition.
+if _create_googlemaps_files:
+    print('')
+    print('Inline Tomap generation is disabled; Tomap rebuild is handled by tomap_builder.py.')
 
 print('')
 exit_code = source_exit_code()
