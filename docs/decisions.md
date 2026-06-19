@@ -23,7 +23,7 @@ El CSV sigue siendo el formato persistente, pero la semantica de actualizacion q
 - `tests/test_incremental_upsert.py`
 
 ### Estado
-Implementada y validada localmente con datos copiados de HA. `MAX_THREADS=3 ./local_update.sh` termino con exit code 0; Meteocat quedo en 316685 filas y 0 duplicados por clave; Meteoclimatic y Wunderground quedaron con 0 duplicados. `MODE=maps`, tests unitarios y `./scripts/smoke-test.sh` pasaron correctamente.
+Implementada y validada localmente con datos copiados de HA. `MAX_THREADS=3 ./local_update.sh` termino con exit code 0; Meteocat quedo en 316685 filas y 0 duplicados por clave; Meteoclimatic y Wunderground quedaron con 0 duplicados. `MODE=maps`, tests unitarios y `./scripts/smoke-test.sh` pasaron correctamente. Validada tambien en HA `0.2.77`: `Run update` termino con exit code 0, Meteocat quedo en 316685 filas y `Generate maps` publico visores con `v=0.2.77`.
 
 ## 2026-06-19 - Medir duraciones por fuente con temporizadores locales
 
