@@ -118,12 +118,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.75`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
+- Estado actual: version `0.2.76`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.75`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.76`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -164,7 +164,7 @@ Tambien existen documentos de uso:
 - Terreno 3D en MapLibre: settings permite activar `3D terrain` y ajustar `Exaggeration` usando un DEM externo Terrarium/Mapzen como fuente `raster-dem`. No se incluye ningun DEM en la imagen Docker. Validado manualmente por el usuario en local, HA e iPhone; queda como funcionalidad definitiva por decision del 2026-06-18, aceptando la dependencia externa hasta que se decida si hace falta DEM propio.
 - Consulta de altitud en MapLibre: una pulsacion larga sobre el mapa muestra un popup con la altitud del DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB. Se evita `queryTerrainElevation` para esta lectura porque en una prueba manual en Urus/Cerdanya (`42.35406, 1.85317`) devolvio `-4 m` aunque el tile DEM crudo devolvia unos `1259 m`; esta observacion queda pendiente de confirmar automaticamente. En HA no se disparaba la ventana incluso con Chrome limpio y tras generar mapas, por lo que `0.2.65` cambia el disparador de pulsacion larga a eventos propios de MapLibre y `contextmenu`, y ademas alinea los cache-busters internos de los visores. Validacion final en HA/iPhone/Safari Mac reportada por el usuario; pendiente de confirmar mediante prueba automatizada o reproducible.
 - `Source` en GeoJSON: `tomap_to_geojson.py` anade fuente inferida por codigo de estacion (`ES...` de longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown`). Si aparece `Unknown`, el conversor emite un `WARNING` en stdout.
-- Estado por fuente: `Rainmapper.py` escribe `Data/source_status.json` con el ultimo estado de Meteoclimatic, Meteocat y Wunderground. Si una fuente falla completamente, el update intenta continuar con el incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. La webUI de HA muestra esas tarjetas de estado desde `0.2.71` y MapLibre muestra badges de estado junto al filtro `Source` cuando el fichero publicado esta disponible.
+- Estado por fuente: `Rainmapper.py` escribe `Data/source_status.json` con el ultimo estado de Meteoclimatic, Meteocat y Wunderground. Si una fuente falla completamente, el update intenta continuar con el incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. La webUI de HA muestra esas tarjetas de estado desde `0.2.71` y ahora tambien muestra duraciones reales por fuente; Meteocat guarda ademas subtiempos reales de metadata, condiciones, precipitacion, merge y guardado. MapLibre muestra solo badges de estado junto al filtro `Source`; por decision del usuario, los tiempos de proceso no son relevantes para el visor de mapas.
 - Wunderground full log configurable y resumen de errores: `Rainmapper.py`, `config.yaml`.
 - Control webUI para desactivar/reactivar estaciones Wunderground por 404 o parse error: `web_server.py`.
 - Metricas de tiempos por estacion Wunderground en `Data/metricas_wunderground.csv`: `Rainmapper.py`.
@@ -179,7 +179,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.75`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.76`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -199,7 +199,7 @@ Tambien existen documentos de uso:
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`; mitigada operativamente con `scripts/sync-app-files.sh` y smoke test, sin refactor estructural todavia.
 - Tests formales iniciales existen en `tests/` para GeoJSON; faltan pruebas funcionales completas de Docker/HA/webUI.
 - La app HA `serve` maneja SIGTERM/SIGINT desde `0.2.55`: `run.sh` usa `exec` para que Python sea PID 1; `web_server.py` detiene el scheduler, espera al job activo antes de cerrar y solo fuerza el subprocess si llega una segunda senal.
-- Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` por defecto en HA para no cargar la RPi. Prueba local del 2026-06-19 tras corregir `docker-compose.yml` para propagar el override: `MAX_THREADS=1` tardo `385.69s`, `MAX_THREADS=2` tardo `196.82s` y `MAX_THREADS=3` tardo `81.20s` en `local_update.sh`; queda validar `max_threads=2` o `3` en HA/RPi antes de cambiar el valor operativo.
+- Wunderground es el cuello de botella principal; se ejecuta con `max_threads=1` por defecto en HA para no cargar la RPi. Prueba local del 2026-06-19 tras corregir `docker-compose.yml` para propagar el override: `MAX_THREADS=1` tardo `385.69s`, `MAX_THREADS=2` tardo `196.82s` y `MAX_THREADS=3` tardo `81.20s` en `local_update.sh`. Validacion manual en HA/RPi con `max_threads=2`: Meteoclimatic ~62s, Meteocat ~26s, Wunderground ~3m39s, total ~5m43s, sin carga relevante de CPU/memoria reportada por el usuario. Se detecto que los logs `start_count/end_count` usan un temporizador global compartido y no son metricas fiables con hilos; usar `source_status.json` para duraciones reales.
 - Las claves usadas por codigo cliente web serian visibles en navegador; por eso se ha retirado Jawg Maps y cualquier futura clave de tiles cliente debera justificarse y restringirse por dominio si el proveedor lo permite.
 - Los historicos CSV son el valor central del proyecto; no deben borrarse ni reescribirse sin backup. Ver [history-safety.md](history-safety.md).
 - Algunas carpetas generadas (`Data`, `Tomap`, `Plots`, `docker-data`, `docker-empty-test`) existen localmente pero estan ignoradas por Git.

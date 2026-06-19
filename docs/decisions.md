@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-06-19 - Medir duraciones por fuente con temporizadores locales
+
+### Decision
+Guardar duraciones reales por fuente en `Data/source_status.json` usando temporizadores locales por proceso, y mostrarlas en la webUI de Home Assistant. Para Meteocat se guardan ademas subtiempos de metadata, condiciones, precipitacion, merge y guardado.
+
+MapLibre no debe mostrar tiempos de proceso; el visor solo necesita estado operativo por fuente para saber si los datos publicados son frescos, degradados o desconocidos.
+
+### Motivo
+Al ejecutar fuentes en paralelo, los logs basados en `start_count()`/`end_count()` no son metricas fiables porque usan un temporizador global compartido. En el log de HA `0.2.75`, Meteocat mostraba subtiempos y un supuesto final incoherentes porque otros hilos podian pisar el temporizador.
+
+### Alternativas consideradas
+Seguir interpretando los tiempos del log, rehacer todo el sistema de logging, o mostrar todas las metricas tambien en MapLibre.
+
+### Consecuencias
+La webUI pasa a ser el sitio operativo para comparar duraciones por fuente y diagnosticar cuellos de botella. Los logs antiguos siguen siendo utiles como trazas humanas, pero no como base para decisiones de rendimiento cuando hay hilos.
+
+### Ficheros afectados
+- `Rainmapper.py`
+- `rainmapper-app/app/Rainmapper.py`
+- `rainmapper-app/app/web_server.py`
+- `docs/codex-handoff.md`
+- `docs/architecture.md`
+- `docs/todo.md`
+
+### Estado
+Implementada y validada en Docker local con `MAX_THREADS=2 ./local_update.sh`: `source_status.json` incluye duraciones reales para Meteoclimatic, Meteocat y Wunderground, y subtiempos para Meteocat. Pendiente de validar visualmente en HA tras bump/publicacion.
+
 ## 2026-06-19 - Extraer Tomap de forma conservadora
 
 ### Decision

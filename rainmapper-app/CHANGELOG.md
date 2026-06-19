@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.76
+
+- Add real per-source duration metrics to `source_status.json`.
+- Show source durations in the Home Assistant webUI.
+- Add Meteocat step timings for metadata, conditions, rain, merge, and save phases.
+- Keep process timing metrics out of MapLibre; the map viewer continues to show only source status badges.
+
 ## 0.2.75
 
 - Stop running inline Tomap generation inside `Rainmapper.py`; `tomap_builder.py` is now the active Tomap rebuild path for `MODE=maps` and `MODE=all`.

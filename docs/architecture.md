@@ -68,7 +68,7 @@ Hay varios entry points segun entorno:
 - Ruta: `Rainmapper.py` y `rainmapper-app/app/Rainmapper.py`.
 - Responsabilidad: descarga Meteocat, Meteoclimatic y Wunderground; actualiza historicos; escribe estado por fuente; metricas Wunderground.
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps, `meteoclimatic_local`, `sodapy_local`, `util`.
-- Relacion: alimenta `Rainmapper_Client.py` y `tomap_to_geojson.py`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente.
+- Relacion: alimenta `Rainmapper_Client.py` y `tomap_to_geojson.py`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global.
 
 ### Generador Bokeh
 - Ruta: `Rainmapper_Client.py` y copia en app.
@@ -143,7 +143,7 @@ Persistencia por CSV:
 - CSV preparados para mapas en `Tomap/01_Tomap_Last_day.csv`, `02_Tomap_Last_week.csv`, etc.
 - Ultimos registros en `Tomap/LastXX_rains.csv`; por defecto `Last30_rains.csv`, configurable con `RAINMAPPER_LAST_RAINS_HISTORY` o la opcion HA `last_rains_history`.
 - Metricas Wunderground en `Data/metricas_wunderground.csv`.
-- Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat y Wunderground. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo.
+- Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat y Wunderground. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo. El payload puede incluir `duration_seconds`, `started_at`, `finished_at` y `timings`; los subtiempos actuales se usan especialmente para Meteocat.
 - GeoJSON publicados en `PublicData/*.geojson` y `/config/www/rainmapper-data`.
 
 Campos relevantes detectados o usados:
@@ -160,7 +160,7 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 ## Gestion de estado
 - Estado persistente principal: CSV en filesystem.
 - Estado runtime webUI: diccionario global `RUN_STATE` en `web_server.py`.
-- Estado por fuente: `Data/source_status.json`, leido por `web_server.py` para mostrar tarjetas de estado por fuente. Al publicar visores, se copia tambien a `data/source_status.json` dentro de Leaflet/MapLibre; MapLibre lo usa para mostrar badges junto al filtro `Source`.
+- Estado por fuente: `Data/source_status.json`, leido por `web_server.py` para mostrar tarjetas de estado, exit code, filas y duraciones por fuente. Al publicar visores, se copia tambien a `data/source_status.json` dentro de Leaflet/MapLibre; MapLibre lo usa solo para mostrar badges junto al filtro `Source`, no tiempos de proceso.
 - Estado de logs: `/share/rainmapper/last_run.log` se reescribe por ejecucion.
 - Estado de estaciones desactivadas: comentarios en `stations.txt` con marcadores `rainmapper-disabled`.
 - Estado de estaciones ignoradas en mapas nuevos: `ignore_stations_tomap.txt`.

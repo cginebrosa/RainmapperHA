@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Hacer bump/publicacion HA para validar `Run all` en Home Assistant despues de retirar la generacion inline de `Tomap` de `Rainmapper.py`. Si pasa, limpiar las funciones legacy marcadas.
+Hacer bump/publicacion HA para validar en Home Assistant las duraciones reales por fuente en la webUI. Si funciona, el siguiente bloque puede ser limpiar las funciones legacy marcadas de `Rainmapper.py` tras la extraccion de `Tomap`.
 
 ## Prioridad alta
 - [x] Corregir inconsistencia de version en la app HA
@@ -124,7 +124,7 @@ Hacer bump/publicacion HA para validar `Run all` en Home Assistant despues de re
   - Ficheros relacionados: `Rainmapper.py`, `tomap_builder.py`, `run.sh`, `rainmapper-app/run.sh`, `rainmapper-app/app/web_server.py`, `Rainmapper_Client.py`, `tomap_to_geojson.py`.
   - Estado parcial: `tomap_builder.py` reconstruye `Tomap` y `LastXX_rains.csv`; `MODE=maps`, `MODE=all` y `Generate maps` lo invocan antes de Bokeh/GeoJSON. En `Rainmapper.py` se ha retirado el bloque ejecutable inline de generacion `Tomap` y se ha dejado un marcador transicional claro. Las funciones legacy `create_grouped` y `create_last_rains` siguen presentes y marcadas para limpieza posterior.
   - Validacion: tras ejecutar `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que `tomap_builder.py` reconstruye los mismos CSV `Tomap` que el flujo antiguo de `Rainmapper.py` para los datos locales actuales. `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente. `Generate maps` en HA `0.2.74` fue validado manualmente por el usuario. Tras retirar el bloque inline, `local_all.sh` completo termina con `Rainmapper.py` exit code 0, reconstruye Tomap con `tomap_builder.py` y genera GeoJSON.
-  - Criterio de aceptacion pendiente: validar HA `Run all` despues de retirar el bloque inline de `Rainmapper.py`; si pasa, limpiar funciones legacy marcadas.
+  - Criterio de aceptacion pendiente: limpiar funciones legacy marcadas tras haber validado `Run all` en HA.
   - Riesgo residual: durante esta fase quedan helpers legacy en `Rainmapper.py` para facilitar revision, pero la ejecucion normal ya usa `tomap_builder.py` como unica generacion `Tomap`.
 
 - [ ] Mejorar observabilidad de Wunderground
@@ -133,7 +133,7 @@ Hacer bump/publicacion HA para validar `Run all` en Home Assistant despues de re
   - Observacion local 2026-06-19: despues de permitir que `docker-compose.yml` propague `MAX_THREADS`, `local_update.sh` paso de `385.69s` con `MAX_THREADS=1` a `196.82s` con `MAX_THREADS=2` y `81.20s` con `MAX_THREADS=3`; Wunderground paso de `0:06:02` a `0:03:03` y despues a `0:01:19`.
   - Ficheros relacionados: `Rainmapper.py`, `Data/metricas_wunderground.csv`.
   - Criterio de aceptacion: metricas revisables y comparables por ejecucion; validar en HA/RPi si `max_threads=2` o `3` reduce tiempos sin generar timeouts, carga excesiva ni fallos de fuentes; posible export futuro a InfluxDB/Grafana.
-  - Estado: decision pospuesta; Wunderground se mantiene como esta mientras el tiempo global siga siendo aceptable.
+  - Estado: parcialmente mejorado. `source_status.json` guarda duraciones reales por fuente y la webUI las muestra; Meteocat guarda subtiempos de metadata, condiciones, precipitacion, merge y guardado. Pendiente decidir si cambiar `max_threads` por defecto y si exportar metricas historicas a InfluxDB/Grafana.
   - Riesgo si no se hace: optimizacion a ciegas del scraper si el rendimiento empeora en el futuro.
 
 - [ ] Definir estrategia legal/comercial para Wunderground antes de una app publica

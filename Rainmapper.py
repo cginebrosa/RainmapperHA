@@ -68,60 +68,60 @@ from const import   _codi_estacio,\
 import argparse
 # Configure command-line arguments
 parser = argparse.ArgumentParser(description='Rainmapper data update and map preparation script')
-parser.add_argument('--create_meteoclimatic', 
-                    dest='_create_meteoclimatic', 
-                    nargs='?', 
-                    const=True, 
+parser.add_argument('--create_meteoclimatic',
+                    dest='_create_meteoclimatic',
+                    nargs='?',
+                    const=True,
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_create_meteoclimatic,
                     help='Fetch Meteoclimatic data (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
-parser.add_argument('--create_meteocat', 
-                    dest='_create_meteocat', 
-                    nargs='?', 
-                    const=True, 
+parser.add_argument('--create_meteocat',
+                    dest='_create_meteocat',
+                    nargs='?',
+                    const=True,
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
-                    default=_create_meteocat, 
+                    default=_create_meteocat,
                     help='Fetch Meteocat data (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
-parser.add_argument('--create_wunderground', 
-                    dest='_create_wunderground', 
-                    nargs='?', 
-                    const=True, 
+parser.add_argument('--create_wunderground',
+                    dest='_create_wunderground',
+                    nargs='?',
+                    const=True,
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
-                    default=_create_wunderground, 
+                    default=_create_wunderground,
                     help='Fetch Wunderground data (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
-parser.add_argument('--days_init', 
-                    dest='_days_init', 
-                    nargs='?', 
+parser.add_argument('--days_init',
+                    dest='_days_init',
+                    nargs='?',
                     const=_days_init,
                     type=int,
-                    default= _days_init, 
+                    default= _days_init,
                     help='Days backward for accumulated rain lookup (negative, 0, or positive) -> Const=Default=-7')
-parser.add_argument('--days_end', 
+parser.add_argument('--days_end',
                     dest='_days_end',
-                    nargs='?', 
+                    nargs='?',
                     const=_days_end,
-                    type=int, 
+                    type=int,
                     default=_days_end,
                     help='Days forward for accumulated rain lookup (negative, 0, or positive) -> Const=Default=0')
-parser.add_argument('--nomaps', 
-                    dest='_create_googlemaps_files', 
-                    nargs='?', 
-                    const=False, 
+parser.add_argument('--nomaps',
+                    dest='_create_googlemaps_files',
+                    nargs='?',
+                    const=False,
                     type=lambda x: not(str(x).lower() in ['true','1','yes']),
                     default=_create_googlemaps_files,
                     help='Do not create Google Maps files (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=True')
-parser.add_argument('--nototals', 
-                    dest='_print_totals', 
-                    nargs='?', 
-                    const=False, 
+parser.add_argument('--nototals',
+                    dest='_print_totals',
+                    nargs='?',
+                    const=False,
                     type=lambda x: not((str(x).lower() in ['true','1','yes'])),
                     default=_print_totals,
                     help='Do not print totals (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=True')
-parser.add_argument('--days_bucket', 
+parser.add_argument('--days_bucket',
                     dest='_days_bucket',
-                    nargs='?', 
+                    nargs='?',
                     const=_days_bucket,
-                    type=int, 
+                    type=int,
                     default=_days_bucket,
                     help='Day bucket size for Meteocat reads (positive number) -> Const=Default=10')
 parser.add_argument('--meteocat_request_timeout',
@@ -138,18 +138,18 @@ parser.add_argument('--meteocat_max_attempts',
                     type=int,
                     default=_meteocat_max_attempts,
                     help='Meteocat/Socrata request attempts before failing -> Const=Default=3')
-parser.add_argument('--max_threads', 
+parser.add_argument('--max_threads',
                     dest='_max_threads',
-                    nargs='?', 
+                    nargs='?',
                     const=_max_threads,
-                    type=int, 
+                    type=int,
                     default=_max_threads,
                     help='Number of Wunderground threads -> Const=Default=1')
-parser.add_argument('--max_attempts', 
+parser.add_argument('--max_attempts',
                     dest='_max_attempts',
-                    nargs='?', 
+                    nargs='?',
                     const=_max_attempts,
-                    type=int, 
+                    type=int,
                     default=_max_attempts,
                     help='Number of Wunderground scraper retries -> Const=Default=3')
 parser.add_argument('--wunderground_full_log',
@@ -209,7 +209,7 @@ pd.set_option('display.max_colwidth', None)
 
 _script_path = os.path.dirname(os.path.abspath(__file__))
 _requirements_file = os.path.join(_script_path, 'requirements.txt')
- 
+
 print ('=============')
 print ('REQUIREMENTS:')
 print ('=============')
@@ -293,7 +293,7 @@ def get_googlemaps(lat,long):
         long = float(long)
         if lat < long:                              # Exchange lat/long if they seems  to be flipped
             lat, long = long, lat
-    except ValueError:                              #If lat or long are not float(able) return elevation=0 
+    except ValueError:                              #If lat or long are not float(able) return elevation=0
         print ('Error')
         return (0,'Municipi Not found','Provincia Not Found')
 
@@ -372,6 +372,7 @@ def read_incremental(_dataframe, _nrows=None):
 
 SOURCE_STATUS_PATH = os.path.join(_DATA_PATH, 'source_status.json')
 SOURCE_STATUSES = {}
+SOURCE_RUNTIME_METRICS = {}
 
 def write_source_statuses():
     payload = {
@@ -387,7 +388,19 @@ def write_source_statuses():
     except OSError as exc:
         print(f'WARNING: Could not write source status file {SOURCE_STATUS_PATH}: {exc}')
 
-def record_source_status(source, status, exit_code, message, rows=0, stale_data_used=False, enabled=True):
+def record_source_status(
+    source,
+    status,
+    exit_code,
+    message,
+    rows=0,
+    stale_data_used=False,
+    enabled=True,
+    duration_seconds=None,
+    started_at=None,
+    finished_at=None,
+    timings=None,
+):
     SOURCE_STATUSES[source] = {
         'status': status,
         'exit_code': exit_code,
@@ -397,10 +410,34 @@ def record_source_status(source, status, exit_code, message, rows=0, stale_data_
         'enabled': bool(enabled),
         'updated_at': datetime.now().isoformat(timespec='seconds'),
     }
+    if duration_seconds is not None:
+        SOURCE_STATUSES[source]['duration_seconds'] = round(float(duration_seconds), 3)
+    if started_at is not None:
+        SOURCE_STATUSES[source]['started_at'] = str(started_at)
+    if finished_at is not None:
+        SOURCE_STATUSES[source]['finished_at'] = str(finished_at)
+    if timings:
+        SOURCE_STATUSES[source]['timings'] = {
+            str(key): round(float(value), 3)
+            for key, value in timings.items()
+            if value is not None
+        }
     write_source_statuses()
+
+def record_source_runtime_metric(source, duration_seconds, started_at=None, finished_at=None, timings=None):
+    SOURCE_RUNTIME_METRICS[source] = {
+        'duration_seconds': round(float(duration_seconds), 3),
+        'started_at': started_at,
+        'finished_at': finished_at,
+        'timings': timings or {},
+    }
+
+def source_runtime_metric(source):
+    return SOURCE_RUNTIME_METRICS.get(source, {})
 
 def initialize_source_statuses():
     SOURCE_STATUSES.clear()
+    SOURCE_RUNTIME_METRICS.clear()
     record_source_status('Meteoclimatic', 'PENDING', None, 'Waiting to run.', enabled=_create_meteoclimatic)
     record_source_status('Meteocat', 'PENDING', None, 'Waiting to run.', enabled=_create_meteocat)
     record_source_status('Wunderground', 'PENDING', None, 'Waiting to run.', enabled=_create_wunderground)
@@ -418,6 +455,7 @@ def collect_source_result(source, future, incremental_name, enabled):
             rows=len(source_incremental),
             stale_data_used=not enabled,
             enabled=enabled,
+            **source_runtime_metric(source),
         )
         return source_df, source_incremental
     except Exception as exc:
@@ -443,6 +481,7 @@ def collect_source_result(source, future, incremental_name, enabled):
                 rows=len(source_incremental),
                 stale_data_used=True,
                 enabled=enabled,
+                **source_runtime_metric(source),
             )
             return source_df, source_incremental
 
@@ -456,6 +495,7 @@ def collect_source_result(source, future, incremental_name, enabled):
             rows=0,
             stale_data_used=False,
             enabled=enabled,
+            **source_runtime_metric(source),
         )
         return source_df, source_incremental
 
@@ -482,13 +522,13 @@ def source_exit_code():
     return 2 if has_degraded_source else 0
 
 def get_myquery(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _end_date): # Create _myquery for sum records
-    _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED 
-    _select_per_codi_variable = ' AND (codi_variable='+_qcodi_variable+' '+'OR codi_variable='+_qcodi_variable2+') ' 
+    _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED
+    _select_per_codi_variable = ' AND (codi_variable='+_qcodi_variable+' '+'OR codi_variable='+_qcodi_variable2+') '
 
-    if _codi_estacio == ''  or _codi_estacio == 'ALL':            
-        _select_per_codi_estacio = ''   
-    else:                               
-        _select_per_codi_estacio = ' AND (codi_estacio='+_qcodi_estacio+' '+'OR codi_estacio='+_qcodi_estacio+') '  
+    if _codi_estacio == ''  or _codi_estacio == 'ALL':
+        _select_per_codi_estacio = ''
+    else:
+        _select_per_codi_estacio = ' AND (codi_estacio='+_qcodi_estacio+' '+'OR codi_estacio='+_qcodi_estacio+') '
 
     _myquery = "SELECT codi_estacio, max(data_lectura) as ultima_lectura, codi_variable, sum(valor_lectura) as valor_variable, \
             avg(valor_lectura) as valor_avg, median(valor_lectura) as valor_median \
@@ -499,37 +539,37 @@ def get_myquery(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _en
     return _myquery
 
 def get_myquery_rain_all(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _end_date): # Create _myquery for all records
-    _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED 
-    _select_per_codi_variable = ' AND (codi_variable='+_qcodi_variable+' '+'OR codi_variable='+_qcodi_variable2+') ' 
+    _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED
+    _select_per_codi_variable = ' AND (codi_variable='+_qcodi_variable+' '+'OR codi_variable='+_qcodi_variable2+') '
 
-    if _codi_estacio == ''  or _codi_estacio == 'ALL':            
-        _select_per_codi_estacio = ''   
-    else:                               
-        _select_per_codi_estacio = ' AND (codi_estacio='+_qcodi_estacio+' '+'OR codi_estacio='+_qcodi_estacio+') '  
+    if _codi_estacio == ''  or _codi_estacio == 'ALL':
+        _select_per_codi_estacio = ''
+    else:
+        _select_per_codi_estacio = ' AND (codi_estacio='+_qcodi_estacio+' '+'OR codi_estacio='+_qcodi_estacio+') '
 
     #_myquery = "SELECT codi_estacio, data_lectura as ultima_lectura, codi_variable, valor_lectura as valor_variable \
     #        WHERE (data_lectura BETWEEN '"+_start_date+"' AND '"+_end_date+"') " +_select_per_codi_estacio +_select_per_codi_variable+" \
     #        AND valor_lectura > 0 \
     #        GROUP BY codi_estacio, codi_variable, data_lectura,valor_lectura \
     #        ORDER BY ultima_lectura,valor_variable DESC, codi_estacio ASC LIMIT 200000"   # Limit to 200,000 records
-    
+
     _myquery = "SELECT codi_estacio, date_trunc_ymd(data_lectura) as ultima_lectura, codi_variable, sum(valor_lectura) as valor_variable \
             WHERE (data_lectura BETWEEN '"+_start_date+"' AND '"+_end_date+"') " +_select_per_codi_estacio +_select_per_codi_variable+" \
             AND valor_lectura >= 0 \
             GROUP BY codi_estacio, codi_variable, ultima_lectura \
-            ORDER BY ultima_lectura,valor_variable DESC, codi_estacio ASC LIMIT 200000"   # Limit to 200,000 records    
-    
+            ORDER BY ultima_lectura,valor_variable DESC, codi_estacio ASC LIMIT 200000"   # Limit to 200,000 records
+
     #print('myquery_rain_all:',_myquery)
     return _myquery
 
 def get_myquery_conditions_all(_codi_estacio,_start_date, _end_date): # Create _myquery for all records
-    _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED 
+    _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED
     _select_per_codi_variable = " AND (codi_variable in ('40','42','3','44')) " # temp_max(40),temp_min(42),hum_max(3),hum_min(44)
 
-    if _codi_estacio == ''  or _codi_estacio == 'ALL':            
-        _select_per_codi_estacio = ''   
-    else:                               
-        _select_per_codi_estacio = ' AND (codi_estacio='+_qcodi_estacio+' '+'OR codi_estacio='+_qcodi_estacio+') '  
+    if _codi_estacio == ''  or _codi_estacio == 'ALL':
+        _select_per_codi_estacio = ''
+    else:
+        _select_per_codi_estacio = ' AND (codi_estacio='+_qcodi_estacio+' '+'OR codi_estacio='+_qcodi_estacio+') '
 
     #_myquery = "SELECT codi_estacio, data_lectura as ultima_lectura, codi_variable, valor_lectura as valor_variable \
     #        WHERE (data_lectura BETWEEN '"+_start_date+"' AND '"+_end_date+"') " +_select_per_codi_estacio +_select_per_codi_variable+" \
@@ -540,7 +580,7 @@ def get_myquery_conditions_all(_codi_estacio,_start_date, _end_date): # Create _
             WHERE (data_lectura BETWEEN '"+_start_date+"' AND '"+_end_date+"') " \
                     + _select_per_codi_estacio +_select_per_codi_variable+" \
             GROUP BY codi_estacio, codi_variable, ultima_lectura \
-            ORDER BY ultima_lectura, codi_estacio ASC LIMIT 200000"   # Limit to 200,000 records    
+            ORDER BY ultima_lectura, codi_estacio ASC LIMIT 200000"   # Limit to 200,000 records
 
     #print('myquery_conditions_all:',_myquery)
     return _myquery
@@ -549,11 +589,11 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     estacions = socrata_get(socrata_metadades_estacions_xema, "station metadata", \
                        query="SELECT codi_estacio, nom_estacio, nom_comarca, nom_provincia, \
                        nom_municipi, altitud, latitud, longitud ORDER BY codi_estacio", exclude_system_fields='true')
-    
+
     # Drop duplicates from 20240306
     estacions_xema = pd.DataFrame.from_records(estacions).drop_duplicates(subset='codi_estacio')
 
-    #save_dataframe(estacions_xema, 'estacions_xema_downloaded', _save_to_csv=True, _save_to_excel=False,_decimal=',')   
+    #save_dataframe(estacions_xema, 'estacions_xema_downloaded', _save_to_csv=True, _save_to_excel=False,_decimal=',')
 
     estacions_xema.rename(columns={'codi_estacio':'Codi Estació',
                                    'nom_estacio':'Estació',
@@ -576,9 +616,9 @@ def get_estacions_xema(): # Get estacions data from Meteocat
     try:
         estacions_old = pd.read_csv(_DATA_PATH+'estacions_xema.csv').drop_duplicates(subset='Codi Estació')
     except FileNotFoundError:
-        # If not existing file a new df is created 
+        # If not existing file a new df is created
         estacions_old = pd.DataFrame(columns=estacions_xema.columns)
-    
+
     ## MODI DE CODEX PARA PANDAS ##
     for col in ['Altitud', 'Latitud', 'Longitud']:
         estacions_old[col] = pd.to_numeric(estacions_old[col], errors='coerce')
@@ -600,13 +640,13 @@ def get_estacions_xema(): # Get estacions data from Meteocat
         #   " - Longitud:" + station['Longitud']  + " - Longitud existing:" + estacions_old.loc[index,'Longitud'])
 
 
-        ## MODI CODEX por bug logico ##       
+        ## MODI CODEX por bug logico ##
         #if  (station['Latitud'] != estacions_xema.loc[index,'Latitud']
         #    or station['Longitud'] != estacions_xema.loc[index,'Longitud']):
         if  (station['Latitud'] != estacions_old.loc[index,'Latitud']
-            or station['Longitud'] != estacions_old.loc[index,'Longitud']):        
-        ## FIN MODI CODEX por bug logico ##     
-            #or estacions_old.loc[index,'Altitud'] == 0 
+            or station['Longitud'] != estacions_old.loc[index,'Longitud']):
+        ## FIN MODI CODEX por bug logico ##
+            #or estacions_old.loc[index,'Altitud'] == 0
             #or station['Altitud'] == 0):
             print ('Fetching altitude for station:'+ station['Codi Estació'] + '-->' + station['Estació'])
             _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
@@ -615,7 +655,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
             existing_stations.loc[index,'Altitud'] = estacions_old.loc[index,'Altitud']
 
     estacions_old.update(existing_stations)
-    
+
     # Identify new stations
     new_stations = estacions_xema[~estacions_xema.index.isin(estacions_old.index)].copy()
 
@@ -666,7 +706,7 @@ def get_lectures_rain_xema(_myquery):  # Get lectures data from Meteocat
 
     if 'data_lectura' not in lectures_xema.columns:
         lectures_xema['data_lectura'] = lectures_xema['ultima_lectura']
-    
+
     lectures_xema.rename(columns={'codi_estacio':'Codi Estació',
                                 'ultima_lectura':'Ultima Lectura',
                                 'codi_variable':'Codi Variable',
@@ -689,7 +729,7 @@ def get_lectures_conditions_xema(_myquery):  # Get lectures data from Meteocat
 
     if 'data_lectura' not in lectures_xema.columns:
         lectures_xema['data_lectura'] = lectures_xema['ultima_lectura']
-    
+
     lectures_xema.rename(columns={'codi_estacio':'Codi Estació',
                                 'ultima_lectura':'Ultima Lectura',
                                 'codi_variable':'Codi Variable',
@@ -699,7 +739,7 @@ def get_lectures_conditions_xema(_myquery):  # Get lectures data from Meteocat
 
     return lectures_xema
 
-def get_results_rain_xema(results_xema:pd.DataFrame, estacions_df, variables_df):    # Create results_df from query to Meteocat data 
+def get_results_rain_xema(results_xema:pd.DataFrame, estacions_df, variables_df):    # Create results_df from query to Meteocat data
     _myquery0 = get_myquery(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _end_date) # Get summarized data (1 record per station)
     _myquery = get_myquery_rain_all(_codi_estacio, _qcodi_variable, _qcodi_variable2,_start_date, _end_date) # Get detailed data (all rain records)
     #print(_myquery)
@@ -712,11 +752,11 @@ def get_results_rain_xema(results_xema:pd.DataFrame, estacions_df, variables_df)
     # If not records returned, return empty dataframe
     if lectures_xema.empty:
         return lectures_xema
-    
+
     # Merge estacions_df data and reject non existing codi_estacio
     results_xema = (pd.merge(lectures_xema, estacions_df, on = 'Codi Estació', how = 'inner'))
 
-    # Merge variables_df data and reject non existing codi_variable 
+    # Merge variables_df data and reject non existing codi_variable
     results_xema = (pd.merge(results_xema, variables_df, on = 'Codi Variable', how = 'inner'))
     results_xema = results_xema[['Codi Estació','Data Lectura','Estació','Comarca','Municipi','Provincia','Altitud',
                              'Latitud','Longitud','Ultima Lectura','Codi Variable',
@@ -742,7 +782,7 @@ def get_results_rain_xema(results_xema:pd.DataFrame, estacions_df, variables_df)
                         'latitud':'Latitud',
                         'longitud':'Longitud',
                         'nom_variable':'Variable',
-                        'unitat':'Unitat'    
+                        'unitat':'Unitat'
                         },inplace=True)'''
 
     # Create New Columns from only Date and only Time from 'ultima_lectura'
@@ -758,13 +798,13 @@ def get_results_rain_xema(results_xema:pd.DataFrame, estacions_df, variables_df)
                                                              ,'%Y/%m/%d %H:%M:%S').strftime("%Y%m%d")   # Set Date as only date from 'Ultima Lectura'
         results_xema.loc[i,'Hora Local'] = datetime.strptime(results_xema.loc[i,'Ultima Lectura']
                                                              ,'%Y/%m/%d %H:%M:%S').strftime("%H:%M:%S")  # Set Time as only time from 'Ultima Lectura'
-        
+
     ## Convert 'Ultima Lectura' to 'Data Lectura' in datetime for index
     results_xema['Data Lectura'] = pd.to_datetime(results_xema['Ultima Lectura'],format='%Y/%m/%d %H:%M:%S')
     results_xema.sort_values(by=['Codi Estació', 'Data Lectura'], ascending=[True, False],inplace=True)
     return results_xema
 
-def get_results_conditions_xema(results_xema:pd.DataFrame, estacions_df, variables_df):    # Create results_df from query to Meteocat data 
+def get_results_conditions_xema(results_xema:pd.DataFrame, estacions_df, variables_df):    # Create results_df from query to Meteocat data
     _myquery = get_myquery_conditions_all(_codi_estacio, _start_date, _end_date)    # Get daily data (temp/humidity)
     #print(_myquery)
     # Get lectures_df from Meteocat according to _myquery
@@ -775,11 +815,11 @@ def get_results_conditions_xema(results_xema:pd.DataFrame, estacions_df, variabl
     # If not records returned, return empty dataframe
     if lectures_xema.empty:
         return lectures_xema
-    
+
     # Merge estacions_df data and reject non existing codi_estacio
     results_xema = (pd.merge(lectures_xema, estacions_df, on = 'Codi Estació', how = 'inner'))
 
-    # Merge variables_df data and reject non existing codi_variable 
+    # Merge variables_df data and reject non existing codi_variable
     results_xema = (pd.merge(results_xema, variables_df, on = 'Codi Variable', how = 'inner'))
     results_xema = results_xema[['Codi Estació','Data Lectura','Estació','Comarca','Municipi','Provincia','Altitud',
                              'Latitud','Longitud','Ultima Lectura','Codi Variable',
@@ -794,14 +834,14 @@ def get_results_conditions_xema(results_xema:pd.DataFrame, estacions_df, variabl
     for i in range(len(results_xema)):
         results_xema.loc[i, 'Ultima Lectura'] = (datetime.strptime(results_xema.loc[i,'Ultima Lectura'],'%Y-%m-%dT%H:%M:%S.%f')
                                                   + timedelta(hours=2,seconds=1)).strftime("%Y/%m/%d %H:%M:%S")
-            
+
     ## Convert 'Ultima Lectura' to 'Data Lectura' in datettime for index
     results_xema['Data Lectura'] = pd.to_datetime(results_xema['Ultima Lectura'],format='%Y/%m/%d %H:%M:%S')
 
 # Pivotar el DataFrame para obtener max y min valores para 'Codi Variable' 40 y 42
-    pivot_df = results_xema.pivot_table(index=['Codi Estació', 'Data Lectura', 
-                                               'Estació', 'Comarca','Municipi', 'Provincia', 
-#                                               'Ultima Lectura', 'Variable', 
+    pivot_df = results_xema.pivot_table(index=['Codi Estació', 'Data Lectura',
+                                               'Estació', 'Comarca','Municipi', 'Provincia',
+#                                               'Ultima Lectura', 'Variable',
                                                ],
                             columns='Codi Variable',
                             values=['max_valor_variable', 'min_valor_variable'],
@@ -823,16 +863,16 @@ def get_results_conditions_xema(results_xema:pd.DataFrame, estacions_df, variabl
         'max_valor_variable_44': 'first',
         'max_valor_variable_3': 'first',
         'min_valor_variable_44': 'first',
-        'min_valor_variable_3': 'first'       
+        'min_valor_variable_3': 'first'
     }).reset_index()
 
     # Crear un nuevo DataFrame con las columnas requeridas
-    new_columns = ['Codi Estació', 'Data Lectura', 
-                   'Estació', 'Comarca', 'Municipi', 'Provincia', 
-#                   'Ultima Lectura', 
-                   'max_temp_celsius', 
-#                   'min_temp_max_celsius', 
-#                   'max_temp_min_celsius', 
+    new_columns = ['Codi Estació', 'Data Lectura',
+                   'Estació', 'Comarca', 'Municipi', 'Provincia',
+#                   'Ultima Lectura',
+                   'max_temp_celsius',
+#                   'min_temp_max_celsius',
+#                   'max_temp_min_celsius',
                    'min_temp_celsius',
                    'max_humidity_percent',
 #                   'min_humidity_max_percent',
@@ -884,7 +924,7 @@ def save_dataframe_tomap(df, _file_name, _save_to_csv=True, _save_to_excel=False
         df.to_excel(_MAPS_PATH+_file_name+'.xlsx', decimal=_decimal, index=False)
     #
 
-def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel):                          # Save incremental Dataframe                    
+def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel):                          # Save incremental Dataframe
     csv=csv_param.copy()
     #
     try:
@@ -923,10 +963,10 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel):          
         csv_incremental['Latitud'] = csv_incremental['Latitud'].astype(float)
         csv_incremental['Longitud'] = csv_incremental['Longitud'].astype(float)
         csv_incremental.to_excel(_DATA_PATH+'Meteocat_incremental.xlsx', index=False) # Save to excel All incremental rain readings
-    
+
     return csv_incremental
 
-def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):                     # Save incremental Dataframe                    
+def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):                     # Save incremental Dataframe
     csv=csv_param.copy()
     #
     try:
@@ -960,10 +1000,10 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):     
     estacions_meteoclimatic_df.set_index(keys='Codi Estació',drop=False,inplace=True)
     csv_incremental.set_index(keys='Codi Estació',drop=False,inplace=True)
     csv_incremental.update(estacions_meteoclimatic_df)
-    
-    # Filter rain > _minima_lectura_meteoclimatic (Daily rain in Meteoclimatic - Discard minimum readings as are errors) 
+
+    # Filter rain > _minima_lectura_meteoclimatic (Daily rain in Meteoclimatic - Discard minimum readings as are errors)
     #csv_incremental = filter_results(csv_incremental,_minima_lectura_meteoclimatic)
-    
+
     csv_incremental.reset_index(drop=True, inplace=True)
 
 	# Save incremental Dataframe to csv
@@ -976,10 +1016,10 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):     
         csv_incremental['Latitud'] = csv_incremental['Latitud'].astype(float)
         csv_incremental['Longitud'] = csv_incremental['Longitud'].astype(float)
         csv_incremental.to_excel(_DATA_PATH+'Meteoclimatic_incremental.xlsx', index=False) # Save to excel All incremental rain readings
-    
+
     return csv_incremental
 
-def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):                     # Save incremental Dataframe                    
+def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):                     # Save incremental Dataframe
     csv=csv_param.copy()
     #
     try:
@@ -1007,18 +1047,18 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):      
     csv_incremental.reset_index(drop=True, inplace=True)
     #print(' ')
 	#
-    ''' 
-    PENDIENTE DE VER SI HAY QUE AÑADIR  
+    '''
+    PENDIENTE DE VER SI HAY QUE AÑADIR
     # Refresh Station data on incremental local DB from local DB of Stations
     estacions_wunderground_df = pd.read_csv(_DATA_PATH+'estacions_wunderground.csv',decimal=',')
 
     estacions_wunderground_df.set_index(keys='Codi Estació',drop=False,inplace=True)
     csv_incremental.set_index(keys='Codi Estació',drop=False,inplace=True)
     csv_incremental.update(estacions_wunderground_df)
-    '''   
-    # Filter rain > _minima_lectura_meteoclimatic (Daily rain in Meteoclimatic - Discard minimum readings as are errors) 
+    '''
+    # Filter rain > _minima_lectura_meteoclimatic (Daily rain in Meteoclimatic - Discard minimum readings as are errors)
     #csv_incremental = filter_results(csv_incremental,_minima_lectura_meteoclimatic)
-    
+
     csv_incremental.reset_index(drop=True, inplace=True)
 
 	# Save incremental Dataframe to csv
@@ -1031,10 +1071,10 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):      
         csv_incremental['Latitud'] = csv_incremental['Latitud'].astype(float)
         csv_incremental['Longitud'] = csv_incremental['Longitud'].astype(float)
         csv_incremental.to_excel(_DATA_PATH+'Wundewrground_incremental.xlsx', index=False) # Save to excel All incremental rain readings
-    
+
     return csv_incremental
 
-def create_total_dataframe(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv):               # Create Total Dataframe 
+def create_total_dataframe(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv):               # Create Total Dataframe
     csv=csv_param.copy()
     #csv['Data Lectura'] = pd.to_datetime(csv['Ultima Lectura'])
     csv.set_index(keys=['Data Lectura'],drop=False,inplace=True)
@@ -1046,7 +1086,7 @@ def create_total_dataframe(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv)
                             'Provincia',
                             'Latitud',
                             'Longitud',
-                            'Altitud', 
+                            'Altitud',
                             'Variable',
                             'Unitat'],dropna=False). \
                     agg({'Codi Estació':'last',
@@ -1060,7 +1100,7 @@ def create_total_dataframe(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv)
                         'Data Lectura':'max',
                         'Variable':'last',
                         'Total':'sum',
-                        'Unitat':'last'                                       
+                        'Unitat':'last'
                         }). \
                     round(1). \
                     rename(columns={'Data Lectura':'Ultima Lectura'}).\
@@ -1085,7 +1125,7 @@ def create_total_dataframe(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv)
     #
     return csv_total
 
-def create_total_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv):               # Create Total Dataframe 
+def create_total_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv):               # Create Total Dataframe
     csv=csv_param.copy()
     #csv['Data Lectura'] = pd.to_datetime(csv['Ultima Lectura'])
     csv.set_index(keys=['Data Lectura'],drop=False,inplace=True)
@@ -1097,7 +1137,7 @@ def create_total_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, _save_to_
                             'Provincia',
                             'Latitud',
                             'Longitud',
-                            'Altitud', 
+                            'Altitud',
                             'Variable',
                             'Unitat'],dropna=False). \
                     agg({'Codi Estació':'last',
@@ -1115,7 +1155,7 @@ def create_total_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, _save_to_
                         'max_temp_celsius':'last',
                         'min_temp_celsius':'last',
                         'max_humidity_percent':'last',
-                        'min_humidity_percent':'last'                                         
+                        'min_humidity_percent':'last'
                         }). \
                     round(1). \
                     rename(columns={'Data Lectura':'Ultima Lectura'}).\
@@ -1151,7 +1191,7 @@ def create_daily_dataframe(csv_param:pd.DataFrame, _save_to_excel):             
                             'Comarca',
                             'Municipi',
                             'Provincia',
-                            'Altitud', 
+                            'Altitud',
                             'Latitud',
                             'Longitud',
                             'Variable',
@@ -1163,17 +1203,17 @@ def create_daily_dataframe(csv_param:pd.DataFrame, _save_to_excel):             
                             round(1)
 
     csv_daily = csv_daily[['Codi Estació',
-                            'Estació', 
-                            'Comarca', 
-                            'Municipi', 
-                            'Provincia', 
-                            'Altitud', 
-                            'Latitud', 
-                            'Longitud', 
-                            'Variable', 
-                            'Total', 
+                            'Estació',
+                            'Comarca',
+                            'Municipi',
+                            'Provincia',
+                            'Altitud',
+                            'Latitud',
+                            'Longitud',
+                            'Variable',
+                            'Total',
                             'Unitat',
-                            'Data Pluja' 
+                            'Data Pluja'
                             ]]
 
     _data_inici = get_data_inici()
@@ -1183,7 +1223,7 @@ def create_daily_dataframe(csv_param:pd.DataFrame, _save_to_excel):             
         csv_daily.to_excel(_DATA_PATH+'Plujes_Diaries_'+_data_inici+' a '+_data_fi+'.xlsx', index=False)      # Save to excel Daily rain
     return
 
-def create_weekly_dataframe(csv_param:pd.DataFrame, _save_to_excel):                        # Create weekly Dataframe 
+def create_weekly_dataframe(csv_param:pd.DataFrame, _save_to_excel):                        # Create weekly Dataframe
     csv_weekly = csv_param.groupby(['Codi Estació',
                             'Estació',
                             'Comarca',
@@ -1191,7 +1231,7 @@ def create_weekly_dataframe(csv_param:pd.DataFrame, _save_to_excel):            
                             'Provincia',
                             'Latitud',
                             'Longitud',
-                            'Altitud', 
+                            'Altitud',
                             'Variable',
                             'Unitat',
                             pd.Grouper(key='Data Lectura',freq='W')])['Total'].sum().reset_index().round(1)
@@ -1204,14 +1244,14 @@ def create_weekly_dataframe(csv_param:pd.DataFrame, _save_to_excel):            
     return
 
 def create_monthly_dataframe(csv_param:pd.DataFrame,_save_to_excel):                       # Create monthly Dataframe
-    csv_monthly = csv_param.groupby(['Codi Estació',  
+    csv_monthly = csv_param.groupby(['Codi Estació',
                             'Estació',
                             'Comarca',
                             'Municipi',
                             'Provincia',
                             'Latitud',
                             'Longitud',
-                            'Altitud', 
+                            'Altitud',
                             'Variable',
                             'Unitat',
                             pd.Grouper(key='Data Lectura',freq='M')])['Total'].sum().reset_index().round(1)
@@ -1223,7 +1263,7 @@ def create_monthly_dataframe(csv_param:pd.DataFrame,_save_to_excel):            
 
 def print_dataframes(df:pd.DataFrame, columns_to_print=None):  # Define a function to print some columns from a Dataframe
     if columns_to_print is None:        # If no columns list supplied, use default
-        default_columns = ['Codi Estació', 
+        default_columns = ['Codi Estació',
                            'Data Lectura',
                            'Estació',
                            'Municipi',
@@ -1233,11 +1273,11 @@ def print_dataframes(df:pd.DataFrame, columns_to_print=None):  # Define a functi
                            'Total',
                            'Unitat']
         columns_to_print = default_columns
-    
+
     # Select columns to print
     print(df[columns_to_print].to_string(index=True))
 
-def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station (csv_total) for selection in Terminal sorted by accumulated precipitation DESC 
+def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station (csv_total) for selection in Terminal sorted by accumulated precipitation DESC
     #
     _data_inici = get_data_inici()
     _data_fi = get_data_fi()
@@ -1248,7 +1288,7 @@ def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station
     print("End date:", utc_to_local(datetime.strptime(_data_fi,"%d-%m-%Y %H:%M:%S")).strftime("%d-%m-%Y %H:%M:%S"))
     if len(csv_total) != 0:
         print("Station code:"+_codi_estacio+" ("+(csv_total.iloc[-1]["Estació"])+")"
-            if _codi_estacio!='' and _codi_estacio!='ALL' 
+            if _codi_estacio!='' and _codi_estacio!='ALL'
             else "All stations")
         print(" ")
     #
@@ -1257,12 +1297,12 @@ def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station
         _this_nom_estacio = csv_total.iloc[i]['Estació']
         #_this_nom_estacio = re.sub(r'\s*\[.*?\]\s*', '', _this_nom_estacio)
         #_this_nom_estacio = re.sub(r'^\[|\]$', '', _this_nom_estacio)
-        _this_nom_municipi = csv_total.iloc[i]['Municipi']        
+        _this_nom_municipi = csv_total.iloc[i]['Municipi']
         _this_valor_variable = csv_total.iloc[i]['Total']
         _this_unitat = csv_total.iloc[i]['Unitat']
         _this_ultima_lectura =csv_total.iloc[i]['Ultima Lectura'].strftime("%d/%m/%Y %H:%M:%S CET")
-    # 
-    #   Print records from csv Dataframe in Console 
+    #
+    #   Print records from csv Dataframe in Console
     #
         if False:
             print("RECORD:" + \
@@ -1277,7 +1317,7 @@ def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station
                     _this_ultima_lectura)
         elif True:
             print(f"REC: {i:<3} Station: {_this_codi_estacio:<19} - {_this_nom_estacio:<40} [{_this_nom_municipi:<30}] - Accumulated rain: {_this_valor_variable:<5} {_this_unitat:3} - Last rain: {_this_ultima_lectura:<20}")
- 
+
         else:
             print("RECORD:"+str(i),"Station: "+ _codi_estacio+" (UNDEFINED) - Accumulated rain:"\
                     ,_valor_variable,_unitat,"- Last reading: "+\
@@ -1285,7 +1325,7 @@ def print_totals_per_station(csv_total:pd.DataFrame): # Print totals per station
     print("")
 
 def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
-    csv = meteoclimatic_df[['Codi Estació', 
+    csv = meteoclimatic_df[['Codi Estació',
                             'Estació',
                             'Comarca',
                             'Municipi',
@@ -1298,14 +1338,14 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
         # Try to read local DB of stations
         csv_old = pd.read_csv(_DATA_PATH+'estacions_meteoclimatic.csv',decimal=',')
     except FileNotFoundError:
-        # If not existing file a new df is created 
+        # If not existing file a new df is created
         csv_old = pd.DataFrame(columns=csv.columns)
 
     #print(csv_old.info())
     csv_old.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     #
     csv.set_index(keys=["Codi Estació"],drop=False,inplace=True)
-    
+
     # Utilizamos una expresión regular para encontrar el último par de paréntesis en Estació y lo eliminamos
     # Utilizamos apply y una función lambda para aplicar la operación a cada elemento de la columna
     csv['Estació'] = csv['Estació'].apply(lambda x: re.sub(r'\([^)]*\)(?=[^()]*$)', '', x))
@@ -1413,7 +1453,7 @@ def create_meteoclimatic(_save_to_csv):
     cols = meteoclimatic_df.columns.tolist()
     cols = cols[:1]+cols[-1:]+ cols[1:-1]
     meteoclimatic_df = meteoclimatic_df[cols].reset_index(drop=True)
-    
+
     # Extract Provincia & Municipi from Station name on meteoclimatic data
     meteoclimatic_df['Provincia'] = meteoclimatic_df['Estació'].str.extract(r'\((.*?)\)')
     meteoclimatic_df['Municipi_temp'] = meteoclimatic_df['Estació'].str.extract(r'^(.*?) -')
@@ -1422,10 +1462,10 @@ def create_meteoclimatic(_save_to_csv):
     meteoclimatic_df['Municipi_temp'] = meteoclimatic_df['Municipi_temp'].fillna(meteoclimatic_df['Estació'].str.extract(r'^(.*?) \(')[0])  # pandas 3.0-compatible: assign the filled Series back to the original column.
     meteoclimatic_df['Municipi'] = meteoclimatic_df['Municipi_temp']
     meteoclimatic_df.drop(columns=['Municipi_temp'], inplace=True)
-    
+
     # Refresh local DB of stations (to not search for elevation in googlemaps all the time)
     refreshed_stations_df = refresh_estacions_meteoclimatic(meteoclimatic_df)
-    
+
     # Update Altitud on meteoclimatic_df from local DB stations
     refreshed_stations_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     meteoclimatic_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
@@ -1459,7 +1499,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
         # if first date found
         if(first_date_with_data != -1):
             START_DATE = first_date_with_data
-    
+
     url_gen = Utils.date_url_generator(weather_station_url, START_DATE, END_DATE)
     station_name = weather_station_url.split('/')[-1]
     file_prefix = station_name
@@ -1467,12 +1507,12 @@ def scrap_wunderground_station(weather_station_url, launchtime):
     summary_station_name = ''
     summary_rows = 0
     summary_errors = []
-    
+
     if MERGE_DATA:
         file_prefix = 'MERGED'
-    
+
     wunderground_file_name = os.path.join(_script_path,f'{file_prefix}_{START_DATE}_to_{END_DATE}_at_{launchtime}.csv')
-    
+
     # Crea un Lock para controlar el acceso al archivo
     file_lock = threading.Lock()
 
@@ -1485,7 +1525,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
         else:
             fieldnames = ['StationID','Date', 'Time','StationName','Comarca','Municipi',
                           'Provincia','Elevation','Latitude','Longitude',
-                          'Temperature','Dew_Point','Humidity',	'Wind','Speed','Gust','Pressure','Precip_Rate',	
+                          'Temperature','Dew_Point','Humidity',	'Wind','Speed','Gust','Pressure','Precip_Rate',
                           'Precip_Accum','UV','Solar']
         with file_lock:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -1495,7 +1535,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
             if UNIT_SYSTEM == "metric":
                 if MONTHLY:
                     with file_lock:
-                        writer.writerow({'StationID':'Codi Estació','Date': 'Data', 
+                        writer.writerow({'StationID':'Codi Estació','Date': 'Data',
                                     'Time': 'Hora','StationName':'Estació','Comarca':'Comarca','Municipi':'Municipi',
                                     'Provincia':'Provincia','Elevation':'Altitud','Latitude':'Latitud','Longitude':'Longitud',
                                     'High': 'TempHigh_C','Avg': 'TempAvg_C','Low': 'TempLow_C',
@@ -1531,7 +1571,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
             try:
                 wunderground_log('')
                 wunderground_log('==================================================================================================')
-                wunderground_log(f'Retrieving Station Data for {weather_station_url}')                
+                wunderground_log(f'Retrieving Station Data for {weather_station_url}')
 
                 #scraper = parseStationData(weather_station_url)
                 scraper = parseStationData(url, max_attempts=_max_attempts, full_log=_wunderground_full_log)
@@ -1553,7 +1593,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                     wunderground_log(f"Latitude: {latitude}")
                     wunderground_log(f"Longitude: {longitude}")
                     wunderground_log(f"Altitude: {elevation} m")
-    
+
                 except Exception as e:
                     summary_errors.append(str(e))
                     wunderground_log(str(e))
@@ -1577,27 +1617,27 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                 # parse html table rows
                 #print(f'Parsing html table rows from {url}')
 
-                data_rows = Parser.parse_html_table(date_string, 
-                                                    history_table, 
-                                                    station_ID, 
+                data_rows = Parser.parse_html_table(date_string,
+                                                    history_table,
+                                                    station_ID,
                                                     station_name,
                                                     location_name,
                                                     elevation,
-                                                    latitude, 
+                                                    latitude,
                                                     longitude)
 
                 # convert to metric system
                 converter = ConvertToSystem(UNIT_SYSTEM, full_log=_wunderground_full_log)
                 data_to_write = converter.clean_and_convert(data_rows)
                 summary_rows += len(data_to_write)
-                    
+
                 wunderground_log(f'Saving {len(data_to_write)} rows')
                 with file_lock:
                     writer.writerows(data_to_write)
             except Exception as e:
                 summary_errors.append(str(e))
                 wunderground_log(str(e))
-    
+
     duration_seconds = time_module.perf_counter() - station_start_time
     wunderground_log(f"[{thread_name}] Finished thread for URL: {weather_station_url} ({duration_seconds:.1f}s)")
     return {
@@ -1615,7 +1655,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
     }
 
 def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
-    csv = wunderground_df[['Codi Estació', 
+    csv = wunderground_df[['Codi Estació',
                             'Estació',
                             'Comarca',
                             'Municipi',
@@ -1628,14 +1668,14 @@ def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
         # Try to read local DB of stations
         csv_old = pd.read_csv(_DATA_PATH+'estacions_wunderground.csv',decimal=',')
     except FileNotFoundError:
-        # If not existing file a new df is created 
+        # If not existing file a new df is created
         csv_old = pd.DataFrame(columns=csv.columns)
 
     #print(csv_old.info())
     csv_old.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     #
     csv.set_index(keys=["Codi Estació"],drop=False,inplace=True)
-    
+
     # Utilizamos una expresión regular para encontrar el último par de paréntesis en Estació y lo eliminamos
     # Utilizamos apply y una función lambda para aplicar la operación a cada elemento de la columna
     #csv['Estació'] = csv['Estació'].apply(lambda x: re.sub(r'\([^)]*\)(?=[^()]*$)', '', x))
@@ -1828,7 +1868,7 @@ def create_wunderground():
     next_progress = progress_step
 
     print(f'Processing Wunderground stations 0 from {total_stations}')
-    
+
     def register_wunderground_result(result):
         nonlocal completed_stations, next_progress
         results.append(result)
@@ -1837,7 +1877,7 @@ def create_wunderground():
             print_wunderground_progress(completed_stations, total_stations)
             while next_progress <= completed_stations:
                 next_progress += progress_step
-    
+
     # Usa ThreadPoolExecutor para gestionar los threads
     with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix="UrlScrapping") as executor:
         futures = []
@@ -1850,7 +1890,7 @@ def create_wunderground():
             else:
                 # Procesa el resto de las URLs usando threads
                 futures.append(executor.submit(scrap_wunderground_station, url, launchtime))
-        
+
         # Procesa los resultados a medida que terminan
         for future in as_completed(futures):
             register_wunderground_result(future.result())
@@ -1874,7 +1914,7 @@ def create_wunderground():
         'Municipi',
         'Provincia',
         'Altitud',
-        'Latitud',    
+        'Latitud',
         'Longitud',
         'Ultima Lectura',
         'Variable',
@@ -1914,13 +1954,13 @@ def create_wunderground():
     wunderground_df['Ultima Lectura']= wunderground_df['Data Lectura'].dt.strftime("%Y/%m/%d %H:%M:%S")
     wunderground_df['Data Local'] = wunderground_df['Data Lectura'].dt.strftime("%Y%m%d") # Set Date as only date from 'Ultima Lectura'
     wunderground_df['Hora Local'] = wunderground_df['Data Lectura'].dt.strftime("%H:%M:%S")  # Set Time as only time from 'Ultima Lectura'
-    
+
     wunderground_df['Total'] = wunderground_df['Total'].astype(float)     # Convierte la columna 'Total' a tipo float
     wunderground_df['Altitud'] = wunderground_df['Altitud'].astype(str)  # Convierte la columna 'Altitud' a tipo str
     wunderground_df['Latitud'] = wunderground_df['Latitud'].astype(str)  # Convierte la columna 'Latitud' a tipo str
     wunderground_df['Longitud'] = wunderground_df['Longitud'].astype(str)  # Convierte la columna 'Longitud' a tipo str
     wunderground_df['Data Local'] = wunderground_df['Data Local'].astype(str)  # Convierte la columna 'Data Local' a tipo str
-    
+
     # Refresh local stations DB  (to not search for elevation in googlemaps all times)
     refreshed_stations_df = refresh_estacions_wunderground(wunderground_df)
     # Refresh Update Altitud/Provincia/Població on wunderground_df from local DB stations
@@ -1956,7 +1996,7 @@ def merge_dataframes(source01_df_param:pd.DataFrame, source02_df_param:pd.DataFr
     csv_completo.sort_values(by=['Total','Codi Estació'], ascending=[False,True],inplace=True)
     csv_completo.reset_index(drop=True, inplace=True)
     if printit:
-        if len(source02_df) != 0: 
+        if len(source02_df) != 0:
             print('------------------------------------------')
             print('Data merged from source01 & source02:')
             print('------------------------------------------')
@@ -2040,7 +2080,7 @@ def create_last_rains(df:pd.DataFrame, _nrecords):
         'min_humidity_percent':'first',
         'Hora Local': 'first'
     })
-    
+
     result_step1 = filter_results(result_step1,_minimum_rain_tomap)
     # Operación 2
     # Old pandas < 3.0 style, now avoided because DataFrameGroupBy.apply on grouping columns is deprecated:
@@ -2053,13 +2093,13 @@ def create_last_rains(df:pd.DataFrame, _nrecords):
         .head(_nrecords)
         .reset_index(drop=True)
     )
-    
+
     # Convertir 'Data Local' al formato YYYY/MM/DD
     result_step2['Data Local'] = pd.to_datetime(result_step2['Data Local']).dt.strftime('%Y/%m/%d')
     #print (result_step2)
     # Operación 3
-    result_step3 = result_step2.pivot_table(index='Codi Estació', 
-                                            columns=result_step2.groupby('Codi Estació').cumcount().add(1), 
+    result_step3 = result_step2.pivot_table(index='Codi Estació',
+                                            columns=result_step2.groupby('Codi Estació').cumcount().add(1),
                                             values=['Data Local', 'Total',
                                                     'max_temp_celsius','min_temp_celsius',
                                                     'max_humidity_percent','min_humidity_percent',
@@ -2084,7 +2124,7 @@ def create_last_rains(df:pd.DataFrame, _nrecords):
     for i in range(1, _nrecords+1):
         column_name = f'Data_Pluja{i:02}'
         result_step3[('Data Local', i)] = pd.to_datetime(result_step3[('Data Local', i)], errors='coerce').dt.strftime('%d/%m/%Y')
-    
+
     #print(result_step3.info())
     #print(result_step3)
     #exit()
@@ -2094,9 +2134,9 @@ def create_last_rains(df:pd.DataFrame, _nrecords):
                             [f'Hum_Max_{i:02}' for i in range(1, _nrecords+1)] + \
                             [f'Temp_Max_{i:02}' for i in range(1, _nrecords+1)] + \
                             [f'Hum_Min_{i:02}' for i in range(1, _nrecords+1)] + \
-                            [f'Temp_Min_{i:02}' for i in range(1, _nrecords+1)] 
+                            [f'Temp_Min_{i:02}' for i in range(1, _nrecords+1)]
 
-                            
+
     result_step3.reset_index(drop=False,inplace=True)
     #
     for i in range(1, _nrecords+1):
@@ -2116,8 +2156,8 @@ def create_last_rains(df:pd.DataFrame, _nrecords):
     return result_final
 
 
-#In[10] ##  MAIN LOOP ## 
-# 
+#In[10] ##  MAIN LOOP ##
+#
 # DEFINE BASE DATES FROM 00:00:00 TO 23:59:59 IN TODAY'S DATE
 _data_inici_base = datetime.combine(date.today(), time())                               # Today at 00:00:00
 _data_fi_base = datetime.combine(date.today(), time()) - timedelta(days=-1,seconds=1)   # Today at 23:59:59
@@ -2156,41 +2196,51 @@ def process_meteoclimatic():                                        # FOR MULTIT
     #################################
     ## Process Meteoclimatic data ##
     #################################
-    if _create_meteoclimatic:
-        start_count(_legend='Start processing Meteoclimatic...')
-        
-        # Identify the current thread and log the start message.
-        thread_name = threading.current_thread().name
-        print(f"[{thread_name}] Starting thread for Meteoclimatic")
+    source_started_at = datetime.now().isoformat(timespec='seconds')
+    source_start_time = time_module.perf_counter()
+    try:
+        if _create_meteoclimatic:
+            start_count(_legend='Start processing Meteoclimatic...')
 
-        meteoclimatic_df = create_meteoclimatic(_save_to_csv=True)
-    
-        if _incremental_meteoclimatic:                                                   
-            meteoclimatic_incremental = save_incremental_meteoclimatic(meteoclimatic_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
+            # Identify the current thread and log the start message.
+            thread_name = threading.current_thread().name
+            print(f"[{thread_name}] Starting thread for Meteoclimatic")
+
+            meteoclimatic_df = create_meteoclimatic(_save_to_csv=True)
+
+            if _incremental_meteoclimatic:
+                meteoclimatic_incremental = save_incremental_meteoclimatic(meteoclimatic_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
+            else:
+                meteoclimatic_incremental = read_incremental('Meteoclimatic_incremental')
+
+            # Filter results according to settings in parameters
+            #meteoclimatic_df = filter_results(meteoclimatic_df,_minima_lectura_meteoclimatic)
+            #print('Meteoclimatic.dtypes')
+
+            # print(meteoclimatic_df.dtypes)
+            save_dataframe(meteoclimatic_df, 'Meteoclimatic', _save_to_csv=True, _save_to_excel=False,_decimal=',')
+            if _print_dataframes:
+                print('------------------------')
+                print('Data from Meteoclimatic:')
+                print('------------------------')
+                print_dataframes(meteoclimatic_df)
+
+            end_count(_legend='Finished processing Meteoclimatic')
         else:
             meteoclimatic_incremental = read_incremental('Meteoclimatic_incremental')
-    
-        # Filter results according to settings in parameters
-        #meteoclimatic_df = filter_results(meteoclimatic_df,_minima_lectura_meteoclimatic)
-        #print('Meteoclimatic.dtypes')
+            meteoclimatic_df = read_incremental('Meteoclimatic_incremental',_nrows=0)
 
-        # print(meteoclimatic_df.dtypes)
-        save_dataframe(meteoclimatic_df, 'Meteoclimatic', _save_to_csv=True, _save_to_excel=False,_decimal=',')   
-        if _print_dataframes:
-            print('------------------------')
-            print('Data from Meteoclimatic:')
-            print('------------------------')
-            print_dataframes(meteoclimatic_df)
+            #meteoclimatic_df = pd.read_csv(_DATA_PATH +'Meteoclimatic_incremental.csv',decimal=',',nrows=0)
+            #meteoclimatic_df['Data Lectura'] = pd.to_datetime(meteoclimatic_df['Ultima Lectura'])
 
-        end_count(_legend='Finished processing Meteoclimatic')
-    else:
-        meteoclimatic_incremental = read_incremental('Meteoclimatic_incremental')
-        meteoclimatic_df = read_incremental('Meteoclimatic_incremental',_nrows=0)
-    
-        #meteoclimatic_df = pd.read_csv(_DATA_PATH +'Meteoclimatic_incremental.csv',decimal=',',nrows=0)
-        #meteoclimatic_df['Data Lectura'] = pd.to_datetime(meteoclimatic_df['Ultima Lectura'])
-    
-    return meteoclimatic_df, meteoclimatic_incremental
+        return meteoclimatic_df, meteoclimatic_incremental
+    finally:
+        record_source_runtime_metric(
+            'Meteoclimatic',
+            time_module.perf_counter() - source_start_time,
+            started_at=source_started_at,
+            finished_at=datetime.now().isoformat(timespec='seconds'),
+        )
 
 ###############################################
 # Configuracion previa a process_wunderground #                     # FOR MULTITHREAD PURPOSES
@@ -2202,7 +2252,7 @@ from util.UnitConverter import ConvertToSystem
 from util.Parser import Parser
 from util.Utils import Utils
 #inicio modi
-from util.parseStationData import parseStationData    
+from util.parseStationData import parseStationData
 
 # configuration
 _stations_file = os.path.join(_script_path, 'stations.txt')
@@ -2245,22 +2295,32 @@ def process_wunderground():                                         # FOR MULTIT
     ###############################
     ## Process Wunderground data ##
     ###############################
-    if _create_wunderground:
-        start_count(_legend='Start processing Wunderground...')
-        # run processing
-        global wunderground_header
-        wunderground_header = True
-        wunderground_df = create_wunderground()
-        if _incremental_wunderground:                                                   
-            wunderground_incremental = save_incremental_wunderground(wunderground_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
+    source_started_at = datetime.now().isoformat(timespec='seconds')
+    source_start_time = time_module.perf_counter()
+    try:
+        if _create_wunderground:
+            start_count(_legend='Start processing Wunderground...')
+            # run processing
+            global wunderground_header
+            wunderground_header = True
+            wunderground_df = create_wunderground()
+            if _incremental_wunderground:
+                wunderground_incremental = save_incremental_wunderground(wunderground_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
+            else:
+                wunderground_incremental = read_incremental('Wunderground_incremental')
+            end_count(_legend='Finished processing Wunderground')
         else:
             wunderground_incremental = read_incremental('Wunderground_incremental')
-        end_count(_legend='Finished processing Wunderground')
-    else:
-        wunderground_incremental = read_incremental('Wunderground_incremental')
-        wunderground_df = read_incremental('Wunderground_incremental',_nrows=0)
+            wunderground_df = read_incremental('Wunderground_incremental',_nrows=0)
 
-    return wunderground_df,wunderground_incremental
+        return wunderground_df,wunderground_incremental
+    finally:
+        record_source_runtime_metric(
+            'Wunderground',
+            time_module.perf_counter() - source_start_time,
+            started_at=source_started_at,
+            finished_at=datetime.now().isoformat(timespec='seconds'),
+        )
 
 ###########################################
 # Configuracion previa a process_meteocat #                         # FOR MULTITHREAD PURPOSES
@@ -2309,66 +2369,89 @@ def process_meteocat():                                             # FOR MULTIT
     ###########################
     ## Process Meteocat data ##
     ###########################
-    if _create_meteocat:
-        start_count(_legend='Start processing Meteocat...')
+    source_started_at = datetime.now().isoformat(timespec='seconds')
+    source_start_time = time_module.perf_counter()
+    source_timings = {}
+    try:
+        if _create_meteocat:
+            start_count(_legend='Start processing Meteocat...')
 
-        # Identify the current thread and log the start message.
-        thread_name = threading.current_thread().name
-        print(f"[{thread_name}] Starting thread for Meteocat")
+            # Identify the current thread and log the start message.
+            thread_name = threading.current_thread().name
+            print(f"[{thread_name}] Starting thread for Meteocat")
 
-        # DEFINE base data for Meteocat connection##
-        # 
+            # DEFINE base data for Meteocat connection##
+            #
 
-        # Get Metadata for Stations and Variables - Only 1 reading per launch
-        estacions_xema = get_estacions_xema()   # Get info data from estacions at Meteocat
-        variables_xema = get_variables_xema()   # Get info data from variables at Meteocat 
-        end_count(_legend='Processed Meteocat estacions&variables reading from Socrata')
+            # Get Metadata for Stations and Variables - Only 1 reading per launch
+            step_start_time = time_module.perf_counter()
+            estacions_xema = get_estacions_xema()   # Get info data from estacions at Meteocat
+            variables_xema = get_variables_xema()   # Get info data from variables at Meteocat
+            source_timings['metadata_seconds'] = time_module.perf_counter() - step_start_time
+            end_count(_legend='Processed Meteocat estacions&variables reading from Socrata')
 
-        if _create_meteocat_conditions:
-            meteocat_conditions_xema=get_results_conditions_xema(pd.DataFrame, estacions_xema, variables_xema)
-            # Save current readings from meteocat_conditions_xema to csv
-            #save_dataframe(meteocat_conditions_xema, 'Meteocat_conditions_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
-            if meteocat_conditions_xema.empty:
-                meteocat_conditions_xema = read_incremental('Meteocat_incremental',_nrows=0)
-            end_count(_legend='Processed Meteocat reading conditions temperature.max/min -  humidity.max&min from Socrata')
+            if _create_meteocat_conditions:
+                step_start_time = time_module.perf_counter()
+                meteocat_conditions_xema=get_results_conditions_xema(pd.DataFrame, estacions_xema, variables_xema)
+                # Save current readings from meteocat_conditions_xema to csv
+                #save_dataframe(meteocat_conditions_xema, 'Meteocat_conditions_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
+                if meteocat_conditions_xema.empty:
+                    meteocat_conditions_xema = read_incremental('Meteocat_incremental',_nrows=0)
+                source_timings['conditions_seconds'] = time_module.perf_counter() - step_start_time
+                end_count(_legend='Processed Meteocat reading conditions temperature.max/min -  humidity.max&min from Socrata')
 
-        meteocat_rain_xema = get_results_rain_xema(pd.DataFrame, estacions_xema, variables_xema)
-        if meteocat_rain_xema.empty:
-                meteocat_rain_xema = read_incremental('Meteocat_incremental',_nrows=0)
-        meteocat_df = pd.merge(meteocat_rain_xema, meteocat_conditions_xema.drop_duplicates(), 
-                                on=('Codi Estació','Estació','Data Lectura','Comarca','Municipi','Provincia'),
-                        how='left', indicator=False)
-        #save_dataframe(meteocat_merge, 'Meteocat_merged_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
-        #meteocat_df = meteocat_merge
-        end_count(_legend='Processed Meteocat reading precipitation from Socrata')
-        # If no records returned, initialize empty meteocat's dataframes with columns from incremental
-        if meteocat_df.empty:
-            meteocat_incremental = read_incremental('Meteocat_incremental')
-            meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)       
+            step_start_time = time_module.perf_counter()
+            meteocat_rain_xema = get_results_rain_xema(pd.DataFrame, estacions_xema, variables_xema)
+            if meteocat_rain_xema.empty:
+                    meteocat_rain_xema = read_incremental('Meteocat_incremental',_nrows=0)
+            source_timings['precipitation_seconds'] = time_module.perf_counter() - step_start_time
 
-        if _incremental_meteocat:
-            #print('Meteocat creado:',meteocat_df.info())                                           
-            meteocat_incremental = save_incremental_meteocat(meteocat_df, _save_to_excel=False) 			 # Saves incremental data to csv. Also to excel depending on param
-            #print('Meteocat incremental:',meteocat_incremental.info())
+            step_start_time = time_module.perf_counter()
+            meteocat_df = pd.merge(meteocat_rain_xema, meteocat_conditions_xema.drop_duplicates(),
+                                    on=('Codi Estació','Estació','Data Lectura','Comarca','Municipi','Provincia'),
+                            how='left', indicator=False)
+            #save_dataframe(meteocat_merge, 'Meteocat_merged_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
+            #meteocat_df = meteocat_merge
+            source_timings['merge_seconds'] = time_module.perf_counter() - step_start_time
+            end_count(_legend='Processed Meteocat reading precipitation from Socrata')
+            # If no records returned, initialize empty meteocat's dataframes with columns from incremental
+            if meteocat_df.empty:
+                meteocat_incremental = read_incremental('Meteocat_incremental')
+                meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)
+
+            step_start_time = time_module.perf_counter()
+            if _incremental_meteocat:
+                #print('Meteocat creado:',meteocat_df.info())
+                meteocat_incremental = save_incremental_meteocat(meteocat_df, _save_to_excel=False) 			 # Saves incremental data to csv. Also to excel depending on param
+                #print('Meteocat incremental:',meteocat_incremental.info())
+            else:
+                meteocat_incremental = read_incremental('Meteocat_incremental')
+            # Filter results according to settings in parameters
+            #meteocat_df = filter_results(meteocat_df, _minima_lectura_meteocat)
+            # Save current readings from meteocat to csv
+            save_dataframe(meteocat_df, 'Meteocat', _save_to_csv=True, _save_to_excel=False,_decimal=',')
+            source_timings['save_seconds'] = time_module.perf_counter() - step_start_time
+
+            if _print_dataframes:
+                print('-------------------')
+                print('Data from Meteocat:')
+                print('-------------------')
+                print_dataframes(meteocat_df)
+
+            end_count(_legend='Finished processing Meteocat')
         else:
             meteocat_incremental = read_incremental('Meteocat_incremental')
-        # Filter results according to settings in parameters
-        #meteocat_df = filter_results(meteocat_df, _minima_lectura_meteocat)
-        # Save current readings from meteocat to csv
-        save_dataframe(meteocat_df, 'Meteocat', _save_to_csv=True, _save_to_excel=False,_decimal=',')
+            meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)
 
-        if _print_dataframes:
-            print('-------------------')
-            print('Data from Meteocat:')
-            print('-------------------')
-            print_dataframes(meteocat_df)
-            
-        end_count(_legend='Finished processing Meteocat')
-    else:
-        meteocat_incremental = read_incremental('Meteocat_incremental')
-        meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)
-    
-    return meteocat_df, meteocat_incremental
+        return meteocat_df, meteocat_incremental
+    finally:
+        record_source_runtime_metric(
+            'Meteocat',
+            time_module.perf_counter() - source_start_time,
+            started_at=source_started_at,
+            finished_at=datetime.now().isoformat(timespec='seconds'),
+            timings=source_timings,
+        )
 
 #############################################################################
 # Usa ThreadPoolExecutor para iniciar los threads de los distintos procesos #
@@ -2377,7 +2460,7 @@ initialize_source_statuses()
 
 with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="MainProcesses") as executor:
         # Crea las tareas en paralelo y mapea los resultados a variables
-        
+
         future_meteoclimatic = executor.submit(process_meteoclimatic)
         future_meteocat = executor.submit(process_meteocat)
         future_wunderground = executor.submit(process_wunderground)
@@ -2423,12 +2506,12 @@ if _print_totals:                                              # Create totals p
     meteoclimatic_df=filter_results(meteoclimatic_df,_minima_pluja=0.4)
     meteocat_df=filter_results(meteocat_df,_minima_pluja=0.4)
     wunderground_df=filter_results(wunderground_df,_minima_pluja=0.4)
-    
-    # Merge de meteocat y meteoclimatic 
+
+    # Merge de meteocat y meteoclimatic
     df_toprint = merge_dataframes(meteocat_df, meteoclimatic_df, _print_dataframes)
     # Añadir al merge wunderground
     df_toprint = merge_dataframes(df_toprint, wunderground_df, _print_dataframes)
-    
+
     csv_total= create_total_dataframe(df_toprint, _save_to_csv=False, _save_to_excel=False)
     csv_total = filter_results(csv_total,_minima_pluja=_minimum_rain_toprint)
     print_totals_per_station(csv_total)

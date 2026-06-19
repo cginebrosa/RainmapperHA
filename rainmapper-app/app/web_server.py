@@ -296,6 +296,12 @@ def html_page(title: str, body: str) -> bytes:
       line-height: 1.35;
       margin-top: 6px;
     }}
+    .source-card .source-timings {{
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 6px;
+    }}
     @media (max-width: 760px) {{
       .source-status-grid {{
         grid-template-columns: 1fr;
@@ -459,6 +465,18 @@ def format_duration(start_text: str, finish_text: str) -> str:
     hours, remainder = divmod(total_seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+
+def format_seconds_duration(value) -> str:
+    try:
+        total_seconds = max(0, int(round(float(value))))
+    except (TypeError, ValueError):
+        return "-"
+
+    minutes, seconds = divmod(total_seconds, 60)
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
 
 
 def format_datetime_from_timestamp(timestamp: float) -> str:
@@ -787,17 +805,38 @@ def source_status_card(source: str, payload: dict) -> str:
     status = str(payload.get("status") or "Unknown")
     exit_code = payload.get("exit_code")
     rows = payload.get("rows")
+    duration = payload.get("duration_seconds")
+    timings = payload.get("timings")
     message = str(payload.get("message") or "No source status yet.")
     updated_at = str(payload.get("updated_at") or "-")
     exit_text = "-" if exit_code is None else str(exit_code)
     rows_text = "-" if rows is None else str(rows)
+    duration_text = format_seconds_duration(duration)
     status_class = source_status_class(status)
+    timing_text = ""
+    if isinstance(timings, dict) and timings:
+        timing_labels = [
+            ("metadata_seconds", "metadata"),
+            ("conditions_seconds", "conditions"),
+            ("precipitation_seconds", "rain"),
+            ("merge_seconds", "merge"),
+            ("save_seconds", "save"),
+        ]
+        timing_parts = [
+            f"{label} {format_seconds_duration(timings.get(key))}"
+            for key, label in timing_labels
+            if timings.get(key) is not None
+        ]
+        if timing_parts:
+            timing_text = f'<div class="source-timings">{html.escape(" · ".join(timing_parts))}</div>'
     return f"""
       <div class="card source-card">
         <span class="label">{html.escape(source)}</span>
         <span class="value"><span class="{status_class}">{html.escape(status)}</span><span>exit {html.escape(exit_text)}</span></span>
         <span class="label">Rows</span><span>{html.escape(rows_text)}</span>
+        <span class="label">Duration</span><span>{html.escape(duration_text)}</span>
         <span class="label">Updated</span><span>{html.escape(updated_at)}</span>
+        {timing_text}
         <div class="source-message">{html.escape(message)}</div>
       </div>
     """
