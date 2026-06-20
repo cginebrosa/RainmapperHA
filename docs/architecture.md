@@ -208,12 +208,13 @@ No incluir secretos en codigo ni documentacion.
 No detectado: `package.json`, `pyproject.toml`, Makefile, ESLint, Prettier, pytest config.
 
 ## Testing
-Hay un smoke test versionado en `scripts/smoke-test.sh` y un primer bloque de tests funcionales con `unittest` en `tests/`.
+Hay un smoke test versionado en `scripts/smoke-test.sh`, tests funcionales offline con `unittest` en `tests/` y una prueba Docker offline versionada en `scripts/docker-offline-functional-test.sh`.
 
 Validaciones existentes/recomendadas:
 
 ```bash
 ./scripts/smoke-test.sh
+./scripts/docker-offline-functional-test.sh
 .venv/bin/python -m unittest discover -s tests
 ./scripts/sync-app-files.sh
 python -m py_compile Rainmapper.py Rainmapper_Client.py tomap_to_geojson.py rainmapper-app/app/web_server.py
@@ -224,7 +225,7 @@ docker compose run --rm -e MODE=help rainmapper
 git diff --check
 ```
 
-Cobertura: el smoke test valida sintaxis Python/JS/shell, ejecuta `unittest`, conversion GeoJSON minima con `ignore_stations_tomap.txt`, reconstruccion con poco historico para columnas `Last*_rains`, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. Los tests en `tests/test_tomap_to_geojson.py` cubren fixtures funcionales de conversion Tomap -> GeoJSON, estaciones ignoradas, coordenadas invalidas y columnas obligatorias. `scripts/sync-app-files.sh` copia scripts raiz y visores a `rainmapper-app/app` como practica operativa, sin resolver aun la duplicidad arquitectonica. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas de Docker/HA/movil siguen siendo principalmente manuales.
+Cobertura: el smoke test valida sintaxis Python/JS/shell, ejecuta `unittest`, conversion GeoJSON minima con `ignore_stations_tomap.txt`, reconstruccion con poco historico para columnas `Last*_rains`, versionado HA, sincronizacion de copias raiz/app HA y whitespace de Git. Los tests en `tests/` cubren fixtures funcionales de conversion Tomap -> GeoJSON, estaciones ignoradas, coordenadas invalidas, columnas obligatorias, `tomap_builder.py`, `incremental_upsert.py` y un pipeline offline integrado `upsert -> Tomap -> GeoJSON`. `scripts/docker-offline-functional-test.sh` anade una validacion mas pesada con Docker real, pero sigue sin red y sin tocar `docker-data`: construye la imagen local, monta datos temporales y valida `Tomap`/GeoJSON generados dentro del contenedor. `scripts/sync-app-files.sh` copia scripts raiz y visores a `rainmapper-app/app` como practica operativa, sin resolver aun la duplicidad arquitectonica. `scripts/check-history.py` valida historicos CSV de forma basica. Las pruebas funcionales completas de HA/movil siguen siendo principalmente manuales.
 
 ## Build y despliegue
 Docker local:

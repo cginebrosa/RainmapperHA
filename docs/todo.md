@@ -219,11 +219,11 @@ Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests fun
   - Estado: corregido; `maps/all` ejecuta tambien `tomap_to_geojson.py`.
 
 - [ ] Tests funcionales formales incompletos
-  - Sintoma: ya existen fixtures `unittest` para `tomap_to_geojson.py`, pero no hay cobertura funcional formal para runs Docker/HA, publicacion webUI o generacion completa de mapas.
+  - Sintoma: ya existen fixtures `unittest` offline para `tomap_to_geojson.py`, `tomap_builder.py`, `incremental_upsert.py` y un pipeline integrado `upsert -> Tomap -> GeoJSON`; tambien existe `scripts/docker-offline-functional-test.sh` para validar el pipeline dentro de Docker con datos temporales. No hay cobertura funcional formal para HA real, publicacion webUI o generacion completa Bokeh/visores servida desde HA.
   - Causa probable: proyecto evolucionado por validacion manual.
-  - Ficheros relacionados: `scripts/smoke-test.sh`, `tests/`, futuro set de fixtures.
-  - Como reproducir: ejecutar `./scripts/smoke-test.sh`; cubre smoke checks y GeoJSON, pero no prueba ejecuciones Docker/HA reales.
-  - Criterio de solucion: ampliar fixtures y pruebas funcionales para publicacion, webUI y/o ejecuciones controladas.
+  - Ficheros relacionados: `scripts/smoke-test.sh`, `scripts/docker-offline-functional-test.sh`, `tests/`, futuro set de fixtures HA/webUI.
+  - Como reproducir: ejecutar `./scripts/smoke-test.sh` para checks rapidos y `./scripts/docker-offline-functional-test.sh` para validacion Docker offline; ninguna de las dos prueba HA real.
+  - Criterio de solucion: ampliar pruebas funcionales para publicacion, webUI y/o ejecuciones controladas de HA sin depender de red.
 
 - [x] Cache-buster obsoleto en assets del visor MapLibre
   - Sintoma: la pulsacion larga de altitud funcionaba en local pero no en mapas servidos desde HA.

@@ -27,7 +27,7 @@ Confirmado en el repositorio:
 - Contenedores: Docker y Docker Compose.
 - Home Assistant: app/add-on con `config.yaml`, ingress y `run.sh`.
 - Persistencia: CSV en filesystem, principalmente `/share/rainmapper` en HA y `docker-data` en Docker local.
-- Testing formal: existe `scripts/smoke-test.sh` para validaciones rapidas y `tests/` con `unittest` para fixtures funcionales iniciales de GeoJSON; no se ha detectado `pytest`, `package.json`, Makefile ni framework de test completo.
+- Testing formal: existe `scripts/smoke-test.sh` para validaciones rapidas y `tests/` con `unittest` para fixtures funcionales offline de GeoJSON, `tomap_builder`, upsert incremental y pipeline `upsert -> Tomap -> GeoJSON`; no se ha detectado `pytest`, `package.json`, Makefile ni framework de test completo.
 - Lint/format formal: pendiente de confirmar. No se ha detectado configuracion dedicada.
 
 ## Documentos de referencia
@@ -66,7 +66,8 @@ Tambien existen documentos de uso:
 - `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, reconstruccion con poco historico, versiones y sincronizacion raiz/app HA.
 - `scripts/build-push-ha-image.sh`: publica desde el Mac la imagen multi-arch de la app HA en GHCR usando Docker Buildx; sube tags `<version>` y `latest`, y limpia etiquetas locales versionadas antiguas conservando por defecto las dos ultimas mas `latest`.
 - `scripts/compare-tomap-builder.sh`: reconstruye `Tomap` con `tomap_builder.py` en un directorio temporal y compara el resultado con `docker-data/Tomap`.
-- `tests/`: tests funcionales iniciales con `unittest`; actualmente cubren `tomap_to_geojson.py` con fixtures versionados.
+- `scripts/docker-offline-functional-test.sh`: prueba funcional Docker sin red; construye la imagen local, monta datos temporales, ejecuta `tomap_builder.py` y `tomap_to_geojson.py` dentro del contenedor y valida salidas sin tocar `docker-data`.
+- `tests/`: tests funcionales offline con `unittest`; cubren `tomap_to_geojson.py`, `tomap_builder.py`, `incremental_upsert.py` y un pipeline integrado `upsert -> Tomap -> GeoJSON`.
 - `scripts/sync-app-files.sh`: sincroniza scripts raiz y visores hacia `rainmapper-app/app` como practica operativa mientras exista duplicidad.
 - `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
 - `scripts/check-history.py`: valida CSV historicos y permite comparar una copia antes/despues.
@@ -193,7 +194,7 @@ Tambien existen documentos de uso:
 
 ## Funcionalidades pendientes
 - Decidir retirada de Bokeh o mantenerlo como referencia.
-- Crear tests automaticos mas completos; existe smoke test versionado y un primer bloque `unittest` para `tomap_to_geojson.py`, pero faltan fixtures funcionales de Docker/HA/publicacion.
+- Crear tests automaticos mas completos; existe smoke test versionado, cobertura `unittest` offline para GeoJSON, Tomap, upsert incremental y pipeline `upsert -> Tomap -> GeoJSON`, y una prueba Docker offline versionada. Faltan fixtures funcionales de HA/webUI/publicacion real.
 - Mejorar separacion entre core de datos, webUI y visores.
 - Extraccion de CSV `Tomap`: `tomap_builder.py` reconstruye `Tomap` desde historicos sin descargar datos nuevos, y `MODE=maps`/`Generate maps` lo invocan antes de Bokeh/GeoJSON. Validacion local inicial: tras `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que el builder genera los mismos `Tomap` que el flujo antiguo; `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente. `Generate maps` en HA `0.2.74` fue validado manualmente por el usuario. El bloque ejecutable inline y los helpers legacy de `Rainmapper.py` ya fueron retirados; `local_all.sh` completo queda validado en local con `Rainmapper.py` exit code 0, reconstruccion Tomap por `tomap_builder.py` y GeoJSON generado.
 - Imagen Docker HA multi-arch preconstruida en GHCR desde `0.2.57`; el repo confirma `image: ghcr.io/cginebrosa/rainmapperha` y el script `scripts/build-push-ha-image.sh`. La instalacion rapida en HA, el progreso de Supervisor, la poca utilidad del cache de GitHub Actions y la limpieza local observada son validaciones manuales/reportadas por el usuario; pendientes de confirmar automaticamente. Desde `0.2.60`, el flujo normal documentado es publicar la imagen desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version; GitHub Actions queda como fallback manual.
@@ -206,7 +207,7 @@ Tambien existen documentos de uso:
 
 ## Bugs abiertos o problemas conocidos
 - Duplicidad de scripts entre raiz y `rainmapper-app/app`; mitigada operativamente con `scripts/sync-app-files.sh` y smoke test, sin refactor estructural todavia.
-- Tests formales iniciales existen en `tests/` para GeoJSON; faltan pruebas funcionales completas de Docker/HA/webUI.
+- Tests formales offline existen en `tests/` para GeoJSON, Tomap, upsert incremental y pipeline `upsert -> Tomap -> GeoJSON`; `scripts/docker-offline-functional-test.sh` cubre el pipeline dentro de Docker con volumenes temporales. Faltan pruebas funcionales completas de HA/webUI/publicacion real.
 - La app HA `serve` maneja SIGTERM/SIGINT desde `0.2.55`: `run.sh` usa `exec` para que Python sea PID 1; `web_server.py` detiene el scheduler, espera al job activo antes de cerrar y solo fuerza el subprocess si llega una segunda senal.
 - Wunderground es el cuello de botella principal. Prueba local del 2026-06-19 tras corregir `docker-compose.yml` para propagar el override: `MAX_THREADS=1` tardo `385.69s`, `MAX_THREADS=2` tardo `196.82s` y `MAX_THREADS=3` tardo `81.20s` en `local_update.sh`. Validacion manual en HA/RPi con `max_threads=2`: Meteoclimatic ~62s, Meteocat ~26s, Wunderground ~3m39s, total ~5m43s, sin carga relevante de CPU/memoria reportada por el usuario. Tras dejar correr schedules nocturnos con `max_threads=3` sin problemas reportados, `max_threads=3` queda como valor operativo recomendado en HA; `1` queda como modo conservador si aparecen timeouts o carga. Se detecto que los logs `start_count/end_count` usan un temporizador global compartido y no son metricas fiables con hilos; usar `source_status.json` para duraciones reales.
 - Las claves usadas por codigo cliente web serian visibles en navegador; por eso se ha retirado Jawg Maps y cualquier futura clave de tiles cliente debera justificarse y restringirse por dominio si el proveedor lo permite.
