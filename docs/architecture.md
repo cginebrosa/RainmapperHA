@@ -42,6 +42,7 @@ Hay varios entry points segun entorno:
 - Docker local: `Dockerfile` ejecuta `/app/run.sh`.
 - Home Assistant: `rainmapper-app/Dockerfile` ejecuta `/run.sh`.
 - Core de datos: `Rainmapper.py`.
+- Paquete compartido incremental: `rainmapper_core/`.
 - Upsert de historicos incrementales: `incremental_upsert.py`.
 - Reconstruccion Tomap sin descarga: `tomap_builder.py`.
 - Mapas Bokeh: `Rainmapper_Client.py`.
@@ -72,7 +73,7 @@ Hay varios entry points segun entorno:
 - Relacion: alimenta `Rainmapper_Client.py` y `tomap_to_geojson.py`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global.
 
 ### Upsert incremental
-- Ruta: `incremental_upsert.py` y copia en app.
+- Ruta: `rainmapper_core/incremental_upsert.py`, con wrappers compatibles en `incremental_upsert.py` y `rainmapper-app/app/incremental_upsert.py`.
 - Responsabilidad: combinar descargas actuales con historicos `Data/*_incremental.csv` sin crear duplicados por `Codi Estació` + `Data Local`.
 - Regla: la fila nueva manda para valores no nulos; si la descarga nueva trae `NaN`, se conserva el valor antiguo no nulo para no perder campos complementarios como temperatura/humedad de Meteocat.
 - Relacion: usado por `Rainmapper.py` en Meteocat, Meteoclimatic y Wunderground antes de reescribir los CSV incrementales.

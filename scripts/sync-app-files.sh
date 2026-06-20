@@ -36,6 +36,7 @@ copy_file stations.example.txt
 copy_file tomap_builder.py
 copy_file tomap_to_geojson.py
 
+sync_dir rainmapper_core
 sync_dir leaflet-viewer
 sync_dir maplibre-viewer
 

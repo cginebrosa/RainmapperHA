@@ -120,8 +120,9 @@ Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests fun
 
 - [ ] Separar core en paquete Python reutilizable
   - Contexto: scripts grandes y duplicados.
-  - Ficheros relacionados: `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py`.
+  - Ficheros relacionados: `rainmapper_core/`, `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py`, `scripts/sync-app-files.sh`, `docs/core-refactor.md`.
   - Criterio de aceptacion: una unica fuente de verdad para core compartida por Docker local y HA.
+  - Estado parcial: fase 1 implementada. `incremental_upsert` vive en `rainmapper_core/incremental_upsert.py` y los ficheros `incremental_upsert.py` de raiz/app son wrappers compatibles. Validado con unit tests, smoke test y Docker offline functional test.
   - Riesgo si no se hace: mantenimiento manual permanente.
 
 - [x] Extraer generacion de CSV `Tomap` de `Rainmapper.py`

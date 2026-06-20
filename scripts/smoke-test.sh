@@ -117,6 +117,7 @@ check_synced_files() {
 }
 
 check_synced_viewers() {
+  diff -qr rainmapper_core rainmapper-app/app/rainmapper_core
   diff -qr leaflet-viewer rainmapper-app/app/leaflet-viewer
   diff -qr maplibre-viewer rainmapper-app/app/maplibre-viewer
 }
@@ -128,9 +129,13 @@ check_python_syntax() {
     scripts/check-history.py \
     Rainmapper.py \
     Rainmapper_Client.py \
+    rainmapper_core/__init__.py \
+    rainmapper_core/incremental_upsert.py \
     tomap_to_geojson.py \
     rainmapper-app/app/Rainmapper.py \
     rainmapper-app/app/Rainmapper_Client.py \
+    rainmapper-app/app/rainmapper_core/__init__.py \
+    rainmapper-app/app/rainmapper_core/incremental_upsert.py \
     rainmapper-app/app/tomap_to_geojson.py \
     rainmapper-app/app/web_server.py <<'PY'
 import sys

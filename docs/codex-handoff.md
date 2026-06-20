@@ -38,6 +38,7 @@ Confirmado en el repositorio:
 - [decisions.md](decisions.md)
 - [history-safety.md](history-safety.md)
 - [mobile-app-architecture.md](mobile-app-architecture.md)
+- [core-refactor.md](core-refactor.md)
 
 Tambien existen documentos de uso:
 
@@ -49,7 +50,8 @@ Tambien existen documentos de uso:
 
 ## Estructura relevante del proyecto
 - `Rainmapper.py`: script principal de descarga, normalizacion, historico y estado por fuente.
-- `incremental_upsert.py`: helper comun para actualizar historicos incrementales por clave `Codi Estació` + `Data Local`, evitando duplicados logicos y conservando valores antiguos cuando una descarga nueva trae `NaN`.
+- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora.
+- `incremental_upsert.py`: wrapper compatible hacia `rainmapper_core.incremental_upsert`, helper comun para actualizar historicos incrementales por clave `Codi Estació` + `Data Local`, evitando duplicados logicos y conservando valores antiguos cuando una descarga nueva trae `NaN`.
 - `tomap_builder.py`: reconstruye CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
 - `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
 - `tomap_to_geojson.py`: conversor de CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
@@ -72,6 +74,7 @@ Tambien existen documentos de uso:
 - `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
 - `scripts/check-history.py`: valida CSV historicos y permite comparar una copia antes/despues.
 - `docs/mobile-app-architecture.md`: arquitectura inicial propuesta para futura app iOS/Android con API, auth, permisos, favoritos y filtro de lluvia minima.
+- `docs/core-refactor.md`: notas vivas de la refactorizacion conservadora para reducir duplicidad raiz/app HA sin romper entrypoints.
 - `rainmapper-app/`: app de Home Assistant.
 - `rainmapper-app/app/`: copia operativa de scripts Python y visores que entran en la imagen de HA.
 - `rainmapper-app/app/web_server.py`: webUI, schedule, publicacion a `/config/www`, controles de estaciones y ejecucion de jobs.
@@ -87,7 +90,7 @@ Tambien existen documentos de uso:
 
 ### `incremental_upsert.py`
 - Proposito: centraliza el upsert de historicos CSV incrementales.
-- Estado actual: define la identidad logica de lectura como `Codi Estació` + `Data Local`. La fila nueva manda para valores no nulos; si la fila nueva trae `NaN`, conserva el valor antiguo no nulo. Esto evita duplicados como los detectados en Meteocat cuando lluvia y condiciones llegan con distinta disponibilidad.
+- Estado actual: la implementacion vive en `rainmapper_core/incremental_upsert.py`; `incremental_upsert.py` y `rainmapper-app/app/incremental_upsert.py` son wrappers compatibles. Define la identidad logica de lectura como `Codi Estació` + `Data Local`. La fila nueva manda para valores no nulos; si la fila nueva trae `NaN`, conserva el valor antiguo no nulo. Esto evita duplicados como los detectados en Meteocat cuando lluvia y condiciones llegan con distinta disponibilidad.
 - Riesgos: cualquier cambio aqui afecta directamente a `Data/*_incremental.csv`; validar siempre con backup/copia temporal y `scripts/check-history.py`.
 
 ### `tomap_builder.py`
