@@ -2,7 +2,7 @@ import requests
 import time
 import re
 from bs4 import BeautifulSoup
-from const import _max_attempts, _wunderground_full_log
+from rainmapper_core.config.const import _max_attempts, _wunderground_full_log
 
 
 class parseStationData:

@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-06-20 - Mover configuracion Python compartida a `rainmapper_core/config`
+
+Se mueve la implementacion real de `const.py`, `config.py` y `config_wunderground.py` a `rainmapper_core/config/`.
+
+Motivo:
+
+- Son configuracion compartida por Docker local y Home Assistant.
+- Mantenerlas en raiz perpetua la estructura hibrida que se quiere reducir en la fase 5.
+- Moverlas como bloque coherente evita una secuencia indefinida de micro-refactors.
+
+Decision:
+
+- Crear `rainmapper_core/config/`.
+- Mantener wrappers compatibles en raiz y en `rainmapper-app/app`.
+- Actualizar imports internos para usar `rainmapper_core.config`.
+- Mantener los wrappers aunque el codigo interno ya no dependa de ellos, para no romper usos manuales o scripts externos con imports historicos.
+
+Detalle importante:
+
+- `const.py` usa nombres historicos con guion bajo (`_DATA_PATH`, `_max_threads`, etc.). El wrapper reexporta esos nombres explicitamente porque `import *` no exporta nombres privados por defecto.
+- La implementacion movida calcula `_script_path` como la raiz del runtime, no como `rainmapper_core/config`, para conservar rutas `Data`, `Tomap` y `Plots`.
+
+Alternativas descartadas:
+
+- Eliminar wrappers en la misma fase: mas limpio a largo plazo, pero menos conservador. Se pospone hasta que no haya riesgo de romper usos externos o hasta una fase de limpieza dedicada.
+- Mover constantes una a una: descartado porque prolonga la refactorizacion sin aportar seguridad adicional.
+
 ## 2026-06-20 - Mover runtime Docker local a `rainmapper-local`
 
 ### Decision

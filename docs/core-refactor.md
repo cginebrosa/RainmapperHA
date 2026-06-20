@@ -134,7 +134,7 @@ Validaciones realizadas para este paso:
 - import de fuentes dentro del contenedor Docker local.
 
 ### Fase 5: estructura objetivo `core/app/local`
-Estado: iniciada. Fase 5A implementada en alcance conservador.
+Estado: iniciada. Fases 5A y 5B implementadas en alcance conservador.
 
 Objetivo:
 - Pasar de la estructura hibrida actual a una separacion mas clara por responsabilidades, sin convertirlo en una secuencia indefinida de micro-refactors.
@@ -176,7 +176,7 @@ Relacion con "partir `Rainmapper.py`":
 - Esta separacion funcional puede hacerse despues o en paralelo controlado con la reestructura de carpetas, pero no debe bloquear la fase 5 si la fase 5 se limita a ordenar ubicaciones y empaquetado.
 
 #### Fase 5A: mover runtime local
-Estado: implementada, pendiente de commit.
+Estado: implementada y subida a Git.
 
 Cambios implementados:
 - Crear `rainmapper-local/`.
@@ -197,8 +197,36 @@ Decision conservadora:
 - No mover `Rainmapper.py` ni cambiar logica de datos.
 - Mantener los comandos habituales de raiz mientras se valida la nueva ubicacion local.
 
-Validaciones esperadas:
+Validaciones realizadas:
 - `docker compose -f rainmapper-local/docker-compose.yml config`
 - `./scripts/smoke-test.sh`
 - `./scripts/docker-offline-functional-test.sh`
 - `./local_all.sh` o `./rainmapper-local/local_all.sh` cuando se quiera una validacion completa con descarga real.
+
+#### Fase 5B: mover configuracion Python compartida al core
+Estado: implementada en alcance conservador.
+
+Cambios implementados:
+- Crear `rainmapper_core/config/`.
+- Mover la implementacion real de:
+  - `const.py` -> `rainmapper_core/config/const.py`
+  - `config.py` -> `rainmapper_core/config/config.py`
+  - `config_wunderground.py` -> `rainmapper_core/config/config_wunderground.py`
+- Mantener wrappers compatibles en raiz y en `rainmapper-app/app/`.
+- Actualizar imports internos de `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py` y `rainmapper_core/sources/wunderground/` para usar `rainmapper_core.config`.
+- Ajustar `scripts/sync-manifest.sh` para sincronizar tambien `config.py` y `config_wunderground.py`.
+
+Decision conservadora:
+- Los wrappers se mantienen aunque el codigo interno ya no dependa de imports top-level antiguos. Esto evita romper usos manuales o scripts externos que sigan haciendo `from const import _DATA_PATH`.
+- No mover todavia `Rainmapper.py` ni partir la logica de fuentes.
+- No tocar el Dockerfile de Home Assistant.
+
+Detalle importante:
+- `rainmapper_core/config/const.py` calcula `_script_path` como la raiz del runtime a partir de `rainmapper_core/config`. En Docker esas rutas son internas del contenedor (`/app/Data`, `/app/Tomap`, `/app/Plots`) y se montan desde `docker-data/...` en el Mac; en ejecuciones locales sin contenedor apuntan a la raiz del repo.
+- El wrapper `const.py` reexporta explicitamente nombres con guion bajo porque `import *` no exporta constantes privadas por defecto.
+
+Validaciones realizadas:
+- Importar `rainmapper_core.config.const` y `const` legacy y confirmar que `_DATA_PATH`, `_MAPS_PATH` y `_PLOT_PATH` apuntan al runtime root.
+- `.venv/bin/python -m unittest discover -s tests`
+- `./scripts/smoke-test.sh`
+- `./scripts/docker-offline-functional-test.sh`, que confirmo dentro del contenedor Docker las rutas internas `/app/Data` y `/app/Tomap`.

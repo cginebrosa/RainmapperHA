@@ -2,7 +2,7 @@
 
 """Compatibility wrapper for the shared Tomap builder implementation."""
 
-from const import _DATA_PATH, _MAPS_PATH, _last_number_rains, _max_threads, _minimum_rain_tomap
+from rainmapper_core.config.const import _DATA_PATH, _MAPS_PATH, _last_number_rains, _max_threads, _minimum_rain_tomap
 from rainmapper_core.tomap import (
     INCREMENTAL_COLUMNS,
     TOMAP_PERIODS,

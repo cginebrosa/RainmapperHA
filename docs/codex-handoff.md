@@ -50,7 +50,8 @@ Tambien existen documentos de uso:
 
 ## Estructura relevante del proyecto
 - `Rainmapper.py`: script principal de descarga, normalizacion, historico y estado por fuente.
-- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental, reconstruccion Tomap, conversion GeoJSON y librerias internas por fuente bajo `rainmapper_core/sources/`.
+- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental, reconstruccion Tomap, conversion GeoJSON, configuracion Python compartida bajo `rainmapper_core/config/` y librerias internas por fuente bajo `rainmapper_core/sources/`.
+- `const.py`, `config.py`, `config_wunderground.py`: wrappers compatibles hacia `rainmapper_core/config/`; el codigo interno ya importa desde `rainmapper_core.config`.
 - `incremental_upsert.py`: wrapper compatible hacia `rainmapper_core.incremental_upsert`, helper comun para actualizar historicos incrementales por clave `Codi Estació` + `Data Local`, evitando duplicados logicos y conservando valores antiguos cuando una descarga nueva trae `NaN`.
 - `tomap_builder.py`: wrapper compatible hacia `rainmapper_core.tomap`; mantiene el entrypoint CLI para reconstruir CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
 - `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
@@ -86,8 +87,13 @@ Tambien existen documentos de uso:
 
 ### `Rainmapper.py`
 - Proposito: descarga datos de Meteocat, Meteoclimatic y Wunderground; actualiza historicos; guarda metricas de Wunderground; escribe `source_status.json`.
-- Estado actual: funcional, con argumentos CLI para fuentes, fechas, threads, intentos, log completo Wunderground y patrones Meteoclimatic multiples. Actualiza historicos con `incremental_upsert.py`, usando una sola fila por fuente/estacion/dia. La generacion `Tomap` ya no vive en `Rainmapper.py`; esa responsabilidad esta en `tomap_builder.py`. El fichero de estaciones ignoradas para mapas nuevos se aplica en `tomap_to_geojson.py`, no directamente aqui.
+- Estado actual: funcional, con argumentos CLI para fuentes, fechas, threads, intentos, log completo Wunderground y patrones Meteoclimatic multiples. Importa configuracion desde `rainmapper_core.config`, actualiza historicos con `incremental_upsert.py`, usando una sola fila por fuente/estacion/dia. La generacion `Tomap` ya no vive en `Rainmapper.py`; esa responsabilidad esta en `tomap_builder.py`. El fichero de estaciones ignoradas para mapas nuevos se aplica en `tomap_to_geojson.py`, no directamente aqui.
 - Riesgos: contiene mucha logica acoplada, pandas sobre CSV historicos y scraping de Wunderground. No tocar sin preservar historicos y probar con Docker local.
+
+### `rainmapper_core/config/`
+- Proposito: configuracion Python compartida por Docker local y HA.
+- Estado actual: contiene la implementacion real de `const.py`, `config.py` y `config_wunderground.py`. Los ficheros top-level de raiz y `rainmapper-app/app` son wrappers compatibles. `const.py` conserva rutas runtime historicas calculando la raiz del entorno desde `rainmapper_core/config`.
+- Riesgos: cambios en `const.py` afectan rutas `Data`, `Tomap`, `Plots`, defaults de fuentes, threads y parametros de historico; validar siempre imports y Docker local.
 
 ### `incremental_upsert.py`
 - Proposito: centraliza el upsert de historicos CSV incrementales.
@@ -220,7 +226,7 @@ Tambien existen documentos de uso:
 - El DEM propio de Land/TwoNav `Iberia_HighResolution.CDEM` no fue reconocido por `gdalinfo` en una prueba manual fuera del repo; Land tampoco permitio exportarlo correctamente segun reporte del usuario. Pendiente de confirmar si se retoma. La via recomendada para 3D es validar primero DEM externo y, si aporta valor, estudiar IGN/CNIG/Copernicus o una exportacion estandar GeoTIFF/HGT/ASC.
 
 ## Variables de entorno y configuracion
-- `GMAP_API_KEY`: clave Google Maps; usada por `const.py`, `Rainmapper.py`, mapas Bokeh y por `get_googlemaps()` para obtener altitud, municipio/localidad y provincia cuando se detectan estaciones nuevas o cambios de coordenadas. Obligatoria si se usan funciones que requieren Google Maps; no debe ir en Git.
+- `GMAP_API_KEY`: clave Google Maps; usada por `rainmapper_core/config/const.py`, `Rainmapper.py`, mapas Bokeh y por `get_googlemaps()` para obtener altitud, municipio/localidad y provincia cuando se detectan estaciones nuevas o cambios de coordenadas. Obligatoria si se usan funciones que requieren Google Maps; no debe ir en Git.
 - `SODAPY_APPTOKEN`: token Socrata/Meteocat mencionado solo en codigo comentado; actualmente no se usa porque `socrata_token` se fija a `None`. Pendiente de confirmar si debe reactivarse en el futuro.
 - `SUPERVISOR_TOKEN`: token inyectado por Home Assistant; usado por `web_server.py` para consultar self-info del addon. Lo proporciona HA.
 - `RAINMAPPER_MODE` / `MODE`: modo Docker local (`once`, `update`, `maps`, `all`, `schedule`, `help`).

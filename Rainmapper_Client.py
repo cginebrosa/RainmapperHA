@@ -9,7 +9,7 @@ from bokeh.models import ColumnDataSource, HoverTool, ColorBar, GMapOptions, Pan
 from bokeh.transform import linear_cmap
 from bokeh.palettes import YlOrRd9 as palette
 #from bokeh.models import ColorBar
-from const import _MAPS_PATH, _PLOT_PATH, _GMAPS_KEY
+from rainmapper_core.config.const import _MAPS_PATH, _PLOT_PATH, _GMAPS_KEY
 
 def plot_map(_title, lat, lng, map_type='roadmap', _zoom_level=8,_alpha=0.8):
     global df

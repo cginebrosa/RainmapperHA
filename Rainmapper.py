@@ -25,7 +25,7 @@ import time as time_module
 import requests
 import googlemaps
 from rainmapper_core.sources.meteoclimatic_local.client import MeteoclimaticClient
-from const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
+from rainmapper_core.config.const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
 from incremental_upsert import upsert_incremental
 
 import threading
@@ -33,8 +33,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 
-# Import parameters from const
-from const import   _codi_estacio,\
+# Import parameters from shared constants
+from rainmapper_core.config.const import   _codi_estacio,\
                     _qcodi_variable,\
                     _qcodi_variable2,\
                     _create_wunderground,\
@@ -2090,7 +2090,7 @@ def process_meteoclimatic():                                        # FOR MULTIT
 ###############################################
 # Configuracion previa a process_wunderground #                     # FOR MULTITHREAD PURPOSES
 ###############################################
-import config_wunderground
+from rainmapper_core.config import config_wunderground
 import csv
 import lxml.html as lh
 from rainmapper_core.sources.wunderground.UnitConverter import ConvertToSystem

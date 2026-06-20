@@ -31,6 +31,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - `rainmapper_core/sources/meteoclimatic_local/`: cliente local Meteoclimatic.
 - `rainmapper_core/sources/sodapy_local/`: copia local/adaptada de Socrata client.
 - `rainmapper_core/sources/wunderground/`: parser/scraper Wunderground.
+- `rainmapper_core/config/`: configuracion Python compartida (`const`, `config`, `config_wunderground`) usada por Docker local y HA.
 - `Data/`: CSV historicos locales, ignorados por Git.
 - `Tomap/`: CSV intermedios para mapas, ignorados por Git.
 - `Plots/`: HTML Bokeh generados, ignorados por Git.
@@ -44,6 +45,7 @@ Hay varios entry points segun entorno:
 - Home Assistant: `rainmapper-app/Dockerfile` ejecuta `/run.sh`.
 - Core de datos: `Rainmapper.py`.
 - Paquete compartido de core: `rainmapper_core/`.
+- Configuracion Python compartida: `rainmapper_core/config/`, con wrappers compatibles `const.py`, `config.py` y `config_wunderground.py`.
 - Upsert de historicos incrementales: `incremental_upsert.py`.
 - Reconstruccion Tomap sin descarga: `tomap_builder.py` como entrypoint compatible; implementacion compartida en `rainmapper_core/tomap.py`.
 - Mapas Bokeh: `Rainmapper_Client.py`.
@@ -78,6 +80,12 @@ Hay varios entry points segun entorno:
 - Responsabilidad: combinar descargas actuales con historicos `Data/*_incremental.csv` sin crear duplicados por `Codi Estació` + `Data Local`.
 - Regla: la fila nueva manda para valores no nulos; si la descarga nueva trae `NaN`, se conserva el valor antiguo no nulo para no perder campos complementarios como temperatura/humedad de Meteocat.
 - Relacion: usado por `Rainmapper.py` en Meteocat, Meteoclimatic y Wunderground antes de reescribir los CSV incrementales.
+
+### Configuracion Python compartida
+- Ruta: `rainmapper_core/config/`, con wrappers compatibles en raiz y en `rainmapper-app/app`.
+- Responsabilidad: defaults de ejecucion, rutas runtime, flags de fuentes y configuracion del parser Wunderground.
+- Relacion: `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py` y helpers Wunderground importan ya desde `rainmapper_core.config`.
+- Detalle: `const.py` sigue exponiendo nombres historicos con guion bajo mediante wrapper para no romper imports antiguos.
 
 ### Generador Bokeh
 - Ruta: `Rainmapper_Client.py` y copia en app.
@@ -209,8 +217,8 @@ No incluir secretos en codigo ni documentacion.
 - `repository.yaml`: metadata repositorio HA.
 - `.gitignore`: excluye datos, caches, venv, tests locales y scripts antiguos.
 - `.dockerignore`: excluye datos locales, repo HA y material no necesario para imagen local.
-- `const.py`: defaults locales.
-- `rainmapper-app/app/const.py`: defaults dentro de app.
+- `rainmapper_core/config/const.py`: defaults compartidos. Calcula rutas runtime desde la raiz del entorno.
+- `const.py` y `rainmapper-app/app/const.py`: wrappers compatibles hacia `rainmapper_core.config.const`.
 
 No detectado: `package.json`, `pyproject.toml`, Makefile, ESLint, Prettier, pytest config.
 

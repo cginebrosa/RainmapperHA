@@ -10,6 +10,8 @@
 RAINMAPPER_SYNC_FILES=(
   Rainmapper.py
   Rainmapper_Client.py
+  config.py
+  config_wunderground.py
   const.py
   incremental_upsert.py
   requirements.txt

@@ -1,6 +1,6 @@
 import unicodedata
 from datetime import datetime
-import config
+from rainmapper_core.config import config
 
 MONTHLY = config.MONTHLY
 

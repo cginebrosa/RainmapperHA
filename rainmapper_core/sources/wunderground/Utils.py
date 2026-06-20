@@ -1,4 +1,4 @@
-import config
+from rainmapper_core.config import config
 from datetime import timedelta, date
 import lxml.html as lh
 import requests
