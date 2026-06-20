@@ -63,6 +63,8 @@ No guardar secretos reales en Git.
 ## Ejecucion en desarrollo
 El runtime Docker local vive en `rainmapper-local/`. La raiz conserva `docker-compose.yml` y scripts wrapper para que los comandos habituales sigan funcionando.
 
+Los visores compartidos viven en `rainmapper_core/viewers/`. Las rutas `leaflet-viewer/` y `maplibre-viewer/` se mantienen en la raiz como compatibilidad para el servidor local y los comandos existentes.
+
 Build Docker local:
 
 ```bash

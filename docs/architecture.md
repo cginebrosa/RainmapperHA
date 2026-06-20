@@ -24,8 +24,9 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - `rainmapper-app/`: paquete de Home Assistant.
 - `rainmapper-app/app/`: codigo que entra en la imagen HA.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
-- `leaflet-viewer/`: fuente del visor Leaflet en raiz.
-- `maplibre-viewer/`: fuente del visor MapLibre en raiz.
+- `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
+- `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
+- `leaflet-viewer/` y `maplibre-viewer/`: rutas compatibles en raiz hacia los visores canonicos.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `sync-app-files.sh`, `sync-manifest.sh`, `backup-data.sh` y `check-history.py`.
 - `local_update.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_update.sh`; runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
 - `rainmapper_core/sources/meteoclimatic_local/`: cliente local Meteoclimatic.
@@ -48,11 +49,11 @@ Hay varios entry points segun entorno:
 - Configuracion Python compartida: `rainmapper_core/config/`, con wrappers compatibles `const.py`, `config.py` y `config_wunderground.py`.
 - Upsert de historicos incrementales: `incremental_upsert.py`.
 - Reconstruccion Tomap sin descarga: `tomap_builder.py` como entrypoint compatible; implementacion compartida en `rainmapper_core/tomap.py`.
-- Mapas Bokeh: `Rainmapper_Client.py`.
+- Mapas Bokeh: `Rainmapper_Client.py` como entrypoint compatible; implementacion compartida en `rainmapper_core/bokeh_maps.py`.
 - GeoJSON: `tomap_to_geojson.py` como entrypoint compatible; implementacion compartida en `rainmapper_core/geojson.py`.
 - WebUI HA: `rainmapper-app/app/web_server.py`.
-- Leaflet: `leaflet-viewer/index.html` y `leaflet-viewer/app.js`.
-- MapLibre: `maplibre-viewer/index.html` y `maplibre-viewer/app.js`.
+- Leaflet: `rainmapper_core/viewers/leaflet-viewer/index.html` y `app.js`, con ruta compatible `leaflet-viewer/`.
+- MapLibre: `rainmapper_core/viewers/maplibre-viewer/index.html` y `app.js`, con ruta compatible `maplibre-viewer/`.
 
 ## Flujo principal
 1. Se arrancan Docker local o app HA.
@@ -88,7 +89,7 @@ Hay varios entry points segun entorno:
 - Detalle: `const.py` sigue exponiendo nombres historicos con guion bajo mediante wrapper para no romper imports antiguos.
 
 ### Generador Bokeh
-- Ruta: `Rainmapper_Client.py` y copia en app.
+- Ruta: `rainmapper_core/bokeh_maps.py`, con wrappers compatibles en `Rainmapper_Client.py` y `rainmapper-app/app/Rainmapper_Client.py`.
 - Responsabilidad: leer `Tomap` y generar HTML Bokeh en `Plots`.
 - Dependencias: Bokeh, pandas, Google Maps key.
 - Relacion: salida publicada por `web_server.py` a `/config/www/Plots`.
@@ -146,13 +147,17 @@ Hay varios entry points segun entorno:
 - Relacion: `sync-manifest.sh` es la fuente unica de ficheros/directorios sincronizados; `sync-app-files.sh` lo usa para copiar y `smoke-test.sh` lo usa para detectar divergencias. Esto reduce la duplicidad operativa sin cambiar todavia el contexto Docker de Home Assistant.
 
 ### Leaflet viewer
-- Ruta: `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`.
+- Ruta canonica: `rainmapper_core/viewers/leaflet-viewer/`.
+- Ruta compatible local: `leaflet-viewer/`.
+- En HA se publica directamente desde `/app/rainmapper_core/viewers/leaflet-viewer`.
 - Responsabilidad: visor web movil basado en Leaflet y GeoJSON.
 - Dependencias: Leaflet CDN, tiles raster.
 - Relacion: publicado a `/local/rainmapper-leaflet`.
 
 ### MapLibre viewer
-- Ruta: `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`.
+- Ruta canonica: `rainmapper_core/viewers/maplibre-viewer/`.
+- Ruta compatible local: `maplibre-viewer/`.
+- En HA se publica directamente desde `/app/rainmapper_core/viewers/maplibre-viewer`.
 - Responsabilidad: visor web principal con mapas vectoriales/raster, filtros cliente de estaciones y terreno 3D opcional.
 - Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y DEM externo Terrarium/Mapzen para terreno 3D.
 - Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. Desde `0.2.71`, el filtro `Source` muestra badges de estado por fuente si existe `data/source_status.json`; en escritorio, desde zoom 9, la ficha de estacion tambien aparece por hover sin cambiar el comportamiento tactil de movil. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.

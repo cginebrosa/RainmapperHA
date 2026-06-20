@@ -134,7 +134,7 @@ Validaciones realizadas para este paso:
 - import de fuentes dentro del contenedor Docker local.
 
 ### Fase 5: estructura objetivo `core/app/local`
-Estado: iniciada. Fases 5A y 5B implementadas en alcance conservador.
+Estado: iniciada. Fases 5A, 5B, 5C y 5D implementadas en alcance conservador.
 
 Objetivo:
 - Pasar de la estructura hibrida actual a una separacion mas clara por responsabilidades, sin convertirlo en una secuencia indefinida de micro-refactors.
@@ -230,3 +230,43 @@ Validaciones realizadas:
 - `.venv/bin/python -m unittest discover -s tests`
 - `./scripts/smoke-test.sh`
 - `./scripts/docker-offline-functional-test.sh`, que confirmo dentro del contenedor Docker las rutas internas `/app/Data` y `/app/Tomap`.
+
+#### Fase 5C: mover Bokeh maps al core
+Estado: implementada en alcance conservador.
+
+Cambios implementados:
+- Mover la implementacion real de `Rainmapper_Client.py` a `rainmapper_core/bokeh_maps.py`.
+- Mantener `Rainmapper_Client.py` en raiz y en `rainmapper-app/app` como entrypoint compatible.
+- Convertir el bloque ejecutable antiguo en `main()` para que importar `rainmapper_core.bokeh_maps` no genere mapas como efecto secundario.
+
+Decision conservadora:
+- Mantener el nombre `Rainmapper_Client.py` como comando operativo, porque `run.sh`, `rainmapper-app/run.sh` y `web_server.py` todavia lo invocan directamente.
+- No cambiar todavia la publicacion `/local/Plots`.
+
+Validaciones esperadas:
+- `python -m py_compile Rainmapper_Client.py rainmapper_core/bokeh_maps.py`
+- `./scripts/smoke-test.sh`
+- `./scripts/docker-offline-functional-test.sh`
+
+#### Fase 5D: mover visores compartidos al core
+Estado: implementada en alcance conservador. Ajuste posterior completado: `web_server.py` publica directamente desde `rainmapper_core/viewers`.
+
+Cambios implementados:
+- Mover los visores compartidos a:
+  - `rainmapper_core/viewers/leaflet-viewer/`
+  - `rainmapper_core/viewers/maplibre-viewer/`
+- Mantener rutas compatibles en raiz:
+  - `leaflet-viewer` -> `rainmapper_core/viewers/leaflet-viewer`
+  - `maplibre-viewer` -> `rainmapper_core/viewers/maplibre-viewer`
+- Retirar las copias compatibles `rainmapper-app/app/leaflet-viewer` y `rainmapper-app/app/maplibre-viewer`.
+- `scripts/sync-manifest.sh` sincroniza `rainmapper_core/`; los visores HA entran en la imagen como parte de `rainmapper_core/viewers/`.
+
+Decision conservadora:
+- No cambiar las URLs publicas `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
+- Los enlaces de raiz mantienen funcionando `./local_maps.sh`, `./local_all.sh`, el servidor HTTP local y las validaciones existentes.
+
+Validaciones esperadas:
+- `node --check leaflet-viewer/app.js` y `node --check maplibre-viewer/app.js` usando las rutas compatibles.
+- `node --check rainmapper_core/viewers/.../app.js` usando las rutas canonicas.
+- `./scripts/smoke-test.sh`
+- `./scripts/docker-offline-functional-test.sh`

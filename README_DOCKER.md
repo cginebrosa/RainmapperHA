@@ -6,6 +6,10 @@ The local Docker runtime lives in `rainmapper-local/`. The repository root keeps
 compatibility wrappers and a Compose include so the existing root-level commands
 continue to work.
 
+Shared viewer assets live in `rainmapper_core/viewers/`. Root-level
+`leaflet-viewer/` and `maplibre-viewer/` paths remain as compatibility links for
+the local HTTP server and existing commands.
+
 ## Recommended approach
 
 For Home Assistant, especially on a Raspberry Pi, the recommended approach is:

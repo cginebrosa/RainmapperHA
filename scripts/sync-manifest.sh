@@ -22,6 +22,4 @@ RAINMAPPER_SYNC_FILES=(
 
 RAINMAPPER_SYNC_DIRS=(
   rainmapper_core
-  leaflet-viewer
-  maplibre-viewer
 )

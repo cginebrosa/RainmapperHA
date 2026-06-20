@@ -89,8 +89,8 @@ check_viewer_asset_versions() {
     grep -RInE 'href="[^"]+\\?v=|src="[^"]+\\?v=' \
       leaflet-viewer/index.html \
       maplibre-viewer/index.html \
-      rainmapper-app/app/leaflet-viewer/index.html \
-      rainmapper-app/app/maplibre-viewer/index.html \
+      rainmapper-app/app/rainmapper_core/viewers/leaflet-viewer/index.html \
+      rainmapper-app/app/rainmapper_core/viewers/maplibre-viewer/index.html \
     | grep -v "?v=${config_version}" || true
   )"
   if [ -n "$stale_refs" ]; then
@@ -156,10 +156,10 @@ check_js_syntax() {
   node --check leaflet-viewer/config.js
   node --check maplibre-viewer/app.js
   node --check maplibre-viewer/config.js
-  node --check rainmapper-app/app/leaflet-viewer/app.js
-  node --check rainmapper-app/app/leaflet-viewer/config.js
-  node --check rainmapper-app/app/maplibre-viewer/app.js
-  node --check rainmapper-app/app/maplibre-viewer/config.js
+  node --check rainmapper-app/app/rainmapper_core/viewers/leaflet-viewer/app.js
+  node --check rainmapper-app/app/rainmapper_core/viewers/leaflet-viewer/config.js
+  node --check rainmapper-app/app/rainmapper_core/viewers/maplibre-viewer/app.js
+  node --check rainmapper-app/app/rainmapper_core/viewers/maplibre-viewer/config.js
 }
 
 check_python_unit_tests() {

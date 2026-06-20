@@ -50,11 +50,11 @@ Tambien existen documentos de uso:
 
 ## Estructura relevante del proyecto
 - `Rainmapper.py`: script principal de descarga, normalizacion, historico y estado por fuente.
-- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental, reconstruccion Tomap, conversion GeoJSON, configuracion Python compartida bajo `rainmapper_core/config/` y librerias internas por fuente bajo `rainmapper_core/sources/`.
+- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental, reconstruccion Tomap, conversion GeoJSON, generacion Bokeh, configuracion Python compartida bajo `rainmapper_core/config/`, visores compartidos bajo `rainmapper_core/viewers/` y librerias internas por fuente bajo `rainmapper_core/sources/`.
 - `const.py`, `config.py`, `config_wunderground.py`: wrappers compatibles hacia `rainmapper_core/config/`; el codigo interno ya importa desde `rainmapper_core.config`.
 - `incremental_upsert.py`: wrapper compatible hacia `rainmapper_core.incremental_upsert`, helper comun para actualizar historicos incrementales por clave `Codi Estació` + `Data Local`, evitando duplicados logicos y conservando valores antiguos cuando una descarga nueva trae `NaN`.
 - `tomap_builder.py`: wrapper compatible hacia `rainmapper_core.tomap`; mantiene el entrypoint CLI para reconstruir CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
-- `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
+- `Rainmapper_Client.py`: wrapper compatible hacia `rainmapper_core.bokeh_maps`; mantiene el entrypoint historico para generar mapas HTML clasicos con Bokeh.
 - `tomap_to_geojson.py`: wrapper compatible hacia `rainmapper_core.geojson`; mantiene el entrypoint CLI para convertir CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
 - `const.py`: constantes y defaults de ejecucion local.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
@@ -64,8 +64,9 @@ Tambien existen documentos de uso:
 - `local_maps.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_maps.sh`; ejecuta `MODE=maps` y arranca un servidor HTTP local sin descargar datos nuevos.
 - `rainmapper-local/Dockerfile`: imagen Docker local.
 - `rainmapper-local/docker-compose.yml`: runner Docker local con volumenes persistentes; permite probar concurrencia local con `MAX_THREADS=<n>`. La raiz mantiene `docker-compose.yml` como include de compatibilidad.
-- `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
-- `maplibre-viewer/`: visor MapLibre fuente para pruebas locales/publicacion.
+- `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
+- `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
+- `leaflet-viewer/` y `maplibre-viewer/`: rutas compatibles en raiz para pruebas locales/publicacion.
 - `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, reconstruccion con poco historico, versiones y sincronizacion raiz/app HA.
 - `scripts/build-push-ha-image.sh`: publica desde el Mac la imagen multi-arch de la app HA en GHCR usando Docker Buildx; sube tags `<version>` y `latest`, y limpia etiquetas locales versionadas antiguas conservando por defecto las dos ultimas mas `latest`.
 - `scripts/compare-tomap-builder.sh`: reconstruye `Tomap` con `tomap_builder.py` en un directorio temporal y compara el resultado con `docker-data/Tomap`.
@@ -112,7 +113,7 @@ Tambien existen documentos de uso:
 
 ### `Rainmapper_Client.py`
 - Proposito: genera mapas HTML clasicos Bokeh desde `Tomap`.
-- Estado actual: sigue funcionando y se publica en `/local/Plots`.
+- Estado actual: wrapper compatible hacia `rainmapper_core/bokeh_maps.py`; sigue funcionando y se publica en `/local/Plots`.
 - Riesgos: depende de Google Maps API key y Bokeh. A medio plazo puede quedar como compatibilidad si Leaflet/MapLibre sustituyen su uso.
 
 ### `tomap_to_geojson.py`
@@ -145,12 +146,12 @@ Tambien existen documentos de uso:
 - Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.78`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
-### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
+### `rainmapper_core/viewers/leaflet-viewer/` y `leaflet-viewer/`
 - Proposito: visor Leaflet estatico.
 - Estado actual: funcional, con capas Topographic/Hybrid, leyenda, selector de periodo, popups moviles y preservacion de vista al cambiar periodo.
 - Riesgos: se publica solo en `/local/rainmapper-leaflet`; la ruta legacy `/local/rainmapper-mobile` fue retirada. Las redirecciones Cloudflare hacia los visores actuales fueron reportadas por el usuario y quedan pendientes de confirmar fuera del repositorio.
 
-### `maplibre-viewer/` y `rainmapper-app/app/maplibre-viewer/`
+### `rainmapper_core/viewers/maplibre-viewer/` y `maplibre-viewer/`
 - Proposito: visor principal MapLibre con mapas vectoriales/raster.
 - Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y terreno 3D.
 - Riesgos: MapLibre queda como visor principal recomendado por decision de proyecto, con Leaflet mantenido como fallback. Las validaciones en HA/iPhone son manuales/reportadas por el usuario y no estan automatizadas. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales futuros si se detectan problemas. En `0.2.56` se corrige la vuelta a Satellite+ tras cambiar a otra capa clonando el objeto de estilo antes de pasarlo a MapLibre. El terreno 3D usa DEM externo Terrarium/Mapzen, esta apagado por defecto y depende de disponibilidad/CORS/rendimiento del proveedor externo hasta decidir si se generan tiles DEM propios.
@@ -174,8 +175,8 @@ Tambien existen documentos de uso:
 - Persistencia en `/share/rainmapper`: `rainmapper-app/run.sh`.
 - Publicacion de mapas a `/config/www`: `web_server.py`.
 - Mapas Bokeh publicados en `/local/Plots`: `Rainmapper_Client.py`, `web_server.py`.
-- Leaflet viewer publicado en `/local/rainmapper-leaflet/index.html`: `leaflet-viewer/`, `web_server.py`.
-- MapLibre viewer publicado en `/local/rainmapper-maplibre/index.html`: `maplibre-viewer/`, `web_server.py`.
+- Leaflet viewer publicado en `/local/rainmapper-leaflet/index.html`: `rainmapper_core/viewers/leaflet-viewer/`, `web_server.py`.
+- MapLibre viewer publicado en `/local/rainmapper-maplibre/index.html`: `rainmapper_core/viewers/maplibre-viewer/`, `web_server.py`.
 - GeoJSON para 1/7/14/21/30/60/90 dias: `tomap_to_geojson.py`.
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `tomap_to_geojson.py`.
 - Filtros en MapLibre: settings del visor aplica filtros cliente por lluvia minima y por fuente de estacion sobre el periodo cargado para validar UX de futura app movil.

@@ -1,5 +1,28 @@
 # Decisions
 
+## 2026-06-20 - Mover Bokeh y visores compartidos a `rainmapper_core`
+
+Se mueve la implementacion compartida de mapas clasicos Bokeh y los visores web estaticos al paquete core.
+
+Decision:
+
+- `Rainmapper_Client.py` queda como entrypoint compatible y la implementacion real pasa a `rainmapper_core/bokeh_maps.py`.
+- Los visores pasan a:
+  - `rainmapper_core/viewers/leaflet-viewer/`
+  - `rainmapper_core/viewers/maplibre-viewer/`
+- Se mantienen rutas compatibles `leaflet-viewer/` y `maplibre-viewer/` en raiz para no romper pruebas locales, servidor HTTP local ni referencias existentes.
+- `web_server.py` publica directamente desde `/app/rainmapper_core/viewers/leaflet-viewer` y `/app/rainmapper_core/viewers/maplibre-viewer`, por lo que se retiran las copias separadas `rainmapper-app/app/leaflet-viewer` y `rainmapper-app/app/maplibre-viewer`.
+
+Motivo:
+
+- Bokeh y visores son compartidos por Docker local y Home Assistant, no especificos de ningun runtime.
+- Moverlos como bloques coherentes reduce la estructura hibrida sin tocar todavia `web_server.py`, URLs publicas ni Dockerfile de HA.
+
+Alternativas descartadas:
+
+- Mantener copias separadas en `rainmapper-app/app`: descartado tras validar que `web_server.py` puede publicar directamente desde `rainmapper_core/viewers`.
+- Eliminar rutas compatibles de raiz: se descarta temporalmente porque romperia comandos locales, documentacion y pruebas existentes.
+
 ## 2026-06-20 - Mover configuracion Python compartida a `rainmapper_core/config`
 
 Se mueve la implementacion real de `const.py`, `config.py` y `config_wunderground.py` a `rainmapper_core/config/`.
