@@ -486,10 +486,12 @@ La primera instalacion debe crear una plantilla si falta. Los updates no deben s
 ### Estado
 Confirmada.
 
-## 2026-06-17 - Usar Wunderground con un thread por defecto en RPi (fecha aproximada)
+## 2026-06-17 - Usar Wunderground con un thread por defecto en RPi (fecha aproximada; reemplazada el 2026-06-20)
 
 ### Decision
 Mantener `max_threads: 1` por defecto.
+
+Modificacion 2026-06-20: esta decision queda reemplazada. Tras pruebas locales comparativas y observacion nocturna de schedules en Home Assistant/RPi sin problemas reportados, `max_threads: 3` pasa a ser el valor operativo recomendado. `max_threads: 1` queda como modo conservador de diagnostico si aparecen timeouts, errores de Wunderground o carga excesiva.
 
 ### Motivo
 La RPi no debe cargarse excesivamente. El scraper es el cuello de botella, pero estabilidad y baja carga pesan mas que paralelizar agresivamente.
@@ -506,7 +508,7 @@ La ejecucion completa tarda mas, pero la carga es estable. Se anaden metricas pa
 - `Rainmapper.py`
 
 ### Estado
-Confirmada, revisable. Modificada el 2026-06-17 para bajar timeout/observabilidad de Wunderground a baja prioridad mientras el tiempo global siga siendo aceptable.
+Reemplazada el 2026-06-20 por `max_threads: 3` como valor operativo recomendado.
 
 ## 2026-06-17 - Guardar metricas de Wunderground en CSV (fecha aproximada)
 

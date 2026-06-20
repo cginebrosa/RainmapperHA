@@ -198,7 +198,7 @@ days_bucket: 10
 meteocat_request_timeout: 30
 meteocat_max_attempts: 3
 last_rains_history: 30
-max_threads: 1
+max_threads: 3
 max_attempts: 3
 wunderground_full_log: false
 publish_to_www: true
@@ -210,7 +210,7 @@ Notas rapidas:
 - `mode: serve` es el modo normal para usar webUI, sidebar y schedule interno.
 - `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
 - `meteocat_request_timeout: 30` y `meteocat_max_attempts: 3` hacen que las consultas Meteocat/Socrata reintenten ante timeouts transitorios antes de fallar el run.
-- `max_threads: 1` es conservador para Raspberry Pi y para Wunderground.
+- `max_threads: 3` es el valor operativo recomendado tras validacion real en Home Assistant/Raspberry Pi sin carga relevante observada. Si aparecen timeouts, errores de Wunderground o carga excesiva, bajar temporalmente a `1`.
 - `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica durante `update` o `all`, cuando Rainmapper reconstruye `Tomap`; `maps` solo regenera HTML/GeoJSON desde los `Tomap` ya existentes.
 - `gmap_api_key` se usa para los mapas Bokeh/Google Maps y para completar metadata de estaciones con servicios de Google.
 - `wunderground_full_log: true` aumenta mucho el detalle del log de Wunderground y normalmente solo conviene para diagnostico.
@@ -305,11 +305,13 @@ meteocat_max_attempts: 3
 
 ## Wunderground
 
-`max_threads` controla el paralelismo al leer estaciones Wunderground. En Raspberry Pi se recomienda mantener:
+`max_threads` controla el paralelismo al leer estaciones Wunderground. En la instalacion real de Home Assistant/Raspberry Pi se ha validado `3` como valor operativo recomendado:
 
 ```yaml
-max_threads: 1
+max_threads: 3
 ```
+
+Si aparecen timeouts, errores de Wunderground o carga excesiva, usar `max_threads: 1` como modo conservador de diagnostico.
 
 `max_attempts` define cuantos reintentos se hacen por estacion:
 

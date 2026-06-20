@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Dejar correr schedules con `max_threads=3` para observar estabilidad y duraciones reales en HA antes de cambiar mas rendimiento. Si no aparecen problemas, decidir si se mantiene `max_threads=3` como valor operativo recomendado.
+Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests funcionales formales, segun se quiera priorizar UX o cobertura automatica.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -138,7 +138,7 @@ Dejar correr schedules con `max_threads=3` para observar estabilidad y duracione
   - Observacion local 2026-06-19: despues de permitir que `docker-compose.yml` propague `MAX_THREADS`, `local_update.sh` paso de `385.69s` con `MAX_THREADS=1` a `196.82s` con `MAX_THREADS=2` y `81.20s` con `MAX_THREADS=3`; Wunderground paso de `0:06:02` a `0:03:03` y despues a `0:01:19`.
   - Ficheros relacionados: `Rainmapper.py`, `Data/metricas_wunderground.csv`.
   - Criterio de aceptacion: metricas revisables y comparables por ejecucion; validar en HA/RPi si `max_threads=2` o `3` reduce tiempos sin generar timeouts, carga excesiva ni fallos de fuentes; posible export futuro a InfluxDB/Grafana.
-  - Estado: parcialmente mejorado. `source_status.json` guarda duraciones reales por fuente y la webUI las muestra; Meteocat guarda subtiempos de metadata, condiciones, precipitacion, merge y guardado. Pendiente decidir si cambiar `max_threads` por defecto y si exportar metricas historicas a InfluxDB/Grafana.
+  - Estado: parcialmente mejorado. `source_status.json` guarda duraciones reales por fuente y la webUI las muestra; Meteocat guarda subtiempos de metadata, condiciones, precipitacion, merge y guardado. Tras observacion nocturna de schedules en HA sin problemas reportados por el usuario, `max_threads=3` queda como valor operativo recomendado; queda pendiente decidir si exportar metricas historicas a InfluxDB/Grafana.
   - Riesgo si no se hace: optimizacion a ciegas del scraper si el rendimiento empeora en el futuro.
 
 - [ ] Definir estrategia legal/comercial para Wunderground antes de una app publica

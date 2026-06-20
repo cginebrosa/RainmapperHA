@@ -38,7 +38,7 @@ options:
   meteocat_request_timeout: 30
   meteocat_max_attempts: 3
   last_rains_history: 30
-  max_threads: 1
+  max_threads: 3
   max_attempts: 3
   wunderground_full_log: false
   publish_to_www: true

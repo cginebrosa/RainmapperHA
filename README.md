@@ -53,7 +53,7 @@ Variables/opciones principales:
 - `last_rains_history`: registros recientes de lluvia que se guardan en `Tomap` para popups de estaciones; por defecto `30`.
 - `meteocat_request_timeout`: timeout en segundos para peticiones Meteocat/Socrata; por defecto `30`.
 - `meteocat_max_attempts`: reintentos de peticiones Meteocat/Socrata; por defecto `3`.
-- `max_threads`: threads Wunderground; por defecto `1`.
+- `max_threads`: threads Wunderground; por defecto/recomendado `3` en HA tras validacion operativa. Usar `1` si se quiere una configuracion conservadora ante timeouts o carga.
 - `max_attempts`: reintentos Wunderground.
 - `wunderground_full_log`: log detallado por estacion.
 - `publish_to_www`: publica mapas y visores en `/config/www`.

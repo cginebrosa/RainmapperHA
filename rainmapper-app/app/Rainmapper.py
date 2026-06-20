@@ -145,7 +145,7 @@ parser.add_argument('--max_threads',
                     const=_max_threads,
                     type=int,
                     default=_max_threads,
-                    help='Number of Wunderground threads -> Const=Default=1')
+                    help='Number of Wunderground threads -> Const=Default=3')
 parser.add_argument('--max_attempts',
                     dest='_max_attempts',
                     nargs='?',

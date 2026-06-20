@@ -246,7 +246,7 @@ Rainmapper options:
     METEOCAT_REQUEST_TIMEOUT=30
     METEOCAT_MAX_ATTEMPTS=3
     LAST_RAINS_HISTORY=30
-    MAX_THREADS=1
+    MAX_THREADS=3
     MAX_ATTEMPTS=3
     METEOCLIMATIC_PATTERN=ESCAT
 
@@ -263,7 +263,7 @@ The longer names are also accepted:
     RAINMAPPER_METEOCAT_REQUEST_TIMEOUT=30
     RAINMAPPER_METEOCAT_MAX_ATTEMPTS=3
     RAINMAPPER_LAST_RAINS_HISTORY=30
-    RAINMAPPER_MAX_THREADS=1
+    RAINMAPPER_MAX_THREADS=3
     RAINMAPPER_MAX_ATTEMPTS=3
     RAINMAPPER_METEOCLIMATIC_PATTERN=ESCAT
 
@@ -292,6 +292,8 @@ The current Docker Compose setup runs once with these defaults:
     RAINMAPPER_NOMAPS=false
     RAINMAPPER_NOTOTALS=false
     RAINMAPPER_DAYS_BUCKET=10
-    RAINMAPPER_MAX_THREADS=1
+    RAINMAPPER_MAX_THREADS=3
     RAINMAPPER_MAX_ATTEMPTS=3
     RAINMAPPER_METEOCLIMATIC_PATTERN=ESCAT
+
+`MAX_THREADS=3` is the current recommended value after local and Home Assistant/Raspberry Pi validation. Use `MAX_THREADS=1` as a conservative diagnostic setting if Wunderground shows timeouts, errors, or excessive load.

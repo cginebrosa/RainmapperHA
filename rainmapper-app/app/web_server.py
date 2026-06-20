@@ -575,7 +575,7 @@ def command_for(action: str) -> list[str]:
         "--meteocat_max_attempts",
         env("RAINMAPPER_METEOCAT_MAX_ATTEMPTS", "3"),
         "--max_threads",
-        env("RAINMAPPER_MAX_THREADS", "1"),
+        env("RAINMAPPER_MAX_THREADS", "3"),
         "--max_attempts",
         env("RAINMAPPER_MAX_ATTEMPTS", "3"),
         "--wunderground_full_log",
