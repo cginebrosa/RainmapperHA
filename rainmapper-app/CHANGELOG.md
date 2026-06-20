@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.78
+
+- Move source-specific helper libraries into `rainmapper_core/sources`.
+- Keep Home Assistant packaged copies aligned with the shared core source layout.
+- Document the next core/app/local repository structure phase before starting it.
+
 ## 0.2.77
 
 - Add a compact MapLibre `2D`/`3D` terrain toggle below the generated timestamp.
