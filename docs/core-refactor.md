@@ -361,7 +361,7 @@ Validaciones esperadas:
 
 
 #### Fase 5I: retirar wrappers raiz Rainmapper/Rainmapper_Client
-Estado: implementada y preparada para publicacion HA `0.2.80` tras validacion local completa.
+Estado: implementada y validada manualmente en HA `0.2.80` con `Run all` correcto tras validacion local completa.
 
 Cambios implementados:
 - Retirar `Rainmapper.py` y `Rainmapper_Client.py` de la raiz.
