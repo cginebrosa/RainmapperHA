@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Load the single source of truth for root files/directories copied into the HA app.
+source "$ROOT_DIR/scripts/sync-manifest.sh"
+
 copy_file() {
   local source_file="$1"
   local target_file="rainmapper-app/app/$source_file"
@@ -27,17 +30,12 @@ sync_dir() {
   printf 'Synced %s/ -> %s/\n' "$source_dir" "$target_dir"
 }
 
-copy_file Rainmapper.py
-copy_file Rainmapper_Client.py
-copy_file const.py
-copy_file incremental_upsert.py
-copy_file requirements.txt
-copy_file stations.example.txt
-copy_file tomap_builder.py
-copy_file tomap_to_geojson.py
+for source_file in "${RAINMAPPER_SYNC_FILES[@]}"; do
+  copy_file "$source_file"
+done
 
-sync_dir rainmapper_core
-sync_dir leaflet-viewer
-sync_dir maplibre-viewer
+for source_dir in "${RAINMAPPER_SYNC_DIRS[@]}"; do
+  sync_dir "$source_dir"
+done
 
 printf 'Root/app Home Assistant copies are synchronized.\n'

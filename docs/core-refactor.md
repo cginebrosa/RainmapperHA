@@ -92,9 +92,26 @@ Si falla algo:
 ## Fases futuras
 
 ### Fase 3: reducir duplicidad operativa
-Cuando `rainmapper_core/` este estabilizado:
-- Mantener `scripts/sync-app-files.sh`, pero reducir progresivamente la lista de scripts duplicados.
-- Evaluar si `rainmapper-app/Dockerfile` puede copiar el paquete compartido de una forma menos duplicada.
+Estado: implementada en alcance conservador inicial.
+
+Cambios implementados:
+- Crear `scripts/sync-manifest.sh` como fuente unica de ficheros y directorios que se copian desde raiz hacia `rainmapper-app/app`.
+- Hacer que `scripts/sync-app-files.sh` use ese manifiesto para copiar ficheros/directorios.
+- Hacer que `scripts/smoke-test.sh` use el mismo manifiesto para validar que la copia HA esta alineada.
+- El smoke test ahora cubre tambien wrappers que antes podian quedar fuera de la comparacion explicita, como `incremental_upsert.py` y `tomap_builder.py`.
+
+Decision conservadora:
+- No cambiar todavia `rainmapper-app/Dockerfile`. El build de HA y el fallback de GitHub Actions usan `rainmapper-app` como contexto Docker, asi que copiar directamente codigo desde la raiz requeriria cambiar el flujo de build y podria afectar Home Assistant.
+- No reorganizar todavia la raiz del repositorio ni mover `sodapy_local/`, `meteoclimatic_local/` o `util/` a `rainmapper_core`. Esas carpetas estan acopladas a `Rainmapper.py` y deben revisarse cuando se aborde su refactor especifico.
+
+Validaciones realizadas para este paso:
+- `./scripts/sync-app-files.sh`
+- `./scripts/smoke-test.sh`
+- `./scripts/docker-offline-functional-test.sh`
+
+Pendiente dentro de Fase 3:
+- Si se quiere reducir mas la copia fisica dentro de `rainmapper-app/app`, hacerlo en una fase posterior cambiando explicitamente el flujo de build y validando HA/GHCR.
+- La reorganizacion global de carpetas queda aplazada hasta que `Rainmapper.py` este mas modularizado.
 
 ### Fase 4: refactor de `Rainmapper.py`
 Solo despues de tener cobertura suficiente y varias validaciones:

@@ -122,7 +122,7 @@ Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests fun
   - Contexto: scripts grandes y duplicados.
   - Ficheros relacionados: `rainmapper_core/`, `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py`, `scripts/sync-app-files.sh`, `docs/core-refactor.md`.
   - Criterio de aceptacion: una unica fuente de verdad para core compartida por Docker local y HA.
-  - Estado parcial: fases 1 y 2 implementadas para helpers estables. `incremental_upsert` vive en `rainmapper_core/incremental_upsert.py`, `tomap_builder` delega en `rainmapper_core/tomap.py` y `tomap_to_geojson` delega en `rainmapper_core/geojson.py`; los ficheros de raiz/app se mantienen como wrappers compatibles. Validado con unit tests, smoke test y Docker offline functional test.
+  - Estado parcial: fases 1 y 2 implementadas para helpers estables. `incremental_upsert` vive en `rainmapper_core/incremental_upsert.py`, `tomap_builder` delega en `rainmapper_core/tomap.py` y `tomap_to_geojson` delega en `rainmapper_core/geojson.py`; los ficheros de raiz/app se mantienen como wrappers compatibles. Fase 3 iniciada centralizando la lista de sincronizacion en `scripts/sync-manifest.sh`, usada por `sync-app-files.sh` y `smoke-test.sh`. Validado con unit tests, smoke test y Docker offline functional test.
   - Riesgo si no se hace: mantenimiento manual permanente.
 
 - [x] Extraer generacion de CSV `Tomap` de `Rainmapper.py`

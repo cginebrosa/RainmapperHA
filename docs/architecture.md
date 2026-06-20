@@ -25,7 +25,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - `rainmapper-app/app/`: codigo que entra en la imagen HA.
 - `leaflet-viewer/`: fuente del visor Leaflet en raiz.
 - `maplibre-viewer/`: fuente del visor MapLibre en raiz.
-- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `sync-app-files.sh`, `backup-data.sh` y `check-history.py`.
+- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `sync-app-files.sh`, `sync-manifest.sh`, `backup-data.sh` y `check-history.py`.
 - `local_update.sh`: runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
 - `meteoclimatic_local/`: cliente local Meteoclimatic.
 - `sodapy_local/`: copia local/adaptada de Socrata client.
@@ -130,6 +130,11 @@ Hay varios entry points segun entorno:
 - Ruta: `scripts/compare-tomap-builder.sh`.
 - Responsabilidad: reconstruir `Tomap` en un directorio temporal con `tomap_builder.py` y compararlo con `docker-data/Tomap`.
 - Relacion: sirve para validar que el builder reproduce los `Tomap` actuales sin sobrescribirlos; despues de retirar el bloque inline de `Rainmapper.py`, ya no compara contra una generacion legacy nueva.
+
+### Sincronizacion raiz/app HA
+- Ruta: `scripts/sync-manifest.sh`, `scripts/sync-app-files.sh` y checks de sincronizacion en `scripts/smoke-test.sh`.
+- Responsabilidad: mantener alineados los ficheros fuente de raiz y la copia empaquetada en `rainmapper-app/app`.
+- Relacion: `sync-manifest.sh` es la fuente unica de ficheros/directorios sincronizados; `sync-app-files.sh` lo usa para copiar y `smoke-test.sh` lo usa para detectar divergencias. Esto reduce la duplicidad operativa sin cambiar todavia el contexto Docker de Home Assistant.
 
 ### Leaflet viewer
 - Ruta: `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`.

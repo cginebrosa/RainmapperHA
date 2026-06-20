@@ -9,6 +9,10 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Reuse the same sync manifest used by sync-app-files.sh so smoke checks cover
+# every root source copied into the Home Assistant app package.
+source "$ROOT_DIR/scripts/sync-manifest.sh"
+
 # Prefer the project virtualenv when available, but keep the script usable on a
 # fresh machine with only python3 installed.
 if [ -n "${PYTHON_BIN:-}" ]; then
@@ -98,17 +102,9 @@ check_viewer_asset_versions() {
 # Root scripts are the development source of truth; rainmapper-app/app contains
 # the copy that goes into the HA image. The sync script must keep them identical.
 check_synced_files() {
-  local files=(
-    Rainmapper.py
-    Rainmapper_Client.py
-    const.py
-    requirements.txt
-    stations.example.txt
-    tomap_to_geojson.py
-  )
   local file
 
-  for file in "${files[@]}"; do
+  for file in "${RAINMAPPER_SYNC_FILES[@]}"; do
     if ! cmp -s "$file" "rainmapper-app/app/$file"; then
       printf 'File differs: %s vs rainmapper-app/app/%s\n' "$file" "$file" >&2
       return 1
@@ -117,9 +113,11 @@ check_synced_files() {
 }
 
 check_synced_viewers() {
-  diff -qr rainmapper_core rainmapper-app/app/rainmapper_core
-  diff -qr leaflet-viewer rainmapper-app/app/leaflet-viewer
-  diff -qr maplibre-viewer rainmapper-app/app/maplibre-viewer
+  local dir
+
+  for dir in "${RAINMAPPER_SYNC_DIRS[@]}"; do
+    diff -qr "$dir" "rainmapper-app/app/$dir"
+  done
 }
 
 check_python_syntax() {
@@ -376,6 +374,7 @@ check_shell_syntax() {
   bash -n scripts/backup-data.sh
   bash -n scripts/docker-offline-functional-test.sh
   bash -n scripts/smoke-test.sh
+  bash -n scripts/sync-manifest.sh
   bash -n scripts/sync-app-files.sh
 }
 

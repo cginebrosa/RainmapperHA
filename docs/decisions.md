@@ -1,5 +1,44 @@
 # Decisions
 
+## 2026-06-20 - Mantener estructura hibrida durante el refactor core
+
+### Decision
+Mantener de momento la estructura actual del repositorio:
+
+- Scripts/entrypoints locales en la raiz.
+- Paquete compartido progresivo en `rainmapper_core/`.
+- Paquete de Home Assistant en `rainmapper-app/`.
+- Copia operativa empaquetada en `rainmapper-app/app`, sincronizada desde la raiz.
+
+Tambien se decide no mover todavia `sodapy_local/`, `meteoclimatic_local/` ni `util/` dentro de `rainmapper_core`.
+
+### Motivo
+La estructura no es la ideal a largo plazo, pero funciona como transicion segura. Cambiar ahora carpetas, imports, Dockerfiles y contexto de build de Home Assistant en el mismo bloque aumentaria el riesgo sin aportar una mejora funcional inmediata.
+
+El build de HA y el fallback de GitHub Actions usan `rainmapper-app` como contexto Docker. Hacer que la imagen copie directamente ficheros desde la raiz requeriria cambiar ese flujo y podria afectar instalacion/publicacion en HA.
+
+Las carpetas `sodapy_local/`, `meteoclimatic_local/` y `util/` estan acopladas a `Rainmapper.py`, que es la parte mas delicada del core. Se moveran, si procede, cuando se aborde el refactor especifico de `Rainmapper.py`.
+
+### Alternativas consideradas
+Reorganizar ya el repositorio hacia una estructura tipo `src/`, mover todas las librerias internas a `rainmapper_core/`, o cambiar el Dockerfile de HA para construir desde la raiz del repo.
+
+### Consecuencias
+La duplicidad fisica raiz/app HA se mantiene por ahora, pero queda controlada operativamente con `scripts/sync-manifest.sh`, `scripts/sync-app-files.sh` y `scripts/smoke-test.sh`.
+
+La reorganizacion global de carpetas queda aplazada hasta que el core este mas separado y haya mas cobertura alrededor de `Rainmapper.py`.
+
+### Ficheros afectados
+- `scripts/sync-manifest.sh`
+- `scripts/sync-app-files.sh`
+- `scripts/smoke-test.sh`
+- `docs/core-refactor.md`
+- `docs/architecture.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+
+### Estado
+Confirmada como criterio conservador para cerrar Fase 3 inicial.
+
 ## 2026-06-19 - Upsert incremental por estacion y dia
 
 ### Decision

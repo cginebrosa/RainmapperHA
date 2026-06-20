@@ -71,6 +71,7 @@ Tambien existen documentos de uso:
 - `scripts/docker-offline-functional-test.sh`: prueba funcional Docker sin red; construye la imagen local, monta datos temporales, ejecuta `tomap_builder.py` y `tomap_to_geojson.py` dentro del contenedor y valida salidas sin tocar `docker-data`.
 - `tests/`: tests funcionales offline con `unittest`; cubren `tomap_to_geojson.py`, `tomap_builder.py`, `incremental_upsert.py` y un pipeline integrado `upsert -> Tomap -> GeoJSON`.
 - `scripts/sync-app-files.sh`: sincroniza scripts raiz y visores hacia `rainmapper-app/app` como practica operativa mientras exista duplicidad.
+- `scripts/sync-manifest.sh`: manifiesto compartido por `sync-app-files.sh` y `smoke-test.sh` con los ficheros/directorios que deben mantenerse alineados entre raiz y app HA.
 - `scripts/backup-data.sh`: crea backups `.tar.gz` de `Data` o de una raiz de datos Rainmapper.
 - `scripts/check-history.py`: valida CSV historicos y permite comparar una copia antes/despues.
 - `docs/mobile-app-architecture.md`: arquitectura inicial propuesta para futura app iOS/Android con API, auth, permisos, favoritos y filtro de lluvia minima.
