@@ -16,6 +16,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip==26.1.2
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+COPY rainmapper-local/run.sh /app/run.sh
 
 RUN mkdir -p /app/Data /app/Tomap /app/Plots /app/PublicData \
     && chmod +x /app/run.sh

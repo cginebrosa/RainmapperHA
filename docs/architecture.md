@@ -23,10 +23,11 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 ## Estructura de carpetas
 - `rainmapper-app/`: paquete de Home Assistant.
 - `rainmapper-app/app/`: codigo que entra en la imagen HA.
+- `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
 - `leaflet-viewer/`: fuente del visor Leaflet en raiz.
 - `maplibre-viewer/`: fuente del visor MapLibre en raiz.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `sync-app-files.sh`, `sync-manifest.sh`, `backup-data.sh` y `check-history.py`.
-- `local_update.sh`: runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
+- `local_update.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_update.sh`; runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
 - `rainmapper_core/sources/meteoclimatic_local/`: cliente local Meteoclimatic.
 - `rainmapper_core/sources/sodapy_local/`: copia local/adaptada de Socrata client.
 - `rainmapper_core/sources/wunderground/`: parser/scraper Wunderground.
@@ -39,7 +40,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 ## Punto de entrada de la aplicacion
 Hay varios entry points segun entorno:
 
-- Docker local: `Dockerfile` ejecuta `/app/run.sh`.
+- Docker local: `rainmapper-local/Dockerfile` ejecuta `/app/run.sh`, copiado desde `rainmapper-local/run.sh`. La raiz conserva wrappers de compatibilidad.
 - Home Assistant: `rainmapper-app/Dockerfile` ejecuta `/run.sh`.
 - Core de datos: `Rainmapper.py`.
 - Paquete compartido de core: `rainmapper_core/`.
@@ -109,19 +110,19 @@ Hay varios entry points segun entorno:
 - Relacion: entrypoint del contenedor HA.
 
 ### Wrapper Docker local
-- Ruta: `run.sh`.
+- Ruta: `rainmapper-local/run.sh`; `run.sh` en raiz es un wrapper compatible.
 - Responsabilidad: ejecutar Rainmapper localmente en Docker y mapear variables cortas/largas.
 - Dependencias: shell, Python para calculo schedule.
 - Relacion: entorno seguro de pruebas en Mac. En `maps/all`, ejecuta `Rainmapper_Client.py` y `tomap_to_geojson.py`, dejando GeoJSON actualizado en `docker-data/PublicData` para los visores locales.
 
 ### Runner local completo
-- Ruta: `local_all.sh`.
+- Ruta: `rainmapper-local/local_all.sh`; `local_all.sh` en raiz es un wrapper compatible.
 - Responsabilidad: automatizar la secuencia de prueba local: `docker compose build rainmapper`, `docker compose run --rm -e MODE=all rainmapper` y servidor HTTP local para abrir visores.
 - Dependencias: Docker Compose y `python3`.
 - Relacion: acceso rapido a `http://127.0.0.1:8080/maplibre-viewer/` y `http://127.0.0.1:8080/leaflet-viewer/` tras regenerar datos locales.
 
 ### Runner local solo mapas
-- Ruta: `local_maps.sh`.
+- Ruta: `rainmapper-local/local_maps.sh`; `local_maps.sh` en raiz es un wrapper compatible.
 - Responsabilidad: automatizar la secuencia de prueba local sin descargar datos nuevos: `docker compose build rainmapper`, `docker compose run --rm -e MODE=maps rainmapper` y servidor HTTP local para abrir visores.
 - Dependencias: Docker Compose y `python3`.
 - Relacion: permite iterar rapido cambios de Leaflet/MapLibre. Desde la extraccion conservadora de `tomap_builder.py`, `MODE=maps` reconstruye `Tomap` desde `docker-data/Data` antes de generar Bokeh/GeoJSON; si no hay lecturas para el dia actual, el periodo de 1 dia puede quedar vacio aunque existan `Tomap` anteriores.
@@ -200,8 +201,8 @@ No incluir secretos en codigo ni documentacion.
 ## Configuracion
 - `requirements.txt`: dependencias Python raiz.
 - `rainmapper-app/app/requirements.txt`: dependencias Python app.
-- `Dockerfile`: Docker local.
-- `docker-compose.yml`: Docker local con volumenes.
+- `rainmapper-local/Dockerfile`: Docker local.
+- `rainmapper-local/docker-compose.yml`: Docker local con volumenes. La raiz mantiene `docker-compose.yml` como include de compatibilidad.
 - `rainmapper-app/Dockerfile`: Docker HA app.
 - `rainmapper-app/config.yaml`: metadata y schema HA.
 - Meteocat/Socrata: timeout y reintentos configurables mediante `meteocat_request_timeout` y `meteocat_max_attempts` en HA, o `RAINMAPPER_METEOCAT_REQUEST_TIMEOUT`/`RAINMAPPER_METEOCAT_MAX_ATTEMPTS` en Docker local.

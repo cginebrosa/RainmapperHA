@@ -1,5 +1,46 @@
 # Decisions
 
+## 2026-06-20 - Mover runtime Docker local a `rainmapper-local`
+
+### Decision
+Mover los ficheros especificos del Docker local a `rainmapper-local/` y mantener wrappers compatibles en la raiz para no romper comandos habituales.
+
+Quedan en `rainmapper-local/`:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `run.sh`
+- `local_all.sh`
+- `local_maps.sh`
+- `local_update.sh`
+
+La raiz conserva `local_all.sh`, `local_maps.sh`, `local_update.sh` y `run.sh` como wrappers, y `docker-compose.yml` como include de compatibilidad. No se conserva `Dockerfile` en raiz para evitar builds directos incorrectos con `docker build .`; la ruta canonica es `rainmapper-local/Dockerfile`.
+
+### Motivo
+Avanzar la fase 5 hacia la estructura `core/app/local` sin tocar todavia la imagen de Home Assistant ni la logica de descarga. Esto separa responsabilidades de carpetas sin mezclarlo con cambios funcionales.
+
+### Alternativas consideradas
+Mover tambien la app HA en el mismo paso, eliminar wrappers de raiz inmediatamente, o mantener todo el runtime local en raiz hasta una reestructuracion completa.
+
+### Consecuencias
+Los comandos antiguos desde raiz siguen funcionando, pero la ubicacion canonica del runtime local pasa a ser `rainmapper-local/`. La fase siguiente puede centrarse en mover mas codigo compartido a `rainmapper_core/` sin arrastrar Docker local en la raiz.
+
+### Ficheros afectados
+- `rainmapper-local/`
+- `Dockerfile`
+- `docker-compose.yml`
+- `run.sh`
+- `local_all.sh`
+- `local_maps.sh`
+- `local_update.sh`
+- `docs/core-refactor.md`
+- `docs/architecture.md`
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+
+### Estado
+Implementada en alcance conservador. Pendiente de validacion final y commit.
+
 ## 2026-06-20 - Mantener estructura hibrida, pero mover librerias internas por fuente
 
 ### Decision

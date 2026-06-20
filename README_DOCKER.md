@@ -2,6 +2,10 @@
 
 This repository can run Rainmapper inside Docker.
 
+The local Docker runtime lives in `rainmapper-local/`. The repository root keeps
+compatibility wrappers and a Compose include so the existing root-level commands
+continue to work.
+
 ## Recommended approach
 
 For Home Assistant, especially on a Raspberry Pi, the recommended approach is:
@@ -19,6 +23,10 @@ The internal scheduled mode also exists, but it is mainly useful for local tests
 Run:
 
     docker compose build rainmapper
+
+Equivalent explicit command:
+
+    docker compose -f rainmapper-local/docker-compose.yml build rainmapper
 
 ## Run once
 

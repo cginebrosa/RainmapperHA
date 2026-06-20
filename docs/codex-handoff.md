@@ -8,7 +8,7 @@ Objetivo a largo plazo: convertir Rainmapper en una plataforma estable para reco
 ## Estado actual del proyecto
 El proyecto tiene dos empaquetados principales:
 
-- Docker local para Mac/desarrollo en la raiz del repositorio.
+- Docker local para Mac/desarrollo en `rainmapper-local/`, con wrappers de compatibilidad en la raiz.
 - App de Home Assistant en `rainmapper-app/`.
 
 La app de Home Assistant esta configurada para funcionar como servicio `serve`, con webUI por ingress/sidebar, schedule interno, ejecuciones manuales `update`, `maps` y `all`, publicacion en `/config/www`, visores Bokeh, Leaflet y MapLibre, metricas basicas de Wunderground y fichero manual para ignorar estaciones anomalas en los GeoJSON. El funcionamiento en la instalacion real de HA ha sido validado manualmente por el usuario; esa validacion no es reproducible solo desde el repositorio.
@@ -56,13 +56,13 @@ Tambien existen documentos de uso:
 - `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
 - `tomap_to_geojson.py`: wrapper compatible hacia `rainmapper_core.geojson`; mantiene el entrypoint CLI para convertir CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
 - `const.py`: constantes y defaults de ejecucion local.
-- `run.sh`: wrapper Docker local.
-- `local_update.sh`: script de conveniencia para construir Docker local y ejecutar solo `MODE=update`, refrescando descargas actuales e incrementales sin reconstruir `Tomap` ni arrancar servidor local.
-- `local_all.sh`: script de conveniencia para construir Docker local, ejecutar `MODE=all` y arrancar un servidor HTTP local para probar MapLibre/Leaflet.
-- `local_maps.sh`: script de conveniencia para construir Docker local, ejecutar `MODE=maps` y arrancar un servidor HTTP local sin descargar datos nuevos.
-- `Dockerfile`: imagen Docker local.
-- `docker-compose.yml`: runner Docker local con volumenes persistentes.
-- `docker-compose.yml`: permite probar concurrencia local con `MAX_THREADS=<n>`; antes estaba fijado a 1 y no propagaba overrides del entorno host.
+- `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
+- `run.sh`: wrapper compatible de raiz hacia `rainmapper-local/run.sh`.
+- `local_update.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_update.sh`; refresca descargas actuales e incrementales sin reconstruir `Tomap` ni arrancar servidor local.
+- `local_all.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_all.sh`; ejecuta `MODE=all` y arranca un servidor HTTP local para probar MapLibre/Leaflet.
+- `local_maps.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_maps.sh`; ejecuta `MODE=maps` y arranca un servidor HTTP local sin descargar datos nuevos.
+- `rainmapper-local/Dockerfile`: imagen Docker local.
+- `rainmapper-local/docker-compose.yml`: runner Docker local con volumenes persistentes; permite probar concurrencia local con `MAX_THREADS=<n>`. La raiz mantiene `docker-compose.yml` como include de compatibilidad.
 - `leaflet-viewer/`: visor Leaflet fuente para pruebas locales/publicacion.
 - `maplibre-viewer/`: visor MapLibre fuente para pruebas locales/publicacion.
 - `scripts/smoke-test.sh`: smoke test versionado para validar sintaxis, GeoJSON minimo con `ignore_stations_tomap.txt`, reconstruccion con poco historico, versiones y sincronizacion raiz/app HA.
@@ -119,8 +119,8 @@ Tambien existen documentos de uso:
 - Estado actual: pieza central de la app HA. Sirve modo `serve` en puerto 8099 e ingress.
 - Riesgos: mucha responsabilidad en un unico fichero. Cambios aqui pueden afectar schedule, webUI, publicacion y acciones manuales.
 
-### `run.sh`
-- Proposito: wrapper Docker local. Traduce variables de entorno a argumentos de `Rainmapper.py`, `Rainmapper_Client.py` y `tomap_to_geojson.py`.
+### `rainmapper-local/run.sh`
+- Proposito: entrypoint Docker local. Traduce variables de entorno a argumentos de `Rainmapper.py`, `Rainmapper_Client.py` y `tomap_to_geojson.py`. `run.sh` en raiz es solo un wrapper compatible.
 - Estado actual: soporta modos `once/update`, `maps`, `all`, `help`, `schedule`. En `maps/all` genera Bokeh y GeoJSON en `docker-data/PublicData` para que MapLibre/Leaflet locales no lean datos obsoletos. La validacion del 2026-06-18 con `./local_all.sh` y 432 estaciones en `01d` fue manual/reportada por el usuario; pendiente de confirmar de forma automatizada.
 - Riesgos: el modo `schedule` local es distinto del modo `serve` de HA; no confundir.
 
@@ -131,12 +131,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.77`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente. En `0.2.77`, el usuario valido manualmente en HA `Run update` con exit code 0, `Generate maps` con exit code 0 y publicacion de visores con `v=0.2.77`.
+- Estado actual: version `0.2.78`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente. En `0.2.78`, el usuario valido manualmente en HA `Run all` correctamente tras la fase 4 del refactor core. En `0.2.77`, el usuario valido manualmente `Run update` con exit code 0, `Generate maps` con exit code 0 y publicacion de visores con `v=0.2.77`.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.77`.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.78`.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `leaflet-viewer/` y `rainmapper-app/app/leaflet-viewer/`
@@ -149,18 +149,18 @@ Tambien existen documentos de uso:
 - Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y terreno 3D.
 - Riesgos: MapLibre queda como visor principal recomendado por decision de proyecto, con Leaflet mantenido como fallback. Las validaciones en HA/iPhone son manuales/reportadas por el usuario y no estan automatizadas. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales futuros si se detectan problemas. En `0.2.56` se corrige la vuelta a Satellite+ tras cambiar a otra capa clonando el objeto de estilo antes de pasarlo a MapLibre. El terreno 3D usa DEM externo Terrarium/Mapzen, esta apagado por defecto y depende de disponibilidad/CORS/rendimiento del proveedor externo hasta decidir si se generan tiles DEM propios.
 
-### `docker-compose.yml`
-- Proposito: ejecucion Docker local con volumenes en `docker-data`.
+### `rainmapper-local/docker-compose.yml`
+- Proposito: ejecucion Docker local con volumenes en `docker-data`. `docker-compose.yml` en raiz incluye este fichero para mantener comandos antiguos.
 - Estado actual: build local `rainmapperha:test`, modo por defecto `once`, variables de entorno y volumenes persistentes.
 - Riesgos: no incluye datos en Git; requiere `docker-data/stations.txt` y API keys locales segun uso.
 
-### `local_maps.sh`
-- Proposito: prueba local rapida de cambios de visores sin descargar datos nuevos.
+### `rainmapper-local/local_maps.sh`
+- Proposito: prueba local rapida de cambios de visores sin descargar datos nuevos. `local_maps.sh` en raiz es solo un wrapper compatible.
 - Estado actual: construye la imagen Docker local, ejecuta `MODE=maps` y arranca un servidor HTTP local para abrir MapLibre/Leaflet con los `Tomap` existentes.
 - Riesgos: usa los datos ya presentes en `docker-data/Tomap`; si esos CSV estan obsoletos, el visor tambien mostrara datos obsoletos.
 
 ## Funcionalidades ya implementadas
-- Docker local reproducible para Mac/desarrollo: `Dockerfile`, `docker-compose.yml`, `run.sh`.
+- Docker local reproducible para Mac/desarrollo: `rainmapper-local/Dockerfile`, `rainmapper-local/docker-compose.yml`, `rainmapper-local/run.sh`, con wrappers compatibles en raiz.
 - App Home Assistant instalable desde repo GitHub: `repository.yaml`, `rainmapper-app/config.yaml`.
 - Modo `serve` con webUI e ingress/sidebar: `rainmapper-app/app/web_server.py`.
 - Ejecuciones manuales `update`, `maps`, `all`: `web_server.py`, `run.sh`.
@@ -193,7 +193,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.77`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.78`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes

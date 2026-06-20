@@ -116,7 +116,7 @@ check_synced_viewers() {
   local dir
 
   for dir in "${RAINMAPPER_SYNC_DIRS[@]}"; do
-    diff -qr "$dir" "rainmapper-app/app/$dir"
+    diff -qr -x __pycache__ -x '*.pyc' "$dir" "rainmapper-app/app/$dir"
   done
 }
 
@@ -371,6 +371,13 @@ check_backup_fixture() {
 
 check_shell_syntax() {
   bash -n run.sh
+  bash -n local_all.sh
+  bash -n local_maps.sh
+  bash -n local_update.sh
+  bash -n rainmapper-local/run.sh
+  bash -n rainmapper-local/local_all.sh
+  bash -n rainmapper-local/local_maps.sh
+  bash -n rainmapper-local/local_update.sh
   bash -n rainmapper-app/run.sh
   bash -n scripts/backup-data.sh
   bash -n scripts/docker-offline-functional-test.sh

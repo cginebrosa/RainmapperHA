@@ -96,7 +96,7 @@ for filename, rows in fixtures.items():
 PY
 
 echo "Building local Docker image rainmapperha:test"
-docker compose build rainmapper
+docker compose -f rainmapper-local/docker-compose.yml build rainmapper
 
 echo "Running offline Tomap and GeoJSON generation inside Docker"
 docker run --rm \

@@ -61,6 +61,8 @@ Variables/opciones principales:
 No guardar secretos reales en Git.
 
 ## Ejecucion en desarrollo
+El runtime Docker local vive en `rainmapper-local/`. La raiz conserva `docker-compose.yml` y scripts wrapper para que los comandos habituales sigan funcionando.
+
 Build Docker local:
 
 ```bash
@@ -105,7 +107,7 @@ Para ejecutar la secuencia local completa y abrir los visores desde un servidor 
 ./local_all.sh
 ```
 
-El script construye la imagen local, ejecuta `MODE=all` y deja servido el repo en `http://127.0.0.1:8080/maplibre-viewer/`. Para cambiar el puerto: `PORT=8081 ./local_all.sh`.
+El script delega en `rainmapper-local/local_all.sh`, construye la imagen local, ejecuta `MODE=all` y deja servido el repo en `http://127.0.0.1:8080/maplibre-viewer/`. Para cambiar el puerto: `PORT=8081 ./local_all.sh`.
 
 ## Tests
 Smoke test rapido:

@@ -134,7 +134,7 @@ Validaciones realizadas para este paso:
 - import de fuentes dentro del contenedor Docker local.
 
 ### Fase 5: estructura objetivo `core/app/local`
-Estado: pendiente.
+Estado: iniciada. Fase 5A implementada en alcance conservador.
 
 Objetivo:
 - Pasar de la estructura hibrida actual a una separacion mas clara por responsabilidades, sin convertirlo en una secuencia indefinida de micro-refactors.
@@ -174,3 +174,31 @@ Relacion con "partir `Rainmapper.py`":
 - No significa dividir el fichero por estetica.
 - Significa separar responsabilidades grandes que hoy conviven en `Rainmapper.py`: CLI/configuracion, orquestacion, fuentes, upsert, estado por fuente, metricas y escritura de ficheros.
 - Esta separacion funcional puede hacerse despues o en paralelo controlado con la reestructura de carpetas, pero no debe bloquear la fase 5 si la fase 5 se limita a ordenar ubicaciones y empaquetado.
+
+#### Fase 5A: mover runtime local
+Estado: implementada, pendiente de commit.
+
+Cambios implementados:
+- Crear `rainmapper-local/`.
+- Mover ahi los ficheros especificos del Docker local:
+  - `rainmapper-local/Dockerfile`
+  - `rainmapper-local/docker-compose.yml`
+  - `rainmapper-local/run.sh`
+  - `rainmapper-local/local_all.sh`
+  - `rainmapper-local/local_maps.sh`
+  - `rainmapper-local/local_update.sh`
+- Mantener wrappers compatibles en la raiz:
+  - `docker-compose.yml`: incluye `rainmapper-local/docker-compose.yml` para que `docker compose ...` siga funcionando desde la raiz.
+  - `run.sh`, `local_all.sh`, `local_maps.sh`, `local_update.sh`: wrappers que delegan en `rainmapper-local/`.
+  - No se mantiene `Dockerfile` en raiz para evitar que `docker build .` genere una imagen distinta o incompleta por error.
+
+Decision conservadora:
+- No tocar todavia la imagen de Home Assistant ni `rainmapper-app/Dockerfile`.
+- No mover `Rainmapper.py` ni cambiar logica de datos.
+- Mantener los comandos habituales de raiz mientras se valida la nueva ubicacion local.
+
+Validaciones esperadas:
+- `docker compose -f rainmapper-local/docker-compose.yml config`
+- `./scripts/smoke-test.sh`
+- `./scripts/docker-offline-functional-test.sh`
+- `./local_all.sh` o `./rainmapper-local/local_all.sh` cuando se quiera una validacion completa con descarga real.

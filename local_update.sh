@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT_DIR"
+# Compatibility wrapper for the local update-only runner.
 
-# This script is intentionally update-only: it refreshes Data/* current downloads and
-# incrementals, but it does not rebuild Tomap or generate/publish viewers.
-echo "Building local Rainmapper Docker image..."
-docker compose build rainmapper
-
-echo "Running Rainmapper locally with MODE=update..."
-docker compose run --rm -e MODE=update rainmapper
-
-echo ""
-echo "Local update finished. Current downloads and incrementals were refreshed."
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/rainmapper-local/local_update.sh" "$@"
