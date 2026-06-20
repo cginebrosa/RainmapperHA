@@ -50,7 +50,7 @@ Tambien existen documentos de uso:
 
 ## Estructura relevante del proyecto
 - `Rainmapper.py`: script principal de descarga, normalizacion, historico y estado por fuente.
-- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental, reconstruccion Tomap y conversion GeoJSON.
+- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental, reconstruccion Tomap, conversion GeoJSON y librerias internas por fuente bajo `rainmapper_core/sources/`.
 - `incremental_upsert.py`: wrapper compatible hacia `rainmapper_core.incremental_upsert`, helper comun para actualizar historicos incrementales por clave `Codi Estació` + `Data Local`, evitando duplicados logicos y conservando valores antiguos cuando una descarga nueva trae `NaN`.
 - `tomap_builder.py`: wrapper compatible hacia `rainmapper_core.tomap`; mantiene el entrypoint CLI para reconstruir CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
 - `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
@@ -342,9 +342,9 @@ Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar l
 9. HA sirve los resultados como `/local/Plots`, `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
 
 ## Integraciones externas
-- Meteocat / Socrata: usado desde `Rainmapper.py` y `sodapy_local`. Endpoint exacto/datasets: pendiente de confirmar en detalle.
-- Meteoclimatic RSS: usado desde `meteoclimatic_local`; `meteoclimatic_pattern` filtra estaciones.
-- Wunderground: scraping via `requests`, `BeautifulSoup` y parser local en `util/`.
+- Meteocat / Socrata: usado desde `Rainmapper.py` y `rainmapper_core/sources/sodapy_local`. Endpoint exacto/datasets: pendiente de confirmar en detalle.
+- Meteoclimatic RSS: usado desde `rainmapper_core/sources/meteoclimatic_local`; `meteoclimatic_pattern` filtra estaciones.
+- Wunderground: scraping via `requests`, `BeautifulSoup` y parser local en `rainmapper_core/sources/wunderground`.
 - Google Maps: `googlemaps` Python client y Bokeh `gmap`; clave en `GMAP_API_KEY`/`gmap_api_key`.
 - Home Assistant Supervisor API: `web_server.py` usa `SUPERVISOR_TOKEN` para resolver informacion del addon.
 - OpenTopoMap / Esri / OpenFreeMap / Terrarium DEM: proveedores de tiles/estilos/relieve para visores.

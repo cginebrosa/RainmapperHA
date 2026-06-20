@@ -121,25 +121,26 @@ check_synced_viewers() {
 }
 
 check_python_syntax() {
+  local python_files=(
+    scripts/check-history.py
+    Rainmapper.py
+    Rainmapper_Client.py
+    tomap_to_geojson.py
+    rainmapper-app/app/Rainmapper.py
+    rainmapper-app/app/Rainmapper_Client.py
+    rainmapper-app/app/tomap_to_geojson.py
+    rainmapper-app/app/web_server.py
+  )
+
+  # Include the whole shared core package so new source-specific helpers are
+  # compiled automatically when added under rainmapper_core/.
+  while IFS= read -r core_file; do
+    python_files+=("$core_file")
+  done < <(find rainmapper_core rainmapper-app/app/rainmapper_core -name '*.py' -type f | sort)
+
   # Compile from source text instead of writing __pycache__ files. This avoids
   # permission issues in cloud-synced folders and keeps the repo clean.
-  "$PYTHON_BIN" - \
-    scripts/check-history.py \
-    Rainmapper.py \
-    Rainmapper_Client.py \
-    rainmapper_core/__init__.py \
-    rainmapper_core/geojson.py \
-    rainmapper_core/incremental_upsert.py \
-    rainmapper_core/tomap.py \
-    tomap_to_geojson.py \
-    rainmapper-app/app/Rainmapper.py \
-    rainmapper-app/app/Rainmapper_Client.py \
-    rainmapper-app/app/rainmapper_core/__init__.py \
-    rainmapper-app/app/rainmapper_core/geojson.py \
-    rainmapper-app/app/rainmapper_core/incremental_upsert.py \
-    rainmapper-app/app/rainmapper_core/tomap.py \
-    rainmapper-app/app/tomap_to_geojson.py \
-    rainmapper-app/app/web_server.py <<'PY'
+  "$PYTHON_BIN" - "${python_files[@]}" <<'PY'
 import sys
 from pathlib import Path
 

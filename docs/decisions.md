@@ -1,6 +1,6 @@
 # Decisions
 
-## 2026-06-20 - Mantener estructura hibrida durante el refactor core
+## 2026-06-20 - Mantener estructura hibrida, pero mover librerias internas por fuente
 
 ### Decision
 Mantener de momento la estructura actual del repositorio:
@@ -10,27 +10,33 @@ Mantener de momento la estructura actual del repositorio:
 - Paquete de Home Assistant en `rainmapper-app/`.
 - Copia operativa empaquetada en `rainmapper-app/app`, sincronizada desde la raiz.
 
-Tambien se decide no mover todavia `sodapy_local/`, `meteoclimatic_local/` ni `util/` dentro de `rainmapper_core`.
+Modificacion posterior de la misma fase: mover las librerias internas acopladas a fuentes dentro de `rainmapper_core/sources/`:
+
+- `sodapy_local/` -> `rainmapper_core/sources/sodapy_local/`
+- `meteoclimatic_local/` -> `rainmapper_core/sources/meteoclimatic_local/`
+- `util/` -> `rainmapper_core/sources/wunderground/`
 
 ### Motivo
 La estructura no es la ideal a largo plazo, pero funciona como transicion segura. Cambiar ahora carpetas, imports, Dockerfiles y contexto de build de Home Assistant en el mismo bloque aumentaria el riesgo sin aportar una mejora funcional inmediata.
 
-El build de HA y el fallback de GitHub Actions usan `rainmapper-app` como contexto Docker. Hacer que la imagen copie directamente ficheros desde la raiz requeriria cambiar ese flujo y podria afectar instalacion/publicacion en HA.
+El build de HA y el fallback de GitHub Actions usan `rainmapper-app` como contexto Docker. Hacer que la imagen copie directamente ficheros desde la raiz requeriria cambiar ese flujo y podria afectar instalacion/publicacion en HA, asi que esa parte se mantiene sin cambios.
 
-Las carpetas `sodapy_local/`, `meteoclimatic_local/` y `util/` estan acopladas a `Rainmapper.py`, que es la parte mas delicada del core. Se moveran, si procede, cuando se aborde el refactor especifico de `Rainmapper.py`.
+Mover las librerias completas por fuente reduce duplicidad y aclara donde viven los clientes/helpers de ingesta sin partir todavia la logica de `Rainmapper.py`. Se evita mover constantes o funciones una por una.
 
 ### Alternativas consideradas
-Reorganizar ya el repositorio hacia una estructura tipo `src/`, mover todas las librerias internas a `rainmapper_core/`, o cambiar el Dockerfile de HA para construir desde la raiz del repo.
+Reorganizar ya el repositorio hacia una estructura tipo `src/`, dejar las librerias internas en raiz hasta el refactor completo de `Rainmapper.py`, o cambiar el Dockerfile de HA para construir desde la raiz del repo.
 
 ### Consecuencias
 La duplicidad fisica raiz/app HA se mantiene por ahora, pero queda controlada operativamente con `scripts/sync-manifest.sh`, `scripts/sync-app-files.sh` y `scripts/smoke-test.sh`.
 
-La reorganizacion global de carpetas queda aplazada hasta que el core este mas separado y haya mas cobertura alrededor de `Rainmapper.py`.
+La reorganizacion global de carpetas queda aplazada hasta que el core este mas separado y haya mas cobertura alrededor de `Rainmapper.py`. Las librerias de fuente ya no deben importarse desde rutas top-level antiguas.
 
 ### Ficheros afectados
 - `scripts/sync-manifest.sh`
 - `scripts/sync-app-files.sh`
 - `scripts/smoke-test.sh`
+- `rainmapper_core/sources/`
+- `Rainmapper.py`
 - `docs/core-refactor.md`
 - `docs/architecture.md`
 - `docs/codex-handoff.md`
@@ -134,7 +140,7 @@ La optimizacion de Wunderground puede seguir teniendo sentido para uso privado y
 
 ### Ficheros afectados
 - `Rainmapper.py`
-- `util/`
+- `rainmapper_core/sources/wunderground/`
 - `docs/codex-handoff.md`
 - `docs/todo.md`
 - `docs/decisions.md`

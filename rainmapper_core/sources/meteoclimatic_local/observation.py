@@ -1,10 +1,10 @@
 import logging
 from datetime import datetime
 #from meteoclimatic import Station, Weather, Condition
-from meteoclimatic_local.weather import Weather, Condition
-from meteoclimatic_local.station import Station
+from rainmapper_core.sources.meteoclimatic_local.weather import Weather, Condition
+from rainmapper_core.sources.meteoclimatic_local.station import Station
 
-from meteoclimatic_local.feed import FeedItemHelper
+from rainmapper_core.sources.meteoclimatic_local.feed import FeedItemHelper
 
 
 class Observation:

@@ -102,7 +102,6 @@ Cambios implementados:
 
 Decision conservadora:
 - No cambiar todavia `rainmapper-app/Dockerfile`. El build de HA y el fallback de GitHub Actions usan `rainmapper-app` como contexto Docker, asi que copiar directamente codigo desde la raiz requeriria cambiar el flujo de build y podria afectar Home Assistant.
-- No reorganizar todavia la raiz del repositorio ni mover `sodapy_local/`, `meteoclimatic_local/` o `util/` a `rainmapper_core`. Esas carpetas estan acopladas a `Rainmapper.py` y deben revisarse cuando se aborde su refactor especifico.
 
 Validaciones realizadas para este paso:
 - `./scripts/sync-app-files.sh`
@@ -113,8 +112,65 @@ Pendiente dentro de Fase 3:
 - Si se quiere reducir mas la copia fisica dentro de `rainmapper-app/app`, hacerlo en una fase posterior cambiando explicitamente el flujo de build y validando HA/GHCR.
 - La reorganizacion global de carpetas queda aplazada hasta que `Rainmapper.py` este mas modularizado.
 
-### Fase 4: refactor de `Rainmapper.py`
-Solo despues de tener cobertura suficiente y varias validaciones:
-- Extraer funciones puras y sin efectos secundarios.
-- Evitar cambiar descarga, escritura de historicos y estado por fuente en el mismo paso.
-- Mantener posibilidad de comparar outputs antes/despues.
+### Fase 4: agrupar librerias internas por fuente
+Estado: implementada.
+
+Cambios implementados:
+- Mover `sodapy_local/` a `rainmapper_core/sources/sodapy_local/`.
+- Mover `meteoclimatic_local/` a `rainmapper_core/sources/meteoclimatic_local/`.
+- Mover `util/` a `rainmapper_core/sources/wunderground/`.
+- Actualizar imports en `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py` y dentro de las librerias movidas.
+- Eliminar del paquete HA las copias antiguas top-level `sodapy_local/`, `meteoclimatic_local/` y `util/`; ahora entran en HA como parte de `rainmapper_core/`.
+- Ampliar `scripts/smoke-test.sh` para compilar dinamicamente todos los `.py` bajo `rainmapper_core/` y su copia HA.
+
+Decision conservadora:
+- No partir todavia la logica de descarga de `Rainmapper.py`; solo se actualizan imports hacia las nuevas rutas de fuente.
+- No mover constantes ni helpers sueltos uno por uno.
+
+Validaciones realizadas para este paso:
+- imports locales de `rainmapper_core.sources.sodapy_local`, `rainmapper_core.sources.meteoclimatic_local` y `rainmapper_core.sources.wunderground`.
+- `./scripts/smoke-test.sh`
+- `./scripts/docker-offline-functional-test.sh`
+- import de fuentes dentro del contenedor Docker local.
+
+### Fase 5: estructura objetivo `core/app/local`
+Estado: pendiente.
+
+Objetivo:
+- Pasar de la estructura hibrida actual a una separacion mas clara por responsabilidades, sin convertirlo en una secuencia indefinida de micro-refactors.
+
+Estructura objetivo:
+- `rainmapper_core/`: todo lo compartido por Docker local y Home Assistant.
+  - Scripts Python reutilizables y modulos de dominio.
+  - `rainmapper_core/sources/` con clientes/helpers de cada fuente.
+  - Configuracion comun cuando realmente sea compartida (`const.py`, `config.py`, `config_wunderground.py` o equivalentes).
+  - Generacion `Tomap`, GeoJSON, upsert incremental y mapas compartidos.
+  - Visores compartidos Leaflet/MapLibre si siguen siendo identicos para local y HA.
+  - Dependencias Python comunes si local y HA siguen usando el mismo set.
+- `rainmapper-app/`: solo lo especifico de Home Assistant.
+  - `config.yaml`, `Dockerfile`, `run.sh` de HA.
+  - `web_server.py`, ingress/sidebar, schedule HA, publicacion a `/config/www` y lectura de `/data/options.json`.
+  - Documentacion propia de la app HA.
+- `rainmapper-local/`: solo lo especifico del entorno local.
+  - Dockerfile/Compose local si dejan de vivir en raiz.
+  - Scripts de conveniencia locales como `local_all.sh`, `local_maps.sh`, `local_update.sh`.
+  - Wrappers locales que solo existan para desarrollo en Mac.
+
+Alcance recomendado:
+1. Definir y documentar el mapa final de ficheros antes de mover nada.
+2. Mover directorios grandes y coherentes, no constantes o helpers uno a uno.
+3. Mantener wrappers compatibles temporalmente para no romper comandos conocidos.
+4. Cambiar Docker local y Docker HA en pasos separados, con validacion entre ambos.
+5. No mezclar esta reestructura con cambios funcionales de descarga, historicos o visores.
+
+Validaciones minimas:
+- `.venv/bin/python -m unittest discover -s tests`
+- `./scripts/smoke-test.sh`
+- `./scripts/docker-offline-functional-test.sh`
+- `./local_all.sh` al menos una vez antes de publicar nueva version HA.
+- Si se toca `rainmapper-app/Dockerfile` o `rainmapper-app/run.sh`, validar build/push GHCR e instalacion HA en una version dedicada.
+
+Relacion con "partir `Rainmapper.py`":
+- No significa dividir el fichero por estetica.
+- Significa separar responsabilidades grandes que hoy conviven en `Rainmapper.py`: CLI/configuracion, orquestacion, fuentes, upsert, estado por fuente, metricas y escritura de ficheros.
+- Esta separacion funcional puede hacerse despues o en paralelo controlado con la reestructura de carpetas, pero no debe bloquear la fase 5 si la fase 5 se limita a ordenar ubicaciones y empaquetado.

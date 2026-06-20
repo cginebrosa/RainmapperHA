@@ -1,6 +1,6 @@
 import requests
 
-from sodapy_local.constants import DEFAULT_API_PATH, OLD_API_PATH
+from rainmapper_core.sources.sodapy_local.constants import DEFAULT_API_PATH, OLD_API_PATH
 
 
 # Utility methods

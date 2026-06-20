@@ -2,9 +2,9 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from bs4 import BeautifulSoup
 
-from meteoclimatic_local.exceptions import MeteoclimaticError, StationNotFound
-from meteoclimatic_local.observation import Observation
-from meteoclimatic_local import __version__
+from rainmapper_core.sources.meteoclimatic_local.exceptions import MeteoclimaticError, StationNotFound
+from rainmapper_core.sources.meteoclimatic_local.observation import Observation
+from rainmapper_core.sources.meteoclimatic_local import __version__
 
 
 import pandas as pd

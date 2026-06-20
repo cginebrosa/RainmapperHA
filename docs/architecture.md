@@ -15,7 +15,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - Librerias de estado JS: no detectadas.
 - Librerias de routing JS: no detectadas.
 - Librerias de validacion: pendiente de confirmar; no se ha detectado framework dedicado.
-- Librerias HTTP/API: `requests`, `sodapy_local`, `googlemaps`.
+- Librerias HTTP/API: `requests`, `rainmapper_core.sources.sodapy_local`, `googlemaps`.
 - Librerias de testing: `unittest` de la libreria estandar en `tests/`; no se ha detectado `pytest`.
 - Base de datos: no hay base de datos detectada; persistencia por CSV.
 - Despliegue: GitHub como repositorio de app HA y GHCR como registry de imagenes preconstruidas; Home Assistant descarga `ghcr.io/cginebrosa/rainmapperha:<version>` cuando existe la imagen publicada.
@@ -27,9 +27,9 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: ha
 - `maplibre-viewer/`: fuente del visor MapLibre en raiz.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `sync-app-files.sh`, `sync-manifest.sh`, `backup-data.sh` y `check-history.py`.
 - `local_update.sh`: runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
-- `meteoclimatic_local/`: cliente local Meteoclimatic.
-- `sodapy_local/`: copia local/adaptada de Socrata client.
-- `util/`: parser/scraper Wunderground.
+- `rainmapper_core/sources/meteoclimatic_local/`: cliente local Meteoclimatic.
+- `rainmapper_core/sources/sodapy_local/`: copia local/adaptada de Socrata client.
+- `rainmapper_core/sources/wunderground/`: parser/scraper Wunderground.
 - `Data/`: CSV historicos locales, ignorados por Git.
 - `Tomap/`: CSV intermedios para mapas, ignorados por Git.
 - `Plots/`: HTML Bokeh generados, ignorados por Git.
@@ -69,7 +69,7 @@ Hay varios entry points segun entorno:
 ### Core de descarga y datos
 - Ruta: `Rainmapper.py` y `rainmapper-app/app/Rainmapper.py`.
 - Responsabilidad: descarga Meteocat, Meteoclimatic y Wunderground; actualiza historicos; escribe estado por fuente; metricas Wunderground.
-- Dependencias: pandas, requests, BeautifulSoup, googlemaps, `meteoclimatic_local`, `sodapy_local`, `util`.
+- Dependencias: pandas, requests, BeautifulSoup, googlemaps y helpers de fuente en `rainmapper_core/sources/`.
 - Relacion: alimenta `Rainmapper_Client.py` y `tomap_to_geojson.py`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global.
 
 ### Upsert incremental

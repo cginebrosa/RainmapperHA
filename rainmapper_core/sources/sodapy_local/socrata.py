@@ -6,8 +6,8 @@ import os
 import re
 import requests
 
-from sodapy_local.constants import DATASETS_PATH
-import sodapy_local.utils as utils
+from rainmapper_core.sources.sodapy_local.constants import DATASETS_PATH
+import rainmapper_core.sources.sodapy_local.utils as utils
 
 
 class Socrata:

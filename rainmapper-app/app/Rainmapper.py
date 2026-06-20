@@ -13,7 +13,7 @@
 # CHECK requirements.txt
 
 import pandas as pd
-from sodapy_local import Socrata
+from rainmapper_core.sources.sodapy_local import Socrata
 from datetime import datetime, date, timedelta, time
 import pytz
 import os
@@ -24,7 +24,7 @@ import sys
 import time as time_module
 import requests
 import googlemaps
-from meteoclimatic_local.client import MeteoclimaticClient
+from rainmapper_core.sources.meteoclimatic_local.client import MeteoclimaticClient
 from const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
 from incremental_upsert import upsert_incremental
 
@@ -2093,11 +2093,11 @@ def process_meteoclimatic():                                        # FOR MULTIT
 import config_wunderground
 import csv
 import lxml.html as lh
-from util.UnitConverter import ConvertToSystem
-from util.Parser import Parser
-from util.Utils import Utils
+from rainmapper_core.sources.wunderground.UnitConverter import ConvertToSystem
+from rainmapper_core.sources.wunderground.Parser import Parser
+from rainmapper_core.sources.wunderground.Utils import Utils
 #inicio modi
-from util.parseStationData import parseStationData
+from rainmapper_core.sources.wunderground.parseStationData import parseStationData
 
 # configuration
 _stations_file = os.path.join(_script_path, 'stations.txt')

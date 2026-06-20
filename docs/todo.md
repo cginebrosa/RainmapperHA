@@ -122,7 +122,7 @@ Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests fun
   - Contexto: scripts grandes y duplicados.
   - Ficheros relacionados: `rainmapper_core/`, `Rainmapper.py`, `rainmapper-app/app/Rainmapper.py`, `scripts/sync-app-files.sh`, `docs/core-refactor.md`.
   - Criterio de aceptacion: una unica fuente de verdad para core compartida por Docker local y HA.
-  - Estado parcial: fases 1 y 2 implementadas para helpers estables. `incremental_upsert` vive en `rainmapper_core/incremental_upsert.py`, `tomap_builder` delega en `rainmapper_core/tomap.py` y `tomap_to_geojson` delega en `rainmapper_core/geojson.py`; los ficheros de raiz/app se mantienen como wrappers compatibles. Fase 3 iniciada centralizando la lista de sincronizacion en `scripts/sync-manifest.sh`, usada por `sync-app-files.sh` y `smoke-test.sh`. Validado con unit tests, smoke test y Docker offline functional test.
+  - Estado parcial: fases 1-4 implementadas en alcance conservador. `incremental_upsert` vive en `rainmapper_core/incremental_upsert.py`, `tomap_builder` delega en `rainmapper_core/tomap.py`, `tomap_to_geojson` delega en `rainmapper_core/geojson.py`, y las librerias internas de fuente viven en `rainmapper_core/sources/`. Los ficheros de raiz/app se mantienen como wrappers compatibles. `scripts/sync-manifest.sh` centraliza la lista de sincronizacion usada por `sync-app-files.sh` y `smoke-test.sh`. Validado con unit tests, smoke test y Docker offline functional test.
   - Riesgo si no se hace: mantenimiento manual permanente.
 
 - [x] Extraer generacion de CSV `Tomap` de `Rainmapper.py`
@@ -144,14 +144,14 @@ Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests fun
 
 - [ ] Definir estrategia legal/comercial para Wunderground antes de una app publica
   - Contexto: el scraping HTML actual funciona para uso propio, pero las condiciones de TWC/Wunderground consultadas el 2026-06-18 no lo hacen apto como base de una app comercial sin permiso escrito. La API/PWS Data Feed oficial tambien limita el uso a personal/no comercial salvo acuerdo separado, y el pricing publico de Weather Data APIs parte de un plan Standard de 500 USD/mes orientado a clientes empresariales.
-  - Ficheros relacionados: `Rainmapper.py`, `util/`, futura API/app movil, documentacion de producto.
+  - Ficheros relacionados: `Rainmapper.py`, `rainmapper_core/sources/wunderground/`, futura API/app movil, documentacion de producto.
   - Criterio de aceptacion: antes de comercializar mapas o app, decidir entre retirar Wunderground, reemplazarlo por fuentes con licencia compatible, limitarlo a uso privado o negociar derechos con The Weather Company.
   - Riesgo si no se hace: dependencia de una fuente con coste/licencia incompatible con una app comercial.
 
 - [ ] Revisar timeout del scraper Wunderground
   - Contexto: algunas estaciones pueden tardar o fallar, pero el tiempo global actual es aceptable y conviene acumular mas observaciones antes de cambiarlo.
   - Dato operativo actual: update completo + generacion de mapas tarda unos 7 minutos segun reporte del usuario; pendiente de confirmar automaticamente.
-  - Ficheros relacionados: `Rainmapper.py`, `util/`.
+  - Ficheros relacionados: `Rainmapper.py`, `rainmapper_core/sources/wunderground/`.
   - Criterio de aceptacion: timeout configurable y errores registrados sin bloquear toda la ejecucion.
   - Riesgo si no se hace: estaciones lentas podrian penalizar todo el run si el rendimiento empeora.
 
