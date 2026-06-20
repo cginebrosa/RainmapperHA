@@ -44,7 +44,7 @@ Hay varios entry points segun entorno:
 - Core de datos: `Rainmapper.py`.
 - Paquete compartido de core: `rainmapper_core/`.
 - Upsert de historicos incrementales: `incremental_upsert.py`.
-- Reconstruccion Tomap sin descarga: `tomap_builder.py`.
+- Reconstruccion Tomap sin descarga: `tomap_builder.py` como entrypoint compatible; implementacion compartida en `rainmapper_core/tomap.py`.
 - Mapas Bokeh: `Rainmapper_Client.py`.
 - GeoJSON: `tomap_to_geojson.py` como entrypoint compatible; implementacion compartida en `rainmapper_core/geojson.py`.
 - WebUI HA: `rainmapper-app/app/web_server.py`.
@@ -57,7 +57,7 @@ Hay varios entry points segun entorno:
 3. En HA, `serve` arranca `web_server.py`.
 4. El usuario pulsa `Run update`, `Generate maps` o `Run all`, o el schedule dispara una accion.
 5. `Rainmapper.py` descarga datos y actualiza CSV historicos/incrementales.
-6. `tomap_builder.py` reconstruye CSV `Tomap` para los periodos acumulados desde historicos incrementales sin descargar datos nuevos.
+6. `tomap_builder.py` reconstruye CSV `Tomap` para los periodos acumulados desde historicos incrementales sin descargar datos nuevos, delegando en `rainmapper_core/tomap.py`.
 7. En `MODE=maps`, `MODE=all` y `Generate maps`, `tomap_builder.py` reconstruye `Tomap` antes de generar salidas publicables.
 8. `Rainmapper_Client.py` genera HTML Bokeh en `Plots`.
 9. `tomap_to_geojson.py` genera GeoJSON desde `Tomap` delegando en `rainmapper_core/geojson.py`.
@@ -85,7 +85,7 @@ Hay varios entry points segun entorno:
 - Relacion: salida publicada por `web_server.py` a `/config/www/Plots`.
 
 ### Reconstructor Tomap
-- Ruta: `tomap_builder.py` y copia en app.
+- Ruta: `rainmapper_core/tomap.py`, con wrappers compatibles en `tomap_builder.py` y `rainmapper-app/app/tomap_builder.py`.
 - Responsabilidad: leer historicos `Data/*_incremental.csv` y reconstruir `Tomap/*.csv` y `LastXX_rains.csv` sin ejecutar descargas.
 - Dependencias: pandas, pathlib, constantes locales.
 - Relacion: `run.sh`, `rainmapper-app/run.sh` y `Generate maps` de la webUI lo ejecutan antes de `Rainmapper_Client.py` y `tomap_to_geojson.py`. Es la ruta activa de generacion `Tomap`; el bloque ejecutable inline y los helpers legacy de `Rainmapper.py` ya fueron retirados.

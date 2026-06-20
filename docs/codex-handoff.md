@@ -50,9 +50,9 @@ Tambien existen documentos de uso:
 
 ## Estructura relevante del proyecto
 - `Rainmapper.py`: script principal de descarga, normalizacion, historico y estado por fuente.
-- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental y conversion GeoJSON.
+- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental, reconstruccion Tomap y conversion GeoJSON.
 - `incremental_upsert.py`: wrapper compatible hacia `rainmapper_core.incremental_upsert`, helper comun para actualizar historicos incrementales por clave `Codi Estació` + `Data Local`, evitando duplicados logicos y conservando valores antiguos cuando una descarga nueva trae `NaN`.
-- `tomap_builder.py`: reconstruye CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
+- `tomap_builder.py`: wrapper compatible hacia `rainmapper_core.tomap`; mantiene el entrypoint CLI para reconstruir CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
 - `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
 - `tomap_to_geojson.py`: wrapper compatible hacia `rainmapper_core.geojson`; mantiene el entrypoint CLI para convertir CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
 - `const.py`: constantes y defaults de ejecucion local.
@@ -95,7 +95,7 @@ Tambien existen documentos de uso:
 
 ### `tomap_builder.py`
 - Proposito: reconstruye `Tomap/*.csv` y `LastXX_rains.csv` desde `Data/*_incremental.csv`, sin descargar datos nuevos.
-- Estado actual: ruta activa de generacion `Tomap`; copia la logica necesaria para que `MODE=maps`, `MODE=all` y `Generate maps` regeneren `Tomap` antes de Bokeh/GeoJSON. El bloque ejecutable equivalente y los helpers legacy ya se retiraron de `Rainmapper.py`.
+- Estado actual: la implementacion vive en `rainmapper_core/tomap.py`; `tomap_builder.py` y `rainmapper-app/app/tomap_builder.py` son wrappers compatibles. Es la ruta activa de generacion `Tomap`; permite que `MODE=maps`, `MODE=all` y `Generate maps` regeneren `Tomap` antes de Bokeh/GeoJSON. El bloque ejecutable equivalente y los helpers legacy ya se retiraron de `Rainmapper.py`.
 - Riesgos: si cambia el schema de historicos incrementales, hay que revisar este builder y los tests asociados.
 
 ### `rainmapper-app/app/Rainmapper.py`

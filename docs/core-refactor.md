@@ -50,23 +50,28 @@ Si falla algo:
 - Volver a ejecutar `./scripts/smoke-test.sh`.
 
 ## Fase 2: usar paquete compartido en mas helpers pequenos
-Estado: iniciada y validada para GeoJSON.
+Estado: implementada y validada para GeoJSON y Tomap builder.
 
 Cambios implementados:
 - Crear `rainmapper_core/geojson.py` con la implementacion compartida de conversion `Tomap` -> GeoJSON.
 - Mantener `tomap_to_geojson.py` en raiz como wrapper compatible hacia `rainmapper_core.geojson`.
 - Mantener `rainmapper-app/app/tomap_to_geojson.py` como wrapper compatible cuando se sincronice la app HA.
+- Crear `rainmapper_core/tomap.py` con la implementacion compartida de reconstruccion `Data/*_incremental.csv` -> `Tomap/*.csv`.
+- Mantener `tomap_builder.py` en raiz como wrapper compatible hacia `rainmapper_core.tomap`.
+- Mantener `rainmapper-app/app/tomap_builder.py` como wrapper compatible cuando se sincronice la app HA.
 - Mantener sin cambios los entrypoints de Docker local y Home Assistant: siguen ejecutando `tomap_to_geojson.py`.
-- Ajustar `scripts/smoke-test.sh` para compilar tambien `rainmapper_core/geojson.py` y su copia HA.
+- Mantener sin cambios los entrypoints de Docker local y Home Assistant: siguen ejecutando `tomap_builder.py`.
+- Ajustar `scripts/smoke-test.sh` para compilar tambien `rainmapper_core/geojson.py`, `rainmapper_core/tomap.py` y sus copias HA.
 
 Validaciones realizadas para este paso:
 - `.venv/bin/python -m unittest discover -s tests`
 - `./scripts/smoke-test.sh`
 - `./scripts/docker-offline-functional-test.sh`
 
-Pendiente dentro de Fase 2:
-- Evaluar si conviene extraer helpers puros de `tomap_builder.py` al paquete compartido.
-- Mantener `tomap_builder.py` como entrypoint mientras se valida cualquier extraccion.
+Resultado:
+- `tomap_to_geojson.py` y `tomap_builder.py` quedan como entrypoints estables.
+- La logica compartida vive en `rainmapper_core/geojson.py` y `rainmapper_core/tomap.py`.
+- Los tests existentes siguen importando `tomap_builder` sin cambios gracias al wrapper.
 
 No mover todavia:
 - `Rainmapper.py` completo.
@@ -76,8 +81,11 @@ No mover todavia:
 ## Rollback de Fase 2
 Si falla algo:
 - Restaurar el contenido anterior de `tomap_to_geojson.py` desde Git.
+- Restaurar el contenido anterior de `tomap_builder.py` desde Git.
 - Eliminar `rainmapper_core/geojson.py`.
+- Eliminar `rainmapper_core/tomap.py`.
 - Quitar las referencias a `rainmapper_core/geojson.py` de `scripts/smoke-test.sh`.
+- Quitar las referencias a `rainmapper_core/tomap.py` de `scripts/smoke-test.sh`.
 - Ejecutar `./scripts/sync-app-files.sh` para volver a alinear la app HA.
 - Volver a ejecutar `./scripts/smoke-test.sh`.
 
