@@ -166,7 +166,7 @@ print_startup_banner
 run_update() {
   echo "Starting Rainmapper update..."
   set +e
-  python Rainmapper.py \
+  python -m rainmapper_core.rainmapper \
     --create_meteoclimatic "$CREATE_METEOCLIMATIC_VALUE" \
     --create_meteocat "$CREATE_METEOCAT_VALUE" \
     --create_wunderground "$CREATE_WUNDERGROUND_VALUE" \
@@ -190,15 +190,15 @@ run_update() {
 run_maps() {
   echo "Starting Rainmapper maps..."
   echo "Rebuilding Rainmapper Tomap..."
-  python tomap_builder.py \
+  python -m rainmapper_core.tomap \
     --data-dir /app/Data \
     --maps-dir /app/Tomap \
     --last-rains-history "$LAST_RAINS_HISTORY_VALUE" \
     --max-threads "$MAX_THREADS_VALUE"
   echo "Rainmapper Tomap finished."
-  python Rainmapper_Client.py
+  python -m rainmapper_core.bokeh_maps
   echo "Starting Rainmapper GeoJSON..."
-  python tomap_to_geojson.py \
+  python -m rainmapper_core.geojson \
     --input-dir /app/Tomap \
     --output-dir /app/PublicData \
     --ignore-stations-file "$IGNORE_STATIONS_TOMAP_FILE"
@@ -211,7 +211,7 @@ run_maps() {
 
 case "$MODE" in
   help)
-    python Rainmapper.py --help
+    python -m rainmapper_core.rainmapper --help
     ;;
   update|once)
     run_update

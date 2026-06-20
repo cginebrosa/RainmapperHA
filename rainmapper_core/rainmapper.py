@@ -26,7 +26,7 @@ import requests
 import googlemaps
 from rainmapper_core.sources.meteoclimatic_local.client import MeteoclimaticClient
 from rainmapper_core.config.const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
-from incremental_upsert import upsert_incremental
+from rainmapper_core.incremental_upsert import upsert_incremental
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -208,7 +208,10 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
 
-_script_path = os.path.dirname(os.path.abspath(__file__))
+# Runtime root is the directory that contains requirements.txt, stations.txt,
+# Data/, Tomap/ and Plots/.  The implementation lives one level deeper in
+# rainmapper_core/, so derive the root from the package location.
+_script_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _requirements_file = os.path.join(_script_path, 'requirements.txt')
 
 print ('=============')
@@ -2373,16 +2376,16 @@ if _create_monthly_stats:                                                # Creat
     create_monthly_dataframe(meteocat_df, _save_to_excel=False)
 #
 
-## Tomap generation is handled by tomap_builder.py so maps can be rebuilt
+## Tomap generation is handled by rainmapper_core.tomap so maps can be rebuilt
 ## independently from weather-data downloads.
 ##
 ## Operational flow:
-## - Rainmapper.py updates source data and source_status.json.
-## - tomap_builder.py rebuilds Tomap/*.csv and LastXX_rains.csv.
-## - Rainmapper_Client.py and tomap_to_geojson.py generate publishable maps.
+## - python -m rainmapper_core.rainmapper updates source data and source_status.json.
+## - python -m rainmapper_core.tomap rebuilds Tomap/*.csv and LastXX_rains.csv.
+## - python -m rainmapper_core.bokeh_maps and python -m rainmapper_core.geojson generate publishable maps.
 if _create_googlemaps_files:
     print('')
-    print('Inline Tomap generation is disabled; Tomap rebuild is handled by tomap_builder.py.')
+    print('Inline Tomap generation is disabled; Tomap rebuild is handled by rainmapper_core.tomap.')
 
 print('')
 exit_code = source_exit_code()

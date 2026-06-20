@@ -1,8 +1,13 @@
 # Changelog
 
+## 0.2.80
+
+- Remove root Python compatibility wrappers `Rainmapper.py` and `Rainmapper_Client.py`; Docker local, Home Assistant, and the webUI now execute `rainmapper_core` modules directly.
+- Keep shell wrappers as the supported user-facing local commands.
+
 ## 0.2.79
 
-- Move classic Bokeh map generation into `rainmapper_core/bokeh_maps.py` while keeping `Rainmapper_Client.py` as the compatible entrypoint.
+- Move classic Bokeh map generation into `rainmapper_core/bokeh_maps.py`.
 - Move Leaflet and MapLibre viewer sources into `rainmapper_core/viewers`.
 - Publish Home Assistant viewer assets directly from the shared core viewer paths, removing separate viewer copies from `rainmapper-app/app`.
 - Keep root-level viewer paths as local compatibility links for existing local test URLs.

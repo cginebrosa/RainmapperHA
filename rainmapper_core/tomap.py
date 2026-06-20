@@ -1,9 +1,9 @@
 """Rebuild Rainmapper Tomap CSV files from incremental history.
 
-This module contains the shared implementation used by the root
-`tomap_builder.py` entrypoint and its Home Assistant copy. The functions keep
-the legacy Tomap output format while making the implementation reusable from
-tests, Docker local and the HA app package.
+This module is the canonical Tomap entrypoint. Run it with
+`python -m rainmapper_core.tomap`. The functions keep the legacy Tomap output
+format while making the implementation reusable from tests, Docker local and
+the HA app package.
 """
 
 import argparse
@@ -13,6 +13,8 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import pandas as pd
+
+from rainmapper_core.config import const as rainmapper_const
 
 
 INCREMENTAL_COLUMNS = [
@@ -335,9 +337,20 @@ def positive_int(value):
     return parsed
 
 
+def default_settings():
+    """Return Tomap defaults from the shared Rainmapper configuration."""
+    return {
+        'data_dir': rainmapper_const._DATA_PATH,
+        'maps_dir': rainmapper_const._MAPS_PATH,
+        'last_rains_history': rainmapper_const._last_number_rains,
+        'minimum_rain_tomap': rainmapper_const._minimum_rain_tomap,
+        'max_threads': rainmapper_const._max_threads,
+    }
+
+
 def parse_args(argv=None, defaults=None):
     """Parse Tomap builder CLI arguments with caller-provided defaults."""
-    defaults = defaults or {}
+    defaults = default_settings() | (defaults or {})
     parser = argparse.ArgumentParser(description='Rebuild Rainmapper Tomap CSV files from incremental history.')
     parser.add_argument('--data-dir', default=defaults.get('data_dir'), help='Directory containing incremental CSV files.')
     parser.add_argument('--maps-dir', default=defaults.get('maps_dir'), help='Directory where Tomap CSV files will be written.')
@@ -375,3 +388,7 @@ def main(argv=None, defaults=None):
         minimum_rain_tomap=args.minimum_rain_tomap,
         max_threads=args.max_threads,
     )
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

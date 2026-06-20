@@ -1,5 +1,5 @@
 const defaultDataBase = (window.location.pathname.includes("/leaflet-viewer/") || window.location.pathname.includes("/mobile-viewer/"))
-  ? "../docker-data/PublicData/"
+  ? "../../../docker-data/PublicData/"
   : "data/";
 const DATA_BASE = new URLSearchParams(window.location.search).get("data") || defaultDataBase;
 

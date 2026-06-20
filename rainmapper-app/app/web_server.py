@@ -553,7 +553,8 @@ def schedule_days() -> set[int]:
 def command_for(action: str) -> list[str]:
     update_command = [
         "python",
-        "Rainmapper.py",
+        "-m",
+        "rainmapper_core.rainmapper",
         "--create_meteoclimatic",
         env("RAINMAPPER_CREATE_METEOCLIMATIC", "true"),
         "--create_meteocat",
@@ -590,15 +591,15 @@ def command_for(action: str) -> list[str]:
         return [
             "sh",
             "-c",
-            "python tomap_builder.py "
+            "python -m rainmapper_core.tomap "
             "--data-dir /app/Data "
             "--maps-dir /app/Tomap "
             "--last-rains-history \"$RAINMAPPER_LAST_RAINS_HISTORY\" "
             "--max-threads \"$RAINMAPPER_MAX_THREADS\" "
-            "&& python Rainmapper_Client.py",
+            "&& python -m rainmapper_core.bokeh_maps",
         ]
     if action == "all":
-        return update_command + ["&&", "python", "Rainmapper_Client.py"]
+        return update_command + ["&&", "python", "-m", "rainmapper_core.bokeh_maps"]
     raise ValueError(f"Invalid action: {action}")
 
 
@@ -951,7 +952,8 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     process = subprocess.run(
         [
             "python",
-            "tomap_to_geojson.py",
+            "-m",
+            "rainmapper_core.geojson",
             "--input-dir",
             str(TOMAP_PATH),
             "--output-dir",

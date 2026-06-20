@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-import tomap_to_geojson
+from rainmapper_core import geojson as tomap_to_geojson
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]

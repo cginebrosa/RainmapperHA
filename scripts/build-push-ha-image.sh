@@ -37,7 +37,7 @@ docker buildx build \
   --tag "$IMAGE_NAME:$version" \
   --tag "$IMAGE_NAME:latest" \
   --push \
-  "$APP_DIR"
+  "$ROOT_DIR"
 
 printf 'Published %s:%s and %s:latest\n' "$IMAGE_NAME" "$version" "$IMAGE_NAME"
 

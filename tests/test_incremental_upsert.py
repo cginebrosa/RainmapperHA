@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from incremental_upsert import upsert_incremental
+from rainmapper_core.incremental_upsert import upsert_incremental
 
 
 def row(station, local_date, rain, max_temp=None, station_name=None):

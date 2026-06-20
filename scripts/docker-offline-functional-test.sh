@@ -11,8 +11,8 @@ set -euo pipefail
 # Covered flow:
 #   1. Build the local Docker image.
 #   2. Create temporary Rainmapper-like incremental CSV files.
-#   3. Run tomap_builder.py inside the container.
-#   4. Run tomap_to_geojson.py inside the container.
+#   3. Run rainmapper_core.tomap inside the container.
+#   4. Run rainmapper_core.geojson inside the container.
 #   5. Validate Tomap and GeoJSON outputs from the host.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -108,12 +108,12 @@ docker run --rm \
   -e RAINMAPPER_IGNORE_STATIONS_TOMAP_FILE=/app/ignore_stations_tomap.txt \
   rainmapperha:test \
   sh -eu -c '
-    python tomap_builder.py \
+    python -m rainmapper_core.tomap \
       --data-dir /app/Data \
       --maps-dir /app/Tomap \
       --last-rains-history 3 \
       --max-threads 2
-    python tomap_to_geojson.py \
+    python -m rainmapper_core.geojson \
       --input-dir /app/Tomap \
       --output-dir /app/PublicData \
       --ignore-stations-file /app/ignore_stations_tomap.txt

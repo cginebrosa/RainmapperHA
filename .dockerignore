@@ -25,9 +25,7 @@ Rainmapper_Client_old.py
 weather_scraper_old.py
 stations_test.txt
 stations.txt
-stations.example.txt
 
 # Docs and repo metadata not needed in the image
 README_DOCKER.md
 .gitignore
-/rainmapper-app/

@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pandas as pd
 
-import tomap_builder
-import tomap_to_geojson
-from incremental_upsert import upsert_incremental
+from rainmapper_core.incremental_upsert import upsert_incremental
+from rainmapper_core import geojson as tomap_to_geojson
+from rainmapper_core import tomap as tomap_builder
 
 
 def make_incremental_row(station_code, reading_date, rain, max_temp=20.0):

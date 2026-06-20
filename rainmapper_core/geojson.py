@@ -1,9 +1,8 @@
 """Convert Rainmapper Tomap CSV files into GeoJSON for web viewers.
 
-This module contains the shared implementation used by the root
-`tomap_to_geojson.py` entrypoint and its Home Assistant copy. Keeping the logic
-here lets the project reduce root/app duplication while preserving the existing
-CLI scripts.
+This module is the canonical GeoJSON entrypoint. Run it with
+`python -m rainmapper_core.geojson`. Keeping the logic here lets the project
+reduce root/app duplication without maintaining separate wrapper scripts.
 """
 
 import argparse
@@ -231,3 +230,7 @@ def main():
 
     if not converted:
         raise SystemExit("No GeoJSON files were generated.")
+
+
+if __name__ == "__main__":
+    main()

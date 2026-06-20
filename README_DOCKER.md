@@ -74,7 +74,7 @@ Update weather data and then generate map HTML files:
       -e MODE=all \
       rainmapper
 
-`MODE=maps` runs `Rainmapper_Client.py` and writes HTML files to:
+`MODE=maps` runs `python -m rainmapper_core.bokeh_maps` and writes HTML files to:
 
     docker-data/Plots/
 
@@ -120,7 +120,7 @@ Scheduled mode keeps the container alive and runs the update task every day at t
 
 This is useful for testing or non-Home Assistant deployments.
 
-Scheduled mode runs `Rainmapper.py` only. It does not generate map HTML files.
+Scheduled mode runs `python -m rainmapper_core.rainmapper` only. It does not generate map HTML files.
 
 Temporary scheduled test:
 

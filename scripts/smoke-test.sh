@@ -4,14 +4,10 @@ set -u
 # Fast repository health check for local development. It intentionally avoids
 # network, Docker runs and Home Assistant access; those are validated manually or
 # with dedicated scripts. This script focuses on cheap regressions: syntax,
-# version alignment, root/app synchronization and small functional fixtures.
+# version alignment, HA packaging shape and small functional fixtures.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
-
-# Reuse the same sync manifest used by sync-app-files.sh so smoke checks cover
-# every root source copied into the Home Assistant app package.
-source "$ROOT_DIR/scripts/sync-manifest.sh"
 
 # Prefer the project virtualenv when available, but keep the script usable on a
 # fresh machine with only python3 installed.
@@ -87,10 +83,8 @@ check_viewer_asset_versions() {
 
   stale_refs="$(
     grep -RInE 'href="[^"]+\\?v=|src="[^"]+\\?v=' \
-      leaflet-viewer/index.html \
-      maplibre-viewer/index.html \
-      rainmapper-app/app/rainmapper_core/viewers/leaflet-viewer/index.html \
-      rainmapper-app/app/rainmapper_core/viewers/maplibre-viewer/index.html \
+      rainmapper_core/viewers/leaflet-viewer/index.html \
+      rainmapper_core/viewers/maplibre-viewer/index.html \
     | grep -v "?v=${config_version}" || true
   )"
   if [ -n "$stale_refs" ]; then
@@ -99,36 +93,27 @@ check_viewer_asset_versions() {
   fi
 }
 
-# Root scripts are the development source of truth; rainmapper-app/app contains
-# the copy that goes into the HA image. The sync script must keep them identical.
-check_synced_files() {
-  local file
+check_ha_app_contains_only_ha_specific_code() {
+  local unexpected
 
-  for file in "${RAINMAPPER_SYNC_FILES[@]}"; do
-    if ! cmp -s "$file" "rainmapper-app/app/$file"; then
-      printf 'File differs: %s vs rainmapper-app/app/%s\n' "$file" "$file" >&2
-      return 1
-    fi
-  done
-}
-
-check_synced_viewers() {
-  local dir
-
-  for dir in "${RAINMAPPER_SYNC_DIRS[@]}"; do
-    diff -qr -x __pycache__ -x '*.pyc' "$dir" "rainmapper-app/app/$dir"
-  done
+  # The HA image is now built from the repository root, so rainmapper-app/app
+  # should only contain HA-specific code. Shared core files must live in
+  # rainmapper_core/ and be copied directly by rainmapper-app/Dockerfile.
+  unexpected="$(
+    find rainmapper-app/app -mindepth 1 -maxdepth 1 \
+      ! -name web_server.py \
+      ! -name __pycache__ \
+      -print
+  )"
+  if [ -n "$unexpected" ]; then
+    printf 'Unexpected shared-code copy under rainmapper-app/app:\n%s\n' "$unexpected" >&2
+    return 1
+  fi
 }
 
 check_python_syntax() {
   local python_files=(
     scripts/check-history.py
-    Rainmapper.py
-    Rainmapper_Client.py
-    tomap_to_geojson.py
-    rainmapper-app/app/Rainmapper.py
-    rainmapper-app/app/Rainmapper_Client.py
-    rainmapper-app/app/tomap_to_geojson.py
     rainmapper-app/app/web_server.py
   )
 
@@ -136,7 +121,7 @@ check_python_syntax() {
   # compiled automatically when added under rainmapper_core/.
   while IFS= read -r core_file; do
     python_files+=("$core_file")
-  done < <(find rainmapper_core rainmapper-app/app/rainmapper_core -name '*.py' -type f | sort)
+  done < <(find rainmapper_core -name '*.py' -type f | sort)
 
   # Compile from source text instead of writing __pycache__ files. This avoids
   # permission issues in cloud-synced folders and keeps the repo clean.
@@ -152,14 +137,10 @@ PY
 }
 
 check_js_syntax() {
-  node --check leaflet-viewer/app.js
-  node --check leaflet-viewer/config.js
-  node --check maplibre-viewer/app.js
-  node --check maplibre-viewer/config.js
-  node --check rainmapper-app/app/rainmapper_core/viewers/leaflet-viewer/app.js
-  node --check rainmapper-app/app/rainmapper_core/viewers/leaflet-viewer/config.js
-  node --check rainmapper-app/app/rainmapper_core/viewers/maplibre-viewer/app.js
-  node --check rainmapper-app/app/rainmapper_core/viewers/maplibre-viewer/config.js
+  node --check rainmapper_core/viewers/leaflet-viewer/app.js
+  node --check rainmapper_core/viewers/leaflet-viewer/config.js
+  node --check rainmapper_core/viewers/maplibre-viewer/app.js
+  node --check rainmapper_core/viewers/maplibre-viewer/config.js
 }
 
 check_python_unit_tests() {
@@ -181,7 +162,7 @@ check_geojson_conversion() {
   printf 'Codi Estació,Latitud,Longitud,Pluja\nTEST_KEEP,41.100,2.100,3.5\nTEST_DROP,41.200,2.200,9.9\n' > "$input_dir/01_Tomap_Last_day.csv"
   printf 'TEST_DROP\n' > "$ignore_file"
 
-  if ! "$PYTHON_BIN" tomap_to_geojson.py \
+  if ! "$PYTHON_BIN" -m rainmapper_core.geojson \
     --input-dir "$input_dir" \
     --output-dir "$output_dir" \
     --ignore-stations-file "$ignore_file" > "$convert_log" 2>&1; then
@@ -255,7 +236,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-import tomap_builder
+from rainmapper_core import tomap as tomap_builder
 
 tmp_dir = Path(sys.argv[1])
 maps_path = tmp_dir / "Tomap"
@@ -382,8 +363,6 @@ check_shell_syntax() {
   bash -n scripts/backup-data.sh
   bash -n scripts/docker-offline-functional-test.sh
   bash -n scripts/smoke-test.sh
-  bash -n scripts/sync-manifest.sh
-  bash -n scripts/sync-app-files.sh
 }
 
 # Keep these checks ordered from cheap/environmental to more functional tests.
@@ -391,8 +370,7 @@ run_check "Python interpreter is available ($PYTHON_BIN)" require_command "$PYTH
 run_check "node is available" require_command node
 run_check "Home Assistant version metadata is aligned" check_versions
 run_check "viewer asset cache-busters match Home Assistant version" check_viewer_asset_versions
-run_check "root and Home Assistant app files are synchronized" check_synced_files
-run_check "Leaflet and MapLibre viewer copies are synchronized" check_synced_viewers
+run_check "Home Assistant app folder contains only HA-specific code" check_ha_app_contains_only_ha_specific_code
 run_check "Python files compile" check_python_syntax
 run_check "JavaScript files parse" check_js_syntax
 run_check "Python unit tests pass" check_python_unit_tests

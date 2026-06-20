@@ -63,7 +63,7 @@ No guardar secretos reales en Git.
 ## Ejecucion en desarrollo
 El runtime Docker local vive en `rainmapper-local/`. La raiz conserva `docker-compose.yml` y scripts wrapper para que los comandos habituales sigan funcionando.
 
-Los visores compartidos viven en `rainmapper_core/viewers/`. Las rutas `leaflet-viewer/` y `maplibre-viewer/` se mantienen en la raiz como compatibilidad para el servidor local y los comandos existentes.
+Los visores compartidos viven solo en `rainmapper_core/viewers/`. El servidor local los sirve directamente desde esas rutas canonicas.
 
 Build Docker local:
 
@@ -109,7 +109,7 @@ Para ejecutar la secuencia local completa y abrir los visores desde un servidor 
 ./local_all.sh
 ```
 
-El script delega en `rainmapper-local/local_all.sh`, construye la imagen local, ejecuta `MODE=all` y deja servido el repo en `http://127.0.0.1:8080/maplibre-viewer/`. Para cambiar el puerto: `PORT=8081 ./local_all.sh`.
+El script delega en `rainmapper-local/local_all.sh`, construye la imagen local, ejecuta `MODE=all` y deja servido el repo en `http://127.0.0.1:8080/rainmapper_core/viewers/maplibre-viewer/`. Para cambiar el puerto: `PORT=8081 ./local_all.sh`.
 
 ## Tests
 Smoke test rapido:
@@ -118,7 +118,7 @@ Smoke test rapido:
 ./scripts/smoke-test.sh
 ```
 
-El smoke test valida sintaxis Python, sintaxis JavaScript, tests `unittest`, wrappers shell, conversion GeoJSON minima, reconstruccion con poco historico, metadata de version de Home Assistant, sincronizacion entre raiz y `rainmapper-app/app`, y whitespace del diff de Git.
+El smoke test valida sintaxis Python, sintaxis JavaScript, tests `unittest`, wrappers shell, conversion GeoJSON minima, reconstruccion con poco historico, metadata de version de Home Assistant, que `rainmapper-app/app` contenga solo codigo especifico de HA, y whitespace del diff de Git.
 
 Tests funcionales versionados:
 
@@ -126,21 +126,16 @@ Tests funcionales versionados:
 .venv/bin/python -m unittest discover -s tests
 ```
 
-La primera cobertura formal se centra en `tomap_to_geojson.py` y sus fixtures en `tests/fixtures`.
+La primera cobertura formal se centra en `rainmapper_core.geojson` y sus fixtures en `tests/fixtures`.
 
-Para sincronizar las copias empaquetadas en la app de Home Assistant despues de cambios en scripts raiz o visores:
-
-```bash
-./scripts/sync-app-files.sh
-```
 
 Validaciones manuales/sintacticas recomendadas:
 
 ```bash
 ./scripts/smoke-test.sh
-python -m py_compile Rainmapper.py Rainmapper_Client.py tomap_to_geojson.py rainmapper-app/app/web_server.py
-node --check leaflet-viewer/app.js
-node --check maplibre-viewer/app.js
+python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/tomap.py rainmapper_core/geojson.py rainmapper-app/app/web_server.py
+node --check rainmapper_core/viewers/leaflet-viewer/app.js
+node --check rainmapper_core/viewers/maplibre-viewer/app.js
 git diff --check
 ```
 

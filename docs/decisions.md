@@ -1,5 +1,121 @@
 # Decisions
 
+## 2026-06-20 - Retirar wrappers raiz `Rainmapper.py` y `Rainmapper_Client.py`
+
+Decision:
+
+- Se eliminan `Rainmapper.py` y `Rainmapper_Client.py` de la raiz.
+- Docker local, Home Assistant y la webUI ejecutan directamente `python -m rainmapper_core.rainmapper` y `python -m rainmapper_core.bokeh_maps`.
+- La imagen HA deja de copiar wrappers Python de raiz; solo copia `stations.example.txt`, `rainmapper_core/`, `web_server.py` y `run.sh`.
+
+Motivo:
+
+- Los wrappers ya no aportaban compatibilidad operativa suficiente y mantenian la confusion sobre donde vive el codigo real.
+- El core ya esta empaquetado como modulo ejecutable y el build HA se hace desde la raiz del repositorio.
+
+Consecuencias:
+
+- Cualquier uso manual antiguo `python Rainmapper.py ...` debe cambiarse por `python -m rainmapper_core.rainmapper ...`.
+- Cualquier uso manual antiguo `python Rainmapper_Client.py` debe cambiarse por `python -m rainmapper_core.bokeh_maps`.
+- Los wrappers shell (`run.sh`, `local_all.sh`, `local_maps.sh`, `local_update.sh`) se mantienen como interfaz comoda de usuario.
+
+## 2026-06-20 - Retirar wrappers raiz de configuracion e incremental upsert
+
+Decision:
+
+- Se eliminan `const.py`, `config.py`, `config_wunderground.py` e `incremental_upsert.py` de la raiz.
+- El codigo y los tests importan directamente desde `rainmapper_core.config` y `rainmapper_core.incremental_upsert`.
+- La imagen HA deja de copiar esos wrappers desde la raiz.
+
+Motivo:
+
+- Ya no hay codigo interno que dependa de los imports legacy top-level.
+- Mantener esos wrappers en la raiz creaba confusion sobre donde vive la configuracion real.
+- La raiz queda reservada a entrypoints shell de usuario que siguen aportando compatibilidad, como `run.sh` y `local_*.sh`; los entrypoints Python se ejecutan con `python -m rainmapper_core...`.
+
+Consecuencias:
+
+- Cualquier uso manual antiguo `from const import ...` o `from incremental_upsert import ...` debe cambiarse a imports desde `rainmapper_core`.
+- Este cambio requiere validar Docker local, smoke test y build HA porque afecta al contenido copiado a la imagen.
+
+## 2026-06-20 - Construir HA desde la raiz y retirar copias fisicas de core
+
+Sustituye la decision operativa anterior de sincronizar raiz -> `rainmapper-app/app` con `scripts/sync-app-files.sh`.
+
+Decision:
+
+- `rainmapper-app/Dockerfile` se construye con la raiz del repositorio como contexto.
+- La imagen HA copia `rainmapper_core/`, wrappers raiz, configuracion compartida y `rainmapper-app/app/web_server.py` directamente desde la raiz.
+- `rainmapper-app/app` queda reservado a codigo especifico de HA; actualmente solo contiene `web_server.py`.
+- `scripts/sync-app-files.sh` y `scripts/sync-manifest.sh` se retiran.
+
+Motivo:
+
+- Eliminar la duplicidad fisica que obligaba a sincronizar manualmente o mediante script.
+- Evitar que HA y Docker local puedan quedar con versiones distintas del core.
+- Hacer que `requirements.txt` tenga una sola fuente de verdad para el build HA.
+
+Alternativas descartadas:
+
+- Mantener copias HA sincronizadas: resuelto temporalmente, pero seguia generando confusion y trabajo recurrente.
+- Convertir ya todo en paquete instalable Python: se pospone; el build desde raiz resuelve la duplicidad con menos riesgo.
+
+Consecuencias:
+
+- El build HA ya no soporta usar `rainmapper-app` como contexto Docker aislado; debe usarse la raiz del repo.
+- `scripts/build-push-ha-image.sh` y `.github/workflows/build-rainmapper-app.yml` usan ese contexto raiz.
+- `scripts/smoke-test.sh` valida que no vuelvan copias de core a `rainmapper-app/app`.
+
+## 2026-06-20 - Retirar wrappers raiz/HA de Tomap y GeoJSON
+
+Se eliminan los wrappers `tomap_builder.py` y `tomap_to_geojson.py` de la raiz y sus copias en `rainmapper-app/app`.
+
+Decision:
+
+- `rainmapper_core.tomap` se ejecuta directamente con `python -m rainmapper_core.tomap`.
+- `rainmapper_core.geojson` se ejecuta directamente con `python -m rainmapper_core.geojson`.
+- Docker local, Home Assistant, webUI, smoke test y pruebas Docker offline pasan a usar esos modulos core.
+
+Motivo:
+
+- Tomap y GeoJSON ya son piezas del core y no necesitan wrappers historicos en raiz.
+- Reducir entrypoints duplicados evita confusion sobre donde vive la implementacion real.
+
+Alternativas descartadas:
+
+- Mantener wrappers por compatibilidad: ya no aportan suficiente valor frente a la confusion que generan.
+- Renombrar comandos de usuario locales: se pospone; `local_maps.sh` y `local_all.sh` siguen siendo la interfaz comoda para pruebas.
+
+Consecuencias:
+
+- Cualquier uso manual antiguo `python tomap_builder.py` o `python tomap_to_geojson.py` debe cambiarse por `python -m rainmapper_core.tomap` o `python -m rainmapper_core.geojson`.
+- Sustituida por la decision posterior de construir HA desde la raiz: la imagen HA copia `rainmapper_core/` durante el build, pero no se versiona una copia fisica en `rainmapper-app/app`.
+
+## 2026-06-20 - Mover `Rainmapper.py` a `rainmapper_core/rainmapper.py`
+
+Se mueve la implementacion real del runner principal de descarga y actualizacion al paquete compartido `rainmapper_core`.
+
+Decision:
+
+- `rainmapper_core/rainmapper.py` pasa a ser la unica implementacion real de descarga, historicos, estado por fuente y metricas.
+- `Rainmapper.py` queda como wrapper compatible que ejecuta `rainmapper_core.rainmapper`; HA lo copia desde la raiz durante el build.
+- No se parte todavia la logica interna del runner; esta fase solo elimina la duplicidad real raiz/app HA.
+
+Motivo:
+
+- `Rainmapper.py` era el ultimo bloque grande con implementacion duplicada entre raiz y HA.
+- Mantener el nombre historico como wrapper evita romper Docker local, HA, scripts existentes y uso manual.
+
+Alternativas descartadas:
+
+- Renombrarlo a `runner.py`: descartado por preferencia del proyecto y porque `rainmapper.py` describe mejor el modulo principal.
+- Partir fuentes/CLI/estado en la misma fase: descartado para no mezclar movimiento estructural con reescritura funcional.
+
+Consecuencias:
+
+- Sustituida por la decision posterior de construir HA desde la raiz: no queda copia versionada de `rainmapper_core/` dentro de `rainmapper-app/app`.
+- Validado localmente con smoke, Docker offline y `local_update.sh`; HA 0.2.79 valido el movimiento antes de retirar las ultimas copias.
+
 ## 2026-06-20 - Mover Bokeh y visores compartidos a `rainmapper_core`
 
 Se mueve la implementacion compartida de mapas clasicos Bokeh y los visores web estaticos al paquete core.
@@ -10,7 +126,7 @@ Decision:
 - Los visores pasan a:
   - `rainmapper_core/viewers/leaflet-viewer/`
   - `rainmapper_core/viewers/maplibre-viewer/`
-- Se mantienen rutas compatibles `leaflet-viewer/` y `maplibre-viewer/` en raiz para no romper pruebas locales, servidor HTTP local ni referencias existentes.
+- Se retiran las rutas compatibles `leaflet-viewer/` y `maplibre-viewer/` de la raiz; las pruebas locales usan directamente `rainmapper_core/viewers/...`.
 - `web_server.py` publica directamente desde `/app/rainmapper_core/viewers/leaflet-viewer` y `/app/rainmapper_core/viewers/maplibre-viewer`, por lo que se retiran las copias separadas `rainmapper-app/app/leaflet-viewer` y `rainmapper-app/app/maplibre-viewer`.
 
 Motivo:
@@ -25,7 +141,7 @@ Alternativas descartadas:
 
 ## 2026-06-20 - Mover configuracion Python compartida a `rainmapper_core/config`
 
-Se mueve la implementacion real de `const.py`, `config.py` y `config_wunderground.py` a `rainmapper_core/config/`.
+Se mueve la implementacion real de `rainmapper_core/config/const.py`, `rainmapper_core/config/config.py` y `rainmapper_core/config/config_wunderground.py` a `rainmapper_core/config/`.
 
 Motivo:
 
@@ -42,7 +158,7 @@ Decision:
 
 Detalle importante:
 
-- `const.py` usa nombres historicos con guion bajo (`_DATA_PATH`, `_max_threads`, etc.). El wrapper reexporta esos nombres explicitamente porque `import *` no exporta nombres privados por defecto.
+- `rainmapper_core/config/const.py` mantiene nombres historicos con guion bajo (`_DATA_PATH`, `_max_threads`, etc.). La decision posterior del 2026-06-20 retira el wrapper raiz, por lo que el import canonico es `rainmapper_core.config.const`.
 - La implementacion movida calcula `_script_path` como la raiz del runtime, no como `rainmapper_core/config`, para conservar rutas `Data`, `Tomap` y `Plots`.
 
 Alternativas descartadas:
@@ -139,7 +255,7 @@ Confirmada como criterio conservador para cerrar Fase 3 inicial.
 ## 2026-06-19 - Upsert incremental por estacion y dia
 
 ### Decision
-Actualizar los historicos `Data/*_incremental.csv` con una regla comun en `incremental_upsert.py`: la identidad logica de una lectura diaria es `Codi Estació` + `Data Local`.
+Actualizar los historicos `Data/*_incremental.csv` con una regla comun en `rainmapper_core/incremental_upsert.py`: la identidad logica de una lectura diaria es `Codi Estació` + `Data Local`.
 
 La fila nueva manda para todos los valores no nulos. Si una descarga nueva trae `NaN` en una columna, se conserva el valor antiguo no nulo de esa misma estacion/dia.
 
@@ -153,7 +269,7 @@ Mantener `merge` por todas las columnas, hacer append puro, quedarse siempre con
 El CSV sigue siendo el formato persistente, pero la semantica de actualizacion queda explicita y testeada. Se limpian duplicados existentes cuando el incremental se vuelve a guardar. La migracion a SQLite/Parquet queda pospuesta hasta que haya una razon clara de rendimiento, consulta o integridad.
 
 ### Ficheros afectados
-- `incremental_upsert.py`
+- `rainmapper_core/incremental_upsert.py`
 - `Rainmapper.py`
 - `rainmapper-app/app/Rainmapper.py`
 - `tests/test_incremental_upsert.py`
@@ -472,8 +588,8 @@ Parsear directamente CSV `Tomap` en navegador o seguir solo con HTML Bokeh.
 
 ### Ficheros afectados
 - `tomap_to_geojson.py`
-- `leaflet-viewer/app.js`
-- `maplibre-viewer/app.js`
+- `rainmapper_core/viewers/leaflet-viewer/app.js`
+- `rainmapper_core/viewers/maplibre-viewer/app.js`
 
 ### Estado
 Confirmada.
@@ -676,7 +792,7 @@ Confirmada.
 Permite recuperar varias zonas RSS sin cambiar codigo.
 
 ### Alternativas consideradas
-Un solo patron fijo en `const.py`.
+Un solo patron fijo en `rainmapper_core/config/const.py`.
 
 ### Consecuencias
 Hay un pequeno delay entre peticiones para no golpear el feed. Algunos prefijos pueden no estar soportados por Meteoclimatic aunque el codigo los acepte.
@@ -704,10 +820,10 @@ Hardcodear claves en scripts o HTML.
 Cada instalacion debe configurar sus propias claves. En mapas cliente, tokens de tiles pueden ser visibles en navegador y deben restringirse por dominio si el proveedor lo permite; por esa razon se evita mantener proveedores opcionales con token cliente si no aportan valor claro.
 
 ### Ficheros afectados
-- `const.py`
+- `rainmapper_core/config/const.py`
 - `rainmapper-app/config.yaml`
-- `leaflet-viewer/config.js`
-- `maplibre-viewer/config.js`
+- `rainmapper_core/viewers/leaflet-viewer/config.js`
+- `rainmapper_core/viewers/maplibre-viewer/config.js`
 
 ### Estado
 Confirmada, modificada para retirar Jawg.

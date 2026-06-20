@@ -39,7 +39,7 @@ Contenido esperado:
 
 - `Data`: CSV historicos e incrementales de Meteocat, Meteoclimatic y Wunderground.
 - `Tomap`: CSV preparados para pintar mapas.
-- `Plots`: HTML generados por `Rainmapper_Client.py`.
+- `Plots`: HTML generados por `python -m rainmapper_core.bokeh_maps`.
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
 - `ignore_stations_tomap.txt`: lista opcional de estaciones que no deben aparecer en los GeoJSON usados por Leaflet/MapLibre.
 - `Data/source_status.json`: ultimo estado de actualizacion por fuente.
@@ -126,7 +126,7 @@ Ejemplos:
 /local/Plots/rain_90d.html
 ```
 
-Este visor usa los HTML generados por `Rainmapper_Client.py`. Es el visor original y sigue siendo util como referencia, pero en movil es menos comodo.
+Este visor usa los HTML generados por `python -m rainmapper_core.bokeh_maps`. Es el visor original y sigue siendo util como referencia, pero en movil es menos comodo.
 
 ### Que se regenera en cada caso
 
@@ -147,7 +147,7 @@ Si editas `ignore_stations_tomap.txt`, ejecuta `maps` o `all` para que Leaflet y
 help
 ```
 
-Muestra la ayuda de `Rainmapper.py`. Es util para una primera prueba despues de instalar.
+Muestra la ayuda de `python -m rainmapper_core.rainmapper`. Es util para una primera prueba despues de instalar.
 
 ```text
 update

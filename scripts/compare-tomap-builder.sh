@@ -24,7 +24,7 @@ REBUILT_TOMAP_DIR="$TMP_DIR/Tomap"
 
 echo "Rebuilding Tomap into temporary directory:"
 echo "$REBUILT_TOMAP_DIR"
-"$PYTHON_BIN" tomap_builder.py \
+"$PYTHON_BIN" -m rainmapper_core.tomap \
   --data-dir "$DATA_DIR" \
   --maps-dir "$REBUILT_TOMAP_DIR" \
   --last-rains-history "$LAST_RAINS_HISTORY" \

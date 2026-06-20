@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-import tomap_builder
+from rainmapper_core import tomap as tomap_builder
 
 
 def make_incremental_row(station_code, reading_date, rain):
