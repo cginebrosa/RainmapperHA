@@ -42,11 +42,11 @@ Hay varios entry points segun entorno:
 - Docker local: `Dockerfile` ejecuta `/app/run.sh`.
 - Home Assistant: `rainmapper-app/Dockerfile` ejecuta `/run.sh`.
 - Core de datos: `Rainmapper.py`.
-- Paquete compartido incremental: `rainmapper_core/`.
+- Paquete compartido de core: `rainmapper_core/`.
 - Upsert de historicos incrementales: `incremental_upsert.py`.
 - Reconstruccion Tomap sin descarga: `tomap_builder.py`.
 - Mapas Bokeh: `Rainmapper_Client.py`.
-- GeoJSON: `tomap_to_geojson.py`.
+- GeoJSON: `tomap_to_geojson.py` como entrypoint compatible; implementacion compartida en `rainmapper_core/geojson.py`.
 - WebUI HA: `rainmapper-app/app/web_server.py`.
 - Leaflet: `leaflet-viewer/index.html` y `leaflet-viewer/app.js`.
 - MapLibre: `maplibre-viewer/index.html` y `maplibre-viewer/app.js`.
@@ -60,7 +60,7 @@ Hay varios entry points segun entorno:
 6. `tomap_builder.py` reconstruye CSV `Tomap` para los periodos acumulados desde historicos incrementales sin descargar datos nuevos.
 7. En `MODE=maps`, `MODE=all` y `Generate maps`, `tomap_builder.py` reconstruye `Tomap` antes de generar salidas publicables.
 8. `Rainmapper_Client.py` genera HTML Bokeh en `Plots`.
-9. `tomap_to_geojson.py` genera GeoJSON desde `Tomap`.
+9. `tomap_to_geojson.py` genera GeoJSON desde `Tomap` delegando en `rainmapper_core/geojson.py`.
 10. `web_server.py` publica HTML, GeoJSON y visores estaticos en `/config/www`.
 11. Home Assistant sirve los mapas por `/local/...`.
 
@@ -91,8 +91,8 @@ Hay varios entry points segun entorno:
 - Relacion: `run.sh`, `rainmapper-app/run.sh` y `Generate maps` de la webUI lo ejecutan antes de `Rainmapper_Client.py` y `tomap_to_geojson.py`. Es la ruta activa de generacion `Tomap`; el bloque ejecutable inline y los helpers legacy de `Rainmapper.py` ya fueron retirados.
 
 ### Conversor GeoJSON
-- Ruta: `tomap_to_geojson.py` y copia en app.
-- Responsabilidad: convertir CSV `Tomap` a GeoJSON por periodo.
+- Ruta: `rainmapper_core/geojson.py`, con wrappers compatibles en `tomap_to_geojson.py` y `rainmapper-app/app/tomap_to_geojson.py`.
+- Responsabilidad: convertir CSV `Tomap` a GeoJSON por periodo, inferir `Source`, aplicar `ignore_stations_tomap.txt` y escribir metadata de generacion.
 - Dependencias: pandas, json, pathlib.
 - Relacion: produce datos para Leaflet/MapLibre.
 

@@ -130,11 +130,13 @@ check_python_syntax() {
     Rainmapper.py \
     Rainmapper_Client.py \
     rainmapper_core/__init__.py \
+    rainmapper_core/geojson.py \
     rainmapper_core/incremental_upsert.py \
     tomap_to_geojson.py \
     rainmapper-app/app/Rainmapper.py \
     rainmapper-app/app/Rainmapper_Client.py \
     rainmapper-app/app/rainmapper_core/__init__.py \
+    rainmapper-app/app/rainmapper_core/geojson.py \
     rainmapper-app/app/rainmapper_core/incremental_upsert.py \
     rainmapper-app/app/tomap_to_geojson.py \
     rainmapper-app/app/web_server.py <<'PY'

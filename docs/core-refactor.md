@@ -49,22 +49,39 @@ Si falla algo:
 - Quitar las referencias a `rainmapper_core` de `scripts/smoke-test.sh`.
 - Volver a ejecutar `./scripts/smoke-test.sh`.
 
-## Fases futuras
+## Fase 2: usar paquete compartido en mas helpers pequenos
+Estado: iniciada y validada para GeoJSON.
 
-### Fase 2: usar paquete compartido en mas helpers pequenos
-Candidatos:
-- Helpers puros de `tomap_builder.py`.
-- Funciones puras de `tomap_to_geojson.py`.
+Cambios implementados:
+- Crear `rainmapper_core/geojson.py` con la implementacion compartida de conversion `Tomap` -> GeoJSON.
+- Mantener `tomap_to_geojson.py` en raiz como wrapper compatible hacia `rainmapper_core.geojson`.
+- Mantener `rainmapper-app/app/tomap_to_geojson.py` como wrapper compatible cuando se sincronice la app HA.
+- Mantener sin cambios los entrypoints de Docker local y Home Assistant: siguen ejecutando `tomap_to_geojson.py`.
+- Ajustar `scripts/smoke-test.sh` para compilar tambien `rainmapper_core/geojson.py` y su copia HA.
 
-Recomendacion para la siguiente fase:
-- Extraer solo funciones puras, sin escritura de ficheros ni dependencias de rutas globales.
-- Mantener `tomap_builder.py` y `tomap_to_geojson.py` como scripts/entrypoints.
-- Repetir el patron de wrapper compatible si hace falta.
+Validaciones realizadas para este paso:
+- `.venv/bin/python -m unittest discover -s tests`
+- `./scripts/smoke-test.sh`
+- `./scripts/docker-offline-functional-test.sh`
+
+Pendiente dentro de Fase 2:
+- Evaluar si conviene extraer helpers puros de `tomap_builder.py` al paquete compartido.
+- Mantener `tomap_builder.py` como entrypoint mientras se valida cualquier extraccion.
 
 No mover todavia:
 - `Rainmapper.py` completo.
 - `Rainmapper_Client.py` completo.
 - `web_server.py`.
+
+## Rollback de Fase 2
+Si falla algo:
+- Restaurar el contenido anterior de `tomap_to_geojson.py` desde Git.
+- Eliminar `rainmapper_core/geojson.py`.
+- Quitar las referencias a `rainmapper_core/geojson.py` de `scripts/smoke-test.sh`.
+- Ejecutar `./scripts/sync-app-files.sh` para volver a alinear la app HA.
+- Volver a ejecutar `./scripts/smoke-test.sh`.
+
+## Fases futuras
 
 ### Fase 3: reducir duplicidad operativa
 Cuando `rainmapper_core/` este estabilizado:

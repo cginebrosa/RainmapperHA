@@ -50,11 +50,11 @@ Tambien existen documentos de uso:
 
 ## Estructura relevante del proyecto
 - `Rainmapper.py`: script principal de descarga, normalizacion, historico y estado por fuente.
-- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora.
+- `rainmapper_core/`: paquete compartido iniciado para reducir duplicidad raiz/app HA de forma conservadora. Contiene ya la implementacion real de upsert incremental y conversion GeoJSON.
 - `incremental_upsert.py`: wrapper compatible hacia `rainmapper_core.incremental_upsert`, helper comun para actualizar historicos incrementales por clave `Codi Estació` + `Data Local`, evitando duplicados logicos y conservando valores antiguos cuando una descarga nueva trae `NaN`.
 - `tomap_builder.py`: reconstruye CSV `Tomap` desde historicos incrementales `Data/` sin descargar datos nuevos.
 - `Rainmapper_Client.py`: generador de mapas HTML clasicos con Bokeh.
-- `tomap_to_geojson.py`: conversor de CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
+- `tomap_to_geojson.py`: wrapper compatible hacia `rainmapper_core.geojson`; mantiene el entrypoint CLI para convertir CSV `Tomap` a GeoJSON para Leaflet/MapLibre.
 - `const.py`: constantes y defaults de ejecucion local.
 - `run.sh`: wrapper Docker local.
 - `local_update.sh`: script de conveniencia para construir Docker local y ejecutar solo `MODE=update`, refrescando descargas actuales e incrementales sin reconstruir `Tomap` ni arrancar servidor local.
@@ -110,7 +110,7 @@ Tambien existen documentos de uso:
 
 ### `tomap_to_geojson.py`
 - Proposito: convierte los siete CSV `Tomap` a GeoJSON para visores nuevos.
-- Estado actual: soporta 1, 7, 14, 21, 30, 60 y 90 dias; incluye metadata de generacion; permite ignorar estaciones desde `ignore_stations_tomap.txt`.
+- Estado actual: la implementacion vive en `rainmapper_core/geojson.py`; `tomap_to_geojson.py` y `rainmapper-app/app/tomap_to_geojson.py` son wrappers compatibles. Soporta 1, 7, 14, 21, 30, 60 y 90 dias; incluye metadata de generacion; permite ignorar estaciones desde `ignore_stations_tomap.txt`.
 - Riesgos: si cambia el schema de `Tomap`, hay que actualizar este conversor y validar ambos visores.
 
 ### `rainmapper-app/app/web_server.py`
