@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.81
+
+- Modernize the MapLibre viewer UI with a light header, floating map controls, a compact period selector, and a dynamic vertical rain legend.
+- Move MapLibre credits behind an info control while preserving attribution links.
+- Improve MapLibre settings, popups, rain-history highlighting, and summary text layout on mobile.
+- Keep an open station popup refreshed when changing the rain period if the station remains visible after filters.
+
 ## 0.2.80
 
 - Remove root Python compatibility wrappers `Rainmapper.py` and `Rainmapper_Client.py`; Docker local, Home Assistant, and the webUI now execute `rainmapper_core` modules directly.

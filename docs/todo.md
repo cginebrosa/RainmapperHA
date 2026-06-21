@@ -100,11 +100,11 @@ Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests fun
   - Criterio de aceptacion: confirmar en local/HA/iPhone que activar 3D terrain funciona sobre Satellite+, Hybrid, Topographic y Liberty sin romper filtros, cambio de periodo, cambio de capa ni popups.
   - Estado: completado por decision del usuario el 2026-06-18; validado manualmente en local, HA, Mac e iPhone y queda como funcionalidad definitiva. En `0.2.77` se anade boton compacto `2D`/`3D` bajo `Generated`, atajo `t`, cola para el popup de altitud y cierre correcto sin bloquear hover. Riesgo aceptado: sigue dependiendo del DEM externo Terrarium/Mapzen hasta que se decida si hace falta DEM propio.
 
-- [ ] Revisar ergonomia del panel Settings de MapLibre en movil
+- [x] Revisar ergonomia del panel Settings de MapLibre en movil
   - Contexto: al anadir badges de estado por fuente, el panel Settings necesita mas ancho. El ajuste actual evita solapes y funciona en iPhone, pero puede sentirse algo ancho.
-  - Ficheros relacionados: `maplibre-viewer/style.css`, `rainmapper-app/app/maplibre-viewer/style.css`.
+  - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/style.css`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/index.html`.
   - Criterio de aceptacion: tras usarlo en movil, decidir si se mantiene el ancho actual, se compactan los badges o se cambia Settings a un panel tipo drawer/bottom sheet.
-  - Riesgo si no se hace: el panel sigue siendo funcional, pero podria ocupar demasiado mapa en pantallas pequenas.
+  - Estado: resuelto en `0.2.81` a nivel visual/operativo. El visor MapLibre pasa a una UI mas moderna con cabecera clara, controles flotantes, panel Settings claro y compacto en dos columnas, selector inferior de periodo, leyenda vertical dinamica, creditos en boton de informacion y popups claros. Validado localmente por el usuario en Mac/iPhone; pendiente de validar en HA.
 
 - [x] Crear smoke tests automatizados
   - Contexto: no hay framework de tests completo, pero existe `scripts/smoke-test.sh`.

@@ -227,11 +227,13 @@ let currentVisibleFeatures = [];
 let currentPopup = null;
 let hoverPopup = null;
 let activeStationPopupProperties = null;
+let activeStationPopupId = null;
 let hasLoadedInitialMap = false;
 let minRainFilter = 0;
 let lastRainHistoryLimit = 0;
 let enabledStationSources = new Set(stationSources.map((source) => source.id));
 let sourceStatus = {};
+let rainScaleMax = 200;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let longPressTimer = null;
@@ -252,18 +254,106 @@ const map = new maplibregl.Map({
   center: INITIAL_CENTER,
   zoom: INITIAL_ZOOM,
   maxPitch: 85,
-  attributionControl: true,
+  attributionControl: false,
 });
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 
+const rainColorStops = [
+  { ratio: 0, color: "#4ea5ff" },
+  { ratio: 0.08, color: "#78c679" },
+  { ratio: 0.18, color: "#fecc5c" },
+  { ratio: 0.32, color: "#fd8d3c" },
+  { ratio: 0.52, color: "#f03b20" },
+  { ratio: 0.72, color: "#bd0026" },
+  { ratio: 0.88, color: "#7a0177" },
+  { ratio: 1, color: "#4b0055" },
+];
+
+function hexToRgb(hexColor) {
+  const value = hexColor.replace("#", "");
+  return [
+    Number.parseInt(value.slice(0, 2), 16),
+    Number.parseInt(value.slice(2, 4), 16),
+    Number.parseInt(value.slice(4, 6), 16),
+  ];
+}
+
+function rgbToHex([red, green, blue]) {
+  return `#${[red, green, blue].map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
+}
+
+function interpolateColor(fromColor, toColor, amount) {
+  const from = hexToRgb(fromColor);
+  const to = hexToRgb(toColor);
+  return rgbToHex(from.map((value, index) => value + (to[index] - value) * amount));
+}
+
 function rainColor(total) {
-  if (total >= 100) return "#7a001f";
-  if (total >= 60) return "#c0002b";
-  if (total >= 30) return "#ff4b2f";
-  if (total >= 15) return "#ff9f32";
-  if (total >= 5) return "#ffd166";
-  return "#4ea5ff";
+  const value = Math.max(0, Number(total) || 0);
+  const ratio = Math.min(1, value / rainScaleMax);
+  for (let index = 1; index < rainColorStops.length; index += 1) {
+    const current = rainColorStops[index];
+    const previous = rainColorStops[index - 1];
+    if (ratio <= current.ratio) {
+      const span = current.ratio - previous.ratio || 1;
+      return interpolateColor(previous.color, current.color, (ratio - previous.ratio) / span);
+    }
+  }
+  return rainColorStops[rainColorStops.length - 1].color;
+}
+
+function rainScaleCeiling(maxRain) {
+  const maxValue = Math.ceil(maxRain || 0);
+  const ceilings = [10, 25, 50, 100, 150, 200, 300, 500, 750, 1000];
+  const ceiling = ceilings.find((value) => maxValue <= value);
+  if (ceiling) return ceiling;
+  return Math.ceil(maxValue / 500) * 500;
+}
+
+function percentile(sortedValues, ratio) {
+  if (sortedValues.length === 0) {
+    return 0;
+  }
+  const index = (sortedValues.length - 1) * ratio;
+  const lowerIndex = Math.floor(index);
+  const upperIndex = Math.ceil(index);
+  if (lowerIndex === upperIndex) {
+    return sortedValues[lowerIndex];
+  }
+  const weight = index - lowerIndex;
+  return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight;
+}
+
+function robustRainScaleMaximum(features) {
+  const positiveTotals = features
+    .map(featureRainTotal)
+    .filter((value) => value > 0)
+    .sort((left, right) => left - right);
+
+  if (positiveTotals.length === 0) {
+    return 10;
+  }
+
+  // Use a high percentile instead of the absolute maximum so one bad outlier
+  // does not flatten the whole color scale for the current period.
+  const reference = positiveTotals.length < 20
+    ? positiveTotals[positiveTotals.length - 1]
+    : percentile(positiveTotals, 0.95) * 1.25;
+  return rainScaleCeiling(reference);
+}
+
+function updateRainScale(features) {
+  rainScaleMax = robustRainScaleMaximum(features);
+  const labels = document.getElementById("rain-legend-labels");
+  if (!labels) {
+    return;
+  }
+  const values = [rainScaleMax, rainScaleMax * 0.85, rainScaleMax * 0.7, rainScaleMax * 0.55, rainScaleMax * 0.4, rainScaleMax * 0.25, rainScaleMax * 0.12, 0];
+  labels.innerHTML = values.map((value, index) => {
+    const rounded = Math.round(value);
+    return `<span>${index === 0 ? `${rounded}+` : rounded}</span>`;
+  }).join("");
 }
 
 function markerRadius(total) {
@@ -428,6 +518,50 @@ function refreshCurrentStationPopup() {
   currentPopup.setHTML(popupContent(activeStationPopupProperties));
 }
 
+function stationIdFromProperties(properties) {
+  return String(properties?.["Codi Estació"] || "").trim();
+}
+
+function findFeatureByStationId(features, stationId) {
+  if (!stationId) {
+    return null;
+  }
+  return features.find((feature) => stationIdFromProperties(feature.properties) === stationId) || null;
+}
+
+function openStationPopup(feature) {
+  if (!feature) {
+    return;
+  }
+
+  const coordinates = feature.geometry.coordinates.slice();
+  const properties = feature.properties || {};
+  activeStationPopupProperties = properties;
+  activeStationPopupId = stationIdFromProperties(properties);
+  closeHoverPopup();
+  if (currentPopup) {
+    currentPopup.remove();
+  }
+  const stationPopup = new maplibregl.Popup({
+    closeButton: false,
+    closeOnClick: true,
+    maxWidth: "320px",
+    anchor: "left",
+    offset: 8,
+  })
+    .setLngLat(coordinates)
+    .setHTML(popupContent(properties))
+    .addTo(map);
+  currentPopup = stationPopup;
+  stationPopup.on("close", () => {
+    if (currentPopup === stationPopup) {
+      currentPopup = null;
+      activeStationPopupProperties = null;
+      activeStationPopupId = null;
+    }
+  });
+}
+
 function supportsHoverPopups() {
   return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
@@ -470,6 +604,7 @@ function refreshFilteredData() {
 
   const selectedPeriod = document.getElementById("map-selector").value;
   const features = filteredFeatures(currentVisibleFeatures);
+  const popupStationId = activeStationPopupId;
   currentData = {
     type: "FeatureCollection",
     metadata: currentData?.metadata || {},
@@ -480,10 +615,12 @@ function refreshFilteredData() {
     currentPopup.remove();
     currentPopup = null;
     activeStationPopupProperties = null;
+    activeStationPopupId = null;
   }
 
   addStationLayer();
   updateSummary(selectedPeriod, features.length, currentVisibleFeatures.length);
+  openStationPopup(findFeatureByStationId(features, popupStationId));
 }
 
 function ensureTerrainSource() {
@@ -747,6 +884,7 @@ function showTerrainPopup(lngLat) {
     currentPopup.remove();
   }
   activeStationPopupProperties = null;
+  activeStationPopupId = null;
 
   const terrainPopup = new maplibregl.Popup({
     closeButton: false,
@@ -763,6 +901,7 @@ function showTerrainPopup(lngLat) {
     if (currentPopup === terrainPopup) {
       currentPopup = null;
       activeStationPopupProperties = null;
+      activeStationPopupId = null;
     }
   });
 
@@ -941,14 +1080,67 @@ function lastRainRecord(properties) {
 }
 
 function updateSummary(fileName, count, totalCount = count) {
+  const summary = document.getElementById("summary");
   const stationText = `${count} station${count === 1 ? "" : "s"}`;
-  const sourceFilterText = enabledStationSources.size < stationSources.length
-    ? ` · sources ${enabledStationSources.size}/${stationSources.length}`
-    : "";
-  const filterText = minRainFilter > 0 || sourceFilterText
-    ? ` · ${totalCount} total${minRainFilter > 0 ? ` · min ${minRainFilter} mm` : ""}${sourceFilterText}`
-    : "";
-  document.getElementById("summary").textContent = `${periods[fileName]} · ${stationText}${filterText}`;
+  const hasSourceFilter = enabledStationSources.size < stationSources.length;
+  const hasAnyFilter = minRainFilter > 0 || hasSourceFilter;
+  const mainParts = [periods[fileName], stationText];
+  const detailParts = [];
+
+  if (hasAnyFilter) {
+    mainParts.push(`${totalCount} total`);
+  }
+  if (minRainFilter > 0) {
+    detailParts.push(`Min: ${minRainFilter} mm`);
+  }
+  if (hasSourceFilter) {
+    detailParts.push(`Sources: ${enabledStationSources.size}/${stationSources.length}`);
+  }
+
+  summary.replaceChildren();
+  const mainLine = document.createElement("span");
+  mainLine.className = "summary-main";
+  mainLine.textContent = mainParts.join(" · ");
+  summary.append(mainLine);
+  if (detailParts.length > 0) {
+    const filterLine = document.createElement("span");
+    filterLine.className = "summary-filter";
+    filterLine.textContent = detailParts.join(" · ");
+    summary.append(filterLine);
+  }
+}
+
+function updatePeriodTimeline(selectedFileName) {
+  document.querySelectorAll(".period-timeline-button").forEach((button) => {
+    const isSelected = button.dataset.period === selectedFileName;
+    button.classList.toggle("is-active", isSelected);
+    button.setAttribute("aria-current", isSelected ? "true" : "false");
+  });
+}
+
+function renderPeriodTimeline() {
+  const container = document.getElementById("period-timeline");
+  const mapSelector = document.getElementById("map-selector");
+  if (!container || !mapSelector) {
+    return;
+  }
+
+  container.innerHTML = Object.entries(periods).map(([fileName, label]) => `
+    <button class="period-timeline-button" type="button" data-period="${fileName}">
+      <span>${label.replace(" days", "d").replace(" day", "d")}</span>
+    </button>
+  `).join("");
+
+  container.addEventListener("click", (event) => {
+    const button = event.target.closest(".period-timeline-button");
+    if (!button) {
+      return;
+    }
+    mapSelector.value = button.dataset.period;
+    mapSelector.dispatchEvent(new Event("change"));
+  });
+
+  updatePeriodTimeline(mapSelector.value);
 }
 
 function updateGeneratedAt(generatedAt) {
@@ -999,7 +1191,10 @@ async function loadMap(fileName) {
     throw new Error(`Cannot load ${url}: ${response.status}`);
   }
   const data = await response.json();
-  const features = visibleFeatures(data.features || []).map(prepareFeature);
+  const popupStationId = activeStationPopupId;
+  const visible = visibleFeatures(data.features || []);
+  updateRainScale(visible);
+  const features = visible.map(prepareFeature);
   currentVisibleFeatures = features;
   updateMinRainControl(features);
   updateLastRainHistoryControl(features);
@@ -1013,11 +1208,14 @@ async function loadMap(fileName) {
     currentPopup.remove();
     currentPopup = null;
     activeStationPopupProperties = null;
+    activeStationPopupId = null;
   }
 
   addStationLayer();
   updateSummary(fileName, filtered.length, features.length);
   updateGeneratedAt(data.metadata?.generated_at);
+  updatePeriodTimeline(fileName);
+  openStationPopup(findFeatureByStationId(filtered, popupStationId));
 
   if (!hasLoadedInitialMap) {
     hasLoadedInitialMap = true;
@@ -1061,6 +1259,8 @@ function renderLayerSwitcher() {
 function renderSettingsPanel() {
   const toggle = document.getElementById("settings-toggle");
   const northToggle = document.getElementById("north-toggle");
+  const infoToggle = document.getElementById("info-toggle");
+  const attributionPanel = document.getElementById("map-attribution");
   const panel = document.getElementById("map-settings");
   const slider = document.getElementById("min-rain-filter");
   const historySlider = document.getElementById("last-rain-history-filter");
@@ -1069,15 +1269,30 @@ function renderSettingsPanel() {
   const terrainModeToggle = document.getElementById("terrain-mode-toggle");
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
 
-  toggle.addEventListener("click", () => {
-    const isOpen = panel.hasAttribute("hidden");
+  const setSettingsOpen = (isOpen) => {
     panel.toggleAttribute("hidden", !isOpen);
     toggle.setAttribute("aria-expanded", String(isOpen));
     document.body.classList.toggle("settings-open", isOpen);
+  };
+
+  toggle.addEventListener("click", () => {
+    setSettingsOpen(panel.hasAttribute("hidden"));
+  });
+
+  map.on("click", () => {
+    if (!panel.hasAttribute("hidden")) {
+      setSettingsOpen(false);
+    }
   });
 
   northToggle.addEventListener("click", () => {
     map.easeTo({ bearing: 0, duration: 350 });
+  });
+
+  infoToggle.addEventListener("click", () => {
+    const isOpen = attributionPanel.hasAttribute("hidden");
+    attributionPanel.toggleAttribute("hidden", !isOpen);
+    infoToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
   slider.addEventListener("input", (event) => {
@@ -1123,6 +1338,7 @@ function renderSettingsPanel() {
 
 map.on("load", () => {
   renderLayerSwitcher();
+  renderPeriodTimeline();
   renderSettingsPanel();
   setupKeyboardShortcuts();
   setupLongPressElevation();
@@ -1144,26 +1360,7 @@ map.on("click", CIRCLE_LAYER_ID, (event) => {
   if (!feature) {
     return;
   }
-  const coordinates = feature.geometry.coordinates.slice();
-  activeStationPopupProperties = feature.properties || {};
-  closeHoverPopup();
-  if (currentPopup) {
-    currentPopup.remove();
-  }
-  currentPopup = new maplibregl.Popup({
-    closeButton: false,
-    closeOnClick: true,
-    maxWidth: "320px",
-    anchor: "left",
-    offset: 8,
-  })
-    .setLngLat(coordinates)
-    .setHTML(popupContent(feature.properties || {}))
-    .addTo(map);
-  currentPopup.on("close", () => {
-    currentPopup = null;
-    activeStationPopupProperties = null;
-  });
+  openStationPopup(feature);
 });
 
 map.on("mouseenter", CIRCLE_LAYER_ID, () => {
