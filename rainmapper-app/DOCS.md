@@ -33,7 +33,7 @@ Dentro se usan estas rutas:
 /share/rainmapper/Plots
 /share/rainmapper/stations.txt
 /share/rainmapper/ignore_stations_tomap.txt
-/share/rainmapper/users.txt
+/share/rainmapper/users.json
 /share/rainmapper/devices.json
 ```
 
@@ -45,7 +45,7 @@ Contenido esperado:
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
 - `ignore_stations_tomap.txt`: lista opcional de estaciones que no deben aparecer en los GeoJSON usados por Leaflet/MapLibre.
 - `Data/source_status.json`: ultimo estado de actualizacion por fuente.
-- `users.txt`: usuarios manuales para el visor MapLibre protegido. Si no existe, la app lo crea copiando `/app/users.example.txt`.
+- `users.json`: usuarios manuales para el visor MapLibre protegido. Si no existe, la app lo crea copiando `/app/users.example.json`.
 - `devices.json`: dispositivos autorizados. Si no existe, la app lo crea como JSON vacio.
 
 Si `stations.txt` no existe, la app lo crea automaticamente copiando una plantilla. Despues puedes editarlo desde la carpeta compartida.
@@ -153,31 +153,50 @@ MapLibre puede protegerse con una autenticacion ligera pensada para pruebas priv
 En una instalacion nueva, la app crea automaticamente un fichero de ejemplo:
 
 ```text
-/share/rainmapper/users.txt
+/share/rainmapper/users.json
 ```
 
-Formato por linea:
+Formato:
 
-```text
-email;password;role;enabled
+```json
+{
+  "users": [
+    {
+      "username": "usuario",
+      "name": "Nombre Usuario",
+      "email": "usuario@example.com",
+      "password": "clave_temporal",
+      "role": "free",
+      "enabled": true,
+      "max_devices": 1
+    },
+    {
+      "username": "admin",
+      "name": "Administrador",
+      "email": "admin@example.com",
+      "password": "clave_temporal",
+      "role": "admin",
+      "enabled": true,
+      "max_devices": 0
+    }
+  ]
+}
 ```
 
-Ejemplos:
-
-```text
-usuario@example.com;clave_temporal;normal;true
-admin@example.com;clave_temporal;admin;true
-```
-
-Importante: cambia las contrasenas y usuarios de ejemplo antes de exponer el visor protegido fuera de tu red. Si `users.txt` ya existe, la app no lo sobrescribe durante updates.
+Importante: cambia las contrasenas y usuarios de ejemplo antes de exponer el visor protegido fuera de tu red. Si `users.json` ya existe, la app no lo sobrescribe durante updates.
 
 Reglas actuales:
 
-- `normal` queda asociado al primer dispositivo/navegador desde el que haga login.
-- `admin` puede entrar desde varios dispositivos.
+- `username` es el identificador usado para el login.
+- `name` es el nombre de la persona.
+- `email` queda como dato de contacto para futuras funciones.
+- Roles soportados: `free`, `basic`, `pro` y `admin`.
+- `normal` se acepta como alias antiguo de `free` para no romper ficheros legacy.
+- `max_devices` es opcional. Si falta, se usa el valor por defecto del rol: `free=1`, `basic=2`, `pro=3`, `admin=0`.
+- `max_devices=0` significa dispositivos ilimitados.
 - `enabled` debe ser `true` para permitir acceso.
-- No uses `;` dentro de la contrasena porque el fichero usa ese caracter como separador.
 - Si la contrasena esta en claro, la app la convierte automaticamente a hash PBKDF2 despues del primer login correcto.
+- Compatibilidad: si existe un `/share/rainmapper/users.txt` antiguo y todavia no existe `users.json`, la app lo lee y lo migra a JSON tras el primer login correcto. Cuando `users.json` existe, pasa a ser la fuente de verdad.
 
 La app crea automaticamente, si no existe:
 
@@ -188,6 +207,8 @@ La app crea automaticamente, si no existe:
 Ese fichero guarda el `device_id`, usuario, rol, user-agent, ultimo acceso y hash del token de sesion. Si un usuario normal borra los datos del navegador, se generara un nuevo `device_id` y quedara bloqueado hasta que limpies o desactives su dispositivo anterior en `devices.json`.
 
 Para pruebas, si quieres liberar todos los dispositivos, puedes parar la app y borrar o vaciar `devices.json`.
+
+Pendiente: la webUI debera permitir gestionar usuarios y borrar dispositivos asociados a un usuario, tanto uno a uno como todos a la vez. De momento esa gestion sigue siendo manual editando `users.json` y `devices.json`.
 
 Si usas Cloudflare Tunnel con el add-on Cloudflared de Home Assistant, apunta el hostname externo al servidor Rainmapper publicado por la app:
 
@@ -415,8 +436,6 @@ Para ocultar estaciones con datos anomalos en los visores nuevos sin borrar hist
 
 ```text
 /share/rainmapper/ignore_stations_tomap.txt
-/share/rainmapper/users.txt
-/share/rainmapper/devices.json
 ```
 
 Formato:

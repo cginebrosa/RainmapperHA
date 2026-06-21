@@ -1,5 +1,7 @@
 # Mobile App Architecture
 
+Nota de estado 2026-06-22: el repo actual ya tiene autenticacion ligera para el visor MapLibre protegido usado en pruebas privadas, pero no es todavia la autenticacion/API definitiva de una app comercial iOS/Android. La copia activa del repo esta en `/Users/carlosginebrosa/Developer/RainmapperHA`; no usar la copia antigua de iCloud.
+
 ## Objetivo
 Definir una arquitectura inicial para una futura app iOS/Android de Rainmapper que permita consultar mapas de lluvia de forma controlada, con autenticacion, permisos por usuario/mapa o zona, y posible modelo de suscripcion.
 
@@ -8,9 +10,9 @@ Este documento es de diseno. No implica implementacion inmediata ni cambia el fu
 ## Estado de partida
 - Home Assistant ejecuta Rainmapper en modo `serve`.
 - Rainmapper genera CSV historicos, CSV `Tomap`, HTML Bokeh y GeoJSON para Leaflet/MapLibre.
-- Los visores actuales se publican como contenido estatico en `/config/www` y se sirven via `/local/...`.
+- Leaflet y Bokeh siguen publicados como contenido estatico via `/local/...`; MapLibre tiene una ruta protegida propia en `/protected/maplibre/index.html` servida por `web_server.py`, con fallback publico temporal en `/local/rainmapper-maplibre` mientras se valida Cloudflared.
 - Leaflet y MapLibre funcionan bien en iPhone segun validacion manual/reportada por el usuario; pendiente de confirmacion automatizada. Desde `0.2.48`, MapLibre incluye capas raster Hybrid/Topographic, estilos vectoriales y Satellite+.
-- El acceso externo actual depende de HA/dominio/Cloudflare segun reporte del usuario, sin autenticacion propia de Rainmapper; la configuracion Cloudflare no esta versionada en este repo y queda pendiente de confirmar fuera del repositorio.
+- El acceso externo actual depende de HA/dominio/Cloudflare segun reporte del usuario. Rainmapper ya tiene autenticacion ligera para MapLibre protegido, pero no es todavia la API/auth comercial prevista para una app iOS/Android. La configuracion Cloudflare no esta versionada en este repo y queda pendiente de confirmar fuera del repositorio.
 - Docker local se mantiene como entorno de pruebas aislado para cambios de calado.
 
 ## Principio de arquitectura

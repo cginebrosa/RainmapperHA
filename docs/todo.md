@@ -1,7 +1,9 @@
 # TODO
 
+Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
+
 ## Proximo paso recomendado
-Publicar una version HA con MapLibre protegido y validar la ruta `/protected/maplibre/index.html` desde Home Assistant/Cloudflare; despues, decidir si se mantiene Leaflet publico como fallback o se protege tambien.
+Publicar una nueva version HA con los cambios actuales de autenticacion `users.json`: login por `username`, campos `name` y `email`, roles `free/basic/pro/admin`, `max_devices` por usuario y migracion legacy desde `users.txt`. Validar en HA antes de construir la webUI de gestion de usuarios/dispositivos.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -45,10 +47,17 @@ Publicar una version HA con MapLibre protegido y validar la ruta `/protected/map
 ## Prioridad media
 
 - [ ] Validar MapLibre protegido en HA/Cloudflare
-  - Contexto: se ha implementado autenticacion ligera para MapLibre y GeoJSON con usuarios manuales en `/share/rainmapper/users.txt` y registro de dispositivos en `/share/rainmapper/devices.json`.
-  - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/`, `rainmapper-app/DOCS.md`.
-  - Criterio de aceptacion: en HA real, `/protected/maplibre/index.html` pide login, un usuario normal no puede usar segundo dispositivo, `admin` puede usar varios y los GeoJSON no son accesibles sin sesion. Cloudflared debe apuntar a `http://<HA_IP>:8099` y no a `/local/rainmapper-maplibre/index.html`. Tras validar Cloudflared, retirar el fallback publico temporal de MapLibre.
-  - Estado: validado localmente con contenedor HA de prueba en Safari Mac/iPhone; el manifiesto HA ya publica `8099/tcp` para Cloudflared/LAN; pendiente de version HA y validacion real.
+  - Contexto: la ruta protegida MapLibre ya fue validada manualmente en HA `0.2.82`: `/protected/maplibre/index.html` pide login, `admin` funciona desde Mac+iPhone y un usuario normal queda limitado a un dispositivo. El working tree actual amplia el backend a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin`, `max_devices` y migracion desde `users.txt`.
+  - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/`, `users.example.json`, `tests/test_web_server_auth.py`, `rainmapper-app/DOCS.md`.
+  - Criterio de aceptacion: publicar nueva version HA, validar migracion legacy, login por `username`, admin ilimitado, usuario `free` limitado por `max_devices`, reutilizacion de dispositivo registrado y GeoJSON inaccesible sin sesion. Cloudflared debe apuntar a `http://<HA_IP>:8099` y no a `/local/rainmapper-maplibre/index.html`. Tras validar Cloudflared, retirar el fallback publico temporal de MapLibre.
+  - Estado: protegido basico validado manualmente en HA `0.2.82`; ampliacion `users.json`/`max_devices` validada con `python3 -m unittest tests.test_web_server_auth` y `./scripts/smoke-test.sh`, pendiente de bump/publicacion HA.
+
+- [ ] Crear gestion WebUI de usuarios y dispositivos
+  - Contexto: el backend ya soporta roles `free`, `basic`, `pro`, `admin`, `username`, `name`, `email` y `max_devices` opcional en `users.json`, pero la gestion sigue siendo manual y todavia no se ha publicado en HA tras el cambio a JSON ampliado.
+  - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper-app/DOCS.md`, `/share/rainmapper/users.json`, `/share/rainmapper/devices.json`.
+  - Criterio de aceptacion: desde la webUI HA se pueden listar usuarios, crear/desactivar usuarios, cambiar rol, cambiar `max_devices`, resetear contrasena y gestionar dispositivos asociados.
+  - Requisito especifico: para cada usuario debe poder borrarse un dispositivo concreto o borrar todos sus dispositivos.
+  - Riesgo si no se hace: las pruebas con usuarios reales requieren editar manualmente `users.json` y `devices.json`, con riesgo de errores.
 
 - [x] Decidir visor principal
   - Contexto: conviven Bokeh, Leaflet y MapLibre; MapLibre ya funciona bien en movil segun validacion manual/reportada por el usuario y desde `0.2.47` tambien soporta Hybrid/Topographic raster.

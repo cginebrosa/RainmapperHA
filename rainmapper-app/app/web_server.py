@@ -38,6 +38,7 @@ PUBLIC_MAPLIBRE_PATH = Path("/config/www/rainmapper-maplibre")
 PUBLIC_MAPLIBRE_TMP_PATH = Path("/config/www/.rainmapper-maplibre-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
+USERS_JSON_PATH = Path("/share/rainmapper/users.json")
 USERS_PATH = Path("/share/rainmapper/users.txt")
 DEVICES_PATH = Path("/share/rainmapper/devices.json")
 SOURCE_STATUS_PATH = Path("/app/Data/source_status.json")
@@ -1263,10 +1264,85 @@ def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def read_users() -> tuple[dict[str, dict[str, str]], list[str]]:
-    if not USERS_PATH.exists():
-        return {}, []
+ROLE_DEFAULT_MAX_DEVICES = {
+    "free": 1,
+    "basic": 2,
+    "pro": 3,
+    "admin": 0,
+}
 
+
+def normalize_role(value: str) -> str:
+    role = value.strip().lower()
+    if role == "normal":
+        return "free"
+    return role if role in ROLE_DEFAULT_MAX_DEVICES else "free"
+
+
+def default_max_devices_for_role(role: str) -> int:
+    return ROLE_DEFAULT_MAX_DEVICES.get(normalize_role(role), 1)
+
+
+def parse_max_devices(value: str, role: str) -> int:
+    if not value.strip():
+        return default_max_devices_for_role(role)
+    try:
+        parsed = int(value)
+    except ValueError:
+        return default_max_devices_for_role(role)
+    return max(parsed, 0)
+
+
+def user_max_devices(user: dict[str, str]) -> int:
+    return parse_max_devices(user.get("max_devices", ""), user.get("role", "free"))
+
+
+def normalize_enabled(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return "false" if str(value).strip().lower() == "false" else "true"
+
+
+def normalize_user_record(raw_user: dict[str, object], fallback_username: str = "") -> dict[str, str] | None:
+    username = normalize_user_id(str(raw_user.get("username") or fallback_username))
+    if not username:
+        return None
+    role = normalize_role(str(raw_user.get("role", "free")))
+    return {
+        "username": username,
+        "name": str(raw_user.get("name", "")).strip(),
+        "email": normalize_user_id(str(raw_user.get("email", username))),
+        "password": str(raw_user.get("password", "")),
+        "role": role,
+        "enabled": normalize_enabled(raw_user.get("enabled", True)),
+        "max_devices": str(parse_max_devices(str(raw_user.get("max_devices", "")), role)),
+    }
+
+
+def read_users_json() -> dict[str, dict[str, str]]:
+    try:
+        payload = json.loads(USERS_JSON_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    raw_users = payload.get("users", []) if isinstance(payload, dict) else []
+    if isinstance(raw_users, dict):
+        iterable = raw_users.items()
+    elif isinstance(raw_users, list):
+        iterable = [("", item) for item in raw_users]
+    else:
+        iterable = []
+
+    users: dict[str, dict[str, str]] = {}
+    for fallback_username, item in iterable:
+        if not isinstance(item, dict):
+            continue
+        user = normalize_user_record(item, str(fallback_username))
+        if user:
+            users[user["username"]] = user
+    return users
+
+
+def read_users_txt() -> tuple[dict[str, dict[str, str]], list[str]]:
     users: dict[str, dict[str, str]] = {}
     lines = USERS_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
     for line in lines:
@@ -1276,59 +1352,45 @@ def read_users() -> tuple[dict[str, dict[str, str]], list[str]]:
         parts = [part.strip() for part in stripped.split(";")]
         if len(parts) < 2:
             continue
-        user_id = normalize_user_id(parts[0])
-        users[user_id] = {
-            "email": user_id,
+        username = normalize_user_id(parts[0])
+        role = normalize_role(parts[2]) if len(parts) >= 3 and parts[2] else "free"
+        users[username] = {
+            "username": username,
+            "name": "",
+            "email": username,
             "password": parts[1],
-            "role": parts[2].lower() if len(parts) >= 3 and parts[2] else "normal",
+            "role": role,
             "enabled": parts[3].lower() if len(parts) >= 4 and parts[3] else "true",
+            "max_devices": str(parse_max_devices(parts[4], role)) if len(parts) >= 5 else str(default_max_devices_for_role(role)),
         }
     return users, lines
 
 
-def write_users(users: dict[str, dict[str, str]], original_lines: list[str]) -> None:
-    existing = set()
-    output = []
-    for line in original_lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            output.append(line)
-            continue
-        parts = [part.strip() for part in stripped.split(";")]
-        if not parts:
-            output.append(line)
-            continue
-        user_id = normalize_user_id(parts[0])
-        user = users.get(user_id)
-        if not user:
-            output.append(line)
-            continue
-        existing.add(user_id)
-        output.append(
-            ";".join(
-                [
-                    user["email"],
-                    user["password"],
-                    user.get("role", "normal"),
-                    user.get("enabled", "true"),
-                ]
-            )
-        )
+def read_users() -> tuple[dict[str, dict[str, str]], list[str]]:
+    if USERS_JSON_PATH.exists():
+        return read_users_json(), []
+    if USERS_PATH.exists():
+        return read_users_txt()
+    return {}, []
 
-    for user_id, user in sorted(users.items()):
-        if user_id in existing:
-            continue
-        output.append(
-            ";".join(
-                [
-                    user["email"],
-                    user["password"],
-                    user.get("role", "normal"),
-                    user.get("enabled", "true"),
-                ]
-            )
-        )
-    USERS_PATH.write_text("\n".join(output) + "\n", encoding="utf-8")
+
+def write_users(users: dict[str, dict[str, str]], original_lines: list[str]) -> None:
+    USERS_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "users": [
+            {
+                "username": user["username"],
+                "name": user.get("name", ""),
+                "email": user.get("email", user["username"]),
+                "password": user["password"],
+                "role": normalize_role(user.get("role", "free")),
+                "enabled": user.get("enabled", "true").lower() == "true",
+                "max_devices": user_max_devices(user),
+            }
+            for _username, user in sorted(users.items())
+        ]
+    }
+    USERS_JSON_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def read_devices() -> dict[str, dict[str, str]]:
@@ -1370,18 +1432,24 @@ def authenticate_session(token: str, device_id: str) -> tuple[bool, dict[str, st
         return False, None
 
     users, _lines = read_users()
-    user = users.get(normalize_user_id(str(device.get("email", ""))))
+    user = users.get(normalize_user_id(str(device.get("username", device.get("email", "")))))
     if not user or user.get("enabled", "true").lower() != "true":
         return False, None
 
     device["last_seen_at"] = utc_now()
     write_devices(devices)
-    return True, {"email": user["email"], "role": user.get("role", "normal")}
+    return True, {
+        "username": user["username"],
+        "name": user.get("name", ""),
+        "email": user.get("email", ""),
+        "role": user.get("role", "free"),
+    }
 
 
-def login_user(email: str, password: str, device_id: str, user_agent: str) -> tuple[int, dict[str, object]]:
+def login_user(username: str, password: str, device_id: str, user_agent: str) -> tuple[int, dict[str, object]]:
     users, user_lines = read_users()
-    user_id = normalize_user_id(email)
+    should_migrate_legacy_users = bool(user_lines) and not USERS_JSON_PATH.exists()
+    user_id = normalize_user_id(username)
     user = users.get(user_id)
     if not user or user.get("enabled", "true").lower() != "true":
         return 401, {"ok": False, "error": "Invalid user or password."}
@@ -1390,33 +1458,38 @@ def login_user(email: str, password: str, device_id: str, user_agent: str) -> tu
 
     if not user["password"].startswith("pbkdf2_sha256$"):
         user["password"] = hash_password(password)
+        should_migrate_legacy_users = True
+    if should_migrate_legacy_users:
         write_users(users, user_lines)
 
     devices = read_devices()
-    role = user.get("role", "normal")
+    role = normalize_role(user.get("role", "free"))
+    max_devices = user_max_devices(user)
     requested_device_id = device_id.strip() or new_device_id()
     existing_device = devices.get(requested_device_id)
 
-    if existing_device and normalize_user_id(str(existing_device.get("email", ""))) != user_id:
+    existing_device_username = normalize_user_id(str(existing_device.get("username", existing_device.get("email", "")))) if existing_device else ""
+    if existing_device and existing_device_username != user_id:
         return 403, {"ok": False, "error": "This device is already assigned to another user."}
 
     active_user_devices = [
         entry
         for entry in devices.values()
-        if normalize_user_id(str(entry.get("email", ""))) == user_id
+        if normalize_user_id(str(entry.get("username", entry.get("email", "")))) == user_id
         and str(entry.get("enabled", "true")).lower() == "true"
     ]
-    if role != "admin" and not existing_device and active_user_devices:
+    if max_devices > 0 and not existing_device and len(active_user_devices) >= max_devices:
         return 403, {
             "ok": False,
-            "error": "This user is already linked to another device.",
+            "error": f"This user has reached the maximum number of devices ({max_devices}).",
         }
 
     session_token = new_session_token()
     now = utc_now()
     if not existing_device:
         existing_device = {
-            "email": user_id,
+            "username": user_id,
+            "email": user.get("email", ""),
             "device_id": requested_device_id,
             "role": role,
             "created_at": now,
@@ -1424,7 +1497,8 @@ def login_user(email: str, password: str, device_id: str, user_agent: str) -> tu
         }
     existing_device.update(
         {
-            "email": user_id,
+            "username": user_id,
+            "email": user.get("email", ""),
             "role": role,
             "user_agent": user_agent[:500],
             "last_seen_at": now,
@@ -1435,8 +1509,11 @@ def login_user(email: str, password: str, device_id: str, user_agent: str) -> tu
     write_devices(devices)
     return 200, {
         "ok": True,
-        "email": user_id,
+        "username": user_id,
+        "name": user.get("name", ""),
+        "email": user.get("email", ""),
         "role": role,
+        "max_devices": max_devices,
         "device_id": requested_device_id,
         "session_token": session_token,
     }
@@ -1635,7 +1712,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         if parsed.path == "/auth/login":
             payload = self.read_json_payload()
             status, response = login_user(
-                str(payload.get("email", "")),
+                str(payload.get("username", payload.get("email", ""))),
                 str(payload.get("password", "")),
                 str(payload.get("device_id", "")),
                 self.headers.get("User-Agent", ""),

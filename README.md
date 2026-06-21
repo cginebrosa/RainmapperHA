@@ -200,7 +200,7 @@ En Home Assistant:
 /share/rainmapper/Plots
 /share/rainmapper/stations.txt
 /share/rainmapper/ignore_stations_tomap.txt
-/share/rainmapper/users.txt
+/share/rainmapper/users.json
 /share/rainmapper/devices.json
 ```
 

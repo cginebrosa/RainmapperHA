@@ -1,5 +1,9 @@
 # Core Refactor Notes
 
+Estado actual: documento historico de la refactorizacion. La refactorizacion conservadora ya esta cerrada en alcance core/app/local: el core compartido vive en `rainmapper_core/`, el runtime local en `rainmapper-local/`, HA se construye desde la raiz del repo y `rainmapper-app/app` queda para `web_server.py`. Las referencias antiguas a `scripts/sync-app-files.sh` o `scripts/sync-manifest.sh` describen fases intermedias ya sustituidas; esos scripts fueron retirados y no deben reintroducirse.
+
+Ruta real del proyecto: `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
+
 ## Objetivo
 Reducir gradualmente la duplicidad entre los scripts de raiz y las copias dentro de `rainmapper-app/app`, sin romper Docker local ni la app de Home Assistant.
 

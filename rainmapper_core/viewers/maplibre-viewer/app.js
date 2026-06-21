@@ -330,7 +330,7 @@ function showLogin(message = "") {
   if (error) {
     error.textContent = message;
   }
-  window.setTimeout(() => document.getElementById("login-email")?.focus(), 0);
+  window.setTimeout(() => document.getElementById("login-username")?.focus(), 0);
 }
 
 function hideLogin() {
@@ -354,11 +354,11 @@ async function validateStoredSession() {
   return response.ok;
 }
 
-async function loginWithPassword(email, password) {
+async function loginWithPassword(username, password) {
   const response = await fetch(`${AUTH_BASE}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, device_id: ensureDeviceId() }),
+    body: JSON.stringify({ username, password, device_id: ensureDeviceId() }),
   });
   let payload = {};
   try {
@@ -372,6 +372,8 @@ async function loginWithPassword(email, password) {
   saveStoredAuthState({
     deviceId: payload.device_id || authState.deviceId,
     sessionToken: payload.session_token,
+    username: payload.username,
+    name: payload.name,
     email: payload.email,
     role: payload.role,
   });
@@ -395,7 +397,7 @@ function setupLoginForm(onAuthenticated) {
     }
     try {
       await loginWithPassword(
-        document.getElementById("login-email")?.value || "",
+        document.getElementById("login-username")?.value || "",
         document.getElementById("login-password")?.value || "",
       );
       hideLogin();

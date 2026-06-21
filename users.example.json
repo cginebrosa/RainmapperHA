@@ -1,0 +1,31 @@
+{
+  "users": [
+    {
+      "username": "tester",
+      "name": "Test User",
+      "email": "tester@example.com",
+      "password": "change-me",
+      "role": "free",
+      "enabled": true,
+      "max_devices": 1
+    },
+    {
+      "username": "friend",
+      "name": "Friend User",
+      "email": "friend@example.com",
+      "password": "change-me",
+      "role": "basic",
+      "enabled": true,
+      "max_devices": 2
+    },
+    {
+      "username": "admin",
+      "name": "Administrator",
+      "email": "admin@example.com",
+      "password": "change-me",
+      "role": "admin",
+      "enabled": true,
+      "max_devices": 0
+    }
+  ]
+}

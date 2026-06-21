@@ -1,5 +1,22 @@
 # Decisions
 
+## 2026-06-22 - La ruta activa del repo es `/Users/carlosginebrosa/Developer/RainmapperHA`
+
+Decision:
+
+- Usar `/Users/carlosginebrosa/Developer/RainmapperHA` como unica copia activa para desarrollo, tests, builds, documentacion y commits.
+- No usar la copia antigua situada bajo iCloud/Mobile Documents porque quedo desfasada y puede provocar ediciones sobre un arbol incorrecto.
+
+Motivo:
+
+- Durante la sesion se detecto que el entorno podia arrancar en la ruta antigua de iCloud mientras el repositorio actualizado vivia en `~/Developer/RainmapperHA`.
+- Documentar la ruta evita repetir el problema en futuras sesiones de Codex.
+
+Consecuencias:
+
+- Antes de cualquier cambio relevante, comprobar `pwd` y `git status` en la ruta real.
+- Si una herramienta apunta a la ruta iCloud, corregir el `workdir` antes de leer o escribir ficheros.
+
 ## 2026-06-21 - Proteger MapLibre y GeoJSON con autenticacion ligera
 
 Decision:
@@ -7,9 +24,13 @@ Decision:
 - MapLibre pasa a abrirse desde `/protected/maplibre/index.html` en la webUI de Home Assistant.
 - Los GeoJSON y `source_status.json` de MapLibre se sirven desde `/protected/maplibre/data/*` y requieren sesion valida.
 - Leaflet se mantiene publicado en `/local/rainmapper-leaflet` como fallback sin autenticacion.
-- Los usuarios se gestionan de forma manual en `/share/rainmapper/users.txt` con formato `email;password;role;enabled`.
-- El primer login de un usuario normal registra un `device_id` generado por el navegador en `/share/rainmapper/devices.json`; ese usuario queda limitado a ese dispositivo. Los usuarios con rol `admin` pueden usar varios dispositivos.
-- En HA, `run.sh` crea `users.txt` desde `users.example.txt` y `devices.json` vacio si faltan, sin sobrescribir ficheros existentes.
+- Los usuarios se gestionan de forma manual en `/share/rainmapper/users.json`.
+- Historial de formato: primero se considero `users.txt` con `email;password;role;enabled`, luego `email;password;role;enabled;max_devices`. Esa decision queda reemplazada por `users.json` como formato principal.
+- `users.json` permite campos extensibles: `username`, `name`, `email`, `password`, `role`, `enabled` y `max_devices`. `username` es el identificador de login; `name` es el nombre de la persona; `email` queda como contacto. `users.txt` se conserva solo como formato legacy leido si todavia no existe `users.json`.
+- Roles soportados: `free`, `basic`, `pro` y `admin`; `normal` se conserva como alias legacy de `free`.
+- Limites por defecto: `free=1`, `basic=2`, `pro=3`, `admin=0`; `0` significa dispositivos ilimitados. El campo `max_devices` permite sobrescribir el limite por usuario.
+- El primer login de un usuario registra un `device_id` generado por el navegador en `/share/rainmapper/devices.json`; nuevos dispositivos se aceptan hasta el limite del usuario. Los dispositivos ya registrados pueden reutilizarse aunque el usuario haya alcanzado su limite.
+- En HA, `run.sh` crea `users.json` desde `users.example.json` y `devices.json` vacio si faltan, sin sobrescribir ficheros existentes.
 
 Motivo:
 
@@ -25,15 +46,15 @@ Alternativas descartadas:
 
 Consecuencias:
 
-- Si un usuario normal borra datos del navegador, generara un nuevo `device_id` y quedara bloqueado hasta que se limpie o desactive su registro anterior en `devices.json`.
+- Si un usuario con limite de dispositivos borra datos del navegador, generara un nuevo `device_id` y puede quedar bloqueado hasta que se limpie o desactive un registro anterior en `devices.json`.
 - El add-on HA publica `8099/tcp` para que Cloudflared pueda apuntar al servidor Rainmapper con `service: http://<HA_IP>:8099`; las reglas externas de Cloudflare para MapLibre deben apuntar a `/protected/maplibre/index.html`, no a `/local/rainmapper-maplibre/index.html`.
 - La limpieza defensiva de `/config/www/rainmapper-maplibre/data` queda preparada en codigo, pero aplazada temporalmente para mantener `/local/rainmapper-maplibre/index.html` como fallback funcional mientras se valida Cloudflared/puerto 8099.
-- Las contrasenas en claro de `users.txt` se migran automaticamente a hash PBKDF2 al primer login correcto.
+- Las contrasenas en claro de `users.json` se migran automaticamente a hash PBKDF2 al primer login correcto. Si solo existe `users.txt` legacy, tambien se migra a JSON tras el primer login correcto aunque la contrasena ya estuviera hasheada.
 - El visor Docker local queda sin autenticacion para mantenerlo como entorno rapido de pruebas.
 
 Estado:
 
-Implementado y validado localmente con contenedor HA de prueba: el indice protegido carga login, los datos devuelven `401` sin sesion, un usuario normal queda bloqueado en segundo dispositivo y un usuario `admin` puede entrar desde Mac y iPhone. Pendiente de publicar una version HA y validar en la instalacion real/Cloudflare.
+Implementado en dos pasos. La proteccion basica de MapLibre fue validada manualmente por el usuario en HA `0.2.82`: `admin` pudo entrar desde Mac e iPhone, y un usuario normal quedo limitado a un dispositivo. La ampliacion actual a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin`, `max_devices` y migracion legacy esta implementada en el working tree y cubierta por `tests/test_web_server_auth.py`; pendiente de bump/publicacion y validacion manual en HA/Cloudflare.
 
 ## 2026-06-20 - Retirar wrappers raiz `Rainmapper.py` y `Rainmapper_Client.py`
 

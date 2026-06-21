@@ -1,5 +1,9 @@
 # Architecture
 
+## Workspace real
+
+La ruta de trabajo valida es `/Users/carlosginebrosa/Developer/RainmapperHA`. La copia antigua en iCloud/Mobile Documents no debe usarse para desarrollo, validacion ni commits porque puede estar desfasada.
+
 ## Resumen tecnico
 RainmapperHA es una aplicacion Python empaquetada en Docker y Home Assistant. El core descarga y normaliza datos meteorologicos en CSV. Una segunda capa genera mapas HTML clasicos con Bokeh y GeoJSON para visores estaticos modernos. La app de Home Assistant anade webUI, schedule interno, publicacion a `/config/www` e integracion con ingress/sidebar.
 
@@ -65,7 +69,7 @@ Hay varios entry points segun entorno:
 8. `python -m rainmapper_core.bokeh_maps` genera HTML Bokeh en `Plots`.
 9. `python -m rainmapper_core.geojson` genera GeoJSON desde `Tomap` delegando en `rainmapper_core/geojson.py`.
 10. `web_server.py` publica HTML, GeoJSON y visores estaticos en `/config/www`.
-11. Home Assistant sirve los mapas por `/local/...`.
+11. Home Assistant sirve Bokeh y Leaflet por `/local/...`; MapLibre operativo recomendado se sirve desde `web_server.py` por `/protected/maplibre/index.html` y datos `/protected/maplibre/data/*`, con fallback publico temporal en `/local/rainmapper-maplibre/index.html` hasta validar Cloudflared.
 
 ## Componentes, modulos o capas principales
 
@@ -184,13 +188,15 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 ## Gestion de estado
 
 ### Autenticacion ligera MapLibre
-- Usuarios manuales en `/share/rainmapper/users.txt`, con formato `email;password;role;enabled`.
-- En HA, `run.sh` crea `users.txt` desde `/app/users.example.txt` si no existe; no sobrescribe usuarios existentes.
+- Usuarios manuales en `/share/rainmapper/users.json`, con `username`, `name`, `email`, `password`, `role`, `enabled` y `max_devices`. `username` es el identificador de login; `name` es el nombre de la persona; `email` es contacto.
+- En HA, `run.sh` crea `users.json` desde `/app/users.example.json` si no existe `users.json` ni un `users.txt` legacy; no sobrescribe usuarios existentes.
+- Compatibilidad: si existe un `/share/rainmapper/users.txt` antiguo y todavia no existe `users.json`, la app lo lee y lo migra a JSON tras el primer login correcto. Cuando `users.json` existe, es la fuente de verdad.
 - Dispositivos y sesiones en `/share/rainmapper/devices.json`, generado por la app como JSON vacio si no existe.
-- `normal` queda limitado a un dispositivo activo; `admin` puede entrar desde varios.
+- Roles soportados: `free`, `basic`, `pro` y `admin`. `normal` se acepta como alias legacy de `free`.
+- Limites por defecto: `free=1`, `basic=2`, `pro=3`, `admin=0`; `0` significa dispositivos ilimitados. `max_devices` puede sobrescribir el limite por usuario.
 - El visor guarda `device_id` y token de sesion en `localStorage`, y envia `Authorization: Bearer ...` + `X-Rainmapper-Device` al pedir GeoJSON.
-- Si se borran datos del navegador, el usuario normal puede quedar bloqueado porque se genera un nuevo `device_id`; se resuelve limpiando/deshabilitando el registro anterior en `devices.json`.
-- Esta autenticacion ligera aplica al servidor HA. El visor Docker local sigue siendo estatico para pruebas y lee `docker-data/PublicData`.
+- Si se borran datos del navegador, un usuario con limite de dispositivos puede quedar bloqueado porque se genera un nuevo `device_id`; se resuelve limpiando/deshabilitando un registro anterior en `devices.json`.
+- Esta autenticacion ligera aplica al servidor HA. El visor Docker local sigue siendo estatico para pruebas y lee `docker-data/PublicData`. Los tests de backend viven en `tests/test_web_server_auth.py`; cubren usuarios JSON, limites por dispositivo, admin ilimitado y migracion desde `users.txt` legacy.
 
 - Estado persistente principal: CSV en filesystem.
 - Estado runtime webUI: diccionario global `RUN_STATE` en `web_server.py`.
@@ -242,6 +248,7 @@ Validaciones existentes/recomendadas:
 ./scripts/smoke-test.sh
 ./scripts/docker-offline-functional-test.sh
 .venv/bin/python -m unittest discover -s tests
+python -m unittest tests.test_web_server_auth
 python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper-app/app/web_server.py
 node --check rainmapper_core/viewers/leaflet-viewer/app.js
 node --check rainmapper_core/viewers/maplibre-viewer/app.js
@@ -283,10 +290,10 @@ Home Assistant:
 - Logs operativos principales y webUI HA en ingles; README/DOCS de la app HA siguen en espanol por decision operativa actual.
 - Scripts de mantenimiento/desarrollo (`.py`, `.sh` u otros) deben incluir documentacion interna en ingles: cabecera de proposito y comentarios breves antes de bloques o funciones no obvias. No hace falta comentar cada linea, pero el flujo debe poder entenderse sin depender del historial del chat.
 - Errores Wunderground se clasifican por patrones en logs.
-- Cambios de core deben duplicarse en raiz y `rainmapper-app/app`.
+- Cambios de core deben hacerse en `rainmapper_core/`; no reintroducir copias fisicas en `rainmapper-app/app`.
 
 ## Riesgos arquitectonicos
-- Duplicidad de codigo entre raiz y app HA.
+- Persisten entrypoints/wrappers shell de compatibilidad en raiz, pero la duplicidad fisica de core entre raiz y app HA fue retirada; no reintroducirla.
 - Acoplamiento fuerte a nombres/rutas CSV.
 - Scraper Wunderground fragil ante cambios HTML o estaciones desaparecidas.
 - Proteccion automatica de historicos limitada: existen `scripts/check-history.py`, `scripts/backup-data.sh` y smoke checks, pero no una suite funcional completa de regresion historica.
