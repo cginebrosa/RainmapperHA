@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.81">
+    <link rel="stylesheet" href="style.css?v=0.2.82">
   </head>
   <body>
     <header class="topbar">
@@ -33,6 +33,25 @@
 
     <main>
       <div id="map"></div>
+
+      <section class="login-overlay" id="login-overlay" aria-label="Rainmapper login" hidden>
+        <form class="login-card" id="login-form" autocomplete="on">
+          <div>
+            <h2>Rainmapper</h2>
+            <p>Sign in to view protected maps from this device.</p>
+          </div>
+          <label>
+            <span>Email</span>
+            <input id="login-email" name="email" type="email" autocomplete="username" required>
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <div class="login-error" id="login-error" role="alert" aria-live="polite"></div>
+          <button class="login-submit" type="submit">Sign in</button>
+        </form>
+      </section>
       <div class="map-floating-controls" aria-label="Map controls">
         <button class="map-control-button map-settings-toggle" id="settings-toggle" type="button" aria-expanded="false" aria-controls="map-settings" aria-label="Map settings" title="Map settings">
           <span aria-hidden="true">•••</span>
@@ -118,7 +137,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.81"></script>
-    <script src="app.js?v=0.2.81"></script>
+    <script src="config.js?v=0.2.82"></script>
+    <script src="app.js?v=0.2.82"></script>
   </body>
 </html>

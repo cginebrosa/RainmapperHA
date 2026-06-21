@@ -106,9 +106,9 @@ Hay varios entry points segun entorno:
 
 ### WebUI HA
 - Ruta: `rainmapper-app/app/web_server.py`.
-- Responsabilidad: servidor HTTP, webUI, acciones, schedule, publicacion, logs, status, enable/disable estaciones.
+- Responsabilidad: servidor HTTP, webUI, acciones, schedule, publicacion, logs, status, enable/disable estaciones y rutas protegidas de MapLibre.
 - Dependencias: stdlib HTTP, subprocess, threading, json, pathlib.
-- Relacion: orquesta scripts Python y publica visores.
+- Relacion: orquesta scripts Python y publica visores. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`.
 
 ### Wrapper HA
 - Ruta: `rainmapper-app/run.sh`.
@@ -156,7 +156,7 @@ Hay varios entry points segun entorno:
 - En HA se publica directamente desde `/app/rainmapper_core/viewers/maplibre-viewer`.
 - Responsabilidad: visor web principal con mapas vectoriales/raster, filtros cliente de estaciones y terreno 3D opcional.
 - Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y DEM externo Terrarium/Mapzen para terreno 3D.
-- Relacion: publicado a `/local/rainmapper-maplibre`. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. Desde `0.2.71`, el filtro `Source` muestra badges de estado por fuente si existe `data/source_status.json`; en escritorio, desde zoom 9, la ficha de estacion tambien aparece por hover sin cambiar el comportamiento tactil de movil. En `0.2.81` la UI se moderniza con cabecera clara, controles flotantes, selector inferior de periodo, leyenda vertical dinamica y popups claros; el popup de estacion se mantiene/refresca al cambiar de periodo si la estacion sigue visible tras filtros. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
+- Relacion: los assets estaticos se siguen publicando en `/local/rainmapper-maplibre`, pero la ruta operativa recomendada en HA es `/protected/maplibre/index.html`; los GeoJSON se sirven por `/protected/maplibre/data/*` con autenticacion ligera. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. Desde `0.2.71`, el filtro `Source` muestra badges de estado por fuente si existe `data/source_status.json`; en escritorio, desde zoom 9, la ficha de estacion tambien aparece por hover sin cambiar el comportamiento tactil de movil. En `0.2.81` la UI se moderniza con cabecera clara, controles flotantes, selector inferior de periodo, leyenda vertical dinamica y popups claros; el popup de estacion se mantiene/refresca al cambiar de periodo si la estacion sigue visible tras filtros. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
 
 ## Modelo de datos
 Persistencia por CSV:
@@ -168,7 +168,7 @@ Persistencia por CSV:
 - Ultimos registros en `Tomap/LastXX_rains.csv`; por defecto `Last30_rains.csv`, configurable con `RAINMAPPER_LAST_RAINS_HISTORY` o la opcion HA `last_rains_history`.
 - Metricas Wunderground en `Data/metricas_wunderground.csv`.
 - Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat y Wunderground. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo. El payload puede incluir `duration_seconds`, `started_at`, `finished_at` y `timings`; los subtiempos actuales se usan especialmente para Meteocat.
-- GeoJSON publicados en `PublicData/*.geojson` y `/config/www/rainmapper-data`.
+- GeoJSON generados en `PublicData/*.geojson`. Leaflet recibe copia publica en `/local/rainmapper-leaflet/data`; MapLibre los consume desde `/protected/maplibre/data/*` para exigir login.
 
 Campos relevantes detectados o usados:
 
@@ -182,6 +182,16 @@ Campos relevantes detectados o usados:
 Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y funciones pandas.
 
 ## Gestion de estado
+
+### Autenticacion ligera MapLibre
+- Usuarios manuales en `/share/rainmapper/users.txt`, con formato `email;password;role;enabled`.
+- En HA, `run.sh` crea `users.txt` desde `/app/users.example.txt` si no existe; no sobrescribe usuarios existentes.
+- Dispositivos y sesiones en `/share/rainmapper/devices.json`, generado por la app como JSON vacio si no existe.
+- `normal` queda limitado a un dispositivo activo; `admin` puede entrar desde varios.
+- El visor guarda `device_id` y token de sesion en `localStorage`, y envia `Authorization: Bearer ...` + `X-Rainmapper-Device` al pedir GeoJSON.
+- Si se borran datos del navegador, el usuario normal puede quedar bloqueado porque se genera un nuevo `device_id`; se resuelve limpiando/deshabilitando el registro anterior en `devices.json`.
+- Esta autenticacion ligera aplica al servidor HA. El visor Docker local sigue siendo estatico para pruebas y lee `docker-data/PublicData`.
+
 - Estado persistente principal: CSV en filesystem.
 - Estado runtime webUI: diccionario global `RUN_STATE` en `web_server.py`.
 - Estado por fuente: `Data/source_status.json`, leido por `web_server.py` para mostrar tarjetas de estado, exit code, filas y duraciones por fuente. Al publicar visores, se copia tambien a `data/source_status.json` dentro de Leaflet/MapLibre; MapLibre lo usa solo para mostrar badges junto al filtro `Source`, no tiempos de proceso.
@@ -202,6 +212,8 @@ WebUI HA (`web_server.py`):
 Home Assistant publica:
 
 - `/local/Plots/...`: Bokeh HTML.
+- `/local/rainmapper-leaflet/index.html`: Leaflet publico fallback.
+- `http://<HA_IP>:8099/protected/maplibre/index.html`: entrada protegida MapLibre servida por `web_server.py`; Cloudflared debe apuntar el hostname externo al servicio `http://<HA_IP>:8099`.
 - OpenTopoMap y Esri: tiles raster usados por Leaflet y MapLibre.
 - Terrarium/Mapzen DEM externo: fuente `raster-dem` opcional para terrain 3D en MapLibre. No se empaqueta dentro de Docker ni se publica desde `/config/www`.
 

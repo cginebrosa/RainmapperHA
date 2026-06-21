@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.82
+
+- Add lightweight login protection for the MapLibre viewer and GeoJSON data.
+- Create `users.txt` and `devices.json` in `/share/rainmapper` when missing.
+- Publish port `8099/tcp` so Cloudflared can reach the protected Rainmapper web server directly.
+- Keep `/local/rainmapper-maplibre/index.html` as a temporary public fallback while validating the protected Cloudflared route.
+
 ## 0.2.81
 
 - Modernize the MapLibre viewer UI with a light header, floating map controls, a compact period selector, and a dynamic vertical rain legend.

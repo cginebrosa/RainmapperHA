@@ -128,7 +128,7 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version `0.2.80`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente. En `0.2.80`, el usuario ha validado manualmente en HA un `Run all` tras la refactorizacion core/app/local y todo parece correcto. En `0.2.78`, el usuario valido manualmente en HA `Run all` correctamente tras la fase 4 del refactor core. En `0.2.77`, el usuario valido manualmente `Run update` con exit code 0, `Generate maps` con exit code 0 y publicacion de visores con `v=0.2.77`.
+- Estado actual: version `0.2.82`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente. En `0.2.80`, el usuario ha validado manualmente en HA un `Run all` tras la refactorizacion core/app/local y todo parece correcto. En `0.2.78`, el usuario valido manualmente en HA `Run all` correctamente tras la fase 4 del refactor core. En `0.2.77`, el usuario valido manualmente `Run update` con exit code 0, `Generate maps` con exit code 0 y publicacion de visores con `v=0.2.77`.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
@@ -143,7 +143,7 @@ Tambien existen documentos de uso:
 
 ### `rainmapper_core/viewers/maplibre-viewer/` y `maplibre-viewer/`
 - Proposito: visor principal MapLibre con mapas vectoriales/raster.
-- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y terreno 3D. En `0.2.81` se moderniza la UI: cabecera clara, controles flotantes, selector inferior de periodo, leyenda vertical dinamica, creditos en boton de informacion y popups claros.
+- Estado actual: funcional, con Satellite+ raster/vectorial por defecto, Hybrid raster, Topographic raster, OpenFreeMap Liberty, boton para orientar de nuevo al norte, consulta de altitud DEM por pulsacion larga y panel de settings con selector de mapa, filtros cliente por lluvia minima, fuente de estacion y terreno 3D. En `0.2.81` se moderniza la UI: cabecera clara, controles flotantes, selector inferior de periodo, leyenda vertical dinamica, creditos en boton de informacion y popups claros. La siguiente iteracion incorpora autenticacion ligera en `/protected/maplibre/index.html`, con usuarios manuales en `/share/rainmapper/users.txt` y dispositivos en `/share/rainmapper/devices.json`; pendiente de publicar version HA.
 - Riesgos: MapLibre queda como visor principal recomendado por decision de proyecto, con Leaflet mantenido como fallback. Las validaciones en HA/iPhone son manuales/reportadas por el usuario y no estan automatizadas. Satellite+ mezcla tiles Esri con orientacion vectorial OpenFreeMap y puede requerir ajustes visuales futuros si se detectan problemas. En `0.2.56` se corrige la vuelta a Satellite+ tras cambiar a otra capa clonando el objeto de estilo antes de pasarlo a MapLibre. El terreno 3D usa DEM externo Terrarium/Mapzen, esta apagado por defecto y depende de disponibilidad/CORS/rendimiento del proveedor externo hasta decidir si se generan tiles DEM propios.
 
 ### `rainmapper-local/docker-compose.yml`
@@ -166,7 +166,7 @@ Tambien existen documentos de uso:
 - Publicacion de mapas a `/config/www`: `web_server.py`.
 - Mapas Bokeh publicados en `/local/Plots`: `rainmapper_core.bokeh_maps`, `web_server.py`.
 - Leaflet viewer publicado en `/local/rainmapper-leaflet/index.html`: `rainmapper_core/viewers/leaflet-viewer/`, `web_server.py`.
-- MapLibre viewer publicado en `/local/rainmapper-maplibre/index.html`: `rainmapper_core/viewers/maplibre-viewer/`, `web_server.py`.
+- MapLibre viewer operativo en `/protected/maplibre/index.html`: `rainmapper_core/viewers/maplibre-viewer/`, `web_server.py`. Durante la validacion de Cloudflared/puerto 8099 se mantiene temporalmente `/local/rainmapper-maplibre/index.html` como fallback funcional con GeoJSON publicos; el codigo deja marcada la limpieza para retirarlo cuando la ruta protegida quede validada.
 - GeoJSON para 1/7/14/21/30/60/90 dias: `rainmapper_core.geojson`.
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `rainmapper_core.geojson`.
 - Filtros en MapLibre: settings del visor aplica filtros cliente por lluvia minima y por fuente de estacion sobre el periodo cargado para validar UX de futura app movil.
@@ -174,6 +174,7 @@ Tambien existen documentos de uso:
 - Terreno 3D en MapLibre: settings permite activar `3D terrain` y ajustar `Exaggeration` usando un DEM externo Terrarium/Mapzen como fuente `raster-dem`. El visor incluye un control flotante `2D`/`3D`, y en escritorio la tecla `t` alterna el mismo estado. No se incluye ningun DEM en la imagen Docker. Validado manualmente por el usuario en local, HA, Mac e iPhone; queda como funcionalidad definitiva por decision del 2026-06-18, aceptando la dependencia externa hasta que se decida si hace falta DEM propio.
 - Consulta de altitud en MapLibre: una pulsacion larga sobre el mapa muestra un popup con cola apuntando al punto consultado y la altitud del DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB. Se evita `queryTerrainElevation` para esta lectura porque en una prueba manual en Urus/Cerdanya (`42.35406, 1.85317`) devolvio `-4 m` aunque el tile DEM crudo devolvia unos `1259 m`; esta observacion queda pendiente de confirmar automaticamente. En HA no se disparaba la ventana incluso con Chrome limpio y tras generar mapas, por lo que `0.2.65` cambia el disparador de pulsacion larga a eventos propios de MapLibre y `contextmenu`, y ademas alinea los cache-busters internos de los visores. El cierre del popup de terreno limpia el estado activo igual que los popups de estacion para no bloquear el hover posterior en escritorio. En `0.2.77`, el usuario valida que MapLibre funciona bien en HA, Mac e iPhone tras anadir la cola del popup de terreno y el boton `2D`/`3D`; pendiente de confirmar mediante prueba automatizada o reproducible.
 - `Source` en GeoJSON: `rainmapper_core.geojson` anade fuente inferida por codigo de estacion (`ES...` de longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown`). Si aparece `Unknown`, el conversor emite un `WARNING` en stdout.
+- Autenticacion ligera MapLibre: `web_server.py` protege `/protected/maplibre/data/*.geojson` y `source_status.json`. `users.txt` usa `email;password;role;enabled`; `run.sh` lo crea desde `users.example.txt` si falta, y crea `devices.json` vacio si falta. `normal` queda asociado al primer dispositivo y `admin` puede usar varios. Aplica al servidor HA; el visor Docker local sigue siendo estatico para pruebas. Validado localmente en contenedor HA de prueba con Safari Mac/iPhone; pendiente de version HA real.
 - Estado por fuente: `rainmapper_core.rainmapper` escribe `Data/source_status.json` con el ultimo estado de Meteoclimatic, Meteocat y Wunderground. Si una fuente falla completamente, el update intenta continuar con el incremental previo y marca la fuente como `STALE`; si no hay incremental utilizable la marca como `NOK`. La webUI de HA muestra esas tarjetas de estado desde `0.2.71` y ahora tambien muestra duraciones reales por fuente; Meteocat guarda ademas subtiempos reales de metadata, condiciones, precipitacion, merge y guardado. MapLibre muestra solo badges de estado junto al filtro `Source`; por decision del usuario, los tiempos de proceso no son relevantes para el visor de mapas.
 - Wunderground full log configurable y resumen de errores: `rainmapper_core.rainmapper`, `config.yaml`.
 - Upsert incremental por fuente: `rainmapper_core.rainmapper` usa `rainmapper_core/incremental_upsert.py` para mantener como maximo una fila por `Codi Estació` + `Data Local`. Validacion local 2026-06-19 con datos copiados de HA: Meteocat paso de 316699 filas y 28 filas duplicadas por clave a 316685 filas y 0 duplicados; Meteoclimatic y Wunderground quedaron sin duplicados y con las claves actuales contenidas. Validacion HA `0.2.77`: `Run update` termino con exit code 0, Meteocat quedo en 316685 filas, Meteoclimatic en 122970 y Wunderground en 67299; `Generate maps` termino con exit code 0 y publico visores `v=0.2.77`.
@@ -188,9 +189,9 @@ Tambien existen documentos de uso:
 ## Funcionalidades parcialmente implementadas
 - Leaflet y MapLibre: funcionales en el codigo y validados manualmente en iPhone/HA segun reporte del usuario; pendiente de confirmacion automatizada. MapLibre `0.2.53` queda como visor principal recomendado; Leaflet se mantiene publicado como fallback. Bokeh sigue como referencia/compatibilidad.
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
-- Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app; Cloudflare redirige a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario, pendiente de confirmar fuera del repositorio.
+- Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app. Cloudflare redirigia a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario; desde la autenticacion ligera de MapLibre, la ruta recomendada para MapLibre pasa a ser `/protected/maplibre/index.html`.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.80`.
+- Versionado HA: `config.yaml`, labels Docker y banner runtime estan alineados en `0.2.82`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -330,12 +331,12 @@ Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar l
 1. Home Assistant arranca `rainmapper-app/run.sh`.
 2. `run.sh` lee `/data/options.json`, crea `/share/rainmapper` y sus subcarpetas, crea `stations.txt` e `ignore_stations_tomap.txt` si faltan y no sobrescribe los existentes.
 3. `run.sh` crea symlinks hacia `/app/Data`, `/app/Tomap`, `/app/Plots`, `/app/PublicData` y exporta variables.
-4. En modo recomendado `serve`, arranca `web_server.py` en `0.0.0.0:8099`.
+4. En modo recomendado `serve`, arranca `web_server.py` en `0.0.0.0:8099`; el manifiesto HA publica tambien `8099/tcp` para acceso LAN/Cloudflared ademas de ingress.
 5. La webUI permite lanzar `update`, `maps` o `all`.
 6. `update` ejecuta `python -m rainmapper_core.rainmapper` y actualiza CSV historicos y estado por fuente; `maps`/`all` reconstruyen `Tomap` con `rainmapper_core.tomap`.
 7. `maps` ejecuta `python -m rainmapper_core.bokeh_maps`, genera Bokeh HTML y despues `rainmapper_core.geojson` para los visores nuevos.
 8. Si `publish_to_www` esta activo, la app copia HTML y visores a `/config/www`.
-9. HA sirve los resultados como `/local/Plots`, `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
+9. HA sirve Bokeh como `/local/Plots`, Leaflet como `/local/rainmapper-leaflet` y MapLibre desde el servidor Rainmapper en `/protected/maplibre/index.html` con datos protegidos en `/protected/maplibre/data/*`. Para Cloudflared, el `service` debe apuntar a `http://<HA_IP>:8099`.
 
 ## Integraciones externas
 - Meteocat / Socrata: usado desde `rainmapper_core.rainmapper` y `rainmapper_core/sources/sodapy_local`. Endpoint exacto/datasets: pendiente de confirmar en detalle.
@@ -344,7 +345,7 @@ Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar l
 - Google Maps: `googlemaps` Python client y Bokeh `gmap`; clave en `GMAP_API_KEY`/`gmap_api_key`.
 - Home Assistant Supervisor API: `web_server.py` usa `SUPERVISOR_TOKEN` para resolver informacion del addon.
 - OpenTopoMap / Esri / OpenFreeMap / Terrarium DEM: proveedores de tiles/estilos/relieve para visores.
-- Cloudflare/domain externo: usado operacionalmente para exponer HA/visor, pero no hay configuracion de Cloudflare versionada en el repo.
+- Cloudflare/domain externo: usado operacionalmente para exponer HA/visor, pero no hay configuracion de Cloudflare versionada en el repo. Para MapLibre protegido, Cloudflared debe apuntar a `http://<HA_IP>:8099`; las reglas que redirijan a `/local/rainmapper-maplibre/index.html` deben retirarse o cambiarse a la ruta protegida.
 
 ## Decisiones importantes ya tomadas
 Resumen:

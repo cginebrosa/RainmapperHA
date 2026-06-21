@@ -4,6 +4,8 @@ set -eu
 CONFIG_PATH="/data/options.json"
 SHARE_ROOT="/share/rainmapper"
 IGNORE_STATIONS_TOMAP_FILE="$SHARE_ROOT/ignore_stations_tomap.txt"
+USERS_FILE="$SHARE_ROOT/users.txt"
+DEVICES_FILE="$SHARE_ROOT/devices.json"
 
 option() {
   key="$1"
@@ -100,6 +102,14 @@ fi
 
 if [ ! -f "$IGNORE_STATIONS_TOMAP_FILE" ]; then
   printf "%s\n" "# Stations ignored when generating GeoJSON / new maps" > "$IGNORE_STATIONS_TOMAP_FILE"
+fi
+
+if [ ! -f "$USERS_FILE" ]; then
+  cp /app/users.example.txt "$USERS_FILE"
+fi
+
+if [ ! -f "$DEVICES_FILE" ]; then
+  printf "%s\n" '{"devices": {}}' > "$DEVICES_FILE"
 fi
 
 rm -rf /app/Data /app/Tomap /app/Plots /app/PublicData /app/stations.txt /app/ignore_stations_tomap.txt

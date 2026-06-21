@@ -1,7 +1,7 @@
 # TODO
 
 ## Proximo paso recomendado
-Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests funcionales formales, segun se quiera priorizar UX o cobertura automatica.
+Publicar una version HA con MapLibre protegido y validar la ruta `/protected/maplibre/index.html` desde Home Assistant/Cloudflare; despues, decidir si se mantiene Leaflet publico como fallback o se protege tambien.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -43,6 +43,13 @@ Revisar la ergonomia del panel Settings de MapLibre en movil o ampliar tests fun
   - Estado: resuelto como practica operativa versionada. Antes de cambios que escriban CSV, usar backup/copia temporal y validar con `scripts/check-history.py`.
 
 ## Prioridad media
+
+- [ ] Validar MapLibre protegido en HA/Cloudflare
+  - Contexto: se ha implementado autenticacion ligera para MapLibre y GeoJSON con usuarios manuales en `/share/rainmapper/users.txt` y registro de dispositivos en `/share/rainmapper/devices.json`.
+  - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/`, `rainmapper-app/DOCS.md`.
+  - Criterio de aceptacion: en HA real, `/protected/maplibre/index.html` pide login, un usuario normal no puede usar segundo dispositivo, `admin` puede usar varios y los GeoJSON no son accesibles sin sesion. Cloudflared debe apuntar a `http://<HA_IP>:8099` y no a `/local/rainmapper-maplibre/index.html`. Tras validar Cloudflared, retirar el fallback publico temporal de MapLibre.
+  - Estado: validado localmente con contenedor HA de prueba en Safari Mac/iPhone; el manifiesto HA ya publica `8099/tcp` para Cloudflared/LAN; pendiente de version HA y validacion real.
+
 - [x] Decidir visor principal
   - Contexto: conviven Bokeh, Leaflet y MapLibre; MapLibre ya funciona bien en movil segun validacion manual/reportada por el usuario y desde `0.2.47` tambien soporta Hybrid/Topographic raster.
   - Ficheros relacionados: `rainmapper_core/bokeh_maps.py`, `rainmapper_core/viewers/`, `rainmapper-app/app/web_server.py`.

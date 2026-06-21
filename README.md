@@ -189,7 +189,7 @@ Con `mode: serve`, Rainmapper queda abierto como servicio ligero, aparece en la 
 - ver estado, duracion y log de la ultima ejecucion;
 - abrir mapas generados;
 - usar schedule interno;
-- publicar mapas en `/local/Plots`, `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre`.
+- publicar mapas en `/local/Plots`, `/local/rainmapper-leaflet` y el visor MapLibre protegido en `/protected/maplibre/index.html`.
 
 ## Datos persistentes
 En Home Assistant:
@@ -200,6 +200,8 @@ En Home Assistant:
 /share/rainmapper/Plots
 /share/rainmapper/stations.txt
 /share/rainmapper/ignore_stations_tomap.txt
+/share/rainmapper/users.txt
+/share/rainmapper/devices.json
 ```
 
 En Docker local:
@@ -218,7 +220,7 @@ docker-data/ignore_stations_tomap.txt
 ## Visores de mapas
 Visor recomendado:
 
-- MapLibre: `/local/rainmapper-maplibre/index.html`.
+- MapLibre: `/protected/maplibre/index.html`.
 
 Visores mantenidos:
 

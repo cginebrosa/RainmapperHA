@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import base64
+import hashlib
 import html
 import json
 import mimetypes
@@ -9,6 +11,7 @@ import os
 import re
 import shutil
 import signal
+import secrets
 import subprocess
 import sys
 import threading
@@ -35,9 +38,13 @@ PUBLIC_MAPLIBRE_PATH = Path("/config/www/rainmapper-maplibre")
 PUBLIC_MAPLIBRE_TMP_PATH = Path("/config/www/.rainmapper-maplibre-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
+USERS_PATH = Path("/share/rainmapper/users.txt")
+DEVICES_PATH = Path("/share/rainmapper/devices.json")
 SOURCE_STATUS_PATH = Path("/app/Data/source_status.json")
 STATIONS_PATH = Path("/app/stations.txt")
 WUNDERGROUND_STATIONS_DB_PATH = Path("/app/Data/estacions_wunderground.csv")
+AUTH_TOKEN_BYTES = 32
+PASSWORD_HASH_ITERATIONS = 260_000
 
 PUBLIC_MAP_NAMES = {
     "01_Tomap_Last_day.html": "rain_01d.html",
@@ -940,7 +947,7 @@ def publish_maps(log_file) -> tuple[bool, str]:
 
 def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
-        return True, "Publishing viewers to /local/rainmapper-leaflet/index.html and /local/rainmapper-maplibre/index.html is disabled."
+        return True, "Publishing viewers to /local/rainmapper-leaflet/index.html and /protected/maplibre/index.html is disabled."
 
     if not Path("/config").exists():
         return False, "Cannot publish viewers: /config is not available in this container."
@@ -979,8 +986,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     for asset_name in ("index.html", "app.js", "style.css"):
         shutil.copy2(LEAFLET_VIEWER_ASSETS_PATH / asset_name, PUBLIC_LEAFLET_TMP_PATH / asset_name)
 
-    viewer_config = {}
-    config_js = "window.RAINMAPPER_CONFIG = " + json.dumps(viewer_config) + ";\n"
+    config_js = public_viewer_config_js()
     (PUBLIC_LEAFLET_TMP_PATH / "config.js").write_text(config_js)
 
     data_path = PUBLIC_LEAFLET_TMP_PATH / "data"
@@ -999,6 +1005,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     if not MAPLIBRE_VIEWER_ASSETS_PATH.exists():
         return False, "Cannot publish MapLibre viewer: MapLibre viewer assets are missing."
 
+    preserve_public_maplibre_data_for_transition()
     PUBLIC_MAPLIBRE_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(PUBLIC_MAPLIBRE_TMP_PATH, ignore_errors=True)
     PUBLIC_MAPLIBRE_TMP_PATH.mkdir(parents=True, exist_ok=True)
@@ -1007,12 +1014,16 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
         shutil.copy2(MAPLIBRE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MAPLIBRE_TMP_PATH / asset_name)
     (PUBLIC_MAPLIBRE_TMP_PATH / "config.js").write_text(config_js)
 
-    maplibre_data_path = PUBLIC_MAPLIBRE_TMP_PATH / "data"
-    maplibre_data_path.mkdir()
+    # Transitional fallback: keep /local/rainmapper-maplibre/data available until
+    # the protected Cloudflared route has been validated in the real HA setup.
+    # TODO: restore strict protected-only data by calling
+    # remove_legacy_public_maplibre_data() after Cloudflared validation.
+    data_path = PUBLIC_MAPLIBRE_TMP_PATH / "data"
+    data_path.mkdir()
     for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
-        shutil.copy2(source_path, maplibre_data_path / source_path.name)
+        shutil.copy2(source_path, data_path / source_path.name)
     if SOURCE_STATUS_PATH.exists():
-        shutil.copy2(SOURCE_STATUS_PATH, maplibre_data_path / SOURCE_STATUS_PATH.name)
+        shutil.copy2(SOURCE_STATUS_PATH, data_path / SOURCE_STATUS_PATH.name)
 
     shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
     PUBLIC_MAPLIBRE_TMP_PATH.rename(PUBLIC_MAPLIBRE_PATH)
@@ -1020,7 +1031,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
     message = (
         f"Published mobile viewers with {copied} GeoJSON file(s) to "
-        f"/local/rainmapper-leaflet/index.html and /local/rainmapper-maplibre/index.html at {published_at}."
+        f"/local/rainmapper-leaflet/index.html and protected /protected/maplibre/index.html at {published_at}."
     )
     log_file.write(f"=== {message} ===\n")
     log_file.flush()
@@ -1209,6 +1220,280 @@ def read_log() -> str:
     return LOG_PATH.read_text(encoding="utf-8", errors="replace")
 
 
+def utc_now() -> str:
+    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+
+def normalize_user_id(value: str) -> str:
+    return value.strip().lower()
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        PASSWORD_HASH_ITERATIONS,
+    )
+    return (
+        f"pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}$"
+        f"{base64.urlsafe_b64encode(salt).decode('ascii')}$"
+        f"{base64.urlsafe_b64encode(digest).decode('ascii')}"
+    )
+
+
+def verify_password(password: str, stored_value: str) -> bool:
+    if stored_value.startswith("pbkdf2_sha256$"):
+        try:
+            _algorithm, iterations_text, salt_text, digest_text = stored_value.split("$", 3)
+            iterations = int(iterations_text)
+            salt = base64.urlsafe_b64decode(salt_text.encode("ascii"))
+            expected = base64.urlsafe_b64decode(digest_text.encode("ascii"))
+        except Exception:
+            return False
+        actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+        return secrets.compare_digest(actual, expected)
+
+    # Bootstrap mode: allow manually-created plaintext passwords, then migrate on login.
+    return secrets.compare_digest(password, stored_value)
+
+
+def token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def read_users() -> tuple[dict[str, dict[str, str]], list[str]]:
+    if not USERS_PATH.exists():
+        return {}, []
+
+    users: dict[str, dict[str, str]] = {}
+    lines = USERS_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        parts = [part.strip() for part in stripped.split(";")]
+        if len(parts) < 2:
+            continue
+        user_id = normalize_user_id(parts[0])
+        users[user_id] = {
+            "email": user_id,
+            "password": parts[1],
+            "role": parts[2].lower() if len(parts) >= 3 and parts[2] else "normal",
+            "enabled": parts[3].lower() if len(parts) >= 4 and parts[3] else "true",
+        }
+    return users, lines
+
+
+def write_users(users: dict[str, dict[str, str]], original_lines: list[str]) -> None:
+    existing = set()
+    output = []
+    for line in original_lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            output.append(line)
+            continue
+        parts = [part.strip() for part in stripped.split(";")]
+        if not parts:
+            output.append(line)
+            continue
+        user_id = normalize_user_id(parts[0])
+        user = users.get(user_id)
+        if not user:
+            output.append(line)
+            continue
+        existing.add(user_id)
+        output.append(
+            ";".join(
+                [
+                    user["email"],
+                    user["password"],
+                    user.get("role", "normal"),
+                    user.get("enabled", "true"),
+                ]
+            )
+        )
+
+    for user_id, user in sorted(users.items()):
+        if user_id in existing:
+            continue
+        output.append(
+            ";".join(
+                [
+                    user["email"],
+                    user["password"],
+                    user.get("role", "normal"),
+                    user.get("enabled", "true"),
+                ]
+            )
+        )
+    USERS_PATH.write_text("\n".join(output) + "\n", encoding="utf-8")
+
+
+def read_devices() -> dict[str, dict[str, str]]:
+    if not DEVICES_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(DEVICES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    devices = payload.get("devices", {})
+    return devices if isinstance(devices, dict) else {}
+
+
+def write_devices(devices: dict[str, dict[str, str]]) -> None:
+    DEVICES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"devices": devices}
+    DEVICES_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def new_device_id() -> str:
+    return secrets.token_urlsafe(24)
+
+
+def new_session_token() -> str:
+    return secrets.token_urlsafe(AUTH_TOKEN_BYTES)
+
+
+def authenticate_session(token: str, device_id: str) -> tuple[bool, dict[str, str] | None]:
+    if not token or not device_id:
+        return False, None
+
+    devices = read_devices()
+    device = devices.get(device_id)
+    if not device or str(device.get("enabled", "true")).lower() != "true":
+        return False, None
+    if not secrets.compare_digest(str(device.get("token_hash", "")), token_hash(token)):
+        return False, None
+
+    users, _lines = read_users()
+    user = users.get(normalize_user_id(str(device.get("email", ""))))
+    if not user or user.get("enabled", "true").lower() != "true":
+        return False, None
+
+    device["last_seen_at"] = utc_now()
+    write_devices(devices)
+    return True, {"email": user["email"], "role": user.get("role", "normal")}
+
+
+def login_user(email: str, password: str, device_id: str, user_agent: str) -> tuple[int, dict[str, object]]:
+    users, user_lines = read_users()
+    user_id = normalize_user_id(email)
+    user = users.get(user_id)
+    if not user or user.get("enabled", "true").lower() != "true":
+        return 401, {"ok": False, "error": "Invalid user or password."}
+    if not verify_password(password, user.get("password", "")):
+        return 401, {"ok": False, "error": "Invalid user or password."}
+
+    if not user["password"].startswith("pbkdf2_sha256$"):
+        user["password"] = hash_password(password)
+        write_users(users, user_lines)
+
+    devices = read_devices()
+    role = user.get("role", "normal")
+    requested_device_id = device_id.strip() or new_device_id()
+    existing_device = devices.get(requested_device_id)
+
+    if existing_device and normalize_user_id(str(existing_device.get("email", ""))) != user_id:
+        return 403, {"ok": False, "error": "This device is already assigned to another user."}
+
+    active_user_devices = [
+        entry
+        for entry in devices.values()
+        if normalize_user_id(str(entry.get("email", ""))) == user_id
+        and str(entry.get("enabled", "true")).lower() == "true"
+    ]
+    if role != "admin" and not existing_device and active_user_devices:
+        return 403, {
+            "ok": False,
+            "error": "This user is already linked to another device.",
+        }
+
+    session_token = new_session_token()
+    now = utc_now()
+    if not existing_device:
+        existing_device = {
+            "email": user_id,
+            "device_id": requested_device_id,
+            "role": role,
+            "created_at": now,
+            "enabled": "true",
+        }
+    existing_device.update(
+        {
+            "email": user_id,
+            "role": role,
+            "user_agent": user_agent[:500],
+            "last_seen_at": now,
+            "token_hash": token_hash(session_token),
+        }
+    )
+    devices[requested_device_id] = existing_device
+    write_devices(devices)
+    return 200, {
+        "ok": True,
+        "email": user_id,
+        "role": role,
+        "device_id": requested_device_id,
+        "session_token": session_token,
+    }
+
+
+def content_type_for(path: Path) -> str:
+    if path.name.endswith(".geojson"):
+        return "application/geo+json"
+    if path.name.endswith(".js"):
+        return "application/javascript"
+    if path.name.endswith(".css"):
+        return "text/css"
+    return mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+
+
+def is_safe_maplibre_data_name(name: str) -> bool:
+    return name == "source_status.json" or re.fullmatch(r"\d{2}d\.geojson", name) is not None
+
+
+def auth_required_config_js() -> str:
+    return (
+        "window.RAINMAPPER_CONFIG = "
+        + json.dumps(
+            {
+                "authRequired": True,
+                "authBase": "/auth",
+                "dataBase": "data/",
+            }
+        )
+        + ";\n"
+    )
+
+
+def public_viewer_config_js() -> str:
+    return "window.RAINMAPPER_CONFIG = " + json.dumps({}) + ";\n"
+
+
+def remove_legacy_public_maplibre_data() -> None:
+    """Remove public MapLibre data once protected-only access is enforced.
+
+    The protected MapLibre viewer loads GeoJSON through /protected/maplibre/data/*.
+    This helper is intentionally kept ready, but not called during the current
+    transition, so /local/rainmapper-maplibre remains a working fallback while
+    Cloudflared access through port 8099 is validated.
+    """
+    shutil.rmtree(PUBLIC_MAPLIBRE_PATH / "data", ignore_errors=True)
+
+
+def preserve_public_maplibre_data_for_transition() -> None:
+    """Document the temporary public MapLibre fallback.
+
+    TODO: replace calls to this function with remove_legacy_public_maplibre_data()
+    once the protected Cloudflared route is validated in Home Assistant.
+    """
+    return None
+
+
 class RainmapperHandler(BaseHTTPRequestHandler):
     server_version = "Rainmapper/0.2"
 
@@ -1221,6 +1506,50 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
+
+    def send_json(self, status: int, payload: dict) -> None:
+        self.send_bytes(
+            status,
+            json.dumps(payload).encode("utf-8"),
+            "application/json; charset=utf-8",
+        )
+
+    def read_json_payload(self) -> dict:
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        if length <= 0:
+            return {}
+        raw_payload = self.rfile.read(length).decode("utf-8", errors="replace")
+        try:
+            payload = json.loads(raw_payload)
+        except json.JSONDecodeError:
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
+    def auth_credentials(self) -> tuple[str, str]:
+        authorization = self.headers.get("Authorization", "").strip()
+        token = ""
+        if authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        device_id = self.headers.get("X-Rainmapper-Device", "").strip()
+        return token, device_id
+
+    def authenticated_user(self) -> dict[str, str] | None:
+        token, device_id = self.auth_credentials()
+        ok, user = authenticate_session(token, device_id)
+        return user if ok else None
+
+    def require_authentication(self) -> dict[str, str] | None:
+        user = self.authenticated_user()
+        if user:
+            return user
+        self.send_json(401, {"ok": False, "error": "Authentication required."})
+        return None
+
+    def serve_static_file(self, file_path: Path) -> None:
+        if not file_path.is_file():
+            self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
+            return
+        self.send_bytes(200, file_path.read_bytes(), content_type_for(file_path))
 
     def redirect_home(self) -> None:
         self.send_response(303)
@@ -1270,6 +1599,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.render_settings()
             return
 
+        if path == "/auth/session":
+            user = self.authenticated_user()
+            if not user:
+                self.send_json(401, {"ok": False, "error": "Authentication required."})
+                return
+            self.send_json(200, {"ok": True, "user": user})
+            return
+
+        if path.startswith("/protected/maplibre"):
+            self.serve_protected_maplibre(path.removeprefix("/protected/maplibre"))
+            return
+
         if path.startswith("/file/"):
             self.serve_plot(path.removeprefix("/file/"))
             return
@@ -1290,6 +1631,30 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         return values[0] if values else ""
 
     def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/auth/login":
+            payload = self.read_json_payload()
+            status, response = login_user(
+                str(payload.get("email", "")),
+                str(payload.get("password", "")),
+                str(payload.get("device_id", "")),
+                self.headers.get("User-Agent", ""),
+            )
+            self.send_json(status, response)
+            return
+
+        if parsed.path == "/auth/session":
+            user = self.authenticated_user()
+            if not user:
+                self.send_json(401, {"ok": False, "error": "Authentication required."})
+                return
+            self.send_json(200, {"ok": True, "user": user})
+            return
+
+        if parsed.path == "/auth/logout":
+            self.logout_current_device()
+            return
+
         form = self.read_form()
         action = self.form_value(form, "run_action")
         if action:
@@ -1360,7 +1725,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         )
         source_controls = source_status_cards()
         leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html")
-        maplibre_url = cache_busted_url("/local/rainmapper-maplibre/index.html")
+        maplibre_url = cache_busted_url("/protected/maplibre/index.html")
         bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html")
 
         status = f"""
@@ -1414,6 +1779,42 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         )
         self.send_bytes(200, html_page("Rainmapper", body), "text/html; charset=utf-8")
 
+    def logout_current_device(self) -> None:
+        _token, device_id = self.auth_credentials()
+        devices = read_devices()
+        device = devices.get(device_id)
+        if device:
+            device.pop("token_hash", None)
+            device["last_seen_at"] = utc_now()
+            write_devices(devices)
+        self.send_json(200, {"ok": True})
+
+    def serve_protected_maplibre(self, requested_path: str) -> None:
+        relative_path = requested_path.lstrip("/") or "index.html"
+        if relative_path == "config.js":
+            self.send_bytes(200, auth_required_config_js().encode("utf-8"), "application/javascript")
+            return
+
+        if relative_path.startswith("data/"):
+            if not self.require_authentication():
+                return
+            data_name = relative_path.removeprefix("data/")
+            if "/" in data_name or "\\" in data_name or not is_safe_maplibre_data_name(data_name):
+                self.send_json(400, {"ok": False, "error": "Invalid data file."})
+                return
+            data_path = SOURCE_STATUS_PATH if data_name == "source_status.json" else PUBLIC_DATA_PATH / data_name
+            self.serve_static_file(data_path)
+            return
+
+        if "/" in relative_path or "\\" in relative_path:
+            self.send_bytes(400, b"Invalid file name", "text/plain; charset=utf-8")
+            return
+
+        if relative_path not in {"index.html", "app.js", "style.css"}:
+            self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
+            return
+        self.serve_static_file(MAPLIBRE_VIEWER_ASSETS_PATH / relative_path)
+
     def render_map_list(self) -> str:
         files = sorted(PLOTS_PATH.glob("*.html"))
         if not files:
@@ -1458,6 +1859,8 @@ def main() -> None:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8099)
     args = parser.parse_args()
+
+    preserve_public_maplibre_data_for_transition()
 
     scheduler = threading.Thread(target=scheduler_loop, daemon=True)
     scheduler.start()

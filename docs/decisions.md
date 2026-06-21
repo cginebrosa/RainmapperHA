@@ -1,5 +1,40 @@
 # Decisions
 
+## 2026-06-21 - Proteger MapLibre y GeoJSON con autenticacion ligera
+
+Decision:
+
+- MapLibre pasa a abrirse desde `/protected/maplibre/index.html` en la webUI de Home Assistant.
+- Los GeoJSON y `source_status.json` de MapLibre se sirven desde `/protected/maplibre/data/*` y requieren sesion valida.
+- Leaflet se mantiene publicado en `/local/rainmapper-leaflet` como fallback sin autenticacion.
+- Los usuarios se gestionan de forma manual en `/share/rainmapper/users.txt` con formato `email;password;role;enabled`.
+- El primer login de un usuario normal registra un `device_id` generado por el navegador en `/share/rainmapper/devices.json`; ese usuario queda limitado a ese dispositivo. Los usuarios con rol `admin` pueden usar varios dispositivos.
+- En HA, `run.sh` crea `users.txt` desde `users.example.txt` y `devices.json` vacio si faltan, sin sobrescribir ficheros existentes.
+
+Motivo:
+
+- Evitar compartir un enlace publico sin control durante pruebas con terceros.
+- Mantener una solucion simple y reversible antes de construir una gestion real de usuarios, permisos o suscripciones.
+- Proteger los datos en servidor, no solo ocultar controles en JavaScript.
+
+Alternativas descartadas:
+
+- Proteger solo el HTML del visor: insuficiente, porque los GeoJSON seguirian accesibles directamente.
+- Implementar ya una base de datos de usuarios completa: excesivo para la fase actual de pruebas privadas.
+- Usar cookies de sesion como unico mecanismo: se evita de momento para mantener un flujo simple y portable entre Safari, Chrome, Firefox y Android/iOS usando `localStorage` + cabeceras.
+
+Consecuencias:
+
+- Si un usuario normal borra datos del navegador, generara un nuevo `device_id` y quedara bloqueado hasta que se limpie o desactive su registro anterior en `devices.json`.
+- El add-on HA publica `8099/tcp` para que Cloudflared pueda apuntar al servidor Rainmapper con `service: http://<HA_IP>:8099`; las reglas externas de Cloudflare para MapLibre deben apuntar a `/protected/maplibre/index.html`, no a `/local/rainmapper-maplibre/index.html`.
+- La limpieza defensiva de `/config/www/rainmapper-maplibre/data` queda preparada en codigo, pero aplazada temporalmente para mantener `/local/rainmapper-maplibre/index.html` como fallback funcional mientras se valida Cloudflared/puerto 8099.
+- Las contrasenas en claro de `users.txt` se migran automaticamente a hash PBKDF2 al primer login correcto.
+- El visor Docker local queda sin autenticacion para mantenerlo como entorno rapido de pruebas.
+
+Estado:
+
+Implementado y validado localmente con contenedor HA de prueba: el indice protegido carga login, los datos devuelven `401` sin sesion, un usuario normal queda bloqueado en segundo dispositivo y un usuario `admin` puede entrar desde Mac y iPhone. Pendiente de publicar una version HA y validar en la instalacion real/Cloudflare.
+
 ## 2026-06-20 - Retirar wrappers raiz `Rainmapper.py` y `Rainmapper_Client.py`
 
 Decision:
@@ -498,7 +533,7 @@ Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya fu
 Dejar de publicar `/local/rainmapper-mobile` desde la app de Home Assistant.
 
 ### Motivo
-La ruta legacy ya no se utiliza. Cloudflare tiene redirecciones hacia `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario; pendiente de confirmar fuera del repositorio.
+La ruta legacy ya no se utiliza. Cloudflare tenia redirecciones hacia `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario. Modificado por la decision del 2026-06-21: MapLibre debe exponerse mediante `/protected/maplibre/index.html`; Leaflet se mantiene en `/local/rainmapper-leaflet` como fallback.
 
 ### Alternativas consideradas
 Mantener `/local/rainmapper-mobile` indefinidamente como alias de compatibilidad.

@@ -1,0 +1,13 @@
+# Rainmapper protected MapLibre users.
+#
+# Format:
+# email;password;role;enabled
+#
+# Roles:
+# - normal: one browser/device only.
+# - admin: multiple browsers/devices allowed.
+#
+# The app migrates plaintext passwords to PBKDF2 hashes after the first
+# successful login. Replace these examples before exposing the protected map.
+tester@example.com;change-me;normal;true
+admin@example.com;change-me;admin;true

@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.81"
+version: "0.2.82"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -11,6 +11,10 @@ startup: services
 boot: auto
 ingress: true
 ingress_port: 8099
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: Rainmapper protected web server for MapLibre and Cloudflared
 panel_icon: mdi:weather-pouring
 panel_title: Rainmapper
 map:

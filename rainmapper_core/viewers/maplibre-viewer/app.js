@@ -1,7 +1,11 @@
-const defaultDataBase = window.location.pathname.includes("/maplibre-viewer/")
+const viewerConfig = window.RAINMAPPER_CONFIG || {};
+const defaultDataBase = viewerConfig.dataBase || (window.location.pathname.includes("/maplibre-viewer/")
   ? "../../../docker-data/PublicData/"
-  : "data/";
+  : "data/");
 const DATA_BASE = new URLSearchParams(window.location.search).get("data") || defaultDataBase;
+const AUTH_REQUIRED = Boolean(viewerConfig.authRequired);
+const AUTH_BASE = viewerConfig.authBase || "/auth";
+const AUTH_STORAGE_KEY = "rainmapperMaplibreAuth";
 
 const periods = {
   "01d.geojson": "1 day",
@@ -236,10 +240,191 @@ let sourceStatus = {};
 let rainScaleMax = 200;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
+let authState = loadStoredAuthState();
 let longPressTimer = null;
 let longPressStartPoint = null;
 let didTriggerLongPress = false;
 const terrainTileCache = new Map();
+
+
+function parseStoredAuthState(rawValue) {
+  if (!rawValue) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(rawValue);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function loadStoredAuthState() {
+  try {
+    return parseStoredAuthState(window.localStorage.getItem(AUTH_STORAGE_KEY));
+  } catch (_error) {
+    return {};
+  }
+}
+
+function saveStoredAuthState(nextState) {
+  authState = nextState;
+  try {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextState));
+  } catch (_error) {
+    // Private browsing or strict storage settings can block localStorage.
+    // The in-memory state still works until the tab is closed.
+  }
+}
+
+function randomHex(byteLength) {
+  const values = new Uint8Array(byteLength);
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(values);
+  } else {
+    for (let index = 0; index < values.length; index += 1) {
+      values[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(values, (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function ensureDeviceId() {
+  if (authState.deviceId) {
+    return authState.deviceId;
+  }
+  const deviceId = window.crypto?.randomUUID ? window.crypto.randomUUID() : `rm-${randomHex(16)}`;
+  saveStoredAuthState({ ...authState, deviceId });
+  return deviceId;
+}
+
+function authHeaders() {
+  if (!AUTH_REQUIRED) {
+    return {};
+  }
+  const headers = { "X-Rainmapper-Device": ensureDeviceId() };
+  if (authState.sessionToken) {
+    headers.Authorization = `Bearer ${authState.sessionToken}`;
+  }
+  return headers;
+}
+
+async function authFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  Object.entries(authHeaders()).forEach(([key, value]) => headers.set(key, value));
+  const response = await fetch(url, { ...options, headers });
+  if (AUTH_REQUIRED && response.status === 401) {
+    showLogin("Sign in to continue.");
+  }
+  return response;
+}
+
+function showLogin(message = "") {
+  const overlay = document.getElementById("login-overlay");
+  const error = document.getElementById("login-error");
+  if (!overlay) {
+    return;
+  }
+  overlay.hidden = false;
+  document.body.classList.add("auth-open");
+  if (error) {
+    error.textContent = message;
+  }
+  window.setTimeout(() => document.getElementById("login-email")?.focus(), 0);
+}
+
+function hideLogin() {
+  const overlay = document.getElementById("login-overlay");
+  if (!overlay) {
+    return;
+  }
+  overlay.hidden = true;
+  document.body.classList.remove("auth-open");
+}
+
+async function validateStoredSession() {
+  if (!AUTH_REQUIRED) {
+    return true;
+  }
+  ensureDeviceId();
+  if (!authState.sessionToken) {
+    return false;
+  }
+  const response = await authFetch(`${AUTH_BASE}/session`, { method: "POST", cache: "no-store" });
+  return response.ok;
+}
+
+async function loginWithPassword(email, password) {
+  const response = await fetch(`${AUTH_BASE}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, device_id: ensureDeviceId() }),
+  });
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    payload = {};
+  }
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.error || "Cannot sign in.");
+  }
+  saveStoredAuthState({
+    deviceId: payload.device_id || authState.deviceId,
+    sessionToken: payload.session_token,
+    email: payload.email,
+    role: payload.role,
+  });
+}
+
+function setupLoginForm(onAuthenticated) {
+  const form = document.getElementById("login-form");
+  if (!form) {
+    return;
+  }
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const error = document.getElementById("login-error");
+    const submit = form.querySelector("button[type='submit']");
+    if (error) {
+      error.textContent = "";
+    }
+    if (submit) {
+      submit.disabled = true;
+      submit.textContent = "Signing in...";
+    }
+    try {
+      await loginWithPassword(
+        document.getElementById("login-email")?.value || "",
+        document.getElementById("login-password")?.value || "",
+      );
+      hideLogin();
+      await onAuthenticated();
+    } catch (errorMessage) {
+      if (error) {
+        error.textContent = errorMessage.message || "Cannot sign in.";
+      }
+    } finally {
+      if (submit) {
+        submit.disabled = false;
+        submit.textContent = "Sign in";
+      }
+    }
+  });
+}
+
+async function requireAuthBeforeStart() {
+  if (!AUTH_REQUIRED) {
+    return true;
+  }
+  const isValid = await validateStoredSession();
+  if (isValid) {
+    hideLogin();
+    return true;
+  }
+  showLogin("Sign in to view this map.");
+  return false;
+}
 
 function styleDefinition(style) {
   if (!style.style) {
@@ -441,7 +626,7 @@ function updateSourceStatusControls() {
 
 async function loadSourceStatus() {
   try {
-    const response = await fetch(`${DATA_BASE}source_status.json`, { cache: "no-store" });
+    const response = await authFetch(`${DATA_BASE}source_status.json`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Cannot load source status: ${response.status}`);
     }
@@ -1186,7 +1371,7 @@ function fitToData() {
 
 async function loadMap(fileName) {
   const url = `${DATA_BASE}${fileName}`;
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await authFetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Cannot load ${url}: ${response.status}`);
   }
@@ -1336,7 +1521,12 @@ function renderSettingsPanel() {
   });
 }
 
-map.on("load", () => {
+async function startViewer() {
+  await loadSourceStatus();
+  await loadMap(document.getElementById("map-selector").value);
+}
+
+map.on("load", async () => {
   renderLayerSwitcher();
   renderPeriodTimeline();
   renderSettingsPanel();
@@ -1344,8 +1534,12 @@ map.on("load", () => {
   setupLongPressElevation();
   updateTerrainModeButton();
   applyTerrain();
-  loadSourceStatus();
-  loadMap(document.getElementById("map-selector").value).catch((error) => {
+  setupLoginForm(startViewer);
+  const authenticated = await requireAuthBeforeStart();
+  if (!authenticated) {
+    return;
+  }
+  startViewer().catch((error) => {
     document.getElementById("summary").textContent = error.message;
   });
 });

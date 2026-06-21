@@ -33,6 +33,8 @@ Dentro se usan estas rutas:
 /share/rainmapper/Plots
 /share/rainmapper/stations.txt
 /share/rainmapper/ignore_stations_tomap.txt
+/share/rainmapper/users.txt
+/share/rainmapper/devices.json
 ```
 
 Contenido esperado:
@@ -43,6 +45,8 @@ Contenido esperado:
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
 - `ignore_stations_tomap.txt`: lista opcional de estaciones que no deben aparecer en los GeoJSON usados por Leaflet/MapLibre.
 - `Data/source_status.json`: ultimo estado de actualizacion por fuente.
+- `users.txt`: usuarios manuales para el visor MapLibre protegido. Si no existe, la app lo crea copiando `/app/users.example.txt`.
+- `devices.json`: dispositivos autorizados. Si no existe, la app lo crea como JSON vacio.
 
 Si `stations.txt` no existe, la app lo crea automaticamente copiando una plantilla. Despues puedes editarlo desde la carpeta compartida.
 
@@ -84,13 +88,15 @@ Rainmapper publica tres formas de consultar los mapas. MapLibre es el visor prin
 
 ### MapLibre viewer
 
-Ruta publica recomendada:
+Ruta recomendada:
 
 ```text
-/local/rainmapper-maplibre/index.html
+/protected/maplibre/index.html
 ```
 
-El visor MapLibre usa los GeoJSON publicados en `/config/www/rainmapper-data`. Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, y mapas vectoriales como OpenFreeMap.
+El visor MapLibre carga sus datos desde `/protected/maplibre/data/*`, por lo que la ruta protegida requiere login. Durante la validacion inicial de Cloudflared, la ruta antigua `/local/rainmapper-maplibre/index.html` se mantiene temporalmente como fallback funcional con GeoJSON publicos. Cuando la ruta protegida quede validada, hay que retirar ese fallback publico.
+
+Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, y mapas vectoriales como OpenFreeMap.
 
 Es el visor recomendado para movil y para uso normal porque combina mejor rendimiento movil, capas raster utiles y renderizado vectorial nitido para etiquetas/orientacion.
 
@@ -138,6 +144,68 @@ Cuando ejecutas `maps` o `all`:
 - se publican los datos y visores Leaflet/MapLibre en `/config/www`.
 
 Si editas `ignore_stations_tomap.txt`, ejecuta `maps` o `all` para que Leaflet y MapLibre reflejen el cambio.
+
+
+## Usuarios del visor MapLibre protegido
+
+MapLibre puede protegerse con una autenticacion ligera pensada para pruebas privadas. No es todavia una gestion completa de usuarios ni de suscripciones.
+
+En una instalacion nueva, la app crea automaticamente un fichero de ejemplo:
+
+```text
+/share/rainmapper/users.txt
+```
+
+Formato por linea:
+
+```text
+email;password;role;enabled
+```
+
+Ejemplos:
+
+```text
+usuario@example.com;clave_temporal;normal;true
+admin@example.com;clave_temporal;admin;true
+```
+
+Importante: cambia las contrasenas y usuarios de ejemplo antes de exponer el visor protegido fuera de tu red. Si `users.txt` ya existe, la app no lo sobrescribe durante updates.
+
+Reglas actuales:
+
+- `normal` queda asociado al primer dispositivo/navegador desde el que haga login.
+- `admin` puede entrar desde varios dispositivos.
+- `enabled` debe ser `true` para permitir acceso.
+- No uses `;` dentro de la contrasena porque el fichero usa ese caracter como separador.
+- Si la contrasena esta en claro, la app la convierte automaticamente a hash PBKDF2 despues del primer login correcto.
+
+La app crea automaticamente, si no existe:
+
+```text
+/share/rainmapper/devices.json
+```
+
+Ese fichero guarda el `device_id`, usuario, rol, user-agent, ultimo acceso y hash del token de sesion. Si un usuario normal borra los datos del navegador, se generara un nuevo `device_id` y quedara bloqueado hasta que limpies o desactives su dispositivo anterior en `devices.json`.
+
+Para pruebas, si quieres liberar todos los dispositivos, puedes parar la app y borrar o vaciar `devices.json`.
+
+Si usas Cloudflare Tunnel con el add-on Cloudflared de Home Assistant, apunta el hostname externo al servidor Rainmapper publicado por la app:
+
+```text
+service: http://<HA_IP>:8099
+```
+
+Despues abre el visor en:
+
+```text
+https://rainmap.nomentero.com/protected/maplibre/index.html
+```
+
+No pongas `/protected/maplibre/index.html` en el campo `service` de Cloudflared: el `service` debe ser solo host y puerto. La ruta `/local/rainmapper-maplibre/index.html` queda temporalmente como fallback mientras se valida Cloudflared, pero no debe ser la ruta externa definitiva. Si existe una regla externa de Cloudflare que redirige `/` a `/local/rainmapper-maplibre/index.html`, conviene desactivarla o sustituirla por la ruta protegida cuando la validacion termine.
+
+La app publica el puerto `8099/tcp` para que Cloudflared pueda acceder al servidor Rainmapper. Esto no abre ningun puerto del router por si solo, pero hace que el servidor sea accesible desde la red local donde corre Home Assistant.
+
+La autenticacion ligera se aplica al servidor HA (`web_server.py`). El visor local usado por `local_maps.sh` o `local_all.sh` sigue siendo estatico para pruebas en el Mac y lee datos desde `docker-data/PublicData`.
 
 ## Modos de ejecucion
 
@@ -347,6 +415,8 @@ Para ocultar estaciones con datos anomalos en los visores nuevos sin borrar hist
 
 ```text
 /share/rainmapper/ignore_stations_tomap.txt
+/share/rainmapper/users.txt
+/share/rainmapper/devices.json
 ```
 
 Formato:
