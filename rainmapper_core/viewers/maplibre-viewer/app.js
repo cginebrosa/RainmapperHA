@@ -557,7 +557,6 @@ const map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
-updateZoomLevel();
 
 const rainColorStops = [
   { ratio: 0, color: "#4ea5ff" },
@@ -1472,14 +1471,6 @@ function updateGeneratedAt(generatedAt) {
   generatedElement.setAttribute("datetime", generatedAt);
 }
 
-function updateZoomLevel() {
-  const zoomElement = document.getElementById("zoom-level");
-  if (!zoomElement) {
-    return;
-  }
-  zoomElement.textContent = map.getZoom().toFixed(2);
-}
-
 function fitToData() {
   const features = currentData?.features || [];
   if (features.length === 0) {
@@ -1697,7 +1688,6 @@ map.on("mouseleave", CIRCLE_LAYER_ID, () => {
 });
 
 map.on("zoom", () => {
-  updateZoomLevel();
   if (map.getZoom() < HOVER_POPUP_MIN_ZOOM) {
     closeHoverPopup();
   }
