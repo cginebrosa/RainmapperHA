@@ -189,14 +189,15 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 
 ### Autenticacion ligera MapLibre
 - Usuarios manuales en `/share/rainmapper/users.json`, con `username`, `name`, `email`, `password`, `role`, `enabled` y `max_devices`. `username` es el identificador de login; `name` es el nombre de la persona; `email` es contacto.
-- En HA, `run.sh` crea `users.json` desde `/app/users.example.json` si no existe `users.json` ni un `users.txt` legacy; no sobrescribe usuarios existentes.
-- Compatibilidad: si existe un `/share/rainmapper/users.txt` antiguo y todavia no existe `users.json`, la app lo lee y lo migra a JSON tras el primer login correcto. Cuando `users.json` existe, es la fuente de verdad.
+- En HA, `run.sh` crea `users.json` desde `/app/users.example.json` si no existe `users.json`; no sobrescribe usuarios existentes.
+- `users.json` es el unico formato de usuarios soportado; no hay formato alternativo ni ruta de migracion.
 - Dispositivos y sesiones en `/share/rainmapper/devices.json`, generado por la app como JSON vacio si no existe.
-- Roles soportados: `free`, `basic`, `pro` y `admin`. `normal` se acepta como alias legacy de `free`.
+- Roles soportados: `free`, `basic`, `pro` y `admin`.
 - Limites por defecto: `free=1`, `basic=2`, `pro=3`, `admin=0`; `0` significa dispositivos ilimitados. `max_devices` puede sobrescribir el limite por usuario.
 - El visor guarda `device_id` y token de sesion en `localStorage`, y envia `Authorization: Bearer ...` + `X-Rainmapper-Device` al pedir GeoJSON.
 - Si se borran datos del navegador, un usuario con limite de dispositivos puede quedar bloqueado porque se genera un nuevo `device_id`; se resuelve limpiando/deshabilitando un registro anterior en `devices.json`.
-- Esta autenticacion ligera aplica al servidor HA. El visor Docker local sigue siendo estatico para pruebas y lee `docker-data/PublicData`. Los tests de backend viven en `tests/test_web_server_auth.py`; cubren usuarios JSON, limites por dispositivo, admin ilimitado y migracion desde `users.txt` legacy.
+- La WebUI HA incluye una pagina `Users`, pensada para acceso por Ingress/Home Assistant, para crear usuarios, activar/desactivar acceso, cambiar rol/max_devices, resetear contrasenas y borrar dispositivos individuales o todos los de un usuario.
+- Esta autenticacion ligera aplica al servidor HA. El visor Docker local sigue siendo estatico para pruebas y lee `docker-data/PublicData`. Los tests de backend viven en `tests/test_web_server_auth.py`; cubren usuarios JSON, limites por dispositivo, admin ilimitado y funciones de gestion.
 
 - Estado persistente principal: CSV en filesystem.
 - Estado runtime webUI: diccionario global `RUN_STATE` en `web_server.py`.

@@ -191,12 +191,11 @@ Reglas actuales:
 - `name` es el nombre de la persona.
 - `email` queda como dato de contacto para futuras funciones.
 - Roles soportados: `free`, `basic`, `pro` y `admin`.
-- `normal` se acepta como alias antiguo de `free` para no romper ficheros legacy.
 - `max_devices` es opcional. Si falta, se usa el valor por defecto del rol: `free=1`, `basic=2`, `pro=3`, `admin=0`.
 - `max_devices=0` significa dispositivos ilimitados.
 - `enabled` debe ser `true` para permitir acceso.
 - Si la contrasena esta en claro, la app la convierte automaticamente a hash PBKDF2 despues del primer login correcto.
-- Compatibilidad: si existe un `/share/rainmapper/users.txt` antiguo y todavia no existe `users.json`, la app lo lee y lo migra a JSON tras el primer login correcto. Cuando `users.json` existe, pasa a ser la fuente de verdad.
+- `users.json` es el unico formato de usuarios soportado.
 
 La app crea automaticamente, si no existe:
 
@@ -204,11 +203,9 @@ La app crea automaticamente, si no existe:
 /share/rainmapper/devices.json
 ```
 
-Ese fichero guarda el `device_id`, usuario, rol, user-agent, ultimo acceso y hash del token de sesion. Si un usuario normal borra los datos del navegador, se generara un nuevo `device_id` y quedara bloqueado hasta que limpies o desactives su dispositivo anterior en `devices.json`.
+Ese fichero guarda el `device_id`, usuario, rol, user-agent, ultimo acceso y hash del token de sesion. Si un usuario normal borra los datos del navegador, se generara un nuevo `device_id` y quedara bloqueado hasta que limpies o borres su dispositivo anterior.
 
-Para pruebas, si quieres liberar todos los dispositivos, puedes parar la app y borrar o vaciar `devices.json`.
-
-Pendiente: la webUI debera permitir gestionar usuarios y borrar dispositivos asociados a un usuario, tanto uno a uno como todos a la vez. De momento esa gestion sigue siendo manual editando `users.json` y `devices.json`.
+La WebUI de Home Assistant incluye una pagina `Users` para crear usuarios, activar/desactivar acceso, cambiar rol, cambiar `max_devices`, resetear contrasenas y borrar dispositivos asociados a un usuario, uno a uno o todos a la vez. Esta gestion esta pensada para usarse desde Ingress/Home Assistant.
 
 Si usas Cloudflare Tunnel con el add-on Cloudflared de Home Assistant, apunta el hostname externo al servidor Rainmapper publicado por la app:
 

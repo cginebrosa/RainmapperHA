@@ -1,16 +1,20 @@
 # Changelog
 
+## 0.2.84
+
+- Remove the old authentication format; `users.json` is now the only supported MapLibre user store.
+- Add the Home Assistant WebUI `Users` page to create users, edit role/status/device limits, reset passwords, and delete registered devices.
+
 ## 0.2.83
 
 - Use `users.json` as the primary MapLibre auth user store with `username`, `name`, `email`, `password`, `role`, `enabled`, and `max_devices`.
-- Keep `users.txt` as a legacy migration path when no `users.json` exists.
 - Add role defaults for `free`, `basic`, `pro`, and unlimited `admin` users, with per-user `max_devices` overrides.
 - Seed `/share/rainmapper/users.json` from `users.example.json` when no user file exists.
 
 ## 0.2.82
 
 - Add lightweight login protection for the MapLibre viewer and GeoJSON data.
-- Create `users.txt` and `devices.json` in `/share/rainmapper` when missing.
+- Create the initial user and device files in `/share/rainmapper` when missing.
 - Publish port `8099/tcp` so Cloudflared can reach the protected Rainmapper web server directly.
 - Keep `/local/rainmapper-maplibre/index.html` as a temporary public fallback while validating the protected Cloudflared route.
 

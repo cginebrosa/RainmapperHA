@@ -25,12 +25,13 @@ Decision:
 - Los GeoJSON y `source_status.json` de MapLibre se sirven desde `/protected/maplibre/data/*` y requieren sesion valida.
 - Leaflet se mantiene publicado en `/local/rainmapper-leaflet` como fallback sin autenticacion.
 - Los usuarios se gestionan de forma manual en `/share/rainmapper/users.json`.
-- Historial de formato: primero se considero `users.txt` con `email;password;role;enabled`, luego `email;password;role;enabled;max_devices`. Esa decision queda reemplazada por `users.json` como formato principal.
-- `users.json` permite campos extensibles: `username`, `name`, `email`, `password`, `role`, `enabled` y `max_devices`. `username` es el identificador de login; `name` es el nombre de la persona; `email` queda como contacto. `users.txt` se conserva solo como formato legacy leido si todavia no existe `users.json`.
-- Roles soportados: `free`, `basic`, `pro` y `admin`; `normal` se conserva como alias legacy de `free`.
+- Historial de formato: primero se considero un fichero plano separado por punto y coma. Esa decision queda reemplazada por `users.json` como formato unico.
+- `users.json` permite campos extensibles: `username`, `name`, `email`, `password`, `role`, `enabled` y `max_devices`. `username` es el identificador de login; `name` es el nombre de la persona; `email` queda como contacto.
+- Roles soportados: `free`, `basic`, `pro` y `admin`.
 - Limites por defecto: `free=1`, `basic=2`, `pro=3`, `admin=0`; `0` significa dispositivos ilimitados. El campo `max_devices` permite sobrescribir el limite por usuario.
 - El primer login de un usuario registra un `device_id` generado por el navegador en `/share/rainmapper/devices.json`; nuevos dispositivos se aceptan hasta el limite del usuario. Los dispositivos ya registrados pueden reutilizarse aunque el usuario haya alcanzado su limite.
 - En HA, `run.sh` crea `users.json` desde `users.example.json` y `devices.json` vacio si faltan, sin sobrescribir ficheros existentes.
+- La WebUI HA incorpora una pagina `Users`, pensada para acceso por Ingress/Home Assistant, para crear usuarios, activar/desactivar acceso, editar rol/max_devices, resetear contrasenas y borrar dispositivos de forma granular.
 
 Motivo:
 
@@ -49,12 +50,13 @@ Consecuencias:
 - Si un usuario con limite de dispositivos borra datos del navegador, generara un nuevo `device_id` y puede quedar bloqueado hasta que se limpie o desactive un registro anterior en `devices.json`.
 - El add-on HA publica `8099/tcp` para que Cloudflared pueda apuntar al servidor Rainmapper con `service: http://<HA_IP>:8099`; las reglas externas de Cloudflare para MapLibre deben apuntar a `/protected/maplibre/index.html`, no a `/local/rainmapper-maplibre/index.html`.
 - La limpieza defensiva de `/config/www/rainmapper-maplibre/data` queda preparada en codigo, pero aplazada temporalmente para mantener `/local/rainmapper-maplibre/index.html` como fallback funcional mientras se valida Cloudflared/puerto 8099.
-- Las contrasenas en claro de `users.json` se migran automaticamente a hash PBKDF2 al primer login correcto. Si solo existe `users.txt` legacy, tambien se migra a JSON tras el primer login correcto aunque la contrasena ya estuviera hasheada.
+- Las contrasenas en claro de `users.json` se migran automaticamente a hash PBKDF2 al primer login correcto.
+- El formato antiguo separado por punto y coma se retira tras validar la migracion en la unica instalacion HA activa. Desde este punto, `users.json` es el unico formato soportado.
 - El visor Docker local queda sin autenticacion para mantenerlo como entorno rapido de pruebas.
 
 Estado:
 
-Implementado en dos pasos. La proteccion basica de MapLibre fue validada manualmente por el usuario en HA `0.2.82`: `admin` pudo entrar desde Mac e iPhone, y un usuario normal quedo limitado a un dispositivo. La ampliacion a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin`, `max_devices` y migracion legacy esta publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83` y cubierta por `tests/test_web_server_auth.py`; pendiente de validacion manual en HA/Cloudflare.
+Implementado en varios pasos. La proteccion basica de MapLibre fue validada manualmente por el usuario en HA `0.2.82`: `admin` pudo entrar desde Mac e iPhone, y un usuario normal quedo limitado a un dispositivo. La ampliacion a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin` y `max_devices` esta publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83` y cubierta por `tests/test_web_server_auth.py`. El usuario valido en HA que el login creaba `users.json` desde el formato anterior; despues se decide retirar completamente el formato anterior para evitar ambiguedades futuras. La WebUI de gestion queda publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.84` y pendiente de validacion HA.
 
 ## 2026-06-20 - Retirar wrappers raiz `Rainmapper.py` y `Rainmapper_Client.py`
 

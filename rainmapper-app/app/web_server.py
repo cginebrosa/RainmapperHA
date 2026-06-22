@@ -39,7 +39,6 @@ PUBLIC_MAPLIBRE_TMP_PATH = Path("/config/www/.rainmapper-maplibre-tmp")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
 USERS_JSON_PATH = Path("/share/rainmapper/users.json")
-USERS_PATH = Path("/share/rainmapper/users.txt")
 DEVICES_PATH = Path("/share/rainmapper/devices.json")
 SOURCE_STATUS_PATH = Path("/app/Data/source_status.json")
 STATIONS_PATH = Path("/app/stations.txt")
@@ -424,6 +423,78 @@ def html_page(title: str, body: str) -> bytes:
     }}
     .station-details li {{
       margin: 3px 0;
+    }}
+    .admin-table-wrap {{
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      margin: 12px 0 18px;
+    }}
+    table.admin-table {{
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }}
+    .admin-table th,
+    .admin-table td {{
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }}
+    .admin-table th {{
+      color: var(--muted);
+      font-weight: 600;
+    }}
+    .admin-table tr:last-child td {{
+      border-bottom: 0;
+    }}
+    .admin-form-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 12px 0 16px;
+    }}
+    .admin-field label {{
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 5px;
+    }}
+    input,
+    select {{
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+      font: inherit;
+      padding: 0 10px;
+    }}
+    .admin-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }}
+    .admin-actions form {{
+      margin: 0;
+    }}
+    .inline-form {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 8px;
+    }}
+    .inline-form input {{
+      width: 180px;
+    }}
+    @media (max-width: 760px) {{
+      .admin-form-grid {{
+        grid-template-columns: 1fr;
+      }}
     }}
     pre {{
       margin: 0;
@@ -1274,8 +1345,6 @@ ROLE_DEFAULT_MAX_DEVICES = {
 
 def normalize_role(value: str) -> str:
     role = value.strip().lower()
-    if role == "normal":
-        return "free"
     return role if role in ROLE_DEFAULT_MAX_DEVICES else "free"
 
 
@@ -1342,39 +1411,13 @@ def read_users_json() -> dict[str, dict[str, str]]:
     return users
 
 
-def read_users_txt() -> tuple[dict[str, dict[str, str]], list[str]]:
-    users: dict[str, dict[str, str]] = {}
-    lines = USERS_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        parts = [part.strip() for part in stripped.split(";")]
-        if len(parts) < 2:
-            continue
-        username = normalize_user_id(parts[0])
-        role = normalize_role(parts[2]) if len(parts) >= 3 and parts[2] else "free"
-        users[username] = {
-            "username": username,
-            "name": "",
-            "email": username,
-            "password": parts[1],
-            "role": role,
-            "enabled": parts[3].lower() if len(parts) >= 4 and parts[3] else "true",
-            "max_devices": str(parse_max_devices(parts[4], role)) if len(parts) >= 5 else str(default_max_devices_for_role(role)),
-        }
-    return users, lines
-
-
-def read_users() -> tuple[dict[str, dict[str, str]], list[str]]:
+def read_users() -> dict[str, dict[str, str]]:
     if USERS_JSON_PATH.exists():
-        return read_users_json(), []
-    if USERS_PATH.exists():
-        return read_users_txt()
-    return {}, []
+        return read_users_json()
+    return {}
 
 
-def write_users(users: dict[str, dict[str, str]], original_lines: list[str]) -> None:
+def write_users(users: dict[str, dict[str, str]]) -> None:
     USERS_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "users": [
@@ -1412,6 +1455,133 @@ def write_devices(devices: dict[str, dict[str, str]]) -> None:
     DEVICES_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def admin_message(message: str) -> None:
+    with RUN_LOCK:
+        RUN_STATE["last_message"] = message
+
+
+def user_display_name(user: dict[str, str]) -> str:
+    name = user.get("name", "").strip()
+    return name or user.get("username", "")
+
+
+def device_username(device: dict[str, str]) -> str:
+    return normalize_user_id(str(device.get("username", device.get("email", ""))))
+
+
+def devices_for_user(devices: dict[str, dict[str, str]], username: str) -> list[tuple[str, dict[str, str]]]:
+    user_id = normalize_user_id(username)
+    user_devices = [
+        (device_id, device)
+        for device_id, device in devices.items()
+        if device_username(device) == user_id
+    ]
+    return sorted(user_devices, key=lambda item: str(item[1].get("last_seen_at", "")), reverse=True)
+
+
+def set_user_password(user: dict[str, str], password: str) -> None:
+    if password:
+        user["password"] = hash_password(password)
+
+
+def create_user(username: str, name: str, email: str, password: str, role: str, enabled: str, max_devices: str) -> str:
+    user_id = normalize_user_id(username)
+    if not user_id:
+        return "Username is required."
+    if not password:
+        return "Password is required for new users."
+
+    users = read_users()
+    if user_id in users:
+        return f"User {user_id} already exists."
+
+    normalized_role = normalize_role(role)
+    users[user_id] = {
+        "username": user_id,
+        "name": name.strip(),
+        "email": normalize_user_id(email) if email.strip() else "",
+        "password": hash_password(password),
+        "role": normalized_role,
+        "enabled": normalize_enabled(enabled),
+        "max_devices": str(parse_max_devices(max_devices, normalized_role)),
+    }
+    write_users(users)
+    return f"Created user {user_id}."
+
+
+def update_user(username: str, name: str, email: str, role: str, enabled: str, max_devices: str) -> str:
+    user_id = normalize_user_id(username)
+    users = read_users()
+    user = users.get(user_id)
+    if not user:
+        return f"User {user_id or '-'} was not found."
+
+    normalized_role = normalize_role(role)
+    user.update(
+        {
+            "name": name.strip(),
+            "email": normalize_user_id(email) if email.strip() else "",
+            "role": normalized_role,
+            "enabled": normalize_enabled(enabled),
+            "max_devices": str(parse_max_devices(max_devices, normalized_role)),
+        }
+    )
+    write_users(users)
+    return f"Updated user {user_id}."
+
+
+def reset_user_password(username: str, password: str) -> str:
+    user_id = normalize_user_id(username)
+    if not password:
+        return "Password is required."
+    users = read_users()
+    user = users.get(user_id)
+    if not user:
+        return f"User {user_id or '-'} was not found."
+    set_user_password(user, password)
+    write_users(users)
+    return f"Reset password for {user_id}."
+
+
+def delete_device(device_id: str) -> str:
+    device_key = device_id.strip()
+    devices = read_devices()
+    if device_key not in devices:
+        return "Device was not found."
+    device = devices.pop(device_key)
+    write_devices(devices)
+    username = device_username(device) or "-"
+    return f"Deleted device for {username}."
+
+
+def delete_user_devices(username: str) -> str:
+    user_id = normalize_user_id(username)
+    devices = read_devices()
+    device_ids = [device_id for device_id, device in devices.items() if device_username(device) == user_id]
+    for device_id in device_ids:
+        devices.pop(device_id, None)
+    write_devices(devices)
+    return f"Deleted {len(device_ids)} device(s) for {user_id or '-'}."
+
+
+def role_options(selected_role: str) -> str:
+    selected = normalize_role(selected_role)
+    options = []
+    for role in ("free", "basic", "pro", "admin"):
+        selected_attr = " selected" if role == selected else ""
+        options.append(f'<option value="{role}"{selected_attr}>{role}</option>')
+    return "".join(options)
+
+
+def enabled_options(selected_enabled: str) -> str:
+    enabled = normalize_enabled(selected_enabled)
+    options = []
+    for value, label in (("true", "Enabled"), ("false", "Disabled")):
+        selected_attr = " selected" if value == enabled else ""
+        options.append(f'<option value="{value}"{selected_attr}>{label}</option>')
+    return "".join(options)
+
+
 def new_device_id() -> str:
     return secrets.token_urlsafe(24)
 
@@ -1431,7 +1601,7 @@ def authenticate_session(token: str, device_id: str) -> tuple[bool, dict[str, st
     if not secrets.compare_digest(str(device.get("token_hash", "")), token_hash(token)):
         return False, None
 
-    users, _lines = read_users()
+    users = read_users()
     user = users.get(normalize_user_id(str(device.get("username", device.get("email", "")))))
     if not user or user.get("enabled", "true").lower() != "true":
         return False, None
@@ -1447,8 +1617,8 @@ def authenticate_session(token: str, device_id: str) -> tuple[bool, dict[str, st
 
 
 def login_user(username: str, password: str, device_id: str, user_agent: str) -> tuple[int, dict[str, object]]:
-    users, user_lines = read_users()
-    should_migrate_legacy_users = bool(user_lines) and not USERS_JSON_PATH.exists()
+    users = read_users()
+    should_rewrite_users = False
     user_id = normalize_user_id(username)
     user = users.get(user_id)
     if not user or user.get("enabled", "true").lower() != "true":
@@ -1458,9 +1628,9 @@ def login_user(username: str, password: str, device_id: str, user_agent: str) ->
 
     if not user["password"].startswith("pbkdf2_sha256$"):
         user["password"] = hash_password(password)
-        should_migrate_legacy_users = True
-    if should_migrate_legacy_users:
-        write_users(users, user_lines)
+        should_rewrite_users = True
+    if should_rewrite_users:
+        write_users(users)
 
     devices = read_devices()
     role = normalize_role(user.get("role", "free"))
@@ -1633,6 +1803,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "./")
         self.end_headers()
 
+    def redirect_to(self, location: str) -> None:
+        self.send_response(303)
+        self.send_header("Location", location)
+        self.end_headers()
+
     def render_settings(self) -> None:
         settings_links = addon_settings_links()
         primary_label, primary_url = settings_links[0]
@@ -1664,6 +1839,102 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         """
         self.send_bytes(200, html_page("App settings", body), "text/html; charset=utf-8")
 
+    def render_users(self) -> None:
+        users = read_users()
+        devices = read_devices()
+
+        rows = []
+        for username, user in sorted(users.items()):
+            user_devices = devices_for_user(devices, username)
+            enabled = normalize_enabled(user.get("enabled", "true"))
+            max_devices = str(user_max_devices(user))
+            role = normalize_role(user.get("role", "free"))
+            device_rows = []
+            for device_id, device in user_devices:
+                device_label = device_id[:12] + ("..." if len(device_id) > 12 else "")
+                user_agent = str(device.get("user_agent", ""))
+                last_seen_at = str(device.get("last_seen_at", "-")) or "-"
+                created_at = str(device.get("created_at", "-")) or "-"
+                device_rows.append(
+                    '<div class="device-row">'
+                    f"<strong>{html.escape(device_label)}</strong>"
+                    f'<span class="meta">Created {html.escape(created_at)} · Last seen {html.escape(last_seen_at)}</span>'
+                    f'<span class="meta">{html.escape(user_agent[:120])}</span>'
+                    '<form method="post" action="">'
+                    '<input type="hidden" name="admin_action" value="delete_device">'
+                    f'<input type="hidden" name="device_id" value="{html.escape(device_id, quote=True)}">'
+                    '<button>Delete device</button>'
+                    "</form>"
+                    "</div>"
+                )
+            devices_html = "".join(device_rows) or '<span class="meta">No registered devices</span>'
+            rows.append(
+                "<tr>"
+                f"<td><strong>{html.escape(username)}</strong><span class=\"meta\">{html.escape(user_display_name(user))}</span></td>"
+                f"<td>{html.escape(user.get('email', ''))}</td>"
+                f"<td>{html.escape(role)}</td>"
+                f"<td>{'Enabled' if enabled == 'true' else 'Disabled'}</td>"
+                f"<td>{html.escape(max_devices)}</td>"
+                f"<td>{len(user_devices)}</td>"
+                '<td class="admin-actions">'
+                '<form method="post" action="">'
+                '<input type="hidden" name="admin_action" value="update_user">'
+                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
+                '<div class="admin-form-grid">'
+                f'<div class="admin-field"><label>Name</label><input name="name" value="{html.escape(user.get("name", ""), quote=True)}"></div>'
+                f'<div class="admin-field"><label>Email</label><input name="email" value="{html.escape(user.get("email", ""), quote=True)}"></div>'
+                f'<div class="admin-field"><label>Role</label><select name="role">{role_options(role)}</select></div>'
+                f'<div class="admin-field"><label>Status</label><select name="enabled">{enabled_options(enabled)}</select></div>'
+                f'<div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="{html.escape(max_devices, quote=True)}"></div>'
+                "</div>"
+                '<button class="primary">Save user</button>'
+                "</form>"
+                '<form class="inline-form" method="post" action="">'
+                '<input type="hidden" name="admin_action" value="reset_password">'
+                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
+                '<input name="password" type="password" placeholder="New password" autocomplete="new-password">'
+                '<button>Reset password</button>'
+                "</form>"
+                '<form method="post" action="">'
+                '<input type="hidden" name="admin_action" value="delete_user_devices">'
+                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
+                '<button>Delete all devices</button>'
+                "</form>"
+                "</td>"
+                f"<td>{devices_html}</td>"
+                "</tr>"
+            )
+
+        user_rows_html = "".join(rows) if rows else '<tr><td colspan="8">No users configured.</td></tr>'
+        users_table = (
+            '<div class="admin-table-wrap"><table class="admin-table">'
+            "<thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Max</th><th>Devices</th><th>Manage user</th><th>Devices</th></tr></thead>"
+            f"<tbody>{user_rows_html}</tbody>"
+            "</table></div>"
+        )
+        body = f"""
+        <h1>Users</h1>
+        <p>Manage MapLibre protected viewer users and registered devices.</p>
+        <p><a class="button-link" href="./">Back to Rainmapper</a></p>
+        <h2>Create user</h2>
+        <form method="post" action="">
+          <input type="hidden" name="admin_action" value="create_user">
+          <div class="admin-form-grid">
+            <div class="admin-field"><label>Username</label><input name="username" required autocomplete="username"></div>
+            <div class="admin-field"><label>Name</label><input name="name"></div>
+            <div class="admin-field"><label>Email</label><input name="email" type="email"></div>
+            <div class="admin-field"><label>Password</label><input name="password" type="password" required autocomplete="new-password"></div>
+            <div class="admin-field"><label>Role</label><select name="role">{role_options("free")}</select></div>
+            <div class="admin-field"><label>Status</label><select name="enabled">{enabled_options("true")}</select></div>
+            <div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="1"></div>
+          </div>
+          <button class="primary">Create user</button>
+        </form>
+        <h2>Existing users</h2>
+        {users_table}
+        """
+        self.send_bytes(200, html_page("Users", body), "text/html; charset=utf-8")
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
@@ -1674,6 +1945,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/settings":
             self.render_settings()
+            return
+
+        if path == "/users":
+            self.render_users()
             return
 
         if path == "/auth/session":
@@ -1733,6 +2008,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return
 
         form = self.read_form()
+        if parsed.path.rstrip("/") == "/users":
+            self.handle_user_admin_post(form)
+            self.redirect_to("./users")
+            return
+
         action = self.form_value(form, "run_action")
         if action:
             run_action(action, "web")
@@ -1752,6 +2032,40 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return
 
         self.redirect_home()
+
+    def handle_user_admin_post(self, form: dict[str, list[str]]) -> None:
+        admin_action = self.form_value(form, "admin_action")
+        if admin_action == "create_user":
+            message = create_user(
+                self.form_value(form, "username"),
+                self.form_value(form, "name"),
+                self.form_value(form, "email"),
+                self.form_value(form, "password"),
+                self.form_value(form, "role"),
+                self.form_value(form, "enabled"),
+                self.form_value(form, "max_devices"),
+            )
+        elif admin_action == "update_user":
+            message = update_user(
+                self.form_value(form, "username"),
+                self.form_value(form, "name"),
+                self.form_value(form, "email"),
+                self.form_value(form, "role"),
+                self.form_value(form, "enabled"),
+                self.form_value(form, "max_devices"),
+            )
+        elif admin_action == "reset_password":
+            message = reset_user_password(
+                self.form_value(form, "username"),
+                self.form_value(form, "password"),
+            )
+        elif admin_action == "delete_device":
+            message = delete_device(self.form_value(form, "device_id"))
+        elif admin_action == "delete_user_devices":
+            message = delete_user_devices(self.form_value(form, "username"))
+        else:
+            message = "Unknown user management action."
+        admin_message(message)
 
     def render_index(self) -> None:
         with RUN_LOCK:
@@ -1778,6 +2092,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         <form method="post" action=""><input type="hidden" name="run_action" value="maps"><button {disabled}>Generate maps</button></form>
         <form method="post" action=""><input type="hidden" name="run_action" value="all"><button class="primary" {disabled}>Run all</button></form>
         <a class="button-link" href="./settings">App settings</a>
+        <a class="button-link" href="./users">Users</a>
         """
 
         if progress_percent and progress_total:
