@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.85
+
+- Stop auto-refreshing the Home Assistant `Users` and `App settings` pages so forms can be edited safely.
+
 ## 0.2.84
 
 - Remove the old authentication format; `users.json` is now the only supported MapLibre user store.

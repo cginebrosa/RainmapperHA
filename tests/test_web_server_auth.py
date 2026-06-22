@@ -180,6 +180,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.web_server.delete_user_devices("pro")
         self.assertEqual(self.web_server.read_devices(), {})
 
+    def test_users_page_does_not_auto_refresh(self) -> None:
+        page = self.web_server.html_page("Users", "<h1>Users</h1>", auto_refresh=False).decode("utf-8")
+
+        self.assertNotIn('http-equiv="refresh"', page)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -177,13 +177,14 @@ def addon_settings_links() -> list[tuple[str, str]]:
     return links
 
 
-def html_page(title: str, body: str) -> bytes:
+def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
+    refresh_tag = '<meta http-equiv="refresh" content="5">' if auto_refresh else ""
     return f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="5">
+  {refresh_tag}
   <title>{html.escape(title)}</title>
   <style>
     :root {{
@@ -1837,7 +1838,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         {fallback_html}
         <p><a class="button-link" href="./">Back to Rainmapper</a></p>
         """
-        self.send_bytes(200, html_page("App settings", body), "text/html; charset=utf-8")
+        self.send_bytes(200, html_page("App settings", body, auto_refresh=False), "text/html; charset=utf-8")
 
     def render_users(self) -> None:
         users = read_users()
@@ -1933,7 +1934,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         <h2>Existing users</h2>
         {users_table}
         """
-        self.send_bytes(200, html_page("Users", body), "text/html; charset=utf-8")
+        self.send_bytes(200, html_page("Users", body, auto_refresh=False), "text/html; charset=utf-8")
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -1969,7 +1970,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         self.send_bytes(
             404,
-            html_page("Not found", "<h1>Not found</h1><p>This Rainmapper page does not exist.</p>"),
+            html_page("Not found", "<h1>Not found</h1><p>This Rainmapper page does not exist.</p>", auto_refresh=False),
             "text/html; charset=utf-8",
         )
 

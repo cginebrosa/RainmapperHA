@@ -27,7 +27,7 @@ El proyecto tiene dos empaquetados principales:
 - Docker local para Mac/desarrollo en `rainmapper-local/`, con wrappers shell de compatibilidad en la raiz.
 - App de Home Assistant en `rainmapper-app/`.
 
-La app de Home Assistant esta configurada para funcionar como servicio `serve`, con webUI por ingress/sidebar, schedule interno, ejecuciones manuales `update`, `maps` y `all`, publicacion en `/config/www`, visores Bokeh, Leaflet y MapLibre, metricas basicas de Wunderground y fichero manual para ignorar estaciones anomalas en los GeoJSON. El funcionamiento en la instalacion real de HA ha sido validado manualmente por el usuario hasta la version `0.2.82`; esa validacion no es reproducible solo desde el repositorio. La version `0.2.84` publica `users.json` como unico formato y la WebUI de gestion de usuarios/dispositivos; pasa tests locales, pero aun no esta validada en HA.
+La app de Home Assistant esta configurada para funcionar como servicio `serve`, con webUI por ingress/sidebar, schedule interno, ejecuciones manuales `update`, `maps` y `all`, publicacion en `/config/www`, visores Bokeh, Leaflet y MapLibre, metricas basicas de Wunderground y fichero manual para ignorar estaciones anomalas en los GeoJSON. El funcionamiento en la instalacion real de HA ha sido validado manualmente por el usuario hasta la version `0.2.82`; esa validacion no es reproducible solo desde el repositorio. La version `0.2.85` corrige el auto-refresh de la WebUI de usuarios/dispositivos; pasa tests locales y esta publicada en GHCR, pero aun no esta validada en HA.
 
 El desarrollo actual esta en fase de operacion y mejora incremental de visores. Leaflet y MapLibre se mantienen publicados ambos; el usuario ha reportado que funcionan bien en iPhone, pendiente de confirmar con pruebas automatizadas o reproducibles desde el repo. Bokeh se mantiene como referencia y compatibilidad. La duplicidad fisica principal entre raiz y `rainmapper-app/app` fue retirada: la imagen HA se construye desde la raiz del repositorio y `rainmapper-app/app` queda reservado para codigo especifico de HA.
 
@@ -144,12 +144,12 @@ Tambien existen documentos de uso:
 
 ### `rainmapper-app/config.yaml`
 - Proposito: metadata, opciones y schema de Home Assistant.
-- Estado actual: version local `0.2.84`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente. En `0.2.80`, el usuario ha validado manualmente en HA un `Run all` tras la refactorizacion core/app/local y todo parece correcto. En `0.2.78`, el usuario valido manualmente en HA `Run all` correctamente tras la fase 4 del refactor core. En `0.2.77`, el usuario valido manualmente `Run update` con exit code 0, `Generate maps` con exit code 0 y publicacion de visores con `v=0.2.77`.
+- Estado actual: version local `0.2.85`, ingress, sidebar, imagen preconstruida `ghcr.io/cginebrosa/rainmapperha`, opciones de schedule, Google Maps API key, mapas, fuentes y publish. La webUI muestra la version runtime en el panel de estado, agrupa las tarjetas de status en filas explicitas, muestra estado separado por fuente (`Meteoclimatic`, `Meteocat`, `Wunderground`) y los enlaces de visores incluyen cache-buster de version para evitar cargas obsoletas en HA. La validacion de `Run all`, logs en ingles y schedule en la instalacion real de Home Assistant es manual/reportada por el usuario; pendiente de confirmar automaticamente. En `0.2.80`, el usuario ha validado manualmente en HA un `Run all` tras la refactorizacion core/app/local y todo parece correcto. En `0.2.78`, el usuario valido manualmente en HA `Run all` correctamente tras la fase 4 del refactor core. En `0.2.77`, el usuario valido manualmente `Run update` con exit code 0, `Generate maps` con exit code 0 y publicacion de visores con `v=0.2.77`.
 - Riesgos: cualquier cambio de schema puede afectar updates de HA. Revisar compatibilidad de opciones existentes.
 
 ### `rainmapper-app/Dockerfile`
 - Proposito: construye imagen de la app HA.
-- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.84`; tambien copia `users.example.json` para inicializar usuarios si falta configuracion persistente.
+- Estado actual: usa Python 3.11 slim. Version alineada con `rainmapper-app/config.yaml` en `0.2.85`; tambien copia `users.example.json` para inicializar usuarios si falta configuracion persistente.
 - Riesgos: puede confundir updates o diagnostico de version si labels/env no se actualizan junto con `config.yaml` en futuros bumps.
 
 ### `rainmapper_core/viewers/leaflet-viewer/` y `leaflet-viewer/`
@@ -207,7 +207,7 @@ Tambien existen documentos de uso:
 - Sustitucion futura de Bokeh: Leaflet/MapLibre ya existen, pero Bokeh sigue publicado y documentado.
 - Ruta legacy `/local/rainmapper-mobile`: retirada del repo/app. Cloudflare redirigia a `/local/rainmapper-leaflet` y `/local/rainmapper-maplibre` segun reporte del usuario; desde la autenticacion ligera de MapLibre, la ruta recomendada para MapLibre pasa a ser `/protected/maplibre/index.html`.
 - App settings link: usa Supervisor self-info; muestra el enlace recomendado por defecto y deja rutas alternativas en una seccion avanzada.
-- Versionado HA: `config.yaml`, labels Docker, banner runtime y cache-busters de visores estan alineados en `0.2.84`.
+- Versionado HA: `config.yaml`, labels Docker, banner runtime y cache-busters de visores estan alineados en `0.2.85`.
 - Internacionalizacion: la webUI visible de HA, metadata HA, changelog y logs operativos principales del core estan en ingles. README/DOCS de la app HA siguen en espanol porque de momento la app es de uso propio; no hay sistema i18n.
 
 ## Funcionalidades pendientes
@@ -392,7 +392,7 @@ Detalle en [decisions.md](decisions.md).
 - Antes de tocar pandas o escritura CSV, usar `./scripts/backup-data.sh` y `./scripts/check-history.py` sobre una copia.
 
 ## Proximo paso recomendado
-Cerrar el bloque de autenticacion ligera: actualizar y validar HA `0.2.84` con `users.json` como unico formato de usuarios y WebUI de gestion de usuarios/dispositivos, confirmar login con `admin` y usuario `free`, limite de dispositivos, y acceso protegido a GeoJSON. Despues, validar Cloudflared apuntando a `http://<HA_IP>:8099/protected/maplibre/index.html` antes de retirar el fallback publico `/local/rainmapper-maplibre`.
+Cerrar el bloque de autenticacion ligera: actualizar y validar HA `0.2.85` con `users.json` como unico formato de usuarios y WebUI de gestion de usuarios/dispositivos sin auto-refresh, confirmar login con `admin` y usuario `free`, limite de dispositivos, y acceso protegido a GeoJSON. Despues, validar Cloudflared apuntando a `http://<HA_IP>:8099/protected/maplibre/index.html` antes de retirar el fallback publico `/local/rainmapper-maplibre`.
 
 ## Prompt recomendado para nueva sesion de Codex
 "Lee primero docs/codex-handoff.md. Después consulta docs/architecture.md, docs/todo.md y docs/decisions.md. No modifiques código todavía. Primero resume el objetivo de la app, el estado actual, los ficheros clave, lo que funciona, lo que falta y el siguiente paso recomendado."

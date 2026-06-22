@@ -56,7 +56,7 @@ Consecuencias:
 
 Estado:
 
-Implementado en varios pasos. La proteccion basica de MapLibre fue validada manualmente por el usuario en HA `0.2.82`: `admin` pudo entrar desde Mac e iPhone, y un usuario normal quedo limitado a un dispositivo. La ampliacion a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin` y `max_devices` esta publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83` y cubierta por `tests/test_web_server_auth.py`. El usuario valido en HA que el login creaba `users.json` desde el formato anterior; despues se decide retirar completamente el formato anterior para evitar ambiguedades futuras. La WebUI de gestion queda publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.84` y pendiente de validacion HA.
+Implementado en varios pasos. La proteccion basica de MapLibre fue validada manualmente por el usuario en HA `0.2.82`: `admin` pudo entrar desde Mac e iPhone, y un usuario normal quedo limitado a un dispositivo. La ampliacion a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin` y `max_devices` esta publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83` y cubierta por `tests/test_web_server_auth.py`. El usuario valido en HA que el login creaba `users.json` desde el formato anterior; despues se decide retirar completamente el formato anterior para evitar ambiguedades futuras. La WebUI de gestion queda publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.84`; la correccion del auto-refresh de formularios queda publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.85` y pendiente de validacion HA.
 
 ## 2026-06-20 - Retirar wrappers raiz `Rainmapper.py` y `Rainmapper_Client.py`
 
