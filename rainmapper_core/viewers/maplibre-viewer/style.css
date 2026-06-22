@@ -94,6 +94,27 @@ p {
   white-space: nowrap;
 }
 
+.signed-in-user {
+  display: grid;
+  gap: 1px;
+  margin-top: 4px;
+}
+
+.signed-in-user[hidden] {
+  display: none;
+}
+
+.signed-in-user strong {
+  color: var(--dark-text);
+  font-size: 12px;
+  font-weight: 800;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 .login-overlay {
   align-items: center;
   background: rgba(7, 16, 25, 0.44);
@@ -551,6 +572,10 @@ main {
 
   .generated time {
     font-size: 13px;
+  }
+
+  .signed-in-user strong {
+    max-width: 120px;
   }
 
   .rain-legend {

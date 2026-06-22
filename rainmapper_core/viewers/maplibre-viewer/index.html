@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.89">
+    <link rel="stylesheet" href="style.css?v=0.2.90">
   </head>
   <body>
     <header class="topbar">
@@ -19,6 +19,10 @@
       <div class="generated">
         <span>Generated</span>
         <time id="generated-at">-</time>
+        <div class="signed-in-user" id="signed-in-user" hidden>
+          <span>User</span>
+          <strong id="signed-in-user-value">-</strong>
+        </div>
       </div>
       <select class="period-select-native" id="map-selector" aria-label="Rain period" tabindex="-1">
         <option value="01d.geojson">1 day</option>
@@ -149,7 +153,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.89"></script>
-    <script src="app.js?v=0.2.89"></script>
+    <script src="config.js?v=0.2.90"></script>
+    <script src="app.js?v=0.2.90"></script>
   </body>
 </html>

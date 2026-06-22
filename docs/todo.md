@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Actualizar y validar en HA `0.2.89`: `users.json` como unico fichero de usuarios soportado, WebUI de gestion de usuarios/dispositivos sin auto-refresh, `Set password`, `Reset password` obligatorio, `Delete user` con borrado de devices y visor MapLibre sin indicador temporal de zoom.
+Validar en HA `0.2.90`: la cabecera de MapLibre protegido muestra el usuario autenticado y su rol bajo `Generated`. En la misma validacion, confirmar `users.json` como unico fichero de usuarios soportado, WebUI de gestion de usuarios/dispositivos sin auto-refresh, `Set password`, `Reset password` obligatorio, `Delete user` con borrado de devices y visor MapLibre sin indicador temporal de zoom.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -51,6 +51,12 @@ Actualizar y validar en HA `0.2.89`: `users.json` como unico fichero de usuarios
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/`, `users.example.json`, `tests/test_web_server_auth.py`, `rainmapper-app/DOCS.md`.
   - Criterio de aceptacion: publicar nueva version HA con `users.json` como unico formato, validar login por `username`, admin ilimitado, usuario `free` limitado por `max_devices`, reutilizacion de dispositivo registrado, gestion WebUI de usuarios/dispositivos desde Ingress/Home Assistant y GeoJSON inaccesible sin sesion. Cloudflared debe apuntar a `http://<HA_IP>:8099` y no a `/local/rainmapper-maplibre/index.html`. Tras validar Cloudflared, retirar el fallback publico temporal de MapLibre.
   - Estado: protegido basico validado manualmente en HA `0.2.82`; ampliacion `users.json`/`max_devices` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83`; retirada del formato antiguo y WebUI de gestion publicadas en `0.2.84`; correccion del auto-refresh publicada en `0.2.85`; gestion de contrasenas `Set password`/`Reset password` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.86`, pendiente de actualizacion y validacion HA.
+
+- [ ] Validar identidad de usuario en cabecera MapLibre
+  - Contexto: el visor MapLibre protegido ya recibe `username`, `name`, `email` y `role` en login y en `/auth/session`.
+  - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
+  - Criterio de aceptacion: en HA, tras login y tras recargar una sesion guardada, la cabecera muestra debajo de `Generated` el usuario autenticado y su rol (`free`, `basic`, `pro` o `admin`) sin romper el layout movil.
+  - Estado: preparado para publicar en `0.2.90`; pendiente de validar en HA.
 
 - [x] Ajustar umbral de hover MapLibre
   - Contexto: `0.2.87` muestra temporalmente el nivel de zoom en la cabecera de MapLibre, debajo de `Generated`, para decidir a partir de que zoom conviene activar el hover de estaciones.

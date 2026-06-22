@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.90
+
+- Show the authenticated MapLibre user and role in the viewer header under the generated timestamp.
+
 ## 0.2.89
 
 - Add a Home Assistant `Users` action to delete a user and all registered devices associated with that user.

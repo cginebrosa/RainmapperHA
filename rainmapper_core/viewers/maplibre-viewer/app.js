@@ -276,6 +276,7 @@ function saveStoredAuthState(nextState) {
     // Private browsing or strict storage settings can block localStorage.
     // The in-memory state still works until the tab is closed.
   }
+  updateSignedInUser();
 }
 
 function randomHex(byteLength) {
@@ -403,13 +404,34 @@ function setPasswordChangeMode(username, currentPassword) {
 
 async function validateStoredSession() {
   if (!AUTH_REQUIRED) {
+    updateSignedInUser();
     return true;
   }
   ensureDeviceId();
   if (!authState.sessionToken) {
+    updateSignedInUser();
     return false;
   }
   const response = await authFetch(`${AUTH_BASE}/session`, { method: "POST", cache: "no-store" });
+  if (response.ok) {
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+    if (payload.user) {
+      saveStoredAuthState({
+        ...authState,
+        username: payload.user.username,
+        name: payload.user.name,
+        email: payload.user.email,
+        role: payload.user.role,
+      });
+    }
+  } else {
+    saveStoredAuthState({ deviceId: authState.deviceId });
+  }
   return response.ok;
 }
 
@@ -469,6 +491,26 @@ function saveAuthenticatedPayload(payload) {
     email: payload.email,
     role: payload.role,
   });
+}
+
+function updateSignedInUser() {
+  const container = document.getElementById("signed-in-user");
+  const value = document.getElementById("signed-in-user-value");
+  if (!container || !value) {
+    return;
+  }
+  const username = String(authState.username || "").trim();
+  const name = String(authState.name || "").trim();
+  const email = String(authState.email || "").trim();
+  const role = String(authState.role || "").trim().toLowerCase();
+  const displayName = name || username || email;
+  if (!AUTH_REQUIRED || !authState.sessionToken || !displayName) {
+    container.hidden = true;
+    value.textContent = "-";
+    return;
+  }
+  value.textContent = role ? `${displayName} (${role})` : displayName;
+  container.hidden = false;
 }
 
 function setupLoginForm(onAuthenticated) {
