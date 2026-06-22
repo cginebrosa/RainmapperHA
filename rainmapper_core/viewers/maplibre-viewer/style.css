@@ -94,6 +94,14 @@ p {
   white-space: nowrap;
 }
 
+.generated strong {
+  color: var(--dark-text);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 
 .login-overlay {
   align-items: center;
@@ -551,6 +559,10 @@ main {
   }
 
   .generated time {
+    font-size: 13px;
+  }
+
+  .generated strong {
     font-size: 13px;
   }
 

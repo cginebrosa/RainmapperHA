@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.87
+
+- Add a temporary MapLibre header zoom indicator below the generated timestamp to help tune the station hover zoom threshold during demos.
+
 ## 0.2.86
 
 - Clarify password management in the Home Assistant `Users` page: stored passwords cannot be viewed, but newly typed passwords can be shown while editing.
