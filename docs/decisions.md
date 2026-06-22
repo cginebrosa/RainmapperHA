@@ -12,6 +12,7 @@ Decision:
 - Guardar primero observaciones horarias y construir acumulados de periodo desde nuestro historico, no asumir que la respuesta es un dia completo.
 - Si AEMET devuelve `429 Too Many Requests` u otro fallo temporal, la fuente debe degradar sin romper el pipeline completo.
 - Dejar el endpoint diario de climatologia como posible backfill futuro de dias cerrados, no como fuente operativa inmediata.
+- Si se muestran datos AEMET en visores o exports para terceros, mostrar atribucion visible a AEMET. Para estaciones AEMET en MapLibre, la ficha de estacion debe incluir al menos `Fuente: AEMET`; si el dato se mezcla o transforma dentro de Rainmapper, usar el texto ampliado `Informacion elaborada utilizando, entre otras, la obtenida de la Agencia Estatal de Meteorologia`. El panel de creditos/informacion del visor debe incluir una referencia agregada a AEMET cuando el dataset cargado contenga alguna estacion AEMET.
 
 Motivo:
 
@@ -19,6 +20,7 @@ Motivo:
 - La respuesta trae en el mismo registro `idema`, coordenadas, nombre de estacion y lluvia horaria, suficiente para integrarla sin llamadas por estacion.
 - El endpoint diario puede ser util para completar historicos, pero se publica con retraso, no trae coordenadas en el registro de datos y requiere unir con el inventario de estaciones.
 - AEMET aplica limites de uso: durante pruebas manuales varias llamadas seguidas llegaron a `429`.
+- La nota legal oficial de AEMET permite reutilizacion comercial y no comercial, pero exige no desnaturalizar la informacion, citar a AEMET como fuente, mencionar fecha de actualizacion cuando conste, conservar metadatos aplicables y no sugerir patrocinio, participacion o apoyo de AEMET.
 
 Consecuencias:
 
@@ -26,6 +28,7 @@ Consecuencias:
 - El historico AEMET no debe mezclarse ingenuamente con historicos diarios existentes hasta definir el corte UTC/local. El plan inicial es almacenar UTC y hacer la conversion/control de periodos en el agregador.
 - Cualquier escritura de historicos CSV para AEMET debe seguir `docs/history-safety.md`: backup o copia temporal, fixtures, validacion de estructura y deduplicado antes de tocar datos reales.
 - Los CSV exploratorios en `tmp/aemet-test/` son solo material temporal de analisis y no forman parte del pipeline.
+- La integracion debe preservar en los datos publicados metadatos suficientes para atribucion: `Source=AEMET`, timestamp de observacion `fint` en UTC y, si esta disponible, timestamp de generacion/actualizacion del dataset. No usar logo AEMET salvo que venga integrado o se revise expresamente su uso; texto es suficiente para la primera version.
 
 Estado:
 
