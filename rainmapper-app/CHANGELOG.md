@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.83
+
+- Use `users.json` as the primary MapLibre auth user store with `username`, `name`, `email`, `password`, `role`, `enabled`, and `max_devices`.
+- Keep `users.txt` as a legacy migration path when no `users.json` exists.
+- Add role defaults for `free`, `basic`, `pro`, and unlimited `admin` users, with per-user `max_devices` overrides.
+- Seed `/share/rainmapper/users.json` from `users.example.json` when no user file exists.
+
 ## 0.2.82
 
 - Add lightweight login protection for the MapLibre viewer and GeoJSON data.

@@ -54,7 +54,7 @@ Consecuencias:
 
 Estado:
 
-Implementado en dos pasos. La proteccion basica de MapLibre fue validada manualmente por el usuario en HA `0.2.82`: `admin` pudo entrar desde Mac e iPhone, y un usuario normal quedo limitado a un dispositivo. La ampliacion actual a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin`, `max_devices` y migracion legacy esta implementada en el working tree y cubierta por `tests/test_web_server_auth.py`; pendiente de bump/publicacion y validacion manual en HA/Cloudflare.
+Implementado en dos pasos. La proteccion basica de MapLibre fue validada manualmente por el usuario en HA `0.2.82`: `admin` pudo entrar desde Mac e iPhone, y un usuario normal quedo limitado a un dispositivo. La ampliacion a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin`, `max_devices` y migracion legacy esta publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83` y cubierta por `tests/test_web_server_auth.py`; pendiente de validacion manual en HA/Cloudflare.
 
 ## 2026-06-20 - Retirar wrappers raiz `Rainmapper.py` y `Rainmapper_Client.py`
 

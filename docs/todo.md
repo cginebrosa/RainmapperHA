@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Publicar una nueva version HA con los cambios actuales de autenticacion `users.json`: login por `username`, campos `name` y `email`, roles `free/basic/pro/admin`, `max_devices` por usuario y migracion legacy desde `users.txt`. Validar en HA antes de construir la webUI de gestion de usuarios/dispositivos.
+Actualizar Home Assistant a `0.2.83` y validar los cambios de autenticacion `users.json`: login por `username`, campos `name` y `email`, roles `free/basic/pro/admin`, `max_devices` por usuario y migracion legacy desde `users.txt`. Validar en HA antes de construir la webUI de gestion de usuarios/dispositivos.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -47,13 +47,13 @@ Publicar una nueva version HA con los cambios actuales de autenticacion `users.j
 ## Prioridad media
 
 - [ ] Validar MapLibre protegido en HA/Cloudflare
-  - Contexto: la ruta protegida MapLibre ya fue validada manualmente en HA `0.2.82`: `/protected/maplibre/index.html` pide login, `admin` funciona desde Mac+iPhone y un usuario normal queda limitado a un dispositivo. El working tree actual amplia el backend a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin`, `max_devices` y migracion desde `users.txt`.
+  - Contexto: la ruta protegida MapLibre ya fue validada manualmente en HA `0.2.82`: `/protected/maplibre/index.html` pide login, `admin` funciona desde Mac+iPhone y un usuario normal queda limitado a un dispositivo. La version local `0.2.83` amplia el backend a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin`, `max_devices` y migracion desde `users.txt`.
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/`, `users.example.json`, `tests/test_web_server_auth.py`, `rainmapper-app/DOCS.md`.
   - Criterio de aceptacion: publicar nueva version HA, validar migracion legacy, login por `username`, admin ilimitado, usuario `free` limitado por `max_devices`, reutilizacion de dispositivo registrado y GeoJSON inaccesible sin sesion. Cloudflared debe apuntar a `http://<HA_IP>:8099` y no a `/local/rainmapper-maplibre/index.html`. Tras validar Cloudflared, retirar el fallback publico temporal de MapLibre.
-  - Estado: protegido basico validado manualmente en HA `0.2.82`; ampliacion `users.json`/`max_devices` validada con `python3 -m unittest tests.test_web_server_auth` y `./scripts/smoke-test.sh`, pendiente de bump/publicacion HA.
+  - Estado: protegido basico validado manualmente en HA `0.2.82`; ampliacion `users.json`/`max_devices` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83` y validada localmente con `python3 -m unittest tests.test_web_server_auth` y `./scripts/smoke-test.sh`, pendiente de actualizacion y validacion HA.
 
 - [ ] Crear gestion WebUI de usuarios y dispositivos
-  - Contexto: el backend ya soporta roles `free`, `basic`, `pro`, `admin`, `username`, `name`, `email` y `max_devices` opcional en `users.json`, pero la gestion sigue siendo manual y todavia no se ha publicado en HA tras el cambio a JSON ampliado.
+  - Contexto: el backend ya soporta roles `free`, `basic`, `pro`, `admin`, `username`, `name`, `email` y `max_devices` opcional en `users.json`, pero la gestion sigue siendo manual y todavia no se ha validado en HA tras el cambio a JSON ampliado.
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper-app/DOCS.md`, `/share/rainmapper/users.json`, `/share/rainmapper/devices.json`.
   - Criterio de aceptacion: desde la webUI HA se pueden listar usuarios, crear/desactivar usuarios, cambiar rol, cambiar `max_devices`, resetear contrasena y gestionar dispositivos asociados.
   - Requisito especifico: para cada usuario debe poder borrarse un dispositivo concreto o borrar todos sus dispositivos.
