@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.98
+
+- Add a quick MapLibre layer button between the `2D`/`3D` control and north compass.
+- Keep quick map and bottom-period changes non-persistent while Settings controls continue to update device preferences.
+
 ## 0.2.97
 
 - Store protected MapLibre settings per registered device in `devices.json`.

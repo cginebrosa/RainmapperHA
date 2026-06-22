@@ -658,6 +658,30 @@ main {
   color: #ffffff;
 }
 
+.quick-map-toggle[aria-expanded="true"] {
+  background: #dff4ff;
+  border-color: rgba(28, 159, 234, 0.45);
+  color: #076caa;
+}
+
+.quick-map-toggle svg {
+  display: block;
+  height: 24px;
+  overflow: visible;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  width: 24px;
+}
+
+.quick-map-toggle polygon {
+  fill: currentColor;
+}
+
+.quick-map-toggle polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+}
 .map-north-toggle::before {
   border: 2px solid rgba(246, 251, 255, 0.72);
   border-radius: 999px;
@@ -696,6 +720,54 @@ main {
 
 .map-settings[hidden] {
   display: none;
+}
+
+.quick-map-panel {
+  background: rgba(248, 252, 255, 0.96);
+  border: 1px solid rgba(8, 21, 33, 0.12);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  color: var(--dark-text);
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+  min-width: 172px;
+  padding: 8px;
+  position: absolute;
+  right: 62px;
+  top: 106px;
+  z-index: 10;
+}
+
+.quick-map-panel[hidden] {
+  display: none;
+}
+
+.quick-map-panel button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-weight: 700;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 7px 9px;
+  text-align: left;
+}
+
+.quick-map-panel button:hover,
+.quick-map-panel button.is-active {
+  background: rgba(28, 159, 234, 0.14);
+}
+
+.quick-map-panel button.is-active::after {
+  content: "✓";
+  font-weight: 900;
+  margin-left: 14px;
 }
 
 .map-attribution {

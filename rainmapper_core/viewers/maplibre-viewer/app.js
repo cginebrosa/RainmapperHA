@@ -226,6 +226,9 @@ const baseStyles = [
 ];
 
 let currentStyle = baseStyles[0];
+let preferredMapStyleId = currentStyle.id;
+let currentPeriodFileName = "21d.geojson";
+let preferredPeriodFileName = currentPeriodFileName;
 let currentData = null;
 let currentVisibleFeatures = [];
 let currentPopup = null;
@@ -517,10 +520,17 @@ function updateSignedInUser() {
 }
 
 function selectedPeriodFileName() {
-  return document.getElementById("map-selector")?.value || "21d.geojson";
+  return currentPeriodFileName;
 }
 
-function syncSettingsPeriodSelector(fileName = selectedPeriodFileName()) {
+function syncVisiblePeriodSelector(fileName = currentPeriodFileName) {
+  const mapSelector = document.getElementById("map-selector");
+  if (mapSelector && periods[fileName]) {
+    mapSelector.value = fileName;
+  }
+}
+
+function syncSettingsPeriodSelector(fileName = preferredPeriodFileName) {
   const settingsSelector = document.getElementById("settings-period-selector");
   if (settingsSelector && periods[fileName]) {
     settingsSelector.value = fileName;
@@ -533,9 +543,9 @@ function selectedStationSources() {
 
 function currentDeviceSettings() {
   return {
-    period: selectedPeriodFileName(),
+    period: preferredPeriodFileName,
     min_rain_mm: minRainFilter,
-    map_style: currentStyle.id,
+    map_style: preferredMapStyleId,
     last_rains_history: lastRainHistoryLimit,
     station_sources: selectedStationSources(),
     terrain_enabled: terrainEnabled,
@@ -585,6 +595,14 @@ function setLayerControlsFromStyle(styleId) {
   });
 }
 
+function setQuickMapControlsFromStyle(styleId) {
+  document.querySelectorAll(".quick-map-option").forEach((button) => {
+    const isActive = button.dataset.styleId === styleId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-current", isActive ? "true" : "false");
+  });
+}
+
 function waitForMapIdle() {
   return new Promise((resolve) => {
     let resolved = false;
@@ -610,18 +628,19 @@ async function applyDeviceSettings(settings) {
     const requestedStyle = baseStyles.find((style) => style.id === settings.map_style);
     if (requestedStyle) {
       currentStyle = requestedStyle;
-      setLayerControlsFromStyle(currentStyle.id);
+      preferredMapStyleId = requestedStyle.id;
+      setLayerControlsFromStyle(preferredMapStyleId);
+      setQuickMapControlsFromStyle(currentStyle.id);
       map.setStyle(styleDefinition(currentStyle));
       await waitForMapIdle();
     }
 
     if (periods[settings.period]) {
-      const selector = document.getElementById("map-selector");
-      if (selector) {
-        selector.value = settings.period;
-      }
-      syncSettingsPeriodSelector(settings.period);
-      updatePeriodTimeline(settings.period);
+      currentPeriodFileName = settings.period;
+      preferredPeriodFileName = settings.period;
+      syncVisiblePeriodSelector(currentPeriodFileName);
+      syncSettingsPeriodSelector(preferredPeriodFileName);
+      updatePeriodTimeline(currentPeriodFileName);
     }
 
     const savedMinRain = Number(settings.min_rain_mm);
@@ -1150,7 +1169,7 @@ function refreshFilteredData() {
     return;
   }
 
-  const selectedPeriod = document.getElementById("map-selector").value;
+  const selectedPeriod = currentPeriodFileName;
   const features = filteredFeatures(currentVisibleFeatures);
   const popupStationId = activeStationPopupId;
   currentData = {
@@ -1310,7 +1329,7 @@ function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
 
   applyTerrain();
   map.jumpTo({ center, zoom });
-  const selectedPeriod = document.getElementById("map-selector").value;
+  const selectedPeriod = currentPeriodFileName;
   loadMap(selectedPeriod)
     .then(() => {
       map.jumpTo({ center, zoom });
@@ -1354,7 +1373,7 @@ function formatDistanceKm(distanceKm) {
 }
 
 function currentPeriodLabel() {
-  const selectedFile = document.getElementById("map-selector")?.value || "";
+  const selectedFile = currentPeriodFileName;
   return periods[selectedFile] || "selected period";
 }
 
@@ -1712,8 +1731,7 @@ function updatePeriodTimeline(selectedFileName) {
 
 function renderPeriodTimeline() {
   const container = document.getElementById("period-timeline");
-  const mapSelector = document.getElementById("map-selector");
-  if (!container || !mapSelector) {
+  if (!container) {
     return;
   }
 
@@ -1728,11 +1746,16 @@ function renderPeriodTimeline() {
     if (!button) {
       return;
     }
-    mapSelector.value = button.dataset.period;
-    mapSelector.dispatchEvent(new Event("change"));
+    const selectedPeriod = button.dataset.period;
+    currentPeriodFileName = selectedPeriod;
+    syncVisiblePeriodSelector(currentPeriodFileName);
+    updatePeriodTimeline(currentPeriodFileName);
+    loadMap(currentPeriodFileName).catch((error) => {
+      document.getElementById("summary").textContent = error.message;
+    });
   });
 
-  updatePeriodTimeline(mapSelector.value);
+  updatePeriodTimeline(currentPeriodFileName);
 }
 
 function updateGeneratedAt(generatedAt) {
@@ -1777,6 +1800,8 @@ function fitToData() {
 }
 
 async function loadMap(fileName) {
+  currentPeriodFileName = fileName;
+  syncVisiblePeriodSelector(currentPeriodFileName);
   const url = `${DATA_BASE}${fileName}`;
   const response = await authFetch(url, { cache: "no-store" });
   if (!response.ok) {
@@ -1807,13 +1832,50 @@ async function loadMap(fileName) {
   updateSummary(fileName, filtered.length, features.length);
   updateGeneratedAt(data.metadata?.generated_at);
   updatePeriodTimeline(fileName);
-  syncSettingsPeriodSelector(fileName);
+  syncSettingsPeriodSelector(preferredPeriodFileName);
   openStationPopup(findFeatureByStationId(filtered, popupStationId));
 
   if (!hasLoadedInitialMap) {
     hasLoadedInitialMap = true;
     fitToData();
   }
+}
+
+function selectBaseStyle(styleId, { persistPreference = false } = {}) {
+  const nextStyle = baseStyles.find((style) => style.id === styleId);
+  if (!nextStyle || nextStyle.id === currentStyle.id) {
+    if (nextStyle && persistPreference && preferredMapStyleId !== nextStyle.id) {
+      preferredMapStyleId = nextStyle.id;
+      markDeviceSettingsChanged();
+      setLayerControlsFromStyle(preferredMapStyleId);
+    }
+    return;
+  }
+
+  if (persistPreference) {
+    preferredMapStyleId = nextStyle.id;
+    markDeviceSettingsChanged();
+  }
+
+  currentStyle = nextStyle;
+  if (persistPreference) {
+    setLayerControlsFromStyle(preferredMapStyleId);
+  }
+  setQuickMapControlsFromStyle(currentStyle.id);
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+  let reloadedCurrentPeriod = false;
+  const reloadOnce = () => {
+    if (reloadedCurrentPeriod) {
+      return;
+    }
+    reloadedCurrentPeriod = true;
+    reloadCurrentPeriodAfterStyleChange(center, zoom);
+  };
+
+  map.once("idle", reloadOnce);
+  map.setStyle(styleDefinition(currentStyle));
+  window.setTimeout(reloadOnce, 600);
 }
 
 function renderLayerSwitcher() {
@@ -1826,28 +1888,54 @@ function renderLayerSwitcher() {
   `).join("");
 
   container.addEventListener("change", (event) => {
-    const nextStyle = baseStyles.find((style) => style.id === event.target.value);
-    if (!nextStyle) {
+    if (!event.target.matches("input[name='base-style']")) {
       return;
     }
-
-    markDeviceSettingsChanged();
-    currentStyle = nextStyle;
-    const center = map.getCenter();
-    const zoom = map.getZoom();
-    let reloadedCurrentPeriod = false;
-    const reloadOnce = () => {
-      if (reloadedCurrentPeriod) {
-        return;
-      }
-      reloadedCurrentPeriod = true;
-      reloadCurrentPeriodAfterStyleChange(center, zoom);
-    };
-
-    map.once("idle", reloadOnce);
-    map.setStyle(styleDefinition(currentStyle));
-    window.setTimeout(reloadOnce, 600);
+    selectBaseStyle(event.target.value, { persistPreference: true });
   });
+}
+
+function renderQuickMapPanel() {
+  const toggle = document.getElementById("quick-map-toggle");
+  const panel = document.getElementById("quick-map-panel");
+  if (!toggle || !panel) {
+    return;
+  }
+
+  panel.innerHTML = baseStyles.map((style) => `
+    <button class="quick-map-option" type="button" data-style-id="${style.id}">
+      <span>${style.label}</span>
+    </button>
+  `).join("");
+
+  const setQuickMapOpen = (isOpen) => {
+    panel.toggleAttribute("hidden", !isOpen);
+    toggle.setAttribute("aria-expanded", String(isOpen));
+  };
+
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setQuickMapOpen(panel.hasAttribute("hidden"));
+  });
+
+  panel.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const button = event.target.closest(".quick-map-option");
+    if (!button) {
+      return;
+    }
+    selectBaseStyle(button.dataset.styleId, { persistPreference: false });
+    setQuickMapOpen(false);
+  });
+
+  map.on("click", () => {
+    if (!panel.hasAttribute("hidden")) {
+      setQuickMapOpen(false);
+    }
+  });
+
+  setLayerControlsFromStyle(preferredMapStyleId);
+  setQuickMapControlsFromStyle(currentStyle.id);
 }
 
 function renderSettingsPanel() {
@@ -1901,11 +1989,10 @@ function renderSettingsPanel() {
   settingsPeriodSelector.addEventListener("change", (event) => {
     markDeviceSettingsChanged();
     const selectedPeriod = event.target.value;
-    const mapSelector = document.getElementById("map-selector");
-    if (mapSelector) {
-      mapSelector.value = selectedPeriod;
-    }
-    loadMap(selectedPeriod).catch((error) => {
+    preferredPeriodFileName = selectedPeriod;
+    currentPeriodFileName = selectedPeriod;
+    syncVisiblePeriodSelector(currentPeriodFileName);
+    loadMap(currentPeriodFileName).catch((error) => {
       document.getElementById("summary").textContent = error.message;
     });
   });
@@ -1964,6 +2051,7 @@ async function startViewer() {
 
 map.on("load", async () => {
   renderLayerSwitcher();
+  renderQuickMapPanel();
   renderPeriodTimeline();
   renderSettingsPanel();
   setupKeyboardShortcuts();
@@ -2018,8 +2106,8 @@ map.on("zoom", () => {
 });
 
 document.getElementById("map-selector").addEventListener("change", (event) => {
-  syncSettingsPeriodSelector(event.target.value);
-  loadMap(event.target.value)
+  currentPeriodFileName = event.target.value;
+  loadMap(currentPeriodFileName)
     .catch((error) => {
       document.getElementById("summary").textContent = error.message;
     });

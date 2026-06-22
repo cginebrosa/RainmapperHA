@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.97">
+    <link rel="stylesheet" href="style.css?v=0.2.98">
   </head>
   <body>
     <header class="topbar">
@@ -74,6 +74,13 @@
         <button class="map-control-button terrain-mode-toggle" id="terrain-mode-toggle" type="button" aria-pressed="false" aria-label="Toggle 3D terrain" title="Toggle 3D terrain">
           2D
         </button>
+        <button class="map-control-button quick-map-toggle" id="quick-map-toggle" type="button" aria-expanded="false" aria-controls="quick-map-panel" aria-label="Map layer" title="Map layer">
+          <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+            <polygon points="12 2 22 7 12 12 2 7"></polygon>
+            <polyline points="22 12 12 17 2 12"></polyline>
+            <polyline points="22 17 12 22 2 17"></polyline>
+          </svg>
+        </button>
         <button class="map-control-button map-north-toggle" id="north-toggle" type="button" aria-label="Face north" title="Face north">
           <span aria-hidden="true"></span>
         </button>
@@ -88,6 +95,7 @@
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>
         <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener noreferrer">Elevation tiles © Mapzen</a>
       </section>
+      <section class="quick-map-panel" id="quick-map-panel" aria-label="Map layer" hidden></section>
       <section class="map-settings" id="map-settings" aria-label="Map settings" hidden>
         <div class="map-settings-row">
           <label for="settings-period-selector">Period</label>
@@ -164,7 +172,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.97"></script>
-    <script src="app.js?v=0.2.97"></script>
+    <script src="config.js?v=0.2.98"></script>
+    <script src="app.js?v=0.2.98"></script>
   </body>
 </html>
