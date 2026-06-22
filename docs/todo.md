@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Actualizar y validar en HA `0.2.85`: `users.json` como unico fichero de usuarios soportado y WebUI de gestion de usuarios/dispositivos sin auto-refresh en formularios.
+Actualizar y validar en HA `0.2.86`: `users.json` como unico fichero de usuarios soportado, WebUI de gestion de usuarios/dispositivos sin auto-refresh, `Set password` y `Reset password` obligatorio.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -50,14 +50,14 @@ Actualizar y validar en HA `0.2.85`: `users.json` como unico fichero de usuarios
   - Contexto: la ruta protegida MapLibre ya fue validada manualmente en HA `0.2.82`: `/protected/maplibre/index.html` pide login, `admin` funciona desde Mac+iPhone y un usuario normal queda limitado a un dispositivo. La version `0.2.83` amplia el backend a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin` y `max_devices`. El usuario valido en HA que el primer login crea `users.json`; despues se decide retirar por completo el formato antiguo.
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/`, `users.example.json`, `tests/test_web_server_auth.py`, `rainmapper-app/DOCS.md`.
   - Criterio de aceptacion: publicar nueva version HA con `users.json` como unico formato, validar login por `username`, admin ilimitado, usuario `free` limitado por `max_devices`, reutilizacion de dispositivo registrado, gestion WebUI de usuarios/dispositivos desde Ingress/Home Assistant y GeoJSON inaccesible sin sesion. Cloudflared debe apuntar a `http://<HA_IP>:8099` y no a `/local/rainmapper-maplibre/index.html`. Tras validar Cloudflared, retirar el fallback publico temporal de MapLibre.
-  - Estado: protegido basico validado manualmente en HA `0.2.82`; ampliacion `users.json`/`max_devices` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83`; retirada del formato antiguo y WebUI de gestion publicadas en `0.2.84`; correccion del auto-refresh de formularios publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.85`, pendiente de actualizacion y validacion HA.
+  - Estado: protegido basico validado manualmente en HA `0.2.82`; ampliacion `users.json`/`max_devices` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83`; retirada del formato antiguo y WebUI de gestion publicadas en `0.2.84`; correccion del auto-refresh publicada en `0.2.85`; gestion de contrasenas `Set password`/`Reset password` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.86`, pendiente de actualizacion y validacion HA.
 
 - [x] Crear gestion WebUI de usuarios y dispositivos
   - Contexto: el backend ya soporta roles `free`, `basic`, `pro`, `admin`, `username`, `name`, `email` y `max_devices` opcional en `users.json`; la WebUI local anade una pagina `Users`.
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper-app/DOCS.md`, `/share/rainmapper/users.json`, `/share/rainmapper/devices.json`.
-  - Criterio de aceptacion: desde la webUI HA se pueden listar usuarios, crear/desactivar usuarios, cambiar rol, cambiar `max_devices`, resetear contrasena y gestionar dispositivos asociados.
+  - Criterio de aceptacion: desde la webUI HA se pueden listar usuarios, crear/desactivar usuarios, cambiar rol, cambiar `max_devices`, establecer una nueva contrasena, forzar cambio de contrasena y gestionar dispositivos asociados.
   - Requisito especifico: para cada usuario debe poder borrarse un dispositivo concreto o borrar todos sus dispositivos.
-  - Estado: implementado localmente en `web_server.py`. La pagina `Users` permite crear usuarios, editar nombre/email/rol/status/max_devices, resetear contrasenas y borrar dispositivos individuales o todos los de un usuario. Cubierto por `tests/test_web_server_auth.py` y `./scripts/smoke-test.sh`; pendiente de publicacion y validacion HA.
+  - Estado: implementado y publicado en imagen `0.2.86`. La pagina `Users` permite crear usuarios, editar nombre/email/rol/status/max_devices, establecer nuevas contrasenas, forzar cambio de contrasena mediante `must_change_password` y borrar dispositivos individuales o todos los de un usuario. Cubierto por `tests/test_web_server_auth.py` y `./scripts/smoke-test.sh`; pendiente de validacion HA.
 
 - [x] Decidir visor principal
   - Contexto: conviven Bokeh, Leaflet y MapLibre; MapLibre ya funciona bien en movil segun validacion manual/reportada por el usuario y desde `0.2.47` tambien soporta Hybrid/Topographic raster.

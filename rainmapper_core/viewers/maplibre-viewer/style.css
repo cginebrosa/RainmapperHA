@@ -137,6 +137,15 @@ p {
   margin: 4px 0 0;
 }
 
+.login-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.login-fields[hidden] {
+  display: none;
+}
+
 .login-card label {
   display: grid;
   gap: 6px;

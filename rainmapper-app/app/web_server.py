@@ -492,6 +492,24 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     .inline-form input {{
       width: 180px;
     }}
+    .password-tools {{
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      margin: 4px 0 8px;
+    }}
+    .password-tools input {{
+      width: auto;
+      min-height: auto;
+    }}
+    .help-text {{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      margin: -4px 0 12px;
+    }}
     @media (max-width: 760px) {{
       .admin-form-grid {{
         grid-template-columns: 1fr;
@@ -511,6 +529,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
   <main>
     {body}
   </main>
+  <script>
+    function togglePasswordVisibility(checkbox) {{
+      var input = document.getElementById(checkbox.getAttribute("data-target"));
+      if (!input) {{
+        return;
+      }}
+      input.type = checkbox.checked ? "text" : "password";
+    }}
+  </script>
 </body>
 </html>
 """.encode("utf-8")
@@ -1373,6 +1400,12 @@ def normalize_enabled(value: object) -> str:
     return "false" if str(value).strip().lower() == "false" else "true"
 
 
+def normalize_bool_flag(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return "true" if str(value).strip().lower() == "true" else "false"
+
+
 def normalize_user_record(raw_user: dict[str, object], fallback_username: str = "") -> dict[str, str] | None:
     username = normalize_user_id(str(raw_user.get("username") or fallback_username))
     if not username:
@@ -1386,6 +1419,7 @@ def normalize_user_record(raw_user: dict[str, object], fallback_username: str = 
         "role": role,
         "enabled": normalize_enabled(raw_user.get("enabled", True)),
         "max_devices": str(parse_max_devices(str(raw_user.get("max_devices", "")), role)),
+        "must_change_password": normalize_bool_flag(raw_user.get("must_change_password", False)),
     }
 
 
@@ -1430,6 +1464,7 @@ def write_users(users: dict[str, dict[str, str]]) -> None:
                 "role": normalize_role(user.get("role", "free")),
                 "enabled": user.get("enabled", "true").lower() == "true",
                 "max_devices": user_max_devices(user),
+                "must_change_password": user.get("must_change_password", "false").lower() == "true",
             }
             for _username, user in sorted(users.items())
         ]
@@ -1480,9 +1515,20 @@ def devices_for_user(devices: dict[str, dict[str, str]], username: str) -> list[
     return sorted(user_devices, key=lambda item: str(item[1].get("last_seen_at", "")), reverse=True)
 
 
+def delete_devices_for_user(username: str) -> int:
+    user_id = normalize_user_id(username)
+    devices = read_devices()
+    device_ids = [device_id for device_id, device in devices.items() if device_username(device) == user_id]
+    for device_id in device_ids:
+        devices.pop(device_id, None)
+    write_devices(devices)
+    return len(device_ids)
+
+
 def set_user_password(user: dict[str, str], password: str) -> None:
     if password:
         user["password"] = hash_password(password)
+        user["must_change_password"] = "false"
 
 
 def create_user(username: str, name: str, email: str, password: str, role: str, enabled: str, max_devices: str) -> str:
@@ -1505,6 +1551,7 @@ def create_user(username: str, name: str, email: str, password: str, role: str, 
         "role": normalized_role,
         "enabled": normalize_enabled(enabled),
         "max_devices": str(parse_max_devices(max_devices, normalized_role)),
+        "must_change_password": "false",
     }
     write_users(users)
     return f"Created user {user_id}."
@@ -1531,7 +1578,7 @@ def update_user(username: str, name: str, email: str, role: str, enabled: str, m
     return f"Updated user {user_id}."
 
 
-def reset_user_password(username: str, password: str) -> str:
+def set_admin_user_password(username: str, password: str) -> str:
     user_id = normalize_user_id(username)
     if not password:
         return "Password is required."
@@ -1541,7 +1588,47 @@ def reset_user_password(username: str, password: str) -> str:
         return f"User {user_id or '-'} was not found."
     set_user_password(user, password)
     write_users(users)
-    return f"Reset password for {user_id}."
+    deleted_count = delete_devices_for_user(user_id)
+    return f"Set password for {user_id} and deleted {deleted_count} device(s)."
+
+
+def require_user_password_change(username: str) -> str:
+    user_id = normalize_user_id(username)
+    users = read_users()
+    user = users.get(user_id)
+    if not user:
+        return f"User {user_id or '-'} was not found."
+    user["must_change_password"] = "true"
+    write_users(users)
+    deleted_count = delete_devices_for_user(user_id)
+    return f"Reset password for {user_id}; deleted {deleted_count} device(s). User must choose a new password on next sign-in."
+
+
+def change_required_password(
+    username: str,
+    current_password: str,
+    new_password: str,
+    device_id: str,
+    user_agent: str,
+) -> tuple[int, dict[str, object]]:
+    users = read_users()
+    user_id = normalize_user_id(username)
+    user = users.get(user_id)
+    if not user or user.get("enabled", "true").lower() != "true":
+        return 401, {"ok": False, "error": "Invalid user or password."}
+    if user.get("must_change_password", "false").lower() != "true":
+        return 400, {"ok": False, "error": "Password change is not required for this user."}
+    if not verify_password(current_password, user.get("password", "")):
+        return 401, {"ok": False, "error": "Invalid user or password."}
+    if not new_password:
+        return 400, {"ok": False, "error": "New password is required."}
+    if verify_password(new_password, user.get("password", "")):
+        return 400, {"ok": False, "error": "New password must be different from the current password."}
+
+    set_user_password(user, new_password)
+    write_users(users)
+    delete_devices_for_user(user_id)
+    return login_user(user_id, new_password, device_id, user_agent)
 
 
 def delete_device(device_id: str) -> str:
@@ -1557,12 +1644,8 @@ def delete_device(device_id: str) -> str:
 
 def delete_user_devices(username: str) -> str:
     user_id = normalize_user_id(username)
-    devices = read_devices()
-    device_ids = [device_id for device_id, device in devices.items() if device_username(device) == user_id]
-    for device_id in device_ids:
-        devices.pop(device_id, None)
-    write_devices(devices)
-    return f"Deleted {len(device_ids)} device(s) for {user_id or '-'}."
+    deleted_count = delete_devices_for_user(user_id)
+    return f"Deleted {deleted_count} device(s) for {user_id or '-'}."
 
 
 def role_options(selected_role: str) -> str:
@@ -1606,6 +1689,8 @@ def authenticate_session(token: str, device_id: str) -> tuple[bool, dict[str, st
     user = users.get(normalize_user_id(str(device.get("username", device.get("email", "")))))
     if not user or user.get("enabled", "true").lower() != "true":
         return False, None
+    if user.get("must_change_password", "false").lower() == "true":
+        return False, None
 
     device["last_seen_at"] = utc_now()
     write_devices(devices)
@@ -1632,6 +1717,15 @@ def login_user(username: str, password: str, device_id: str, user_agent: str) ->
         should_rewrite_users = True
     if should_rewrite_users:
         write_users(users)
+
+    if user.get("must_change_password", "false").lower() == "true":
+        delete_devices_for_user(user_id)
+        return 403, {
+            "ok": False,
+            "code": "password_change_required",
+            "error": "Password change is required.",
+            "username": user_id,
+        }
 
     devices = read_devices()
     role = normalize_role(user.get("role", "free"))
@@ -1850,6 +1944,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             enabled = normalize_enabled(user.get("enabled", "true"))
             max_devices = str(user_max_devices(user))
             role = normalize_role(user.get("role", "free"))
+            password_state = (
+                '<span class="danger">Change required</span>'
+                if user.get("must_change_password", "false").lower() == "true"
+                else '<span class="ok">Current</span>'
+            )
             device_rows = []
             for device_id, device in user_devices:
                 device_label = device_id[:12] + ("..." if len(device_id) > 12 else "")
@@ -1875,6 +1974,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 f"<td>{html.escape(user.get('email', ''))}</td>"
                 f"<td>{html.escape(role)}</td>"
                 f"<td>{'Enabled' if enabled == 'true' else 'Disabled'}</td>"
+                f"<td>{password_state}</td>"
                 f"<td>{html.escape(max_devices)}</td>"
                 f"<td>{len(user_devices)}</td>"
                 '<td class="admin-actions">'
@@ -1891,9 +1991,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 '<button class="primary">Save user</button>'
                 "</form>"
                 '<form class="inline-form" method="post" action="">'
+                '<input type="hidden" name="admin_action" value="set_password">'
+                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
+                f'<input id="reset-password-{html.escape(username, quote=True)}" name="password" type="password" placeholder="New password" autocomplete="new-password">'
+                '<label class="password-tools">'
+                f'<input type="checkbox" data-target="reset-password-{html.escape(username, quote=True)}" onchange="togglePasswordVisibility(this)">'
+                '<span>Show typed password</span>'
+                '</label>'
+                '<button>Set password</button>'
+                "</form>"
+                '<form method="post" action="">'
                 '<input type="hidden" name="admin_action" value="reset_password">'
                 f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
-                '<input name="password" type="password" placeholder="New password" autocomplete="new-password">'
                 '<button>Reset password</button>'
                 "</form>"
                 '<form method="post" action="">'
@@ -1906,10 +2015,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 "</tr>"
             )
 
-        user_rows_html = "".join(rows) if rows else '<tr><td colspan="8">No users configured.</td></tr>'
+        user_rows_html = "".join(rows) if rows else '<tr><td colspan="9">No users configured.</td></tr>'
         users_table = (
             '<div class="admin-table-wrap"><table class="admin-table">'
-            "<thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Max</th><th>Devices</th><th>Manage user</th><th>Devices</th></tr></thead>"
+            "<thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th>Max</th><th>Devices</th><th>Manage user</th><th>Devices</th></tr></thead>"
             f"<tbody>{user_rows_html}</tbody>"
             "</table></div>"
         )
@@ -1918,13 +2027,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         <p>Manage MapLibre protected viewer users and registered devices.</p>
         <p><a class="button-link" href="./">Back to Rainmapper</a></p>
         <h2>Create user</h2>
+        <p class="help-text">Stored passwords cannot be viewed because Rainmapper saves password hashes. Set password stores an admin-defined password and deletes registered devices. Reset password forces the user to choose a different password on next sign-in.</p>
         <form method="post" action="">
           <input type="hidden" name="admin_action" value="create_user">
           <div class="admin-form-grid">
             <div class="admin-field"><label>Username</label><input name="username" required autocomplete="username"></div>
             <div class="admin-field"><label>Name</label><input name="name"></div>
             <div class="admin-field"><label>Email</label><input name="email" type="email"></div>
-            <div class="admin-field"><label>Password</label><input name="password" type="password" required autocomplete="new-password"></div>
+            <div class="admin-field">
+              <label>Password</label>
+              <input id="create-password" name="password" type="password" required autocomplete="new-password">
+              <label class="password-tools"><input type="checkbox" data-target="create-password" onchange="togglePasswordVisibility(this)"><span>Show typed password</span></label>
+            </div>
             <div class="admin-field"><label>Role</label><select name="role">{role_options("free")}</select></div>
             <div class="admin-field"><label>Status</label><select name="enabled">{enabled_options("true")}</select></div>
             <div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="1"></div>
@@ -1996,6 +2110,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.send_json(status, response)
             return
 
+        if parsed.path == "/auth/change-password":
+            payload = self.read_json_payload()
+            status, response = change_required_password(
+                str(payload.get("username", "")),
+                str(payload.get("current_password", "")),
+                str(payload.get("new_password", "")),
+                str(payload.get("device_id", "")),
+                self.headers.get("User-Agent", ""),
+            )
+            self.send_json(status, response)
+            return
+
         if parsed.path == "/auth/session":
             user = self.authenticated_user()
             if not user:
@@ -2055,11 +2181,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "enabled"),
                 self.form_value(form, "max_devices"),
             )
-        elif admin_action == "reset_password":
-            message = reset_user_password(
+        elif admin_action == "set_password":
+            message = set_admin_user_password(
                 self.form_value(form, "username"),
                 self.form_value(form, "password"),
             )
+        elif admin_action == "reset_password":
+            message = require_user_password_change(self.form_value(form, "username"))
         elif admin_action == "delete_device":
             message = delete_device(self.form_value(form, "device_id"))
         elif admin_action == "delete_user_devices":

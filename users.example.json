@@ -7,7 +7,8 @@
       "password": "change-me",
       "role": "free",
       "enabled": true,
-      "max_devices": 1
+      "max_devices": 1,
+      "must_change_password": false
     },
     {
       "username": "friend",
@@ -16,7 +17,8 @@
       "password": "change-me",
       "role": "basic",
       "enabled": true,
-      "max_devices": 2
+      "max_devices": 2,
+      "must_change_password": false
     },
     {
       "username": "admin",
@@ -25,7 +27,8 @@
       "password": "change-me",
       "role": "admin",
       "enabled": true,
-      "max_devices": 0
+      "max_devices": 0,
+      "must_change_password": false
     }
   ]
 }

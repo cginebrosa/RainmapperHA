@@ -188,7 +188,7 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 ## Gestion de estado
 
 ### Autenticacion ligera MapLibre
-- Usuarios manuales en `/share/rainmapper/users.json`, con `username`, `name`, `email`, `password`, `role`, `enabled` y `max_devices`. `username` es el identificador de login; `name` es el nombre de la persona; `email` es contacto.
+- Usuarios manuales en `/share/rainmapper/users.json`, con `username`, `name`, `email`, `password`, `role`, `enabled`, `max_devices` y `must_change_password`. `username` es el identificador de login; `name` es el nombre de la persona; `email` es contacto.
 - En HA, `run.sh` crea `users.json` desde `/app/users.example.json` si no existe `users.json`; no sobrescribe usuarios existentes.
 - `users.json` es el unico formato de usuarios soportado; no hay formato alternativo ni ruta de migracion.
 - Dispositivos y sesiones en `/share/rainmapper/devices.json`, generado por la app como JSON vacio si no existe.
@@ -196,7 +196,7 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 - Limites por defecto: `free=1`, `basic=2`, `pro=3`, `admin=0`; `0` significa dispositivos ilimitados. `max_devices` puede sobrescribir el limite por usuario.
 - El visor guarda `device_id` y token de sesion en `localStorage`, y envia `Authorization: Bearer ...` + `X-Rainmapper-Device` al pedir GeoJSON.
 - Si se borran datos del navegador, un usuario con limite de dispositivos puede quedar bloqueado porque se genera un nuevo `device_id`; se resuelve limpiando/deshabilitando un registro anterior en `devices.json`.
-- La WebUI HA incluye una pagina `Users`, pensada para acceso por Ingress/Home Assistant, para crear usuarios, activar/desactivar acceso, cambiar rol/max_devices, resetear contrasenas y borrar dispositivos individuales o todos los de un usuario.
+- La WebUI HA incluye una pagina `Users`, pensada para acceso por Ingress/Home Assistant, para crear usuarios, activar/desactivar acceso, cambiar rol/max_devices, establecer nuevas contrasenas, forzar cambio de contrasena y borrar dispositivos individuales o todos los de un usuario. `Set password` guarda una contrasena definida por el administrador y borra los dispositivos del usuario. `Reset password` marca `must_change_password=true`, borra dispositivos y obliga al usuario a elegir una contrasena distinta tras autenticarse con la actual.
 - Esta autenticacion ligera aplica al servidor HA. El visor Docker local sigue siendo estatico para pruebas y lee `docker-data/PublicData`. Los tests de backend viven en `tests/test_web_server_auth.py`; cubren usuarios JSON, limites por dispositivo, admin ilimitado y funciones de gestion.
 
 - Estado persistente principal: CSV en filesystem.

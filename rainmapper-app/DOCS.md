@@ -168,7 +168,8 @@ Formato:
       "password": "clave_temporal",
       "role": "free",
       "enabled": true,
-      "max_devices": 1
+      "max_devices": 1,
+      "must_change_password": false
     },
     {
       "username": "admin",
@@ -177,7 +178,8 @@ Formato:
       "password": "clave_temporal",
       "role": "admin",
       "enabled": true,
-      "max_devices": 0
+      "max_devices": 0,
+      "must_change_password": false
     }
   ]
 }
@@ -194,6 +196,7 @@ Reglas actuales:
 - `max_devices` es opcional. Si falta, se usa el valor por defecto del rol: `free=1`, `basic=2`, `pro=3`, `admin=0`.
 - `max_devices=0` significa dispositivos ilimitados.
 - `enabled` debe ser `true` para permitir acceso.
+- `must_change_password` es opcional. Si es `true`, el usuario debe iniciar sesion con su contrasena actual y elegir una contrasena distinta antes de acceder al mapa.
 - Si la contrasena esta en claro, la app la convierte automaticamente a hash PBKDF2 despues del primer login correcto.
 - `users.json` es el unico formato de usuarios soportado.
 
@@ -205,7 +208,7 @@ La app crea automaticamente, si no existe:
 
 Ese fichero guarda el `device_id`, usuario, rol, user-agent, ultimo acceso y hash del token de sesion. Si un usuario normal borra los datos del navegador, se generara un nuevo `device_id` y quedara bloqueado hasta que limpies o borres su dispositivo anterior.
 
-La WebUI de Home Assistant incluye una pagina `Users` para crear usuarios, activar/desactivar acceso, cambiar rol, cambiar `max_devices`, resetear contrasenas y borrar dispositivos asociados a un usuario, uno a uno o todos a la vez. Esta gestion esta pensada para usarse desde Ingress/Home Assistant.
+La WebUI de Home Assistant incluye una pagina `Users` para crear usuarios, activar/desactivar acceso, cambiar rol, cambiar `max_devices`, establecer una nueva contrasena y borrar dispositivos asociados a un usuario, uno a uno o todos a la vez. `Set password` guarda una contrasena definida por el administrador y borra automaticamente los dispositivos del usuario. `Reset password` no muestra ni cambia directamente la contrasena: marca el usuario para que tenga que elegir una contrasena distinta en el proximo inicio de sesion y tambien borra sus dispositivos.
 
 Si usas Cloudflare Tunnel con el add-on Cloudflared de Home Assistant, apunta el hostname externo al servidor Rainmapper publicado por la app:
 

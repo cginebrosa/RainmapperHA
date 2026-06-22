@@ -135,7 +135,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(response["name"], "New User")
         self.assertEqual(response["max_devices"], 2)
 
-    def test_reset_password_replaces_existing_password(self) -> None:
+    def test_set_password_replaces_existing_password_and_deletes_devices(self) -> None:
         self.write_users_json(
             [
                 {
@@ -150,11 +150,59 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
 
         self.assertEqual(self.login("basic", "old-secret", "device-a")[0], 200)
-        message = self.web_server.reset_user_password("basic", "new-secret")
+        message = self.web_server.set_admin_user_password("basic", "new-secret")
 
-        self.assertIn("Reset password", message)
+        self.assertIn("Set password", message)
+        self.assertIn("deleted 1 device", message)
+        self.assertEqual(self.web_server.read_devices(), {})
         self.assertEqual(self.login("basic", "old-secret", "device-b")[0], 401)
         self.assertEqual(self.login("basic", "new-secret", "device-b")[0], 200)
+
+    def test_reset_password_forces_user_to_choose_different_password(self) -> None:
+        self.write_users_json(
+            [
+                {
+                    "username": "basic",
+                    "name": "Basic User",
+                    "email": "basic@example.com",
+                    "password": "old-secret",
+                    "role": "basic",
+                    "enabled": True,
+                }
+            ]
+        )
+
+        self.assertEqual(self.login("basic", "old-secret", "device-a")[0], 200)
+        message = self.web_server.require_user_password_change("basic")
+
+        self.assertIn("Reset password", message)
+        self.assertEqual(self.web_server.read_devices(), {})
+        login_status, login_response = self.login("basic", "old-secret", "device-a")
+        self.assertEqual(login_status, 403)
+        self.assertEqual(login_response["code"], "password_change_required")
+
+        same_status, same_response = self.web_server.change_required_password(
+            "basic",
+            "old-secret",
+            "old-secret",
+            "device-a",
+            "unit-test",
+        )
+        self.assertEqual(same_status, 400)
+        self.assertIn("different", same_response["error"])
+
+        changed_status, changed_response = self.web_server.change_required_password(
+            "basic",
+            "old-secret",
+            "new-secret",
+            "device-a",
+            "unit-test",
+        )
+        self.assertEqual(changed_status, 200, changed_response)
+        self.assertEqual(changed_response["username"], "basic")
+        self.assertEqual(self.login("basic", "old-secret", "device-b")[0], 401)
+        self.assertEqual(self.login("basic", "new-secret", "device-b")[0], 200)
+        self.assertEqual(self.web_server.read_users()["basic"]["must_change_password"], "false")
 
     def test_delete_single_and_all_user_devices(self) -> None:
         self.write_users_json(

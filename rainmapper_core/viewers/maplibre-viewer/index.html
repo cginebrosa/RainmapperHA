@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.85">
+    <link rel="stylesheet" href="style.css?v=0.2.86">
   </head>
   <body>
     <header class="topbar">
@@ -37,17 +37,29 @@
       <section class="login-overlay" id="login-overlay" aria-label="Rainmapper login" hidden>
         <form class="login-card" id="login-form" autocomplete="on">
           <div>
-            <h2>Rainmapper</h2>
-            <p>Sign in to view protected maps from this device.</p>
+            <h2 id="login-title">Rainmapper</h2>
+            <p id="login-copy">Sign in to view protected maps from this device.</p>
           </div>
-          <label>
-            <span>Username</span>
-            <input id="login-username" name="username" type="text" autocomplete="username" required>
-          </label>
-          <label>
-            <span>Password</span>
-            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-          </label>
+          <div class="login-fields" id="login-fields">
+            <label>
+              <span>Username</span>
+              <input id="login-username" name="username" type="text" autocomplete="username">
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="login-password" name="password" type="password" autocomplete="current-password">
+            </label>
+          </div>
+          <div class="login-fields" id="password-change-fields" hidden>
+            <label>
+              <span>New password</span>
+              <input id="new-password" name="new-password" type="password" autocomplete="new-password">
+            </label>
+            <label>
+              <span>Repeat new password</span>
+              <input id="new-password-repeat" name="new-password-repeat" type="password" autocomplete="new-password">
+            </label>
+          </div>
           <div class="login-error" id="login-error" role="alert" aria-live="polite"></div>
           <button class="login-submit" type="submit">Sign in</button>
         </form>
@@ -137,7 +149,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.85"></script>
-    <script src="app.js?v=0.2.85"></script>
+    <script src="config.js?v=0.2.86"></script>
+    <script src="app.js?v=0.2.86"></script>
   </body>
 </html>

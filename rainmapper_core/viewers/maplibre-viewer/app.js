@@ -241,6 +241,7 @@ let rainScaleMax = 200;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let authState = loadStoredAuthState();
+let pendingPasswordChange = null;
 let longPressTimer = null;
 let longPressStartPoint = null;
 let didTriggerLongPress = false;
@@ -325,6 +326,7 @@ function showLogin(message = "") {
   if (!overlay) {
     return;
   }
+  setSignInMode();
   overlay.hidden = false;
   document.body.classList.add("auth-open");
   if (error) {
@@ -340,6 +342,63 @@ function hideLogin() {
   }
   overlay.hidden = true;
   document.body.classList.remove("auth-open");
+}
+
+function setSignInMode() {
+  pendingPasswordChange = null;
+  const title = document.getElementById("login-title");
+  const copy = document.getElementById("login-copy");
+  const loginFields = document.getElementById("login-fields");
+  const changeFields = document.getElementById("password-change-fields");
+  const submit = document.querySelector("#login-form button[type='submit']");
+  if (title) {
+    title.textContent = "Rainmapper";
+  }
+  if (copy) {
+    copy.textContent = "Sign in to view protected maps from this device.";
+  }
+  if (loginFields) {
+    loginFields.hidden = false;
+  }
+  if (changeFields) {
+    changeFields.hidden = true;
+  }
+  const newPassword = document.getElementById("new-password");
+  const repeatedPassword = document.getElementById("new-password-repeat");
+  if (newPassword) {
+    newPassword.value = "";
+  }
+  if (repeatedPassword) {
+    repeatedPassword.value = "";
+  }
+  if (submit) {
+    submit.textContent = "Sign in";
+  }
+}
+
+function setPasswordChangeMode(username, currentPassword) {
+  pendingPasswordChange = { username, currentPassword };
+  const title = document.getElementById("login-title");
+  const copy = document.getElementById("login-copy");
+  const loginFields = document.getElementById("login-fields");
+  const changeFields = document.getElementById("password-change-fields");
+  const submit = document.querySelector("#login-form button[type='submit']");
+  if (title) {
+    title.textContent = "Change password";
+  }
+  if (copy) {
+    copy.textContent = "Your password was reset by an administrator. Choose a different password to continue.";
+  }
+  if (loginFields) {
+    loginFields.hidden = true;
+  }
+  if (changeFields) {
+    changeFields.hidden = false;
+  }
+  if (submit) {
+    submit.textContent = "Change password";
+  }
+  window.setTimeout(() => document.getElementById("new-password")?.focus(), 0);
 }
 
 async function validateStoredSession() {
@@ -366,9 +425,42 @@ async function loginWithPassword(username, password) {
   } catch (_error) {
     payload = {};
   }
+  if (payload.code === "password_change_required") {
+    const error = new Error(payload.error || "Password change is required.");
+    error.code = payload.code;
+    error.username = payload.username || username;
+    throw error;
+  }
   if (!response.ok || !payload.ok) {
     throw new Error(payload.error || "Cannot sign in.");
   }
+  saveAuthenticatedPayload(payload);
+}
+
+async function changeRequiredPassword(username, currentPassword, newPassword) {
+  const response = await fetch(`${AUTH_BASE}/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username,
+      current_password: currentPassword,
+      new_password: newPassword,
+      device_id: ensureDeviceId(),
+    }),
+  });
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    payload = {};
+  }
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.error || "Cannot change password.");
+  }
+  saveAuthenticatedPayload(payload);
+}
+
+function saveAuthenticatedPayload(payload) {
   saveStoredAuthState({
     deviceId: payload.device_id || authState.deviceId,
     sessionToken: payload.session_token,
@@ -393,23 +485,43 @@ function setupLoginForm(onAuthenticated) {
     }
     if (submit) {
       submit.disabled = true;
-      submit.textContent = "Signing in...";
+      submit.textContent = pendingPasswordChange ? "Changing password..." : "Signing in...";
     }
     try {
-      await loginWithPassword(
-        document.getElementById("login-username")?.value || "",
-        document.getElementById("login-password")?.value || "",
-      );
+      if (pendingPasswordChange) {
+        const newPassword = document.getElementById("new-password")?.value || "";
+        const repeatedPassword = document.getElementById("new-password-repeat")?.value || "";
+        if (newPassword !== repeatedPassword) {
+          throw new Error("New passwords do not match.");
+        }
+        await changeRequiredPassword(
+          pendingPasswordChange.username,
+          pendingPasswordChange.currentPassword,
+          newPassword,
+        );
+      } else {
+        await loginWithPassword(
+          document.getElementById("login-username")?.value || "",
+          document.getElementById("login-password")?.value || "",
+        );
+      }
       hideLogin();
       await onAuthenticated();
     } catch (errorMessage) {
+      if (errorMessage.code === "password_change_required") {
+        setPasswordChangeMode(
+          errorMessage.username || document.getElementById("login-username")?.value || "",
+          document.getElementById("login-password")?.value || "",
+        );
+        errorMessage.message = "Enter a new password to continue.";
+      }
       if (error) {
         error.textContent = errorMessage.message || "Cannot sign in.";
       }
     } finally {
       if (submit) {
         submit.disabled = false;
-        submit.textContent = "Sign in";
+        submit.textContent = pendingPasswordChange ? "Change password" : "Sign in";
       }
     }
   });

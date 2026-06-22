@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.86
+
+- Clarify password management in the Home Assistant `Users` page: stored passwords cannot be viewed, but newly typed passwords can be shown while editing.
+- Split password admin actions: `Set password` stores an administrator-defined password and clears the user's devices, while `Reset password` forces the user to choose a different password on next sign-in.
+- Add the protected MapLibre password-change flow for users marked with `must_change_password`.
+
 ## 0.2.85
 
 - Stop auto-refreshing the Home Assistant `Users` and `App settings` pages so forms can be edited safely.
