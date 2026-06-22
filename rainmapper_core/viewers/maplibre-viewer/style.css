@@ -1003,3 +1003,7 @@ main {
   color: rgba(20, 32, 43, 0.62);
   font-size: 11px;
 }
+
+.terrain-nearest-title {
+  margin-top: 8px;
+}

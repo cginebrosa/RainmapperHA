@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Validar en HA `0.2.94`: la cabecera de MapLibre protegido muestra fecha generada, `username (role)` y el indicador temporal `Zoom X.XX` para decidir el umbral de hover.
+Validar en HA `0.2.95`: MapLibre debe mostrar hover de estacion desde zoom `7` y el popup de terreno por pulsacion larga debe incluir un bloque de estacion mas cercana. La cabecera mantiene temporalmente `Zoom X.XX` para confirmar el comportamiento.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -61,14 +61,20 @@ Validar en HA `0.2.94`: la cabecera de MapLibre protegido muestra fecha generada
 - [x] Ajustar umbral de hover MapLibre
   - Contexto: `0.2.87` muestra temporalmente el nivel de zoom en la cabecera de MapLibre, debajo de `Generated`, para decidir a partir de que zoom conviene activar el hover de estaciones.
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
-  - Criterio de aceptacion: tras probar en HA/demo, decidir el valor de `HOVER_POPUP_MIN_ZOOM` y retirar el indicador temporal de zoom si ya no hace falta.
-  - Estado: indicador temporal retirado en `0.2.88`; `HOVER_POPUP_MIN_ZOOM` queda sin cambios en `9` hasta nueva decision.
+  - Criterio de aceptacion: tras probar en HA, confirmar el valor de `HOVER_POPUP_MIN_ZOOM` y retirar el indicador temporal de zoom si ya no hace falta.
+  - Estado: publicado en `0.2.95` con umbral `7`; pendiente de validar en HA/movil y retirar el indicador temporal si ya no hace falta.
 
-- [ ] Validar zoom visible temporal para demo MapLibre
-  - Contexto: se ha anadido localmente un indicador `Zoom X.XX` en la cabecera compacta de MapLibre para una demo y para decidir el umbral real de hover.
+- [ ] Validar estacion mas cercana en popup de terreno MapLibre
+  - Contexto: el popup de terreno por pulsacion larga muestra altitud DEM y coordenadas del punto. Para aportar contexto sin reverse geocoding, se anade un bloque `Nearest station` calculado en cliente desde las estaciones cargadas del periodo actual.
+  - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
+  - Criterio de aceptacion: en HA/movil, una pulsacion larga muestra altitud, coordenadas, estacion mas cercana, distancia, municipio/provincia de esa estacion y altitud de estacion, sin presentarlo como ubicacion exacta del punto.
+  - Estado: publicado en `0.2.95`; pendiente de validar en HA.
+
+- [ ] Validar zoom visible temporal MapLibre
+  - Contexto: se ha anadido localmente un indicador `Zoom X.XX` en la cabecera compacta de MapLibre para confirmar el umbral real de hover.
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
-  - Criterio de aceptacion: en HA/movil el zoom visible cambia al hacer zoom y permite decidir si `HOVER_POPUP_MIN_ZOOM=9` debe ajustarse.
-  - Estado: preparado para publicar en `0.2.94`. `HOVER_POPUP_MIN_ZOOM` sigue en `9` hasta nueva decision; retirar el indicador despues de la demo o al fijar el umbral definitivo.
+  - Criterio de aceptacion: en HA/movil el zoom visible cambia al hacer zoom y permite confirmar que `HOVER_POPUP_MIN_ZOOM=7` es adecuado.
+  - Estado: publicado en `0.2.95` con umbral `7`. Retirar el indicador al fijar el umbral definitivo.
 
 - [x] Crear gestion WebUI de usuarios y dispositivos
   - Contexto: el backend ya soporta roles `free`, `basic`, `pro`, `admin`, `username`, `name`, `email` y `max_devices` opcional en `users.json`; la WebUI local anade una pagina `Users`.

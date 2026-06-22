@@ -32,7 +32,7 @@ const TERRAIN_TILES = [
 const TERRAIN_ELEVATION_ZOOM = 15;
 const LONG_PRESS_MS = 650;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
-const HOVER_POPUP_MIN_ZOOM = 9;
+const HOVER_POPUP_MIN_ZOOM = 7;
 const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
   { id: "Meteoclimatic", label: "Meteoclimatic" },
@@ -878,6 +878,37 @@ function findFeatureByStationId(features, stationId) {
   return features.find((feature) => stationIdFromProperties(feature.properties) === stationId) || null;
 }
 
+function distanceKmBetweenLngLat(leftLngLat, rightLngLat) {
+  const earthRadiusKm = 6371;
+  const leftLatRad = leftLngLat.lat * Math.PI / 180;
+  const rightLatRad = rightLngLat.lat * Math.PI / 180;
+  const deltaLatRad = (rightLngLat.lat - leftLngLat.lat) * Math.PI / 180;
+  const deltaLngRad = (rightLngLat.lng - leftLngLat.lng) * Math.PI / 180;
+  const haversine = Math.sin(deltaLatRad / 2) ** 2
+    + Math.cos(leftLatRad) * Math.cos(rightLatRad) * Math.sin(deltaLngRad / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function nearestStationForLngLat(lngLat) {
+  let nearestStation = null;
+  currentVisibleFeatures.forEach((feature) => {
+    const coordinates = feature.geometry?.coordinates || [];
+    const longitude = Number(coordinates[0]);
+    const latitude = Number(coordinates[1]);
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+      return;
+    }
+    const distanceKm = distanceKmBetweenLngLat(
+      { lng: lngLat.lng, lat: lngLat.lat },
+      { lng: longitude, lat: latitude },
+    );
+    if (!nearestStation || distanceKm < nearestStation.distanceKm) {
+      nearestStation = { feature, distanceKm };
+    }
+  });
+  return nearestStation;
+}
+
 function openStationPopup(feature) {
   if (!feature) {
     return;
@@ -1144,9 +1175,43 @@ function popupContent(properties) {
   `;
 }
 
-function terrainPopupContent(elevation, lngLat, status = "loading") {
+function formatDistanceKm(distanceKm) {
+  if (!Number.isFinite(distanceKm)) {
+    return "-";
+  }
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)} m`;
+  }
+  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`;
+}
+
+function nearestStationContent(nearestStation) {
+  if (!nearestStation?.feature) {
+    return `
+      <div class="popup-row terrain-nearest-title"><strong>Nearest station:</strong> unavailable</div>
+    `;
+  }
+
+  const properties = nearestStation.feature.properties || {};
+  const station = properties["Codi Estació"] || "";
+  const name = properties["Estació"] || "Unknown station";
+  const town = properties["Municipi"] || "Unknown town";
+  const province = properties["Provincia"] || "";
+  const altitude = properties["Altitud"] || "-";
+  const location = `${town}${province ? `, ${province}` : ""}`;
+  return `
+    <div class="popup-row terrain-nearest-title"><strong>Nearest station:</strong></div>
+    <div class="popup-row">${station ? `${station} · ` : ""}${name}</div>
+    <div class="popup-row"><strong>Distance:</strong> ${formatDistanceKm(nearestStation.distanceKm)}</div>
+    <div class="popup-row"><strong>Location:</strong> ${location}</div>
+    <div class="popup-row"><strong>Station altitude:</strong> ${altitude} m</div>
+  `;
+}
+
+function terrainPopupContent(elevation, lngLat, status = "loading", nearestStation = null) {
   const latitude = lngLat.lat.toFixed(5);
   const longitude = lngLat.lng.toFixed(5);
+  const nearestStationHtml = nearestStationContent(nearestStation);
   if (!Number.isFinite(elevation)) {
     const altitudeText = status === "error" ? "unavailable" : "loading";
     const noteText = status === "error"
@@ -1156,6 +1221,7 @@ function terrainPopupContent(elevation, lngLat, status = "loading") {
       <div class="popup-title">Terrain</div>
       <div class="popup-row"><strong>Altitude:</strong> ${altitudeText}</div>
       <div class="popup-row terrain-note">${noteText}</div>
+      ${nearestStationHtml}
       <div class="popup-row terrain-coordinates">${latitude}, ${longitude}</div>
     `;
   }
@@ -1164,6 +1230,7 @@ function terrainPopupContent(elevation, lngLat, status = "loading") {
     <div class="popup-title">Terrain</div>
     <div class="popup-row"><strong>Altitude:</strong> ${Math.round(elevation).toLocaleString("en-GB")} m</div>
     <div class="popup-row terrain-note">External Terrarium DEM</div>
+    ${nearestStationHtml}
     <div class="popup-row terrain-coordinates">${latitude}, ${longitude}</div>
   `;
 }
@@ -1234,16 +1301,17 @@ function showTerrainPopup(lngLat) {
   }
   activeStationPopupProperties = null;
   activeStationPopupId = null;
+  const nearestStation = nearestStationForLngLat(lngLat);
 
   const terrainPopup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true,
-    maxWidth: "260px",
+    maxWidth: "320px",
     anchor: "left",
     offset: 8,
   })
     .setLngLat(lngLat)
-    .setHTML(terrainPopupContent(null, lngLat))
+    .setHTML(terrainPopupContent(null, lngLat, "loading", nearestStation))
     .addTo(map);
   currentPopup = terrainPopup;
   terrainPopup.on("close", () => {
@@ -1257,13 +1325,13 @@ function showTerrainPopup(lngLat) {
   queryTerrariumElevation(lngLat)
     .then((elevation) => {
       if (currentPopup === terrainPopup && Number.isFinite(elevation)) {
-        terrainPopup.setHTML(terrainPopupContent(elevation, lngLat));
+        terrainPopup.setHTML(terrainPopupContent(elevation, lngLat, "loaded", nearestStation));
       }
     })
     .catch((error) => {
       console.warn("Cannot query terrain elevation", error);
       if (currentPopup === terrainPopup) {
-        terrainPopup.setHTML(terrainPopupContent(null, lngLat, "error"));
+        terrainPopup.setHTML(terrainPopupContent(null, lngLat, "error", nearestStation));
       }
     });
 }

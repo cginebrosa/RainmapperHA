@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.95
+
+- Lower the MapLibre station hover popup threshold to zoom 7.
+- Add nearest-station context to the MapLibre terrain long-press popup.
+- Keep the temporary header zoom indicator as an operational aid while validating the hover threshold.
+
 ## 0.2.94
 
 - Re-add the temporary MapLibre header zoom indicator for the live demo.
