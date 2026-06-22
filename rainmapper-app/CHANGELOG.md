@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.92
+
+- Add a temporary MapLibre header zoom indicator to tune the station hover zoom threshold during the live demo.
+
 ## 0.2.91
 
 - Compact the MapLibre header on mobile by removing visible `Generated`/`User` labels and showing `username (role)`.

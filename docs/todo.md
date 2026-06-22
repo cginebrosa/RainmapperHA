@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Validar en HA `0.2.91`: la cabecera de MapLibre protegido ocupa solo dos lineas en movil, con fecha generada y `username (role)`. En la misma validacion, confirmar `users.json` como unico fichero de usuarios soportado, WebUI de gestion de usuarios/dispositivos sin auto-refresh, `Set password`, `Reset password` obligatorio, `Delete user` con borrado de devices y visor MapLibre sin indicador temporal de zoom.
+Validar en HA `0.2.92`: la cabecera de MapLibre protegido muestra fecha generada, `username (role)` y `Zoom X.XX` para decidir el umbral de hover. Tras la demo/decision, retirar el indicador de zoom temporal o fijar el umbral definitivo.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -63,6 +63,12 @@ Validar en HA `0.2.91`: la cabecera de MapLibre protegido ocupa solo dos lineas 
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
   - Criterio de aceptacion: tras probar en HA/demo, decidir el valor de `HOVER_POPUP_MIN_ZOOM` y retirar el indicador temporal de zoom si ya no hace falta.
   - Estado: indicador temporal retirado en `0.2.88`; `HOVER_POPUP_MIN_ZOOM` queda sin cambios en `9` hasta nueva decision.
+
+- [ ] Validar zoom visible temporal para demo MapLibre
+  - Contexto: se ha anadido localmente un indicador `Zoom X.XX` en la cabecera compacta de MapLibre para una demo y para decidir el umbral real de hover.
+  - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
+  - Criterio de aceptacion: en HA/movil el zoom visible cambia al hacer zoom y permite decidir si `HOVER_POPUP_MIN_ZOOM=9` debe ajustarse.
+  - Estado: preparado para publicar en `0.2.92`; pendiente de validar en HA. Debe retirarse despues de la demo o al fijar el umbral definitivo.
 
 - [x] Crear gestion WebUI de usuarios y dispositivos
   - Contexto: el backend ya soporta roles `free`, `basic`, `pro`, `admin`, `username`, `name`, `email` y `max_devices` opcional en `users.json`; la WebUI local anade una pagina `Users`.
