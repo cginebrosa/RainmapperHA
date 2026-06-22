@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.94
+
+- Re-add the temporary MapLibre header zoom indicator for the live demo.
+
 ## 0.2.93
 
 - Remove the temporary MapLibre header zoom indicator after demo preparation.
