@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Revisar tras uso real si se retira el indicador temporal `Zoom X.XX` de MapLibre y si se mantiene definitivamente el umbral de hover en zoom `7`. Mantener pendiente la validacion Cloudflared de la ruta protegida antes de retirar el fallback publico `/local/rainmapper-maplibre`.
+Revisar tras uso real si se retira el indicador temporal `Zoom X.XX` de MapLibre y si se mantiene definitivamente el umbral de hover en zoom `7`. La exposicion externa queda endurecida: repo GitHub privado, HTTP->HTTPS, HSTS, fallbacks externos Leaflet/MapLibre detras de Cloudflare Access y GHCR limpiado conservando solo `0.2.100/latest` y sus manifests auxiliares. Mantener los fallbacks como emergencia protegida por Access; no retirar el fallback local `/local/rainmapper-maplibre` hasta decidirlo explicitamente tras uso real.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -49,8 +49,14 @@ Revisar tras uso real si se retira el indicador temporal `Zoom X.XX` de MapLibre
 - [ ] Validar MapLibre protegido en HA/Cloudflare
   - Contexto: la ruta protegida MapLibre ya fue validada manualmente en HA `0.2.82`: `/protected/maplibre/index.html` pide login, `admin` funciona desde Mac+iPhone y un usuario normal queda limitado a un dispositivo. La version `0.2.83` amplia el backend a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin` y `max_devices`. El usuario valido en HA que el primer login crea `users.json`; despues se decide retirar por completo el formato antiguo.
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/`, `users.example.json`, `tests/test_web_server_auth.py`, `rainmapper-app/DOCS.md`.
-  - Criterio de aceptacion: publicar nueva version HA con `users.json` como unico formato, validar login por `username`, admin ilimitado, usuario `free` limitado por `max_devices`, reutilizacion de dispositivo registrado, gestion WebUI de usuarios/dispositivos desde Ingress/Home Assistant y GeoJSON inaccesible sin sesion. Cloudflared debe apuntar a `http://<HA_IP>:8099` y no a `/local/rainmapper-maplibre/index.html`. Tras validar Cloudflared, retirar el fallback publico temporal de MapLibre.
-  - Estado: protegido basico validado manualmente en HA `0.2.82`; ampliacion `users.json`/`max_devices` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83`; retirada del formato antiguo y WebUI de gestion publicadas en `0.2.84`; correccion del auto-refresh publicada en `0.2.85`; gestion de contrasenas `Set password`/`Reset password` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.86`, pendiente de actualizacion y validacion HA.
+  - Criterio de aceptacion: publicar nueva version HA con `users.json` como unico formato, validar login por `username`, admin ilimitado, usuario `free` limitado por `max_devices`, reutilizacion de dispositivo registrado, gestion WebUI de usuarios/dispositivos desde Ingress/Home Assistant y GeoJSON inaccesible sin sesion. Cloudflared debe apuntar a `http://<HA_IP>:8099` para `rainmap.nomentero.com` y no depender de `/local/rainmapper-maplibre/index.html`. Tras uso real, decidir si se retira el fallback local de MapLibre o si se mantiene como emergencia protegida externamente por Cloudflare Access.
+  - Estado: protegido basico validado manualmente en HA `0.2.82`; ampliacion `users.json`/`max_devices` publicada como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.83`; retirada del formato antiguo y WebUI de gestion publicadas en `0.2.84`; correccion del auto-refresh publicada en `0.2.85`; gestion de contrasenas `Set password`/`Reset password` publicada como imagen `0.2.86`. El 2026-06-22 se comprobo la exposicion externa: `rainmap.nomentero.com/protected/maplibre/data/01d.geojson` devuelve `401` sin sesion, HTTP redirige a HTTPS, HSTS esta activo con `includeSubDomains`, y los subdominios fallback `leaflet.nomentero.com`/`maplibre.nomentero.com` quedan detras de Cloudflare Access tambien para GeoJSON. Pendiente de uso real con companeros usando login Rainmapper y de decidir si se retira el fallback local.
+
+- [x] Cerrar exposicion publica de repo, fallbacks y paquetes antiguos
+  - Contexto: antes de compartir el visor con companeros, se reviso la seguridad externa. El repo publico exponia codigo y logica de descarga, y `maplibre.nomentero.com/local/rainmapper-maplibre/data/01d.geojson` llego a responder `200` con GeoJSON sin login antes de proteger el subdominio.
+  - Ficheros relacionados: `docs/codex-handoff.md`, `docs/architecture.md`, `docs/decisions.md`; configuracion real en GitHub/GHCR/Cloudflare fuera del repo.
+  - Criterio de aceptacion: repo GitHub privado; `rainmap.nomentero.com` fuerza HTTPS y mantiene datos protegidos por login Rainmapper; fallbacks `leaflet` y `maplibre` exigen Cloudflare Access; GHCR conserva solo la imagen actual necesaria para HA.
+  - Estado: completado el 2026-06-22. Repo `cginebrosa/RainmapperHA` privado; HTTP->HTTPS activo; HSTS activo con `max-age=2592000; includeSubDomains`; `x-content-type-options: nosniff` presente; `router`, `leaflet` y `maplibre` redirigen a Cloudflare Access; ruta protegida de datos en `rainmap` devuelve `401` sin sesion. GHCR se limpio borrando 179 versiones/entradas antiguas y conservando `0.2.100`, `latest` y cuatro entradas auxiliares multi-arch; el manifest de `0.2.100` sigue disponible para `linux/amd64` y `linux/arm64`.
 
 - [ ] Validar identidad de usuario en cabecera MapLibre
   - Contexto: el visor MapLibre protegido ya recibe `username`, `name`, `email` y `role` en login y en `/auth/session`.
@@ -309,7 +315,8 @@ Nota: las validaciones marcadas como resueltas en esta seccion son, salvo que se
 ## Preguntas pendientes para el usuario
 - [x] Confirmar si MapLibre debe sustituir a Leaflet como visor principal o si ambos se mantienen.
 - [x] Confirmar cuando retirar la ruta legacy `/local/rainmapper-mobile`.
-- [ ] Confirmar si el repo debe quedar privado o publico para distribucion futura.
+- [x] Confirmar si el repo debe quedar privado o publico para distribucion futura.
+  - Estado: confirmado el 2026-06-22; repo privado. Para la instalacion HA actual se mantiene GHCR accesible.
 - [x] Confirmar si Jawg permite restringir token por dominio y si se usara en publico.
   - Estado: se decide retirar Jawg de momento; no hace falta investigar restricciones de token mientras no se use.
 - [x] Confirmar idioma final de UI visible HA/changelog: ingles.

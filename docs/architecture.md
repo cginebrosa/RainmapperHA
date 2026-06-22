@@ -69,7 +69,7 @@ Hay varios entry points segun entorno:
 8. `python -m rainmapper_core.bokeh_maps` genera HTML Bokeh en `Plots`.
 9. `python -m rainmapper_core.geojson` genera GeoJSON desde `Tomap` delegando en `rainmapper_core/geojson.py`.
 10. `web_server.py` publica HTML, GeoJSON y visores estaticos en `/config/www`.
-11. Home Assistant sirve Bokeh y Leaflet por `/local/...`; MapLibre operativo recomendado se sirve desde `web_server.py` por `/protected/maplibre/index.html` y datos `/protected/maplibre/data/*`, con fallback publico temporal en `/local/rainmapper-maplibre/index.html` hasta validar Cloudflared.
+11. Home Assistant sirve Bokeh y Leaflet por `/local/...`; MapLibre operativo recomendado se sirve desde `web_server.py` por `/protected/maplibre/index.html` y datos `/protected/maplibre/data/*`. El fallback local `/local/rainmapper-maplibre/index.html` se mantiene temporalmente, pero el fallback externo `maplibre.nomentero.com` queda protegido por Cloudflare Access.
 
 ## Componentes, modulos o capas principales
 
@@ -220,7 +220,7 @@ WebUI HA (`web_server.py`):
 Home Assistant publica:
 
 - `/local/Plots/...`: Bokeh HTML.
-- `/local/rainmapper-leaflet/index.html`: Leaflet publico fallback.
+- `/local/rainmapper-leaflet/index.html`: Leaflet fallback local. En la exposicion externa actual, `leaflet.nomentero.com` queda protegido por Cloudflare Access.
 - `http://<HA_IP>:8099/protected/maplibre/index.html`: entrada protegida MapLibre servida por `web_server.py`; Cloudflared debe apuntar el hostname externo al servicio `http://<HA_IP>:8099`.
 - OpenTopoMap y Esri: tiles raster usados por Leaflet y MapLibre.
 - Terrarium/Mapzen DEM externo: fuente `raster-dem` opcional para terrain 3D en MapLibre. No se empaqueta dentro de Docker ni se publica desde `/config/www`.
@@ -274,14 +274,16 @@ docker compose run --rm rainmapper
 
 Home Assistant:
 
-- El repo se anade como repositorio de apps/add-ons en HA.
+- El repo se anadio como repositorio de apps/add-ons en HA cuando era publico. Desde el 2026-06-22 el repo GitHub `cginebrosa/RainmapperHA` es privado para no exponer codigo ni logica de descarga; la instalacion existente de HA sigue usando la imagen GHCR preconstruida.
 - HA detecta `repository.yaml` y `rainmapper-app/config.yaml`.
 - Desde `0.2.57`, `rainmapper-app/config.yaml` define `image: ghcr.io/cginebrosa/rainmapperha`, por lo que HA debe descargar la imagen versionada en vez de construirla localmente.
 - Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version. Esto evita que HA vea un update antes de que exista la imagen en GHCR.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
 - El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. El 2026-06-22 se borraron versiones remotas antiguas de GHCR y se conservaron solo `0.2.100`, `latest` y las entradas auxiliares sin tag del mismo push multi-arch; no borrar esas entradas auxiliares de la version activa porque forman parte del indice/manifest que HA puede necesitar para `amd64`/`arm64`.
+- Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando solo la ultima version validada, `latest` y las entradas auxiliares sin tag asociadas al mismo push multi-arch. Esto evita acumular basura en GitHub Packages. No hacer esta limpieza antes de confirmar que HA descarga y arranca correctamente la nueva version.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
-- Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit a GitHub, y usando `Check for updates`/`Update` en HA.
+- Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit al repo privado de GitHub, y usando `Check for updates`/`Update` en HA.
 
 ## Convenciones de codigo
 - Scripts Python monoliticos con constantes globales y funciones procedurales.
@@ -303,3 +305,4 @@ Home Assistant:
 - Gestion de version dispersa entre `config.yaml`, `CHANGELOG.md`, assets y Dockerfile.
 - API keys de mapas cliente son visibles en navegador si se usan tiles externos con token.
 - Bokeh, Leaflet y MapLibre conviven; MapLibre es el visor principal recomendado, Leaflet queda como fallback publicado y Bokeh como referencia/compatibilidad.
+- La configuracion Cloudflare real no esta versionada. Estado operativo conocido desde 2026-06-22: HTTP redirige a HTTPS, HSTS esta activo con `includeSubDomains`, `rainmap.nomentero.com` sirve la ruta protegida y los subdominios fallback externos `leaflet.nomentero.com`/`maplibre.nomentero.com` quedan protegidos con Cloudflare Access.

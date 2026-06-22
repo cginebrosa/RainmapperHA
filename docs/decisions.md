@@ -53,6 +53,7 @@ Consecuencias:
 - Las contrasenas en claro de `users.json` se migran automaticamente a hash PBKDF2 al primer login correcto.
 - El formato antiguo separado por punto y coma se retira tras validar la migracion en la unica instalacion HA activa. Desde este punto, `users.json` es el unico formato soportado.
 - El visor Docker local queda sin autenticacion para mantenerlo como entorno rapido de pruebas.
+- Modificado el 2026-06-22: los fallbacks externos `leaflet.nomentero.com` y `maplibre.nomentero.com` quedan detras de Cloudflare Access. El fallback local `/local/rainmapper-maplibre` sigue existiendo en HA, pero ya no debe quedar expuesto externamente sin login de Cloudflare.
 
 Estado:
 
@@ -1056,3 +1057,39 @@ Los visores pueden usar `Source` directamente y el cliente futuro tendra un cont
 
 ### Estado
 Implementada en `0.2.58`; modificada en `0.2.59` para clasificar Meteocat solo con codigos de longitud 2 y avisar por `Unknown`. La inferencia esta cubierta por `tests/test_tomap_to_geojson.py`; la validacion visual en Home Assistant/iPhone fue reportada por el usuario y queda pendiente de automatizar.
+
+## 2026-06-22 - Cerrar exposicion publica manteniendo actualizaciones HA
+
+### Decision
+Hacer privado el repo GitHub `cginebrosa/RainmapperHA`, mantener accesible el paquete GHCR necesario para Home Assistant, proteger los fallbacks externos con Cloudflare Access y endurecer el dominio con redireccion HTTPS y HSTS.
+
+### Motivo
+Antes de compartir el visor con companeros, se reviso el riesgo de exposicion. El repo publico permitia ver codigo, rutas y logica de descarga, incluyendo Wunderground. Ademas, antes de proteger el fallback externo, `https://maplibre.nomentero.com/local/rainmapper-maplibre/data/01d.geojson` devolvia `200` con GeoJSON sin login. Para uso privado y pruebas con terceros, la UI principal debe ir por login Rainmapper y los fallbacks no deben saltarse la autenticacion.
+
+### Alternativas consideradas
+Dejar el repo publico, borrar el fallback externo, hacer privado tambien GHCR, o retirar todos los subdominios fallback del tunel Cloudflared. Se descarta hacer privado GHCR por ahora porque Home Assistant descarga `ghcr.io/cginebrosa/rainmapperha:<version>` sin autenticacion de registry. Se descarta retirar los fallbacks porque el usuario quiere conservarlos como emergencia si falla la ruta principal.
+
+### Consecuencias
+El codigo deja de estar disponible publicamente y un tercero no puede anadir facilmente el repo como add-on repository en Home Assistant. Home Assistant puede seguir descargando la imagen versionada mientras GHCR siga accesible. Los fallbacks `leaflet.nomentero.com` y `maplibre.nomentero.com` siguen existiendo, pero requieren Cloudflare Access, igual que `router.nomentero.com`. HSTS con `includeSubDomains` obliga a que los subdominios actuales y futuros del dominio sigan funcionando por HTTPS. Si se quiere hacer privado GHCR en el futuro, habra que resolver autenticacion de registry desde HA o aceptar publicar temporalmente cada version.
+
+### Verificaciones
+- HTTP redirige a HTTPS para `rainmap.nomentero.com` y subdominios revisados.
+- HSTS activo con `strict-transport-security: max-age=2592000; includeSubDomains`.
+- `x-content-type-options: nosniff` presente.
+- `router.nomentero.com` redirige a Cloudflare Access.
+- `leaflet.nomentero.com/local/rainmapper-leaflet/index.html` y `data/01d.geojson` redirigen a Cloudflare Access.
+- `maplibre.nomentero.com/local/rainmapper-maplibre/index.html` y `data/01d.geojson` redirigen a Cloudflare Access.
+- `rainmap.nomentero.com/protected/maplibre/data/01d.geojson` devuelve `401 Authentication required` sin sesion.
+- `ghcr.io/cginebrosa/rainmapperha:0.2.100` sigue resolviendo manifest multi-arch `linux/amd64` y `linux/arm64` despues de la limpieza.
+
+### GHCR
+Se borraron 179 versiones/entradas antiguas del paquete `rainmapperha` en GHCR. Quedan `0.2.100`, `latest` y cuatro entradas auxiliares sin tag asociadas al mismo push multi-arch. No borrar la version activa ni sus entradas auxiliares mientras `rainmapper-app/config.yaml` declare `0.2.100`. Para futuras releases HA, la limpieza remota de GHCR pasa a ser parte del procedimiento estandar despues de validar la nueva version en HA: conservar solo la ultima version validada, `latest` y las entradas auxiliares del mismo push multi-arch.
+
+### Ficheros afectados
+- `docs/codex-handoff.md`
+- `docs/todo.md`
+- `docs/architecture.md`
+- `docs/decisions.md`
+
+### Estado
+Completado operacionalmente el 2026-06-22. No hubo cambios de codigo ni de version HA.

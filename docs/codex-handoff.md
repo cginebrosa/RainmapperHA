@@ -29,6 +29,8 @@ El proyecto tiene dos empaquetados principales:
 
 La app de Home Assistant esta configurada para funcionar como servicio `serve`, con webUI por ingress/sidebar, schedule interno, ejecuciones manuales `update`, `maps` y `all`, publicacion en `/config/www`, visores Bokeh, Leaflet y MapLibre, metricas basicas de Wunderground y fichero manual para ignorar estaciones anomalas en los GeoJSON. El funcionamiento en la instalacion real de HA ha sido validado manualmente por el usuario hasta la version `0.2.100`; esa validacion no es reproducible solo desde el repositorio. La version `0.2.100` compacta controles flotantes moviles de MapLibre y ajusta la barra inferior de periodos.
 
+El repositorio GitHub `cginebrosa/RainmapperHA` se hizo privado el 2026-06-22 para no exponer codigo, rutas ni logica de uso de datos, especialmente Wunderground. El paquete GHCR `ghcr.io/cginebrosa/rainmapperha` se mantiene accesible para que Home Assistant pueda descargar la imagen preconstruida; se eliminaron de GHCR las versiones antiguas y quedan solo `0.2.100`, `latest` y sus entradas auxiliares multi-arch. Cloudflare se endurecio operacionalmente fuera del repo: redireccion HTTP->HTTPS, HSTS `max-age=2592000; includeSubDomains`, `nosniff` y Cloudflare Access delante de `router.nomentero.com`, `leaflet.nomentero.com` y `maplibre.nomentero.com`. La ruta principal `rainmap.nomentero.com/protected/maplibre/index.html` queda servida por HTTPS y los GeoJSON protegidos siguen devolviendo `401` sin sesion Rainmapper.
+
 El desarrollo actual esta en fase de operacion y mejora incremental de visores. Leaflet y MapLibre se mantienen publicados ambos; el usuario ha reportado que funcionan bien en iPhone, pendiente de confirmar con pruebas automatizadas o reproducibles desde el repo. Bokeh se mantiene como referencia y compatibilidad. La duplicidad fisica principal entre raiz y `rainmapper-app/app` fue retirada: la imagen HA se construye desde la raiz del repositorio y `rainmapper-app/app` queda reservado para codigo especifico de HA.
 
 ## Stack tecnologico detectado
@@ -182,7 +184,7 @@ Tambien existen documentos de uso:
 - Publicacion de mapas a `/config/www`: `web_server.py`.
 - Mapas Bokeh publicados en `/local/Plots`: `rainmapper_core.bokeh_maps`, `web_server.py`.
 - Leaflet viewer publicado en `/local/rainmapper-leaflet/index.html`: `rainmapper_core/viewers/leaflet-viewer/`, `web_server.py`.
-- MapLibre viewer operativo en `/protected/maplibre/index.html`: `rainmapper_core/viewers/maplibre-viewer/`, `web_server.py`. Durante la validacion de Cloudflared/puerto 8099 se mantiene temporalmente `/local/rainmapper-maplibre/index.html` como fallback funcional con GeoJSON publicos; el codigo deja marcada la limpieza para retirarlo cuando la ruta protegida quede validada.
+- MapLibre viewer operativo en `/protected/maplibre/index.html`: `rainmapper_core/viewers/maplibre-viewer/`, `web_server.py`. Durante la validacion de Cloudflared/puerto 8099 se mantiene temporalmente `/local/rainmapper-maplibre/index.html` como fallback funcional. Operativamente, el subdominio externo `maplibre.nomentero.com` ya queda protegido con Cloudflare Access, por lo que ese fallback externo no debe servir UI ni GeoJSON sin login de Cloudflare. No borrar todavia el fallback local del codigo hasta decidirlo explicitamente.
 - GeoJSON para 1/7/14/21/30/60/90 dias: `rainmapper_core.geojson`.
 - Ignorar estaciones anomalas en GeoJSON sin borrar historico: `ignore_stations_tomap.txt`, `rainmapper_core.geojson`.
 - Filtros en MapLibre: settings del visor aplica filtros cliente por lluvia minima y por fuente de estacion sobre el periodo cargado para validar UX de futura app movil.
@@ -217,7 +219,7 @@ Tambien existen documentos de uso:
 - Crear tests automaticos mas completos; existe smoke test versionado, cobertura `unittest` offline para GeoJSON, Tomap, upsert incremental, auth backend y pipeline `upsert -> Tomap -> GeoJSON`, y una prueba Docker offline versionada. Faltan fixtures funcionales de HA/webUI/publicacion real.
 - Mejorar separacion entre core de datos, webUI y visores.
 - Extraccion de CSV `Tomap`: `python -m rainmapper_core.tomap` reconstruye `Tomap` desde historicos sin descargar datos nuevos, y `MODE=maps`/`Generate maps` lo invocan antes de Bokeh/GeoJSON. Validacion local inicial: tras `local_update.sh`, `scripts/compare-tomap-builder.sh` confirma que el builder genera los mismos `Tomap` que el flujo antiguo; `local_maps.sh` reconstruye `Tomap`, genera GeoJSON y arranca el servidor local correctamente. `Generate maps` en HA `0.2.74` fue validado manualmente por el usuario. El bloque ejecutable inline y los helpers legacy de `Rainmapper.py` ya fueron retirados; `local_all.sh` completo queda validado en local con `rainmapper_core.rainmapper` exit code 0, reconstruccion Tomap por `rainmapper_core.tomap` y GeoJSON generado.
-- Imagen Docker HA multi-arch preconstruida en GHCR desde `0.2.57`; el repo confirma `image: ghcr.io/cginebrosa/rainmapperha` y el script `scripts/build-push-ha-image.sh`. La instalacion rapida en HA, el progreso de Supervisor, la poca utilidad del cache de GitHub Actions y la limpieza local observada son validaciones manuales/reportadas por el usuario; pendientes de confirmar automaticamente. Desde `0.2.60`, el flujo normal documentado es publicar la imagen desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version; GitHub Actions queda como fallback manual.
+- Imagen Docker HA multi-arch preconstruida en GHCR desde `0.2.57`; el repo confirma `image: ghcr.io/cginebrosa/rainmapperha` y el script `scripts/build-push-ha-image.sh`. La instalacion rapida en HA, el progreso de Supervisor, la poca utilidad del cache de GitHub Actions y la limpieza local observada son validaciones manuales/reportadas por el usuario; pendientes de confirmar automaticamente. Desde `0.2.60`, el flujo normal documentado es publicar la imagen desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version; GitHub Actions queda como fallback manual. El 2026-06-22, tras hacer privado el repo, se verifico que `ghcr.io/cginebrosa/rainmapperha:0.2.100` seguia accesible y con manifest multi-arch `linux/amd64` y `linux/arm64`; despues se borraron 179 versiones/entradas antiguas de GHCR, conservando `0.2.100`, `latest` y cuatro entradas auxiliares sin tag del mismo push.
 - Analitica historica de metricas Wunderground, posiblemente con InfluxDB/Grafana.
 - Gestion WebUI de usuarios y dispositivos: interfaz HA implementada localmente para crear/desactivar/borrar usuarios, cambiar rol/max_devices, establecer nueva contrasena, forzar cambio de contrasena y borrar uno o todos los dispositivos de un usuario. `Delete user` borra tambien todos sus dispositivos asociados. Pendiente de validar en HA con `0.2.89`.
 - Autenticacion/autorizacion real para una futura app publica iOS/Android.
@@ -348,6 +350,12 @@ Despliegue Home Assistant:
 Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar la app desde la UI de HA. No hay comando CLI de despliegue confirmado.
 ```
 
+Limpieza remota GHCR tras release HA:
+
+```text
+Procedimiento estandar: despues de publicar una nueva imagen con scripts/build-push-ha-image.sh, subir el commit de version y validar en HA que la nueva version descarga y arranca correctamente, borrar del paquete GHCR las versiones remotas antiguas. Conservar solo la ultima version validada, latest y las entradas auxiliares sin tag del mismo push multi-arch. No borrar la version que declare rainmapper-app/config.yaml ni sus entradas auxiliares mientras HA pueda necesitar reinstalarla.
+```
+
 ## Flujo de ejecucion de la app
 1. Home Assistant arranca `rainmapper-app/run.sh`.
 2. `run.sh` lee `/data/options.json`, crea `/share/rainmapper` y sus subcarpetas, crea `stations.txt` e `ignore_stations_tomap.txt` si faltan y no sobrescribe los existentes.
@@ -366,7 +374,7 @@ Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar l
 - Google Maps: `googlemaps` Python client y Bokeh `gmap`; clave en `GMAP_API_KEY`/`gmap_api_key`.
 - Home Assistant Supervisor API: `web_server.py` usa `SUPERVISOR_TOKEN` para resolver informacion del addon.
 - OpenTopoMap / Esri / OpenFreeMap / Terrarium DEM: proveedores de tiles/estilos/relieve para visores.
-- Cloudflare/domain externo: usado operacionalmente para exponer HA/visor, pero no hay configuracion de Cloudflare versionada en el repo. Para MapLibre protegido, Cloudflared debe apuntar a `http://<HA_IP>:8099`; las reglas que redirijan a `/local/rainmapper-maplibre/index.html` deben retirarse o cambiarse a la ruta protegida.
+- Cloudflare/domain externo: usado operacionalmente para exponer HA/visor, pero no hay configuracion de Cloudflare versionada en el repo. Estado verificado el 2026-06-22: HTTP redirige a HTTPS, HSTS esta activo con `max-age=2592000; includeSubDomains`, `x-content-type-options: nosniff` aparece en las respuestas, `router.nomentero.com` redirige a Cloudflare Access y los fallbacks `leaflet.nomentero.com`/`maplibre.nomentero.com` tambien redirigen a Cloudflare Access tanto para `index.html` como para `data/01d.geojson`. `rainmap.nomentero.com/protected/maplibre/data/01d.geojson` devuelve `401 Authentication required` sin sesion. Para MapLibre protegido, Cloudflared debe apuntar a `http://<HA_IP>:8099`; mantener `rainmap.nomentero.com/protected/maplibre/index.html` como URL normal.
 
 ## Decisiones importantes ya tomadas
 Resumen:
@@ -378,6 +386,8 @@ Resumen:
 - Los visores nuevos usan GeoJSON generado desde `Tomap`.
 - Las estaciones anomalas se ignoran en GeoJSON mediante fichero manual, sin borrar historico.
 - Wunderground usa `max_threads=3` como valor operativo recomendado en HA/RPi tras validacion manual; `1` queda como modo conservador de diagnostico.
+- El repo GitHub es privado; el paquete GHCR queda accesible para HA y se conserva solo la imagen actual `0.2.100/latest`.
+- Los fallbacks externos Leaflet/MapLibre se mantienen disponibles como emergencia, pero protegidos por Cloudflare Access.
 
 Detalle en [decisions.md](decisions.md).
 
@@ -388,13 +398,15 @@ Detalle en [decisions.md](decisions.md).
 - Validar que `rainmapper-app/app` siga conteniendo solo codigo especifico de HA y que el build HA use la raiz del repo; usar `./scripts/smoke-test.sh`.
 - Todo script o modulo nuevo (`.py`, `.sh` u otros) debe incluir documentacion interna en ingles: cabecera de proposito y comentarios/docstrings breves en funciones o bloques no obvios.
 - No introducir API keys reales en Git.
+- No volver a hacer publico el repo salvo necesidad operativa concreta y temporal. Si se hace privado tambien GHCR, Home Assistant necesitara autenticacion para descargar imagenes.
+- Tras cada nueva version HA validada, borrar de GHCR las versiones remotas antiguas para no acumular basura en GitHub Packages. No borrar en GHCR la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch sin confirmar antes que HA ya usa otra version validada.
 - No basar una futura app comercial en datos Wunderground obtenidos por scraping ni por PWS Data Feed sin permiso/acuerdo escrito de The Weather Company.
 - Validar cambios de visores en movil real, especialmente iPhone.
 - Ejecutar `./scripts/smoke-test.sh` antes de cerrar cambios relevantes.
 - Antes de tocar pandas o escritura CSV, usar `./scripts/backup-data.sh` y `./scripts/check-history.py` sobre una copia.
 
 ## Proximo paso recomendado
-Validado manualmente en HA hasta `0.2.100`: el visor MapLibre protegido restaura settings por dispositivo desde `devices.json`, guarda cambios solo al cerrar Settings tras modificar controles del panel, cambia mapa desde el boton rapido de layers sin persistir `map_style`, mantiene la separacion entre periodo visible y periodo preferido, soporta selector de idioma ES/EN/CA y muestra controles moviles compactos. Mantener seguimiento de uso real para decidir si se retira el indicador temporal `Zoom X.XX` y si el umbral de hover en zoom `7` queda definitivo. Despues, validar Cloudflared apuntando a `http://<HA_IP>:8099/protected/maplibre/index.html` antes de retirar el fallback publico `/local/rainmapper-maplibre`.
+Validado manualmente en HA hasta `0.2.100`: el visor MapLibre protegido restaura settings por dispositivo desde `devices.json`, guarda cambios solo al cerrar Settings tras modificar controles del panel, cambia mapa desde el boton rapido de layers sin persistir `map_style`, mantiene la separacion entre periodo visible y periodo preferido, soporta selector de idioma ES/EN/CA y muestra controles moviles compactos. La exposicion externa queda endurecida con HTTPS/HSTS, repo privado, fallbacks detras de Cloudflare Access y GHCR limpiado conservando `0.2.100/latest`. Mantener seguimiento de uso real para decidir si se retira el indicador temporal `Zoom X.XX` y si el umbral de hover en zoom `7` queda definitivo. Antes de compartir con terceros, usar la URL normal `rainmap.nomentero.com/protected/maplibre/index.html` y mantener los fallbacks externos solo como emergencia protegida por Cloudflare Access.
 
 ## Prompt recomendado para nueva sesion de Codex
 "Lee primero docs/codex-handoff.md. Después consulta docs/architecture.md, docs/todo.md y docs/decisions.md. No modifiques código todavía. Primero resume el objetivo de la app, el estado actual, los ficheros clave, lo que funciona, lo que falta y el siguiente paso recomendado."
