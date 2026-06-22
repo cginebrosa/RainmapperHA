@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.98">
+    <link rel="stylesheet" href="style.css?v=0.2.99">
   </head>
   <body>
     <header class="topbar">
@@ -98,6 +98,14 @@
       <section class="quick-map-panel" id="quick-map-panel" aria-label="Map layer" hidden></section>
       <section class="map-settings" id="map-settings" aria-label="Map settings" hidden>
         <div class="map-settings-row">
+          <label for="language-selector">Language</label>
+          <select id="language-selector">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="ca">Català</option>
+          </select>
+        </div>
+        <div class="map-settings-row">
           <label for="settings-period-selector">Period</label>
           <select id="settings-period-selector">
             <option value="01d.geojson">1 day</option>
@@ -172,7 +180,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.98"></script>
-    <script src="app.js?v=0.2.98"></script>
+    <script src="config.js?v=0.2.99"></script>
+    <script src="app.js?v=0.2.99"></script>
   </body>
 </html>

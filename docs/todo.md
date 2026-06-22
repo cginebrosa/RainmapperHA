@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Validar en HA `0.2.98`: MapLibre debe restaurar settings por dispositivo desde `devices.json`, guardar cambios solo al cerrar el panel Settings tras modificar controles del panel, permitir cambiar mapa desde el boton rapido de layers sin persistir `map_style`, mantener hover de estacion desde zoom `7` y mostrar en el popup de terreno por pulsacion larga la estacion con lluvia mas cercana del periodo seleccionado. La cabecera mantiene temporalmente `Zoom X.XX` para confirmar el comportamiento.
+Validar en HA `0.2.99`: selector de idioma ES/EN/CA en Settings de MapLibre, carga de `translations.json` y persistencia del nuevo setting `language` por dispositivo. Revisar tras uso real si se retira el indicador temporal `Zoom X.XX` de MapLibre y si se mantiene definitivamente el umbral de hover en zoom `7`. Mantener pendiente la validacion Cloudflared de la ruta protegida antes de retirar el fallback publico `/local/rainmapper-maplibre`.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -70,11 +70,17 @@ Validar en HA `0.2.98`: MapLibre debe restaurar settings por dispositivo desde `
   - Criterio de aceptacion: en HA/movil, una pulsacion larga muestra altitud, coordenadas, estacion con lluvia mas cercana, lluvia acumulada del periodo seleccionado, distancia, municipio/provincia de esa estacion y altitud de estacion; si no hay estaciones con lluvia en el mapa, muestra un mensaje explicito.
   - Estado: publicado en `0.2.96`; pendiente de validar en HA.
 
-- [ ] Validar settings MapLibre por dispositivo
+- [x] Validar settings MapLibre por dispositivo
   - Contexto: el visor MapLibre protegido guarda preferencias por `device_id` dentro de `/share/rainmapper/devices.json`, no en `users.json`, para que cada navegador/dispositivo conserve su configuracion independiente.
   - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`, `tests/test_web_server_auth.py`.
   - Criterio de aceptacion: en HA, cambiar Settings y cerrar el panel guarda `period`, `min_rain_mm`, `map_style`, `last_rains_history`, `station_sources`, `terrain_enabled` y `terrain_exaggeration`; cambiar periodo desde la barra inferior o usar el boton rapido `2D`/`3D` no debe escribir `devices.json`. Al recargar o volver a entrar desde el mismo dispositivo se restauran esos valores desde `devices.json`. Borrar el dispositivo desde la WebUI debe borrar tambien sus preferencias.
-  - Estado: publicado como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.98` con digest `sha256:23f347bda65dbe90194ff41f870e5777a7f1fe4f1abd04abd89b567f5829d07e`; cubierto por tests backend de saneado/almacenamiento; pendiente de validar en HA. Incluye boton rapido de seleccion de mapa entre `2D`/`3D` y la brujula; cambia el mapa visible sin persistir `map_style` en `devices.json`. El selector de dias sigue el mismo criterio: la barra inferior cambia solo el periodo visible, mientras que el selector dentro de Settings actualiza el periodo preferido que se guarda.
+  - Estado: validado manualmente por el usuario en HA hasta `0.2.98`. Incluye persistencia por dispositivo en `devices.json`, boton rapido de seleccion de mapa entre `2D`/`3D` y la brujula sin persistir `map_style`, y separacion equivalente entre periodo visible de la barra inferior y periodo preferido guardado desde Settings. Imagen publicada `ghcr.io/cginebrosa/rainmapperha:0.2.98` con digest `sha256:23f347bda65dbe90194ff41f870e5777a7f1fe4f1abd04abd89b567f5829d07e`; cubierto por tests backend de saneado/almacenamiento.
+
+- [ ] Validar i18n ES/EN/CA en MapLibre
+  - Contexto: se decide no tocar de momento la WebUI HA y aplicar multiidioma solo al visor MapLibre, usando lenguaje de usuario no tecnico: lluvia/mapa/estacion/fuente/relieve.
+  - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/translations.json`, `rainmapper-app/app/web_server.py`, `tests/test_web_server_auth.py`, `tests/test_maplibre_translations.py`.
+  - Criterio de aceptacion: en HA, cambiar idioma desde Settings actualiza textos visibles de MapLibre en ES/EN/CA, guarda `language` en `devices.json` al cerrar Settings y lo recupera al volver desde el mismo dispositivo. Los cambios rapidos de mapa/periodo/2D-3D fuera de Settings deben mantener el criterio actual de no persistir preferencias.
+  - Estado: publicado en imagen `ghcr.io/cginebrosa/rainmapperha:0.2.99` con digest `sha256:2ebebc6f0da239e22f23e7bb3e1eddddedf61fd1f172a11dcf76d7bdbb8a82b5`, con selector de idioma en Settings, traducciones de controles/login/resumen/popups/periodos en `translations.json`, carga del JSON desde MapLibre con fallback minimo, saneado backend de `language` y test de integridad de claves por idioma; pendiente de validar en HA.
 
 - [ ] Validar zoom visible temporal MapLibre
   - Contexto: se ha anadido localmente un indicador `Zoom X.XX` en la cabecera compacta de MapLibre para confirmar el umbral real de hover.

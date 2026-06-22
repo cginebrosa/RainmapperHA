@@ -272,6 +272,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "period": "21d.geojson",
                 "min_rain_mm": 12500,
                 "map_style": "esri-hybrid",
+                "language": "ca",
                 "last_rains_history": 12,
                 "station_sources": ["Meteocat", "Unknown", "Invalid", "Meteocat"],
                 "terrain_enabled": True,
@@ -286,6 +287,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             {
                 "period": "21d.geojson",
                 "map_style": "esri-hybrid",
+                "language": "ca",
                 "min_rain_mm": 10000.0,
                 "last_rains_history": 12,
                 "station_sources": ["Meteocat", "Unknown"],

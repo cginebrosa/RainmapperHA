@@ -17,6 +17,14 @@ const periods = {
   "90d.geojson": "90 days",
 };
 
+const supportedLanguages = ["en", "es", "ca"];
+let translations = {
+  en: {
+    loadingMapData: "Loading map data...",
+    selectedPeriod: "selected period"
+  }
+};
+
 const DISPLAY_BOUNDS = [
   [-2.5, 39.0],
   [4.2, 43.7],
@@ -44,6 +52,7 @@ const baseStyles = [
   {
     id: "esri-satellite-vector",
     label: "Satellite+",
+    labelKey: "styleEsriSatelliteVector",
     style: {
       version: 8,
       sources: {
@@ -157,6 +166,7 @@ const baseStyles = [
   {
     id: "esri-hybrid",
     label: "Hybrid",
+    labelKey: "styleEsriHybrid",
     style: {
       version: 8,
       sources: {
@@ -198,6 +208,7 @@ const baseStyles = [
   {
     id: "opentopomap",
     label: "Topographic",
+    labelKey: "styleOpenTopoMap",
     style: {
       version: 8,
       sources: {
@@ -221,6 +232,7 @@ const baseStyles = [
   {
     id: "openfreemap-liberty",
     label: "Liberty",
+    labelKey: "styleOpenFreeMapLiberty",
     url: "https://tiles.openfreemap.org/styles/liberty",
   },
 ];
@@ -229,6 +241,7 @@ let currentStyle = baseStyles[0];
 let preferredMapStyleId = currentStyle.id;
 let currentPeriodFileName = "21d.geojson";
 let preferredPeriodFileName = currentPeriodFileName;
+let currentLanguage = browserLanguage();
 let currentData = null;
 let currentVisibleFeatures = [];
 let currentPopup = null;
@@ -252,6 +265,165 @@ let longPressTimer = null;
 let longPressStartPoint = null;
 let didTriggerLongPress = false;
 const terrainTileCache = new Map();
+
+
+function browserLanguage() {
+  const language = String(navigator.language || "en").slice(0, 2).toLowerCase();
+  return supportedLanguages.includes(language) ? language : "en";
+}
+
+function normalizeTranslations(payload) {
+  if (!payload || typeof payload !== "object") {
+    return translations;
+  }
+  const normalized = { ...translations };
+  supportedLanguages.forEach((language) => {
+    if (payload[language] && typeof payload[language] === "object") {
+      normalized[language] = {
+        ...normalized.en,
+        ...payload[language],
+      };
+    }
+  });
+  return normalized;
+}
+
+async function loadTranslations() {
+  try {
+    const response = await fetch("translations.json", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Cannot load translations: ${response.status}`);
+    }
+    translations = normalizeTranslations(await response.json());
+  } catch (error) {
+    console.warn("Cannot load translations, using built-in fallback", error);
+  }
+}
+
+function t(key, params = {}) {
+  const template = translations[currentLanguage]?.[key] || translations.en[key] || key;
+  return Object.entries(params).reduce(
+    (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+    template,
+  );
+}
+
+function periodKey(fileName) {
+  return `period${String(fileName).slice(0, 3)}`;
+}
+
+function periodLabel(fileName) {
+  return t(periodKey(fileName)) || periods[fileName] || t("selectedPeriod");
+}
+
+function periodShortLabel(fileName) {
+  return periodLabel(fileName)
+    .replace(" days", "d")
+    .replace(" day", "d")
+    .replace(" días", " d")
+    .replace(" día", " d")
+    .replace(" dies", " d")
+    .replace(" dia", " d");
+}
+
+function styleLabel(style) {
+  return t(style.labelKey) || style.label;
+}
+
+function sourceLabel(source) {
+  return source === "Unknown" ? t("unknown") : source;
+}
+
+function setText(selector, text) {
+  const element = document.querySelector(selector);
+  if (element) {
+    element.textContent = text;
+  }
+}
+
+function setLabelText(controlId, text) {
+  setText(`label[for="${controlId}"]`, text);
+}
+
+function updatePeriodSelectLabels() {
+  document.querySelectorAll("#map-selector option, #settings-period-selector option").forEach((option) => {
+    option.textContent = periodLabel(option.value);
+  });
+}
+
+function applyLanguage(language = currentLanguage) {
+  currentLanguage = supportedLanguages.includes(language) ? language : "en";
+  document.documentElement.lang = currentLanguage;
+
+  const languageSelector = document.getElementById("language-selector");
+  if (languageSelector) {
+    languageSelector.value = currentLanguage;
+  }
+
+  setText("#summary", t("loadingMapData"));
+  setText("#demo-zoom-level", `${t("zoom")} ${map ? map.getZoom().toFixed(2) : "-"}`);
+  document.getElementById("demo-zoom-level")?.setAttribute("title", t("temporaryZoomIndicator"));
+
+  setLabelText("language-selector", t("language"));
+  setLabelText("settings-period-selector", t("period"));
+  setLabelText("min-rain-filter", t("minRain"));
+  setLabelText("last-rain-history-filter", t("lastRainsHistory"));
+  setLabelText("terrain-exaggeration", t("exaggeration"));
+  setText("#layer-switcher legend", t("map"));
+  setText(".source-settings-group legend", t("source"));
+  setText(".map-settings-group:last-of-type legend", t("terrain"));
+  setText("#terrain-toggle + span", t("terrain3d"));
+  setText("#login-fields label:nth-child(1) span", t("username"));
+  setText("#login-fields label:nth-child(2) span", t("password"));
+  setText("#password-change-fields label:nth-child(1) span", t("newPassword"));
+  setText("#password-change-fields label:nth-child(2) span", t("repeatNewPassword"));
+  setText("#map-attribution strong", t("credits"));
+  document.querySelectorAll("input[name='station-source']").forEach((input) => {
+    const label = input.closest("label")?.querySelector("span");
+    if (label) {
+      label.textContent = sourceLabel(input.value);
+    }
+  });
+
+  const labelledElements = [
+    ["#login-overlay", "Rainmapper login"],
+    ["#settings-toggle", "mapSettings"],
+    ["#terrain-mode-toggle", "toggle3dTerrain"],
+    ["#quick-map-toggle", "mapLayer"],
+    ["#north-toggle", "faceNorth"],
+    ["#info-toggle", "mapCredits"],
+    ["#map-attribution", "mapCredits"],
+    ["#quick-map-panel", "mapLayer"],
+    ["#map-settings", "mapSettings"],
+    ["#map-selector", "rainPeriod"],
+    ["#period-timeline", "rainPeriod"],
+    [".rain-legend", "rainLegend"],
+  ];
+  labelledElements.forEach(([selector, key]) => {
+    const element = document.querySelector(selector);
+    if (!element) {
+      return;
+    }
+    const label = key === "Rainmapper login" ? key : t(key);
+    element.setAttribute("aria-label", label);
+    if (element.matches("button")) {
+      element.setAttribute("title", label);
+    }
+  });
+
+  updatePeriodSelectLabels();
+  updateMinRainValue();
+  updateLastRainHistoryValue();
+  updateTerrainExaggerationValue();
+  renderLayerSwitcher();
+  renderQuickMapPanelOptions();
+  renderPeriodTimeline();
+  updateSourceStatusControls();
+  updateTerrainModeButton();
+  if (hasLoadedInitialMap) {
+    updateSummary(currentPeriodFileName, currentData?.features?.length || 0, currentVisibleFeatures.length);
+  }
+}
 
 
 function parseStoredAuthState(rawValue) {
@@ -322,7 +494,7 @@ async function authFetch(url, options = {}) {
   Object.entries(authHeaders()).forEach(([key, value]) => headers.set(key, value));
   const response = await fetch(url, { ...options, headers });
   if (AUTH_REQUIRED && response.status === 401) {
-    showLogin("Sign in to continue.");
+    showLogin(t("signInContinue"));
   }
   return response;
 }
@@ -362,7 +534,7 @@ function setSignInMode() {
     title.textContent = "Rainmapper";
   }
   if (copy) {
-    copy.textContent = "Sign in to view protected maps from this device.";
+    copy.textContent = t("signInProtected");
   }
   if (loginFields) {
     loginFields.hidden = false;
@@ -379,7 +551,7 @@ function setSignInMode() {
     repeatedPassword.value = "";
   }
   if (submit) {
-    submit.textContent = "Sign in";
+    submit.textContent = t("signIn");
   }
 }
 
@@ -391,10 +563,10 @@ function setPasswordChangeMode(username, currentPassword) {
   const changeFields = document.getElementById("password-change-fields");
   const submit = document.querySelector("#login-form button[type='submit']");
   if (title) {
-    title.textContent = "Change password";
+    title.textContent = t("changePassword");
   }
   if (copy) {
-    copy.textContent = "Your password was reset by an administrator. Choose a different password to continue.";
+    copy.textContent = t("passwordReset");
   }
   if (loginFields) {
     loginFields.hidden = true;
@@ -403,7 +575,7 @@ function setPasswordChangeMode(username, currentPassword) {
     changeFields.hidden = false;
   }
   if (submit) {
-    submit.textContent = "Change password";
+    submit.textContent = t("changePassword");
   }
   window.setTimeout(() => document.getElementById("new-password")?.focus(), 0);
 }
@@ -454,13 +626,13 @@ async function loginWithPassword(username, password) {
     payload = {};
   }
   if (payload.code === "password_change_required") {
-    const error = new Error(payload.error || "Password change is required.");
+    const error = new Error(payload.error || t("passwordChangeRequired"));
     error.code = payload.code;
     error.username = payload.username || username;
     throw error;
   }
   if (!response.ok || !payload.ok) {
-    throw new Error(payload.error || "Cannot sign in.");
+    throw new Error(payload.error || t("cannotSignIn"));
   }
   saveAuthenticatedPayload(payload);
 }
@@ -483,7 +655,7 @@ async function changeRequiredPassword(username, currentPassword, newPassword) {
     payload = {};
   }
   if (!response.ok || !payload.ok) {
-    throw new Error(payload.error || "Cannot change password.");
+    throw new Error(payload.error || t("cannotChangePassword"));
   }
   saveAuthenticatedPayload(payload);
 }
@@ -546,6 +718,7 @@ function currentDeviceSettings() {
     period: preferredPeriodFileName,
     min_rain_mm: minRainFilter,
     map_style: preferredMapStyleId,
+    language: currentLanguage,
     last_rains_history: lastRainHistoryLimit,
     station_sources: selectedStationSources(),
     terrain_enabled: terrainEnabled,
@@ -625,6 +798,10 @@ async function applyDeviceSettings(settings) {
 
   isApplyingDeviceSettings = true;
   try {
+    if (supportedLanguages.includes(settings.language)) {
+      applyLanguage(settings.language);
+    }
+
     const requestedStyle = baseStyles.find((style) => style.id === settings.map_style);
     if (requestedStyle) {
       currentStyle = requestedStyle;
@@ -700,7 +877,7 @@ function updateDemoZoomLevel() {
   if (!element) {
     return;
   }
-  element.textContent = `Zoom ${map.getZoom().toFixed(2)}`;
+  element.textContent = `${t("zoom")} ${map.getZoom().toFixed(2)}`;
 }
 
 function setupLoginForm(onAuthenticated) {
@@ -717,14 +894,14 @@ function setupLoginForm(onAuthenticated) {
     }
     if (submit) {
       submit.disabled = true;
-      submit.textContent = pendingPasswordChange ? "Changing password..." : "Signing in...";
+      submit.textContent = pendingPasswordChange ? t("changingPassword") : t("signingIn");
     }
     try {
       if (pendingPasswordChange) {
         const newPassword = document.getElementById("new-password")?.value || "";
         const repeatedPassword = document.getElementById("new-password-repeat")?.value || "";
         if (newPassword !== repeatedPassword) {
-          throw new Error("New passwords do not match.");
+          throw new Error(t("passwordMismatch"));
         }
         await changeRequiredPassword(
           pendingPasswordChange.username,
@@ -745,15 +922,15 @@ function setupLoginForm(onAuthenticated) {
           errorMessage.username || document.getElementById("login-username")?.value || "",
           document.getElementById("login-password")?.value || "",
         );
-        errorMessage.message = "Enter a new password to continue.";
+        errorMessage.message = t("enterNewPassword");
       }
       if (error) {
-        error.textContent = errorMessage.message || "Cannot sign in.";
+        error.textContent = errorMessage.message || t("cannotSignIn");
       }
     } finally {
       if (submit) {
         submit.disabled = false;
-        submit.textContent = pendingPasswordChange ? "Change password" : "Sign in";
+        submit.textContent = pendingPasswordChange ? t("changePassword") : t("signIn");
       }
     }
   });
@@ -768,7 +945,7 @@ async function requireAuthBeforeStart() {
     hideLogin();
     return true;
   }
-  showLogin("Sign in to view this map.");
+  showLogin(t("signInViewMap"));
   return false;
 }
 
@@ -962,11 +1139,17 @@ function updateSourceStatusControls() {
   document.querySelectorAll("[data-source-status]").forEach((element) => {
     const sourceName = element.dataset.sourceStatus;
     const statusPayload = sourceStatus[sourceName] || {};
-    const status = statusPayload.status || "Unknown";
+    const status = statusPayload.status || t("unknown");
     const rows = Number(statusPayload.rows);
     element.textContent = Number.isFinite(rows) && rows > 0 ? `${status} · ${rows}` : status;
     element.className = `source-status-pill ${sourceStatusClass(status)}`;
-    element.title = statusPayload.message || "No source status available for the loaded data.";
+    element.title = statusPayload.message || t("sourceStatusUnavailable");
+  });
+  document.querySelectorAll(".source-status-unknown").forEach((element) => {
+    if (!element.dataset.sourceStatus) {
+      element.textContent = t("noStatus");
+      element.title = t("sourceStatusUnavailable");
+    }
   });
 }
 
@@ -1018,7 +1201,7 @@ function maxRainHistoryRecords(features) {
 
 function updateLastRainHistoryValue() {
   const output = document.getElementById("last-rain-history-value");
-  output.textContent = lastRainHistoryLimit > 0 ? `${lastRainHistoryLimit} records` : "-";
+  output.textContent = lastRainHistoryLimit > 0 ? `${lastRainHistoryLimit} ${t("records")}` : "-";
 }
 
 function updateLastRainHistoryControl(features) {
@@ -1341,9 +1524,9 @@ function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
 
 function popupContent(properties) {
   const station = properties["Codi Estació"] || "";
-  const name = properties["Estació"] || "Unknown station";
-  const source = properties.Source || inferStationSource(station);
-  const town = properties["Municipi"] || "Unknown town";
+  const name = properties["Estació"] || t("unknownStation");
+  const source = sourceLabel(properties.Source || inferStationSource(station));
+  const town = properties["Municipi"] || t("unknownTown");
   const province = properties["Provincia"] || "";
   const altitude = properties["Altitud"] || "-";
   const total = Number(properties["Total"] || 0).toFixed(1);
@@ -1353,11 +1536,11 @@ function popupContent(properties) {
 
   return `
     <div class="popup-title">${station} · ${name}</div>
-    <div class="popup-row"><strong>Source:</strong> ${source}</div>
-    <div class="popup-row popup-metrics"><span><strong>Rain:</strong> ${total} mm</span><span><strong>Last:</strong> ${lastRain}</span></div>
-    <div class="popup-row"><strong>Location:</strong> ${town}${province ? `, ${province}` : ""}</div>
-    <div class="popup-row"><strong>Altitude:</strong> ${altitude} m</div>
-    <div class="popup-row"><strong>Last reading:</strong> ${lastReading}</div>
+    <div class="popup-row"><strong>${t("source")}:</strong> ${source}</div>
+    <div class="popup-row popup-metrics"><span><strong>${t("rain")}:</strong> ${total} mm</span><span><strong>${t("last")}:</strong> ${lastRain}</span></div>
+    <div class="popup-row"><strong>${t("location")}:</strong> ${town}${province ? `, ${province}` : ""}</div>
+    <div class="popup-row"><strong>${t("altitude")}:</strong> ${altitude} m</div>
+    <div class="popup-row"><strong>${t("lastReading")}:</strong> ${lastReading}</div>
     ${rainHistory}
   `;
 }
@@ -1374,33 +1557,33 @@ function formatDistanceKm(distanceKm) {
 
 function currentPeriodLabel() {
   const selectedFile = currentPeriodFileName;
-  return periods[selectedFile] || "selected period";
+  return periodLabel(selectedFile) || t("selectedPeriod");
 }
 
 function nearestRainyStationContent(nearestStation) {
   const periodLabel = currentPeriodLabel();
   if (!nearestStation?.feature) {
     return `
-      <div class="popup-row terrain-nearest-title"><strong>Nearest rainy station:</strong></div>
-      <div class="popup-row">No station with rain in the current map for ${periodLabel}.</div>
+      <div class="popup-row terrain-nearest-title"><strong>${t("nearestRainyStation")}:</strong></div>
+      <div class="popup-row">${t("noRainyStation", { period: periodLabel })}</div>
     `;
   }
 
   const properties = nearestStation.feature.properties || {};
   const station = properties["Codi Estació"] || "";
-  const name = properties["Estació"] || "Unknown station";
-  const town = properties["Municipi"] || "Unknown town";
+  const name = properties["Estació"] || t("unknownStation");
+  const town = properties["Municipi"] || t("unknownTown");
   const province = properties["Provincia"] || "";
   const altitude = properties["Altitud"] || "-";
   const location = `${town}${province ? `, ${province}` : ""}`;
   const rainTotal = nearestStation.rainTotal.toFixed(1);
   return `
-    <div class="popup-row terrain-nearest-title"><strong>Nearest rainy station:</strong></div>
+    <div class="popup-row terrain-nearest-title"><strong>${t("nearestRainyStation")}:</strong></div>
     <div class="popup-row">${station ? `${station} · ` : ""}${name}</div>
-    <div class="popup-row"><strong>Rain:</strong> ${rainTotal} mm (${periodLabel})</div>
-    <div class="popup-row"><strong>Distance:</strong> ${formatDistanceKm(nearestStation.distanceKm)}</div>
-    <div class="popup-row"><strong>Location:</strong> ${location}</div>
-    <div class="popup-row"><strong>Station altitude:</strong> ${altitude} m</div>
+    <div class="popup-row"><strong>${t("rain")}:</strong> ${rainTotal} mm (${periodLabel})</div>
+    <div class="popup-row"><strong>${t("distance")}:</strong> ${formatDistanceKm(nearestStation.distanceKm)}</div>
+    <div class="popup-row"><strong>${t("location")}:</strong> ${location}</div>
+    <div class="popup-row"><strong>${t("stationAltitude")}:</strong> ${altitude} m</div>
   `;
 }
 
@@ -1409,13 +1592,13 @@ function terrainPopupContent(elevation, lngLat, status = "loading", nearestStati
   const longitude = lngLat.lng.toFixed(5);
   const nearestStationHtml = nearestRainyStationContent(nearestStation);
   if (!Number.isFinite(elevation)) {
-    const altitudeText = status === "error" ? "unavailable" : "loading";
+    const altitudeText = status === "error" ? t("unavailable") : t("loading");
     const noteText = status === "error"
-      ? "External Terrarium DEM unavailable"
-      : "Loading external Terrarium DEM";
+      ? t("externalDemUnavailable")
+      : t("loadingExternalDem");
     return `
       <div class="popup-title">${latitude}, ${longitude}</div>
-      <div class="popup-row"><strong>Altitude:</strong> ${altitudeText}</div>
+      <div class="popup-row"><strong>${t("altitude")}:</strong> ${altitudeText}</div>
       <div class="popup-row terrain-note">${noteText}</div>
       ${nearestStationHtml}
     `;
@@ -1423,8 +1606,8 @@ function terrainPopupContent(elevation, lngLat, status = "loading", nearestStati
 
   return `
     <div class="popup-title">${latitude}, ${longitude}</div>
-    <div class="popup-row"><strong>Altitude:</strong> ${Math.round(elevation).toLocaleString("en-GB")} m</div>
-    <div class="popup-row terrain-note">External Terrarium DEM</div>
+    <div class="popup-row"><strong>${t("altitude")}:</strong> ${Math.round(elevation).toLocaleString(currentLanguage)} m</div>
+    <div class="popup-row terrain-note">${t("externalDem")}</div>
     ${nearestStationHtml}
   `;
 }
@@ -1598,13 +1781,13 @@ function recentRainHistory(properties) {
 
   return `
     <details class="history">
-      <summary>Last ${rows.length} records</summary>
+      <summary>${t("lastRecords", { count: rows.length })}</summary>
       <table class="history-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Days ago</th>
-            <th>Rain</th>
+            <th>${t("date")}</th>
+            <th>${t("daysAgo")}</th>
+            <th>${t("rain")}</th>
             <th>Tmax</th>
             <th>Tmin</th>
           </tr>
@@ -1692,20 +1875,20 @@ function lastRainRecord(properties) {
 
 function updateSummary(fileName, count, totalCount = count) {
   const summary = document.getElementById("summary");
-  const stationText = `${count} station${count === 1 ? "" : "s"}`;
+  const stationText = `${count} ${count === 1 ? t("station") : t("stations")}`;
   const hasSourceFilter = enabledStationSources.size < stationSources.length;
   const hasAnyFilter = minRainFilter > 0 || hasSourceFilter;
-  const mainParts = [periods[fileName], stationText];
+  const mainParts = [periodLabel(fileName), stationText];
   const detailParts = [];
 
   if (hasAnyFilter) {
-    mainParts.push(`${totalCount} total`);
+    mainParts.push(`${totalCount} ${t("total")}`);
   }
   if (minRainFilter > 0) {
-    detailParts.push(`Min: ${minRainFilter} mm`);
+    detailParts.push(`${t("min")}: ${minRainFilter} mm`);
   }
   if (hasSourceFilter) {
-    detailParts.push(`Sources: ${enabledStationSources.size}/${stationSources.length}`);
+    detailParts.push(`${t("sources")}: ${enabledStationSources.size}/${stationSources.length}`);
   }
 
   summary.replaceChildren();
@@ -1735,25 +1918,28 @@ function renderPeriodTimeline() {
     return;
   }
 
-  container.innerHTML = Object.entries(periods).map(([fileName, label]) => `
+  container.innerHTML = Object.keys(periods).map((fileName) => `
     <button class="period-timeline-button" type="button" data-period="${fileName}">
-      <span>${label.replace(" days", "d").replace(" day", "d")}</span>
+      <span>${periodShortLabel(fileName)}</span>
     </button>
   `).join("");
 
-  container.addEventListener("click", (event) => {
-    const button = event.target.closest(".period-timeline-button");
-    if (!button) {
-      return;
-    }
-    const selectedPeriod = button.dataset.period;
-    currentPeriodFileName = selectedPeriod;
-    syncVisiblePeriodSelector(currentPeriodFileName);
-    updatePeriodTimeline(currentPeriodFileName);
-    loadMap(currentPeriodFileName).catch((error) => {
-      document.getElementById("summary").textContent = error.message;
+  if (!container.dataset.bound) {
+    container.dataset.bound = "true";
+    container.addEventListener("click", (event) => {
+      const button = event.target.closest(".period-timeline-button");
+      if (!button) {
+        return;
+      }
+      const selectedPeriod = button.dataset.period;
+      currentPeriodFileName = selectedPeriod;
+      syncVisiblePeriodSelector(currentPeriodFileName);
+      updatePeriodTimeline(currentPeriodFileName);
+      loadMap(currentPeriodFileName).catch((error) => {
+        document.getElementById("summary").textContent = error.message;
+      });
     });
-  });
+  }
 
   updatePeriodTimeline(currentPeriodFileName);
 }
@@ -1882,17 +2068,33 @@ function renderLayerSwitcher() {
   const container = document.getElementById("layer-switcher");
   container.innerHTML = baseStyles.map((style) => `
     <label>
-      <input type="radio" name="base-style" value="${style.id}" ${style.id === currentStyle.id ? "checked" : ""}>
-      <span>${style.label}</span>
+      <input type="radio" name="base-style" value="${style.id}" ${style.id === preferredMapStyleId ? "checked" : ""}>
+      <span>${styleLabel(style)}</span>
     </label>
   `).join("");
 
-  container.addEventListener("change", (event) => {
-    if (!event.target.matches("input[name='base-style']")) {
-      return;
-    }
-    selectBaseStyle(event.target.value, { persistPreference: true });
-  });
+  if (!container.dataset.bound) {
+    container.dataset.bound = "true";
+    container.addEventListener("change", (event) => {
+      if (!event.target.matches("input[name='base-style']")) {
+        return;
+      }
+      selectBaseStyle(event.target.value, { persistPreference: true });
+    });
+  }
+}
+
+function renderQuickMapPanelOptions() {
+  const panel = document.getElementById("quick-map-panel");
+  if (!panel) {
+    return;
+  }
+  panel.innerHTML = baseStyles.map((style) => `
+    <button class="quick-map-option" type="button" data-style-id="${style.id}">
+      <span>${styleLabel(style)}</span>
+    </button>
+  `).join("");
+  setQuickMapControlsFromStyle(currentStyle.id);
 }
 
 function renderQuickMapPanel() {
@@ -1902,11 +2104,7 @@ function renderQuickMapPanel() {
     return;
   }
 
-  panel.innerHTML = baseStyles.map((style) => `
-    <button class="quick-map-option" type="button" data-style-id="${style.id}">
-      <span>${style.label}</span>
-    </button>
-  `).join("");
+  renderQuickMapPanelOptions();
 
   const setQuickMapOpen = (isOpen) => {
     panel.toggleAttribute("hidden", !isOpen);
@@ -1944,6 +2142,7 @@ function renderSettingsPanel() {
   const infoToggle = document.getElementById("info-toggle");
   const attributionPanel = document.getElementById("map-attribution");
   const panel = document.getElementById("map-settings");
+  const languageSelector = document.getElementById("language-selector");
   const settingsPeriodSelector = document.getElementById("settings-period-selector");
   const slider = document.getElementById("min-rain-filter");
   const historySlider = document.getElementById("last-rain-history-filter");
@@ -1984,6 +2183,11 @@ function renderSettingsPanel() {
     const isOpen = attributionPanel.hasAttribute("hidden");
     attributionPanel.toggleAttribute("hidden", !isOpen);
     infoToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  languageSelector.addEventListener("change", (event) => {
+    markDeviceSettingsChanged();
+    applyLanguage(event.target.value);
   });
 
   settingsPeriodSelector.addEventListener("change", (event) => {
@@ -2050,10 +2254,12 @@ async function startViewer() {
 }
 
 map.on("load", async () => {
+  await loadTranslations();
   renderLayerSwitcher();
   renderQuickMapPanel();
   renderPeriodTimeline();
   renderSettingsPanel();
+  applyLanguage(currentLanguage);
   setupKeyboardShortcuts();
   setupLongPressElevation();
   updateTerrainModeButton();

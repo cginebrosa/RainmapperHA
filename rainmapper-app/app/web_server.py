@@ -48,6 +48,7 @@ PASSWORD_HASH_ITERATIONS = 260_000
 DEVICE_SETTING_PERIODS = {"01d.geojson", "07d.geojson", "14d.geojson", "21d.geojson", "30d.geojson", "60d.geojson", "90d.geojson"}
 DEVICE_SETTING_MAP_STYLES = {"esri-satellite-vector", "esri-hybrid", "opentopomap", "openfreemap-liberty"}
 DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "Unknown"}
+DEVICE_SETTING_LANGUAGES = {"en", "es", "ca"}
 
 PUBLIC_MAP_NAMES = {
     "01_Tomap_Last_day.html": "rain_01d.html",
@@ -1113,7 +1114,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     shutil.rmtree(PUBLIC_MAPLIBRE_TMP_PATH, ignore_errors=True)
     PUBLIC_MAPLIBRE_TMP_PATH.mkdir(parents=True, exist_ok=True)
 
-    for asset_name in ("index.html", "app.js", "style.css"):
+    for asset_name in ("index.html", "app.js", "style.css", "translations.json"):
         shutil.copy2(MAPLIBRE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MAPLIBRE_TMP_PATH / asset_name)
     (PUBLIC_MAPLIBRE_TMP_PATH / "config.js").write_text(config_js)
 
@@ -1515,6 +1516,10 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
     map_style = str(raw_settings.get("map_style", "")).strip()
     if map_style in DEVICE_SETTING_MAP_STYLES:
         settings["map_style"] = map_style
+
+    language = str(raw_settings.get("language", "")).strip().lower()
+    if language in DEVICE_SETTING_LANGUAGES:
+        settings["language"] = language
 
     min_rain_mm = finite_number(raw_settings.get("min_rain_mm"), 0.0)
     settings["min_rain_mm"] = max(0.0, min(10000.0, min_rain_mm))
@@ -2449,7 +2454,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.send_bytes(400, b"Invalid file name", "text/plain; charset=utf-8")
             return
 
-        if relative_path not in {"index.html", "app.js", "style.css"}:
+        if relative_path not in {"index.html", "app.js", "style.css", "translations.json"}:
             self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
             return
         self.serve_static_file(MAPLIBRE_VIEWER_ASSETS_PATH / relative_path)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.99
+
+- Add ES/EN/CA language selection to the protected MapLibre viewer Settings panel.
+- Store the selected MapLibre language per device in `devices.json`.
+- Move MapLibre UI translations to `translations.json` and publish it with the viewer assets.
+
 ## 0.2.98
 
 - Add a quick MapLibre layer button between the `2D`/`3D` control and north compass.
