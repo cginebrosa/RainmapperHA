@@ -251,6 +251,60 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(self.web_server.read_devices(), {})
         self.assertEqual(self.login("pro", "secret", "device-c")[0], 401)
 
+    def test_device_settings_are_sanitized_and_stored_on_device(self) -> None:
+        self.write_users_json(
+            [
+                {
+                    "username": "basic",
+                    "name": "Basic User",
+                    "email": "basic@example.com",
+                    "password": "secret",
+                    "role": "basic",
+                    "enabled": True,
+                }
+            ]
+        )
+        self.assertEqual(self.login("basic", "secret", "device-a")[0], 200)
+
+        ok, settings = self.web_server.update_device_settings(
+            "device-a",
+            {
+                "period": "21d.geojson",
+                "min_rain_mm": 12500,
+                "map_style": "esri-hybrid",
+                "last_rains_history": 12,
+                "station_sources": ["Meteocat", "Unknown", "Invalid", "Meteocat"],
+                "terrain_enabled": True,
+                "terrain_exaggeration": 9,
+                "ignored": "value",
+            },
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(
+            settings,
+            {
+                "period": "21d.geojson",
+                "map_style": "esri-hybrid",
+                "min_rain_mm": 10000.0,
+                "last_rains_history": 12,
+                "station_sources": ["Meteocat", "Unknown"],
+                "terrain_enabled": True,
+                "terrain_exaggeration": 3.0,
+            },
+        )
+        self.assertEqual(self.web_server.settings_for_device("device-a"), settings)
+
+        ok, settings = self.web_server.update_device_settings("device-a", {"terrain_enabled": "false"})
+        self.assertTrue(ok)
+        self.assertFalse(settings["terrain_enabled"])
+
+    def test_device_settings_reject_unknown_device(self) -> None:
+        ok, settings = self.web_server.update_device_settings("missing-device", {"period": "21d.geojson"})
+
+        self.assertFalse(ok)
+        self.assertEqual(settings, {})
+
     def test_users_page_does_not_auto_refresh(self) -> None:
         page = self.web_server.html_page("Users", "<h1>Users</h1>", auto_refresh=False).decode("utf-8")
 

@@ -750,6 +750,16 @@ main {
   white-space: nowrap;
 }
 
+.map-settings select {
+  background: #ffffff;
+  border: 1px solid rgba(8, 21, 33, 0.18);
+  border-radius: 8px;
+  color: var(--dark-text);
+  font: inherit;
+  max-width: 150px;
+  padding: 7px 9px;
+}
+
 .map-settings input[type="range"] {
   accent-color: var(--accent);
   width: 100%;

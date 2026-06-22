@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.97
+
+- Store protected MapLibre settings per registered device in `devices.json`.
+- Add a Settings period selector and persist device preferences only when closing Settings after a panel change.
+- Keep bottom period navigation and the quick `2D`/`3D` button as non-persistent map actions.
+
 ## 0.2.96
 
 - Show the nearest rainy station in the MapLibre terrain long-press popup.

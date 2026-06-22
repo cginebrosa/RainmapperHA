@@ -242,6 +242,9 @@ let terrainEnabled = false;
 let terrainExaggeration = 1;
 let authState = loadStoredAuthState();
 let pendingPasswordChange = null;
+let isApplyingDeviceSettings = false;
+let hasLoadedDeviceSettings = false;
+let hasPendingDeviceSettingsChanges = false;
 let longPressTimer = null;
 let longPressStartPoint = null;
 let didTriggerLongPress = false;
@@ -511,6 +514,166 @@ function updateSignedInUser() {
   }
   value.textContent = role ? `${displayName} (${role})` : displayName;
   container.hidden = false;
+}
+
+function selectedPeriodFileName() {
+  return document.getElementById("map-selector")?.value || "21d.geojson";
+}
+
+function syncSettingsPeriodSelector(fileName = selectedPeriodFileName()) {
+  const settingsSelector = document.getElementById("settings-period-selector");
+  if (settingsSelector && periods[fileName]) {
+    settingsSelector.value = fileName;
+  }
+}
+
+function selectedStationSources() {
+  return Array.from(enabledStationSources).filter((source) => stationSources.some((known) => known.id === source));
+}
+
+function currentDeviceSettings() {
+  return {
+    period: selectedPeriodFileName(),
+    min_rain_mm: minRainFilter,
+    map_style: currentStyle.id,
+    last_rains_history: lastRainHistoryLimit,
+    station_sources: selectedStationSources(),
+    terrain_enabled: terrainEnabled,
+    terrain_exaggeration: terrainExaggeration,
+  };
+}
+
+function markDeviceSettingsChanged() {
+  if (!isApplyingDeviceSettings) {
+    hasPendingDeviceSettingsChanges = true;
+  }
+}
+
+async function saveDeviceSettings() {
+  if (!AUTH_REQUIRED || !authState.sessionToken || isApplyingDeviceSettings) {
+    return;
+  }
+  try {
+    await authFetch(`${AUTH_BASE}/device-settings`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: currentDeviceSettings() }),
+    });
+  } catch (error) {
+    console.warn("Cannot save device settings", error);
+  }
+}
+
+function setSourceControlsFromSettings(sourceIds) {
+  if (!Array.isArray(sourceIds)) {
+    return;
+  }
+  const allowedSources = sourceIds.filter((source) => stationSources.some((known) => known.id === source));
+  if (allowedSources.length === 0) {
+    return;
+  }
+  enabledStationSources = new Set(allowedSources);
+  document.querySelectorAll("input[name='station-source']").forEach((input) => {
+    input.checked = enabledStationSources.has(input.value);
+  });
+}
+
+function setLayerControlsFromStyle(styleId) {
+  document.querySelectorAll("input[name='base-style']").forEach((input) => {
+    input.checked = input.value === styleId;
+  });
+}
+
+function waitForMapIdle() {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const done = () => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      resolve();
+    };
+    map.once("idle", done);
+    window.setTimeout(done, 800);
+  });
+}
+
+async function applyDeviceSettings(settings) {
+  if (!settings || typeof settings !== "object") {
+    return;
+  }
+
+  isApplyingDeviceSettings = true;
+  try {
+    const requestedStyle = baseStyles.find((style) => style.id === settings.map_style);
+    if (requestedStyle) {
+      currentStyle = requestedStyle;
+      setLayerControlsFromStyle(currentStyle.id);
+      map.setStyle(styleDefinition(currentStyle));
+      await waitForMapIdle();
+    }
+
+    if (periods[settings.period]) {
+      const selector = document.getElementById("map-selector");
+      if (selector) {
+        selector.value = settings.period;
+      }
+      syncSettingsPeriodSelector(settings.period);
+      updatePeriodTimeline(settings.period);
+    }
+
+    const savedMinRain = Number(settings.min_rain_mm);
+    if (Number.isFinite(savedMinRain) && savedMinRain >= 0) {
+      minRainFilter = savedMinRain;
+      const slider = document.getElementById("min-rain-filter");
+      if (slider) {
+        slider.value = String(minRainFilter);
+      }
+      updateMinRainValue();
+    }
+
+    const savedHistoryLimit = Number(settings.last_rains_history);
+    if (Number.isInteger(savedHistoryLimit) && savedHistoryLimit > 0) {
+      lastRainHistoryLimit = savedHistoryLimit;
+    }
+
+    setSourceControlsFromSettings(settings.station_sources);
+
+    const savedExaggeration = Number(settings.terrain_exaggeration);
+    if (Number.isFinite(savedExaggeration)) {
+      terrainExaggeration = Math.max(0.5, Math.min(3, savedExaggeration));
+      const terrainSlider = document.getElementById("terrain-exaggeration");
+      if (terrainSlider) {
+        terrainSlider.value = String(terrainExaggeration);
+      }
+      updateTerrainExaggerationValue();
+    }
+
+    if (typeof settings.terrain_enabled === "boolean") {
+      setTerrainEnabled(settings.terrain_enabled);
+    }
+  } finally {
+    isApplyingDeviceSettings = false;
+  }
+}
+
+async function loadDeviceSettings() {
+  if (!AUTH_REQUIRED || !authState.sessionToken || hasLoadedDeviceSettings) {
+    return;
+  }
+  hasLoadedDeviceSettings = true;
+  try {
+    const response = await authFetch(`${AUTH_BASE}/device-settings`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Cannot load device settings: ${response.status}`);
+    }
+    const payload = await response.json();
+    await applyDeviceSettings(payload.settings || {});
+  } catch (error) {
+    console.warn("Cannot load device settings", error);
+  }
 }
 
 function updateDemoZoomLevel() {
@@ -1232,20 +1395,18 @@ function terrainPopupContent(elevation, lngLat, status = "loading", nearestStati
       ? "External Terrarium DEM unavailable"
       : "Loading external Terrarium DEM";
     return `
-      <div class="popup-title">Terrain</div>
+      <div class="popup-title">${latitude}, ${longitude}</div>
       <div class="popup-row"><strong>Altitude:</strong> ${altitudeText}</div>
       <div class="popup-row terrain-note">${noteText}</div>
       ${nearestStationHtml}
-      <div class="popup-row terrain-coordinates">${latitude}, ${longitude}</div>
     `;
   }
 
   return `
-    <div class="popup-title">Terrain</div>
+    <div class="popup-title">${latitude}, ${longitude}</div>
     <div class="popup-row"><strong>Altitude:</strong> ${Math.round(elevation).toLocaleString("en-GB")} m</div>
     <div class="popup-row terrain-note">External Terrarium DEM</div>
     ${nearestStationHtml}
-    <div class="popup-row terrain-coordinates">${latitude}, ${longitude}</div>
   `;
 }
 
@@ -1646,6 +1807,7 @@ async function loadMap(fileName) {
   updateSummary(fileName, filtered.length, features.length);
   updateGeneratedAt(data.metadata?.generated_at);
   updatePeriodTimeline(fileName);
+  syncSettingsPeriodSelector(fileName);
   openStationPopup(findFeatureByStationId(filtered, popupStationId));
 
   if (!hasLoadedInitialMap) {
@@ -1669,6 +1831,7 @@ function renderLayerSwitcher() {
       return;
     }
 
+    markDeviceSettingsChanged();
     currentStyle = nextStyle;
     const center = map.getCenter();
     const zoom = map.getZoom();
@@ -1693,6 +1856,7 @@ function renderSettingsPanel() {
   const infoToggle = document.getElementById("info-toggle");
   const attributionPanel = document.getElementById("map-attribution");
   const panel = document.getElementById("map-settings");
+  const settingsPeriodSelector = document.getElementById("settings-period-selector");
   const slider = document.getElementById("min-rain-filter");
   const historySlider = document.getElementById("last-rain-history-filter");
   const terrainToggle = document.getElementById("terrain-toggle");
@@ -1701,9 +1865,17 @@ function renderSettingsPanel() {
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
 
   const setSettingsOpen = (isOpen) => {
+    const wasOpen = !panel.hasAttribute("hidden");
+    if (!wasOpen && isOpen) {
+      hasPendingDeviceSettingsChanges = false;
+    }
     panel.toggleAttribute("hidden", !isOpen);
     toggle.setAttribute("aria-expanded", String(isOpen));
     document.body.classList.toggle("settings-open", isOpen);
+    if (wasOpen && !isOpen && hasPendingDeviceSettingsChanges) {
+      saveDeviceSettings();
+      hasPendingDeviceSettingsChanges = false;
+    }
   };
 
   toggle.addEventListener("click", () => {
@@ -1726,13 +1898,27 @@ function renderSettingsPanel() {
     infoToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
+  settingsPeriodSelector.addEventListener("change", (event) => {
+    markDeviceSettingsChanged();
+    const selectedPeriod = event.target.value;
+    const mapSelector = document.getElementById("map-selector");
+    if (mapSelector) {
+      mapSelector.value = selectedPeriod;
+    }
+    loadMap(selectedPeriod).catch((error) => {
+      document.getElementById("summary").textContent = error.message;
+    });
+  });
+
   slider.addEventListener("input", (event) => {
+    markDeviceSettingsChanged();
     minRainFilter = Number(event.target.value);
     updateMinRainValue();
     refreshFilteredData();
   });
 
   historySlider.addEventListener("input", (event) => {
+    markDeviceSettingsChanged();
     lastRainHistoryLimit = Number(event.target.value);
     updateLastRainHistoryValue();
     refreshCurrentStationPopup();
@@ -1745,6 +1931,7 @@ function renderSettingsPanel() {
         input.checked = true;
         return;
       }
+      markDeviceSettingsChanged();
       enabledStationSources = new Set(selectedSources.map((sourceInput) => sourceInput.value));
       refreshFilteredData();
     });
@@ -1753,6 +1940,7 @@ function renderSettingsPanel() {
   updateTerrainExaggerationValue();
 
   terrainToggle.addEventListener("change", (event) => {
+    markDeviceSettingsChanged();
     setTerrainEnabled(event.target.checked);
   });
 
@@ -1761,6 +1949,7 @@ function renderSettingsPanel() {
   });
 
   terrainSlider.addEventListener("input", (event) => {
+    markDeviceSettingsChanged();
     terrainExaggeration = Number(event.target.value);
     updateTerrainExaggerationValue();
     applyTerrain();
@@ -1768,8 +1957,9 @@ function renderSettingsPanel() {
 }
 
 async function startViewer() {
+  await loadDeviceSettings();
   await loadSourceStatus();
-  await loadMap(document.getElementById("map-selector").value);
+  await loadMap(selectedPeriodFileName());
 }
 
 map.on("load", async () => {
@@ -1828,7 +2018,9 @@ map.on("zoom", () => {
 });
 
 document.getElementById("map-selector").addEventListener("change", (event) => {
-  loadMap(event.target.value).catch((error) => {
-    document.getElementById("summary").textContent = error.message;
-  });
+  syncSettingsPeriodSelector(event.target.value);
+  loadMap(event.target.value)
+    .catch((error) => {
+      document.getElementById("summary").textContent = error.message;
+    });
 });

@@ -45,6 +45,9 @@ STATIONS_PATH = Path("/app/stations.txt")
 WUNDERGROUND_STATIONS_DB_PATH = Path("/app/Data/estacions_wunderground.csv")
 AUTH_TOKEN_BYTES = 32
 PASSWORD_HASH_ITERATIONS = 260_000
+DEVICE_SETTING_PERIODS = {"01d.geojson", "07d.geojson", "14d.geojson", "21d.geojson", "30d.geojson", "60d.geojson", "90d.geojson"}
+DEVICE_SETTING_MAP_STYLES = {"esri-satellite-vector", "esri-hybrid", "opentopomap", "openfreemap-liberty"}
+DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "Unknown"}
 
 PUBLIC_MAP_NAMES = {
     "01_Tomap_Last_day.html": "rain_01d.html",
@@ -1491,6 +1494,80 @@ def write_devices(devices: dict[str, dict[str, str]]) -> None:
     DEVICES_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def finite_number(value: object, default: float = 0.0) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed == parsed and parsed not in (float("inf"), float("-inf")) else default
+
+
+def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
+    if not isinstance(raw_settings, dict):
+        return {}
+
+    settings: dict[str, object] = {}
+
+    period = str(raw_settings.get("period", "")).strip()
+    if period in DEVICE_SETTING_PERIODS:
+        settings["period"] = period
+
+    map_style = str(raw_settings.get("map_style", "")).strip()
+    if map_style in DEVICE_SETTING_MAP_STYLES:
+        settings["map_style"] = map_style
+
+    min_rain_mm = finite_number(raw_settings.get("min_rain_mm"), 0.0)
+    settings["min_rain_mm"] = max(0.0, min(10000.0, min_rain_mm))
+
+    try:
+        last_rains_history = int(raw_settings.get("last_rains_history", 0))
+    except (TypeError, ValueError):
+        last_rains_history = 0
+    if last_rains_history > 0:
+        settings["last_rains_history"] = min(500, last_rains_history)
+
+    station_sources = raw_settings.get("station_sources")
+    if isinstance(station_sources, list):
+        selected_sources = [
+            str(source)
+            for source in station_sources
+            if str(source) in DEVICE_SETTING_SOURCES
+        ]
+        deduplicated_sources = list(dict.fromkeys(selected_sources))
+        if deduplicated_sources:
+            settings["station_sources"] = deduplicated_sources
+
+    if "terrain_enabled" in raw_settings:
+        settings["terrain_enabled"] = normalize_bool_flag(raw_settings.get("terrain_enabled")) == "true"
+
+    terrain_exaggeration = finite_number(raw_settings.get("terrain_exaggeration"), 1.0)
+    settings["terrain_exaggeration"] = max(0.5, min(3.0, terrain_exaggeration))
+
+    return settings
+
+
+def settings_for_device(device_id: str) -> dict[str, object]:
+    devices = read_devices()
+    device = devices.get(device_id.strip(), {})
+    return sanitize_device_settings(device.get("settings", {}))
+
+
+def update_device_settings(device_id: str, raw_settings: object) -> tuple[bool, dict[str, object]]:
+    device_key = device_id.strip()
+    if not device_key:
+        return False, {}
+    devices = read_devices()
+    device = devices.get(device_key)
+    if not device:
+        return False, {}
+    settings = sanitize_device_settings(raw_settings)
+    device["settings"] = settings
+    device["last_seen_at"] = utc_now()
+    devices[device_key] = device
+    write_devices(devices)
+    return True, settings
+
+
 def admin_message(message: str) -> None:
     with RUN_LOCK:
         RUN_STATE["last_message"] = message
@@ -2090,6 +2167,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.send_json(200, {"ok": True, "user": user})
             return
 
+        if path == "/auth/device-settings":
+            user = self.authenticated_user()
+            if not user:
+                self.send_json(401, {"ok": False, "error": "Authentication required."})
+                return
+            _token, device_id = self.auth_credentials()
+            self.send_json(200, {"ok": True, "settings": settings_for_device(device_id)})
+            return
+
         if path.startswith("/protected/maplibre"):
             self.serve_protected_maplibre(path.removeprefix("/protected/maplibre"))
             return
@@ -2144,6 +2230,20 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.send_json(401, {"ok": False, "error": "Authentication required."})
                 return
             self.send_json(200, {"ok": True, "user": user})
+            return
+
+        if parsed.path == "/auth/device-settings":
+            user = self.authenticated_user()
+            if not user:
+                self.send_json(401, {"ok": False, "error": "Authentication required."})
+                return
+            _token, device_id = self.auth_credentials()
+            payload = self.read_json_payload()
+            ok, settings = update_device_settings(device_id, payload.get("settings", payload))
+            if not ok:
+                self.send_json(404, {"ok": False, "error": "Device was not found."})
+                return
+            self.send_json(200, {"ok": True, "settings": settings})
             return
 
         if parsed.path == "/auth/logout":

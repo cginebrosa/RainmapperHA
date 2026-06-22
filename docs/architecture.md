@@ -192,6 +192,7 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 - En HA, `run.sh` crea `users.json` desde `/app/users.example.json` si no existe `users.json`; no sobrescribe usuarios existentes.
 - `users.json` es el unico formato de usuarios soportado; no hay formato alternativo ni ruta de migracion.
 - Dispositivos y sesiones en `/share/rainmapper/devices.json`, generado por la app como JSON vacio si no existe.
+- Cada entrada de `/share/rainmapper/devices.json` puede incluir `settings` del visor MapLibre para ese `device_id`: `period`, `min_rain_mm`, `map_style`, `last_rains_history`, `station_sources`, `terrain_enabled` y `terrain_exaggeration`. El backend solo permite leer/escribir esos settings para el dispositivo autenticado mediante `/auth/device-settings` y sanea los valores antes de persistirlos.
 - Roles soportados: `free`, `basic`, `pro` y `admin`.
 - Limites por defecto: `free=1`, `basic=2`, `pro=3`, `admin=0`; `0` significa dispositivos ilimitados. `max_devices` puede sobrescribir el limite por usuario.
 - El visor guarda `device_id` y token de sesion en `localStorage`, y envia `Authorization: Bearer ...` + `X-Rainmapper-Device` al pedir GeoJSON.

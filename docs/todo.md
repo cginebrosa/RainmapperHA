@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Validar en HA `0.2.96`: MapLibre debe mostrar hover de estacion desde zoom `7` y el popup de terreno por pulsacion larga debe incluir un bloque de estacion con lluvia mas cercana en el periodo seleccionado. La cabecera mantiene temporalmente `Zoom X.XX` para confirmar el comportamiento.
+Validar en HA `0.2.97`: MapLibre debe restaurar settings por dispositivo desde `devices.json`, guardar cambios solo al cerrar el panel Settings tras modificar controles del panel, mantener hover de estacion desde zoom `7` y mostrar en el popup de terreno por pulsacion larga la estacion con lluvia mas cercana del periodo seleccionado. La cabecera mantiene temporalmente `Zoom X.XX` para confirmar el comportamiento.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -69,6 +69,12 @@ Validar en HA `0.2.96`: MapLibre debe mostrar hover de estacion desde zoom `7` y
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
   - Criterio de aceptacion: en HA/movil, una pulsacion larga muestra altitud, coordenadas, estacion con lluvia mas cercana, lluvia acumulada del periodo seleccionado, distancia, municipio/provincia de esa estacion y altitud de estacion; si no hay estaciones con lluvia en el mapa, muestra un mensaje explicito.
   - Estado: publicado en `0.2.96`; pendiente de validar en HA.
+
+- [ ] Validar settings MapLibre por dispositivo
+  - Contexto: el visor MapLibre protegido guarda preferencias por `device_id` dentro de `/share/rainmapper/devices.json`, no en `users.json`, para que cada navegador/dispositivo conserve su configuracion independiente.
+  - Ficheros relacionados: `rainmapper-app/app/web_server.py`, `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`, `tests/test_web_server_auth.py`.
+  - Criterio de aceptacion: en HA, cambiar Settings y cerrar el panel guarda `period`, `min_rain_mm`, `map_style`, `last_rains_history`, `station_sources`, `terrain_enabled` y `terrain_exaggeration`; cambiar periodo desde la barra inferior o usar el boton rapido `2D`/`3D` no debe escribir `devices.json`. Al recargar o volver a entrar desde el mismo dispositivo se restauran esos valores desde `devices.json`. Borrar el dispositivo desde la WebUI debe borrar tambien sus preferencias.
+  - Estado: publicado como imagen `ghcr.io/cginebrosa/rainmapperha:0.2.97` con digest `sha256:743bec0c51784a6a43a7b9b3958e1d22b3381afeb3166271b0b9a80bd7318e70`; cubierto por tests backend de saneado/almacenamiento; pendiente de validar en HA.
 
 - [ ] Validar zoom visible temporal MapLibre
   - Contexto: se ha anadido localmente un indicador `Zoom X.XX` en la cabecera compacta de MapLibre para confirmar el umbral real de hover.
