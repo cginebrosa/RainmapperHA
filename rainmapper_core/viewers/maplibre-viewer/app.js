@@ -503,7 +503,7 @@ function updateSignedInUser() {
   const name = String(authState.name || "").trim();
   const email = String(authState.email || "").trim();
   const role = String(authState.role || "").trim().toLowerCase();
-  const displayName = name || username || email;
+  const displayName = username || name || email;
   if (!AUTH_REQUIRED || !authState.sessionToken || !displayName) {
     container.hidden = true;
     value.textContent = "-";

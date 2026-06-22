@@ -78,12 +78,10 @@ p {
   align-self: center;
   color: rgba(20, 32, 43, 0.58);
   display: grid;
-  font-size: 10px;
-  gap: 2px;
+  gap: 3px;
   justify-items: end;
   line-height: 1.2;
   text-align: right;
-  text-transform: uppercase;
 }
 
 .generated time {
@@ -95,9 +93,14 @@ p {
 }
 
 .signed-in-user {
-  display: grid;
-  gap: 1px;
-  margin-top: 4px;
+  color: var(--dark-text);
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .signed-in-user[hidden] {
@@ -105,14 +108,7 @@ p {
 }
 
 .signed-in-user strong {
-  color: var(--dark-text);
-  font-size: 12px;
-  font-weight: 800;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-transform: none;
-  white-space: nowrap;
+  font: inherit;
 }
 
 .login-overlay {
@@ -547,12 +543,12 @@ main {
 @media (max-width: 640px) {
   .topbar {
     gap: 8px;
-    min-height: 94px;
+    min-height: 82px;
     padding: 12px 14px 10px;
   }
 
   main {
-    height: calc(100% - 94px);
+    height: calc(100% - 82px);
   }
 
   h1 {
@@ -566,7 +562,6 @@ main {
 
   .generated {
     align-self: start;
-    font-size: 10px;
     padding-top: 6px;
   }
 
@@ -574,7 +569,7 @@ main {
     font-size: 13px;
   }
 
-  .signed-in-user strong {
+  .signed-in-user {
     max-width: 120px;
   }
 

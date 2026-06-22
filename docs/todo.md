@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Validar en HA `0.2.90`: la cabecera de MapLibre protegido muestra el usuario autenticado y su rol bajo `Generated`. En la misma validacion, confirmar `users.json` como unico fichero de usuarios soportado, WebUI de gestion de usuarios/dispositivos sin auto-refresh, `Set password`, `Reset password` obligatorio, `Delete user` con borrado de devices y visor MapLibre sin indicador temporal de zoom.
+Validar en HA `0.2.91`: la cabecera de MapLibre protegido ocupa solo dos lineas en movil, con fecha generada y `username (role)`. En la misma validacion, confirmar `users.json` como unico fichero de usuarios soportado, WebUI de gestion de usuarios/dispositivos sin auto-refresh, `Set password`, `Reset password` obligatorio, `Delete user` con borrado de devices y visor MapLibre sin indicador temporal de zoom.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -55,8 +55,8 @@ Validar en HA `0.2.90`: la cabecera de MapLibre protegido muestra el usuario aut
 - [ ] Validar identidad de usuario en cabecera MapLibre
   - Contexto: el visor MapLibre protegido ya recibe `username`, `name`, `email` y `role` en login y en `/auth/session`.
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
-  - Criterio de aceptacion: en HA, tras login y tras recargar una sesion guardada, la cabecera muestra debajo de `Generated` el usuario autenticado y su rol (`free`, `basic`, `pro` o `admin`) sin romper el layout movil.
-  - Estado: preparado para publicar en `0.2.90`; pendiente de validar en HA.
+  - Criterio de aceptacion: en HA, tras login y tras recargar una sesion guardada, la cabecera muestra fecha generada y `username (role)` en dos lineas compactas sin romper el layout movil.
+  - Estado: preparado para publicar en `0.2.91`; pendiente de validar en HA.
 
 - [x] Ajustar umbral de hover MapLibre
   - Contexto: `0.2.87` muestra temporalmente el nivel de zoom en la cabecera de MapLibre, debajo de `Generated`, para decidir a partir de que zoom conviene activar el hover de estaciones.

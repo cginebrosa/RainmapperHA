@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.91
+
+- Compact the MapLibre header on mobile by removing visible `Generated`/`User` labels and showing `username (role)`.
+
 ## 0.2.90
 
 - Show the authenticated MapLibre user and role in the viewer header under the generated timestamp.
