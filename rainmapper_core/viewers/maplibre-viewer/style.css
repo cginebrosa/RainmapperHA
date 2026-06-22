@@ -997,13 +997,36 @@ main {
   }
 
   .map-floating-controls {
-    right: 12px;
-    top: 12px;
+    gap: 1px;
+    right: 6px;
+    top: 10px;
   }
 
   .map-control-button {
-    height: 40px;
-    width: 40px;
+    border-radius: 7px;
+    box-shadow: 0 6px 16px rgba(2, 8, 14, 0.24);
+    font-size: 12px;
+    height: 34px;
+    width: 34px;
+  }
+
+  .quick-map-toggle svg {
+    height: 21px;
+    width: 21px;
+  }
+
+  .quick-map-toggle polyline {
+    stroke-width: 2.2;
+  }
+
+  .map-north-toggle::before {
+    height: 22px;
+    width: 22px;
+  }
+
+  .map-north-toggle span {
+    height: 22px;
+    width: 11px;
   }
 
   .map-settings {
@@ -1011,14 +1034,19 @@ main {
     bottom: auto;
     left: 12px;
     max-height: min(62vh, 560px);
-    right: 68px;
+    right: 54px;
     top: 12px;
     width: auto;
   }
 
+  .quick-map-panel {
+    right: 50px;
+    top: 86px;
+  }
+
   .map-attribution {
-    right: 62px;
-    top: 150px;
+    right: 50px;
+    top: 130px;
   }
 
   .source-status-pill {
@@ -1034,7 +1062,7 @@ main {
 
   .maplibre-rain-legend {
     bottom: 6px;
-    left: 8px;
+    left: 4px;
   }
 }
 

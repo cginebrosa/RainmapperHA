@@ -320,10 +320,10 @@ function periodShortLabel(fileName) {
   return periodLabel(fileName)
     .replace(" days", "d")
     .replace(" day", "d")
-    .replace(" días", " d")
-    .replace(" día", " d")
-    .replace(" dies", " d")
-    .replace(" dia", " d");
+    .replace(" días", "d")
+    .replace(" día", "d")
+    .replace(" dies", "d")
+    .replace(" dia", "d");
 }
 
 function styleLabel(style) {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.100
+
+- Compact the MapLibre mobile floating controls to reduce screen height usage.
+- Move the mobile controls closer to the right edge and the rain legend closer to the left edge.
+
 ## 0.2.99
 
 - Add ES/EN/CA language selection to the protected MapLibre viewer Settings panel.
