@@ -251,6 +251,56 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(self.web_server.read_devices(), {})
         self.assertEqual(self.login("pro", "secret", "device-c")[0], 401)
 
+    def test_users_page_has_manual_refresh_and_searchable_device_content(self) -> None:
+        self.write_users_json(
+            [
+                {
+                    "username": "diego",
+                    "name": "Diego Mobile",
+                    "email": "diego@example.com",
+                    "password": "secret",
+                    "role": "free",
+                    "enabled": True,
+                    "max_devices": 1,
+                }
+            ]
+        )
+        self.web_server.DEVICES_PATH.write_text(
+            json.dumps(
+                {
+                    "devices": {
+                        "device-mobile": {
+                            "username": "diego",
+                            "email": "diego@example.com",
+                            "created_at": "2026-06-22T10:00:00Z",
+                            "last_seen_at": "2026-06-22T11:00:00Z",
+                            "user_agent": "Mobile Safari Test Agent",
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured = {}
+
+        def capture_response(status: int, content: bytes, content_type: str) -> None:
+            captured["status"] = status
+            captured["content"] = content.decode("utf-8")
+            captured["content_type"] = content_type
+
+        handler.send_bytes = capture_response
+        handler.render_users()
+
+        self.assertEqual(captured["status"], 200)
+        page = captured["content"]
+        self.assertIn('id="users-refresh"', page)
+        self.assertIn('id="users-filter"', page)
+        self.assertIn('id="users-content"', page)
+        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled current 1 1"', page)
+        self.assertIn('data-device-search="device-mobile diego diego@example.com Mobile Safari Test Agent', page)
+
     def test_device_settings_are_sanitized_and_stored_on_device(self) -> None:
         self.write_users_json(
             [

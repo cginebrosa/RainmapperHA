@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.101
+
+- Improve the Home Assistant `Users` page with a sticky toolbar, manual refresh and free-text filtering across users and registered devices.
+- Keep scroll position and the current search while refreshing user/device data.
+
 ## 0.2.100
 
 - Compact the MapLibre mobile floating controls to reduce screen height usage.

@@ -514,9 +514,67 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       line-height: 1.4;
       margin: -4px 0 12px;
     }}
+    .users-toolbar {{
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: auto auto minmax(220px, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin: -24px -20px 20px;
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 94%, transparent);
+      backdrop-filter: blur(8px);
+    }}
+    .users-toolbar .button-link,
+    .users-toolbar button {{
+      margin: 0;
+    }}
+    .users-filter {{
+      min-width: 0;
+    }}
+    .users-toolbar-status {{
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }}
+    .users-empty-filter {{
+      display: none;
+      padding: 12px 0;
+      color: var(--muted);
+    }}
+    .users-empty-filter.visible {{
+      display: block;
+    }}
+    .device-row.filtered-out {{
+      display: none;
+    }}
+    .user-row.filtered-out {{
+      display: none;
+    }}
+    .device-filter-note {{
+      display: none;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .device-filter-note.visible {{
+      display: block;
+    }}
     @media (max-width: 760px) {{
       .admin-form-grid {{
         grid-template-columns: 1fr;
+      }}
+      .users-toolbar {{
+        grid-template-columns: 1fr 1fr;
+        margin: -20px -12px 18px;
+        padding: 12px;
+      }}
+      .users-filter,
+      .users-toolbar-status {{
+        grid-column: 1 / -1;
       }}
     }}
     pre {{
@@ -541,6 +599,111 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       }}
       input.type = checkbox.checked ? "text" : "password";
     }}
+    function usersTokens(value) {{
+      return (value || "")
+        .toLowerCase()
+        .split(/\\s+/)
+        .map(function(token) {{ return token.trim(); }})
+        .filter(Boolean);
+    }}
+    function textMatchesTokens(text, tokens) {{
+      var haystack = (text || "").toLowerCase();
+      return tokens.every(function(token) {{ return haystack.indexOf(token) !== -1; }});
+    }}
+    function applyUsersFilter() {{
+      var input = document.getElementById("users-filter");
+      var table = document.getElementById("users-table");
+      if (!input || !table) {{
+        return;
+      }}
+      var tokens = usersTokens(input.value);
+      var rows = Array.prototype.slice.call(table.querySelectorAll("tbody tr.user-row"));
+      var visibleUsers = 0;
+      var visibleDevices = 0;
+      rows.forEach(function(row) {{
+        var userText = row.getAttribute("data-user-search") || "";
+        var rowMatches = tokens.length === 0 || textMatchesTokens(userText, tokens);
+        var devices = Array.prototype.slice.call(row.querySelectorAll(".device-row"));
+        var anyDeviceMatches = false;
+        devices.forEach(function(device) {{
+          var deviceText = device.getAttribute("data-device-search") || device.textContent || "";
+          var deviceMatches = tokens.length === 0 || rowMatches || textMatchesTokens(deviceText, tokens);
+          device.classList.toggle("filtered-out", !deviceMatches);
+          if (deviceMatches) {{
+            anyDeviceMatches = true;
+            visibleDevices += 1;
+          }}
+        }});
+        var showRow = tokens.length === 0 || rowMatches || anyDeviceMatches;
+        row.classList.toggle("filtered-out", !showRow);
+        if (showRow) {{
+          visibleUsers += 1;
+        }}
+        var note = row.querySelector(".device-filter-note");
+        if (note) {{
+          note.classList.toggle("visible", tokens.length > 0 && showRow && !rowMatches && anyDeviceMatches);
+        }}
+      }});
+      var empty = document.getElementById("users-empty-filter");
+      if (empty) {{
+        empty.classList.toggle("visible", tokens.length > 0 && visibleUsers === 0);
+      }}
+      var status = document.getElementById("users-filter-status");
+      if (status) {{
+        var totalUsers = rows.length;
+        status.textContent = tokens.length
+          ? visibleUsers + " of " + totalUsers + " users"
+          : totalUsers + " users";
+      }}
+    }}
+    async function refreshUsersPage() {{
+      var button = document.getElementById("users-refresh");
+      var content = document.getElementById("users-content");
+      if (!button || !content) {{
+        return;
+      }}
+      var filter = document.getElementById("users-filter");
+      var filterValue = filter ? filter.value : "";
+      var scrollY = window.scrollY;
+      var status = document.getElementById("users-refresh-status");
+      button.disabled = true;
+      if (status) {{
+        status.textContent = "Refreshing...";
+      }}
+      try {{
+        var response = await fetch(window.location.pathname, {{ cache: "no-store" }});
+        if (!response.ok) {{
+          throw new Error("HTTP " + response.status);
+        }}
+        var text = await response.text();
+        var doc = new DOMParser().parseFromString(text, "text/html");
+        var nextContent = doc.getElementById("users-content");
+        if (!nextContent) {{
+          throw new Error("Missing users content");
+        }}
+        content.innerHTML = nextContent.innerHTML;
+        if (filter) {{
+          filter.value = filterValue;
+        }}
+        applyUsersFilter();
+        window.scrollTo({{ top: scrollY }});
+        if (status) {{
+          status.textContent = "Updated " + new Date().toLocaleTimeString();
+        }}
+      }} catch (error) {{
+        if (status) {{
+          status.textContent = "Refresh failed";
+        }}
+      }} finally {{
+        button.disabled = false;
+      }}
+    }}
+    document.addEventListener("input", function(event) {{
+      if (event.target && event.target.id === "users-filter") {{
+        applyUsersFilter();
+      }}
+    }});
+    document.addEventListener("DOMContentLoaded", applyUsersFilter);
   </script>
 </body>
 </html>
@@ -2048,8 +2211,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 user_agent = str(device.get("user_agent", ""))
                 last_seen_at = str(device.get("last_seen_at", "-")) or "-"
                 created_at = str(device.get("created_at", "-")) or "-"
+                device_search_text = " ".join(
+                    [
+                        device_id,
+                        str(device.get("username", "")),
+                        str(device.get("email", "")),
+                        user_agent,
+                        created_at,
+                        last_seen_at,
+                    ]
+                )
                 device_rows.append(
-                    '<div class="device-row">'
+                    f'<div class="device-row" data-device-search="{html.escape(device_search_text, quote=True)}">'
                     f"<strong>{html.escape(device_label)}</strong>"
                     f'<span class="meta">Created {html.escape(created_at)} · Last seen {html.escape(last_seen_at)}</span>'
                     f'<span class="meta">{html.escape(user_agent[:120])}</span>'
@@ -2061,8 +2234,22 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     "</div>"
                 )
             devices_html = "".join(device_rows) or '<span class="meta">No registered devices</span>'
+            if device_rows:
+                devices_html += '<span class="device-filter-note">Showing matching devices only.</span>'
+            user_search_text = " ".join(
+                [
+                    username,
+                    user_display_name(user),
+                    user.get("email", ""),
+                    role,
+                    "enabled" if enabled == "true" else "disabled",
+                    "change required" if user.get("must_change_password", "false").lower() == "true" else "current",
+                    max_devices,
+                    str(len(user_devices)),
+                ]
+            )
             rows.append(
-                "<tr>"
+                f'<tr class="user-row" data-user-search="{html.escape(user_search_text, quote=True)}">'
                 f"<td><strong>{html.escape(username)}</strong><span class=\"meta\">{html.escape(user_display_name(user))}</span></td>"
                 f"<td>{html.escape(user.get('email', ''))}</td>"
                 f"<td>{html.escape(role)}</td>"
@@ -2115,36 +2302,44 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         user_rows_html = "".join(rows) if rows else '<tr><td colspan="9">No users configured.</td></tr>'
         users_table = (
-            '<div class="admin-table-wrap"><table class="admin-table">'
+            '<div class="admin-table-wrap"><table id="users-table" class="admin-table">'
             "<thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th>Max</th><th>Devices</th><th>Manage user</th><th>Devices</th></tr></thead>"
             f"<tbody>{user_rows_html}</tbody>"
             "</table></div>"
         )
         body = f"""
+        <div class="users-toolbar">
+          <a class="button-link" href="./">Back</a>
+          <button id="users-refresh" type="button" onclick="refreshUsersPage()">Refresh</button>
+          <input id="users-filter" class="users-filter" type="search" placeholder="Search users or devices">
+          <span class="users-toolbar-status"><span id="users-filter-status">{len(users)} users</span> · <span id="users-refresh-status">Manual refresh</span></span>
+        </div>
         <h1>Users</h1>
         <p>Manage MapLibre protected viewer users and registered devices.</p>
-        <p><a class="button-link" href="./">Back to Rainmapper</a></p>
-        <h2>Create user</h2>
-        <p class="help-text">Stored passwords cannot be viewed because Rainmapper saves password hashes. Set password stores an admin-defined password and deletes registered devices. Reset password forces the user to choose a different password on next sign-in.</p>
-        <form method="post" action="">
-          <input type="hidden" name="admin_action" value="create_user">
-          <div class="admin-form-grid">
-            <div class="admin-field"><label>Username</label><input name="username" required autocomplete="username"></div>
-            <div class="admin-field"><label>Name</label><input name="name"></div>
-            <div class="admin-field"><label>Email</label><input name="email" type="email"></div>
-            <div class="admin-field">
-              <label>Password</label>
-              <input id="create-password" name="password" type="password" required autocomplete="new-password">
-              <label class="password-tools"><input type="checkbox" data-target="create-password" onchange="togglePasswordVisibility(this)"><span>Show typed password</span></label>
+        <div id="users-content">
+          <h2>Create user</h2>
+          <p class="help-text">Stored passwords cannot be viewed because Rainmapper saves password hashes. Set password stores an admin-defined password and deletes registered devices. Reset password forces the user to choose a different password on next sign-in.</p>
+          <form method="post" action="">
+            <input type="hidden" name="admin_action" value="create_user">
+            <div class="admin-form-grid">
+              <div class="admin-field"><label>Username</label><input name="username" required autocomplete="username"></div>
+              <div class="admin-field"><label>Name</label><input name="name"></div>
+              <div class="admin-field"><label>Email</label><input name="email" type="email"></div>
+              <div class="admin-field">
+                <label>Password</label>
+                <input id="create-password" name="password" type="password" required autocomplete="new-password">
+                <label class="password-tools"><input type="checkbox" data-target="create-password" onchange="togglePasswordVisibility(this)"><span>Show typed password</span></label>
+              </div>
+              <div class="admin-field"><label>Role</label><select name="role">{role_options("free")}</select></div>
+              <div class="admin-field"><label>Status</label><select name="enabled">{enabled_options("true")}</select></div>
+              <div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="1"></div>
             </div>
-            <div class="admin-field"><label>Role</label><select name="role">{role_options("free")}</select></div>
-            <div class="admin-field"><label>Status</label><select name="enabled">{enabled_options("true")}</select></div>
-            <div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="1"></div>
-          </div>
-          <button class="primary">Create user</button>
-        </form>
-        <h2>Existing users</h2>
-        {users_table}
+            <button class="primary">Create user</button>
+          </form>
+          <h2>Existing users</h2>
+          <div id="users-empty-filter" class="users-empty-filter">No users or devices match the current search.</div>
+          {users_table}
+        </div>
         """
         self.send_bytes(200, html_page("Users", body, auto_refresh=False), "text/html; charset=utf-8")
 
