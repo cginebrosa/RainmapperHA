@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.89
+
+- Add a Home Assistant `Users` action to delete a user and all registered devices associated with that user.
+
 ## 0.2.88
 
 - Remove the temporary MapLibre header zoom indicator after demo validation.

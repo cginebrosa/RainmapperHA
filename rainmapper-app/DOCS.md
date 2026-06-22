@@ -208,7 +208,7 @@ La app crea automaticamente, si no existe:
 
 Ese fichero guarda el `device_id`, usuario, rol, user-agent, ultimo acceso y hash del token de sesion. Si un usuario normal borra los datos del navegador, se generara un nuevo `device_id` y quedara bloqueado hasta que limpies o borres su dispositivo anterior.
 
-La WebUI de Home Assistant incluye una pagina `Users` para crear usuarios, activar/desactivar acceso, cambiar rol, cambiar `max_devices`, establecer una nueva contrasena y borrar dispositivos asociados a un usuario, uno a uno o todos a la vez. `Set password` guarda una contrasena definida por el administrador y borra automaticamente los dispositivos del usuario. `Reset password` no muestra ni cambia directamente la contrasena: marca el usuario para que tenga que elegir una contrasena distinta en el proximo inicio de sesion y tambien borra sus dispositivos.
+La WebUI de Home Assistant incluye una pagina `Users` para crear usuarios, borrar usuarios, activar/desactivar acceso, cambiar rol, cambiar `max_devices`, establecer una nueva contrasena y borrar dispositivos asociados a un usuario, uno a uno o todos a la vez. `Delete user` borra tambien todos sus dispositivos asociados. `Set password` guarda una contrasena definida por el administrador y borra automaticamente los dispositivos del usuario. `Reset password` no muestra ni cambia directamente la contrasena: marca el usuario para que tenga que elegir una contrasena distinta en el proximo inicio de sesion y tambien borra sus dispositivos.
 
 Si usas Cloudflare Tunnel con el add-on Cloudflared de Home Assistant, apunta el hostname externo al servidor Rainmapper publicado por la app:
 

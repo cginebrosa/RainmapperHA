@@ -31,7 +31,7 @@ Decision:
 - Limites por defecto: `free=1`, `basic=2`, `pro=3`, `admin=0`; `0` significa dispositivos ilimitados. El campo `max_devices` permite sobrescribir el limite por usuario.
 - El primer login de un usuario registra un `device_id` generado por el navegador en `/share/rainmapper/devices.json`; nuevos dispositivos se aceptan hasta el limite del usuario. Los dispositivos ya registrados pueden reutilizarse aunque el usuario haya alcanzado su limite.
 - En HA, `run.sh` crea `users.json` desde `users.example.json` y `devices.json` vacio si faltan, sin sobrescribir ficheros existentes.
-- La WebUI HA incorpora una pagina `Users`, pensada para acceso por Ingress/Home Assistant, para crear usuarios, activar/desactivar acceso, editar rol/max_devices, establecer nuevas contrasenas, forzar cambio de contrasena y borrar dispositivos de forma granular. `Set password` guarda una contrasena definida por el administrador y borra dispositivos; `Reset password` marca `must_change_password=true`, borra dispositivos y obliga al usuario a elegir una contrasena distinta tras autenticarse con la actual.
+- La WebUI HA incorpora una pagina `Users`, pensada para acceso por Ingress/Home Assistant, para crear usuarios, borrar usuarios, activar/desactivar acceso, editar rol/max_devices, establecer nuevas contrasenas, forzar cambio de contrasena y borrar dispositivos de forma granular. `Delete user` borra tambien todos sus dispositivos asociados. `Set password` guarda una contrasena definida por el administrador y borra dispositivos; `Reset password` marca `must_change_password=true`, borra dispositivos y obliga al usuario a elegir una contrasena distinta tras autenticarse con la actual.
 
 Motivo:
 

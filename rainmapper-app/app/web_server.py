@@ -1578,6 +1578,17 @@ def update_user(username: str, name: str, email: str, role: str, enabled: str, m
     return f"Updated user {user_id}."
 
 
+def delete_user(username: str) -> str:
+    user_id = normalize_user_id(username)
+    users = read_users()
+    if user_id not in users:
+        return f"User {user_id or '-'} was not found."
+    users.pop(user_id, None)
+    write_users(users)
+    deleted_count = delete_devices_for_user(user_id)
+    return f"Deleted user {user_id} and {deleted_count} device(s)."
+
+
 def set_admin_user_password(username: str, password: str) -> str:
     user_id = normalize_user_id(username)
     if not password:
@@ -2010,6 +2021,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
                 '<button>Delete all devices</button>'
                 "</form>"
+                '<form method="post" action="">'
+                '<input type="hidden" name="admin_action" value="delete_user">'
+                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
+                '<button>Delete user</button>'
+                "</form>"
                 "</td>"
                 f"<td>{devices_html}</td>"
                 "</tr>"
@@ -2192,6 +2208,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             message = delete_device(self.form_value(form, "device_id"))
         elif admin_action == "delete_user_devices":
             message = delete_user_devices(self.form_value(form, "username"))
+        elif admin_action == "delete_user":
+            message = delete_user(self.form_value(form, "username"))
         else:
             message = "Unknown user management action."
         admin_message(message)

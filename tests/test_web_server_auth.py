@@ -228,6 +228,29 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.web_server.delete_user_devices("pro")
         self.assertEqual(self.web_server.read_devices(), {})
 
+    def test_delete_user_removes_user_and_devices(self) -> None:
+        self.write_users_json(
+            [
+                {
+                    "username": "pro",
+                    "name": "Pro User",
+                    "email": "pro@example.com",
+                    "password": "secret",
+                    "role": "pro",
+                    "enabled": True,
+                }
+            ]
+        )
+        self.assertEqual(self.login("pro", "secret", "device-a")[0], 200)
+        self.assertEqual(self.login("pro", "secret", "device-b")[0], 200)
+
+        message = self.web_server.delete_user("pro")
+
+        self.assertIn("Deleted user pro", message)
+        self.assertEqual(self.web_server.read_users(), {})
+        self.assertEqual(self.web_server.read_devices(), {})
+        self.assertEqual(self.login("pro", "secret", "device-c")[0], 401)
+
     def test_users_page_does_not_auto_refresh(self) -> None:
         page = self.web_server.html_page("Users", "<h1>Users</h1>", auto_refresh=False).decode("utf-8")
 
