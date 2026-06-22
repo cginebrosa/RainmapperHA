@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.93
+
+- Remove the temporary MapLibre header zoom indicator after demo preparation.
+
 ## 0.2.92
 
 - Add a temporary MapLibre header zoom indicator to tune the station hover zoom threshold during the live demo.

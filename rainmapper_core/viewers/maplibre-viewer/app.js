@@ -513,14 +513,6 @@ function updateSignedInUser() {
   container.hidden = false;
 }
 
-function updateDemoZoomLevel() {
-  const element = document.getElementById("demo-zoom-level");
-  if (!element) {
-    return;
-  }
-  element.textContent = `Zoom ${map.getZoom().toFixed(2)}`;
-}
-
 function setupLoginForm(onAuthenticated) {
   const form = document.getElementById("login-form");
   if (!form) {
@@ -1697,7 +1689,6 @@ map.on("load", async () => {
   setupKeyboardShortcuts();
   setupLongPressElevation();
   updateTerrainModeButton();
-  updateDemoZoomLevel();
   applyTerrain();
   setupLoginForm(startViewer);
   const authenticated = await requireAuthBeforeStart();
@@ -1739,7 +1730,6 @@ map.on("mouseleave", CIRCLE_LAYER_ID, () => {
 });
 
 map.on("zoom", () => {
-  updateDemoZoomLevel();
   if (map.getZoom() < HOVER_POPUP_MIN_ZOOM) {
     closeHoverPopup();
   }
