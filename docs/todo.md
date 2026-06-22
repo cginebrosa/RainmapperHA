@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Validar en HA `0.2.100`: controles flotantes compactos de MapLibre en movil, margen derecho de botones y leyenda mas pegada al margen izquierdo. Revisar tras uso real si se retira el indicador temporal `Zoom X.XX` de MapLibre y si se mantiene definitivamente el umbral de hover en zoom `7`. Mantener pendiente la validacion Cloudflared de la ruta protegida antes de retirar el fallback publico `/local/rainmapper-maplibre`.
+Revisar tras uso real si se retira el indicador temporal `Zoom X.XX` de MapLibre y si se mantiene definitivamente el umbral de hover en zoom `7`. Mantener pendiente la validacion Cloudflared de la ruta protegida antes de retirar el fallback publico `/local/rainmapper-maplibre`.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -82,11 +82,11 @@ Validar en HA `0.2.100`: controles flotantes compactos de MapLibre en movil, mar
   - Criterio de aceptacion: en HA, cambiar idioma desde Settings actualiza textos visibles de MapLibre en ES/EN/CA, guarda `language` en `devices.json` al cerrar Settings y lo recupera al volver desde el mismo dispositivo. Los cambios rapidos de mapa/periodo/2D-3D fuera de Settings deben mantener el criterio actual de no persistir preferencias.
   - Estado: validado manualmente por el usuario en HA `0.2.99`: el selector de idioma funciona bien, `translations.json` se carga y el idioma queda como setting por dispositivo. Imagen publicada `ghcr.io/cginebrosa/rainmapperha:0.2.99` con digest `sha256:2ebebc6f0da239e22f23e7bb3e1eddddedf61fd1f172a11dcf76d7bdbb8a82b5`.
 
-- [ ] Validar controles compactos MapLibre en movil
+- [x] Validar controles compactos MapLibre en movil
   - Contexto: en iPhone, la columna derecha de botones flotantes ocupaba demasiada altura y la leyenda podia acercarse mas al borde izquierdo.
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/style.css`.
   - Criterio de aceptacion: en HA/movil, los botones de la derecha quedan compactos sin perder facilidad de pulsacion, con separacion visual minima de 1px, margen derecho reducido y paneles laterales de Settings/mapas/creditos correctamente alineados. La leyenda queda mas pegada a la izquierda sin cortarse.
-  - Estado: publicado en imagen `ghcr.io/cginebrosa/rainmapperha:0.2.100` con digest `sha256:03b2d0cc42a08069bddbb7f6a4e7cee05aae5345dd29a40438a79e4d1b8f5134`; incluye botones moviles de 34px, separacion de 1px, margen derecho de 6px, leyenda a 4px del margen izquierdo y etiquetas compactas `1d`/`7d`/... en la barra inferior; pendiente de validar en HA.
+  - Estado: validado manualmente por el usuario en HA `0.2.100`. Incluye botones moviles de 34px, separacion de 1px, margen derecho de 6px, leyenda a 4px del margen izquierdo y etiquetas compactas `1d`/`7d`/... en la barra inferior. Imagen publicada `ghcr.io/cginebrosa/rainmapperha:0.2.100` con digest `sha256:03b2d0cc42a08069bddbb7f6a4e7cee05aae5345dd29a40438a79e4d1b8f5134`.
 
 - [ ] Validar zoom visible temporal MapLibre
   - Contexto: se ha anadido localmente un indicador `Zoom X.XX` en la cabecera compacta de MapLibre para confirmar el umbral real de hover.
