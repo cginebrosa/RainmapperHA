@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Instalar y validar en HA `0.2.101`, publicada en GHCR, para probar la mejora de WebUI `Users` con refresh manual y busqueda libre durante la prueba externa con companeros. Revisar incidencias de acceso en `devices.json`/WebUI Users, especialmente si comparten credenciales o cambian de navegador/dispositivo. Tras validar `0.2.101`, limpiar GHCR remoto conservando solo `0.2.101/latest` y sus manifests auxiliares. Revisar tras uso real si se retira el indicador temporal `Zoom X.XX` de MapLibre y si se mantiene definitivamente el umbral de hover en zoom `7`.
+`0.2.101` queda validada manualmente en HA: la WebUI `Users` refresca y busca correctamente sin refrescar el navegador. Limpiar GHCR remoto conservando solo `0.2.101/latest` y sus manifests auxiliares, y devolver el repo a privado si se hizo publico temporalmente para que HA detectara el update. Nueva linea funcional recomendada: incorporar AEMET OpenData como fuente horaria reciente, empezando por un diseno seguro de historico y deduplicado antes de tocar `Data/`.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -45,6 +45,21 @@ Instalar y validar en HA `0.2.101`, publicada en GHCR, para probar la mejora de 
   - Estado: resuelto como practica operativa versionada. Antes de cambios que escriban CSV, usar backup/copia temporal y validar con `scripts/check-history.py`.
 
 ## Prioridad media
+
+- [ ] Incorporar AEMET OpenData como fuente horaria reciente
+  - Contexto: el 2026-06-23 se probo con `AEMET_API_KEY` el endpoint oficial `/opendata/api/observacion/convencional/todas`. La llamada global devuelve observaciones horarias recientes de las ultimas 12 horas para todas las estaciones recibidas, con `idema`, `lat`, `lon`, `alt`, `ubi`, `fint` y `prec`. Segun metadatos AEMET, `prec` es la precipitacion acumulada durante los 60 minutos anteriores a `fint`, en mm; `fint` viene en UTC. En pruebas reales se obtuvo un dataset de unas 10k filas, 798 estaciones para la fecha filtrada y lluvia no nula en 23 estaciones. AEMET puede devolver `429 Too Many Requests` si se llama repetidamente durante pruebas.
+  - Ficheros relacionados: futuro codigo en `rainmapper_core/rainmapper.py` o un modulo nuevo bajo `rainmapper_core/sources/aemet/`, `rainmapper_core/config/const.py`, `rainmapper-app/config.yaml`, `rainmapper-app/run.sh`, `rainmapper-local/run.sh`, `rainmapper_core/tomap.py`, `rainmapper_core/geojson.py`, tests futuros.
+  - Plan propuesto:
+    1. Configuracion: anadir opcion/env para `AEMET_API_KEY` y flag de fuente `aemet` sin hardcodear secretos ni imprimir la clave.
+    2. Cliente: hacer una sola llamada por ejecucion a `/observacion/convencional/todas`, leer la URL temporal `datos`, parsear tolerando caracteres no UTF-8 en `ubi`, y no llamar nunca estacion por estacion.
+    3. Normalizacion: convertir cada registro horario con `prec` numerica a schema Rainmapper usando codigo estable `AEMET:{idema}` o equivalente que no colisione con fuentes existentes; preservar `fint` UTC como instante de fin de periodo horario.
+    4. Historico: guardar filas horarias AEMET en un historico propio o adaptar el modelo incremental con identidad `source + idema + fint`; no forzar `Data Local` diaria sin decidir antes como se acumulan horas UTC frente a dias locales.
+    5. Acumulados: construir acumulados de 1/7/14/21/30/60/90 dias desde las horas guardadas, dejando explicita la zona horaria. Recomendacion inicial: almacenar todo en UTC y definir el corte de periodos con una conversion controlada a la zona operativa solo en el agregador, no durante descarga.
+    6. Degradacion: si AEMET devuelve `429`, timeout o error temporal, marcar fuente como `STALE`/`NOK` segun haya historico previo y continuar `Run all` con el resto de fuentes.
+    7. Backfill opcional: estudiar despues `/valores/climatologicos/diarios/.../todasestaciones` para completar dias cerrados. Ese endpoint trae `prec` diario como texto con coma decimal, puede publicarse con retraso, no trae coordenadas y requiere unir con `inventarioestaciones/todasestaciones`.
+  - Seguridad de historicos: antes de implementar escritura real, seguir `docs/history-safety.md`: backup o copia temporal, prueba offline con fixtures, `scripts/check-history.py` antes/despues y no ejecutar contra `/share/rainmapper/Data` sin validacion.
+  - Criterio de aceptacion: con una sola llamada global AEMET por `Run all`, se anaden o actualizan observaciones horarias deduplicadas; las estaciones AEMET aparecen en `Tomap`/GeoJSON con `Source=AEMET`; los acumulados no mezclan mal UTC/dia local; `429` no rompe el pipeline; tests cubren parseo, deduplicado, acumulacion y fallo degradado.
+  - Estado: diseno documentado, no implementado. Pruebas temporales en `tmp/aemet-test/` generaron CSV exploratorios no versionados; no son parte del pipeline.
 
 - [ ] Validar MapLibre protegido en HA/Cloudflare
   - Contexto: la ruta protegida MapLibre ya fue validada manualmente en HA `0.2.82`: `/protected/maplibre/index.html` pide login, `admin` funciona desde Mac+iPhone y un usuario normal queda limitado a un dispositivo. La version `0.2.83` amplia el backend a `users.json` con `username`, `name`, `email`, roles `free/basic/pro/admin` y `max_devices`. El usuario valido en HA que el primer login crea `users.json`; despues se decide retirar por completo el formato antiguo.

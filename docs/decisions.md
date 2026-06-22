@@ -1,5 +1,36 @@
 # Decisions
 
+## 2026-06-23 - Usar AEMET OpenData horario como nueva fuente candidata
+
+Decision:
+
+- Usar como candidato principal de AEMET el endpoint global `/opendata/api/observacion/convencional/todas`.
+- Llamarlo como maximo una vez por ejecucion de `Run all`/schedule, nunca por estacion.
+- Tratar `fint` como timestamp UTC de fin de la hora observada.
+- Tratar `prec` como lluvia horaria acumulada durante los 60 minutos anteriores a `fint`.
+- Deduplicar por `AEMET + idema + fint`.
+- Guardar primero observaciones horarias y construir acumulados de periodo desde nuestro historico, no asumir que la respuesta es un dia completo.
+- Si AEMET devuelve `429 Too Many Requests` u otro fallo temporal, la fuente debe degradar sin romper el pipeline completo.
+- Dejar el endpoint diario de climatologia como posible backfill futuro de dias cerrados, no como fuente operativa inmediata.
+
+Motivo:
+
+- El schedule real de HA ejecuta `Run all` unas 8 veces al dia, por lo que una llamada global cada 3 horas encaja con el endpoint horario sin hacer scraping agresivo.
+- La respuesta trae en el mismo registro `idema`, coordenadas, nombre de estacion y lluvia horaria, suficiente para integrarla sin llamadas por estacion.
+- El endpoint diario puede ser util para completar historicos, pero se publica con retraso, no trae coordenadas en el registro de datos y requiere unir con el inventario de estaciones.
+- AEMET aplica limites de uso: durante pruebas manuales varias llamadas seguidas llegaron a `429`.
+
+Consecuencias:
+
+- La implementacion debe ser muy conservadora con llamadas externas: una llamada de indice, una descarga de la URL temporal `datos`, sin bucles por estacion.
+- El historico AEMET no debe mezclarse ingenuamente con historicos diarios existentes hasta definir el corte UTC/local. El plan inicial es almacenar UTC y hacer la conversion/control de periodos en el agregador.
+- Cualquier escritura de historicos CSV para AEMET debe seguir `docs/history-safety.md`: backup o copia temporal, fixtures, validacion de estructura y deduplicado antes de tocar datos reales.
+- Los CSV exploratorios en `tmp/aemet-test/` son solo material temporal de analisis y no forman parte del pipeline.
+
+Estado:
+
+Diseno aceptado por el usuario como direccion para continuar. No hay codigo implementado todavia.
+
 ## 2026-06-22 - La ruta activa del repo es `/Users/carlosginebrosa/Developer/RainmapperHA`
 
 Decision:
