@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.96
+
+- Show the nearest rainy station in the MapLibre terrain long-press popup.
+- Include the selected-period rain total for that station and a clear no-rain fallback.
+
 ## 0.2.95
 
 - Lower the MapLibre station hover popup threshold to zoom 7.

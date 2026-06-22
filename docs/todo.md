@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-Validar en HA `0.2.95`: MapLibre debe mostrar hover de estacion desde zoom `7` y el popup de terreno por pulsacion larga debe incluir un bloque de estacion mas cercana. La cabecera mantiene temporalmente `Zoom X.XX` para confirmar el comportamiento.
+Validar en HA `0.2.96`: MapLibre debe mostrar hover de estacion desde zoom `7` y el popup de terreno por pulsacion larga debe incluir un bloque de estacion con lluvia mas cercana en el periodo seleccionado. La cabecera mantiene temporalmente `Zoom X.XX` para confirmar el comportamiento.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia
@@ -64,11 +64,11 @@ Validar en HA `0.2.95`: MapLibre debe mostrar hover de estacion desde zoom `7` y
   - Criterio de aceptacion: tras probar en HA, confirmar el valor de `HOVER_POPUP_MIN_ZOOM` y retirar el indicador temporal de zoom si ya no hace falta.
   - Estado: publicado en `0.2.95` con umbral `7`; pendiente de validar en HA/movil y retirar el indicador temporal si ya no hace falta.
 
-- [ ] Validar estacion mas cercana en popup de terreno MapLibre
-  - Contexto: el popup de terreno por pulsacion larga muestra altitud DEM y coordenadas del punto. Para aportar contexto sin reverse geocoding, se anade un bloque `Nearest station` calculado en cliente desde las estaciones cargadas del periodo actual.
+- [ ] Validar estacion con lluvia mas cercana en popup de terreno MapLibre
+  - Contexto: el popup de terreno por pulsacion larga muestra altitud DEM y coordenadas del punto. Para aportar contexto sin reverse geocoding, se anade un bloque `Nearest rainy station` calculado en cliente desde las estaciones cargadas en el mapa para el periodo actual.
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`.
-  - Criterio de aceptacion: en HA/movil, una pulsacion larga muestra altitud, coordenadas, estacion mas cercana, distancia, municipio/provincia de esa estacion y altitud de estacion, sin presentarlo como ubicacion exacta del punto.
-  - Estado: publicado en `0.2.95`; pendiente de validar en HA.
+  - Criterio de aceptacion: en HA/movil, una pulsacion larga muestra altitud, coordenadas, estacion con lluvia mas cercana, lluvia acumulada del periodo seleccionado, distancia, municipio/provincia de esa estacion y altitud de estacion; si no hay estaciones con lluvia en el mapa, muestra un mensaje explicito.
+  - Estado: publicado en `0.2.96`; pendiente de validar en HA.
 
 - [ ] Validar zoom visible temporal MapLibre
   - Contexto: se ha anadido localmente un indicador `Zoom X.XX` en la cabecera compacta de MapLibre para confirmar el umbral real de hover.

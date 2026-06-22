@@ -889,9 +889,14 @@ function distanceKmBetweenLngLat(leftLngLat, rightLngLat) {
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-function nearestStationForLngLat(lngLat) {
+function nearestRainyStationForLngLat(lngLat) {
   let nearestStation = null;
-  currentVisibleFeatures.forEach((feature) => {
+  const mapFeatures = currentData?.features || [];
+  mapFeatures.forEach((feature) => {
+    const rainTotal = featureRainTotal(feature);
+    if (rainTotal <= 0) {
+      return;
+    }
     const coordinates = feature.geometry?.coordinates || [];
     const longitude = Number(coordinates[0]);
     const latitude = Number(coordinates[1]);
@@ -903,7 +908,7 @@ function nearestStationForLngLat(lngLat) {
       { lng: longitude, lat: latitude },
     );
     if (!nearestStation || distanceKm < nearestStation.distanceKm) {
-      nearestStation = { feature, distanceKm };
+      nearestStation = { feature, distanceKm, rainTotal };
     }
   });
   return nearestStation;
@@ -1185,10 +1190,17 @@ function formatDistanceKm(distanceKm) {
   return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`;
 }
 
-function nearestStationContent(nearestStation) {
+function currentPeriodLabel() {
+  const selectedFile = document.getElementById("map-selector")?.value || "";
+  return periods[selectedFile] || "selected period";
+}
+
+function nearestRainyStationContent(nearestStation) {
+  const periodLabel = currentPeriodLabel();
   if (!nearestStation?.feature) {
     return `
-      <div class="popup-row terrain-nearest-title"><strong>Nearest station:</strong> unavailable</div>
+      <div class="popup-row terrain-nearest-title"><strong>Nearest rainy station:</strong></div>
+      <div class="popup-row">No station with rain in the current map for ${periodLabel}.</div>
     `;
   }
 
@@ -1199,9 +1211,11 @@ function nearestStationContent(nearestStation) {
   const province = properties["Provincia"] || "";
   const altitude = properties["Altitud"] || "-";
   const location = `${town}${province ? `, ${province}` : ""}`;
+  const rainTotal = nearestStation.rainTotal.toFixed(1);
   return `
-    <div class="popup-row terrain-nearest-title"><strong>Nearest station:</strong></div>
+    <div class="popup-row terrain-nearest-title"><strong>Nearest rainy station:</strong></div>
     <div class="popup-row">${station ? `${station} · ` : ""}${name}</div>
+    <div class="popup-row"><strong>Rain:</strong> ${rainTotal} mm (${periodLabel})</div>
     <div class="popup-row"><strong>Distance:</strong> ${formatDistanceKm(nearestStation.distanceKm)}</div>
     <div class="popup-row"><strong>Location:</strong> ${location}</div>
     <div class="popup-row"><strong>Station altitude:</strong> ${altitude} m</div>
@@ -1211,7 +1225,7 @@ function nearestStationContent(nearestStation) {
 function terrainPopupContent(elevation, lngLat, status = "loading", nearestStation = null) {
   const latitude = lngLat.lat.toFixed(5);
   const longitude = lngLat.lng.toFixed(5);
-  const nearestStationHtml = nearestStationContent(nearestStation);
+  const nearestStationHtml = nearestRainyStationContent(nearestStation);
   if (!Number.isFinite(elevation)) {
     const altitudeText = status === "error" ? "unavailable" : "loading";
     const noteText = status === "error"
@@ -1301,7 +1315,7 @@ function showTerrainPopup(lngLat) {
   }
   activeStationPopupProperties = null;
   activeStationPopupId = null;
-  const nearestStation = nearestStationForLngLat(lngLat);
+  const nearestStation = nearestRainyStationForLngLat(lngLat);
 
   const terrainPopup = new maplibregl.Popup({
     closeButton: false,
