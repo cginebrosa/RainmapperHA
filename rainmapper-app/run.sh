@@ -209,7 +209,8 @@ run_maps() {
     --data-dir /app/Data \
     --maps-dir /app/Tomap \
     --last-rains-history "$LAST_RAINS_HISTORY_VALUE" \
-    --max-threads "$MAX_THREADS_VALUE"
+    --max-threads "$MAX_THREADS_VALUE" \
+    --include-aemet true
   echo "Rainmapper Tomap finished."
   python -m rainmapper_core.bokeh_maps
   echo "Starting Rainmapper GeoJSON..."

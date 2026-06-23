@@ -41,6 +41,9 @@ PUBLIC_MAPLIBRE_AEMET_PATH = Path("/config/www/rainmapper-maplibre-aemet")
 PUBLIC_MAPLIBRE_AEMET_TMP_PATH = Path("/config/www/.rainmapper-maplibre-aemet-tmp")
 AEMET_EXPERIMENT_TOMAP_PATH = Path("/tmp/rainmapper-aemet-tomap")
 AEMET_EXPERIMENT_DATA_PATH = Path("/tmp/rainmapper-aemet-publicdata")
+# Temporary rollback hook while production AEMET is validated. Set this to True
+# only if the old public AEMET test viewer must be re-enabled.
+PUBLISH_AEMET_EXPERIMENTAL_MAPLIBRE = False
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
 USERS_JSON_PATH = Path("/share/rainmapper/users.json")
@@ -877,6 +880,7 @@ def command_for(action: str) -> list[str]:
             "--maps-dir /app/Tomap "
             "--last-rains-history \"$RAINMAPPER_LAST_RAINS_HISTORY\" "
             "--max-threads \"$RAINMAPPER_MAX_THREADS\" "
+            "--include-aemet true "
             "&& python -m rainmapper_core.bokeh_maps",
         ]
     if action == "all":
@@ -1305,7 +1309,11 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
     PUBLIC_MAPLIBRE_TMP_PATH.rename(PUBLIC_MAPLIBRE_PATH)
 
-    aemet_message = publish_aemet_experimental_maplibre(log_file, config_js)
+    aemet_message = ""
+    if PUBLISH_AEMET_EXPERIMENTAL_MAPLIBRE:
+        aemet_message = publish_aemet_experimental_maplibre(log_file, config_js)
+    else:
+        shutil.rmtree(PUBLIC_MAPLIBRE_AEMET_PATH, ignore_errors=True)
 
     published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
     message = (
@@ -1325,11 +1333,12 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
 
 
 def publish_aemet_experimental_maplibre(log_file, config_js: str) -> str:
-    """Publish an optional public MapLibre variant with AEMET included.
+    """Publish the disabled-by-default public MapLibre AEMET test variant.
 
-    The standard protected MapLibre route keeps using the normal PublicData
-    output. This experimental fallback lets the owner validate AEMET without
-    changing what existing protected users see.
+    AEMET is now included in the standard protected viewer. This function is
+    kept temporarily as a rollback hook for the previous
+    /local/rainmapper-maplibre-aemet test route and should be removed once the
+    production AEMET path has been validated for long enough.
     """
     if not (DATA_PATH / "Aemet_incremental.csv").exists():
         shutil.rmtree(PUBLIC_MAPLIBRE_AEMET_PATH, ignore_errors=True)

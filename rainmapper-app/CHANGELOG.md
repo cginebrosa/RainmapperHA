@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.109
+
+- Include AEMET in the standard Home Assistant Tomap/GeoJSON generation used by the protected MapLibre viewer.
+- Disable the separate experimental AEMET MapLibre route while keeping the publisher code as a temporary rollback hook.
+
 ## 0.2.108
 
 - Add an explicit MapLibre Settings action to save the current map view as the device default without autosaving map movement.

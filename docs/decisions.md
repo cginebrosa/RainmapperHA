@@ -1,5 +1,28 @@
 # Decisions
 
+## 2026-06-23 - Promover AEMET al visor estandar protegido
+
+Decision:
+
+- Tras validar/dar por buena `0.2.108` en HA, AEMET pasa a formar parte del Tomap/GeoJSON estandar generado por la app HA.
+- Los comandos de mapas de HA ejecutan `rainmapper_core.tomap` con `--include-aemet true`, de modo que `/protected/maplibre/index.html`, Leaflet y Bokeh consumen el mismo dataset de produccion con AEMET cuando exista `Aemet_incremental.csv`.
+- Mantener `rainmapper_core.tomap` con AEMET excluido por defecto para pruebas locales/controladas; la promocion a produccion se decide en los comandos HA, no cambiando el default global del modulo.
+- Desactivar la ruta experimental publica `/local/rainmapper-maplibre-aemet/index.html` mediante `PUBLISH_AEMET_EXPERIMENTAL_MAPLIBRE = False`, sin borrar todavia el codigo del publicador.
+- Dejar documentada como tarea pendiente la retirada definitiva del publicador experimental AEMET cuando la ruta estandar quede validada durante uso real.
+
+Motivo:
+
+- La ruta experimental ya permitio validar integracion AEMET, bounds dinamicos, contador de coordenadas invalidas, atribuciones y duplicados diarios.
+- Mantener dos visores con datasets distintos deja de aportar valor operativo y puede confundir las pruebas con usuarios reales.
+- Conservar temporalmente el codigo experimental desactivado permite volver rapido al modo test si la promocion a produccion descubre un problema inesperado.
+
+Consecuencias:
+
+- El numero de estaciones del visor protegido aumentara cuando AEMET este habilitado y haya `Aemet_incremental.csv`.
+- `Generate maps` y `Run all` en HA regeneran el dataset estandar incluyendo AEMET; si `create_aemet=false` o falta historico AEMET, el resultado sigue funcionando con el resto de fuentes.
+- En la siguiente publicacion, la WebUI deberia dejar de mostrar el enlace `AEMET test viewer` porque la carpeta experimental se limpia al publicar.
+- Hay que eliminar mas adelante el flag y `publish_aemet_experimental_maplibre()` para no dejar codigo de rollback indefinidamente.
+
 ## 2026-06-23 - Guardar la vista inicial MapLibre solo por accion explicita
 
 Decision:
@@ -41,7 +64,7 @@ Consecuencias:
 
 - Los creditos de MapLibre mezclan textos en distintos idiomas deliberadamente: AEMET en castellano, Meteocat en catalan y Wunderground en ingles.
 - Antes de publicar Rainmapper fuera del uso privado actual, revisar de nuevo Meteoclimatic y Wunderground y sustituir las atribuciones conservadoras por el texto legal/acuerdo aplicable.
-- El codigo del visor MapLibre es compartido; el cambio afecta al protected estandar y a la ruta experimental AEMET cuando se publique la siguiente imagen. Lo que diferencia ambas rutas es el dataset publicado, no una copia separada de la UI.
+- El codigo del visor MapLibre es compartido; desde la promocion de AEMET, el protected estandar usa el dataset con AEMET. La ruta experimental queda apagada y solo deberia reactivarse como rollback temporal.
 
 ## 2026-06-23 - Usar AEMET OpenData horario como nueva fuente candidata
 
@@ -72,12 +95,12 @@ Consecuencias:
 - Cualquier escritura de historicos CSV para AEMET debe seguir `docs/history-safety.md`: backup o copia temporal, fixtures, validacion de estructura y deduplicado antes de tocar datos reales.
 - Los CSV exploratorios en `tmp/aemet-test/` son solo material temporal de analisis y no forman parte del pipeline.
 - La integracion debe preservar en los datos publicados metadatos suficientes para atribucion: `Source=AEMET`, timestamp de observacion `fint` en UTC y, si esta disponible, timestamp de generacion/actualizacion del dataset. `estacions_aemet.csv` actua como catalogo persistente de estaciones y debe preservar campos enriquecidos manualmente, como `Comarca`, `Municipi` y `Provincia`, aunque AEMET no los entregue en el endpoint horario. No usar logo AEMET salvo que venga integrado o se revise expresamente su uso; texto es suficiente para la primera version.
-- Durante la validacion inicial, `tomap.py` excluye AEMET por defecto y solo lo incluye con `--include-aemet true`. La WebUI HA publica una variante experimental `/local/rainmapper-maplibre-aemet/index.html` cuando existe `Aemet_incremental.csv`; esa variante genera Tomap/GeoJSON temporales con AEMET incluido. El visor protegido `/protected/maplibre/index.html` sigue usando los datos estandar hasta decidir la incorporacion definitiva.
+- Durante la validacion inicial, `tomap.py` excluia AEMET por defecto y solo lo incluia con `--include-aemet true`; la WebUI HA publicaba una variante experimental `/local/rainmapper-maplibre-aemet/index.html`. Tras validar `0.2.108`, HA pasa a generar el Tomap estandar con `--include-aemet true` y la ruta experimental queda desactivada por flag como rollback temporal.
 - El reverse geocoding vive en `rainmapper_core/geocoding.py` y lo comparten las fuentes existentes y AEMET. AEMET debe seguir el mismo criterio operativo que Meteoclimatic/Wunderground: consultar Google Maps cuando la estacion sea nueva, falten `Municipi`/`Provincia` o cambien sus coordenadas. El enriquecimiento usa `GMAP_API_KEY`/`RAINMAPPER_GMAP_API_KEY`, preserva campos ya rellenados si las coordenadas no cambian y evita resultados tecnicos tipo `plus_code` cuando hay alternativas. `Comarca` no queda disponible de forma fiable desde Google y no se usa como condicion para repetir llamadas; si llega, se conserva. El CLI de AEMET permite `--skip-station-enrichment` solo para pruebas temporales.
 
 Estado:
 
-Diseno aceptado por el usuario como direccion para continuar. Primera implementacion completada de forma opcional y desactivada por defecto: `rainmapper_core/create_aemet.py`, opciones `create_aemet`/`aemet_api_key`, integracion opcional en `rainmapper_core.rainmapper`, consumo bajo flag en `tomap.py`, inferencia `Source=AEMET` en GeoJSON, atribucion AEMET en MapLibre y ruta experimental `/local/rainmapper-maplibre-aemet/index.html`. El 2026-06-23 se ejecuto una prueba real temporal con reverse geocoding en `tmp/aemet-geocode-test-v2/`: 802 estaciones, 802 con `Municipi`, 800 con `Provincia` y 7 con `Comarca`; `REUS AEROPUERTO` quedo como `Reus`, coherente con la localidad esperada. Durante la primera prueba HA, `0.2.103` ejecuto AEMET pero fallo la publicacion experimental al reconstruir Tomap por un `pd.merge` sobre columnas opcionales con tipos distintos (`object`/`float64`). La union de fuentes en Tomap debe tratarse como union de filas, no como join relacional por todas las columnas; desde `0.2.104`, `merge_dataframes()` usa `pd.concat(...).drop_duplicates()` para aceptar fuentes con columnas opcionales heterogeneas. Desde `0.2.105`, AEMET persiste tambien temperatura `ta` y humedad `hr` horarias cuando existen, agregandolas como max/min diarios, y MapLibre deja de recortar estaciones por bounds regionales: solo descarta coordenadas geograficamente invalidas y muestra `Invalid: N`. Pendiente de validar en HA antes de integrar AEMET en el visor protegido estandar.
+Diseno aceptado por el usuario como direccion para continuar. Primera implementacion completada de forma opcional y desactivada por defecto: `rainmapper_core/create_aemet.py`, opciones `create_aemet`/`aemet_api_key`, integracion opcional en `rainmapper_core.rainmapper`, consumo bajo flag en `tomap.py`, inferencia `Source=AEMET` en GeoJSON, atribucion AEMET en MapLibre y ruta experimental `/local/rainmapper-maplibre-aemet/index.html`. El 2026-06-23 se ejecuto una prueba real temporal con reverse geocoding en `tmp/aemet-geocode-test-v2/`: 802 estaciones, 802 con `Municipi`, 800 con `Provincia` y 7 con `Comarca`; `REUS AEROPUERTO` quedo como `Reus`, coherente con la localidad esperada. Durante la primera prueba HA, `0.2.103` ejecuto AEMET pero fallo la publicacion experimental al reconstruir Tomap por un `pd.merge` sobre columnas opcionales con tipos distintos (`object`/`float64`). La union de fuentes en Tomap debe tratarse como union de filas, no como join relacional por todas las columnas; desde `0.2.104`, `merge_dataframes()` usa `pd.concat(...).drop_duplicates()` para aceptar fuentes con columnas opcionales heterogeneas. Desde `0.2.105`, AEMET persiste tambien temperatura `ta` y humedad `hr` horarias cuando existen, agregandolas como max/min diarios, y MapLibre deja de recortar estaciones por bounds regionales: solo descarta coordenadas geograficamente invalidas y muestra `Invalid: N`. `0.2.108` queda validada/dada por buena en HA y se decide integrar AEMET en el visor protegido estandar, manteniendo el publicador experimental desactivado solo como rollback temporal.
 
 ## 2026-06-22 - La ruta activa del repo es `/Users/carlosginebrosa/Developer/RainmapperHA`
 

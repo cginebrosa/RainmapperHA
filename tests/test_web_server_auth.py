@@ -391,6 +391,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("--create_aemet", command)
         self.assertEqual(command[command.index("--create_aemet") + 1], "true")
 
+    def test_webui_maps_command_includes_aemet_in_production_tomap(self) -> None:
+        command = self.web_server.command_for("maps")
+
+        self.assertEqual(command[:2], ["sh", "-c"])
+        self.assertIn("--include-aemet true", command[2])
+
 
 if __name__ == "__main__":
     unittest.main()
