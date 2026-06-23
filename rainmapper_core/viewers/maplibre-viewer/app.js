@@ -1201,8 +1201,8 @@ function inferStationSource(stationCode) {
 }
 
 const stationSourceAttributions = {
-  AEMET: "Fuente: AEMET · Información elaborada por la Agencia Estatal de Meteorología",
-  Meteocat: "Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transició Ecològica. METEOCAT. Dades meteorològiques de la XEMA. Dades modificades per Rainmapper.",
+  AEMET: "Fuente: AEMET · Información elaborada por Rainmapper a partir de datos de la Agencia Estatal de Meteorología",
+  Meteocat: "Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transició Ecològica. METEOCAT. Dades meteorològiques de la XEMA. Dades elaborades per Rainmapper.",
   Meteoclimatic: "Fuente: Meteoclimatic (www.meteoclimatic.net)",
   Wunderground: "Source: Weather Underground",
 };

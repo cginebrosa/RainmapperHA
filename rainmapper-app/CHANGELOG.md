@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.110
+
+- Clarify MapLibre source attribution wording for AEMET and Meteocat as Rainmapper-elaborated data.
+
 ## 0.2.109
 
 - Include AEMET in the standard Home Assistant Tomap/GeoJSON generation used by the protected MapLibre viewer.

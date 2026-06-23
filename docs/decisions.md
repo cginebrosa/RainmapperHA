@@ -48,8 +48,8 @@ Consecuencias:
 Decision:
 
 - Mostrar atribucion especifica por fuente en la ficha de cada estacion MapLibre y retirar la fila generica `Source:` del popup.
-- Mantener AEMET en castellano: `Fuente: AEMET - Informacion elaborada por la Agencia Estatal de Meteorologia`.
-- Mostrar Meteocat siempre en catalan, con el formato de fuente indicado por la Generalitat y el organismo/dataset XEMA: `Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transicio Ecologica. METEOCAT. Dades meteorologiques de la XEMA. Dades modificades per Rainmapper.`
+- Mantener AEMET en castellano: `Fuente: AEMET - Informacion elaborada por Rainmapper a partir de datos de la Agencia Estatal de Meteorologia`.
+- Mostrar Meteocat siempre en catalan, con el formato de fuente indicado por la Generalitat y el organismo/dataset XEMA: `Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transicio Ecologica. METEOCAT. Dades meteorologiques de la XEMA. Dades elaborades per Rainmapper.`
 - Mostrar Meteoclimatic de forma conservadora como `Font: Meteoclimatic (www.meteoclimatic.net)` hasta localizar un texto legal mas especifico para el RSS usado por Rainmapper.
 - Mostrar Wunderground de forma conservadora como `Source: Weather Underground` hasta definir un texto contractual/legal concreto; esta atribucion no cambia la decision previa de no basar una app comercial en Wunderground sin acuerdo escrito.
 - Incluir las mismas fuentes en el panel de creditos/informacion del visor.
