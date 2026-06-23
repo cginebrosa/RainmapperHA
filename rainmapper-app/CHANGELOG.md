@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.107
+
+- Hide the internal `AEMET:` station-code prefix in MapLibre station popups.
+- Polish MapLibre source attribution wording for AEMET and Meteoclimatic.
+
 ## 0.2.106
 
 - Add visible MapLibre station attributions for Meteocat, Meteoclimatic and Wunderground.

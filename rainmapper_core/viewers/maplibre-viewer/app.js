@@ -1129,9 +1129,14 @@ function inferStationSource(stationCode) {
 const stationSourceAttributions = {
   AEMET: "Fuente: AEMET · Información elaborada por la Agencia Estatal de Meteorología",
   Meteocat: "Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transició Ecològica. METEOCAT. Dades meteorològiques de la XEMA. Dades modificades per Rainmapper.",
-  Meteoclimatic: "Font: Meteoclimatic (www.meteoclimatic.net)",
+  Meteoclimatic: "Fuente: Meteoclimatic (www.meteoclimatic.net)",
   Wunderground: "Source: Weather Underground",
 };
+
+function displayStationCode(stationCode) {
+  const code = String(stationCode || "").trim();
+  return code.startsWith("AEMET:") ? code.slice("AEMET:".length) : code;
+}
 
 function sourceAttribution(properties) {
   const source = properties.Source || inferStationSource(properties["Codi Estació"]);
@@ -1552,6 +1557,7 @@ function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
 
 function popupContent(properties) {
   const station = properties["Codi Estació"] || "";
+  const visibleStation = displayStationCode(station);
   const name = properties["Estació"] || t("unknownStation");
   const town = properties["Municipi"] || t("unknownTown");
   const province = properties["Provincia"] || "";
@@ -1562,7 +1568,7 @@ function popupContent(properties) {
   const rainHistory = recentRainHistory(properties);
 
   return `
-    <div class="popup-title">${station} · ${name}</div>
+    <div class="popup-title">${visibleStation} · ${name}</div>
     <div class="popup-row popup-metrics"><span><strong>${t("rain")}:</strong> ${total} mm</span><span><strong>${t("last")}:</strong> ${lastRain}</span></div>
     <div class="popup-row"><strong>${t("location")}:</strong> ${town}${province ? `, ${province}` : ""}</div>
     <div class="popup-row"><strong>${t("altitude")}:</strong> ${altitude} m</div>
