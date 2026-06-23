@@ -111,6 +111,39 @@ class TomapBuilderTests(unittest.TestCase):
             self.assertEqual(last_day['Codi Estació'].tolist(), ['AEMET:9632X'])
             self.assertEqual(last_day['Total'].tolist(), [6.4])
 
+    def test_build_tomap_includes_aemet_when_optional_columns_have_mixed_dtypes(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            data_dir = tmp_path / 'Data'
+            maps_dir = tmp_path / 'Tomap'
+            data_dir.mkdir()
+
+            today = date.today()
+            meteocat_row = make_incremental_row('METEO_TEST', today, 1.2)
+            meteocat_row['max_temp_celsius'] = ''
+            aemet_row = make_incremental_row('AEMET:9632X', today, 6.4)
+            aemet_row['max_temp_celsius'] = pd.NA
+            aemet_row['min_temp_celsius'] = pd.NA
+            aemet_row['max_humidity_percent'] = pd.NA
+            aemet_row['min_humidity_percent'] = pd.NA
+
+            pd.DataFrame([meteocat_row]).to_csv(data_dir / 'Meteocat_incremental.csv', decimal=',', index=False)
+            pd.DataFrame([aemet_row]).to_csv(data_dir / 'Aemet_incremental.csv', decimal=',', index=False)
+
+            with redirect_stdout(StringIO()):
+                exit_code = tomap_builder.build_tomap(
+                    data_dir=data_dir,
+                    maps_dir=maps_dir,
+                    last_rains_history=3,
+                    minimum_rain_tomap=0,
+                    max_threads=1,
+                    include_aemet=True,
+                )
+
+            self.assertEqual(exit_code, 0)
+            last_day = pd.read_csv(maps_dir / '01_Tomap_Last_day.csv')
+            self.assertEqual(set(last_day['Codi Estació']), {'METEO_TEST', 'AEMET:9632X'})
+
     def test_build_tomap_ignores_aemet_by_default(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)

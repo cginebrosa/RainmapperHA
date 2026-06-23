@@ -7,6 +7,7 @@ the HA app package.
 """
 
 import argparse
+import warnings
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, time, timedelta
@@ -107,13 +108,13 @@ def merge_dataframes(data_dir: Path, source01_df_param: pd.DataFrame, source02_d
     source01_df.reset_index(drop=True, inplace=True)
     source02_df.reset_index(drop=True, inplace=True)
 
-    csv_completo = pd.merge(
-        source01_df,
-        source02_df.drop_duplicates(),
-        on=source01_df.columns.to_list(),
-        how='outer',
-        indicator=False,
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            'ignore',
+            category=FutureWarning,
+            message='The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.*',
+        )
+        csv_completo = pd.concat([source01_df, source02_df], ignore_index=True).drop_duplicates()
     csv_completo.sort_values(by=['Total', 'Codi Estació'], ascending=[False, True], inplace=True)
     csv_completo.reset_index(drop=True, inplace=True)
     return csv_completo

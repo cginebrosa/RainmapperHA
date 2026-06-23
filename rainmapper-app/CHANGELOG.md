@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.104
+
+- Fix experimental AEMET MapLibre publishing when Tomap merges AEMET with existing sources that have different optional weather column types.
+
 ## 0.2.103
 
 - Pass the `create_aemet` Home Assistant option through WebUI-triggered `update` and `all` jobs.
