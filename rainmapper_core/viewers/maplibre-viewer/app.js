@@ -349,6 +349,37 @@ function setLabelText(controlId, text) {
   setText(`label[for="${controlId}"]`, text);
 }
 
+function updateHelpPanelText() {
+  [
+    ["#help-title", "mapHelp"],
+    ["#help-rain-title", "helpRainTitle"],
+    ["#help-rain-copy", "helpRainCopy"],
+    ["#help-stations-title", "helpStationsTitle"],
+    ["#help-stations-click", "helpStationsClick"],
+    ["#help-stations-hover", "helpStationsHover"],
+    ["#help-stations-history", "helpStationsHistory"],
+    ["#help-controls-title", "helpControlsTitle"],
+    ["#help-controls-settings", "helpControlsSettings"],
+    ["#help-controls-terrain", "helpControlsTerrain"],
+    ["#help-controls-layers", "helpControlsLayers"],
+    ["#help-controls-north", "helpControlsNorth"],
+    ["#help-controls-credits", "helpControlsCredits"],
+    ["#help-filters-title", "helpFiltersTitle"],
+    ["#help-filters-rain", "helpFiltersRain"],
+    ["#help-filters-source", "helpFiltersSource"],
+    ["#help-filters-history", "helpFiltersHistory"],
+    ["#help-filters-save", "helpFiltersSave"],
+    ["#help-filters-view", "helpFiltersView"],
+    ["#help-terrain-title", "helpTerrainTitle"],
+    ["#help-terrain-longpress", "helpTerrainLongPress"],
+    ["#help-terrain-dem", "helpTerrainDem"],
+    ["#help-data-title", "helpDataTitle"],
+    ["#help-data-status", "helpDataStatus"],
+    ["#help-data-invalid", "helpDataInvalid"],
+    ["#help-data-auth", "helpDataAuth"],
+  ].forEach(([selector, key]) => setText(selector, t(key)));
+}
+
 function updatePeriodSelectLabels() {
   document.querySelectorAll("#map-selector option, #settings-period-selector option").forEach((option) => {
     option.textContent = periodLabel(option.value);
@@ -397,7 +428,9 @@ function applyLanguage(language = currentLanguage) {
     ["#quick-map-toggle", "mapLayer"],
     ["#north-toggle", "faceNorth"],
     ["#info-toggle", "mapCredits"],
+    ["#help-toggle", "mapHelp"],
     ["#map-attribution", "mapCredits"],
+    ["#map-help", "mapHelp"],
     ["#quick-map-panel", "mapLayer"],
     ["#map-settings", "mapSettings"],
     ["#map-selector", "rainPeriod"],
@@ -417,6 +450,7 @@ function applyLanguage(language = currentLanguage) {
   });
 
   updatePeriodSelectLabels();
+  updateHelpPanelText();
   updateMinRainValue();
   updateLastRainHistoryValue();
   updateTerrainExaggerationValue();
@@ -2230,6 +2264,9 @@ function renderQuickMapPanel() {
   renderQuickMapPanelOptions();
 
   const setQuickMapOpen = (isOpen) => {
+    if (isOpen) {
+      closeSecondaryPanels({ except: "quick-map" });
+    }
     panel.toggleAttribute("hidden", !isOpen);
     toggle.setAttribute("aria-expanded", String(isOpen));
   };
@@ -2259,11 +2296,35 @@ function renderQuickMapPanel() {
   setQuickMapControlsFromStyle(currentStyle.id);
 }
 
+function closeSecondaryPanels({ except = "" } = {}) {
+  const quickMapPanel = document.getElementById("quick-map-panel");
+  const quickMapToggle = document.getElementById("quick-map-toggle");
+  const attributionPanel = document.getElementById("map-attribution");
+  const infoToggle = document.getElementById("info-toggle");
+  const helpPanel = document.getElementById("map-help");
+  const helpToggle = document.getElementById("help-toggle");
+
+  if (except !== "quick-map" && quickMapPanel && quickMapToggle) {
+    quickMapPanel.hidden = true;
+    quickMapToggle.setAttribute("aria-expanded", "false");
+  }
+  if (except !== "credits" && attributionPanel && infoToggle) {
+    attributionPanel.hidden = true;
+    infoToggle.setAttribute("aria-expanded", "false");
+  }
+  if (except !== "help" && helpPanel && helpToggle) {
+    helpPanel.hidden = true;
+    helpToggle.setAttribute("aria-expanded", "false");
+  }
+}
+
 function renderSettingsPanel() {
   const toggle = document.getElementById("settings-toggle");
   const northToggle = document.getElementById("north-toggle");
   const infoToggle = document.getElementById("info-toggle");
   const attributionPanel = document.getElementById("map-attribution");
+  const helpToggle = document.getElementById("help-toggle");
+  const helpPanel = document.getElementById("map-help");
   const panel = document.getElementById("map-settings");
   const languageSelector = document.getElementById("language-selector");
   const settingsPeriodSelector = document.getElementById("settings-period-selector");
@@ -2283,6 +2344,9 @@ function renderSettingsPanel() {
         saveMapViewButton.textContent = t("setCurrentViewDefault");
       }
     }
+    if (isOpen) {
+      closeSecondaryPanels();
+    }
     panel.toggleAttribute("hidden", !isOpen);
     toggle.setAttribute("aria-expanded", String(isOpen));
     document.body.classList.toggle("settings-open", isOpen);
@@ -2300,6 +2364,7 @@ function renderSettingsPanel() {
     if (!panel.hasAttribute("hidden")) {
       setSettingsOpen(false);
     }
+    closeSecondaryPanels();
   });
 
   northToggle.addEventListener("click", () => {
@@ -2308,8 +2373,22 @@ function renderSettingsPanel() {
 
   infoToggle.addEventListener("click", () => {
     const isOpen = attributionPanel.hasAttribute("hidden");
+    if (isOpen) {
+      closeSecondaryPanels({ except: "credits" });
+      setSettingsOpen(false);
+    }
     attributionPanel.toggleAttribute("hidden", !isOpen);
     infoToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  helpToggle.addEventListener("click", () => {
+    const isOpen = helpPanel.hasAttribute("hidden");
+    if (isOpen) {
+      closeSecondaryPanels({ except: "help" });
+      setSettingsOpen(false);
+    }
+    helpPanel.toggleAttribute("hidden", !isOpen);
+    helpToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
   languageSelector.addEventListener("change", (event) => {

@@ -1,6 +1,6 @@
 # Rainmapper Home Assistant App
 
-Rainmapper descarga datos de lluvia de estaciones meteorologicas y genera los CSV que despues se usan para crear mapas HTML.
+Rainmapper descarga datos meteorologicos de estaciones Meteoclimatic, Meteocat, Wunderground y AEMET opcional. Conserva historicos CSV, reconstruye CSV `Tomap`, genera mapas HTML clasicos y publica GeoJSON para los visores Leaflet/MapLibre.
 
 La app se queda abierta como un servicio ligero. Sirve una webUI para Home Assistant, permite lanzar ejecuciones manuales, muestra los mapas generados y puede ejecutar un schedule interno.
 
@@ -39,7 +39,7 @@ Dentro se usan estas rutas:
 
 Contenido esperado:
 
-- `Data`: CSV historicos e incrementales de Meteocat, Meteoclimatic y Wunderground.
+- `Data`: CSV historicos e incrementales de Meteocat, Meteoclimatic, Wunderground y AEMET cuando esta habilitado.
 - `Tomap`: CSV preparados para pintar mapas.
 - `Plots`: HTML generados por `python -m rainmapper_core.bokeh_maps`.
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
@@ -94,13 +94,15 @@ Ruta recomendada:
 /protected/maplibre/index.html
 ```
 
-El visor MapLibre carga sus datos desde `/protected/maplibre/data/*`, por lo que la ruta protegida requiere login. Durante la validacion inicial de Cloudflared, la ruta antigua `/local/rainmapper-maplibre/index.html` se mantiene temporalmente como fallback funcional con GeoJSON publicos. Cuando la ruta protegida quede validada, hay que retirar ese fallback publico.
+El visor MapLibre carga sus datos desde `/protected/maplibre/data/*`, por lo que la ruta protegida requiere login. La ruta antigua `/local/rainmapper-maplibre/index.html` se mantiene temporalmente como fallback funcional local, con datos publicados tambien en `/local/rainmapper-maplibre/data/*`; los fallbacks externos actuales deben quedar protegidos por Cloudflare Access. No retires este fallback local sin validacion explicita.
 
 Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, y mapas vectoriales como OpenFreeMap.
 
 Es el visor recomendado para movil y para uso normal porque combina mejor rendimiento movil, capas raster utiles y renderizado vectorial nitido para etiquetas/orientacion.
 
-En Settings, el filtro `Source` muestra tambien el ultimo estado conocido de Meteocat, Meteoclimatic y Wunderground cuando existe `source_status.json`. Esto permite ver si una fuente esta `OK`, `STALE` o `NOK` mientras se consulta el mapa.
+En Settings, el filtro `Source` permite filtrar Meteocat, Meteoclimatic, Wunderground y AEMET, y muestra tambien el ultimo estado conocido de cada fuente cuando existe `source_status.json`. Esto permite ver si una fuente esta `OK`, `STALE` o `NOK` mientras se consulta el mapa.
+
+La barra derecha incluye un boton `?` al final. Abre la ayuda del mapa, con resumen de periodos, estaciones, filtros, controles, relieve, altitud, estado de fuentes y notas de autenticacion. La ayuda usa el idioma seleccionado en Settings.
 
 ### Leaflet viewer
 
@@ -110,7 +112,7 @@ Ruta publica fallback:
 /local/rainmapper-leaflet/index.html
 ```
 
-El visor Leaflet usa los GeoJSON publicados en `/config/www/rainmapper-data`. Se mantiene publicado como fallback porque es simple, estable y ya esta probado en movil.
+El visor Leaflet usa los GeoJSON publicados dentro de `/config/www/rainmapper-leaflet/data`. Se mantiene publicado como fallback porque es simple, estable y ya esta probado en movil.
 
 ### Bokeh / HTML clasico
 
@@ -138,6 +140,7 @@ Este visor usa los HTML generados por `python -m rainmapper_core.bokeh_maps`. Es
 
 Cuando ejecutas `maps` o `all`:
 
+- se reconstruyen los CSV `Tomap` desde los historicos incrementales de `/share/rainmapper/Data`;
 - se regeneran los HTML clasicos en `/share/rainmapper/Plots`;
 - si `publish_to_www` esta activo, se publican en `/config/www/Plots`;
 - se regeneran los GeoJSON desde `Tomap`;
@@ -242,19 +245,19 @@ Muestra la ayuda de `python -m rainmapper_core.rainmapper`. Es util para una pri
 update
 ```
 
-Descarga datos y genera los CSV de `Tomap`. Es el modo recomendado para la ejecucion diaria en Home Assistant.
+Descarga datos y actualiza historicos incrementales. No publica visores por si solo.
 
 ```text
 maps
 ```
 
-Lee los CSV de `Tomap` y genera los HTML en `Plots`. No descarga datos nuevos.
+Reconstruye `Tomap` desde los historicos incrementales, genera los HTML clasicos en `Plots`, genera GeoJSON y publica visores si `publish_to_www` esta activo. No descarga datos nuevos.
 
 ```text
 all
 ```
 
-Ejecuta primero `update` y despues `maps`. Es comodo para una prueba completa, pero normalmente no hace falta usarlo cada dia si solo quieres actualizar datos.
+Ejecuta primero `update` y despues `maps`. Es el modo habitual para schedule cuando quieres descargar datos nuevos y publicar visores actualizados en la misma ejecucion. Si `update` termina con exito degradado (`exit code 2`), `all` continua con `maps` y conserva `2` como resultado final.
 
 ```text
 serve
@@ -280,6 +283,7 @@ days_end: 0
 create_meteoclimatic: true
 create_meteocat: true
 create_wunderground: true
+create_aemet: false
 meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 nomaps: false
 nototals: false
@@ -292,6 +296,7 @@ max_attempts: 3
 wunderground_full_log: false
 publish_to_www: true
 gmap_api_key: ""
+aemet_api_key: ""
 ```
 
 Notas rapidas:
@@ -300,9 +305,32 @@ Notas rapidas:
 - `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
 - `meteocat_request_timeout: 30` y `meteocat_max_attempts: 3` hacen que las consultas Meteocat/Socrata reintenten ante timeouts transitorios antes de fallar el run.
 - `max_threads: 3` es el valor operativo recomendado tras validacion real en Home Assistant/Raspberry Pi sin carga relevante observada. Si aparecen timeouts, errores de Wunderground o carga excesiva, bajar temporalmente a `1`.
-- `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica durante `update` o `all`, cuando Rainmapper reconstruye `Tomap`; `maps` solo regenera HTML/GeoJSON desde los `Tomap` ya existentes.
+- `create_aemet: false` deja AEMET desactivado por defecto. Para usar AEMET, activa esta opcion y configura `aemet_api_key`.
+- `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
 - `gmap_api_key` se usa para los mapas Bokeh/Google Maps y para completar metadata de estaciones con servicios de Google.
+- `aemet_api_key` se usa solo si `create_aemet` esta activado.
 - `wunderground_full_log: true` aumenta mucho el detalle del log de Wunderground y normalmente solo conviene para diagnostico.
+
+## Home Assistant options
+
+Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
+
+- `mode`: `help`, `update`, `maps`, `all` o `serve`.
+- `timezone`: zona horaria usada por schedule y marcas de tiempo, por defecto `Europe/Madrid`.
+- `schedule_enabled`: activa o desactiva el schedule interno.
+- `schedule_time`: una o varias horas `HH:MM`.
+- `schedule_days`: `all` o lista de dias.
+- `scheduled_action`: `update`, `maps` o `all`.
+- `days_init` / `days_end`: rango relativo de dias usado por las descargas.
+- `create_meteoclimatic`, `create_meteocat`, `create_wunderground`, `create_aemet`: activan o desactivan fuentes.
+- `meteoclimatic_pattern`: patron o patrones del RSS Meteoclimatic.
+- `nomaps`, `nototals`, `days_bucket`: opciones legacy del core de Rainmapper conservadas por compatibilidad.
+- `meteocat_request_timeout`, `meteocat_max_attempts`: timeout y reintentos para Meteocat/Socrata.
+- `last_rains_history`: numero de registros recientes preparados para popups.
+- `max_threads`, `max_attempts`, `wunderground_full_log`: concurrencia, reintentos y logging de Wunderground.
+- `publish_to_www`: publica mapas/visores en `/config/www`.
+- `gmap_api_key`: clave Google Maps.
+- `aemet_api_key`: clave AEMET OpenData.
 
 ## Google Maps API key
 
@@ -365,7 +393,7 @@ Esto descarga desde 7 dias atras hasta hoy. Normalmente no hace falta cambiarlo 
 last_rains_history: 30
 ```
 
-Este valor afecta a la generacion de los CSV `Tomap` y a las columnas `Data_Pluja_XX`, `Pluja_Diaria_XX`, `Temp_Max_XX` y `Temp_Min_XX` que despues llegan al GeoJSON. Se aplica cuando Rainmapper ejecuta `update` o `all`, porque en esos modos reconstruye `Tomap`. Ejecutar solo `maps` no aplica un cambio de `last_rains_history`, porque `maps` no recalcula `Tomap`; solo regenera HTML y GeoJSON desde los `Tomap` ya existentes.
+Este valor afecta a la generacion de los CSV `Tomap` y a las columnas `Data_Pluja_XX`, `Pluja_Diaria_XX`, `Temp_Max_XX` y `Temp_Min_XX` que despues llegan al GeoJSON. Se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
 
 Los visores detectan dinamicamente cuantos registros trae cada GeoJSON. MapLibre ademas muestra un control `Last rains history` en Settings para limitar cuantos de esos registros ya generados se ven en pantalla. Ese control del visor no crea mas historico; solo filtra lo que ya esta publicado.
 
@@ -377,9 +405,23 @@ Estas opciones permiten activar o desactivar fuentes:
 create_meteoclimatic: true
 create_meteocat: true
 create_wunderground: true
+create_aemet: false
 ```
 
 Si desactivas una fuente, no se descargan datos nuevos de esa fuente en `update` o `all`.
+
+### AEMET OpenData
+
+AEMET es una fuente opcional, desactivada por defecto:
+
+```yaml
+create_aemet: false
+aemet_api_key: ""
+```
+
+Para activarla necesitas una clave de AEMET OpenData. Rainmapper usa el endpoint horario global de observacion convencional, guarda historico horario AEMET, agrega lluvia diaria y, cuando AEMET entrega esos campos, conserva tambien temperatura y humedad para max/min diarios. En Home Assistant, `create_aemet` controla la descarga/refresco de datos AEMET. Los mapas se generan con `--include-aemet true`, por lo que AEMET aparece en el visor protegido estandar siempre que exista un `Aemet_incremental.csv` utilizable.
+
+La ruta experimental `/local/rainmapper-maplibre-aemet/index.html` queda desactivada por flag como rollback temporal; AEMET ya no depende de un visor separado.
 
 ## Meteocat / Socrata
 
@@ -512,7 +554,7 @@ La pagina mostrara:
 
 - botones para ejecutar `update`, `maps` y `all`;
 - estado de la ultima ejecucion;
-- estado separado de Meteoclimatic, Meteocat y Wunderground;
+- estado separado de Meteoclimatic, Meteocat, Wunderground y AEMET;
 - duracion de la ultima ejecucion;
 - proxima ejecucion programada;
 - informacion de la ultima publicacion en `/local/Plots`;
@@ -568,16 +610,19 @@ docker-data/stations.txt -> /share/rainmapper/stations.txt
 En este repositorio hay dos zonas de trabajo:
 
 ```text
-Raiz del repo           -> Docker local del Mac
-rainmapper-app/app      -> codigo empaquetado para Home Assistant
+Raiz del repo           -> Docker local del Mac y contexto de build HA
+rainmapper_core/        -> core compartido, generadores y visores
+rainmapper-app/app      -> codigo especifico de Home Assistant
 ```
+
+La imagen de Home Assistant se construye desde la raiz del repositorio y copia `rainmapper_core/` directamente. `rainmapper-app/app` debe quedar reservado a codigo especifico de HA; actualmente contiene `web_server.py`.
 
 Flujo recomendado:
 
 1. Cambia y prueba el codigo en el Docker local del Mac.
-2. Cuando funcione, copia esos cambios a `rainmapper-app/app`.
-3. Sube los cambios a GitHub.
-4. Actualiza o reinstala la app en Home Assistant.
+2. Ejecuta las validaciones necesarias, como `./scripts/smoke-test.sh`.
+3. Publica la imagen HA desde la raiz con `./scripts/build-push-ha-image.sh` solo cuando haya una version nueva.
+4. Sube los cambios a GitHub y actualiza o reinstala la app en Home Assistant.
 
 ## Problemas habituales
 

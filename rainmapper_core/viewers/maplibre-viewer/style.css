@@ -224,7 +224,8 @@ body.auth-open .map-floating-controls,
 body.auth-open .period-timeline,
 body.auth-open .maplibre-rain-legend,
 body.auth-open .map-settings,
-body.auth-open .map-attribution {
+body.auth-open .map-attribution,
+body.auth-open .map-help {
   display: none;
 }
 
@@ -664,6 +665,13 @@ main {
   color: #076caa;
 }
 
+.map-help-toggle[aria-expanded="true"],
+.map-info-toggle[aria-expanded="true"] {
+  background: #dff4ff;
+  border-color: rgba(28, 159, 234, 0.45);
+  color: #076caa;
+}
+
 .quick-map-toggle svg {
   display: block;
   height: 24px;
@@ -804,6 +812,65 @@ main {
 
 .map-attribution[hidden] {
   display: none;
+}
+
+.map-help {
+  background: rgba(248, 252, 255, 0.97);
+  border: 1px solid rgba(8, 21, 33, 0.12);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  color: rgba(20, 32, 43, 0.76);
+  display: grid;
+  font-size: 12px;
+  gap: 10px;
+  line-height: 1.38;
+  max-height: calc(100% - 114px);
+  max-width: 330px;
+  overflow-y: auto;
+  padding: 14px 16px;
+  position: absolute;
+  right: 62px;
+  top: 202px;
+  width: min(330px, calc(100vw - 28px));
+  z-index: 10;
+}
+
+.map-help[hidden] {
+  display: none;
+}
+
+.map-help h2,
+.map-help h3,
+.map-help p,
+.map-help ul {
+  margin: 0;
+}
+
+.map-help h2 {
+  color: var(--dark-text);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.map-help h3 {
+  color: var(--dark-text);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.map-help section {
+  display: grid;
+  gap: 5px;
+}
+
+.map-help ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 17px;
+}
+
+.map-help li {
+  padding-left: 1px;
 }
 
 
@@ -1065,6 +1132,13 @@ main {
   .map-attribution {
     right: 50px;
     top: 130px;
+  }
+
+  .map-help {
+    max-height: min(60vh, 520px);
+    right: 50px;
+    top: 166px;
+    width: min(330px, calc(100vw - 62px));
   }
 
   .source-status-pill {

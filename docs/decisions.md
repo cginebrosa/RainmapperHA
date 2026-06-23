@@ -1179,10 +1179,12 @@ El codigo deja de estar disponible publicamente y un tercero no puede anadir fac
 - `leaflet.nomentero.com/local/rainmapper-leaflet/index.html` y `data/01d.geojson` redirigen a Cloudflare Access.
 - `maplibre.nomentero.com/local/rainmapper-maplibre/index.html` y `data/01d.geojson` redirigen a Cloudflare Access.
 - `rainmap.nomentero.com/protected/maplibre/data/01d.geojson` devuelve `401 Authentication required` sin sesion.
-- El 2026-06-22, `ghcr.io/cginebrosa/rainmapperha:0.2.100` seguia resolviendo manifest multi-arch `linux/amd64` y `linux/arm64` despues de la limpieza. Estado remoto actual de GHCR: no verificable desde el repo; confirmar con GitHub/GHCR antes de afirmar contenido vigente.
+- El 2026-06-22, `ghcr.io/cginebrosa/rainmapperha:0.2.100` seguia resolviendo manifest multi-arch `linux/amd64` y `linux/arm64` despues de la limpieza.
+- El 2026-06-24, tras validar `0.2.111`, GHCR se limpio de nuevo: quedaron `0.2.111`, `latest` y cuatro entradas auxiliares sin tag del mismo push multi-arch/attestation. `ghcr.io/cginebrosa/rainmapperha:0.2.111` resolvio como index OCI con `linux/amd64` y `linux/arm64`. El repo remoto se verifico como `private`.
+- El 2026-06-24 se publico `ghcr.io/cginebrosa/rainmapperha:0.2.112` y `latest` con digest multi-arch `sha256:37f841c9004ab879227d2cc67ee6f836d1e8c4adc14ae609ba9b7cf41b3637f7`, verificado como index OCI con `linux/amd64` y `linux/arm64`. `0.2.111` debe conservarse como fallback hasta validar `0.2.112` en HA.
 
 ### GHCR
-Se borraron 179 versiones/entradas antiguas del paquete `rainmapperha` en GHCR. En ese momento quedaron `0.2.100`, `latest` y cuatro entradas auxiliares sin tag asociadas al mismo push multi-arch. Esa lista no debe leerse como estado actual tras versiones posteriores. Para futuras releases HA, la limpieza remota de GHCR pasa a ser parte del procedimiento estandar despues de validar la nueva version en HA: conservar solo la ultima version validada, `latest` y las entradas auxiliares del mismo push multi-arch. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares mientras HA pueda necesitar reinstalarla.
+Se borraron 179 versiones/entradas antiguas del paquete `rainmapperha` en GHCR. En ese momento quedaron `0.2.100`, `latest` y cuatro entradas auxiliares sin tag asociadas al mismo push multi-arch. El 2026-06-24 se repitio la limpieza tras validar `0.2.111`: quedaron `0.2.111`, `latest` y cuatro entradas auxiliares sin tag asociadas al mismo push multi-arch/attestation. Ese mismo dia se publico `0.2.112`, pendiente de validar en HA; no limpiar `0.2.111` hasta confirmar que `0.2.112` descarga y arranca correctamente. Para futuras releases HA, la limpieza remota de GHCR pasa a ser parte del procedimiento estandar despues de validar la nueva version en HA: conservar solo la ultima version validada, `latest` y las entradas auxiliares del mismo push multi-arch. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares mientras HA pueda necesitar reinstalarla.
 
 ### Ficheros afectados
 - `docs/codex-handoff.md`
@@ -1191,4 +1193,4 @@ Se borraron 179 versiones/entradas antiguas del paquete `rainmapperha` en GHCR. 
 - `docs/decisions.md`
 
 ### Estado
-Completado operacionalmente el 2026-06-22. No hubo cambios de codigo ni de version HA.
+Completado operacionalmente el 2026-06-22 y revisado de nuevo el 2026-06-24 tras `0.2.111`. `0.2.112` queda publicado en GHCR y pendiente de validacion HA.

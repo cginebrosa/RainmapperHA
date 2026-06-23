@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.112
+
+- Add a final `?` help button to the protected MapLibre toolbar with ES/EN/CA help text for map usage, filters, controls, terrain and data notes.
+- Document current Home Assistant data sources, configuration options and the standard MapLibre help update procedure.
+
 ## 0.2.111
 
 - Align Meteoclimatic and Weather Underground MapLibre attribution wording with Rainmapper-elaborated data.

@@ -3,7 +3,7 @@
 ## Descripcion
 RainmapperHA empaqueta Rainmapper como app de Home Assistant.
 
-La app descarga datos meteorologicos de estaciones Meteocat, Meteoclimatic y Wunderground, conserva historicos en CSV, genera ficheros `Tomap`, crea mapas HTML clasicos y publica visores web MapLibre/Leaflet pensados para consultar lluvia acumulada desde Home Assistant o movil.
+La app descarga datos meteorologicos de estaciones Meteocat, Meteoclimatic, Wunderground y AEMET opcional, conserva historicos en CSV, genera ficheros `Tomap`, crea mapas HTML clasicos y publica visores web MapLibre/Leaflet pensados para consultar lluvia acumulada desde Home Assistant o movil.
 
 Objetivo a largo plazo: evolucionar Rainmapper hacia una plataforma de datos y mapas meteorologicos automatizada, con visores moviles y una futura app iOS/Android con autenticacion y control de acceso.
 
@@ -44,11 +44,13 @@ Variables/opciones principales:
 
 - `GMAP_API_KEY`: Google Maps API key para ejecucion local Docker.
 - `gmap_api_key`: opcion HA equivalente para Google Maps.
+- `aemet_api_key`: clave AEMET OpenData si se activa `create_aemet`.
 - `mode`: `help`, `update`, `maps`, `all` o `serve`.
 - `schedule_enabled`: activa schedule interno en HA.
 - `schedule_time`: una o varias horas, por ejemplo `06:00, 12:00, 18:00, 23:50`.
 - `schedule_days`: `all` o dias configurados. Sintaxis exacta aceptada: ver `rainmapper-app/DOCS.md`.
 - `scheduled_action`: `update`, `maps` o `all`.
+- `create_meteoclimatic`, `create_meteocat`, `create_wunderground`, `create_aemet`: activan o desactivan fuentes.
 - `meteoclimatic_pattern`: patron o patrones RSS Meteoclimatic.
 - `last_rains_history`: registros recientes de lluvia que se guardan en `Tomap` para popups de estaciones; por defecto `30`.
 - `meteocat_request_timeout`: timeout en segundos para peticiones Meteocat/Socrata; por defecto `30`.
@@ -158,6 +160,8 @@ docker compose build rainmapper
 
 Build de Home Assistant: desde `0.2.57`, Home Assistant debe descargar la imagen preconstruida configurada en `rainmapper-app/config.yaml` (`ghcr.io/cginebrosa/rainmapperha:<version>`). Desde `0.2.60`, el flujo normal es publicar la imagen multi-arch `amd64`/`arm64` desde el Mac con `./scripts/build-push-ha-image.sh` antes de subir el commit de version. El script publica la etiqueta versionada y `latest`; Home Assistant usa la etiqueta versionada. Tras publicar, el script limpia etiquetas locales versionadas antiguas del mismo repositorio y conserva por defecto las dos ultimas mas `latest`. GitHub Actions queda como fallback manual.
 
+El paquete GHCR remoto se limpia manualmente despues de validar una version en HA. Estado verificado el 2026-06-24: `0.2.112` esta publicada como multi-arch (`sha256:37f841c9004ab879227d2cc67ee6f836d1e8c4adc14ae609ba9b7cf41b3637f7`) y `0.2.111` se conserva como fallback validado hasta confirmar `0.2.112` en HA.
+
 ## Despliegue
 Despliegue Home Assistant confirmado por flujo manual:
 
@@ -225,7 +229,7 @@ Visor recomendado:
 Visores mantenidos:
 
 - Leaflet fallback: `/local/rainmapper-leaflet/index.html`.
-- Bokeh clasico/referencia: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 30, 60 y 90 dias.
+- Bokeh clasico/referencia: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 21, 30, 60 y 90 dias.
 
 ## Documentacion de continuidad
 - [docs/codex-handoff.md](docs/codex-handoff.md)

@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.111">
+    <link rel="stylesheet" href="style.css?v=0.2.112">
   </head>
   <body>
     <header class="topbar">
@@ -87,6 +87,9 @@
         <button class="map-control-button map-info-toggle" id="info-toggle" type="button" aria-expanded="false" aria-controls="map-attribution" aria-label="Map credits" title="Map credits">
           i
         </button>
+        <button class="map-control-button map-help-toggle" id="help-toggle" type="button" aria-expanded="false" aria-controls="map-help" aria-label="Map help" title="Map help">
+          ?
+        </button>
       </div>
       <section class="map-attribution" id="map-attribution" aria-label="Map credits" hidden>
         <strong>Credits</strong>
@@ -98,6 +101,56 @@
         <a href="https://analisi.transparenciacatalunya.cat/Medi-Ambient/Dades-meteorol-giques-de-la-XEMA/nzvn-apee/about_data" target="_blank" rel="noopener noreferrer">Meteocat: Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transició Ecològica. METEOCAT. Dades meteorològiques de la XEMA. Dades elaborades per Rainmapper.</a>
         <a href="https://www.meteoclimatic.net/" target="_blank" rel="noopener noreferrer">Meteoclimatic: Fuente: Información elaborada por Rainmapper a partir de datos de Meteoclimatic (www.meteoclimatic.net)</a>
         <a href="https://www.wunderground.com/" target="_blank" rel="noopener noreferrer">Weather Underground: Source: Information elaborated by Rainmapper from Weather Underground data</a>
+      </section>
+      <section class="map-help" id="map-help" aria-label="Map help" hidden>
+        <h2 id="help-title">Map help</h2>
+        <section>
+          <h3 id="help-rain-title">Rain periods</h3>
+          <p id="help-rain-copy">Use the bottom buttons to switch the accumulated rain period. The current period changes immediately and does not overwrite your saved preference.</p>
+        </section>
+        <section>
+          <h3 id="help-stations-title">Stations</h3>
+          <ul>
+            <li id="help-stations-click">Tap or click a station to open its details.</li>
+            <li id="help-stations-hover">On desktop, hover over stations from zoom 7 to preview their details.</li>
+            <li id="help-stations-history">Station popups include total rain, last reading and recent rain history when available.</li>
+          </ul>
+        </section>
+        <section>
+          <h3 id="help-controls-title">Right controls</h3>
+          <ul>
+            <li id="help-controls-settings">The settings button opens filters, language, preferred period, saved view and terrain options.</li>
+            <li id="help-controls-terrain">The 2D/3D button toggles terrain without saving the preference.</li>
+            <li id="help-controls-layers">The layer button switches quickly between Satellite+, Hybrid, Topographic and Liberty.</li>
+            <li id="help-controls-north">The compass button returns the map to north.</li>
+            <li id="help-controls-credits">The info button shows map, elevation and data credits.</li>
+          </ul>
+        </section>
+        <section>
+          <h3 id="help-filters-title">Filters and saved settings</h3>
+          <ul>
+            <li id="help-filters-rain">Min rain hides stations below the selected accumulated rain.</li>
+            <li id="help-filters-source">Source filters show or hide Meteocat, Meteoclimatic, Wunderground, AEMET and unknown stations.</li>
+            <li id="help-filters-history">Last rains history controls how many recent records are shown in popups.</li>
+            <li id="help-filters-save">Settings are saved for this device only when you close Settings after changing a setting.</li>
+            <li id="help-filters-view">Use Set current view as default in Settings to choose the initial map position for this device.</li>
+          </ul>
+        </section>
+        <section>
+          <h3 id="help-terrain-title">Terrain and altitude</h3>
+          <ul>
+            <li id="help-terrain-longpress">Long-press the map to query terrain altitude and the nearest rainy station for the current period.</li>
+            <li id="help-terrain-dem">Terrain and altitude use an external DEM service, so they can be unavailable if that service fails.</li>
+          </ul>
+        </section>
+        <section>
+          <h3 id="help-data-title">Data notes</h3>
+          <ul>
+            <li id="help-data-status">Source badges show whether each data source is OK, stale, disabled, pending or unavailable.</li>
+            <li id="help-data-invalid">Invalid counts in the header mean some loaded stations were ignored because their coordinates are not usable.</li>
+            <li id="help-data-auth">This protected viewer uses your Rainmapper login and device registration.</li>
+          </ul>
+        </section>
       </section>
       <section class="quick-map-panel" id="quick-map-panel" aria-label="Map layer" hidden></section>
       <section class="map-settings" id="map-settings" aria-label="Map settings" hidden>
@@ -189,7 +242,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.111"></script>
-  <script src="app.js?v=0.2.111"></script>
+  <script src="config.js?v=0.2.112"></script>
+  <script src="app.js?v=0.2.112"></script>
   </body>
 </html>
