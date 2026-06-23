@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.108
+
+- Add an explicit MapLibre Settings action to save the current map view as the device default without autosaving map movement.
+- Fix AEMET daily incremental aggregation when persisted hourly history and new hourly rows use different `local_date` types.
+- Add per-source station counts to `source_status.json`, show them in MapLibre Settings, and keep both row and station counts in the Home Assistant WebUI.
+
 ## 0.2.107
 
 - Hide the internal `AEMET:` station-code prefix in MapLibre station popups.

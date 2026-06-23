@@ -328,6 +328,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "station_sources": ["Meteocat", "AEMET", "Unknown", "Invalid", "Meteocat"],
                 "terrain_enabled": True,
                 "terrain_exaggeration": 9,
+                "map_view": {
+                    "lng": 2.1234567,
+                    "lat": 41.9876543,
+                    "zoom": 8.12345,
+                    "bearing": -12.345,
+                    "pitch": 91,
+                },
                 "ignored": "value",
             },
         )
@@ -344,6 +351,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "station_sources": ["Meteocat", "AEMET", "Unknown"],
                 "terrain_enabled": True,
                 "terrain_exaggeration": 3.0,
+                "map_view": {
+                    "lng": 2.123457,
+                    "lat": 41.987654,
+                    "zoom": 8.123,
+                    "bearing": -12.35,
+                    "pitch": 85.0,
+                },
             },
         )
         self.assertEqual(self.web_server.settings_for_device("device-a"), settings)

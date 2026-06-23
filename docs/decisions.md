@@ -1,5 +1,25 @@
 # Decisions
 
+## 2026-06-23 - Guardar la vista inicial MapLibre solo por accion explicita
+
+Decision:
+
+- Anadir en Settings de MapLibre protegido una accion explicita `Set current view as default` / `Usar vista actual por defecto`.
+- Guardar en `devices.json` la vista elegida (`lng`, `lat`, `zoom`, `bearing`, `pitch`) como `map_view`, saneada por el backend.
+- Al abrir o refrescar el visor protegido, si el dispositivo tiene `map_view`, restaurar esa vista en lugar de hacer `fitBounds()` a todos los datos.
+- No guardar automaticamente cada movimiento, zoom o pan del mapa.
+
+Motivo:
+
+- Con AEMET, el dataset cubre mucho mas territorio y el encuadre automatico inicial muestra "demasiado mapa".
+- Guardar cada movimiento escribiria con frecuencia en `/share/rainmapper/devices.json` en la Raspberry Pi 4. La preferencia debe ser deliberada y de baja frecuencia, igual que los ajustes persistidos al cerrar Settings.
+
+Consecuencias:
+
+- La vista por defecto se actualiza solo cuando el usuario pulsa el boton en Settings y cierra el panel, no al navegar normalmente por el mapa.
+- Si no hay vista guardada, se mantiene el comportamiento anterior de encuadrar los datos cargados.
+- La ruta experimental/fallback sin autenticacion no usa settings de dispositivo y por tanto conserva el encuadre automatico.
+
 ## 2026-06-23 - Atribuciones visibles por fuente en MapLibre
 
 Decision:

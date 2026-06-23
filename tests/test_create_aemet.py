@@ -100,6 +100,26 @@ class CreateAemetTests(unittest.TestCase):
         self.assertEqual(row["Hora Local"], "20:00:00")
         self.assertTrue(pd.isna(row["max_temp_celsius"]))
 
+    def test_build_daily_incremental_handles_csv_and_current_local_date_types(self):
+        existing = create_aemet.normalize_observations([
+            observation("9632X", "2026-06-22T07:00:00+0000", 1.0),
+            observation("9632X", "2026-06-22T08:00:00+0000", 2.0),
+        ])
+        existing["local_date"] = existing["local_date"].astype(int)
+        current = create_aemet.normalize_observations([
+            observation("9632X", "2026-06-22T18:00:00+0000", 4.0),
+        ])
+
+        hourly = create_aemet.update_hourly_incremental(current, existing)
+        result = create_aemet.build_daily_incremental(hourly)
+
+        self.assertEqual(len(result), 1)
+        row = result.iloc[0]
+        self.assertEqual(row["Codi Estació"], "AEMET:9632X")
+        self.assertEqual(row["Data Local"], "20260622")
+        self.assertEqual(row["Total"], 7.0)
+        self.assertEqual(row["Hora Local"], "20:00:00")
+
     def test_build_daily_incremental_aggregates_temperature_and_humidity(self):
         hourly = create_aemet.normalize_observations([
             observation("9632X", "2026-06-22T07:00:00+0000", 1.0, temp=18.2, humidity=82),

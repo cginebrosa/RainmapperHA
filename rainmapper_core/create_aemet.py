@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from rainmapper_core.config import const as rainmapper_const
-from rainmapper_core.geocoding import GeocodingError, extract_google_metadata, googlemaps_station_metadata
+from rainmapper_core.geocoding import extract_google_metadata, googlemaps_station_metadata
 
 
 AEMET_OBSERVATIONS_URL = "https://opendata.aemet.es/opendata/api/observacion/convencional/todas"
@@ -112,7 +112,12 @@ def fetch_json(url, api_key=None, timeout=30):
 
 
 def fetch_observations(api_key, timeout=30):
-    """Fetch the global AEMET observations payload using a single API call."""
+    """Fetch the global AEMET observations payload using one indexed API call.
+
+    AEMET first returns a short-lived `datos` URL. The runtime path must keep
+    this as a single global request sequence; calling per station would be slow
+    and much more likely to hit OpenData rate limits.
+    """
     if not api_key:
         raise ValueError("AEMET API key is required")
     index = fetch_json(AEMET_OBSERVATIONS_URL, api_key=api_key, timeout=timeout)
@@ -122,7 +127,13 @@ def fetch_observations(api_key, timeout=30):
 
 
 def normalize_observations(rows, local_timezone=LOCAL_TIMEZONE):
-    """Convert AEMET observation rows into normalized hourly Rainmapper rows."""
+    """Convert AEMET observation rows into normalized hourly Rainmapper rows.
+
+    AEMET's `fint` value is the UTC end time of the hourly observation. The
+    hourly history stores both UTC and local timestamps so later aggregations can
+    be explicit about day boundaries instead of treating the API payload as a
+    complete local day.
+    """
     tz = ZoneInfo(local_timezone)
     normalized = []
     for row in rows:
@@ -134,6 +145,8 @@ def normalize_observations(rows, local_timezone=LOCAL_TIMEZONE):
             continue
 
         timestamp_local = timestamp_utc.astimezone(tz)
+        # Prefix the official AEMET id to avoid collisions with existing source
+        # station codes. Viewers may hide the prefix, but CSV identity keeps it.
         normalized.append(
             {
                 "aemet_id": station_id,
@@ -213,19 +226,47 @@ def coordinates_match(left_lat, left_lon, right_lat, right_lon):
         return False
 
 
+def normalize_hourly_key_columns(df):
+    """Normalize text key columns after reading hourly history from CSV.
+
+    Pandas reads date-like columns such as `local_date` as integers when they
+    come from disk, while freshly downloaded rows keep them as strings. Without
+    this normalization a same visible value like 20260623 can become two groupby
+    keys (`int` and `str`) and produce duplicate daily rows.
+    """
+    normalized = df.copy()
+    for column in ("aemet_id", "station_code", "fint_utc", "reading_utc", "reading_local", "local_date", "local_time"):
+        if column not in normalized.columns:
+            normalized[column] = ""
+        normalized[column] = normalized[column].astype("string").fillna("").str.strip()
+    return normalized
+
+
 def update_hourly_incremental(current_hourly, existing_hourly):
-    """Append new AEMET hourly observations and deduplicate by station and UTC time."""
+    """Append new AEMET hourly observations and deduplicate by station and UTC time.
+
+    The current endpoint only covers recent hours. Keeping a separate hourly
+    history lets repeated runs gradually build full-day totals without assuming
+    that a late-evening response still includes the morning.
+    """
     frames = [df for df in (existing_hourly, current_hourly) if not df.empty]
     if not frames:
         return pd.DataFrame(columns=HOURLY_COLUMNS)
     combined = pd.concat(frames, ignore_index=True)
+    combined = normalize_hourly_key_columns(combined)
     combined = combined.drop_duplicates(subset=["aemet_id", "fint_utc"], keep="last")
     combined = combined.sort_values(["station_code", "reading_utc"], ascending=[True, False])
     return combined.reset_index(drop=True)
 
 
 def build_station_catalog(hourly_df, existing_stations=None):
-    """Build or refresh estacions_aemet.csv while preserving manual metadata."""
+    """Build or refresh estacions_aemet.csv while preserving manual metadata.
+
+    AEMET observations include coordinates and station names, but not the
+    Rainmapper location fields used in popups and filters. Existing municipality,
+    province and comarca values are preserved while coordinates stay unchanged,
+    so manual or reverse-geocoded enrichment is not lost on every run.
+    """
     if hourly_df.empty:
         return pd.DataFrame(columns=STATION_COLUMNS)
 
@@ -269,6 +310,8 @@ def build_station_catalog(hourly_df, existing_stations=None):
     merged_rows = []
     for row in current.to_dict(orient="records"):
         previous = existing_by_code.get(str(row["Codi Estació"]), {})
+        # If AEMET moves a station, old municipality/province may no longer be
+        # valid. Preserve enriched metadata only while coordinates still match.
         preserve_location_metadata = coordinates_match(
             row.get("Latitud"),
             row.get("Longitud"),
@@ -327,7 +370,12 @@ def reverse_geocode_station(lat, lon, gmap_api_key, language="ES"):
 
 
 def enrich_station_catalog(stations_df, gmap_api_key, reverse_geocoder=reverse_geocode_station):
-    """Fill missing AEMET station metadata using Google Maps reverse geocoding."""
+    """Fill missing AEMET station metadata using Google Maps reverse geocoding.
+
+    This follows the same operational rule as the other sources: only call
+    Google Maps when location metadata is missing. The function is injectable in
+    tests so fixtures can validate behavior without external network calls.
+    """
     if stations_df.empty:
         return stations_df.copy(), 0
 
@@ -358,11 +406,17 @@ def enrich_station_catalog(stations_df, gmap_api_key, reverse_geocoder=reverse_g
 
 
 def build_daily_incremental(hourly_df, stations_df=None):
-    """Aggregate hourly AEMET history into daily rows compatible with Tomap."""
+    """Aggregate hourly AEMET history into daily rows compatible with Tomap.
+
+    Tomap expects one row per station and local date. This function is the
+    boundary where the UTC hourly history becomes the existing daily incremental
+    schema, including optional max/min weather fields when AEMET provided them.
+    """
     if hourly_df.empty:
         return pd.DataFrame(columns=DAILY_COLUMNS)
 
     df = hourly_df.copy()
+    df = normalize_hourly_key_columns(df)
     df["rain_mm"] = pd.to_numeric(df["rain_mm"], errors="coerce").fillna(0.0)
     for column in ("temp_celsius", "humidity_percent"):
         if column not in df.columns:
@@ -411,7 +465,7 @@ def build_daily_incremental(hourly_df, stations_df=None):
 
 
 def write_outputs(data_dir, current_hourly, hourly_incremental, station_catalog, daily_incremental):
-    """Write AEMET current, hourly incremental and daily incremental CSV files."""
+    """Write every AEMET CSV artifact expected by local tests, HA and Tomap."""
     data_dir.mkdir(parents=True, exist_ok=True)
     current_daily = build_daily_incremental(current_hourly, station_catalog)
     current_hourly.to_csv(data_dir / "Aemet.csv", index=False)
@@ -430,7 +484,13 @@ def run_update(
     gmap_api_key=None,
     reverse_geocoder=reverse_geocode_station,
 ):
-    """Fetch AEMET observations and update all AEMET CSV outputs."""
+    """Fetch AEMET observations and update all AEMET CSV outputs.
+
+    This is the public entry point used by the standalone CLI and by the main
+    Rainmapper runner. It deliberately keeps the operation order explicit:
+    download current rows, merge the hourly history, refresh/enrich the station
+    catalog, rebuild daily rows, then write all files.
+    """
     data_dir = Path(data_dir)
     observations = fetch_observations(api_key=api_key, timeout=timeout)
     current_hourly = normalize_observations(observations, local_timezone=local_timezone)

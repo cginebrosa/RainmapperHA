@@ -380,12 +380,19 @@ def write_source_statuses():
     except OSError as exc:
         print(f'WARNING: Could not write source status file {SOURCE_STATUS_PATH}: {exc}')
 
+def count_incremental_stations(source_incremental):
+    """Return unique station count for an incremental dataframe."""
+    if source_incremental is None or source_incremental.empty or 'Codi Estació' not in source_incremental.columns:
+        return 0
+    return int(source_incremental['Codi Estació'].dropna().astype(str).str.strip().replace('', pd.NA).dropna().nunique())
+
 def record_source_status(
     source,
     status,
     exit_code,
     message,
     rows=0,
+    stations=0,
     stale_data_used=False,
     enabled=True,
     duration_seconds=None,
@@ -398,6 +405,7 @@ def record_source_status(
         'exit_code': exit_code,
         'message': str(message),
         'rows': int(rows) if rows is not None else 0,
+        'stations': int(stations) if stations is not None else 0,
         'stale_data_used': bool(stale_data_used),
         'enabled': bool(enabled),
         'updated_at': datetime.now().isoformat(timespec='seconds'),
@@ -446,6 +454,7 @@ def collect_source_result(source, future, incremental_name, enabled):
             0,
             message,
             rows=len(source_incremental),
+            stations=count_incremental_stations(source_incremental),
             stale_data_used=not enabled,
             enabled=enabled,
             **source_runtime_metric(source),
@@ -472,6 +481,7 @@ def collect_source_result(source, future, incremental_name, enabled):
                 2,
                 message,
                 rows=len(source_incremental),
+                stations=count_incremental_stations(source_incremental),
                 stale_data_used=True,
                 enabled=enabled,
                 **source_runtime_metric(source),
@@ -486,6 +496,7 @@ def collect_source_result(source, future, incremental_name, enabled):
             1,
             message,
             rows=0,
+            stations=0,
             stale_data_used=False,
             enabled=enabled,
             **source_runtime_metric(source),
@@ -2162,9 +2173,13 @@ def process_wunderground():                                         # FOR MULTIT
         )
 
 def process_aemet():                                                # FOR MULTITHREAD PURPOSES
-    ########################
-    ## Process AEMET data ##
-    ########################
+    """Run the optional AEMET source and return its daily incremental data.
+
+    AEMET owns its own updater because it stores hourly observations first and
+    derives the daily incremental CSV from that history. The main runner only
+    decides whether the source is enabled, records status metrics and returns an
+    empty dataframe shape when AEMET is disabled.
+    """
     from rainmapper_core import create_aemet as aemet_source
 
     source_started_at = datetime.now().isoformat(timespec='seconds')
@@ -2173,6 +2188,9 @@ def process_aemet():                                                # FOR MULTIT
         if _create_aemet:
             start_count(_legend='Start processing AEMET...')
             aemet_api_key = os.environ.get('RAINMAPPER_AEMET_API_KEY') or os.environ.get('AEMET_API_KEY')
+            # create_aemet.run_update writes all AEMET artifacts atomically for
+            # this run: current hourly, hourly history, station catalog and daily
+            # incremental rows consumed by Tomap.
             summary = aemet_source.run_update(
                 data_dir=_DATA_PATH,
                 api_key=aemet_api_key,

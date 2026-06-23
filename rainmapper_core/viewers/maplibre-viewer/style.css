@@ -841,6 +841,24 @@ main {
   opacity: 0.45;
 }
 
+.map-settings-action {
+  background: rgba(28, 161, 224, 0.12);
+  border: 1px solid rgba(28, 161, 224, 0.35);
+  border-radius: 8px;
+  color: var(--dark-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 9px 10px;
+  text-align: center;
+  width: 100%;
+}
+
+.map-settings-action:active {
+  transform: translateY(1px);
+}
+
 .map-settings-group {
   border: 1px solid rgba(8, 21, 33, 0.12);
   border-radius: 14px;

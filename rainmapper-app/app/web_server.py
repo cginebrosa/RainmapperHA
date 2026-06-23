@@ -1087,12 +1087,14 @@ def source_status_card(source: str, payload: dict) -> str:
     status = str(payload.get("status") or "Unknown")
     exit_code = payload.get("exit_code")
     rows = payload.get("rows")
+    stations = payload.get("stations")
     duration = payload.get("duration_seconds")
     timings = payload.get("timings")
     message = str(payload.get("message") or "No source status yet.")
     updated_at = str(payload.get("updated_at") or "-")
     exit_text = "-" if exit_code is None else str(exit_code)
     rows_text = "-" if rows is None else str(rows)
+    stations_text = "-" if stations is None else str(stations)
     duration_text = format_seconds_duration(duration)
     status_class = source_status_class(status)
     timing_text = ""
@@ -1116,6 +1118,7 @@ def source_status_card(source: str, payload: dict) -> str:
         <span class="label">{html.escape(source)}</span>
         <span class="value"><span class="{status_class}">{html.escape(status)}</span><span>exit {html.escape(exit_text)}</span></span>
         <span class="label">Rows</span><span>{html.escape(rows_text)}</span>
+        <span class="label">Stations</span><span>{html.escape(stations_text)}</span>
         <span class="label">Duration</span><span>{html.escape(duration_text)}</span>
         <span class="label">Updated</span><span>{html.escape(updated_at)}</span>
         {timing_text}
@@ -1807,6 +1810,20 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
 
     terrain_exaggeration = finite_number(raw_settings.get("terrain_exaggeration"), 1.0)
     settings["terrain_exaggeration"] = max(0.5, min(3.0, terrain_exaggeration))
+
+    map_view = raw_settings.get("map_view")
+    if isinstance(map_view, dict):
+        lng = finite_number(map_view.get("lng"), 999.0)
+        lat = finite_number(map_view.get("lat"), 999.0)
+        zoom = finite_number(map_view.get("zoom"), -1.0)
+        if -180 <= lng <= 180 and -90 <= lat <= 90 and 0 <= zoom <= 22:
+            settings["map_view"] = {
+                "lng": round(lng, 6),
+                "lat": round(lat, 6),
+                "zoom": round(zoom, 3),
+                "bearing": round(finite_number(map_view.get("bearing"), 0.0), 2),
+                "pitch": round(max(0.0, min(85.0, finite_number(map_view.get("pitch"), 0.0))), 2),
+            }
 
     return settings
 

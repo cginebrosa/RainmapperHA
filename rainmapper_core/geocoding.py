@@ -24,7 +24,13 @@ def result_has_type(result, result_type):
 
 
 def extract_google_metadata(reverse_geocode_result):
-    """Extract municipality, province and comarca-like fields from Google results."""
+    """Extract municipality, province and comarca-like fields from Google results.
+
+    Google can return several candidate results for the same point. Plus-code
+    records are useful for navigation, but they are poor station labels, so the
+    parser prefers administrative/locality results and falls back only when
+    nothing better exists.
+    """
     if not reverse_geocode_result:
         return {"municipality": "", "province": "", "comarca": ""}
 
@@ -37,6 +43,8 @@ def extract_google_metadata(reverse_geocode_result):
         if not result_has_type(result, "plus_code")
     ] or reverse_geocode_result
 
+    # First try administrative levels because they are more stable than formatted
+    # addresses for station catalogs.
     for result in preferred_results:
         components = result.get("address_components", [])
         province = province or google_component(components, "administrative_area_level_2")
@@ -46,6 +54,8 @@ def extract_google_metadata(reverse_geocode_result):
             break
 
     if not municipality:
+        # Some airport or rural stations only expose locality/postal_town in a
+        # later candidate result, so keep a second pass for user-friendly names.
         for result in preferred_results:
             components = result.get("address_components", [])
             municipality = municipality or google_component(components, "locality")
@@ -64,7 +74,12 @@ def extract_google_metadata(reverse_geocode_result):
 
 
 def normalize_coordinates(lat, lon):
-    """Return numeric latitude/longitude, fixing obviously flipped coordinates."""
+    """Return numeric latitude/longitude, fixing obviously flipped coordinates.
+
+    Older station catalogs may contain longitude/latitude in inconsistent order.
+    Rainmapper currently operates in Spain/Catalonia-like coordinates, where a
+    latitude lower than longitude is a strong signal that the pair is flipped.
+    """
     try:
         lat = float(lat)
         lon = float(lon)

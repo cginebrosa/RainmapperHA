@@ -262,6 +262,8 @@ let pendingPasswordChange = null;
 let isApplyingDeviceSettings = false;
 let hasLoadedDeviceSettings = false;
 let hasPendingDeviceSettingsChanges = false;
+let savedMapView = null;
+let lastSavedMapView = null;
 let longPressTimer = null;
 let longPressStartPoint = null;
 let didTriggerLongPress = false;
@@ -374,6 +376,7 @@ function applyLanguage(language = currentLanguage) {
   setText("#layer-switcher legend", t("map"));
   setText(".source-settings-group legend", t("source"));
   setText(".map-settings-group:last-of-type legend", t("terrain"));
+  setText("#save-map-view-default", t("setCurrentViewDefault"));
   setText("#terrain-toggle + span", t("terrain3d"));
   setText("#login-fields label:nth-child(1) span", t("username"));
   setText("#login-fields label:nth-child(2) span", t("password"));
@@ -720,8 +723,66 @@ function selectedStationSources() {
   return Array.from(enabledStationSources).filter((source) => stationSources.some((known) => known.id === source));
 }
 
-function currentDeviceSettings() {
+function normalizedMapViewFromMap() {
+  const center = map.getCenter();
   return {
+    lng: Number(center.lng.toFixed(6)),
+    lat: Number(center.lat.toFixed(6)),
+    zoom: Number(map.getZoom().toFixed(3)),
+    bearing: Number(map.getBearing().toFixed(2)),
+    pitch: Number(map.getPitch().toFixed(2)),
+  };
+}
+
+function isUsableMapView(view) {
+  return Boolean(
+    view
+    && Number.isFinite(Number(view.lng))
+    && Number.isFinite(Number(view.lat))
+    && Number.isFinite(Number(view.zoom))
+    && Math.abs(Number(view.lng)) <= 180
+    && Math.abs(Number(view.lat)) <= 90
+    && Number(view.zoom) >= 0
+    && Number(view.zoom) <= 22
+  );
+}
+
+function sanitizeClientMapView(view) {
+  if (!isUsableMapView(view)) {
+    return null;
+  }
+  return {
+    lng: Number(Number(view.lng).toFixed(6)),
+    lat: Number(Number(view.lat).toFixed(6)),
+    zoom: Math.max(0, Math.min(22, Number(Number(view.zoom).toFixed(3)))),
+    bearing: Number(Number(view.bearing || 0).toFixed(2)),
+    pitch: Math.max(0, Math.min(85, Number(Number(view.pitch || 0).toFixed(2)))),
+  };
+}
+
+function mapViewsAreClose(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    Math.abs(left.lng - right.lng) < 0.0005
+    && Math.abs(left.lat - right.lat) < 0.0005
+    && Math.abs(left.zoom - right.zoom) < 0.02
+    && Math.abs(left.bearing - right.bearing) < 0.5
+    && Math.abs(left.pitch - right.pitch) < 0.5
+  );
+}
+
+function captureCurrentMapViewAsDefault() {
+  const nextView = normalizedMapViewFromMap();
+  savedMapView = nextView;
+  if (!mapViewsAreClose(nextView, lastSavedMapView)) {
+    markDeviceSettingsChanged();
+  }
+}
+
+function currentDeviceSettings() {
+  const settings = {
     period: preferredPeriodFileName,
     min_rain_mm: minRainFilter,
     map_style: preferredMapStyleId,
@@ -731,6 +792,10 @@ function currentDeviceSettings() {
     terrain_enabled: terrainEnabled,
     terrain_exaggeration: terrainExaggeration,
   };
+  if (savedMapView) {
+    settings.map_view = savedMapView;
+  }
+  return settings;
 }
 
 function markDeviceSettingsChanged() {
@@ -750,6 +815,9 @@ async function saveDeviceSettings() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ settings: currentDeviceSettings() }),
     });
+    if (savedMapView) {
+      lastSavedMapView = savedMapView;
+    }
   } catch (error) {
     console.warn("Cannot save device settings", error);
   }
@@ -856,6 +924,12 @@ async function applyDeviceSettings(settings) {
 
     if (typeof settings.terrain_enabled === "boolean") {
       setTerrainEnabled(settings.terrain_enabled);
+    }
+
+    const loadedMapView = sanitizeClientMapView(settings.map_view);
+    if (loadedMapView) {
+      savedMapView = loadedMapView;
+      lastSavedMapView = loadedMapView;
     }
   } finally {
     isApplyingDeviceSettings = false;
@@ -1173,8 +1247,8 @@ function updateSourceStatusControls() {
     const sourceName = element.dataset.sourceStatus;
     const statusPayload = sourceStatus[sourceName] || {};
     const status = statusPayload.status || t("unknown");
-    const rows = Number(statusPayload.rows);
-    element.textContent = Number.isFinite(rows) && rows > 0 ? `${status} · ${rows}` : status;
+    const stations = Number(statusPayload.stations);
+    element.textContent = Number.isFinite(stations) && stations > 0 ? `${status} · ${stations}` : status;
     element.className = `source-status-pill ${sourceStatusClass(status)}`;
     element.title = statusPayload.message || t("sourceStatusUnavailable");
   });
@@ -2011,6 +2085,16 @@ function updateGeneratedAt(generatedAt) {
 }
 
 function fitToData() {
+  if (savedMapView) {
+    map.jumpTo({
+      center: [savedMapView.lng, savedMapView.lat],
+      zoom: savedMapView.zoom,
+      bearing: savedMapView.bearing || 0,
+      pitch: savedMapView.pitch || 0,
+    });
+    return;
+  }
+
   const features = currentData?.features || [];
   if (features.length === 0) {
     map.fitBounds(FALLBACK_BOUNDS, { padding: 24 });
@@ -2188,12 +2272,16 @@ function renderSettingsPanel() {
   const terrainToggle = document.getElementById("terrain-toggle");
   const terrainSlider = document.getElementById("terrain-exaggeration");
   const terrainModeToggle = document.getElementById("terrain-mode-toggle");
+  const saveMapViewButton = document.getElementById("save-map-view-default");
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
 
   const setSettingsOpen = (isOpen) => {
     const wasOpen = !panel.hasAttribute("hidden");
     if (!wasOpen && isOpen) {
       hasPendingDeviceSettingsChanges = false;
+      if (saveMapViewButton) {
+        saveMapViewButton.textContent = t("setCurrentViewDefault");
+      }
     }
     panel.toggleAttribute("hidden", !isOpen);
     toggle.setAttribute("aria-expanded", String(isOpen));
@@ -2265,6 +2353,11 @@ function renderSettingsPanel() {
       enabledStationSources = new Set(selectedSources.map((sourceInput) => sourceInput.value));
       refreshFilteredData();
     });
+  });
+
+  saveMapViewButton?.addEventListener("click", () => {
+    captureCurrentMapViewAsDefault();
+    saveMapViewButton.textContent = t("currentViewDefaultSaved");
   });
 
   updateTerrainExaggerationValue();
