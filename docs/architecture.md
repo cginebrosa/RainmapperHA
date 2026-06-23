@@ -26,7 +26,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 
 ## Estructura de carpetas
 - `rainmapper-app/`: paquete de Home Assistant.
-- `rainmapper-app/app/`: codigo que entra en la imagen HA.
+- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`). El core y visores se copian desde las rutas canonicas de raiz durante el build.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
@@ -35,6 +35,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `rainmapper_core/sources/meteoclimatic_local/`: cliente local Meteoclimatic.
 - `rainmapper_core/sources/sodapy_local/`: copia local/adaptada de Socrata client.
 - `rainmapper_core/sources/wunderground/`: parser/scraper Wunderground.
+- `rainmapper_core/create_aemet.py`: cliente/normalizador AEMET OpenData.
 - `rainmapper_core/config/`: configuracion Python compartida (`const`, `config`, `config_wunderground`) usada por Docker local y HA.
 - `Data/`: CSV historicos locales, ignorados por Git.
 - `Tomap/`: CSV intermedios para mapas, ignorados por Git.
@@ -75,7 +76,7 @@ Hay varios entry points segun entorno:
 
 ### Core de descarga y datos
 - Ruta: `rainmapper_core/rainmapper.py`; entrypoint `python -m rainmapper_core.rainmapper`.
-- Responsabilidad: descarga Meteocat, Meteoclimatic y Wunderground; actualiza historicos; escribe estado por fuente; metricas Wunderground.
+- Responsabilidad: descarga Meteocat, Meteoclimatic, Wunderground y AEMET opcional; actualiza historicos; escribe estado por fuente; metricas Wunderground.
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps y helpers de fuente en `rainmapper_core/sources/`.
 - Relacion: alimenta `rainmapper_core.bokeh_maps` y `rainmapper_core.geojson`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global.
 
@@ -171,13 +172,13 @@ Persistencia por CSV:
 - CSV preparados para mapas en `Tomap/01_Tomap_Last_day.csv`, `02_Tomap_Last_week.csv`, etc.
 - Ultimos registros en `Tomap/LastXX_rains.csv`; por defecto `Last30_rains.csv`, configurable con `RAINMAPPER_LAST_RAINS_HISTORY` o la opcion HA `last_rains_history`.
 - Metricas Wunderground en `Data/metricas_wunderground.csv`.
-- Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat y Wunderground. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo. El payload puede incluir `duration_seconds`, `started_at`, `finished_at` y `timings`; los subtiempos actuales se usan especialmente para Meteocat.
+- Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat, Wunderground y AEMET. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo. El payload puede incluir `duration_seconds`, `started_at`, `finished_at`, `rows`, `stations` y `timings`; los subtiempos actuales se usan especialmente para Meteocat.
 - GeoJSON generados en `PublicData/*.geojson`. Leaflet recibe copia publica en `/local/rainmapper-leaflet/data`; MapLibre los consume desde `/protected/maplibre/data/*` para exigir login.
 
 Campos relevantes detectados o usados:
 
 - `Codi Estació` / codigo de estacion.
-- `Source` en GeoJSON, inferido por `rainmapper_core.geojson` desde el codigo de estacion: `ES...` con longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown` con aviso en stdout.
+- `Source` en GeoJSON, inferido por `rainmapper_core.geojson` desde el codigo de estacion: `AEMET:` para AEMET, `ES...` con longitud minima 15 para Meteoclimatic, `I...` para Wunderground, codigos de longitud 2 para Meteocat, resto `Unknown` con aviso en stdout.
 - `Latitud`, `Longitud`.
 - lluvia acumulada por periodo.
 - municipio/provincia/altitud.
@@ -280,7 +281,7 @@ Home Assistant:
 - Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version. Esto evita que HA vea un update antes de que exista la imagen en GHCR.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
 - El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
-- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. El 2026-06-22 se borraron versiones remotas antiguas de GHCR y se conservaron solo `0.2.100`, `latest` y las entradas auxiliares sin tag del mismo push multi-arch; no borrar esas entradas auxiliares de la version activa porque forman parte del indice/manifest que HA puede necesitar para `amd64`/`arm64`.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. El 2026-06-22 se borraron versiones remotas antiguas de GHCR y se conservaron entonces solo `0.2.100`, `latest` y las entradas auxiliares sin tag del mismo push multi-arch. Ese dato es historico; el estado remoto actual tras versiones posteriores no se puede confirmar desde el repo y debe verificarse con GitHub/GHCR si hace falta.
 - Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando solo la ultima version validada, `latest` y las entradas auxiliares sin tag asociadas al mismo push multi-arch. Esto evita acumular basura en GitHub Packages. No hacer esta limpieza antes de confirmar que HA descarga y arranca correctamente la nueva version.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
 - Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit al repo privado de GitHub, y usando `Check for updates`/`Update` en HA.

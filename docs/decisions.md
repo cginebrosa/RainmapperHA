@@ -770,8 +770,7 @@ Incluir un DEM dentro de la imagen Docker, convertir primero datos IGN/CNIG/Cope
 No se aumenta el tamano de la imagen Docker. La opcion queda dependiente de un proveedor externo; si esa dependencia falla, rinde mal o se quiere mas control, se estudiara generar tiles DEM propios y servirlos fuera de la imagen, por ejemplo desde `/config/www` o Cloudflare R2.
 
 ### Ficheros afectados
-- `maplibre-viewer/`
-- `rainmapper-app/app/maplibre-viewer/`
+- `rainmapper_core/viewers/maplibre-viewer/`
 - `docs/codex-handoff.md`
 - `docs/architecture.md`
 - `docs/todo.md`
@@ -1151,10 +1150,8 @@ Filtrar solo en el cliente por patrones de codigo, o modificar el pipeline princ
 Los visores pueden usar `Source` directamente y el cliente futuro tendra un contrato de datos mas claro. La inferencia sigue acoplada al formato actual de codigos; si una fuente cambia su nomenclatura, habra que ajustar `tomap_to_geojson.py` y sus tests. No se modifica el historico CSV. `Unknown` se mantiene visible como filtro separado en MapLibre para no ocultar datos inesperados.
 
 ### Ficheros afectados
-- `tomap_to_geojson.py`
-- `maplibre-viewer/`
-- `rainmapper-app/app/tomap_to_geojson.py`
-- `rainmapper-app/app/maplibre-viewer/`
+- `rainmapper_core/geojson.py`
+- `rainmapper_core/viewers/maplibre-viewer/`
 - `tests/test_tomap_to_geojson.py`
 
 ### Estado
@@ -1182,10 +1179,10 @@ El codigo deja de estar disponible publicamente y un tercero no puede anadir fac
 - `leaflet.nomentero.com/local/rainmapper-leaflet/index.html` y `data/01d.geojson` redirigen a Cloudflare Access.
 - `maplibre.nomentero.com/local/rainmapper-maplibre/index.html` y `data/01d.geojson` redirigen a Cloudflare Access.
 - `rainmap.nomentero.com/protected/maplibre/data/01d.geojson` devuelve `401 Authentication required` sin sesion.
-- `ghcr.io/cginebrosa/rainmapperha:0.2.100` sigue resolviendo manifest multi-arch `linux/amd64` y `linux/arm64` despues de la limpieza.
+- El 2026-06-22, `ghcr.io/cginebrosa/rainmapperha:0.2.100` seguia resolviendo manifest multi-arch `linux/amd64` y `linux/arm64` despues de la limpieza. Estado remoto actual de GHCR: no verificable desde el repo; confirmar con GitHub/GHCR antes de afirmar contenido vigente.
 
 ### GHCR
-Se borraron 179 versiones/entradas antiguas del paquete `rainmapperha` en GHCR. Quedan `0.2.100`, `latest` y cuatro entradas auxiliares sin tag asociadas al mismo push multi-arch. No borrar la version activa ni sus entradas auxiliares mientras `rainmapper-app/config.yaml` declare `0.2.100`. Para futuras releases HA, la limpieza remota de GHCR pasa a ser parte del procedimiento estandar despues de validar la nueva version en HA: conservar solo la ultima version validada, `latest` y las entradas auxiliares del mismo push multi-arch.
+Se borraron 179 versiones/entradas antiguas del paquete `rainmapperha` en GHCR. En ese momento quedaron `0.2.100`, `latest` y cuatro entradas auxiliares sin tag asociadas al mismo push multi-arch. Esa lista no debe leerse como estado actual tras versiones posteriores. Para futuras releases HA, la limpieza remota de GHCR pasa a ser parte del procedimiento estandar despues de validar la nueva version en HA: conservar solo la ultima version validada, `latest` y las entradas auxiliares del mismo push multi-arch. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares mientras HA pueda necesitar reinstalarla.
 
 ### Ficheros afectados
 - `docs/codex-handoff.md`
