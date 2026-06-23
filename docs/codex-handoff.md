@@ -354,6 +354,12 @@ Despliegue Home Assistant:
 Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar la app desde la UI de HA. No hay comando CLI de despliegue confirmado.
 ```
 
+Validacion estandar antes de publicar imagen HA:
+
+```text
+Procedimiento estandar: para un bump/publicacion HA, ejecutar ./scripts/smoke-test.sh una sola vez despues de aplicar cambios y antes de scripts/build-push-ha-image.sh. Si el build/push termina bien y despues solo se actualiza documentacion con el digest publicado, no repetir el smoke completo; basta con revisar el diff/estado y commitear. Repetir ./scripts/smoke-test.sh solo si despues del primer smoke se toca codigo runtime, configuracion HA, assets de visor, scripts o cualquier fichero que entre en la imagen.
+```
+
 Limpieza remota GHCR tras release HA:
 
 ```text
