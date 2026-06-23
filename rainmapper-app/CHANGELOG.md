@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.106
+
+- Add visible MapLibre station attributions for Meteocat, Meteoclimatic and Wunderground.
+- Replace the generic station `Source` popup row with source-specific legal attribution text.
+
 ## 0.2.105
 
 - Show all valid MapLibre stations regardless of the previous regional bounds, and report invalid-coordinate features in the header.

@@ -1,5 +1,28 @@
 # Decisions
 
+## 2026-06-23 - Atribuciones visibles por fuente en MapLibre
+
+Decision:
+
+- Mostrar atribucion especifica por fuente en la ficha de cada estacion MapLibre y retirar la fila generica `Source:` del popup.
+- Mantener AEMET en castellano: `Fuente: AEMET - Informacion elaborada por la Agencia Estatal de Meteorologia`.
+- Mostrar Meteocat siempre en catalan, con el formato de fuente indicado por la Generalitat y el organismo/dataset XEMA: `Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transicio Ecologica. METEOCAT. Dades meteorologiques de la XEMA. Dades modificades per Rainmapper.`
+- Mostrar Meteoclimatic de forma conservadora como `Font: Meteoclimatic (www.meteoclimatic.net)` hasta localizar un texto legal mas especifico para el RSS usado por Rainmapper.
+- Mostrar Wunderground de forma conservadora como `Source: Weather Underground` hasta definir un texto contractual/legal concreto; esta atribucion no cambia la decision previa de no basar una app comercial en Wunderground sin acuerdo escrito.
+- Incluir las mismas fuentes en el panel de creditos/informacion del visor.
+
+Motivo:
+
+- La Generalitat exige atribuir la reutilizacion de datos abiertos indicando `Generalitat de Catalunya`, el departamento y, si aplica, el organismo o entidad autonoma. Para XEMA, el dataset publico identifica el departamento `Territori, Habitatge i Transicio Ecologica` y `METEOCAT` como organismo/fuente.
+- AEMET ya estaba atribuido; al anadir mas fuentes, la fila `Source:` duplicaba informacion y era menos clara que una atribucion visible.
+- Meteoclimatic y Wunderground requieren revision adicional de terminos/formato exacto, pero en la fase privada actual es preferible mostrar al menos una fuente visible antes que ocultarla.
+
+Consecuencias:
+
+- Los creditos de MapLibre mezclan textos en distintos idiomas deliberadamente: AEMET en castellano, Meteocat en catalan y Wunderground en ingles.
+- Antes de publicar Rainmapper fuera del uso privado actual, revisar de nuevo Meteoclimatic y Wunderground y sustituir las atribuciones conservadoras por el texto legal/acuerdo aplicable.
+- El codigo del visor MapLibre es compartido; el cambio afecta al protected estandar y a la ruta experimental AEMET cuando se publique la siguiente imagen. Lo que diferencia ambas rutas es el dataset publicado, no una copia separada de la UI.
+
 ## 2026-06-23 - Usar AEMET OpenData horario como nueva fuente candidata
 
 Decision:

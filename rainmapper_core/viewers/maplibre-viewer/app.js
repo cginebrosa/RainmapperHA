@@ -1126,13 +1126,21 @@ function inferStationSource(stationCode) {
   return "Unknown";
 }
 
+const stationSourceAttributions = {
+  AEMET: "Fuente: AEMET · Información elaborada por la Agencia Estatal de Meteorología",
+  Meteocat: "Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transició Ecològica. METEOCAT. Dades meteorològiques de la XEMA. Dades modificades per Rainmapper.",
+  Meteoclimatic: "Font: Meteoclimatic (www.meteoclimatic.net)",
+  Wunderground: "Source: Weather Underground",
+};
+
 function sourceAttribution(properties) {
   const source = properties.Source || inferStationSource(properties["Codi Estació"]);
-  if (source !== "AEMET") {
+  const attribution = stationSourceAttributions[source];
+  if (!attribution) {
     return "";
   }
   return `
-    <div class="popup-row popup-source-credit">Fuente: AEMET · Información elaborada por la Agencia Estatal de Meteorología</div>
+    <div class="popup-row popup-source-credit">${attribution}</div>
   `;
 }
 
@@ -1545,7 +1553,6 @@ function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
 function popupContent(properties) {
   const station = properties["Codi Estació"] || "";
   const name = properties["Estació"] || t("unknownStation");
-  const source = sourceLabel(properties.Source || inferStationSource(station));
   const town = properties["Municipi"] || t("unknownTown");
   const province = properties["Provincia"] || "";
   const altitude = properties["Altitud"] || "-";
@@ -1556,7 +1563,6 @@ function popupContent(properties) {
 
   return `
     <div class="popup-title">${station} · ${name}</div>
-    <div class="popup-row"><strong>${t("source")}:</strong> ${source}</div>
     <div class="popup-row popup-metrics"><span><strong>${t("rain")}:</strong> ${total} mm</span><span><strong>${t("last")}:</strong> ${lastRain}</span></div>
     <div class="popup-row"><strong>${t("location")}:</strong> ${town}${province ? `, ${province}` : ""}</div>
     <div class="popup-row"><strong>${t("altitude")}:</strong> ${altitude} m</div>
