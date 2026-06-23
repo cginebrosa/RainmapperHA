@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.102
+
+- Add AEMET OpenData as an optional data source, disabled by default, with hourly history and daily incremental CSV generation.
+- Add an experimental MapLibre AEMET viewer route while keeping the protected standard viewer on existing sources.
+- Share Google Maps station reverse geocoding across sources and AEMET station catalog enrichment.
+- Show AEMET attribution in MapLibre station popups and credits.
+
 ## 0.2.101
 
 - Improve the Home Assistant `Users` page with a sticky toolbar, manual refresh and free-text filtering across users and registered devices.

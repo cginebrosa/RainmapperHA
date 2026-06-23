@@ -23,9 +23,9 @@ import json
 import sys
 import time as time_module
 import requests
-import googlemaps
 from rainmapper_core.sources.meteoclimatic_local.client import MeteoclimaticClient
 from rainmapper_core.config.const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
+from rainmapper_core.geocoding import GeocodingError, googlemaps_station_metadata
 from rainmapper_core.incremental_upsert import upsert_incremental
 
 import threading
@@ -40,6 +40,7 @@ from rainmapper_core.config.const import   _codi_estacio,\
                     _create_wunderground,\
                     _create_meteoclimatic,\
                     _create_meteocat,\
+                    _create_aemet,\
                     _create_meteocat_conditions,\
                     _incremental_wunderground,\
                     _incremental_meteocat,\
@@ -90,6 +91,13 @@ parser.add_argument('--create_wunderground',
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_create_wunderground,
                     help='Fetch Wunderground data (TRUE/FALSE, 1/0, YES/NO) -> Const=True, Default=True')
+parser.add_argument('--create_aemet',
+                    dest='_create_aemet',
+                    nargs='?',
+                    const=True,
+                    type=lambda x: (str(x).lower() in ['true','1','yes']),
+                    default=_create_aemet,
+                    help='Fetch AEMET OpenData observations (TRUE/FALSE, 1/0, YES/NO) -> Const=False, Default=False')
 parser.add_argument('--days_init',
                     dest='_days_init',
                     nargs='?',
@@ -174,6 +182,7 @@ args = parser.parse_args()
 _create_meteoclimatic = args._create_meteoclimatic
 _create_meteocat = args._create_meteocat
 _create_wunderground = args._create_wunderground
+_create_aemet = args._create_aemet
 _days_init = args._days_init
 _days_end = args._days_end
 _days_bucket = args._days_bucket
@@ -293,34 +302,13 @@ def get_data_fi():
 
 def get_googlemaps(lat,long):
     try:
-        lat = float(lat)
-        long = float(long)
-        if lat < long:                              # Exchange lat/long if they seems  to be flipped
-            lat, long = long, lat
-    except ValueError:                              #If lat or long are not float(able) return elevation=0
+        metadata = googlemaps_station_metadata(lat, long, _GMAPS_KEY, language='ES')
+    except GeocodingError:
         print ('Error')
         return (0,'Municipi Not found','Provincia Not Found')
 
-    gmaps = googlemaps.Client(key=_GMAPS_KEY)
-    elevation_result= gmaps.elevation((lat,long))
-    if len(elevation_result) == 0:                  # If elevation not found set to 0
-        elevation_result = [0]
-
-    reverse_geocode_result = gmaps.reverse_geocode((lat,long),language='ES')
-
-    locality = [component['long_name'] for item in reverse_geocode_result \
-            for component in item.get('address_components', []) if 'locality' in component.get('types', [])]
-    if len(locality) == 0:                          # If not found set to "Check lat/long"
-        locality = ["Not found in googlemaps - Check lat/long"]
-
-    administrative_area_level_2 = [component['long_name'] for item in reverse_geocode_result \
-            for component in item.get('address_components', []) if 'administrative_area_level_2' in component.get('types', [])]
-    if len(administrative_area_level_2) == 0:       # If not found set to "Check lat/long"
-        administrative_area_level_2 = ["Not found - Check lat/long"]
-    #print(reverse_geocode_result)
-    print('Altitude'+ str(elevation_result))
-
-    return elevation_result[-1]['elevation'],locality[0], administrative_area_level_2[0]
+    print('Altitude'+ str(metadata['altitude']))
+    return metadata['altitude'], metadata['municipality'], metadata['province']
 
 ## END GENERIC FUNCTION DEFINITIONS
 #In[5] ## DATA RETRIEVAL functions
@@ -445,6 +433,7 @@ def initialize_source_statuses():
     record_source_status('Meteoclimatic', 'PENDING', None, 'Waiting to run.', enabled=_create_meteoclimatic)
     record_source_status('Meteocat', 'PENDING', None, 'Waiting to run.', enabled=_create_meteocat)
     record_source_status('Wunderground', 'PENDING', None, 'Waiting to run.', enabled=_create_wunderground)
+    record_source_status('AEMET', 'PENDING', None, 'Waiting to run.', enabled=_create_aemet)
 
 def collect_source_result(source, future, incremental_name, enabled):
     try:
@@ -2039,6 +2028,8 @@ print('')
 print("Create Wunderground:",_create_wunderground)
 print("Save incremental Wunderground:",_incremental_wunderground)
 print('')
+print("Create AEMET:",_create_aemet)
+print('')
 
 def process_meteoclimatic():                                        # FOR MULTITHREAD PURPOSES
     #################################
@@ -2165,6 +2156,48 @@ def process_wunderground():                                         # FOR MULTIT
     finally:
         record_source_runtime_metric(
             'Wunderground',
+            time_module.perf_counter() - source_start_time,
+            started_at=source_started_at,
+            finished_at=datetime.now().isoformat(timespec='seconds'),
+        )
+
+def process_aemet():                                                # FOR MULTITHREAD PURPOSES
+    ########################
+    ## Process AEMET data ##
+    ########################
+    from rainmapper_core import create_aemet as aemet_source
+
+    source_started_at = datetime.now().isoformat(timespec='seconds')
+    source_start_time = time_module.perf_counter()
+    try:
+        if _create_aemet:
+            start_count(_legend='Start processing AEMET...')
+            aemet_api_key = os.environ.get('RAINMAPPER_AEMET_API_KEY') or os.environ.get('AEMET_API_KEY')
+            summary = aemet_source.run_update(
+                data_dir=_DATA_PATH,
+                api_key=aemet_api_key,
+                local_timezone=os.environ.get('RAINMAPPER_TIMEZONE', 'Europe/Madrid'),
+                enrich_stations=True,
+                gmap_api_key=_GMAPS_KEY,
+            )
+            print(
+                "AEMET update finished: "
+                f"{summary['current_hourly_rows']} current hourly row(s), "
+                f"{summary['hourly_incremental_rows']} hourly incremental row(s), "
+                f"{summary['daily_incremental_rows']} daily row(s), "
+                f"{summary['stations']} station(s)."
+            )
+            aemet_incremental = read_incremental('Aemet_incremental')
+            aemet_df = read_incremental('Aemet_incremental', _nrows=0)
+            end_count(_legend='Finished processing AEMET')
+        else:
+            aemet_incremental = read_incremental('Aemet_incremental')
+            aemet_df = read_incremental('Aemet_incremental', _nrows=0)
+
+        return aemet_df, aemet_incremental
+    finally:
+        record_source_runtime_metric(
+            'AEMET',
             time_module.perf_counter() - source_start_time,
             started_at=source_started_at,
             finished_at=datetime.now().isoformat(timespec='seconds'),
@@ -2312,6 +2345,7 @@ with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="MainProces
         future_meteoclimatic = executor.submit(process_meteoclimatic)
         future_meteocat = executor.submit(process_meteocat)
         future_wunderground = executor.submit(process_wunderground)
+        future_aemet = executor.submit(process_aemet)
 
         # Obtén los resultados
         meteoclimatic_df, meteoclimatic_incremental = collect_source_result(
@@ -2332,6 +2366,12 @@ with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="MainProces
             'Wunderground_incremental',
             _create_wunderground,
         )
+        aemet_df, aemet_incremental = collect_source_result(
+            'AEMET',
+            future_aemet,
+            'Aemet_incremental',
+            _create_aemet,
+        )
 
 
 ###########################
@@ -2350,15 +2390,19 @@ if _print_totals:                                              # Create totals p
     meteoclimatic_df= create_filtered(meteoclimatic_incremental,_base_date, _days_backward, _days_forward)
     meteocat_df = create_filtered(meteocat_incremental,_base_date, _days_backward, _days_forward)
     wunderground_df= create_filtered(wunderground_incremental,_base_date, _days_backward, _days_forward)
+    aemet_df = create_filtered(aemet_incremental,_base_date, _days_backward, _days_forward)
 
     meteoclimatic_df=filter_results(meteoclimatic_df,_minima_pluja=0.4)
     meteocat_df=filter_results(meteocat_df,_minima_pluja=0.4)
     wunderground_df=filter_results(wunderground_df,_minima_pluja=0.4)
+    aemet_df=filter_results(aemet_df,_minima_pluja=0.4)
 
     # Merge de meteocat y meteoclimatic
     df_toprint = merge_dataframes(meteocat_df, meteoclimatic_df, _print_dataframes)
     # Añadir al merge wunderground
     df_toprint = merge_dataframes(df_toprint, wunderground_df, _print_dataframes)
+    # Add AEMET if available
+    df_toprint = merge_dataframes(df_toprint, aemet_df, _print_dataframes)
 
     csv_total= create_total_dataframe(df_toprint, _save_to_csv=False, _save_to_excel=False)
     csv_total = filter_results(csv_total,_minima_pluja=_minimum_rain_toprint)

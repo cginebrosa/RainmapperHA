@@ -45,6 +45,7 @@ _create_meteoclimatic = True            # Get data from Meteoclimatic (it has ju
 _incremental_meteoclimatic = True       # Saves incremental Meteoclimatic data locally (Meteoclimatic)
 _create_wunderground = True             # Get data from Wrunderground (Wunderground)
 _incremental_wunderground = True        # Saves incremental Wunderground data locally (Wunderground)
+_create_aemet = False                   # Get data from AEMET OpenData (AEMET)
 _create_googlemaps_files = True         # Creates csv files to map
 _last_number_rains = _int_env('RAINMAPPER_LAST_RAINS_HISTORY', 30)  # Number of recent rain records to generate for map popups
 _print_dataframes = False               # Debug dataframes by printing (be careful, A LOT OF PRINTING RESULTS!!!)

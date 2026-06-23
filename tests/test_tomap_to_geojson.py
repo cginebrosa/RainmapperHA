@@ -17,6 +17,7 @@ FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
 
 class TomapToGeojsonTests(unittest.TestCase):
     def test_infer_station_source_from_station_code_pattern(self):
+        self.assertEqual(tomap_to_geojson.infer_station_source("AEMET:9632X"), "AEMET")
         self.assertEqual(tomap_to_geojson.infer_station_source("ESCAT2500000025515A"), "Meteoclimatic")
         self.assertEqual(tomap_to_geojson.infer_station_source("ES1234567890123"), "Meteoclimatic")
         self.assertEqual(tomap_to_geojson.infer_station_source("ES00000000000000000"), "Meteoclimatic")

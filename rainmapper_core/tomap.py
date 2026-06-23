@@ -245,18 +245,20 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
     return result_step3
 
 
-def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain_tomap, max_threads):
+def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain_tomap, max_threads, include_aemet=False):
     """Rebuild all Tomap period files from existing incremental CSV history."""
     maps_dir.mkdir(parents=True, exist_ok=True)
 
     meteoclimatic_incremental = read_incremental(data_dir, 'Meteoclimatic_incremental')
     meteocat_incremental = read_incremental(data_dir, 'Meteocat_incremental')
     wunderground_incremental = read_incremental(data_dir, 'Wunderground_incremental')
+    aemet_incremental = read_incremental(data_dir, 'Aemet_incremental') if include_aemet else create_empty_incremental()
 
     if (
         len(meteoclimatic_incremental) == 0
         and len(meteocat_incremental) == 0
         and len(wunderground_incremental) == 0
+        and len(aemet_incremental) == 0
     ):
         print('')
         print('NO RECORDS RETURNED FOR SELECTION -- Exiting program')
@@ -271,6 +273,7 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
     print(f'Data dir: {data_dir}')
     print(f'Tomap dir: {maps_dir}')
     print(f'Last rains history: {last_rains_history}')
+    print(f'Include AEMET: {include_aemet}')
 
     with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix='TomapFilterProcesses') as executor:
         future_meteoclimatic_df = executor.submit(
@@ -294,12 +297,21 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
             90,
             days_forward,
         )
+        future_aemet_df = executor.submit(
+            create_filtered,
+            aemet_incremental,
+            base_date,
+            90,
+            days_forward,
+        )
         meteoclimatic_df = future_meteoclimatic_df.result()
         meteocat_df = future_meteocat_df.result()
         wunderground_df = future_wunderground_df.result()
+        aemet_df = future_aemet_df.result()
 
     df_total = merge_dataframes(data_dir, meteocat_df, wunderground_df)
     df_total = merge_dataframes(data_dir, df_total, meteoclimatic_df)
+    df_total = merge_dataframes(data_dir, df_total, aemet_df)
 
     if df_total.empty:
         print('')
@@ -372,6 +384,14 @@ def parse_args(argv=None, defaults=None):
         default=max(1, defaults.get('max_threads', 1)),
         help='Number of worker threads used while filtering source histories.',
     )
+    parser.add_argument(
+        '--include-aemet',
+        nargs='?',
+        const=True,
+        type=lambda value: str(value).lower() in ['true', '1', 'yes'],
+        default=False,
+        help='Include Aemet_incremental.csv when rebuilding Tomap files.',
+    )
     return parser.parse_args(argv)
 
 
@@ -387,6 +407,7 @@ def main(argv=None, defaults=None):
         last_rains_history=args.last_rains_history,
         minimum_rain_tomap=args.minimum_rain_tomap,
         max_threads=args.max_threads,
+        include_aemet=args.include_aemet,
     )
 
 

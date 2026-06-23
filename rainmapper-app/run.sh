@@ -129,6 +129,7 @@ SCHEDULED_ACTION_VALUE="$(option scheduled_action all)"
 CREATE_METEOCLIMATIC_VALUE="$(option create_meteoclimatic true)"
 CREATE_METEOCAT_VALUE="$(option create_meteocat true)"
 CREATE_WUNDERGROUND_VALUE="$(option create_wunderground true)"
+CREATE_AEMET_VALUE="$(option create_aemet false)"
 DAYS_INIT_VALUE="$(option days_init -7)"
 DAYS_END_VALUE="$(option days_end 0)"
 NOMAPS_VALUE="$(option nomaps false)"
@@ -143,6 +144,7 @@ METEOCLIMATIC_PATTERN_VALUE="$(option meteoclimatic_pattern ESCAT)"
 LAST_RAINS_HISTORY_VALUE="$(option last_rains_history 30)"
 PUBLISH_TO_WWW_VALUE="$(option publish_to_www true)"
 GMAP_API_KEY_VALUE="$(option gmap_api_key '')"
+AEMET_API_KEY_VALUE="$(option aemet_api_key '')"
 
 export TZ="$TIMEZONE"
 export GMAP_API_KEY="$GMAP_API_KEY_VALUE"
@@ -156,6 +158,7 @@ export RAINMAPPER_SCHEDULED_ACTION="$SCHEDULED_ACTION_VALUE"
 export RAINMAPPER_CREATE_METEOCLIMATIC="$CREATE_METEOCLIMATIC_VALUE"
 export RAINMAPPER_CREATE_METEOCAT="$CREATE_METEOCAT_VALUE"
 export RAINMAPPER_CREATE_WUNDERGROUND="$CREATE_WUNDERGROUND_VALUE"
+export RAINMAPPER_CREATE_AEMET="$CREATE_AEMET_VALUE"
 export RAINMAPPER_DAYS_INIT="$DAYS_INIT_VALUE"
 export RAINMAPPER_DAYS_END="$DAYS_END_VALUE"
 export RAINMAPPER_NOMAPS="$NOMAPS_VALUE"
@@ -169,6 +172,7 @@ export RAINMAPPER_WUNDERGROUND_FULL_LOG="$WUNDERGROUND_FULL_LOG_VALUE"
 export RAINMAPPER_METEOCLIMATIC_PATTERN="$METEOCLIMATIC_PATTERN_VALUE"
 export RAINMAPPER_LAST_RAINS_HISTORY="$LAST_RAINS_HISTORY_VALUE"
 export RAINMAPPER_PUBLISH_TO_WWW="$PUBLISH_TO_WWW_VALUE"
+export RAINMAPPER_AEMET_API_KEY="$AEMET_API_KEY_VALUE"
 cd /app
 
 print_startup_banner
@@ -180,6 +184,7 @@ run_update() {
     --create_meteoclimatic "$CREATE_METEOCLIMATIC_VALUE" \
     --create_meteocat "$CREATE_METEOCAT_VALUE" \
     --create_wunderground "$CREATE_WUNDERGROUND_VALUE" \
+    --create_aemet "$CREATE_AEMET_VALUE" \
     --days_init "$DAYS_INIT_VALUE" \
     --days_end "$DAYS_END_VALUE" \
     --nomaps "$NOMAPS_VALUE" \

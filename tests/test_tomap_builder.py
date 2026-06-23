@@ -83,6 +83,60 @@ class TomapBuilderTests(unittest.TestCase):
             self.assertIn('Pluja_Diaria_03', last_day.columns)
             self.assertNotIn('Pluja_Diaria_04', last_day.columns)
 
+    def test_build_tomap_includes_optional_aemet_incremental(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            data_dir = tmp_path / 'Data'
+            maps_dir = tmp_path / 'Tomap'
+            data_dir.mkdir()
+
+            today = date.today()
+            rows = [
+                make_incremental_row('AEMET:9632X', today, 6.4),
+            ]
+            pd.DataFrame(rows).to_csv(data_dir / 'Aemet_incremental.csv', decimal=',', index=False)
+
+            with redirect_stdout(StringIO()):
+                exit_code = tomap_builder.build_tomap(
+                    data_dir=data_dir,
+                    maps_dir=maps_dir,
+                    last_rains_history=3,
+                    minimum_rain_tomap=0,
+                    max_threads=1,
+                    include_aemet=True,
+                )
+
+            self.assertEqual(exit_code, 0)
+            last_day = pd.read_csv(maps_dir / '01_Tomap_Last_day.csv')
+            self.assertEqual(last_day['Codi Estació'].tolist(), ['AEMET:9632X'])
+            self.assertEqual(last_day['Total'].tolist(), [6.4])
+
+    def test_build_tomap_ignores_aemet_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            data_dir = tmp_path / 'Data'
+            maps_dir = tmp_path / 'Tomap'
+            data_dir.mkdir()
+
+            today = date.today()
+            pd.DataFrame([make_incremental_row('AEMET:9632X', today, 6.4)]).to_csv(
+                data_dir / 'Aemet_incremental.csv',
+                decimal=',',
+                index=False,
+            )
+
+            with redirect_stdout(StringIO()):
+                exit_code = tomap_builder.build_tomap(
+                    data_dir=data_dir,
+                    maps_dir=maps_dir,
+                    last_rains_history=3,
+                    minimum_rain_tomap=0,
+                    max_threads=1,
+                )
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(list(maps_dir.glob('*.csv')), [])
+
 
 if __name__ == '__main__':
     unittest.main()

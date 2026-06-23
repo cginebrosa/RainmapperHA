@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 
 PLOTS_PATH = Path("/app/Plots")
 TOMAP_PATH = Path("/app/Tomap")
+DATA_PATH = Path("/app/Data")
 PUBLIC_DATA_PATH = Path("/app/PublicData")
 PUBLIC_PLOTS_PATH = Path("/config/www/Plots")
 PUBLIC_PLOTS_TMP_PATH = Path("/config/www/.rainmapper-plots-tmp")
@@ -36,6 +37,10 @@ REMOVED_LEGACY_MOBILE_PATH = Path("/config/www/rainmapper-mobile")
 MAPLIBRE_VIEWER_ASSETS_PATH = Path("/app/rainmapper_core/viewers/maplibre-viewer")
 PUBLIC_MAPLIBRE_PATH = Path("/config/www/rainmapper-maplibre")
 PUBLIC_MAPLIBRE_TMP_PATH = Path("/config/www/.rainmapper-maplibre-tmp")
+PUBLIC_MAPLIBRE_AEMET_PATH = Path("/config/www/rainmapper-maplibre-aemet")
+PUBLIC_MAPLIBRE_AEMET_TMP_PATH = Path("/config/www/.rainmapper-maplibre-aemet-tmp")
+AEMET_EXPERIMENT_TOMAP_PATH = Path("/tmp/rainmapper-aemet-tomap")
+AEMET_EXPERIMENT_DATA_PATH = Path("/tmp/rainmapper-aemet-publicdata")
 LOG_PATH = Path("/share/rainmapper/last_run.log")
 STATUS_PATH = Path("/share/rainmapper/status.txt")
 USERS_JSON_PATH = Path("/share/rainmapper/users.json")
@@ -47,7 +52,7 @@ AUTH_TOKEN_BYTES = 32
 PASSWORD_HASH_ITERATIONS = 260_000
 DEVICE_SETTING_PERIODS = {"01d.geojson", "07d.geojson", "14d.geojson", "21d.geojson", "30d.geojson", "60d.geojson", "90d.geojson"}
 DEVICE_SETTING_MAP_STYLES = {"esri-satellite-vector", "esri-hybrid", "opentopomap", "openfreemap-liberty"}
-DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "Unknown"}
+DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "AEMET", "Unknown"}
 DEVICE_SETTING_LANGUAGES = {"en", "es", "ca"}
 
 PUBLIC_MAP_NAMES = {
@@ -1121,7 +1126,7 @@ def source_status_cards() -> str:
     payload = read_source_status()
     sources = payload.get("sources", {}) if isinstance(payload, dict) else {}
     cards = []
-    for source in ("Meteoclimatic", "Meteocat", "Wunderground"):
+    for source in ("Meteoclimatic", "Meteocat", "Wunderground", "AEMET"):
         source_payload = sources.get(source, {}) if isinstance(sources, dict) else {}
         cards.append(source_status_card(source, source_payload))
     return '<div class="source-status-grid">' + "".join(cards) + "</div>"
@@ -1295,11 +1300,15 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
     PUBLIC_MAPLIBRE_TMP_PATH.rename(PUBLIC_MAPLIBRE_PATH)
 
+    aemet_message = publish_aemet_experimental_maplibre(log_file, config_js)
+
     published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
     message = (
         f"Published mobile viewers with {copied} GeoJSON file(s) to "
         f"/local/rainmapper-leaflet/index.html and protected /protected/maplibre/index.html at {published_at}."
     )
+    if aemet_message:
+        message = f"{message} {aemet_message}"
     log_file.write(f"=== {message} ===\n")
     log_file.flush()
     with RUN_LOCK:
@@ -1308,6 +1317,92 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
         RUN_STATE["last_publish_message"] = f"{previous_message} {message}".strip()
     print(message, flush=True)
     return True, message
+
+
+def publish_aemet_experimental_maplibre(log_file, config_js: str) -> str:
+    """Publish an optional public MapLibre variant with AEMET included.
+
+    The standard protected MapLibre route keeps using the normal PublicData
+    output. This experimental fallback lets the owner validate AEMET without
+    changing what existing protected users see.
+    """
+    if not (DATA_PATH / "Aemet_incremental.csv").exists():
+        shutil.rmtree(PUBLIC_MAPLIBRE_AEMET_PATH, ignore_errors=True)
+        return ""
+
+    shutil.rmtree(AEMET_EXPERIMENT_TOMAP_PATH, ignore_errors=True)
+    shutil.rmtree(AEMET_EXPERIMENT_DATA_PATH, ignore_errors=True)
+    AEMET_EXPERIMENT_TOMAP_PATH.mkdir(parents=True, exist_ok=True)
+    AEMET_EXPERIMENT_DATA_PATH.mkdir(parents=True, exist_ok=True)
+
+    tomap_process = subprocess.run(
+        [
+            "python",
+            "-m",
+            "rainmapper_core.tomap",
+            "--data-dir",
+            str(DATA_PATH),
+            "--maps-dir",
+            str(AEMET_EXPERIMENT_TOMAP_PATH),
+            "--last-rains-history",
+            os.environ.get("RAINMAPPER_LAST_RAINS_HISTORY", "30"),
+            "--include-aemet",
+            "true",
+        ],
+        cwd="/app",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if tomap_process.stdout:
+        log_file.write(tomap_process.stdout)
+        log_file.flush()
+    if tomap_process.returncode != 0:
+        return "AEMET experimental MapLibre was not published: Tomap generation failed."
+
+    geojson_process = subprocess.run(
+        [
+            "python",
+            "-m",
+            "rainmapper_core.geojson",
+            "--input-dir",
+            str(AEMET_EXPERIMENT_TOMAP_PATH),
+            "--output-dir",
+            str(AEMET_EXPERIMENT_DATA_PATH),
+            "--ignore-stations-file",
+            "/app/ignore_stations_tomap.txt",
+        ],
+        cwd="/app",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if geojson_process.stdout:
+        log_file.write(geojson_process.stdout)
+        log_file.flush()
+    if geojson_process.returncode != 0:
+        return "AEMET experimental MapLibre was not published: GeoJSON generation failed."
+
+    PUBLIC_MAPLIBRE_AEMET_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(PUBLIC_MAPLIBRE_AEMET_TMP_PATH, ignore_errors=True)
+    PUBLIC_MAPLIBRE_AEMET_TMP_PATH.mkdir(parents=True, exist_ok=True)
+
+    for asset_name in ("index.html", "app.js", "style.css", "translations.json"):
+        shutil.copy2(MAPLIBRE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MAPLIBRE_AEMET_TMP_PATH / asset_name)
+    (PUBLIC_MAPLIBRE_AEMET_TMP_PATH / "config.js").write_text(config_js)
+
+    data_path = PUBLIC_MAPLIBRE_AEMET_TMP_PATH / "data"
+    data_path.mkdir()
+    copied = 0
+    for source_path in sorted(AEMET_EXPERIMENT_DATA_PATH.glob("*.geojson")):
+        shutil.copy2(source_path, data_path / source_path.name)
+        copied += 1
+    if SOURCE_STATUS_PATH.exists():
+        shutil.copy2(SOURCE_STATUS_PATH, data_path / SOURCE_STATUS_PATH.name)
+
+    shutil.rmtree(PUBLIC_MAPLIBRE_AEMET_PATH, ignore_errors=True)
+    PUBLIC_MAPLIBRE_AEMET_TMP_PATH.rename(PUBLIC_MAPLIBRE_AEMET_PATH)
+    return f"Published experimental AEMET MapLibre fallback with {copied} GeoJSON file(s) to /local/rainmapper-maplibre-aemet/index.html."
 
 
 def run_action(action: str, source: str) -> bool:
@@ -2565,7 +2660,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         source_controls = source_status_cards()
         leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html")
         maplibre_url = cache_busted_url("/protected/maplibre/index.html")
+        aemet_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-aemet/index.html") if PUBLIC_MAPLIBRE_AEMET_PATH.exists() else ""
         bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html")
+        aemet_card = (
+            f'<div class="card"><span class="label">AEMET test viewer</span><span class="value">{html.escape(aemet_maplibre_url)}</span></div>'
+            if aemet_maplibre_url
+            else ""
+        )
+        aemet_viewer_link = (
+            f'<a class="button-link" href="{html.escape(aemet_maplibre_url, quote=True)}" target="_top">Open AEMET test viewer</a>'
+            if aemet_maplibre_url
+            else ""
+        )
 
         status = f"""
         <div class="status-grid">
@@ -2587,6 +2693,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
             <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
             <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
+            {aemet_card}
             <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
           </div>
         </div>
@@ -2609,6 +2716,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             '<div class="viewer-actions">'
             f'<a class="button-link primary" href="{html.escape(leaflet_url, quote=True)}" target="_top">Open Leaflet viewer</a>'
             f'<a class="button-link primary" href="{html.escape(maplibre_url, quote=True)}" target="_top">Open MapLibre viewer</a>'
+            f"{aemet_viewer_link}"
             f'<a class="button-link" href="{html.escape(bokeh_21d_url, quote=True)}" target="_top">Open Bokeh 21 days</a>'
             "</div>"
             '<h2 id="maps">Maps</h2>'

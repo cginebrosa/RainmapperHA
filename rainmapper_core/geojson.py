@@ -77,6 +77,8 @@ def filter_ignored_stations(df, ignore_station_codes):
 
 def infer_station_source(station_code):
     code = str(station_code or "").strip().upper()
+    if code.startswith("AEMET:"):
+        return "AEMET"
     if code.startswith("ES") and len(code) >= 15:
         return "Meteoclimatic"
     if code.startswith("I"):

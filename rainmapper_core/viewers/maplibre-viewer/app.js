@@ -45,6 +45,7 @@ const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
   { id: "Meteoclimatic", label: "Meteoclimatic" },
   { id: "Wunderground", label: "Wunderground" },
+  { id: "AEMET", label: "AEMET" },
   { id: "Unknown", label: "Unknown" },
 ];
 
@@ -1104,6 +1105,9 @@ function featureRainTotal(feature) {
 
 function inferStationSource(stationCode) {
   const code = String(stationCode || "").trim().toUpperCase();
+  if (code.startsWith("AEMET:")) {
+    return "AEMET";
+  }
   if (code.startsWith("ES") && code.length >= 15) {
     return "Meteoclimatic";
   }
@@ -1114,6 +1118,16 @@ function inferStationSource(stationCode) {
     return "Meteocat";
   }
   return "Unknown";
+}
+
+function sourceAttribution(properties) {
+  const source = properties.Source || inferStationSource(properties["Codi Estació"]);
+  if (source !== "AEMET") {
+    return "";
+  }
+  return `
+    <div class="popup-row popup-source-credit">Fuente: AEMET · Información elaborada por la Agencia Estatal de Meteorología</div>
+  `;
 }
 
 function featureStationSource(feature) {
@@ -1541,6 +1555,7 @@ function popupContent(properties) {
     <div class="popup-row"><strong>${t("location")}:</strong> ${town}${province ? `, ${province}` : ""}</div>
     <div class="popup-row"><strong>${t("altitude")}:</strong> ${altitude} m</div>
     <div class="popup-row"><strong>${t("lastReading")}:</strong> ${lastReading}</div>
+    ${sourceAttribution(properties)}
     ${rainHistory}
   `;
 }

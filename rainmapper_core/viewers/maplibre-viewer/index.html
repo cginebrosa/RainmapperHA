@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.101">
+    <link rel="stylesheet" href="style.css?v=0.2.102">
   </head>
   <body>
     <header class="topbar">
@@ -94,6 +94,7 @@
         <a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">MapLibre</a>
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>
         <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener noreferrer">Elevation tiles © Mapzen</a>
+        <a href="https://www.aemet.es/es/nota_legal" target="_blank" rel="noopener noreferrer">AEMET: Información elaborada utilizando, entre otras, la obtenida de la Agencia Estatal de Meteorología</a>
       </section>
       <section class="quick-map-panel" id="quick-map-panel" aria-label="Map layer" hidden></section>
       <section class="map-settings" id="map-settings" aria-label="Map settings" hidden>
@@ -145,6 +146,10 @@
             <span>Wunderground</span><span class="source-status-pill" data-source-status="Wunderground">Unknown</span>
           </label>
           <label>
+            <input type="checkbox" name="station-source" value="AEMET" checked>
+            <span>AEMET</span><span class="source-status-pill" data-source-status="AEMET">Unknown</span>
+          </label>
+          <label>
             <input type="checkbox" name="station-source" value="Unknown" checked>
             <span>Unknown</span><span class="source-status-pill source-status-unknown">No status</span>
           </label>
@@ -180,7 +185,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="config.js?v=0.2.101"></script>
-    <script src="app.js?v=0.2.101"></script>
+    <script src="config.js?v=0.2.102"></script>
+    <script src="app.js?v=0.2.102"></script>
   </body>
 </html>
