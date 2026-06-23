@@ -1282,9 +1282,21 @@ function updateSourceStatusControls() {
     const statusPayload = sourceStatus[sourceName] || {};
     const status = statusPayload.status || t("unknown");
     const stations = Number(statusPayload.stations);
-    element.textContent = Number.isFinite(stations) && stations > 0 ? `${status} · ${stations}` : status;
+    const hasStationCount = Number.isFinite(stations) && stations >= 0;
+    element.replaceChildren();
+    const statusLine = document.createElement("span");
+    statusLine.className = "source-status-state";
+    statusLine.textContent = status;
+    element.appendChild(statusLine);
+    if (hasStationCount) {
+      const stationsLine = document.createElement("span");
+      stationsLine.className = "source-status-count";
+      stationsLine.textContent = String(stations);
+      element.appendChild(stationsLine);
+    }
     element.className = `source-status-pill ${sourceStatusClass(status)}`;
-    element.title = statusPayload.message || t("sourceStatusUnavailable");
+    const statusLabel = hasStationCount ? `${status} · ${stations}` : status;
+    element.title = statusPayload.message || statusLabel || t("sourceStatusUnavailable");
   });
   document.querySelectorAll(".source-status-unknown").forEach((element) => {
     if (!element.dataset.sourceStatus) {

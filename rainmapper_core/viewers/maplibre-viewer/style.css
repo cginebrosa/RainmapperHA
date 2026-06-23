@@ -994,14 +994,32 @@ main {
   border: 1px solid rgba(180, 198, 214, 0.22);
   border-radius: 999px;
   color: var(--muted);
+  display: inline-grid;
   font-size: 11px;
   font-weight: 800;
+  gap: 1px;
+  justify-items: center;
+  line-height: 1.05;
   margin-left: auto;
   max-width: 136px;
   overflow: hidden;
-  padding: 3px 8px;
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.source-status-state,
+.source-status-count {
+  max-width: 100%;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.source-status-count {
+  color: currentColor;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.82;
 }
 
 .source-status-ok {

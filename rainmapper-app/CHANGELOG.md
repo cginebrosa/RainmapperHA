@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.113
+
+- Show MapLibre source status badges on two lines so long states such as `DISABLED` keep the station count visible.
+- Adjust the mobile MapLibre help panel to avoid overlapping the rain legend and period selector.
+
 ## 0.2.112
 
 - Add a final `?` help button to the protected MapLibre toolbar with ES/EN/CA help text for map usage, filters, controls, terrain and data notes.
