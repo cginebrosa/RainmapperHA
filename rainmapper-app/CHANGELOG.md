@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.111
+
+- Align Meteoclimatic and Weather Underground MapLibre attribution wording with Rainmapper-elaborated data.
+
 ## 0.2.110
 
 - Clarify MapLibre source attribution wording for AEMET and Meteocat as Rainmapper-elaborated data.
