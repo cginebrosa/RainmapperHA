@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.103
+
+- Pass the `create_aemet` Home Assistant option through WebUI-triggered `update` and `all` jobs.
+
 ## 0.2.102
 
 - Add AEMET OpenData as an optional data source, disabled by default, with hourly history and daily incremental CSV generation.

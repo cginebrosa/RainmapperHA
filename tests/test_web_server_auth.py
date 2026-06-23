@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -361,6 +362,20 @@ class AuthDeviceLimitTests(unittest.TestCase):
         page = self.web_server.html_page("Users", "<h1>Users</h1>", auto_refresh=False).decode("utf-8")
 
         self.assertNotIn('http-equiv="refresh"', page)
+
+    def test_webui_update_command_passes_aemet_source_option(self) -> None:
+        previous = os.environ.get("RAINMAPPER_CREATE_AEMET")
+        os.environ["RAINMAPPER_CREATE_AEMET"] = "true"
+        try:
+            command = self.web_server.command_for("update")
+        finally:
+            if previous is None:
+                os.environ.pop("RAINMAPPER_CREATE_AEMET", None)
+            else:
+                os.environ["RAINMAPPER_CREATE_AEMET"] = previous
+
+        self.assertIn("--create_aemet", command)
+        self.assertEqual(command[command.index("--create_aemet") + 1], "true")
 
 
 if __name__ == "__main__":

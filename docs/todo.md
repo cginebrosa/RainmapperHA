@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-`0.2.101` queda validada manualmente en HA: la WebUI `Users` refresca y busca correctamente sin refrescar el navegador. `0.2.102` queda publicada en GHCR con AEMET opcional y ruta experimental MapLibre AEMET (`sha256:957eeb30bf17e2dc91293ea8efb4dcdcd18075ecd9c4564869436b72b024afde`); siguiente paso recomendado: instalar/validar `0.2.102` en HA con `create_aemet=true`, `aemet_api_key` configurada y `estacions_aemet.csv` ya copiado a `/share/rainmapper/Data`.
+`0.2.101` queda validada manualmente en HA: la WebUI `Users` refresca y busca correctamente sin refrescar el navegador. `0.2.103` queda publicada en GHCR con fix para que la WebUI pase `create_aemet` a jobs `update/all` (`sha256:1cd93bf38b4f026e8c5c7de606e5e6d66f5a010722193005b50a493f241d0ce5`); siguiente paso recomendado: instalar/validar `0.2.103` en HA con `create_aemet=true`, `aemet_api_key` configurada y `estacions_aemet.csv` ya copiado a `/share/rainmapper/Data`.
 
 ## Prioridad alta
 - [x] Corregir upsert de historicos incrementales por estacion/dia

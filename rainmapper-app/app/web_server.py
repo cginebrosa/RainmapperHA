@@ -840,6 +840,8 @@ def command_for(action: str) -> list[str]:
         env("RAINMAPPER_CREATE_METEOCAT", "true"),
         "--create_wunderground",
         env("RAINMAPPER_CREATE_WUNDERGROUND", "true"),
+        "--create_aemet",
+        env("RAINMAPPER_CREATE_AEMET", "false"),
         "--days_init",
         env("RAINMAPPER_DAYS_INIT", "-7"),
         "--days_end",
