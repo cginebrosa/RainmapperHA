@@ -1135,10 +1135,13 @@ main {
   }
 
   .map-help {
-    max-height: min(60vh, 520px);
+    bottom: 58px;
+    left: 52px;
+    max-height: none;
+    max-width: none;
     right: 50px;
     top: 166px;
-    width: min(330px, calc(100vw - 62px));
+    width: auto;
   }
 
   .source-status-pill {
