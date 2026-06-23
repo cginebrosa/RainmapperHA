@@ -35,6 +35,8 @@ HOURLY_COLUMNS = [
     "local_date",
     "local_time",
     "rain_mm",
+    "temp_celsius",
+    "humidity_percent",
     "lat",
     "lon",
     "alt_m",
@@ -143,6 +145,8 @@ def normalize_observations(rows, local_timezone=LOCAL_TIMEZONE):
                 "local_date": timestamp_local.strftime("%Y%m%d"),
                 "local_time": timestamp_local.strftime("%H:%M:%S"),
                 "rain_mm": float(rain),
+                "temp_celsius": parse_optional_float(row.get("ta")),
+                "humidity_percent": parse_optional_float(row.get("hr")),
                 "lat": row.get("lat"),
                 "lon": row.get("lon"),
                 "alt_m": row.get("alt"),
@@ -155,7 +159,11 @@ def read_csv_if_exists(path, columns, decimal="."):
     """Read a CSV if it exists, otherwise return an empty dataframe."""
     if not path.exists():
         return pd.DataFrame(columns=columns)
-    return pd.read_csv(path, decimal=decimal)
+    df = pd.read_csv(path, decimal=decimal)
+    for column in columns:
+        if column not in df.columns:
+            df[column] = pd.NA
+    return df[columns]
 
 
 def first_non_empty(*values):
@@ -169,6 +177,32 @@ def first_non_empty(*values):
         if text:
             return value
     return ""
+
+
+def parse_optional_float(value):
+    """Return a float for optional AEMET numeric fields, or NA when unavailable."""
+    if value is None or pd.isna(value):
+        return pd.NA
+    if isinstance(value, str):
+        value = value.strip().replace(",", ".")
+        if not value or value.lower() == "nan":
+            return pd.NA
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return pd.NA
+
+
+def aggregate_optional_numeric(series, operation, decimals=1):
+    """Aggregate optional numeric values and keep empty output when all are missing."""
+    values = pd.to_numeric(series, errors="coerce").dropna()
+    if values.empty:
+        return pd.NA
+    if operation == "max":
+        return round(float(values.max()), decimals)
+    if operation == "min":
+        return round(float(values.min()), decimals)
+    raise ValueError(f"Unsupported aggregation operation: {operation}")
 
 
 def coordinates_match(left_lat, left_lon, right_lat, right_lon):
@@ -330,6 +364,10 @@ def build_daily_incremental(hourly_df, stations_df=None):
 
     df = hourly_df.copy()
     df["rain_mm"] = pd.to_numeric(df["rain_mm"], errors="coerce").fillna(0.0)
+    for column in ("temp_celsius", "humidity_percent"):
+        if column not in df.columns:
+            df[column] = pd.NA
+        df[column] = pd.to_numeric(df[column], errors="coerce")
     df["reading_local_dt"] = pd.to_datetime(df["reading_local"], errors="coerce")
     df = df.dropna(subset=["reading_local_dt", "local_date", "station_code"])
     if df.empty:
@@ -360,10 +398,10 @@ def build_daily_incremental(hourly_df, stations_df=None):
                 "Unitat": "mm",
                 "Data Local": local_date,
                 "Hora Local": reading_local.strftime("%H:%M:%S"),
-                "max_temp_celsius": pd.NA,
-                "min_temp_celsius": pd.NA,
-                "max_humidity_percent": pd.NA,
-                "min_humidity_percent": pd.NA,
+                "max_temp_celsius": aggregate_optional_numeric(group["temp_celsius"], "max"),
+                "min_temp_celsius": aggregate_optional_numeric(group["temp_celsius"], "min"),
+                "max_humidity_percent": aggregate_optional_numeric(group["humidity_percent"], "max"),
+                "min_humidity_percent": aggregate_optional_numeric(group["humidity_percent"], "min"),
             }
         )
 

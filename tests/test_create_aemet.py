@@ -7,7 +7,7 @@ import pandas as pd
 from rainmapper_core import create_aemet
 
 
-def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1):
+def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1, temp=None, humidity=None):
     return {
         "idema": station,
         "fint": fint,
@@ -16,6 +16,8 @@ def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1):
         "lat": lat,
         "lon": lon,
         "alt": 120.0,
+        "ta": temp,
+        "hr": humidity,
     }
 
 
@@ -36,6 +38,26 @@ class CreateAemetTests(unittest.TestCase):
         self.assertEqual(row["local_date"], "20260622")
         self.assertEqual(row["local_time"], "15:00:00")
         self.assertEqual(row["rain_mm"], 14.0)
+        self.assertTrue(pd.isna(row["temp_celsius"]))
+        self.assertTrue(pd.isna(row["humidity_percent"]))
+
+    def test_normalize_observations_keeps_hourly_temperature_and_humidity(self):
+        rows = [
+            observation(
+                "9632X",
+                "2026-06-22T13:00:00+0000",
+                1.0,
+                temp="24,7",
+                humidity=68,
+            ),
+        ]
+
+        result = create_aemet.normalize_observations(rows, local_timezone="Europe/Madrid")
+
+        self.assertEqual(len(result), 1)
+        row = result.iloc[0]
+        self.assertEqual(row["temp_celsius"], 24.7)
+        self.assertEqual(row["humidity_percent"], 68.0)
 
     def test_update_hourly_incremental_deduplicates_by_station_and_fint(self):
         existing = create_aemet.normalize_observations([
@@ -76,6 +98,48 @@ class CreateAemetTests(unittest.TestCase):
         self.assertEqual(row["Data Local"], "20260622")
         self.assertEqual(row["Total"], 7.0)
         self.assertEqual(row["Hora Local"], "20:00:00")
+        self.assertTrue(pd.isna(row["max_temp_celsius"]))
+
+    def test_build_daily_incremental_aggregates_temperature_and_humidity(self):
+        hourly = create_aemet.normalize_observations([
+            observation("9632X", "2026-06-22T07:00:00+0000", 1.0, temp=18.2, humidity=82),
+            observation("9632X", "2026-06-22T08:00:00+0000", 2.0, temp=21.5, humidity=65),
+            observation("9632X", "2026-06-22T09:00:00+0000", 0.0, temp=None, humidity=None),
+        ])
+
+        result = create_aemet.build_daily_incremental(hourly)
+
+        row = result.iloc[0]
+        self.assertEqual(row["max_temp_celsius"], 21.5)
+        self.assertEqual(row["min_temp_celsius"], 18.2)
+        self.assertEqual(row["max_humidity_percent"], 82.0)
+        self.assertEqual(row["min_humidity_percent"], 65.0)
+
+    def test_read_csv_if_exists_adds_new_hourly_weather_columns_to_existing_history(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "Aemet_hourly_incremental.csv"
+            pd.DataFrame([
+                {
+                    "aemet_id": "9632X",
+                    "station_code": "AEMET:9632X",
+                    "station_name": "TUIXENT",
+                    "fint_utc": "2026-06-22T07:00:00+0000",
+                    "reading_utc": "2026-06-22 07:00:00",
+                    "reading_local": "2026-06-22 09:00:00",
+                    "local_date": "20260622",
+                    "local_time": "09:00:00",
+                    "rain_mm": 1.0,
+                    "lat": 41.5,
+                    "lon": 2.1,
+                    "alt_m": 120.0,
+                }
+            ]).to_csv(csv_path, index=False)
+
+            result = create_aemet.read_csv_if_exists(csv_path, create_aemet.HOURLY_COLUMNS)
+
+            self.assertIn("temp_celsius", result.columns)
+            self.assertIn("humidity_percent", result.columns)
+            self.assertTrue(pd.isna(result.iloc[0]["temp_celsius"]))
 
     def test_station_catalog_preserves_manual_location_fields(self):
         hourly = create_aemet.normalize_observations([

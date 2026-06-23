@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.105
+
+- Show all valid MapLibre stations regardless of the previous regional bounds, and report invalid-coordinate features in the header.
+- Add AEMET hourly temperature and humidity capture, with daily max/min aggregation for Tomap and GeoJSON.
+
 ## 0.2.104
 
 - Fix experimental AEMET MapLibre publishing when Tomap merges AEMET with existing sources that have different optional weather column types.

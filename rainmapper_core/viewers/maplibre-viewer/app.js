@@ -25,7 +25,7 @@ let translations = {
   }
 };
 
-const DISPLAY_BOUNDS = [
+const FALLBACK_BOUNDS = [
   [-2.5, 39.0],
   [4.2, 43.7],
 ];
@@ -265,6 +265,7 @@ let hasPendingDeviceSettingsChanges = false;
 let longPressTimer = null;
 let longPressStartPoint = null;
 let didTriggerLongPress = false;
+let invalidFeatureCount = 0;
 const terrainTileCache = new Map();
 
 
@@ -422,7 +423,12 @@ function applyLanguage(language = currentLanguage) {
   updateSourceStatusControls();
   updateTerrainModeButton();
   if (hasLoadedInitialMap) {
-    updateSummary(currentPeriodFileName, currentData?.features?.length || 0, currentVisibleFeatures.length);
+    updateSummary(
+      currentPeriodFileName,
+      currentData?.features?.length || 0,
+      currentVisibleFeatures.length,
+      invalidFeatureCount,
+    );
   }
 }
 
@@ -1070,17 +1076,17 @@ function markerRadius(total) {
   return Math.max(5, Math.min(24, 5 + Math.sqrt(Math.max(total, 0)) * 1.2));
 }
 
-function visibleFeatures(features) {
+function validCoordinateFeatures(features) {
   return features.filter((feature) => {
     const coordinates = feature.geometry?.coordinates || [];
     const lon = Number(coordinates[0]);
     const lat = Number(coordinates[1]);
     return Number.isFinite(lat)
       && Number.isFinite(lon)
-      && lon >= DISPLAY_BOUNDS[0][0]
-      && lon <= DISPLAY_BOUNDS[1][0]
-      && lat >= DISPLAY_BOUNDS[0][1]
-      && lat <= DISPLAY_BOUNDS[1][1];
+      && lon >= -180
+      && lon <= 180
+      && lat >= -85.05112878
+      && lat <= 85.05112878;
   });
 }
 
@@ -1383,7 +1389,7 @@ function refreshFilteredData() {
   }
 
   addStationLayer();
-  updateSummary(selectedPeriod, features.length, currentVisibleFeatures.length);
+  updateSummary(selectedPeriod, features.length, currentVisibleFeatures.length, invalidFeatureCount);
   openStationPopup(findFeatureByStationId(features, popupStationId));
 }
 
@@ -1888,11 +1894,12 @@ function lastRainRecord(properties) {
   return `${formatRainDateDisplay(record.date)} · ${record.rainValue.toFixed(1)} mm`;
 }
 
-function updateSummary(fileName, count, totalCount = count) {
+function updateSummary(fileName, count, totalCount = count, invalidCount = 0) {
   const summary = document.getElementById("summary");
   const stationText = `${count} ${count === 1 ? t("station") : t("stations")}`;
   const hasSourceFilter = enabledStationSources.size < stationSources.length;
-  const hasAnyFilter = minRainFilter > 0 || hasSourceFilter;
+  const hasInvalidFeatures = invalidCount > 0;
+  const hasAnyFilter = minRainFilter > 0 || hasSourceFilter || hasInvalidFeatures;
   const mainParts = [periodLabel(fileName), stationText];
   const detailParts = [];
 
@@ -1904,6 +1911,9 @@ function updateSummary(fileName, count, totalCount = count) {
   }
   if (hasSourceFilter) {
     detailParts.push(`${t("sources")}: ${enabledStationSources.size}/${stationSources.length}`);
+  }
+  if (hasInvalidFeatures) {
+    detailParts.push(`${t("invalid")}: ${invalidCount}`);
   }
 
   summary.replaceChildren();
@@ -1991,7 +2001,7 @@ function updateGeneratedAt(generatedAt) {
 function fitToData() {
   const features = currentData?.features || [];
   if (features.length === 0) {
-    map.fitBounds(DISPLAY_BOUNDS, { padding: 24 });
+    map.fitBounds(FALLBACK_BOUNDS, { padding: 24 });
     return;
   }
 
@@ -2010,7 +2020,9 @@ async function loadMap(fileName) {
   }
   const data = await response.json();
   const popupStationId = activeStationPopupId;
-  const visible = visibleFeatures(data.features || []);
+  const rawFeatures = data.features || [];
+  const visible = validCoordinateFeatures(rawFeatures);
+  invalidFeatureCount = Math.max(0, rawFeatures.length - visible.length);
   updateRainScale(visible);
   const features = visible.map(prepareFeature);
   currentVisibleFeatures = features;
@@ -2030,7 +2042,7 @@ async function loadMap(fileName) {
   }
 
   addStationLayer();
-  updateSummary(fileName, filtered.length, features.length);
+  updateSummary(fileName, filtered.length, features.length, invalidFeatureCount);
   updateGeneratedAt(data.metadata?.generated_at);
   updatePeriodTimeline(fileName);
   syncSettingsPeriodSelector(preferredPeriodFileName);
