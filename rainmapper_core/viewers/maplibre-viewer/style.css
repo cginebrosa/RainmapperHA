@@ -491,12 +491,6 @@ main {
   margin-bottom: 6px;
 }
 
-.history-table-wrap {
-  max-height: min(44vh, 368px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
 .history-table {
   border-collapse: separate;
   border-spacing: 0;
@@ -509,9 +503,6 @@ main {
 
 .history-table thead {
   background: rgba(248, 252, 255, 0.98);
-  position: sticky;
-  top: -1px;
-  z-index: 3;
 }
 
 .history-table th {
@@ -523,7 +514,7 @@ main {
   padding: 6px 3px 5px;
   position: sticky;
   text-align: right;
-  top: -1px;
+  top: 0;
   z-index: 4;
 }
 

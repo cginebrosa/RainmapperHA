@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.129
+
+- Restore full-popup scrolling for MapLibre station history while keeping only the history column header sticky.
+
 ## 0.2.128
 
 - Keep the MapLibre station history table header pinned to the top of the history list while scrolling long popup histories.

@@ -2471,21 +2471,19 @@ function recentRainHistory(properties) {
   return `
     <details class="history">
       <summary>${t("lastRecords", { count: rows.length })}</summary>
-      <div class="history-table-wrap">
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>${t("date")}</th>
-              <th>${t("daysShort")}</th>
-              <th>mm</th>
-              <th>°C</th>
-              <th>%</th>
-              <th>km/h</th>
-            </tr>
-          </thead>
-          <tbody>${rows.join("")}</tbody>
-        </table>
-      </div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>${t("date")}</th>
+            <th>${t("daysShort")}</th>
+            <th>mm</th>
+            <th>°C</th>
+            <th>%</th>
+            <th>km/h</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
     </details>
   `;
 }
