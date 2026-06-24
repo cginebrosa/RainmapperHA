@@ -1,5 +1,6 @@
 import importlib.util
 import unittest
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +13,17 @@ SPEC.loader.exec_module(aemet_backfill)
 
 
 class AemetBackfillScriptTests(unittest.TestCase):
+    def test_split_date_ranges_respects_aemet_15_day_limit(self):
+        result = aemet_backfill.split_date_ranges(date(2026, 5, 25), date(2026, 6, 23))
+
+        self.assertEqual(
+            result,
+            [
+                (date(2026, 5, 25), date(2026, 6, 8)),
+                (date(2026, 6, 9), date(2026, 6, 23)),
+            ],
+        )
+
     def test_parse_aemet_dms_coordinates(self):
         self.assertEqual(aemet_backfill.parse_aemet_dms("413515N"), 41.5875)
         self.assertEqual(aemet_backfill.parse_aemet_dms("0021031E"), 2.175278)

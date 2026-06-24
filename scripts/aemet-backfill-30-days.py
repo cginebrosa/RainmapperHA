@@ -49,6 +49,7 @@ AEMET_STATION_INVENTORY_URL = (
     "https://opendata.aemet.es/opendata/api/valores/climatologicos/"
     "inventarioestaciones/todasestaciones"
 )
+MAX_DAILY_RANGE_DAYS = 15
 
 
 def fetch_indexed_payload(url, api_key, timeout=30):
@@ -67,6 +68,31 @@ def build_daily_url(start_date, end_date):
         start=start_date.strftime("%Y-%m-%d"),
         end=end_date.strftime("%Y-%m-%d"),
     )
+
+
+def split_date_ranges(start_date, end_date, max_days=MAX_DAILY_RANGE_DAYS):
+    """Split an inclusive date range into AEMET-compatible chunks."""
+    ranges = []
+    current = start_date
+    while current <= end_date:
+        chunk_end = min(current + timedelta(days=max_days - 1), end_date)
+        ranges.append((current, chunk_end))
+        current = chunk_end + timedelta(days=1)
+    return ranges
+
+
+def fetch_daily_climatology_rows(api_key, start_date, end_date, timeout=30):
+    """Fetch daily climatology rows, respecting AEMET's maximum date window."""
+    rows = []
+    for chunk_start, chunk_end in split_date_ranges(start_date, end_date):
+        rows.extend(
+            fetch_indexed_payload(
+                build_daily_url(chunk_start, chunk_end),
+                api_key=api_key,
+                timeout=timeout,
+            )
+        )
+    return rows
 
 
 def parse_yyyymmdd(value):
@@ -296,7 +322,7 @@ def run_backfill(
     start_date = end_date - timedelta(days=days - 1)
     output_dir = Path(output_dir or default_output_dir())
 
-    daily_rows = fetch_indexed_payload(build_daily_url(start_date, end_date), api_key=api_key, timeout=timeout)
+    daily_rows = fetch_daily_climatology_rows(api_key, start_date, end_date, timeout=timeout)
     inventory_rows = fetch_indexed_payload(AEMET_STATION_INVENTORY_URL, api_key=api_key, timeout=timeout)
     inventory = normalize_inventory(inventory_rows)
     existing_stations = read_csv_if_exists(Path(station_catalog_path), STATION_COLUMNS, decimal=",") if station_catalog_path else None
