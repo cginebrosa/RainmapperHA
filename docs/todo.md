@@ -12,6 +12,12 @@ Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebr
   - Criterio de aceptacion: dentro de 2-3 dias, regenerar backfill de 30 dias con `--station-catalog tmp/aemet-geocode-test-v2/Data/estacions_aemet.csv`; si HA aporta dias horarios mas recientes, fusionar dando prioridad a HA; validar 0 duplicados estacion/dia y revisar rango antes de subir manualmente a HA.
   - Estado: pendiente operativo; seguir `docs/history-safety.md` y no escribir directamente en historicos reales.
 
+- [ ] Evaluar captura de viento AEMET
+  - Contexto: una muestra real del endpoint diario AEMET del `2026-06-20` devolvio campos de viento `velmedia`, `racha`, `dir` y `horaracha`. El endpoint horario no se pudo verificar en ese momento porque AEMET devolvio `429 Too Many Requests`. El runtime AEMET actual solo persiste lluvia, temperatura y humedad; no guarda viento.
+  - Ficheros relacionados: `rainmapper_core/create_aemet.py`, `scripts/aemet-backfill-30-days.py`, `tests/test_create_aemet.py`, `tests/test_aemet_backfill_script.py`, documentacion HA.
+  - Criterio de aceptacion: confirmar en documentacion/API real las unidades y significado de `velmedia`, `racha`, `dir` y `horaracha`; verificar si el endpoint horario trae viento instantaneo/maximo para calcular min/max diarios; definir columnas nuevas sin romper Tomap/GeoJSON ni historicos existentes; cubrir parseo y agregacion con tests.
+  - Estado: pendiente; no implementar hasta revisar unidades y schema.
+
 - [x] Corregir upsert de historicos incrementales por estacion/dia
   - Contexto: los incrementales no son append puro; las fuentes pueden reenviar una estacion/dia con valores corregidos o campos complementarios incompletos. El patron anterior `update` + `merge` por todas las columnas podia dejar duplicados logicos si la fila nueva traia `NaN`.
   - Ficheros relacionados: `rainmapper_core/incremental_upsert.py`, `rainmapper_core/rainmapper.py`, `tests/test_incremental_upsert.py`.
