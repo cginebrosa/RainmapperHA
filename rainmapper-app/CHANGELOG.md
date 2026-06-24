@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.127
+
+- Persist MapLibre admin heatmap settings in per-device settings.
+- Keep Heatmap settings saving aligned with the rest of Settings: changes are saved when Settings is closed.
+
 ## 0.2.126
 
 - Treat missing metric values as no data instead of zero in MapLibre scales, station points, popups and heatmaps.

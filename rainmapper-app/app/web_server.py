@@ -59,6 +59,8 @@ DEVICE_SETTING_PERIODS = {"01d.geojson", "07d.geojson", "14d.geojson", "21d.geoj
 DEVICE_SETTING_MAP_STYLES = {"esri-satellite-vector", "esri-hybrid", "opentopomap", "openfreemap-liberty"}
 DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "AEMET", "Unknown"}
 DEVICE_SETTING_LANGUAGES = {"en", "es", "ca"}
+DEVICE_SETTING_LAYER_METRICS = {"rain", "max_temp", "min_temp", "max_humidity", "min_humidity", "wind"}
+DEVICE_SETTING_HEATMAP_WEIGHT_CURVES = {"linear", "soft", "strong"}
 UPDATE_SOURCE_FLAGS = {
     "Meteoclimatic": "create_meteoclimatic",
     "Meteocat": "create_meteocat",
@@ -1938,6 +1940,26 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
 
     terrain_exaggeration = finite_number(raw_settings.get("terrain_exaggeration"), 1.0)
     settings["terrain_exaggeration"] = max(0.5, min(3.0, terrain_exaggeration))
+
+    layer_metric = str(raw_settings.get("layer_metric", "")).strip()
+    if layer_metric in DEVICE_SETTING_LAYER_METRICS:
+        settings["layer_metric"] = layer_metric
+
+    if "heatmap_enabled" in raw_settings:
+        settings["heatmap_enabled"] = normalize_bool_flag(raw_settings.get("heatmap_enabled")) == "true"
+
+    heatmap_opacity = finite_number(raw_settings.get("heatmap_opacity"), 0.65)
+    settings["heatmap_opacity"] = max(0.0, min(1.0, heatmap_opacity))
+
+    heatmap_radius_scale = finite_number(raw_settings.get("heatmap_radius_scale"), 1.0)
+    settings["heatmap_radius_scale"] = max(0.5, min(3.0, heatmap_radius_scale))
+
+    heatmap_intensity_scale = finite_number(raw_settings.get("heatmap_intensity_scale"), 1.0)
+    settings["heatmap_intensity_scale"] = max(0.2, min(2.0, heatmap_intensity_scale))
+
+    heatmap_weight_curve = str(raw_settings.get("heatmap_weight_curve", "")).strip()
+    if heatmap_weight_curve in DEVICE_SETTING_HEATMAP_WEIGHT_CURVES:
+        settings["heatmap_weight_curve"] = heatmap_weight_curve
 
     map_view = raw_settings.get("map_view")
     if isinstance(map_view, dict):
