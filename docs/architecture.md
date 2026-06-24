@@ -30,7 +30,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
-- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh` y `check-history.py`.
+- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh` y `aemet-backfill-30-days.py`.
 - `local_update.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_update.sh`; runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
 - `rainmapper_core/sources/meteoclimatic_local/`: cliente local Meteoclimatic.
 - `rainmapper_core/sources/sodapy_local/`: copia local/adaptada de Socrata client.
@@ -277,16 +277,16 @@ docker compose run --rm rainmapper
 
 Home Assistant:
 
-- El repo se anadio como repositorio de apps/add-ons en HA cuando era publico. Desde el 2026-06-22 el repo GitHub `cginebrosa/RainmapperHA` es privado para no exponer codigo ni logica de descarga; la instalacion existente de HA sigue usando la imagen GHCR preconstruida.
+- El repo se anadio como repositorio de apps/add-ons en HA cuando era publico. Desde el 2026-06-22 se decidio mantener el repo GitHub `cginebrosa/RainmapperHA` privado para no exponer codigo ni logica de descarga, abriendolo solo en ventanas operativas para que HA detecte updates. Auditoria real del 2026-06-24: el repo remoto esta publico (`private=false`, `visibility=public`) tras publicar `0.2.118`; volver a privado queda pendiente tras confirmar que HA ya detecta/instala la version.
 - HA detecta `repository.yaml` y `rainmapper-app/config.yaml`.
 - Desde `0.2.57`, `rainmapper-app/config.yaml` define `image: ghcr.io/cginebrosa/rainmapperha`, por lo que HA debe descargar la imagen versionada en vez de construirla localmente.
 - Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version. Esto evita que HA vea un update antes de que exista la imagen en GHCR.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
 - El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
-- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. El 2026-06-24 se limpio GHCR tras validar `0.2.113`; quedaron solo `0.2.113`, `latest` y cuatro entradas auxiliares sin tag del mismo push multi-arch/attestation. `0.2.113` resuelve como index OCI con `linux/amd64` y `linux/arm64` y digest `sha256:b8bdf0a9b433932c4fc7af012cd7d0876ea6d821aa7131b5e81458031c831627`.
-- Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando solo la ultima version validada, `latest` y las entradas auxiliares sin tag asociadas al mismo push multi-arch. Esto evita acumular basura en GitHub Packages. No hacer esta limpieza antes de confirmar que HA descarga y arranca correctamente la nueva version.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Auditoria real del 2026-06-24 tras publicar `0.2.118`: GHCR conserva `0.2.118,latest` con digest multi-arch `sha256:07ce37c45de5f705aeb1621f4fb680a7b2c9360014ee1ccbb95322e7815d0e96` y `0.2.117` como rollback con digest multi-arch `sha256:e12749d4b16a48c362f731eb4f03dbb850b71988061602396c51293ad0350d65`; cada version conserva sus cuatro entradas auxiliares sin tag multi-arch/attestation.
+- Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando solo la ultima version validada, `latest` y las entradas auxiliares sin tag asociadas al mismo push multi-arch. Esto evita acumular basura en GitHub Packages. No hacer esta limpieza antes de confirmar que HA descarga y arranca correctamente la nueva version; ahora mismo no limpiar `0.2.117` hasta validar `0.2.118`.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
-- Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit al repo privado de GitHub, y usando `Check for updates`/`Update` en HA.
+- Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit a GitHub, abriendo el repo temporalmente si HA necesita detectar metadata, y usando `Check for updates`/`Update` en HA. Tras validar la version, el repo debe volver a privado.
 
 ## Convenciones de codigo
 - Scripts Python monoliticos con constantes globales y funciones procedurales.
