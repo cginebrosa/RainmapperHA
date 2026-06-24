@@ -1214,6 +1214,7 @@ const layerMetrics = [
   { id: "min_humidity", labelKey: "metricMinHumidity", property: "min_humidity_percent", unit: "%", decimals: 0, floor: 0, ceiling: 100 },
   { id: "wind", labelKey: "metricWind", property: "wind_avg_kmh", unit: "km/h", decimals: 0, floor: 0 },
 ];
+const noDataMetricColor = "#8a95a3";
 
 function hexToRgb(hexColor) {
   const value = hexColor.replace("#", "");
@@ -1264,9 +1265,24 @@ function layerMetricLabel(metric = selectedLayerMetric()) {
   return t(metric.labelKey);
 }
 
+function parseOptionalNumber(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized || ["-", "none", "nan", "nat", "null"].includes(normalized.toLowerCase())) {
+      return null;
+    }
+    const parsedString = Number(normalized);
+    return Number.isFinite(parsedString) ? parsedString : null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function featureMetricValue(feature, metric = selectedLayerMetric()) {
-  const value = Number(feature.properties?.[metric.property]);
-  return Number.isFinite(value) ? value : null;
+  return parseOptionalNumber(feature.properties?.[metric.property]);
 }
 
 function metricScaleCeiling(maxValue) {
@@ -1350,7 +1366,7 @@ function percentile(sortedValues, ratio) {
 function robustRainScaleMaximum(features) {
   const positiveTotals = features
     .map(featureRainTotal)
-    .filter((value) => value > 0)
+    .filter((value) => Number.isFinite(value) && value > 0)
     .sort((left, right) => left - right);
 
   if (positiveTotals.length === 0) {
@@ -1510,23 +1526,31 @@ function validCoordinateFeatures(features) {
 
 function prepareFeature(feature) {
   const total = featureRainTotal(feature);
-  const metricValue = featureMetricValue(feature);
+  const metric = selectedLayerMetric();
+  const metricValue = featureMetricValue(feature, metric);
+  const hasMetricValue = Number.isFinite(metricValue);
+  const useMetricStyle = canUseHeatmap();
   const source = feature.properties?.Source || inferStationSource(feature.properties?.["Codi Estació"]);
   return {
     ...feature,
     properties: {
       ...(feature.properties || {}),
       Source: source,
-      rain_color: canUseHeatmap() ? metricColor(metricValue) : rainColor(total),
-      marker_radius: canUseHeatmap() ? markerRadius(metricValue) : markerRadius(total),
+      rain_color: useMetricStyle
+        ? (hasMetricValue ? metricColor(metricValue) : noDataMetricColor)
+        : (Number.isFinite(total) ? rainColor(total) : noDataMetricColor),
+      marker_radius: useMetricStyle && !hasMetricValue
+        ? 5
+        : (useMetricStyle
+          ? markerRadius(metricValue)
+          : (Number.isFinite(total) ? markerRadius(total) : 5)),
       layer_metric_value: metricValue,
     },
   };
 }
 
 function featureRainTotal(feature) {
-  const total = Number(feature.properties?.Total || 0);
-  return Number.isFinite(total) ? total : 0;
+  return parseOptionalNumber(feature.properties?.Total);
 }
 
 function inferStationSource(stationCode) {
@@ -1574,14 +1598,21 @@ function featureStationSource(feature) {
 }
 
 function filteredFeatures(features) {
-  return features.filter((feature) => (
-    featureRainTotal(feature) >= minRainFilter
-    && enabledStationSources.has(featureStationSource(feature))
-  ));
+  return features.filter((feature) => {
+    const rainTotal = featureRainTotal(feature);
+    const passesRainFilter = Number.isFinite(rainTotal)
+      ? rainTotal >= minRainFilter
+      : minRainFilter <= 0;
+    return passesRainFilter && enabledStationSources.has(featureStationSource(feature));
+  });
 }
 
 function heatmapFeatures(features) {
-  return features.filter((feature) => enabledStationSources.has(featureStationSource(feature)));
+  const metric = selectedLayerMetric();
+  return features.filter((feature) => (
+    enabledStationSources.has(featureStationSource(feature))
+    && Number.isFinite(featureMetricValue(feature, metric))
+  ));
 }
 
 function heatmapWeightExpression() {
@@ -1684,7 +1715,10 @@ async function loadSourceStatus() {
 }
 
 function updateMinRainControl(features) {
-  const maxRain = features.reduce((maxValue, feature) => Math.max(maxValue, featureRainTotal(feature)), 0);
+  const maxRain = features.reduce((maxValue, feature) => {
+    const rainTotal = featureRainTotal(feature);
+    return Number.isFinite(rainTotal) ? Math.max(maxValue, rainTotal) : maxValue;
+  }, 0);
   const sliderMax = Math.max(10, Math.ceil(maxRain / 10) * 10);
   const slider = document.getElementById("min-rain-filter");
   slider.max = String(sliderMax);
@@ -1775,7 +1809,7 @@ function nearestRainyStationForLngLat(lngLat) {
   const mapFeatures = currentData?.features || [];
   mapFeatures.forEach((feature) => {
     const rainTotal = featureRainTotal(feature);
-    if (rainTotal <= 0) {
+    if (!Number.isFinite(rainTotal) || rainTotal <= 0) {
       return;
     }
     const coordinates = feature.geometry?.coordinates || [];
@@ -2098,7 +2132,8 @@ function popupContent(properties) {
   const town = properties["Municipi"] || t("unknownTown");
   const province = properties["Provincia"] || "";
   const altitude = properties["Altitud"] || "-";
-  const total = Number(properties["Total"] || 0).toFixed(1);
+  const totalValue = parseOptionalNumber(properties["Total"]);
+  const total = Number.isFinite(totalValue) ? totalValue.toFixed(1) : "-";
   const lastReading = properties["Ultima Lectura"] || "-";
   const lastRain = lastRainRecord(properties);
   const periodWeather = periodWeatherSummary(properties);
@@ -2117,8 +2152,7 @@ function popupContent(properties) {
 }
 
 function numericProperty(properties, key) {
-  const value = Number(properties?.[key]);
-  return Number.isFinite(value) ? value : null;
+  return parseOptionalNumber(properties?.[key]);
 }
 
 function formatNumber(value, decimals = 1) {
@@ -2547,13 +2581,13 @@ function rainHistoryRecords(properties) {
     if (!date || date === "None" || date === "NaT" || date === "nan") {
       continue;
     }
-    const rainValue = Number(rain);
-    const tempMaxValue = Number(tempMax);
-    const tempMinValue = Number(tempMin);
-    const humidityMaxValue = Number(humidityMax);
-    const humidityMinValue = Number(humidityMin);
-    const windAvgValue = Number(windAvg);
-    const windDirectionValue = Number(windDirection);
+    const rainValue = parseOptionalNumber(rain);
+    const tempMaxValue = parseOptionalNumber(tempMax);
+    const tempMinValue = parseOptionalNumber(tempMin);
+    const humidityMaxValue = parseOptionalNumber(humidityMax);
+    const humidityMinValue = parseOptionalNumber(humidityMin);
+    const windAvgValue = parseOptionalNumber(windAvg);
+    const windDirectionValue = parseOptionalNumber(windDirection);
     records.push({
       date,
       daysAgo: daysAgo(date),

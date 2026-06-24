@@ -115,6 +115,12 @@ def optional_min(values):
     return pd.NA if series.empty else round(float(series.min()), 1)
 
 
+def optional_sum(values):
+    """Return the sum of numeric values while preserving missing-only groups."""
+    series = numeric_series(values).dropna()
+    return pd.NA if series.empty else round(float(series.sum()), 1)
+
+
 def weighted_wind_average(values, weights=None):
     """Average daily wind speeds, using observation counts when available."""
     speeds = numeric_series(values)
@@ -170,7 +176,11 @@ def add_circular_mean_column(grouped_df: pd.DataFrame, source_df: pd.DataFrame, 
 def filter_results(df: pd.DataFrame, minimum_rain):
     """Keep only rows whose accumulated rain meets the configured threshold."""
     df = df.copy()
-    return df.query('Total >= @minimum_rain')
+    totals = pd.to_numeric(df['Total'], errors='coerce')
+    keep_rows = totals >= minimum_rain
+    if minimum_rain <= 0:
+        keep_rows = keep_rows | totals.isna()
+    return df.loc[keep_rows].copy()
 
 
 def save_dataframe_tomap(df, maps_dir: Path, file_name, save_to_csv=True, decimal='.'):
@@ -255,7 +265,7 @@ def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
 
     grouped = df_to_group.groupby('Codi Estació', as_index=True).agg({
         'Ultima Lectura': 'max',
-        'Total': 'sum',
+        'Total': optional_sum,
         'Data Local': 'max',
         'max_temp_celsius': 'max',
         'min_temp_celsius': 'min',
@@ -320,7 +330,7 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
         'Longitud': 'first',
         'Ultima Lectura': 'first',
         'Variable': 'first',
-        'Total': 'sum',
+        'Total': optional_sum,
         'Unitat': 'first',
         'max_temp_celsius': 'first',
         'min_temp_celsius': 'first',

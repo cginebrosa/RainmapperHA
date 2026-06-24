@@ -202,6 +202,39 @@ class TomapBuilderTests(unittest.TestCase):
             last_day = pd.read_csv(maps_dir / '01_Tomap_Last_day.csv')
             self.assertEqual(set(last_day['Codi Estació']), {'METEO_TEST', 'AEMET:9632X'})
 
+    def test_build_tomap_preserves_missing_rain_as_missing(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            data_dir = tmp_path / 'Data'
+            maps_dir = tmp_path / 'Tomap'
+            data_dir.mkdir()
+
+            today = date.today()
+            missing_rain = make_incremental_row('NO_RAIN_DATA', today, pd.NA)
+            zero_rain = make_incremental_row('ZERO_RAIN', today, 0.0)
+            rainy = make_incremental_row('RAINY', today, 2.4)
+            pd.DataFrame([missing_rain, zero_rain, rainy]).to_csv(
+                data_dir / 'Meteocat_incremental.csv',
+                decimal=',',
+                index=False,
+            )
+
+            with redirect_stdout(StringIO()):
+                exit_code = tomap_builder.build_tomap(
+                    data_dir=data_dir,
+                    maps_dir=maps_dir,
+                    last_rains_history=3,
+                    minimum_rain_tomap=0,
+                    max_threads=1,
+                )
+
+            self.assertEqual(exit_code, 0)
+            last_day = pd.read_csv(maps_dir / '01_Tomap_Last_day.csv')
+            by_station = last_day.set_index('Codi Estació')
+            self.assertTrue(pd.isna(by_station.loc['NO_RAIN_DATA', 'Total']))
+            self.assertEqual(by_station.loc['ZERO_RAIN', 'Total'], 0.0)
+            self.assertEqual(by_station.loc['RAINY', 'Total'], 2.4)
+
     def test_build_tomap_ignores_aemet_by_default(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)

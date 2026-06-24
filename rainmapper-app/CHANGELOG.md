@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.126
+
+- Treat missing metric values as no data instead of zero in MapLibre scales, station points, popups and heatmaps.
+- Preserve missing rain totals through Tomap aggregation instead of fabricating zero when all source values are missing.
+- Keep real numeric zero values distinct from missing data for rain, humidity, temperature and wind.
+
 ## 0.2.125
 
 - Hide MapLibre heatmap and metric buttons correctly for non-admin protected users.
