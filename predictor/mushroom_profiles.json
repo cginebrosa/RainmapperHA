@@ -1,0 +1,825 @@
+{
+  "schema_version": "0.1",
+  "model_purpose": "mushroom_fruiting_probability_scoring",
+  "important_note": "Numeric weather thresholds are initial modelling parameters inferred from ecological descriptions and should be calibrated with local observations.",
+  "species_profiles": [
+    {
+      "species_id": "boletus_pinophilus",
+      "scientific_name": "Boletus pinophilus",
+      "common_names": ["pinicola", "cep de pi", "boleto de pino"],
+      "taxonomy_status": "accepted",
+      "edibility": "excellent",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Pinus sylvestris", "Pinus uncinata", "Pinus spp."],
+        "secondary_hosts": ["Picea spp.", "Abies spp.", "Fagus sylvatica", "Quercus spp.", "Castanea sativa"],
+        "forest_types": ["montane pine forest", "subalpine pine forest", "mixed conifer forest", "acidic conifer woodland"],
+        "soil_preference": ["acidic", "sandy", "siliceous"],
+        "soil_avoidance": ["strongly calcareous"],
+        "lithology_preference": ["granite", "schist", "sandstone", "siliceous substrates"],
+        "habitat_confidence": "high"
+      },
+      "phenology": {
+        "main_months": [6, 7, 8, 9, 10],
+        "secondary_months": [5],
+        "season_pattern": ["late_spring_possible", "summer", "autumn"],
+        "fruiting_delay_after_rain_days": {
+          "min": 5,
+          "optimal_min": 7,
+          "optimal_max": 15,
+          "max": 21,
+          "confidence": "medium"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 800,
+        "altitude_optimal_min_m": 1200,
+        "altitude_optimal_max_m": 1900,
+        "altitude_max_m": 2200,
+        "preferred_aspects": ["N", "NE", "E", "NW"],
+        "aspect_notes": "Fresher aspects preferred in warm periods; more open/warm sites can work early or at high altitude.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 10,
+          "rain_15d_min_mm": 25,
+          "rain_15d_optimal_min_mm": 35,
+          "rain_15d_optimal_max_mm": 90,
+          "rain_30d_saturation_penalty_mm": 160
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 4,
+          "temp_min_7d_optimal_max_c": 13,
+          "temp_max_7d_optimal_min_c": 14,
+          "temp_max_7d_optimal_max_c": 24,
+          "heat_penalty_temp_max_c": 28,
+          "frost_penalty_temp_min_c": -2
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 50,
+          "humidity_max_7d_preferred_min_pct": 80
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 18,
+          "wind_gust_3d_penalty_kmh": 40,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.3,
+        "season": 0.15,
+        "altitude": 0.15,
+        "rainfall": 0.2,
+        "temperature": 0.1,
+        "humidity": 0.05,
+        "wind_penalty": 0.05
+      },
+      "calibration_priority": "high"
+    },
+    {
+      "species_id": "boletus_edulis",
+      "scientific_name": "Boletus edulis",
+      "common_names": ["cep", "porcini", "boleto comestible"],
+      "taxonomy_status": "accepted",
+      "edibility": "excellent",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Fagus sylvatica", "Quercus spp.", "Betula spp.", "Abies spp.", "Picea spp."],
+        "secondary_hosts": ["Pinus spp.", "Castanea sativa", "Cistus ladanifer"],
+        "forest_types": ["deciduous forest", "mixed forest", "conifer forest", "open woodland with host trees"],
+        "soil_preference": ["acidic", "neutral", "siliceous", "well_drained"],
+        "soil_avoidance": ["very_dry_soils", "waterlogged_soils"],
+        "lithology_preference": ["siliceous substrates", "acidic metamorphic substrates", "decalcified soils"],
+        "habitat_confidence": "high"
+      },
+      "phenology": {
+        "main_months": [8, 9, 10, 11],
+        "secondary_months": [6, 7],
+        "season_pattern": ["summer_possible", "autumn_main"],
+        "fruiting_delay_after_rain_days": {
+          "min": 6,
+          "optimal_min": 8,
+          "optimal_max": 16,
+          "max": 24,
+          "confidence": "medium"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 600,
+        "altitude_optimal_min_m": 900,
+        "altitude_optimal_max_m": 1800,
+        "altitude_max_m": 2200,
+        "preferred_aspects": ["N", "NE", "E", "NW"],
+        "aspect_notes": "In warm periods, fresher and shaded slopes are preferred; autumn fruiting can extend to broader aspects.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 10,
+          "rain_15d_min_mm": 25,
+          "rain_15d_optimal_min_mm": 40,
+          "rain_15d_optimal_max_mm": 100,
+          "rain_30d_saturation_penalty_mm": 170
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 5,
+          "temp_min_7d_optimal_max_c": 14,
+          "temp_max_7d_optimal_min_c": 13,
+          "temp_max_7d_optimal_max_c": 23,
+          "heat_penalty_temp_max_c": 27,
+          "frost_penalty_temp_min_c": -1
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 55,
+          "humidity_max_7d_preferred_min_pct": 85
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 16,
+          "wind_gust_3d_penalty_kmh": 38,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.28,
+        "season": 0.15,
+        "altitude": 0.12,
+        "rainfall": 0.23,
+        "temperature": 0.12,
+        "humidity": 0.05,
+        "wind_penalty": 0.05
+      },
+      "calibration_priority": "high"
+    },
+    {
+      "species_id": "boletus_aereus",
+      "scientific_name": "Boletus aereus",
+      "common_names": ["hongo negro", "cep negre", "boleto negro"],
+      "taxonomy_status": "accepted",
+      "edibility": "excellent",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Quercus ilex", "Quercus suber", "Quercus spp.", "Castanea sativa", "Fagus sylvatica"],
+        "secondary_hosts": ["Cistus spp."],
+        "forest_types": ["Mediterranean oak woodland", "cork oak woodland", "holm oak woodland", "chestnut woodland", "warm broadleaf forest"],
+        "soil_preference": ["acidic", "neutral", "siliceous", "well_drained"],
+        "soil_avoidance": ["cold_wet_soils", "high_mountain_conifer_only"],
+        "lithology_preference": ["granite", "schist", "sandstone", "siliceous substrates"],
+        "habitat_confidence": "high"
+      },
+      "phenology": {
+        "main_months": [8, 9, 10],
+        "secondary_months": [6, 7, 11],
+        "season_pattern": ["summer_after_storms", "early_autumn_main", "mild_autumn_possible"],
+        "fruiting_delay_after_rain_days": {
+          "min": 5,
+          "optimal_min": 7,
+          "optimal_max": 14,
+          "max": 21,
+          "confidence": "medium"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 100,
+        "altitude_optimal_min_m": 300,
+        "altitude_optimal_max_m": 1100,
+        "altitude_max_m": 1500,
+        "preferred_aspects": ["N", "NE", "E", "NW"],
+        "aspect_notes": "Warm Mediterranean species, but fruiting usually favoured by moisture-retaining exposures after summer/autumn rain.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 12,
+          "rain_15d_min_mm": 25,
+          "rain_15d_optimal_min_mm": 35,
+          "rain_15d_optimal_max_mm": 90,
+          "rain_30d_saturation_penalty_mm": 150
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 10,
+          "temp_min_7d_optimal_max_c": 18,
+          "temp_max_7d_optimal_min_c": 18,
+          "temp_max_7d_optimal_max_c": 28,
+          "heat_penalty_temp_max_c": 32,
+          "frost_penalty_temp_min_c": 2
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 45,
+          "humidity_max_7d_preferred_min_pct": 75
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 18,
+          "wind_gust_3d_penalty_kmh": 42,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.32,
+        "season": 0.14,
+        "altitude": 0.1,
+        "rainfall": 0.22,
+        "temperature": 0.12,
+        "humidity": 0.05,
+        "wind_penalty": 0.05
+      },
+      "calibration_priority": "high"
+    },
+    {
+      "species_id": "amanita_caesarea",
+      "scientific_name": "Amanita caesarea",
+      "common_names": ["ou de reig", "oronja", "amanita de los césares"],
+      "taxonomy_status": "accepted",
+      "edibility": "excellent",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Quercus spp.", "Quercus ilex", "Quercus suber", "Castanea sativa"],
+        "secondary_hosts": ["Fagus sylvatica", "Pinus spp."],
+        "forest_types": ["Mediterranean oak woodland", "open oak woodland", "chestnut woodland", "warm mixed woodland", "woodland edges"],
+        "soil_preference": ["acidic", "slightly_acidic", "sandy", "well_drained"],
+        "soil_avoidance": ["cold_high_mountain", "waterlogged_soils"],
+        "lithology_preference": ["siliceous substrates", "decalcified soils", "sandy soils"],
+        "habitat_confidence": "high"
+      },
+      "phenology": {
+        "main_months": [8, 9, 10],
+        "secondary_months": [6, 7, 11],
+        "season_pattern": ["warm_late_spring_possible", "summer_after_rain", "autumn_main"],
+        "fruiting_delay_after_rain_days": {
+          "min": 5,
+          "optimal_min": 7,
+          "optimal_max": 14,
+          "max": 21,
+          "confidence": "medium"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 100,
+        "altitude_optimal_min_m": 300,
+        "altitude_optimal_max_m": 1000,
+        "altitude_max_m": 1500,
+        "preferred_aspects": ["E", "NE", "N", "SE"],
+        "aspect_notes": "Thermophilous species; needs warmth but not severe drying.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 10,
+          "rain_15d_min_mm": 25,
+          "rain_15d_optimal_min_mm": 35,
+          "rain_15d_optimal_max_mm": 100,
+          "rain_30d_saturation_penalty_mm": 160
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 12,
+          "temp_min_7d_optimal_max_c": 20,
+          "temp_max_7d_optimal_min_c": 20,
+          "temp_max_7d_optimal_max_c": 30,
+          "heat_penalty_temp_max_c": 34,
+          "frost_penalty_temp_min_c": 4
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 45,
+          "humidity_max_7d_preferred_min_pct": 75
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 18,
+          "wind_gust_3d_penalty_kmh": 42,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.32,
+        "season": 0.15,
+        "altitude": 0.1,
+        "rainfall": 0.2,
+        "temperature": 0.13,
+        "humidity": 0.05,
+        "wind_penalty": 0.05
+      },
+      "calibration_priority": "medium"
+    },
+    {
+      "species_id": "lactarius_sanguifluus",
+      "scientific_name": "Lactarius sanguifluus",
+      "common_names": ["rovelló de sang", "níscalo de sangre", "esclata-sang"],
+      "taxonomy_status": "accepted",
+      "edibility": "good",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Pinus halepensis", "Pinus sylvestris", "Pinus nigra", "Pinus pinea", "Pinus spp."],
+        "secondary_hosts": [],
+        "forest_types": ["Mediterranean pine forest", "open pine forest", "calcareous pine woodland", "pine woodland edges"],
+        "soil_preference": ["calcareous", "limestone", "basic", "well_drained"],
+        "soil_avoidance": ["strongly_acidic"],
+        "lithology_preference": ["limestone", "dolomite", "calcareous marl"],
+        "habitat_confidence": "high"
+      },
+      "phenology": {
+        "main_months": [9, 10, 11],
+        "secondary_months": [12],
+        "season_pattern": ["autumn_main", "early_winter_possible_in_mild_areas"],
+        "fruiting_delay_after_rain_days": {
+          "min": 6,
+          "optimal_min": 8,
+          "optimal_max": 18,
+          "max": 28,
+          "confidence": "medium"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 100,
+        "altitude_optimal_min_m": 300,
+        "altitude_optimal_max_m": 1200,
+        "altitude_max_m": 1700,
+        "preferred_aspects": ["N", "NE", "E", "NW"],
+        "aspect_notes": "Mediterranean pine species; open sunny pine woods can work, but moisture retention after rain is decisive.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 8,
+          "rain_15d_min_mm": 20,
+          "rain_15d_optimal_min_mm": 30,
+          "rain_15d_optimal_max_mm": 90,
+          "rain_30d_saturation_penalty_mm": 170
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 6,
+          "temp_min_7d_optimal_max_c": 15,
+          "temp_max_7d_optimal_min_c": 14,
+          "temp_max_7d_optimal_max_c": 24,
+          "heat_penalty_temp_max_c": 29,
+          "frost_penalty_temp_min_c": -1
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 50,
+          "humidity_max_7d_preferred_min_pct": 80
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 20,
+          "wind_gust_3d_penalty_kmh": 45,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.34,
+        "season": 0.14,
+        "altitude": 0.08,
+        "rainfall": 0.22,
+        "temperature": 0.1,
+        "humidity": 0.06,
+        "wind_penalty": 0.06
+      },
+      "calibration_priority": "high"
+    },
+    {
+      "species_id": "lactarius_vinosus",
+      "scientific_name": "Lactarius vinosus",
+      "common_names": ["vinader", "rovelló vinader"],
+      "taxonomy_status": "uncertain_operational_taxon",
+      "edibility": "good",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Pinus halepensis", "Pinus pinea", "Pinus nigra", "Pinus spp."],
+        "secondary_hosts": [],
+        "forest_types": ["lowland Mediterranean pine forest", "warm pine woodland", "pine woodland edges"],
+        "soil_preference": ["calcareous", "basic", "well_drained"],
+        "soil_avoidance": ["cold_high_mountain", "strongly_acidic"],
+        "lithology_preference": ["limestone", "dolomite", "calcareous marl"],
+        "habitat_confidence": "medium"
+      },
+      "phenology": {
+        "main_months": [10, 11, 12],
+        "secondary_months": [9],
+        "season_pattern": ["autumn", "late_autumn", "mild_early_winter"],
+        "fruiting_delay_after_rain_days": {
+          "min": 7,
+          "optimal_min": 10,
+          "optimal_max": 20,
+          "max": 30,
+          "confidence": "low"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 0,
+        "altitude_optimal_min_m": 100,
+        "altitude_optimal_max_m": 800,
+        "altitude_max_m": 1200,
+        "preferred_aspects": ["N", "NE", "E", "NW"],
+        "aspect_notes": "Operational profile based on lowland/warm pine-forest use; requires local Catalan calibration.",
+        "topography_confidence": "low"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 8,
+          "rain_15d_min_mm": 20,
+          "rain_15d_optimal_min_mm": 30,
+          "rain_15d_optimal_max_mm": 90,
+          "rain_30d_saturation_penalty_mm": 170
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 7,
+          "temp_min_7d_optimal_max_c": 16,
+          "temp_max_7d_optimal_min_c": 14,
+          "temp_max_7d_optimal_max_c": 24,
+          "heat_penalty_temp_max_c": 29,
+          "frost_penalty_temp_min_c": 0
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 50,
+          "humidity_max_7d_preferred_min_pct": 80
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 20,
+          "wind_gust_3d_penalty_kmh": 45,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.34,
+        "season": 0.15,
+        "altitude": 0.08,
+        "rainfall": 0.22,
+        "temperature": 0.09,
+        "humidity": 0.06,
+        "wind_penalty": 0.06
+      },
+      "calibration_priority": "very_high"
+    },
+    {
+      "species_id": "hygrophorus_marzuolus",
+      "scientific_name": "Hygrophorus marzuolus",
+      "common_names": ["marzuelo", "bolet de març"],
+      "taxonomy_status": "accepted",
+      "edibility": "good",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Abies alba", "Picea spp.", "Pinus sylvestris", "Pinus spp."],
+        "secondary_hosts": ["Fagus sylvatica"],
+        "forest_types": ["montane conifer forest", "fir forest", "pine forest", "mixed mountain forest", "mossy forest"],
+        "soil_preference": ["acidic", "siliceous", "humus_rich", "moist"],
+        "soil_avoidance": ["dry_lowland_calcareous_soils"],
+        "lithology_preference": ["granite", "schist", "siliceous substrates"],
+        "habitat_confidence": "high"
+      },
+      "phenology": {
+        "main_months": [3, 4, 5],
+        "secondary_months": [2],
+        "season_pattern": ["late_winter", "spring", "snowmelt_associated"],
+        "fruiting_delay_after_rain_days": {
+          "min": 10,
+          "optimal_min": 15,
+          "optimal_max": 35,
+          "max": 50,
+          "confidence": "low"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 900,
+        "altitude_optimal_min_m": 1200,
+        "altitude_optimal_max_m": 1900,
+        "altitude_max_m": 2200,
+        "preferred_aspects": ["N", "NE", "NW"],
+        "aspect_notes": "Strongly favoured by cold, humid mountain sites and snowmelt; often hidden under moss or litter.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 5,
+          "rain_15d_min_mm": 15,
+          "rain_15d_optimal_min_mm": 20,
+          "rain_15d_optimal_max_mm": 80,
+          "snowmelt_bonus": true,
+          "rain_30d_saturation_penalty_mm": 180
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": -2,
+          "temp_min_7d_optimal_max_c": 6,
+          "temp_max_7d_optimal_min_c": 3,
+          "temp_max_7d_optimal_max_c": 14,
+          "heat_penalty_temp_max_c": 18,
+          "frost_penalty_temp_min_c": -8
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 55,
+          "humidity_max_7d_preferred_min_pct": 85
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 16,
+          "wind_gust_3d_penalty_kmh": 40,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.28,
+        "season": 0.18,
+        "altitude": 0.16,
+        "rainfall": 0.12,
+        "snowmelt_or_soil_moisture": 0.14,
+        "temperature": 0.07,
+        "humidity": 0.03,
+        "wind_penalty": 0.02
+      },
+      "calibration_priority": "high"
+    },
+    {
+      "species_id": "morchella_elata_complex",
+      "scientific_name": "Morchella elata complex",
+      "common_names": ["colmenilla negra", "múrgola negra", "morchella de bosque"],
+      "taxonomy_status": "species_complex_operational",
+      "edibility": "edible_when_thoroughly_cooked",
+      "ecology": {
+        "trophic_mode": "saprotrophic_or_facultative_complex",
+        "primary_hosts": ["Pinus spp.", "Abies spp.", "Picea spp.", "Populus spp.", "Fraxinus spp.", "Ulmus spp."],
+        "secondary_hosts": ["mixed deciduous trees", "riparian trees"],
+        "forest_types": ["conifer forest", "mixed forest", "disturbed forest", "burned forest", "riparian woodland", "forest edges"],
+        "soil_preference": ["moist", "loamy", "sandy_loam", "humus_rich", "slightly_acidic_to_neutral"],
+        "soil_avoidance": ["very_dry_soils", "waterlogged_soils"],
+        "lithology_preference": ["variable", "organic_rich_soils", "alluvial_soils"],
+        "habitat_confidence": "medium"
+      },
+      "phenology": {
+        "main_months": [3, 4, 5],
+        "secondary_months": [6],
+        "season_pattern": ["spring", "post_snowmelt", "post_disturbance_possible"],
+        "fruiting_delay_after_rain_days": {
+          "min": 3,
+          "optimal_min": 5,
+          "optimal_max": 14,
+          "max": 25,
+          "confidence": "low"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 300,
+        "altitude_optimal_min_m": 800,
+        "altitude_optimal_max_m": 1800,
+        "altitude_max_m": 2300,
+        "preferred_aspects": ["N", "NE", "E", "riparian"],
+        "aspect_notes": "Moist spring microsites are more important than aspect alone; altitude window shifts strongly with season.",
+        "topography_confidence": "low"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 5,
+          "rain_15d_min_mm": 15,
+          "rain_15d_optimal_min_mm": 20,
+          "rain_15d_optimal_max_mm": 70,
+          "snowmelt_bonus": true,
+          "rain_30d_saturation_penalty_mm": 160
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 1,
+          "temp_min_7d_optimal_max_c": 9,
+          "temp_max_7d_optimal_min_c": 10,
+          "temp_max_7d_optimal_max_c": 22,
+          "heat_penalty_temp_max_c": 26,
+          "frost_penalty_temp_min_c": -4
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 50,
+          "humidity_max_7d_preferred_min_pct": 80
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 18,
+          "wind_gust_3d_penalty_kmh": 40,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.24,
+        "season": 0.18,
+        "altitude": 0.1,
+        "rainfall": 0.18,
+        "snowmelt_or_soil_moisture": 0.12,
+        "temperature": 0.1,
+        "humidity": 0.04,
+        "wind_penalty": 0.04
+      },
+      "calibration_priority": "very_high"
+    },
+    {
+      "species_id": "calocybe_gambosa",
+      "scientific_name": "Calocybe gambosa",
+      "common_names": ["moixernó", "perretxiko", "seta de San Jorge"],
+      "taxonomy_status": "accepted",
+      "edibility": "good",
+      "ecology": {
+        "trophic_mode": "saprotrophic_or_plant_associated_grassland_fungus",
+        "primary_hosts": [],
+        "secondary_hosts": ["grassland vegetation", "woodland edge vegetation"],
+        "forest_types": ["grassland", "meadow", "pasture", "woodland edge", "grassy roadside", "fairy_ring_grassland"],
+        "soil_preference": ["calcareous", "chalky", "limestone", "neutral_to_basic", "well_drained"],
+        "soil_avoidance": ["dense_acid_conifer_forest", "very_dry_soils"],
+        "lithology_preference": ["limestone", "calcareous substrates"],
+        "habitat_confidence": "high"
+      },
+      "phenology": {
+        "main_months": [4, 5],
+        "secondary_months": [3, 6],
+        "season_pattern": ["spring"],
+        "fruiting_delay_after_rain_days": {
+          "min": 4,
+          "optimal_min": 7,
+          "optimal_max": 18,
+          "max": 30,
+          "confidence": "low"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 400,
+        "altitude_optimal_min_m": 800,
+        "altitude_optimal_max_m": 1600,
+        "altitude_max_m": 2000,
+        "preferred_aspects": ["N", "NE", "E", "flat_grassland"],
+        "aspect_notes": "In Mediterranean climates, fresh meadows and spring moisture are decisive; fairy rings are a strong historical indicator.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 5,
+          "rain_15d_min_mm": 15,
+          "rain_15d_optimal_min_mm": 20,
+          "rain_15d_optimal_max_mm": 70,
+          "rain_30d_saturation_penalty_mm": 150
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 2,
+          "temp_min_7d_optimal_max_c": 10,
+          "temp_max_7d_optimal_min_c": 10,
+          "temp_max_7d_optimal_max_c": 20,
+          "heat_penalty_temp_max_c": 25,
+          "frost_penalty_temp_min_c": -4
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 45,
+          "humidity_max_7d_preferred_min_pct": 75
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 20,
+          "wind_gust_3d_penalty_kmh": 45,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.34,
+        "season": 0.2,
+        "altitude": 0.08,
+        "rainfall": 0.18,
+        "temperature": 0.1,
+        "humidity": 0.04,
+        "wind_penalty": 0.06
+      },
+      "calibration_priority": "high"
+    },
+    {
+      "species_id": "hygrophorus_latitabundus",
+      "scientific_name": "Hygrophorus latitabundus",
+      "common_names": ["llenega negra", "llanega negra"],
+      "taxonomy_status": "accepted",
+      "edibility": "good",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Pinus halepensis", "Pinus sylvestris", "Pinus nigra", "Pinus spp."],
+        "secondary_hosts": [],
+        "forest_types": ["calcareous pine forest", "Mediterranean pine forest", "mature pine woodland"],
+        "soil_preference": ["calcareous", "basic", "limestone", "pH_above_7"],
+        "soil_avoidance": ["strongly_acidic", "non_pine_forest"],
+        "lithology_preference": ["limestone", "dolomite", "calcareous marl"],
+        "habitat_confidence": "high"
+      },
+      "phenology": {
+        "main_months": [10, 11, 12],
+        "secondary_months": [1],
+        "season_pattern": ["late_autumn", "early_winter_mild_areas"],
+        "fruiting_delay_after_rain_days": {
+          "min": 8,
+          "optimal_min": 12,
+          "optimal_max": 25,
+          "max": 40,
+          "confidence": "medium"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 100,
+        "altitude_optimal_min_m": 300,
+        "altitude_optimal_max_m": 1200,
+        "altitude_max_m": 1600,
+        "preferred_aspects": ["N", "NE", "E", "NW"],
+        "aspect_notes": "Favoured by humid calcareous pine woods; late season tolerance to cool weather.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 8,
+          "rain_15d_min_mm": 20,
+          "rain_15d_optimal_min_mm": 30,
+          "rain_15d_optimal_max_mm": 100,
+          "rain_30d_saturation_penalty_mm": 190
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 3,
+          "temp_min_7d_optimal_max_c": 12,
+          "temp_max_7d_optimal_min_c": 10,
+          "temp_max_7d_optimal_max_c": 20,
+          "heat_penalty_temp_max_c": 25,
+          "frost_penalty_temp_min_c": -3
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 55,
+          "humidity_max_7d_preferred_min_pct": 85
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 18,
+          "wind_gust_3d_penalty_kmh": 42,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.36,
+        "season": 0.16,
+        "altitude": 0.08,
+        "rainfall": 0.2,
+        "temperature": 0.08,
+        "humidity": 0.06,
+        "wind_penalty": 0.06
+      },
+      "calibration_priority": "medium"
+    },
+    {
+      "species_id": "cantharellus_cibarius_sl",
+      "scientific_name": "Cantharellus cibarius sensu lato",
+      "common_names": ["rossinyol", "rebozuelo", "chantarela"],
+      "taxonomy_status": "species_complex_operational",
+      "edibility": "excellent",
+      "ecology": {
+        "trophic_mode": "ectomycorrhizal",
+        "primary_hosts": ["Fagus sylvatica", "Quercus spp.", "Betula spp.", "Castanea sativa"],
+        "secondary_hosts": ["Pinus spp.", "Picea spp."],
+        "forest_types": ["deciduous woodland", "mixed woodland", "conifer woodland", "mossy acidic woodland", "humid forest"],
+        "soil_preference": ["acidic", "siliceous", "moist", "well_drained"],
+        "soil_avoidance": ["dry_calcareous_open_soils"],
+        "lithology_preference": ["granite", "schist", "sandstone", "siliceous substrates"],
+        "habitat_confidence": "medium"
+      },
+      "phenology": {
+        "main_months": [7, 8, 9, 10],
+        "secondary_months": [6, 11],
+        "season_pattern": ["summer", "autumn", "mild_autumn_possible"],
+        "fruiting_delay_after_rain_days": {
+          "min": 7,
+          "optimal_min": 10,
+          "optimal_max": 25,
+          "max": 40,
+          "confidence": "medium"
+        }
+      },
+      "topography": {
+        "altitude_min_m": 400,
+        "altitude_optimal_min_m": 800,
+        "altitude_optimal_max_m": 1700,
+        "altitude_max_m": 2100,
+        "preferred_aspects": ["N", "NE", "E", "NW"],
+        "aspect_notes": "Moisture retention and absence of hot dry periods are especially important.",
+        "topography_confidence": "medium"
+      },
+      "weather_model": {
+        "rainfall": {
+          "rain_7d_min_mm": 10,
+          "rain_15d_min_mm": 25,
+          "rain_15d_optimal_min_mm": 35,
+          "rain_15d_optimal_max_mm": 110,
+          "rain_30d_saturation_penalty_mm": 200
+        },
+        "temperature": {
+          "temp_min_7d_optimal_min_c": 7,
+          "temp_min_7d_optimal_max_c": 15,
+          "temp_max_7d_optimal_min_c": 15,
+          "temp_max_7d_optimal_max_c": 24,
+          "heat_penalty_temp_max_c": 28,
+          "frost_penalty_temp_min_c": 0
+        },
+        "humidity": {
+          "humidity_min_7d_preferred_min_pct": 55,
+          "humidity_max_7d_preferred_min_pct": 85
+        },
+        "wind": {
+          "wind_avg_3d_penalty_kmh": 16,
+          "wind_gust_3d_penalty_kmh": 38,
+          "dry_wind_sensitive": true
+        }
+      },
+      "scoring_weights": {
+        "habitat": 0.28,
+        "season": 0.14,
+        "altitude": 0.1,
+        "rainfall": 0.22,
+        "temperature": 0.1,
+        "humidity": 0.08,
+        "wind_penalty": 0.08
+      },
+      "calibration_priority": "high"
+    }
+  ]
+}
