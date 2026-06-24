@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 
-PROFILE_PATH = Path(__file__).resolve().parents[1] / "predictor" / "mushroom_profiles.json"
+PROFILE_PATH = Path(__file__).resolve().parents[1] / "rainmapper_core" / "predictor" / "mushroom_profiles.json"
 
 REQUIRED_PROFILE_KEYS = {
     "species_id",
