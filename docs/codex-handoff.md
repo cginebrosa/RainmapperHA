@@ -354,13 +354,15 @@ pendiente de confirmar
 Despliegue Home Assistant:
 
 ```text
-Subir cambios a GitHub, hacer Check for updates en Home Assistant y actualizar la app desde la UI de HA. No hay comando CLI de despliegue confirmado.
+Regla operativa para bumps HA: priorizar que la version quede disponible en Home Assistant antes de documentar el cierre. Orden recomendado: ejecutar la validacion minima local necesaria, publicar la imagen GHCR versionada/latest con scripts/build-push-ha-image.sh, verificar el digest, hacer commit/push del bump para que HA detecte el update, avisar al usuario inmediatamente de que la version ya esta disponible en HA, y solo entonces completar la documentacion de continuidad mientras el usuario descarga/instala/prueba. No retrasar la disponibilidad en HA por documentar primero.
+
+Despliegue manual confirmado: hacer Check for updates en Home Assistant y actualizar la app desde la UI de HA. No hay comando CLI de despliegue confirmado.
 ```
 
 Validacion estandar antes de publicar imagen HA:
 
 ```text
-Procedimiento estandar: para un bump/publicacion HA, ejecutar ./scripts/smoke-test.sh una sola vez despues de aplicar cambios y antes de scripts/build-push-ha-image.sh. Si el build/push termina bien y despues solo se actualiza documentacion con el digest publicado, no repetir el smoke completo; basta con revisar el diff/estado y commitear. Repetir ./scripts/smoke-test.sh solo si despues del primer smoke se toca codigo runtime, configuracion HA, assets de visor, scripts o cualquier fichero que entre en la imagen.
+Procedimiento estandar: para un bump/publicacion HA, ejecutar ./scripts/smoke-test.sh una sola vez despues de aplicar cambios y antes de scripts/build-push-ha-image.sh. Tras publicar imagen y subir el bump a GitHub, avisar al usuario sin esperar a terminar documentacion extensa. Si el build/push termina bien y despues solo se actualiza documentacion con el digest publicado, no repetir el smoke completo; basta con revisar el diff/estado y commitear. Repetir ./scripts/smoke-test.sh solo si despues del primer smoke se toca codigo runtime, configuracion HA, assets de visor, scripts o cualquier fichero que entre en la imagen.
 ```
 
 Limpieza remota GHCR tras release HA:
