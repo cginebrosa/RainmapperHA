@@ -421,6 +421,8 @@ aemet_api_key: ""
 
 Para activarla necesitas una clave de AEMET OpenData. Rainmapper usa el endpoint horario global de observacion convencional, guarda historico horario AEMET, agrega lluvia diaria y, cuando AEMET entrega esos campos, conserva tambien temperatura y humedad para max/min diarios. En Home Assistant, `create_aemet` controla la descarga/refresco de datos AEMET. Los mapas se generan con `--include-aemet true`, por lo que AEMET aparece en el visor protegido estandar siempre que exista un `Aemet_incremental.csv` utilizable.
 
+Para cargar manualmente un historico reciente de dias cerrados, el repositorio incluye `scripts/aemet-backfill-30-days.py`. Ese helper se ejecuta fuera de HA, descarga el endpoint diario de climatologia AEMET, une el inventario de estaciones y genera `Aemet_incremental.csv` en una carpeta temporal local. Si se le pasa un `estacions_aemet.csv` existente con `--station-catalog`, conserva los metadatos enriquecidos de municipio/provincia/comarca. No escribe en `Data/` por defecto; tras revisar la salida, puedes subir manualmente `Aemet_incremental.csv` a la carpeta `Data` de Rainmapper en HA.
+
 La ruta experimental `/local/rainmapper-maplibre-aemet/index.html` queda desactivada por flag como rollback temporal; AEMET ya no depende de un visor separado.
 
 ## Meteocat / Socrata

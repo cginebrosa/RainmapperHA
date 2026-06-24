@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-06-24 - Backfill manual AEMET con climatologia diaria
+
+Decision:
+
+- Se anade `scripts/aemet-backfill-30-days.py` como helper local para generar `Aemet_incremental.csv` de dias cerrados desde el endpoint diario de climatologia AEMET.
+- El helper queda fuera del pipeline HA normal: por defecto escribe en `tmp/aemet-backfill-<timestamp>/`, no toca `Data/` y no modifica el historico horario AEMET.
+- Para conservar metadatos enriquecidos se debe pasar `--station-catalog` apuntando al `estacions_aemet.csv` actual; para fusionar con un historico ya descargado de HA se puede pasar `--existing-incremental`.
+- La subida a HA sigue siendo manual y debe tratarse como operacion sobre historicos: revisar salida y aplicar `docs/history-safety.md` antes de reemplazar CSV reales.
+
 ## 2026-06-23 - Promover AEMET al visor estandar protegido
 
 Decision:

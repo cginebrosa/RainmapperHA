@@ -62,6 +62,15 @@ Variables/opciones principales:
 
 No guardar secretos reales en Git.
 
+## Backfill manual AEMET
+Para generar en el Mac un `Aemet_incremental.csv` de dias cerrados usando el endpoint diario de AEMET:
+
+```bash
+AEMET_API_KEY=tu_clave .venv/bin/python scripts/aemet-backfill-30-days.py --days 30 --station-catalog /ruta/a/estacions_aemet.csv
+```
+
+Por defecto escribe en `tmp/aemet-backfill-<timestamp>/` y no toca `Data/`. El fichero principal para subir manualmente a HA es `Aemet_incremental.csv`; el script tambien genera `estacions_aemet.csv` e intenta conservar municipio/provincia/comarca si se le pasa un catalogo existente con `--station-catalog`. Si quieres fusionar con un historico AEMET ya descargado de HA, usa `--existing-incremental /ruta/a/Aemet_incremental.csv`.
+
 ## Ejecucion en desarrollo
 El runtime Docker local vive en `rainmapper-local/`. La raiz conserva `docker-compose.yml` y scripts wrapper para que los comandos habituales sigan funcionando.
 
