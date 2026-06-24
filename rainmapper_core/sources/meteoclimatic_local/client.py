@@ -83,6 +83,14 @@ class MeteoclimaticClient(object):
                         'min_temp_celsius': observation.weather.temp_min,
                         'max_humidity_percent': observation.weather.humidity_max,
                         'min_humidity_percent': observation.weather.humidity_min,
+                        'wind_avg_kmh': observation.weather.wind_current,
+                        'wind_min_kmh': pd.NA,
+                        'wind_max_kmh': observation.weather.wind_max,
+                        'wind_gust_kmh': observation.weather.wind_max,
+                        'wind_direction_deg': observation.weather.wind_bearing,
+                        'wind_gust_direction_deg': pd.NA,
+                        'wind_observation_count': 1,
+                        'wind_source_height_m': pd.NA,
                         'Data Local': 'To be set later',
                         'Hora Local': 'To be set later'
                         }

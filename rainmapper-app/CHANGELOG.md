@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.114
+
+- Add normalized daily wind fields for Meteocat/XEMA, Meteoclimatic, Weather Underground and AEMET where each source provides them.
+- Preserve manual AEMET daily backfills when runtime hourly updates rebuild `Aemet_incremental.csv`.
+- Store Meteoclimatic raw observations in `Meteoclimatic_observations_incremental.csv` and derive daily wind aggregates from them.
+
 ## 0.2.113
 
 - Show MapLibre source status badges on two lines so long states such as `DISABLED` keep the station count visible.

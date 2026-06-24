@@ -27,6 +27,17 @@ from rainmapper_core.sources.meteoclimatic_local.client import MeteoclimaticClie
 from rainmapper_core.config.const import _PYTHON_REQUIRES, _GMAPS_KEY, _DATA_PATH, _MAPS_PATH
 from rainmapper_core.geocoding import GeocodingError, googlemaps_station_metadata
 from rainmapper_core.incremental_upsert import upsert_incremental
+from rainmapper_core.meteoclimatic_history import (
+    OBSERVATION_COLUMNS as METEOCLIMATIC_OBSERVATION_COLUMNS,
+    build_meteoclimatic_daily_incremental,
+    update_meteoclimatic_observations,
+)
+from rainmapper_core.wind import (
+    WIND_COLUMNS,
+    compass_to_degrees,
+    optional_round,
+    xema_daily_wind_fields,
+)
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -589,6 +600,36 @@ def get_myquery_conditions_all(_codi_estacio,_start_date, _end_date): # Create _
     #print('myquery_conditions_all:',_myquery)
     return _myquery
 
+def get_myquery_daily_wind_all(_codi_estacio,_start_date, _end_date):
+    """Build a SoQL query for XEMA daily wind aggregates.
+
+    Rainmapper's regular XEMA readings dataset (`nzvn-apee`) contains rain and
+    current condition variables, but not the daily wind aggregate variables
+    1503-1517. Those live in the daily XEMA dataset (`7bvh-jvq2`), so wind must
+    be fetched separately and merged back by station/day.
+    """
+    _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED
+    _select_per_codi_variable = (
+        " AND (codi_variable in ("
+        "'1503','1504','1505',"  # daily scalar average wind speed at 10/6/2 m
+        "'1509','1510','1511',"  # daily average wind direction at 10/6/2 m
+        "'1512','1513','1514',"  # daily maximum gust speed at 10/6/2 m
+        "'1515','1516','1517'"  # daily maximum gust direction at 10/6/2 m
+        ")) "
+    )
+
+    if _codi_estacio == ''  or _codi_estacio == 'ALL':
+        _select_per_codi_estacio = ''
+    else:
+        _select_per_codi_estacio = ' AND (codi_estacio='+_qcodi_estacio+' '+'OR codi_estacio='+_qcodi_estacio+') '
+
+    _myquery = "SELECT codi_estacio, date_trunc_ymd(data_lectura) as ultima_lectura, codi_variable, valor as valor_variable \
+            WHERE (data_lectura BETWEEN '"+_start_date+"' AND '"+_end_date+"') " \
+                    + _select_per_codi_estacio +_select_per_codi_variable+" \
+            ORDER BY ultima_lectura, codi_estacio ASC LIMIT 200000"
+
+    return _myquery
+
 def get_estacions_xema(): # Get estacions data from Meteocat
     estacions = socrata_get(socrata_metadades_estacions_xema, "station metadata", \
                        query="SELECT codi_estacio, nom_estacio, nom_comarca, nom_provincia, \
@@ -743,6 +784,22 @@ def get_lectures_conditions_xema(_myquery):  # Get lectures data from Meteocat
 
     return lectures_xema
 
+def get_lectures_daily_wind_xema(_myquery):
+    """Fetch daily XEMA wind records and normalize them to Rainmapper columns."""
+    lectures = socrata_get(socrata_daily_xema, "daily wind readings", query=_myquery, exclude_system_fields='true')
+    lectures_xema = pd.DataFrame.from_records(lectures)
+
+    if len(lectures_xema) == 0:
+        return lectures_xema
+
+    lectures_xema.rename(columns={'codi_estacio':'Codi Estació',
+                                'ultima_lectura':'Ultima Lectura',
+                                'codi_variable':'Codi Variable',
+                                'valor_variable':'max_valor_variable',
+                                },inplace=True)
+    lectures_xema['min_valor_variable'] = lectures_xema['max_valor_variable']
+    return lectures_xema
+
 def get_results_rain_xema(results_xema:pd.DataFrame, estacions_df, variables_df):    # Create results_df from query to Meteocat data
     _myquery0 = get_myquery(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _end_date) # Get summarized data (1 record per station)
     _myquery = get_myquery_rain_all(_codi_estacio, _qcodi_variable, _qcodi_variable2,_start_date, _end_date) # Get detailed data (all rain records)
@@ -853,6 +910,12 @@ def get_results_conditions_xema(results_xema:pd.DataFrame, estacions_df, variabl
 
     pivot_df.columns = [f'{col[0]}_{col[1]}' if col[1] else col[0] for col in pivot_df.columns]
 
+    for codi_variable in ('40', '42', '44', '3'):
+        for value_prefix in ('max_valor_variable', 'min_valor_variable'):
+            column = f'{value_prefix}_{codi_variable}'
+            if column not in pivot_df.columns:
+                pivot_df[column] = pd.NA
+
     # Agrupar por 'Codi Estació' y 'Data Lectura' y obtener los valores correspondientes a 'Codi Variable' 40 y 42
     pivot_df = pivot_df.groupby(['Codi Estació', 'Data Lectura']).agg({
         'Estació': 'first',
@@ -901,6 +964,60 @@ def get_results_conditions_xema(results_xema:pd.DataFrame, estacions_df, variabl
     conditions_xema.sort_values(by=['Codi Estació', 'Data Lectura'], ascending=[True, False],inplace=True)
 
     return conditions_xema
+
+def get_results_daily_wind_xema(estacions_df):
+    """Return one normalized daily wind row per XEMA station/day.
+
+    Wind speeds are published by Meteocat in m/s and converted later to km/h by
+    `xema_daily_wind_fields`. The output intentionally uses the same merge keys
+    as the temperature/humidity dataframe so rain rows can receive wind fields
+    without changing the existing incremental identity.
+    """
+    _myquery = get_myquery_daily_wind_all(_codi_estacio, _start_date, _end_date)
+    lectures_xema = get_lectures_daily_wind_xema(_myquery)
+    if lectures_xema.empty:
+        return lectures_xema
+
+    results_xema = pd.merge(lectures_xema, estacions_df, on='Codi Estació', how='inner')
+    results_xema = results_xema[[
+        'Codi Estació', 'Ultima Lectura', 'Codi Variable', 'max_valor_variable',
+        'Estació', 'Comarca', 'Municipi', 'Provincia',
+    ]]
+    results_xema['max_valor_variable'] = pd.to_numeric(results_xema['max_valor_variable'], errors='coerce')
+    results_xema['min_valor_variable'] = results_xema['max_valor_variable']
+
+    for i in range(len(results_xema)):
+        results_xema.loc[i, 'Ultima Lectura'] = (datetime.strptime(results_xema.loc[i,'Ultima Lectura'],'%Y-%m-%dT%H:%M:%S.%f')
+                                                  + timedelta(hours=2,seconds=1)).strftime("%Y/%m/%d %H:%M:%S")
+
+    results_xema['Data Lectura'] = pd.to_datetime(results_xema['Ultima Lectura'],format='%Y/%m/%d %H:%M:%S')
+
+    pivot_df = results_xema.pivot_table(index=['Codi Estació', 'Data Lectura',
+                                               'Estació', 'Comarca','Municipi', 'Provincia',
+                                               ],
+                            columns='Codi Variable',
+                            values=['max_valor_variable', 'min_valor_variable'],
+                            aggfunc='first').reset_index()
+
+    pivot_df.columns = [f'{col[0]}_{col[1]}' if col[1] else col[0] for col in pivot_df.columns]
+
+    for codi_variable in (
+        '1503', '1504', '1505',
+        '1509', '1510', '1511',
+        '1512', '1513', '1514',
+        '1515', '1516', '1517',
+    ):
+        column = f'max_valor_variable_{codi_variable}'
+        if column not in pivot_df.columns:
+            pivot_df[column] = pd.NA
+
+    wind_xema = pivot_df[['Codi Estació', 'Data Lectura', 'Estació', 'Comarca', 'Municipi', 'Provincia']].copy()
+    wind_fields = pivot_df.apply(xema_daily_wind_fields, axis=1, result_type='expand')
+    for column in wind_fields.columns:
+        wind_xema[column] = wind_fields[column]
+
+    wind_xema.sort_values(by=['Codi Estació', 'Data Lectura'], ascending=[True, False],inplace=True)
+    return wind_xema
 
 ## END DATA RETRIEVAL FUNCTION DEFINITIONS
 #In[8]  ##  Dataframes creation functions
@@ -973,6 +1090,16 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):     
     except FileNotFoundError:
         # Si el archivo no se encuentra, crear un DataFrame vacío con las mismas columnas que csv
         csv_old = pd.DataFrame(columns=csv.columns)
+
+    observations_path = _DATA_PATH+'Meteoclimatic_observations_incremental.csv'
+    if os.path.exists(observations_path):
+        observations_old = pd.read_csv(observations_path, decimal=',')
+    else:
+        observations_old = pd.DataFrame(columns=METEOCLIMATIC_OBSERVATION_COLUMNS)
+
+    observations_incremental = update_meteoclimatic_observations(csv, observations_old)
+    observations_incremental.to_csv(observations_path, decimal=',', index=False)
+    csv = build_meteoclimatic_daily_incremental(observations_incremental)
 
     # Upsert by station/day: fresh non-null values win, but fresh NaN values
     # keep existing non-null fields from earlier successful reads.
@@ -1107,6 +1234,18 @@ def create_total_dataframe(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv)
 
 def create_total_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv):               # Create Total Dataframe
     csv=csv_param.copy()
+    for column in (
+        'wind_avg_kmh',
+        'wind_min_kmh',
+        'wind_max_kmh',
+        'wind_gust_kmh',
+        'wind_direction_deg',
+        'wind_gust_direction_deg',
+        'wind_observation_count',
+        'wind_source_height_m',
+    ):
+        if column not in csv.columns:
+            csv[column] = pd.NA
     #csv['Data Lectura'] = pd.to_datetime(csv['Ultima Lectura'])
     csv.set_index(keys=['Data Lectura'],drop=False,inplace=True)
 
@@ -1135,7 +1274,15 @@ def create_total_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, _save_to_
                         'max_temp_celsius':'last',
                         'min_temp_celsius':'last',
                         'max_humidity_percent':'last',
-                        'min_humidity_percent':'last'
+                        'min_humidity_percent':'last',
+                        'wind_avg_kmh':'last',
+                        'wind_min_kmh':'last',
+                        'wind_max_kmh':'last',
+                        'wind_gust_kmh':'last',
+                        'wind_direction_deg':'last',
+                        'wind_gust_direction_deg':'last',
+                        'wind_observation_count':'last',
+                        'wind_source_height_m':'last'
                         }). \
                     round(1). \
                     rename(columns={'Data Lectura':'Ultima Lectura'}).\
@@ -1829,6 +1976,65 @@ def print_wunderground_summary(results):
     print('')
     print(f'Wunderground metrics saved to {_DATA_PATH}metricas_wunderground.csv')
 
+def build_wunderground_dataframe(scraper_df:pd.DataFrame):
+    """Convert scraped Wunderground rows into Rainmapper's normalized schema.
+
+    Monthly Wunderground tables already expose daily wind high/average/low
+    speeds, but not a daily direction column. Direction is therefore populated
+    only when a non-monthly scrape provides the `Wind` compass column.
+    """
+    new_columns = [
+        'Codi Estació',
+        'Data Lectura',
+        'Estació',
+        'Comarca',
+        'Municipi',
+        'Provincia',
+        'Altitud',
+        'Latitud',
+        'Longitud',
+        'Ultima Lectura',
+        'Variable',
+        'Total',
+        'Unitat',
+        'max_temp_celsius',
+        'min_temp_celsius',
+        'max_humidity_percent',
+        'min_humidity_percent',
+        *WIND_COLUMNS,
+        'Data Local',
+        'Hora Local'
+                    ]
+    wunderground_df = pd.DataFrame(columns=new_columns)
+    # Llenar nuevo dataframe con valores de scrapper
+    wunderground_df['Codi Estació'] = scraper_df['Codi Estació']
+    wunderground_df['Data Lectura'] = scraper_df['Data'] + ' '+ scraper_df['Hora']
+    wunderground_df['Estació'] = scraper_df['Estació']
+    wunderground_df['Comarca'] = scraper_df['Comarca']
+    wunderground_df['Municipi'] = scraper_df['Municipi']
+    wunderground_df['Provincia'] = scraper_df['Provincia']
+    wunderground_df['Codi Estació'] = scraper_df['Codi Estació']
+    wunderground_df['Altitud'] = scraper_df['Altitud']
+    wunderground_df['Latitud'] = scraper_df['Latitud']
+    wunderground_df['Longitud'] = scraper_df['Longitud']
+    wunderground_df['Ultima Lectura'] = scraper_df['Data']
+    wunderground_df['Variable'] = 'Precipitació'
+    wunderground_df['Total'] = scraper_df['Rain_mm']
+    wunderground_df['Unitat'] = 'mm'
+    wunderground_df['max_temp_celsius'] = scraper_df['TempHigh_C']
+    wunderground_df['min_temp_celsius'] = scraper_df['TempLow_C']
+    wunderground_df['max_humidity_percent'] = scraper_df['HumHigh_%']
+    wunderground_df['min_humidity_percent'] = scraper_df['HumLow_%']
+    wunderground_df['wind_avg_kmh'] = scraper_df['SpeedAv_kmh'].apply(optional_round) if 'SpeedAv_kmh' in scraper_df else pd.NA
+    wunderground_df['wind_min_kmh'] = scraper_df['SpeedLow_kmh'].apply(optional_round) if 'SpeedLow_kmh' in scraper_df else pd.NA
+    wunderground_df['wind_max_kmh'] = scraper_df['SpeedHigh_kmh'].apply(optional_round) if 'SpeedHigh_kmh' in scraper_df else pd.NA
+    wunderground_df['wind_gust_kmh'] = scraper_df['Gust_kmh'].apply(optional_round) if 'Gust_kmh' in scraper_df else pd.NA
+    wunderground_df['wind_direction_deg'] = scraper_df['Wind'].apply(compass_to_degrees) if 'Wind' in scraper_df else pd.NA
+    wunderground_df['wind_observation_count'] = wunderground_df['wind_avg_kmh'].notna().astype(int)
+    wunderground_df['Data Local'] = scraper_df['Data']
+    wunderground_df['Hora Local'] = scraper_df['Hora']
+    return wunderground_df
+
 def create_wunderground():
     launchtime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
@@ -1885,50 +2091,7 @@ def create_wunderground():
     scraper_df = pd.read_csv(wunderground_file_name , decimal=',')
     os.remove(wunderground_file_name)
     #print(scraper_df)
-    # Crear dataframe con las columnas del formato Rainmapper
-    new_columns = [
-        'Codi Estació',
-        'Data Lectura',
-        'Estació',
-        'Comarca',
-        'Municipi',
-        'Provincia',
-        'Altitud',
-        'Latitud',
-        'Longitud',
-        'Ultima Lectura',
-        'Variable',
-        'Total',
-        'Unitat',
-        'max_temp_celsius',
-        'min_temp_celsius',
-        'max_humidity_percent',
-        'min_humidity_percent',
-        'Data Local',
-        'Hora Local'
-                    ]
-    wunderground_df = pd.DataFrame(columns=new_columns)
-    # Llenar nuevo dataframe con valores de scrapper
-    wunderground_df['Codi Estació'] = scraper_df['Codi Estació']
-    wunderground_df['Data Lectura'] = scraper_df['Data'] + ' '+ scraper_df['Hora']
-    wunderground_df['Estació'] = scraper_df['Estació']
-    wunderground_df['Comarca'] = scraper_df['Comarca']
-    wunderground_df['Municipi'] = scraper_df['Municipi']
-    wunderground_df['Provincia'] = scraper_df['Provincia']
-    wunderground_df['Codi Estació'] = scraper_df['Codi Estació']
-    wunderground_df['Altitud'] = scraper_df['Altitud']
-    wunderground_df['Latitud'] = scraper_df['Latitud']
-    wunderground_df['Longitud'] = scraper_df['Longitud']
-    wunderground_df['Ultima Lectura'] = scraper_df['Data']
-    wunderground_df['Variable'] = 'Precipitació'
-    wunderground_df['Total'] = scraper_df['Rain_mm']
-    wunderground_df['Unitat'] = 'mm'
-    wunderground_df['max_temp_celsius'] = scraper_df['TempHigh_C']
-    wunderground_df['min_temp_celsius'] = scraper_df['TempLow_C']
-    wunderground_df['max_humidity_percent'] = scraper_df['HumHigh_%']
-    wunderground_df['min_humidity_percent'] = scraper_df['HumLow_%']
-    wunderground_df['Data Local'] = scraper_df['Data']
-    wunderground_df['Hora Local'] = scraper_df['Hora']
+    wunderground_df = build_wunderground_dataframe(scraper_df)
 
     wunderground_df['Data Lectura'] = pd.to_datetime(wunderground_df['Data Lectura'],format='%Y-%m-%d %H:%M:%S') # 'Data Lectura' como datetime64
     wunderground_df['Ultima Lectura']= wunderground_df['Data Lectura'].dt.strftime("%Y/%m/%d %H:%M:%S")
@@ -2229,6 +2392,7 @@ def process_aemet():                                                # FOR MULTIT
 # in place of application token, and no username or password:
 socrata_domain = "analisi.transparenciacatalunya.cat"
 socrata_lectures_xema = "nzvn-apee"
+socrata_daily_xema = "7bvh-jvq2"
 socrata_metadades_lectures_xema =  "4fb2-n3yi"
 socrata_metadades_estacions_xema = "yqwd-vj5e"
 socrata_metadades_variables_xema = "4fb2-n3yi"
@@ -2298,6 +2462,21 @@ def process_meteocat():                                             # FOR MULTIT
                     meteocat_conditions_xema = read_incremental('Meteocat_incremental',_nrows=0)
                 source_timings['conditions_seconds'] = time_module.perf_counter() - step_start_time
                 end_count(_legend='Processed Meteocat reading conditions temperature.max/min -  humidity.max&min from Socrata')
+
+                step_start_time = time_module.perf_counter()
+                # Daily wind variables are published in a separate XEMA daily
+                # dataset, not in the regular readings dataset used above.
+                meteocat_wind_xema = get_results_daily_wind_xema(estacions_xema)
+                if not meteocat_wind_xema.empty:
+                    meteocat_conditions_xema = pd.merge(
+                        meteocat_conditions_xema,
+                        meteocat_wind_xema.drop_duplicates(),
+                        on=('Codi Estació','Estació','Data Lectura','Comarca','Municipi','Provincia'),
+                        how='left',
+                        indicator=False,
+                    )
+                source_timings['wind_seconds'] = time_module.perf_counter() - step_start_time
+                end_count(_legend='Processed Meteocat daily wind from Socrata')
 
             step_start_time = time_module.perf_counter()
             meteocat_rain_xema = get_results_rain_xema(pd.DataFrame, estacions_xema, variables_xema)

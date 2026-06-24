@@ -19,6 +19,14 @@ import pandas as pd
 
 from rainmapper_core.config import const as rainmapper_const
 from rainmapper_core.geocoding import extract_google_metadata, googlemaps_station_metadata
+from rainmapper_core.wind import (
+    WIND_COLUMNS,
+    aemet_direction_to_degrees,
+    circular_mean_degrees,
+    first_valid,
+    meters_per_second_to_kmh,
+    normalize_direction_degrees,
+)
 
 
 AEMET_OBSERVATIONS_URL = "https://opendata.aemet.es/opendata/api/observacion/convencional/todas"
@@ -37,6 +45,14 @@ HOURLY_COLUMNS = [
     "rain_mm",
     "temp_celsius",
     "humidity_percent",
+    "wind_avg_kmh",
+    "wind_min_kmh",
+    "wind_max_kmh",
+    "wind_gust_kmh",
+    "wind_direction_deg",
+    "wind_gust_direction_deg",
+    "wind_observation_count",
+    "wind_source_height_m",
     "lat",
     "lon",
     "alt_m",
@@ -62,6 +78,7 @@ DAILY_COLUMNS = [
     "min_temp_celsius",
     "max_humidity_percent",
     "min_humidity_percent",
+    *WIND_COLUMNS,
 ]
 
 STATION_COLUMNS = [
@@ -147,24 +164,24 @@ def normalize_observations(rows, local_timezone=LOCAL_TIMEZONE):
         timestamp_local = timestamp_utc.astimezone(tz)
         # Prefix the official AEMET id to avoid collisions with existing source
         # station codes. Viewers may hide the prefix, but CSV identity keeps it.
-        normalized.append(
-            {
-                "aemet_id": station_id,
-                "station_code": f"{AEMET_STATION_PREFIX}{station_id}",
-                "station_name": str(row.get("ubi") or "").strip(),
-                "fint_utc": fint,
-                "reading_utc": timestamp_utc.strftime("%Y-%m-%d %H:%M:%S"),
-                "reading_local": timestamp_local.strftime("%Y-%m-%d %H:%M:%S"),
-                "local_date": timestamp_local.strftime("%Y%m%d"),
-                "local_time": timestamp_local.strftime("%H:%M:%S"),
-                "rain_mm": float(rain),
-                "temp_celsius": parse_optional_float(row.get("ta")),
-                "humidity_percent": parse_optional_float(row.get("hr")),
-                "lat": row.get("lat"),
-                "lon": row.get("lon"),
-                "alt_m": row.get("alt"),
-            }
-        )
+        normalized_row = {
+            "aemet_id": station_id,
+            "station_code": f"{AEMET_STATION_PREFIX}{station_id}",
+            "station_name": str(row.get("ubi") or "").strip(),
+            "fint_utc": fint,
+            "reading_utc": timestamp_utc.strftime("%Y-%m-%d %H:%M:%S"),
+            "reading_local": timestamp_local.strftime("%Y-%m-%d %H:%M:%S"),
+            "local_date": timestamp_local.strftime("%Y%m%d"),
+            "local_time": timestamp_local.strftime("%H:%M:%S"),
+            "rain_mm": float(rain),
+            "temp_celsius": parse_optional_float(row.get("ta")),
+            "humidity_percent": parse_optional_float(row.get("hr")),
+            "lat": row.get("lat"),
+            "lon": row.get("lon"),
+            "alt_m": row.get("alt"),
+        }
+        normalized_row.update(normalize_aemet_wind_fields(row))
+        normalized.append(normalized_row)
     return pd.DataFrame(normalized, columns=HOURLY_COLUMNS)
 
 
@@ -206,6 +223,38 @@ def parse_optional_float(value):
         return pd.NA
 
 
+def normalize_aemet_wind_fields(row):
+    """Return normalized wind fields from optional AEMET observation keys.
+
+    The conventional observations endpoint may expose wind speed as `vv` and
+    maximum gust as `vmax`; daily climatological payloads have also been seen
+    with `velmedia`, `racha` and `dir`. Speeds are normalized from m/s to km/h,
+    and direction values are decoded through AEMET's tens-of-degrees convention
+    when applicable.
+    """
+    average_speed_ms = first_valid(row.get("vv"), row.get("velmedia"))
+    gust_speed_ms = first_valid(row.get("vmax"), row.get("racha"))
+    direction = normalize_direction_degrees(row.get("dv"))
+    if pd.isna(direction):
+        direction = aemet_direction_to_degrees(row.get("dir"))
+    gust_direction = normalize_direction_degrees(row.get("dmax"))
+    if pd.isna(gust_direction):
+        gust_direction = aemet_direction_to_degrees(row.get("dir"))
+    wind_avg = meters_per_second_to_kmh(average_speed_ms)
+    wind_gust = meters_per_second_to_kmh(gust_speed_ms)
+    wind_count = 1 if not pd.isna(first_valid(wind_avg, wind_gust, direction)) else 0
+    return {
+        "wind_avg_kmh": wind_avg,
+        "wind_min_kmh": wind_avg,
+        "wind_max_kmh": wind_avg,
+        "wind_gust_kmh": wind_gust,
+        "wind_direction_deg": direction,
+        "wind_gust_direction_deg": gust_direction,
+        "wind_observation_count": wind_count,
+        "wind_source_height_m": pd.NA,
+    }
+
+
 def aggregate_optional_numeric(series, operation, decimals=1):
     """Aggregate optional numeric values and keep empty output when all are missing."""
     values = pd.to_numeric(series, errors="coerce").dropna()
@@ -216,6 +265,14 @@ def aggregate_optional_numeric(series, operation, decimals=1):
     if operation == "min":
         return round(float(values.min()), decimals)
     raise ValueError(f"Unsupported aggregation operation: {operation}")
+
+
+def mean_optional_numeric(series, decimals=1):
+    """Return the mean of optional numeric values, preserving empty output."""
+    values = pd.to_numeric(series, errors="coerce").dropna()
+    if values.empty:
+        return pd.NA
+    return round(float(values.mean()), decimals)
 
 
 def coordinates_match(left_lat, left_lon, right_lat, right_lon):
@@ -418,10 +475,11 @@ def build_daily_incremental(hourly_df, stations_df=None):
     df = hourly_df.copy()
     df = normalize_hourly_key_columns(df)
     df["rain_mm"] = pd.to_numeric(df["rain_mm"], errors="coerce").fillna(0.0)
-    for column in ("temp_celsius", "humidity_percent"):
+    for column in ("temp_celsius", "humidity_percent", *WIND_COLUMNS):
         if column not in df.columns:
             df[column] = pd.NA
-        df[column] = pd.to_numeric(df[column], errors="coerce")
+        if column != "wind_source_height_m":
+            df[column] = pd.to_numeric(df[column], errors="coerce")
     df["reading_local_dt"] = pd.to_datetime(df["reading_local"], errors="coerce")
     df = df.dropna(subset=["reading_local_dt", "local_date", "station_code"])
     if df.empty:
@@ -456,12 +514,53 @@ def build_daily_incremental(hourly_df, stations_df=None):
                 "min_temp_celsius": aggregate_optional_numeric(group["temp_celsius"], "min"),
                 "max_humidity_percent": aggregate_optional_numeric(group["humidity_percent"], "max"),
                 "min_humidity_percent": aggregate_optional_numeric(group["humidity_percent"], "min"),
+                "wind_avg_kmh": mean_optional_numeric(group["wind_avg_kmh"]),
+                "wind_min_kmh": aggregate_optional_numeric(group["wind_min_kmh"], "min"),
+                "wind_max_kmh": aggregate_optional_numeric(group["wind_max_kmh"], "max"),
+                "wind_gust_kmh": aggregate_optional_numeric(group["wind_gust_kmh"], "max"),
+                "wind_direction_deg": circular_mean_degrees(group["wind_direction_deg"]),
+                "wind_gust_direction_deg": circular_mean_degrees(group["wind_gust_direction_deg"]),
+                "wind_observation_count": int(pd.to_numeric(group["wind_observation_count"], errors="coerce").fillna(0).sum()),
+                "wind_source_height_m": pd.NA,
             }
         )
 
     result = pd.DataFrame(grouped_rows, columns=DAILY_COLUMNS)
     result = result.sort_values(["Codi Estació", "Data Local"], ascending=[True, False])
     return result.reset_index(drop=True)
+
+
+def merge_daily_incremental(current_daily, existing_daily):
+    """Merge generated AEMET daily rows with an existing daily CSV.
+
+    Manual daily climatology backfills live only in `Aemet_incremental.csv`, not
+    in the hourly history. Runtime updates must therefore preserve existing
+    daily rows while replacing any station/day that the current hourly rebuild
+    can calculate more recently.
+    """
+    frames = []
+    for df in (existing_daily, current_daily):
+        if df is None or df.empty:
+            continue
+        normalized = df.copy()
+        for column in DAILY_COLUMNS:
+            if column not in normalized.columns:
+                normalized[column] = pd.NA
+        normalized = normalized[DAILY_COLUMNS]
+        normalized["Codi Estació"] = normalized["Codi Estació"].astype("string").fillna("").str.strip()
+        normalized["Data Local"] = normalized["Data Local"].astype("string").fillna("").str.strip()
+        frames.append(normalized)
+    if not frames:
+        return pd.DataFrame(columns=DAILY_COLUMNS)
+
+    merged = pd.concat([frame.dropna(axis=1, how="all") for frame in frames], ignore_index=True)
+    for column in DAILY_COLUMNS:
+        if column not in merged.columns:
+            merged[column] = pd.NA
+    merged = merged[DAILY_COLUMNS]
+    merged = merged.drop_duplicates(subset=["Codi Estació", "Data Local"], keep="last")
+    merged = merged.sort_values(["Codi Estació", "Data Local"], ascending=[True, False])
+    return merged.reset_index(drop=True)
 
 
 def write_outputs(data_dir, current_hourly, hourly_incremental, station_catalog, daily_incremental):
@@ -505,7 +604,9 @@ def run_update(
             gmap_api_key,
             reverse_geocoder=reverse_geocoder,
         )
-    daily_incremental = build_daily_incremental(hourly_incremental, station_catalog)
+    rebuilt_daily = build_daily_incremental(hourly_incremental, station_catalog)
+    existing_daily = read_csv_if_exists(data_dir / "Aemet_incremental.csv", DAILY_COLUMNS, decimal=",")
+    daily_incremental = merge_daily_incremental(rebuilt_daily, existing_daily)
     write_outputs(data_dir, current_hourly, hourly_incremental, station_catalog, daily_incremental)
     return {
         "current_hourly_rows": len(current_hourly),

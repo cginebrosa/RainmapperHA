@@ -7,8 +7,8 @@ import pandas as pd
 from rainmapper_core import create_aemet
 
 
-def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1, temp=None, humidity=None):
-    return {
+def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1, temp=None, humidity=None, **extra):
+    row = {
         "idema": station,
         "fint": fint,
         "prec": rain,
@@ -19,6 +19,8 @@ def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1, tem
         "ta": temp,
         "hr": humidity,
     }
+    row.update(extra)
+    return row
 
 
 class CreateAemetTests(unittest.TestCase):
@@ -58,6 +60,30 @@ class CreateAemetTests(unittest.TestCase):
         row = result.iloc[0]
         self.assertEqual(row["temp_celsius"], 24.7)
         self.assertEqual(row["humidity_percent"], 68.0)
+
+    def test_normalize_observations_keeps_hourly_wind_fields(self):
+        rows = [
+            observation(
+                "0002I",
+                "2026-06-23T15:00:00+0000",
+                0.0,
+                vv=1.9,
+                vmax=4.2,
+                dv=84.0,
+                dmax=96.0,
+            ),
+        ]
+
+        result = create_aemet.normalize_observations(rows, local_timezone="Europe/Madrid")
+
+        row = result.iloc[0]
+        self.assertEqual(row["wind_avg_kmh"], 6.8)
+        self.assertEqual(row["wind_min_kmh"], 6.8)
+        self.assertEqual(row["wind_max_kmh"], 6.8)
+        self.assertEqual(row["wind_gust_kmh"], 15.1)
+        self.assertEqual(row["wind_direction_deg"], 84.0)
+        self.assertEqual(row["wind_gust_direction_deg"], 96.0)
+        self.assertEqual(row["wind_observation_count"], 1)
 
     def test_update_hourly_incremental_deduplicates_by_station_and_fint(self):
         existing = create_aemet.normalize_observations([
@@ -135,6 +161,74 @@ class CreateAemetTests(unittest.TestCase):
         self.assertEqual(row["max_humidity_percent"], 82.0)
         self.assertEqual(row["min_humidity_percent"], 65.0)
 
+    def test_build_daily_incremental_aggregates_hourly_wind(self):
+        hourly = create_aemet.normalize_observations([
+            observation("0002I", "2026-06-23T15:00:00+0000", 0.0, vv=1.0, vmax=4.0, dv=350.0, dmax=10.0),
+            observation("0002I", "2026-06-23T16:00:00+0000", 0.0, vv=2.0, vmax=5.0, dv=10.0, dmax=20.0),
+            observation("0002I", "2026-06-23T17:00:00+0000", 0.0, vv=None, vmax=None, dv=None, dmax=None),
+        ])
+
+        result = create_aemet.build_daily_incremental(hourly)
+
+        row = result.iloc[0]
+        self.assertEqual(row["wind_avg_kmh"], 5.4)
+        self.assertEqual(row["wind_min_kmh"], 3.6)
+        self.assertEqual(row["wind_max_kmh"], 7.2)
+        self.assertEqual(row["wind_gust_kmh"], 18.0)
+        self.assertEqual(row["wind_direction_deg"], 0.0)
+        self.assertEqual(row["wind_gust_direction_deg"], 15.0)
+        self.assertEqual(row["wind_observation_count"], 2)
+
+    def test_merge_daily_incremental_preserves_manual_backfill_days(self):
+        backfill_row = {
+            "Codi Estació": "AEMET:0002I",
+            "Data Lectura": "2026-05-25 23:59:00",
+            "Estació": "VANDELLOS",
+            "Comarca": "",
+            "Municipi": "Vandellos",
+            "Provincia": "Tarragona",
+            "Altitud": 32.0,
+            "Latitud": 40.95806,
+            "Longitud": 0.871385,
+            "Ultima Lectura": "2026/05/25 23:59:00",
+            "Variable": "Precipitacion",
+            "Total": 12.3,
+            "Unitat": "mm",
+            "Data Local": "20260525",
+            "Hora Local": "23:59:00",
+        }
+        existing_daily = pd.DataFrame([backfill_row])
+        current_daily = create_aemet.build_daily_incremental(create_aemet.normalize_observations([
+            observation("0002I", "2026-06-23T15:00:00+0000", 1.0),
+        ]))
+
+        result = create_aemet.merge_daily_incremental(current_daily, existing_daily)
+
+        dates = set(result["Data Local"])
+        self.assertIn("20260525", dates)
+        self.assertIn("20260623", dates)
+        self.assertEqual(result[result["Data Local"] == "20260525"].iloc[0]["Total"], 12.3)
+
+    def test_merge_daily_incremental_replaces_existing_same_station_day(self):
+        existing_daily = pd.DataFrame([
+            {
+                "Codi Estació": "AEMET:0002I",
+                "Data Lectura": "2026-06-23 12:00:00",
+                "Total": 1.0,
+                "Data Local": 20260623,
+            }
+        ])
+        current_daily = create_aemet.build_daily_incremental(create_aemet.normalize_observations([
+            observation("0002I", "2026-06-23T15:00:00+0000", 4.0),
+        ]))
+
+        result = create_aemet.merge_daily_incremental(current_daily, existing_daily)
+
+        self.assertEqual(len(result), 1)
+        row = result.iloc[0]
+        self.assertEqual(row["Data Local"], "20260623")
+        self.assertEqual(row["Total"], 4.0)
+
     def test_read_csv_if_exists_adds_new_hourly_weather_columns_to_existing_history(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             csv_path = Path(tmp_dir) / "Aemet_hourly_incremental.csv"
@@ -159,6 +253,7 @@ class CreateAemetTests(unittest.TestCase):
 
             self.assertIn("temp_celsius", result.columns)
             self.assertIn("humidity_percent", result.columns)
+            self.assertIn("wind_avg_kmh", result.columns)
             self.assertTrue(pd.isna(result.iloc[0]["temp_celsius"]))
 
     def test_station_catalog_preserves_manual_location_fields(self):
