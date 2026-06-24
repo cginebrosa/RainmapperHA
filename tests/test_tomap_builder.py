@@ -32,6 +32,14 @@ def make_incremental_row(station_code, reading_date, rain):
         'min_temp_celsius': 12.0,
         'max_humidity_percent': 80.0,
         'min_humidity_percent': 45.0,
+        'wind_avg_kmh': 8.0,
+        'wind_min_kmh': 4.0,
+        'wind_max_kmh': 12.0,
+        'wind_gust_kmh': 18.0,
+        'wind_direction_deg': 350.0,
+        'wind_gust_direction_deg': 20.0,
+        'wind_observation_count': 1,
+        'wind_source_height_m': 10,
     }
 
 
@@ -82,6 +90,56 @@ class TomapBuilderTests(unittest.TestCase):
             self.assertEqual(last_day['Codi Estació'].tolist(), ['TEST_ONE'])
             self.assertIn('Pluja_Diaria_03', last_day.columns)
             self.assertNotIn('Pluja_Diaria_04', last_day.columns)
+            self.assertIn('Wind_Avg_01', last_day.columns)
+            self.assertIn('Hum_Max_01', last_day.columns)
+
+    def test_build_tomap_aggregates_period_weather_fields(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            data_dir = tmp_path / 'Data'
+            maps_dir = tmp_path / 'Tomap'
+            data_dir.mkdir()
+
+            today = date.today()
+            first = make_incremental_row('TEST_ONE', today, 1.0)
+            first['max_humidity_percent'] = 70.0
+            first['min_humidity_percent'] = 40.0
+            first['wind_avg_kmh'] = 10.0
+            first['wind_direction_deg'] = 350.0
+            first['wind_observation_count'] = 2
+            second = make_incremental_row('TEST_ONE', today - timedelta(days=1), 2.0)
+            second['max_humidity_percent'] = 90.0
+            second['min_humidity_percent'] = 35.0
+            second['wind_avg_kmh'] = 20.0
+            second['wind_direction_deg'] = 10.0
+            second['wind_gust_kmh'] = 30.0
+            second['wind_observation_count'] = 1
+            pd.DataFrame([first, second]).to_csv(data_dir / 'Meteocat_incremental.csv', decimal=',', index=False)
+
+            with redirect_stdout(StringIO()):
+                exit_code = tomap_builder.build_tomap(
+                    data_dir=data_dir,
+                    maps_dir=maps_dir,
+                    last_rains_history=2,
+                    minimum_rain_tomap=0,
+                    max_threads=1,
+                )
+
+            self.assertEqual(exit_code, 0)
+            week = pd.read_csv(maps_dir / '02_Tomap_Last_week.csv')
+            row = week.iloc[0]
+            self.assertEqual(row['Total'], 3.0)
+            self.assertEqual(row['max_humidity_percent'], 90.0)
+            self.assertEqual(row['min_humidity_percent'], 35.0)
+            self.assertEqual(round(row['wind_avg_kmh'], 1), 13.3)
+            self.assertEqual(row['wind_gust_kmh'], 30.0)
+            self.assertEqual(row['wind_direction_deg'], 0.0)
+            self.assertEqual(row['wind_observation_count'], 3)
+
+            last_rains = pd.read_csv(maps_dir / 'Last2_rains.csv')
+            self.assertIn('Wind_Avg_01', last_rains.columns)
+            self.assertIn('Wind_Dir_01', last_rains.columns)
+            self.assertIn('Wind_Gust_01', last_rains.columns)
 
     def test_build_tomap_includes_optional_aemet_incremental(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

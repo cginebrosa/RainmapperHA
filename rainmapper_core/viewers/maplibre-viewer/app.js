@@ -1685,16 +1685,88 @@ function popupContent(properties) {
   const total = Number(properties["Total"] || 0).toFixed(1);
   const lastReading = properties["Ultima Lectura"] || "-";
   const lastRain = lastRainRecord(properties);
+  const periodWeather = periodWeatherSummary(properties);
   const rainHistory = recentRainHistory(properties);
 
   return `
     <div class="popup-title">${visibleStation} · ${name}</div>
     <div class="popup-row popup-metrics"><span><strong>${t("rain")}:</strong> ${total} mm</span><span><strong>${t("last")}:</strong> ${lastRain}</span></div>
+    ${periodWeather}
     <div class="popup-row"><strong>${t("location")}:</strong> ${town}${province ? `, ${province}` : ""}</div>
     <div class="popup-row"><strong>${t("altitude")}:</strong> ${altitude} m</div>
     <div class="popup-row"><strong>${t("lastReading")}:</strong> ${lastReading}</div>
     ${sourceAttribution(properties)}
     ${rainHistory}
+  `;
+}
+
+function numericProperty(properties, key) {
+  const value = Number(properties?.[key]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function formatNumber(value, decimals = 1) {
+  return Number.isFinite(value) ? value.toFixed(decimals) : "-";
+}
+
+function formatRange(maxValue, minValue, unit) {
+  if (!Number.isFinite(maxValue) && !Number.isFinite(minValue)) {
+    return "-";
+  }
+  if (Number.isFinite(maxValue) && Number.isFinite(minValue)) {
+    return `${formatNumber(maxValue)}/${formatNumber(minValue)} ${unit}`;
+  }
+  const value = Number.isFinite(maxValue) ? maxValue : minValue;
+  return `${formatNumber(value)} ${unit}`;
+}
+
+function formatDirection(value) {
+  return Number.isFinite(value) ? `${Math.round(value)}°` : "-";
+}
+
+function formatWind(speed, direction) {
+  if (!Number.isFinite(speed) && !Number.isFinite(direction)) {
+    return "-";
+  }
+  if (Number.isFinite(speed) && Number.isFinite(direction)) {
+    return `${formatNumber(speed)} km/h · ${formatDirection(direction)}`;
+  }
+  if (Number.isFinite(speed)) {
+    return `${formatNumber(speed)} km/h`;
+  }
+  return formatDirection(direction);
+}
+
+function periodWeatherSummary(properties) {
+  const tempMax = numericProperty(properties, "max_temp_celsius");
+  const tempMin = numericProperty(properties, "min_temp_celsius");
+  const humidityMax = numericProperty(properties, "max_humidity_percent");
+  const humidityMin = numericProperty(properties, "min_humidity_percent");
+  const windAvg = numericProperty(properties, "wind_avg_kmh");
+  const windDirection = numericProperty(properties, "wind_direction_deg");
+  const windGust = numericProperty(properties, "wind_gust_kmh");
+
+  const hasWeather = [
+    tempMax,
+    tempMin,
+    humidityMax,
+    humidityMin,
+    windAvg,
+    windDirection,
+    windGust,
+  ].some((value) => Number.isFinite(value));
+  if (!hasWeather) {
+    return "";
+  }
+
+  const windText = formatWind(windAvg, windDirection);
+  const gustText = Number.isFinite(windGust) ? ` · ${t("gust")} ${formatNumber(windGust)} km/h` : "";
+  return `
+    <div class="popup-row popup-weather">
+      <span><strong>${t("temperature")}:</strong> ${formatRange(tempMax, tempMin, "°C")}</span>
+      <span><strong>${t("humidity")}:</strong> ${formatRange(humidityMax, humidityMin, "%")}</span>
+      <span><strong>${t("wind")}:</strong> ${windText}${gustText}</span>
+    </div>
   `;
 }
 
@@ -1922,8 +1994,9 @@ function recentRainHistory(properties) {
         <td>${record.date}</td>
         <td>${record.daysAgo}</td>
         <td>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : record.rain}</td>
-        <td>${Number.isFinite(record.tempMaxValue) ? record.tempMaxValue.toFixed(1) : "-"}</td>
-        <td>${Number.isFinite(record.tempMinValue) ? record.tempMinValue.toFixed(1) : "-"}</td>
+        <td>${formatRange(record.tempMaxValue, record.tempMinValue, "°C")}</td>
+        <td>${formatRange(record.humidityMaxValue, record.humidityMinValue, "%")}</td>
+        <td>${formatWind(record.windAvgValue, record.windDirectionValue)}</td>
       </tr>
     `);
   }
@@ -1941,8 +2014,9 @@ function recentRainHistory(properties) {
             <th>${t("date")}</th>
             <th>${t("daysAgo")}</th>
             <th>${t("rain")}</th>
-            <th>Tmax</th>
-            <th>Tmin</th>
+            <th>${t("temperature")}</th>
+            <th>${t("humidity")}</th>
+            <th>${t("wind")}</th>
           </tr>
         </thead>
         <tbody>${rows.join("")}</tbody>
@@ -2000,12 +2074,20 @@ function rainHistoryRecords(properties) {
     const rain = properties[`Pluja_Diaria_${suffix}`];
     const tempMax = properties[`Temp_Max_${suffix}`];
     const tempMin = properties[`Temp_Min_${suffix}`];
+    const humidityMax = properties[`Hum_Max_${suffix}`];
+    const humidityMin = properties[`Hum_Min_${suffix}`];
+    const windAvg = properties[`Wind_Avg_${suffix}`];
+    const windDirection = properties[`Wind_Dir_${suffix}`];
     if (!date || date === "None" || date === "NaT" || date === "nan") {
       continue;
     }
     const rainValue = Number(rain);
     const tempMaxValue = Number(tempMax);
     const tempMinValue = Number(tempMin);
+    const humidityMaxValue = Number(humidityMax);
+    const humidityMinValue = Number(humidityMin);
+    const windAvgValue = Number(windAvg);
+    const windDirectionValue = Number(windDirection);
     records.push({
       date,
       daysAgo: daysAgo(date),
@@ -2013,6 +2095,10 @@ function rainHistoryRecords(properties) {
       rainValue,
       tempMaxValue,
       tempMinValue,
+      humidityMaxValue,
+      humidityMinValue,
+      windAvgValue,
+      windDirectionValue,
     });
   }
   return records;

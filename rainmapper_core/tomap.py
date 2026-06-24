@@ -16,6 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 from rainmapper_core.config import const as rainmapper_const
+from rainmapper_core.wind import WIND_COLUMNS, circular_mean_degrees
 
 
 INCREMENTAL_COLUMNS = [
@@ -38,6 +39,7 @@ INCREMENTAL_COLUMNS = [
     'min_temp_celsius',
     'max_humidity_percent',
     'min_humidity_percent',
+    *WIND_COLUMNS,
 ]
 
 TOMAP_PERIODS = [
@@ -79,8 +81,60 @@ def read_incremental(data_dir: Path, name: str, nrows=None):
         df['Longitud'] = df['Longitud'].astype(str)
     if 'Data Local' in df.columns:
         df['Data Local'] = df['Data Local'].astype(str)
+    df = ensure_incremental_columns(df)
 
     return df
+
+
+def ensure_incremental_columns(df: pd.DataFrame):
+    """Add optional incremental columns missing from older CSV/dataframe callers."""
+    result = df.copy()
+    for column in INCREMENTAL_COLUMNS:
+        if column not in result.columns:
+            result[column] = pd.NA
+    return result
+
+
+def numeric_series(values):
+    """Normalize optional numeric CSV values to a pandas float series."""
+    return pd.to_numeric(pd.Series(values), errors='coerce')
+
+
+def optional_max(values):
+    """Return the maximum numeric value in a group while preserving missing-only groups."""
+    series = numeric_series(values).dropna()
+    return pd.NA if series.empty else round(float(series.max()), 1)
+
+
+def optional_min(values):
+    """Return the minimum numeric value in a group while preserving missing-only groups."""
+    series = numeric_series(values).dropna()
+    return pd.NA if series.empty else round(float(series.min()), 1)
+
+
+def weighted_wind_average(values, weights=None):
+    """Average daily wind speeds, using observation counts when available."""
+    speeds = numeric_series(values)
+    valid = speeds.notna()
+    if not valid.any():
+        return pd.NA
+
+    if weights is None:
+        return round(float(speeds[valid].mean()), 1)
+
+    weight_values = numeric_series(weights)
+    weight_values = weight_values.reindex(speeds.index).where(valid)
+    positive_weights = weight_values.fillna(0) > 0
+    if positive_weights.any():
+        weighted = (speeds[positive_weights] * weight_values[positive_weights]).sum() / weight_values[positive_weights].sum()
+        return round(float(weighted), 1)
+
+    return round(float(speeds[valid].mean()), 1)
+
+
+def circular_mean_series(values):
+    """Return a circular mean for grouped direction values."""
+    return circular_mean_degrees(values)
 
 
 def filter_results(df: pd.DataFrame, minimum_rain):
@@ -138,30 +192,50 @@ def create_filtered(df_to_filter_param: pd.DataFrame, base_date, days_backward, 
 
 def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
     """Aggregate one row per station for the selected Tomap period."""
-    df_to_group = df_to_group_param.copy()
-    df_to_group.set_index(['Ultima Lectura'], drop=False, inplace=True)
+    df_to_group = ensure_incremental_columns(df_to_group_param)
 
-    datos_finales = df_to_group.groupby('Codi Estació').agg({
-        'Codi Estació': 'last',
-        'Estació': 'last',
-        'Comarca': 'last',
-        'Municipi': 'last',
-        'Provincia': 'last',
-        'Altitud': 'last',
-        'Latitud': 'last',
-        'Longitud': 'last',
-        'Ultima Lectura': 'max',
-        'Variable': 'last',
-        'Total': lambda x: round(x.sum(), 1),
-        'Unitat': 'last',
-        'Data Local': 'max',
-    }).sort_values(by=['Total'], ascending=[False]).reset_index(drop=True)
+    grouped_rows = []
+    for _, group in df_to_group.groupby('Codi Estació'):
+        latest = group.sort_values('Ultima Lectura').iloc[-1]
+        grouped_rows.append({
+            'Codi Estació': latest['Codi Estació'],
+            'Estació': latest['Estació'],
+            'Comarca': latest['Comarca'],
+            'Municipi': latest['Municipi'],
+            'Provincia': latest['Provincia'],
+            'Altitud': latest['Altitud'],
+            'Latitud': latest['Latitud'],
+            'Longitud': latest['Longitud'],
+            'Ultima Lectura': group['Ultima Lectura'].max(),
+            'Variable': latest['Variable'],
+            'Total': round(group['Total'].sum(), 1),
+            'Unitat': latest['Unitat'],
+            'Data Local': group['Data Local'].max(),
+            'max_temp_celsius': optional_max(group['max_temp_celsius']),
+            'min_temp_celsius': optional_min(group['min_temp_celsius']),
+            'max_humidity_percent': optional_max(group['max_humidity_percent']),
+            'min_humidity_percent': optional_min(group['min_humidity_percent']),
+            'wind_avg_kmh': weighted_wind_average(group['wind_avg_kmh'], group['wind_observation_count']),
+            'wind_min_kmh': optional_min(group['wind_min_kmh']),
+            'wind_max_kmh': optional_max(group['wind_max_kmh']),
+            'wind_gust_kmh': optional_max(group['wind_gust_kmh']),
+            'wind_direction_deg': circular_mean_series(group['wind_direction_deg']),
+            'wind_gust_direction_deg': circular_mean_series(group['wind_gust_direction_deg']),
+            'wind_observation_count': numeric_series(group['wind_observation_count']).fillna(0).sum(),
+            'wind_source_height_m': latest.get('wind_source_height_m', pd.NA),
+        })
+
+    if not grouped_rows:
+        return df_to_group.head(0)
+
+    datos_finales = pd.DataFrame(grouped_rows).sort_values(by=['Total'], ascending=[False]).reset_index(drop=True)
 
     return filter_results(datos_finales, minimum_rain_tomap)
 
 
 def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_tomap):
     """Build the wide LastXX_rains table consumed by station popups."""
+    df = ensure_incremental_columns(df)
     result_step1 = df.groupby(['Codi Estació', 'Data Local'], as_index=False).agg({
         'Data Lectura': 'first',
         'Estació': 'first',
@@ -179,6 +253,13 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
         'min_temp_celsius': 'first',
         'max_humidity_percent': 'first',
         'min_humidity_percent': 'first',
+        'wind_avg_kmh': 'first',
+        'wind_min_kmh': 'first',
+        'wind_max_kmh': 'first',
+        'wind_gust_kmh': 'first',
+        'wind_direction_deg': 'first',
+        'wind_gust_direction_deg': 'first',
+        'wind_observation_count': 'first',
         'Hora Local': 'first',
     })
 
@@ -202,6 +283,13 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
             'min_temp_celsius',
             'max_humidity_percent',
             'min_humidity_percent',
+            'wind_avg_kmh',
+            'wind_min_kmh',
+            'wind_max_kmh',
+            'wind_gust_kmh',
+            'wind_direction_deg',
+            'wind_gust_direction_deg',
+            'wind_observation_count',
         ],
         aggfunc='first',
     )
@@ -213,6 +301,13 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
         'max_temp_celsius',
         'min_humidity_percent',
         'min_temp_celsius',
+        'wind_avg_kmh',
+        'wind_direction_deg',
+        'wind_gust_kmh',
+        'wind_gust_direction_deg',
+        'wind_max_kmh',
+        'wind_min_kmh',
+        'wind_observation_count',
     ]
     expected_columns = pd.MultiIndex.from_product([expected_value_columns, range(1, nrecords + 1)])
     result_step3 = result_step3.reindex(columns=expected_columns)
@@ -230,6 +325,13 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
         + [f'Temp_Max_{i:02}' for i in range(1, nrecords + 1)]
         + [f'Hum_Min_{i:02}' for i in range(1, nrecords + 1)]
         + [f'Temp_Min_{i:02}' for i in range(1, nrecords + 1)]
+        + [f'Wind_Avg_{i:02}' for i in range(1, nrecords + 1)]
+        + [f'Wind_Dir_{i:02}' for i in range(1, nrecords + 1)]
+        + [f'Wind_Gust_{i:02}' for i in range(1, nrecords + 1)]
+        + [f'Wind_Gust_Dir_{i:02}' for i in range(1, nrecords + 1)]
+        + [f'Wind_Max_{i:02}' for i in range(1, nrecords + 1)]
+        + [f'Wind_Min_{i:02}' for i in range(1, nrecords + 1)]
+        + [f'Wind_Obs_{i:02}' for i in range(1, nrecords + 1)]
     )
 
     result_step3.reset_index(drop=False, inplace=True)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.115
+
+- Show period temperature, humidity, wind speed, wind direction and gusts in MapLibre station popups when available.
+- Include humidity and wind fields in the recent daily history shown in MapLibre station popups.
+- Propagate optional wind and humidity fields through Tomap and GeoJSON without breaking older incremental CSVs.
+
 ## 0.2.114
 
 - Add normalized daily wind fields for Meteocat/XEMA, Meteoclimatic, Weather Underground and AEMET where each source provides them.
