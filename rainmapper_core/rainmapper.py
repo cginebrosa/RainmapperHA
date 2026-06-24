@@ -353,10 +353,11 @@ def read_incremental(_dataframe, _nrows=None):
     if not os.path.exists(csv_path):
         return create_empty_incremental()
 
+    read_options = {'decimal': ',', 'low_memory': False}
     if _nrows is None:
-        df = pd.read_csv(csv_path, decimal=',')
+        df = pd.read_csv(csv_path, **read_options)
     else:
-        df = pd.read_csv(csv_path, decimal=',', nrows=_nrows)
+        df = pd.read_csv(csv_path, nrows=_nrows, **read_options)
     #df['Data Lectura'] = pd.to_datetime(df['Ultima Lectura'])       # Construye 'Data Lectura' como datetime64
     if 'Data Lectura' in df.columns:
         df['Data Lectura'] = pd.to_datetime(df['Data Lectura'],format='%Y-%m-%d %H:%M:%S', errors='coerce') # 'Data Lectura' como datetime64

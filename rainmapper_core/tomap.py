@@ -66,10 +66,11 @@ def read_incremental(data_dir: Path, name: str, nrows=None):
     if not csv_path.exists():
         return create_empty_incremental()
 
+    read_options = {'decimal': ',', 'low_memory': False}
     if nrows is None:
-        df = pd.read_csv(csv_path, decimal=',')
+        df = pd.read_csv(csv_path, **read_options)
     else:
-        df = pd.read_csv(csv_path, decimal=',', nrows=nrows)
+        df = pd.read_csv(csv_path, nrows=nrows, **read_options)
 
     if 'Data Lectura' in df.columns:
         df['Data Lectura'] = pd.to_datetime(df['Data Lectura'], format='%Y-%m-%d %H:%M:%S', errors='coerce')

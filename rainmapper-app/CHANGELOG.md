@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.122
+
+- Read large incremental CSV files with full-file dtype inference to avoid pandas mixed-type warnings during update and map generation.
+
 ## 0.2.121
 
 - Broaden the experimental MapLibre heatmap radius and make it adjustable from Settings.
