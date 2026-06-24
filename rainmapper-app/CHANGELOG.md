@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.125
+
+- Hide MapLibre heatmap and metric buttons correctly for non-admin protected users.
+- Use dynamic min/max metric scales for selected non-rain stations, including negative temperatures.
+- Add a non-refreshing WebUI log page opened from the main log panel.
+- Improve the sticky MapLibre popup history header so rows do not show through while scrolling.
+
 ## 0.2.124
 
 - Promote MapLibre heatmap controls to the protected viewer for admin users only.

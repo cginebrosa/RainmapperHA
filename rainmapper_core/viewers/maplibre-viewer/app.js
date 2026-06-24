@@ -1295,20 +1295,22 @@ function robustMetricScale(features) {
     .filter((value) => Number.isFinite(value))
     .sort((left, right) => left - right);
   if (values.length === 0) {
-    const floor = Number.isFinite(metric.floor) ? metric.floor : 0;
+    const floor = Number.isFinite(metric.floor) ? metric.floor : -10;
     const ceiling = Number.isFinite(metric.ceiling) ? metric.ceiling : 10;
     return [floor, ceiling];
   }
-  const lowReference = values.length < 20 ? values[0] : percentile(values, 0.05);
-  const highReference = values.length < 20 ? values[values.length - 1] : percentile(values, 0.95);
-  const floor = Number.isFinite(metric.floor) ? metric.floor : metricScaleFloor(lowReference);
-  const ceiling = Number.isFinite(metric.ceiling) ? metric.ceiling : metricScaleCeiling(highReference * 1.05);
-  return floor === ceiling ? [floor, floor + 1] : [floor, ceiling];
+  const floor = Math.floor(values[0]);
+  const ceiling = Math.ceil(values[values.length - 1]);
+  return floor === ceiling ? [floor - 1, ceiling + 1] : [floor, ceiling];
 }
 
 function updateMetricScale(features) {
   [metricScaleMin, metricScaleMax] = robustMetricScale(features);
   updateMetricLegend();
+}
+
+function metricScaleFeatures(features) {
+  return selectedLayerMetric().id === "rain" ? features : filteredFeatures(features);
 }
 
 function metricRatio(value) {
@@ -1483,13 +1485,6 @@ function refreshMetricStyling() {
     updateMetricLegend();
     return;
   }
-  updateMetricScale(currentVisibleFeatures);
-  currentVisibleFeatures = currentVisibleFeatures.map(prepareFeature);
-  currentHeatmapData = {
-    type: "FeatureCollection",
-    metadata: currentHeatmapData?.metadata || currentData?.metadata || {},
-    features: heatmapFeatures(currentVisibleFeatures),
-  };
   setQuickMetricControlsFromMetric();
   refreshFilteredData();
 }
@@ -1874,8 +1869,10 @@ function refreshFilteredData() {
   }
 
   const selectedPeriod = currentPeriodFileName;
-  const features = filteredFeatures(currentVisibleFeatures);
   const popupStationId = activeStationPopupId;
+  updateMetricScale(metricScaleFeatures(currentVisibleFeatures));
+  currentVisibleFeatures = currentVisibleFeatures.map(prepareFeature);
+  const features = filteredFeatures(currentVisibleFeatures);
   currentHeatmapData = {
     type: "FeatureCollection",
     metadata: currentHeatmapData?.metadata || currentData?.metadata || {},
@@ -2721,15 +2718,15 @@ async function loadMap(fileName) {
   const visible = validCoordinateFeatures(rawFeatures);
   invalidFeatureCount = Math.max(0, rawFeatures.length - visible.length);
   updateRainScale(visible);
-  updateMetricScale(visible);
+  updateMinRainControl(visible);
+  updateLastRainHistoryControl(visible);
+  updateMetricScale(metricScaleFeatures(visible));
   const features = visible.map(prepareFeature);
   currentVisibleFeatures = features;
   currentHeatmapData = {
     ...data,
     features: heatmapFeatures(features),
   };
-  updateMinRainControl(features);
-  updateLastRainHistoryControl(features);
   const filtered = filteredFeatures(features);
   currentData = {
     ...data,

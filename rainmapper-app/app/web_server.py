@@ -617,6 +617,16 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       white-space: pre-wrap;
       font-size: 12px;
     }}
+    .section-header {{
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin: 28px 0 12px;
+    }}
+    .section-header h2 {{
+      margin: 0;
+    }}
   </style>
 </head>
 <body>
@@ -2591,6 +2601,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.render_users()
             return
 
+        if path == "/log":
+            self.render_log()
+            return
+
         if path == "/auth/session":
             user = self.authenticated_user()
             if not user:
@@ -2877,10 +2891,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "</div>"
             '<h2 id="maps">Maps</h2>'
             f"{self.render_map_list()}"
+            '<div class="section-header">'
             "<h2>Last log</h2>"
+            '<a class="button-link" href="./log" target="_blank" rel="noopener">Open</a>'
+            "</div>"
             f"<pre>{html.escape(read_log())}</pre>"
         )
         self.send_bytes(200, html_page("Rainmapper", body), "text/html; charset=utf-8")
+
+    def render_log(self) -> None:
+        body = (
+            "<h1>Rainmapper log</h1>"
+            '<p><a class="button-link" href="./">Back</a></p>'
+            f"<pre>{html.escape(read_log())}</pre>"
+        )
+        self.send_bytes(200, html_page("Rainmapper log", body, auto_refresh=False), "text/html; charset=utf-8")
 
     def logout_current_device(self) -> None:
         _token, device_id = self.auth_credentials()
