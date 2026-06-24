@@ -2005,6 +2005,7 @@ function recentRainHistory(properties) {
     rows.push(`
       <tr class="${hasRain ? "rainy-day" : ""}">
         <td>${record.date}</td>
+        <td>${record.daysAgo}</td>
         <td>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : record.rain}</td>
         <td>${temperatureText}</td>
         <td>${humidityText}</td>
@@ -2024,6 +2025,7 @@ function recentRainHistory(properties) {
         <thead>
           <tr>
             <th>${t("date")}</th>
+            <th>${t("daysShort")}</th>
             <th>mm</th>
             <th>°C</th>
             <th>%</th>

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.118
+
+- Restore the daily age column in MapLibre station history rows.
+- Keep the station history table header visible while scrolling popup history.
+
 ## 0.2.117
 
 - Keep one compact row per day in the MapLibre station history table.
