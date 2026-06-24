@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.122">
+    <link rel="stylesheet" href="style.css?v=0.2.123">
   </head>
   <body>
     <header class="topbar">
@@ -172,40 +172,60 @@
       <section class="quick-map-panel" id="quick-map-panel" aria-label="Map layer" hidden></section>
       <section class="quick-map-panel quick-metric-panel" id="quick-metric-panel" aria-label="Layer metric" hidden></section>
       <section class="map-settings" id="map-settings" aria-label="Map settings" hidden>
-        <div class="map-settings-row">
-          <label for="language-selector">Language</label>
-          <select id="language-selector">
-            <option value="en">English</option>
-            <option value="es">Español</option>
-            <option value="ca">Català</option>
-          </select>
+        <div class="map-settings-tabs" role="tablist" aria-label="Settings sections">
+          <button class="map-settings-tab is-active" id="settings-tab-general" type="button" data-settings-tab="general">General</button>
+          <button class="map-settings-tab" id="settings-tab-heatmap" type="button" data-settings-tab="heatmap" hidden>Heatmap</button>
+          <button class="map-settings-tab" id="settings-tab-sources" type="button" data-settings-tab="sources">Sources</button>
+          <button class="map-settings-tab" id="settings-tab-terrain" type="button" data-settings-tab="terrain">Terrain</button>
         </div>
-        <div class="map-settings-row">
-          <label for="settings-period-selector">Period</label>
-          <select id="settings-period-selector">
-            <option value="01d.geojson">1 day</option>
-            <option value="07d.geojson">7 days</option>
-            <option value="14d.geojson">14 days</option>
-            <option value="21d.geojson" selected>21 days</option>
-            <option value="30d.geojson">30 days</option>
-            <option value="60d.geojson">60 days</option>
-            <option value="90d.geojson">90 days</option>
-          </select>
+        <div class="map-settings-section is-active" id="settings-section-general" data-settings-section="general">
+          <div class="map-settings-row">
+            <label for="language-selector">Language</label>
+            <select id="language-selector">
+              <option value="en">English</option>
+              <option value="es">Español</option>
+              <option value="ca">Català</option>
+            </select>
+          </div>
+          <div class="map-settings-row">
+            <label for="settings-period-selector">Period</label>
+            <select id="settings-period-selector">
+              <option value="01d.geojson">1 day</option>
+              <option value="07d.geojson">7 days</option>
+              <option value="14d.geojson">14 days</option>
+              <option value="21d.geojson" selected>21 days</option>
+              <option value="30d.geojson">30 days</option>
+              <option value="60d.geojson">60 days</option>
+              <option value="90d.geojson">90 days</option>
+            </select>
+          </div>
+          <div class="map-settings-row">
+            <label for="min-rain-filter">Min rain</label>
+            <output id="min-rain-value" for="min-rain-filter">0 mm</output>
+          </div>
+          <input id="min-rain-filter" type="range" min="0" max="100" step="1" value="0">
+          <div class="map-settings-row">
+            <label for="last-rain-history-filter">Last rains history</label>
+            <output id="last-rain-history-value" for="last-rain-history-filter">-</output>
+          </div>
+          <input id="last-rain-history-filter" type="range" min="1" max="1" step="1" value="1" disabled>
+          <fieldset class="map-settings-group map-layer-settings-group" id="layer-switcher">
+            <legend>Map</legend>
+          </fieldset>
+          <button class="map-settings-action" id="save-map-view-default" type="button">Set current view as default</button>
         </div>
-        <div class="map-settings-row">
-          <label for="min-rain-filter">Min rain</label>
-          <output id="min-rain-value" for="min-rain-filter">0 mm</output>
-        </div>
-        <input id="min-rain-filter" type="range" min="0" max="100" step="1" value="0">
-        <div class="map-settings-row">
-          <label for="last-rain-history-filter">Last rains history</label>
-          <output id="last-rain-history-value" for="last-rain-history-filter">-</output>
-        </div>
-        <input id="last-rain-history-filter" type="range" min="1" max="1" step="1" value="1" disabled>
-        <div class="heatmap-experiment-settings" id="heatmap-experiment-settings" hidden>
+        <div class="map-settings-section heatmap-experiment-settings" id="heatmap-experiment-settings" data-settings-section="heatmap" hidden>
           <div class="map-settings-row">
             <label for="layer-metric-selector">Layer metric</label>
             <select id="layer-metric-selector"></select>
+          </div>
+          <div class="map-settings-row">
+            <label for="heatmap-weight-curve-selector">Weight curve</label>
+            <select id="heatmap-weight-curve-selector">
+              <option value="linear">Linear</option>
+              <option value="soft">Soft</option>
+              <option value="strong">Strong</option>
+            </select>
           </div>
           <div class="map-settings-row">
             <label for="heatmap-opacity-filter">Heatmap opacity</label>
@@ -217,12 +237,13 @@
             <output id="heatmap-radius-value" for="heatmap-radius-filter">100%</output>
           </div>
           <input id="heatmap-radius-filter" type="range" min="50" max="300" step="10" value="100">
+          <div class="map-settings-row">
+            <label for="heatmap-intensity-filter">Heatmap intensity</label>
+            <output id="heatmap-intensity-value" for="heatmap-intensity-filter">100%</output>
+          </div>
+          <input id="heatmap-intensity-filter" type="range" min="20" max="200" step="10" value="100">
         </div>
-        <fieldset class="map-settings-group map-layer-settings-group" id="layer-switcher">
-          <legend>Map</legend>
-        </fieldset>
-        <button class="map-settings-action" id="save-map-view-default" type="button">Set current view as default</button>
-        <fieldset class="map-settings-group source-settings-group">
+        <fieldset class="map-settings-section map-settings-group source-settings-group" id="settings-section-sources" data-settings-section="sources">
           <legend>Source</legend>
           <label>
             <input type="checkbox" name="station-source" value="Meteocat" checked>
@@ -245,7 +266,7 @@
             <span>Unknown</span><span class="source-status-pill source-status-unknown">No status</span>
           </label>
         </fieldset>
-        <fieldset class="map-settings-group">
+        <fieldset class="map-settings-section map-settings-group" id="settings-section-terrain" data-settings-section="terrain">
           <legend>Terrain</legend>
           <label>
             <input type="checkbox" id="terrain-toggle">
@@ -276,7 +297,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.122"></script>
-  <script src="app.js?v=0.2.122"></script>
+  <script src="config.js?v=0.2.123"></script>
+  <script src="app.js?v=0.2.123"></script>
   </body>
 </html>

@@ -804,6 +804,44 @@ main {
   display: none;
 }
 
+.map-settings-tabs {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.map-settings-tab {
+  background: rgba(8, 21, 33, 0.06);
+  border: 1px solid rgba(8, 21, 33, 0.12);
+  border-radius: 8px;
+  color: rgba(20, 32, 43, 0.72);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 32px;
+  padding: 7px 8px;
+}
+
+.map-settings-tab.is-active {
+  background: rgba(28, 161, 224, 0.16);
+  border-color: rgba(28, 161, 224, 0.44);
+  color: var(--dark-text);
+}
+
+.map-settings-tab[hidden] {
+  display: none;
+}
+
+.map-settings-section {
+  display: none;
+}
+
+.map-settings-section.is-active {
+  display: grid;
+  gap: 10px;
+}
+
 .quick-map-panel {
   background: rgba(248, 252, 255, 0.96);
   border: 1px solid rgba(8, 21, 33, 0.12);
@@ -1066,6 +1104,10 @@ main {
   justify-self: start;
   margin-left: 0;
   max-width: 100%;
+}
+
+.map-settings .map-settings-section:not(.is-active) {
+  display: none;
 }
 
 .source-status-pill {

@@ -268,6 +268,8 @@ let currentLayerMetric = "rain";
 let heatmapEnabled = EXPERIMENTAL_HEATMAP;
 let heatmapOpacity = 0.65;
 let heatmapRadiusScale = 1;
+let heatmapIntensityScale = 1;
+let heatmapWeightCurve = "linear";
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let authState = loadStoredAuthState();
@@ -417,13 +419,19 @@ function applyLanguage(language = currentLanguage) {
   setLabelText("min-rain-filter", t("minRain"));
   setLabelText("last-rain-history-filter", t("lastRainsHistory"));
   setLabelText("layer-metric-selector", t("layerMetric"));
+  setLabelText("heatmap-weight-curve-selector", t("heatmapWeightCurve"));
   setLabelText("heatmap-opacity-filter", t("heatmapOpacity"));
   setLabelText("heatmap-radius-filter", t("heatmapRadius"));
+  setLabelText("heatmap-intensity-filter", t("heatmapIntensity"));
   setLabelText("terrain-exaggeration", t("exaggeration"));
   setText("#layer-switcher legend", t("map"));
   setText(".source-settings-group legend", t("source"));
-  setText(".map-settings-group:last-of-type legend", t("terrain"));
+  setText("#settings-section-terrain legend", t("terrain"));
   setText("#save-map-view-default", t("setCurrentViewDefault"));
+  setText("#settings-tab-general", t("settingsGeneral"));
+  setText("#settings-tab-heatmap", t("heatmap"));
+  setText("#settings-tab-sources", t("sources"));
+  setText("#settings-tab-terrain", t("terrain"));
   setText("#terrain-toggle + span", t("terrain3d"));
   setText("#login-fields label:nth-child(1) span", t("username"));
   setText("#login-fields label:nth-child(2) span", t("password"));
@@ -476,6 +484,8 @@ function applyLanguage(language = currentLanguage) {
   renderLayerMetricSelector();
   updateHeatmapOpacityValue();
   updateHeatmapRadiusValue();
+  updateHeatmapIntensityValue();
+  renderHeatmapWeightCurveSelector();
   updateMetricLegend();
   updateHeatmapToggle();
   renderLayerSwitcher();
@@ -1324,6 +1334,16 @@ function renderLayerMetricSelector() {
   selector.value = currentLayerMetric;
 }
 
+function renderHeatmapWeightCurveSelector() {
+  const selector = document.getElementById("heatmap-weight-curve-selector");
+  if (selector) {
+    selector.querySelector('option[value="linear"]').textContent = t("heatmapWeightLinear");
+    selector.querySelector('option[value="soft"]').textContent = t("heatmapWeightSoft");
+    selector.querySelector('option[value="strong"]').textContent = t("heatmapWeightStrong");
+    selector.value = heatmapWeightCurve;
+  }
+}
+
 function updateHeatmapOpacityValue() {
   const output = document.getElementById("heatmap-opacity-value");
   if (output) {
@@ -1335,6 +1355,13 @@ function updateHeatmapRadiusValue() {
   const output = document.getElementById("heatmap-radius-value");
   if (output) {
     output.textContent = `${Math.round(heatmapRadiusScale * 100)}%`;
+  }
+}
+
+function updateHeatmapIntensityValue() {
+  const output = document.getElementById("heatmap-intensity-value");
+  if (output) {
+    output.textContent = `${Math.round(heatmapIntensityScale * 100)}%`;
   }
 }
 
@@ -1456,6 +1483,53 @@ function filteredFeatures(features) {
 
 function heatmapFeatures(features) {
   return features.filter((feature) => enabledStationSources.has(featureStationSource(feature)));
+}
+
+function heatmapWeightExpression() {
+  const metricValue = ["coalesce", ["to-number", ["get", "layer_metric_value"]], metricScaleMin];
+  if (heatmapWeightCurve === "soft") {
+    return [
+      "interpolate",
+      ["linear"],
+      metricValue,
+      metricScaleMin,
+      0,
+      metricScaleMin + (metricScaleMax - metricScaleMin) * 0.25,
+      0.1,
+      metricScaleMin + (metricScaleMax - metricScaleMin) * 0.5,
+      0.3,
+      metricScaleMin + (metricScaleMax - metricScaleMin) * 0.75,
+      0.65,
+      metricScaleMax,
+      1,
+    ];
+  }
+  if (heatmapWeightCurve === "strong") {
+    return [
+      "interpolate",
+      ["linear"],
+      metricValue,
+      metricScaleMin,
+      0,
+      metricScaleMin + (metricScaleMax - metricScaleMin) * 0.25,
+      0.35,
+      metricScaleMin + (metricScaleMax - metricScaleMin) * 0.5,
+      0.7,
+      metricScaleMin + (metricScaleMax - metricScaleMin) * 0.75,
+      0.9,
+      metricScaleMax,
+      1,
+    ];
+  }
+  return [
+    "interpolate",
+    ["linear"],
+    metricValue,
+    metricScaleMin,
+    0,
+    metricScaleMax,
+    1,
+  ];
 }
 
 function sourceStatusClass(status) {
@@ -1864,16 +1938,8 @@ function addStationLayer() {
       source: HEATMAP_SOURCE_ID,
       maxzoom: 12,
       paint: {
-        "heatmap-weight": [
-          "interpolate",
-          ["linear"],
-          ["coalesce", ["to-number", ["get", "layer_metric_value"]], metricScaleMin],
-          metricScaleMin,
-          0,
-          metricScaleMax,
-          1,
-        ],
-        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.7, 9, 1.35, 12, 1.75],
+        "heatmap-weight": heatmapWeightExpression(),
+        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.7 * heatmapIntensityScale, 9, 1.35 * heatmapIntensityScale, 12, 1.75 * heatmapIntensityScale],
         "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 5, 34 * heatmapRadiusScale, 9, 82 * heatmapRadiusScale, 12, 145 * heatmapRadiusScale],
         "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 5, heatmapOpacity, 11, heatmapOpacity * 0.82, 12, heatmapOpacity * 0.35],
         "heatmap-color": [
@@ -2802,14 +2868,19 @@ function renderSettingsPanel() {
   const helpToggle = document.getElementById("help-toggle");
   const helpPanel = document.getElementById("map-help");
   const panel = document.getElementById("map-settings");
+  const settingsTabs = Array.from(panel.querySelectorAll("[data-settings-tab]"));
+  const settingsSections = Array.from(panel.querySelectorAll("[data-settings-section]"));
   const languageSelector = document.getElementById("language-selector");
   const settingsPeriodSelector = document.getElementById("settings-period-selector");
   const slider = document.getElementById("min-rain-filter");
   const historySlider = document.getElementById("last-rain-history-filter");
   const heatmapExperimentSettings = document.getElementById("heatmap-experiment-settings");
+  const heatmapSettingsTab = document.getElementById("settings-tab-heatmap");
   const layerMetricSelector = document.getElementById("layer-metric-selector");
+  const heatmapWeightCurveSelector = document.getElementById("heatmap-weight-curve-selector");
   const heatmapOpacitySlider = document.getElementById("heatmap-opacity-filter");
   const heatmapRadiusSlider = document.getElementById("heatmap-radius-filter");
+  const heatmapIntensitySlider = document.getElementById("heatmap-intensity-filter");
   const terrainToggle = document.getElementById("terrain-toggle");
   const terrainSlider = document.getElementById("terrain-exaggeration");
   const terrainModeToggle = document.getElementById("terrain-mode-toggle");
@@ -2818,10 +2889,34 @@ function renderSettingsPanel() {
   if (heatmapExperimentSettings) {
     heatmapExperimentSettings.hidden = !EXPERIMENTAL_HEATMAP;
   }
+  if (heatmapSettingsTab) {
+    heatmapSettingsTab.hidden = !EXPERIMENTAL_HEATMAP;
+  }
   updateHeatmapToggle();
   renderLayerMetricSelector();
+  renderHeatmapWeightCurveSelector();
   updateHeatmapOpacityValue();
   updateHeatmapRadiusValue();
+  updateHeatmapIntensityValue();
+
+  const showSettingsTab = (tabName) => {
+    settingsTabs.forEach((tab) => {
+      const isActive = tab.dataset.settingsTab === tabName;
+      tab.classList.toggle("is-active", isActive);
+      tab.setAttribute("aria-selected", String(isActive));
+    });
+    settingsSections.forEach((section) => {
+      section.classList.toggle("is-active", section.dataset.settingsSection === tabName);
+    });
+  };
+
+  settingsTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      if (!tab.hidden) {
+        showSettingsTab(tab.dataset.settingsTab);
+      }
+    });
+  });
 
   const setSettingsOpen = (isOpen) => {
     const wasOpen = !panel.hasAttribute("hidden");
@@ -2922,6 +3017,11 @@ function renderSettingsPanel() {
     refreshMetricStyling();
   });
 
+  heatmapWeightCurveSelector?.addEventListener("change", (event) => {
+    heatmapWeightCurve = event.target.value;
+    addStationLayer();
+  });
+
   heatmapOpacitySlider?.addEventListener("input", (event) => {
     heatmapOpacity = Math.max(0, Math.min(1, Number(event.target.value) / 100));
     updateHeatmapOpacityValue();
@@ -2931,6 +3031,12 @@ function renderSettingsPanel() {
   heatmapRadiusSlider?.addEventListener("input", (event) => {
     heatmapRadiusScale = Math.max(0.5, Math.min(3, Number(event.target.value) / 100));
     updateHeatmapRadiusValue();
+    addStationLayer();
+  });
+
+  heatmapIntensitySlider?.addEventListener("input", (event) => {
+    heatmapIntensityScale = Math.max(0.2, Math.min(2, Number(event.target.value) / 100));
+    updateHeatmapIntensityValue();
     addStationLayer();
   });
 

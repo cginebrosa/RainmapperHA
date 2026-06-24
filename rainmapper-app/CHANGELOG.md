@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.123
+
+- Add a Heatmap tab to the experimental MapLibre settings with metric, opacity, radius, intensity and weight curve controls.
+
 ## 0.2.122
 
 - Read large incremental CSV files with full-file dtype inference to avoid pandas mixed-type warnings during update and map generation.
