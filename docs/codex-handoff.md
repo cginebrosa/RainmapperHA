@@ -37,6 +37,8 @@ Prueba externa en curso desde el 2026-06-22: el usuario ha dado acceso a dos com
 
 El desarrollo actual esta en fase de operacion y mejora incremental de visores. Leaflet y MapLibre se mantienen publicados ambos; el usuario ha reportado que funcionan bien en iPhone, pendiente de confirmar con pruebas automatizadas o reproducibles desde el repo. Bokeh se mantiene como referencia y compatibilidad. La duplicidad fisica principal entre raiz y `rainmapper-app/app` fue retirada: la imagen HA se construye desde la raiz del repositorio y `rainmapper-app/app` queda reservado para codigo especifico de HA.
 
+Regla operativa de colaboracion: cuando el usuario pida primero una explicacion o valoracion y ademas solicite documentarlo, responder primero con la explicacion util para liberar su tiempo. Despues, mientras el usuario lee/procesa la respuesta, actualizar la documentacion de continuidad/todo que corresponda. No retrasar una respuesta conceptual por hacer antes la documentacion, salvo que la documentacion sea el objetivo unico de la peticion.
+
 ## Stack tecnologico detectado
 Confirmado en el repositorio:
 

@@ -176,6 +176,12 @@ Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebr
   - Criterio de aceptacion: definir si la visita aparece automaticamente solo una vez por dispositivo, si se activa manualmente desde el panel `?`, o ambas cosas. Si se persiste el estado, guardarlo por dispositivo en `devices.json` sin bloquear el mapa ni escribir continuamente. Los globos deben ser cerrables, no tapar controles criticos en movil, tener textos ES/EN/CA y quedar documentados en la ayuda del mapa.
   - Estado: idea futura. Priorizar una UX ligera: no convertir la ayuda en un tutorial obligatorio ni molesto para usuarios recurrentes.
 
+- [ ] Explorar capas MapLibre por metrica y heatmap
+  - Contexto: los GeoJSON por periodo ya incluyen, por estacion, lluvia acumulada (`Total`), temperatura maxima/minima, humedad maxima/minima, viento medio/direccion/racha y campos diarios recientes (`Pluja_Diaria_*`, `Temp_Max_*`, `Hum_Max_*`, `Wind_Avg_*`, etc.). Hoy MapLibre colorea puntos principalmente por precipitacion, pero esos mismos atributos permitirian capas exploratorias adicionales sin tocar historicos CSV ni backend.
+  - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/index.html`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `rainmapper_core/viewers/maplibre-viewer/style.css`, `rainmapper_core/viewers/maplibre-viewer/translations.json`.
+  - Criterio de aceptacion: definir un selector de visualizacion con al menos `Points` actual y una capa experimental `Heatmap`; valorar tambien puntos coloreados por metrica (`Rain`, `Max temp`, `Min temp`, `Max humidity`, `Min humidity`, `Wind`). El primer corte recomendado es un heatmap de lluvia acumulada por periodo usando `Total` como peso y manteniendo opcionalmente los puntos encima. La UI debe dejar claro que el heatmap es una densidad ponderada por estaciones, no una interpolacion meteorologica exacta. Cada metrica futura necesita leyenda y escala propias; temperatura/humedad/viento no deben reutilizar sin mas la escala de lluvia.
+  - Estado: idea futura. Priorizar lluvia acumulada como primer experimento porque encaja con el uso actual de Rainmapper y evita mezclar de entrada escalas/semanticas distintas. No implementar dentro de `0.2.119`.
+
 - [x] Validar controles compactos MapLibre en movil
   - Contexto: en iPhone, la columna derecha de botones flotantes ocupaba demasiada altura y la leyenda podia acercarse mas al borde izquierdo.
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/style.css`.
