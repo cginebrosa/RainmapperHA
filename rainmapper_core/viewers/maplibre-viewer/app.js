@@ -1721,7 +1721,14 @@ function formatRange(maxValue, minValue, unit, decimals = 1) {
 }
 
 function formatDirection(value) {
-  return Number.isFinite(value) ? `${Math.round(value)}°` : "-";
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+  const directions = currentLanguage === "en"
+    ? ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    : ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+  const normalized = ((value % 360) + 360) % 360;
+  return directions[Math.round(normalized / 45) % directions.length];
 }
 
 function formatWind(speed, direction) {
@@ -1992,28 +1999,17 @@ function recentRainHistory(properties) {
   const records = rainHistoryRecords(properties).slice(0, lastRainHistoryLimit || undefined);
   for (const record of records) {
     const hasRain = Number.isFinite(record.rainValue) && record.rainValue > 0;
-    const details = [];
-    const temperatureText = formatRange(record.tempMaxValue, record.tempMinValue, "°C");
-    const humidityText = formatRange(record.humidityMaxValue, record.humidityMinValue, "%", 0);
-    const windText = formatWind(record.windAvgValue, record.windDirectionValue);
-    if (temperatureText !== "-") {
-      details.push(`<span><strong>${t("temperatureShort")}</strong> ${temperatureText}</span>`);
-    }
-    if (humidityText !== "-") {
-      details.push(`<span><strong>${t("humidityShort")}</strong> ${humidityText}</span>`);
-    }
-    if (windText !== "-") {
-      details.push(`<span><strong>${t("windShort")}</strong> ${windText}</span>`);
-    }
+    const temperatureText = compactRange(record.tempMaxValue, record.tempMinValue, 0);
+    const humidityText = compactRange(record.humidityMaxValue, record.humidityMinValue, 0);
+    const windText = compactWind(record.windAvgValue, record.windDirectionValue);
     rows.push(`
-      <div class="history-record ${hasRain ? "rainy-day" : ""}">
-        <div class="history-record-main">
-          <span class="history-date">${record.date}</span>
-          <span>${record.daysAgo}${t("daySuffix")}</span>
-          <span>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : record.rain} mm</span>
-        </div>
-        ${details.length ? `<div class="history-record-details">${details.join("")}</div>` : ""}
-      </div>
+      <tr class="${hasRain ? "rainy-day" : ""}">
+        <td>${record.date}</td>
+        <td>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : record.rain}</td>
+        <td>${temperatureText}</td>
+        <td>${humidityText}</td>
+        <td>${windText}</td>
+      </tr>
     `);
   }
 
@@ -2024,9 +2020,44 @@ function recentRainHistory(properties) {
   return `
     <details class="history">
       <summary>${t("lastRecords", { count: rows.length })}</summary>
-      <div class="history-list">${rows.join("")}</div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>${t("date")}</th>
+            <th>mm</th>
+            <th>°C</th>
+            <th>%</th>
+            <th>km/h</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
     </details>
   `;
+}
+
+function compactRange(maxValue, minValue, decimals = 0) {
+  if (!Number.isFinite(maxValue) && !Number.isFinite(minValue)) {
+    return "-";
+  }
+  if (Number.isFinite(maxValue) && Number.isFinite(minValue)) {
+    return `${formatNumber(maxValue, decimals)}/${formatNumber(minValue, decimals)}`;
+  }
+  const value = Number.isFinite(maxValue) ? maxValue : minValue;
+  return formatNumber(value, decimals);
+}
+
+function compactWind(speed, direction) {
+  if (!Number.isFinite(speed) && !Number.isFinite(direction)) {
+    return "-";
+  }
+  if (Number.isFinite(speed) && Number.isFinite(direction)) {
+    return `${formatNumber(speed, 0)} ${formatDirection(direction)}`;
+  }
+  if (Number.isFinite(speed)) {
+    return formatNumber(speed, 0);
+  }
+  return formatDirection(direction);
 }
 
 function parseRainDate(dateText) {

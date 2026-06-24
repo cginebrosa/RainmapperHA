@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.117
+
+- Keep one compact row per day in the MapLibre station history table.
+- Use short column labels for daily rain, temperature, humidity and wind.
+- Show wind direction as cardinal labels instead of degrees in MapLibre popups.
+
 ## 0.2.116
 
 - Restore fast Tomap period aggregation while keeping wind and humidity fields in GeoJSON.
