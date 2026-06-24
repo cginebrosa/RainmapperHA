@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.131
+
+- Fix the MapLibre station history sticky header spacing so column titles remain fully visible while the header stays flush with the popup top edge.
+
 ## 0.2.130
 
 - Move the MapLibre station history sticky column header flush with the popup top edge to hide scrolled rows behind it.
