@@ -2564,12 +2564,18 @@ initialize_source_statuses()
 with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="MainProcesses") as executor:
         # Crea las tareas en paralelo y mapea los resultados a variables
 
+        future_aemet = executor.submit(process_aemet)
         future_meteoclimatic = executor.submit(process_meteoclimatic)
         future_meteocat = executor.submit(process_meteocat)
         future_wunderground = executor.submit(process_wunderground)
-        future_aemet = executor.submit(process_aemet)
 
         # Obtén los resultados
+        aemet_df, aemet_incremental = collect_source_result(
+            'AEMET',
+            future_aemet,
+            'Aemet_incremental',
+            _create_aemet,
+        )
         meteoclimatic_df, meteoclimatic_incremental = collect_source_result(
             'Meteoclimatic',
             future_meteoclimatic,
@@ -2587,12 +2593,6 @@ with ThreadPoolExecutor(max_workers=_max_threads, thread_name_prefix="MainProces
             future_wunderground,
             'Wunderground_incremental',
             _create_wunderground,
-        )
-        aemet_df, aemet_incremental = collect_source_result(
-            'AEMET',
-            future_aemet,
-            'Aemet_incremental',
-            _create_aemet,
         )
 
 

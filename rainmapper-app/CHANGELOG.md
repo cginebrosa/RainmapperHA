@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.130
+
+- Move the MapLibre station history sticky column header flush with the popup top edge to hide scrolled rows behind it.
+- Prioritize data source startup so AEMET, Meteoclimatic and Meteocat start before Wunderground when three source worker threads are configured.
+
 ## 0.2.129
 
 - Restore full-popup scrolling for MapLibre station history while keeping only the history column header sticky.
