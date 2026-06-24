@@ -74,6 +74,12 @@ Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebr
   - Criterio de aceptacion: tras validar varios ciclos reales con AEMET en `/protected/maplibre/index.html`, retirar el flag, la funcion experimental, rutas temporales `rainmapper-maplibre-aemet`, referencias de WebUI/documentacion y cualquier instruccion operativa que sugiera usar el visor experimental. Mantener solo el pipeline AEMET de produccion (`create_aemet`, Tomap/GeoJSON estandar y fuente `AEMET` en MapLibre).
   - Estado: pendiente deliberado; no quitar todavia para poder reactivar el modo test AEMET si la ruta estandar fallase.
 
+- [ ] Evaluar archivado/particionado anual de historicos CSV
+  - Contexto: con AEMET integrado, el volumen de `Aemet_incremental.csv` ronda unas 21k filas por mes en el backfill manual inicial. No es urgente: con ese ritmo, los CSV actuales deberian aguantar 1-2 anos sin problema operativo, pero conviene prever una estrategia antes de que los historicos crezcan demasiado.
+  - Ficheros relacionados: `Data/*_incremental.csv`, `rainmapper_core/rainmapper.py`, `rainmapper_core/incremental_upsert.py`, `rainmapper_core/tomap.py`, `scripts/check-history.py`, `docs/history-safety.md`.
+  - Criterio de aceptacion: definir si se particiona por ano (`Aemet_incremental_2026.csv` o subdirectorios), como se mantiene el archivo vigente para upserts diarios, como reconstruye `Tomap` los periodos 1/7/14/21/30/60/90 sin leer mas de lo necesario, y como se validan migraciones con backups y `check-history.py`.
+  - Estado: mejora futura no urgente; no abordar hasta tener mas ciclos reales y una estimacion mejor del crecimiento por fuente.
+
 - [ ] Normalizar codigos internos de todas las fuentes con prefijo de origen
   - Contexto: AEMET se normaliza internamente como `AEMET:{idema}` para evitar colisiones y permitir trazabilidad, aunque MapLibre lo muestra sin el prefijo. Las fuentes historicas todavia dependen de inferencias por forma del codigo (`ES...` largo para Meteoclimatic, `I...` para Wunderground, longitud 2 para Meteocat).
   - Ficheros relacionados: historicos `*_incremental.csv`, catalogos `estacions_*.csv`, `rainmapper_core/geojson.py`, `rainmapper_core/tomap.py`, `rainmapper_core/rainmapper.py`, visores y tests.
