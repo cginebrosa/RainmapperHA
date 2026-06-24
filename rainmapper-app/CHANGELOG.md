@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.124
+
+- Promote MapLibre heatmap controls to the protected viewer for admin users only.
+- Hide heatmap and metric controls completely for non-admin protected users while keeping the public experimental viewer available.
+- Persist heatmap metric, enabled state, opacity, radius, intensity and weight curve per admin device.
+
 ## 0.2.123
 
 - Add a Heatmap tab to the experimental MapLibre settings with metric, opacity, radius, intensity and weight curve controls.

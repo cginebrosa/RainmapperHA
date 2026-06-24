@@ -6,10 +6,7 @@ const DATA_BASE = new URLSearchParams(window.location.search).get("data") || def
 const AUTH_REQUIRED = Boolean(viewerConfig.authRequired);
 const AUTH_BASE = viewerConfig.authBase || "/auth";
 const AUTH_STORAGE_KEY = "rainmapperMaplibreAuth";
-const EXPERIMENTAL_HEATMAP = Boolean(
-  viewerConfig.experimentalHeatmap
-  || new URLSearchParams(window.location.search).get("heatmap") === "1"
-);
+const EXPERIMENTAL_HEATMAP = Boolean(viewerConfig.experimentalHeatmap);
 
 const periods = {
   "01d.geojson": "1 day",
@@ -285,6 +282,14 @@ let didTriggerLongPress = false;
 let invalidFeatureCount = 0;
 const terrainTileCache = new Map();
 
+
+function isAdminUser() {
+  return String(authState?.role || "").trim().toLowerCase() === "admin";
+}
+
+function canUseHeatmap() {
+  return EXPERIMENTAL_HEATMAP || (AUTH_REQUIRED && isAdminUser());
+}
 
 function browserLanguage() {
   const language = String(navigator.language || "en").slice(0, 2).toLowerCase();
@@ -754,6 +759,7 @@ function updateSignedInUser() {
   const container = document.getElementById("signed-in-user");
   const value = document.getElementById("signed-in-user-value");
   if (!container || !value) {
+    syncHeatmapAccessUi();
     return;
   }
   const username = String(authState.username || "").trim();
@@ -764,10 +770,12 @@ function updateSignedInUser() {
   if (!AUTH_REQUIRED || !authState.sessionToken || !displayName) {
     container.hidden = true;
     value.textContent = "-";
+    syncHeatmapAccessUi();
     return;
   }
   value.textContent = role ? `${displayName} (${role})` : displayName;
   container.hidden = false;
+  syncHeatmapAccessUi();
 }
 
 function selectedPeriodFileName() {
@@ -861,6 +869,14 @@ function currentDeviceSettings() {
     terrain_enabled: terrainEnabled,
     terrain_exaggeration: terrainExaggeration,
   };
+  if (canUseHeatmap()) {
+    settings.layer_metric = currentLayerMetric;
+    settings.heatmap_enabled = heatmapEnabled;
+    settings.heatmap_opacity = heatmapOpacity;
+    settings.heatmap_radius_scale = heatmapRadiusScale;
+    settings.heatmap_intensity_scale = heatmapIntensityScale;
+    settings.heatmap_weight_curve = heatmapWeightCurve;
+  }
   if (savedMapView) {
     settings.map_view = savedMapView;
   }
@@ -1001,6 +1017,60 @@ async function applyDeviceSettings(settings) {
 
     if (typeof settings.terrain_enabled === "boolean") {
       setTerrainEnabled(settings.terrain_enabled);
+    }
+
+    if (canUseHeatmap()) {
+      if (layerMetrics.some((metric) => metric.id === settings.layer_metric)) {
+        currentLayerMetric = settings.layer_metric;
+        const layerMetricSelector = document.getElementById("layer-metric-selector");
+        if (layerMetricSelector) {
+          layerMetricSelector.value = currentLayerMetric;
+        }
+        setQuickMetricControlsFromMetric();
+      }
+
+      if (typeof settings.heatmap_enabled === "boolean") {
+        heatmapEnabled = settings.heatmap_enabled;
+        updateHeatmapToggle();
+      }
+
+      const savedHeatmapOpacity = Number(settings.heatmap_opacity);
+      if (Number.isFinite(savedHeatmapOpacity)) {
+        heatmapOpacity = Math.max(0, Math.min(1, savedHeatmapOpacity));
+        const heatmapOpacitySlider = document.getElementById("heatmap-opacity-filter");
+        if (heatmapOpacitySlider) {
+          heatmapOpacitySlider.value = String(Math.round(heatmapOpacity * 100));
+        }
+        updateHeatmapOpacityValue();
+      }
+
+      const savedHeatmapRadiusScale = Number(settings.heatmap_radius_scale);
+      if (Number.isFinite(savedHeatmapRadiusScale)) {
+        heatmapRadiusScale = Math.max(0.5, Math.min(3, savedHeatmapRadiusScale));
+        const heatmapRadiusSlider = document.getElementById("heatmap-radius-filter");
+        if (heatmapRadiusSlider) {
+          heatmapRadiusSlider.value = String(Math.round(heatmapRadiusScale * 100));
+        }
+        updateHeatmapRadiusValue();
+      }
+
+      const savedHeatmapIntensityScale = Number(settings.heatmap_intensity_scale);
+      if (Number.isFinite(savedHeatmapIntensityScale)) {
+        heatmapIntensityScale = Math.max(0.2, Math.min(2, savedHeatmapIntensityScale));
+        const heatmapIntensitySlider = document.getElementById("heatmap-intensity-filter");
+        if (heatmapIntensitySlider) {
+          heatmapIntensitySlider.value = String(Math.round(heatmapIntensityScale * 100));
+        }
+        updateHeatmapIntensityValue();
+      }
+
+      if (["linear", "soft", "strong"].includes(settings.heatmap_weight_curve)) {
+        heatmapWeightCurve = settings.heatmap_weight_curve;
+        renderHeatmapWeightCurveSelector();
+      }
+    } else {
+      heatmapEnabled = false;
+      currentLayerMetric = "rain";
     }
 
     const loadedMapView = sanitizeClientMapView(settings.map_view);
@@ -1184,7 +1254,7 @@ function colorForRatio(ratioValue) {
 }
 
 function selectedLayerMetric() {
-  if (!EXPERIMENTAL_HEATMAP) {
+  if (!canUseHeatmap()) {
     return layerMetrics[0];
   }
   return layerMetrics.find((metric) => metric.id === currentLayerMetric) || layerMetrics[0];
@@ -1370,8 +1440,42 @@ function updateHeatmapToggle() {
   if (!toggle) {
     return;
   }
-  toggle.hidden = !EXPERIMENTAL_HEATMAP;
+  toggle.hidden = !canUseHeatmap();
   toggle.setAttribute("aria-pressed", String(heatmapEnabled));
+}
+
+function syncHeatmapAccessUi() {
+  const allowed = canUseHeatmap();
+  const quickMetricToggle = document.getElementById("quick-metric-toggle");
+  const quickMetricPanel = document.getElementById("quick-metric-panel");
+  const heatmapExperimentSettings = document.getElementById("heatmap-experiment-settings");
+  const heatmapSettingsTab = document.getElementById("settings-tab-heatmap");
+  const generalSettingsTab = document.getElementById("settings-tab-general");
+  const activeHeatmapTab = heatmapSettingsTab?.classList.contains("is-active");
+
+  if (!allowed) {
+    heatmapEnabled = false;
+    currentLayerMetric = "rain";
+    if (quickMetricPanel) {
+      quickMetricPanel.hidden = true;
+    }
+  }
+  if (quickMetricToggle) {
+    quickMetricToggle.hidden = !allowed;
+    quickMetricToggle.setAttribute("aria-expanded", "false");
+  }
+  if (heatmapExperimentSettings) {
+    heatmapExperimentSettings.hidden = !allowed;
+  }
+  if (heatmapSettingsTab) {
+    heatmapSettingsTab.hidden = !allowed;
+  }
+  if (!allowed && activeHeatmapTab && generalSettingsTab) {
+    generalSettingsTab.click();
+  }
+  updateHeatmapToggle();
+  renderLayerMetricSelector();
+  setQuickMetricControlsFromMetric();
 }
 
 function refreshMetricStyling() {
@@ -1418,8 +1522,8 @@ function prepareFeature(feature) {
     properties: {
       ...(feature.properties || {}),
       Source: source,
-      rain_color: EXPERIMENTAL_HEATMAP ? metricColor(metricValue) : rainColor(total),
-      marker_radius: EXPERIMENTAL_HEATMAP ? markerRadius(metricValue) : markerRadius(total),
+      rain_color: canUseHeatmap() ? metricColor(metricValue) : rainColor(total),
+      marker_radius: canUseHeatmap() ? markerRadius(metricValue) : markerRadius(total),
       layer_metric_value: metricValue,
     },
   };
@@ -1927,7 +2031,7 @@ function addStationLayer() {
     },
   });
 
-  if (EXPERIMENTAL_HEATMAP && heatmapEnabled) {
+  if (canUseHeatmap() && heatmapEnabled) {
     map.addSource(HEATMAP_SOURCE_ID, {
       type: "geojson",
       data: currentHeatmapData || { type: "FeatureCollection", features: [] },
@@ -2770,8 +2874,8 @@ function renderQuickMetricPanelOptions() {
   if (!panel || !toggle) {
     return;
   }
-  toggle.hidden = !EXPERIMENTAL_HEATMAP;
-  if (!EXPERIMENTAL_HEATMAP) {
+  toggle.hidden = !canUseHeatmap();
+  if (!canUseHeatmap()) {
     panel.hidden = true;
     return;
   }
@@ -2793,7 +2897,7 @@ function renderQuickMetricPanel() {
   renderQuickMetricPanelOptions();
 
   const setQuickMetricOpen = (isOpen) => {
-    if (!EXPERIMENTAL_HEATMAP) {
+    if (!canUseHeatmap()) {
       return;
     }
     if (isOpen) {
@@ -2815,6 +2919,7 @@ function renderQuickMetricPanel() {
       return;
     }
     currentLayerMetric = button.dataset.metricId;
+    markDeviceSettingsChanged();
     const metricSelector = document.getElementById("layer-metric-selector");
     if (metricSelector) {
       metricSelector.value = currentLayerMetric;
@@ -2887,10 +2992,10 @@ function renderSettingsPanel() {
   const saveMapViewButton = document.getElementById("save-map-view-default");
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
   if (heatmapExperimentSettings) {
-    heatmapExperimentSettings.hidden = !EXPERIMENTAL_HEATMAP;
+    heatmapExperimentSettings.hidden = !canUseHeatmap();
   }
   if (heatmapSettingsTab) {
-    heatmapSettingsTab.hidden = !EXPERIMENTAL_HEATMAP;
+    heatmapSettingsTab.hidden = !canUseHeatmap();
   }
   updateHeatmapToggle();
   renderLayerMetricSelector();
@@ -2954,10 +3059,11 @@ function renderSettingsPanel() {
   });
 
   heatmapToggle?.addEventListener("click", () => {
-    if (!EXPERIMENTAL_HEATMAP) {
+    if (!canUseHeatmap()) {
       return;
     }
     heatmapEnabled = !heatmapEnabled;
+    markDeviceSettingsChanged();
     updateHeatmapToggle();
     refreshMetricStyling();
   });
@@ -3014,28 +3120,33 @@ function renderSettingsPanel() {
 
   layerMetricSelector?.addEventListener("change", (event) => {
     currentLayerMetric = event.target.value;
+    markDeviceSettingsChanged();
     refreshMetricStyling();
   });
 
   heatmapWeightCurveSelector?.addEventListener("change", (event) => {
     heatmapWeightCurve = event.target.value;
+    markDeviceSettingsChanged();
     addStationLayer();
   });
 
   heatmapOpacitySlider?.addEventListener("input", (event) => {
     heatmapOpacity = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+    markDeviceSettingsChanged();
     updateHeatmapOpacityValue();
     addStationLayer();
   });
 
   heatmapRadiusSlider?.addEventListener("input", (event) => {
     heatmapRadiusScale = Math.max(0.5, Math.min(3, Number(event.target.value) / 100));
+    markDeviceSettingsChanged();
     updateHeatmapRadiusValue();
     addStationLayer();
   });
 
   heatmapIntensitySlider?.addEventListener("input", (event) => {
     heatmapIntensityScale = Math.max(0.2, Math.min(2, Number(event.target.value) / 100));
+    markDeviceSettingsChanged();
     updateHeatmapIntensityValue();
     addStationLayer();
   });
@@ -3078,7 +3189,9 @@ function renderSettingsPanel() {
 }
 
 async function startViewer() {
+  syncHeatmapAccessUi();
   await loadDeviceSettings();
+  syncHeatmapAccessUi();
   await loadSourceStatus();
   await loadMap(selectedPeriodFileName());
 }
