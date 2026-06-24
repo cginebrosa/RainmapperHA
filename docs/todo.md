@@ -88,6 +88,12 @@ Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebr
   - Criterio de aceptacion: definir si se particiona por ano (`Aemet_incremental_2026.csv` o subdirectorios), como se mantiene el archivo vigente para upserts diarios, como reconstruye `Tomap` los periodos 1/7/14/21/30/60/90 sin leer mas de lo necesario, como se consultan periodos equivalentes de anos anteriores para comparativas boletaires, como se integran capas futuras de altitud/suelo/vegetacion/habitat, como se podria publicar una capa de probabilidad por especie en MapLibre, y como se validan migraciones con backups y `check-history.py`.
   - Estado: mejora futura no urgente; no abordar hasta tener mas ciclos reales y una estimacion mejor del crecimiento por fuente.
 
+- [ ] Llevar perfiles de setas a HA y crear mantenimiento WebUI
+  - Contexto: `predictor/mushroom_profiles.json` contiene los perfiles parametricos iniciales de especies para el futuro predictor de floradas. El archivo debe viajar con RainmapperHA y, mas adelante, poder mantenerse desde la webUI sin editar JSON a mano.
+  - Ficheros relacionados: `predictor/mushroom_profiles.json`, `tests/test_predictor_profiles.py`, `rainmapper-app/app/web_server.py`, `rainmapper-app/DOCS.md`, futuro almacenamiento persistente en `/share/rainmapper`.
+  - Criterio de aceptacion: incluir un perfil base en la imagen HA, copiarlo/sembrarlo en almacenamiento persistente si falta, crear una pagina WebUI de mantenimiento de especies que permita listar, editar y validar perfiles, proteger el guardado con el mismo schema/test de `tests/test_predictor_profiles.py`, y conservar backups o historial antes de sobrescribir cambios manuales.
+  - Estado: pendiente; no implementar hasta definir que campos se editaran en UI y cuales quedan avanzados/solo JSON.
+
 - [ ] Normalizar codigos internos de todas las fuentes con prefijo de origen
   - Contexto: AEMET se normaliza internamente como `AEMET:{idema}` para evitar colisiones y permitir trazabilidad, aunque MapLibre lo muestra sin el prefijo. Las fuentes historicas todavia dependen de inferencias por forma del codigo (`ES...` largo para Meteoclimatic, `I...` para Wunderground, longitud 2 para Meteocat).
   - Ficheros relacionados: historicos `*_incremental.csv`, catalogos `estacions_*.csv`, `rainmapper_core/geojson.py`, `rainmapper_core/tomap.py`, `rainmapper_core/rainmapper.py`, visores y tests.
