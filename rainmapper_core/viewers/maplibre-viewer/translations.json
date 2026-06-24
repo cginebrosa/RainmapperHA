@@ -88,6 +88,7 @@
     "humidity": "Humidity",
     "wind": "Wind",
     "gust": "gust",
+    "heatmap": "Heatmap",
     "distance": "Distance",
     "stationAltitude": "Station altitude",
     "unavailable": "unavailable",
@@ -110,7 +111,15 @@
     "styleEsriSatelliteVector": "Satellite+",
     "styleEsriHybrid": "Hybrid",
     "styleOpenTopoMap": "Topographic",
-    "styleOpenFreeMapLiberty": "Liberty"
+    "styleOpenFreeMapLiberty": "Liberty",
+    "layerMetric": "Layer metric",
+    "heatmapOpacity": "Heatmap opacity",
+    "metricRain": "Rain",
+    "metricMaxTemp": "Max temp",
+    "metricMinTemp": "Min temp",
+    "metricMaxHumidity": "Max humidity",
+    "metricMinHumidity": "Min humidity",
+    "metricWind": "Wind"
   },
   "es": {
     "loadingMapData": "Cargando datos del mapa...",
@@ -201,6 +210,7 @@
     "humidity": "Humedad",
     "wind": "Viento",
     "gust": "racha",
+    "heatmap": "Heatmap",
     "distance": "Distancia",
     "stationAltitude": "Altitud de la estación",
     "unavailable": "no disponible",
@@ -223,7 +233,15 @@
     "styleEsriSatelliteVector": "Satélite+",
     "styleEsriHybrid": "Híbrido",
     "styleOpenTopoMap": "Topográfico",
-    "styleOpenFreeMapLiberty": "Liberty"
+    "styleOpenFreeMapLiberty": "Liberty",
+    "layerMetric": "Métrica de capa",
+    "heatmapOpacity": "Opacidad del heatmap",
+    "metricRain": "Lluvia",
+    "metricMaxTemp": "Temp. máxima",
+    "metricMinTemp": "Temp. mínima",
+    "metricMaxHumidity": "Humedad máxima",
+    "metricMinHumidity": "Humedad mínima",
+    "metricWind": "Viento"
   },
   "ca": {
     "loadingMapData": "Carregant dades del mapa...",
@@ -314,6 +332,7 @@
     "humidity": "Humitat",
     "wind": "Vent",
     "gust": "ratxa",
+    "heatmap": "Heatmap",
     "distance": "Distància",
     "stationAltitude": "Altitud de l'estació",
     "unavailable": "no disponible",
@@ -336,6 +355,14 @@
     "styleEsriSatelliteVector": "Satèl·lit+",
     "styleEsriHybrid": "Híbrid",
     "styleOpenTopoMap": "Topogràfic",
-    "styleOpenFreeMapLiberty": "Liberty"
+    "styleOpenFreeMapLiberty": "Liberty",
+    "layerMetric": "Mètrica de capa",
+    "heatmapOpacity": "Opacitat del heatmap",
+    "metricRain": "Pluja",
+    "metricMaxTemp": "Temp. màxima",
+    "metricMinTemp": "Temp. mínima",
+    "metricMaxHumidity": "Humitat màxima",
+    "metricMinHumidity": "Humitat mínima",
+    "metricWind": "Vent"
   }
 }

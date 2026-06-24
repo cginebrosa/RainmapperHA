@@ -37,6 +37,8 @@ REMOVED_LEGACY_MOBILE_PATH = Path("/config/www/rainmapper-mobile")
 MAPLIBRE_VIEWER_ASSETS_PATH = Path("/app/rainmapper_core/viewers/maplibre-viewer")
 PUBLIC_MAPLIBRE_PATH = Path("/config/www/rainmapper-maplibre")
 PUBLIC_MAPLIBRE_TMP_PATH = Path("/config/www/.rainmapper-maplibre-tmp")
+PUBLIC_MAPLIBRE_HEATMAP_PATH = Path("/config/www/rainmapper-maplibre-heatmap")
+PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH = Path("/config/www/.rainmapper-maplibre-heatmap-tmp")
 PUBLIC_MAPLIBRE_AEMET_PATH = Path("/config/www/rainmapper-maplibre-aemet")
 PUBLIC_MAPLIBRE_AEMET_TMP_PATH = Path("/config/www/.rainmapper-maplibre-aemet-tmp")
 AEMET_EXPERIMENT_TOMAP_PATH = Path("/tmp/rainmapper-aemet-tomap")
@@ -1373,6 +1375,8 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
     PUBLIC_MAPLIBRE_TMP_PATH.rename(PUBLIC_MAPLIBRE_PATH)
 
+    heatmap_message = publish_heatmap_experimental_maplibre()
+
     aemet_message = ""
     if PUBLISH_AEMET_EXPERIMENTAL_MAPLIBRE:
         aemet_message = publish_aemet_experimental_maplibre(log_file, config_js)
@@ -1384,6 +1388,8 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
         f"Published mobile viewers with {copied} GeoJSON file(s) to "
         f"/local/rainmapper-leaflet/index.html and protected /protected/maplibre/index.html at {published_at}."
     )
+    if heatmap_message:
+        message = f"{message} {heatmap_message}"
     if aemet_message:
         message = f"{message} {aemet_message}"
     log_file.write(f"=== {message} ===\n")
@@ -1394,6 +1400,41 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
         RUN_STATE["last_publish_message"] = f"{previous_message} {message}".strip()
     print(message, flush=True)
     return True, message
+
+
+def experimental_heatmap_config_js() -> str:
+    """Enable the public MapLibre heatmap experiment without changing defaults."""
+    return "window.RAINMAPPER_CONFIG = " + json.dumps({"experimentalHeatmap": True}) + ";\n"
+
+
+def publish_heatmap_experimental_maplibre() -> str:
+    """Publish a public MapLibre variant with the experimental rain heatmap on.
+
+    The protected viewer remains the canonical production route. This separate
+    /local/rainmapper-maplibre-heatmap route lets us validate heatmap rendering
+    with the same GeoJSON data without changing the experience for current
+    protected users.
+    """
+    PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH, ignore_errors=True)
+    PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH.mkdir(parents=True, exist_ok=True)
+
+    for asset_name in ("index.html", "app.js", "style.css", "translations.json"):
+        shutil.copy2(MAPLIBRE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH / asset_name)
+    (PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH / "config.js").write_text(experimental_heatmap_config_js())
+
+    data_path = PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH / "data"
+    data_path.mkdir()
+    copied = 0
+    for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
+        shutil.copy2(source_path, data_path / source_path.name)
+        copied += 1
+    if SOURCE_STATUS_PATH.exists():
+        shutil.copy2(SOURCE_STATUS_PATH, data_path / SOURCE_STATUS_PATH.name)
+
+    shutil.rmtree(PUBLIC_MAPLIBRE_HEATMAP_PATH, ignore_errors=True)
+    PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH.rename(PUBLIC_MAPLIBRE_HEATMAP_PATH)
+    return f"Published experimental rain heatmap MapLibre viewer with {copied} GeoJSON file(s) to /local/rainmapper-maplibre-heatmap/index.html."
 
 
 def publish_aemet_experimental_maplibre(log_file, config_js: str) -> str:
@@ -2762,8 +2803,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         source_controls = source_status_cards(disabled)
         leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html")
         maplibre_url = cache_busted_url("/protected/maplibre/index.html")
+        heatmap_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-heatmap/index.html") if PUBLIC_MAPLIBRE_HEATMAP_PATH.exists() else ""
         aemet_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-aemet/index.html") if PUBLIC_MAPLIBRE_AEMET_PATH.exists() else ""
         bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html")
+        heatmap_card = (
+            f'<div class="card"><span class="label">MapLibre heatmap experiment</span><span class="value">{html.escape(heatmap_maplibre_url)}</span></div>'
+            if heatmap_maplibre_url
+            else ""
+        )
+        heatmap_viewer_link = (
+            f'<a class="button-link" href="{html.escape(heatmap_maplibre_url, quote=True)}" target="_top">Open heatmap experiment</a>'
+            if heatmap_maplibre_url
+            else ""
+        )
         aemet_card = (
             f'<div class="card"><span class="label">AEMET test viewer</span><span class="value">{html.escape(aemet_maplibre_url)}</span></div>'
             if aemet_maplibre_url
@@ -2795,6 +2847,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
             <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
             <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
+            {heatmap_card}
             {aemet_card}
             <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
           </div>
@@ -2818,6 +2871,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             '<div class="viewer-actions">'
             f'<a class="button-link primary" href="{html.escape(leaflet_url, quote=True)}" target="_top">Open Leaflet viewer</a>'
             f'<a class="button-link primary" href="{html.escape(maplibre_url, quote=True)}" target="_top">Open MapLibre viewer</a>'
+            f"{heatmap_viewer_link}"
             f"{aemet_viewer_link}"
             f'<a class="button-link" href="{html.escape(bokeh_21d_url, quote=True)}" target="_top">Open Bokeh 21 days</a>'
             "</div>"

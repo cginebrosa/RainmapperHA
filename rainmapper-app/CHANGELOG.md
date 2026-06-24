@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.120
+
+- Add a separate experimental MapLibre heatmap viewer route for validating metric overlays without changing the protected viewer.
+- Add MapLibre layer metric controls for rain, temperature, humidity and wind, including a quick metric panel and metric legend.
+- Add an experimental heatmap toggle and opacity slider using all valid stations for the selected period.
+
 ## 0.2.119
 
 - Align MapLibre station history temperature, humidity and wind values with fixed internal subcolumns.

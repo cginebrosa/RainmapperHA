@@ -6,6 +6,10 @@ const DATA_BASE = new URLSearchParams(window.location.search).get("data") || def
 const AUTH_REQUIRED = Boolean(viewerConfig.authRequired);
 const AUTH_BASE = viewerConfig.authBase || "/auth";
 const AUTH_STORAGE_KEY = "rainmapperMaplibreAuth";
+const EXPERIMENTAL_HEATMAP = Boolean(
+  viewerConfig.experimentalHeatmap
+  || new URLSearchParams(window.location.search).get("heatmap") === "1"
+);
 
 const periods = {
   "01d.geojson": "1 day",
@@ -32,6 +36,8 @@ const FALLBACK_BOUNDS = [
 const INITIAL_CENTER = [2.1, 41.7];
 const INITIAL_ZOOM = 7;
 const SOURCE_ID = "stations";
+const HEATMAP_SOURCE_ID = "stations-heatmap";
+const HEATMAP_LAYER_ID = "station-rain-heatmap";
 const CIRCLE_LAYER_ID = "station-circles";
 const TERRAIN_SOURCE_ID = "rainmapper-terrain-dem";
 const TERRAIN_TILES = [
@@ -244,6 +250,7 @@ let currentPeriodFileName = "21d.geojson";
 let preferredPeriodFileName = currentPeriodFileName;
 let currentLanguage = browserLanguage();
 let currentData = null;
+let currentHeatmapData = null;
 let currentVisibleFeatures = [];
 let currentPopup = null;
 let hoverPopup = null;
@@ -255,6 +262,11 @@ let lastRainHistoryLimit = 0;
 let enabledStationSources = new Set(stationSources.map((source) => source.id));
 let sourceStatus = {};
 let rainScaleMax = 200;
+let metricScaleMin = 0;
+let metricScaleMax = 200;
+let currentLayerMetric = "rain";
+let heatmapEnabled = EXPERIMENTAL_HEATMAP;
+let heatmapOpacity = 0.65;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let authState = loadStoredAuthState();
@@ -403,6 +415,8 @@ function applyLanguage(language = currentLanguage) {
   setLabelText("settings-period-selector", t("period"));
   setLabelText("min-rain-filter", t("minRain"));
   setLabelText("last-rain-history-filter", t("lastRainsHistory"));
+  setLabelText("layer-metric-selector", t("layerMetric"));
+  setLabelText("heatmap-opacity-filter", t("heatmapOpacity"));
   setLabelText("terrain-exaggeration", t("exaggeration"));
   setText("#layer-switcher legend", t("map"));
   setText(".source-settings-group legend", t("source"));
@@ -426,12 +440,15 @@ function applyLanguage(language = currentLanguage) {
     ["#settings-toggle", "mapSettings"],
     ["#terrain-mode-toggle", "toggle3dTerrain"],
     ["#quick-map-toggle", "mapLayer"],
+    ["#quick-metric-toggle", "layerMetric"],
+    ["#heatmap-toggle", "heatmap"],
     ["#north-toggle", "faceNorth"],
     ["#info-toggle", "mapCredits"],
     ["#help-toggle", "mapHelp"],
     ["#map-attribution", "mapCredits"],
     ["#map-help", "mapHelp"],
     ["#quick-map-panel", "mapLayer"],
+    ["#quick-metric-panel", "layerMetric"],
     ["#map-settings", "mapSettings"],
     ["#map-selector", "rainPeriod"],
     ["#period-timeline", "rainPeriod"],
@@ -454,8 +471,13 @@ function applyLanguage(language = currentLanguage) {
   updateMinRainValue();
   updateLastRainHistoryValue();
   updateTerrainExaggerationValue();
+  renderLayerMetricSelector();
+  updateHeatmapOpacityValue();
+  updateMetricLegend();
+  updateHeatmapToggle();
   renderLayerSwitcher();
   renderQuickMapPanelOptions();
+  renderQuickMetricPanelOptions();
   renderPeriodTimeline();
   updateSourceStatusControls();
   updateTerrainModeButton();
@@ -885,6 +907,14 @@ function setQuickMapControlsFromStyle(styleId) {
   });
 }
 
+function setQuickMetricControlsFromMetric(metricId = currentLayerMetric) {
+  document.querySelectorAll(".quick-metric-option").forEach((button) => {
+    const isActive = button.dataset.metricId === metricId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-current", isActive ? "true" : "false");
+  });
+}
+
 function waitForMapIdle() {
   return new Promise((resolve) => {
     let resolved = false;
@@ -1093,6 +1123,15 @@ const rainColorStops = [
   { ratio: 1, color: "#4b0055" },
 ];
 
+const layerMetrics = [
+  { id: "rain", labelKey: "metricRain", property: "Total", unit: "mm", decimals: 0, floor: 0 },
+  { id: "max_temp", labelKey: "metricMaxTemp", property: "max_temp_celsius", unit: "°C", decimals: 0 },
+  { id: "min_temp", labelKey: "metricMinTemp", property: "min_temp_celsius", unit: "°C", decimals: 0 },
+  { id: "max_humidity", labelKey: "metricMaxHumidity", property: "max_humidity_percent", unit: "%", decimals: 0, floor: 0, ceiling: 100 },
+  { id: "min_humidity", labelKey: "metricMinHumidity", property: "min_humidity_percent", unit: "%", decimals: 0, floor: 0, ceiling: 100 },
+  { id: "wind", labelKey: "metricWind", property: "wind_avg_kmh", unit: "km/h", decimals: 0, floor: 0 },
+];
+
 function hexToRgb(hexColor) {
   const value = hexColor.replace("#", "");
   return [
@@ -1115,6 +1154,11 @@ function interpolateColor(fromColor, toColor, amount) {
 function rainColor(total) {
   const value = Math.max(0, Number(total) || 0);
   const ratio = Math.min(1, value / rainScaleMax);
+  return colorForRatio(ratio);
+}
+
+function colorForRatio(ratioValue) {
+  const ratio = Math.max(0, Math.min(1, Number(ratioValue) || 0));
   for (let index = 1; index < rainColorStops.length; index += 1) {
     const current = rainColorStops[index];
     const previous = rainColorStops[index - 1];
@@ -1124,6 +1168,76 @@ function rainColor(total) {
     }
   }
   return rainColorStops[rainColorStops.length - 1].color;
+}
+
+function selectedLayerMetric() {
+  if (!EXPERIMENTAL_HEATMAP) {
+    return layerMetrics[0];
+  }
+  return layerMetrics.find((metric) => metric.id === currentLayerMetric) || layerMetrics[0];
+}
+
+function layerMetricLabel(metric = selectedLayerMetric()) {
+  return t(metric.labelKey);
+}
+
+function featureMetricValue(feature, metric = selectedLayerMetric()) {
+  const value = Number(feature.properties?.[metric.property]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function metricScaleCeiling(maxValue) {
+  const maximum = Math.ceil(maxValue || 0);
+  const ceilings = [10, 25, 50, 100, 150, 200, 300, 500, 750, 1000];
+  const ceiling = ceilings.find((value) => maximum <= value);
+  if (ceiling) return ceiling;
+  return Math.ceil(maximum / 500) * 500;
+}
+
+function metricScaleFloor(minValue) {
+  const minimum = Math.floor(minValue || 0);
+  if (minimum >= 0) {
+    return 0;
+  }
+  return Math.floor(minimum / 5) * 5;
+}
+
+function robustMetricScale(features) {
+  const metric = selectedLayerMetric();
+  if (metric.id === "rain") {
+    return [0, rainScaleMax];
+  }
+  const values = features
+    .map((feature) => featureMetricValue(feature, metric))
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => left - right);
+  if (values.length === 0) {
+    const floor = Number.isFinite(metric.floor) ? metric.floor : 0;
+    const ceiling = Number.isFinite(metric.ceiling) ? metric.ceiling : 10;
+    return [floor, ceiling];
+  }
+  const lowReference = values.length < 20 ? values[0] : percentile(values, 0.05);
+  const highReference = values.length < 20 ? values[values.length - 1] : percentile(values, 0.95);
+  const floor = Number.isFinite(metric.floor) ? metric.floor : metricScaleFloor(lowReference);
+  const ceiling = Number.isFinite(metric.ceiling) ? metric.ceiling : metricScaleCeiling(highReference * 1.05);
+  return floor === ceiling ? [floor, floor + 1] : [floor, ceiling];
+}
+
+function updateMetricScale(features) {
+  [metricScaleMin, metricScaleMax] = robustMetricScale(features);
+  updateMetricLegend();
+}
+
+function metricRatio(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  const span = metricScaleMax - metricScaleMin || 1;
+  return Math.max(0, Math.min(1, (value - metricScaleMin) / span));
+}
+
+function metricColor(value) {
+  return colorForRatio(metricRatio(value));
 }
 
 function rainScaleCeiling(maxRain) {
@@ -1168,20 +1282,80 @@ function robustRainScaleMaximum(features) {
 
 function updateRainScale(features) {
   rainScaleMax = robustRainScaleMaximum(features);
+}
+
+function formatLegendValue(value, metric = selectedLayerMetric()) {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+  return String(Math.round(value));
+}
+
+function updateMetricLegend() {
+  const metric = selectedLayerMetric();
+  const title = document.getElementById("rain-legend-title");
   const labels = document.getElementById("rain-legend-labels");
+  if (title) {
+    title.textContent = metric.unit;
+    title.title = layerMetricLabel(metric);
+  }
   if (!labels) {
     return;
   }
-  const values = [rainScaleMax, rainScaleMax * 0.85, rainScaleMax * 0.7, rainScaleMax * 0.55, rainScaleMax * 0.4, rainScaleMax * 0.25, rainScaleMax * 0.12, 0];
+  const span = metricScaleMax - metricScaleMin;
+  const values = [1, 0.85, 0.7, 0.55, 0.4, 0.25, 0.12, 0].map((ratio) => metricScaleMin + span * ratio);
   labels.innerHTML = values.map((value, index) => {
-    const rounded = Math.round(value);
-    return `<span>${index === 0 ? `${rounded}+` : rounded}</span>`;
+    const formatted = formatLegendValue(value, metric);
+    return `<span>${index === 0 ? `${formatted}+` : formatted}</span>`;
   }).join("");
 }
 
-function markerRadius(total) {
-  if (!Number.isFinite(total)) return 5;
-  return Math.max(5, Math.min(24, 5 + Math.sqrt(Math.max(total, 0)) * 1.2));
+function renderLayerMetricSelector() {
+  const selector = document.getElementById("layer-metric-selector");
+  if (!selector) {
+    return;
+  }
+  selector.innerHTML = layerMetrics.map((metric) => `
+    <option value="${metric.id}">${layerMetricLabel(metric)}</option>
+  `).join("");
+  selector.value = currentLayerMetric;
+}
+
+function updateHeatmapOpacityValue() {
+  const output = document.getElementById("heatmap-opacity-value");
+  if (output) {
+    output.textContent = `${Math.round(heatmapOpacity * 100)}%`;
+  }
+}
+
+function updateHeatmapToggle() {
+  const toggle = document.getElementById("heatmap-toggle");
+  if (!toggle) {
+    return;
+  }
+  toggle.hidden = !EXPERIMENTAL_HEATMAP;
+  toggle.setAttribute("aria-pressed", String(heatmapEnabled));
+}
+
+function refreshMetricStyling() {
+  if (!currentVisibleFeatures.length) {
+    updateMetricLegend();
+    return;
+  }
+  updateMetricScale(currentVisibleFeatures);
+  currentVisibleFeatures = currentVisibleFeatures.map(prepareFeature);
+  currentHeatmapData = {
+    type: "FeatureCollection",
+    metadata: currentHeatmapData?.metadata || currentData?.metadata || {},
+    features: currentVisibleFeatures,
+  };
+  setQuickMetricControlsFromMetric();
+  refreshFilteredData();
+}
+
+function markerRadius(value) {
+  if (!Number.isFinite(value)) return 5;
+  return Math.max(5, Math.min(24, 5 + Math.sqrt(Math.max(value - metricScaleMin, 0)) * 1.2));
 }
 
 function validCoordinateFeatures(features) {
@@ -1199,15 +1373,17 @@ function validCoordinateFeatures(features) {
 }
 
 function prepareFeature(feature) {
-  const total = Number(feature.properties?.Total || 0);
+  const total = featureRainTotal(feature);
+  const metricValue = featureMetricValue(feature);
   const source = feature.properties?.Source || inferStationSource(feature.properties?.["Codi Estació"]);
   return {
     ...feature,
     properties: {
       ...(feature.properties || {}),
       Source: source,
-      rain_color: rainColor(total),
-      marker_radius: markerRadius(total),
+      rain_color: EXPERIMENTAL_HEATMAP ? metricColor(metricValue) : rainColor(total),
+      marker_radius: EXPERIMENTAL_HEATMAP ? markerRadius(metricValue) : markerRadius(total),
+      layer_metric_value: metricValue,
     },
   };
 }
@@ -1508,6 +1684,11 @@ function refreshFilteredData() {
   const selectedPeriod = currentPeriodFileName;
   const features = filteredFeatures(currentVisibleFeatures);
   const popupStationId = activeStationPopupId;
+  currentHeatmapData = {
+    type: "FeatureCollection",
+    metadata: currentHeatmapData?.metadata || currentData?.metadata || {},
+    features: currentVisibleFeatures,
+  };
   currentData = {
     type: "FeatureCollection",
     metadata: currentData?.metadata || {},
@@ -1631,8 +1812,62 @@ function addStationLayer() {
   if (map.getLayer(CIRCLE_LAYER_ID)) {
     map.removeLayer(CIRCLE_LAYER_ID);
   }
+  if (map.getLayer(HEATMAP_LAYER_ID)) {
+    map.removeLayer(HEATMAP_LAYER_ID);
+  }
   if (map.getSource(SOURCE_ID)) {
     map.removeSource(SOURCE_ID);
+  }
+  if (map.getSource(HEATMAP_SOURCE_ID)) {
+    map.removeSource(HEATMAP_SOURCE_ID);
+  }
+
+  if (EXPERIMENTAL_HEATMAP && heatmapEnabled) {
+    map.addSource(HEATMAP_SOURCE_ID, {
+      type: "geojson",
+      data: currentHeatmapData || { type: "FeatureCollection", features: [] },
+    });
+    map.addLayer({
+      id: HEATMAP_LAYER_ID,
+      type: "heatmap",
+      source: HEATMAP_SOURCE_ID,
+      maxzoom: 12,
+      paint: {
+        "heatmap-weight": [
+          "interpolate",
+          ["linear"],
+          ["coalesce", ["to-number", ["get", "layer_metric_value"]], metricScaleMin],
+          metricScaleMin,
+          0,
+          metricScaleMax,
+          1,
+        ],
+        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.8, 9, 1.8, 12, 2.4],
+        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 5, 18, 9, 42, 12, 68],
+        "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 5, heatmapOpacity, 11, heatmapOpacity * 0.82, 12, heatmapOpacity * 0.35],
+        "heatmap-color": [
+          "interpolate",
+          ["linear"],
+          ["heatmap-density"],
+          0,
+          "rgba(78, 165, 255, 0)",
+          0.12,
+          "#4ea5ff",
+          0.28,
+          "#78c679",
+          0.45,
+          "#fecc5c",
+          0.62,
+          "#fd8d3c",
+          0.78,
+          "#f03b20",
+          0.9,
+          "#bd0026",
+          1,
+          "#7a0177",
+        ],
+      },
+    });
   }
 
   map.addSource(SOURCE_ID, {
@@ -2302,8 +2537,13 @@ async function loadMap(fileName) {
   const visible = validCoordinateFeatures(rawFeatures);
   invalidFeatureCount = Math.max(0, rawFeatures.length - visible.length);
   updateRainScale(visible);
+  updateMetricScale(visible);
   const features = visible.map(prepareFeature);
   currentVisibleFeatures = features;
+  currentHeatmapData = {
+    ...data,
+    features,
+  };
   updateMinRainControl(features);
   updateLastRainHistoryControl(features);
   const filtered = filteredFeatures(features);
@@ -2444,9 +2684,78 @@ function renderQuickMapPanel() {
   setQuickMapControlsFromStyle(currentStyle.id);
 }
 
+function renderQuickMetricPanelOptions() {
+  const panel = document.getElementById("quick-metric-panel");
+  const toggle = document.getElementById("quick-metric-toggle");
+  if (!panel || !toggle) {
+    return;
+  }
+  toggle.hidden = !EXPERIMENTAL_HEATMAP;
+  if (!EXPERIMENTAL_HEATMAP) {
+    panel.hidden = true;
+    return;
+  }
+  panel.innerHTML = layerMetrics.map((metric) => `
+    <button class="quick-metric-option" type="button" data-metric-id="${metric.id}">
+      <span>${layerMetricLabel(metric)}</span>
+    </button>
+  `).join("");
+  setQuickMetricControlsFromMetric();
+}
+
+function renderQuickMetricPanel() {
+  const toggle = document.getElementById("quick-metric-toggle");
+  const panel = document.getElementById("quick-metric-panel");
+  if (!toggle || !panel) {
+    return;
+  }
+
+  renderQuickMetricPanelOptions();
+
+  const setQuickMetricOpen = (isOpen) => {
+    if (!EXPERIMENTAL_HEATMAP) {
+      return;
+    }
+    if (isOpen) {
+      closeSecondaryPanels({ except: "quick-metric" });
+    }
+    panel.toggleAttribute("hidden", !isOpen);
+    toggle.setAttribute("aria-expanded", String(isOpen));
+  };
+
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setQuickMetricOpen(panel.hasAttribute("hidden"));
+  });
+
+  panel.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const button = event.target.closest(".quick-metric-option");
+    if (!button) {
+      return;
+    }
+    currentLayerMetric = button.dataset.metricId;
+    const metricSelector = document.getElementById("layer-metric-selector");
+    if (metricSelector) {
+      metricSelector.value = currentLayerMetric;
+    }
+    setQuickMetricControlsFromMetric();
+    refreshMetricStyling();
+    setQuickMetricOpen(false);
+  });
+
+  map.on("click", () => {
+    if (!panel.hasAttribute("hidden")) {
+      setQuickMetricOpen(false);
+    }
+  });
+}
+
 function closeSecondaryPanels({ except = "" } = {}) {
   const quickMapPanel = document.getElementById("quick-map-panel");
   const quickMapToggle = document.getElementById("quick-map-toggle");
+  const quickMetricPanel = document.getElementById("quick-metric-panel");
+  const quickMetricToggle = document.getElementById("quick-metric-toggle");
   const attributionPanel = document.getElementById("map-attribution");
   const infoToggle = document.getElementById("info-toggle");
   const helpPanel = document.getElementById("map-help");
@@ -2455,6 +2764,10 @@ function closeSecondaryPanels({ except = "" } = {}) {
   if (except !== "quick-map" && quickMapPanel && quickMapToggle) {
     quickMapPanel.hidden = true;
     quickMapToggle.setAttribute("aria-expanded", "false");
+  }
+  if (except !== "quick-metric" && quickMetricPanel && quickMetricToggle) {
+    quickMetricPanel.hidden = true;
+    quickMetricToggle.setAttribute("aria-expanded", "false");
   }
   if (except !== "credits" && attributionPanel && infoToggle) {
     attributionPanel.hidden = true;
@@ -2470,6 +2783,7 @@ function renderSettingsPanel() {
   const toggle = document.getElementById("settings-toggle");
   const northToggle = document.getElementById("north-toggle");
   const infoToggle = document.getElementById("info-toggle");
+  const heatmapToggle = document.getElementById("heatmap-toggle");
   const attributionPanel = document.getElementById("map-attribution");
   const helpToggle = document.getElementById("help-toggle");
   const helpPanel = document.getElementById("map-help");
@@ -2478,11 +2792,20 @@ function renderSettingsPanel() {
   const settingsPeriodSelector = document.getElementById("settings-period-selector");
   const slider = document.getElementById("min-rain-filter");
   const historySlider = document.getElementById("last-rain-history-filter");
+  const heatmapExperimentSettings = document.getElementById("heatmap-experiment-settings");
+  const layerMetricSelector = document.getElementById("layer-metric-selector");
+  const heatmapOpacitySlider = document.getElementById("heatmap-opacity-filter");
   const terrainToggle = document.getElementById("terrain-toggle");
   const terrainSlider = document.getElementById("terrain-exaggeration");
   const terrainModeToggle = document.getElementById("terrain-mode-toggle");
   const saveMapViewButton = document.getElementById("save-map-view-default");
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
+  if (heatmapExperimentSettings) {
+    heatmapExperimentSettings.hidden = !EXPERIMENTAL_HEATMAP;
+  }
+  updateHeatmapToggle();
+  renderLayerMetricSelector();
+  updateHeatmapOpacityValue();
 
   const setSettingsOpen = (isOpen) => {
     const wasOpen = !panel.hasAttribute("hidden");
@@ -2517,6 +2840,15 @@ function renderSettingsPanel() {
 
   northToggle.addEventListener("click", () => {
     map.easeTo({ bearing: 0, duration: 350 });
+  });
+
+  heatmapToggle?.addEventListener("click", () => {
+    if (!EXPERIMENTAL_HEATMAP) {
+      return;
+    }
+    heatmapEnabled = !heatmapEnabled;
+    updateHeatmapToggle();
+    refreshMetricStyling();
   });
 
   infoToggle.addEventListener("click", () => {
@@ -2569,6 +2901,17 @@ function renderSettingsPanel() {
     refreshCurrentStationPopup();
   });
 
+  layerMetricSelector?.addEventListener("change", (event) => {
+    currentLayerMetric = event.target.value;
+    refreshMetricStyling();
+  });
+
+  heatmapOpacitySlider?.addEventListener("input", (event) => {
+    heatmapOpacity = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+    updateHeatmapOpacityValue();
+    addStationLayer();
+  });
+
   sourceInputs.forEach((input) => {
     input.addEventListener("change", () => {
       const selectedSources = sourceInputs.filter((sourceInput) => sourceInput.checked);
@@ -2616,6 +2959,7 @@ map.on("load", async () => {
   await loadTranslations();
   renderLayerSwitcher();
   renderQuickMapPanel();
+  renderQuickMetricPanel();
   renderPeriodTimeline();
   renderSettingsPanel();
   applyLanguage(currentLanguage);

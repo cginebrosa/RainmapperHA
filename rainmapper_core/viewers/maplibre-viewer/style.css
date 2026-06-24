@@ -720,7 +720,14 @@ main {
   color: #ffffff;
 }
 
-.quick-map-toggle[aria-expanded="true"] {
+.heatmap-toggle[aria-pressed="true"] {
+  background: #dff4ff;
+  border-color: rgba(28, 159, 234, 0.45);
+  color: #076caa;
+}
+
+.quick-map-toggle[aria-expanded="true"],
+.quick-metric-toggle[aria-expanded="true"] {
   background: #dff4ff;
   border-color: rgba(28, 159, 234, 0.45);
   color: #076caa;
@@ -733,10 +740,15 @@ main {
   color: #076caa;
 }
 
-.quick-map-toggle svg {
+.quick-map-toggle svg,
+.quick-metric-toggle svg,
+.heatmap-toggle svg {
   display: block;
   height: 24px;
   overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
   width: 24px;
@@ -744,6 +756,7 @@ main {
 
 .quick-map-toggle polygon {
   fill: currentColor;
+  stroke: none;
 }
 
 .quick-map-toggle polyline {
@@ -806,6 +819,10 @@ main {
   right: 62px;
   top: 106px;
   z-index: 10;
+}
+
+.quick-metric-panel {
+  top: 154px;
 }
 
 .quick-map-panel[hidden] {
@@ -1206,6 +1223,10 @@ main {
   .quick-map-panel {
     right: 50px;
     top: 86px;
+  }
+
+  .quick-metric-panel {
+    top: 128px;
   }
 
   .map-attribution {

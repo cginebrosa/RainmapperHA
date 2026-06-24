@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.119">
+    <link rel="stylesheet" href="style.css?v=0.2.120">
   </head>
   <body>
     <header class="topbar">
@@ -79,6 +79,23 @@
             <polygon points="12 2 22 7 12 12 2 7"></polygon>
             <polyline points="22 12 12 17 2 12"></polyline>
             <polyline points="22 17 12 22 2 17"></polyline>
+          </svg>
+        </button>
+        <button class="map-control-button quick-metric-toggle" id="quick-metric-toggle" type="button" aria-expanded="false" aria-controls="quick-metric-panel" aria-label="Layer metric" title="Layer metric" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+            <line x1="4" y1="7" x2="20" y2="7"></line>
+            <circle cx="9" cy="7" r="2"></circle>
+            <line x1="4" y1="12" x2="20" y2="12"></line>
+            <circle cx="15" cy="12" r="2"></circle>
+            <line x1="4" y1="17" x2="20" y2="17"></line>
+            <circle cx="11" cy="17" r="2"></circle>
+          </svg>
+        </button>
+        <button class="map-control-button heatmap-toggle" id="heatmap-toggle" type="button" aria-pressed="false" aria-label="Heatmap" title="Heatmap" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+            <circle cx="12" cy="12" r="2.2"></circle>
+            <circle cx="12" cy="12" r="6"></circle>
+            <circle cx="12" cy="12" r="10"></circle>
           </svg>
         </button>
         <button class="map-control-button map-north-toggle" id="north-toggle" type="button" aria-label="Face north" title="Face north">
@@ -153,6 +170,7 @@
         </section>
       </section>
       <section class="quick-map-panel" id="quick-map-panel" aria-label="Map layer" hidden></section>
+      <section class="quick-map-panel quick-metric-panel" id="quick-metric-panel" aria-label="Layer metric" hidden></section>
       <section class="map-settings" id="map-settings" aria-label="Map settings" hidden>
         <div class="map-settings-row">
           <label for="language-selector">Language</label>
@@ -184,6 +202,17 @@
           <output id="last-rain-history-value" for="last-rain-history-filter">-</output>
         </div>
         <input id="last-rain-history-filter" type="range" min="1" max="1" step="1" value="1" disabled>
+        <div class="heatmap-experiment-settings" id="heatmap-experiment-settings" hidden>
+          <div class="map-settings-row">
+            <label for="layer-metric-selector">Layer metric</label>
+            <select id="layer-metric-selector"></select>
+          </div>
+          <div class="map-settings-row">
+            <label for="heatmap-opacity-filter">Heatmap opacity</label>
+            <output id="heatmap-opacity-value" for="heatmap-opacity-filter">65%</output>
+          </div>
+          <input id="heatmap-opacity-filter" type="range" min="0" max="100" step="5" value="65">
+        </div>
         <fieldset class="map-settings-group map-layer-settings-group" id="layer-switcher">
           <legend>Map</legend>
         </fieldset>
@@ -226,7 +255,7 @@
       </section>
       <nav class="period-timeline" id="period-timeline" aria-label="Rain period"></nav>
       <div class="rain-legend maplibre-rain-legend" aria-label="Rain legend">
-        <div class="rain-legend-title">mm</div>
+        <div class="rain-legend-title" id="rain-legend-title">mm</div>
         <div class="rain-legend-scale" aria-hidden="true"></div>
         <div class="rain-legend-labels" id="rain-legend-labels">
           <span>200+</span>
@@ -242,7 +271,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.119"></script>
-  <script src="app.js?v=0.2.119"></script>
+  <script src="config.js?v=0.2.120"></script>
+  <script src="app.js?v=0.2.120"></script>
   </body>
 </html>
