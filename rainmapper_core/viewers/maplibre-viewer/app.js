@@ -1999,9 +1999,9 @@ function recentRainHistory(properties) {
   const records = rainHistoryRecords(properties).slice(0, lastRainHistoryLimit || undefined);
   for (const record of records) {
     const hasRain = Number.isFinite(record.rainValue) && record.rainValue > 0;
-    const temperatureText = compactRange(record.tempMaxValue, record.tempMinValue, 0);
-    const humidityText = compactRange(record.humidityMaxValue, record.humidityMinValue, 0);
-    const windText = compactWind(record.windAvgValue, record.windDirectionValue);
+    const temperatureText = compactRangeHtml(record.tempMaxValue, record.tempMinValue, 0);
+    const humidityText = compactRangeHtml(record.humidityMaxValue, record.humidityMinValue, 0);
+    const windText = compactWindHtml(record.windAvgValue, record.windDirectionValue);
     rows.push(`
       <tr class="${hasRain ? "rainy-day" : ""}">
         <td>${record.date}</td>
@@ -2038,28 +2038,41 @@ function recentRainHistory(properties) {
   `;
 }
 
-function compactRange(maxValue, minValue, decimals = 0) {
+function compactRangeHtml(maxValue, minValue, decimals = 0) {
   if (!Number.isFinite(maxValue) && !Number.isFinite(minValue)) {
     return "-";
   }
   if (Number.isFinite(maxValue) && Number.isFinite(minValue)) {
-    return `${formatNumber(maxValue, decimals)}/${formatNumber(minValue, decimals)}`;
+    return `
+      <span class="history-range">
+        <span class="history-range-value">${formatNumber(maxValue, decimals)}</span>
+        <span class="history-range-separator">/</span>
+        <span class="history-range-value">${formatNumber(minValue, decimals)}</span>
+      </span>
+    `;
   }
   const value = Number.isFinite(maxValue) ? maxValue : minValue;
-  return formatNumber(value, decimals);
+  return `<span class="history-range history-range-single">${formatNumber(value, decimals)}</span>`;
 }
 
-function compactWind(speed, direction) {
+function compactWindHtml(speed, direction) {
   if (!Number.isFinite(speed) && !Number.isFinite(direction)) {
     return "-";
   }
+  const speedText = Number.isFinite(speed) ? formatNumber(speed, 0) : "";
+  const directionText = Number.isFinite(direction) ? formatDirection(direction) : "";
   if (Number.isFinite(speed) && Number.isFinite(direction)) {
-    return `${formatNumber(speed, 0)} ${formatDirection(direction)}`;
+    return `
+      <span class="history-wind">
+        <span class="history-wind-speed">${speedText}</span>
+        <span class="history-wind-direction">${directionText}</span>
+      </span>
+    `;
   }
   if (Number.isFinite(speed)) {
-    return formatNumber(speed, 0);
+    return `<span class="history-wind history-wind-speed-only"><span class="history-wind-speed">${speedText}</span></span>`;
   }
-  return formatDirection(direction);
+  return `<span class="history-wind history-wind-direction-only"><span class="history-wind-direction">${directionText}</span></span>`;
 }
 
 function parseRainDate(dateText) {

@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -24,6 +25,75 @@ def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1, tem
 
 
 class CreateAemetTests(unittest.TestCase):
+    def test_rate_limit_metrics_keep_last_24h_and_consecutive_runs(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            data_dir = Path(tmp_dir)
+            now = datetime(2026, 6, 24, 12, 0, 0)
+            old_event = (now - timedelta(hours=25)).isoformat(timespec="seconds")
+            recent_event = (now - timedelta(hours=2)).isoformat(timespec="seconds")
+            create_aemet.write_rate_limit_metrics(
+                data_dir,
+                {
+                    "updated_at": old_event,
+                    "events": [old_event, recent_event],
+                    "rate_limit_24h": 2,
+                    "consecutive_429_runs": 3,
+                },
+            )
+
+            status = create_aemet.rate_limit_status(data_dir, now=now)
+
+            self.assertEqual(status["rate_limit_24h"], 1)
+            self.assertEqual(status["consecutive_429_runs"], 3)
+
+            status = create_aemet.record_rate_limit_result(data_dir, rate_limited=True, now=now)
+
+            self.assertEqual(status["rate_limit_24h"], 2)
+            self.assertEqual(status["consecutive_429_runs"], 4)
+
+            status = create_aemet.record_rate_limit_result(
+                data_dir,
+                rate_limited=False,
+                now=now + timedelta(minutes=10),
+            )
+
+            self.assertEqual(status["rate_limit_24h"], 2)
+            self.assertEqual(status["consecutive_429_runs"], 0)
+
+    def test_fetch_observations_labels_index_and_data_url_with_delay(self):
+        calls = []
+        sleeps = []
+        original_fetch_json = create_aemet.fetch_json
+        original_sleep = create_aemet.time.sleep
+
+        def fake_fetch_json(url, api_key=None, timeout=30, request_label="AEMET request"):
+            calls.append((url, api_key, timeout, request_label))
+            if request_label == "observations index endpoint":
+                return {"estado": 200, "datos": "https://example.test/aemet-data"}
+            return [{"idema": "0002I", "fint": "2026-06-24T08:00:00+0000", "prec": 0.0}]
+
+        try:
+            create_aemet.fetch_json = fake_fetch_json
+            create_aemet.time.sleep = lambda seconds: sleeps.append(seconds)
+
+            rows = create_aemet.fetch_observations(
+                api_key="test-key",
+                timeout=12,
+                data_url_delay_seconds=1.5,
+            )
+        finally:
+            create_aemet.fetch_json = original_fetch_json
+            create_aemet.time.sleep = original_sleep
+
+        self.assertEqual(rows[0]["idema"], "0002I")
+        self.assertEqual(sleeps, [1.5])
+        self.assertEqual(calls[0][3], "observations index endpoint")
+        self.assertEqual(calls[0][1], "test-key")
+        self.assertEqual(calls[0][2], 12)
+        self.assertEqual(calls[1][0], "https://example.test/aemet-data")
+        self.assertEqual(calls[1][1], None)
+        self.assertEqual(calls[1][3], "observations data URL")
+
     def test_normalize_observations_keeps_hourly_utc_and_local_fields(self):
         rows = [
             observation("9632X", "2026-06-22T13:00:00+0000", 14.0, name="TUIXENT"),

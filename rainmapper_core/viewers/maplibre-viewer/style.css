@@ -555,6 +555,11 @@ main {
   width: 18%;
 }
 
+.history-table th:nth-child(4),
+.history-table th:nth-child(5) {
+  padding-right: 8px;
+}
+
 .history-table th:nth-child(5),
 .history-table td:nth-child(5) {
   width: 15%;
@@ -563,6 +568,48 @@ main {
 .history-table th:nth-child(6),
 .history-table td:nth-child(6) {
   width: 18%;
+}
+
+.history-range {
+  align-items: baseline;
+  display: inline-grid;
+  grid-template-columns: minmax(1.4em, max-content) 0.35em minmax(1.1em, max-content);
+  justify-content: end;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.history-range-single {
+  display: inline-block;
+  text-align: right;
+}
+
+.history-range-value {
+  text-align: right;
+}
+
+.history-range-separator {
+  text-align: center;
+}
+
+.history-wind {
+  align-items: baseline;
+  display: inline-grid;
+  gap: 0.25em;
+  grid-template-columns: minmax(1.4em, max-content) minmax(1.4em, max-content);
+  justify-content: end;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.history-wind-speed,
+.history-wind-direction {
+  text-align: right;
+}
+
+.history-wind-speed-only,
+.history-wind-direction-only {
+  grid-template-columns: minmax(1.4em, max-content);
 }
 
 @media (max-width: 640px) {

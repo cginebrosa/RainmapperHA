@@ -57,6 +57,12 @@ DEVICE_SETTING_PERIODS = {"01d.geojson", "07d.geojson", "14d.geojson", "21d.geoj
 DEVICE_SETTING_MAP_STYLES = {"esri-satellite-vector", "esri-hybrid", "opentopomap", "openfreemap-liberty"}
 DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "AEMET", "Unknown"}
 DEVICE_SETTING_LANGUAGES = {"en", "es", "ca"}
+UPDATE_SOURCE_FLAGS = {
+    "Meteoclimatic": "create_meteoclimatic",
+    "Meteocat": "create_meteocat",
+    "Wunderground": "create_wunderground",
+    "AEMET": "create_aemet",
+}
 
 PUBLIC_MAP_NAMES = {
     "01_Tomap_Last_day.html": "rain_01d.html",
@@ -321,6 +327,22 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       font-size: 12px;
       line-height: 1.35;
       margin-top: 6px;
+    }}
+    .source-card form {{
+      margin-top: 10px;
+    }}
+    .source-alerts {{
+      display: grid;
+      gap: 6px;
+      margin: 10px 0 8px;
+    }}
+    .source-alert {{
+      border: 1px solid rgba(255, 107, 107, 0.55);
+      border-radius: 8px;
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 800;
+      padding: 7px 9px;
     }}
     @media (max-width: 760px) {{
       .source-status-grid {{
@@ -832,19 +854,35 @@ def schedule_days() -> set[int]:
     return days
 
 
-def command_for(action: str) -> list[str]:
+def source_flag_value(flag_name: str, only_source: str | None) -> str:
+    """Return temporary source enablement for one run without changing HA settings."""
+    if only_source:
+        return "true" if UPDATE_SOURCE_FLAGS.get(only_source) == flag_name else "false"
+    env_names = {
+        "create_meteoclimatic": ("RAINMAPPER_CREATE_METEOCLIMATIC", "true"),
+        "create_meteocat": ("RAINMAPPER_CREATE_METEOCAT", "true"),
+        "create_wunderground": ("RAINMAPPER_CREATE_WUNDERGROUND", "true"),
+        "create_aemet": ("RAINMAPPER_CREATE_AEMET", "false"),
+    }
+    env_name, default = env_names[flag_name]
+    return env(env_name, default)
+
+
+def command_for(action: str, only_source: str | None = None) -> list[str]:
+    if only_source and only_source not in UPDATE_SOURCE_FLAGS:
+        raise ValueError(f"Invalid source: {only_source}")
     update_command = [
         "python",
         "-m",
         "rainmapper_core.rainmapper",
         "--create_meteoclimatic",
-        env("RAINMAPPER_CREATE_METEOCLIMATIC", "true"),
+        source_flag_value("create_meteoclimatic", only_source),
         "--create_meteocat",
-        env("RAINMAPPER_CREATE_METEOCAT", "true"),
+        source_flag_value("create_meteocat", only_source),
         "--create_wunderground",
-        env("RAINMAPPER_CREATE_WUNDERGROUND", "true"),
+        source_flag_value("create_wunderground", only_source),
         "--create_aemet",
-        env("RAINMAPPER_CREATE_AEMET", "false"),
+        source_flag_value("create_aemet", only_source),
         "--days_init",
         env("RAINMAPPER_DAYS_INIT", "-7"),
         "--days_end",
@@ -1087,7 +1125,7 @@ def source_status_class(status: str) -> str:
     return ""
 
 
-def source_status_card(source: str, payload: dict) -> str:
+def source_status_card(source: str, payload: dict, disabled: str = "") -> str:
     status = str(payload.get("status") or "Unknown")
     exit_code = payload.get("exit_code")
     rows = payload.get("rows")
@@ -1102,6 +1140,27 @@ def source_status_card(source: str, payload: dict) -> str:
     duration_text = format_seconds_duration(duration)
     status_class = source_status_class(status)
     timing_text = ""
+    alerts_text = ""
+    if source == "AEMET":
+        try:
+            rate_limit_24h = int(payload.get("rate_limit_24h") or 0)
+        except (TypeError, ValueError):
+            rate_limit_24h = 0
+        try:
+            consecutive_429 = int(payload.get("consecutive_429_runs") or 0)
+        except (TypeError, ValueError):
+            consecutive_429 = 0
+        alert_parts = []
+        if rate_limit_24h > 0:
+            alert_parts.append(f"AEMET 429 in last 24h: {rate_limit_24h}")
+        if consecutive_429 > 0:
+            alert_parts.append(f"Consecutive AEMET 429 runs: {consecutive_429}")
+        if alert_parts:
+            alerts_text = (
+                '<div class="source-alerts">'
+                + "".join(f'<div class="source-alert">{html.escape(part)}</div>' for part in alert_parts)
+                + "</div>"
+            )
     if isinstance(timings, dict) and timings:
         timing_labels = [
             ("metadata_seconds", "metadata"),
@@ -1125,19 +1184,24 @@ def source_status_card(source: str, payload: dict) -> str:
         <span class="label">Stations</span><span>{html.escape(stations_text)}</span>
         <span class="label">Duration</span><span>{html.escape(duration_text)}</span>
         <span class="label">Updated</span><span>{html.escape(updated_at)}</span>
+        {alerts_text}
         {timing_text}
         <div class="source-message">{html.escape(message)}</div>
+        <form method="post" action="">
+          <input type="hidden" name="source_update" value="{html.escape(source)}">
+          <button {disabled}>Update only</button>
+        </form>
       </div>
     """
 
 
-def source_status_cards() -> str:
+def source_status_cards(disabled: str = "") -> str:
     payload = read_source_status()
     sources = payload.get("sources", {}) if isinstance(payload, dict) else {}
     cards = []
     for source in ("Meteoclimatic", "Meteocat", "Wunderground", "AEMET"):
         source_payload = sources.get(source, {}) if isinstance(sources, dict) else {}
-        cards.append(source_status_card(source, source_payload))
+        cards.append(source_status_card(source, source_payload, disabled=disabled))
     return '<div class="source-status-grid">' + "".join(cards) + "</div>"
 
 
@@ -1419,43 +1483,47 @@ def publish_aemet_experimental_maplibre(log_file, config_js: str) -> str:
     return f"Published experimental AEMET MapLibre fallback with {copied} GeoJSON file(s) to /local/rainmapper-maplibre-aemet/index.html."
 
 
-def run_action(action: str, source: str) -> bool:
+def run_action(action: str, source: str, only_source: str | None = None) -> bool:
     if action not in {"update", "maps", "all"}:
+        return False
+    if only_source and (action != "update" or only_source not in UPDATE_SOURCE_FLAGS):
         return False
 
     with RUN_LOCK:
         if RUN_STATE["running"]:
             return False
+        action_label = f"{action} ({only_source} only)" if only_source else action
         RUN_STATE.update(
             {
                 "running": True,
-                "action": action,
+                "action": action_label,
                 "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
                 "finished_at": "",
                 "duration": "",
                 "exit_code": "",
-                "last_message": f"Running {action} from {source}.",
-                "current_step": f"Queued {action}",
+                "last_message": f"Running {action_label} from {source}.",
+                "current_step": f"Queued {action_label}",
                 "progress_current": "",
                 "progress_total": "",
                 "progress_percent": "",
             }
         )
 
-    thread = threading.Thread(target=_run_action_thread, args=(action, source), daemon=True)
+    thread = threading.Thread(target=_run_action_thread, args=(action, source, only_source), daemon=True)
     thread.start()
     return True
 
 
-def _run_action_thread(action: str, source: str) -> None:
+def _run_action_thread(action: str, source: str, only_source: str | None = None) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     exit_code = 0
     final_exit_code = 0
     started = datetime.now(get_timezone())
-    print(f"Starting Rainmapper action '{action}' from {source}.", flush=True)
+    action_label = f"{action} ({only_source} only)" if only_source else action
+    print(f"Starting Rainmapper action '{action_label}' from {source}.", flush=True)
 
     with LOG_PATH.open("w", encoding="utf-8") as log_file:
-        log_file.write(f"=== {started.isoformat(timespec='seconds')} - {action} ({source}) ===\n")
+        log_file.write(f"=== {started.isoformat(timespec='seconds')} - {action_label} ({source}) ===\n")
         log_file.flush()
 
         actions = ["update", "maps"] if action == "all" else [action]
@@ -1465,7 +1533,7 @@ def _run_action_thread(action: str, source: str) -> None:
                 RUN_STATE.update({"current_step": f"Running {current_action}", **clear_progress()})
             log_file.write(f"=== running step {current_action} ===\n")
             log_file.flush()
-            command = command_for(current_action)
+            command = command_for(current_action, only_source=only_source if current_action == "update" else None)
             process = subprocess.Popen(
                 command,
                 cwd="/app",
@@ -2585,6 +2653,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.redirect_home()
             return
 
+        source_update = self.form_value(form, "source_update")
+        if source_update:
+            run_action("update", "web", only_source=source_update)
+            self.redirect_home()
+            return
+
         station_action = self.form_value(form, "station_action")
         station_group = self.form_value(form, "station_group")
         if station_action in {"enable", "disable"} and station_group in {"404", "parse"}:
@@ -2685,7 +2759,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             station_group_card("Wunderground 404", "404", active_station_groups["404"], disabled_groups["404"], disabled)
             + station_group_card("Wunderground parse errors", "parse", active_station_groups["parse"], disabled_groups["parse"], disabled)
         )
-        source_controls = source_status_cards()
+        source_controls = source_status_cards(disabled)
         leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html")
         maplibre_url = cache_busted_url("/protected/maplibre/index.html")
         aemet_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-aemet/index.html") if PUBLIC_MAPLIBRE_AEMET_PATH.exists() else ""

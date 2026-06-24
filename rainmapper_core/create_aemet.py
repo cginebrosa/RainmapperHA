@@ -9,9 +9,10 @@ a daily incremental CSV compatible with the existing Tomap builder schema.
 import argparse
 import json
 import os
+import time
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -31,6 +32,8 @@ from rainmapper_core.wind import (
 
 AEMET_OBSERVATIONS_URL = "https://opendata.aemet.es/opendata/api/observacion/convencional/todas"
 AEMET_STATION_PREFIX = "AEMET:"
+AEMET_DATA_URL_DELAY_SECONDS = 1.0
+AEMET_RATE_LIMIT_METRICS_FILE = "Aemet_rate_limit_metrics.json"
 LOCAL_TIMEZONE = "Europe/Madrid"
 
 HOURLY_COLUMNS = [
@@ -108,18 +111,117 @@ def parse_aemet_timestamp(value):
         return None
 
 
-def fetch_json(url, api_key=None, timeout=30):
+def aemet_log_timestamp():
+    """Return a local timestamp for AEMET request logs."""
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def read_rate_limit_metrics(data_dir):
+    """Read persisted AEMET 429 counters, tolerating missing or corrupt files."""
+    path = Path(data_dir) / AEMET_RATE_LIMIT_METRICS_FILE
+    if not path.exists():
+        return {"events": [], "consecutive_429_runs": 0}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"events": [], "consecutive_429_runs": 0}
+    events = payload.get("events")
+    if not isinstance(events, list):
+        events = []
+    try:
+        consecutive = int(payload.get("consecutive_429_runs", 0) or 0)
+    except (TypeError, ValueError):
+        consecutive = 0
+    return {"events": [str(event) for event in events], "consecutive_429_runs": max(0, consecutive)}
+
+
+def parse_metric_timestamp(value):
+    """Parse metric timestamps written by Rainmapper as local naive datetimes."""
+    try:
+        return datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def prune_recent_rate_limit_events(events, now=None):
+    """Return AEMET 429 event timestamps that are inside the last 24 hours."""
+    now = now or datetime.now()
+    cutoff = now - timedelta(hours=24)
+    recent = []
+    for event in events:
+        parsed = parse_metric_timestamp(event)
+        if parsed is not None and parsed >= cutoff:
+            recent.append(parsed.isoformat(timespec="seconds"))
+    return recent
+
+
+def write_rate_limit_metrics(data_dir, payload):
+    """Persist AEMET 429 metrics atomically."""
+    data_path = Path(data_dir)
+    data_path.mkdir(parents=True, exist_ok=True)
+    path = data_path / AEMET_RATE_LIMIT_METRICS_FILE
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def record_rate_limit_result(data_dir, rate_limited, now=None):
+    """Update persisted AEMET 429 counters for one completed AEMET run attempt."""
+    now = now or datetime.now()
+    metrics = read_rate_limit_metrics(data_dir)
+    events = prune_recent_rate_limit_events(metrics.get("events", []), now=now)
+    consecutive = int(metrics.get("consecutive_429_runs", 0) or 0)
+    if rate_limited:
+        events.append(now.isoformat(timespec="seconds"))
+        consecutive += 1
+    else:
+        consecutive = 0
+    payload = {
+        "updated_at": now.isoformat(timespec="seconds"),
+        "events": events,
+        "rate_limit_24h": len(events),
+        "consecutive_429_runs": consecutive,
+    }
+    write_rate_limit_metrics(data_dir, payload)
+    return rate_limit_status(data_dir, now=now)
+
+
+def rate_limit_status(data_dir, now=None):
+    """Return AEMET 429 counters for status payloads and the HA WebUI."""
+    now = now or datetime.now()
+    metrics = read_rate_limit_metrics(data_dir)
+    events = prune_recent_rate_limit_events(metrics.get("events", []), now=now)
+    consecutive = int(metrics.get("consecutive_429_runs", 0) or 0)
+    if len(events) != len(metrics.get("events", [])):
+        payload = {
+            "updated_at": now.isoformat(timespec="seconds"),
+            "events": events,
+            "rate_limit_24h": len(events),
+            "consecutive_429_runs": consecutive,
+        }
+        write_rate_limit_metrics(data_dir, payload)
+    return {
+        "rate_limit_24h": len(events),
+        "consecutive_429_runs": consecutive,
+    }
+
+
+def fetch_json(url, api_key=None, timeout=30, request_label="AEMET request"):
     """Fetch JSON from AEMET, optionally adding the OpenData API key header."""
     headers = {"Accept": "application/json"}
     if api_key:
         headers["api_key"] = api_key
     request = urllib.request.Request(url, headers=headers)
+    print(f"AEMET request attempt at {aemet_log_timestamp()}: {request_label}")
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw_payload = response.read()
     except urllib.error.HTTPError as exc:
         if exc.code == 429:
-            raise AemetRateLimitError("AEMET returned 429 Too Many Requests") from exc
+            raise AemetRateLimitError(
+                f"AEMET returned 429 Too Many Requests while fetching {request_label} "
+                f"at {aemet_log_timestamp()}"
+            ) from exc
         raise
     try:
         payload = raw_payload.decode("utf-8")
@@ -128,7 +230,7 @@ def fetch_json(url, api_key=None, timeout=30):
     return json.loads(payload)
 
 
-def fetch_observations(api_key, timeout=30):
+def fetch_observations(api_key, timeout=30, data_url_delay_seconds=AEMET_DATA_URL_DELAY_SECONDS):
     """Fetch the global AEMET observations payload using one indexed API call.
 
     AEMET first returns a short-lived `datos` URL. The runtime path must keep
@@ -137,10 +239,21 @@ def fetch_observations(api_key, timeout=30):
     """
     if not api_key:
         raise ValueError("AEMET API key is required")
-    index = fetch_json(AEMET_OBSERVATIONS_URL, api_key=api_key, timeout=timeout)
+    index = fetch_json(
+        AEMET_OBSERVATIONS_URL,
+        api_key=api_key,
+        timeout=timeout,
+        request_label="observations index endpoint",
+    )
     if int(index.get("estado", 0)) != 200 or not index.get("datos"):
         raise RuntimeError(f"AEMET did not return an observations URL: {index}")
-    return fetch_json(index["datos"], timeout=timeout)
+    if data_url_delay_seconds and data_url_delay_seconds > 0:
+        print(
+            "AEMET waiting "
+            f"{data_url_delay_seconds:.1f}s before fetching observations data URL."
+        )
+        time.sleep(data_url_delay_seconds)
+    return fetch_json(index["datos"], timeout=timeout, request_label="observations data URL")
 
 
 def normalize_observations(rows, local_timezone=LOCAL_TIMEZONE):

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.119
+
+- Align MapLibre station history temperature, humidity and wind values with fixed internal subcolumns.
+- Add AEMET OpenData request diagnostics, including timestamps and index/data URL context for 429 errors.
+- Track AEMET 429 counts for the last 24 hours and consecutive runs, showing non-zero counters in the WebUI.
+- Add WebUI `Update only` actions for each source without changing persistent Home Assistant options.
+
 ## 0.2.118
 
 - Restore the daily age column in MapLibre station history rows.

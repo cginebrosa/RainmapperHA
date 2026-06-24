@@ -410,6 +410,7 @@ def record_source_status(
     started_at=None,
     finished_at=None,
     timings=None,
+    extra=None,
 ):
     SOURCE_STATUSES[source] = {
         'status': status,
@@ -433,6 +434,8 @@ def record_source_status(
             for key, value in timings.items()
             if value is not None
         }
+    if isinstance(extra, dict):
+        SOURCE_STATUSES[source].update(extra)
     write_source_statuses()
 
 def record_source_runtime_metric(source, duration_seconds, started_at=None, finished_at=None, timings=None):
@@ -445,6 +448,16 @@ def record_source_runtime_metric(source, duration_seconds, started_at=None, fini
 
 def source_runtime_metric(source):
     return SOURCE_RUNTIME_METRICS.get(source, {})
+
+def source_extra_status(source):
+    if source != 'AEMET':
+        return {}
+    try:
+        from rainmapper_core import create_aemet as aemet_source
+        return aemet_source.rate_limit_status(_DATA_PATH)
+    except Exception as exc:
+        print(f'WARNING: Could not read AEMET rate limit metrics: {exc}')
+        return {}
 
 def initialize_source_statuses():
     SOURCE_STATUSES.clear()
@@ -468,6 +481,7 @@ def collect_source_result(source, future, incremental_name, enabled):
             stations=count_incremental_stations(source_incremental),
             stale_data_used=not enabled,
             enabled=enabled,
+            extra=source_extra_status(source),
             **source_runtime_metric(source),
         )
         return source_df, source_incremental
@@ -495,6 +509,7 @@ def collect_source_result(source, future, incremental_name, enabled):
                 stations=count_incremental_stations(source_incremental),
                 stale_data_used=True,
                 enabled=enabled,
+                extra=source_extra_status(source),
                 **source_runtime_metric(source),
             )
             return source_df, source_incremental
@@ -510,6 +525,7 @@ def collect_source_result(source, future, incremental_name, enabled):
             stations=0,
             stale_data_used=False,
             enabled=enabled,
+            extra=source_extra_status(source),
             **source_runtime_metric(source),
         )
         return source_df, source_incremental
@@ -2370,12 +2386,20 @@ def process_aemet():                                                # FOR MULTIT
             )
             aemet_incremental = read_incremental('Aemet_incremental')
             aemet_df = read_incremental('Aemet_incremental', _nrows=0)
+            aemet_source.record_rate_limit_result(_DATA_PATH, rate_limited=False)
             end_count(_legend='Finished processing AEMET')
         else:
             aemet_incremental = read_incremental('Aemet_incremental')
             aemet_df = read_incremental('Aemet_incremental', _nrows=0)
 
         return aemet_df, aemet_incremental
+    except aemet_source.AemetRateLimitError:
+        aemet_source.record_rate_limit_result(_DATA_PATH, rate_limited=True)
+        raise
+    except Exception:
+        if _create_aemet:
+            aemet_source.record_rate_limit_result(_DATA_PATH, rate_limited=False)
+        raise
     finally:
         record_source_runtime_metric(
             'AEMET',

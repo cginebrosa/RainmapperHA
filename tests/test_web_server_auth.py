@@ -44,6 +44,41 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def login(self, username: str, password: str, device_id: str) -> tuple[int, dict]:
         return self.web_server.login_user(username, password, device_id, "unit-test")
 
+    def test_aemet_source_card_highlights_rate_limit_counters(self) -> None:
+        html = self.web_server.source_status_card(
+            "AEMET",
+            {
+                "status": "STALE",
+                "exit_code": 2,
+                "rows": 22774,
+                "stations": 850,
+                "duration_seconds": 0.2,
+                "updated_at": "2026-06-24T12:00:00",
+                "message": "Source failed; reused existing data.",
+                "rate_limit_24h": 2,
+                "consecutive_429_runs": 1,
+            },
+        )
+
+        self.assertIn("AEMET 429 in last 24h: 2", html)
+        self.assertIn("Consecutive AEMET 429 runs: 1", html)
+        self.assertIn('class="source-alert"', html)
+        self.assertIn('name="source_update" value="AEMET"', html)
+        self.assertIn("Update only", html)
+
+        ok_html = self.web_server.source_status_card(
+            "AEMET",
+            {
+                "status": "OK",
+                "exit_code": 0,
+                "rate_limit_24h": 0,
+                "consecutive_429_runs": 0,
+            },
+        )
+
+        self.assertNotIn("AEMET 429 in last 24h", ok_html)
+        self.assertNotIn("Consecutive AEMET 429 runs", ok_html)
+
     def test_basic_role_allows_two_devices_and_reusing_existing_device(self) -> None:
         self.write_users_json(
             [
@@ -390,6 +425,21 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("--create_aemet", command)
         self.assertEqual(command[command.index("--create_aemet") + 1], "true")
+
+    def test_webui_update_command_can_target_only_one_source(self) -> None:
+        command = self.web_server.command_for("update", only_source="AEMET")
+
+        self.assertEqual(command[command.index("--create_meteoclimatic") + 1], "false")
+        self.assertEqual(command[command.index("--create_meteocat") + 1], "false")
+        self.assertEqual(command[command.index("--create_wunderground") + 1], "false")
+        self.assertEqual(command[command.index("--create_aemet") + 1], "true")
+
+        command = self.web_server.command_for("update", only_source="Meteocat")
+
+        self.assertEqual(command[command.index("--create_meteoclimatic") + 1], "false")
+        self.assertEqual(command[command.index("--create_meteocat") + 1], "true")
+        self.assertEqual(command[command.index("--create_wunderground") + 1], "false")
+        self.assertEqual(command[command.index("--create_aemet") + 1], "false")
 
     def test_webui_maps_command_includes_aemet_in_production_tomap(self) -> None:
         command = self.web_server.command_for("maps")
