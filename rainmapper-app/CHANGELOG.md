@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.116
+
+- Restore fast Tomap period aggregation while keeping wind and humidity fields in GeoJSON.
+- Replace the MapLibre daily weather table with a compact wrapping history list for desktop and mobile popups.
+- Hide empty wind lines in station popups.
+
 ## 0.2.115
 
 - Show period temperature, humidity, wind speed, wind direction and gusts in MapLibre station popups when available.

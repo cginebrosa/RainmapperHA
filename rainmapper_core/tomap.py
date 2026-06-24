@@ -7,12 +7,14 @@ the HA app package.
 """
 
 import argparse
+import math
 import warnings
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from rainmapper_core.config import const as rainmapper_const
@@ -137,6 +139,33 @@ def circular_mean_series(values):
     return circular_mean_degrees(values)
 
 
+def add_circular_mean_column(grouped_df: pd.DataFrame, source_df: pd.DataFrame, source_column, target_column):
+    """Add a grouped circular mean column using vectorized sine/cosine sums."""
+    directions = pd.to_numeric(source_df[source_column], errors='coerce')
+    radians = directions * math.pi / 180.0
+    trig_df = pd.DataFrame({
+        'Codi Estació': source_df['Codi Estació'],
+        '_sin': np.sin(radians),
+        '_cos': np.cos(radians),
+    })
+    grouped_trig = trig_df.groupby('Codi Estació').agg({
+        '_sin': 'sum',
+        '_cos': 'sum',
+    })
+
+    def angle(row):
+        sin_sum = row['_sin']
+        cos_sum = row['_cos']
+        if pd.isna(sin_sum) or pd.isna(cos_sum):
+            return pd.NA
+        if math.isclose(float(sin_sum), 0.0, abs_tol=1e-12) and math.isclose(float(cos_sum), 0.0, abs_tol=1e-12):
+            return pd.NA
+        result = round(math.degrees(math.atan2(float(sin_sum), float(cos_sum))) % 360.0, 1)
+        return 0.0 if math.isclose(result, 360.0) else result
+
+    grouped_df[target_column] = grouped_trig.apply(angle, axis=1)
+
+
 def filter_results(df: pd.DataFrame, minimum_rain):
     """Keep only rows whose accumulated rain meets the configured threshold."""
     df = df.copy()
@@ -193,42 +222,85 @@ def create_filtered(df_to_filter_param: pd.DataFrame, base_date, days_backward, 
 def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
     """Aggregate one row per station for the selected Tomap period."""
     df_to_group = ensure_incremental_columns(df_to_group_param)
-
-    grouped_rows = []
-    for _, group in df_to_group.groupby('Codi Estació'):
-        latest = group.sort_values('Ultima Lectura').iloc[-1]
-        grouped_rows.append({
-            'Codi Estació': latest['Codi Estació'],
-            'Estació': latest['Estació'],
-            'Comarca': latest['Comarca'],
-            'Municipi': latest['Municipi'],
-            'Provincia': latest['Provincia'],
-            'Altitud': latest['Altitud'],
-            'Latitud': latest['Latitud'],
-            'Longitud': latest['Longitud'],
-            'Ultima Lectura': group['Ultima Lectura'].max(),
-            'Variable': latest['Variable'],
-            'Total': round(group['Total'].sum(), 1),
-            'Unitat': latest['Unitat'],
-            'Data Local': group['Data Local'].max(),
-            'max_temp_celsius': optional_max(group['max_temp_celsius']),
-            'min_temp_celsius': optional_min(group['min_temp_celsius']),
-            'max_humidity_percent': optional_max(group['max_humidity_percent']),
-            'min_humidity_percent': optional_min(group['min_humidity_percent']),
-            'wind_avg_kmh': weighted_wind_average(group['wind_avg_kmh'], group['wind_observation_count']),
-            'wind_min_kmh': optional_min(group['wind_min_kmh']),
-            'wind_max_kmh': optional_max(group['wind_max_kmh']),
-            'wind_gust_kmh': optional_max(group['wind_gust_kmh']),
-            'wind_direction_deg': circular_mean_series(group['wind_direction_deg']),
-            'wind_gust_direction_deg': circular_mean_series(group['wind_gust_direction_deg']),
-            'wind_observation_count': numeric_series(group['wind_observation_count']).fillna(0).sum(),
-            'wind_source_height_m': latest.get('wind_source_height_m', pd.NA),
-        })
-
-    if not grouped_rows:
+    if df_to_group.empty:
         return df_to_group.head(0)
 
-    datos_finales = pd.DataFrame(grouped_rows).sort_values(by=['Total'], ascending=[False]).reset_index(drop=True)
+    for column in [
+        'max_temp_celsius',
+        'min_temp_celsius',
+        'max_humidity_percent',
+        'min_humidity_percent',
+        'wind_avg_kmh',
+        'wind_min_kmh',
+        'wind_max_kmh',
+        'wind_gust_kmh',
+        'wind_observation_count',
+    ]:
+        df_to_group[column] = pd.to_numeric(df_to_group[column], errors='coerce')
+
+    sorted_df = df_to_group.sort_values('Ultima Lectura')
+    latest = sorted_df.groupby('Codi Estació', as_index=True).last()[[
+        'Estació',
+        'Comarca',
+        'Municipi',
+        'Provincia',
+        'Altitud',
+        'Latitud',
+        'Longitud',
+        'Variable',
+        'Unitat',
+        'wind_source_height_m',
+    ]]
+
+    grouped = df_to_group.groupby('Codi Estació', as_index=True).agg({
+        'Ultima Lectura': 'max',
+        'Total': 'sum',
+        'Data Local': 'max',
+        'max_temp_celsius': 'max',
+        'min_temp_celsius': 'min',
+        'max_humidity_percent': 'max',
+        'min_humidity_percent': 'min',
+        'wind_min_kmh': 'min',
+        'wind_max_kmh': 'max',
+        'wind_gust_kmh': 'max',
+        'wind_observation_count': 'sum',
+    })
+
+    wind_speed = df_to_group['wind_avg_kmh']
+    wind_weight = df_to_group['wind_observation_count'].where(df_to_group['wind_observation_count'] > 0, 0)
+    weighted_df = pd.DataFrame({
+        'Codi Estació': df_to_group['Codi Estació'],
+        '_weighted_speed': wind_speed * wind_weight,
+        '_weight': wind_weight.where(wind_speed.notna(), 0),
+        '_speed': wind_speed,
+    })
+    weighted = weighted_df.groupby('Codi Estació').agg({
+        '_weighted_speed': 'sum',
+        '_weight': 'sum',
+        '_speed': 'mean',
+    })
+    grouped['wind_avg_kmh'] = (weighted['_weighted_speed'] / weighted['_weight']).where(
+        weighted['_weight'] > 0,
+        weighted['_speed'],
+    ).round(1)
+    add_circular_mean_column(grouped, df_to_group, 'wind_direction_deg', 'wind_direction_deg')
+    add_circular_mean_column(grouped, df_to_group, 'wind_gust_direction_deg', 'wind_gust_direction_deg')
+
+    datos_finales = latest.join(grouped).reset_index(drop=False)
+    datos_finales['Total'] = datos_finales['Total'].round(1)
+    for column in [
+        'max_temp_celsius',
+        'min_temp_celsius',
+        'max_humidity_percent',
+        'min_humidity_percent',
+        'wind_min_kmh',
+        'wind_max_kmh',
+        'wind_gust_kmh',
+        'wind_observation_count',
+    ]:
+        datos_finales[column] = datos_finales[column].round(1)
+    datos_finales.sort_values(by=['Total'], ascending=[False], inplace=True)
+    datos_finales.reset_index(drop=True, inplace=True)
 
     return filter_results(datos_finales, minimum_rain_tomap)
 

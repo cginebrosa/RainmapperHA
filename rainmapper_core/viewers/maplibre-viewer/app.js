@@ -1709,15 +1709,15 @@ function formatNumber(value, decimals = 1) {
   return Number.isFinite(value) ? value.toFixed(decimals) : "-";
 }
 
-function formatRange(maxValue, minValue, unit) {
+function formatRange(maxValue, minValue, unit, decimals = 1) {
   if (!Number.isFinite(maxValue) && !Number.isFinite(minValue)) {
     return "-";
   }
   if (Number.isFinite(maxValue) && Number.isFinite(minValue)) {
-    return `${formatNumber(maxValue)}/${formatNumber(minValue)} ${unit}`;
+    return `${formatNumber(maxValue, decimals)}/${formatNumber(minValue, decimals)} ${unit}`;
   }
   const value = Number.isFinite(maxValue) ? maxValue : minValue;
-  return `${formatNumber(value)} ${unit}`;
+  return `${formatNumber(value, decimals)} ${unit}`;
 }
 
 function formatDirection(value) {
@@ -1759,13 +1759,16 @@ function periodWeatherSummary(properties) {
     return "";
   }
 
+  const temperatureText = formatRange(tempMax, tempMin, "°C");
+  const humidityText = formatRange(humidityMax, humidityMin, "%", 0);
   const windText = formatWind(windAvg, windDirection);
   const gustText = Number.isFinite(windGust) ? ` · ${t("gust")} ${formatNumber(windGust)} km/h` : "";
+  const windLine = windText === "-" && !gustText ? "" : `<span><strong>${t("wind")}:</strong> ${windText}${gustText}</span>`;
   return `
     <div class="popup-row popup-weather">
-      <span><strong>${t("temperature")}:</strong> ${formatRange(tempMax, tempMin, "°C")}</span>
-      <span><strong>${t("humidity")}:</strong> ${formatRange(humidityMax, humidityMin, "%")}</span>
-      <span><strong>${t("wind")}:</strong> ${windText}${gustText}</span>
+      <span><strong>${t("temperature")}:</strong> ${temperatureText}</span>
+      <span><strong>${t("humidity")}:</strong> ${humidityText}</span>
+      ${windLine}
     </div>
   `;
 }
@@ -1989,15 +1992,28 @@ function recentRainHistory(properties) {
   const records = rainHistoryRecords(properties).slice(0, lastRainHistoryLimit || undefined);
   for (const record of records) {
     const hasRain = Number.isFinite(record.rainValue) && record.rainValue > 0;
+    const details = [];
+    const temperatureText = formatRange(record.tempMaxValue, record.tempMinValue, "°C");
+    const humidityText = formatRange(record.humidityMaxValue, record.humidityMinValue, "%", 0);
+    const windText = formatWind(record.windAvgValue, record.windDirectionValue);
+    if (temperatureText !== "-") {
+      details.push(`<span><strong>${t("temperatureShort")}</strong> ${temperatureText}</span>`);
+    }
+    if (humidityText !== "-") {
+      details.push(`<span><strong>${t("humidityShort")}</strong> ${humidityText}</span>`);
+    }
+    if (windText !== "-") {
+      details.push(`<span><strong>${t("windShort")}</strong> ${windText}</span>`);
+    }
     rows.push(`
-      <tr class="${hasRain ? "rainy-day" : ""}">
-        <td>${record.date}</td>
-        <td>${record.daysAgo}</td>
-        <td>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : record.rain}</td>
-        <td>${formatRange(record.tempMaxValue, record.tempMinValue, "°C")}</td>
-        <td>${formatRange(record.humidityMaxValue, record.humidityMinValue, "%")}</td>
-        <td>${formatWind(record.windAvgValue, record.windDirectionValue)}</td>
-      </tr>
+      <div class="history-record ${hasRain ? "rainy-day" : ""}">
+        <div class="history-record-main">
+          <span class="history-date">${record.date}</span>
+          <span>${record.daysAgo}${t("daySuffix")}</span>
+          <span>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : record.rain} mm</span>
+        </div>
+        ${details.length ? `<div class="history-record-details">${details.join("")}</div>` : ""}
+      </div>
     `);
   }
 
@@ -2008,19 +2024,7 @@ function recentRainHistory(properties) {
   return `
     <details class="history">
       <summary>${t("lastRecords", { count: rows.length })}</summary>
-      <table class="history-table">
-        <thead>
-          <tr>
-            <th>${t("date")}</th>
-            <th>${t("daysAgo")}</th>
-            <th>${t("rain")}</th>
-            <th>${t("temperature")}</th>
-            <th>${t("humidity")}</th>
-            <th>${t("wind")}</th>
-          </tr>
-        </thead>
-        <tbody>${rows.join("")}</tbody>
-      </table>
+      <div class="history-list">${rows.join("")}</div>
     </details>
   `;
 }

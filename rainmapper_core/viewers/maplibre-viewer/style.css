@@ -476,7 +476,6 @@ main {
 .history {
   border-top: 1px solid rgba(8, 21, 33, 0.12);
   margin-top: 10px;
-  overflow-x: auto;
   padding-top: 8px;
 }
 
@@ -488,75 +487,51 @@ main {
   margin-bottom: 6px;
 }
 
-.history-table {
-  border-collapse: collapse;
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
-  table-layout: fixed;
-  width: 100%;
 }
 
-.history-table th {
-  background: rgba(248, 252, 255, 0.98);
-  color: rgba(20, 32, 43, 0.58);
-  font-weight: 800;
-  padding: 8px 4px 6px;
-  position: sticky;
-  top: -12px;
-  text-align: right;
-  z-index: 1;
-}
-
-.history-table th:first-child {
-  text-align: left;
-}
-
-.history-table td {
+.history-record {
+  border-radius: 4px;
   color: var(--dark-text);
-  font-weight: 700;
-  padding: 2px 4px;
-  text-align: right;
-  white-space: nowrap;
+  padding: 3px 5px;
 }
 
-.history-table td:first-child {
-  color: rgba(20, 32, 43, 0.64);
-  font-weight: 600;
-  text-align: left;
-}
-
-.history-table tr.rainy-day td {
-  background: rgba(35, 170, 94, 0.28);
+.history-record.rainy-day {
+  background: rgba(35, 170, 94, 0.22);
   color: #0d2f1b;
 }
 
-.history-table tr.rainy-day td:first-child {
-  color: #075f2d;
+.history-record-main,
+.history-record-details {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
 }
 
-.history-table th:nth-child(1),
-.history-table td:nth-child(1) {
-  width: 26%;
+.history-record-main {
+  font-weight: 800;
 }
 
-.history-table th:nth-child(2),
-.history-table td:nth-child(2) {
-  width: 12%;
+.history-record-details {
+  color: rgba(20, 32, 43, 0.68);
+  font-weight: 700;
+  margin-top: 1px;
 }
 
-.history-table th:nth-child(3),
-.history-table td:nth-child(3) {
-  width: 14%;
+.history-record-details strong {
+  color: rgba(20, 32, 43, 0.68);
 }
 
-.history-table th:nth-child(4),
-.history-table td:nth-child(4),
-.history-table th:nth-child(5),
-.history-table td:nth-child(5),
-.history-table th:nth-child(6),
-.history-table td:nth-child(6) {
-  width: 16%;
+.history-date {
+  color: rgba(20, 32, 43, 0.66);
+  min-width: 70px;
 }
 
 @media (max-width: 640px) {
