@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.128
+
+- Keep the MapLibre station history table header pinned to the top of the history list while scrolling long popup histories.
+
 ## 0.2.127
 
 - Persist MapLibre admin heatmap settings in per-device settings.
