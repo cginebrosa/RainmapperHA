@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.120">
+    <link rel="stylesheet" href="style.css?v=0.2.121">
   </head>
   <body>
     <header class="topbar">
@@ -212,6 +212,11 @@
             <output id="heatmap-opacity-value" for="heatmap-opacity-filter">65%</output>
           </div>
           <input id="heatmap-opacity-filter" type="range" min="0" max="100" step="5" value="65">
+          <div class="map-settings-row">
+            <label for="heatmap-radius-filter">Heatmap radius</label>
+            <output id="heatmap-radius-value" for="heatmap-radius-filter">100%</output>
+          </div>
+          <input id="heatmap-radius-filter" type="range" min="50" max="300" step="10" value="100">
         </div>
         <fieldset class="map-settings-group map-layer-settings-group" id="layer-switcher">
           <legend>Map</legend>
@@ -271,7 +276,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.120"></script>
-  <script src="app.js?v=0.2.120"></script>
+  <script src="config.js?v=0.2.121"></script>
+  <script src="app.js?v=0.2.121"></script>
   </body>
 </html>

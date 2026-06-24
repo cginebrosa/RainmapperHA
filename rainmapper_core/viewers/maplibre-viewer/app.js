@@ -267,6 +267,7 @@ let metricScaleMax = 200;
 let currentLayerMetric = "rain";
 let heatmapEnabled = EXPERIMENTAL_HEATMAP;
 let heatmapOpacity = 0.65;
+let heatmapRadiusScale = 1;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let authState = loadStoredAuthState();
@@ -417,6 +418,7 @@ function applyLanguage(language = currentLanguage) {
   setLabelText("last-rain-history-filter", t("lastRainsHistory"));
   setLabelText("layer-metric-selector", t("layerMetric"));
   setLabelText("heatmap-opacity-filter", t("heatmapOpacity"));
+  setLabelText("heatmap-radius-filter", t("heatmapRadius"));
   setLabelText("terrain-exaggeration", t("exaggeration"));
   setText("#layer-switcher legend", t("map"));
   setText(".source-settings-group legend", t("source"));
@@ -473,6 +475,7 @@ function applyLanguage(language = currentLanguage) {
   updateTerrainExaggerationValue();
   renderLayerMetricSelector();
   updateHeatmapOpacityValue();
+  updateHeatmapRadiusValue();
   updateMetricLegend();
   updateHeatmapToggle();
   renderLayerSwitcher();
@@ -1328,6 +1331,13 @@ function updateHeatmapOpacityValue() {
   }
 }
 
+function updateHeatmapRadiusValue() {
+  const output = document.getElementById("heatmap-radius-value");
+  if (output) {
+    output.textContent = `${Math.round(heatmapRadiusScale * 100)}%`;
+  }
+}
+
 function updateHeatmapToggle() {
   const toggle = document.getElementById("heatmap-toggle");
   if (!toggle) {
@@ -1347,7 +1357,7 @@ function refreshMetricStyling() {
   currentHeatmapData = {
     type: "FeatureCollection",
     metadata: currentHeatmapData?.metadata || currentData?.metadata || {},
-    features: currentVisibleFeatures,
+    features: heatmapFeatures(currentVisibleFeatures),
   };
   setQuickMetricControlsFromMetric();
   refreshFilteredData();
@@ -1442,6 +1452,10 @@ function filteredFeatures(features) {
     featureRainTotal(feature) >= minRainFilter
     && enabledStationSources.has(featureStationSource(feature))
   ));
+}
+
+function heatmapFeatures(features) {
+  return features.filter((feature) => enabledStationSources.has(featureStationSource(feature)));
 }
 
 function sourceStatusClass(status) {
@@ -1687,7 +1701,7 @@ function refreshFilteredData() {
   currentHeatmapData = {
     type: "FeatureCollection",
     metadata: currentHeatmapData?.metadata || currentData?.metadata || {},
-    features: currentVisibleFeatures,
+    features: heatmapFeatures(currentVisibleFeatures),
   };
   currentData = {
     type: "FeatureCollection",
@@ -1822,6 +1836,23 @@ function addStationLayer() {
     map.removeSource(HEATMAP_SOURCE_ID);
   }
 
+  map.addSource(SOURCE_ID, {
+    type: "geojson",
+    data: currentData,
+  });
+  map.addLayer({
+    id: CIRCLE_LAYER_ID,
+    type: "circle",
+    source: SOURCE_ID,
+    paint: {
+      "circle-radius": ["get", "marker_radius"],
+      "circle-color": ["get", "rain_color"],
+      "circle-opacity": 0.72,
+      "circle-stroke-color": "#111923",
+      "circle-stroke-width": 1.2,
+    },
+  });
+
   if (EXPERIMENTAL_HEATMAP && heatmapEnabled) {
     map.addSource(HEATMAP_SOURCE_ID, {
       type: "geojson",
@@ -1842,8 +1873,8 @@ function addStationLayer() {
           metricScaleMax,
           1,
         ],
-        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.8, 9, 1.8, 12, 2.4],
-        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 5, 18, 9, 42, 12, 68],
+        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.7, 9, 1.35, 12, 1.75],
+        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 5, 34 * heatmapRadiusScale, 9, 82 * heatmapRadiusScale, 12, 145 * heatmapRadiusScale],
         "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 5, heatmapOpacity, 11, heatmapOpacity * 0.82, 12, heatmapOpacity * 0.35],
         "heatmap-color": [
           "interpolate",
@@ -1869,23 +1900,6 @@ function addStationLayer() {
       },
     });
   }
-
-  map.addSource(SOURCE_ID, {
-    type: "geojson",
-    data: currentData,
-  });
-  map.addLayer({
-    id: CIRCLE_LAYER_ID,
-    type: "circle",
-    source: SOURCE_ID,
-    paint: {
-      "circle-radius": ["get", "marker_radius"],
-      "circle-color": ["get", "rain_color"],
-      "circle-opacity": 0.72,
-      "circle-stroke-color": "#111923",
-      "circle-stroke-width": 1.2,
-    },
-  });
   applyTerrain();
   return true;
 }
@@ -2542,7 +2556,7 @@ async function loadMap(fileName) {
   currentVisibleFeatures = features;
   currentHeatmapData = {
     ...data,
-    features,
+    features: heatmapFeatures(features),
   };
   updateMinRainControl(features);
   updateLastRainHistoryControl(features);
@@ -2795,6 +2809,7 @@ function renderSettingsPanel() {
   const heatmapExperimentSettings = document.getElementById("heatmap-experiment-settings");
   const layerMetricSelector = document.getElementById("layer-metric-selector");
   const heatmapOpacitySlider = document.getElementById("heatmap-opacity-filter");
+  const heatmapRadiusSlider = document.getElementById("heatmap-radius-filter");
   const terrainToggle = document.getElementById("terrain-toggle");
   const terrainSlider = document.getElementById("terrain-exaggeration");
   const terrainModeToggle = document.getElementById("terrain-mode-toggle");
@@ -2806,6 +2821,7 @@ function renderSettingsPanel() {
   updateHeatmapToggle();
   renderLayerMetricSelector();
   updateHeatmapOpacityValue();
+  updateHeatmapRadiusValue();
 
   const setSettingsOpen = (isOpen) => {
     const wasOpen = !panel.hasAttribute("hidden");
@@ -2909,6 +2925,12 @@ function renderSettingsPanel() {
   heatmapOpacitySlider?.addEventListener("input", (event) => {
     heatmapOpacity = Math.max(0, Math.min(1, Number(event.target.value) / 100));
     updateHeatmapOpacityValue();
+    addStationLayer();
+  });
+
+  heatmapRadiusSlider?.addEventListener("input", (event) => {
+    heatmapRadiusScale = Math.max(0.5, Math.min(3, Number(event.target.value) / 100));
+    updateHeatmapRadiusValue();
     addStationLayer();
   });
 

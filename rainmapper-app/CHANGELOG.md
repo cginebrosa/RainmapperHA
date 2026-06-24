@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.121
+
+- Broaden the experimental MapLibre heatmap radius and make it adjustable from Settings.
+- Draw the experimental heatmap above station points so the density layer is easier to inspect.
+- Keep the heatmap independent from the minimum rain filter while respecting active source filters.
+
 ## 0.2.120
 
 - Add a separate experimental MapLibre heatmap viewer route for validating metric overlays without changing the protected viewer.
