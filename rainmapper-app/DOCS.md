@@ -298,6 +298,11 @@ days_bucket: 10
 meteocat_request_timeout: 30
 meteocat_max_attempts: 3
 last_rains_history: 30
+maplibre_hover_zoom: 6
+maplibre_heatmap_weight_curve: soft
+maplibre_heatmap_opacity: 65
+maplibre_heatmap_radius: 90
+maplibre_heatmap_intensity: 70
 max_threads: 3
 max_attempts: 3
 wunderground_full_log: false
@@ -314,6 +319,8 @@ Notas rapidas:
 - `max_threads: 3` es el valor operativo recomendado tras validacion real en Home Assistant/Raspberry Pi sin carga relevante observada. Si aparecen timeouts, errores de Wunderground o carga excesiva, bajar temporalmente a `1`.
 - `create_aemet: false` deja AEMET desactivado por defecto. Para usar AEMET, activa esta opcion y configura `aemet_api_key`.
 - `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
+- `maplibre_hover_zoom: 6` define desde que nivel de zoom se activan los popups por hover sobre estaciones en MapLibre de escritorio.
+- `maplibre_heatmap_weight_curve: soft`, `maplibre_heatmap_opacity: 65`, `maplibre_heatmap_radius: 90` y `maplibre_heatmap_intensity: 70` definen los valores iniciales del heatmap para dispositivos sin settings guardados. El boton `Reset heatmap defaults` del visor restaura estos valores y los guarda para el dispositivo al cerrar Settings.
 - `gmap_api_key` se usa para los mapas Bokeh/Google Maps y para completar metadata de estaciones con servicios de Google.
 - `aemet_api_key` se usa solo si `create_aemet` esta activado.
 - `wunderground_full_log: true` aumenta mucho el detalle del log de Wunderground y normalmente solo conviene para diagnostico.
@@ -334,6 +341,8 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `nomaps`, `nototals`, `days_bucket`: opciones legacy del core de Rainmapper conservadas por compatibilidad.
 - `meteocat_request_timeout`, `meteocat_max_attempts`: timeout y reintentos para Meteocat/Socrata.
 - `last_rains_history`: numero de registros recientes preparados para popups.
+- `maplibre_hover_zoom`: nivel minimo de zoom para activar popups por hover sobre estaciones en MapLibre de escritorio.
+- `maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`: valores iniciales del heatmap MapLibre para dispositivos sin preferencias guardadas. Opacidad, radio e intensidad se expresan como porcentaje. El visor incluye una accion para restaurar esos defaults desde Settings > Heatmap.
 - `max_threads`, `max_attempts`, `wunderground_full_log`: concurrencia, reintentos y logging de Wunderground.
 - `publish_to_www`: publica mapas/visores en `/config/www`.
 - `gmap_api_key`: clave Google Maps.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.135
+
+- Add Home Assistant options for MapLibre hover zoom and default heatmap tuning.
+- Add a MapLibre heatmap reset action to restore configured defaults per device.
+
 ## 0.2.134
 
 - Adjust the MapLibre popup history sticky header spacing so it no longer covers the expanded history title while scrolling.

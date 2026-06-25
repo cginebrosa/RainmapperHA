@@ -149,6 +149,34 @@ def bool_env(name: str, default: bool = False) -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
+def maplibre_hover_zoom() -> int:
+    try:
+        configured = int(env("RAINMAPPER_MAPLIBRE_HOVER_ZOOM", "6"))
+    except ValueError:
+        configured = 6
+    return max(0, min(22, configured))
+
+
+def percent_env(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        configured = int(env(name, str(default)))
+    except ValueError:
+        configured = default
+    return max(minimum, min(maximum, configured))
+
+
+def maplibre_heatmap_defaults() -> dict:
+    weight_curve = env("RAINMAPPER_MAPLIBRE_HEATMAP_WEIGHT_CURVE", "soft").strip()
+    if weight_curve not in DEVICE_SETTING_HEATMAP_WEIGHT_CURVES:
+        weight_curve = "soft"
+    return {
+        "weightCurve": weight_curve,
+        "opacity": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY", 65, 0, 100) / 100,
+        "radiusScale": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS", 90, 50, 300) / 100,
+        "intensityScale": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_INTENSITY", 70, 20, 200) / 100,
+    }
+
+
 def supervisor_addon_slug() -> str:
     token = env("SUPERVISOR_TOKEN").strip()
     if not token:
@@ -1416,7 +1444,11 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
 
 def experimental_heatmap_config_js() -> str:
     """Enable the public MapLibre heatmap experiment without changing defaults."""
-    return "window.RAINMAPPER_CONFIG = " + json.dumps({"experimentalHeatmap": True}) + ";\n"
+    return "window.RAINMAPPER_CONFIG = " + json.dumps({
+        "experimentalHeatmap": True,
+        "hoverPopupMinZoom": maplibre_hover_zoom(),
+        "heatmapDefaults": maplibre_heatmap_defaults(),
+    }) + ";\n"
 
 
 def publish_heatmap_experimental_maplibre() -> str:
@@ -2388,6 +2420,8 @@ def auth_required_config_js() -> str:
                 "authRequired": True,
                 "authBase": "/auth",
                 "dataBase": "data/",
+                "hoverPopupMinZoom": maplibre_hover_zoom(),
+                "heatmapDefaults": maplibre_heatmap_defaults(),
             }
         )
         + ";\n"
@@ -2395,7 +2429,10 @@ def auth_required_config_js() -> str:
 
 
 def public_viewer_config_js() -> str:
-    return "window.RAINMAPPER_CONFIG = " + json.dumps({}) + ";\n"
+    return "window.RAINMAPPER_CONFIG = " + json.dumps({
+        "hoverPopupMinZoom": maplibre_hover_zoom(),
+        "heatmapDefaults": maplibre_heatmap_defaults(),
+    }) + ";\n"
 
 
 def remove_legacy_public_maplibre_data() -> None:

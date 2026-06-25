@@ -43,7 +43,17 @@ const TERRAIN_TILES = [
 const TERRAIN_ELEVATION_ZOOM = 15;
 const LONG_PRESS_MS = 650;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
-const HOVER_POPUP_MIN_ZOOM = 7;
+const configuredHoverPopupMinZoom = Number(viewerConfig.hoverPopupMinZoom);
+const HOVER_POPUP_MIN_ZOOM = Number.isFinite(configuredHoverPopupMinZoom)
+  ? Math.max(0, Math.min(22, configuredHoverPopupMinZoom))
+  : 6;
+const configuredHeatmapDefaults = viewerConfig.heatmapDefaults || {};
+const DEFAULT_HEATMAP_OPACITY = clampNumber(Number(configuredHeatmapDefaults.opacity), 0, 1, 0.65);
+const DEFAULT_HEATMAP_RADIUS_SCALE = clampNumber(Number(configuredHeatmapDefaults.radiusScale), 0.5, 3, 0.9);
+const DEFAULT_HEATMAP_INTENSITY_SCALE = clampNumber(Number(configuredHeatmapDefaults.intensityScale), 0.2, 2, 0.7);
+const DEFAULT_HEATMAP_WEIGHT_CURVE = ["linear", "soft", "strong"].includes(configuredHeatmapDefaults.weightCurve)
+  ? configuredHeatmapDefaults.weightCurve
+  : "soft";
 const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
   { id: "Meteoclimatic", label: "Meteoclimatic" },
@@ -263,10 +273,10 @@ let metricScaleMin = 0;
 let metricScaleMax = 200;
 let currentLayerMetric = "rain";
 let heatmapEnabled = EXPERIMENTAL_HEATMAP;
-let heatmapOpacity = 0.65;
-let heatmapRadiusScale = 1;
-let heatmapIntensityScale = 1;
-let heatmapWeightCurve = "linear";
+let heatmapOpacity = DEFAULT_HEATMAP_OPACITY;
+let heatmapRadiusScale = DEFAULT_HEATMAP_RADIUS_SCALE;
+let heatmapIntensityScale = DEFAULT_HEATMAP_INTENSITY_SCALE;
+let heatmapWeightCurve = DEFAULT_HEATMAP_WEIGHT_CURVE;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let authState = loadStoredAuthState();
@@ -376,6 +386,10 @@ function setLabelText(controlId, text) {
   setText(`label[for="${controlId}"]`, text);
 }
 
+function clampNumber(value, minimum, maximum, fallback) {
+  return Number.isFinite(value) ? Math.max(minimum, Math.min(maximum, value)) : fallback;
+}
+
 function updateHelpPanelText() {
   [
     ["#help-title", "mapHelp"],
@@ -405,6 +419,7 @@ function updateHelpPanelText() {
     ["#help-data-invalid", "helpDataInvalid"],
     ["#help-data-auth", "helpDataAuth"],
   ].forEach(([selector, key]) => setText(selector, t(key)));
+  setText("#help-stations-hover", t("helpStationsHover").replace("{zoom}", HOVER_POPUP_MIN_ZOOM));
 }
 
 function updatePeriodSelectLabels() {
@@ -442,6 +457,7 @@ function applyLanguage(language = currentLanguage) {
   setText("#save-map-view-default", t("setCurrentViewDefault"));
   setText("#settings-tab-general", t("settingsGeneral"));
   setText("#settings-tab-heatmap", t("heatmap"));
+  setText("#reset-heatmap-defaults", t("resetHeatmapDefaults"));
   setText("#settings-tab-sources", t("sources"));
   setText("#settings-tab-terrain", t("terrain"));
   setText("#terrain-toggle + span", t("terrain3d"));
@@ -1476,6 +1492,29 @@ function updateHeatmapToggle() {
   }
   toggle.hidden = !canUseHeatmap();
   toggle.setAttribute("aria-pressed", String(heatmapEnabled));
+}
+
+function applyHeatmapDefaults() {
+  heatmapOpacity = DEFAULT_HEATMAP_OPACITY;
+  heatmapRadiusScale = DEFAULT_HEATMAP_RADIUS_SCALE;
+  heatmapIntensityScale = DEFAULT_HEATMAP_INTENSITY_SCALE;
+  heatmapWeightCurve = DEFAULT_HEATMAP_WEIGHT_CURVE;
+  renderHeatmapWeightCurveSelector();
+  const heatmapOpacitySlider = document.getElementById("heatmap-opacity-filter");
+  if (heatmapOpacitySlider) {
+    heatmapOpacitySlider.value = String(Math.round(heatmapOpacity * 100));
+  }
+  const heatmapRadiusSlider = document.getElementById("heatmap-radius-filter");
+  if (heatmapRadiusSlider) {
+    heatmapRadiusSlider.value = String(Math.round(heatmapRadiusScale * 100));
+  }
+  const heatmapIntensitySlider = document.getElementById("heatmap-intensity-filter");
+  if (heatmapIntensitySlider) {
+    heatmapIntensitySlider.value = String(Math.round(heatmapIntensityScale * 100));
+  }
+  updateHeatmapOpacityValue();
+  updateHeatmapRadiusValue();
+  updateHeatmapIntensityValue();
 }
 
 function syncHeatmapAccessUi() {
@@ -3041,6 +3080,7 @@ function renderSettingsPanel() {
   const heatmapOpacitySlider = document.getElementById("heatmap-opacity-filter");
   const heatmapRadiusSlider = document.getElementById("heatmap-radius-filter");
   const heatmapIntensitySlider = document.getElementById("heatmap-intensity-filter");
+  const resetHeatmapDefaultsButton = document.getElementById("reset-heatmap-defaults");
   const terrainToggle = document.getElementById("terrain-toggle");
   const terrainSlider = document.getElementById("terrain-exaggeration");
   const terrainModeToggle = document.getElementById("terrain-mode-toggle");
@@ -3059,6 +3099,15 @@ function renderSettingsPanel() {
   updateHeatmapToggle();
   renderLayerMetricSelector();
   renderHeatmapWeightCurveSelector();
+  if (heatmapOpacitySlider) {
+    heatmapOpacitySlider.value = String(Math.round(heatmapOpacity * 100));
+  }
+  if (heatmapRadiusSlider) {
+    heatmapRadiusSlider.value = String(Math.round(heatmapRadiusScale * 100));
+  }
+  if (heatmapIntensitySlider) {
+    heatmapIntensitySlider.value = String(Math.round(heatmapIntensityScale * 100));
+  }
   updateHeatmapOpacityValue();
   updateHeatmapRadiusValue();
   updateHeatmapIntensityValue();
@@ -3207,6 +3256,12 @@ function renderSettingsPanel() {
     heatmapIntensityScale = Math.max(0.2, Math.min(2, Number(event.target.value) / 100));
     markDeviceSettingsChanged();
     updateHeatmapIntensityValue();
+    addStationLayer();
+  });
+
+  resetHeatmapDefaultsButton?.addEventListener("click", () => {
+    applyHeatmapDefaults();
+    markDeviceSettingsChanged();
     addStationLayer();
   });
 

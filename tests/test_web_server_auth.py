@@ -519,6 +519,67 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(command[:2], ["sh", "-c"])
         self.assertIn("--include-aemet true", command[2])
 
+    def test_maplibre_config_includes_sanitized_hover_zoom(self) -> None:
+        previous_values = {
+            name: os.environ.get(name)
+            for name in (
+                "RAINMAPPER_MAPLIBRE_HOVER_ZOOM",
+                "RAINMAPPER_MAPLIBRE_HEATMAP_WEIGHT_CURVE",
+                "RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY",
+                "RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS",
+                "RAINMAPPER_MAPLIBRE_HEATMAP_INTENSITY",
+            )
+        }
+        os.environ.update(
+            {
+                "RAINMAPPER_MAPLIBRE_HOVER_ZOOM": "6",
+                "RAINMAPPER_MAPLIBRE_HEATMAP_WEIGHT_CURVE": "soft",
+                "RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY": "65",
+                "RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS": "90",
+                "RAINMAPPER_MAPLIBRE_HEATMAP_INTENSITY": "70",
+            }
+        )
+        try:
+            config_js = self.web_server.auth_required_config_js()
+            payload = json.loads(config_js.removeprefix("window.RAINMAPPER_CONFIG = ").removesuffix(";\n"))
+
+            self.assertEqual(payload["hoverPopupMinZoom"], 6)
+            self.assertEqual(
+                payload["heatmapDefaults"],
+                {
+                    "weightCurve": "soft",
+                    "opacity": 0.65,
+                    "radiusScale": 0.9,
+                    "intensityScale": 0.7,
+                },
+            )
+
+            os.environ["RAINMAPPER_MAPLIBRE_HOVER_ZOOM"] = "999"
+            self.assertEqual(self.web_server.maplibre_hover_zoom(), 22)
+
+            os.environ["RAINMAPPER_MAPLIBRE_HOVER_ZOOM"] = "invalid"
+            self.assertEqual(self.web_server.maplibre_hover_zoom(), 6)
+
+            os.environ["RAINMAPPER_MAPLIBRE_HEATMAP_WEIGHT_CURVE"] = "invalid"
+            os.environ["RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY"] = "200"
+            os.environ["RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS"] = "10"
+            os.environ["RAINMAPPER_MAPLIBRE_HEATMAP_INTENSITY"] = "invalid"
+            self.assertEqual(
+                self.web_server.maplibre_heatmap_defaults(),
+                {
+                    "weightCurve": "soft",
+                    "opacity": 1.0,
+                    "radiusScale": 0.5,
+                    "intensityScale": 0.7,
+                },
+            )
+        finally:
+            for name, previous in previous_values.items():
+                if previous is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = previous
+
 
 if __name__ == "__main__":
     unittest.main()

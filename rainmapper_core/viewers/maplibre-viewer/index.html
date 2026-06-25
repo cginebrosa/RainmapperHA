@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.134">
+    <link rel="stylesheet" href="style.css?v=0.2.135">
   </head>
   <body>
     <header class="topbar">
@@ -129,7 +129,7 @@
           <h3 id="help-stations-title">Stations</h3>
           <ul>
             <li id="help-stations-click">Tap or click a station to open its details.</li>
-            <li id="help-stations-hover">On desktop, hover over stations from zoom 7 to preview their details.</li>
+            <li id="help-stations-hover">On desktop, hover over stations from the configured zoom threshold to preview their details.</li>
             <li id="help-stations-history">Station popups include total rain, last reading and recent rain history when available.</li>
           </ul>
         </section>
@@ -242,6 +242,7 @@
             <output id="heatmap-intensity-value" for="heatmap-intensity-filter">100%</output>
           </div>
           <input id="heatmap-intensity-filter" type="range" min="20" max="200" step="10" value="100">
+          <button class="map-settings-action" id="reset-heatmap-defaults" type="button">Reset heatmap defaults</button>
         </div>
         <fieldset class="map-settings-section map-settings-group source-settings-group" id="settings-section-sources" data-settings-section="sources">
           <legend>Source</legend>
@@ -297,7 +298,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.134"></script>
-  <script src="app.js?v=0.2.134"></script>
+  <script src="config.js?v=0.2.135"></script>
+  <script src="app.js?v=0.2.135"></script>
   </body>
 </html>
