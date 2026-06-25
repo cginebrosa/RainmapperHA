@@ -8,7 +8,9 @@
       "role": "free",
       "enabled": true,
       "max_devices": 1,
-      "must_change_password": false
+      "must_change_password": false,
+      "can_use_heatmap": false,
+      "can_use_layer_metrics": false
     },
     {
       "username": "friend",
@@ -18,7 +20,9 @@
       "role": "basic",
       "enabled": true,
       "max_devices": 2,
-      "must_change_password": false
+      "must_change_password": false,
+      "can_use_heatmap": false,
+      "can_use_layer_metrics": false
     },
     {
       "username": "admin",
@@ -28,7 +32,9 @@
       "role": "admin",
       "enabled": true,
       "max_devices": 0,
-      "must_change_password": false
+      "must_change_password": false,
+      "can_use_heatmap": true,
+      "can_use_layer_metrics": true
     }
   ]
 }

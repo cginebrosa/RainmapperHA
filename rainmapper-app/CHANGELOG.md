@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.133
+
+- Add per-user MapLibre permissions for heatmap access and metric selector access.
+- Replace protected viewer admin-role gating for heatmap/metric controls with explicit user permissions.
+- Enable both MapLibre heatmap permissions by default when creating admin users.
+- Document the future permission-profile architecture for growing feature permissions.
+
 ## 0.2.132
 
 - Fix MapLibre popup history column headers being partially covered by neighboring sticky header backgrounds.

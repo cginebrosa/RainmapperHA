@@ -1,5 +1,25 @@
 # Decisions
 
+## 2026-06-25 - Mantener permisos funcionales simples por usuario solo como fase actual
+
+Decision:
+
+- Aceptar temporalmente `can_use_heatmap` y `can_use_layer_metrics` como flags directos por usuario en `users.json`.
+- No seguir acumulando muchos flags independientes en cada usuario sin revisar antes el modelo de permisos.
+- Si crece el numero de funcionalidades protegidas, definir una arquitectura de permisos por perfil/tipo de usuario en un JSON separado, con overrides opcionales por usuario.
+
+Motivo:
+
+- Ahora solo hay pocas funciones con permisos y el cambio por usuario es simple, compatible y facil de operar desde la WebUI.
+- Si la app evoluciona hacia mas funcionalidades, mapas, zonas o perfiles comerciales, duplicar permisos en cada usuario seria fragil y dificil de mantener.
+- Separar identidad de usuario, perfil base y overrides deja una ruta mas limpia hacia perfiles `free/basic/pro/admin` u otros modelos futuros.
+
+Consecuencias:
+
+- El modelo actual es suficiente para la fase inmediata de heatmap/metrica, pero queda marcado como deuda arquitectonica.
+- Antes de anadir mas permisos funcionales, revisar un posible `permission_profiles.json` o equivalente persistido en `/share/rainmapper`.
+- Cualquier migracion futura debe mantener compatibilidad con los flags existentes y defaults actuales: admins con permisos activos por defecto y resto de roles sin permisos experimentales salvo override.
+
 ## 2026-06-24 - Backfill manual AEMET con climatologia diaria
 
 Decision:
@@ -1196,7 +1216,7 @@ El codigo deja de estar disponible publicamente y un tercero no puede anadir fac
 ### GHCR
 Se borraron 179 versiones/entradas antiguas del paquete `rainmapperha` en GHCR. En ese momento quedaron `0.2.100`, `latest` y cuatro entradas auxiliares sin tag asociadas al mismo push multi-arch. El 2026-06-24 se repitio la limpieza tras validar `0.2.111`: quedaron `0.2.111`, `latest` y cuatro entradas auxiliares sin tag asociadas al mismo push multi-arch/attestation. Ese mismo dia se publicaron `0.2.112` y `0.2.113`; tras validar `0.2.113` en HA, se limpio GHCR de nuevo y quedaron solo `0.2.113`, `latest` y cuatro entradas auxiliares sin tag del mismo push multi-arch/attestation.
 
-Auditoria real del 2026-06-24 tras publicar `0.2.118`: GHCR conserva `0.2.118,latest` con digest multi-arch `sha256:07ce37c45de5f705aeb1621f4fb680a7b2c9360014ee1ccbb95322e7815d0e96` y `0.2.117` como rollback con digest multi-arch `sha256:e12749d4b16a48c362f731eb4f03dbb850b71988061602396c51293ad0350d65`; cada una conserva cuatro entradas auxiliares sin tag del push multi-arch/attestation. Para futuras releases HA, la limpieza remota de GHCR pasa a ser parte del procedimiento estandar despues de validar la nueva version en HA: conservar solo la ultima version validada, `latest` y las entradas auxiliares del mismo push multi-arch. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares mientras HA pueda necesitar reinstalarla. En el cierre de sesion actual no limpiar `0.2.117` hasta validar visualmente `0.2.118` en HA.
+Auditoria real del 2026-06-24 tras publicar `0.2.118`: GHCR conserva `0.2.118,latest` con digest multi-arch `sha256:07ce37c45de5f705aeb1621f4fb680a7b2c9360014ee1ccbb95322e7815d0e96` y `0.2.117` como rollback con digest multi-arch `sha256:e12749d4b16a48c362f731eb4f03dbb850b71988061602396c51293ad0350d65`; cada una conserva cuatro entradas auxiliares sin tag del push multi-arch/attestation. Para futuras releases HA, la limpieza remota de GHCR pasa a ser parte del procedimiento estandar despues de validar la nueva version en HA: conservar solo la ultima version validada, `latest` y las entradas auxiliares del mismo push multi-arch. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares mientras HA pueda necesitar reinstalarla. Actualizacion 2026-06-25: `0.2.132` queda validada visualmente en HA con digest multi-arch `sha256:801e77ff582afe64d47dd7f56935e424732ee687ab98b5436afaf789c49762ad`; GHCR remoto queda limpio tras borrar 75 versiones/entradas antiguas y conserva solo `0.2.132`, `latest` y cuatro auxiliares sin tag del mismo push multi-arch.
 
 ### Ficheros afectados
 - `docs/codex-handoff.md`
@@ -1205,4 +1225,4 @@ Auditoria real del 2026-06-24 tras publicar `0.2.118`: GHCR conserva `0.2.118,la
 - `docs/decisions.md`
 
 ### Estado
-Completado operacionalmente el 2026-06-22 y revisado de nuevo el 2026-06-24. `0.2.113` quedo validado en HA y limpio en GHCR en su momento. Estado auditado actual: el repo remoto esta publico temporalmente (`private=false`, `visibility=public`) para que HA detecte/instale `0.2.118`; volver a privado queda pendiente tras esa validacion. GHCR conserva `0.2.118/latest` y `0.2.117` como rollback temporal.
+Completado operacionalmente el 2026-06-22 y revisado de nuevo el 2026-06-24. `0.2.113` quedo validado en HA y limpio en GHCR en su momento. Actualizacion 2026-06-25: `0.2.132` queda validada visualmente en HA; despues se puso el repo remoto en privado (`private=true`, `visibility=private`, rama `inicial`) y se limpio GHCR remoto conservando solo `0.2.132`, `latest` y cuatro auxiliares sin tag del mismo push multi-arch.

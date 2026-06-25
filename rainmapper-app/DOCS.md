@@ -172,7 +172,9 @@ Formato:
       "role": "free",
       "enabled": true,
       "max_devices": 1,
-      "must_change_password": false
+      "must_change_password": false,
+      "can_use_heatmap": false,
+      "can_use_layer_metrics": false
     },
     {
       "username": "admin",
@@ -182,7 +184,9 @@ Formato:
       "role": "admin",
       "enabled": true,
       "max_devices": 0,
-      "must_change_password": false
+      "must_change_password": false,
+      "can_use_heatmap": true,
+      "can_use_layer_metrics": true
     }
   ]
 }
@@ -200,6 +204,9 @@ Reglas actuales:
 - `max_devices=0` significa dispositivos ilimitados.
 - `enabled` debe ser `true` para permitir acceso.
 - `must_change_password` es opcional. Si es `true`, el usuario debe iniciar sesion con su contrasena actual y elegir una contrasena distinta antes de acceder al mapa.
+- `can_use_heatmap` controla el boton `Heatmap` y la pestana/seccion `Heatmap` en Settings del visor MapLibre protegido.
+- `can_use_layer_metrics` controla el boton rapido de selector de metrica/capa y el selector `Layer metric` en Settings del visor MapLibre protegido.
+- Si esos permisos faltan en un usuario existente, la app aplica defaults compatibles: `admin=true` y resto de roles `false`. Al crear un usuario `admin` desde la WebUI, ambos permisos quedan activados por defecto.
 - Si la contrasena esta en claro, la app la convierte automaticamente a hash PBKDF2 despues del primer login correcto.
 - `users.json` es el unico formato de usuarios soportado.
 
@@ -211,7 +218,7 @@ La app crea automaticamente, si no existe:
 
 Ese fichero guarda el `device_id`, usuario, rol, user-agent, ultimo acceso y hash del token de sesion. Si un usuario normal borra los datos del navegador, se generara un nuevo `device_id` y quedara bloqueado hasta que limpies o borres su dispositivo anterior.
 
-La WebUI de Home Assistant incluye una pagina `Users` para crear usuarios, borrar usuarios, activar/desactivar acceso, cambiar rol, cambiar `max_devices`, establecer una nueva contrasena y borrar dispositivos asociados a un usuario, uno a uno o todos a la vez. `Delete user` borra tambien todos sus dispositivos asociados. `Set password` guarda una contrasena definida por el administrador y borra automaticamente los dispositivos del usuario. `Reset password` no muestra ni cambia directamente la contrasena: marca el usuario para que tenga que elegir una contrasena distinta en el proximo inicio de sesion y tambien borra sus dispositivos.
+La WebUI de Home Assistant incluye una pagina `Users` para crear usuarios, borrar usuarios, activar/desactivar acceso, cambiar rol, cambiar `max_devices`, activar/desactivar permisos MapLibre de `Heatmap` y `Layer metric`, establecer una nueva contrasena y borrar dispositivos asociados a un usuario, uno a uno o todos a la vez. `Delete user` borra tambien todos sus dispositivos asociados. `Set password` guarda una contrasena definida por el administrador y borra automaticamente los dispositivos del usuario. `Reset password` no muestra ni cambia directamente la contrasena: marca el usuario para que tenga que elegir una contrasena distinta en el proximo inicio de sesion y tambien borra sus dispositivos.
 
 Si usas Cloudflare Tunnel con el add-on Cloudflared de Home Assistant, apunta el hostname externo al servidor Rainmapper publicado por la app:
 

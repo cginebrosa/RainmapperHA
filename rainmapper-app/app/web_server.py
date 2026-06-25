@@ -1766,6 +1766,7 @@ ROLE_DEFAULT_MAX_DEVICES = {
     "pro": 3,
     "admin": 0,
 }
+USER_PERMISSION_FIELDS = ("can_use_heatmap", "can_use_layer_metrics")
 
 
 def normalize_role(value: str) -> str:
@@ -1803,12 +1804,40 @@ def normalize_bool_flag(value: object) -> str:
     return "true" if str(value).strip().lower() == "true" else "false"
 
 
+def default_user_permission(role: str, field: str) -> str:
+    if field not in USER_PERMISSION_FIELDS:
+        return "false"
+    return "true" if normalize_role(role) == "admin" else "false"
+
+
+def normalize_user_permission(raw_user: dict[str, object], role: str, field: str) -> str:
+    if field not in raw_user:
+        return default_user_permission(role, field)
+    return normalize_bool_flag(raw_user.get(field))
+
+
+def user_permission_enabled(user: dict[str, str], field: str) -> bool:
+    return normalize_user_permission(user, normalize_role(user.get("role", "free")), field) == "true"
+
+
+def user_auth_payload(user: dict[str, str]) -> dict[str, object]:
+    role = normalize_role(user.get("role", "free"))
+    return {
+        "username": user["username"],
+        "name": user.get("name", ""),
+        "email": user.get("email", ""),
+        "role": role,
+        "can_use_heatmap": user_permission_enabled(user, "can_use_heatmap"),
+        "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
+    }
+
+
 def normalize_user_record(raw_user: dict[str, object], fallback_username: str = "") -> dict[str, str] | None:
     username = normalize_user_id(str(raw_user.get("username") or fallback_username))
     if not username:
         return None
     role = normalize_role(str(raw_user.get("role", "free")))
-    return {
+    user = {
         "username": username,
         "name": str(raw_user.get("name", "")).strip(),
         "email": normalize_user_id(str(raw_user.get("email", username))),
@@ -1818,6 +1847,9 @@ def normalize_user_record(raw_user: dict[str, object], fallback_username: str = 
         "max_devices": str(parse_max_devices(str(raw_user.get("max_devices", "")), role)),
         "must_change_password": normalize_bool_flag(raw_user.get("must_change_password", False)),
     }
+    for field in USER_PERMISSION_FIELDS:
+        user[field] = normalize_user_permission(raw_user, role, field)
+    return user
 
 
 def read_users_json() -> dict[str, dict[str, str]]:
@@ -1862,6 +1894,8 @@ def write_users(users: dict[str, dict[str, str]]) -> None:
                 "enabled": user.get("enabled", "true").lower() == "true",
                 "max_devices": user_max_devices(user),
                 "must_change_password": user.get("must_change_password", "false").lower() == "true",
+                "can_use_heatmap": user_permission_enabled(user, "can_use_heatmap"),
+                "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
             }
             for _username, user in sorted(users.items())
         ]
@@ -2040,7 +2074,17 @@ def set_user_password(user: dict[str, str], password: str) -> None:
         user["must_change_password"] = "false"
 
 
-def create_user(username: str, name: str, email: str, password: str, role: str, enabled: str, max_devices: str) -> str:
+def create_user(
+    username: str,
+    name: str,
+    email: str,
+    password: str,
+    role: str,
+    enabled: str,
+    max_devices: str,
+    can_use_heatmap: str = "",
+    can_use_layer_metrics: str = "",
+) -> str:
     user_id = normalize_user_id(username)
     if not user_id:
         return "Username is required."
@@ -2061,12 +2105,31 @@ def create_user(username: str, name: str, email: str, password: str, role: str, 
         "enabled": normalize_enabled(enabled),
         "max_devices": str(parse_max_devices(max_devices, normalized_role)),
         "must_change_password": "false",
+        "can_use_heatmap": (
+            normalize_bool_flag(can_use_heatmap)
+            if can_use_heatmap
+            else default_user_permission(normalized_role, "can_use_heatmap")
+        ),
+        "can_use_layer_metrics": (
+            normalize_bool_flag(can_use_layer_metrics)
+            if can_use_layer_metrics
+            else default_user_permission(normalized_role, "can_use_layer_metrics")
+        ),
     }
     write_users(users)
     return f"Created user {user_id}."
 
 
-def update_user(username: str, name: str, email: str, role: str, enabled: str, max_devices: str) -> str:
+def update_user(
+    username: str,
+    name: str,
+    email: str,
+    role: str,
+    enabled: str,
+    max_devices: str,
+    can_use_heatmap: str,
+    can_use_layer_metrics: str,
+) -> str:
     user_id = normalize_user_id(username)
     users = read_users()
     user = users.get(user_id)
@@ -2081,6 +2144,8 @@ def update_user(username: str, name: str, email: str, role: str, enabled: str, m
             "role": normalized_role,
             "enabled": normalize_enabled(enabled),
             "max_devices": str(parse_max_devices(max_devices, normalized_role)),
+            "can_use_heatmap": normalize_bool_flag(can_use_heatmap),
+            "can_use_layer_metrics": normalize_bool_flag(can_use_layer_metrics),
         }
     )
     write_users(users)
@@ -2186,6 +2251,10 @@ def enabled_options(selected_enabled: str) -> str:
     return "".join(options)
 
 
+def checked_attr(enabled: bool) -> str:
+    return " checked" if enabled else ""
+
+
 def new_device_id() -> str:
     return secrets.token_urlsafe(24)
 
@@ -2194,7 +2263,7 @@ def new_session_token() -> str:
     return secrets.token_urlsafe(AUTH_TOKEN_BYTES)
 
 
-def authenticate_session(token: str, device_id: str) -> tuple[bool, dict[str, str] | None]:
+def authenticate_session(token: str, device_id: str) -> tuple[bool, dict[str, object] | None]:
     if not token or not device_id:
         return False, None
 
@@ -2214,12 +2283,7 @@ def authenticate_session(token: str, device_id: str) -> tuple[bool, dict[str, st
 
     device["last_seen_at"] = utc_now()
     write_devices(devices)
-    return True, {
-        "username": user["username"],
-        "name": user.get("name", ""),
-        "email": user.get("email", ""),
-        "role": user.get("role", "free"),
-    }
+    return True, user_auth_payload(user)
 
 
 def login_user(username: str, password: str, device_id: str, user_agent: str) -> tuple[int, dict[str, object]]:
@@ -2292,16 +2356,14 @@ def login_user(username: str, password: str, device_id: str, user_agent: str) ->
     )
     devices[requested_device_id] = existing_device
     write_devices(devices)
-    return 200, {
+    payload = user_auth_payload(user)
+    payload.update({
         "ok": True,
-        "username": user_id,
-        "name": user.get("name", ""),
-        "email": user.get("email", ""),
-        "role": role,
         "max_devices": max_devices,
         "device_id": requested_device_id,
         "session_token": session_token,
-    }
+    })
+    return 200, payload
 
 
 def content_type_for(path: Path) -> str:
@@ -2395,12 +2457,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         device_id = self.headers.get("X-Rainmapper-Device", "").strip()
         return token, device_id
 
-    def authenticated_user(self) -> dict[str, str] | None:
+    def authenticated_user(self) -> dict[str, object] | None:
         token, device_id = self.auth_credentials()
         ok, user = authenticate_session(token, device_id)
         return user if ok else None
 
-    def require_authentication(self) -> dict[str, str] | None:
+    def require_authentication(self) -> dict[str, object] | None:
         user = self.authenticated_user()
         if user:
             return user
@@ -2464,6 +2526,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             enabled = normalize_enabled(user.get("enabled", "true"))
             max_devices = str(user_max_devices(user))
             role = normalize_role(user.get("role", "free"))
+            can_use_heatmap = user_permission_enabled(user, "can_use_heatmap")
+            can_use_layer_metrics = user_permission_enabled(user, "can_use_layer_metrics")
             password_state = (
                 '<span class="danger">Change required</span>'
                 if user.get("must_change_password", "false").lower() == "true"
@@ -2507,6 +2571,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     user.get("email", ""),
                     role,
                     "enabled" if enabled == "true" else "disabled",
+                    "heatmap" if can_use_heatmap else "no heatmap",
+                    "metrics" if can_use_layer_metrics else "no metrics",
                     "change required" if user.get("must_change_password", "false").lower() == "true" else "current",
                     max_devices,
                     str(len(user_devices)),
@@ -2531,6 +2597,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 f'<div class="admin-field"><label>Role</label><select name="role">{role_options(role)}</select></div>'
                 f'<div class="admin-field"><label>Status</label><select name="enabled">{enabled_options(enabled)}</select></div>'
                 f'<div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="{html.escape(max_devices, quote=True)}"></div>'
+                f'<div class="admin-field"><label><input name="can_use_heatmap" type="checkbox" value="true"{checked_attr(can_use_heatmap)}> Heatmap access</label></div>'
+                f'<div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"{checked_attr(can_use_layer_metrics)}> Metric selector access</label></div>'
                 "</div>"
                 '<button class="primary">Save user</button>'
                 "</form>"
@@ -2597,6 +2665,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
               <div class="admin-field"><label>Role</label><select name="role">{role_options("free")}</select></div>
               <div class="admin-field"><label>Status</label><select name="enabled">{enabled_options("true")}</select></div>
               <div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="1"></div>
+              <div class="admin-field"><label><input name="can_use_heatmap" type="checkbox" value="true"> Heatmap access</label></div>
+              <div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"> Metric selector access</label></div>
             </div>
             <button class="primary">Create user</button>
           </form>
@@ -2761,6 +2831,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "role"),
                 self.form_value(form, "enabled"),
                 self.form_value(form, "max_devices"),
+                self.form_value(form, "can_use_heatmap"),
+                self.form_value(form, "can_use_layer_metrics"),
             )
         elif admin_action == "update_user":
             message = update_user(
@@ -2770,6 +2842,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "role"),
                 self.form_value(form, "enabled"),
                 self.form_value(form, "max_devices"),
+                self.form_value(form, "can_use_heatmap"),
+                self.form_value(form, "can_use_layer_metrics"),
             )
         elif admin_action == "set_password":
             message = set_admin_user_password(

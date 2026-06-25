@@ -144,6 +144,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
             status, response = self.login("admin", "secret", f"admin-device-{index}")
             self.assertEqual(status, 200, response)
             self.assertEqual(response["max_devices"], 0)
+            self.assertTrue(response["can_use_heatmap"])
+            self.assertTrue(response["can_use_layer_metrics"])
 
     def test_missing_users_json_rejects_login(self) -> None:
         status, response = self.login("missing", "secret", "device-a")
@@ -170,6 +172,64 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(status, 200, response)
         self.assertEqual(response["name"], "New User")
         self.assertEqual(response["max_devices"], 2)
+        self.assertFalse(response["can_use_heatmap"])
+        self.assertFalse(response["can_use_layer_metrics"])
+
+    def test_admin_user_creation_enables_maplibre_feature_permissions_by_default(self) -> None:
+        message = self.web_server.create_user(
+            "admin2",
+            "Admin User",
+            "admin2@example.com",
+            "secret",
+            "admin",
+            "true",
+            "",
+        )
+
+        self.assertIn("Created user", message)
+        users = self.web_server.read_users()
+        self.assertEqual(users["admin2"]["can_use_heatmap"], "true")
+        self.assertEqual(users["admin2"]["can_use_layer_metrics"], "true")
+
+        status, response = self.login("admin2", "secret", "device-a")
+        self.assertEqual(status, 200, response)
+        self.assertTrue(response["can_use_heatmap"])
+        self.assertTrue(response["can_use_layer_metrics"])
+
+    def test_update_user_controls_maplibre_feature_permissions(self) -> None:
+        self.write_users_json(
+            [
+                {
+                    "username": "basic",
+                    "name": "Basic User",
+                    "email": "basic@example.com",
+                    "password": "secret",
+                    "role": "basic",
+                    "enabled": True,
+                }
+            ]
+        )
+
+        message = self.web_server.update_user(
+            "basic",
+            "Basic User",
+            "basic@example.com",
+            "basic",
+            "true",
+            "2",
+            "true",
+            "",
+        )
+
+        self.assertIn("Updated user basic", message)
+        users = self.web_server.read_users()
+        self.assertEqual(users["basic"]["can_use_heatmap"], "true")
+        self.assertEqual(users["basic"]["can_use_layer_metrics"], "false")
+
+        status, response = self.login("basic", "secret", "device-a")
+        self.assertEqual(status, 200, response)
+        self.assertTrue(response["can_use_heatmap"])
+        self.assertFalse(response["can_use_layer_metrics"])
 
     def test_set_password_replaces_existing_password_and_deletes_devices(self) -> None:
         self.write_users_json(
@@ -334,7 +394,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('id="users-refresh"', page)
         self.assertIn('id="users-filter"', page)
         self.assertIn('id="users-content"', page)
-        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled current 1 1"', page)
+        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics current 1 1"', page)
         self.assertIn('data-device-search="device-mobile diego diego@example.com Mobile Safari Test Agent', page)
 
     def test_device_settings_are_sanitized_and_stored_on_device(self) -> None:

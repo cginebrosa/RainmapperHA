@@ -283,12 +283,19 @@ let invalidFeatureCount = 0;
 const terrainTileCache = new Map();
 
 
-function isAdminUser() {
+function authPermissionEnabled(fieldName) {
+  if (authState && Object.prototype.hasOwnProperty.call(authState, fieldName)) {
+    return authState[fieldName] === true;
+  }
   return String(authState?.role || "").trim().toLowerCase() === "admin";
 }
 
 function canUseHeatmap() {
-  return EXPERIMENTAL_HEATMAP || (AUTH_REQUIRED && isAdminUser());
+  return EXPERIMENTAL_HEATMAP || (AUTH_REQUIRED && authPermissionEnabled("canUseHeatmap"));
+}
+
+function canUseLayerMetrics() {
+  return EXPERIMENTAL_HEATMAP || (AUTH_REQUIRED && authPermissionEnabled("canUseLayerMetrics"));
 }
 
 function browserLanguage() {
@@ -689,6 +696,8 @@ async function validateStoredSession() {
         name: payload.user.name,
         email: payload.user.email,
         role: payload.user.role,
+        canUseHeatmap: payload.user.can_use_heatmap === true,
+        canUseLayerMetrics: payload.user.can_use_layer_metrics === true,
       });
     }
   } else {
@@ -752,6 +761,8 @@ function saveAuthenticatedPayload(payload) {
     name: payload.name,
     email: payload.email,
     role: payload.role,
+    canUseHeatmap: payload.can_use_heatmap === true,
+    canUseLayerMetrics: payload.can_use_layer_metrics === true,
   });
 }
 
@@ -869,8 +880,10 @@ function currentDeviceSettings() {
     terrain_enabled: terrainEnabled,
     terrain_exaggeration: terrainExaggeration,
   };
-  if (canUseHeatmap()) {
+  if (canUseLayerMetrics()) {
     settings.layer_metric = currentLayerMetric;
+  }
+  if (canUseHeatmap()) {
     settings.heatmap_enabled = heatmapEnabled;
     settings.heatmap_opacity = heatmapOpacity;
     settings.heatmap_radius_scale = heatmapRadiusScale;
@@ -1019,7 +1032,7 @@ async function applyDeviceSettings(settings) {
       setTerrainEnabled(settings.terrain_enabled);
     }
 
-    if (canUseHeatmap()) {
+    if (canUseLayerMetrics()) {
       if (layerMetrics.some((metric) => metric.id === settings.layer_metric)) {
         currentLayerMetric = settings.layer_metric;
         const layerMetricSelector = document.getElementById("layer-metric-selector");
@@ -1028,7 +1041,11 @@ async function applyDeviceSettings(settings) {
         }
         setQuickMetricControlsFromMetric();
       }
+    } else {
+      currentLayerMetric = "rain";
+    }
 
+    if (canUseHeatmap()) {
       if (typeof settings.heatmap_enabled === "boolean") {
         heatmapEnabled = settings.heatmap_enabled;
         updateHeatmapToggle();
@@ -1070,7 +1087,6 @@ async function applyDeviceSettings(settings) {
       }
     } else {
       heatmapEnabled = false;
-      currentLayerMetric = "rain";
     }
 
     const loadedMapView = sanitizeClientMapView(settings.map_view);
@@ -1255,7 +1271,7 @@ function colorForRatio(ratioValue) {
 }
 
 function selectedLayerMetric() {
-  if (!canUseHeatmap()) {
+  if (!canUseLayerMetrics()) {
     return layerMetrics[0];
   }
   return layerMetrics.find((metric) => metric.id === currentLayerMetric) || layerMetrics[0];
@@ -1463,32 +1479,40 @@ function updateHeatmapToggle() {
 }
 
 function syncHeatmapAccessUi() {
-  const allowed = canUseHeatmap();
+  const heatmapAllowed = canUseHeatmap();
+  const metricsAllowed = canUseLayerMetrics();
   const quickMetricToggle = document.getElementById("quick-metric-toggle");
   const quickMetricPanel = document.getElementById("quick-metric-panel");
+  const layerMetricSelector = document.getElementById("layer-metric-selector");
+  const layerMetricRow = layerMetricSelector?.closest(".map-settings-row");
   const heatmapExperimentSettings = document.getElementById("heatmap-experiment-settings");
   const heatmapSettingsTab = document.getElementById("settings-tab-heatmap");
   const generalSettingsTab = document.getElementById("settings-tab-general");
   const activeHeatmapTab = heatmapSettingsTab?.classList.contains("is-active");
 
-  if (!allowed) {
-    heatmapEnabled = false;
+  if (!metricsAllowed) {
     currentLayerMetric = "rain";
     if (quickMetricPanel) {
       quickMetricPanel.hidden = true;
     }
   }
+  if (!heatmapAllowed) {
+    heatmapEnabled = false;
+  }
   if (quickMetricToggle) {
-    quickMetricToggle.hidden = !allowed;
+    quickMetricToggle.hidden = !metricsAllowed;
     quickMetricToggle.setAttribute("aria-expanded", "false");
   }
+  if (layerMetricRow) {
+    layerMetricRow.hidden = !metricsAllowed;
+  }
   if (heatmapExperimentSettings) {
-    heatmapExperimentSettings.hidden = !allowed;
+    heatmapExperimentSettings.hidden = !heatmapAllowed;
   }
   if (heatmapSettingsTab) {
-    heatmapSettingsTab.hidden = !allowed;
+    heatmapSettingsTab.hidden = !heatmapAllowed;
   }
-  if (!allowed && activeHeatmapTab && generalSettingsTab) {
+  if (!heatmapAllowed && activeHeatmapTab && generalSettingsTab) {
     generalSettingsTab.click();
   }
   updateHeatmapToggle();
@@ -1529,7 +1553,7 @@ function prepareFeature(feature) {
   const metric = selectedLayerMetric();
   const metricValue = featureMetricValue(feature, metric);
   const hasMetricValue = Number.isFinite(metricValue);
-  const useMetricStyle = canUseHeatmap();
+  const useMetricStyle = canUseLayerMetrics();
   const source = feature.properties?.Source || inferStationSource(feature.properties?.["Codi Estació"]);
   return {
     ...feature,
@@ -2905,8 +2929,8 @@ function renderQuickMetricPanelOptions() {
   if (!panel || !toggle) {
     return;
   }
-  toggle.hidden = !canUseHeatmap();
-  if (!canUseHeatmap()) {
+  toggle.hidden = !canUseLayerMetrics();
+  if (!canUseLayerMetrics()) {
     panel.hidden = true;
     return;
   }
@@ -2928,7 +2952,7 @@ function renderQuickMetricPanel() {
   renderQuickMetricPanelOptions();
 
   const setQuickMetricOpen = (isOpen) => {
-    if (!canUseHeatmap()) {
+    if (!canUseLayerMetrics()) {
       return;
     }
     if (isOpen) {
@@ -3027,6 +3051,10 @@ function renderSettingsPanel() {
   }
   if (heatmapSettingsTab) {
     heatmapSettingsTab.hidden = !canUseHeatmap();
+  }
+  const layerMetricRow = layerMetricSelector?.closest(".map-settings-row");
+  if (layerMetricRow) {
+    layerMetricRow.hidden = !canUseLayerMetrics();
   }
   updateHeatmapToggle();
   renderLayerMetricSelector();
