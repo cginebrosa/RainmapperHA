@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.134
+
+- Adjust the MapLibre popup history sticky header spacing so it no longer covers the expanded history title while scrolling.
+
 ## 0.2.133
 
 - Add per-user MapLibre permissions for heatmap access and metric selector access.
