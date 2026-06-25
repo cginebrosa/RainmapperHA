@@ -149,11 +149,11 @@ def bool_env(name: str, default: bool = False) -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
-def maplibre_hover_zoom() -> int:
+def maplibre_hover_zoom() -> float:
     try:
-        configured = int(env("RAINMAPPER_MAPLIBRE_HOVER_ZOOM", "6"))
+        configured = float(env("RAINMAPPER_MAPLIBRE_HOVER_ZOOM", "6"))
     except ValueError:
-        configured = 6
+        configured = 6.0
     return max(0, min(22, configured))
 
 
@@ -2014,14 +2014,17 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
     if "heatmap_enabled" in raw_settings:
         settings["heatmap_enabled"] = normalize_bool_flag(raw_settings.get("heatmap_enabled")) == "true"
 
-    heatmap_opacity = finite_number(raw_settings.get("heatmap_opacity"), 0.65)
-    settings["heatmap_opacity"] = max(0.0, min(1.0, heatmap_opacity))
+    if "heatmap_opacity" in raw_settings:
+        heatmap_opacity = finite_number(raw_settings.get("heatmap_opacity"), 0.65)
+        settings["heatmap_opacity"] = max(0.0, min(1.0, heatmap_opacity))
 
-    heatmap_radius_scale = finite_number(raw_settings.get("heatmap_radius_scale"), 1.0)
-    settings["heatmap_radius_scale"] = max(0.5, min(3.0, heatmap_radius_scale))
+    if "heatmap_radius_scale" in raw_settings:
+        heatmap_radius_scale = finite_number(raw_settings.get("heatmap_radius_scale"), 1.0)
+        settings["heatmap_radius_scale"] = max(0.5, min(3.0, heatmap_radius_scale))
 
-    heatmap_intensity_scale = finite_number(raw_settings.get("heatmap_intensity_scale"), 1.0)
-    settings["heatmap_intensity_scale"] = max(0.2, min(2.0, heatmap_intensity_scale))
+    if "heatmap_intensity_scale" in raw_settings:
+        heatmap_intensity_scale = finite_number(raw_settings.get("heatmap_intensity_scale"), 1.0)
+        settings["heatmap_intensity_scale"] = max(0.2, min(2.0, heatmap_intensity_scale))
 
     heatmap_weight_curve = str(raw_settings.get("heatmap_weight_curve", "")).strip()
     if heatmap_weight_curve in DEVICE_SETTING_HEATMAP_WEIGHT_CURVES:

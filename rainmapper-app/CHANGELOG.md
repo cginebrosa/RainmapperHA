@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.136
+
+- Fix MapLibre heatmap defaults for new devices and reset action by preserving absent device settings.
+- Allow decimal Home Assistant values for the MapLibre station hover zoom threshold.
+- Document validation of the nearest rainy station terrain popup.
+
 ## 0.2.135
 
 - Add Home Assistant options for MapLibre hover zoom and default heatmap tuning.

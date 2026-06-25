@@ -472,6 +472,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ok, settings = self.web_server.update_device_settings("device-a", {"terrain_enabled": "false"})
         self.assertTrue(ok)
         self.assertFalse(settings["terrain_enabled"])
+        self.assertNotIn("heatmap_opacity", settings)
+        self.assertNotIn("heatmap_radius_scale", settings)
+        self.assertNotIn("heatmap_intensity_scale", settings)
+
+    def test_device_settings_do_not_synthesize_heatmap_tuning_defaults(self) -> None:
+        settings = self.web_server.sanitize_device_settings({"terrain_enabled": "false"})
+
+        self.assertFalse(settings["terrain_enabled"])
+        self.assertNotIn("heatmap_opacity", settings)
+        self.assertNotIn("heatmap_radius_scale", settings)
+        self.assertNotIn("heatmap_intensity_scale", settings)
 
     def test_device_settings_reject_unknown_device(self) -> None:
         ok, settings = self.web_server.update_device_settings("missing-device", {"period": "21d.geojson"})
@@ -532,7 +543,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         }
         os.environ.update(
             {
-                "RAINMAPPER_MAPLIBRE_HOVER_ZOOM": "6",
+                "RAINMAPPER_MAPLIBRE_HOVER_ZOOM": "6.5",
                 "RAINMAPPER_MAPLIBRE_HEATMAP_WEIGHT_CURVE": "soft",
                 "RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY": "65",
                 "RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS": "90",
@@ -543,7 +554,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             config_js = self.web_server.auth_required_config_js()
             payload = json.loads(config_js.removeprefix("window.RAINMAPPER_CONFIG = ").removesuffix(";\n"))
 
-            self.assertEqual(payload["hoverPopupMinZoom"], 6)
+            self.assertEqual(payload["hoverPopupMinZoom"], 6.5)
             self.assertEqual(
                 payload["heatmapDefaults"],
                 {
@@ -556,6 +567,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
             os.environ["RAINMAPPER_MAPLIBRE_HOVER_ZOOM"] = "999"
             self.assertEqual(self.web_server.maplibre_hover_zoom(), 22)
+
+            os.environ["RAINMAPPER_MAPLIBRE_HOVER_ZOOM"] = "4.5"
+            self.assertEqual(self.web_server.maplibre_hover_zoom(), 4.5)
 
             os.environ["RAINMAPPER_MAPLIBRE_HOVER_ZOOM"] = "invalid"
             self.assertEqual(self.web_server.maplibre_hover_zoom(), 6)

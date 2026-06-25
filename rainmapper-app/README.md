@@ -45,7 +45,7 @@ La clave `gmap_api_key` no debe guardarse en Git. Se usa para los mapas clasicos
 
 `last_rains_history` controla cuantos registros recientes de lluvia se guardan en los CSV `Tomap` y, por tanto, cuantos puede mostrar el popup de una estacion en Leaflet/MapLibre. El valor por defecto es `30`. Este dato se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
 
-`maplibre_hover_zoom` controla desde que nivel de zoom se activan los popups por hover sobre estaciones en MapLibre de escritorio. El valor por defecto es `6`.
+`maplibre_hover_zoom` controla desde que nivel de zoom se activan los popups por hover sobre estaciones en MapLibre de escritorio. El valor por defecto es `6.0` y admite decimales como `6.5`.
 
 `maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius` y `maplibre_heatmap_intensity` controlan los valores iniciales del heatmap para dispositivos sin preferencias guardadas. Los defaults actuales son `soft`, `65`, `90` y `70`; los tres valores numericos son porcentajes. El boton `Reset heatmap defaults` del visor restaura estos valores.
 
