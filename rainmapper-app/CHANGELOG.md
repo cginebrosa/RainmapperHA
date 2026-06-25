@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.137
+
+- Prevent protected MapLibre `config.js` from being cached so changed Home Assistant defaults take effect after restart.
+
 ## 0.2.136
 
 - Fix MapLibre heatmap defaults for new devices and reset action by preserving absent device settings.

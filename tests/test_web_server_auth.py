@@ -594,6 +594,29 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 else:
                     os.environ[name] = previous
 
+    def test_protected_maplibre_config_is_not_cached(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured: dict[str, object] = {"headers": []}
+
+        class MemoryWriter:
+            def __init__(self) -> None:
+                self.content = b""
+
+            def write(self, content: bytes) -> None:
+                self.content += content
+
+        writer = MemoryWriter()
+        handler.wfile = writer
+        handler.send_response = lambda status: captured.update({"status": status})
+        handler.send_header = lambda name, value: captured["headers"].append((name, value))
+        handler.end_headers = lambda: None
+
+        handler.serve_protected_maplibre("/config.js")
+
+        self.assertEqual(captured["status"], 200)
+        self.assertIn(("Cache-Control", "no-store, max-age=0"), captured["headers"])
+        self.assertIn(b"window.RAINMAPPER_CONFIG", writer.content)
+
 
 if __name__ == "__main__":
     unittest.main()

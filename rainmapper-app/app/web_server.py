@@ -2464,10 +2464,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         pass
 
-    def send_bytes(self, status: int, content: bytes, content_type: str) -> None:
+    def send_bytes(
+        self,
+        status: int,
+        content: bytes,
+        content_type: str,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(content)))
+        for header_name, header_value in (headers or {}).items():
+            self.send_header(header_name, header_value)
         self.end_headers()
         self.wfile.write(content)
 
@@ -3056,7 +3064,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def serve_protected_maplibre(self, requested_path: str) -> None:
         relative_path = requested_path.lstrip("/") or "index.html"
         if relative_path == "config.js":
-            self.send_bytes(200, auth_required_config_js().encode("utf-8"), "application/javascript")
+            self.send_bytes(
+                200,
+                auth_required_config_js().encode("utf-8"),
+                "application/javascript",
+                {"Cache-Control": "no-store, max-age=0"},
+            )
             return
 
         if relative_path.startswith("data/"):
