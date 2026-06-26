@@ -307,6 +307,10 @@ let estimatedFieldQuality = DEFAULT_ESTIMATED_FIELD_QUALITY;
 let estimatedFieldSmoothing = DEFAULT_ESTIMATED_FIELD_SMOOTHING;
 let estimatedFieldAltitudeCorrection = DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION;
 let estimatedFieldUpdateTimer = null;
+let estimatedFieldIdleRefreshPending = false;
+let estimatedFieldDataRevision = 0;
+let lastEstimatedFieldDataKey = "";
+let lastEstimatedFieldData = null;
 let baseStyleReloadPending = false;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
@@ -1624,6 +1628,7 @@ function setEstimatedFieldEnabled(enabled) {
   if (estimatedFieldEnabled && heatmapEnabled) {
     heatmapEnabled = false;
     updateHeatmapToggle();
+    removeHeatmapLayer();
   }
   updateEstimatedFieldToggle();
 }
@@ -1752,6 +1757,12 @@ function estimatedFieldTemperatureLapseRate() {
   return clampNumber(Number(configuredEstimatedField.temperatureLapseRateCPer100m), 0, 2, 0.65);
 }
 
+function invalidateEstimatedFieldData() {
+  estimatedFieldDataRevision += 1;
+  lastEstimatedFieldDataKey = "";
+  lastEstimatedFieldData = null;
+}
+
 function isTemperatureMetric(metric) {
   return metric.id === "max_temp" || metric.id === "min_temp";
 }
@@ -1779,6 +1790,46 @@ function removeEstimatedFieldLayer() {
   if (map.getSource(ESTIMATED_FIELD_SOURCE_ID)) {
     map.removeSource(ESTIMATED_FIELD_SOURCE_ID);
   }
+}
+
+function removeHeatmapLayer() {
+  if (map.getLayer(HEATMAP_LAYER_ID)) {
+    map.removeLayer(HEATMAP_LAYER_ID);
+  }
+  if (map.getSource(HEATMAP_SOURCE_ID)) {
+    map.removeSource(HEATMAP_SOURCE_ID);
+  }
+}
+
+function estimatedFieldDataKey() {
+  const canvas = map.getCanvas();
+  const center = map.getCenter();
+  const enabledSources = Array.from(enabledStationSources).sort().join(",");
+  return [
+    currentPeriodFileName,
+    estimatedFieldDataRevision,
+    selectedLayerMetric().id,
+    Number(metricScaleMin).toFixed(3),
+    Number(metricScaleMax).toFixed(3),
+    Number(center.lng).toFixed(5),
+    Number(center.lat).toFixed(5),
+    Number(map.getZoom()).toFixed(3),
+    Number(map.getBearing()).toFixed(2),
+    Number(map.getPitch()).toFixed(2),
+    canvas.clientWidth || canvas.width || 0,
+    canvas.clientHeight || canvas.height || 0,
+    estimatedFieldRadius,
+    estimatedFieldQuality,
+    estimatedFieldSmoothing,
+    estimatedFieldAltitudeCorrection ? "altitude" : "plain",
+    estimatedFieldRadiusKm(),
+    estimatedFieldMaxRadiusKm(),
+    estimatedFieldCellKm(),
+    estimatedFieldSmoothingPower(),
+    estimatedFieldTemperatureLapseRate(),
+    minRainFilter,
+    enabledSources,
+  ].join("|");
 }
 
 function estimatedFieldUsableFeatures(features, metric = selectedLayerMetric()) {
@@ -1834,7 +1885,7 @@ function estimateFieldCellValue(cellLngLat, stations, radiusKm, power, metric) {
     nearestDistanceKm = Math.min(nearestDistanceKm, distanceKm);
     const weight = 1 / (Math.max(distanceKm, 0.1) ** power);
     supportWeight += weight * estimatedFieldPaintSupport(station.value, metric);
-    nearby.push({ ...station, weight });
+    nearby.push([station, weight]);
     if (Number.isFinite(station.altitude)) {
       weightedAltitude += station.altitude * weight;
       totalAltitudeWeight += weight;
@@ -1859,13 +1910,13 @@ function estimateFieldCellValue(cellLngLat, stations, radiusKm, power, metric) {
     && Number.isFinite(targetAltitude);
   const lapseRate = estimatedFieldTemperatureLapseRate();
 
-  nearby.forEach((station) => {
+  nearby.forEach(([station, weight]) => {
     let value = station.value;
     if (applyAltitudeCorrection && Number.isFinite(station.altitude)) {
       value += ((station.altitude - targetAltitude) / 100) * lapseRate;
     }
-    weightedValue += value * station.weight;
-    totalWeight += station.weight;
+    weightedValue += value * weight;
+    totalWeight += weight;
   });
 
   return totalWeight > 0 ? weightedValue / totalWeight : null;
@@ -1946,21 +1997,36 @@ function updateEstimatedFieldLayer({ immediate = false } = {}) {
   }
   const run = () => {
     if (!map?.isStyleLoaded()) {
-      map?.once?.("idle", () => updateEstimatedFieldLayer({ immediate: true }));
+      if (!estimatedFieldIdleRefreshPending) {
+        estimatedFieldIdleRefreshPending = true;
+        map?.once?.("idle", () => {
+          estimatedFieldIdleRefreshPending = false;
+          updateEstimatedFieldLayer({ immediate: true });
+        });
+      }
       return;
     }
+    estimatedFieldIdleRefreshPending = false;
     if (!canUseEstimatedField() || !estimatedFieldEnabled) {
       removeEstimatedFieldLayer();
       return;
     }
-    const data = buildEstimatedFieldData(currentVisibleFeatures);
-    if (!map.getSource(ESTIMATED_FIELD_SOURCE_ID)) {
+    const dataKey = estimatedFieldDataKey();
+    const canReuseData = lastEstimatedFieldDataKey === dataKey && lastEstimatedFieldData;
+    const data = canReuseData ? lastEstimatedFieldData : buildEstimatedFieldData(currentVisibleFeatures);
+    if (!canReuseData) {
+      lastEstimatedFieldDataKey = dataKey;
+      lastEstimatedFieldData = data;
+    }
+
+    const source = map.getSource(ESTIMATED_FIELD_SOURCE_ID);
+    if (!source) {
       map.addSource(ESTIMATED_FIELD_SOURCE_ID, {
         type: "geojson",
         data,
       });
-    } else {
-      map.getSource(ESTIMATED_FIELD_SOURCE_ID).setData(data);
+    } else if (!canReuseData) {
+      source.setData(data);
     }
 
     if (!map.getLayer(ESTIMATED_FIELD_LAYER_ID)) {
@@ -2522,6 +2588,7 @@ function refreshFilteredData() {
     metadata: currentData?.metadata || {},
     features,
   };
+  invalidateEstimatedFieldData();
 
   if (currentPopup) {
     currentPopup.remove();
@@ -2640,17 +2707,12 @@ function addStationLayer({ resetEstimatedField = false } = {}) {
   if (map.getLayer(CIRCLE_LAYER_ID)) {
     map.removeLayer(CIRCLE_LAYER_ID);
   }
-  if (map.getLayer(HEATMAP_LAYER_ID)) {
-    map.removeLayer(HEATMAP_LAYER_ID);
-  }
+  removeHeatmapLayer();
   if (resetEstimatedField) {
     removeEstimatedFieldLayer();
   }
   if (map.getSource(SOURCE_ID)) {
     map.removeSource(SOURCE_ID);
-  }
-  if (map.getSource(HEATMAP_SOURCE_ID)) {
-    map.removeSource(HEATMAP_SOURCE_ID);
   }
 
   map.addSource(SOURCE_ID, {
@@ -3381,6 +3443,7 @@ async function loadMap(fileName) {
     ...data,
     features: filtered,
   };
+  invalidateEstimatedFieldData();
 
   if (currentPopup) {
     currentPopup.remove();
@@ -3761,7 +3824,7 @@ function renderSettingsPanel() {
     }
     setEstimatedFieldEnabled(!estimatedFieldEnabled);
     if (estimatedFieldEnabled) {
-      addStationLayer();
+      updateEstimatedFieldLayer({ immediate: true });
     } else {
       removeEstimatedFieldLayer();
     }
@@ -3885,7 +3948,7 @@ function renderSettingsPanel() {
     updateEstimatedFieldToggle();
     markDeviceSettingsChanged();
     if (estimatedFieldEnabled) {
-      addStationLayer();
+      updateEstimatedFieldLayer({ immediate: true });
     } else {
       removeEstimatedFieldLayer();
     }
@@ -3938,7 +4001,7 @@ function renderSettingsPanel() {
     applyEstimatedFieldDefaults();
     markDeviceSettingsChanged();
     if (estimatedFieldEnabled) {
-      addStationLayer();
+      updateEstimatedFieldLayer({ immediate: true });
     } else {
       removeEstimatedFieldLayer();
     }

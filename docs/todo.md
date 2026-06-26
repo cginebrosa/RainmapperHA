@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-`0.2.140` esta publicada en GHCR y pusheada a GitHub con digest multi-arch `sha256:2c6ca5354097ba98f4370e66fd1fab3b0e41ab3495fa0b15be0ea35e8022b85e`, pendiente de instalar/validar en HA. Corrige el estado de botones `Heatmap`/`IDW`: los botones rapidos no persisten, los checkboxes persistentes de Settings son incompatibles, el radio de influencia y el tamano de celda IDW pasan a km configurables y lluvia cero no pinta area por si sola. Siguiente paso recomendado: validar en HA el IDW con lluvia/temperatura, cambios de periodo, cambios de capa de mapa e incompatibilidad Heatmap/IDW, y seguir observando el incremental AEMET/backfill reciente.
+`0.2.144` esta publicada en GHCR, pusheada a GitHub y pendiente de validacion final en HA si no se ha cerrado explicitamente: muestra en Settings los valores efectivos de radio, celda y potencia `p` del IDW. El trabajo local posterior optimiza el refresco IDW para evitar recalcados duplicados y documenta el patron de capas calculadas en cliente; si se quiere probarlo en HA, publicar una nueva version siguiendo el flujo operativo habitual. Seguir observando el incremental AEMET/backfill reciente.
 
 ## Prioridad alta
 - [ ] Repetir backfill manual AEMET cuando el diario publique los dias pendientes
@@ -186,7 +186,13 @@ Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebr
   - Contexto: la capa experimental `IDW` debe interpretarse como campo meteorologico aproximado, no como densidad de estaciones. El radio de influencia y el tamano de celda se configuran en km desde `config.yaml`; los valores iniciales son solo punto de partida para pruebas en HA.
   - Ficheros relacionados: `rainmapper-app/config.yaml`, `rainmapper-app/DOCS.md`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `docs/decisions.md`.
   - Criterio de aceptacion: tras validar visualmente lluvia, temperatura, humedad y viento en varios niveles de zoom, documentar valores recomendados para `maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_grid_*_cell_km`, potencia de suavizado y opacidad. Si en zooms bajos el coste o la granularidad no son satisfactorios, estudiar un multiplicador configurable por nivel/rango de zoom para aumentar el tamano efectivo de celda sin perder resolucion fisica en zoom medio.
-  - Estado: pendiente de pruebas reales en HA. Viento se trata de momento como variable escalar igual que el resto; una visualizacion vectorial con flechas queda como mejora futura.
+  - Estado: pendiente de pruebas reales en HA. `0.2.144` muestra en Settings el valor tecnico efectivo seleccionado para facilitar estas pruebas. El trabajo local posterior anade cache por clave de calculo para evitar recalcados IDW duplicados. Viento se trata de momento como variable escalar igual que el resto; una visualizacion vectorial con flechas queda como mejora futura.
+
+- [ ] Reutilizar el patron IDW para futuras capas calculadas en cliente
+  - Contexto: el predictor de floradas de setas probablemente necesitara pintar una capa derivada de datos meteorologicos, terreno y reglas de scoring. La capa IDW ya establece un patron para calcular en el dispositivo, no en la Raspberry Pi, y limitar el trabajo al viewport visible.
+  - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/app.js`, `docs/architecture.md`, futuros datos/configuracion del predictor.
+  - Criterio de aceptacion: antes de implementar el predictor, definir source/layer propios, permiso de acceso, settings por dispositivo, parametros tecnicos en `config.yaml`, cache por clave de calculo, invalidacion explicita cuando cambien datos/filtros y debounce para eventos de mapa. Evitar recalcular la capa si la clave de periodo, vista, metrica/fuente y parametros no cambia.
+  - Estado: idea futura documentada a partir del patron IDW.
 
 - [x] Validar controles compactos MapLibre en movil
   - Contexto: en iPhone, la columna derecha de botones flotantes ocupaba demasiada altura y la leyenda podia acercarse mas al borde izquierdo.

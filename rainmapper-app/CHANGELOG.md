@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.145
+
+- Optimize the MapLibre IDW layer refresh by reusing unchanged calculated data and avoiding duplicated recalculations during style and toggle events.
+
 ## 0.2.144
 
 - Show the effective MapLibre IDW radius, grid cell size and smoothing power next to the device settings selectors.
