@@ -61,6 +61,9 @@ DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "AEMET", 
 DEVICE_SETTING_LANGUAGES = {"en", "es", "ca"}
 DEVICE_SETTING_LAYER_METRICS = {"rain", "max_temp", "min_temp", "max_humidity", "min_humidity", "wind"}
 DEVICE_SETTING_HEATMAP_WEIGHT_CURVES = {"linear", "soft", "strong"}
+DEVICE_SETTING_ESTIMATED_FIELD_RADII = {"small", "medium", "large"}
+DEVICE_SETTING_ESTIMATED_FIELD_QUALITIES = {"low", "medium", "high"}
+DEVICE_SETTING_ESTIMATED_FIELD_SMOOTHING = {"smooth", "balanced", "local"}
 UPDATE_SOURCE_FLAGS = {
     "Meteoclimatic": "create_meteoclimatic",
     "Meteocat": "create_meteocat",
@@ -174,6 +177,75 @@ def maplibre_heatmap_defaults() -> dict:
         "opacity": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY", 65, 0, 100) / 100,
         "radiusScale": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS", 90, 50, 300) / 100,
         "intensityScale": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_INTENSITY", 70, 20, 200) / 100,
+    }
+
+
+def number_env(name: str, default: float, minimum: float, maximum: float) -> float:
+    try:
+        configured = float(env(name, str(default)))
+    except ValueError:
+        configured = default
+    return max(minimum, min(maximum, configured))
+
+
+def int_env(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        configured = int(float(env(name, str(default))))
+    except ValueError:
+        configured = default
+    return max(minimum, min(maximum, configured))
+
+
+def option_env(name: str, default: str, valid_values: set[str]) -> str:
+    value = env(name, default).strip().lower()
+    return value if value in valid_values else default
+
+
+def maplibre_estimated_field_defaults() -> dict:
+    return {
+        "enabled": bool_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_ENABLED", False),
+        "opacity": percent_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_OPACITY", 65, 0, 100) / 100,
+        "radius": option_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS", "medium", DEVICE_SETTING_ESTIMATED_FIELD_RADII),
+        "quality": option_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_QUALITY", "medium", DEVICE_SETTING_ESTIMATED_FIELD_QUALITIES),
+        "smoothing": option_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING", "balanced", DEVICE_SETTING_ESTIMATED_FIELD_SMOOTHING),
+        "altitudeCorrection": bool_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_ALTITUDE_CORRECTION", False),
+    }
+
+
+def maplibre_estimated_field_config() -> dict:
+    return {
+        "defaults": maplibre_estimated_field_defaults(),
+        "radiusPx": {
+            "small": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_SMALL_PX", 80, 10, 1000),
+            "medium": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_MEDIUM_PX", 140, 10, 1000),
+            "large": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_LARGE_PX", 220, 10, 1000),
+        },
+        "maxRadiusKm": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_MAX_RADIUS_KM", 100, 1, 1000),
+        "grid": {
+            "low": {
+                "cols": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_COLS", 80, 10, 400),
+                "rows": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_ROWS", 50, 10, 300),
+            },
+            "medium": {
+                "cols": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_COLS", 120, 10, 500),
+                "rows": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_ROWS", 80, 10, 400),
+            },
+            "high": {
+                "cols": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_COLS", 180, 10, 700),
+                "rows": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_ROWS", 120, 10, 500),
+            },
+        },
+        "smoothingPower": {
+            "smooth": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_SMOOTH_POWER", 1, 0.1, 8),
+            "balanced": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_BALANCED_POWER", 2, 0.1, 8),
+            "local": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_LOCAL_POWER", 3, 0.1, 8),
+        },
+        "temperatureLapseRateCPer100m": number_env(
+            "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_C_PER_100M",
+            0.65,
+            0,
+            2,
+        ),
     }
 
 
@@ -1448,6 +1520,7 @@ def experimental_heatmap_config_js() -> str:
         "experimentalHeatmap": True,
         "hoverPopupMinZoom": maplibre_hover_zoom(),
         "heatmapDefaults": maplibre_heatmap_defaults(),
+        "estimatedField": maplibre_estimated_field_config(),
     }) + ";\n"
 
 
@@ -1798,7 +1871,7 @@ ROLE_DEFAULT_MAX_DEVICES = {
     "pro": 3,
     "admin": 0,
 }
-USER_PERMISSION_FIELDS = ("can_use_heatmap", "can_use_layer_metrics")
+USER_PERMISSION_FIELDS = ("can_use_heatmap", "can_use_layer_metrics", "can_use_estimated_field")
 
 
 def normalize_role(value: str) -> str:
@@ -1861,6 +1934,7 @@ def user_auth_payload(user: dict[str, str]) -> dict[str, object]:
         "role": role,
         "can_use_heatmap": user_permission_enabled(user, "can_use_heatmap"),
         "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
+        "can_use_estimated_field": user_permission_enabled(user, "can_use_estimated_field"),
     }
 
 
@@ -1928,6 +2002,7 @@ def write_users(users: dict[str, dict[str, str]]) -> None:
                 "must_change_password": user.get("must_change_password", "false").lower() == "true",
                 "can_use_heatmap": user_permission_enabled(user, "can_use_heatmap"),
                 "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
+                "can_use_estimated_field": user_permission_enabled(user, "can_use_estimated_field"),
             }
             for _username, user in sorted(users.items())
         ]
@@ -2030,6 +2105,30 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
     if heatmap_weight_curve in DEVICE_SETTING_HEATMAP_WEIGHT_CURVES:
         settings["heatmap_weight_curve"] = heatmap_weight_curve
 
+    if "estimated_field_enabled" in raw_settings:
+        settings["estimated_field_enabled"] = normalize_bool_flag(raw_settings.get("estimated_field_enabled")) == "true"
+
+    if "estimated_field_opacity" in raw_settings:
+        estimated_field_opacity = finite_number(raw_settings.get("estimated_field_opacity"), 0.65)
+        settings["estimated_field_opacity"] = max(0.0, min(1.0, estimated_field_opacity))
+
+    estimated_field_radius = str(raw_settings.get("estimated_field_radius", "")).strip()
+    if estimated_field_radius in DEVICE_SETTING_ESTIMATED_FIELD_RADII:
+        settings["estimated_field_radius"] = estimated_field_radius
+
+    estimated_field_quality = str(raw_settings.get("estimated_field_quality", "")).strip()
+    if estimated_field_quality in DEVICE_SETTING_ESTIMATED_FIELD_QUALITIES:
+        settings["estimated_field_quality"] = estimated_field_quality
+
+    estimated_field_smoothing = str(raw_settings.get("estimated_field_smoothing", "")).strip()
+    if estimated_field_smoothing in DEVICE_SETTING_ESTIMATED_FIELD_SMOOTHING:
+        settings["estimated_field_smoothing"] = estimated_field_smoothing
+
+    if "estimated_field_altitude_correction" in raw_settings:
+        settings["estimated_field_altitude_correction"] = (
+            normalize_bool_flag(raw_settings.get("estimated_field_altitude_correction")) == "true"
+        )
+
     map_view = raw_settings.get("map_view")
     if isinstance(map_view, dict):
         lng = finite_number(map_view.get("lng"), 999.0)
@@ -2119,6 +2218,7 @@ def create_user(
     max_devices: str,
     can_use_heatmap: str = "",
     can_use_layer_metrics: str = "",
+    can_use_estimated_field: str = "",
 ) -> str:
     user_id = normalize_user_id(username)
     if not user_id:
@@ -2150,6 +2250,11 @@ def create_user(
             if can_use_layer_metrics
             else default_user_permission(normalized_role, "can_use_layer_metrics")
         ),
+        "can_use_estimated_field": (
+            normalize_bool_flag(can_use_estimated_field)
+            if can_use_estimated_field
+            else default_user_permission(normalized_role, "can_use_estimated_field")
+        ),
     }
     write_users(users)
     return f"Created user {user_id}."
@@ -2164,6 +2269,7 @@ def update_user(
     max_devices: str,
     can_use_heatmap: str,
     can_use_layer_metrics: str,
+    can_use_estimated_field: str,
 ) -> str:
     user_id = normalize_user_id(username)
     users = read_users()
@@ -2181,6 +2287,7 @@ def update_user(
             "max_devices": str(parse_max_devices(max_devices, normalized_role)),
             "can_use_heatmap": normalize_bool_flag(can_use_heatmap),
             "can_use_layer_metrics": normalize_bool_flag(can_use_layer_metrics),
+            "can_use_estimated_field": normalize_bool_flag(can_use_estimated_field),
         }
     )
     write_users(users)
@@ -2425,6 +2532,7 @@ def auth_required_config_js() -> str:
                 "dataBase": "data/",
                 "hoverPopupMinZoom": maplibre_hover_zoom(),
                 "heatmapDefaults": maplibre_heatmap_defaults(),
+                "estimatedField": maplibre_estimated_field_config(),
             }
         )
         + ";\n"
@@ -2435,6 +2543,7 @@ def public_viewer_config_js() -> str:
     return "window.RAINMAPPER_CONFIG = " + json.dumps({
         "hoverPopupMinZoom": maplibre_hover_zoom(),
         "heatmapDefaults": maplibre_heatmap_defaults(),
+        "estimatedField": maplibre_estimated_field_config(),
     }) + ";\n"
 
 
@@ -2576,6 +2685,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             role = normalize_role(user.get("role", "free"))
             can_use_heatmap = user_permission_enabled(user, "can_use_heatmap")
             can_use_layer_metrics = user_permission_enabled(user, "can_use_layer_metrics")
+            can_use_estimated_field = user_permission_enabled(user, "can_use_estimated_field")
             password_state = (
                 '<span class="danger">Change required</span>'
                 if user.get("must_change_password", "false").lower() == "true"
@@ -2621,6 +2731,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     "enabled" if enabled == "true" else "disabled",
                     "heatmap" if can_use_heatmap else "no heatmap",
                     "metrics" if can_use_layer_metrics else "no metrics",
+                    "estimated field" if can_use_estimated_field else "no estimated field",
                     "change required" if user.get("must_change_password", "false").lower() == "true" else "current",
                     max_devices,
                     str(len(user_devices)),
@@ -2647,6 +2758,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 f'<div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="{html.escape(max_devices, quote=True)}"></div>'
                 f'<div class="admin-field"><label><input name="can_use_heatmap" type="checkbox" value="true"{checked_attr(can_use_heatmap)}> Heatmap access</label></div>'
                 f'<div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"{checked_attr(can_use_layer_metrics)}> Metric selector access</label></div>'
+                f'<div class="admin-field"><label><input name="can_use_estimated_field" type="checkbox" value="true"{checked_attr(can_use_estimated_field)}> Estimated field access</label></div>'
                 "</div>"
                 '<button class="primary">Save user</button>'
                 "</form>"
@@ -2715,6 +2827,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
               <div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="1"></div>
               <div class="admin-field"><label><input name="can_use_heatmap" type="checkbox" value="true"> Heatmap access</label></div>
               <div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"> Metric selector access</label></div>
+              <div class="admin-field"><label><input name="can_use_estimated_field" type="checkbox" value="true"> Estimated field access</label></div>
             </div>
             <button class="primary">Create user</button>
           </form>
@@ -2881,6 +2994,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "max_devices"),
                 self.form_value(form, "can_use_heatmap"),
                 self.form_value(form, "can_use_layer_metrics"),
+                self.form_value(form, "can_use_estimated_field"),
             )
         elif admin_action == "update_user":
             message = update_user(
@@ -2892,6 +3006,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "max_devices"),
                 self.form_value(form, "can_use_heatmap"),
                 self.form_value(form, "can_use_layer_metrics"),
+                self.form_value(form, "can_use_estimated_field"),
             )
         elif admin_action == "set_password":
             message = set_admin_user_password(

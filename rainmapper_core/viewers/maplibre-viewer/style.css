@@ -737,7 +737,8 @@ main {
   color: #ffffff;
 }
 
-.heatmap-toggle[aria-pressed="true"] {
+.heatmap-toggle[aria-pressed="true"],
+.estimated-field-toggle[aria-pressed="true"] {
   background: #dff4ff;
   border-color: rgba(28, 159, 234, 0.45);
   color: #076caa;
@@ -759,7 +760,8 @@ main {
 
 .quick-map-toggle svg,
 .quick-metric-toggle svg,
-.heatmap-toggle svg {
+.heatmap-toggle svg,
+.estimated-field-toggle svg {
   display: block;
   height: 24px;
   overflow: visible;
@@ -1013,6 +1015,18 @@ main {
   font-size: 13px;
   gap: 10px;
   justify-content: space-between;
+}
+
+.map-settings-check {
+  align-items: center;
+  display: flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+}
+
+.map-settings-check input {
+  accent-color: var(--accent);
 }
 
 .map-settings output {

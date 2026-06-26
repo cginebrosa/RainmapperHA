@@ -10,7 +10,8 @@
       "max_devices": 1,
       "must_change_password": false,
       "can_use_heatmap": false,
-      "can_use_layer_metrics": false
+      "can_use_layer_metrics": false,
+      "can_use_estimated_field": false
     },
     {
       "username": "friend",
@@ -22,7 +23,8 @@
       "max_devices": 2,
       "must_change_password": false,
       "can_use_heatmap": false,
-      "can_use_layer_metrics": false
+      "can_use_layer_metrics": false,
+      "can_use_estimated_field": false
     },
     {
       "username": "admin",
@@ -34,7 +36,8 @@
       "max_devices": 0,
       "must_change_password": false,
       "can_use_heatmap": true,
-      "can_use_layer_metrics": true
+      "can_use_layer_metrics": true,
+      "can_use_estimated_field": true
     }
   ]
 }

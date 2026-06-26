@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.137"
+version: "0.2.138"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -48,6 +48,26 @@ options:
   maplibre_heatmap_opacity: 65
   maplibre_heatmap_radius: 90
   maplibre_heatmap_intensity: 70
+  maplibre_estimated_field_enabled: false
+  maplibre_estimated_field_opacity: 65
+  maplibre_estimated_field_radius: medium
+  maplibre_estimated_field_quality: medium
+  maplibre_estimated_field_smoothing: balanced
+  maplibre_estimated_field_altitude_correction: false
+  maplibre_estimated_field_radius_small_px: 80
+  maplibre_estimated_field_radius_medium_px: 140
+  maplibre_estimated_field_radius_large_px: 220
+  maplibre_estimated_field_max_radius_km: 100
+  maplibre_estimated_field_grid_low_cols: 80
+  maplibre_estimated_field_grid_low_rows: 50
+  maplibre_estimated_field_grid_medium_cols: 120
+  maplibre_estimated_field_grid_medium_rows: 80
+  maplibre_estimated_field_grid_high_cols: 180
+  maplibre_estimated_field_grid_high_rows: 120
+  maplibre_estimated_field_smoothing_smooth_power: 1
+  maplibre_estimated_field_smoothing_balanced_power: 2
+  maplibre_estimated_field_smoothing_local_power: 3
+  maplibre_estimated_field_temperature_lapse_rate_c_per_100m: 0.65
   max_threads: 3
   max_attempts: 3
   wunderground_full_log: false
@@ -79,6 +99,26 @@ schema:
   maplibre_heatmap_opacity: int
   maplibre_heatmap_radius: int
   maplibre_heatmap_intensity: int
+  maplibre_estimated_field_enabled: bool
+  maplibre_estimated_field_opacity: int
+  maplibre_estimated_field_radius: list(small|medium|large)
+  maplibre_estimated_field_quality: list(low|medium|high)
+  maplibre_estimated_field_smoothing: list(smooth|balanced|local)
+  maplibre_estimated_field_altitude_correction: bool
+  maplibre_estimated_field_radius_small_px: int
+  maplibre_estimated_field_radius_medium_px: int
+  maplibre_estimated_field_radius_large_px: int
+  maplibre_estimated_field_max_radius_km: float
+  maplibre_estimated_field_grid_low_cols: int
+  maplibre_estimated_field_grid_low_rows: int
+  maplibre_estimated_field_grid_medium_cols: int
+  maplibre_estimated_field_grid_medium_rows: int
+  maplibre_estimated_field_grid_high_cols: int
+  maplibre_estimated_field_grid_high_rows: int
+  maplibre_estimated_field_smoothing_smooth_power: float
+  maplibre_estimated_field_smoothing_balanced_power: float
+  maplibre_estimated_field_smoothing_local_power: float
+  maplibre_estimated_field_temperature_lapse_rate_c_per_100m: float
   max_threads: int
   max_attempts: int
   wunderground_full_log: bool

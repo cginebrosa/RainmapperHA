@@ -35,6 +35,8 @@ const INITIAL_ZOOM = 7;
 const SOURCE_ID = "stations";
 const HEATMAP_SOURCE_ID = "stations-heatmap";
 const HEATMAP_LAYER_ID = "station-rain-heatmap";
+const ESTIMATED_FIELD_SOURCE_ID = "estimated-field";
+const ESTIMATED_FIELD_LAYER_ID = "station-estimated-field";
 const CIRCLE_LAYER_ID = "station-circles";
 const TERRAIN_SOURCE_ID = "rainmapper-terrain-dem";
 const TERRAIN_TILES = [
@@ -54,6 +56,26 @@ const DEFAULT_HEATMAP_INTENSITY_SCALE = clampNumber(Number(configuredHeatmapDefa
 const DEFAULT_HEATMAP_WEIGHT_CURVE = ["linear", "soft", "strong"].includes(configuredHeatmapDefaults.weightCurve)
   ? configuredHeatmapDefaults.weightCurve
   : "soft";
+const configuredEstimatedField = viewerConfig.estimatedField || {};
+const configuredEstimatedFieldDefaults = configuredEstimatedField.defaults || {};
+const ESTIMATED_FIELD_RADIUS_OPTIONS = ["small", "medium", "large"];
+const ESTIMATED_FIELD_QUALITY_OPTIONS = ["low", "medium", "high"];
+const ESTIMATED_FIELD_SMOOTHING_OPTIONS = ["smooth", "balanced", "local"];
+const DEFAULT_ESTIMATED_FIELD_ENABLED = Boolean(configuredEstimatedFieldDefaults.enabled);
+const DEFAULT_ESTIMATED_FIELD_OPACITY = clampNumber(Number(configuredEstimatedFieldDefaults.opacity), 0, 1, 0.65);
+const DEFAULT_ESTIMATED_FIELD_RADIUS = ESTIMATED_FIELD_RADIUS_OPTIONS.includes(configuredEstimatedFieldDefaults.radius)
+  ? configuredEstimatedFieldDefaults.radius
+  : "medium";
+const DEFAULT_ESTIMATED_FIELD_QUALITY = ESTIMATED_FIELD_QUALITY_OPTIONS.includes(configuredEstimatedFieldDefaults.quality)
+  ? configuredEstimatedFieldDefaults.quality
+  : "medium";
+const DEFAULT_ESTIMATED_FIELD_SMOOTHING = ESTIMATED_FIELD_SMOOTHING_OPTIONS.includes(configuredEstimatedFieldDefaults.smoothing)
+  ? configuredEstimatedFieldDefaults.smoothing
+  : "balanced";
+const DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION = Boolean(configuredEstimatedFieldDefaults.altitudeCorrection);
+const estimatedFieldRadiusPxConfig = configuredEstimatedField.radiusPx || {};
+const estimatedFieldGridConfig = configuredEstimatedField.grid || {};
+const estimatedFieldSmoothingPowerConfig = configuredEstimatedField.smoothingPower || {};
 const stationSources = [
   { id: "Meteocat", label: "Meteocat" },
   { id: "Meteoclimatic", label: "Meteoclimatic" },
@@ -277,6 +299,13 @@ let heatmapOpacity = DEFAULT_HEATMAP_OPACITY;
 let heatmapRadiusScale = DEFAULT_HEATMAP_RADIUS_SCALE;
 let heatmapIntensityScale = DEFAULT_HEATMAP_INTENSITY_SCALE;
 let heatmapWeightCurve = DEFAULT_HEATMAP_WEIGHT_CURVE;
+let estimatedFieldEnabled = DEFAULT_ESTIMATED_FIELD_ENABLED;
+let estimatedFieldOpacity = DEFAULT_ESTIMATED_FIELD_OPACITY;
+let estimatedFieldRadius = DEFAULT_ESTIMATED_FIELD_RADIUS;
+let estimatedFieldQuality = DEFAULT_ESTIMATED_FIELD_QUALITY;
+let estimatedFieldSmoothing = DEFAULT_ESTIMATED_FIELD_SMOOTHING;
+let estimatedFieldAltitudeCorrection = DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION;
+let estimatedFieldUpdateTimer = null;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let authState = loadStoredAuthState();
@@ -306,6 +335,10 @@ function canUseHeatmap() {
 
 function canUseLayerMetrics() {
   return EXPERIMENTAL_HEATMAP || (AUTH_REQUIRED && authPermissionEnabled("canUseLayerMetrics"));
+}
+
+function canUseEstimatedField() {
+  return AUTH_REQUIRED && authPermissionEnabled("canUseEstimatedField");
 }
 
 function browserLanguage() {
@@ -450,6 +483,12 @@ function applyLanguage(language = currentLanguage) {
   setLabelText("heatmap-opacity-filter", t("heatmapOpacity"));
   setLabelText("heatmap-radius-filter", t("heatmapRadius"));
   setLabelText("heatmap-intensity-filter", t("heatmapIntensity"));
+  setText("#estimated-field-enabled-toggle + span", t("estimatedField"));
+  setLabelText("estimated-field-opacity-filter", t("estimatedFieldOpacity"));
+  setLabelText("estimated-field-radius-selector", t("estimatedFieldRadius"));
+  setLabelText("estimated-field-quality-selector", t("estimatedFieldQuality"));
+  setLabelText("estimated-field-smoothing-selector", t("estimatedFieldSmoothing"));
+  setText("#estimated-field-altitude-correction-toggle + span", t("estimatedFieldAltitudeCorrection"));
   setLabelText("terrain-exaggeration", t("exaggeration"));
   setText("#layer-switcher legend", t("map"));
   setText(".source-settings-group legend", t("source"));
@@ -458,6 +497,8 @@ function applyLanguage(language = currentLanguage) {
   setText("#settings-tab-general", t("settingsGeneral"));
   setText("#settings-tab-heatmap", t("heatmap"));
   setText("#reset-heatmap-defaults", t("resetHeatmapDefaults"));
+  setText("#settings-tab-estimated-field", t("estimatedField"));
+  setText("#reset-estimated-field-defaults", t("resetEstimatedFieldDefaults"));
   setText("#settings-tab-sources", t("sources"));
   setText("#settings-tab-terrain", t("terrain"));
   setText("#terrain-toggle + span", t("terrain3d"));
@@ -480,6 +521,7 @@ function applyLanguage(language = currentLanguage) {
     ["#quick-map-toggle", "mapLayer"],
     ["#quick-metric-toggle", "layerMetric"],
     ["#heatmap-toggle", "heatmap"],
+    ["#estimated-field-toggle", "estimatedField"],
     ["#north-toggle", "faceNorth"],
     ["#info-toggle", "mapCredits"],
     ["#help-toggle", "mapHelp"],
@@ -714,6 +756,7 @@ async function validateStoredSession() {
         role: payload.user.role,
         canUseHeatmap: payload.user.can_use_heatmap === true,
         canUseLayerMetrics: payload.user.can_use_layer_metrics === true,
+        canUseEstimatedField: payload.user.can_use_estimated_field === true,
       });
     }
   } else {
@@ -779,6 +822,7 @@ function saveAuthenticatedPayload(payload) {
     role: payload.role,
     canUseHeatmap: payload.can_use_heatmap === true,
     canUseLayerMetrics: payload.can_use_layer_metrics === true,
+    canUseEstimatedField: payload.can_use_estimated_field === true,
   });
 }
 
@@ -787,6 +831,7 @@ function updateSignedInUser() {
   const value = document.getElementById("signed-in-user-value");
   if (!container || !value) {
     syncHeatmapAccessUi();
+    syncEstimatedFieldAccessUi();
     return;
   }
   const username = String(authState.username || "").trim();
@@ -798,11 +843,13 @@ function updateSignedInUser() {
     container.hidden = true;
     value.textContent = "-";
     syncHeatmapAccessUi();
+    syncEstimatedFieldAccessUi();
     return;
   }
   value.textContent = role ? `${displayName} (${role})` : displayName;
   container.hidden = false;
   syncHeatmapAccessUi();
+  syncEstimatedFieldAccessUi();
 }
 
 function selectedPeriodFileName() {
@@ -905,6 +952,14 @@ function currentDeviceSettings() {
     settings.heatmap_radius_scale = heatmapRadiusScale;
     settings.heatmap_intensity_scale = heatmapIntensityScale;
     settings.heatmap_weight_curve = heatmapWeightCurve;
+  }
+  if (canUseEstimatedField()) {
+    settings.estimated_field_enabled = estimatedFieldEnabled;
+    settings.estimated_field_opacity = estimatedFieldOpacity;
+    settings.estimated_field_radius = estimatedFieldRadius;
+    settings.estimated_field_quality = estimatedFieldQuality;
+    settings.estimated_field_smoothing = estimatedFieldSmoothing;
+    settings.estimated_field_altitude_correction = estimatedFieldAltitudeCorrection;
   }
   if (savedMapView) {
     settings.map_view = savedMapView;
@@ -1103,6 +1158,41 @@ async function applyDeviceSettings(settings) {
       }
     } else {
       heatmapEnabled = false;
+    }
+
+    if (canUseEstimatedField()) {
+      if (typeof settings.estimated_field_enabled === "boolean") {
+        estimatedFieldEnabled = settings.estimated_field_enabled;
+      }
+
+      const savedEstimatedFieldOpacity = Number(settings.estimated_field_opacity);
+      if (Number.isFinite(savedEstimatedFieldOpacity)) {
+        estimatedFieldOpacity = Math.max(0, Math.min(1, savedEstimatedFieldOpacity));
+      }
+
+      if (ESTIMATED_FIELD_RADIUS_OPTIONS.includes(settings.estimated_field_radius)) {
+        estimatedFieldRadius = settings.estimated_field_radius;
+      }
+      if (ESTIMATED_FIELD_QUALITY_OPTIONS.includes(settings.estimated_field_quality)) {
+        estimatedFieldQuality = settings.estimated_field_quality;
+      }
+      if (ESTIMATED_FIELD_SMOOTHING_OPTIONS.includes(settings.estimated_field_smoothing)) {
+        estimatedFieldSmoothing = settings.estimated_field_smoothing;
+      }
+      if (typeof settings.estimated_field_altitude_correction === "boolean") {
+        estimatedFieldAltitudeCorrection = settings.estimated_field_altitude_correction;
+      }
+      const enabledToggle = document.getElementById("estimated-field-enabled-toggle");
+      const opacitySlider = document.getElementById("estimated-field-opacity-filter");
+      const altitudeToggle = document.getElementById("estimated-field-altitude-correction-toggle");
+      if (enabledToggle) enabledToggle.checked = estimatedFieldEnabled;
+      if (opacitySlider) opacitySlider.value = String(Math.round(estimatedFieldOpacity * 100));
+      if (altitudeToggle) altitudeToggle.checked = estimatedFieldAltitudeCorrection;
+      renderEstimatedFieldSelectors();
+      updateEstimatedFieldOpacityValue();
+      updateEstimatedFieldToggle();
+    } else {
+      estimatedFieldEnabled = false;
     }
 
     const loadedMapView = sanitizeClientMapView(settings.map_view);
@@ -1559,9 +1649,332 @@ function syncHeatmapAccessUi() {
   setQuickMetricControlsFromMetric();
 }
 
+function estimatedFieldGridSize() {
+  const fallback = { cols: 120, rows: 80 };
+  const configured = estimatedFieldGridConfig[estimatedFieldQuality] || fallback;
+  return {
+    cols: Math.max(10, Math.min(700, Math.round(Number(configured.cols) || fallback.cols))),
+    rows: Math.max(10, Math.min(500, Math.round(Number(configured.rows) || fallback.rows))),
+  };
+}
+
+function estimatedFieldRadiusPx() {
+  const fallback = { small: 80, medium: 140, large: 220 };
+  return clampNumber(
+    Number(estimatedFieldRadiusPxConfig[estimatedFieldRadius]),
+    10,
+    1000,
+    fallback[estimatedFieldRadius] || fallback.medium,
+  );
+}
+
+function estimatedFieldSmoothingPower() {
+  const fallback = { smooth: 1, balanced: 2, local: 3 };
+  return clampNumber(
+    Number(estimatedFieldSmoothingPowerConfig[estimatedFieldSmoothing]),
+    0.1,
+    8,
+    fallback[estimatedFieldSmoothing] || fallback.balanced,
+  );
+}
+
+function estimatedFieldMaxRadiusKm() {
+  return clampNumber(Number(configuredEstimatedField.maxRadiusKm), 1, 1000, 100);
+}
+
+function estimatedFieldTemperatureLapseRate() {
+  return clampNumber(Number(configuredEstimatedField.temperatureLapseRateCPer100m), 0, 2, 0.65);
+}
+
+function isTemperatureMetric(metric) {
+  return metric.id === "max_temp" || metric.id === "min_temp";
+}
+
+function featureAltitude(feature) {
+  return parseOptionalNumber(feature.properties?.["Altitud"] ?? feature.properties?.Altitude ?? feature.properties?.altitude);
+}
+
+function haversineKm(leftLngLat, rightLngLat) {
+  const earthRadiusKm = 6371;
+  const toRadians = (degrees) => degrees * Math.PI / 180;
+  const leftLat = toRadians(leftLngLat.lat);
+  const rightLat = toRadians(rightLngLat.lat);
+  const deltaLat = toRadians(rightLngLat.lat - leftLngLat.lat);
+  const deltaLng = toRadians(rightLngLat.lng - leftLngLat.lng);
+  const halfChord = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(leftLat) * Math.cos(rightLat) * Math.sin(deltaLng / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(halfChord), Math.sqrt(1 - halfChord));
+}
+
+function removeEstimatedFieldLayer() {
+  if (map.getLayer(ESTIMATED_FIELD_LAYER_ID)) {
+    map.removeLayer(ESTIMATED_FIELD_LAYER_ID);
+  }
+  if (map.getSource(ESTIMATED_FIELD_SOURCE_ID)) {
+    map.removeSource(ESTIMATED_FIELD_SOURCE_ID);
+  }
+}
+
+function estimatedFieldUsableFeatures(features, metric = selectedLayerMetric()) {
+  return features
+    .map((feature) => ({
+      feature,
+      value: featureMetricValue(feature, metric),
+      coordinates: feature.geometry?.coordinates,
+      altitude: featureAltitude(feature),
+    }))
+    .filter((item) => (
+      Number.isFinite(item.value)
+      && Array.isArray(item.coordinates)
+      && Number.isFinite(Number(item.coordinates[0]))
+      && Number.isFinite(Number(item.coordinates[1]))
+    ));
+}
+
+function estimateFieldCellValue(cellLngLat, cellPoint, stations, radiusPx, maxRadiusKm, power, metric) {
+  let weightedValue = 0;
+  let totalWeight = 0;
+  let weightedAltitude = 0;
+  let totalAltitudeWeight = 0;
+  const nearby = [];
+
+  stations.forEach((station) => {
+    const stationPoint = station.point;
+    const pixelDistance = Math.hypot(stationPoint.x - cellPoint.x, stationPoint.y - cellPoint.y);
+    if (pixelDistance > radiusPx) {
+      return;
+    }
+    const stationLngLat = { lng: Number(station.coordinates[0]), lat: Number(station.coordinates[1]) };
+    if (haversineKm(cellLngLat, stationLngLat) > maxRadiusKm) {
+      return;
+    }
+    const weight = 1 / (Math.max(pixelDistance, 1) ** power);
+    nearby.push({ ...station, weight });
+    if (Number.isFinite(station.altitude)) {
+      weightedAltitude += station.altitude * weight;
+      totalAltitudeWeight += weight;
+    }
+  });
+
+  if (nearby.length === 0) {
+    return null;
+  }
+
+  const targetAltitude = totalAltitudeWeight > 0 ? weightedAltitude / totalAltitudeWeight : null;
+  const applyAltitudeCorrection = estimatedFieldAltitudeCorrection
+    && isTemperatureMetric(metric)
+    && Number.isFinite(targetAltitude);
+  const lapseRate = estimatedFieldTemperatureLapseRate();
+
+  nearby.forEach((station) => {
+    let value = station.value;
+    if (applyAltitudeCorrection && Number.isFinite(station.altitude)) {
+      value += ((station.altitude - targetAltitude) / 100) * lapseRate;
+    }
+    weightedValue += value * station.weight;
+    totalWeight += station.weight;
+  });
+
+  return totalWeight > 0 ? weightedValue / totalWeight : null;
+}
+
+function buildEstimatedFieldData(features) {
+  if (!canUseEstimatedField() || !estimatedFieldEnabled || !map?.isStyleLoaded()) {
+    return { type: "FeatureCollection", features: [] };
+  }
+  const metric = selectedLayerMetric();
+  const stations = estimatedFieldUsableFeatures(features, metric)
+    .map((station) => ({
+      ...station,
+      point: map.project(station.coordinates),
+    }));
+  if (stations.length === 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
+
+  const canvas = map.getCanvas();
+  const width = canvas.clientWidth || canvas.width || 0;
+  const height = canvas.clientHeight || canvas.height || 0;
+  if (width <= 0 || height <= 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
+
+  const { cols, rows } = estimatedFieldGridSize();
+  const cellWidth = width / cols;
+  const cellHeight = height / rows;
+  const radiusPx = estimatedFieldRadiusPx();
+  const maxRadiusKm = estimatedFieldMaxRadiusKm();
+  const power = estimatedFieldSmoothingPower();
+  const estimatedFeatures = [];
+
+  for (let row = 0; row < rows; row += 1) {
+    const top = row * cellHeight;
+    const bottom = (row + 1) * cellHeight;
+    for (let col = 0; col < cols; col += 1) {
+      const left = col * cellWidth;
+      const right = (col + 1) * cellWidth;
+      const centerPoint = { x: left + cellWidth / 2, y: top + cellHeight / 2 };
+      const centerLngLat = map.unproject([centerPoint.x, centerPoint.y]);
+      const value = estimateFieldCellValue(centerLngLat, centerPoint, stations, radiusPx, maxRadiusKm, power, metric);
+      if (!Number.isFinite(value)) {
+        continue;
+      }
+      const topLeft = map.unproject([left, top]);
+      const topRight = map.unproject([right, top]);
+      const bottomRight = map.unproject([right, bottom]);
+      const bottomLeft = map.unproject([left, bottom]);
+      estimatedFeatures.push({
+        type: "Feature",
+        properties: {
+          value,
+          color: metricColor(value),
+        },
+        geometry: {
+          type: "Polygon",
+          coordinates: [[
+            [topLeft.lng, topLeft.lat],
+            [topRight.lng, topRight.lat],
+            [bottomRight.lng, bottomRight.lat],
+            [bottomLeft.lng, bottomLeft.lat],
+            [topLeft.lng, topLeft.lat],
+          ]],
+        },
+      });
+    }
+  }
+
+  return { type: "FeatureCollection", features: estimatedFeatures };
+}
+
+function updateEstimatedFieldLayer({ immediate = false } = {}) {
+  if (estimatedFieldUpdateTimer) {
+    window.clearTimeout(estimatedFieldUpdateTimer);
+    estimatedFieldUpdateTimer = null;
+  }
+  const run = () => {
+    if (!map?.isStyleLoaded()) {
+      return;
+    }
+    if (!canUseEstimatedField() || !estimatedFieldEnabled) {
+      removeEstimatedFieldLayer();
+      return;
+    }
+    const data = buildEstimatedFieldData(currentVisibleFeatures);
+    if (!map.getSource(ESTIMATED_FIELD_SOURCE_ID)) {
+      map.addSource(ESTIMATED_FIELD_SOURCE_ID, {
+        type: "geojson",
+        data,
+      });
+      map.addLayer({
+        id: ESTIMATED_FIELD_LAYER_ID,
+        type: "fill",
+        source: ESTIMATED_FIELD_SOURCE_ID,
+        paint: {
+          "fill-color": ["get", "color"],
+          "fill-opacity": estimatedFieldOpacity,
+          "fill-outline-color": "rgba(255,255,255,0)",
+        },
+      });
+      return;
+    }
+    map.getSource(ESTIMATED_FIELD_SOURCE_ID).setData(data);
+    if (map.getLayer(ESTIMATED_FIELD_LAYER_ID)) {
+      map.setPaintProperty(ESTIMATED_FIELD_LAYER_ID, "fill-opacity", estimatedFieldOpacity);
+    }
+  };
+
+  if (immediate) {
+    run();
+  } else {
+    estimatedFieldUpdateTimer = window.setTimeout(run, 180);
+  }
+}
+
+function updateEstimatedFieldToggle() {
+  const toggle = document.getElementById("estimated-field-toggle");
+  if (!toggle) {
+    return;
+  }
+  toggle.hidden = !canUseEstimatedField();
+  toggle.setAttribute("aria-pressed", String(estimatedFieldEnabled));
+}
+
+function updateEstimatedFieldOpacityValue() {
+  const output = document.getElementById("estimated-field-opacity-value");
+  if (output) {
+    output.textContent = `${Math.round(estimatedFieldOpacity * 100)}%`;
+  }
+}
+
+function renderEstimatedFieldSelectors() {
+  const radiusSelector = document.getElementById("estimated-field-radius-selector");
+  const qualitySelector = document.getElementById("estimated-field-quality-selector");
+  const smoothingSelector = document.getElementById("estimated-field-smoothing-selector");
+  if (radiusSelector) {
+    radiusSelector.querySelector('option[value="small"]').textContent = t("estimatedFieldRadiusSmall");
+    radiusSelector.querySelector('option[value="medium"]').textContent = t("estimatedFieldRadiusMedium");
+    radiusSelector.querySelector('option[value="large"]').textContent = t("estimatedFieldRadiusLarge");
+    radiusSelector.value = estimatedFieldRadius;
+  }
+  if (qualitySelector) {
+    qualitySelector.querySelector('option[value="low"]').textContent = t("estimatedFieldQualityLow");
+    qualitySelector.querySelector('option[value="medium"]').textContent = t("estimatedFieldQualityMedium");
+    qualitySelector.querySelector('option[value="high"]').textContent = t("estimatedFieldQualityHigh");
+    qualitySelector.value = estimatedFieldQuality;
+  }
+  if (smoothingSelector) {
+    smoothingSelector.querySelector('option[value="smooth"]').textContent = t("estimatedFieldSmoothingSmooth");
+    smoothingSelector.querySelector('option[value="balanced"]').textContent = t("estimatedFieldSmoothingBalanced");
+    smoothingSelector.querySelector('option[value="local"]').textContent = t("estimatedFieldSmoothingLocal");
+    smoothingSelector.value = estimatedFieldSmoothing;
+  }
+}
+
+function applyEstimatedFieldDefaults() {
+  estimatedFieldEnabled = DEFAULT_ESTIMATED_FIELD_ENABLED;
+  estimatedFieldOpacity = DEFAULT_ESTIMATED_FIELD_OPACITY;
+  estimatedFieldRadius = DEFAULT_ESTIMATED_FIELD_RADIUS;
+  estimatedFieldQuality = DEFAULT_ESTIMATED_FIELD_QUALITY;
+  estimatedFieldSmoothing = DEFAULT_ESTIMATED_FIELD_SMOOTHING;
+  estimatedFieldAltitudeCorrection = DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION;
+  const enabledToggle = document.getElementById("estimated-field-enabled-toggle");
+  const opacitySlider = document.getElementById("estimated-field-opacity-filter");
+  const altitudeToggle = document.getElementById("estimated-field-altitude-correction-toggle");
+  if (enabledToggle) enabledToggle.checked = estimatedFieldEnabled;
+  if (opacitySlider) opacitySlider.value = String(Math.round(estimatedFieldOpacity * 100));
+  if (altitudeToggle) altitudeToggle.checked = estimatedFieldAltitudeCorrection;
+  renderEstimatedFieldSelectors();
+  updateEstimatedFieldOpacityValue();
+  updateEstimatedFieldToggle();
+}
+
+function syncEstimatedFieldAccessUi() {
+  const estimatedAllowed = canUseEstimatedField();
+  const settingsTab = document.getElementById("settings-tab-estimated-field");
+  const settingsSection = document.getElementById("estimated-field-settings");
+  const generalSettingsTab = document.getElementById("settings-tab-general");
+  const activeTab = settingsTab?.classList.contains("is-active");
+  if (!estimatedAllowed) {
+    estimatedFieldEnabled = false;
+    removeEstimatedFieldLayer();
+  }
+  if (settingsTab) {
+    settingsTab.hidden = !estimatedAllowed;
+  }
+  if (settingsSection) {
+    settingsSection.hidden = !estimatedAllowed;
+  }
+  if (!estimatedAllowed && activeTab && generalSettingsTab) {
+    generalSettingsTab.click();
+  }
+  updateEstimatedFieldToggle();
+  renderEstimatedFieldSelectors();
+}
+
 function refreshMetricStyling() {
   if (!currentVisibleFeatures.length) {
     updateMetricLegend();
+    updateEstimatedFieldLayer();
     return;
   }
   setQuickMetricControlsFromMetric();
@@ -2101,6 +2514,7 @@ function addStationLayer() {
   if (map.getLayer(HEATMAP_LAYER_ID)) {
     map.removeLayer(HEATMAP_LAYER_ID);
   }
+  removeEstimatedFieldLayer();
   if (map.getSource(SOURCE_ID)) {
     map.removeSource(SOURCE_ID);
   }
@@ -2164,6 +2578,7 @@ function addStationLayer() {
       },
     });
   }
+  updateEstimatedFieldLayer({ immediate: true });
   applyTerrain();
   return true;
 }
@@ -3063,6 +3478,7 @@ function renderSettingsPanel() {
   const northToggle = document.getElementById("north-toggle");
   const infoToggle = document.getElementById("info-toggle");
   const heatmapToggle = document.getElementById("heatmap-toggle");
+  const estimatedFieldToggle = document.getElementById("estimated-field-toggle");
   const attributionPanel = document.getElementById("map-attribution");
   const helpToggle = document.getElementById("help-toggle");
   const helpPanel = document.getElementById("map-help");
@@ -3081,6 +3497,15 @@ function renderSettingsPanel() {
   const heatmapRadiusSlider = document.getElementById("heatmap-radius-filter");
   const heatmapIntensitySlider = document.getElementById("heatmap-intensity-filter");
   const resetHeatmapDefaultsButton = document.getElementById("reset-heatmap-defaults");
+  const estimatedFieldSettings = document.getElementById("estimated-field-settings");
+  const estimatedFieldSettingsTab = document.getElementById("settings-tab-estimated-field");
+  const estimatedFieldEnabledToggle = document.getElementById("estimated-field-enabled-toggle");
+  const estimatedFieldOpacitySlider = document.getElementById("estimated-field-opacity-filter");
+  const estimatedFieldRadiusSelector = document.getElementById("estimated-field-radius-selector");
+  const estimatedFieldQualitySelector = document.getElementById("estimated-field-quality-selector");
+  const estimatedFieldSmoothingSelector = document.getElementById("estimated-field-smoothing-selector");
+  const estimatedFieldAltitudeCorrectionToggle = document.getElementById("estimated-field-altitude-correction-toggle");
+  const resetEstimatedFieldDefaultsButton = document.getElementById("reset-estimated-field-defaults");
   const terrainToggle = document.getElementById("terrain-toggle");
   const terrainSlider = document.getElementById("terrain-exaggeration");
   const terrainModeToggle = document.getElementById("terrain-mode-toggle");
@@ -3091,6 +3516,12 @@ function renderSettingsPanel() {
   }
   if (heatmapSettingsTab) {
     heatmapSettingsTab.hidden = !canUseHeatmap();
+  }
+  if (estimatedFieldSettings) {
+    estimatedFieldSettings.hidden = !canUseEstimatedField();
+  }
+  if (estimatedFieldSettingsTab) {
+    estimatedFieldSettingsTab.hidden = !canUseEstimatedField();
   }
   const layerMetricRow = layerMetricSelector?.closest(".map-settings-row");
   if (layerMetricRow) {
@@ -3111,6 +3542,16 @@ function renderSettingsPanel() {
   updateHeatmapOpacityValue();
   updateHeatmapRadiusValue();
   updateHeatmapIntensityValue();
+  if (estimatedFieldEnabledToggle) estimatedFieldEnabledToggle.checked = estimatedFieldEnabled;
+  if (estimatedFieldOpacitySlider) {
+    estimatedFieldOpacitySlider.value = String(Math.round(estimatedFieldOpacity * 100));
+  }
+  if (estimatedFieldAltitudeCorrectionToggle) {
+    estimatedFieldAltitudeCorrectionToggle.checked = estimatedFieldAltitudeCorrection;
+  }
+  renderEstimatedFieldSelectors();
+  updateEstimatedFieldOpacityValue();
+  updateEstimatedFieldToggle();
 
   const showSettingsTab = (tabName) => {
     settingsTabs.forEach((tab) => {
@@ -3174,6 +3615,20 @@ function renderSettingsPanel() {
     markDeviceSettingsChanged();
     updateHeatmapToggle();
     refreshMetricStyling();
+  });
+
+  estimatedFieldToggle?.addEventListener("click", () => {
+    if (!canUseEstimatedField()) {
+      return;
+    }
+    estimatedFieldEnabled = !estimatedFieldEnabled;
+    const enabledToggle = document.getElementById("estimated-field-enabled-toggle");
+    if (enabledToggle) {
+      enabledToggle.checked = estimatedFieldEnabled;
+    }
+    markDeviceSettingsChanged();
+    updateEstimatedFieldToggle();
+    updateEstimatedFieldLayer({ immediate: true });
   });
 
   infoToggle.addEventListener("click", () => {
@@ -3265,6 +3720,59 @@ function renderSettingsPanel() {
     addStationLayer();
   });
 
+  estimatedFieldEnabledToggle?.addEventListener("change", (event) => {
+    estimatedFieldEnabled = event.target.checked;
+    markDeviceSettingsChanged();
+    updateEstimatedFieldToggle();
+    updateEstimatedFieldLayer({ immediate: true });
+  });
+
+  estimatedFieldOpacitySlider?.addEventListener("input", (event) => {
+    estimatedFieldOpacity = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+    markDeviceSettingsChanged();
+    updateEstimatedFieldOpacityValue();
+    updateEstimatedFieldLayer();
+  });
+
+  estimatedFieldRadiusSelector?.addEventListener("change", (event) => {
+    if (!ESTIMATED_FIELD_RADIUS_OPTIONS.includes(event.target.value)) {
+      return;
+    }
+    estimatedFieldRadius = event.target.value;
+    markDeviceSettingsChanged();
+    updateEstimatedFieldLayer();
+  });
+
+  estimatedFieldQualitySelector?.addEventListener("change", (event) => {
+    if (!ESTIMATED_FIELD_QUALITY_OPTIONS.includes(event.target.value)) {
+      return;
+    }
+    estimatedFieldQuality = event.target.value;
+    markDeviceSettingsChanged();
+    updateEstimatedFieldLayer();
+  });
+
+  estimatedFieldSmoothingSelector?.addEventListener("change", (event) => {
+    if (!ESTIMATED_FIELD_SMOOTHING_OPTIONS.includes(event.target.value)) {
+      return;
+    }
+    estimatedFieldSmoothing = event.target.value;
+    markDeviceSettingsChanged();
+    updateEstimatedFieldLayer();
+  });
+
+  estimatedFieldAltitudeCorrectionToggle?.addEventListener("change", (event) => {
+    estimatedFieldAltitudeCorrection = event.target.checked;
+    markDeviceSettingsChanged();
+    updateEstimatedFieldLayer();
+  });
+
+  resetEstimatedFieldDefaultsButton?.addEventListener("click", () => {
+    applyEstimatedFieldDefaults();
+    markDeviceSettingsChanged();
+    updateEstimatedFieldLayer({ immediate: true });
+  });
+
   sourceInputs.forEach((input) => {
     input.addEventListener("change", () => {
       const selectedSources = sourceInputs.filter((sourceInput) => sourceInput.checked);
@@ -3304,8 +3812,10 @@ function renderSettingsPanel() {
 
 async function startViewer() {
   syncHeatmapAccessUi();
+  syncEstimatedFieldAccessUi();
   await loadDeviceSettings();
   syncHeatmapAccessUi();
+  syncEstimatedFieldAccessUi();
   await loadSourceStatus();
   await loadMap(selectedPeriodFileName());
 }
@@ -3367,6 +3877,14 @@ map.on("zoom", () => {
   if (map.getZoom() < HOVER_POPUP_MIN_ZOOM) {
     closeHoverPopup();
   }
+});
+
+map.on("moveend", () => {
+  updateEstimatedFieldLayer();
+});
+
+map.on("zoomend", () => {
+  updateEstimatedFieldLayer();
 });
 
 document.getElementById("map-selector").addEventListener("change", (event) => {

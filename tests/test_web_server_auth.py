@@ -146,6 +146,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertEqual(response["max_devices"], 0)
             self.assertTrue(response["can_use_heatmap"])
             self.assertTrue(response["can_use_layer_metrics"])
+            self.assertTrue(response["can_use_estimated_field"])
 
     def test_missing_users_json_rejects_login(self) -> None:
         status, response = self.login("missing", "secret", "device-a")
@@ -174,6 +175,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(response["max_devices"], 2)
         self.assertFalse(response["can_use_heatmap"])
         self.assertFalse(response["can_use_layer_metrics"])
+        self.assertFalse(response["can_use_estimated_field"])
 
     def test_admin_user_creation_enables_maplibre_feature_permissions_by_default(self) -> None:
         message = self.web_server.create_user(
@@ -190,11 +192,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
         users = self.web_server.read_users()
         self.assertEqual(users["admin2"]["can_use_heatmap"], "true")
         self.assertEqual(users["admin2"]["can_use_layer_metrics"], "true")
+        self.assertEqual(users["admin2"]["can_use_estimated_field"], "true")
 
         status, response = self.login("admin2", "secret", "device-a")
         self.assertEqual(status, 200, response)
         self.assertTrue(response["can_use_heatmap"])
         self.assertTrue(response["can_use_layer_metrics"])
+        self.assertTrue(response["can_use_estimated_field"])
 
     def test_update_user_controls_maplibre_feature_permissions(self) -> None:
         self.write_users_json(
@@ -219,17 +223,20 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "2",
             "true",
             "",
+            "true",
         )
 
         self.assertIn("Updated user basic", message)
         users = self.web_server.read_users()
         self.assertEqual(users["basic"]["can_use_heatmap"], "true")
         self.assertEqual(users["basic"]["can_use_layer_metrics"], "false")
+        self.assertEqual(users["basic"]["can_use_estimated_field"], "true")
 
         status, response = self.login("basic", "secret", "device-a")
         self.assertEqual(status, 200, response)
         self.assertTrue(response["can_use_heatmap"])
         self.assertFalse(response["can_use_layer_metrics"])
+        self.assertTrue(response["can_use_estimated_field"])
 
     def test_set_password_replaces_existing_password_and_deletes_devices(self) -> None:
         self.write_users_json(
@@ -394,7 +401,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('id="users-refresh"', page)
         self.assertIn('id="users-filter"', page)
         self.assertIn('id="users-content"', page)
-        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics current 1 1"', page)
+        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field current 1 1"', page)
         self.assertIn('data-device-search="device-mobile diego diego@example.com Mobile Safari Test Agent', page)
 
     def test_device_settings_are_sanitized_and_stored_on_device(self) -> None:
@@ -429,6 +436,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "heatmap_radius_scale": 0.1,
                 "heatmap_intensity_scale": 9,
                 "heatmap_weight_curve": "strong",
+                "estimated_field_enabled": True,
+                "estimated_field_opacity": 1.5,
+                "estimated_field_radius": "large",
+                "estimated_field_quality": "high",
+                "estimated_field_smoothing": "local",
+                "estimated_field_altitude_correction": True,
                 "map_view": {
                     "lng": 2.1234567,
                     "lat": 41.9876543,
@@ -458,6 +471,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "heatmap_radius_scale": 0.5,
                 "heatmap_intensity_scale": 2.0,
                 "heatmap_weight_curve": "strong",
+                "estimated_field_enabled": True,
+                "estimated_field_opacity": 1.0,
+                "estimated_field_radius": "large",
+                "estimated_field_quality": "high",
+                "estimated_field_smoothing": "local",
+                "estimated_field_altitude_correction": True,
                 "map_view": {
                     "lng": 2.123457,
                     "lat": 41.987654,
@@ -475,6 +494,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("heatmap_opacity", settings)
         self.assertNotIn("heatmap_radius_scale", settings)
         self.assertNotIn("heatmap_intensity_scale", settings)
+        self.assertNotIn("estimated_field_opacity", settings)
+        self.assertNotIn("estimated_field_radius", settings)
 
     def test_device_settings_do_not_synthesize_heatmap_tuning_defaults(self) -> None:
         settings = self.web_server.sanitize_device_settings({"terrain_enabled": "false"})
@@ -483,6 +504,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("heatmap_opacity", settings)
         self.assertNotIn("heatmap_radius_scale", settings)
         self.assertNotIn("heatmap_intensity_scale", settings)
+        self.assertNotIn("estimated_field_opacity", settings)
+        self.assertNotIn("estimated_field_radius", settings)
 
     def test_device_settings_reject_unknown_device(self) -> None:
         ok, settings = self.web_server.update_device_settings("missing-device", {"period": "21d.geojson"})
@@ -539,6 +562,26 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY",
                 "RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS",
                 "RAINMAPPER_MAPLIBRE_HEATMAP_INTENSITY",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_ENABLED",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_OPACITY",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_QUALITY",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_ALTITUDE_CORRECTION",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_SMALL_PX",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_MEDIUM_PX",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_LARGE_PX",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_MAX_RADIUS_KM",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_COLS",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_ROWS",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_COLS",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_ROWS",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_COLS",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_ROWS",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_SMOOTH_POWER",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_BALANCED_POWER",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_LOCAL_POWER",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_C_PER_100M",
             )
         }
         os.environ.update(
@@ -548,6 +591,26 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY": "65",
                 "RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS": "90",
                 "RAINMAPPER_MAPLIBRE_HEATMAP_INTENSITY": "70",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_ENABLED": "true",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_OPACITY": "55",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS": "large",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_QUALITY": "high",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING": "local",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_ALTITUDE_CORRECTION": "true",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_SMALL_PX": "70",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_MEDIUM_PX": "130",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_LARGE_PX": "210",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_MAX_RADIUS_KM": "85.5",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_COLS": "70",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_ROWS": "45",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_COLS": "110",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_ROWS": "75",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_COLS": "170",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_ROWS": "115",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_SMOOTH_POWER": "1.2",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_BALANCED_POWER": "2.2",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_LOCAL_POWER": "3.2",
+                "RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_C_PER_100M": "0.6",
             }
         )
         try:
@@ -562,6 +625,28 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "opacity": 0.65,
                     "radiusScale": 0.9,
                     "intensityScale": 0.7,
+                },
+            )
+            self.assertEqual(
+                payload["estimatedField"],
+                {
+                    "defaults": {
+                        "enabled": True,
+                        "opacity": 0.55,
+                        "radius": "large",
+                        "quality": "high",
+                        "smoothing": "local",
+                        "altitudeCorrection": True,
+                    },
+                    "radiusPx": {"small": 70, "medium": 130, "large": 210},
+                    "maxRadiusKm": 85.5,
+                    "grid": {
+                        "low": {"cols": 70, "rows": 45},
+                        "medium": {"cols": 110, "rows": 75},
+                        "high": {"cols": 170, "rows": 115},
+                    },
+                    "smoothingPower": {"smooth": 1.2, "balanced": 2.2, "local": 3.2},
+                    "temperatureLapseRateCPer100m": 0.6,
                 },
             )
 

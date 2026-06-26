@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.137">
+    <link rel="stylesheet" href="style.css?v=0.2.138">
   </head>
   <body>
     <header class="topbar">
@@ -98,6 +98,9 @@
             <circle cx="12" cy="12" r="10"></circle>
           </svg>
         </button>
+        <button class="map-control-button estimated-field-toggle" id="estimated-field-toggle" type="button" aria-pressed="false" aria-label="Estimated field" title="Estimated field" hidden>
+          IDW
+        </button>
         <button class="map-control-button map-north-toggle" id="north-toggle" type="button" aria-label="Face north" title="Face north">
           <span aria-hidden="true"></span>
         </button>
@@ -175,6 +178,7 @@
         <div class="map-settings-tabs" role="tablist" aria-label="Settings sections">
           <button class="map-settings-tab is-active" id="settings-tab-general" type="button" data-settings-tab="general">General</button>
           <button class="map-settings-tab" id="settings-tab-heatmap" type="button" data-settings-tab="heatmap" hidden>Heatmap</button>
+          <button class="map-settings-tab" id="settings-tab-estimated-field" type="button" data-settings-tab="estimated-field" hidden>Estimated field</button>
           <button class="map-settings-tab" id="settings-tab-sources" type="button" data-settings-tab="sources">Sources</button>
           <button class="map-settings-tab" id="settings-tab-terrain" type="button" data-settings-tab="terrain">Terrain</button>
         </div>
@@ -244,6 +248,46 @@
           <input id="heatmap-intensity-filter" type="range" min="20" max="200" step="10" value="100">
           <button class="map-settings-action" id="reset-heatmap-defaults" type="button">Reset heatmap defaults</button>
         </div>
+        <div class="map-settings-section estimated-field-settings" id="estimated-field-settings" data-settings-section="estimated-field" hidden>
+          <label class="map-settings-check">
+            <input type="checkbox" id="estimated-field-enabled-toggle">
+            <span>Estimated field</span>
+          </label>
+          <div class="map-settings-row">
+            <label for="estimated-field-opacity-filter">Estimated field opacity</label>
+            <output id="estimated-field-opacity-value" for="estimated-field-opacity-filter">65%</output>
+          </div>
+          <input id="estimated-field-opacity-filter" type="range" min="0" max="100" step="5" value="65">
+          <div class="map-settings-row">
+            <label for="estimated-field-radius-selector">Influence radius</label>
+            <select id="estimated-field-radius-selector">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+          <div class="map-settings-row">
+            <label for="estimated-field-quality-selector">Quality</label>
+            <select id="estimated-field-quality-selector">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div class="map-settings-row">
+            <label for="estimated-field-smoothing-selector">Smoothing</label>
+            <select id="estimated-field-smoothing-selector">
+              <option value="smooth">Smooth</option>
+              <option value="balanced">Balanced</option>
+              <option value="local">Local</option>
+            </select>
+          </div>
+          <label class="map-settings-check">
+            <input type="checkbox" id="estimated-field-altitude-correction-toggle">
+            <span>Altitude correction</span>
+          </label>
+          <button class="map-settings-action" id="reset-estimated-field-defaults" type="button">Reset estimated field defaults</button>
+        </div>
         <fieldset class="map-settings-section map-settings-group source-settings-group" id="settings-section-sources" data-settings-section="sources">
           <legend>Source</legend>
           <label>
@@ -298,7 +342,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.137"></script>
-  <script src="app.js?v=0.2.137"></script>
+  <script src="config.js?v=0.2.138"></script>
+  <script src="app.js?v=0.2.138"></script>
   </body>
 </html>

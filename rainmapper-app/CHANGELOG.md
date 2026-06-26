@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.138
+
+- Add an experimental MapLibre IDW layer with per-user access and per-device settings.
+- Add Home Assistant defaults and technical tuning options for IDW radius, quality, smoothing, opacity and temperature altitude correction.
+
 ## 0.2.137
 
 - Prevent protected MapLibre `config.js` from being cached so changed Home Assistant defaults take effect after restart.
