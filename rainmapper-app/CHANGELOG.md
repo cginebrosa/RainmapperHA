@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.144
+
+- Show the effective MapLibre IDW radius, grid cell size and smoothing power next to the device settings selectors.
+
 ## 0.2.143
 
 - Render the MapLibre IDW layer above station circles so full opacity can cover station markers.

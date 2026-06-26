@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.143">
+    <link rel="stylesheet" href="style.css?v=0.2.144">
   </head>
   <body>
     <header class="topbar">
@@ -264,6 +264,7 @@
           <input id="estimated-field-opacity-filter" type="range" min="0" max="100" step="5" value="65">
           <div class="map-settings-row">
             <label for="estimated-field-radius-selector">Influence radius</label>
+            <output class="map-settings-derived-value" id="estimated-field-radius-effective-value" for="estimated-field-radius-selector">-</output>
             <select id="estimated-field-radius-selector">
               <option value="small">Small</option>
               <option value="medium">Medium</option>
@@ -272,6 +273,7 @@
           </div>
           <div class="map-settings-row">
             <label for="estimated-field-quality-selector">Quality</label>
+            <output class="map-settings-derived-value" id="estimated-field-quality-effective-value" for="estimated-field-quality-selector">-</output>
             <select id="estimated-field-quality-selector">
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -280,6 +282,7 @@
           </div>
           <div class="map-settings-row">
             <label for="estimated-field-smoothing-selector">Smoothing</label>
+            <output class="map-settings-derived-value" id="estimated-field-smoothing-effective-value" for="estimated-field-smoothing-selector">-</output>
             <select id="estimated-field-smoothing-selector">
               <option value="smooth">Smooth</option>
               <option value="balanced">Balanced</option>
@@ -346,7 +349,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.143"></script>
-  <script src="app.js?v=0.2.143"></script>
+  <script src="config.js?v=0.2.144"></script>
+  <script src="app.js?v=0.2.144"></script>
   </body>
 </html>

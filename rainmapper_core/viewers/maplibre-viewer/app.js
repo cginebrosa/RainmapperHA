@@ -559,6 +559,7 @@ function applyLanguage(language = currentLanguage) {
   updateHeatmapRadiusValue();
   updateHeatmapIntensityValue();
   renderHeatmapWeightCurveSelector();
+  renderEstimatedFieldSelectors();
   updateMetricLegend();
   updateHeatmapToggle();
   renderLayerSwitcher();
@@ -2004,6 +2005,28 @@ function updateEstimatedFieldOpacityValue() {
   }
 }
 
+function formatEstimatedFieldConfigNumber(value, maximumFractionDigits = 2) {
+  return Number(value).toLocaleString(currentLanguage, {
+    maximumFractionDigits,
+    minimumFractionDigits: 0,
+  });
+}
+
+function updateEstimatedFieldDerivedValues() {
+  const radiusOutput = document.getElementById("estimated-field-radius-effective-value");
+  const qualityOutput = document.getElementById("estimated-field-quality-effective-value");
+  const smoothingOutput = document.getElementById("estimated-field-smoothing-effective-value");
+  if (radiusOutput) {
+    radiusOutput.textContent = `${formatEstimatedFieldConfigNumber(estimatedFieldRadiusKm())} km`;
+  }
+  if (qualityOutput) {
+    qualityOutput.textContent = `${formatEstimatedFieldConfigNumber(estimatedFieldCellKm())} km/cell`;
+  }
+  if (smoothingOutput) {
+    smoothingOutput.textContent = `p=${formatEstimatedFieldConfigNumber(estimatedFieldSmoothingPower(), 1)}`;
+  }
+}
+
 function renderEstimatedFieldSelectors() {
   const radiusSelector = document.getElementById("estimated-field-radius-selector");
   const qualitySelector = document.getElementById("estimated-field-quality-selector");
@@ -2026,6 +2049,7 @@ function renderEstimatedFieldSelectors() {
     smoothingSelector.querySelector('option[value="local"]').textContent = t("estimatedFieldSmoothingLocal");
     smoothingSelector.value = estimatedFieldSmoothing;
   }
+  updateEstimatedFieldDerivedValues();
 }
 
 function applyEstimatedFieldDefaults() {
@@ -3880,6 +3904,7 @@ function renderSettingsPanel() {
     }
     estimatedFieldRadius = event.target.value;
     markDeviceSettingsChanged();
+    updateEstimatedFieldDerivedValues();
     updateEstimatedFieldLayer();
   });
 
@@ -3889,6 +3914,7 @@ function renderSettingsPanel() {
     }
     estimatedFieldQuality = event.target.value;
     markDeviceSettingsChanged();
+    updateEstimatedFieldDerivedValues();
     updateEstimatedFieldLayer();
   });
 
@@ -3898,6 +3924,7 @@ function renderSettingsPanel() {
     }
     estimatedFieldSmoothing = event.target.value;
     markDeviceSettingsChanged();
+    updateEstimatedFieldDerivedValues();
     updateEstimatedFieldLayer();
   });
 
