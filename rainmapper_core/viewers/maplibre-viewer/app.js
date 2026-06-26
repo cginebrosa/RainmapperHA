@@ -1717,6 +1717,9 @@ function removeEstimatedFieldLayer() {
 
 function estimatedFieldUsableFeatures(features, metric = selectedLayerMetric()) {
   return features
+    .filter((feature) => {
+      return enabledStationSources.has(featureStationSource(feature));
+    })
     .map((feature) => ({
       feature,
       value: featureMetricValue(feature, metric),
@@ -1731,11 +1734,23 @@ function estimatedFieldUsableFeatures(features, metric = selectedLayerMetric()) 
     ));
 }
 
+function estimatedFieldPaintSupport(value, metric) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  if (metric.id === "rain") {
+    return metricRatio(value);
+  }
+  return 1;
+}
+
 function estimateFieldCellValue(cellLngLat, cellPoint, stations, radiusPx, maxRadiusKm, power, metric) {
   let weightedValue = 0;
   let totalWeight = 0;
   let weightedAltitude = 0;
   let totalAltitudeWeight = 0;
+  let supportWeight = 0;
+  let nearestPixelDistance = Infinity;
   const nearby = [];
 
   stations.forEach((station) => {
@@ -1748,7 +1763,9 @@ function estimateFieldCellValue(cellLngLat, cellPoint, stations, radiusPx, maxRa
     if (haversineKm(cellLngLat, stationLngLat) > maxRadiusKm) {
       return;
     }
+    nearestPixelDistance = Math.min(nearestPixelDistance, pixelDistance);
     const weight = 1 / (Math.max(pixelDistance, 1) ** power);
+    supportWeight += weight * estimatedFieldPaintSupport(station.value, metric);
     nearby.push({ ...station, weight });
     if (Number.isFinite(station.altitude)) {
       weightedAltitude += station.altitude * weight;
@@ -1757,6 +1774,10 @@ function estimateFieldCellValue(cellLngLat, cellPoint, stations, radiusPx, maxRa
   });
 
   if (nearby.length === 0) {
+    return null;
+  }
+  const minimumSupportWeight = 1 / (Math.max(radiusPx * 0.55, 1) ** power);
+  if (supportWeight < minimumSupportWeight && nearestPixelDistance > radiusPx * 0.55) {
     return null;
   }
 

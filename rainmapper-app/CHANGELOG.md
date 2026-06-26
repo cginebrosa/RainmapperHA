@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.139
+
+- Limit MapLibre IDW rain painting so zero-rain stations do not create a full blue overlay.
+
 ## 0.2.138
 
 - Add an experimental MapLibre IDW layer with per-user access and per-device settings.
