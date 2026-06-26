@@ -1226,3 +1226,25 @@ Auditoria real del 2026-06-24 tras publicar `0.2.118`: GHCR conserva `0.2.118,la
 
 ### Estado
 Completado operacionalmente el 2026-06-22 y revisado de nuevo el 2026-06-24. `0.2.113` quedo validado en HA y limpio en GHCR en su momento. Actualizacion 2026-06-25: `0.2.137` queda validada/dada por buena en HA; despues se puso el repo remoto en privado (`private=true`, `visibility=private`, rama `inicial`) y se limpio GHCR remoto conservando solo `0.2.137`, `latest` y cuatro auxiliares sin tag del mismo push multi-arch.
+
+## 2026-06-26 - Capa MapLibre IDW calculada en cliente
+
+### Decision
+Anadir una capa experimental `IDW` en MapLibre para estimar un campo zonal de la metrica activa. La capa se calcula en el navegador solo para el viewport visible, se renderiza como `fill` GeoJSON con opacidad configurable y queda protegida por el permiso de usuario `can_use_estimated_field`.
+
+### Motivo
+El heatmap nativo de MapLibre usa densidad ponderada; por tanto, zonas con muchas estaciones pueden verse mas intensas que zonas con valores meteorologicos mayores pero menos estaciones. Para lluvia, temperatura, humedad y velocidad de viento se quiere una lectura aproximada de promedio espacial, no de concentracion de observaciones.
+
+### Consecuencias
+La Raspberry Pi no calcula la interpolacion; solo sirve el GeoJSON de estaciones y `config.js`. La carga pasa al dispositivo cliente y se limita al area visible. Los settings por dispositivo controlan activacion, opacidad, radio visual, calidad, suavizado y correccion por altitud. Los parametros tecnicos de radios en px, radio fisico maximo, tamano de rejilla, potencia IDW y gradiente termico viven en `rainmapper-app/config.yaml` para ajustar pruebas en HA sin publicar una nueva imagen.
+
+### Ficheros afectados
+- `rainmapper-app/config.yaml`
+- `rainmapper-app/run.sh`
+- `rainmapper-app/app/web_server.py`
+- `rainmapper_core/viewers/maplibre-viewer/`
+- `users.example.json`
+- `tests/test_web_server_auth.py`
+
+### Estado
+Publicado en imagen HA `0.2.138` con digest multi-arch `sha256:c16e87c8e86186e09dc04f77759ffe2c1f1cbf0fa97e6b5e015364d38530cd17`, pendiente de validacion visual y de rendimiento en HA/dispositivos reales.
