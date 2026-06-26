@@ -4,7 +4,7 @@
 
 Decision:
 
-- Aceptar temporalmente `can_use_heatmap` y `can_use_layer_metrics` como flags directos por usuario en `users.json`.
+- Aceptar temporalmente `can_use_heatmap`, `can_use_layer_metrics` y `can_use_estimated_field` como flags directos por usuario en `users.json`.
 - No seguir acumulando muchos flags independientes en cada usuario sin revisar antes el modelo de permisos.
 - Si crece el numero de funcionalidades protegidas, definir una arquitectura de permisos por perfil/tipo de usuario en un JSON separado, con overrides opcionales por usuario.
 
@@ -1069,10 +1069,10 @@ Confirmada para pruebas, revisable antes de publicacion.
 ## 2026-06-17 - Futura app movil con API propia antes de producto publico
 
 ### Decision
-Para una futura app iOS/Android publica o bajo suscripcion, no depender directamente de Home Assistant como backend publico. Mantener HA como motor privado de generacion y disenar una API/backend intermedio para autenticacion, permisos, filtros y serving controlado de datos.
+Para una futura app iOS/Android publica o bajo suscripcion, no depender directamente de Home Assistant como backend publico. Mantener HA como motor privado de generacion y disenar una API/backend externo intermedio para autenticacion, permisos, filtros y serving controlado de datos. Esto no contradice la API interna que ya existe en el add-on HA para el visor MapLibre protegido (`/auth/*`, `/protected/maplibre/*`).
 
 ### Motivo
-Los visores actuales y GeoJSON estaticos funcionan bien para uso privado, pero no dan control granular por usuario, mapa o zona. Una app comercial necesita autorizacion en servidor, revocacion de acceso y una forma segura de aplicar favoritos y filtros.
+Los visores actuales y GeoJSON protegidos funcionan bien para uso privado, pero no dan el nivel de control comercial por usuario, mapa o zona que requeriria una app publica. Una app comercial necesita autorizacion en un backend externo, revocacion de acceso y una forma segura de aplicar favoritos y filtros sin exponer rutas internas de HA.
 
 ### Alternativas consideradas
 Consumir directamente los GeoJSON publicados en `/local/...` desde la app movil, convertir HA en backend publico, o migrar inmediatamente todos los datos a una base de datos nueva.

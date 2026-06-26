@@ -1,6 +1,6 @@
 # Mobile App Architecture
 
-Nota de estado 2026-06-22: el repo actual ya tiene autenticacion ligera para el visor MapLibre protegido usado en pruebas privadas, pero no es todavia la autenticacion/API definitiva de una app comercial iOS/Android. La copia activa del repo esta en `/Users/carlosginebrosa/Developer/RainmapperHA`; no usar la copia antigua de iCloud.
+Nota de estado 2026-06-26: el repo actual ya tiene autenticacion ligera, endpoints internos del add-on HA y datos protegidos para el visor MapLibre usado en pruebas privadas. Eso no equivale a la API externa definitiva de una app comercial iOS/Android: la futura app no deberia depender directamente de Home Assistant ni de rutas internas del add-on. La copia activa del repo esta en `/Users/carlosginebrosa/Developer/RainmapperHA`; no usar la copia antigua de iCloud.
 
 ## Objetivo
 Definir una arquitectura inicial para una futura app iOS/Android de Rainmapper que permita consultar mapas de lluvia de forma controlada, con autenticacion, permisos por usuario/mapa o zona, y posible modelo de suscripcion.
@@ -12,7 +12,7 @@ Este documento es de diseno. No implica implementacion inmediata ni cambia el fu
 - Rainmapper genera CSV historicos, CSV `Tomap`, HTML Bokeh y GeoJSON para Leaflet/MapLibre.
 - Leaflet y Bokeh siguen publicados como contenido estatico via `/local/...`; MapLibre tiene una ruta protegida propia en `/protected/maplibre/index.html` servida por `web_server.py`, con fallback publico temporal en `/local/rainmapper-maplibre` mientras se valida Cloudflared.
 - Leaflet y MapLibre funcionan bien en iPhone segun validacion manual/reportada por el usuario; pendiente de confirmacion automatizada. Desde `0.2.48`, MapLibre incluye capas raster Hybrid/Topographic, estilos vectoriales y Satellite+.
-- El acceso externo actual depende de HA/dominio/Cloudflare segun reporte del usuario. Rainmapper ya tiene autenticacion ligera para MapLibre protegido, pero no es todavia la API/auth comercial prevista para una app iOS/Android. La configuracion Cloudflare no esta versionada en este repo y queda pendiente de confirmar fuera del repositorio.
+- El acceso externo actual depende de HA/dominio/Cloudflare segun reporte del usuario. Rainmapper ya tiene autenticacion ligera, `/auth/*` y `/protected/maplibre/*` para MapLibre protegido, pero no es todavia la API/auth comercial prevista para una app iOS/Android. La configuracion Cloudflare no esta versionada en este repo y queda pendiente de confirmar fuera del repositorio.
 - Docker local se mantiene como entorno de pruebas aislado para cambios de calado.
 
 ## Principio de arquitectura
@@ -62,12 +62,12 @@ Uso:
 - acceso via dominio/Cloudflare mientras no haya producto publico.
 
 Limitacion:
-- no hay control granular por usuario, mapa o zona;
-- los GeoJSON pueden quedar accesibles si se conoce la URL;
+- el control actual es suficiente para pruebas privadas del visor, pero no cubre permisos comerciales por mapa/zona/capa de producto;
+- los GeoJSON protegidos del visor principal requieren sesion Rainmapper; las rutas `/local/...` y fallbacks deben seguir tratandose como excepciones/fallbacks operativos, no como backend de producto;
 - los tokens de mapas cliente pueden ser visibles en navegador.
 
 ### Fase 1: Backend/API ligera
-Introducir una API propia que consuma los GeoJSON generados por Rainmapper y los sirva a clientes autenticados. Para el prototipo, la opcion preferente es Cloudflare Worker leyendo GeoJSON desde Cloudflare R2.
+Introducir una API propia externa que consuma los GeoJSON generados por Rainmapper y los sirva a clientes autenticados. Para el prototipo, la opcion preferente es Cloudflare Worker leyendo GeoJSON desde Cloudflare R2. Esta API futura es distinta de la API interna HA ya existente para login, settings y datos protegidos del visor MapLibre.
 
 Responsabilidades:
 - autenticar usuarios;

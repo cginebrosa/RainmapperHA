@@ -2,6 +2,8 @@ import importlib.util
 import unittest
 from datetime import date
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -124,6 +126,32 @@ class AemetBackfillScriptTests(unittest.TestCase):
         self.assertEqual(row["Municipi"], "Reus")
         self.assertEqual(row["Provincia"], "Tarragona")
 
+    def test_read_station_catalog_preserves_decimal_comma_text(self):
+        with TemporaryDirectory() as temp_dir:
+            catalog_path = Path(temp_dir) / "estacions_aemet.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "Codi Estació": "AEMET:0009X",
+                        "aemet_id": "0009X",
+                        "Estació": "ALFORJA",
+                        "Comarca": "",
+                        "Municipi": "Alforja",
+                        "Provincia": "Tarragona",
+                        "Altitud": "406,0",
+                        "Latitud": "41,213892",
+                        "Longitud": "0,963335",
+                    }
+                ],
+                columns=aemet_backfill.STATION_COLUMNS,
+            ).to_csv(catalog_path, index=False)
+
+            result = aemet_backfill.read_station_catalog_if_exists(catalog_path)
+
+            self.assertEqual(result.iloc[0]["Altitud"], "406,0")
+            self.assertEqual(result.iloc[0]["Latitud"], "41,213892")
+            self.assertEqual(result.iloc[0]["Longitud"], "0,963335")
+
     def test_merge_existing_incremental_keeps_backfill_for_duplicate_station_day(self):
         existing = pd.DataFrame(
             [
@@ -160,6 +188,57 @@ class AemetBackfillScriptTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result.iloc[0]["Estació"], "New")
         self.assertEqual(result.iloc[0]["Total"], 5.0)
+
+    def test_run_backfill_can_skip_inventory_when_station_catalog_is_provided(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            station_catalog_path = temp_path / "estacions_aemet.csv"
+            output_dir = temp_path / "output"
+            stations = pd.DataFrame(
+                [
+                    {
+                        "Codi Estació": "AEMET:9632X",
+                        "aemet_id": "9632X",
+                        "Estació": "Reus Aeroport",
+                        "Comarca": "Baix Camp",
+                        "Municipi": "Reus",
+                        "Provincia": "Tarragona",
+                        "Altitud": 71,
+                        "Latitud": 41.147,
+                        "Longitud": 1.167,
+                    }
+                ],
+                columns=aemet_backfill.STATION_COLUMNS,
+            )
+            stations.to_csv(station_catalog_path, index=False, decimal=",")
+            daily_rows = [
+                {
+                    "fecha": "2026-06-22",
+                    "indicativo": "9632X",
+                    "nombre": "REUS AEROPUERTO",
+                    "provincia": "TARRAGONA",
+                    "prec": "3,1",
+                }
+            ]
+
+            with patch.object(aemet_backfill, "fetch_daily_climatology_rows", return_value=daily_rows), patch.object(
+                aemet_backfill, "fetch_indexed_payload"
+            ) as fetch_indexed:
+                summary = aemet_backfill.run_backfill(
+                    api_key="test-key",
+                    days=1,
+                    end_date=date(2026, 6, 22),
+                    output_dir=output_dir,
+                    station_catalog_path=station_catalog_path,
+                    skip_inventory=True,
+                )
+
+            fetch_indexed.assert_not_called()
+            self.assertTrue(summary["skipped_inventory"])
+            self.assertEqual(summary["station_rows"], 1)
+            result = pd.read_csv(output_dir / "Aemet_incremental.csv")
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result.iloc[0]["Municipi"], "Reus")
 
 
 if __name__ == "__main__":

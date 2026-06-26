@@ -52,14 +52,14 @@ AEMET_STATION_INVENTORY_URL = (
 MAX_DAILY_RANGE_DAYS = 15
 
 
-def fetch_indexed_payload(url, api_key, timeout=30):
+def fetch_indexed_payload(url, api_key, timeout=30, request_label="AEMET indexed endpoint"):
     """Fetch an AEMET indexed endpoint and then fetch its short-lived data URL."""
     if not api_key:
         raise ValueError("AEMET API key is required")
-    index = fetch_json(url, api_key=api_key, timeout=timeout)
+    index = fetch_json(url, api_key=api_key, timeout=timeout, request_label=f"{request_label} index")
     if int(index.get("estado", 0)) != 200 or not index.get("datos"):
         raise RuntimeError(f"AEMET did not return a data URL: {index}")
-    return fetch_json(index["datos"], timeout=timeout)
+    return fetch_json(index["datos"], timeout=timeout, request_label=f"{request_label} data")
 
 
 def build_daily_url(start_date, end_date):
@@ -90,6 +90,7 @@ def fetch_daily_climatology_rows(api_key, start_date, end_date, timeout=30):
                 build_daily_url(chunk_start, chunk_end),
                 api_key=api_key,
                 timeout=timeout,
+                request_label=f"AEMET daily climatology {chunk_start.isoformat()} to {chunk_end.isoformat()}",
             )
         )
     return rows
@@ -165,6 +166,17 @@ def normalize_station_catalog(stations_df):
     catalog["Codi Estació"] = catalog["Codi Estació"].astype("string").fillna("").str.strip()
     if "aemet_id" not in catalog.columns:
         catalog["aemet_id"] = catalog["Codi Estació"].str.replace(AEMET_STATION_PREFIX, "", regex=False)
+    return catalog[STATION_COLUMNS]
+
+
+def read_station_catalog_if_exists(path):
+    """Read an existing station catalog preserving operator-maintained formatting."""
+    if not path.exists():
+        return pd.DataFrame(columns=STATION_COLUMNS)
+    catalog = pd.read_csv(path, dtype=str, keep_default_na=False)
+    for column in STATION_COLUMNS:
+        if column not in catalog.columns:
+            catalog[column] = ""
     return catalog[STATION_COLUMNS]
 
 
@@ -314,19 +326,30 @@ def run_backfill(
     station_catalog_path=None,
     existing_incremental_path=None,
     timeout=30,
+    skip_inventory=False,
 ):
     """Fetch AEMET daily data and write local backfill CSV outputs."""
     if days < 1:
         raise ValueError("--days must be at least 1")
+    if skip_inventory and not station_catalog_path:
+        raise ValueError("--skip-inventory requires --station-catalog")
     end_date = end_date or default_end_date()
     start_date = end_date - timedelta(days=days - 1)
     output_dir = Path(output_dir or default_output_dir())
 
     daily_rows = fetch_daily_climatology_rows(api_key, start_date, end_date, timeout=timeout)
-    inventory_rows = fetch_indexed_payload(AEMET_STATION_INVENTORY_URL, api_key=api_key, timeout=timeout)
-    inventory = normalize_inventory(inventory_rows)
-    existing_stations = read_csv_if_exists(Path(station_catalog_path), STATION_COLUMNS, decimal=",") if station_catalog_path else None
-    station_catalog = merge_station_catalog(inventory, existing_stations)
+    existing_stations = read_station_catalog_if_exists(Path(station_catalog_path)) if station_catalog_path else None
+    if skip_inventory:
+        station_catalog = normalize_station_catalog(existing_stations)
+    else:
+        inventory_rows = fetch_indexed_payload(
+            AEMET_STATION_INVENTORY_URL,
+            api_key=api_key,
+            timeout=timeout,
+            request_label="AEMET station inventory",
+        )
+        inventory = normalize_inventory(inventory_rows)
+        station_catalog = merge_station_catalog(inventory, existing_stations)
     backfill = build_daily_incremental_from_climatology(daily_rows, station_catalog)
     existing_incremental = (
         read_csv_if_exists(Path(existing_incremental_path), DAILY_COLUMNS, decimal=",")
@@ -344,6 +367,7 @@ def run_backfill(
         "output_dir": str(output_dir),
         "used_existing_incremental": bool(existing_incremental_path),
         "used_existing_station_catalog": bool(station_catalog_path),
+        "skipped_inventory": skip_inventory,
     }
     write_backfill_outputs(output_dir, daily_incremental, station_catalog, summary)
     return summary
@@ -378,6 +402,11 @@ def parse_args():
         type=Path,
         help="Optional existing Aemet_incremental.csv to merge with the generated 30-day backfill.",
     )
+    parser.add_argument(
+        "--skip-inventory",
+        action="store_true",
+        help="Use --station-catalog as the complete station catalog and skip the AEMET inventory request.",
+    )
     parser.add_argument("--timeout", type=int, default=30)
     return parser.parse_args()
 
@@ -394,6 +423,7 @@ def main():
             station_catalog_path=args.station_catalog,
             existing_incremental_path=args.existing_incremental,
             timeout=args.timeout,
+            skip_inventory=args.skip_inventory,
         )
     except (AemetRateLimitError, RuntimeError, ValueError, urllib.error.URLError) as exc:
         print(f"AEMET backfill failed: {exc}", file=sys.stderr)
