@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.143
+
+- Render the MapLibre IDW layer above station circles so full opacity can cover station markers.
+
 ## 0.2.142
 
 - Ensure the MapLibre IDW source and visual layer are both present on every refresh and force a repaint after data changes.

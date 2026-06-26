@@ -1974,6 +1974,9 @@ function updateEstimatedFieldLayer({ immediate = false } = {}) {
         },
       });
     }
+    if (map.getLayer(CIRCLE_LAYER_ID)) {
+      map.moveLayer(ESTIMATED_FIELD_LAYER_ID);
+    }
     map.setPaintProperty(ESTIMATED_FIELD_LAYER_ID, "fill-opacity", estimatedFieldOpacity);
     map.triggerRepaint?.();
   };
