@@ -1945,6 +1945,7 @@ function updateEstimatedFieldLayer({ immediate = false } = {}) {
   }
   const run = () => {
     if (!map?.isStyleLoaded()) {
+      map?.once?.("idle", () => updateEstimatedFieldLayer({ immediate: true }));
       return;
     }
     if (!canUseEstimatedField() || !estimatedFieldEnabled) {
@@ -1957,6 +1958,11 @@ function updateEstimatedFieldLayer({ immediate = false } = {}) {
         type: "geojson",
         data,
       });
+    } else {
+      map.getSource(ESTIMATED_FIELD_SOURCE_ID).setData(data);
+    }
+
+    if (!map.getLayer(ESTIMATED_FIELD_LAYER_ID)) {
       map.addLayer({
         id: ESTIMATED_FIELD_LAYER_ID,
         type: "fill",
@@ -1967,12 +1973,9 @@ function updateEstimatedFieldLayer({ immediate = false } = {}) {
           "fill-outline-color": "rgba(255,255,255,0)",
         },
       });
-      return;
     }
-    map.getSource(ESTIMATED_FIELD_SOURCE_ID).setData(data);
-    if (map.getLayer(ESTIMATED_FIELD_LAYER_ID)) {
-      map.setPaintProperty(ESTIMATED_FIELD_LAYER_ID, "fill-opacity", estimatedFieldOpacity);
-    }
+    map.setPaintProperty(ESTIMATED_FIELD_LAYER_ID, "fill-opacity", estimatedFieldOpacity);
+    map.triggerRepaint?.();
   };
 
   if (immediate) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.142
+
+- Ensure the MapLibre IDW source and visual layer are both present on every refresh and force a repaint after data changes.
+
 ## 0.2.141
 
 - Fix MapLibre IDW refresh so quick toggles, period changes and metric changes update the layer immediately without waiting for map movement.
