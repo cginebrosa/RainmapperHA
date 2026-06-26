@@ -307,6 +307,7 @@ let estimatedFieldQuality = DEFAULT_ESTIMATED_FIELD_QUALITY;
 let estimatedFieldSmoothing = DEFAULT_ESTIMATED_FIELD_SMOOTHING;
 let estimatedFieldAltitudeCorrection = DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION;
 let estimatedFieldUpdateTimer = null;
+let baseStyleReloadPending = false;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
 let authState = loadStoredAuthState();
@@ -2601,7 +2602,7 @@ function setupKeyboardShortcuts() {
   });
 }
 
-function addStationLayer() {
+function addStationLayer({ resetEstimatedField = false } = {}) {
   if (!currentData || !map.isStyleLoaded()) {
     return false;
   }
@@ -2612,7 +2613,9 @@ function addStationLayer() {
   if (map.getLayer(HEATMAP_LAYER_ID)) {
     map.removeLayer(HEATMAP_LAYER_ID);
   }
-  removeEstimatedFieldLayer();
+  if (resetEstimatedField) {
+    removeEstimatedFieldLayer();
+  }
   if (map.getSource(SOURCE_ID)) {
     map.removeSource(SOURCE_ID);
   }
@@ -2685,6 +2688,8 @@ function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
   if (!map.isStyleLoaded()) {
     if (attempt < 40) {
       window.setTimeout(() => reloadCurrentPeriodAfterStyleChange(center, zoom, attempt + 1), 100);
+    } else {
+      baseStyleReloadPending = false;
     }
     return;
   }
@@ -2695,8 +2700,12 @@ function reloadCurrentPeriodAfterStyleChange(center, zoom, attempt = 0) {
   loadMap(selectedPeriod)
     .then(() => {
       map.jumpTo({ center, zoom });
+      window.setTimeout(() => {
+        baseStyleReloadPending = false;
+      }, 0);
     })
     .catch((error) => {
+      baseStyleReloadPending = false;
       document.getElementById("summary").textContent = error.message;
     });
 }
@@ -3387,6 +3396,7 @@ function selectBaseStyle(styleId, { persistPreference = false } = {}) {
   const center = map.getCenter();
   const zoom = map.getZoom();
   let reloadedCurrentPeriod = false;
+  baseStyleReloadPending = true;
   const reloadOnce = () => {
     if (reloadedCurrentPeriod) {
       return;
@@ -4008,10 +4018,16 @@ map.on("zoom", () => {
 });
 
 map.on("moveend", () => {
+  if (baseStyleReloadPending) {
+    return;
+  }
   updateEstimatedFieldLayer();
 });
 
 map.on("zoomend", () => {
+  if (baseStyleReloadPending) {
+    return;
+  }
   updateEstimatedFieldLayer();
 });
 

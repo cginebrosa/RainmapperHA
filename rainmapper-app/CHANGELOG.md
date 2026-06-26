@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.141
+
+- Fix MapLibre IDW refresh so quick toggles, period changes and metric changes update the layer immediately without waiting for map movement.
+- Avoid redundant IDW recalculation during base map style changes.
+
 ## 0.2.140
 
 - Fix MapLibre IDW/Heatmap interaction state so quick buttons are session-only and Settings checkboxes persist mutually exclusive modes.
