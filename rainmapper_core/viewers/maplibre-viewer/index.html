@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.139">
+    <link rel="stylesheet" href="style.css?v=0.2.140">
   </head>
   <body>
     <header class="topbar">
@@ -219,6 +219,10 @@
           <button class="map-settings-action" id="save-map-view-default" type="button">Set current view as default</button>
         </div>
         <div class="map-settings-section heatmap-experiment-settings" id="heatmap-experiment-settings" data-settings-section="heatmap" hidden>
+          <label class="map-settings-check">
+            <input type="checkbox" id="heatmap-enabled-toggle">
+            <span>Heatmap</span>
+          </label>
           <div class="map-settings-row">
             <label for="layer-metric-selector">Layer metric</label>
             <select id="layer-metric-selector"></select>
@@ -342,7 +346,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.139"></script>
-  <script src="app.js?v=0.2.139"></script>
+  <script src="config.js?v=0.2.140"></script>
+  <script src="app.js?v=0.2.140"></script>
   </body>
 </html>

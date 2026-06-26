@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.139"
+version: "0.2.140"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -54,16 +54,13 @@ options:
   maplibre_estimated_field_quality: medium
   maplibre_estimated_field_smoothing: balanced
   maplibre_estimated_field_altitude_correction: false
-  maplibre_estimated_field_radius_small_px: 80
-  maplibre_estimated_field_radius_medium_px: 140
-  maplibre_estimated_field_radius_large_px: 220
+  maplibre_estimated_field_radius_small_km: 10
+  maplibre_estimated_field_radius_medium_km: 25
+  maplibre_estimated_field_radius_large_km: 50
   maplibre_estimated_field_max_radius_km: 100
-  maplibre_estimated_field_grid_low_cols: 80
-  maplibre_estimated_field_grid_low_rows: 50
-  maplibre_estimated_field_grid_medium_cols: 120
-  maplibre_estimated_field_grid_medium_rows: 80
-  maplibre_estimated_field_grid_high_cols: 180
-  maplibre_estimated_field_grid_high_rows: 120
+  maplibre_estimated_field_grid_low_cell_km: 10
+  maplibre_estimated_field_grid_medium_cell_km: 5
+  maplibre_estimated_field_grid_high_cell_km: 2.5
   maplibre_estimated_field_smoothing_smooth_power: 1
   maplibre_estimated_field_smoothing_balanced_power: 2
   maplibre_estimated_field_smoothing_local_power: 3
@@ -105,16 +102,13 @@ schema:
   maplibre_estimated_field_quality: list(low|medium|high)
   maplibre_estimated_field_smoothing: list(smooth|balanced|local)
   maplibre_estimated_field_altitude_correction: bool
-  maplibre_estimated_field_radius_small_px: int
-  maplibre_estimated_field_radius_medium_px: int
-  maplibre_estimated_field_radius_large_px: int
+  maplibre_estimated_field_radius_small_km: float
+  maplibre_estimated_field_radius_medium_km: float
+  maplibre_estimated_field_radius_large_km: float
   maplibre_estimated_field_max_radius_km: float
-  maplibre_estimated_field_grid_low_cols: int
-  maplibre_estimated_field_grid_low_rows: int
-  maplibre_estimated_field_grid_medium_cols: int
-  maplibre_estimated_field_grid_medium_rows: int
-  maplibre_estimated_field_grid_high_cols: int
-  maplibre_estimated_field_grid_high_rows: int
+  maplibre_estimated_field_grid_low_cell_km: float
+  maplibre_estimated_field_grid_medium_cell_km: float
+  maplibre_estimated_field_grid_high_cell_km: float
   maplibre_estimated_field_smoothing_smooth_power: float
   maplibre_estimated_field_smoothing_balanced_power: float
   maplibre_estimated_field_smoothing_local_power: float

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.140
+
+- Fix MapLibre IDW/Heatmap interaction state so quick buttons are session-only and Settings checkboxes persist mutually exclusive modes.
+- Change MapLibre IDW radius and grid quality tuning to fixed kilometer-based values.
+- Prevent zero-rain stations from painting an IDW rain field by themselves.
+
 ## 0.2.139
 
 - Limit MapLibre IDW rain painting so zero-rain stations do not create a full blue overlay.

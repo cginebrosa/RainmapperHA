@@ -73,7 +73,6 @@ const DEFAULT_ESTIMATED_FIELD_SMOOTHING = ESTIMATED_FIELD_SMOOTHING_OPTIONS.incl
   ? configuredEstimatedFieldDefaults.smoothing
   : "balanced";
 const DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION = Boolean(configuredEstimatedFieldDefaults.altitudeCorrection);
-const estimatedFieldRadiusPxConfig = configuredEstimatedField.radiusPx || {};
 const estimatedFieldGridConfig = configuredEstimatedField.grid || {};
 const estimatedFieldSmoothingPowerConfig = configuredEstimatedField.smoothingPower || {};
 const stationSources = [
@@ -295,11 +294,13 @@ let metricScaleMin = 0;
 let metricScaleMax = 200;
 let currentLayerMetric = "rain";
 let heatmapEnabled = EXPERIMENTAL_HEATMAP;
+let savedHeatmapEnabled = heatmapEnabled;
 let heatmapOpacity = DEFAULT_HEATMAP_OPACITY;
 let heatmapRadiusScale = DEFAULT_HEATMAP_RADIUS_SCALE;
 let heatmapIntensityScale = DEFAULT_HEATMAP_INTENSITY_SCALE;
 let heatmapWeightCurve = DEFAULT_HEATMAP_WEIGHT_CURVE;
 let estimatedFieldEnabled = DEFAULT_ESTIMATED_FIELD_ENABLED;
+let savedEstimatedFieldEnabled = estimatedFieldEnabled;
 let estimatedFieldOpacity = DEFAULT_ESTIMATED_FIELD_OPACITY;
 let estimatedFieldRadius = DEFAULT_ESTIMATED_FIELD_RADIUS;
 let estimatedFieldQuality = DEFAULT_ESTIMATED_FIELD_QUALITY;
@@ -479,6 +480,7 @@ function applyLanguage(language = currentLanguage) {
   setLabelText("min-rain-filter", t("minRain"));
   setLabelText("last-rain-history-filter", t("lastRainsHistory"));
   setLabelText("layer-metric-selector", t("layerMetric"));
+  setText("#heatmap-enabled-toggle + span", t("heatmap"));
   setLabelText("heatmap-weight-curve-selector", t("heatmapWeightCurve"));
   setLabelText("heatmap-opacity-filter", t("heatmapOpacity"));
   setLabelText("heatmap-radius-filter", t("heatmapRadius"));
@@ -947,14 +949,14 @@ function currentDeviceSettings() {
     settings.layer_metric = currentLayerMetric;
   }
   if (canUseHeatmap()) {
-    settings.heatmap_enabled = heatmapEnabled;
+    settings.heatmap_enabled = savedHeatmapEnabled;
     settings.heatmap_opacity = heatmapOpacity;
     settings.heatmap_radius_scale = heatmapRadiusScale;
     settings.heatmap_intensity_scale = heatmapIntensityScale;
     settings.heatmap_weight_curve = heatmapWeightCurve;
   }
   if (canUseEstimatedField()) {
-    settings.estimated_field_enabled = estimatedFieldEnabled;
+    settings.estimated_field_enabled = savedEstimatedFieldEnabled;
     settings.estimated_field_opacity = estimatedFieldOpacity;
     settings.estimated_field_radius = estimatedFieldRadius;
     settings.estimated_field_quality = estimatedFieldQuality;
@@ -1118,8 +1120,8 @@ async function applyDeviceSettings(settings) {
 
     if (canUseHeatmap()) {
       if (typeof settings.heatmap_enabled === "boolean") {
-        heatmapEnabled = settings.heatmap_enabled;
-        updateHeatmapToggle();
+        savedHeatmapEnabled = settings.heatmap_enabled;
+        heatmapEnabled = savedHeatmapEnabled;
       }
 
       const savedHeatmapOpacity = Number(settings.heatmap_opacity);
@@ -1162,7 +1164,8 @@ async function applyDeviceSettings(settings) {
 
     if (canUseEstimatedField()) {
       if (typeof settings.estimated_field_enabled === "boolean") {
-        estimatedFieldEnabled = settings.estimated_field_enabled;
+        savedEstimatedFieldEnabled = settings.estimated_field_enabled;
+        estimatedFieldEnabled = savedEstimatedFieldEnabled;
       }
 
       const savedEstimatedFieldOpacity = Number(settings.estimated_field_opacity);
@@ -1182,18 +1185,24 @@ async function applyDeviceSettings(settings) {
       if (typeof settings.estimated_field_altitude_correction === "boolean") {
         estimatedFieldAltitudeCorrection = settings.estimated_field_altitude_correction;
       }
-      const enabledToggle = document.getElementById("estimated-field-enabled-toggle");
       const opacitySlider = document.getElementById("estimated-field-opacity-filter");
       const altitudeToggle = document.getElementById("estimated-field-altitude-correction-toggle");
-      if (enabledToggle) enabledToggle.checked = estimatedFieldEnabled;
       if (opacitySlider) opacitySlider.value = String(Math.round(estimatedFieldOpacity * 100));
       if (altitudeToggle) altitudeToggle.checked = estimatedFieldAltitudeCorrection;
       renderEstimatedFieldSelectors();
       updateEstimatedFieldOpacityValue();
-      updateEstimatedFieldToggle();
     } else {
       estimatedFieldEnabled = false;
     }
+
+    if (heatmapEnabled && estimatedFieldEnabled) {
+      heatmapEnabled = false;
+      savedHeatmapEnabled = false;
+    }
+    syncHeatmapEnabledControl();
+    syncEstimatedFieldEnabledControl();
+    updateHeatmapToggle();
+    updateEstimatedFieldToggle();
 
     const loadedMapView = sanitizeClientMapView(settings.map_view);
     if (loadedMapView) {
@@ -1584,6 +1593,39 @@ function updateHeatmapToggle() {
   toggle.setAttribute("aria-pressed", String(heatmapEnabled));
 }
 
+function syncHeatmapEnabledControl() {
+  const enabledToggle = document.getElementById("heatmap-enabled-toggle");
+  if (enabledToggle) {
+    enabledToggle.checked = savedHeatmapEnabled;
+  }
+}
+
+function syncEstimatedFieldEnabledControl() {
+  const enabledToggle = document.getElementById("estimated-field-enabled-toggle");
+  if (enabledToggle) {
+    enabledToggle.checked = savedEstimatedFieldEnabled;
+  }
+}
+
+function setHeatmapEnabled(enabled) {
+  heatmapEnabled = canUseHeatmap() && enabled;
+  if (heatmapEnabled && estimatedFieldEnabled) {
+    estimatedFieldEnabled = false;
+    updateEstimatedFieldToggle();
+    removeEstimatedFieldLayer();
+  }
+  updateHeatmapToggle();
+}
+
+function setEstimatedFieldEnabled(enabled) {
+  estimatedFieldEnabled = canUseEstimatedField() && enabled;
+  if (estimatedFieldEnabled && heatmapEnabled) {
+    heatmapEnabled = false;
+    updateHeatmapToggle();
+  }
+  updateEstimatedFieldToggle();
+}
+
 function applyHeatmapDefaults() {
   heatmapOpacity = DEFAULT_HEATMAP_OPACITY;
   heatmapRadiusScale = DEFAULT_HEATMAP_RADIUS_SCALE;
@@ -1605,6 +1647,7 @@ function applyHeatmapDefaults() {
   updateHeatmapOpacityValue();
   updateHeatmapRadiusValue();
   updateHeatmapIntensityValue();
+  syncHeatmapEnabledControl();
 }
 
 function syncHeatmapAccessUi() {
@@ -1627,6 +1670,7 @@ function syncHeatmapAccessUi() {
   }
   if (!heatmapAllowed) {
     heatmapEnabled = false;
+    savedHeatmapEnabled = false;
   }
   if (quickMetricToggle) {
     quickMetricToggle.hidden = !metricsAllowed;
@@ -1645,24 +1689,44 @@ function syncHeatmapAccessUi() {
     generalSettingsTab.click();
   }
   updateHeatmapToggle();
+  syncHeatmapEnabledControl();
   renderLayerMetricSelector();
   setQuickMetricControlsFromMetric();
 }
 
-function estimatedFieldGridSize() {
-  const fallback = { cols: 120, rows: 80 };
-  const configured = estimatedFieldGridConfig[estimatedFieldQuality] || fallback;
+function estimatedFieldCellKm() {
+  const fallback = { low: 10, medium: 5, high: 2.5 };
+  const configured = estimatedFieldGridConfig[estimatedFieldQuality];
+  return clampNumber(
+    Number(configured),
+    0.1,
+    100,
+    fallback[estimatedFieldQuality] || fallback.medium,
+  );
+}
+
+function estimatedFieldGridSize(width, height) {
+  const cellKm = estimatedFieldCellKm();
+  const horizontalCenter = height / 2;
+  const verticalCenter = width / 2;
+  const west = map.unproject([0, horizontalCenter]);
+  const east = map.unproject([width, horizontalCenter]);
+  const north = map.unproject([verticalCenter, 0]);
+  const south = map.unproject([verticalCenter, height]);
+  const widthKm = Math.max(haversineKm(west, east), cellKm);
+  const heightKm = Math.max(haversineKm(north, south), cellKm);
   return {
-    cols: Math.max(10, Math.min(700, Math.round(Number(configured.cols) || fallback.cols))),
-    rows: Math.max(10, Math.min(500, Math.round(Number(configured.rows) || fallback.rows))),
+    cols: Math.max(1, Math.min(700, Math.ceil(widthKm / cellKm))),
+    rows: Math.max(1, Math.min(500, Math.ceil(heightKm / cellKm))),
   };
 }
 
-function estimatedFieldRadiusPx() {
-  const fallback = { small: 80, medium: 140, large: 220 };
+function estimatedFieldRadiusKm() {
+  const fallback = { small: 10, medium: 25, large: 50 };
+  const configuredRadiusKm = configuredEstimatedField.radiusKm || {};
   return clampNumber(
-    Number(estimatedFieldRadiusPxConfig[estimatedFieldRadius]),
-    10,
+    Number(configuredRadiusKm[estimatedFieldRadius]),
+    1,
     1000,
     fallback[estimatedFieldRadius] || fallback.medium,
   );
@@ -1744,27 +1808,29 @@ function estimatedFieldPaintSupport(value, metric) {
   return 1;
 }
 
-function estimateFieldCellValue(cellLngLat, cellPoint, stations, radiusPx, maxRadiusKm, power, metric) {
+function estimateFieldCellValue(cellLngLat, stations, radiusKm, power, metric) {
   let weightedValue = 0;
   let totalWeight = 0;
   let weightedAltitude = 0;
   let totalAltitudeWeight = 0;
   let supportWeight = 0;
-  let nearestPixelDistance = Infinity;
+  let nearestDistanceKm = Infinity;
   const nearby = [];
+  const cellLat = Number(cellLngLat.lat);
+  const cellLng = Number(cellLngLat.lng);
+  const latRadius = radiusKm / 111.32;
+  const lngRadius = radiusKm / Math.max(111.32 * Math.cos(cellLat * Math.PI / 180), 1);
 
   stations.forEach((station) => {
-    const stationPoint = station.point;
-    const pixelDistance = Math.hypot(stationPoint.x - cellPoint.x, stationPoint.y - cellPoint.y);
-    if (pixelDistance > radiusPx) {
+    if (Math.abs(station.lat - cellLat) > latRadius || Math.abs(station.lng - cellLng) > lngRadius) {
       return;
     }
-    const stationLngLat = { lng: Number(station.coordinates[0]), lat: Number(station.coordinates[1]) };
-    if (haversineKm(cellLngLat, stationLngLat) > maxRadiusKm) {
+    const distanceKm = haversineKm(cellLngLat, station);
+    if (distanceKm > radiusKm) {
       return;
     }
-    nearestPixelDistance = Math.min(nearestPixelDistance, pixelDistance);
-    const weight = 1 / (Math.max(pixelDistance, 1) ** power);
+    nearestDistanceKm = Math.min(nearestDistanceKm, distanceKm);
+    const weight = 1 / (Math.max(distanceKm, 0.1) ** power);
     supportWeight += weight * estimatedFieldPaintSupport(station.value, metric);
     nearby.push({ ...station, weight });
     if (Number.isFinite(station.altitude)) {
@@ -1776,8 +1842,12 @@ function estimateFieldCellValue(cellLngLat, cellPoint, stations, radiusPx, maxRa
   if (nearby.length === 0) {
     return null;
   }
-  const minimumSupportWeight = 1 / (Math.max(radiusPx * 0.55, 1) ** power);
-  if (supportWeight < minimumSupportWeight && nearestPixelDistance > radiusPx * 0.55) {
+  const coreRadiusKm = Math.max(radiusKm * 0.55, 0.1);
+  const minimumSupportWeight = 1 / (coreRadiusKm ** power);
+  if (metric.id === "rain" && supportWeight < minimumSupportWeight) {
+    return null;
+  }
+  if (metric.id !== "rain" && supportWeight < minimumSupportWeight && nearestDistanceKm > coreRadiusKm) {
     return null;
   }
 
@@ -1807,7 +1877,8 @@ function buildEstimatedFieldData(features) {
   const stations = estimatedFieldUsableFeatures(features, metric)
     .map((station) => ({
       ...station,
-      point: map.project(station.coordinates),
+      lng: Number(station.coordinates[0]),
+      lat: Number(station.coordinates[1]),
     }));
   if (stations.length === 0) {
     return { type: "FeatureCollection", features: [] };
@@ -1820,11 +1891,10 @@ function buildEstimatedFieldData(features) {
     return { type: "FeatureCollection", features: [] };
   }
 
-  const { cols, rows } = estimatedFieldGridSize();
+  const { cols, rows } = estimatedFieldGridSize(width, height);
   const cellWidth = width / cols;
   const cellHeight = height / rows;
-  const radiusPx = estimatedFieldRadiusPx();
-  const maxRadiusKm = estimatedFieldMaxRadiusKm();
+  const radiusKm = Math.min(estimatedFieldRadiusKm(), estimatedFieldMaxRadiusKm());
   const power = estimatedFieldSmoothingPower();
   const estimatedFeatures = [];
 
@@ -1836,7 +1906,7 @@ function buildEstimatedFieldData(features) {
       const right = (col + 1) * cellWidth;
       const centerPoint = { x: left + cellWidth / 2, y: top + cellHeight / 2 };
       const centerLngLat = map.unproject([centerPoint.x, centerPoint.y]);
-      const value = estimateFieldCellValue(centerLngLat, centerPoint, stations, radiusPx, maxRadiusKm, power, metric);
+      const value = estimateFieldCellValue(centerLngLat, stations, radiusKm, power, metric);
       if (!Number.isFinite(value)) {
         continue;
       }
@@ -1952,21 +2022,26 @@ function renderEstimatedFieldSelectors() {
 }
 
 function applyEstimatedFieldDefaults() {
-  estimatedFieldEnabled = DEFAULT_ESTIMATED_FIELD_ENABLED;
+  savedEstimatedFieldEnabled = canUseEstimatedField() && DEFAULT_ESTIMATED_FIELD_ENABLED;
+  setEstimatedFieldEnabled(DEFAULT_ESTIMATED_FIELD_ENABLED);
+  if (savedEstimatedFieldEnabled) {
+    savedHeatmapEnabled = false;
+    heatmapEnabled = false;
+    syncHeatmapEnabledControl();
+    updateHeatmapToggle();
+  }
   estimatedFieldOpacity = DEFAULT_ESTIMATED_FIELD_OPACITY;
   estimatedFieldRadius = DEFAULT_ESTIMATED_FIELD_RADIUS;
   estimatedFieldQuality = DEFAULT_ESTIMATED_FIELD_QUALITY;
   estimatedFieldSmoothing = DEFAULT_ESTIMATED_FIELD_SMOOTHING;
   estimatedFieldAltitudeCorrection = DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION;
-  const enabledToggle = document.getElementById("estimated-field-enabled-toggle");
   const opacitySlider = document.getElementById("estimated-field-opacity-filter");
   const altitudeToggle = document.getElementById("estimated-field-altitude-correction-toggle");
-  if (enabledToggle) enabledToggle.checked = estimatedFieldEnabled;
+  syncEstimatedFieldEnabledControl();
   if (opacitySlider) opacitySlider.value = String(Math.round(estimatedFieldOpacity * 100));
   if (altitudeToggle) altitudeToggle.checked = estimatedFieldAltitudeCorrection;
   renderEstimatedFieldSelectors();
   updateEstimatedFieldOpacityValue();
-  updateEstimatedFieldToggle();
 }
 
 function syncEstimatedFieldAccessUi() {
@@ -1977,6 +2052,7 @@ function syncEstimatedFieldAccessUi() {
   const activeTab = settingsTab?.classList.contains("is-active");
   if (!estimatedAllowed) {
     estimatedFieldEnabled = false;
+    savedEstimatedFieldEnabled = false;
     removeEstimatedFieldLayer();
   }
   if (settingsTab) {
@@ -1989,6 +2065,7 @@ function syncEstimatedFieldAccessUi() {
     generalSettingsTab.click();
   }
   updateEstimatedFieldToggle();
+  syncEstimatedFieldEnabledControl();
   renderEstimatedFieldSelectors();
 }
 
@@ -3513,6 +3590,7 @@ function renderSettingsPanel() {
   const heatmapExperimentSettings = document.getElementById("heatmap-experiment-settings");
   const heatmapSettingsTab = document.getElementById("settings-tab-heatmap");
   const layerMetricSelector = document.getElementById("layer-metric-selector");
+  const heatmapEnabledToggle = document.getElementById("heatmap-enabled-toggle");
   const heatmapWeightCurveSelector = document.getElementById("heatmap-weight-curve-selector");
   const heatmapOpacitySlider = document.getElementById("heatmap-opacity-filter");
   const heatmapRadiusSlider = document.getElementById("heatmap-radius-filter");
@@ -3549,6 +3627,7 @@ function renderSettingsPanel() {
     layerMetricRow.hidden = !canUseLayerMetrics();
   }
   updateHeatmapToggle();
+  syncHeatmapEnabledControl();
   renderLayerMetricSelector();
   renderHeatmapWeightCurveSelector();
   if (heatmapOpacitySlider) {
@@ -3563,7 +3642,7 @@ function renderSettingsPanel() {
   updateHeatmapOpacityValue();
   updateHeatmapRadiusValue();
   updateHeatmapIntensityValue();
-  if (estimatedFieldEnabledToggle) estimatedFieldEnabledToggle.checked = estimatedFieldEnabled;
+  syncEstimatedFieldEnabledControl();
   if (estimatedFieldOpacitySlider) {
     estimatedFieldOpacitySlider.value = String(Math.round(estimatedFieldOpacity * 100));
   }
@@ -3632,24 +3711,20 @@ function renderSettingsPanel() {
     if (!canUseHeatmap()) {
       return;
     }
-    heatmapEnabled = !heatmapEnabled;
-    markDeviceSettingsChanged();
-    updateHeatmapToggle();
-    refreshMetricStyling();
+    setHeatmapEnabled(!heatmapEnabled);
+    addStationLayer();
   });
 
   estimatedFieldToggle?.addEventListener("click", () => {
     if (!canUseEstimatedField()) {
       return;
     }
-    estimatedFieldEnabled = !estimatedFieldEnabled;
-    const enabledToggle = document.getElementById("estimated-field-enabled-toggle");
-    if (enabledToggle) {
-      enabledToggle.checked = estimatedFieldEnabled;
+    setEstimatedFieldEnabled(!estimatedFieldEnabled);
+    if (estimatedFieldEnabled) {
+      addStationLayer();
+    } else {
+      removeEstimatedFieldLayer();
     }
-    markDeviceSettingsChanged();
-    updateEstimatedFieldToggle();
-    updateEstimatedFieldLayer({ immediate: true });
   });
 
   infoToggle.addEventListener("click", () => {
@@ -3708,6 +3783,22 @@ function renderSettingsPanel() {
     refreshMetricStyling();
   });
 
+  heatmapEnabledToggle?.addEventListener("change", (event) => {
+    savedHeatmapEnabled = canUseHeatmap() && event.target.checked;
+    heatmapEnabled = savedHeatmapEnabled;
+    if (savedHeatmapEnabled) {
+      savedEstimatedFieldEnabled = false;
+      estimatedFieldEnabled = false;
+      syncEstimatedFieldEnabledControl();
+      updateEstimatedFieldToggle();
+      removeEstimatedFieldLayer();
+    }
+    syncHeatmapEnabledControl();
+    updateHeatmapToggle();
+    markDeviceSettingsChanged();
+    addStationLayer();
+  });
+
   heatmapWeightCurveSelector?.addEventListener("change", (event) => {
     heatmapWeightCurve = event.target.value;
     markDeviceSettingsChanged();
@@ -3742,10 +3833,22 @@ function renderSettingsPanel() {
   });
 
   estimatedFieldEnabledToggle?.addEventListener("change", (event) => {
-    estimatedFieldEnabled = event.target.checked;
-    markDeviceSettingsChanged();
+    savedEstimatedFieldEnabled = canUseEstimatedField() && event.target.checked;
+    estimatedFieldEnabled = savedEstimatedFieldEnabled;
+    if (savedEstimatedFieldEnabled) {
+      savedHeatmapEnabled = false;
+      heatmapEnabled = false;
+      syncHeatmapEnabledControl();
+      updateHeatmapToggle();
+    }
+    syncEstimatedFieldEnabledControl();
     updateEstimatedFieldToggle();
-    updateEstimatedFieldLayer({ immediate: true });
+    markDeviceSettingsChanged();
+    if (estimatedFieldEnabled) {
+      addStationLayer();
+    } else {
+      removeEstimatedFieldLayer();
+    }
   });
 
   estimatedFieldOpacitySlider?.addEventListener("input", (event) => {
@@ -3791,7 +3894,11 @@ function renderSettingsPanel() {
   resetEstimatedFieldDefaultsButton?.addEventListener("click", () => {
     applyEstimatedFieldDefaults();
     markDeviceSettingsChanged();
-    updateEstimatedFieldLayer({ immediate: true });
+    if (estimatedFieldEnabled) {
+      addStationLayer();
+    } else {
+      removeEstimatedFieldLayer();
+    }
   });
 
   sourceInputs.forEach((input) => {

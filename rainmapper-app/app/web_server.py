@@ -215,25 +215,16 @@ def maplibre_estimated_field_defaults() -> dict:
 def maplibre_estimated_field_config() -> dict:
     return {
         "defaults": maplibre_estimated_field_defaults(),
-        "radiusPx": {
-            "small": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_SMALL_PX", 80, 10, 1000),
-            "medium": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_MEDIUM_PX", 140, 10, 1000),
-            "large": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_LARGE_PX", 220, 10, 1000),
+        "radiusKm": {
+            "small": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_SMALL_KM", 10, 1, 1000),
+            "medium": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_MEDIUM_KM", 25, 1, 1000),
+            "large": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_LARGE_KM", 50, 1, 1000),
         },
         "maxRadiusKm": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_MAX_RADIUS_KM", 100, 1, 1000),
         "grid": {
-            "low": {
-                "cols": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_COLS", 80, 10, 400),
-                "rows": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_ROWS", 50, 10, 300),
-            },
-            "medium": {
-                "cols": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_COLS", 120, 10, 500),
-                "rows": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_ROWS", 80, 10, 400),
-            },
-            "high": {
-                "cols": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_COLS", 180, 10, 700),
-                "rows": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_ROWS", 120, 10, 500),
-            },
+            "low": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_CELL_KM", 10, 0.1, 100),
+            "medium": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_CELL_KM", 5, 0.1, 100),
+            "high": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_CELL_KM", 2.5, 0.1, 100),
         },
         "smoothingPower": {
             "smooth": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_SMOOTH_POWER", 1, 0.1, 8),

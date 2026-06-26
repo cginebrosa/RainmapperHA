@@ -1236,7 +1236,7 @@ Anadir una capa experimental `IDW` en MapLibre para estimar un campo zonal de la
 El heatmap nativo de MapLibre usa densidad ponderada; por tanto, zonas con muchas estaciones pueden verse mas intensas que zonas con valores meteorologicos mayores pero menos estaciones. Para lluvia, temperatura, humedad y velocidad de viento se quiere una lectura aproximada de promedio espacial, no de concentracion de observaciones.
 
 ### Consecuencias
-La Raspberry Pi no calcula la interpolacion; solo sirve el GeoJSON de estaciones y `config.js`. La carga pasa al dispositivo cliente y se limita al area visible. Los settings por dispositivo controlan activacion, opacidad, radio visual, calidad, suavizado y correccion por altitud. Los parametros tecnicos de radios en px, radio fisico maximo, tamano de rejilla, potencia IDW y gradiente termico viven en `rainmapper-app/config.yaml` para ajustar pruebas en HA sin publicar una nueva imagen.
+La Raspberry Pi no calcula la interpolacion; solo sirve el GeoJSON de estaciones y `config.js`. La carga pasa al dispositivo cliente y se limita al area visible. Los settings por dispositivo controlan activacion, opacidad, radio fisico, calidad, suavizado y correccion por altitud. Los parametros tecnicos de radios en km, radio fisico maximo, tamano fisico de celda en km, potencia IDW y gradiente termico viven en `rainmapper-app/config.yaml` para ajustar pruebas en HA sin publicar una nueva imagen. Las metricas ausentes/no numericas no participan en la interpolacion; las temperaturas negativas son valores validos. El viento se trata inicialmente como escalar, dejando una posible visualizacion vectorial con flechas para una fase posterior.
 
 ### Ficheros afectados
 - `rainmapper-app/config.yaml`
@@ -1247,4 +1247,4 @@ La Raspberry Pi no calcula la interpolacion; solo sirve el GeoJSON de estaciones
 - `tests/test_web_server_auth.py`
 
 ### Estado
-Publicado en imagen HA `0.2.138` con digest multi-arch `sha256:c16e87c8e86186e09dc04f77759ffe2c1f1cbf0fa97e6b5e015364d38530cd17`, pendiente de validacion visual y de rendimiento en HA/dispositivos reales.
+Publicado inicialmente en imagen HA `0.2.138` con digest multi-arch `sha256:c16e87c8e86186e09dc04f77759ffe2c1f1cbf0fa97e6b5e015364d38530cd17`. `0.2.139` intento limitar el azul de lluvia cero, pero en HA siguio mostrando un comportamiento demasiado parecido y expuso problemas de sincronizacion entre botones `Heatmap`/`IDW`. `0.2.140` queda publicada en GHCR con digest multi-arch `sha256:2c6ca5354097ba98f4370e66fd1fab3b0e41ab3495fa0b15be0ea35e8022b85e`, pendiente de validacion HA: los botones rapidos no persisten, los checkboxes de Settings son incompatibles y persistentes, el radio y el tamano de celda IDW pasan a km configurables (`maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_grid_*_cell_km`) y lluvia cero deja de generar area visible por si sola.
