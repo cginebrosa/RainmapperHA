@@ -1486,6 +1486,32 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       font-size: 11px;
       padding: 2px 7px;
     }}
+    .profile-metrics {{
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      margin: 0 0 14px;
+    }}
+    .profile-metric {{
+      align-items: center;
+      background: rgba(15, 23, 42, .34);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      min-width: 0;
+      padding: 8px 10px;
+    }}
+    .profile-metric .label {{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .profile-metric .value {{
+      font-size: 16px;
+      white-space: nowrap;
+    }}
     .profile-editor {{
       display: grid;
       gap: 12px;
@@ -1627,6 +1653,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       .permissions-grid {{
         grid-template-columns: repeat(3, minmax(180px, 1fr));
       }}
+      .profile-metrics {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }}
     }}
     @media (max-width: 980px) {{
       .catalog-layout {{
@@ -1645,6 +1674,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       .profile-grid.three,
       .profile-grid.four,
       .profile-calibration-summary,
+      .profile-metrics,
       .profile-affinity-row {{
         grid-template-columns: 1fr;
       }}
@@ -3640,8 +3670,8 @@ def render_catalog_metric_cards(metrics: dict[str, int], errors: list[object], w
         ("With hierarchy", str(metrics["hierarchy"]), ""),
         ("Validation", f"{errors_count} errors · {warnings_count} warnings", "danger" if errors_count else "warn" if warnings_count else "ok"),
     ]
-    return '<div class="summary-grid">' + "".join(
-        f'<div class="card"><span class="label">{html.escape(label)}</span><span class="value {css_class}">{html.escape(value)}</span></div>'
+    return '<div class="profile-metrics">' + "".join(
+        f'<div class="profile-metric"><span class="label">{html.escape(label)}</span><span class="value {css_class}">{html.escape(value)}</span></div>'
         for label, value, css_class in cards
     ) + "</div>"
 
@@ -4394,12 +4424,23 @@ def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str,
     catalog_group = PROFILE_AFFINITY_GROUPS[field]
     options = catalog_options_for_group(catalogs, catalog_group)
     affinities = values if isinstance(values, list) else []
+    used_ids = {
+        str(item.get("id", "") or "").strip()
+        for item in affinities
+        if isinstance(item, dict) and str(item.get("id", "") or "").strip()
+    }
     rows = []
     editable_rows = [item if isinstance(item, dict) else {} for item in affinities] + [{} for _ in range(3)]
     for index, item in enumerate(editable_rows):
+        current_id = str(item.get("id", "") or "").strip()
+        row_options = [
+            option
+            for option in options
+            if option[0] == current_id or option[0] not in used_ids
+        ]
         rows.append(
             '<div class="profile-affinity-row">'
-            + profile_form_catalog_select(f"{field}_{index}_id", "ID", item.get("id", ""), options)
+            + profile_form_catalog_select(f"{field}_{index}_id", "ID", current_id, row_options)
             + profile_form_select(f"{field}_{index}_relationship", "Relationship", item.get("relationship", ""), PROFILE_SELECT_VALUES["relationship"])
             + profile_form_field(f"{field}_{index}_affinity", "Affinity", item.get("affinity", ""), field_type="number")
             + "</div>"

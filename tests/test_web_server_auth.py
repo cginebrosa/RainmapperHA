@@ -223,6 +223,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Mantenimiento de especies", page)
         self.assertIn("Boletus pinophilus", page)
         self.assertIn("Host Affinities", page)
+        self.assertIn("profile-metrics", page)
         self.assertIn("profile-tab-labels", page)
         self.assertIn("Calibration", page)
         self.assertIn("Local calibration status", page)
@@ -428,6 +429,22 @@ class AuthDeviceLimitTests(unittest.TestCase):
             ["boletus_test: host_affinities contains duplicate IDs: host_pinus_spp."],
             errors,
         )
+
+    def test_profile_affinity_rows_hide_already_used_ids_from_new_rows(self) -> None:
+        catalogs = {
+            "host_taxa": [
+                {"id": "host_pinus_spp", "scientific_name": "Pinus spp."},
+                {"id": "host_quercus_spp", "scientific_name": "Quercus spp."},
+            ]
+        }
+        html = self.web_server.render_profile_affinity_rows(
+            "host_affinities",
+            [{"id": "host_pinus_spp", "relationship": "primary", "affinity": 1.0}],
+            catalogs,
+        )
+
+        self.assertEqual(1, html.count('value="host_pinus_spp"'))
+        self.assertGreaterEqual(html.count('value="host_quercus_spp"'), 2)
 
     def test_mushroom_profiles_post_blocks_duplicate_affinities(self) -> None:
         data_dir = Path(self.temp_dir.name)

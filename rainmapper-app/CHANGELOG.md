@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.160
+
+- Compact the mushroom species summary metrics into a single-line dashboard band on wide screens.
+- Hide already-used affinity IDs from new affinity dropdown rows while keeping backend duplicate protection.
+- Document the pending redesign of the long Ecology tab.
+
 ## 0.2.159
 
 - Split the mushroom species editor into tabs and expose calibration as its own maintenance area.
