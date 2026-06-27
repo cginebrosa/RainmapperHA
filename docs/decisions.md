@@ -25,7 +25,7 @@ Consecuencias:
 
 Estado:
 
-Publicado en imagen HA `0.2.148` con digest multi-arch `sha256:a2fcab2222519150bd20a3f9cbb1949736b03384e1c6b79f36ef50d79d28c821` y commit `48629ff`. Validacion local: `python3 -m unittest tests.test_web_server_auth` OK y `./scripts/smoke-test.sh` OK. Pendiente de validacion visual y operativa en HA.
+Publicado inicialmente en imagen HA `0.2.148` con digest multi-arch `sha256:a2fcab2222519150bd20a3f9cbb1949736b03384e1c6b79f36ef50d79d28c821` y commit `48629ff`. En HA se detecto que el acordeon aparecia totalmente desplegado porque `.user-panel { display: grid; }` pisaba el atributo `hidden`, y ademas el JS podia abrir/restaurar automaticamente un usuario al cargar. `0.2.149` corrige el comportamiento: todos los usuarios nacen cerrados, pulsar un usuario abierto lo cierra, abrir un usuario cierra todos los demas y el refresh manual deja el listado cerrado. Imagen HA `0.2.149` publicada con digest multi-arch `sha256:3a488f597e34d2caba2c30edc90f5426813eb0c19858e2dcd679b197abda474b` y commit `039e615`. Validacion local: `python3 -m unittest tests.test_web_server_auth` OK y `./scripts/smoke-test.sh` OK. Pendiente de validacion visual y operativa en HA.
 
 ## 2026-06-27 - Redisenar Control Panel HA como dashboard con tabs internos
 
