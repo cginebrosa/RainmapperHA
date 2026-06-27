@@ -215,12 +215,20 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("/mushrooms/catalogs?group=host_taxa&id=host_test_new", redirect)
+        self.assertEqual("?group=host_taxa&id=host_test_new", redirect)
         catalog_path = data_dir / "mushroom-data" / "mushroom_reference_catalogs.json"
         payload = json.loads(catalog_path.read_text(encoding="utf-8"))
         self.assertTrue(
             any(item.get("id") == "host_test_new" for item in payload["catalogs"]["host_taxa"])
         )
+
+    def test_mushroom_catalog_links_are_ingress_relative(self) -> None:
+        source = Path(WEB_SERVER_PATH).read_text(encoding="utf-8")
+
+        self.assertIn('href="./mushrooms/catalogs"', source)
+        self.assertNotIn('href="/mushrooms/catalogs"', source)
+        self.assertNotIn('action="/mushrooms/catalogs"', source)
+        self.assertEqual("?group=host_taxa&id=host_foo", self.web_server.catalog_query_url("host_taxa", "host_foo"))
 
     def test_basic_role_allows_two_devices_and_reusing_existing_device(self) -> None:
         self.write_users_json(

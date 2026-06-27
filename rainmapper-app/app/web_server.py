@@ -3335,7 +3335,7 @@ def catalog_query_url(group: str = "", item_id: str = "", search: str = "") -> s
         params["id"] = item_id
     if search:
         params["q"] = search
-    return "/mushrooms/catalogs" + (("?" + urlencode(params)) if params else "")
+    return ("?" + urlencode(params)) if params else "?"
 
 
 def render_catalog_metric_cards(metrics: dict[str, int], errors_count: int, warnings_count: int) -> str:
@@ -3437,7 +3437,7 @@ def render_catalog_detail(row: dict[str, object] | None, errors: list[object], w
         <div><span class="label">GIS</span><span class="value">{int(row["gis_count"])}</span></div>
         <div><span class="label">Status</span><span class="value">{html.escape(str(row["status"]))}</span></div>
       </div>
-      <form class="catalog-json-editor" method="post" action="/mushrooms/catalogs?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save this catalog entry and validate the full dataset?')">
+      <form class="catalog-json-editor" method="post" action="?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save this catalog entry and validate the full dataset?')">
         <input type="hidden" name="catalog_action" value="save_entry">
         <input type="hidden" name="group" value="{html.escape(group, quote=True)}">
         <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
@@ -3475,11 +3475,11 @@ def render_catalog_full_json_panel(payload: dict[str, object], mode: str) -> str
       <summary><strong>Full catalog JSON import/export</strong> · {html.escape(mode_label)}</summary>
       <p>Use this panel for controlled full-file import/export. Saving validates profiles, catalogs and GIS mappings together before replacing the persistent catalog file.</p>
       <div class="quick-actions">
-        <a class="button-link" href="/mushrooms/catalogs?mode=current">Current catalog</a>
-        <a class="button-link" href="/mushrooms/catalogs?mode=default">Packaged default</a>
-        <a class="button-link" href="/mushrooms/catalogs?mode=template">Empty template</a>
+        <a class="button-link" href="?mode=current">Current catalog</a>
+        <a class="button-link" href="?mode=default">Packaged default</a>
+        <a class="button-link" href="?mode=template">Empty template</a>
       </div>
-      <form class="catalog-json-editor" method="post" action="/mushrooms/catalogs" onsubmit="return confirm('Replace the full catalog JSON after validation?')">
+      <form class="catalog-json-editor" method="post" action="" onsubmit="return confirm('Replace the full catalog JSON after validation?')">
         <input type="hidden" name="catalog_action" value="save_catalog">
         <label class="label" for="catalog-full-json">Catalog JSON</label>
         <textarea id="catalog-full-json" name="catalog_json" spellcheck="false">{html.escape(json_value)}</textarea>
@@ -3503,7 +3503,7 @@ def render_new_catalog_entry_form(catalogs: dict[str, object], selected_group: s
     <section class="card">
       <h2>New catalog entry</h2>
       <p>Create a safe starter entry in the selected catalog group. The new ID is validated before the catalog is saved.</p>
-      <form class="catalog-create-form" method="post" action="/mushrooms/catalogs" onsubmit="return confirm('Create this catalog entry and validate the full dataset?')">
+      <form class="catalog-create-form" method="post" action="" onsubmit="return confirm('Create this catalog entry and validate the full dataset?')">
         <input type="hidden" name="catalog_action" value="create_entry">
         <div class="admin-form-grid">
           <div class="admin-field">
@@ -4497,7 +4497,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             errors, warnings = store.validate_current()
         except Exception as exc:
             body = (
-                '<p><a class="button-link" href="./">Back</a></p>'
+                '<p><a class="button-link" href="../">Back</a></p>'
                 "<h1>Reference catalog</h1>"
                 f'<div class="catalog-alert error"><strong>Cannot load mushroom data</strong><br>{html.escape(str(exc))}</div>'
             )
@@ -4539,9 +4539,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           </div>
         </div>
         <div class="catalog-toolbar">
-          <a class="button-link" href="/">Back</a>
-          <a class="button-link" href="/mushrooms/catalogs">Refresh</a>
-          <form class="catalog-filter" method="get" action="/mushrooms/catalogs">
+          <a class="button-link" href="../">Back</a>
+          <a class="button-link" href="?">Refresh</a>
+          <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="group" value="{html.escape(selected_group, quote=True)}">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search ID, group, label or domain">
           </form>
@@ -4719,7 +4719,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         if parsed.path.rstrip("/") == "/mushrooms/catalogs":
             redirect_target = self.handle_mushroom_catalogs_post(form)
             query = ("?" + parsed.query) if parsed.query else ""
-            self.redirect_to(redirect_target or ("/mushrooms/catalogs" + query))
+            self.redirect_to(redirect_target or query or "?")
             return
 
         action = self.form_value(form, "run_action")
@@ -4891,7 +4891,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <form method="post" action=""><input type="hidden" name="run_action" value="maps"><button {disabled}>Generate maps</button></form>
           <a class="button-link" href="./settings">App settings</a>
           <a class="button-link" href="./users">Users</a>
-          <a class="button-link" href="/mushrooms/catalogs">Mushroom catalogs</a>
+          <a class="button-link" href="./mushrooms/catalogs">Mushroom catalogs</a>
         </div>
         """
         head_controls = f"""
@@ -5160,6 +5160,12 @@ def main() -> None:
     args = parser.parse_args()
 
     preserve_public_maplibre_data_for_transition()
+    try:
+        seeded = default_store().ensure_seeded()
+        if seeded:
+            print(f"Seeded mushroom data defaults: {', '.join(seeded)}", flush=True)
+    except Exception as exc:
+        print(f"WARNING: could not seed mushroom data defaults: {exc}", flush=True)
 
     scheduler = threading.Thread(target=scheduler_loop, daemon=True)
     scheduler.start()
