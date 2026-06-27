@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-06-27 - Redisenar Control Panel HA como dashboard con tabs internos
+
+Decision:
+
+- Redisenar el Control Panel principal de Rainmapper dentro de Home Assistant como un dashboard compacto con tabs internos: `Summary`, `Data sources`, `Viewers`, `Maps`, `Logs` y `Errors`.
+- Mantener la WebUI del Control Panel en ingles, aunque los documentos/mockups de trabajo puedan estar en castellano.
+- Usar HTML/CSS/JS server-side generado desde `rainmapper-app/app/web_server.py`, sin dependencias frontend nuevas, para mantener compatibilidad con HA ingress.
+- Preservar todos los handlers y acciones existentes: `Run update`, `Generate maps`, `Run all`, `App settings`, `Users`, `Update only` por fuente, abrir visores, abrir mapas, abrir log, `Disable all` y `Enable all`.
+- No anadir confirmacion a `Disable all` / `Enable all`, porque son acciones reversibles y el usuario rechazo introducir friccion de seguridad ahi.
+
+Motivo:
+
+- El panel anterior era funcional pero demasiado alto y dificil de escanear conforme crecen fuentes, mapas, logs y errores.
+- Home Assistant ya proporciona navegacion lateral; anadir una segunda sidebar dentro de Rainmapper seria mas pesado y menos coherente dentro de ingress.
+- Los tabs internos permiten separar resumen, fuentes, visores, mapas, logs y errores sin perder acceso rapido a las acciones operativas principales.
+- Mantener contratos POST y endpoints evita riesgo innecesario en una pantalla de control ya usada en produccion.
+
+Consecuencias:
+
+- El codigo de `web_server.py` crece con helpers server-side pequenos para renderizar fragments del dashboard, tablas, tarjetas, listas de mapas y preview de logs.
+- La UX se valida en HA/ingress, no solo en HTML local, porque los estilos y anchuras reales dependen del contenedor de Home Assistant.
+- Futuras mejoras del panel deben preservar primero los handlers existentes y anadir tests que comprueben enlaces/acciones criticas.
+
+Estado:
+
+Publicado en imagen HA `0.2.147` con digest multi-arch `sha256:368c910b9a31fba587c1e1cbca0201395feeecca3bf9e8884f62ccc08a76feef` y commit `9ffecab`. Validacion local: `./scripts/smoke-test.sh` OK. Pendiente de validacion visual y operativa en HA.
+
 ## 2026-06-25 - Mantener permisos funcionales simples por usuario solo como fase actual
 
 Decision:
@@ -1269,4 +1296,4 @@ Cada usuario se muestra como una fila compacta con resumen, permisos y ultimo di
 - `docs/ui/user-management-accordion-prototype.png`
 
 ### Estado
-Publicado en imagen HA `0.2.146` con digest multi-arch `sha256:fefbc22459cd8e388f6660ac533293557f157a33e3a1f8dc1cb781359a6c8ca8` y commit `ab5b2dd`. Validacion local: `./scripts/smoke-test.sh` OK. Pendiente de validacion visual y operativa en HA.
+Publicado en imagen HA `0.2.146` con digest multi-arch `sha256:fefbc22459cd8e388f6660ac533293557f157a33e3a1f8dc1cb781359a6c8ca8` y commit `ab5b2dd`. Validacion local: `./scripts/smoke-test.sh` OK. Validada/dada por buena en HA el 2026-06-27.
