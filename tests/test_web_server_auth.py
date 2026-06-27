@@ -340,6 +340,56 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(["Scots pine"], entry["common_names"]["en"])
         self.assertEqual(["Pinus sylvestris"], entry["gis_aliases"])
 
+    def test_catalog_cross_reference_checks_validate_host_parent_id(self) -> None:
+        catalogs = {
+            "host_taxa": [
+                {"id": "host_pinaceae"},
+                {"id": "host_pinus_spp", "parent_id": "host_pinaceae"},
+            ]
+        }
+
+        valid_checks = self.web_server.catalog_cross_reference_checks(
+            "host_taxa",
+            {"id": "host_pinus_spp", "parent_id": "host_pinaceae"},
+            catalogs,
+        )
+        invalid_checks = self.web_server.catalog_cross_reference_checks(
+            "host_taxa",
+            {"id": "host_pinus_spp", "parent_id": "host_missing"},
+            catalogs,
+        )
+
+        self.assertEqual("ok", valid_checks[0][0])
+        self.assertEqual("parent_id", valid_checks[0][1])
+        self.assertEqual("error", invalid_checks[0][0])
+        self.assertIn("host_missing", invalid_checks[0][2])
+
+    def test_catalog_cross_reference_checks_validate_forest_and_lithology_refs(self) -> None:
+        catalogs = {
+            "host_taxa": [{"id": "host_pinus_spp"}],
+            "forest_types": [{"id": "forest_montane_pine"}],
+            "soil_types": [{"id": "soil_acidic"}],
+        }
+
+        forest_checks = self.web_server.catalog_cross_reference_checks(
+            "forest_types",
+            {
+                "id": "forest_montane_pine",
+                "dominant_host_ids": ["host_pinus_spp", "host_missing"],
+                "soil_bias_ids": ["soil_missing"],
+            },
+            catalogs,
+        )
+        lithology_checks = self.web_server.catalog_cross_reference_checks(
+            "lithology_types",
+            {"id": "lith_granite", "parent_soil_tendency_ids": ["soil_missing"]},
+            catalogs,
+        )
+
+        self.assertTrue(any(check[0] == "error" and "host_missing" in check[2] for check in forest_checks))
+        self.assertTrue(any(check[0] == "error" and "soil_missing" in check[2] for check in forest_checks))
+        self.assertTrue(any(check[0] == "error" and "soil_missing" in check[2] for check in lithology_checks))
+
     def test_basic_role_allows_two_devices_and_reusing_existing_device(self) -> None:
         self.write_users_json(
             [

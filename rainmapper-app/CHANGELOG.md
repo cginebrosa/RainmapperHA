@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.157
+
+- Add visible mushroom catalog cross-reference checks for host parent IDs and internal forest/lithology catalog references.
+- Render host and forest parent IDs as selectors backed by the reference catalog.
+
 ## 0.2.156
 
 - Replace mushroom catalog group chips with domain summary cards and add a domain-impact panel for the active catalog scope.

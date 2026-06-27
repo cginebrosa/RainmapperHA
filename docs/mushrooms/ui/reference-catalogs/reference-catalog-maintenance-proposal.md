@@ -1015,6 +1015,14 @@ family recomendado
 parent_id debe existir si se informa
 ```
 
+Estado de implementacion pendiente:
+
+```text
+La WebUI actual permite editar host_taxa.parent_id, pero debe anadirse feedback de
+validacion cruzada visible en pantalla para confirmar que el parent_id existe en
+catalogs.host_taxa antes/despues de guardar.
+```
+
 ### soil_types
 
 ```text
@@ -1034,6 +1042,16 @@ Todo ID usado en mushroom_profiles existe en reference_catalogs.
 Todo ID emitido por mushroom_gis_mappings existe en reference_catalogs.
 No hay IDs duplicados.
 No hay parent_id rotos.
+```
+
+Pendiente de UI:
+
+```text
+Mostrar validaciones de cross references por campo, especialmente:
+- host_taxa.parent_id -> catalogs.host_taxa
+- forest_types.dominant_host_ids[] -> catalogs.host_taxa
+- forest_types.soil_bias_ids[] -> catalogs.soil_types
+- lithology_types.parent_soil_tendency_ids[] -> catalogs.soil_types
 ```
 
 ---

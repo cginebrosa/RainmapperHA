@@ -1372,6 +1372,32 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       resize: vertical;
       width: 100%;
     }}
+    .catalog-reference-checks {{
+      display: grid;
+      gap: 6px;
+      margin: 8px 0 12px;
+    }}
+    .catalog-reference-check {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      padding: 8px 9px;
+    }}
+    .catalog-reference-check.ok {{
+      border-color: rgba(52, 211, 153, .35);
+      color: var(--ok);
+    }}
+    .catalog-reference-check.error {{
+      border-color: rgba(255, 107, 107, .5);
+      color: var(--danger);
+    }}
+    .catalog-reference-check strong {{
+      color: var(--fg);
+      display: block;
+      margin-bottom: 2px;
+    }}
     .catalog-create-form {{
       display: block;
       margin: 0;
@@ -3559,6 +3585,36 @@ def catalog_form_field(name: str, label: str, value: object = "", field_type: st
     )
 
 
+def catalog_ids_for_group(catalogs: dict[str, object], group: str) -> list[str]:
+    items = catalogs.get(group)
+    if not isinstance(items, list):
+        return []
+    return sorted(
+        str(item.get("id", ""))
+        for item in items
+        if isinstance(item, dict) and str(item.get("id", "")).strip()
+    )
+
+
+def catalog_form_select(name: str, label: str, value: object, options: list[str], exclude: str = "") -> str:
+    current = "" if value is None else str(value)
+    escaped_name = html.escape(name, quote=True)
+    option_html = [f'<option value=""{" selected" if not current else ""}>-</option>']
+    for option in options:
+        if option == exclude:
+            continue
+        selected = " selected" if option == current else ""
+        option_html.append(f'<option value="{html.escape(option, quote=True)}"{selected}>{html.escape(option)}</option>')
+    if current and current not in options:
+        option_html.append(f'<option value="{html.escape(current, quote=True)}" selected>{html.escape(current)} (missing)</option>')
+    return (
+        '<div class="admin-field">'
+        f'<label for="catalog-{escaped_name}">{html.escape(label)}</label>'
+        f'<select id="catalog-{escaped_name}" name="{escaped_name}">{"".join(option_html)}</select>'
+        "</div>"
+    )
+
+
 def catalog_form_textarea(name: str, label: str, value: object) -> str:
     escaped_name = html.escape(name, quote=True)
     return (
@@ -3567,6 +3623,63 @@ def catalog_form_textarea(name: str, label: str, value: object) -> str:
         f'<textarea id="catalog-{escaped_name}" name="{escaped_name}">{html.escape(catalog_textarea_value(value))}</textarea>'
         "</div>"
     )
+
+
+def catalog_missing_ids(values: object, allowed_ids: set[str]) -> list[str]:
+    if not isinstance(values, list):
+        values = [values] if values else []
+    return sorted(
+        str(value)
+        for value in values
+        if str(value).strip() and str(value) not in allowed_ids
+    )
+
+
+def catalog_cross_reference_checks(group: str, item: dict[str, object], catalogs: dict[str, object]) -> list[tuple[str, str, str]]:
+    host_ids = set(catalog_ids_for_group(catalogs, "host_taxa"))
+    forest_ids = set(catalog_ids_for_group(catalogs, "forest_types"))
+    soil_ids = set(catalog_ids_for_group(catalogs, "soil_types"))
+    checks: list[tuple[str, str, str]] = []
+    if group == "host_taxa":
+        parent_id = str(item.get("parent_id", "") or "")
+        if parent_id and parent_id not in host_ids:
+            checks.append(("error", "parent_id", f"{parent_id} does not exist in host_taxa."))
+        else:
+            checks.append(("ok", "parent_id", "Parent ID is empty or exists in host_taxa."))
+    elif group == "forest_types":
+        parent_id = str(item.get("parent_id", "") or "")
+        if parent_id and parent_id not in forest_ids:
+            checks.append(("error", "parent_id", f"{parent_id} does not exist in forest_types."))
+        missing_hosts = catalog_missing_ids(item.get("dominant_host_ids", []), host_ids)
+        missing_soils = catalog_missing_ids(item.get("soil_bias_ids", []), soil_ids)
+        if missing_hosts:
+            checks.append(("error", "dominant_host_ids", "Missing host_taxa IDs: " + ", ".join(missing_hosts)))
+        else:
+            checks.append(("ok", "dominant_host_ids", "Dominant host IDs exist in host_taxa."))
+        if missing_soils:
+            checks.append(("error", "soil_bias_ids", "Missing soil_types IDs: " + ", ".join(missing_soils)))
+        elif item.get("soil_bias_ids"):
+            checks.append(("ok", "soil_bias_ids", "Soil bias IDs exist in soil_types."))
+    elif group == "lithology_types":
+        missing_soils = catalog_missing_ids(item.get("parent_soil_tendency_ids", []), soil_ids)
+        if missing_soils:
+            checks.append(("error", "parent_soil_tendency_ids", "Missing soil_types IDs: " + ", ".join(missing_soils)))
+        else:
+            checks.append(("ok", "parent_soil_tendency_ids", "Parent soil tendency IDs exist in soil_types."))
+    return checks
+
+
+def render_catalog_cross_reference_checks(group: str, item: dict[str, object], catalogs: dict[str, object]) -> str:
+    checks = catalog_cross_reference_checks(group, item, catalogs)
+    if not checks:
+        return ""
+    rows = []
+    for severity, field, message in checks:
+        rows.append(
+            f'<div class="catalog-reference-check {html.escape(severity)}">'
+            f"<strong>{html.escape(field)}</strong>{html.escape(message)}</div>"
+        )
+    return '<section class="catalog-reference-checks"><h2>Cross references</h2>' + "".join(rows) + "</section>"
 
 
 def catalog_label_fields(item: dict[str, object]) -> str:
@@ -3579,7 +3692,7 @@ def catalog_label_fields(item: dict[str, object]) -> str:
     )
 
 
-def render_catalog_entry_form(row: dict[str, object]) -> str:
+def render_catalog_entry_form(row: dict[str, object], catalogs: dict[str, object]) -> str:
     item = row.get("item", {})
     item = item if isinstance(item, dict) else {}
     group = str(row["group"])
@@ -3595,7 +3708,7 @@ def render_catalog_entry_form(row: dict[str, object]) -> str:
                 catalog_form_field("scientific_name", "Scientific name", item.get("scientific_name", "")),
                 catalog_form_field("genus", "Genus", item.get("genus", "")),
                 catalog_form_field("family", "Family", item.get("family", "")),
-                catalog_form_field("parent_id", "Parent ID", item.get("parent_id", "")),
+                catalog_form_select("parent_id", "Parent ID", item.get("parent_id", ""), catalog_ids_for_group(catalogs, "host_taxa"), exclude=item_id),
                 catalog_form_textarea("common_names_es", "Common names ES", common_names.get("es", [])),
                 catalog_form_textarea("common_names_ca", "Common names CA", common_names.get("ca", [])),
                 catalog_form_textarea("common_names_en", "Common names EN", common_names.get("en", [])),
@@ -3607,7 +3720,7 @@ def render_catalog_entry_form(row: dict[str, object]) -> str:
         if group == "forest_types":
             fields.extend(
                 [
-                    catalog_form_field("parent_id", "Parent ID", item.get("parent_id", "")),
+                    catalog_form_select("parent_id", "Parent ID", item.get("parent_id", ""), catalog_ids_for_group(catalogs, "forest_types"), exclude=item_id),
                     catalog_form_textarea("dominant_host_ids", "Dominant host IDs", item.get("dominant_host_ids", [])),
                     catalog_form_textarea("soil_bias_ids", "Soil bias IDs", item.get("soil_bias_ids", [])),
                     catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
@@ -3655,7 +3768,7 @@ def render_catalog_entry_form(row: dict[str, object]) -> str:
     """
 
 
-def render_catalog_detail(row: dict[str, object] | None, errors: list[object], warnings: list[object]) -> str:
+def render_catalog_detail(row: dict[str, object] | None, errors: list[object], warnings: list[object], catalogs: dict[str, object]) -> str:
     if not row:
         return '<aside class="card catalog-detail"><h2>Catalog detail</h2><p>No catalog entry selected.</p></aside>'
     item = row.get("item", {})
@@ -3666,7 +3779,8 @@ def render_catalog_detail(row: dict[str, object] | None, errors: list[object], w
     <aside class="card catalog-detail">
       <h2>Catalog detail</h2>
       <p><strong>{html.escape(item_id)}</strong><br>{html.escape(group)} · {html.escape(str(row["domain"]))}</p>
-      {render_catalog_entry_form(row)}
+      {render_catalog_entry_form(row, catalogs)}
+      {render_catalog_cross_reference_checks(group, item if isinstance(item, dict) else {}, catalogs)}
       <details>
         <summary><strong>Advanced raw JSON</strong></summary>
         <form class="catalog-json-editor" method="post" action="?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this catalog entry and validate the full dataset?')">
@@ -4874,7 +4988,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             {render_catalog_table(rows, selected, selected_group, search)}
             {render_catalog_domain_impact(rows, selected_group)}
           </section>
-          {render_catalog_detail(selected, errors, warnings)}
+          {render_catalog_detail(selected, errors, warnings, catalogs)}
         </div>
         <h2>Cross validation</h2>
         {render_catalog_alerts(errors, warnings, limit=12)}
