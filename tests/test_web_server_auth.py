@@ -500,7 +500,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("?id=boletus_pinophilus", redirect)
+        self.assertEqual("?id=boletus_pinophilus#mushroom-profile-message", redirect)
         self.assertIn(
             "host_affinities: contains duplicate IDs",
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
@@ -544,11 +544,21 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("?id=boletus_edulis", redirect)
+        self.assertEqual("?id=boletus_edulis#mushroom-profile-message", redirect)
         self.assertIn(
             "main_months and secondary_months overlap",
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
         )
+
+    def test_mushroom_profiles_flash_renders_validation_error_alert(self) -> None:
+        html = self.web_server.render_mushroom_profiles_flash(
+            "Species profile was not saved: profiles.boletus_test.phenology: main_months and secondary_months overlap: 8."
+        )
+
+        self.assertIn('id="mushroom-profile-message"', html)
+        self.assertIn("catalog-alert error", html)
+        self.assertIn("Validation error", html)
+        self.assertIn("Nothing was saved", html)
 
     def test_mushroom_catalog_summary_uses_validator_status_not_loose_scan(self) -> None:
         catalogs = {

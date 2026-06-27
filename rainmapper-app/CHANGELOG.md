@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.162
+
+- Make mushroom species validation failures visible as validation-error alerts instead of generic status messages.
+- Redirect failed species saves to the validation alert so blocked saves are easier to notice in Home Assistant.
+
 ## 0.2.161
 
 - Add shared semantic validation for mushroom species profiles.

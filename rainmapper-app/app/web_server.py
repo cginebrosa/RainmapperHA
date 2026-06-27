@@ -4221,6 +4221,40 @@ def set_mushroom_profiles_flash(message: str) -> None:
         RUN_STATE["mushroom_profiles_flash"] = message
 
 
+def mushroom_profiles_flash_is_error(message: str) -> bool:
+    text = message.lower()
+    return any(
+        marker in text
+        for marker in (
+            "was not saved",
+            "were not saved",
+            "invalid json",
+            "action failed",
+            "was not found",
+            "unknown species",
+            "must be an object",
+            "cannot be changed",
+        )
+    )
+
+
+def render_mushroom_profiles_flash(message: str) -> str:
+    if not message:
+        return ""
+    is_error = mushroom_profiles_flash_is_error(message)
+    css_class = "catalog-alert error" if is_error else "catalog-alert"
+    title = "Validation error" if is_error else "Status"
+    suffix = '<br><span class="meta">Nothing was saved. Review the fields and save again.</span>' if is_error else ""
+    return (
+        f'<div id="mushroom-profile-message" class="{css_class}" role="alert" tabindex="-1">'
+        f"<strong>{title}</strong><br>{html.escape(message)}{suffix}</div>"
+    )
+
+
+def profile_message_url(species_id: str = "") -> str:
+    return profile_query_url(species_id) + "#mushroom-profile-message"
+
+
 def profile_common_name(profile: dict[str, object]) -> str:
     names = profile.get("common_names")
     if isinstance(names, list) and names:
@@ -5838,7 +5872,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             mode = "current"
 
         flash = mushroom_profiles_flash()
-        flash_html = f'<div class="catalog-alert"><strong>Status</strong><br>{html.escape(flash)}</div>' if flash else ""
+        flash_html = render_mushroom_profiles_flash(flash)
         seeded_html = (
             f'<div class="catalog-alert"><strong>Seeded defaults</strong><br>{html.escape(", ".join(seeded))}</div>'
             if seeded else ""
@@ -6212,16 +6246,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 entry = json.loads(self.form_value(form, "profile_json"))
                 if not isinstance(entry, dict):
                     set_mushroom_profiles_flash("Species profile JSON must be an object.")
-                    return ""
+                    return profile_message_url(species_id)
                 semantic_errors = profile_semantic_error_messages(entry)
                 if semantic_errors:
                     set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(semantic_errors[:3]))
-                    return profile_query_url(species_id)
+                    return profile_message_url(species_id)
                 profiles_payload = store.load("profiles")
                 ok, message = replace_profile_entry(profiles_payload, species_id, entry)
                 if not ok:
                     set_mushroom_profiles_flash(message)
-                    return ""
+                    return profile_message_url(species_id)
                 result = store.replace("profiles", profiles_payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
@@ -6229,6 +6263,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     return profile_query_url(species_id)
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
+                return profile_message_url(species_id)
             elif action == "save_profile_form":
                 profiles_payload = store.load("profiles")
                 profiles = profiles_payload.get("species_profiles")
@@ -6244,16 +6279,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     )
                 if not isinstance(existing, dict):
                     set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
-                    return ""
+                    return profile_message_url(species_id)
                 entry = profile_from_form(existing, form)
                 semantic_errors = profile_semantic_error_messages(entry)
                 if semantic_errors:
                     set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(semantic_errors[:3]))
-                    return profile_query_url(species_id)
+                    return profile_message_url(species_id)
                 ok, message = replace_profile_entry(profiles_payload, species_id, entry)
                 if not ok:
                     set_mushroom_profiles_flash(message)
-                    return ""
+                    return profile_message_url(species_id)
                 result = store.replace("profiles", profiles_payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
@@ -6261,15 +6296,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     return profile_query_url(species_id)
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
+                return profile_message_url(species_id)
             elif action == "save_profiles":
                 payload = json.loads(self.form_value(form, "profiles_json"))
                 if not isinstance(payload, dict):
                     set_mushroom_profiles_flash("Profiles JSON must be an object.")
-                    return ""
+                    return profile_message_url(species_id)
                 semantic_errors = profiles_payload_semantic_error_messages(payload)
                 if semantic_errors:
                     set_mushroom_profiles_flash("Profiles were not saved: " + "; ".join(semantic_errors[:3]))
-                    return ""
+                    return profile_message_url(species_id)
                 result = store.replace("profiles", payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
@@ -6277,12 +6313,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 else:
                     error_text = "; ".join(message.message for message in result.errors[:3])
                     set_mushroom_profiles_flash("Profiles were not saved: " + error_text)
+                    return profile_message_url(species_id)
             else:
                 set_mushroom_profiles_flash("Unknown species maintenance action.")
+                return profile_message_url(species_id)
         except json.JSONDecodeError as exc:
             set_mushroom_profiles_flash(f"Invalid JSON: line {exc.lineno}, column {exc.colno}: {exc.msg}")
+            return profile_message_url(species_id)
         except Exception as exc:
             set_mushroom_profiles_flash(f"Species action failed: {exc}")
+            return profile_message_url(species_id)
         return profile_query_url(species_id) if species_id else "?"
 
     def render_index(self) -> None:
