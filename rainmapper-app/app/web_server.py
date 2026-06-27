@@ -16,7 +16,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -100,6 +100,7 @@ RUN_STATE = {
     "last_scheduled_key": "",
     "last_published_at": "",
     "last_publish_message": "Not published yet.",
+    "users_flash": "",
 }
 
 
@@ -644,7 +645,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       top: 0;
       z-index: 10;
       display: grid;
-      grid-template-columns: auto auto minmax(220px, 1fr) auto;
+      grid-template-columns: auto auto minmax(220px, 1fr) auto auto;
       gap: 10px;
       align-items: center;
       margin: -24px -20px 20px;
@@ -688,6 +689,273 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     .device-filter-note.visible {{
       display: block;
     }}
+    .users-page-head {{
+      align-items: start;
+      display: flex;
+      gap: 18px;
+      justify-content: space-between;
+      margin: 0 0 14px;
+    }}
+    .users-page-head h1 {{
+      margin-bottom: 4px;
+    }}
+    .users-page-head p {{
+      color: var(--muted);
+      margin: 0;
+    }}
+    .users-list {{
+      display: grid;
+      gap: 8px;
+    }}
+    .user-card {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }}
+    .user-card.filtered-out {{
+      display: none;
+    }}
+    .user-summary {{
+      align-items: center;
+      appearance: none;
+      background: transparent;
+      border: 0;
+      color: var(--fg);
+      cursor: pointer;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(220px, 1.6fr) minmax(72px, .5fr) minmax(88px, .6fr) minmax(72px, .5fr) minmax(180px, 1fr) minmax(120px, .7fr) 24px;
+      min-height: 62px;
+      padding: 10px 14px;
+      text-align: left;
+      width: 100%;
+    }}
+    .user-summary:hover {{
+      background: color-mix(in srgb, var(--fg) 4%, transparent);
+    }}
+    .user-summary-main {{
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      min-width: 0;
+    }}
+    .user-avatar {{
+      align-items: center;
+      background: linear-gradient(135deg, #0ea5e9, #22c55e);
+      border-radius: 50%;
+      color: #eaf7ff;
+      display: inline-flex;
+      flex: 0 0 auto;
+      font-size: 14px;
+      font-weight: 800;
+      height: 38px;
+      justify-content: center;
+      width: 38px;
+    }}
+    .user-title {{
+      min-width: 0;
+    }}
+    .user-title strong,
+    .truncate {{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .user-title strong {{
+      display: block;
+    }}
+    .summary-label {{
+      color: var(--muted);
+      display: block;
+      font-size: 12px;
+      line-height: 1.2;
+    }}
+    .badge,
+    .permission-chip {{
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 12px;
+      font-weight: 700;
+      gap: 6px;
+      line-height: 1;
+      padding: 5px 8px;
+      white-space: nowrap;
+    }}
+    .role-admin {{
+      border-color: #0284c7;
+      color: #7dd3fc;
+    }}
+    .role-pro {{
+      border-color: #7c3aed;
+      color: #c4b5fd;
+    }}
+    .role-basic,
+    .role-free {{
+      color: var(--muted);
+    }}
+    .status-dot {{
+      background: #94a3b8;
+      border-radius: 50%;
+      display: inline-block;
+      height: 8px;
+      width: 8px;
+    }}
+    .status-enabled .status-dot {{
+      background: #22c55e;
+    }}
+    .permission-chips {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }}
+    .permission-heatmap {{
+      border-color: #16a34a;
+      color: #86efac;
+    }}
+    .permission-metrics {{
+      border-color: #0284c7;
+      color: #7dd3fc;
+    }}
+    .permission-estimated {{
+      border-color: #7c3aed;
+      color: #c4b5fd;
+    }}
+    .user-chevron {{
+      color: var(--muted);
+      font-size: 18px;
+      justify-self: end;
+      transform: rotate(0deg);
+      transition: transform .15s ease;
+    }}
+    .user-summary[aria-expanded="true"] .user-chevron {{
+      transform: rotate(180deg);
+    }}
+    .user-panel {{
+      border-top: 1px solid var(--line);
+      padding: 14px;
+    }}
+    .user-panel-grid {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+    }}
+    .user-panel-card {{
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+    }}
+    .user-panel-card h3 {{
+      font-size: 15px;
+      margin: 0 0 12px;
+    }}
+    .permission-toggle {{
+      align-items: center;
+      border-top: 1px solid var(--line);
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      padding: 11px 0;
+    }}
+    .permission-toggle:first-of-type {{
+      border-top: 0;
+      padding-top: 0;
+    }}
+    .permission-toggle input {{
+      flex: 0 0 auto;
+      width: auto;
+    }}
+    .security-actions {{
+      display: grid;
+      gap: 10px;
+    }}
+    .security-actions form,
+    .devices-head form,
+    .device-row form,
+    .modal-panel form {{
+      margin: 0;
+    }}
+    .user-update-form {{
+      display: block;
+      margin: 0;
+      min-width: 0;
+    }}
+    .user-update-form .user-panel-grid {{
+      grid-template-columns: 1fr;
+    }}
+    .danger-zone {{
+      border-top: 1px solid var(--line);
+      margin-top: 12px;
+      padding-top: 12px;
+    }}
+    .button-danger {{
+      border-color: #ef4444;
+      color: #fecaca;
+    }}
+    .button-danger:hover {{
+      background: rgba(239, 68, 68, .12);
+    }}
+    .devices-card {{
+      grid-column: 1 / -1;
+    }}
+    .devices-head {{
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }}
+    .devices-list {{
+      display: grid;
+      gap: 8px;
+    }}
+    .device-row {{
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(120px, .8fr) minmax(220px, 1.6fr) minmax(120px, .8fr) auto;
+      padding: 9px 10px;
+    }}
+    .modal-backdrop {{
+      align-items: center;
+      background: rgba(2, 6, 23, .72);
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      left: 0;
+      padding: 20px;
+      position: fixed;
+      right: 0;
+      top: 0;
+      z-index: 100;
+    }}
+    .modal-backdrop[hidden] {{
+      display: none;
+    }}
+    .modal-panel {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .45);
+      max-height: min(760px, calc(100vh - 40px));
+      max-width: 820px;
+      overflow: auto;
+      padding: 18px;
+      width: min(820px, 100%);
+    }}
+    .modal-head {{
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }}
+    .modal-head h2 {{
+      margin: 0;
+    }}
     @media (max-width: 760px) {{
       .admin-form-grid {{
         grid-template-columns: 1fr;
@@ -700,6 +968,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       .users-filter,
       .users-toolbar-status {{
         grid-column: 1 / -1;
+      }}
+      .users-page-head {{
+        display: block;
+      }}
+      .user-summary {{
+        grid-template-columns: 1fr auto;
+      }}
+      .user-summary > :not(.user-summary-main):not(.user-chevron) {{
+        display: none;
+      }}
+      .user-panel-grid {{
+        grid-template-columns: 1fr;
+      }}
+      .device-row {{
+        grid-template-columns: 1fr;
       }}
     }}
     pre {{
@@ -734,6 +1017,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       }}
       input.type = checkbox.checked ? "text" : "password";
     }}
+    function confirmUserAdminAction(form) {{
+      var message = form.getAttribute("data-confirm");
+      if (!message) {{
+        return true;
+      }}
+      return window.confirm(message);
+    }}
     function usersTokens(value) {{
       return (value || "")
         .toLowerCase()
@@ -745,14 +1035,79 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       var haystack = (text || "").toLowerCase();
       return tokens.every(function(token) {{ return haystack.indexOf(token) !== -1; }});
     }}
+    function setExpandedUser(username) {{
+      var cards = Array.prototype.slice.call(document.querySelectorAll(".user-card"));
+      cards.forEach(function(card) {{
+        var isOpen = username && card.getAttribute("data-username") === username;
+        var button = card.querySelector(".user-summary");
+        var panel = card.querySelector(".user-panel");
+        if (button) {{
+          button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        }}
+        if (panel) {{
+          panel.hidden = !isOpen;
+        }}
+      }});
+      if (username) {{
+        try {{
+          window.sessionStorage.setItem("rainmapperUsersExpanded", username);
+        }} catch (error) {{}}
+      }}
+    }}
+    function toggleUserCard(button) {{
+      var card = button.closest(".user-card");
+      if (!card) {{
+        return;
+      }}
+      var username = card.getAttribute("data-username");
+      var isOpen = button.getAttribute("aria-expanded") === "true";
+      setExpandedUser(isOpen ? "" : username);
+    }}
+    function restoreExpandedUser() {{
+      var username = "";
+      try {{
+        username = window.sessionStorage.getItem("rainmapperUsersExpanded") || "";
+      }} catch (error) {{}}
+      if (username) {{
+        var cards = Array.prototype.slice.call(document.querySelectorAll(".user-card"));
+        var exists = cards.some(function(card) {{
+          return card.getAttribute("data-username") === username;
+        }});
+        if (exists) {{
+          setExpandedUser(username);
+          return;
+        }}
+      }}
+      var first = document.querySelector(".user-card");
+      if (first) {{
+        setExpandedUser(first.getAttribute("data-username"));
+      }}
+    }}
+    function openCreateUserModal() {{
+      var modal = document.getElementById("create-user-modal");
+      if (!modal) {{
+        return;
+      }}
+      modal.hidden = false;
+      var firstInput = modal.querySelector("input[name='username']");
+      if (firstInput) {{
+        firstInput.focus();
+      }}
+    }}
+    function closeCreateUserModal() {{
+      var modal = document.getElementById("create-user-modal");
+      if (modal) {{
+        modal.hidden = true;
+      }}
+    }}
     function applyUsersFilter() {{
       var input = document.getElementById("users-filter");
-      var table = document.getElementById("users-table");
-      if (!input || !table) {{
+      var list = document.getElementById("users-list");
+      if (!input || !list) {{
         return;
       }}
       var tokens = usersTokens(input.value);
-      var rows = Array.prototype.slice.call(table.querySelectorAll("tbody tr.user-row"));
+      var rows = Array.prototype.slice.call(list.querySelectorAll(".user-card"));
       var visibleUsers = 0;
       var visibleDevices = 0;
       rows.forEach(function(row) {{
@@ -821,6 +1176,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
           filter.value = filterValue;
         }}
         applyUsersFilter();
+        restoreExpandedUser();
         window.scrollTo({{ top: scrollY }});
         if (status) {{
           status.textContent = "Updated " + new Date().toLocaleTimeString();
@@ -838,7 +1194,34 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
         applyUsersFilter();
       }}
     }});
-    document.addEventListener("DOMContentLoaded", applyUsersFilter);
+    document.addEventListener("click", function(event) {{
+      var toggle = event.target.closest("[data-user-toggle]");
+      if (toggle) {{
+        toggleUserCard(toggle);
+        return;
+      }}
+      if (event.target.closest("[data-create-user-open]")) {{
+        openCreateUserModal();
+        return;
+      }}
+      if (event.target.closest("[data-create-user-close]")) {{
+        closeCreateUserModal();
+        return;
+      }}
+      var modal = document.getElementById("create-user-modal");
+      if (modal && event.target === modal) {{
+        closeCreateUserModal();
+      }}
+    }});
+    document.addEventListener("keydown", function(event) {{
+      if (event.key === "Escape") {{
+        closeCreateUserModal();
+      }}
+    }});
+    document.addEventListener("DOMContentLoaded", function() {{
+      applyUsersFilter();
+      restoreExpandedUser();
+    }});
   </script>
 </body>
 </html>
@@ -1814,7 +2197,7 @@ def read_log() -> str:
 
 
 def utc_now() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def normalize_user_id(value: str) -> str:
@@ -1943,6 +2326,9 @@ def normalize_user_record(raw_user: dict[str, object], fallback_username: str = 
         "enabled": normalize_enabled(raw_user.get("enabled", True)),
         "max_devices": str(parse_max_devices(str(raw_user.get("max_devices", "")), role)),
         "must_change_password": normalize_bool_flag(raw_user.get("must_change_password", False)),
+        "created_at": str(raw_user.get("created_at", "")).strip(),
+        "updated_at": str(raw_user.get("updated_at", "")).strip(),
+        "last_change": str(raw_user.get("last_change", "")).strip(),
     }
     for field in USER_PERMISSION_FIELDS:
         user[field] = normalize_user_permission(raw_user, role, field)
@@ -1991,6 +2377,9 @@ def write_users(users: dict[str, dict[str, str]]) -> None:
                 "enabled": user.get("enabled", "true").lower() == "true",
                 "max_devices": user_max_devices(user),
                 "must_change_password": user.get("must_change_password", "false").lower() == "true",
+                "created_at": user.get("created_at", ""),
+                "updated_at": user.get("updated_at", ""),
+                "last_change": user.get("last_change", ""),
                 "can_use_heatmap": user_permission_enabled(user, "can_use_heatmap"),
                 "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
                 "can_use_estimated_field": user_permission_enabled(user, "can_use_estimated_field"),
@@ -2199,6 +2588,24 @@ def set_user_password(user: dict[str, str], password: str) -> None:
         user["must_change_password"] = "false"
 
 
+def mark_user_change(user: dict[str, str], change: str, now: str | None = None, is_creation: bool = False) -> None:
+    timestamp = now or utc_now()
+    if is_creation or not user.get("created_at"):
+        user["created_at"] = timestamp
+    user["updated_at"] = timestamp
+    user["last_change"] = change
+
+
+def mark_existing_user_change(username: str, change: str) -> None:
+    user_id = normalize_user_id(username)
+    users = read_users()
+    user = users.get(user_id)
+    if not user:
+        return
+    mark_user_change(user, change)
+    write_users(users)
+
+
 def create_user(
     username: str,
     name: str,
@@ -2222,6 +2629,7 @@ def create_user(
         return f"User {user_id} already exists."
 
     normalized_role = normalize_role(role)
+    now = utc_now()
     users[user_id] = {
         "username": user_id,
         "name": name.strip(),
@@ -2247,6 +2655,7 @@ def create_user(
             else default_user_permission(normalized_role, "can_use_estimated_field")
         ),
     }
+    mark_user_change(users[user_id], "created user", now, is_creation=True)
     write_users(users)
     return f"Created user {user_id}."
 
@@ -2281,6 +2690,7 @@ def update_user(
             "can_use_estimated_field": normalize_bool_flag(can_use_estimated_field),
         }
     )
+    mark_user_change(user, "updated user settings")
     write_users(users)
     return f"Updated user {user_id}."
 
@@ -2304,9 +2714,10 @@ def set_admin_user_password(username: str, password: str) -> str:
     user = users.get(user_id)
     if not user:
         return f"User {user_id or '-'} was not found."
-    set_user_password(user, password)
-    write_users(users)
     deleted_count = delete_devices_for_user(user_id)
+    set_user_password(user, password)
+    mark_user_change(user, f"set password; deleted {deleted_count} device(s)")
+    write_users(users)
     return f"Set password for {user_id} and deleted {deleted_count} device(s)."
 
 
@@ -2317,8 +2728,9 @@ def require_user_password_change(username: str) -> str:
     if not user:
         return f"User {user_id or '-'} was not found."
     user["must_change_password"] = "true"
-    write_users(users)
     deleted_count = delete_devices_for_user(user_id)
+    mark_user_change(user, f"reset password; deleted {deleted_count} device(s)")
+    write_users(users)
     return f"Reset password for {user_id}; deleted {deleted_count} device(s). User must choose a new password on next sign-in."
 
 
@@ -2343,9 +2755,10 @@ def change_required_password(
     if verify_password(new_password, user.get("password", "")):
         return 400, {"ok": False, "error": "New password must be different from the current password."}
 
-    set_user_password(user, new_password)
-    write_users(users)
     delete_devices_for_user(user_id)
+    set_user_password(user, new_password)
+    mark_user_change(user, "completed required password change")
+    write_users(users)
     return login_user(user_id, new_password, device_id, user_agent)
 
 
@@ -2357,12 +2770,16 @@ def delete_device(device_id: str) -> str:
     device = devices.pop(device_key)
     write_devices(devices)
     username = device_username(device) or "-"
+    if username != "-":
+        mark_existing_user_change(username, f"deleted device {device_key}")
     return f"Deleted device for {username}."
 
 
 def delete_user_devices(username: str) -> str:
     user_id = normalize_user_id(username)
     deleted_count = delete_devices_for_user(user_id)
+    if user_id:
+        mark_existing_user_change(user_id, f"deleted all devices ({deleted_count})")
     return f"Deleted {deleted_count} device(s) for {user_id or '-'}."
 
 
@@ -2386,6 +2803,306 @@ def enabled_options(selected_enabled: str) -> str:
 
 def checked_attr(enabled: bool) -> str:
     return " checked" if enabled else ""
+
+
+# Keep the HA Users page as small server-side HTML fragments. This avoids a
+# frontend build step while keeping the accordion layout maintainable.
+def user_initials(user: dict[str, str]) -> str:
+    label = user_display_name(user) or user.get("username", "")
+    parts = [part for part in label.replace("-", " ").replace("_", " ").split() if part]
+    if not parts:
+        return "U"
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][:1] + parts[1][:1]).upper()
+
+
+def short_text(value: str, limit: int = 24) -> str:
+    text = str(value or "")
+    return text if len(text) <= limit else text[: max(0, limit - 3)] + "..."
+
+
+def permission_chips(can_use_heatmap: bool, can_use_layer_metrics: bool, can_use_estimated_field: bool) -> str:
+    chips = []
+    if can_use_heatmap:
+        chips.append('<span class="permission-chip permission-heatmap">Heatmap</span>')
+    if can_use_layer_metrics:
+        chips.append('<span class="permission-chip permission-metrics">Metrics</span>')
+    if can_use_estimated_field:
+        chips.append('<span class="permission-chip permission-estimated">IDW</span>')
+    return "".join(chips) or '<span class="meta">No feature access</span>'
+
+
+def latest_seen_for_devices(user_devices: list[tuple[str, dict[str, str]]]) -> str:
+    for _device_id, device in user_devices:
+        last_seen = str(device.get("last_seen_at", "")).strip()
+        if last_seen:
+            return last_seen
+    return "-"
+
+
+def user_search_text(
+    username: str,
+    user: dict[str, str],
+    role: str,
+    enabled: str,
+    max_devices: str,
+    user_devices: list[tuple[str, dict[str, str]]],
+    can_use_heatmap: bool,
+    can_use_layer_metrics: bool,
+    can_use_estimated_field: bool,
+) -> str:
+    return " ".join(
+        [
+            username,
+            user_display_name(user),
+            user.get("email", ""),
+            role,
+            "enabled" if enabled == "true" else "disabled",
+            "heatmap" if can_use_heatmap else "no heatmap",
+            "metrics" if can_use_layer_metrics else "no metrics",
+            "estimated field" if can_use_estimated_field else "no estimated field",
+            "change required" if user.get("must_change_password", "false").lower() == "true" else "current",
+            max_devices,
+            str(len(user_devices)),
+            user.get("created_at", ""),
+            user.get("updated_at", ""),
+            user.get("last_change", ""),
+        ]
+    )
+
+
+def render_user_details_card(username: str, user: dict[str, str], role: str, enabled: str, max_devices: str) -> str:
+    return (
+        '<section class="user-panel-card">'
+        "<h3>User details</h3>"
+        f'<input type="hidden" name="admin_action" value="update_user">'
+        f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
+        '<div class="admin-form-grid">'
+        f'<div class="admin-field"><label>Name</label><input name="name" value="{html.escape(user.get("name", ""), quote=True)}"></div>'
+        f'<div class="admin-field"><label>Email</label><input name="email" value="{html.escape(user.get("email", ""), quote=True)}"></div>'
+        f'<div class="admin-field"><label>Role</label><select name="role">{role_options(role)}</select></div>'
+        f'<div class="admin-field"><label>Status</label><select name="enabled">{enabled_options(enabled)}</select></div>'
+        f'<div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="{html.escape(max_devices, quote=True)}"></div>'
+        "</div>"
+        '<button class="primary">Save user</button>'
+        "</section>"
+    )
+
+
+def render_permissions_card(
+    can_use_heatmap: bool,
+    can_use_layer_metrics: bool,
+    can_use_estimated_field: bool,
+) -> str:
+    return (
+        '<section class="user-panel-card">'
+        "<h3>Permissions</h3>"
+        '<label class="permission-toggle">'
+        '<span><strong>Heatmap access</strong><span class="meta">Allow the Heatmap button and Heatmap settings.</span></span>'
+        f'<input name="can_use_heatmap" type="checkbox" value="true"{checked_attr(can_use_heatmap)}>'
+        "</label>"
+        '<label class="permission-toggle">'
+        '<span><strong>Metric selector access</strong><span class="meta">Allow the metric selector button and layer metric settings.</span></span>'
+        f'<input name="can_use_layer_metrics" type="checkbox" value="true"{checked_attr(can_use_layer_metrics)}>'
+        "</label>"
+        '<label class="permission-toggle">'
+        '<span><strong>Estimated field access</strong><span class="meta">Allow the IDW button and estimated field settings.</span></span>'
+        f'<input name="can_use_estimated_field" type="checkbox" value="true"{checked_attr(can_use_estimated_field)}>'
+        "</label>"
+        "</section>"
+    )
+
+
+def render_security_card(username: str) -> str:
+    escaped_username = html.escape(username, quote=True)
+    password_id = "reset-password-" + "".join(char if char.isalnum() else "-" for char in username)
+    return (
+        '<section class="user-panel-card">'
+        "<h3>Security</h3>"
+        '<div class="security-actions">'
+        f'<form class="inline-form" method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Set a new password for user {username} and delete all registered devices?", quote=True)}">'
+        '<input type="hidden" name="admin_action" value="set_password">'
+        f'<input type="hidden" name="username" value="{escaped_username}">'
+        f'<input id="{password_id}" name="password" type="password" placeholder="New password" autocomplete="new-password">'
+        '<label class="password-tools">'
+        f'<input type="checkbox" data-target="{password_id}" onchange="togglePasswordVisibility(this)">'
+        '<span>Show typed password</span>'
+        '</label>'
+        '<button>Set password</button>'
+        "</form>"
+        f'<form method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Reset password for user {username}, force password change and delete all registered devices?", quote=True)}">'
+        '<input type="hidden" name="admin_action" value="reset_password">'
+        f'<input type="hidden" name="username" value="{escaped_username}">'
+        '<button>Reset password</button>'
+        "</form>"
+        '<div class="danger-zone">'
+        f'<form method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Delete user {username} and all registered devices?", quote=True)}">'
+        '<input type="hidden" name="admin_action" value="delete_user">'
+        f'<input type="hidden" name="username" value="{escaped_username}">'
+        '<button class="button-danger">Delete user</button>'
+        "</form>"
+        "</div>"
+        "</div>"
+        "</section>"
+    )
+
+
+def render_audit_card(user: dict[str, str]) -> str:
+    audit_rows = []
+    for label, field in (("Created", "created_at"), ("Updated", "updated_at"), ("Last change", "last_change")):
+        value = str(user.get(field, "")).strip() or "-"
+        audit_rows.append(f'<span class="meta"><strong>{label}:</strong> {html.escape(value)}</span>')
+    return '<section class="user-panel-card"><h3>Audit</h3>' + "".join(audit_rows) + "</section>"
+
+
+def render_device_row(username: str, device_id: str, device: dict[str, str]) -> str:
+    device_label = short_text(device_id, 14)
+    user_agent = str(device.get("user_agent", ""))
+    last_seen_at = str(device.get("last_seen_at", "-")) or "-"
+    created_at = str(device.get("created_at", "-")) or "-"
+    device_search_text = " ".join(
+        [
+            device_id,
+            str(device.get("username", "")),
+            str(device.get("email", "")),
+            user_agent,
+            created_at,
+            last_seen_at,
+        ]
+    )
+    return (
+        f'<div class="device-row" data-device-search="{html.escape(device_search_text, quote=True)}">'
+        f'<div><strong title="{html.escape(device_id, quote=True)}">{html.escape(device_label)}</strong></div>'
+        f'<div class="truncate" title="{html.escape(user_agent, quote=True)}">{html.escape(short_text(user_agent, 92))}</div>'
+        f'<div><span class="meta">Created {html.escape(created_at)}</span><span class="meta">Last seen {html.escape(last_seen_at)}</span></div>'
+        f'<form method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Delete device {device_label} for user {username}?", quote=True)}">'
+        '<input type="hidden" name="admin_action" value="delete_device">'
+        f'<input type="hidden" name="device_id" value="{html.escape(device_id, quote=True)}">'
+        '<button class="button-danger">Delete device</button>'
+        "</form>"
+        "</div>"
+    )
+
+
+def render_devices_card(username: str, user_devices: list[tuple[str, dict[str, str]]]) -> str:
+    devices_html = "".join(render_device_row(username, device_id, device) for device_id, device in user_devices)
+    if not devices_html:
+        devices_html = '<span class="meta">No registered devices</span>'
+    note = '<span class="device-filter-note">Showing matching devices only.</span>' if user_devices else ""
+    return (
+        '<section class="user-panel-card devices-card">'
+        '<div class="devices-head">'
+        f"<h3>Devices ({len(user_devices)})</h3>"
+        f'<form method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Delete all registered devices for user {username}?", quote=True)}">'
+        '<input type="hidden" name="admin_action" value="delete_user_devices">'
+        f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
+        '<button class="button-danger">Delete all devices</button>'
+        "</form>"
+        "</div>"
+        f'<div class="devices-list">{devices_html}</div>'
+        f"{note}"
+        "</section>"
+    )
+
+
+def render_user_card(username: str, user: dict[str, str], user_devices: list[tuple[str, dict[str, str]]]) -> str:
+    enabled = normalize_enabled(user.get("enabled", "true"))
+    role = normalize_role(user.get("role", "free"))
+    max_devices = str(user_max_devices(user))
+    can_use_heatmap = user_permission_enabled(user, "can_use_heatmap")
+    can_use_layer_metrics = user_permission_enabled(user, "can_use_layer_metrics")
+    can_use_estimated_field = user_permission_enabled(user, "can_use_estimated_field")
+    status_label = "Enabled" if enabled == "true" else "Disabled"
+    status_class = "status-enabled" if enabled == "true" else "status-disabled"
+    search_text = user_search_text(
+        username,
+        user,
+        role,
+        enabled,
+        max_devices,
+        user_devices,
+        can_use_heatmap,
+        can_use_layer_metrics,
+        can_use_estimated_field,
+    )
+    panel_id = "user-panel-" + "".join(char if char.isalnum() else "-" for char in username)
+    chips = permission_chips(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field)
+    latest_seen = latest_seen_for_devices(user_devices)
+    password_state = "Change required" if user.get("must_change_password", "false").lower() == "true" else "Current"
+    update_form = (
+        f'<form class="user-update-form" method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Save changes for user {username}?", quote=True)}">'
+        '<div class="user-panel-grid">'
+        + render_user_details_card(username, user, role, enabled, max_devices)
+        + render_permissions_card(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field)
+        + render_audit_card(user)
+        + "</div>"
+        "</form>"
+    )
+    expanded_html = (
+        '<div class="user-panel" hidden '
+        f'id="{html.escape(panel_id, quote=True)}">'
+        '<div class="user-panel-grid">'
+        f"{update_form}"
+        f"{render_security_card(username)}"
+        f"{render_devices_card(username, user_devices)}"
+        "</div>"
+        "</div>"
+    )
+    return (
+        f'<section class="user-card" data-username="{html.escape(username, quote=True)}" data-user-search="{html.escape(search_text, quote=True)}">'
+        f'<button class="user-summary" type="button" data-user-toggle aria-expanded="false" aria-controls="{html.escape(panel_id, quote=True)}">'
+        '<span class="user-summary-main">'
+        f'<span class="user-avatar">{html.escape(user_initials(user))}</span>'
+        '<span class="user-title">'
+        f'<strong>{html.escape(user_display_name(user))}</strong>'
+        f'<span class="meta">{html.escape(username)}</span>'
+        '</span>'
+        '</span>'
+        f'<span><span class="summary-label">Role</span><span class="badge role-{html.escape(role)}">{html.escape(role)}</span></span>'
+        f'<span><span class="summary-label">Status</span><span class="badge {status_class}"><span class="status-dot"></span>{status_label}</span></span>'
+        f'<span><span class="summary-label">Devices</span>{len(user_devices)}/{html.escape(max_devices)}</span>'
+        f'<span><span class="summary-label">Permissions</span><span class="permission-chips">{chips}</span></span>'
+        f'<span><span class="summary-label">Last seen</span><span class="truncate" title="{html.escape(latest_seen, quote=True)}">{html.escape(short_text(latest_seen, 20))}</span><span class="meta">{html.escape(password_state)}</span></span>'
+        '<span class="user-chevron" aria-hidden="true">⌄</span>'
+        "</button>"
+        f"{expanded_html}"
+        "</section>"
+    )
+
+
+def render_create_user_modal() -> str:
+    return f"""
+    <div id="create-user-modal" class="modal-backdrop" hidden>
+      <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
+        <div class="modal-head">
+          <h2 id="create-user-title">Create user</h2>
+          <button type="button" data-create-user-close>Close</button>
+        </div>
+        <p class="help-text">Create a protected MapLibre user. Admin users receive all experimental feature permissions by default unless changed here.</p>
+        <form method="post" action="">
+          <input type="hidden" name="admin_action" value="create_user">
+          <div class="admin-form-grid">
+            <div class="admin-field"><label>Username</label><input name="username" required autocomplete="username"></div>
+            <div class="admin-field"><label>Name</label><input name="name"></div>
+            <div class="admin-field"><label>Email</label><input name="email" type="email"></div>
+            <div class="admin-field">
+              <label>Password</label>
+              <input id="create-password" name="password" type="password" required autocomplete="new-password">
+              <label class="password-tools"><input type="checkbox" data-target="create-password" onchange="togglePasswordVisibility(this)"><span>Show typed password</span></label>
+            </div>
+            <div class="admin-field"><label>Role</label><select name="role">{role_options("free")}</select></div>
+            <div class="admin-field"><label>Status</label><select name="enabled">{enabled_options("true")}</select></div>
+            <div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="1"></div>
+            <div class="admin-field"><label><input name="can_use_heatmap" type="checkbox" value="true"> Heatmap access</label></div>
+            <div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"> Metric selector access</label></div>
+            <div class="admin-field"><label><input name="can_use_estimated_field" type="checkbox" value="true"> Estimated field access</label></div>
+          </div>
+          <button class="primary">Create user</button>
+        </form>
+      </div>
+    </div>
+    """
 
 
 def new_device_id() -> str:
@@ -2667,165 +3384,41 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def render_users(self) -> None:
         users = read_users()
         devices = read_devices()
+        with RUN_LOCK:
+            users_flash = str(RUN_STATE.get("users_flash", ""))
+            RUN_STATE["users_flash"] = ""
 
-        rows = []
+        cards = []
         for username, user in sorted(users.items()):
             user_devices = devices_for_user(devices, username)
-            enabled = normalize_enabled(user.get("enabled", "true"))
-            max_devices = str(user_max_devices(user))
-            role = normalize_role(user.get("role", "free"))
-            can_use_heatmap = user_permission_enabled(user, "can_use_heatmap")
-            can_use_layer_metrics = user_permission_enabled(user, "can_use_layer_metrics")
-            can_use_estimated_field = user_permission_enabled(user, "can_use_estimated_field")
-            password_state = (
-                '<span class="danger">Change required</span>'
-                if user.get("must_change_password", "false").lower() == "true"
-                else '<span class="ok">Current</span>'
-            )
-            device_rows = []
-            for device_id, device in user_devices:
-                device_label = device_id[:12] + ("..." if len(device_id) > 12 else "")
-                user_agent = str(device.get("user_agent", ""))
-                last_seen_at = str(device.get("last_seen_at", "-")) or "-"
-                created_at = str(device.get("created_at", "-")) or "-"
-                device_search_text = " ".join(
-                    [
-                        device_id,
-                        str(device.get("username", "")),
-                        str(device.get("email", "")),
-                        user_agent,
-                        created_at,
-                        last_seen_at,
-                    ]
-                )
-                device_rows.append(
-                    f'<div class="device-row" data-device-search="{html.escape(device_search_text, quote=True)}">'
-                    f"<strong>{html.escape(device_label)}</strong>"
-                    f'<span class="meta">Created {html.escape(created_at)} · Last seen {html.escape(last_seen_at)}</span>'
-                    f'<span class="meta">{html.escape(user_agent[:120])}</span>'
-                    '<form method="post" action="">'
-                    '<input type="hidden" name="admin_action" value="delete_device">'
-                    f'<input type="hidden" name="device_id" value="{html.escape(device_id, quote=True)}">'
-                    '<button>Delete device</button>'
-                    "</form>"
-                    "</div>"
-                )
-            devices_html = "".join(device_rows) or '<span class="meta">No registered devices</span>'
-            if device_rows:
-                devices_html += '<span class="device-filter-note">Showing matching devices only.</span>'
-            user_search_text = " ".join(
-                [
-                    username,
-                    user_display_name(user),
-                    user.get("email", ""),
-                    role,
-                    "enabled" if enabled == "true" else "disabled",
-                    "heatmap" if can_use_heatmap else "no heatmap",
-                    "metrics" if can_use_layer_metrics else "no metrics",
-                    "estimated field" if can_use_estimated_field else "no estimated field",
-                    "change required" if user.get("must_change_password", "false").lower() == "true" else "current",
-                    max_devices,
-                    str(len(user_devices)),
-                ]
-            )
-            rows.append(
-                f'<tr class="user-row" data-user-search="{html.escape(user_search_text, quote=True)}">'
-                f"<td><strong>{html.escape(username)}</strong><span class=\"meta\">{html.escape(user_display_name(user))}</span></td>"
-                f"<td>{html.escape(user.get('email', ''))}</td>"
-                f"<td>{html.escape(role)}</td>"
-                f"<td>{'Enabled' if enabled == 'true' else 'Disabled'}</td>"
-                f"<td>{password_state}</td>"
-                f"<td>{html.escape(max_devices)}</td>"
-                f"<td>{len(user_devices)}</td>"
-                '<td class="admin-actions">'
-                '<form method="post" action="">'
-                '<input type="hidden" name="admin_action" value="update_user">'
-                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
-                '<div class="admin-form-grid">'
-                f'<div class="admin-field"><label>Name</label><input name="name" value="{html.escape(user.get("name", ""), quote=True)}"></div>'
-                f'<div class="admin-field"><label>Email</label><input name="email" value="{html.escape(user.get("email", ""), quote=True)}"></div>'
-                f'<div class="admin-field"><label>Role</label><select name="role">{role_options(role)}</select></div>'
-                f'<div class="admin-field"><label>Status</label><select name="enabled">{enabled_options(enabled)}</select></div>'
-                f'<div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="{html.escape(max_devices, quote=True)}"></div>'
-                f'<div class="admin-field"><label><input name="can_use_heatmap" type="checkbox" value="true"{checked_attr(can_use_heatmap)}> Heatmap access</label></div>'
-                f'<div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"{checked_attr(can_use_layer_metrics)}> Metric selector access</label></div>'
-                f'<div class="admin-field"><label><input name="can_use_estimated_field" type="checkbox" value="true"{checked_attr(can_use_estimated_field)}> Estimated field access</label></div>'
-                "</div>"
-                '<button class="primary">Save user</button>'
-                "</form>"
-                '<form class="inline-form" method="post" action="">'
-                '<input type="hidden" name="admin_action" value="set_password">'
-                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
-                f'<input id="reset-password-{html.escape(username, quote=True)}" name="password" type="password" placeholder="New password" autocomplete="new-password">'
-                '<label class="password-tools">'
-                f'<input type="checkbox" data-target="reset-password-{html.escape(username, quote=True)}" onchange="togglePasswordVisibility(this)">'
-                '<span>Show typed password</span>'
-                '</label>'
-                '<button>Set password</button>'
-                "</form>"
-                '<form method="post" action="">'
-                '<input type="hidden" name="admin_action" value="reset_password">'
-                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
-                '<button>Reset password</button>'
-                "</form>"
-                '<form method="post" action="">'
-                '<input type="hidden" name="admin_action" value="delete_user_devices">'
-                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
-                '<button>Delete all devices</button>'
-                "</form>"
-                '<form method="post" action="">'
-                '<input type="hidden" name="admin_action" value="delete_user">'
-                f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
-                '<button>Delete user</button>'
-                "</form>"
-                "</td>"
-                f"<td>{devices_html}</td>"
-                "</tr>"
-            )
+            cards.append(render_user_card(username, user, user_devices))
 
-        user_rows_html = "".join(rows) if rows else '<tr><td colspan="9">No users configured.</td></tr>'
-        users_table = (
-            '<div class="admin-table-wrap"><table id="users-table" class="admin-table">'
-            "<thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th>Max</th><th>Devices</th><th>Manage user</th><th>Devices</th></tr></thead>"
-            f"<tbody>{user_rows_html}</tbody>"
-            "</table></div>"
-        )
+        users_list = "".join(cards) if cards else '<div class="users-empty-filter visible">No users configured.</div>'
+        users_flash_script = ""
+        if users_flash:
+            users_flash_script = f"<script>window.alert({json.dumps(users_flash)});</script>"
         body = f"""
         <div class="users-toolbar">
           <a class="button-link" href="./">Back</a>
           <button id="users-refresh" type="button" onclick="refreshUsersPage()">Refresh</button>
           <input id="users-filter" class="users-filter" type="search" placeholder="Search users or devices">
+          <button type="button" class="primary" data-create-user-open>Create user</button>
           <span class="users-toolbar-status"><span id="users-filter-status">{len(users)} users</span> · <span id="users-refresh-status">Manual refresh</span></span>
         </div>
-        <h1>Users</h1>
-        <p>Manage MapLibre protected viewer users and registered devices.</p>
-        <div id="users-content">
-          <h2>Create user</h2>
-          <p class="help-text">Stored passwords cannot be viewed because Rainmapper saves password hashes. Set password stores an admin-defined password and deletes registered devices. Reset password forces the user to choose a different password on next sign-in.</p>
-          <form method="post" action="">
-            <input type="hidden" name="admin_action" value="create_user">
-            <div class="admin-form-grid">
-              <div class="admin-field"><label>Username</label><input name="username" required autocomplete="username"></div>
-              <div class="admin-field"><label>Name</label><input name="name"></div>
-              <div class="admin-field"><label>Email</label><input name="email" type="email"></div>
-              <div class="admin-field">
-                <label>Password</label>
-                <input id="create-password" name="password" type="password" required autocomplete="new-password">
-                <label class="password-tools"><input type="checkbox" data-target="create-password" onchange="togglePasswordVisibility(this)"><span>Show typed password</span></label>
-              </div>
-              <div class="admin-field"><label>Role</label><select name="role">{role_options("free")}</select></div>
-              <div class="admin-field"><label>Status</label><select name="enabled">{enabled_options("true")}</select></div>
-              <div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="1"></div>
-              <div class="admin-field"><label><input name="can_use_heatmap" type="checkbox" value="true"> Heatmap access</label></div>
-              <div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"> Metric selector access</label></div>
-              <div class="admin-field"><label><input name="can_use_estimated_field" type="checkbox" value="true"> Estimated field access</label></div>
-            </div>
-            <button class="primary">Create user</button>
-          </form>
-          <h2>Existing users</h2>
-          <div id="users-empty-filter" class="users-empty-filter">No users or devices match the current search.</div>
-          {users_table}
+        <div class="users-page-head">
+          <div>
+            <h1>Users</h1>
+            <p>Manage MapLibre protected viewer users, roles, permissions and devices.</p>
+          </div>
         </div>
+        <div id="users-content">
+          <div id="users-empty-filter" class="users-empty-filter">No users or devices match the current search.</div>
+          <div id="users-list" class="users-list">
+            {users_list}
+          </div>
+          {render_create_user_modal()}
+        </div>
+        {users_flash_script}
         """
         self.send_bytes(200, html_page("Users", body, auto_refresh=False), "text/html; charset=utf-8")
 
@@ -2975,8 +3568,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def handle_user_admin_post(self, form: dict[str, list[str]]) -> None:
         admin_action = self.form_value(form, "admin_action")
         if admin_action == "create_user":
+            username = self.form_value(form, "username")
             message = create_user(
-                self.form_value(form, "username"),
+                username,
                 self.form_value(form, "name"),
                 self.form_value(form, "email"),
                 self.form_value(form, "password"),
@@ -2987,6 +3581,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "can_use_layer_metrics"),
                 self.form_value(form, "can_use_estimated_field"),
             )
+            if message.startswith("Created user "):
+                created_username = normalize_user_id(username)
+                with RUN_LOCK:
+                    RUN_STATE["users_flash"] = f"Created user: {created_username}"
         elif admin_action == "update_user":
             message = update_user(
                 self.form_value(form, "username"),

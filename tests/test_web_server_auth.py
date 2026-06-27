@@ -168,6 +168,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Created user", message)
         users = self.web_server.read_users()
         self.assertTrue(users["new-user"]["password"].startswith("pbkdf2_sha256$"))
+        self.assertTrue(users["new-user"]["created_at"].endswith("Z"))
+        self.assertTrue(users["new-user"]["updated_at"].endswith("Z"))
+        self.assertEqual(users["new-user"]["created_at"], users["new-user"]["updated_at"])
+        self.assertEqual(users["new-user"]["last_change"], "created user")
 
         status, response = self.login("new-user", "secret", "device-a")
         self.assertEqual(status, 200, response)
@@ -231,6 +235,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(users["basic"]["can_use_heatmap"], "true")
         self.assertEqual(users["basic"]["can_use_layer_metrics"], "false")
         self.assertEqual(users["basic"]["can_use_estimated_field"], "true")
+        self.assertTrue(users["basic"]["updated_at"].endswith("Z"))
+        self.assertEqual(users["basic"]["last_change"], "updated user settings")
 
         status, response = self.login("basic", "secret", "device-a")
         self.assertEqual(status, 200, response)
@@ -257,6 +263,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("Set password", message)
         self.assertIn("deleted 1 device", message)
+        self.assertEqual(self.web_server.read_users()["basic"]["last_change"], "set password; deleted 1 device(s)")
         self.assertEqual(self.web_server.read_devices(), {})
         self.assertEqual(self.login("basic", "old-secret", "device-b")[0], 401)
         self.assertEqual(self.login("basic", "new-secret", "device-b")[0], 200)
@@ -279,6 +286,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         message = self.web_server.require_user_password_change("basic")
 
         self.assertIn("Reset password", message)
+        self.assertEqual(self.web_server.read_users()["basic"]["last_change"], "reset password; deleted 1 device(s)")
         self.assertEqual(self.web_server.read_devices(), {})
         login_status, login_response = self.login("basic", "old-secret", "device-a")
         self.assertEqual(login_status, 403)
@@ -327,8 +335,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         devices = self.web_server.read_devices()
         self.assertNotIn("device-a", devices)
         self.assertIn("device-b", devices)
+        self.assertEqual(self.web_server.read_users()["pro"]["last_change"], "deleted device device-a")
 
         self.web_server.delete_user_devices("pro")
+        self.assertEqual(self.web_server.read_users()["pro"]["last_change"], "deleted all devices (1)")
         self.assertEqual(self.web_server.read_devices(), {})
 
     def test_delete_user_removes_user_and_devices(self) -> None:
@@ -386,6 +396,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with self.web_server.RUN_LOCK:
+            self.web_server.RUN_STATE["users_flash"] = "Created user: diego"
         captured = {}
 
         def capture_response(status: int, content: bytes, content_type: str) -> None:
@@ -401,8 +413,23 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('id="users-refresh"', page)
         self.assertIn('id="users-filter"', page)
         self.assertIn('id="users-content"', page)
-        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field current 1 1"', page)
+        self.assertIn('id="users-list"', page)
+        self.assertIn('class="user-card"', page)
+        self.assertIn('data-username="diego"', page)
+        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field current 1 1', page)
         self.assertIn('data-device-search="device-mobile diego diego@example.com Mobile Safari Test Agent', page)
+        self.assertIn("data-user-toggle", page)
+        self.assertIn('aria-expanded="false"', page)
+        self.assertIn('id="create-user-modal"', page)
+        self.assertIn("data-create-user-open", page)
+        self.assertIn("confirmUserAdminAction(this)", page)
+        self.assertIn("Save changes for user diego?", page)
+        self.assertIn("Set a new password for user diego and delete all registered devices?", page)
+        self.assertIn("Reset password for user diego, force password change and delete all registered devices?", page)
+        self.assertIn("Delete all registered devices for user diego?", page)
+        self.assertIn("Delete user diego and all registered devices?", page)
+        self.assertIn("Delete device device-mobile for user diego?", page)
+        self.assertIn('window.alert("Created user: diego")', page)
 
     def test_device_settings_are_sanitized_and_stored_on_device(self) -> None:
         self.write_users_json(

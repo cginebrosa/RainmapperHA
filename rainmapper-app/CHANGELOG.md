@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.146
+
+- Redesign the Home Assistant Users page as a compact accordion with a create-user modal, confirmation prompts for user/device/password actions and user audit timestamps.
+- Replace deprecated UTC timestamp generation with timezone-aware UTC output while keeping the existing `Z` timestamp format.
+
 ## 0.2.145
 
 - Optimize the MapLibre IDW layer refresh by reusing unchanged calculated data and avoiding duplicated recalculations during style and toggle events.
