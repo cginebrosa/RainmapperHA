@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.150
+
+- Add the first mushroom reference catalog maintenance WebUI with validation-backed persistence, catalog entry creation, JSON import/export and empty template export.
+
 ## 0.2.149
 
 - Fix the Users accordion so expanded panels honor the hidden state, all users start collapsed, and opening one user closes the others.
