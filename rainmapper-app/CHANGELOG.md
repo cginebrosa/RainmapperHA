@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.152
+
+- Fix mushroom catalog group filters so selecting a group without an entry ID selects the first row in that group instead of resetting to the first catalog.
+
 ## 0.2.151
 
 - Fix mushroom catalog maintenance under Home Assistant ingress by using relative links/forms, seeding mushroom JSON defaults at server startup, and deriving reference-error counts from validator errors.

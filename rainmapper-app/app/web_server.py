@@ -3300,9 +3300,14 @@ def catalog_rows(catalogs: dict[str, object], profiles: object, gis: object) -> 
 
 
 def selected_catalog_row(rows: list[dict[str, object]], group: str, item_id: str) -> dict[str, object] | None:
-    for row in rows:
-        if row["group"] == group and row["id"] == item_id:
-            return row
+    if group and item_id:
+        for row in rows:
+            if row["group"] == group and row["id"] == item_id:
+                return row
+    if group:
+        for row in rows:
+            if row["group"] == group:
+                return row
     return rows[0] if rows else None
 
 

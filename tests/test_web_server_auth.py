@@ -253,6 +253,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Validation", html)
         self.assertIn("0 errors · 0 warnings", html)
 
+    def test_mushroom_catalog_group_filter_selects_first_row_in_group(self) -> None:
+        rows = [
+            {"group": "trophic_modes", "id": "trophic_ectomycorrhizal"},
+            {"group": "forest_types", "id": "forest_pinus_sylvestris"},
+            {"group": "forest_types", "id": "forest_mixed_conifer"},
+        ]
+
+        selected = self.web_server.selected_catalog_row(rows, "forest_types", "")
+
+        self.assertIsNotNone(selected)
+        self.assertEqual("forest_types", selected["group"])
+        self.assertEqual("forest_pinus_sylvestris", selected["id"])
+
     def test_basic_role_allows_two_devices_and_reusing_existing_device(self) -> None:
         self.write_users_json(
             [
