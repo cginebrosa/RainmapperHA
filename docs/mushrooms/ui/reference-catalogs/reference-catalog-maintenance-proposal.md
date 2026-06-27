@@ -164,6 +164,24 @@ Debe permitir:
 9. Gestionar entradas nuevas, duplicadas o eliminadas con seguridad.
 10. Mantener el estilo visual dark mode de Rainmapper.
 
+## Borrado y restauración de entradas de catálogo
+
+El borrado de entradas de `mushroom_reference_catalogs.json` no debe implementarse como eliminación física directa.
+
+`Delete reference catalog` debe tratarse como una acción administrativa avanzada y reversible:
+
+- Si el ID está usado por `mushroom_profiles.json`, `mushroom_gis_mappings.json` u otras relaciones internas del catálogo, la UI debe bloquear el borrado activo salvo que exista una migración explícita previa.
+- Si el ID no está usado, la operación debe archivar la entrada completa en un área o fichero `archived`/`deleted`, no eliminarla sin rastro.
+- La confirmación debe exigir escribir el ID exacto de la entrada.
+- Debe crearse backup previo del fichero persistente antes de modificarlo.
+- Tras archivar, debe ejecutarse validación global de perfiles, catálogos y GIS mappings.
+- La UI debe mostrar un mensaje visible indicando si la operación fue bloqueada, archivada o falló por validación.
+- Debe existir una acción `Restore deleted reference catalog` para recuperar una entrada archivada.
+- La restauración debe bloquearse si el ID ya existe de nuevo en el catálogo activo.
+- La restauración debe volver a validar el modelo completo antes de persistir.
+
+La razón funcional es que los IDs de catálogo son vocabulario computable del motor de predicción. Borrar un ID puede invalidar afinidades de especies, reglas GIS, calibraciones futuras o históricos de mantenimiento. Por tanto, el flujo correcto es archivar/restaurar con trazabilidad y validación, no borrar físicamente.
+
 ---
 
 # 4. Layout general

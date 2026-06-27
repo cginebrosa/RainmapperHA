@@ -14,6 +14,11 @@ Validar `0.2.163` en HA. Foco: crear una especie de prueba desde `New species`, 
   - Criterio de aceptacion: `Delete species` debe pedir confirmacion explicita escribiendo el `species_id`, crear backup previo, mover el perfil completo a un area/fichero `archived` o `deleted`, validar el modelo completo tras la operacion y mostrar aviso visible. La UI debe incluir `Restore deleted species`, bloquear la restauracion si el `species_id` ya existe de nuevo en perfiles activos y volver a validar antes de guardar. Documentado tambien en `docs/mushrooms/ui/profiles/mushroom-profiles-maintenance.md`.
   - Estado: pendiente para una version posterior a `0.2.163`.
 
+- [ ] Implementar archivado/restauracion de entradas de catalogo
+  - Contexto: el mantenimiento de `mushroom_reference_catalogs.json` no debe permitir borrado fisico directo de IDs porque esos IDs son vocabulario computable usado por perfiles, GIS mappings, relaciones internas y futuras calibraciones del motor de prediccion.
+  - Criterio de aceptacion: `Delete reference catalog` debe bloquearse si el ID esta usado por perfiles, GIS mappings o relaciones internas salvo migracion explicita; si no esta usado, debe archivar la entrada completa en un area/fichero `archived` o `deleted` con backup previo, confirmacion escribiendo el ID exacto, validacion global posterior y aviso visible. La UI debe incluir `Restore deleted reference catalog`, bloquear restauraciones si el ID ya existe en el catalogo activo y validar todo antes de persistir. Documentado tambien en `docs/mushrooms/ui/reference-catalogs/reference-catalog-maintenance-proposal.md`.
+  - Estado: pendiente para una version posterior a `0.2.163`.
+
 - [ ] Rediseñar el tab `Ecology` del mantenimiento de especies
   - Contexto: aunque `0.2.159` separa el formulario de especies en tabs, `Ecology` sigue siendo demasiado largo porque agrupa todos los bloques de afinidades en una sola vista vertical.
   - Criterio de aceptacion futuro: proponer un formato mas mantenible para `host_affinities`, `forest_type_affinities`, `soil_affinities`, `lithology_affinities` y `habitat_feature_affinities`, por ejemplo subtabs internas, panel maestro-detalle, chips editables por grupo o tablas compactas por afinidad. Debe evitar duplicados antes de seleccionar, mostrar etiquetas humanas de catalogo y no hacer crecer mucho `web_server.py`.
