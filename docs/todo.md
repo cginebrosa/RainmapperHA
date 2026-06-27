@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-`0.2.145` esta publicada en GHCR, pusheada a GitHub y pendiente de validacion final en HA: optimiza el refresco IDW para evitar recalcados duplicados, reutiliza el GeoJSON cuando la clave de calculo no cambia y documenta el patron de capas calculadas en cliente. Validar especialmente si activar IDW, cambiar metrica, periodo, mapa base y alternar Heatmap/IDW refresca una sola vez y sin datos obsoletos. Seguir observando el incremental AEMET/backfill reciente.
+`0.2.146` esta publicada en GHCR, pusheada a GitHub y pendiente de validacion en HA. Incluye el rediseño compacto de la WebUI Users como accordion, modal de creacion de usuario, confirmaciones para acciones de usuario/dispositivo/password, timestamps de auditoria y reemplazo de `datetime.utcnow()` por UTC timezone-aware. Validar especialmente dentro de Home Assistant/ingress: accordion con un solo usuario abierto, busqueda por usuario/dispositivo, refresh manual, create user modal con alerta del usuario creado, confirmaciones de Save/Set password/Reset password/Delete user/Delete device/Delete all devices, y que la pantalla sea usable con varios usuarios/dispositivos. Seguir observando el incremental AEMET/backfill reciente.
 
 ## Prioridad alta
 - [ ] Repetir backfill manual AEMET cuando el diario publique los dias pendientes
