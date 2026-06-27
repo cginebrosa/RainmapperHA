@@ -1,5 +1,7 @@
 # Decisions
 
+Nota de auditoria 2026-06-27: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: version HA `0.2.149`; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` solo contiene `web_server.py`; los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.149` esta publicada/pusheada y pendiente de validar en HA; `0.2.148` no queda como version buena por el bug visual del acordeon.
+
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
 Decision:

@@ -2,6 +2,8 @@
 
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
+Nota de auditoria 2026-06-27: continuidad revisada contra el repo real. Version HA actual `0.2.149`, imagen publicada/pusheada y pendiente de validar en HA. Workflow GitHub Actions solo manual; release normal mediante `scripts/build-push-ha-image.sh`. No hay wrappers Python raiz ni scripts de sincronizacion core/app; no reintroducirlos. Los artefactos locales no versionados, especialmente `tmp/` y backfills AEMET, deben conservarse salvo peticion explicita.
+
 ## Proximo paso recomendado
 `0.2.149` esta publicada en GHCR, pusheada a GitHub y pendiente de validacion en HA. Corrige el acordeon de User Management para que todos los usuarios nazcan cerrados, el atributo `hidden` no quede pisado por CSS y solo pueda haber un usuario abierto cada vez. Validar especialmente dentro de Home Assistant/ingress: carga inicial con todos los usuarios cerrados, abrir un usuario cierra los demas, pulsar un usuario abierto lo cierra, refresh manual deja el listado cerrado, y se conservan guardar usuario, permisos Heatmap/Metric selector/IDW, auditoria, `Set password`, `Reset password`, `Delete user`, `Delete device`, `Delete all devices`, Devices y busqueda. `0.2.148` no debe cerrarse como buena por el bug visual de acordeon totalmente desplegado. `0.2.147` parece funcionar bien en HA con el Control Panel redisenado. Seguir observando el incremental AEMET/backfill reciente.
 

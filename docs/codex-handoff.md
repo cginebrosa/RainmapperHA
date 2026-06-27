@@ -16,6 +16,19 @@ No usar como fuente de verdad la copia antigua bajo iCloud/Mobile Documents:
 
 Esa copia quedo desfasada durante la refactorizacion y puede provocar lecturas, tests o commits contra un arbol equivocado. Antes de tocar codigo o documentacion, verificar `pwd` y `git status` en la ruta real anterior.
 
+## Auditoria de cierre 2026-06-27
+
+Estado verificado contra el repositorio real, no contra memoria de conversacion:
+
+- `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y cache-busters de Leaflet/MapLibre estan alineados en version `0.2.149`.
+- La imagen HA publicada documentada para `0.2.149/latest` es `ghcr.io/cginebrosa/rainmapperha` con digest multi-arch `sha256:3a488f597e34d2caba2c30edc90f5426813eb0c19858e2dcd679b197abda474b`; commit de release `039e615`; pendiente de validacion visual/operativa en HA.
+- `.github/workflows/build-rainmapper-app.yml` existe solo como fallback manual (`workflow_dispatch`); el flujo normal sigue siendo `scripts/build-push-ha-image.sh` desde el Mac antes de subir el commit de version.
+- `rainmapper-app/app` contiene solo codigo especifico HA (`web_server.py`); el core, visores y predictor viven en rutas canonicas de raiz y se copian desde el contexto raiz durante el build.
+- Entry points activos verificados: `python -m rainmapper_core.rainmapper`, `python -m rainmapper_core.tomap`, `python -m rainmapper_core.bokeh_maps`, `python -m rainmapper_core.geojson`, `python -m rainmapper_core.create_aemet`, `rainmapper-app/run.sh`, `rainmapper-local/run.sh` y wrappers shell de compatibilidad en raiz.
+- No existen wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py` ni `tomap_to_geojson.py`; tampoco existen `scripts/sync-app-files.sh` ni `scripts/sync-manifest.sh`. No reintroducirlos salvo decision explicita nueva.
+- Visores verificados: Leaflet canonico en `rainmapper_core/viewers/leaflet-viewer/`; MapLibre canonico en `rainmapper_core/viewers/maplibre-viewer/`; ruta operativa protegida `/protected/maplibre/index.html`; fallback `/local/rainmapper-maplibre` todavia existe; publicador experimental AEMET queda en codigo pero desactivado por `PUBLISH_AEMET_EXPERIMENTAL_MAPLIBRE = False`.
+- Los artefactos locales no versionados bajo `tmp/`, `Data/`, `Tomap/`, `Plots/`, `docker-data/` y backups locales no se han borrado ni deben borrarse sin peticion explicita.
+
 ## Objetivo de la app
 RainmapperHA empaqueta Rainmapper como app de Home Assistant. La app descarga datos meteorologicos de varias fuentes, preserva historico en CSV, genera ficheros intermedios `Tomap`, crea mapas HTML clasicos y publica visores web modernos basados en GeoJSON para consultar lluvia acumulada por estacion.
 
