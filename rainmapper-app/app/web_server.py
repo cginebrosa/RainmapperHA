@@ -23,6 +23,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
+from rainmapper_core.mushroom_store import default_store
+
 
 PLOTS_PATH = Path("/app/Plots")
 TOMAP_PATH = Path("/app/Tomap")
@@ -3830,6 +3832,72 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self.send_json(401, {"ok": False, "error": "Authentication required."})
         return None
 
+    def require_admin_api(self) -> dict[str, object] | None:
+        user = self.require_authentication()
+        if not user:
+            return None
+        if normalize_role(str(user.get("role", "free"))) != "admin":
+            self.send_json(403, {"ok": False, "error": "Administrator role required."})
+            return None
+        return user
+
+    def send_mushroom_validation(self) -> None:
+        store = default_store()
+        seeded = store.ensure_seeded()
+        errors, warnings = store.validate_current()
+        self.send_json(
+            200 if not errors else 422,
+            {
+                "ok": not errors,
+                "seeded": seeded,
+                "errors": [message.as_dict() for message in errors],
+                "warnings": [message.as_dict() for message in warnings],
+            },
+        )
+
+    def send_mushroom_export(self, query: dict[str, list[str]]) -> None:
+        kind = (query.get("file") or query.get("kind") or [""])[0]
+        source = (query.get("source") or ["current"])[0]
+        store = default_store()
+        store.ensure_seeded()
+        try:
+            payload = store.export_payload(kind, source=source)
+        except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+            self.send_json(400, {"ok": False, "error": str(exc)})
+            return
+        self.send_json(200, {"ok": True, **payload})
+
+    def send_mushroom_template(self, query: dict[str, list[str]]) -> None:
+        kind = (query.get("file") or query.get("kind") or [""])[0]
+        store = default_store()
+        store.ensure_seeded()
+        try:
+            payload = store.empty_template(kind)
+        except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+            self.send_json(400, {"ok": False, "error": str(exc)})
+            return
+        self.send_json(200, {"ok": True, **payload})
+
+    def handle_mushroom_import(self) -> None:
+        payload = self.read_json_payload()
+        kind = str(payload.get("file", payload.get("kind", "")))
+        data = payload.get("data")
+        store = default_store()
+        try:
+            result = store.replace(kind, data)
+        except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+            self.send_json(400, {"ok": False, "error": str(exc)})
+            return
+        self.send_json(
+            200 if result.ok else 422,
+            {
+                "ok": result.ok,
+                "backup_path": str(result.backup_path) if result.backup_path else "",
+                "errors": [message.as_dict() for message in result.errors],
+                "warnings": [message.as_dict() for message in result.warnings],
+            },
+        )
+
     def serve_static_file(self, file_path: Path) -> None:
         if not file_path.is_file():
             self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
@@ -3955,6 +4023,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.send_json(200, {"ok": True, "settings": settings_for_device(device_id)})
             return
 
+        if path == "/api/mushrooms/validate":
+            if not self.require_admin_api():
+                return
+            self.send_mushroom_validation()
+            return
+
+        if path == "/api/mushrooms/export":
+            if not self.require_admin_api():
+                return
+            self.send_mushroom_export(parse_qs(parsed.query))
+            return
+
+        if path == "/api/mushrooms/template":
+            if not self.require_admin_api():
+                return
+            self.send_mushroom_template(parse_qs(parsed.query))
+            return
+
         if path.startswith("/protected/maplibre"):
             self.serve_protected_maplibre(path.removeprefix("/protected/maplibre"))
             return
@@ -4027,6 +4113,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/auth/logout":
             self.logout_current_device()
+            return
+
+        if parsed.path == "/api/mushrooms/validate":
+            if not self.require_admin_api():
+                return
+            self.send_mushroom_validation()
+            return
+
+        if parsed.path == "/api/mushrooms/import":
+            if not self.require_admin_api():
+                return
+            self.handle_mushroom_import()
             return
 
         form = self.read_form()

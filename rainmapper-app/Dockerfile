@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY stations.example.txt /app/
 COPY users.example.json /app/
 COPY mushroom-data/ /app/mushroom-data/
+COPY scripts/validate-mushroom-data.py /app/scripts/validate-mushroom-data.py
 COPY rainmapper_core/ /app/rainmapper_core/
 COPY rainmapper-app/app/web_server.py /app/web_server.py
 COPY rainmapper-app/run.sh /run.sh
