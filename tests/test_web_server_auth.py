@@ -136,7 +136,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         page = captured["content"]
         for label in ("Summary", "Data sources", "Viewers", "Maps", "Logs", "Errors"):
             self.assertIn(label, page)
-        for action in ("Run update", "Generate maps", "Run all", "App settings", "Users", "Mushroom catalogs"):
+        for action in ("Run update", "Generate maps", "Run all", "App settings", "Users", "Mushroom catalogs", "Mushroom species"):
             self.assertIn(action, page)
         for source in ("Meteoclimatic", "Meteocat", "Wunderground", "AEMET"):
             self.assertIn(f'name="source_update" value="{source}"', page)
@@ -187,6 +187,45 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Full catalog JSON import/export", page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_reference_catalogs.json").exists())
 
+    def test_mushroom_profiles_page_renders_species_editor(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured = {}
+
+        def capture_response(status: int, content: bytes, content_type: str) -> None:
+            captured["status"] = status
+            captured["content"] = content.decode("utf-8")
+            captured["content_type"] = content_type
+
+        handler.send_bytes = capture_response
+        handler.render_mushroom_profiles({"id": ["boletus_pinophilus"]})
+
+        self.assertEqual(captured["status"], 200)
+        page = captured["content"]
+        self.assertIn("Mantenimiento de especies", page)
+        self.assertIn("Boletus pinophilus", page)
+        self.assertIn("Host Affinities", page)
+        self.assertIn("Full profiles JSON import/export", page)
+        self.assertIn('href="./catalogs"', page)
+        self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
+
     def test_mushroom_catalogs_create_entry_uses_validated_template(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
@@ -226,9 +265,143 @@ class AuthDeviceLimitTests(unittest.TestCase):
         source = Path(WEB_SERVER_PATH).read_text(encoding="utf-8")
 
         self.assertIn('href="./mushrooms/catalogs"', source)
+        self.assertIn('href="./mushrooms/profiles"', source)
         self.assertNotIn('href="/mushrooms/catalogs"', source)
+        self.assertNotIn('href="/mushrooms/profiles"', source)
         self.assertNotIn('action="/mushrooms/catalogs"', source)
+        self.assertNotIn('action="/mushrooms/profiles"', source)
         self.assertEqual("?group=host_taxa&id=host_foo", self.web_server.catalog_query_url("host_taxa", "host_foo"))
+
+    def test_profile_form_preserves_species_id_and_updates_general_fields(self) -> None:
+        profile = {
+            "species_id": "boletus_test",
+            "scientific_name": "Boletus test",
+            "common_names": ["old"],
+            "taxonomy_status": "accepted",
+            "edibility": "good",
+            "ecology": {
+                "trophic_mode_id": "trophic_ectomycorrhizal",
+                "host_affinities": [],
+                "forest_type_affinities": [],
+                "soil_affinities": [],
+                "lithology_affinities": [],
+                "habitat_feature_affinities": [],
+            },
+            "phenology": {
+                "main_months": [9],
+                "secondary_months": [],
+                "season_pattern_ids": [],
+                "fruiting_delay_after_rain_days": {"min": 1, "optimal_min": 2, "optimal_max": 3, "max": 4},
+            },
+            "topography": {
+                "altitude_min_m": 0,
+                "altitude_optimal_min_m": 100,
+                "altitude_optimal_max_m": 500,
+                "altitude_max_m": 1000,
+                "preferred_aspect_ids": [],
+                "aspect_notes": "",
+            },
+            "weather_model": {
+                "rainfall": {"rain_7d_min_mm": 5},
+                "temperature": {"temp_min_7d_optimal_min_c": 3},
+                "humidity": {"humidity_min_7d_preferred_min_pct": 50},
+                "wind": {"dry_wind_sensitive": True},
+            },
+            "scoring_weights": {"habitat": 0.2, "season": 0.2, "altitude": 0.1, "rainfall": 0.2, "temperature": 0.1, "humidity": 0.1, "wind_penalty": 0.1},
+            "prediction_confidence": {
+                "overall_confidence": "medium",
+                "habitat_confidence": "medium",
+                "topography_confidence": "medium",
+                "phenology_confidence": "medium",
+                "weather_threshold_confidence": "low",
+                "taxonomy_confidence": "high",
+                "local_calibration_status": "not_calibrated",
+                "calibration_priority": "high",
+                "minimum_observations_for_calibration": 30,
+                "minimum_positive_observations": 10,
+                "minimum_negative_observations": 10,
+                "notes": "",
+            },
+            "metadata": {
+                "profile_version": "0.1",
+                "created_at": "2026-01-01",
+                "updated_at": "2026-01-01",
+                "created_by": "test",
+                "review_status": "draft",
+                "reviewed_by": "",
+                "source_quality": "inferred_from_literature",
+                "requires_human_validation": True,
+            },
+        }
+        form = {
+            "scientific_name": ["Boletus updated"],
+            "common_names": ["updated\nsecond"],
+            "taxonomy_status": ["accepted"],
+            "edibility": ["excellent"],
+            "trophic_mode_id": ["trophic_ectomycorrhizal"],
+            "host_affinities_0_id": ["host_pinus_spp"],
+            "host_affinities_0_relationship": ["primary"],
+            "host_affinities_0_affinity": ["0.9"],
+            "forest_type_affinities_0_id": [""],
+            "soil_affinities_0_id": [""],
+            "lithology_affinities_0_id": [""],
+            "habitat_feature_affinities_0_id": [""],
+            "main_months": ["8\n9"],
+            "secondary_months": ["10"],
+            "season_pattern_ids": ["season_autumn"],
+            "preferred_aspect_ids": ["aspect_N"],
+            "delay_min": ["5"],
+            "delay_optimal_min": ["7"],
+            "delay_optimal_max": ["12"],
+            "delay_max": ["20"],
+            "altitude_min_m": ["400"],
+            "altitude_optimal_min_m": ["800"],
+            "altitude_optimal_max_m": ["1600"],
+            "altitude_max_m": ["2200"],
+            "aspect_notes": ["fresh slopes"],
+            "rainfall_rain_7d_min_mm": ["12"],
+            "temperature_temp_min_7d_optimal_min_c": ["4"],
+            "humidity_humidity_min_7d_preferred_min_pct": ["60"],
+            "wind_dry_wind_sensitive": ["true"],
+            "score_habitat": ["0.2"],
+            "score_season": ["0.2"],
+            "score_altitude": ["0.1"],
+            "score_rainfall": ["0.2"],
+            "score_temperature": ["0.1"],
+            "score_humidity": ["0.1"],
+            "score_wind_penalty": ["0.1"],
+            "overall_confidence": ["high"],
+            "habitat_confidence": ["medium"],
+            "topography_confidence": ["medium"],
+            "phenology_confidence": ["medium"],
+            "weather_threshold_confidence": ["low"],
+            "taxonomy_confidence": ["high"],
+            "local_calibration_status": ["not_calibrated"],
+            "calibration_priority": ["high"],
+            "minimum_observations_for_calibration": ["40"],
+            "minimum_positive_observations": ["12"],
+            "minimum_negative_observations": ["11"],
+            "confidence_notes": ["needs local data"],
+            "profile_version": ["0.2"],
+            "created_at": ["2026-01-01"],
+            "updated_at": ["2026-06-27"],
+            "created_by": ["test"],
+            "review_status": ["draft"],
+            "reviewed_by": [""],
+            "source_quality": ["inferred_from_literature"],
+            "requires_human_validation": ["true"],
+        }
+
+        updated = self.web_server.profile_from_form(profile, form)
+
+        self.assertEqual("boletus_test", updated["species_id"])
+        self.assertEqual("Boletus updated", updated["scientific_name"])
+        self.assertEqual(["updated", "second"], updated["common_names"])
+        self.assertEqual(
+            [{"id": "host_pinus_spp", "relationship": "primary", "affinity": 0.9}],
+            updated["ecology"]["host_affinities"],
+        )
+        self.assertEqual(40, updated["prediction_confidence"]["minimum_observations_for_calibration"])
 
     def test_mushroom_catalog_summary_uses_validator_status_not_loose_scan(self) -> None:
         catalogs = {

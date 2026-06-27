@@ -103,6 +103,7 @@ RUN_STATE = {
     "last_published_at": "",
     "last_publish_message": "Not published yet.",
     "users_flash": "",
+    "mushroom_profiles_flash": "",
 }
 
 
@@ -1444,6 +1445,122 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       border-color: rgba(255, 209, 102, 0.55);
       color: #ffd166;
     }}
+    .profile-layout {{
+      align-items: start;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(360px, .36fr) minmax(760px, 1fr);
+    }}
+    .profile-list {{
+      display: grid;
+      gap: 8px;
+      position: sticky;
+      top: 12px;
+    }}
+    .profile-list-item {{
+      background: rgba(15, 23, 42, .34);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      display: grid;
+      gap: 5px;
+      padding: 10px 12px;
+      text-decoration: none;
+    }}
+    .profile-list-item.active {{
+      background: rgba(3, 169, 244, .12);
+      border-color: var(--accent);
+    }}
+    .profile-list-item strong {{
+      line-height: 1.2;
+    }}
+    .profile-chip-line {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }}
+    .profile-chip {{
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 2px 7px;
+    }}
+    .profile-editor {{
+      display: grid;
+      gap: 12px;
+    }}
+    .profile-editor-head {{
+      align-items: start;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }}
+    .profile-section {{
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding-top: 12px;
+    }}
+    .profile-section h2 {{
+      font-size: 16px;
+      margin: 0;
+    }}
+    .profile-grid {{
+      display: grid;
+      gap: 9px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .profile-grid.three {{
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }}
+    .profile-grid.four {{
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .profile-affinity-block {{
+      display: grid;
+      gap: 6px;
+    }}
+    .profile-affinity-row {{
+      align-items: end;
+      display: grid;
+      gap: 7px;
+      grid-template-columns: minmax(220px, 1fr) minmax(130px, .5fr) minmax(86px, .28fr);
+    }}
+    .profile-editor .admin-field label {{
+      font-size: 12px;
+      margin-bottom: 3px;
+    }}
+    .profile-editor input,
+    .profile-editor select {{
+      min-height: 34px;
+      padding: 0 9px;
+    }}
+    .profile-editor textarea {{
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      font: inherit;
+      line-height: 1.3;
+      min-height: 58px;
+      padding: 8px 9px;
+      resize: vertical;
+      width: 100%;
+    }}
+    .profile-json-editor textarea {{
+      background: #0c1116;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      min-height: 420px;
+      padding: 12px;
+      resize: vertical;
+      width: 100%;
+    }}
     @media (max-width: 1320px) {{
       .permissions-grid {{
         grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -1455,6 +1572,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       }}
       .catalog-detail {{
         position: static;
+      }}
+      .profile-layout {{
+        grid-template-columns: 1fr;
+      }}
+      .profile-list {{
+        position: static;
+      }}
+      .profile-grid,
+      .profile-grid.three,
+      .profile-grid.four,
+      .profile-affinity-row {{
+        grid-template-columns: 1fr;
       }}
     }}
     @media (max-width: 1080px) {{
@@ -3966,6 +4095,528 @@ def set_mushroom_catalogs_flash(message: str) -> None:
         RUN_STATE["mushroom_catalogs_flash"] = message
 
 
+PROFILE_SELECT_VALUES = {
+    "taxonomy_status": ["accepted", "species_complex_operational", "uncertain_operational_taxon"],
+    "edibility": ["excellent", "good", "edible_when_thoroughly_cooked"],
+    "confidence": ["very_low", "low", "medium", "high", "very_high"],
+    "calibration_status": ["not_calibrated", "partially_calibrated", "locally_calibrated", "needs_review"],
+    "calibration_priority": ["very_high", "high", "medium", "low"],
+    "review_status": ["draft", "reviewed", "published"],
+    "source_quality": ["inferred_from_literature", "expert_reviewed", "local_observations"],
+    "relationship": ["primary", "preferred", "secondary", "possible", "avoid"],
+}
+
+PROFILE_AFFINITY_GROUPS = {
+    "host_affinities": "host_taxa",
+    "forest_type_affinities": "forest_types",
+    "soil_affinities": "soil_types",
+    "lithology_affinities": "lithology_types",
+    "habitat_feature_affinities": "habitat_features",
+}
+
+
+def mushroom_profiles_flash() -> str:
+    with RUN_LOCK:
+        message = str(RUN_STATE.get("mushroom_profiles_flash", ""))
+        RUN_STATE["mushroom_profiles_flash"] = ""
+    return message
+
+
+def set_mushroom_profiles_flash(message: str) -> None:
+    with RUN_LOCK:
+        RUN_STATE["mushroom_profiles_flash"] = message
+
+
+def profile_common_name(profile: dict[str, object]) -> str:
+    names = profile.get("common_names")
+    if isinstance(names, list) and names:
+        return str(names[0])
+    return ""
+
+
+def profile_nested_dict(profile: dict[str, object], key: str) -> dict[str, object]:
+    value = profile.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def profile_query_url(species_id: str = "", search: str = "", mode: str = "") -> str:
+    params = {}
+    if species_id:
+        params["id"] = species_id
+    if search:
+        params["q"] = search
+    if mode:
+        params["mode"] = mode
+    return ("?" + urlencode(params)) if params else "?"
+
+
+def selected_profile(profiles: list[dict[str, object]], species_id: str) -> dict[str, object] | None:
+    if species_id:
+        for profile in profiles:
+            if str(profile.get("species_id", "")) == species_id:
+                return profile
+    return profiles[0] if profiles else None
+
+
+def profile_metric_cards(profiles: list[dict[str, object]], errors: list[object], warnings: list[object]) -> str:
+    accepted = 0
+    operational = 0
+    uncalibrated = 0
+    draft = 0
+    priority = 0
+    human = 0
+    for profile in profiles:
+        taxonomy = str(profile.get("taxonomy_status", ""))
+        if taxonomy == "accepted":
+            accepted += 1
+        elif taxonomy:
+            operational += 1
+        confidence = profile_nested_dict(profile, "prediction_confidence")
+        metadata = profile_nested_dict(profile, "metadata")
+        if confidence.get("local_calibration_status") == "not_calibrated":
+            uncalibrated += 1
+        if metadata.get("review_status") == "draft":
+            draft += 1
+        if confidence.get("calibration_priority") in {"high", "very_high"}:
+            priority += 1
+        if metadata.get("requires_human_validation") is True:
+            human += 1
+    cards = [
+        ("Species", str(len(profiles)), ""),
+        ("Accepted taxa", str(accepted), "ok"),
+        ("Operational taxa", str(operational), "warn" if operational else ""),
+        ("Uncalibrated", str(uncalibrated), "warn" if uncalibrated else "ok"),
+        ("Draft", str(draft), "warn" if draft else "ok"),
+        ("High priority", str(priority), "warn" if priority else "ok"),
+        ("Human validation", str(human), "warn" if human else "ok"),
+        ("Validation", f"{len(errors)} errors · {len(warnings)} warnings", "danger" if errors else "warn" if warnings else "ok"),
+    ]
+    return '<div class="summary-grid">' + "".join(
+        f'<div class="card"><span class="label">{html.escape(label)}</span><span class="value {css_class}">{html.escape(value)}</span></div>'
+        for label, value, css_class in cards
+    ) + "</div>"
+
+
+def render_profile_list(profiles: list[dict[str, object]], selected_id: str, search: str) -> str:
+    tokens = [token.lower() for token in search.split() if token.strip()]
+    rows = []
+    for profile in profiles:
+        species_id = str(profile.get("species_id", ""))
+        scientific_name = str(profile.get("scientific_name", ""))
+        common_name = profile_common_name(profile)
+        confidence = profile_nested_dict(profile, "prediction_confidence")
+        metadata = profile_nested_dict(profile, "metadata")
+        searchable = " ".join(
+            [
+                species_id,
+                scientific_name,
+                common_name,
+                str(profile.get("taxonomy_status", "")),
+                str(profile.get("edibility", "")),
+                str(confidence.get("overall_confidence", "")),
+                str(confidence.get("calibration_priority", "")),
+                str(metadata.get("review_status", "")),
+            ]
+        ).lower()
+        if tokens and not all(token in searchable for token in tokens):
+            continue
+        active = " active" if species_id == selected_id else ""
+        chips = "".join(
+            f'<span class="profile-chip">{html.escape(str(value))}</span>'
+            for value in (
+                confidence.get("overall_confidence", ""),
+                confidence.get("calibration_priority", ""),
+                metadata.get("review_status", ""),
+            )
+            if value
+        )
+        rows.append(
+            f'<a class="profile-list-item{active}" href="{profile_query_url(species_id, search)}">'
+            f"<strong>{html.escape(scientific_name or species_id)}</strong>"
+            f'<span class="meta">{html.escape(common_name or species_id)}</span>'
+            f'<span class="profile-chip-line">{chips}</span></a>'
+        )
+    if not rows:
+        rows.append('<div class="profile-list-item"><strong>No species match</strong><span class="meta">Adjust the search.</span></div>')
+    return '<aside class="profile-list">' + "".join(rows) + "</aside>"
+
+
+def profile_form_field(name: str, label: str, value: object = "", field_type: str = "text", readonly: bool = False) -> str:
+    readonly_attr = " readonly" if readonly else ""
+    step_attr = ' step="any"' if field_type == "number" else ""
+    checked_attr = ' checked' if field_type == "checkbox" and value is True else ""
+    escaped_name = html.escape(name, quote=True)
+    if field_type == "checkbox":
+        control = f'<input id="profile-{escaped_name}" name="{escaped_name}" type="checkbox" value="true"{checked_attr}>'
+    else:
+        escaped_value = html.escape("" if value is None else str(value), quote=True)
+        control = f'<input id="profile-{escaped_name}" name="{escaped_name}" type="{html.escape(field_type, quote=True)}" value="{escaped_value}"{step_attr}{readonly_attr}>'
+    return (
+        '<div class="admin-field">'
+        f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
+        f"{control}</div>"
+    )
+
+
+def profile_form_select(name: str, label: str, value: object, options: list[str]) -> str:
+    current = "" if value is None else str(value)
+    merged = list(options)
+    if current and current not in merged:
+        merged.append(current)
+    option_html = [f'<option value=""{" selected" if not current else ""}>-</option>']
+    for option in merged:
+        selected = " selected" if option == current else ""
+        option_html.append(f'<option value="{html.escape(option, quote=True)}"{selected}>{html.escape(option)}</option>')
+    escaped_name = html.escape(name, quote=True)
+    return (
+        '<div class="admin-field">'
+        f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
+        f'<select id="profile-{escaped_name}" name="{escaped_name}">{"".join(option_html)}</select>'
+        "</div>"
+    )
+
+
+def catalog_options_for_group(catalogs: dict[str, object], group: str) -> list[tuple[str, str]]:
+    items = catalogs.get(group)
+    if not isinstance(items, list):
+        return []
+    options = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id", "") or "").strip()
+        if item_id:
+            label = catalog_label(item)
+            options.append((item_id, label))
+    return sorted(options, key=lambda option: option[0])
+
+
+def profile_form_catalog_select(
+    name: str,
+    label: str,
+    value: object,
+    options: list[tuple[str, str]],
+) -> str:
+    current = "" if value is None else str(value)
+    option_ids = [option_id for option_id, _label in options]
+    option_html = [f'<option value=""{" selected" if not current else ""}>-</option>']
+    for option_id, option_label in options:
+        selected = " selected" if option_id == current else ""
+        visible_label = option_id if option_label == option_id else f"{option_id} · {option_label}"
+        option_html.append(
+            f'<option value="{html.escape(option_id, quote=True)}"{selected}>{html.escape(visible_label)}</option>'
+        )
+    if current and current not in option_ids:
+        option_html.append(f'<option value="{html.escape(current, quote=True)}" selected>{html.escape(current)} (missing)</option>')
+    escaped_name = html.escape(name, quote=True)
+    return (
+        '<div class="admin-field">'
+        f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
+        f'<select id="profile-{escaped_name}" name="{escaped_name}">{"".join(option_html)}</select>'
+        "</div>"
+    )
+
+
+def profile_form_textarea(name: str, label: str, value: object, rows: int = 3) -> str:
+    escaped_name = html.escape(name, quote=True)
+    return (
+        '<div class="admin-field">'
+        f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
+        f'<textarea id="profile-{escaped_name}" name="{escaped_name}" rows="{rows}">{html.escape(catalog_textarea_value(value))}</textarea>'
+        "</div>"
+    )
+
+
+def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str, object]) -> str:
+    catalog_group = PROFILE_AFFINITY_GROUPS[field]
+    options = catalog_options_for_group(catalogs, catalog_group)
+    affinities = values if isinstance(values, list) else []
+    rows = []
+    editable_rows = [item if isinstance(item, dict) else {} for item in affinities] + [{} for _ in range(3)]
+    for index, item in enumerate(editable_rows):
+        rows.append(
+            '<div class="profile-affinity-row">'
+            + profile_form_catalog_select(f"{field}_{index}_id", "ID", item.get("id", ""), options)
+            + profile_form_select(f"{field}_{index}_relationship", "Relationship", item.get("relationship", ""), PROFILE_SELECT_VALUES["relationship"])
+            + profile_form_field(f"{field}_{index}_affinity", "Affinity", item.get("affinity", ""), field_type="number")
+            + "</div>"
+        )
+    return (
+        '<div class="profile-affinity-block">'
+        f'<h2>{html.escape(field.replace("_", " ").title())}</h2>'
+        + "".join(rows)
+        + "</div>"
+    )
+
+
+def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str, object]) -> str:
+    if not profile:
+        return '<section class="card profile-editor"><h2>Species detail</h2><p>No species selected.</p></section>'
+    species_id = str(profile.get("species_id", ""))
+    ecology = profile_nested_dict(profile, "ecology")
+    phenology = profile_nested_dict(profile, "phenology")
+    topography = profile_nested_dict(profile, "topography")
+    weather_model = profile_nested_dict(profile, "weather_model")
+    rainfall = weather_model.get("rainfall") if isinstance(weather_model.get("rainfall"), dict) else {}
+    temperature = weather_model.get("temperature") if isinstance(weather_model.get("temperature"), dict) else {}
+    humidity = weather_model.get("humidity") if isinstance(weather_model.get("humidity"), dict) else {}
+    wind = weather_model.get("wind") if isinstance(weather_model.get("wind"), dict) else {}
+    scoring = profile_nested_dict(profile, "scoring_weights")
+    confidence = profile_nested_dict(profile, "prediction_confidence")
+    metadata = profile_nested_dict(profile, "metadata")
+    delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
+    json_value = json.dumps(profile, indent=2, ensure_ascii=False)
+    affinity_blocks = "".join(render_profile_affinity_rows(field, ecology.get(field, []), catalogs) for field in PROFILE_AFFINITY_GROUPS)
+    return f"""
+    <section class="card profile-editor">
+      <div class="profile-editor-head">
+        <div>
+          <h2>{html.escape(str(profile.get("scientific_name", species_id)))}</h2>
+          <p class="meta">{html.escape(profile_common_name(profile))} · {html.escape(species_id)}</p>
+        </div>
+        <span class="status-pill">{html.escape(str(confidence.get("local_calibration_status", "-")))}</span>
+      </div>
+      <form method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save this species profile and validate the full mushroom dataset?')">
+        <input type="hidden" name="profile_action" value="save_profile_form">
+        <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+        <section class="profile-section">
+          <h2>General</h2>
+          <div class="profile-grid">
+            {profile_form_field("species_id_display", "Species ID", species_id, readonly=True)}
+            {profile_form_field("scientific_name", "Scientific name", profile.get("scientific_name", ""))}
+            {profile_form_textarea("common_names", "Common names", profile.get("common_names", []), rows=2)}
+            {profile_form_select("taxonomy_status", "Taxonomy status", profile.get("taxonomy_status", ""), PROFILE_SELECT_VALUES["taxonomy_status"])}
+            {profile_form_select("edibility", "Edibility", profile.get("edibility", ""), PROFILE_SELECT_VALUES["edibility"])}
+          </div>
+        </section>
+        <section class="profile-section">
+          <h2>Ecology</h2>
+          <div class="profile-grid">
+            {profile_form_catalog_select("trophic_mode_id", "Trophic mode", ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
+          </div>
+          {affinity_blocks}
+        </section>
+        <section class="profile-section">
+          <h2>Phenology and topography</h2>
+          <div class="profile-grid four">
+            {profile_form_textarea("main_months", "Main months", phenology.get("main_months", []), rows=2)}
+            {profile_form_textarea("secondary_months", "Secondary months", phenology.get("secondary_months", []), rows=2)}
+            {profile_form_textarea("season_pattern_ids", "Season patterns", phenology.get("season_pattern_ids", []), rows=2)}
+            {profile_form_textarea("preferred_aspect_ids", "Preferred aspects", topography.get("preferred_aspect_ids", []), rows=2)}
+            {profile_form_field("delay_min", "Delay min", delay.get("min", ""), field_type="number")}
+            {profile_form_field("delay_optimal_min", "Delay optimal min", delay.get("optimal_min", ""), field_type="number")}
+            {profile_form_field("delay_optimal_max", "Delay optimal max", delay.get("optimal_max", ""), field_type="number")}
+            {profile_form_field("delay_max", "Delay max", delay.get("max", ""), field_type="number")}
+            {profile_form_field("altitude_min_m", "Altitude min m", topography.get("altitude_min_m", ""), field_type="number")}
+            {profile_form_field("altitude_optimal_min_m", "Altitude optimal min m", topography.get("altitude_optimal_min_m", ""), field_type="number")}
+            {profile_form_field("altitude_optimal_max_m", "Altitude optimal max m", topography.get("altitude_optimal_max_m", ""), field_type="number")}
+            {profile_form_field("altitude_max_m", "Altitude max m", topography.get("altitude_max_m", ""), field_type="number")}
+          </div>
+          {profile_form_textarea("aspect_notes", "Aspect notes", topography.get("aspect_notes", ""), rows=2)}
+        </section>
+        <section class="profile-section">
+          <h2>Weather model</h2>
+          <div class="profile-grid four">
+            {''.join(profile_form_field(f"rainfall_{key}", key, value, field_type="number") for key, value in rainfall.items())}
+            {''.join(profile_form_field(f"temperature_{key}", key, value, field_type="number") for key, value in temperature.items())}
+            {''.join(profile_form_field(f"humidity_{key}", key, value, field_type="number") for key, value in humidity.items())}
+            {''.join(profile_form_field(f"wind_{key}", key, value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
+          </div>
+        </section>
+        <section class="profile-section">
+          <h2>Scoring and confidence</h2>
+          <div class="profile-grid four">
+            {''.join(profile_form_field(f"score_{key}", key, value, field_type="number") for key, value in scoring.items())}
+            {profile_form_select("overall_confidence", "Overall confidence", confidence.get("overall_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+            {profile_form_select("habitat_confidence", "Habitat confidence", confidence.get("habitat_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+            {profile_form_select("topography_confidence", "Topography confidence", confidence.get("topography_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+            {profile_form_select("phenology_confidence", "Phenology confidence", confidence.get("phenology_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+            {profile_form_select("weather_threshold_confidence", "Weather threshold confidence", confidence.get("weather_threshold_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+            {profile_form_select("taxonomy_confidence", "Taxonomy confidence", confidence.get("taxonomy_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+            {profile_form_select("local_calibration_status", "Local calibration status", confidence.get("local_calibration_status", ""), PROFILE_SELECT_VALUES["calibration_status"])}
+            {profile_form_select("calibration_priority", "Calibration priority", confidence.get("calibration_priority", ""), PROFILE_SELECT_VALUES["calibration_priority"])}
+            {profile_form_field("minimum_observations_for_calibration", "Min observations calibration", confidence.get("minimum_observations_for_calibration", ""), field_type="number")}
+            {profile_form_field("minimum_positive_observations", "Min positive observations", confidence.get("minimum_positive_observations", ""), field_type="number")}
+            {profile_form_field("minimum_negative_observations", "Min negative observations", confidence.get("minimum_negative_observations", ""), field_type="number")}
+          </div>
+          {profile_form_textarea("confidence_notes", "Confidence notes", confidence.get("notes", ""), rows=2)}
+        </section>
+        <section class="profile-section">
+          <h2>Metadata</h2>
+          <div class="profile-grid three">
+            {profile_form_field("profile_version", "Profile version", metadata.get("profile_version", ""))}
+            {profile_form_field("created_at", "Created at", metadata.get("created_at", ""))}
+            {profile_form_field("updated_at", "Updated at", metadata.get("updated_at", ""))}
+            {profile_form_field("created_by", "Created by", metadata.get("created_by", ""))}
+            {profile_form_select("review_status", "Review status", metadata.get("review_status", ""), PROFILE_SELECT_VALUES["review_status"])}
+            {profile_form_field("reviewed_by", "Reviewed by", metadata.get("reviewed_by", ""))}
+            {profile_form_select("source_quality", "Source quality", metadata.get("source_quality", ""), PROFILE_SELECT_VALUES["source_quality"])}
+            {profile_form_field("requires_human_validation", "Requires human validation", metadata.get("requires_human_validation"), field_type="checkbox")}
+          </div>
+        </section>
+        <button class="primary">Save species profile</button>
+      </form>
+      <details>
+        <summary><strong>Advanced raw JSON</strong></summary>
+        <form class="profile-json-editor" method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this species profile and validate the full dataset?')">
+          <input type="hidden" name="profile_action" value="save_profile_json">
+          <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+          <label class="label" for="profile-json">Species profile JSON</label>
+          <textarea id="profile-json" name="profile_json" spellcheck="false">{html.escape(json_value)}</textarea>
+          <button class="primary">Save raw JSON</button>
+        </form>
+      </details>
+    </section>
+    """
+
+
+def profile_form_number(form: dict[str, list[str]], name: str) -> float | int | None:
+    return catalog_form_optional_number(form, name)
+
+
+def profile_form_int_list(form: dict[str, list[str]], name: str) -> list[int]:
+    values = []
+    for part in catalog_split_list(catalog_form_string(form, name)):
+        values.append(int(part))
+    return values
+
+
+def profile_form_bool(form: dict[str, list[str]], name: str) -> bool:
+    return catalog_form_string(form, name) == "true"
+
+
+def profile_affinities_from_form(form: dict[str, list[str]], field: str) -> list[dict[str, object]]:
+    affinities = []
+    index = 0
+    while f"{field}_{index}_id" in form:
+        item_id = catalog_form_string(form, f"{field}_{index}_id")
+        relationship = catalog_form_string(form, f"{field}_{index}_relationship")
+        affinity = profile_form_number(form, f"{field}_{index}_affinity")
+        if item_id:
+            item: dict[str, object] = {"id": item_id}
+            if relationship:
+                item["relationship"] = relationship
+            if affinity is not None:
+                item["affinity"] = affinity
+            affinities.append(item)
+        index += 1
+    return affinities
+
+
+def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
+    profile = json.loads(json.dumps(existing))
+    profile["scientific_name"] = catalog_form_string(form, "scientific_name")
+    profile["common_names"] = catalog_split_list(catalog_form_string(form, "common_names"))
+    profile["taxonomy_status"] = catalog_form_string(form, "taxonomy_status")
+    profile["edibility"] = catalog_form_string(form, "edibility")
+
+    ecology = profile_nested_dict(profile, "ecology").copy()
+    ecology["trophic_mode_id"] = catalog_form_string(form, "trophic_mode_id")
+    for field in PROFILE_AFFINITY_GROUPS:
+        ecology[field] = profile_affinities_from_form(form, field)
+    profile["ecology"] = ecology
+
+    phenology = profile_nested_dict(profile, "phenology").copy()
+    phenology["main_months"] = profile_form_int_list(form, "main_months")
+    phenology["secondary_months"] = profile_form_int_list(form, "secondary_months")
+    phenology["season_pattern_ids"] = catalog_split_list(catalog_form_string(form, "season_pattern_ids"))
+    phenology["fruiting_delay_after_rain_days"] = {
+        "min": profile_form_number(form, "delay_min"),
+        "optimal_min": profile_form_number(form, "delay_optimal_min"),
+        "optimal_max": profile_form_number(form, "delay_optimal_max"),
+        "max": profile_form_number(form, "delay_max"),
+    }
+    profile["phenology"] = phenology
+
+    topography = profile_nested_dict(profile, "topography").copy()
+    for key in ("altitude_min_m", "altitude_optimal_min_m", "altitude_optimal_max_m", "altitude_max_m"):
+        topography[key] = profile_form_number(form, key)
+    topography["preferred_aspect_ids"] = catalog_split_list(catalog_form_string(form, "preferred_aspect_ids"))
+    topography["aspect_notes"] = catalog_form_string(form, "aspect_notes")
+    profile["topography"] = topography
+
+    weather_model = profile_nested_dict(profile, "weather_model").copy()
+    for block_name in ("rainfall", "temperature", "humidity", "wind"):
+        block = weather_model.get(block_name)
+        block = block.copy() if isinstance(block, dict) else {}
+        for key, old_value in list(block.items()):
+            form_name = f"{block_name}_{key}"
+            block[key] = profile_form_bool(form, form_name) if isinstance(old_value, bool) else profile_form_number(form, form_name)
+        weather_model[block_name] = block
+    profile["weather_model"] = weather_model
+
+    scoring = profile_nested_dict(profile, "scoring_weights").copy()
+    for key in list(scoring):
+        scoring[key] = profile_form_number(form, f"score_{key}")
+    profile["scoring_weights"] = scoring
+
+    confidence = profile_nested_dict(profile, "prediction_confidence").copy()
+    for key in (
+        "overall_confidence",
+        "habitat_confidence",
+        "topography_confidence",
+        "phenology_confidence",
+        "weather_threshold_confidence",
+        "taxonomy_confidence",
+        "local_calibration_status",
+        "calibration_priority",
+    ):
+        confidence[key] = catalog_form_string(form, key)
+    for key in (
+        "minimum_observations_for_calibration",
+        "minimum_positive_observations",
+        "minimum_negative_observations",
+    ):
+        value = profile_form_number(form, key)
+        confidence[key] = int(value) if value is not None else None
+    confidence["notes"] = catalog_form_string(form, "confidence_notes")
+    profile["prediction_confidence"] = confidence
+
+    metadata = profile_nested_dict(profile, "metadata").copy()
+    for key in ("profile_version", "created_at", "updated_at", "created_by", "reviewed_by"):
+        metadata[key] = catalog_form_string(form, key)
+    metadata["review_status"] = catalog_form_string(form, "review_status")
+    metadata["source_quality"] = catalog_form_string(form, "source_quality")
+    metadata["requires_human_validation"] = profile_form_bool(form, "requires_human_validation")
+    profile["metadata"] = metadata
+    return profile
+
+
+def replace_profile_entry(profiles_payload: dict[str, object], species_id: str, entry: dict[str, object]) -> tuple[bool, str]:
+    if str(entry.get("species_id", "")) != species_id:
+        return False, "Species ID cannot be changed in the first maintenance UI."
+    profiles = profiles_payload.get("species_profiles")
+    if not isinstance(profiles, list):
+        return False, "Profiles payload does not contain a species_profiles array."
+    for index, existing in enumerate(profiles):
+        if isinstance(existing, dict) and str(existing.get("species_id", "")) == species_id:
+            profiles[index] = entry
+            return True, f"Updated species profile {species_id}."
+    return False, f"Species profile {species_id} was not found."
+
+
+def render_profile_full_json_panel(payload: dict[str, object], mode: str) -> str:
+    json_value = json.dumps(payload, indent=2, ensure_ascii=False)
+    mode_label = "empty template" if mode == "template" else "current profiles"
+    return f"""
+    <details class="card" {"open" if mode == "template" else ""}>
+      <summary><strong>Full profiles JSON import/export</strong> · {html.escape(mode_label)}</summary>
+      <p>Use this panel for controlled full-file import/export. Saving validates profiles, catalogs and GIS mappings together before replacing the persistent profiles file.</p>
+      <div class="quick-actions">
+        <a class="button-link" href="?mode=current">Current profiles</a>
+        <a class="button-link" href="?mode=default">Packaged default</a>
+        <a class="button-link" href="?mode=template">Empty template</a>
+      </div>
+      <form class="profile-json-editor" method="post" action="" onsubmit="return confirm('Replace the full profiles JSON after validation?')">
+        <input type="hidden" name="profile_action" value="save_profiles">
+        <label class="label" for="profiles-full-json">Profiles JSON</label>
+        <textarea id="profiles-full-json" name="profiles_json" spellcheck="false">{html.escape(json_value)}</textarea>
+        <button class="primary">Validate and save full profiles</button>
+      </form>
+    </details>
+    """
+
+
 def user_display_name(user: dict[str, str]) -> str:
     name = user.get("name", "").strip()
     return name or user.get("username", "")
@@ -4998,6 +5649,84 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         """
         self.send_bytes(200, html_page("Mushroom reference catalogs", body, auto_refresh=False), "text/html; charset=utf-8")
 
+    def render_mushroom_profiles(self, query: dict[str, list[str]] | None = None) -> None:
+        query = query or {}
+        selected_id = (query.get("id") or [""])[0]
+        search = (query.get("q") or [""])[0]
+        mode = (query.get("mode") or ["current"])[0]
+
+        store = default_store()
+        try:
+            seeded = store.ensure_seeded()
+            profiles_payload = store.load("profiles")
+            catalogs_payload = store.load("catalogs")
+            errors, warnings = store.validate_current()
+        except Exception as exc:
+            body = (
+                '<p><a class="button-link" href="../">Back</a></p>'
+                "<h1>Mushroom species</h1>"
+                f'<div class="catalog-alert error"><strong>Cannot load mushroom data</strong><br>{html.escape(str(exc))}</div>'
+            )
+            self.send_bytes(500, html_page("Mushroom species", body, auto_refresh=False), "text/html; charset=utf-8")
+            return
+
+        profiles = profiles_payload.get("species_profiles", []) if isinstance(profiles_payload, dict) else []
+        profiles = [profile for profile in profiles if isinstance(profile, dict)] if isinstance(profiles, list) else []
+        catalogs = catalogs_payload.get("catalogs", {}) if isinstance(catalogs_payload, dict) else {}
+        catalogs = catalogs if isinstance(catalogs, dict) else {}
+        selected = selected_profile(profiles, selected_id)
+        if selected:
+            selected_id = str(selected.get("species_id", ""))
+
+        full_payload = profiles_payload
+        if mode == "default":
+            full_payload = store.load("profiles", source="default")
+        elif mode == "template":
+            full_payload = store.empty_template("profiles")["data"]
+        else:
+            mode = "current"
+
+        flash = mushroom_profiles_flash()
+        flash_html = f'<div class="catalog-alert"><strong>Status</strong><br>{html.escape(flash)}</div>' if flash else ""
+        seeded_html = (
+            f'<div class="catalog-alert"><strong>Seeded defaults</strong><br>{html.escape(", ".join(seeded))}</div>'
+            if seeded else ""
+        )
+        status_label = "Flow validated" if not errors else "Validation errors"
+        status_class = "ok" if not errors else "danger"
+        body = f"""
+        <div class="control-head">
+          <div>
+            <h1>Mantenimiento de especies</h1>
+            <p>Gestiona perfiles de especies para el predictor de floradas</p>
+          </div>
+          <div class="control-head-actions">
+            <span class="meta">{len(profiles)} species · <span class="{status_class}">{status_label}</span></span>
+          </div>
+        </div>
+        <div class="catalog-toolbar">
+          <a class="button-link" href="../">Back</a>
+          <a class="button-link" href="?">Refresh</a>
+          <a class="button-link" href="./catalogs">Reference catalogs</a>
+          <form class="catalog-filter" method="get" action="">
+            <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search species, ID, confidence or status">
+          </form>
+          <a class="button-link" href="#profiles-full-json">Import/export JSON</a>
+        </div>
+        {flash_html}
+        {seeded_html}
+        {profile_metric_cards(profiles, errors, warnings)}
+        <div class="profile-layout">
+          {render_profile_list(profiles, selected_id, search)}
+          {render_profile_editor(selected, catalogs)}
+        </div>
+        <h2>Cross validation</h2>
+        {render_catalog_alerts(errors, warnings, limit=12)}
+        <h2 id="profiles-full-json">JSON maintenance</h2>
+        {render_profile_full_json_panel(full_payload, mode)}
+        """
+        self.send_bytes(200, html_page("Mushroom species", body, auto_refresh=False), "text/html; charset=utf-8")
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
@@ -5016,6 +5745,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/mushrooms/catalogs":
             self.render_mushroom_catalogs(parse_qs(parsed.query))
+            return
+
+        if path == "/mushrooms/profiles":
+            self.render_mushroom_profiles(parse_qs(parsed.query))
             return
 
         if path == "/log":
@@ -5151,6 +5884,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if parsed.path.rstrip("/") == "/mushrooms/catalogs":
             redirect_target = self.handle_mushroom_catalogs_post(form)
+            query = ("?" + parsed.query) if parsed.query else ""
+            self.redirect_to(redirect_target or query or "?")
+            return
+
+        if parsed.path.rstrip("/") == "/mushrooms/profiles":
+            redirect_target = self.handle_mushroom_profiles_post(form)
             query = ("?" + parsed.query) if parsed.query else ""
             self.redirect_to(redirect_target or query or "?")
             return
@@ -5312,6 +6051,77 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             set_mushroom_catalogs_flash(f"Catalog action failed: {exc}")
         return ""
 
+    def handle_mushroom_profiles_post(self, form: dict[str, list[str]]) -> str:
+        action = self.form_value(form, "profile_action")
+        species_id = self.form_value(form, "species_id")
+        store = default_store()
+        try:
+            store.ensure_seeded()
+            if action == "save_profile_json":
+                entry = json.loads(self.form_value(form, "profile_json"))
+                if not isinstance(entry, dict):
+                    set_mushroom_profiles_flash("Species profile JSON must be an object.")
+                    return ""
+                profiles_payload = store.load("profiles")
+                ok, message = replace_profile_entry(profiles_payload, species_id, entry)
+                if not ok:
+                    set_mushroom_profiles_flash(message)
+                    return ""
+                result = store.replace("profiles", profiles_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(message + suffix)
+                    return profile_query_url(species_id)
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
+            elif action == "save_profile_form":
+                profiles_payload = store.load("profiles")
+                profiles = profiles_payload.get("species_profiles")
+                existing = None
+                if isinstance(profiles, list):
+                    existing = next(
+                        (
+                            profile
+                            for profile in profiles
+                            if isinstance(profile, dict) and str(profile.get("species_id", "")) == species_id
+                        ),
+                        None,
+                    )
+                if not isinstance(existing, dict):
+                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
+                    return ""
+                entry = profile_from_form(existing, form)
+                ok, message = replace_profile_entry(profiles_payload, species_id, entry)
+                if not ok:
+                    set_mushroom_profiles_flash(message)
+                    return ""
+                result = store.replace("profiles", profiles_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(message + suffix)
+                    return profile_query_url(species_id)
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
+            elif action == "save_profiles":
+                payload = json.loads(self.form_value(form, "profiles_json"))
+                if not isinstance(payload, dict):
+                    set_mushroom_profiles_flash("Profiles JSON must be an object.")
+                    return ""
+                result = store.replace("profiles", payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash("Saved full species profiles." + suffix)
+                else:
+                    error_text = "; ".join(message.message for message in result.errors[:3])
+                    set_mushroom_profiles_flash("Profiles were not saved: " + error_text)
+            else:
+                set_mushroom_profiles_flash("Unknown species maintenance action.")
+        except json.JSONDecodeError as exc:
+            set_mushroom_profiles_flash(f"Invalid JSON: line {exc.lineno}, column {exc.colno}: {exc.msg}")
+        except Exception as exc:
+            set_mushroom_profiles_flash(f"Species action failed: {exc}")
+        return profile_query_url(species_id) if species_id else "?"
+
     def render_index(self) -> None:
         with RUN_LOCK:
             running = RUN_STATE["running"]
@@ -5340,6 +6150,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./settings">App settings</a>
           <a class="button-link" href="./users">Users</a>
           <a class="button-link" href="./mushrooms/catalogs">Mushroom catalogs</a>
+          <a class="button-link" href="./mushrooms/profiles">Mushroom species</a>
         </div>
         """
         head_controls = f"""

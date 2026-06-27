@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.158
+
+- Add the first mushroom species maintenance WebUI with a species list, guided profile editor, catalog-backed ecology selectors, validation-backed saves and raw JSON advanced editing.
+- Add full profiles JSON import/export and empty-template access from the species maintenance page.
+
 ## 0.2.157
 
 - Add visible mushroom catalog cross-reference checks for host parent IDs and internal forest/lithology catalog references.
