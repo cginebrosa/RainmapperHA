@@ -1,0 +1,1835 @@
+{
+  "schema_version": "0.1",
+  "model_purpose": "reference_catalogs_for_mushroom_fruiting_probability_scoring",
+  "important_note": "Initial controlled vocabulary for species profiles. IDs are stable application identifiers; labels and GIS aliases can be extended without changing profile schema.",
+  "catalogs": {
+    "trophic_modes": [
+      {
+        "id": "trophic_ectomycorrhizal",
+        "label": {
+          "es": "Ectomicorrícico",
+          "ca": "Ectomicorrízic",
+          "en": "Ectomycorrhizal"
+        },
+        "description": "Forms ectomycorrhizal symbiosis with trees or shrubs."
+      },
+      {
+        "id": "trophic_saprotrophic",
+        "label": {
+          "es": "Saprófito",
+          "ca": "Saprófit",
+          "en": "Saprotrophic"
+        },
+        "description": "Obtains nutrients from decomposing organic matter."
+      },
+      {
+        "id": "trophic_saprotrophic_or_plant_associated_grassland",
+        "label": {
+          "es": "Saprófito o asociado a vegetación herbácea",
+          "ca": "Saprófit o associat a vegetació herbàcia",
+          "en": "Saprotrophic or plant-associated grassland fungus"
+        },
+        "description": "Operational category for grassland fungi whose productive sites are linked to meadows, pastures, edges, roots or long-lived fairy rings."
+      },
+      {
+        "id": "trophic_saprotrophic_or_facultative_complex",
+        "label": {
+          "es": "Complejo saprófito/facultativo",
+          "ca": "Complex sapròfit/facultatiu",
+          "en": "Saprotrophic or facultative complex"
+        },
+        "description": "Ecology is complex, variable or not fully resolved; includes operational complexes such as black morels."
+      }
+    ],
+    "host_taxa": [
+      {
+        "id": "host_pinaceae",
+        "rank": "family",
+        "scientific_name": "Pinaceae",
+        "genus": null,
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pináceas"
+          ],
+          "ca": [
+            "pinàcies"
+          ],
+          "en": [
+            "pine family"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "Pinaceae",
+          "coniferous forest",
+          "conifer woodland",
+          "conifer"
+        ]
+      },
+      {
+        "id": "host_pinus_spp",
+        "rank": "genus",
+        "scientific_name": "Pinus spp.",
+        "genus": "Pinus",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pinos"
+          ],
+          "ca": [
+            "pins"
+          ],
+          "en": [
+            "pines"
+          ]
+        },
+        "parent_id": "host_pinaceae",
+        "gis_aliases": [
+          "Pinus",
+          "pino",
+          "pi",
+          "pine",
+          "pinar",
+          "pineda"
+        ]
+      },
+      {
+        "id": "host_pinus_sylvestris",
+        "rank": "species",
+        "scientific_name": "Pinus sylvestris",
+        "genus": "Pinus",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pino silvestre"
+          ],
+          "ca": [
+            "pi roig"
+          ],
+          "en": [
+            "Scots pine"
+          ]
+        },
+        "parent_id": "host_pinus_spp",
+        "gis_aliases": [
+          "Pinus sylvestris",
+          "pino silvestre",
+          "pi roig",
+          "Scots pine"
+        ]
+      },
+      {
+        "id": "host_pinus_uncinata",
+        "rank": "species",
+        "scientific_name": "Pinus uncinata",
+        "genus": "Pinus",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pino negro"
+          ],
+          "ca": [
+            "pi negre"
+          ],
+          "en": [
+            "mountain pine",
+            "unhooked pine"
+          ]
+        },
+        "parent_id": "host_pinus_spp",
+        "gis_aliases": [
+          "Pinus uncinata",
+          "pino negro",
+          "pi negre",
+          "mountain pine"
+        ]
+      },
+      {
+        "id": "host_pinus_halepensis",
+        "rank": "species",
+        "scientific_name": "Pinus halepensis",
+        "genus": "Pinus",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pino carrasco"
+          ],
+          "ca": [
+            "pi blanc"
+          ],
+          "en": [
+            "Aleppo pine"
+          ]
+        },
+        "parent_id": "host_pinus_spp",
+        "gis_aliases": [
+          "Pinus halepensis",
+          "pino carrasco",
+          "pi blanc",
+          "Aleppo pine"
+        ]
+      },
+      {
+        "id": "host_pinus_nigra",
+        "rank": "species",
+        "scientific_name": "Pinus nigra",
+        "genus": "Pinus",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pino laricio",
+            "pino salgareño"
+          ],
+          "ca": [
+            "pinassa"
+          ],
+          "en": [
+            "black pine"
+          ]
+        },
+        "parent_id": "host_pinus_spp",
+        "gis_aliases": [
+          "Pinus nigra",
+          "pino laricio",
+          "pinassa",
+          "black pine"
+        ]
+      },
+      {
+        "id": "host_pinus_pinea",
+        "rank": "species",
+        "scientific_name": "Pinus pinea",
+        "genus": "Pinus",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pino piñonero"
+          ],
+          "ca": [
+            "pi pinyer"
+          ],
+          "en": [
+            "stone pine"
+          ]
+        },
+        "parent_id": "host_pinus_spp",
+        "gis_aliases": [
+          "Pinus pinea",
+          "pino piñonero",
+          "pi pinyer",
+          "stone pine"
+        ]
+      },
+      {
+        "id": "host_pinus_pinaster",
+        "rank": "species",
+        "scientific_name": "Pinus pinaster",
+        "genus": "Pinus",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pino resinero",
+            "pino marítimo"
+          ],
+          "ca": [
+            "pinastre"
+          ],
+          "en": [
+            "maritime pine"
+          ]
+        },
+        "parent_id": "host_pinus_spp",
+        "gis_aliases": [
+          "Pinus pinaster",
+          "pino resinero",
+          "pinastre",
+          "maritime pine"
+        ]
+      },
+      {
+        "id": "host_abies_spp",
+        "rank": "genus",
+        "scientific_name": "Abies spp.",
+        "genus": "Abies",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "abetos"
+          ],
+          "ca": [
+            "avets"
+          ],
+          "en": [
+            "firs"
+          ]
+        },
+        "parent_id": "host_pinaceae",
+        "gis_aliases": [
+          "Abies",
+          "abeto",
+          "avet",
+          "fir"
+        ]
+      },
+      {
+        "id": "host_abies_alba",
+        "rank": "species",
+        "scientific_name": "Abies alba",
+        "genus": "Abies",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "abeto blanco"
+          ],
+          "ca": [
+            "avet blanc"
+          ],
+          "en": [
+            "silver fir"
+          ]
+        },
+        "parent_id": "host_abies_spp",
+        "gis_aliases": [
+          "Abies alba",
+          "abeto blanco",
+          "avet blanc",
+          "silver fir"
+        ]
+      },
+      {
+        "id": "host_picea_spp",
+        "rank": "genus",
+        "scientific_name": "Picea spp.",
+        "genus": "Picea",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "píceas"
+          ],
+          "ca": [
+            "pícees"
+          ],
+          "en": [
+            "spruces"
+          ]
+        },
+        "parent_id": "host_pinaceae",
+        "gis_aliases": [
+          "Picea",
+          "picea",
+          "spruce"
+        ]
+      },
+      {
+        "id": "host_pseudotsuga_spp",
+        "rank": "genus",
+        "scientific_name": "Pseudotsuga spp.",
+        "genus": "Pseudotsuga",
+        "family": "Pinaceae",
+        "common_names": {
+          "es": [
+            "pseudotsuga"
+          ],
+          "ca": [
+            "pseudotsuga"
+          ],
+          "en": [
+            "Douglas-fir"
+          ]
+        },
+        "parent_id": "host_pinaceae",
+        "gis_aliases": [
+          "Pseudotsuga",
+          "Douglas fir",
+          "Douglas-fir"
+        ]
+      },
+      {
+        "id": "host_fagaceae",
+        "rank": "family",
+        "scientific_name": "Fagaceae",
+        "genus": null,
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "fagáceas"
+          ],
+          "ca": [
+            "fagàcies"
+          ],
+          "en": [
+            "beech family"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "Fagaceae",
+          "broadleaf forest",
+          "frondosas"
+        ]
+      },
+      {
+        "id": "host_quercus_spp",
+        "rank": "genus",
+        "scientific_name": "Quercus spp.",
+        "genus": "Quercus",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "robles",
+            "encinas",
+            "alcornoques"
+          ],
+          "ca": [
+            "roures",
+            "alzines",
+            "sureres"
+          ],
+          "en": [
+            "oaks"
+          ]
+        },
+        "parent_id": "host_fagaceae",
+        "gis_aliases": [
+          "Quercus",
+          "roble",
+          "roure",
+          "encina",
+          "alzina",
+          "alcornoque",
+          "surera",
+          "oak"
+        ]
+      },
+      {
+        "id": "host_quercus_ilex",
+        "rank": "species",
+        "scientific_name": "Quercus ilex",
+        "genus": "Quercus",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "encina"
+          ],
+          "ca": [
+            "alzina"
+          ],
+          "en": [
+            "holm oak"
+          ]
+        },
+        "parent_id": "host_quercus_spp",
+        "gis_aliases": [
+          "Quercus ilex",
+          "encina",
+          "alzina",
+          "holm oak"
+        ]
+      },
+      {
+        "id": "host_quercus_suber",
+        "rank": "species",
+        "scientific_name": "Quercus suber",
+        "genus": "Quercus",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "alcornoque"
+          ],
+          "ca": [
+            "surera"
+          ],
+          "en": [
+            "cork oak"
+          ]
+        },
+        "parent_id": "host_quercus_spp",
+        "gis_aliases": [
+          "Quercus suber",
+          "alcornoque",
+          "surera",
+          "cork oak"
+        ]
+      },
+      {
+        "id": "host_quercus_robur",
+        "rank": "species",
+        "scientific_name": "Quercus robur",
+        "genus": "Quercus",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "roble común",
+            "carballo"
+          ],
+          "ca": [
+            "roure pènol"
+          ],
+          "en": [
+            "pedunculate oak"
+          ]
+        },
+        "parent_id": "host_quercus_spp",
+        "gis_aliases": [
+          "Quercus robur",
+          "roble común",
+          "roure pènol",
+          "pedunculate oak"
+        ]
+      },
+      {
+        "id": "host_quercus_petraea",
+        "rank": "species",
+        "scientific_name": "Quercus petraea",
+        "genus": "Quercus",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "roble albar"
+          ],
+          "ca": [
+            "roure de fulla gran"
+          ],
+          "en": [
+            "sessile oak"
+          ]
+        },
+        "parent_id": "host_quercus_spp",
+        "gis_aliases": [
+          "Quercus petraea",
+          "roble albar",
+          "sessile oak"
+        ]
+      },
+      {
+        "id": "host_fagus_sylvatica",
+        "rank": "species",
+        "scientific_name": "Fagus sylvatica",
+        "genus": "Fagus",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "haya"
+          ],
+          "ca": [
+            "faig"
+          ],
+          "en": [
+            "European beech"
+          ]
+        },
+        "parent_id": "host_fagaceae",
+        "gis_aliases": [
+          "Fagus sylvatica",
+          "haya",
+          "faig",
+          "beech"
+        ]
+      },
+      {
+        "id": "host_castanea_sativa",
+        "rank": "species",
+        "scientific_name": "Castanea sativa",
+        "genus": "Castanea",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "castaño"
+          ],
+          "ca": [
+            "castanyer"
+          ],
+          "en": [
+            "sweet chestnut"
+          ]
+        },
+        "parent_id": "host_fagaceae",
+        "gis_aliases": [
+          "Castanea sativa",
+          "castaño",
+          "castanyer",
+          "chestnut"
+        ]
+      },
+      {
+        "id": "host_betula_spp",
+        "rank": "genus",
+        "scientific_name": "Betula spp.",
+        "genus": "Betula",
+        "family": "Betulaceae",
+        "common_names": {
+          "es": [
+            "abedules"
+          ],
+          "ca": [
+            "bedolls"
+          ],
+          "en": [
+            "birches"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "Betula",
+          "abedul",
+          "bedoll",
+          "birch"
+        ]
+      },
+      {
+        "id": "host_cistus_spp",
+        "rank": "genus",
+        "scientific_name": "Cistus spp.",
+        "genus": "Cistus",
+        "family": "Cistaceae",
+        "common_names": {
+          "es": [
+            "jaras"
+          ],
+          "ca": [
+            "estepes"
+          ],
+          "en": [
+            "rockroses"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "Cistus",
+          "jara",
+          "estepa",
+          "rockrose"
+        ]
+      },
+      {
+        "id": "host_populus_spp",
+        "rank": "genus",
+        "scientific_name": "Populus spp.",
+        "genus": "Populus",
+        "family": "Salicaceae",
+        "common_names": {
+          "es": [
+            "álamos",
+            "chopos"
+          ],
+          "ca": [
+            "pollancres",
+            "àlbers"
+          ],
+          "en": [
+            "poplars"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "Populus",
+          "álamo",
+          "chopo",
+          "pollancre",
+          "poplar"
+        ]
+      },
+      {
+        "id": "host_fraxinus_spp",
+        "rank": "genus",
+        "scientific_name": "Fraxinus spp.",
+        "genus": "Fraxinus",
+        "family": "Oleaceae",
+        "common_names": {
+          "es": [
+            "fresnos"
+          ],
+          "ca": [
+            "freixes"
+          ],
+          "en": [
+            "ashes"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "Fraxinus",
+          "fresno",
+          "freixe",
+          "ash"
+        ]
+      },
+      {
+        "id": "host_ulmus_spp",
+        "rank": "genus",
+        "scientific_name": "Ulmus spp.",
+        "genus": "Ulmus",
+        "family": "Ulmaceae",
+        "common_names": {
+          "es": [
+            "olmos"
+          ],
+          "ca": [
+            "oms"
+          ],
+          "en": [
+            "elms"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "Ulmus",
+          "olmo",
+          "om",
+          "elm"
+        ]
+      },
+      {
+        "id": "host_grassland_vegetation",
+        "rank": "functional_group",
+        "scientific_name": null,
+        "genus": null,
+        "family": null,
+        "common_names": {
+          "es": [
+            "vegetación herbácea de prados"
+          ],
+          "ca": [
+            "vegetació herbàcia de prats"
+          ],
+          "en": [
+            "grassland vegetation"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "grassland",
+          "meadow",
+          "pasture",
+          "prado",
+          "prat",
+          "pastizal"
+        ]
+      }
+    ],
+    "forest_types": [
+      {
+        "id": "forest_montane_pine",
+        "label": {
+          "es": "Pinar montano",
+          "ca": "Pineda montana",
+          "en": "Montane pine forest"
+        },
+        "dominant_host_ids": [
+          "host_pinus_spp",
+          "host_pinus_sylvestris",
+          "host_pinus_nigra"
+        ],
+        "gis_aliases": [
+          "pinar montano",
+          "pineda montana",
+          "Pinus sylvestris",
+          "Pinus nigra"
+        ]
+      },
+      {
+        "id": "forest_subalpine_pine",
+        "label": {
+          "es": "Pinar subalpino",
+          "ca": "Pineda subalpina",
+          "en": "Subalpine pine forest"
+        },
+        "dominant_host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "gis_aliases": [
+          "pinar subalpino",
+          "pineda de pi negre",
+          "Pinus uncinata"
+        ]
+      },
+      {
+        "id": "forest_mediterranean_pine",
+        "label": {
+          "es": "Pinar mediterráneo",
+          "ca": "Pineda mediterrània",
+          "en": "Mediterranean pine forest"
+        },
+        "dominant_host_ids": [
+          "host_pinus_halepensis",
+          "host_pinus_pinea",
+          "host_pinus_pinaster",
+          "host_pinus_nigra"
+        ],
+        "gis_aliases": [
+          "pinar mediterráneo",
+          "pineda mediterrània",
+          "Pinus halepensis",
+          "Pinus pinea",
+          "Pinus pinaster"
+        ]
+      },
+      {
+        "id": "forest_calcareous_pine",
+        "label": {
+          "es": "Pinar calizo",
+          "ca": "Pineda calcària",
+          "en": "Calcareous pine forest"
+        },
+        "dominant_host_ids": [
+          "host_pinus_spp"
+        ],
+        "soil_bias_ids": [
+          "soil_calcareous",
+          "soil_basic"
+        ],
+        "gis_aliases": [
+          "pinar calizo",
+          "pineda calcària",
+          "pine limestone",
+          "calcareous pine"
+        ]
+      },
+      {
+        "id": "forest_mixed_conifer",
+        "label": {
+          "es": "Bosque mixto de coníferas",
+          "ca": "Bosc mixt de coníferes",
+          "en": "Mixed conifer forest"
+        },
+        "dominant_host_ids": [
+          "host_pinaceae"
+        ],
+        "gis_aliases": [
+          "mixed conifer",
+          "coníferas mixtas",
+          "coníferes mixtes"
+        ]
+      },
+      {
+        "id": "forest_fir",
+        "label": {
+          "es": "Abetal",
+          "ca": "Avetosa",
+          "en": "Fir forest"
+        },
+        "dominant_host_ids": [
+          "host_abies_alba",
+          "host_abies_spp"
+        ],
+        "gis_aliases": [
+          "abetal",
+          "avetosa",
+          "Abies alba",
+          "fir forest"
+        ]
+      },
+      {
+        "id": "forest_beech",
+        "label": {
+          "es": "Hayedo",
+          "ca": "Fageda",
+          "en": "Beech forest"
+        },
+        "dominant_host_ids": [
+          "host_fagus_sylvatica"
+        ],
+        "gis_aliases": [
+          "hayedo",
+          "fageda",
+          "Fagus sylvatica"
+        ]
+      },
+      {
+        "id": "forest_deciduous_broadleaf",
+        "label": {
+          "es": "Bosque caducifolio",
+          "ca": "Bosc caducifoli",
+          "en": "Deciduous broadleaf forest"
+        },
+        "dominant_host_ids": [
+          "host_fagaceae",
+          "host_betula_spp"
+        ],
+        "gis_aliases": [
+          "deciduous",
+          "caducifolio",
+          "caducifoli",
+          "frondosas caducifolias"
+        ]
+      },
+      {
+        "id": "forest_mediterranean_oak",
+        "label": {
+          "es": "Bosque mediterráneo de quercíneas",
+          "ca": "Bosc mediterrani de quercínies",
+          "en": "Mediterranean oak woodland"
+        },
+        "dominant_host_ids": [
+          "host_quercus_ilex",
+          "host_quercus_suber",
+          "host_quercus_spp"
+        ],
+        "gis_aliases": [
+          "encinar",
+          "alzinar",
+          "alcornocal",
+          "sureda",
+          "Quercus ilex",
+          "Quercus suber"
+        ]
+      },
+      {
+        "id": "forest_cork_oak",
+        "label": {
+          "es": "Alcornocal",
+          "ca": "Sureda",
+          "en": "Cork oak woodland"
+        },
+        "dominant_host_ids": [
+          "host_quercus_suber"
+        ],
+        "gis_aliases": [
+          "alcornocal",
+          "sureda",
+          "Quercus suber"
+        ]
+      },
+      {
+        "id": "forest_holm_oak",
+        "label": {
+          "es": "Encinar",
+          "ca": "Alzinar",
+          "en": "Holm oak woodland"
+        },
+        "dominant_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "gis_aliases": [
+          "encinar",
+          "alzinar",
+          "Quercus ilex"
+        ]
+      },
+      {
+        "id": "forest_chestnut",
+        "label": {
+          "es": "Castañar",
+          "ca": "Castanyeda",
+          "en": "Chestnut woodland"
+        },
+        "dominant_host_ids": [
+          "host_castanea_sativa"
+        ],
+        "gis_aliases": [
+          "castañar",
+          "castanyeda",
+          "Castanea sativa"
+        ]
+      },
+      {
+        "id": "forest_mixed_woodland",
+        "label": {
+          "es": "Bosque mixto",
+          "ca": "Bosc mixt",
+          "en": "Mixed woodland"
+        },
+        "dominant_host_ids": [
+          "host_fagaceae",
+          "host_pinaceae"
+        ],
+        "gis_aliases": [
+          "bosque mixto",
+          "bosc mixt",
+          "mixed woodland"
+        ]
+      },
+      {
+        "id": "forest_riparian",
+        "label": {
+          "es": "Bosque de ribera",
+          "ca": "Bosc de ribera",
+          "en": "Riparian woodland"
+        },
+        "dominant_host_ids": [
+          "host_populus_spp",
+          "host_fraxinus_spp",
+          "host_ulmus_spp"
+        ],
+        "gis_aliases": [
+          "riparian",
+          "ribera",
+          "Populus",
+          "Fraxinus",
+          "Ulmus"
+        ]
+      },
+      {
+        "id": "habitat_grassland_meadow",
+        "label": {
+          "es": "Prado o pasto",
+          "ca": "Prat o pastura",
+          "en": "Grassland or meadow"
+        },
+        "dominant_host_ids": [
+          "host_grassland_vegetation"
+        ],
+        "gis_aliases": [
+          "grassland",
+          "meadow",
+          "pasture",
+          "prado",
+          "prat",
+          "pastizal"
+        ]
+      },
+      {
+        "id": "habitat_woodland_edge",
+        "label": {
+          "es": "Borde de bosque",
+          "ca": "Vora de bosc",
+          "en": "Woodland edge"
+        },
+        "dominant_host_ids": [],
+        "gis_aliases": [
+          "forest edge",
+          "woodland edge",
+          "borde de bosque",
+          "vora de bosc"
+        ]
+      },
+      {
+        "id": "habitat_burned_forest",
+        "label": {
+          "es": "Bosque quemado",
+          "ca": "Bosc cremat",
+          "en": "Burned forest"
+        },
+        "dominant_host_ids": [],
+        "gis_aliases": [
+          "burned area",
+          "incendio",
+          "cremat",
+          "quemado"
+        ]
+      },
+      {
+        "id": "habitat_disturbed_forest",
+        "label": {
+          "es": "Bosque alterado",
+          "ca": "Bosc alterat",
+          "en": "Disturbed forest"
+        },
+        "dominant_host_ids": [],
+        "gis_aliases": [
+          "disturbed",
+          "clearcut",
+          "removal",
+          "alterado",
+          "alterat"
+        ]
+      }
+    ],
+    "soil_types": [
+      {
+        "id": "soil_acidic",
+        "label": {
+          "es": "Ácido",
+          "ca": "Àcid",
+          "en": "Acidic"
+        },
+        "ph_min": 3.5,
+        "ph_max": 6.5,
+        "gis_aliases": [
+          "acidic",
+          "ácido",
+          "àcid"
+        ]
+      },
+      {
+        "id": "soil_slightly_acidic",
+        "label": {
+          "es": "Ligeramente ácido",
+          "ca": "Lleugerament àcid",
+          "en": "Slightly acidic"
+        },
+        "ph_min": 5.5,
+        "ph_max": 6.8,
+        "gis_aliases": [
+          "slightly acidic",
+          "ligeramente ácido",
+          "lleugerament àcid"
+        ]
+      },
+      {
+        "id": "soil_neutral",
+        "label": {
+          "es": "Neutro",
+          "ca": "Neutre",
+          "en": "Neutral"
+        },
+        "ph_min": 6.5,
+        "ph_max": 7.5,
+        "gis_aliases": [
+          "neutral",
+          "neutro",
+          "neutre"
+        ]
+      },
+      {
+        "id": "soil_basic",
+        "label": {
+          "es": "Básico",
+          "ca": "Bàsic",
+          "en": "Basic"
+        },
+        "ph_min": 7.2,
+        "ph_max": 8.8,
+        "gis_aliases": [
+          "basic",
+          "básico",
+          "bàsic",
+          "alkaline",
+          "alcalino"
+        ]
+      },
+      {
+        "id": "soil_calcareous",
+        "label": {
+          "es": "Calizo",
+          "ca": "Calcari",
+          "en": "Calcareous"
+        },
+        "ph_min": 7.2,
+        "ph_max": 8.8,
+        "gis_aliases": [
+          "calcareous",
+          "calizo",
+          "calcari",
+          "limestone-derived"
+        ]
+      },
+      {
+        "id": "soil_strongly_calcareous",
+        "label": {
+          "es": "Muy calizo",
+          "ca": "Molt calcari",
+          "en": "Strongly calcareous"
+        },
+        "ph_min": 7.8,
+        "ph_max": 9.0,
+        "gis_aliases": [
+          "strongly calcareous",
+          "muy calizo",
+          "molt calcari"
+        ]
+      },
+      {
+        "id": "soil_siliceous",
+        "label": {
+          "es": "Silíceo",
+          "ca": "Silici",
+          "en": "Siliceous"
+        },
+        "ph_min": 4.0,
+        "ph_max": 6.8,
+        "gis_aliases": [
+          "siliceous",
+          "silíceo",
+          "silici"
+        ]
+      },
+      {
+        "id": "soil_sandy",
+        "label": {
+          "es": "Arenoso",
+          "ca": "Sorrenc",
+          "en": "Sandy"
+        },
+        "texture": "sandy",
+        "gis_aliases": [
+          "sand",
+          "sandy",
+          "arenoso",
+          "sorrenc"
+        ]
+      },
+      {
+        "id": "soil_loamy",
+        "label": {
+          "es": "Franco",
+          "ca": "Franc",
+          "en": "Loamy"
+        },
+        "texture": "loam",
+        "gis_aliases": [
+          "loam",
+          "loamy",
+          "franco"
+        ]
+      },
+      {
+        "id": "soil_sandy_loam",
+        "label": {
+          "es": "Franco-arenoso",
+          "ca": "Franc sorrenc",
+          "en": "Sandy loam"
+        },
+        "texture": "sandy_loam",
+        "gis_aliases": [
+          "sandy loam",
+          "franco arenoso",
+          "franc sorrenc"
+        ]
+      },
+      {
+        "id": "soil_humus_rich",
+        "label": {
+          "es": "Rico en humus",
+          "ca": "Ric en humus",
+          "en": "Humus rich"
+        },
+        "organic_matter": "high",
+        "gis_aliases": [
+          "humus",
+          "organic rich",
+          "rico en humus"
+        ]
+      },
+      {
+        "id": "soil_organic_rich",
+        "label": {
+          "es": "Rico en materia orgánica",
+          "ca": "Ric en matèria orgànica",
+          "en": "Organic rich"
+        },
+        "organic_matter": "high",
+        "gis_aliases": [
+          "organic rich",
+          "materia orgánica",
+          "matèria orgànica"
+        ]
+      },
+      {
+        "id": "soil_moist",
+        "label": {
+          "es": "Húmedo",
+          "ca": "Humit",
+          "en": "Moist"
+        },
+        "moisture": "moist",
+        "gis_aliases": [
+          "moist",
+          "húmedo",
+          "humit"
+        ]
+      },
+      {
+        "id": "soil_well_drained",
+        "label": {
+          "es": "Bien drenado",
+          "ca": "Ben drenat",
+          "en": "Well drained"
+        },
+        "drainage": "well_drained",
+        "gis_aliases": [
+          "well drained",
+          "drenado",
+          "drenat"
+        ]
+      },
+      {
+        "id": "soil_waterlogged",
+        "label": {
+          "es": "Encharcado",
+          "ca": "Entollat",
+          "en": "Waterlogged"
+        },
+        "drainage": "waterlogged",
+        "gis_aliases": [
+          "waterlogged",
+          "encharcado",
+          "entollat"
+        ]
+      },
+      {
+        "id": "soil_very_dry",
+        "label": {
+          "es": "Muy seco",
+          "ca": "Molt sec",
+          "en": "Very dry"
+        },
+        "moisture": "very_dry",
+        "gis_aliases": [
+          "very dry",
+          "muy seco",
+          "molt sec"
+        ]
+      },
+      {
+        "id": "soil_chalky",
+        "label": {
+          "es": "Cretoso/calizo blando",
+          "ca": "Cretaci/calcari tou",
+          "en": "Chalky"
+        },
+        "ph_min": 7.2,
+        "ph_max": 8.8,
+        "gis_aliases": [
+          "chalk",
+          "chalky",
+          "cretoso"
+        ]
+      }
+    ],
+    "lithology_types": [
+      {
+        "id": "lith_granite",
+        "label": {
+          "es": "Granito",
+          "ca": "Granit",
+          "en": "Granite"
+        },
+        "general_reaction": "acidic",
+        "parent_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "gis_aliases": [
+          "granite",
+          "granito",
+          "granit"
+        ]
+      },
+      {
+        "id": "lith_schist",
+        "label": {
+          "es": "Esquisto",
+          "ca": "Esquist",
+          "en": "Schist"
+        },
+        "general_reaction": "variable_acidic_to_neutral",
+        "parent_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "gis_aliases": [
+          "schist",
+          "esquisto",
+          "esquist",
+          "pizarra metamórfica"
+        ]
+      },
+      {
+        "id": "lith_slate",
+        "label": {
+          "es": "Pizarra",
+          "ca": "Pissarra",
+          "en": "Slate"
+        },
+        "general_reaction": "acidic_to_neutral",
+        "parent_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "gis_aliases": [
+          "slate",
+          "pizarra",
+          "pissarra"
+        ]
+      },
+      {
+        "id": "lith_sandstone",
+        "label": {
+          "es": "Arenisca",
+          "ca": "Gres",
+          "en": "Sandstone"
+        },
+        "general_reaction": "variable_often_siliceous",
+        "parent_soil_tendency_ids": [
+          "soil_sandy",
+          "soil_siliceous"
+        ],
+        "gis_aliases": [
+          "sandstone",
+          "arenisca",
+          "gres"
+        ]
+      },
+      {
+        "id": "lith_quartzite",
+        "label": {
+          "es": "Cuarcita",
+          "ca": "Quarsita",
+          "en": "Quartzite"
+        },
+        "general_reaction": "acidic_siliceous",
+        "parent_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "gis_aliases": [
+          "quartzite",
+          "cuarcita",
+          "quarsita"
+        ]
+      },
+      {
+        "id": "lith_limestone",
+        "label": {
+          "es": "Caliza",
+          "ca": "Calcària",
+          "en": "Limestone"
+        },
+        "general_reaction": "basic",
+        "parent_soil_tendency_ids": [
+          "soil_calcareous",
+          "soil_basic"
+        ],
+        "gis_aliases": [
+          "limestone",
+          "caliza",
+          "calcària"
+        ]
+      },
+      {
+        "id": "lith_dolomite",
+        "label": {
+          "es": "Dolomía",
+          "ca": "Dolomia",
+          "en": "Dolomite"
+        },
+        "general_reaction": "basic",
+        "parent_soil_tendency_ids": [
+          "soil_calcareous",
+          "soil_basic"
+        ],
+        "gis_aliases": [
+          "dolomite",
+          "dolomía",
+          "dolomia"
+        ]
+      },
+      {
+        "id": "lith_calcareous_marl",
+        "label": {
+          "es": "Marga caliza",
+          "ca": "Marga calcària",
+          "en": "Calcareous marl"
+        },
+        "general_reaction": "basic",
+        "parent_soil_tendency_ids": [
+          "soil_calcareous",
+          "soil_loamy"
+        ],
+        "gis_aliases": [
+          "marl",
+          "marga",
+          "calcareous marl"
+        ]
+      },
+      {
+        "id": "lith_siliceous_substrate",
+        "label": {
+          "es": "Sustrato silíceo",
+          "ca": "Substrat silici",
+          "en": "Siliceous substrate"
+        },
+        "general_reaction": "acidic_to_neutral",
+        "parent_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "gis_aliases": [
+          "siliceous substrate",
+          "sustrato silíceo",
+          "substrat silici"
+        ]
+      },
+      {
+        "id": "lith_acidic_metamorphic",
+        "label": {
+          "es": "Metamórfico ácido",
+          "ca": "Metamòrfic àcid",
+          "en": "Acidic metamorphic substrate"
+        },
+        "general_reaction": "acidic",
+        "parent_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "gis_aliases": [
+          "metamorphic acidic",
+          "metamórfico ácido"
+        ]
+      },
+      {
+        "id": "lith_decalcified_soil",
+        "label": {
+          "es": "Suelo descalcificado",
+          "ca": "Sòl descalcificat",
+          "en": "Decalcified soil"
+        },
+        "general_reaction": "acidic_to_neutral",
+        "parent_soil_tendency_ids": [
+          "soil_slightly_acidic",
+          "soil_neutral"
+        ],
+        "gis_aliases": [
+          "decalcified",
+          "descalcificado",
+          "descalcificat"
+        ]
+      },
+      {
+        "id": "lith_alluvial",
+        "label": {
+          "es": "Aluvial",
+          "ca": "Al·luvial",
+          "en": "Alluvial"
+        },
+        "general_reaction": "variable",
+        "parent_soil_tendency_ids": [
+          "soil_loamy",
+          "soil_sandy_loam",
+          "soil_moist"
+        ],
+        "gis_aliases": [
+          "alluvial",
+          "aluvial",
+          "al·luvial"
+        ]
+      },
+      {
+        "id": "lith_variable",
+        "label": {
+          "es": "Variable",
+          "ca": "Variable",
+          "en": "Variable"
+        },
+        "general_reaction": "variable",
+        "parent_soil_tendency_ids": [],
+        "gis_aliases": [
+          "variable"
+        ]
+      }
+    ],
+    "aspects": [
+      {
+        "id": "aspect_N",
+        "label": {
+          "es": "Norte",
+          "ca": "Nord",
+          "en": "North"
+        },
+        "azimuth_min": 337.5,
+        "azimuth_max": 22.5
+      },
+      {
+        "id": "aspect_NE",
+        "label": {
+          "es": "Nordeste",
+          "ca": "Nord-est",
+          "en": "North-east"
+        },
+        "azimuth_min": 22.5,
+        "azimuth_max": 67.5
+      },
+      {
+        "id": "aspect_E",
+        "label": {
+          "es": "Este",
+          "ca": "Est",
+          "en": "East"
+        },
+        "azimuth_min": 67.5,
+        "azimuth_max": 112.5
+      },
+      {
+        "id": "aspect_SE",
+        "label": {
+          "es": "Sudeste",
+          "ca": "Sud-est",
+          "en": "South-east"
+        },
+        "azimuth_min": 112.5,
+        "azimuth_max": 157.5
+      },
+      {
+        "id": "aspect_S",
+        "label": {
+          "es": "Sur",
+          "ca": "Sud",
+          "en": "South"
+        },
+        "azimuth_min": 157.5,
+        "azimuth_max": 202.5
+      },
+      {
+        "id": "aspect_SW",
+        "label": {
+          "es": "Suroeste",
+          "ca": "Sud-oest",
+          "en": "South-west"
+        },
+        "azimuth_min": 202.5,
+        "azimuth_max": 247.5
+      },
+      {
+        "id": "aspect_W",
+        "label": {
+          "es": "Oeste",
+          "ca": "Oest",
+          "en": "West"
+        },
+        "azimuth_min": 247.5,
+        "azimuth_max": 292.5
+      },
+      {
+        "id": "aspect_NW",
+        "label": {
+          "es": "Noroeste",
+          "ca": "Nord-oest",
+          "en": "North-west"
+        },
+        "azimuth_min": 292.5,
+        "azimuth_max": 337.5
+      },
+      {
+        "id": "aspect_flat",
+        "label": {
+          "es": "Llano",
+          "ca": "Pla",
+          "en": "Flat"
+        },
+        "azimuth_min": null,
+        "azimuth_max": null
+      },
+      {
+        "id": "aspect_riparian",
+        "label": {
+          "es": "Ribera",
+          "ca": "Ribera",
+          "en": "Riparian"
+        },
+        "azimuth_min": null,
+        "azimuth_max": null
+      }
+    ],
+    "season_patterns": [
+      {
+        "id": "season_late_winter",
+        "label": {
+          "es": "Final de invierno",
+          "ca": "Final d'hivern",
+          "en": "Late winter"
+        }
+      },
+      {
+        "id": "season_spring",
+        "label": {
+          "es": "Primavera",
+          "ca": "Primavera",
+          "en": "Spring"
+        }
+      },
+      {
+        "id": "season_late_spring_possible",
+        "label": {
+          "es": "Posible a final de primavera",
+          "ca": "Possible a final de primavera",
+          "en": "Late spring possible"
+        }
+      },
+      {
+        "id": "season_summer",
+        "label": {
+          "es": "Verano",
+          "ca": "Estiu",
+          "en": "Summer"
+        }
+      },
+      {
+        "id": "season_summer_possible",
+        "label": {
+          "es": "Posible en verano",
+          "ca": "Possible a l'estiu",
+          "en": "Summer possible"
+        }
+      },
+      {
+        "id": "season_summer_after_storms",
+        "label": {
+          "es": "Verano tras tormentas",
+          "ca": "Estiu després de tempestes",
+          "en": "Summer after storms"
+        }
+      },
+      {
+        "id": "season_autumn",
+        "label": {
+          "es": "Otoño",
+          "ca": "Tardor",
+          "en": "Autumn"
+        }
+      },
+      {
+        "id": "season_autumn_main",
+        "label": {
+          "es": "Otoño principal",
+          "ca": "Tardor principal",
+          "en": "Autumn main"
+        }
+      },
+      {
+        "id": "season_late_autumn",
+        "label": {
+          "es": "Final de otoño",
+          "ca": "Final de tardor",
+          "en": "Late autumn"
+        }
+      },
+      {
+        "id": "season_early_autumn_main",
+        "label": {
+          "es": "Inicio de otoño principal",
+          "ca": "Inici de tardor principal",
+          "en": "Early autumn main"
+        }
+      },
+      {
+        "id": "season_mild_autumn_possible",
+        "label": {
+          "es": "Posible con otoño suave",
+          "ca": "Possible amb tardor suau",
+          "en": "Mild autumn possible"
+        }
+      },
+      {
+        "id": "season_early_winter_mild_areas",
+        "label": {
+          "es": "Inicio de invierno en zonas suaves",
+          "ca": "Inici d'hivern en zones suaus",
+          "en": "Early winter in mild areas"
+        }
+      },
+      {
+        "id": "season_snowmelt_associated",
+        "label": {
+          "es": "Asociado al deshielo",
+          "ca": "Associat al desglaç",
+          "en": "Snowmelt associated"
+        }
+      },
+      {
+        "id": "season_post_snowmelt",
+        "label": {
+          "es": "Post-deshielo",
+          "ca": "Post-desglaç",
+          "en": "Post snowmelt"
+        }
+      },
+      {
+        "id": "season_post_disturbance_possible",
+        "label": {
+          "es": "Posible tras perturbación",
+          "ca": "Possible després de pertorbació",
+          "en": "Post-disturbance possible"
+        }
+      },
+      {
+        "id": "season_warm_late_spring_possible",
+        "label": {
+          "es": "Final de primavera cálido posible",
+          "ca": "Final de primavera càlid possible",
+          "en": "Warm late spring possible"
+        }
+      },
+      {
+        "id": "season_summer_after_rain",
+        "label": {
+          "es": "Verano tras lluvia",
+          "ca": "Estiu després de pluja",
+          "en": "Summer after rain"
+        }
+      }
+    ],
+    "habitat_features": [
+      {
+        "id": "feature_mossy_forest",
+        "label": {
+          "es": "Bosque musgoso",
+          "ca": "Bosc molsós",
+          "en": "Mossy forest"
+        }
+      },
+      {
+        "id": "feature_needle_litter",
+        "label": {
+          "es": "Pinocha/hojarasca de coníferas",
+          "ca": "Pinassa/virolla de coníferes",
+          "en": "Needle litter"
+        }
+      },
+      {
+        "id": "feature_fairy_ring",
+        "label": {
+          "es": "Corro de bruja",
+          "ca": "Er rotlle de bruixa",
+          "en": "Fairy ring"
+        }
+      },
+      {
+        "id": "feature_forest_edge",
+        "label": {
+          "es": "Borde de bosque",
+          "ca": "Vora de bosc",
+          "en": "Forest edge"
+        }
+      },
+      {
+        "id": "feature_clearing",
+        "label": {
+          "es": "Claro de bosque",
+          "ca": "Clariana",
+          "en": "Clearing"
+        }
+      },
+      {
+        "id": "feature_snowmelt",
+        "label": {
+          "es": "Deshielo",
+          "ca": "Desglaç",
+          "en": "Snowmelt"
+        }
+      },
+      {
+        "id": "feature_burned_area",
+        "label": {
+          "es": "Zona quemada",
+          "ca": "Zona cremada",
+          "en": "Burned area"
+        }
+      },
+      {
+        "id": "feature_riparian_moisture",
+        "label": {
+          "es": "Humedad de ribera",
+          "ca": "Humitat de ribera",
+          "en": "Riparian moisture"
+        }
+      },
+      {
+        "id": "feature_open_warm_woodland",
+        "label": {
+          "es": "Bosque abierto y cálido",
+          "ca": "Bosc obert i càlid",
+          "en": "Open warm woodland"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "created_at": "2026-06-27",
+    "updated_at": "2026-06-27",
+    "created_by": "chatgpt_research_assisted",
+    "review_status": "draft",
+    "requires_human_validation": true
+  }
+}

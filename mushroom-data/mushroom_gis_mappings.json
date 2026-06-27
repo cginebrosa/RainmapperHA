@@ -1,0 +1,624 @@
+{
+  "schema_version": "0.1",
+  "model_purpose": "initial_semantic_mappings_from_external_gis_layers_to_mushroom_reference_catalogs",
+  "important_note": "These are not authoritative layer-code mappings. They are conservative text/pattern mappings to help start implementation. Replace or extend with exact WMS/WFS layer IDs and attribute codes from your selected GIS sources.",
+  "mapping_sources": [
+    {
+      "source_id": "habitats_catalunya",
+      "label": "Cartografia dels hàbitats terrestres de Catalunya",
+      "mapping_type": "vegetation_habitat",
+      "status": "initial_text_pattern_mapping"
+    },
+    {
+      "source_id": "mfe_spain",
+      "label": "Mapa Forestal de España",
+      "mapping_type": "forest_species_or_forest_type",
+      "status": "initial_text_pattern_mapping"
+    },
+    {
+      "source_id": "corine_land_cover",
+      "label": "CORINE Land Cover / Copernicus land cover classes",
+      "mapping_type": "land_cover",
+      "status": "initial_generic_mapping"
+    },
+    {
+      "source_id": "icgc_geology",
+      "label": "ICGC territorial geology / lithology WMS",
+      "mapping_type": "lithology",
+      "status": "initial_text_pattern_mapping"
+    }
+  ],
+  "vegetation_mappings": [
+    {
+      "source_patterns": [
+        "Pinus uncinata",
+        "pi negre",
+        "pino negro",
+        "pineda de pi negre"
+      ],
+      "mapped_host_ids": [
+        "host_pinus_uncinata"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_subalpine_pine"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Pinus sylvestris",
+        "pi roig",
+        "pino silvestre",
+        "pineda de pi roig"
+      ],
+      "mapped_host_ids": [
+        "host_pinus_sylvestris"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_montane_pine"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Pinus halepensis",
+        "pi blanc",
+        "pino carrasco"
+      ],
+      "mapped_host_ids": [
+        "host_pinus_halepensis"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_mediterranean_pine"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Pinus nigra",
+        "pinassa",
+        "pino laricio"
+      ],
+      "mapped_host_ids": [
+        "host_pinus_nigra"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_montane_pine",
+        "forest_mediterranean_pine"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Pinus pinea",
+        "pi pinyer",
+        "pino piñonero"
+      ],
+      "mapped_host_ids": [
+        "host_pinus_pinea"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_mediterranean_pine"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Pinus pinaster",
+        "pinastre",
+        "pino resinero",
+        "pino marítimo"
+      ],
+      "mapped_host_ids": [
+        "host_pinus_pinaster"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_mediterranean_pine"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "pineda",
+        "pinar",
+        "pine forest",
+        "Pinus"
+      ],
+      "mapped_host_ids": [
+        "host_pinus_spp"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_montane_pine"
+      ],
+      "confidence": "medium",
+      "notes": "Generic pine mapping; refine using dominant species and altitude."
+    },
+    {
+      "source_patterns": [
+        "Abies alba",
+        "avet",
+        "abeto",
+        "avetosa",
+        "abetal"
+      ],
+      "mapped_host_ids": [
+        "host_abies_alba"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_fir"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Fagus sylvatica",
+        "faig",
+        "haya",
+        "fageda",
+        "hayedo"
+      ],
+      "mapped_host_ids": [
+        "host_fagus_sylvatica"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_beech"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Quercus ilex",
+        "alzina",
+        "encina",
+        "alzinar",
+        "encinar"
+      ],
+      "mapped_host_ids": [
+        "host_quercus_ilex"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_holm_oak",
+        "forest_mediterranean_oak"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Quercus suber",
+        "surera",
+        "alcornoque",
+        "sureda",
+        "alcornocal"
+      ],
+      "mapped_host_ids": [
+        "host_quercus_suber"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_cork_oak",
+        "forest_mediterranean_oak"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Quercus",
+        "roure",
+        "roble",
+        "oak"
+      ],
+      "mapped_host_ids": [
+        "host_quercus_spp"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_mediterranean_oak",
+        "forest_deciduous_broadleaf"
+      ],
+      "confidence": "medium",
+      "notes": "Generic Quercus mapping; distinguish evergreen Mediterranean oaks from deciduous oaks if possible."
+    },
+    {
+      "source_patterns": [
+        "Castanea sativa",
+        "castanyer",
+        "castaño",
+        "castanyeda",
+        "castañar"
+      ],
+      "mapped_host_ids": [
+        "host_castanea_sativa"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_chestnut"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "Betula",
+        "bedoll",
+        "abedul"
+      ],
+      "mapped_host_ids": [
+        "host_betula_spp"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_deciduous_broadleaf"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "Populus",
+        "pollancre",
+        "chopo",
+        "álamo",
+        "Fraxinus",
+        "freixe",
+        "fresno",
+        "Ulmus",
+        "om",
+        "olmo",
+        "ribera",
+        "riparian"
+      ],
+      "mapped_host_ids": [
+        "host_populus_spp",
+        "host_fraxinus_spp",
+        "host_ulmus_spp"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_riparian"
+      ],
+      "mapped_habitat_feature_ids": [
+        "feature_riparian_moisture"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "prat",
+        "prado",
+        "pastura",
+        "pastizal",
+        "meadow",
+        "grassland",
+        "pasture"
+      ],
+      "mapped_host_ids": [
+        "host_grassland_vegetation"
+      ],
+      "mapped_forest_type_ids": [
+        "habitat_grassland_meadow"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "cremat",
+        "quemado",
+        "burned",
+        "incendi"
+      ],
+      "mapped_forest_type_ids": [
+        "habitat_burned_forest"
+      ],
+      "mapped_habitat_feature_ids": [
+        "feature_burned_area"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "bosc mixt",
+        "bosque mixto",
+        "mixed woodland"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_mixed_woodland"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "coníferes",
+        "coníferas",
+        "conifer"
+      ],
+      "mapped_host_ids": [
+        "host_pinaceae"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_mixed_conifer"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "corine_land_cover_mappings": [
+    {
+      "clc_code": "311",
+      "clc_label": "Broad-leaved forest",
+      "mapped_forest_type_ids": [
+        "forest_deciduous_broadleaf"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "clc_code": "312",
+      "clc_label": "Coniferous forest",
+      "mapped_forest_type_ids": [
+        "forest_mixed_conifer"
+      ],
+      "mapped_host_ids": [
+        "host_pinaceae"
+      ],
+      "confidence": "medium",
+      "notes": "Use forest species layer to distinguish pine/fir/spruce."
+    },
+    {
+      "clc_code": "313",
+      "clc_label": "Mixed forest",
+      "mapped_forest_type_ids": [
+        "forest_mixed_woodland"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "clc_code": "321",
+      "clc_label": "Natural grasslands",
+      "mapped_forest_type_ids": [
+        "habitat_grassland_meadow"
+      ],
+      "mapped_host_ids": [
+        "host_grassland_vegetation"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "clc_code": "231",
+      "clc_label": "Pastures",
+      "mapped_forest_type_ids": [
+        "habitat_grassland_meadow"
+      ],
+      "mapped_host_ids": [
+        "host_grassland_vegetation"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "clc_code": "324",
+      "clc_label": "Transitional woodland-shrub",
+      "mapped_forest_type_ids": [
+        "habitat_woodland_edge",
+        "habitat_disturbed_forest"
+      ],
+      "confidence": "low"
+    }
+  ],
+  "lithology_mappings": [
+    {
+      "source_patterns": [
+        "granite",
+        "granito",
+        "granit",
+        "granodiorite",
+        "granodiorita"
+      ],
+      "mapped_lithology_ids": [
+        "lith_granite"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_acidic",
+        "soil_siliceous"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "schist",
+        "esquisto",
+        "esquist"
+      ],
+      "mapped_lithology_ids": [
+        "lith_schist"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_acidic",
+        "soil_siliceous"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "slate",
+        "pizarra",
+        "pissarra"
+      ],
+      "mapped_lithology_ids": [
+        "lith_slate"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_acidic",
+        "soil_siliceous"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "sandstone",
+        "arenisca",
+        "gres"
+      ],
+      "mapped_lithology_ids": [
+        "lith_sandstone"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_sandy",
+        "soil_siliceous"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "quartzite",
+        "cuarcita",
+        "quarsita"
+      ],
+      "mapped_lithology_ids": [
+        "lith_quartzite"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_acidic",
+        "soil_siliceous"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "limestone",
+        "caliza",
+        "calcària",
+        "calcari"
+      ],
+      "mapped_lithology_ids": [
+        "lith_limestone"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_calcareous",
+        "soil_basic"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "dolomite",
+        "dolomía",
+        "dolomia"
+      ],
+      "mapped_lithology_ids": [
+        "lith_dolomite"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_calcareous",
+        "soil_basic"
+      ],
+      "confidence": "high"
+    },
+    {
+      "source_patterns": [
+        "marl",
+        "marga"
+      ],
+      "mapped_lithology_ids": [
+        "lith_calcareous_marl"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_calcareous",
+        "soil_loamy"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "alluvial",
+        "aluvial",
+        "al·luvial",
+        "fluvial"
+      ],
+      "mapped_lithology_ids": [
+        "lith_alluvial"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_loamy",
+        "soil_sandy_loam",
+        "soil_moist"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "decalcified",
+        "descalcificado",
+        "descalcificat"
+      ],
+      "mapped_lithology_ids": [
+        "lith_decalcified_soil"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_slightly_acidic",
+        "soil_neutral"
+      ],
+      "confidence": "medium"
+    }
+  ],
+  "derived_rules": [
+    {
+      "rule_id": "altitude_subalpine_pine_hint",
+      "description": "If vegetation mapping is generic pine and DEM altitude is above 1500 m in Pyrenean areas, increase likelihood of forest_subalpine_pine and host_pinus_uncinata, but keep confidence below high unless vegetation layer confirms it.",
+      "inputs": [
+        "DEM_altitude_m",
+        "generic_pine_mapping"
+      ],
+      "outputs": [
+        "forest_subalpine_pine",
+        "host_pinus_uncinata"
+      ],
+      "confidence": "low"
+    },
+    {
+      "rule_id": "calcareous_pine_hint",
+      "description": "If pine forest overlaps limestone/dolomite/calcareous marl lithology, add forest_calcareous_pine as derived forest type.",
+      "inputs": [
+        "pine_mapping",
+        "lith_limestone_or_dolomite_or_marl"
+      ],
+      "outputs": [
+        "forest_calcareous_pine"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "rule_id": "acidic_siliceous_hint",
+      "description": "If vegetation overlaps granite/schist/slate/quartzite/siliceous substrate, add soil_acidic and soil_siliceous tendencies.",
+      "inputs": [
+        "lith_siliceous_or_acidic"
+      ],
+      "outputs": [
+        "soil_acidic",
+        "soil_siliceous"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "rule_id": "riparian_moisture_hint",
+      "description": "If hydrography or riparian forest class is present, add feature_riparian_moisture and aspect_riparian as optional microhabitat signals.",
+      "inputs": [
+        "riparian_mapping_or_distance_to_stream"
+      ],
+      "outputs": [
+        "feature_riparian_moisture",
+        "aspect_riparian"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "rule_id": "burned_area_morchella_hint",
+      "description": "If recent burned forest polygon overlaps spring period, add feature_burned_area and habitat_burned_forest signals; exact burn age should be modelled separately.",
+      "inputs": [
+        "burned_area_mapping",
+        "date"
+      ],
+      "outputs": [
+        "feature_burned_area",
+        "habitat_burned_forest"
+      ],
+      "confidence": "low"
+    }
+  ],
+  "metadata": {
+    "created_at": "2026-06-27",
+    "updated_at": "2026-06-27",
+    "created_by": "chatgpt_research_assisted",
+    "review_status": "draft",
+    "requires_human_validation": true
+  }
+}

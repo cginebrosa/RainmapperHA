@@ -1,6 +1,33 @@
 # Decisions
 
-Nota de auditoria 2026-06-27: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: version HA `0.2.149`; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` solo contiene `web_server.py`; los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.149` esta publicada/pusheada y pendiente de validar en HA; `0.2.148` no queda como version buena por el bug visual del acordeon.
+Nota de auditoria 2026-06-27: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: version HA `0.2.149`; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` solo contiene `web_server.py`; los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.149` esta publicada/pusheada, instalada y validada/dada por buena en HA para el fix de User Management; `0.2.148` no queda como version buena por el bug visual del acordeon.
+
+## 2026-06-27 - Mantener JSON de setas como defaults versionados y copia editable en HA
+
+Decision:
+
+- Tratar `mushroom-data/mushroom_profiles.json`, `mushroom-data/mushroom_reference_catalogs.json` y `mushroom-data/mushroom_gis_mappings.json` como defaults versionados empaquetados con la app.
+- En Home Assistant, mantener la copia viva editable en `/share/rainmapper/mushroom-data/`.
+- La UI de administracion de setas debe editar la copia persistente, no los defaults de la imagen.
+- En primer arranque o primera activacion del modulo, si faltan ficheros persistentes, copiarlos desde los defaults; si existen, no sobrescribirlos al actualizar.
+- El futuro motor de prediccion debe leer primero `/share/rainmapper/mushroom-data/` y usar los defaults versionados solo como fallback.
+- Las pantallas de mantenimiento de perfiles y catalogos deben prever importacion/exportacion JSON y exportacion de una plantilla vacia del modelo.
+- La primera fase de UI de mantenimiento cubre `mushroom_profiles.json` y `mushroom_reference_catalogs.json`; `mushroom_gis_mappings.json` queda como dato versionado, validable y consultable para impacto, pero sin editor completo hasta una fase posterior.
+- Los valores controlados no ecologicos, como `review_status`, confidence y prioridades de calibracion, son contrato del modelo/validador/backend, no un campo `controlled_values` dentro de los JSON de perfiles.
+- Estados validos de `metadata.review_status`: `draft`, `needs_review`, `reviewed`, `validated`, `deprecated`.
+
+Motivo:
+
+- Los perfiles y catalogos necesitan mantenimiento desde HA sin perder cambios en actualizaciones.
+- Los defaults versionados siguen dando una base reproducible, testeable y recuperable.
+- La importacion/exportacion permite mantenimiento externo, backup manual y migraciones controladas.
+
+Consecuencias:
+
+- Cualquier guardado desde UI debe validar antes de persistir, crear backup con timestamp y escribir de forma atomica.
+- Importar un JSON debe mostrar resumen de cambios antes de confirmar y bloquear referencias rotas.
+- Exportar plantilla vacia debe preservar `schema_version`, `model_purpose`, estructura raiz y grupos/campos principales, pero sin datos de especies o catalogos.
+- No modificar automaticamente perfiles al importar catalogos, ni catalogos al importar perfiles, salvo flujo de migracion explicito y confirmado.
 
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
@@ -27,7 +54,7 @@ Consecuencias:
 
 Estado:
 
-Publicado inicialmente en imagen HA `0.2.148` con digest multi-arch `sha256:a2fcab2222519150bd20a3f9cbb1949736b03384e1c6b79f36ef50d79d28c821` y commit `48629ff`. En HA se detecto que el acordeon aparecia totalmente desplegado porque `.user-panel { display: grid; }` pisaba el atributo `hidden`, y ademas el JS podia abrir/restaurar automaticamente un usuario al cargar. `0.2.149` corrige el comportamiento: todos los usuarios nacen cerrados, pulsar un usuario abierto lo cierra, abrir un usuario cierra todos los demas y el refresh manual deja el listado cerrado. Imagen HA `0.2.149` publicada con digest multi-arch `sha256:3a488f597e34d2caba2c30edc90f5426813eb0c19858e2dcd679b197abda474b` y commit `039e615`. Validacion local: `python3 -m unittest tests.test_web_server_auth` OK y `./scripts/smoke-test.sh` OK. Pendiente de validacion visual y operativa en HA.
+Publicado inicialmente en imagen HA `0.2.148` con digest multi-arch `sha256:a2fcab2222519150bd20a3f9cbb1949736b03384e1c6b79f36ef50d79d28c821` y commit `48629ff`. En HA se detecto que el acordeon aparecia totalmente desplegado porque `.user-panel { display: grid; }` pisaba el atributo `hidden`, y ademas el JS podia abrir/restaurar automaticamente un usuario al cargar. `0.2.149` corrige el comportamiento: todos los usuarios nacen cerrados, pulsar un usuario abierto lo cierra, abrir un usuario cierra todos los demas y el refresh manual deja el listado cerrado. Imagen HA `0.2.149` publicada con digest multi-arch `sha256:3a488f597e34d2caba2c30edc90f5426813eb0c19858e2dcd679b197abda474b` y commit `039e615`. Validacion local: `python3 -m unittest tests.test_web_server_auth` OK y `./scripts/smoke-test.sh` OK. Instalada y validada/dada por buena en HA por el usuario el 2026-06-27.
 
 ## 2026-06-27 - Redisenar Control Panel HA como dashboard con tabs internos
 
