@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.161
+
+- Add shared semantic validation for mushroom species profiles.
+- Block duplicated simple profile values, duplicated affinity IDs and overlapping main/secondary fruiting months before saving.
+- Keep the same semantic checks in the standalone mushroom JSON validator and HA-backed persistence flow.
+
 ## 0.2.160
 
 - Compact the mushroom species summary metrics into a single-line dashboard band on wide screens.

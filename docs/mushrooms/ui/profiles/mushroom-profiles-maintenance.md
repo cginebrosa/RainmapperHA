@@ -489,6 +489,8 @@ Diseño recomendado con cards:
 
 Los arrays de afinidades deben editarse como filas o chips enriquecidos con `id`, `relationship` y `affinity`.
 
+Cada bloque de afinidades debe mantener como máximo una fila por ID de catálogo. La UI puede evitar duplicados ocultando IDs ya usados en filas nuevas, pero el backend y el validador CLI también deben bloquear duplicados si llegan por JSON/raw/importación.
+
 Ejemplo:
 
 ```text
@@ -1388,11 +1390,15 @@ preferred_aspect_ids
 
 - `main_months` debe contener valores 1-12.
 - `secondary_months` debe contener valores 1-12.
+- `main_months` y `secondary_months` no deben compartir meses: un mes debe ser principal o secundario, pero no ambas cosas.
+- `main_months` y `secondary_months` no deben contener valores repetidos dentro del mismo array.
+- `season_pattern_ids` no debe contener IDs repetidos.
 - `fruiting_delay_after_rain_days.min <= optimal_min <= optimal_max <= max`.
 
 ## Validación de topografía
 
 - `altitude_min_m <= altitude_optimal_min_m <= altitude_optimal_max_m <= altitude_max_m`.
+- `preferred_aspect_ids` no debe contener IDs repetidos.
 
 ## Validación meteorológica
 

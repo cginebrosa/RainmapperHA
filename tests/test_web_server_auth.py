@@ -408,7 +408,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertEqual(40, updated["prediction_confidence"]["minimum_observations_for_calibration"])
 
-    def test_profile_affinity_duplicate_errors_report_duplicate_ids(self) -> None:
+    def test_profile_semantic_errors_report_duplicate_affinity_ids(self) -> None:
         profile = {
             "species_id": "boletus_test",
             "ecology": {
@@ -423,10 +423,26 @@ class AuthDeviceLimitTests(unittest.TestCase):
             },
         }
 
-        errors = self.web_server.profile_affinity_duplicate_errors(profile)
+        errors = self.web_server.profile_semantic_error_messages(profile)
 
         self.assertEqual(
-            ["boletus_test: host_affinities contains duplicate IDs: host_pinus_spp."],
+            ["profiles.boletus_test.ecology.host_affinities: contains duplicate IDs: host_pinus_spp."],
+            errors,
+        )
+
+    def test_profile_semantic_errors_report_overlapping_months(self) -> None:
+        profile = {
+            "species_id": "boletus_test",
+            "phenology": {
+                "main_months": [8, 9, 10],
+                "secondary_months": [6, 8],
+            },
+        }
+
+        errors = self.web_server.profile_semantic_error_messages(profile)
+
+        self.assertEqual(
+            ["profiles.boletus_test.phenology: main_months and secondary_months overlap: 8."],
             errors,
         )
 
@@ -486,7 +502,51 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual("?id=boletus_pinophilus", redirect)
         self.assertIn(
-            "host_affinities contains duplicate IDs",
+            "host_affinities: contains duplicate IDs",
+            self.web_server.RUN_STATE["mushroom_profiles_flash"],
+        )
+
+    def test_mushroom_profiles_post_blocks_overlapping_months(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        store = self.web_server.default_store()
+        store.ensure_seeded()
+        payload = store.load("profiles")
+        profile = next(
+            item
+            for item in payload["species_profiles"]
+            if item["species_id"] == "boletus_edulis"
+        )
+        profile["phenology"]["secondary_months"] = list(profile["phenology"]["main_months"][:1])
+
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["save_profile_json"],
+                "species_id": ["boletus_edulis"],
+                "profile_json": [json.dumps(profile)],
+            }
+        )
+
+        self.assertEqual("?id=boletus_edulis", redirect)
+        self.assertIn(
+            "main_months and secondary_months overlap",
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
         )
 

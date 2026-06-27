@@ -20,6 +20,11 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from rainmapper_core.mushroom_validation import validate_profile_semantics
+
 DEFAULT_DATA_DIR = REPO_ROOT / "mushroom-data"
 
 PROFILE_FILE = "mushroom_profiles.json"
@@ -630,6 +635,8 @@ def validate_profiles(
         require_mapping(weather, REQUIRED_WEATHER_KEYS, f"{profile_location}.weather_model", messages)
         validate_profile_numeric_ranges(str(profile_id), profile, messages)
         validate_scoring_weights(str(profile_id), profile.get("scoring_weights"), messages)
+        for issue in validate_profile_semantics(profile):
+            messages.append(error(issue.location, issue.message, issue.fix))
 
         confidence = profile.get("prediction_confidence")
         if require_mapping(

@@ -24,6 +24,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 from rainmapper_core.mushroom_store import default_store
+from rainmapper_core.mushroom_validation import validate_profile_semantics, validate_profiles_semantics
 
 
 PLOTS_PATH = Path("/app/Plots")
@@ -4644,39 +4645,12 @@ def profile_affinities_from_form(form: dict[str, list[str]], field: str) -> list
     return affinities
 
 
-def profile_affinity_duplicate_errors(profile: dict[str, object]) -> list[str]:
-    species_id = str(profile.get("species_id", "") or "-")
-    ecology = profile_nested_dict(profile, "ecology")
-    errors = []
-    for field in PROFILE_AFFINITY_GROUPS:
-        values = ecology.get(field)
-        if not isinstance(values, list):
-            continue
-        seen: set[str] = set()
-        duplicates: set[str] = set()
-        for item in values:
-            if not isinstance(item, dict):
-                continue
-            item_id = str(item.get("id", "") or "").strip()
-            if not item_id:
-                continue
-            if item_id in seen:
-                duplicates.add(item_id)
-            seen.add(item_id)
-        if duplicates:
-            errors.append(f"{species_id}: {field} contains duplicate IDs: {', '.join(sorted(duplicates))}.")
-    return errors
+def profile_semantic_error_messages(profile: dict[str, object]) -> list[str]:
+    return [f"{issue.location}: {issue.message}." for issue in validate_profile_semantics(profile)]
 
 
-def profiles_payload_affinity_duplicate_errors(payload: dict[str, object]) -> list[str]:
-    profiles = payload.get("species_profiles")
-    if not isinstance(profiles, list):
-        return []
-    errors = []
-    for profile in profiles:
-        if isinstance(profile, dict):
-            errors.extend(profile_affinity_duplicate_errors(profile))
-    return errors
+def profiles_payload_semantic_error_messages(payload: dict[str, object]) -> list[str]:
+    return [f"{issue.location}: {issue.message}." for issue in validate_profiles_semantics(payload)]
 
 
 def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
@@ -6239,9 +6213,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if not isinstance(entry, dict):
                     set_mushroom_profiles_flash("Species profile JSON must be an object.")
                     return ""
-                duplicate_errors = profile_affinity_duplicate_errors(entry)
-                if duplicate_errors:
-                    set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(duplicate_errors[:3]))
+                semantic_errors = profile_semantic_error_messages(entry)
+                if semantic_errors:
+                    set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(semantic_errors[:3]))
                     return profile_query_url(species_id)
                 profiles_payload = store.load("profiles")
                 ok, message = replace_profile_entry(profiles_payload, species_id, entry)
@@ -6272,9 +6246,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
                     return ""
                 entry = profile_from_form(existing, form)
-                duplicate_errors = profile_affinity_duplicate_errors(entry)
-                if duplicate_errors:
-                    set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(duplicate_errors[:3]))
+                semantic_errors = profile_semantic_error_messages(entry)
+                if semantic_errors:
+                    set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(semantic_errors[:3]))
                     return profile_query_url(species_id)
                 ok, message = replace_profile_entry(profiles_payload, species_id, entry)
                 if not ok:
@@ -6292,9 +6266,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if not isinstance(payload, dict):
                     set_mushroom_profiles_flash("Profiles JSON must be an object.")
                     return ""
-                duplicate_errors = profiles_payload_affinity_duplicate_errors(payload)
-                if duplicate_errors:
-                    set_mushroom_profiles_flash("Profiles were not saved: " + "; ".join(duplicate_errors[:3]))
+                semantic_errors = profiles_payload_semantic_error_messages(payload)
+                if semantic_errors:
+                    set_mushroom_profiles_flash("Profiles were not saved: " + "; ".join(semantic_errors[:3]))
                     return ""
                 result = store.replace("profiles", payload)
                 if result.ok:

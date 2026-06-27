@@ -95,6 +95,24 @@ class MushroomDataValidatorTests(unittest.TestCase):
         self.assertTrue(any("main_months[0]" in message for message in errors))
         self.assertTrue(any("main_months[1]" in message for message in errors))
 
+    def test_validator_reports_duplicate_profile_values_and_month_overlap(self) -> None:
+        profiles = copy.deepcopy(self.profiles)
+        profile = profiles["species_profiles"][0]
+        profile["phenology"]["main_months"] = [8, 9, 9]
+        profile["phenology"]["secondary_months"] = [7, 8]
+        profile["topography"]["preferred_aspect_ids"] = ["aspect_N", "aspect_N"]
+        profile["ecology"]["host_affinities"].append(
+            copy.deepcopy(profile["ecology"]["host_affinities"][0])
+        )
+
+        messages = self.validate_temp_dataset(profiles=profiles)
+        errors = [message.format() for message in messages if message.severity == "ERROR"]
+
+        self.assertTrue(any("main_months and secondary_months overlap: 8" in message for message in errors))
+        self.assertTrue(any("phenology.main_months" in message and "duplicate values: 9" in message for message in errors))
+        self.assertTrue(any("preferred_aspect_ids" in message and "duplicate values: aspect_N" in message for message in errors))
+        self.assertTrue(any("host_affinities" in message and "duplicate IDs" in message for message in errors))
+
     def test_validator_reports_altitude_and_controlled_value_errors(self) -> None:
         profiles = copy.deepcopy(self.profiles)
         profile = profiles["species_profiles"][0]
