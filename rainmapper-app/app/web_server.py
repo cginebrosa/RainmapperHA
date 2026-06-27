@@ -1295,6 +1295,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       display: block;
       margin: 0;
     }}
+    .catalog-create-form {{
+      display: block;
+      margin: 0;
+    }}
     .catalog-json-editor textarea {{
       background: #0c1116;
       border: 1px solid var(--line);
@@ -3149,6 +3153,17 @@ CATALOG_DOMAIN_LABELS = {
     "habitat_features": "Microhabitat",
 }
 
+CATALOG_ID_PREFIXES = {
+    "trophic_modes": "trophic_",
+    "host_taxa": "host_",
+    "forest_types": "forest_",
+    "soil_types": "soil_",
+    "lithology_types": "lith_",
+    "aspects": "aspect_",
+    "season_patterns": "season_",
+    "habitat_features": "feature_",
+}
+
 
 def catalog_label(item: dict[str, object]) -> str:
     scientific_name = str(item.get("scientific_name", "") or "").strip()
@@ -3167,6 +3182,53 @@ def catalog_label(item: dict[str, object]) -> str:
             if isinstance(names, list) and names:
                 return str(names[0])
     return str(item.get("id", ""))
+
+
+def empty_catalog_entry(group: str, item_id: str) -> dict[str, object]:
+    label = {"es": "", "ca": "", "en": ""}
+    if group == "trophic_modes":
+        return {"id": item_id, "label": label, "description": ""}
+    if group == "host_taxa":
+        return {
+            "id": item_id,
+            "rank": "",
+            "scientific_name": "",
+            "genus": None,
+            "family": "",
+            "common_names": {"es": [], "ca": [], "en": []},
+            "parent_id": None,
+            "gis_aliases": [],
+        }
+    if group == "forest_types":
+        return {"id": item_id, "label": label, "dominant_host_ids": [], "gis_aliases": []}
+    if group == "soil_types":
+        return {"id": item_id, "label": label, "ph_min": None, "ph_max": None, "gis_aliases": []}
+    if group == "lithology_types":
+        return {
+            "id": item_id,
+            "label": label,
+            "general_reaction": "",
+            "parent_soil_tendency_ids": [],
+            "gis_aliases": [],
+        }
+    if group == "aspects":
+        return {"id": item_id, "label": label, "azimuth_min": None, "azimuth_max": None}
+    if group == "season_patterns":
+        return {"id": item_id, "label": label}
+    if group == "habitat_features":
+        return {"id": item_id, "label": label}
+    return {"id": item_id, "label": label}
+
+
+def validate_new_catalog_entry_id(group: str, item_id: str) -> tuple[bool, str]:
+    if group not in CATALOG_ID_PREFIXES:
+        return False, f"Catalog group {group or '-'} is not editable."
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", item_id):
+        return False, "ID must use lowercase letters, numbers and underscores, starting with a letter."
+    expected_prefix = CATALOG_ID_PREFIXES[group]
+    if not item_id.startswith(expected_prefix):
+        return False, f"ID for {group} must start with {expected_prefix}."
+    return True, ""
 
 
 def collect_catalog_usage_references(payload: object, catalog_ids: set[str]) -> dict[str, int]:
@@ -3424,6 +3486,38 @@ def render_catalog_full_json_panel(payload: dict[str, object], mode: str) -> str
         <button class="primary">Validate and save full catalog</button>
       </form>
     </details>
+    """
+
+
+def render_new_catalog_entry_form(catalogs: dict[str, object], selected_group: str) -> str:
+    options = []
+    for group, items in catalogs.items():
+        if not isinstance(items, list):
+            continue
+        selected = " selected" if group == selected_group else ""
+        prefix = CATALOG_ID_PREFIXES.get(group, "")
+        options.append(
+            f'<option value="{html.escape(group, quote=True)}"{selected}>{html.escape(group)} · {html.escape(prefix)}</option>'
+        )
+    return f"""
+    <section class="card">
+      <h2>New catalog entry</h2>
+      <p>Create a safe starter entry in the selected catalog group. The new ID is validated before the catalog is saved.</p>
+      <form class="catalog-create-form" method="post" action="/mushrooms/catalogs" onsubmit="return confirm('Create this catalog entry and validate the full dataset?')">
+        <input type="hidden" name="catalog_action" value="create_entry">
+        <div class="admin-form-grid">
+          <div class="admin-field">
+            <label>Group</label>
+            <select name="group">{''.join(options)}</select>
+          </div>
+          <div class="admin-field">
+            <label>ID</label>
+            <input name="id" placeholder="host_cistus_spp" required>
+          </div>
+        </div>
+        <button class="primary">Create entry</button>
+      </form>
+    </section>
     """
 
 
@@ -4465,6 +4559,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         </div>
         <h2>Cross validation</h2>
         {render_catalog_alerts(errors, warnings, limit=12)}
+        {render_new_catalog_entry_form(catalogs, selected_group)}
         <h2 id="catalog-full-json">JSON maintenance</h2>
         {render_catalog_full_json_panel(full_payload, mode)}
         """
@@ -4622,9 +4717,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path.rstrip("/") == "/mushrooms/catalogs":
-            self.handle_mushroom_catalogs_post(form)
+            redirect_target = self.handle_mushroom_catalogs_post(form)
             query = ("?" + parsed.query) if parsed.query else ""
-            self.redirect_to("/mushrooms/catalogs" + query)
+            self.redirect_to(redirect_target or ("/mushrooms/catalogs" + query))
             return
 
         action = self.form_value(form, "run_action")
@@ -4702,7 +4797,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             message = "Unknown user management action."
         admin_message(message)
 
-    def handle_mushroom_catalogs_post(self, form: dict[str, list[str]]) -> None:
+    def handle_mushroom_catalogs_post(self, form: dict[str, list[str]]) -> str:
         action = self.form_value(form, "catalog_action")
         store = default_store()
         try:
@@ -4713,12 +4808,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 entry = json.loads(self.form_value(form, "entry_json"))
                 if not isinstance(entry, dict):
                     set_mushroom_catalogs_flash("Entry JSON must be an object.")
-                    return
+                    return ""
                 catalog_payload = store.load("catalogs")
                 ok, message = replace_catalog_entry(catalog_payload, group, item_id, entry)
                 if not ok:
                     set_mushroom_catalogs_flash(message)
-                    return
+                    return ""
                 result = store.replace("catalogs", catalog_payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
@@ -4726,11 +4821,34 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 else:
                     error_text = "; ".join(message.message for message in result.errors[:3])
                     set_mushroom_catalogs_flash("Catalog entry was not saved: " + error_text)
+            elif action == "create_entry":
+                group = self.form_value(form, "group")
+                item_id = self.form_value(form, "id").strip()
+                ok, message = validate_new_catalog_entry_id(group, item_id)
+                if not ok:
+                    set_mushroom_catalogs_flash(message)
+                    return ""
+                catalog_payload = store.load("catalogs")
+                catalogs = catalog_payload.get("catalogs")
+                if not isinstance(catalogs, dict) or not isinstance(catalogs.get(group), list):
+                    set_mushroom_catalogs_flash(f"Catalog group {group} was not found.")
+                    return ""
+                if any(isinstance(item, dict) and str(item.get("id", "")) == item_id for item in catalogs[group]):
+                    set_mushroom_catalogs_flash(f"Catalog entry {item_id} already exists.")
+                    return catalog_query_url(group, item_id)
+                catalogs[group].append(empty_catalog_entry(group, item_id))
+                result = store.replace("catalogs", catalog_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_catalogs_flash(f"Created catalog entry {item_id}." + suffix)
+                    return catalog_query_url(group, item_id)
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_catalogs_flash("Catalog entry was not created: " + error_text)
             elif action == "save_catalog":
                 payload = json.loads(self.form_value(form, "catalog_json"))
                 if not isinstance(payload, dict):
                     set_mushroom_catalogs_flash("Catalog JSON must be an object.")
-                    return
+                    return ""
                 result = store.replace("catalogs", payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
@@ -4744,6 +4862,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             set_mushroom_catalogs_flash(f"Invalid JSON: line {exc.lineno}, column {exc.colno}: {exc.msg}")
         except Exception as exc:
             set_mushroom_catalogs_flash(f"Catalog action failed: {exc}")
+        return ""
 
     def render_index(self) -> None:
         with RUN_LOCK:

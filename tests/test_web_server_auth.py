@@ -187,6 +187,41 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Full catalog JSON import/export", page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_reference_catalogs.json").exists())
 
+    def test_mushroom_catalogs_create_entry_uses_validated_template(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_catalogs_post(
+            {
+                "catalog_action": ["create_entry"],
+                "group": ["host_taxa"],
+                "id": ["host_test_new"],
+            }
+        )
+
+        self.assertEqual("/mushrooms/catalogs?group=host_taxa&id=host_test_new", redirect)
+        catalog_path = data_dir / "mushroom-data" / "mushroom_reference_catalogs.json"
+        payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+        self.assertTrue(
+            any(item.get("id") == "host_test_new" for item in payload["catalogs"]["host_taxa"])
+        )
+
     def test_basic_role_allows_two_devices_and_reusing_existing_device(self) -> None:
         self.write_users_json(
             [
