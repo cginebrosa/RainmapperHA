@@ -3,7 +3,7 @@
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
 ## Proximo paso recomendado
-`0.2.144` esta publicada en GHCR, pusheada a GitHub y pendiente de validacion final en HA si no se ha cerrado explicitamente: muestra en Settings los valores efectivos de radio, celda y potencia `p` del IDW. El trabajo local posterior optimiza el refresco IDW para evitar recalcados duplicados y documenta el patron de capas calculadas en cliente; si se quiere probarlo en HA, publicar una nueva version siguiendo el flujo operativo habitual. Seguir observando el incremental AEMET/backfill reciente.
+`0.2.145` esta publicada en GHCR, pusheada a GitHub y pendiente de validacion final en HA: optimiza el refresco IDW para evitar recalcados duplicados, reutiliza el GeoJSON cuando la clave de calculo no cambia y documenta el patron de capas calculadas en cliente. Validar especialmente si activar IDW, cambiar metrica, periodo, mapa base y alternar Heatmap/IDW refresca una sola vez y sin datos obsoletos. Seguir observando el incremental AEMET/backfill reciente.
 
 ## Prioridad alta
 - [ ] Repetir backfill manual AEMET cuando el diario publique los dias pendientes
@@ -186,7 +186,7 @@ Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebr
   - Contexto: la capa experimental `IDW` debe interpretarse como campo meteorologico aproximado, no como densidad de estaciones. El radio de influencia y el tamano de celda se configuran en km desde `config.yaml`; los valores iniciales son solo punto de partida para pruebas en HA.
   - Ficheros relacionados: `rainmapper-app/config.yaml`, `rainmapper-app/DOCS.md`, `rainmapper_core/viewers/maplibre-viewer/app.js`, `docs/decisions.md`.
   - Criterio de aceptacion: tras validar visualmente lluvia, temperatura, humedad y viento en varios niveles de zoom, documentar valores recomendados para `maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_grid_*_cell_km`, potencia de suavizado y opacidad. Si en zooms bajos el coste o la granularidad no son satisfactorios, estudiar un multiplicador configurable por nivel/rango de zoom para aumentar el tamano efectivo de celda sin perder resolucion fisica en zoom medio.
-  - Estado: pendiente de pruebas reales en HA. `0.2.144` muestra en Settings el valor tecnico efectivo seleccionado para facilitar estas pruebas. El trabajo local posterior anade cache por clave de calculo para evitar recalcados IDW duplicados. Viento se trata de momento como variable escalar igual que el resto; una visualizacion vectorial con flechas queda como mejora futura.
+  - Estado: pendiente de pruebas reales en HA. `0.2.144` muestra en Settings el valor tecnico efectivo seleccionado para facilitar estas pruebas. `0.2.145` anade cache por clave de calculo para evitar recalcados IDW duplicados. Viento se trata de momento como variable escalar igual que el resto; una visualizacion vectorial con flechas queda como mejora futura.
 
 - [ ] Reutilizar el patron IDW para futuras capas calculadas en cliente
   - Contexto: el predictor de floradas de setas probablemente necesitara pintar una capa derivada de datos meteorologicos, terreno y reglas de scoring. La capa IDW ya establece un patron para calcular en el dispositivo, no en la Raspberry Pi, y limitar el trabajo al viewport visible.
