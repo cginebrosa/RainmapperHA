@@ -994,6 +994,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       gap: 10px;
       padding: 14px;
     }}
+    .user-panel[hidden] {{
+      display: none;
+    }}
     .user-panel-card {{
       border: 1px solid var(--line);
       border-radius: 10px;
@@ -1365,11 +1368,6 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
           panel.hidden = !isOpen;
         }}
       }});
-      if (username) {{
-        try {{
-          window.sessionStorage.setItem("rainmapperUsersExpanded", username);
-        }} catch (error) {{}}
-      }}
     }}
     function toggleUserCard(button) {{
       var card = button.closest(".user-card");
@@ -1380,25 +1378,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       var isOpen = button.getAttribute("aria-expanded") === "true";
       setExpandedUser(isOpen ? "" : username);
     }}
-    function restoreExpandedUser() {{
-      var username = "";
-      try {{
-        username = window.sessionStorage.getItem("rainmapperUsersExpanded") || "";
-      }} catch (error) {{}}
-      if (username) {{
-        var cards = Array.prototype.slice.call(document.querySelectorAll(".user-card"));
-        var exists = cards.some(function(card) {{
-          return card.getAttribute("data-username") === username;
-        }});
-        if (exists) {{
-          setExpandedUser(username);
-          return;
-        }}
-      }}
-      var first = document.querySelector(".user-card");
-      if (first) {{
-        setExpandedUser(first.getAttribute("data-username"));
-      }}
+    function collapseUserCards() {{
+      setExpandedUser("");
     }}
     function openCreateUserModal() {{
       var modal = document.getElementById("create-user-modal");
@@ -1526,7 +1507,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
           filter.value = filterValue;
         }}
         applyUsersFilter();
-        restoreExpandedUser();
+        collapseUserCards();
         window.scrollTo({{ top: scrollY }});
         if (status) {{
           status.textContent = "Updated " + new Date().toLocaleTimeString();
@@ -1579,7 +1560,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     }});
     document.addEventListener("DOMContentLoaded", function() {{
       applyUsersFilter();
-      restoreExpandedUser();
+      collapseUserCards();
       restoreControlTab();
     }});
   </script>

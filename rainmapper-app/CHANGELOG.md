@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.149
+
+- Fix the Users accordion so expanded panels honor the hidden state, all users start collapsed, and opening one user closes the others.
+
 ## 0.2.148
 
 - Compact the expanded Users panel by keeping user details, permissions and audit in the save form while moving permissions to a scalable card grid and security actions to a separate compact row.
