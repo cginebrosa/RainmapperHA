@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.148
+
+- Compact the expanded Users panel by keeping user details, permissions and audit in the save form while moving permissions to a scalable card grid and security actions to a separate compact row.
+
 ## 0.2.147
 
 - Redesign the Home Assistant Control Panel as a compact tabbed dashboard while preserving all existing run, source, viewer, map, log and station enable/disable actions.

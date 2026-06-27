@@ -990,12 +990,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     }}
     .user-panel {{
       border-top: 1px solid var(--line);
-      padding: 14px;
-    }}
-    .user-panel-grid {{
       display: grid;
-      gap: 12px;
-      grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+      gap: 10px;
+      padding: 14px;
     }}
     .user-panel-card {{
       border: 1px solid var(--line);
@@ -1006,25 +1003,144 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       font-size: 15px;
       margin: 0 0 12px;
     }}
-    .permission-toggle {{
+    .user-details-card {{
+      padding-bottom: 10px;
+    }}
+    .user-details-row {{
       align-items: center;
-      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(160px, 1.2fr) minmax(180px, 1.2fr) minmax(130px, .8fr) minmax(130px, .8fr) minmax(100px, .55fr) auto;
+    }}
+    .user-details-row .primary {{
+      align-self: end;
+      margin: 0;
+      min-height: 38px;
+      white-space: nowrap;
+    }}
+    .permissions-card-head {{
+      align-items: start;
       display: flex;
       gap: 12px;
       justify-content: space-between;
-      padding: 11px 0;
+      margin-bottom: 12px;
     }}
-    .permission-toggle:first-of-type {{
-      border-top: 0;
-      padding-top: 0;
+    .permissions-card-head h3 {{
+      margin-bottom: 3px;
     }}
-    .permission-toggle input {{
-      flex: 0 0 auto;
-      width: auto;
-    }}
-    .security-actions {{
+    .permissions-grid {{
       display: grid;
       gap: 10px;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+    }}
+    .permission-card {{
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      cursor: pointer;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      min-height: 72px;
+      padding: 10px;
+    }}
+    .permission-card:hover {{
+      background: color-mix(in srgb, var(--fg) 4%, transparent);
+    }}
+    .permission-icon {{
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      display: inline-flex;
+      font-size: 12px;
+      font-weight: 800;
+      height: 36px;
+      justify-content: center;
+      width: 36px;
+    }}
+    .permission-card-heatmap .permission-icon {{
+      background: rgba(22, 163, 74, .18);
+      border-color: rgba(134, 239, 172, .28);
+      color: #86efac;
+    }}
+    .permission-card-metrics .permission-icon {{
+      background: rgba(2, 132, 199, .18);
+      border-color: rgba(125, 211, 252, .28);
+      color: #7dd3fc;
+    }}
+    .permission-card-estimated .permission-icon {{
+      background: rgba(124, 58, 237, .18);
+      border-color: rgba(196, 181, 253, .28);
+      color: #c4b5fd;
+    }}
+    .permission-copy {{
+      min-width: 0;
+    }}
+    .permission-copy strong {{
+      display: block;
+      font-size: 13px;
+      margin-bottom: 3px;
+    }}
+    .permission-copy .meta {{
+      line-height: 1.25;
+    }}
+    .switch-control {{
+      display: inline-flex;
+      position: relative;
+    }}
+    .switch-control input {{
+      height: 1px;
+      opacity: 0;
+      position: absolute;
+      width: 1px;
+    }}
+    .switch-track {{
+      background: #64748b;
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 999px;
+      display: inline-block;
+      height: 22px;
+      position: relative;
+      transition: background .15s ease;
+      width: 40px;
+    }}
+    .switch-track::after {{
+      background: #e2e8f0;
+      border-radius: 50%;
+      content: "";
+      height: 16px;
+      left: 2px;
+      position: absolute;
+      top: 2px;
+      transition: transform .15s ease;
+      width: 16px;
+    }}
+    .switch-control input:checked + .switch-track {{
+      background: #0ea5e9;
+    }}
+    .switch-control input:checked + .switch-track::after {{
+      transform: translateX(18px);
+    }}
+    .switch-control input:focus-visible + .switch-track {{
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }}
+    .audit-strip {{
+      align-items: center;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: auto repeat(3, minmax(160px, 1fr));
+      padding: 10px 12px;
+    }}
+    .audit-strip h3 {{
+      margin: 0;
+    }}
+    .security-actions {{
+      align-items: end;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(260px, 1.5fr) auto auto auto;
     }}
     .security-actions form,
     .devices-head form,
@@ -1033,17 +1149,30 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       margin: 0;
     }}
     .user-update-form {{
-      display: block;
+      display: grid;
+      gap: 10px;
       margin: 0;
       min-width: 0;
     }}
-    .user-update-form .user-panel-grid {{
-      grid-template-columns: 1fr;
+    .security-password-form {{
+      align-items: end;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(180px, 1fr) auto auto;
+    }}
+    .security-password-form input[type="password"],
+    .security-password-form input[type="text"] {{
+      min-width: 0;
+    }}
+    .security-actions button {{
+      margin: 0;
+      min-height: 38px;
+      white-space: nowrap;
     }}
     .danger-zone {{
-      border-top: 1px solid var(--line);
-      margin-top: 12px;
-      padding-top: 12px;
+      border-left: 1px solid var(--line);
+      margin-left: 2px;
+      padding-left: 12px;
     }}
     .button-danger {{
       border-color: #ef4444;
@@ -1111,6 +1240,25 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     .modal-head h2 {{
       margin: 0;
     }}
+    @media (max-width: 1320px) {{
+      .permissions-grid {{
+        grid-template-columns: repeat(3, minmax(180px, 1fr));
+      }}
+    }}
+    @media (max-width: 1080px) {{
+      .user-details-row {{
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
+      }}
+      .permissions-grid {{
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+      }}
+      .security-actions {{
+        grid-template-columns: 1fr 1fr;
+      }}
+      .security-password-form {{
+        grid-column: 1 / -1;
+      }}
+    }}
     @media (max-width: 760px) {{
       .admin-form-grid {{
         grid-template-columns: 1fr;
@@ -1135,6 +1283,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       }}
       .user-panel-grid {{
         grid-template-columns: 1fr;
+      }}
+      .user-details-row,
+      .permissions-grid,
+      .audit-strip,
+      .security-actions,
+      .security-password-form {{
+        grid-template-columns: 1fr;
+      }}
+      .danger-zone {{
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        margin-left: 0;
+        padding-left: 0;
+        padding-top: 10px;
       }}
       .device-row {{
         grid-template-columns: 1fr;
@@ -2557,6 +2719,35 @@ ROLE_DEFAULT_MAX_DEVICES = {
     "admin": 0,
 }
 USER_PERMISSION_FIELDS = ("can_use_heatmap", "can_use_layer_metrics", "can_use_estimated_field")
+USER_PERMISSION_UI = (
+    {
+        "field": "can_use_heatmap",
+        "label": "Heatmap access",
+        "description": "Allow the Heatmap button and Heatmap settings.",
+        "chip": "Heatmap",
+        "chip_class": "permission-heatmap",
+        "card_class": "permission-card-heatmap",
+        "icon": "HM",
+    },
+    {
+        "field": "can_use_layer_metrics",
+        "label": "Metric selector access",
+        "description": "Allow the metric selector button and layer metric settings.",
+        "chip": "Metrics",
+        "chip_class": "permission-metrics",
+        "card_class": "permission-card-metrics",
+        "icon": "MX",
+    },
+    {
+        "field": "can_use_estimated_field",
+        "label": "Estimated field access",
+        "description": "Allow the IDW button and estimated field settings.",
+        "chip": "IDW",
+        "chip_class": "permission-estimated",
+        "card_class": "permission-card-estimated",
+        "icon": "IDW",
+    },
+)
 
 
 def normalize_role(value: str) -> str:
@@ -3134,13 +3325,17 @@ def short_text(value: str, limit: int = 24) -> str:
 
 
 def permission_chips(can_use_heatmap: bool, can_use_layer_metrics: bool, can_use_estimated_field: bool) -> str:
+    states = {
+        "can_use_heatmap": can_use_heatmap,
+        "can_use_layer_metrics": can_use_layer_metrics,
+        "can_use_estimated_field": can_use_estimated_field,
+    }
     chips = []
-    if can_use_heatmap:
-        chips.append('<span class="permission-chip permission-heatmap">Heatmap</span>')
-    if can_use_layer_metrics:
-        chips.append('<span class="permission-chip permission-metrics">Metrics</span>')
-    if can_use_estimated_field:
-        chips.append('<span class="permission-chip permission-estimated">IDW</span>')
+    for permission in USER_PERMISSION_UI:
+        if states.get(permission["field"], False):
+            chip_class = html.escape(permission["chip_class"], quote=True)
+            chip_label = html.escape(permission["chip"])
+            chips.append(f'<span class="permission-chip {chip_class}">{chip_label}</span>')
     return "".join(chips) or '<span class="meta">No feature access</span>'
 
 
@@ -3185,18 +3380,18 @@ def user_search_text(
 
 def render_user_details_card(username: str, user: dict[str, str], role: str, enabled: str, max_devices: str) -> str:
     return (
-        '<section class="user-panel-card">'
+        '<section class="user-panel-card user-details-card">'
         "<h3>User details</h3>"
         f'<input type="hidden" name="admin_action" value="update_user">'
         f'<input type="hidden" name="username" value="{html.escape(username, quote=True)}">'
-        '<div class="admin-form-grid">'
+        '<div class="user-details-row">'
         f'<div class="admin-field"><label>Name</label><input name="name" value="{html.escape(user.get("name", ""), quote=True)}"></div>'
         f'<div class="admin-field"><label>Email</label><input name="email" value="{html.escape(user.get("email", ""), quote=True)}"></div>'
         f'<div class="admin-field"><label>Role</label><select name="role">{role_options(role)}</select></div>'
         f'<div class="admin-field"><label>Status</label><select name="enabled">{enabled_options(enabled)}</select></div>'
         f'<div class="admin-field"><label>Max devices</label><input name="max_devices" type="number" min="0" value="{html.escape(max_devices, quote=True)}"></div>'
-        "</div>"
         '<button class="primary">Save user</button>'
+        "</div>"
         "</section>"
     )
 
@@ -3206,21 +3401,34 @@ def render_permissions_card(
     can_use_layer_metrics: bool,
     can_use_estimated_field: bool,
 ) -> str:
+    states = {
+        "can_use_heatmap": can_use_heatmap,
+        "can_use_layer_metrics": can_use_layer_metrics,
+        "can_use_estimated_field": can_use_estimated_field,
+    }
+    cards = []
+    for permission in USER_PERMISSION_UI:
+        field = permission["field"]
+        label = html.escape(permission["label"])
+        description = html.escape(permission["description"])
+        icon = html.escape(permission["icon"])
+        card_class = html.escape(permission["card_class"], quote=True)
+        cards.append(
+            f'<label class="permission-card {card_class}">'
+            f'<span class="permission-icon">{icon}</span>'
+            f'<span class="permission-copy"><strong>{label}</strong><span class="meta">{description}</span></span>'
+            '<span class="switch-control">'
+            f'<input name="{html.escape(field, quote=True)}" type="checkbox" value="true"{checked_attr(states.get(field, False))}>'
+            '<span class="switch-track" aria-hidden="true"></span>'
+            "</span>"
+            "</label>"
+        )
     return (
-        '<section class="user-panel-card">'
-        "<h3>Permissions</h3>"
-        '<label class="permission-toggle">'
-        '<span><strong>Heatmap access</strong><span class="meta">Allow the Heatmap button and Heatmap settings.</span></span>'
-        f'<input name="can_use_heatmap" type="checkbox" value="true"{checked_attr(can_use_heatmap)}>'
-        "</label>"
-        '<label class="permission-toggle">'
-        '<span><strong>Metric selector access</strong><span class="meta">Allow the metric selector button and layer metric settings.</span></span>'
-        f'<input name="can_use_layer_metrics" type="checkbox" value="true"{checked_attr(can_use_layer_metrics)}>'
-        "</label>"
-        '<label class="permission-toggle">'
-        '<span><strong>Estimated field access</strong><span class="meta">Allow the IDW button and estimated field settings.</span></span>'
-        f'<input name="can_use_estimated_field" type="checkbox" value="true"{checked_attr(can_use_estimated_field)}>'
-        "</label>"
+        '<section class="user-panel-card permissions-card">'
+        '<div class="permissions-card-head">'
+        '<div><h3>Permissions</h3><span class="meta">Toggle feature access for this user.</span></div>'
+        "</div>"
+        f'<div class="permissions-grid">{"".join(cards)}</div>'
         "</section>"
     )
 
@@ -3229,10 +3437,10 @@ def render_security_card(username: str) -> str:
     escaped_username = html.escape(username, quote=True)
     password_id = "reset-password-" + "".join(char if char.isalnum() else "-" for char in username)
     return (
-        '<section class="user-panel-card">'
+        '<section class="user-panel-card security-compact-card">'
         "<h3>Security</h3>"
         '<div class="security-actions">'
-        f'<form class="inline-form" method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Set a new password for user {username} and delete all registered devices?", quote=True)}">'
+        f'<form class="security-password-form" method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Set a new password for user {username} and delete all registered devices?", quote=True)}">'
         '<input type="hidden" name="admin_action" value="set_password">'
         f'<input type="hidden" name="username" value="{escaped_username}">'
         f'<input id="{password_id}" name="password" type="password" placeholder="New password" autocomplete="new-password">'
@@ -3264,7 +3472,7 @@ def render_audit_card(user: dict[str, str]) -> str:
     for label, field in (("Created", "created_at"), ("Updated", "updated_at"), ("Last change", "last_change")):
         value = str(user.get(field, "")).strip() or "-"
         audit_rows.append(f'<span class="meta"><strong>{label}:</strong> {html.escape(value)}</span>')
-    return '<section class="user-panel-card"><h3>Audit</h3>' + "".join(audit_rows) + "</section>"
+    return '<section class="user-panel-card audit-strip"><h3>Audit</h3>' + "".join(audit_rows) + "</section>"
 
 
 def render_device_row(username: str, device_id: str, device: dict[str, str]) -> str:
@@ -3343,21 +3551,17 @@ def render_user_card(username: str, user: dict[str, str], user_devices: list[tup
     password_state = "Change required" if user.get("must_change_password", "false").lower() == "true" else "Current"
     update_form = (
         f'<form class="user-update-form" method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Save changes for user {username}?", quote=True)}">'
-        '<div class="user-panel-grid">'
         + render_user_details_card(username, user, role, enabled, max_devices)
         + render_permissions_card(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field)
         + render_audit_card(user)
-        + "</div>"
-        "</form>"
+        + "</form>"
     )
     expanded_html = (
         '<div class="user-panel" hidden '
         f'id="{html.escape(panel_id, quote=True)}">'
-        '<div class="user-panel-grid">'
         f"{update_form}"
         f"{render_security_card(username)}"
         f"{render_devices_card(username, user_devices)}"
-        "</div>"
         "</div>"
     )
     return (
