@@ -4504,8 +4504,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         catalogs = catalogs if isinstance(catalogs, dict) else {}
         rows, metrics = catalog_rows(catalogs, profiles_payload, gis_payload)
         selected = selected_catalog_row(rows, selected_group, selected_id)
-        if selected and (not selected_group or not selected_id):
-            selected_group = str(selected["group"])
+        if selected and selected_group and not selected_id:
             selected_id = str(selected["id"])
 
         full_payload = catalogs_payload

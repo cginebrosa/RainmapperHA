@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.153
+
+- Fix the mushroom catalog `All` filter so it keeps the full table visible instead of forcing the first catalog group.
+
 ## 0.2.152
 
 - Fix mushroom catalog group filters so selecting a group without an entry ID selects the first row in that group instead of resetting to the first catalog.
