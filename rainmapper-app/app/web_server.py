@@ -1284,12 +1284,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     .catalog-layout {{
       align-items: start;
       display: grid;
-      gap: 14px;
-      grid-template-columns: minmax(0, 1fr) minmax(360px, .42fr);
+      gap: 16px;
+      grid-template-columns: minmax(660px, 1fr) minmax(520px, .56fr);
     }}
     .catalog-detail {{
+      font-size: 13px;
       position: sticky;
       top: 12px;
+    }}
+    .catalog-detail h2 {{
+      font-size: 18px;
+      margin: 0 0 8px;
+    }}
+    .catalog-detail p {{
+      margin: 0 0 10px;
     }}
     .catalog-json-editor {{
       display: block;
@@ -1297,20 +1305,34 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     }}
     .catalog-entry-form {{
       display: grid;
-      gap: 12px;
+      gap: 8px;
       margin: 0;
     }}
-    .catalog-entry-form textarea {{
-      min-height: 72px;
-      resize: vertical;
+    .catalog-entry-form .admin-form-grid {{
+      gap: 8px;
+      grid-template-columns: 1fr;
+      margin: 8px 0 10px;
     }}
-    .catalog-impact {{
+    .catalog-entry-form .admin-field label {{
+      font-size: 12px;
+      margin-bottom: 3px;
+    }}
+    .catalog-entry-form input,
+    .catalog-entry-form select {{
+      min-height: 34px;
+      padding: 0 9px;
+    }}
+    .catalog-entry-form textarea {{
+      background: var(--bg);
       border: 1px solid var(--line);
       border-radius: 8px;
-      display: grid;
-      gap: 8px;
-      margin: 12px 0;
-      padding: 12px;
+      color: var(--fg);
+      font: inherit;
+      line-height: 1.25;
+      min-height: 56px;
+      padding: 8px 9px;
+      resize: vertical;
+      width: 100%;
     }}
     .catalog-create-form {{
       display: block;
@@ -3550,23 +3572,6 @@ def render_catalog_entry_form(row: dict[str, object]) -> str:
     """
 
 
-def render_catalog_impact(row: dict[str, object]) -> str:
-    profile_count = int(row["profile_count"])
-    gis_count = int(row["gis_count"])
-    status = str(row["status"])
-    return f"""
-      <section class="catalog-impact">
-        <h3>Use and impact</h3>
-        <div class="grid">
-          <div><span class="label">Profiles using this ID</span><span class="value">{profile_count}</span></div>
-          <div><span class="label">GIS mappings emitting this ID</span><span class="value">{gis_count}</span></div>
-          <div><span class="label">Current status</span><span class="value">{html.escape(status)}</span></div>
-        </div>
-        <p class="meta">IDs used by profiles or GIS should not be renamed or deleted without an explicit migration.</p>
-      </section>
-    """
-
-
 def render_catalog_detail(row: dict[str, object] | None, errors: list[object], warnings: list[object]) -> str:
     if not row:
         return '<aside class="card catalog-detail"><h2>Catalog detail</h2><p>No catalog entry selected.</p></aside>'
@@ -3578,13 +3583,7 @@ def render_catalog_detail(row: dict[str, object] | None, errors: list[object], w
     <aside class="card catalog-detail">
       <h2>Catalog detail</h2>
       <p><strong>{html.escape(item_id)}</strong><br>{html.escape(group)} · {html.escape(str(row["domain"]))}</p>
-      <div class="grid">
-        <div><span class="label">Profiles</span><span class="value">{int(row["profile_count"])}</span></div>
-        <div><span class="label">GIS</span><span class="value">{int(row["gis_count"])}</span></div>
-        <div><span class="label">Status</span><span class="value">{html.escape(str(row["status"]))}</span></div>
-      </div>
       {render_catalog_entry_form(row)}
-      {render_catalog_impact(row)}
       <details>
         <summary><strong>Advanced raw JSON</strong></summary>
         <form class="catalog-json-editor" method="post" action="?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this catalog entry and validate the full dataset?')">

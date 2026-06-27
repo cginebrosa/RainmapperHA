@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.155
+
+- Compact the mushroom catalog detail editor by removing duplicated usage metrics and widening the field-based form.
+
 ## 0.2.154
 
 - Add field-based mushroom reference catalog editing while keeping raw JSON entry editing as an advanced panel.
