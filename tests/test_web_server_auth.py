@@ -229,7 +229,85 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Local calibration status", page)
         self.assertIn("Full profiles JSON import/export", page)
         self.assertIn('href="./catalogs"', page)
+        self.assertIn("New species", page)
+        self.assertIn('name="new_species_id"', page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
+
+    def test_mushroom_profiles_create_species_uses_validated_template(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_profile"],
+                "new_species_id": ["boletus_test_new"],
+                "new_scientific_name": ["Boletus test new"],
+                "new_common_name": ["test cep"],
+            }
+        )
+
+        self.assertEqual("?id=boletus_test_new", redirect)
+        profiles_path = data_dir / "mushroom-data" / "mushroom_profiles.json"
+        payload = json.loads(profiles_path.read_text(encoding="utf-8"))
+        created = next(
+            profile
+            for profile in payload["species_profiles"]
+            if profile["species_id"] == "boletus_test_new"
+        )
+        self.assertEqual("Boletus test new", created["scientific_name"])
+        self.assertEqual(["test cep"], created["common_names"])
+        self.assertEqual("draft", created["metadata"]["review_status"])
+        self.assertEqual("not_calibrated", created["prediction_confidence"]["local_calibration_status"])
+
+    def test_mushroom_profiles_create_species_blocks_duplicate_id(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_profile"],
+                "new_species_id": ["boletus_edulis"],
+                "new_scientific_name": ["Boletus duplicate"],
+            }
+        )
+
+        self.assertEqual("?#mushroom-profile-message", redirect)
+        self.assertIn(
+            "already exists",
+            self.web_server.RUN_STATE["mushroom_profiles_flash"],
+        )
 
     def test_mushroom_catalogs_create_entry_uses_validated_template(self) -> None:
         data_dir = Path(self.temp_dir.name)

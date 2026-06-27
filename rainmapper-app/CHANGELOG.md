@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.163
+
+- Add guided mushroom species creation from the species maintenance page.
+- Create new species as validated draft starter profiles with human-validation and calibration flags set conservatively.
+- Block duplicate or malformed species IDs before persisting new profiles.
+
 ## 0.2.162
 
 - Make mushroom species validation failures visible as validation-error alerts instead of generic status messages.

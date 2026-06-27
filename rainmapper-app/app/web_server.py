@@ -24,7 +24,12 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 from rainmapper_core.mushroom_store import default_store
-from rainmapper_core.mushroom_validation import validate_profile_semantics, validate_profiles_semantics
+from rainmapper_core.mushroom_validation import (
+    empty_species_profile,
+    validate_new_species_id,
+    validate_profile_semantics,
+    validate_profiles_semantics,
+)
 
 
 PLOTS_PATH = Path("/app/Plots")
@@ -4278,6 +4283,33 @@ def profile_query_url(species_id: str = "", search: str = "", mode: str = "") ->
     return ("?" + urlencode(params)) if params else "?"
 
 
+def render_new_species_form() -> str:
+    return """
+    <details id="new-species" class="card">
+      <summary><strong>New species</strong></summary>
+      <p>Create a draft species profile with a complete validated starter structure. Review ecology, phenology, weather, scoring and calibration before using it for prediction.</p>
+      <form class="catalog-create-form" method="post" action="" onsubmit="return confirm('Create this draft species profile and validate the full dataset?')">
+        <input type="hidden" name="profile_action" value="create_profile">
+        <div class="admin-form-grid">
+          <div class="admin-field">
+            <label>Species ID</label>
+            <input name="new_species_id" placeholder="boletus_example" required>
+          </div>
+          <div class="admin-field">
+            <label>Scientific name</label>
+            <input name="new_scientific_name" placeholder="Boletus example" required>
+          </div>
+          <div class="admin-field">
+            <label>Common name</label>
+            <input name="new_common_name" placeholder="optional">
+          </div>
+        </div>
+        <button class="primary">Create species</button>
+      </form>
+    </details>
+    """
+
+
 def selected_profile(profiles: list[dict[str, object]], species_id: str) -> dict[str, object] | None:
     if species_id:
         for profile in profiles:
@@ -5896,6 +5928,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <form class="catalog-filter" method="get" action="">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search species, ID, confidence or status">
           </form>
+          <a class="button-link" href="#new-species">New species</a>
           <a class="button-link" href="#profiles-full-json">Import/export JSON</a>
         </div>
         {flash_html}
@@ -5907,6 +5940,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         </div>
         <h2>Cross validation</h2>
         {render_catalog_alerts(errors, warnings, limit=12)}
+        {render_new_species_form()}
         <h2 id="profiles-full-json">JSON maintenance</h2>
         {render_profile_full_json_panel(full_payload, mode)}
         """
@@ -6242,6 +6276,31 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         store = default_store()
         try:
             store.ensure_seeded()
+            if action == "create_profile":
+                new_species_id = catalog_form_string(form, "new_species_id")
+                scientific_name = catalog_form_string(form, "new_scientific_name")
+                common_name = catalog_form_string(form, "new_common_name")
+                profiles_payload = store.load("profiles")
+                profiles = profiles_payload.get("species_profiles") if isinstance(profiles_payload, dict) else None
+                profiles = profiles if isinstance(profiles, list) else []
+                profile_dicts = [profile for profile in profiles if isinstance(profile, dict)]
+                ok, message = validate_new_species_id(new_species_id, profile_dicts)
+                if not ok:
+                    set_mushroom_profiles_flash("Species profile was not saved: " + message)
+                    return profile_message_url()
+                if not scientific_name:
+                    set_mushroom_profiles_flash("Species profile was not saved: Scientific name is required.")
+                    return profile_message_url()
+                profiles.append(empty_species_profile(new_species_id, scientific_name, common_name))
+                profiles_payload["species_profiles"] = profiles
+                result = store.replace("profiles", profiles_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(f"Created draft species profile {new_species_id}." + suffix)
+                    return profile_query_url(new_species_id)
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
+                return profile_message_url()
             if action == "save_profile_json":
                 entry = json.loads(self.form_value(form, "profile_json"))
                 if not isinstance(entry, dict):

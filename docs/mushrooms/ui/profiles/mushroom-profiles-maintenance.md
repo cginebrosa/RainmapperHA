@@ -123,6 +123,47 @@ Especies
 
 ---
 
+## Alta de nueva especie
+
+La pantalla debe ofrecer una acción `Nueva especie` / `New species` sin obligar a editar el JSON completo.
+
+Campos mínimos de alta:
+
+```text
+species_id
+scientific_name
+common_name opcional
+```
+
+Reglas:
+
+- `species_id` debe ser estable, único y usar sólo minúsculas, números y guiones bajos.
+- La creación debe generar una plantilla completa validada antes de persistir.
+- La especie nueva debe nacer como `metadata.review_status = draft`.
+- La especie nueva debe nacer como `prediction_confidence.local_calibration_status = not_calibrated`.
+- La especie nueva debe nacer con `metadata.requires_human_validation = true`.
+- Las afinidades ecológicas deben nacer vacías y mantenerse desde el formulario guiado.
+- Los umbrales meteorológicos y rangos iniciales deben ser neutros/conservadores y revisarse antes de usar la especie en predicción.
+- Tras crear, la UI debe abrir directamente la ficha de la especie nueva.
+
+## Borrado y restauración de especies
+
+El borrado de especies no debe implementarse como eliminación física directa del perfil.
+
+La acción `Delete species` debe mover el perfil a un estado o área de archivado recuperable, con estas salvaguardas mínimas:
+
+- Confirmación explícita escribiendo el `species_id` de la especie.
+- Backup previo del fichero persistente antes de modificarlo.
+- Persistencia del perfil completo eliminado en una sección o fichero `archived`/`deleted` recuperable.
+- Acción `Restore deleted species` para devolver una especie archivada al mantenimiento activo.
+- Validación posterior del modelo completo antes de confirmar el cambio.
+- Bloqueo de restauración si el `species_id` ya existe de nuevo en los perfiles activos.
+- Mensaje visible para el administrador indicando si se archivó, restauró o bloqueó la operación.
+
+En una primera implementación se puede tratar como acción administrativa avanzada. No debe ocultar que los perfiles activos alimentarán el futuro motor de predicción, por lo que borrar o restaurar una especie debe quedar trazado y ser reversible.
+
+---
+
 ## Tabs necesarias
 
 La pantalla tendrá estas pestañas:
