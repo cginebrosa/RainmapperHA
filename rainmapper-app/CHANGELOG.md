@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.156
+
+- Replace mushroom catalog group chips with domain summary cards and add a domain-impact panel for the active catalog scope.
+
 ## 0.2.155
 
 - Compact the mushroom catalog detail editor by removing duplicated usage metrics and widening the field-based form.

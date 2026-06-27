@@ -1264,22 +1264,60 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       width: 100%;
     }}
     .catalog-chip-row {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       margin: 0 0 16px;
     }}
     .catalog-chip {{
       border: 1px solid var(--line);
-      border-radius: 999px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, .34);
       color: var(--fg);
-      padding: 7px 11px;
+      display: grid;
+      gap: 5px;
+      min-height: 70px;
+      padding: 11px 12px;
       text-decoration: none;
-      white-space: nowrap;
     }}
     .catalog-chip.active {{
+      background: rgba(3, 169, 244, 0.12);
       border-color: var(--accent);
       color: var(--accent);
+    }}
+    .catalog-chip strong {{
+      font-size: 14px;
+      line-height: 1.2;
+    }}
+    .catalog-chip span {{
+      color: var(--muted);
+      font-size: 12px;
+    }}
+    .catalog-domain-impact {{
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }}
+    .catalog-domain-impact-grid {{
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .catalog-domain-impact .value {{
+      display: block;
+      margin-top: 3px;
+    }}
+    .catalog-domain-examples {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }}
+    .catalog-domain-examples span {{
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 4px 8px;
     }}
     .catalog-layout {{
       align-items: start;
@@ -3390,19 +3428,64 @@ def render_catalog_metric_cards(metrics: dict[str, int], errors: list[object], w
     ) + "</div>"
 
 
-def render_catalog_group_chips(catalogs: dict[str, object], selected_group: str, search: str) -> str:
+def render_catalog_group_chips(catalogs: dict[str, object], rows: list[dict[str, object]], selected_group: str, search: str) -> str:
     total = sum(len(items) for items in catalogs.values() if isinstance(items, list))
+    total_used = len([row for row in rows if int(row["profile_count"]) > 0 or int(row["gis_count"]) > 0])
     chips = [
-        f'<a class="catalog-chip{" active" if not selected_group else ""}" href="{catalog_query_url(search=search)}">All {total}</a>'
+        (
+            f'<a class="catalog-chip{" active" if not selected_group else ""}" href="{catalog_query_url(search=search)}">'
+            f"<strong>All catalog</strong><span>{total} IDs · {total_used} used</span></a>"
+        )
     ]
     for group, items in catalogs.items():
         if not isinstance(items, list):
             continue
+        group_rows = [row for row in rows if row["group"] == group]
+        used = len([row for row in group_rows if int(row["profile_count"]) > 0 or int(row["gis_count"]) > 0])
+        domain = CATALOG_DOMAIN_LABELS.get(group, group)
         chips.append(
             f'<a class="catalog-chip{" active" if group == selected_group else ""}" href="{catalog_query_url(group=group, search=search)}">'
-            f'{html.escape(group)} {len(items)}</a>'
+            f"<strong>{html.escape(domain)}</strong><span>{html.escape(group)} · {len(items)} IDs · {used} used</span></a>"
         )
     return '<div class="catalog-chip-row">' + "".join(chips) + "</div>"
+
+
+def render_catalog_domain_impact(rows: list[dict[str, object]], selected_group: str) -> str:
+    scoped_rows = [row for row in rows if not selected_group or row["group"] == selected_group]
+    if not scoped_rows:
+        return ""
+    title = CATALOG_DOMAIN_LABELS.get(selected_group, "Whole catalog") if selected_group else "Whole catalog"
+    ids = len(scoped_rows)
+    profile_refs = sum(int(row["profile_count"]) for row in scoped_rows)
+    gis_refs = sum(int(row["gis_count"]) for row in scoped_rows)
+    unused = len([row for row in scoped_rows if row["status"] == "Unused"])
+    examples = [
+        str(row["id"])
+        for row in scoped_rows
+        if int(row["profile_count"]) > 0 or int(row["gis_count"]) > 0
+    ][:6]
+    if not examples:
+        examples = [str(row["id"]) for row in scoped_rows[:6]]
+    example_html = "".join(f"<span>{html.escape(example)}</span>" for example in examples)
+    scope_text = selected_group or "all groups"
+    return f"""
+    <section class="card catalog-domain-impact">
+      <div>
+        <h2>Domain impact</h2>
+        <p class="meta">{html.escape(title)} · {html.escape(scope_text)}</p>
+      </div>
+      <div class="catalog-domain-impact-grid">
+        <div><span class="label">IDs in scope</span><span class="value">{ids}</span></div>
+        <div><span class="label">Profile references</span><span class="value ok">{profile_refs}</span></div>
+        <div><span class="label">GIS references</span><span class="value ok">{gis_refs}</span></div>
+        <div><span class="label">Unused IDs</span><span class="value {'warn' if unused else 'ok'}">{unused}</span></div>
+      </div>
+      <div>
+        <span class="label">Representative IDs</span>
+        <div class="catalog-domain-examples">{example_html}</div>
+      </div>
+    </section>
+    """
 
 
 def render_catalog_table(rows: list[dict[str, object]], selected: dict[str, object] | None, group: str, search: str) -> str:
@@ -4785,10 +4868,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         {flash_html}
         {seeded_html}
         {render_catalog_metric_cards(metrics, errors, warnings)}
-        {render_catalog_group_chips(catalogs, selected_group, search)}
+        {render_catalog_group_chips(catalogs, rows, selected_group, search)}
         <div class="catalog-layout">
           <section>
             {render_catalog_table(rows, selected, selected_group, search)}
+            {render_catalog_domain_impact(rows, selected_group)}
           </section>
           {render_catalog_detail(selected, errors, warnings)}
         </div>
