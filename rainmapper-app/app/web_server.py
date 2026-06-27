@@ -19,7 +19,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
@@ -1245,9 +1245,109 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     .modal-head h2 {{
       margin: 0;
     }}
+    .catalog-toolbar {{
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 14px;
+    }}
+    .catalog-toolbar form {{
+      margin: 0;
+    }}
+    .catalog-filter {{
+      flex: 1 1 280px;
+      min-width: min(420px, 100%);
+    }}
+    .catalog-filter input,
+    .catalog-json-editor textarea {{
+      width: 100%;
+    }}
+    .catalog-chip-row {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 16px;
+    }}
+    .catalog-chip {{
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--fg);
+      padding: 7px 11px;
+      text-decoration: none;
+      white-space: nowrap;
+    }}
+    .catalog-chip.active {{
+      border-color: var(--accent);
+      color: var(--accent);
+    }}
+    .catalog-layout {{
+      align-items: start;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, .42fr);
+    }}
+    .catalog-detail {{
+      position: sticky;
+      top: 12px;
+    }}
+    .catalog-json-editor {{
+      display: block;
+      margin: 0;
+    }}
+    .catalog-json-editor textarea {{
+      background: #0c1116;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      min-height: 320px;
+      padding: 12px;
+      resize: vertical;
+    }}
+    .catalog-row-link {{
+      color: var(--fg);
+      font-weight: 700;
+      text-decoration: none;
+    }}
+    .catalog-row-link:hover,
+    .catalog-row-link:focus {{
+      color: var(--accent);
+    }}
+    .catalog-table .selected-row td {{
+      background: rgba(3, 169, 244, 0.08);
+    }}
+    .catalog-alert-list {{
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }}
+    .catalog-alert {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }}
+    .catalog-alert.error {{
+      border-color: rgba(255, 107, 107, 0.55);
+      color: var(--danger);
+    }}
+    .catalog-alert.warn {{
+      border-color: rgba(255, 209, 102, 0.55);
+      color: #ffd166;
+    }}
     @media (max-width: 1320px) {{
       .permissions-grid {{
         grid-template-columns: repeat(3, minmax(180px, 1fr));
+      }}
+    }}
+    @media (max-width: 980px) {{
+      .catalog-layout {{
+        grid-template-columns: 1fr;
+      }}
+      .catalog-detail {{
+        position: static;
       }}
     }}
     @media (max-width: 1080px) {{
@@ -3038,6 +3138,307 @@ def admin_message(message: str) -> None:
         RUN_STATE["last_message"] = message
 
 
+CATALOG_DOMAIN_LABELS = {
+    "trophic_modes": "Trophic",
+    "host_taxa": "Host",
+    "forest_types": "Habitat",
+    "soil_types": "Soil",
+    "lithology_types": "Geology",
+    "aspects": "Topography",
+    "season_patterns": "Phenology",
+    "habitat_features": "Microhabitat",
+}
+
+
+def catalog_label(item: dict[str, object]) -> str:
+    scientific_name = str(item.get("scientific_name", "") or "").strip()
+    if scientific_name:
+        return scientific_name
+    label = item.get("label")
+    if isinstance(label, dict):
+        for language in ("es", "ca", "en"):
+            value = str(label.get(language, "") or "").strip()
+            if value:
+                return value
+    common_names = item.get("common_names")
+    if isinstance(common_names, dict):
+        for language in ("es", "ca", "en"):
+            names = common_names.get(language)
+            if isinstance(names, list) and names:
+                return str(names[0])
+    return str(item.get("id", ""))
+
+
+def collect_catalog_usage_references(payload: object, catalog_ids: set[str]) -> dict[str, int]:
+    references = {item_id: 0 for item_id in catalog_ids}
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            for nested in value.values():
+                visit(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                visit(nested)
+        elif isinstance(value, str) and value in references:
+            references[value] += 1
+
+    visit(payload)
+    return references
+
+
+def collect_unknown_catalog_references(payload: object, catalog_ids: set[str]) -> set[str]:
+    unknown: set[str] = set()
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            for key, nested in value.items():
+                if key == "id" and isinstance(nested, str):
+                    continue
+                visit(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                visit(nested)
+        elif isinstance(value, str) and re.match(r"^(host|forest|soil|lith|aspect|season|feature|trophic)_", value):
+            if value not in catalog_ids:
+                unknown.add(value)
+
+    visit(payload)
+    return unknown
+
+
+def catalog_rows(catalogs: dict[str, object], profiles: object, gis: object) -> tuple[list[dict[str, object]], dict[str, int]]:
+    catalog_ids = {
+        str(item.get("id"))
+        for items in catalogs.values()
+        if isinstance(items, list)
+        for item in items
+        if isinstance(item, dict) and item.get("id")
+    }
+    profile_usage = collect_catalog_usage_references(profiles, catalog_ids)
+    gis_usage = collect_catalog_usage_references(gis, catalog_ids)
+    rows: list[dict[str, object]] = []
+    hierarchy_count = 0
+    for group, items in catalogs.items():
+        if not isinstance(items, list):
+            continue
+        for index, item in enumerate(items):
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id", ""))
+            if not item_id:
+                continue
+            parent_id = str(item.get("parent_id", "") or "")
+            if parent_id:
+                hierarchy_count += 1
+            profile_count = profile_usage.get(item_id, 0)
+            gis_count = gis_usage.get(item_id, 0)
+            rows.append(
+                {
+                    "group": group,
+                    "index": index,
+                    "id": item_id,
+                    "label": catalog_label(item),
+                    "parent_id": parent_id,
+                    "profile_count": profile_count,
+                    "gis_count": gis_count,
+                    "domain": CATALOG_DOMAIN_LABELS.get(group, group),
+                    "status": "Active" if profile_count or gis_count else "Unused",
+                    "item": item,
+                }
+            )
+    metrics = {
+        "groups": len([items for items in catalogs.values() if isinstance(items, list)]),
+        "ids": len(rows),
+        "profile_used": len([row for row in rows if int(row["profile_count"]) > 0]),
+        "gis_used": len([row for row in rows if int(row["gis_count"]) > 0]),
+        "unused": len([row for row in rows if row["status"] == "Unused"]),
+        "hierarchy": hierarchy_count,
+        "unknown": len(collect_unknown_catalog_references(profiles, catalog_ids) | collect_unknown_catalog_references(gis, catalog_ids)),
+    }
+    return rows, metrics
+
+
+def selected_catalog_row(rows: list[dict[str, object]], group: str, item_id: str) -> dict[str, object] | None:
+    for row in rows:
+        if row["group"] == group and row["id"] == item_id:
+            return row
+    return rows[0] if rows else None
+
+
+def catalog_query_url(group: str = "", item_id: str = "", search: str = "") -> str:
+    params = {}
+    if group:
+        params["group"] = group
+    if item_id:
+        params["id"] = item_id
+    if search:
+        params["q"] = search
+    return "/mushrooms/catalogs" + (("?" + urlencode(params)) if params else "")
+
+
+def render_catalog_metric_cards(metrics: dict[str, int], errors_count: int, warnings_count: int) -> str:
+    cards = [
+        ("Total groups", str(metrics["groups"]), ""),
+        ("Total IDs", str(metrics["ids"]), ""),
+        ("Used in profiles", str(metrics["profile_used"]), "ok"),
+        ("Used in GIS", str(metrics["gis_used"]), "ok"),
+        ("Broken refs", str(metrics["unknown"]), "danger" if metrics["unknown"] else "ok"),
+        ("Unused", str(metrics["unused"]), "warn" if metrics["unused"] else "ok"),
+        ("With hierarchy", str(metrics["hierarchy"]), ""),
+        ("Validation", f"{errors_count} errors · {warnings_count} warnings", "danger" if errors_count else "warn" if warnings_count else "ok"),
+    ]
+    return '<div class="summary-grid">' + "".join(
+        f'<div class="card"><span class="label">{html.escape(label)}</span><span class="value {css_class}">{html.escape(value)}</span></div>'
+        for label, value, css_class in cards
+    ) + "</div>"
+
+
+def render_catalog_group_chips(catalogs: dict[str, object], selected_group: str, search: str) -> str:
+    total = sum(len(items) for items in catalogs.values() if isinstance(items, list))
+    chips = [
+        f'<a class="catalog-chip{" active" if not selected_group else ""}" href="{catalog_query_url(search=search)}">All {total}</a>'
+    ]
+    for group, items in catalogs.items():
+        if not isinstance(items, list):
+            continue
+        chips.append(
+            f'<a class="catalog-chip{" active" if group == selected_group else ""}" href="{catalog_query_url(group=group, search=search)}">'
+            f'{html.escape(group)} {len(items)}</a>'
+        )
+    return '<div class="catalog-chip-row">' + "".join(chips) + "</div>"
+
+
+def render_catalog_table(rows: list[dict[str, object]], selected: dict[str, object] | None, group: str, search: str) -> str:
+    tokens = [token.lower() for token in search.split() if token.strip()]
+    filtered_rows = []
+    for row in rows:
+        if group and row["group"] != group:
+            continue
+        searchable = " ".join(str(row.get(key, "")) for key in ("group", "id", "label", "parent_id", "domain", "status")).lower()
+        if tokens and not all(token in searchable for token in tokens):
+            continue
+        filtered_rows.append(row)
+
+    body_rows = []
+    for row in filtered_rows:
+        item_id = str(row["id"])
+        row_group = str(row["group"])
+        is_selected = selected and selected.get("group") == row_group and selected.get("id") == item_id
+        body_rows.append(
+            f'<tr class="{"selected-row" if is_selected else ""}">'
+            f'<td>{html.escape(row_group)}</td>'
+            f'<td><a class="catalog-row-link" href="{catalog_query_url(row_group, item_id, search)}">{html.escape(item_id)}</a></td>'
+            f'<td>{html.escape(str(row["label"]))}</td>'
+            f'<td>{html.escape(str(row["parent_id"] or "-"))}</td>'
+            f'<td>{int(row["profile_count"])}</td>'
+            f'<td>{int(row["gis_count"])}</td>'
+            f'<td>{html.escape(str(row["domain"]))}</td>'
+            f'<td><span class="status-pill {"" if row["status"] == "Active" else "warn"}">{html.escape(str(row["status"]))}</span></td>'
+            "</tr>"
+        )
+    if not body_rows:
+        body_rows.append('<tr><td colspan="8"><span class="meta">No catalog entries match the current filters.</span></td></tr>')
+    return (
+        '<div class="control-table-wrap">'
+        '<table class="control-table catalog-table">'
+        "<thead><tr><th>Group</th><th>ID</th><th>Label / scientific name</th><th>Parent ID</th><th>Profiles</th><th>GIS</th><th>Domain</th><th>Status</th></tr></thead>"
+        f'<tbody>{"".join(body_rows)}</tbody>'
+        "</table></div>"
+    )
+
+
+def render_catalog_alerts(errors: list[object], warnings: list[object], limit: int = 10) -> str:
+    messages = []
+    for severity, items in (("error", errors), ("warn", warnings)):
+        for message in items[:limit]:
+            location = html.escape(str(getattr(message, "location", "")))
+            text = html.escape(str(getattr(message, "message", "")))
+            messages.append(f'<div class="catalog-alert {severity}"><strong>{location}</strong><br>{text}</div>')
+    if not messages:
+        messages.append('<div class="catalog-alert"><strong>Validation clean</strong><br>No blocking validation errors.</div>')
+    return '<div class="catalog-alert-list">' + "".join(messages) + "</div>"
+
+
+def render_catalog_detail(row: dict[str, object] | None, errors: list[object], warnings: list[object]) -> str:
+    if not row:
+        return '<aside class="card catalog-detail"><h2>Catalog detail</h2><p>No catalog entry selected.</p></aside>'
+    item = row.get("item", {})
+    json_value = json.dumps(item, indent=2, ensure_ascii=False)
+    group = str(row["group"])
+    item_id = str(row["id"])
+    return f"""
+    <aside class="card catalog-detail">
+      <h2>Catalog detail</h2>
+      <p><strong>{html.escape(item_id)}</strong><br>{html.escape(group)} · {html.escape(str(row["domain"]))}</p>
+      <div class="grid">
+        <div><span class="label">Profiles</span><span class="value">{int(row["profile_count"])}</span></div>
+        <div><span class="label">GIS</span><span class="value">{int(row["gis_count"])}</span></div>
+        <div><span class="label">Status</span><span class="value">{html.escape(str(row["status"]))}</span></div>
+      </div>
+      <form class="catalog-json-editor" method="post" action="/mushrooms/catalogs?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save this catalog entry and validate the full dataset?')">
+        <input type="hidden" name="catalog_action" value="save_entry">
+        <input type="hidden" name="group" value="{html.escape(group, quote=True)}">
+        <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
+        <label class="label" for="catalog-entry-json">Entry JSON</label>
+        <textarea id="catalog-entry-json" name="entry_json" spellcheck="false">{html.escape(json_value)}</textarea>
+        <button class="primary">Save entry</button>
+      </form>
+      <h2>Validation</h2>
+      {render_catalog_alerts(errors, warnings, limit=4)}
+    </aside>
+    """
+
+
+def replace_catalog_entry(catalog_payload: dict[str, object], group: str, item_id: str, entry: dict[str, object]) -> tuple[bool, str]:
+    if str(entry.get("id", "")) != item_id:
+        return False, "Entry ID cannot be changed in the first maintenance UI."
+    catalogs = catalog_payload.get("catalogs")
+    if not isinstance(catalogs, dict):
+        return False, "Catalog payload does not contain a catalogs object."
+    items = catalogs.get(group)
+    if not isinstance(items, list):
+        return False, f"Catalog group {group} was not found."
+    for index, existing in enumerate(items):
+        if isinstance(existing, dict) and str(existing.get("id", "")) == item_id:
+            items[index] = entry
+            return True, f"Updated catalog entry {item_id}."
+    return False, f"Catalog entry {item_id} was not found."
+
+
+def render_catalog_full_json_panel(payload: dict[str, object], mode: str) -> str:
+    json_value = json.dumps(payload, indent=2, ensure_ascii=False)
+    mode_label = "empty template" if mode == "template" else "current catalog"
+    return f"""
+    <details class="card" {"open" if mode == "template" else ""}>
+      <summary><strong>Full catalog JSON import/export</strong> · {html.escape(mode_label)}</summary>
+      <p>Use this panel for controlled full-file import/export. Saving validates profiles, catalogs and GIS mappings together before replacing the persistent catalog file.</p>
+      <div class="quick-actions">
+        <a class="button-link" href="/mushrooms/catalogs?mode=current">Current catalog</a>
+        <a class="button-link" href="/mushrooms/catalogs?mode=default">Packaged default</a>
+        <a class="button-link" href="/mushrooms/catalogs?mode=template">Empty template</a>
+      </div>
+      <form class="catalog-json-editor" method="post" action="/mushrooms/catalogs" onsubmit="return confirm('Replace the full catalog JSON after validation?')">
+        <input type="hidden" name="catalog_action" value="save_catalog">
+        <label class="label" for="catalog-full-json">Catalog JSON</label>
+        <textarea id="catalog-full-json" name="catalog_json" spellcheck="false">{html.escape(json_value)}</textarea>
+        <button class="primary">Validate and save full catalog</button>
+      </form>
+    </details>
+    """
+
+
+def mushroom_catalogs_flash() -> str:
+    with RUN_LOCK:
+        message = str(RUN_STATE.get("mushroom_catalogs_flash", ""))
+        RUN_STATE["mushroom_catalogs_flash"] = ""
+    return message
+
+
+def set_mushroom_catalogs_flash(message: str) -> None:
+    with RUN_LOCK:
+        RUN_STATE["mushroom_catalogs_flash"] = message
+
+
 def user_display_name(user: dict[str, str]) -> str:
     name = user.get("name", "").strip()
     return name or user.get("username", "")
@@ -3986,6 +4387,89 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         """
         self.send_bytes(200, html_page("Users", body, auto_refresh=False), "text/html; charset=utf-8")
 
+    def render_mushroom_catalogs(self, query: dict[str, list[str]] | None = None) -> None:
+        query = query or {}
+        selected_group = (query.get("group") or [""])[0]
+        selected_id = (query.get("id") or [""])[0]
+        search = (query.get("q") or [""])[0]
+        mode = (query.get("mode") or ["current"])[0]
+
+        store = default_store()
+        try:
+            seeded = store.ensure_seeded()
+            catalogs_payload = store.load("catalogs")
+            profiles_payload = store.load("profiles")
+            gis_payload = store.load("gis")
+            errors, warnings = store.validate_current()
+        except Exception as exc:
+            body = (
+                '<p><a class="button-link" href="./">Back</a></p>'
+                "<h1>Reference catalog</h1>"
+                f'<div class="catalog-alert error"><strong>Cannot load mushroom data</strong><br>{html.escape(str(exc))}</div>'
+            )
+            self.send_bytes(500, html_page("Mushroom catalogs", body, auto_refresh=False), "text/html; charset=utf-8")
+            return
+
+        catalogs = catalogs_payload.get("catalogs", {}) if isinstance(catalogs_payload, dict) else {}
+        catalogs = catalogs if isinstance(catalogs, dict) else {}
+        rows, metrics = catalog_rows(catalogs, profiles_payload, gis_payload)
+        selected = selected_catalog_row(rows, selected_group, selected_id)
+        if selected and (not selected_group or not selected_id):
+            selected_group = str(selected["group"])
+            selected_id = str(selected["id"])
+
+        full_payload = catalogs_payload
+        if mode == "default":
+            full_payload = store.load("catalogs", source="default")
+        elif mode == "template":
+            full_payload = store.empty_template("catalogs")["data"]
+        else:
+            mode = "current"
+
+        flash = mushroom_catalogs_flash()
+        flash_html = f'<div class="catalog-alert"><strong>Status</strong><br>{html.escape(flash)}</div>' if flash else ""
+        seeded_html = (
+            f'<div class="catalog-alert"><strong>Seeded defaults</strong><br>{html.escape(", ".join(seeded))}</div>'
+            if seeded else ""
+        )
+        status_label = "Flow validated" if not errors else "Validation errors"
+        status_class = "ok" if not errors else "danger"
+        body = f"""
+        <div class="control-head">
+          <div>
+            <h1>Catálogo maestro de referencia</h1>
+            <p>Hub operativo del vocabulario del motor de predicción</p>
+          </div>
+          <div class="control-head-actions">
+            <span class="meta">{len(catalogs)} groups · {metrics["ids"]} IDs · <span class="{status_class}">{status_label}</span></span>
+          </div>
+        </div>
+        <div class="catalog-toolbar">
+          <a class="button-link" href="/">Back</a>
+          <a class="button-link" href="/mushrooms/catalogs">Refresh</a>
+          <form class="catalog-filter" method="get" action="/mushrooms/catalogs">
+            <input type="hidden" name="group" value="{html.escape(selected_group, quote=True)}">
+            <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search ID, group, label or domain">
+          </form>
+          <a class="button-link" href="#catalog-full-json">Import/export JSON</a>
+        </div>
+        {flash_html}
+        {seeded_html}
+        {render_catalog_metric_cards(metrics, len(errors), len(warnings))}
+        {render_catalog_group_chips(catalogs, selected_group, search)}
+        <div class="catalog-layout">
+          <section>
+            {render_catalog_table(rows, selected, selected_group, search)}
+          </section>
+          {render_catalog_detail(selected, errors, warnings)}
+        </div>
+        <h2>Cross validation</h2>
+        {render_catalog_alerts(errors, warnings, limit=12)}
+        <h2 id="catalog-full-json">JSON maintenance</h2>
+        {render_catalog_full_json_panel(full_payload, mode)}
+        """
+        self.send_bytes(200, html_page("Mushroom reference catalogs", body, auto_refresh=False), "text/html; charset=utf-8")
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
@@ -4000,6 +4484,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/users":
             self.render_users()
+            return
+
+        if path == "/mushrooms/catalogs":
+            self.render_mushroom_catalogs(parse_qs(parsed.query))
             return
 
         if path == "/log":
@@ -4133,6 +4621,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.redirect_to("./users")
             return
 
+        if parsed.path.rstrip("/") == "/mushrooms/catalogs":
+            self.handle_mushroom_catalogs_post(form)
+            query = ("?" + parsed.query) if parsed.query else ""
+            self.redirect_to("/mushrooms/catalogs" + query)
+            return
+
         action = self.form_value(form, "run_action")
         if action:
             run_action(action, "web")
@@ -4208,6 +4702,49 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             message = "Unknown user management action."
         admin_message(message)
 
+    def handle_mushroom_catalogs_post(self, form: dict[str, list[str]]) -> None:
+        action = self.form_value(form, "catalog_action")
+        store = default_store()
+        try:
+            store.ensure_seeded()
+            if action == "save_entry":
+                group = self.form_value(form, "group")
+                item_id = self.form_value(form, "id")
+                entry = json.loads(self.form_value(form, "entry_json"))
+                if not isinstance(entry, dict):
+                    set_mushroom_catalogs_flash("Entry JSON must be an object.")
+                    return
+                catalog_payload = store.load("catalogs")
+                ok, message = replace_catalog_entry(catalog_payload, group, item_id, entry)
+                if not ok:
+                    set_mushroom_catalogs_flash(message)
+                    return
+                result = store.replace("catalogs", catalog_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_catalogs_flash(message + suffix)
+                else:
+                    error_text = "; ".join(message.message for message in result.errors[:3])
+                    set_mushroom_catalogs_flash("Catalog entry was not saved: " + error_text)
+            elif action == "save_catalog":
+                payload = json.loads(self.form_value(form, "catalog_json"))
+                if not isinstance(payload, dict):
+                    set_mushroom_catalogs_flash("Catalog JSON must be an object.")
+                    return
+                result = store.replace("catalogs", payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_catalogs_flash("Saved full reference catalog." + suffix)
+                else:
+                    error_text = "; ".join(message.message for message in result.errors[:3])
+                    set_mushroom_catalogs_flash("Catalog was not saved: " + error_text)
+            else:
+                set_mushroom_catalogs_flash("Unknown catalog maintenance action.")
+        except json.JSONDecodeError as exc:
+            set_mushroom_catalogs_flash(f"Invalid JSON: line {exc.lineno}, column {exc.colno}: {exc.msg}")
+        except Exception as exc:
+            set_mushroom_catalogs_flash(f"Catalog action failed: {exc}")
+
     def render_index(self) -> None:
         with RUN_LOCK:
             running = RUN_STATE["running"]
@@ -4235,6 +4772,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <form method="post" action=""><input type="hidden" name="run_action" value="maps"><button {disabled}>Generate maps</button></form>
           <a class="button-link" href="./settings">App settings</a>
           <a class="button-link" href="./users">Users</a>
+          <a class="button-link" href="/mushrooms/catalogs">Mushroom catalogs</a>
         </div>
         """
         head_controls = f"""

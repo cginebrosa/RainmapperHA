@@ -36,6 +36,8 @@ Estado de implementacion:
 - La imagen HA copia `mushroom-data/` y `scripts/validate-mushroom-data.py` a `/app/`.
 - Endpoints admin disponibles en `rainmapper-app/app/web_server.py`: `GET/POST /api/mushrooms/validate`, `GET /api/mushrooms/export?file=profiles|catalogs|gis&source=current|persistent|default`, `GET /api/mushrooms/template?file=profiles|catalogs` y `POST /api/mushrooms/import` con `{file, data}`.
 - `POST /api/mushrooms/import` solo permite `profiles` y `catalogs`; `gis` queda solo lectura en esta fase.
+- Primera UI WebUI de catalogos disponible en `/mushrooms/catalogs`: hub de metricas, filtros por grupo, busqueda, tabla de IDs, detalle con JSON editable por entrada, panel de validacion cruzada y bloque avanzado de import/export/plantilla JSON del catalogo completo.
+- La UI de catalogos usa POST server-side por ingress HA, igual que `Users`; los endpoints JSON quedan como base para futuras pantallas cliente.
 
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
