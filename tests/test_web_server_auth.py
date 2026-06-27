@@ -282,6 +282,64 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("", selected_id)
         self.assertEqual("trophic_modes", selected["group"])
 
+    def test_catalog_entry_form_preserves_unknown_fields_and_updates_labels(self) -> None:
+        existing = {
+            "id": "soil_calcareous",
+            "label": {"es": "Suelo calcareo", "ca": "Sol calcari", "en": "Calcareous soil"},
+            "ph_min": 7.0,
+            "ph_max": 8.5,
+            "custom_future_field": "keep-me",
+        }
+        form = {
+            "label_es": ["Suelo calcáreo"],
+            "label_ca": ["Sòl calcari"],
+            "label_en": ["Calcareous soil"],
+            "ph_min": ["7.2"],
+            "ph_max": ["8.5"],
+            "texture": [""],
+            "organic_matter": [""],
+            "drainage": ["Moderate"],
+            "gis_aliases": ["limestone\ncalcareous"],
+        }
+
+        entry = self.web_server.catalog_entry_from_form("soil_types", "soil_calcareous", existing, form)
+
+        self.assertEqual("soil_calcareous", entry["id"])
+        self.assertEqual("Suelo calcáreo", entry["label"]["es"])
+        self.assertEqual(7.2, entry["ph_min"])
+        self.assertEqual(8.5, entry["ph_max"])
+        self.assertEqual(["limestone", "calcareous"], entry["gis_aliases"])
+        self.assertEqual("keep-me", entry["custom_future_field"])
+
+    def test_catalog_entry_form_updates_host_common_names_as_lists(self) -> None:
+        existing = {
+            "id": "host_pinus_sylvestris",
+            "rank": "species",
+            "scientific_name": "Pinus sylvestris",
+            "genus": "Pinus",
+            "family": "Pinaceae",
+            "common_names": {"es": ["Pino silvestre"]},
+            "parent_id": "host_pinus_spp",
+        }
+        form = {
+            "rank": ["species"],
+            "scientific_name": ["Pinus sylvestris"],
+            "genus": ["Pinus"],
+            "family": ["Pinaceae"],
+            "parent_id": ["host_pinus_spp"],
+            "common_names_es": ["Pino silvestre, Pino rojo"],
+            "common_names_ca": ["Pi roig"],
+            "common_names_en": ["Scots pine"],
+            "gis_aliases": ["Pinus sylvestris"],
+        }
+
+        entry = self.web_server.catalog_entry_from_form("host_taxa", "host_pinus_sylvestris", existing, form)
+
+        self.assertEqual(["Pino silvestre", "Pino rojo"], entry["common_names"]["es"])
+        self.assertEqual(["Pi roig"], entry["common_names"]["ca"])
+        self.assertEqual(["Scots pine"], entry["common_names"]["en"])
+        self.assertEqual(["Pinus sylvestris"], entry["gis_aliases"])
+
     def test_basic_role_allows_two_devices_and_reusing_existing_device(self) -> None:
         self.write_users_json(
             [

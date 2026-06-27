@@ -1295,6 +1295,23 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       display: block;
       margin: 0;
     }}
+    .catalog-entry-form {{
+      display: grid;
+      gap: 12px;
+      margin: 0;
+    }}
+    .catalog-entry-form textarea {{
+      min-height: 72px;
+      resize: vertical;
+    }}
+    .catalog-impact {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: grid;
+      gap: 8px;
+      margin: 12px 0;
+      padding: 12px;
+    }}
     .catalog-create-form {{
       display: block;
       margin: 0;
@@ -3417,6 +3434,139 @@ def render_catalog_alerts(errors: list[object], warnings: list[object], limit: i
     return '<div class="catalog-alert-list">' + "".join(messages) + "</div>"
 
 
+def catalog_textarea_value(values: object) -> str:
+    if isinstance(values, list):
+        return "\n".join(str(value) for value in values if str(value).strip())
+    return str(values or "")
+
+
+def catalog_form_field(name: str, label: str, value: object = "", field_type: str = "text", readonly: bool = False) -> str:
+    readonly_attr = " readonly" if readonly else ""
+    step_attr = ' step="any"' if field_type == "number" else ""
+    escaped_name = html.escape(name, quote=True)
+    escaped_label = html.escape(label)
+    escaped_value = html.escape("" if value is None else str(value), quote=True)
+    return (
+        '<div class="admin-field">'
+        f'<label for="catalog-{escaped_name}">{escaped_label}</label>'
+        f'<input id="catalog-{escaped_name}" name="{escaped_name}" type="{html.escape(field_type, quote=True)}" value="{escaped_value}"{step_attr}{readonly_attr}>'
+        "</div>"
+    )
+
+
+def catalog_form_textarea(name: str, label: str, value: object) -> str:
+    escaped_name = html.escape(name, quote=True)
+    return (
+        '<div class="admin-field">'
+        f'<label for="catalog-{escaped_name}">{html.escape(label)}</label>'
+        f'<textarea id="catalog-{escaped_name}" name="{escaped_name}">{html.escape(catalog_textarea_value(value))}</textarea>'
+        "</div>"
+    )
+
+
+def catalog_label_fields(item: dict[str, object]) -> str:
+    label = item.get("label")
+    if not isinstance(label, dict):
+        label = {}
+    return "".join(
+        catalog_form_field(f"label_{language}", f"Label {language.upper()}", label.get(language, ""))
+        for language in ("es", "ca", "en")
+    )
+
+
+def render_catalog_entry_form(row: dict[str, object]) -> str:
+    item = row.get("item", {})
+    item = item if isinstance(item, dict) else {}
+    group = str(row["group"])
+    item_id = str(row["id"])
+    fields = [
+        catalog_form_field("id", "ID", item_id, readonly=True),
+    ]
+    if group == "host_taxa":
+        common_names = item.get("common_names") if isinstance(item.get("common_names"), dict) else {}
+        fields.extend(
+            [
+                catalog_form_field("rank", "Rank", item.get("rank", "")),
+                catalog_form_field("scientific_name", "Scientific name", item.get("scientific_name", "")),
+                catalog_form_field("genus", "Genus", item.get("genus", "")),
+                catalog_form_field("family", "Family", item.get("family", "")),
+                catalog_form_field("parent_id", "Parent ID", item.get("parent_id", "")),
+                catalog_form_textarea("common_names_es", "Common names ES", common_names.get("es", [])),
+                catalog_form_textarea("common_names_ca", "Common names CA", common_names.get("ca", [])),
+                catalog_form_textarea("common_names_en", "Common names EN", common_names.get("en", [])),
+                catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
+            ]
+        )
+    else:
+        fields.append(catalog_label_fields(item))
+        if group == "forest_types":
+            fields.extend(
+                [
+                    catalog_form_field("parent_id", "Parent ID", item.get("parent_id", "")),
+                    catalog_form_textarea("dominant_host_ids", "Dominant host IDs", item.get("dominant_host_ids", [])),
+                    catalog_form_textarea("soil_bias_ids", "Soil bias IDs", item.get("soil_bias_ids", [])),
+                    catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
+                ]
+            )
+        elif group == "soil_types":
+            fields.extend(
+                [
+                    catalog_form_field("ph_min", "pH min", item.get("ph_min", ""), field_type="number"),
+                    catalog_form_field("ph_max", "pH max", item.get("ph_max", ""), field_type="number"),
+                    catalog_form_field("texture", "Texture", item.get("texture", "")),
+                    catalog_form_field("organic_matter", "Organic matter", item.get("organic_matter", "")),
+                    catalog_form_field("drainage", "Drainage", item.get("drainage", "")),
+                    catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
+                ]
+            )
+        elif group == "lithology_types":
+            fields.extend(
+                [
+                    catalog_form_field("general_reaction", "General reaction", item.get("general_reaction", "")),
+                    catalog_form_textarea("parent_soil_tendency_ids", "Parent soil tendency IDs", item.get("parent_soil_tendency_ids", [])),
+                    catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
+                ]
+            )
+        elif group == "aspects":
+            fields.extend(
+                [
+                    catalog_form_field("azimuth_min", "Azimuth min", item.get("azimuth_min", ""), field_type="number"),
+                    catalog_form_field("azimuth_max", "Azimuth max", item.get("azimuth_max", ""), field_type="number"),
+                ]
+            )
+        if "description" in item or group == "trophic_modes":
+            fields.append(catalog_form_textarea("description", "Description", item.get("description", "")))
+        if "notes" in item:
+            fields.append(catalog_form_textarea("notes", "Notes", item.get("notes", "")))
+
+    return f"""
+      <form class="catalog-entry-form" method="post" action="?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save this catalog entry and validate the full dataset?')">
+        <input type="hidden" name="catalog_action" value="save_entry_form">
+        <input type="hidden" name="group" value="{html.escape(group, quote=True)}">
+        <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
+        <div class="admin-form-grid">{''.join(fields)}</div>
+        <button class="primary">Save entry</button>
+      </form>
+    """
+
+
+def render_catalog_impact(row: dict[str, object]) -> str:
+    profile_count = int(row["profile_count"])
+    gis_count = int(row["gis_count"])
+    status = str(row["status"])
+    return f"""
+      <section class="catalog-impact">
+        <h3>Use and impact</h3>
+        <div class="grid">
+          <div><span class="label">Profiles using this ID</span><span class="value">{profile_count}</span></div>
+          <div><span class="label">GIS mappings emitting this ID</span><span class="value">{gis_count}</span></div>
+          <div><span class="label">Current status</span><span class="value">{html.escape(status)}</span></div>
+        </div>
+        <p class="meta">IDs used by profiles or GIS should not be renamed or deleted without an explicit migration.</p>
+      </section>
+    """
+
+
 def render_catalog_detail(row: dict[str, object] | None, errors: list[object], warnings: list[object]) -> str:
     if not row:
         return '<aside class="card catalog-detail"><h2>Catalog detail</h2><p>No catalog entry selected.</p></aside>'
@@ -3433,14 +3583,19 @@ def render_catalog_detail(row: dict[str, object] | None, errors: list[object], w
         <div><span class="label">GIS</span><span class="value">{int(row["gis_count"])}</span></div>
         <div><span class="label">Status</span><span class="value">{html.escape(str(row["status"]))}</span></div>
       </div>
-      <form class="catalog-json-editor" method="post" action="?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save this catalog entry and validate the full dataset?')">
-        <input type="hidden" name="catalog_action" value="save_entry">
-        <input type="hidden" name="group" value="{html.escape(group, quote=True)}">
-        <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
-        <label class="label" for="catalog-entry-json">Entry JSON</label>
-        <textarea id="catalog-entry-json" name="entry_json" spellcheck="false">{html.escape(json_value)}</textarea>
-        <button class="primary">Save entry</button>
-      </form>
+      {render_catalog_entry_form(row)}
+      {render_catalog_impact(row)}
+      <details>
+        <summary><strong>Advanced raw JSON</strong></summary>
+        <form class="catalog-json-editor" method="post" action="?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this catalog entry and validate the full dataset?')">
+          <input type="hidden" name="catalog_action" value="save_entry">
+          <input type="hidden" name="group" value="{html.escape(group, quote=True)}">
+          <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
+          <label class="label" for="catalog-entry-json">Entry JSON</label>
+          <textarea id="catalog-entry-json" name="entry_json" spellcheck="false">{html.escape(json_value)}</textarea>
+          <button class="primary">Save raw JSON</button>
+        </form>
+      </details>
       <h2>Validation</h2>
       {render_catalog_alerts(errors, warnings, limit=4)}
     </aside>
@@ -3459,6 +3614,92 @@ def replace_catalog_entry(catalog_payload: dict[str, object], group: str, item_i
     for index, existing in enumerate(items):
         if isinstance(existing, dict) and str(existing.get("id", "")) == item_id:
             items[index] = entry
+            return True, f"Updated catalog entry {item_id}."
+    return False, f"Catalog entry {item_id} was not found."
+
+
+def catalog_split_list(value: str) -> list[str]:
+    normalized = value.replace(",", "\n")
+    return [part.strip() for part in normalized.splitlines() if part.strip()]
+
+
+def catalog_form_string(form: dict[str, list[str]], name: str) -> str:
+    values = form.get(name, [])
+    return values[0].strip() if values else ""
+
+
+def catalog_form_nullable_string(form: dict[str, list[str]], name: str) -> str | None:
+    value = catalog_form_string(form, name)
+    return value or None
+
+
+def catalog_form_optional_number(form: dict[str, list[str]], name: str) -> float | int | None:
+    value = catalog_form_string(form, name)
+    if not value:
+        return None
+    number = float(value)
+    return int(number) if number.is_integer() else number
+
+
+def catalog_form_labels(form: dict[str, list[str]]) -> dict[str, str]:
+    return {language: catalog_form_string(form, f"label_{language}") for language in ("es", "ca", "en")}
+
+
+def catalog_entry_from_form(group: str, item_id: str, existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
+    entry = dict(existing)
+    entry["id"] = item_id
+    if group == "host_taxa":
+        entry["rank"] = catalog_form_string(form, "rank")
+        entry["scientific_name"] = catalog_form_string(form, "scientific_name")
+        entry["genus"] = catalog_form_nullable_string(form, "genus")
+        entry["family"] = catalog_form_string(form, "family")
+        entry["parent_id"] = catalog_form_nullable_string(form, "parent_id")
+        entry["common_names"] = {
+            "es": catalog_split_list(catalog_form_string(form, "common_names_es")),
+            "ca": catalog_split_list(catalog_form_string(form, "common_names_ca")),
+            "en": catalog_split_list(catalog_form_string(form, "common_names_en")),
+        }
+        entry["gis_aliases"] = catalog_split_list(catalog_form_string(form, "gis_aliases"))
+        return entry
+
+    entry["label"] = catalog_form_labels(form)
+    if group == "forest_types":
+        entry["parent_id"] = catalog_form_nullable_string(form, "parent_id")
+        entry["dominant_host_ids"] = catalog_split_list(catalog_form_string(form, "dominant_host_ids"))
+        entry["soil_bias_ids"] = catalog_split_list(catalog_form_string(form, "soil_bias_ids"))
+        entry["gis_aliases"] = catalog_split_list(catalog_form_string(form, "gis_aliases"))
+    elif group == "soil_types":
+        entry["ph_min"] = catalog_form_optional_number(form, "ph_min")
+        entry["ph_max"] = catalog_form_optional_number(form, "ph_max")
+        for field in ("texture", "organic_matter", "drainage"):
+            value = catalog_form_string(form, field)
+            if value or field in entry:
+                entry[field] = value
+        entry["gis_aliases"] = catalog_split_list(catalog_form_string(form, "gis_aliases"))
+    elif group == "lithology_types":
+        entry["general_reaction"] = catalog_form_string(form, "general_reaction")
+        entry["parent_soil_tendency_ids"] = catalog_split_list(catalog_form_string(form, "parent_soil_tendency_ids"))
+        entry["gis_aliases"] = catalog_split_list(catalog_form_string(form, "gis_aliases"))
+    elif group == "aspects":
+        entry["azimuth_min"] = catalog_form_optional_number(form, "azimuth_min")
+        entry["azimuth_max"] = catalog_form_optional_number(form, "azimuth_max")
+    if "description" in entry or group == "trophic_modes":
+        entry["description"] = catalog_form_string(form, "description")
+    if "notes" in entry:
+        entry["notes"] = catalog_form_string(form, "notes")
+    return entry
+
+
+def update_catalog_entry_from_form(catalog_payload: dict[str, object], group: str, item_id: str, form: dict[str, list[str]]) -> tuple[bool, str]:
+    catalogs = catalog_payload.get("catalogs")
+    if not isinstance(catalogs, dict):
+        return False, "Catalog payload does not contain a catalogs object."
+    items = catalogs.get(group)
+    if not isinstance(items, list):
+        return False, f"Catalog group {group} was not found."
+    for index, existing in enumerate(items):
+        if isinstance(existing, dict) and str(existing.get("id", "")) == item_id:
+            items[index] = catalog_entry_from_form(group, item_id, existing, form)
             return True, f"Updated catalog entry {item_id}."
     return False, f"Catalog entry {item_id} was not found."
 
@@ -4806,6 +5047,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     return ""
                 catalog_payload = store.load("catalogs")
                 ok, message = replace_catalog_entry(catalog_payload, group, item_id, entry)
+                if not ok:
+                    set_mushroom_catalogs_flash(message)
+                    return ""
+                result = store.replace("catalogs", catalog_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_catalogs_flash(message + suffix)
+                else:
+                    error_text = "; ".join(message.message for message in result.errors[:3])
+                    set_mushroom_catalogs_flash("Catalog entry was not saved: " + error_text)
+            elif action == "save_entry_form":
+                group = self.form_value(form, "group")
+                item_id = self.form_value(form, "id")
+                catalog_payload = store.load("catalogs")
+                ok, message = update_catalog_entry_from_form(catalog_payload, group, item_id, form)
                 if not ok:
                     set_mushroom_catalogs_flash(message)
                     return ""

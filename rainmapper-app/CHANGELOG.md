@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.154
+
+- Add field-based mushroom reference catalog editing while keeping raw JSON entry editing as an advanced panel.
+- Add a first use-and-impact panel for selected catalog entries.
+
 ## 0.2.153
 
 - Fix the mushroom catalog `All` filter so it keeps the full table visible instead of forcing the first catalog group.
