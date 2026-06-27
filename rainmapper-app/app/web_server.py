@@ -440,8 +440,163 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       font-weight: 800;
       padding: 7px 9px;
     }}
+    .control-head {{
+      align-items: start;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+      margin: 0 0 14px;
+      padding-bottom: 14px;
+    }}
+    .control-head p {{
+      margin: 0;
+    }}
+    .control-head-actions {{
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }}
+    .control-head-actions form,
+    .quick-actions form,
+    .source-action-form {{
+      margin: 0;
+    }}
+    .quick-actions {{
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 14px;
+    }}
+    .control-tabs {{
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 18px;
+      margin: 0 0 18px;
+      overflow-x: auto;
+    }}
+    .control-tab {{
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      color: var(--muted);
+      margin: 0;
+      min-height: 42px;
+      padding: 0 2px;
+      white-space: nowrap;
+    }}
+    .control-tab.active {{
+      border-bottom-color: var(--accent);
+      color: var(--accent);
+    }}
+    .control-tab-panel[hidden] {{
+      display: none;
+    }}
+    .control-section {{
+      margin: 0 0 18px;
+    }}
+    .control-section h2 {{
+      margin-top: 0;
+    }}
+    .summary-grid {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      margin: 0 0 14px;
+    }}
+    .panel-grid {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, .9fr) minmax(0, .9fr) minmax(0, 1.2fr);
+      margin: 12px 0 0;
+    }}
+    .control-table-wrap {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow-x: auto;
+    }}
+    .control-table {{
+      border-collapse: collapse;
+      min-width: 820px;
+      width: 100%;
+    }}
+    .control-table th,
+    .control-table td {{
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }}
+    .control-table th {{
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }}
+    .control-table tr:last-child td {{
+      border-bottom: 0;
+    }}
+    .status-pill {{
+      align-items: center;
+      display: inline-flex;
+      gap: 6px;
+      white-space: nowrap;
+    }}
+    .status-pill::before {{
+      background: currentColor;
+      border-radius: 50%;
+      content: "";
+      height: 8px;
+      width: 8px;
+    }}
+    .compact-card-list {{
+      display: grid;
+      gap: 8px;
+    }}
+    .compact-card {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }}
+    .quick-viewer-list,
+    .recent-map-list {{
+      display: grid;
+      gap: 8px;
+    }}
+    .quick-viewer-list .button-link,
+    .recent-map-link {{
+      justify-content: space-between;
+      margin: 0;
+      width: 100%;
+    }}
+    .recent-map-link {{
+      align-items: center;
+      color: var(--fg);
+      display: flex;
+      gap: 12px;
+      min-height: 46px;
+      text-decoration: none;
+    }}
+    .log-preview {{
+      max-height: 260px;
+    }}
     @media (max-width: 760px) {{
       .source-status-grid {{
+        grid-template-columns: 1fr;
+      }}
+      .control-head {{
+        display: block;
+      }}
+      .control-head-actions {{
+        justify-content: flex-start;
+        margin-top: 12px;
+      }}
+      .summary-grid,
+      .panel-grid {{
         grid-template-columns: 1fr;
       }}
     }}
@@ -1100,6 +1255,39 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
         modal.hidden = true;
       }}
     }}
+    function setControlTab(tabName) {{
+      var panels = Array.prototype.slice.call(document.querySelectorAll("[data-control-panel]"));
+      if (!panels.length) {{
+        return;
+      }}
+      var targetExists = panels.some(function(panel) {{
+        return panel.getAttribute("data-control-panel") === tabName;
+      }});
+      var activeTab = targetExists ? tabName : "summary";
+      panels.forEach(function(panel) {{
+        panel.hidden = panel.getAttribute("data-control-panel") !== activeTab;
+      }});
+      Array.prototype.slice.call(document.querySelectorAll(".control-tabs [data-control-tab]")).forEach(function(button) {{
+        var isActive = button.getAttribute("data-control-tab") === activeTab;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+      }});
+      try {{
+        window.sessionStorage.setItem("rainmapperControlTab", activeTab);
+      }} catch (error) {{}}
+    }}
+    function restoreControlTab() {{
+      var tabName = "";
+      if (window.location.hash && window.location.hash.indexOf("#tab-") === 0) {{
+        tabName = window.location.hash.slice(5);
+      }}
+      if (!tabName) {{
+        try {{
+          tabName = window.sessionStorage.getItem("rainmapperControlTab") || "";
+        }} catch (error) {{}}
+      }}
+      setControlTab(tabName || "summary");
+    }}
     function applyUsersFilter() {{
       var input = document.getElementById("users-filter");
       var list = document.getElementById("users-list");
@@ -1208,6 +1396,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
         closeCreateUserModal();
         return;
       }}
+      var controlTab = event.target.closest("[data-control-tab]");
+      if (controlTab) {{
+        var tabName = controlTab.getAttribute("data-control-tab");
+        setControlTab(tabName);
+        if (history.replaceState) {{
+          history.replaceState(null, "", "#tab-" + tabName);
+        }}
+        return;
+      }}
       var modal = document.getElementById("create-user-modal");
       if (modal && event.target === modal) {{
         closeCreateUserModal();
@@ -1221,6 +1418,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     document.addEventListener("DOMContentLoaded", function() {{
       applyUsersFilter();
       restoreExpandedUser();
+      restoreControlTab();
     }});
   </script>
 </body>
@@ -1691,6 +1889,119 @@ def source_status_cards(disabled: str = "") -> str:
         source_payload = sources.get(source, {}) if isinstance(sources, dict) else {}
         cards.append(source_status_card(source, source_payload, disabled=disabled))
     return '<div class="source-status-grid">' + "".join(cards) + "</div>"
+
+
+# Render the HA Control Panel as server-side fragments so the tabbed dashboard
+# stays dependency-free inside Home Assistant ingress.
+def source_status_payloads() -> list[tuple[str, dict]]:
+    payload = read_source_status()
+    sources = payload.get("sources", {}) if isinstance(payload, dict) else {}
+    if not isinstance(sources, dict):
+        sources = {}
+    return [
+        (source, sources.get(source, {}) if isinstance(sources.get(source, {}), dict) else {})
+        for source in ("Meteoclimatic", "Meteocat", "Wunderground", "AEMET")
+    ]
+
+
+def source_status_counts(payloads: list[tuple[str, dict]]) -> tuple[int, int]:
+    total = len(payloads)
+    ok_count = sum(1 for _source, payload in payloads if str(payload.get("status") or "").upper() == "OK")
+    return ok_count, total
+
+
+def source_status_table(payloads: list[tuple[str, dict]], disabled: str = "") -> str:
+    rows = []
+    for source, payload in payloads:
+        status = str(payload.get("status") or "Unknown")
+        status_class = source_status_class(status)
+        exit_code = payload.get("exit_code")
+        exit_text = "-" if exit_code is None else str(exit_code)
+        rows_text = "-" if payload.get("rows") is None else str(payload.get("rows"))
+        stations_text = "-" if payload.get("stations") is None else str(payload.get("stations"))
+        duration_text = format_seconds_duration(payload.get("duration_seconds"))
+        updated_at = str(payload.get("updated_at") or "-")
+        rows.append(
+            "<tr>"
+            f"<td><strong>{html.escape(source)}</strong></td>"
+            f'<td><span class="status-pill {status_class}">{html.escape(status)}</span><span class="meta">exit {html.escape(exit_text)}</span></td>'
+            f"<td>{html.escape(rows_text)}</td>"
+            f"<td>{html.escape(stations_text)}</td>"
+            f"<td>{html.escape(duration_text)}</td>"
+            f"<td>{html.escape(updated_at)}</td>"
+            '<td>'
+            f'<form class="source-action-form" method="post" action=""><input type="hidden" name="source_update" value="{html.escape(source)}"><button {disabled}>Update only</button></form>'
+            "</td>"
+            "</tr>"
+        )
+    return (
+        '<div class="control-table-wrap">'
+        '<table class="control-table">'
+        "<thead><tr><th>Source</th><th>Status</th><th>Rows</th><th>Stations</th><th>Duration</th><th>Updated</th><th>Action</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+        "</div>"
+    )
+
+
+def station_group_summary_card(title: str, group_name: str, station_ids: list[str], disabled_ids: list[str]) -> str:
+    return (
+        '<div class="compact-card">'
+        f"<strong>{html.escape(title)}</strong>"
+        f'<span class="meta">{len(station_ids)} current / {len(disabled_ids)} disabled</span>'
+        '<button type="button" class="button-link" data-control-tab="errors">View details</button>'
+        "</div>"
+    )
+
+
+def quick_viewer_links(links: list[tuple[str, str, bool]]) -> str:
+    items = [
+        f'<a class="button-link{" primary" if primary else ""}" href="{html.escape(url, quote=True)}" target="_top">{html.escape(label)}</a>'
+        for label, url, primary in links
+        if url
+    ]
+    return '<div class="quick-viewer-list">' + "".join(items) + "</div>"
+
+
+def map_file_records(limit: int | None = None) -> list[dict[str, str]]:
+    files = sorted(PLOTS_PATH.glob("*.html"))
+    if limit is not None:
+        files = files[:limit]
+    records = []
+    for file_path in files:
+        stat = file_path.stat()
+        name = file_path.name
+        records.append(
+            {
+                "name": name,
+                "title": name.removesuffix(".html").replace("_", " "),
+                "generated_at": format_datetime_from_timestamp(stat.st_mtime),
+                "size": format_size(stat.st_size),
+            }
+        )
+    return records
+
+
+def render_recent_map_links(limit: int = 3) -> str:
+    records = map_file_records(limit=limit)
+    if not records:
+        return '<div class="empty">No HTML maps found in <code>/share/rainmapper/Plots</code>.</div>'
+    links = []
+    for record in records:
+        links.append(
+            f'<a class="recent-map-link" href="file/{html.escape(record["name"])}">'
+            f'<span><strong>{html.escape(record["title"])}</strong>'
+            f'<span class="meta">{html.escape(record["name"])} - {html.escape(record["size"])} - {html.escape(record["generated_at"])}</span></span>'
+            "<span aria-hidden=\"true\">↗</span>"
+            "</a>"
+        )
+    return '<div class="recent-map-list">' + "".join(links) + "</div>"
+
+
+def render_log_preview(max_lines: int = 12) -> str:
+    lines = read_log().splitlines()
+    preview_lines = lines[-max_lines:] if len(lines) > max_lines else lines
+    return "<pre class=\"log-preview\">" + html.escape("\n".join(preview_lines)) + "</pre>"
 
 
 def update_station_group(group_name: str, enable: bool) -> int:
@@ -3635,11 +3946,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         disabled = "disabled" if running else ""
 
         controls = f"""
-        <form method="post" action=""><input type="hidden" name="run_action" value="update"><button {disabled}>Run update</button></form>
-        <form method="post" action=""><input type="hidden" name="run_action" value="maps"><button {disabled}>Generate maps</button></form>
-        <form method="post" action=""><input type="hidden" name="run_action" value="all"><button class="primary" {disabled}>Run all</button></form>
-        <a class="button-link" href="./settings">App settings</a>
-        <a class="button-link" href="./users">Users</a>
+        <div class="quick-actions">
+          <form method="post" action=""><input type="hidden" name="run_action" value="all"><button class="primary" {disabled}>Run all</button></form>
+          <form method="post" action=""><input type="hidden" name="run_action" value="update"><button {disabled}>Run update</button></form>
+          <form method="post" action=""><input type="hidden" name="run_action" value="maps"><button {disabled}>Generate maps</button></form>
+          <a class="button-link" href="./settings">App settings</a>
+          <a class="button-link" href="./users">Users</a>
+        </div>
+        """
+        head_controls = f"""
+        <div class="control-head-actions">
+          <span class="meta">Last update: {html.escape(finished_at)}</span>
+        </div>
         """
 
         if progress_percent and progress_total:
@@ -3652,6 +3970,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         else:
             progress_html = '<span class="value">-</span><span class="progress-text">No active station progress</span>'
 
+        source_payloads = source_status_payloads()
+        ok_sources, total_sources = source_status_counts(source_payloads)
         station_groups = failed_wunderground_groups()
         disabled_groups = disabled_station_groups()
         active_station_groups = {
@@ -3662,7 +3982,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             station_group_card("Wunderground 404", "404", active_station_groups["404"], disabled_groups["404"], disabled)
             + station_group_card("Wunderground parse errors", "parse", active_station_groups["parse"], disabled_groups["parse"], disabled)
         )
-        source_controls = source_status_cards(disabled)
+        station_summary = (
+            station_group_summary_card("Wunderground 404", "404", active_station_groups["404"], disabled_groups["404"])
+            + station_group_summary_card("Wunderground parse errors", "parse", active_station_groups["parse"], disabled_groups["parse"])
+        )
+        source_table = source_status_table(source_payloads, disabled)
+        source_cards = source_status_cards(disabled)
         leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html")
         maplibre_url = cache_busted_url("/protected/maplibre/index.html")
         heatmap_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-heatmap/index.html") if PUBLIC_MAPLIBRE_HEATMAP_PATH.exists() else ""
@@ -3673,77 +3998,130 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if heatmap_maplibre_url
             else ""
         )
-        heatmap_viewer_link = (
-            f'<a class="button-link" href="{html.escape(heatmap_maplibre_url, quote=True)}" target="_top">Open heatmap experiment</a>'
-            if heatmap_maplibre_url
-            else ""
-        )
         aemet_card = (
             f'<div class="card"><span class="label">AEMET test viewer</span><span class="value">{html.escape(aemet_maplibre_url)}</span></div>'
             if aemet_maplibre_url
             else ""
         )
-        aemet_viewer_link = (
-            f'<a class="button-link" href="{html.escape(aemet_maplibre_url, quote=True)}" target="_top">Open AEMET test viewer</a>'
-            if aemet_maplibre_url
-            else ""
-        )
+        viewer_links = [
+            ("Open Leaflet viewer", leaflet_url, True),
+            ("Open MapLibre viewer", maplibre_url, True),
+            ("Open heatmap experiment", heatmap_maplibre_url, False),
+            ("Open AEMET test viewer", aemet_maplibre_url, False),
+            ("Open Bokeh 21 days", bokeh_21d_url, False),
+        ]
+        visible_viewer_count = len([_label for _label, url, _primary in viewer_links if url])
+        maps_count = len(list(PLOTS_PATH.glob("*.html")))
 
-        status = f"""
-        <div class="status-grid">
-          <div class="status-row status-row-primary">
-            <div class="card"><span class="label">Version</span><span class="value">{html.escape(app_version())}</span></div>
-            <div class="card"><span class="label">Status</span><span class="value {status_class}">{status_text}</span></div>
-            <div class="card"><span class="label">Action</span><span class="value">{html.escape(action)}</span></div>
-            <div class="card"><span class="label">Started</span><span class="value">{html.escape(started_at)}</span></div>
-            <div class="card"><span class="label">Finished</span><span class="value">{html.escape(finished_at)}</span></div>
-            <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
-          </div>
-          <div class="status-row status-row-secondary">
-            <div class="card"><span class="label">Current step</span><span class="value">{html.escape(current_step)}</span></div>
-            <div class="card"><span class="label">Progress</span>{progress_html}</div>
-            <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
-            <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
-          </div>
-          <div class="status-row status-row-publication">
-            <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
-            <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
-            <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
-            {heatmap_card}
-            {aemet_card}
-            <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
-          </div>
+        summary_cards = f"""
+        <div class="summary-grid">
+          <div class="card"><span class="label">Status</span><span class="value {status_class}">{status_text}</span></div>
+          <div class="card"><span class="label">Version</span><span class="value">{html.escape(app_version())}</span></div>
+          <div class="card"><span class="label">Next schedule</span><span class="value">{html.escape(next_schedule_text())}</span></div>
+          <div class="card"><span class="label">Sources OK</span><span class="value ok">{ok_sources}/{total_sources}</span></div>
+          <div class="card"><span class="label">Viewers</span><span class="value">{visible_viewer_count}</span></div>
+          <div class="card"><span class="label">Generated maps</span><span class="value">{maps_count}</span></div>
         </div>
-        {source_controls}
-        <div class="station-grid">
-          {station_controls}
+        """
+
+        run_status_cards = f"""
+        <div class="summary-grid">
+          <div class="card"><span class="label">Action</span><span class="value">{html.escape(action)}</span></div>
+          <div class="card"><span class="label">Current step</span><span class="value">{html.escape(current_step)}</span></div>
+          <div class="card"><span class="label">Progress</span>{progress_html}</div>
+          <div class="card"><span class="label">Started</span><span class="value">{html.escape(started_at)}</span></div>
+          <div class="card"><span class="label">Finished</span><span class="value">{html.escape(finished_at)}</span></div>
+          <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
+          <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
+          <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
+          <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
+          <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
+          <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
+          {heatmap_card}
+          {aemet_card}
         </div>
         <p>{html.escape(message)}</p>
         <p>{html.escape(last_publish_message)}</p>
         """
 
+        tabs = """
+        <div class="control-tabs" role="tablist" aria-label="Rainmapper control panel sections">
+          <button type="button" class="control-tab active" data-control-tab="summary" role="tab" aria-selected="true">Summary</button>
+          <button type="button" class="control-tab" data-control-tab="sources" role="tab" aria-selected="false">Data sources</button>
+          <button type="button" class="control-tab" data-control-tab="viewers" role="tab" aria-selected="false">Viewers</button>
+          <button type="button" class="control-tab" data-control-tab="maps" role="tab" aria-selected="false">Maps</button>
+          <button type="button" class="control-tab" data-control-tab="logs" role="tab" aria-selected="false">Logs</button>
+          <button type="button" class="control-tab" data-control-tab="errors" role="tab" aria-selected="false">Errors</button>
+        </div>
+        """
+
         body = (
+            '<div class="control-head">'
+            "<div>"
             "<h1>Rainmapper</h1>"
-            "<p>Update weather data, generate maps, and browse generated HTML maps.</p>"
-            "<h2>Actions</h2>"
-            f"{controls}"
-            "<h2>Status</h2>"
-            f"{status}"
-            "<h2>Viewers</h2>"
-            '<div class="viewer-actions">'
-            f'<a class="button-link primary" href="{html.escape(leaflet_url, quote=True)}" target="_top">Open Leaflet viewer</a>'
-            f'<a class="button-link primary" href="{html.escape(maplibre_url, quote=True)}" target="_top">Open MapLibre viewer</a>'
-            f"{heatmap_viewer_link}"
-            f"{aemet_viewer_link}"
-            f'<a class="button-link" href="{html.escape(bokeh_21d_url, quote=True)}" target="_top">Open Bokeh 21 days</a>'
+            "<p>Control Panel</p>"
             "</div>"
-            '<h2 id="maps">Maps</h2>'
-            f"{self.render_map_list()}"
+            f"{head_controls}"
+            "</div>"
+            f"{controls}"
+            f"{tabs}"
+            '<section class="control-tab-panel" data-control-panel="summary">'
+            '<div class="control-section"><h2>Summary</h2>'
+            f"{summary_cards}"
+            f"{run_status_cards}"
+            "</div>"
+            '<div class="control-section"><h2>Data sources</h2>'
+            f"{source_table}"
+            "</div>"
+            '<div class="panel-grid">'
+            '<div class="card"><h2>Current errors</h2><div class="compact-card-list">'
+            f"{station_summary}"
+            "</div></div>"
+            '<div class="card"><h2>Quick viewers</h2>'
+            f"{quick_viewer_links(viewer_links)}"
+            "</div>"
+            '<div class="card"><h2>Recent maps</h2>'
+            f"{render_recent_map_links(limit=3)}"
+            '<button type="button" class="button-link" data-control-tab="maps">View all maps</button>'
+            "</div>"
+            "</div>"
             '<div class="section-header">'
             "<h2>Last log</h2>"
-            '<a class="button-link" href="./log" target="_blank" rel="noopener">Open</a>'
+            '<a class="button-link" href="./log" target="_blank" rel="noopener">Open full log</a>'
+            "</div>"
+            f"{render_log_preview()}"
+            "</section>"
+            '<section class="control-tab-panel" data-control-panel="sources" hidden>'
+            '<div class="control-section"><h2>Data sources</h2>'
+            f"{source_table}"
+            f"{source_cards}"
+            "</div></section>"
+            '<section class="control-tab-panel" data-control-panel="viewers" hidden>'
+            '<div class="control-section"><h2>Viewers</h2>'
+            f"{quick_viewer_links(viewer_links)}"
+            '<div class="status-grid"><div class="status-row status-row-publication">'
+            f'<div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>'
+            f'<div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>'
+            f"{heatmap_card}"
+            f"{aemet_card}"
+            "</div></div>"
+            "</div></section>"
+            '<section class="control-tab-panel" data-control-panel="maps" hidden>'
+            '<div class="control-section"><h2>Maps</h2>'
+            f"{self.render_map_list()}"
+            "</div></section>"
+            '<section class="control-tab-panel" data-control-panel="logs" hidden>'
+            '<div class="section-header">'
+            "<h2>Logs</h2>"
+            '<a class="button-link" href="./log" target="_blank" rel="noopener">Open full log</a>'
             "</div>"
             f"<pre>{html.escape(read_log())}</pre>"
+            "</section>"
+            '<section class="control-tab-panel" data-control-panel="errors" hidden>'
+            '<div class="control-section"><h2>Errors</h2>'
+            '<div class="station-grid">'
+            f"{station_controls}"
+            "</div></div></section>"
         )
         self.send_bytes(200, html_page("Rainmapper", body), "text/html; charset=utf-8")
 

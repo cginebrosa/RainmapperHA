@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.147
+
+- Redesign the Home Assistant Control Panel as a compact tabbed dashboard while preserving all existing run, source, viewer, map, log and station enable/disable actions.
+
 ## 0.2.146
 
 - Redesign the Home Assistant Users page as a compact accordion with a create-user modal, confirmation prompts for user/device/password actions and user audit timestamps.

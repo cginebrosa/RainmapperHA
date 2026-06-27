@@ -79,6 +79,76 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("AEMET 429 in last 24h", ok_html)
         self.assertNotIn("Consecutive AEMET 429 runs", ok_html)
 
+    def test_control_panel_tabs_preserve_existing_actions_and_links(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        self.web_server.PLOTS_PATH = data_dir / "Plots"
+        self.web_server.LOG_PATH = data_dir / "last_run.log"
+        self.web_server.SOURCE_STATUS_PATH = data_dir / "source_status.json"
+        self.web_server.STATIONS_PATH = data_dir / "stations.txt"
+        self.web_server.WUNDERGROUND_STATIONS_DB_PATH = data_dir / "estacions_wunderground.csv"
+        self.web_server.PUBLIC_MAPLIBRE_HEATMAP_PATH = data_dir / "rainmapper-maplibre-heatmap"
+        self.web_server.PUBLIC_MAPLIBRE_AEMET_PATH = data_dir / "rainmapper-maplibre-aemet"
+        self.web_server.PLOTS_PATH.mkdir()
+        self.web_server.PUBLIC_MAPLIBRE_HEATMAP_PATH.mkdir()
+        (self.web_server.PLOTS_PATH / "01_Tomap_Last_day.html").write_text("<html></html>", encoding="utf-8")
+        (self.web_server.PLOTS_PATH / "04_Tomap_Last_three_weeks.html").write_text("<html></html>", encoding="utf-8")
+        self.web_server.LOG_PATH.write_text(
+            "- STATION404 status code=404\n- STATIONPARSE list index out of range\n",
+            encoding="utf-8",
+        )
+        self.web_server.STATIONS_PATH.write_text(
+            "https://www.wunderground.com/dashboard/pws/STATION404\n"
+            "https://www.wunderground.com/dashboard/pws/STATIONPARSE\n"
+            "# rainmapper-disabled:404 https://www.wunderground.com/dashboard/pws/STATIONOLD\n",
+            encoding="utf-8",
+        )
+        self.web_server.SOURCE_STATUS_PATH.write_text(
+            json.dumps(
+                {
+                    "sources": {
+                        source: {
+                            "status": "OK",
+                            "exit_code": 0,
+                            "rows": 10,
+                            "stations": 2,
+                            "duration_seconds": 1,
+                            "updated_at": "2026-06-27T10:00:00",
+                        }
+                        for source in ("Meteoclimatic", "Meteocat", "Wunderground", "AEMET")
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured = {}
+
+        def capture_response(status: int, content: bytes, content_type: str) -> None:
+            captured["status"] = status
+            captured["content"] = content.decode("utf-8")
+            captured["content_type"] = content_type
+
+        handler.send_bytes = capture_response
+        handler.render_index()
+
+        self.assertEqual(captured["status"], 200)
+        page = captured["content"]
+        for label in ("Summary", "Data sources", "Viewers", "Maps", "Logs", "Errors"):
+            self.assertIn(label, page)
+        for action in ("Run update", "Generate maps", "Run all", "App settings", "Users"):
+            self.assertIn(action, page)
+        for source in ("Meteoclimatic", "Meteocat", "Wunderground", "AEMET"):
+            self.assertIn(f'name="source_update" value="{source}"', page)
+        self.assertIn("Open Leaflet viewer", page)
+        self.assertIn("Open MapLibre viewer", page)
+        self.assertIn("Open heatmap experiment", page)
+        self.assertIn("Open Bokeh 21 days", page)
+        self.assertIn("01 Tomap Last day", page)
+        self.assertIn("Open full log", page)
+        self.assertIn("Disable all", page)
+        self.assertIn("Enable all", page)
+
     def test_basic_role_allows_two_devices_and_reusing_existing_device(self) -> None:
         self.write_users_json(
             [
