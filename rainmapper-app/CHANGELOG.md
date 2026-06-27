@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.159
+
+- Split the mushroom species editor into tabs and expose calibration as its own maintenance area.
+- Block duplicate IDs inside species affinity groups before saving profile changes.
+- Add navigation from reference catalogs back to mushroom species.
+
 ## 0.2.158
 
 - Add the first mushroom species maintenance WebUI with a species list, guided profile editor, catalog-backed ecology selectors, validation-backed saves and raw JSON advanced editing.

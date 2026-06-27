@@ -185,6 +185,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("host_taxa", page)
         self.assertIn("host_pinus_spp", page)
         self.assertIn("Full catalog JSON import/export", page)
+        self.assertIn('href="./profiles"', page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_reference_catalogs.json").exists())
 
     def test_mushroom_profiles_page_renders_species_editor(self) -> None:
@@ -222,6 +223,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Mantenimiento de especies", page)
         self.assertIn("Boletus pinophilus", page)
         self.assertIn("Host Affinities", page)
+        self.assertIn("profile-tab-labels", page)
+        self.assertIn("Calibration", page)
+        self.assertIn("Local calibration status", page)
         self.assertIn("Full profiles JSON import/export", page)
         self.assertIn('href="./catalogs"', page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
@@ -402,6 +406,72 @@ class AuthDeviceLimitTests(unittest.TestCase):
             updated["ecology"]["host_affinities"],
         )
         self.assertEqual(40, updated["prediction_confidence"]["minimum_observations_for_calibration"])
+
+    def test_profile_affinity_duplicate_errors_report_duplicate_ids(self) -> None:
+        profile = {
+            "species_id": "boletus_test",
+            "ecology": {
+                "host_affinities": [
+                    {"id": "host_pinus_spp", "relationship": "primary", "affinity": 1.0},
+                    {"id": "host_pinus_spp", "relationship": "secondary", "affinity": 0.5},
+                ],
+                "forest_type_affinities": [],
+                "soil_affinities": [],
+                "lithology_affinities": [],
+                "habitat_feature_affinities": [],
+            },
+        }
+
+        errors = self.web_server.profile_affinity_duplicate_errors(profile)
+
+        self.assertEqual(
+            ["boletus_test: host_affinities contains duplicate IDs: host_pinus_spp."],
+            errors,
+        )
+
+    def test_mushroom_profiles_post_blocks_duplicate_affinities(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        store = self.web_server.default_store()
+        store.ensure_seeded()
+        payload = store.load("profiles")
+        profile = next(
+            item
+            for item in payload["species_profiles"]
+            if item["species_id"] == "boletus_pinophilus"
+        )
+        profile["ecology"]["host_affinities"].append(dict(profile["ecology"]["host_affinities"][0]))
+
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["save_profile_json"],
+                "species_id": ["boletus_pinophilus"],
+                "profile_json": [json.dumps(profile)],
+            }
+        )
+
+        self.assertEqual("?id=boletus_pinophilus", redirect)
+        self.assertIn(
+            "host_affinities contains duplicate IDs",
+            self.web_server.RUN_STATE["mushroom_profiles_flash"],
+        )
 
     def test_mushroom_catalog_summary_uses_validator_status_not_loose_scan(self) -> None:
         catalogs = {

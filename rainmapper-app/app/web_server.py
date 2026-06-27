@@ -1506,6 +1506,68 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       font-size: 16px;
       margin: 0;
     }}
+    .profile-tabs {{
+      display: grid;
+      gap: 12px;
+    }}
+    .profile-tabs input[type="radio"] {{
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      position: absolute;
+      width: 1px;
+    }}
+    .profile-tab-labels {{
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-bottom: 8px;
+    }}
+    .profile-tab-labels label {{
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 10px;
+    }}
+    .profile-tab-panel {{
+      display: none;
+    }}
+    #profile-tab-general:checked ~ .profile-tab-labels label[for="profile-tab-general"],
+    #profile-tab-ecology:checked ~ .profile-tab-labels label[for="profile-tab-ecology"],
+    #profile-tab-phenology:checked ~ .profile-tab-labels label[for="profile-tab-phenology"],
+    #profile-tab-weather:checked ~ .profile-tab-labels label[for="profile-tab-weather"],
+    #profile-tab-scoring:checked ~ .profile-tab-labels label[for="profile-tab-scoring"],
+    #profile-tab-calibration:checked ~ .profile-tab-labels label[for="profile-tab-calibration"],
+    #profile-tab-metadata:checked ~ .profile-tab-labels label[for="profile-tab-metadata"],
+    #profile-tab-json:checked ~ .profile-tab-labels label[for="profile-tab-json"] {{
+      background: rgba(3, 169, 244, .12);
+      border-color: var(--accent);
+      color: var(--accent);
+    }}
+    #profile-tab-general:checked ~ .profile-tab-content .profile-tab-panel.general,
+    #profile-tab-ecology:checked ~ .profile-tab-content .profile-tab-panel.ecology,
+    #profile-tab-phenology:checked ~ .profile-tab-content .profile-tab-panel.phenology,
+    #profile-tab-weather:checked ~ .profile-tab-content .profile-tab-panel.weather,
+    #profile-tab-scoring:checked ~ .profile-tab-content .profile-tab-panel.scoring,
+    #profile-tab-calibration:checked ~ .profile-tab-content .profile-tab-panel.calibration,
+    #profile-tab-metadata:checked ~ .profile-tab-content .profile-tab-panel.metadata,
+    #profile-tab-json:checked ~ .profile-tab-content .profile-tab-panel.json {{
+      display: grid;
+    }}
+    .profile-calibration-summary {{
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .profile-calibration-summary div {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+    }}
     .profile-grid {{
       display: grid;
       gap: 9px;
@@ -1582,6 +1644,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       .profile-grid,
       .profile-grid.three,
       .profile-grid.four,
+      .profile-calibration-summary,
       .profile-affinity-row {{
         grid-template-columns: 1fr;
       }}
@@ -4379,81 +4442,118 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
       <form method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save this species profile and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_form">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-        <section class="profile-section">
-          <h2>General</h2>
-          <div class="profile-grid">
-            {profile_form_field("species_id_display", "Species ID", species_id, readonly=True)}
-            {profile_form_field("scientific_name", "Scientific name", profile.get("scientific_name", ""))}
-            {profile_form_textarea("common_names", "Common names", profile.get("common_names", []), rows=2)}
-            {profile_form_select("taxonomy_status", "Taxonomy status", profile.get("taxonomy_status", ""), PROFILE_SELECT_VALUES["taxonomy_status"])}
-            {profile_form_select("edibility", "Edibility", profile.get("edibility", ""), PROFILE_SELECT_VALUES["edibility"])}
+        <div class="profile-tabs">
+          <input type="radio" name="profile_tab" id="profile-tab-general" checked>
+          <input type="radio" name="profile_tab" id="profile-tab-ecology">
+          <input type="radio" name="profile_tab" id="profile-tab-phenology">
+          <input type="radio" name="profile_tab" id="profile-tab-weather">
+          <input type="radio" name="profile_tab" id="profile-tab-scoring">
+          <input type="radio" name="profile_tab" id="profile-tab-calibration">
+          <input type="radio" name="profile_tab" id="profile-tab-metadata">
+          <input type="radio" name="profile_tab" id="profile-tab-json">
+          <div class="profile-tab-labels">
+            <label for="profile-tab-general">General</label>
+            <label for="profile-tab-ecology">Ecology</label>
+            <label for="profile-tab-phenology">Phenology / topography</label>
+            <label for="profile-tab-weather">Weather</label>
+            <label for="profile-tab-scoring">Scoring</label>
+            <label for="profile-tab-calibration">Calibration</label>
+            <label for="profile-tab-metadata">Metadata</label>
+            <label for="profile-tab-json">JSON</label>
           </div>
-        </section>
-        <section class="profile-section">
-          <h2>Ecology</h2>
-          <div class="profile-grid">
-            {profile_form_catalog_select("trophic_mode_id", "Trophic mode", ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
+          <div class="profile-tab-content">
+            <section class="profile-section profile-tab-panel general">
+              <h2>General</h2>
+              <div class="profile-grid">
+                {profile_form_field("species_id_display", "Species ID", species_id, readonly=True)}
+                {profile_form_field("scientific_name", "Scientific name", profile.get("scientific_name", ""))}
+                {profile_form_textarea("common_names", "Common names", profile.get("common_names", []), rows=2)}
+                {profile_form_select("taxonomy_status", "Taxonomy status", profile.get("taxonomy_status", ""), PROFILE_SELECT_VALUES["taxonomy_status"])}
+                {profile_form_select("edibility", "Edibility", profile.get("edibility", ""), PROFILE_SELECT_VALUES["edibility"])}
+              </div>
+            </section>
+            <section class="profile-section profile-tab-panel ecology">
+              <h2>Ecology</h2>
+              <div class="profile-grid">
+                {profile_form_catalog_select("trophic_mode_id", "Trophic mode", ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
+              </div>
+              {affinity_blocks}
+            </section>
+            <section class="profile-section profile-tab-panel phenology">
+              <h2>Phenology and topography</h2>
+              <div class="profile-grid four">
+                {profile_form_textarea("main_months", "Main months", phenology.get("main_months", []), rows=2)}
+                {profile_form_textarea("secondary_months", "Secondary months", phenology.get("secondary_months", []), rows=2)}
+                {profile_form_textarea("season_pattern_ids", "Season patterns", phenology.get("season_pattern_ids", []), rows=2)}
+                {profile_form_textarea("preferred_aspect_ids", "Preferred aspects", topography.get("preferred_aspect_ids", []), rows=2)}
+                {profile_form_field("delay_min", "Delay min", delay.get("min", ""), field_type="number")}
+                {profile_form_field("delay_optimal_min", "Delay optimal min", delay.get("optimal_min", ""), field_type="number")}
+                {profile_form_field("delay_optimal_max", "Delay optimal max", delay.get("optimal_max", ""), field_type="number")}
+                {profile_form_field("delay_max", "Delay max", delay.get("max", ""), field_type="number")}
+                {profile_form_field("altitude_min_m", "Altitude min m", topography.get("altitude_min_m", ""), field_type="number")}
+                {profile_form_field("altitude_optimal_min_m", "Altitude optimal min m", topography.get("altitude_optimal_min_m", ""), field_type="number")}
+                {profile_form_field("altitude_optimal_max_m", "Altitude optimal max m", topography.get("altitude_optimal_max_m", ""), field_type="number")}
+                {profile_form_field("altitude_max_m", "Altitude max m", topography.get("altitude_max_m", ""), field_type="number")}
+              </div>
+              {profile_form_textarea("aspect_notes", "Aspect notes", topography.get("aspect_notes", ""), rows=2)}
+            </section>
+            <section class="profile-section profile-tab-panel weather">
+              <h2>Weather model</h2>
+              <div class="profile-grid four">
+                {''.join(profile_form_field(f"rainfall_{key}", key, value, field_type="number") for key, value in rainfall.items())}
+                {''.join(profile_form_field(f"temperature_{key}", key, value, field_type="number") for key, value in temperature.items())}
+                {''.join(profile_form_field(f"humidity_{key}", key, value, field_type="number") for key, value in humidity.items())}
+                {''.join(profile_form_field(f"wind_{key}", key, value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
+              </div>
+            </section>
+            <section class="profile-section profile-tab-panel scoring">
+              <h2>Scoring weights</h2>
+              <div class="profile-grid four">
+                {''.join(profile_form_field(f"score_{key}", key, value, field_type="number") for key, value in scoring.items())}
+              </div>
+            </section>
+            <section class="profile-section profile-tab-panel calibration">
+              <h2>Calibration</h2>
+              <div class="profile-calibration-summary">
+                <div><span class="label">Current status</span><span class="value">{html.escape(str(confidence.get("local_calibration_status", "-")))}</span></div>
+                <div><span class="label">Priority</span><span class="value">{html.escape(str(confidence.get("calibration_priority", "-")))}</span></div>
+                <div><span class="label">Overall confidence</span><span class="value">{html.escape(str(confidence.get("overall_confidence", "-")))}</span></div>
+                <div><span class="label">Human validation</span><span class="value">{html.escape(str(metadata.get("requires_human_validation", "-")))}</span></div>
+              </div>
+              <div class="profile-grid four">
+                {profile_form_select("local_calibration_status", "Local calibration status", confidence.get("local_calibration_status", ""), PROFILE_SELECT_VALUES["calibration_status"])}
+                {profile_form_select("calibration_priority", "Calibration priority", confidence.get("calibration_priority", ""), PROFILE_SELECT_VALUES["calibration_priority"])}
+                {profile_form_select("overall_confidence", "Overall confidence", confidence.get("overall_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+                {profile_form_select("habitat_confidence", "Habitat confidence", confidence.get("habitat_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+                {profile_form_select("topography_confidence", "Topography confidence", confidence.get("topography_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+                {profile_form_select("phenology_confidence", "Phenology confidence", confidence.get("phenology_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+                {profile_form_select("weather_threshold_confidence", "Weather threshold confidence", confidence.get("weather_threshold_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+                {profile_form_select("taxonomy_confidence", "Taxonomy confidence", confidence.get("taxonomy_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+                {profile_form_field("minimum_observations_for_calibration", "Min observations calibration", confidence.get("minimum_observations_for_calibration", ""), field_type="number")}
+                {profile_form_field("minimum_positive_observations", "Min positive observations", confidence.get("minimum_positive_observations", ""), field_type="number")}
+                {profile_form_field("minimum_negative_observations", "Min negative observations", confidence.get("minimum_negative_observations", ""), field_type="number")}
+              </div>
+              {profile_form_textarea("confidence_notes", "Calibration notes", confidence.get("notes", ""), rows=3)}
+            </section>
+            <section class="profile-section profile-tab-panel metadata">
+              <h2>Metadata</h2>
+              <div class="profile-grid three">
+                {profile_form_field("profile_version", "Profile version", metadata.get("profile_version", ""))}
+                {profile_form_field("created_at", "Created at", metadata.get("created_at", ""))}
+                {profile_form_field("updated_at", "Updated at", metadata.get("updated_at", ""))}
+                {profile_form_field("created_by", "Created by", metadata.get("created_by", ""))}
+                {profile_form_select("review_status", "Review status", metadata.get("review_status", ""), PROFILE_SELECT_VALUES["review_status"])}
+                {profile_form_field("reviewed_by", "Reviewed by", metadata.get("reviewed_by", ""))}
+                {profile_form_select("source_quality", "Source quality", metadata.get("source_quality", ""), PROFILE_SELECT_VALUES["source_quality"])}
+                {profile_form_field("requires_human_validation", "Requires human validation", metadata.get("requires_human_validation"), field_type="checkbox")}
+              </div>
+            </section>
+            <section class="profile-section profile-tab-panel json">
+              <h2>Advanced JSON</h2>
+              <p class="meta">Use the raw JSON panel below only when a field is not exposed by the guided form.</p>
+            </section>
           </div>
-          {affinity_blocks}
-        </section>
-        <section class="profile-section">
-          <h2>Phenology and topography</h2>
-          <div class="profile-grid four">
-            {profile_form_textarea("main_months", "Main months", phenology.get("main_months", []), rows=2)}
-            {profile_form_textarea("secondary_months", "Secondary months", phenology.get("secondary_months", []), rows=2)}
-            {profile_form_textarea("season_pattern_ids", "Season patterns", phenology.get("season_pattern_ids", []), rows=2)}
-            {profile_form_textarea("preferred_aspect_ids", "Preferred aspects", topography.get("preferred_aspect_ids", []), rows=2)}
-            {profile_form_field("delay_min", "Delay min", delay.get("min", ""), field_type="number")}
-            {profile_form_field("delay_optimal_min", "Delay optimal min", delay.get("optimal_min", ""), field_type="number")}
-            {profile_form_field("delay_optimal_max", "Delay optimal max", delay.get("optimal_max", ""), field_type="number")}
-            {profile_form_field("delay_max", "Delay max", delay.get("max", ""), field_type="number")}
-            {profile_form_field("altitude_min_m", "Altitude min m", topography.get("altitude_min_m", ""), field_type="number")}
-            {profile_form_field("altitude_optimal_min_m", "Altitude optimal min m", topography.get("altitude_optimal_min_m", ""), field_type="number")}
-            {profile_form_field("altitude_optimal_max_m", "Altitude optimal max m", topography.get("altitude_optimal_max_m", ""), field_type="number")}
-            {profile_form_field("altitude_max_m", "Altitude max m", topography.get("altitude_max_m", ""), field_type="number")}
-          </div>
-          {profile_form_textarea("aspect_notes", "Aspect notes", topography.get("aspect_notes", ""), rows=2)}
-        </section>
-        <section class="profile-section">
-          <h2>Weather model</h2>
-          <div class="profile-grid four">
-            {''.join(profile_form_field(f"rainfall_{key}", key, value, field_type="number") for key, value in rainfall.items())}
-            {''.join(profile_form_field(f"temperature_{key}", key, value, field_type="number") for key, value in temperature.items())}
-            {''.join(profile_form_field(f"humidity_{key}", key, value, field_type="number") for key, value in humidity.items())}
-            {''.join(profile_form_field(f"wind_{key}", key, value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
-          </div>
-        </section>
-        <section class="profile-section">
-          <h2>Scoring and confidence</h2>
-          <div class="profile-grid four">
-            {''.join(profile_form_field(f"score_{key}", key, value, field_type="number") for key, value in scoring.items())}
-            {profile_form_select("overall_confidence", "Overall confidence", confidence.get("overall_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-            {profile_form_select("habitat_confidence", "Habitat confidence", confidence.get("habitat_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-            {profile_form_select("topography_confidence", "Topography confidence", confidence.get("topography_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-            {profile_form_select("phenology_confidence", "Phenology confidence", confidence.get("phenology_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-            {profile_form_select("weather_threshold_confidence", "Weather threshold confidence", confidence.get("weather_threshold_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-            {profile_form_select("taxonomy_confidence", "Taxonomy confidence", confidence.get("taxonomy_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-            {profile_form_select("local_calibration_status", "Local calibration status", confidence.get("local_calibration_status", ""), PROFILE_SELECT_VALUES["calibration_status"])}
-            {profile_form_select("calibration_priority", "Calibration priority", confidence.get("calibration_priority", ""), PROFILE_SELECT_VALUES["calibration_priority"])}
-            {profile_form_field("minimum_observations_for_calibration", "Min observations calibration", confidence.get("minimum_observations_for_calibration", ""), field_type="number")}
-            {profile_form_field("minimum_positive_observations", "Min positive observations", confidence.get("minimum_positive_observations", ""), field_type="number")}
-            {profile_form_field("minimum_negative_observations", "Min negative observations", confidence.get("minimum_negative_observations", ""), field_type="number")}
-          </div>
-          {profile_form_textarea("confidence_notes", "Confidence notes", confidence.get("notes", ""), rows=2)}
-        </section>
-        <section class="profile-section">
-          <h2>Metadata</h2>
-          <div class="profile-grid three">
-            {profile_form_field("profile_version", "Profile version", metadata.get("profile_version", ""))}
-            {profile_form_field("created_at", "Created at", metadata.get("created_at", ""))}
-            {profile_form_field("updated_at", "Updated at", metadata.get("updated_at", ""))}
-            {profile_form_field("created_by", "Created by", metadata.get("created_by", ""))}
-            {profile_form_select("review_status", "Review status", metadata.get("review_status", ""), PROFILE_SELECT_VALUES["review_status"])}
-            {profile_form_field("reviewed_by", "Reviewed by", metadata.get("reviewed_by", ""))}
-            {profile_form_select("source_quality", "Source quality", metadata.get("source_quality", ""), PROFILE_SELECT_VALUES["source_quality"])}
-            {profile_form_field("requires_human_validation", "Requires human validation", metadata.get("requires_human_validation"), field_type="checkbox")}
-          </div>
-        </section>
+        </div>
         <button class="primary">Save species profile</button>
       </form>
       <details>
@@ -4501,6 +4601,41 @@ def profile_affinities_from_form(form: dict[str, list[str]], field: str) -> list
             affinities.append(item)
         index += 1
     return affinities
+
+
+def profile_affinity_duplicate_errors(profile: dict[str, object]) -> list[str]:
+    species_id = str(profile.get("species_id", "") or "-")
+    ecology = profile_nested_dict(profile, "ecology")
+    errors = []
+    for field in PROFILE_AFFINITY_GROUPS:
+        values = ecology.get(field)
+        if not isinstance(values, list):
+            continue
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for item in values:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id", "") or "").strip()
+            if not item_id:
+                continue
+            if item_id in seen:
+                duplicates.add(item_id)
+            seen.add(item_id)
+        if duplicates:
+            errors.append(f"{species_id}: {field} contains duplicate IDs: {', '.join(sorted(duplicates))}.")
+    return errors
+
+
+def profiles_payload_affinity_duplicate_errors(payload: dict[str, object]) -> list[str]:
+    profiles = payload.get("species_profiles")
+    if not isinstance(profiles, list):
+        return []
+    errors = []
+    for profile in profiles:
+        if isinstance(profile, dict):
+            errors.extend(profile_affinity_duplicate_errors(profile))
+    return errors
 
 
 def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
@@ -5624,6 +5759,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         <div class="catalog-toolbar">
           <a class="button-link" href="../">Back</a>
           <a class="button-link" href="?">Refresh</a>
+          <a class="button-link" href="./profiles">Mushroom species</a>
           <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="group" value="{html.escape(selected_group, quote=True)}">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search ID, group, label or domain">
@@ -6062,6 +6198,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if not isinstance(entry, dict):
                     set_mushroom_profiles_flash("Species profile JSON must be an object.")
                     return ""
+                duplicate_errors = profile_affinity_duplicate_errors(entry)
+                if duplicate_errors:
+                    set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(duplicate_errors[:3]))
+                    return profile_query_url(species_id)
                 profiles_payload = store.load("profiles")
                 ok, message = replace_profile_entry(profiles_payload, species_id, entry)
                 if not ok:
@@ -6091,6 +6231,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
                     return ""
                 entry = profile_from_form(existing, form)
+                duplicate_errors = profile_affinity_duplicate_errors(entry)
+                if duplicate_errors:
+                    set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(duplicate_errors[:3]))
+                    return profile_query_url(species_id)
                 ok, message = replace_profile_entry(profiles_payload, species_id, entry)
                 if not ok:
                     set_mushroom_profiles_flash(message)
@@ -6106,6 +6250,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 payload = json.loads(self.form_value(form, "profiles_json"))
                 if not isinstance(payload, dict):
                     set_mushroom_profiles_flash("Profiles JSON must be an object.")
+                    return ""
+                duplicate_errors = profiles_payload_affinity_duplicate_errors(payload)
+                if duplicate_errors:
+                    set_mushroom_profiles_flash("Profiles were not saved: " + "; ".join(duplicate_errors[:3]))
                     return ""
                 result = store.replace("profiles", payload)
                 if result.ok:
