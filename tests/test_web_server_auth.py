@@ -230,6 +230,29 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('action="/mushrooms/catalogs"', source)
         self.assertEqual("?group=host_taxa&id=host_foo", self.web_server.catalog_query_url("host_taxa", "host_foo"))
 
+    def test_mushroom_catalog_summary_uses_validator_status_not_loose_scan(self) -> None:
+        catalogs = {
+            "host_taxa": [{"id": "host_pinus", "scientific_name": "Pinus"}],
+            "lithology_types": [{"id": "lith_limestone", "label": {"en": "Limestone"}}],
+        }
+        rows, metrics = self.web_server.catalog_rows(
+            catalogs,
+            {"species_profiles": []},
+            {
+                "mapping_sources": [{"mapping_type": "forest_species_or_forest_type"}],
+                "derived_rules": [{"inputs": ["lith_limestone_or_dolomite_or_marl"], "outputs": ["lith_limestone"]}],
+            },
+        )
+
+        html = self.web_server.render_catalog_metric_cards(metrics, errors=[], warnings=[])
+
+        self.assertEqual(2, len(rows))
+        self.assertNotIn("unknown", metrics)
+        self.assertNotIn("Broken refs", html)
+        self.assertIn("Reference errors", html)
+        self.assertIn("Validation", html)
+        self.assertIn("0 errors · 0 warnings", html)
+
     def test_basic_role_allows_two_devices_and_reusing_existing_device(self) -> None:
         self.write_users_json(
             [

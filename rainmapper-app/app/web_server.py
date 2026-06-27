@@ -3248,26 +3248,6 @@ def collect_catalog_usage_references(payload: object, catalog_ids: set[str]) -> 
     return references
 
 
-def collect_unknown_catalog_references(payload: object, catalog_ids: set[str]) -> set[str]:
-    unknown: set[str] = set()
-
-    def visit(value: object) -> None:
-        if isinstance(value, dict):
-            for key, nested in value.items():
-                if key == "id" and isinstance(nested, str):
-                    continue
-                visit(nested)
-        elif isinstance(value, list):
-            for nested in value:
-                visit(nested)
-        elif isinstance(value, str) and re.match(r"^(host|forest|soil|lith|aspect|season|feature|trophic)_", value):
-            if value not in catalog_ids:
-                unknown.add(value)
-
-    visit(payload)
-    return unknown
-
-
 def catalog_rows(catalogs: dict[str, object], profiles: object, gis: object) -> tuple[list[dict[str, object]], dict[str, int]]:
     catalog_ids = {
         str(item.get("id"))
@@ -3315,7 +3295,6 @@ def catalog_rows(catalogs: dict[str, object], profiles: object, gis: object) -> 
         "gis_used": len([row for row in rows if int(row["gis_count"]) > 0]),
         "unused": len([row for row in rows if row["status"] == "Unused"]),
         "hierarchy": hierarchy_count,
-        "unknown": len(collect_unknown_catalog_references(profiles, catalog_ids) | collect_unknown_catalog_references(gis, catalog_ids)),
     }
     return rows, metrics
 
@@ -3338,13 +3317,25 @@ def catalog_query_url(group: str = "", item_id: str = "", search: str = "") -> s
     return ("?" + urlencode(params)) if params else "?"
 
 
-def render_catalog_metric_cards(metrics: dict[str, int], errors_count: int, warnings_count: int) -> str:
+def catalog_reference_error_count(errors: list[object]) -> int:
+    count = 0
+    for message in errors:
+        text = str(getattr(message, "message", "")).lower()
+        if "unknown" in text and "id" in text:
+            count += 1
+    return count
+
+
+def render_catalog_metric_cards(metrics: dict[str, int], errors: list[object], warnings: list[object]) -> str:
+    errors_count = len(errors)
+    warnings_count = len(warnings)
+    reference_errors = catalog_reference_error_count(errors)
     cards = [
         ("Total groups", str(metrics["groups"]), ""),
         ("Total IDs", str(metrics["ids"]), ""),
         ("Used in profiles", str(metrics["profile_used"]), "ok"),
         ("Used in GIS", str(metrics["gis_used"]), "ok"),
-        ("Broken refs", str(metrics["unknown"]), "danger" if metrics["unknown"] else "ok"),
+        ("Reference errors", str(reference_errors), "danger" if reference_errors else "ok"),
         ("Unused", str(metrics["unused"]), "warn" if metrics["unused"] else "ok"),
         ("With hierarchy", str(metrics["hierarchy"]), ""),
         ("Validation", f"{errors_count} errors · {warnings_count} warnings", "danger" if errors_count else "warn" if warnings_count else "ok"),
@@ -4549,7 +4540,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         </div>
         {flash_html}
         {seeded_html}
-        {render_catalog_metric_cards(metrics, len(errors), len(warnings))}
+        {render_catalog_metric_cards(metrics, errors, warnings)}
         {render_catalog_group_chips(catalogs, selected_group, search)}
         <div class="catalog-layout">
           <section>

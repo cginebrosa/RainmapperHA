@@ -38,7 +38,8 @@ Estado de implementacion:
 - `POST /api/mushrooms/import` solo permite `profiles` y `catalogs`; `gis` queda solo lectura en esta fase.
 - Primera UI WebUI de catalogos disponible en `/mushrooms/catalogs`: hub de metricas, filtros por grupo, busqueda, tabla de IDs, creacion de entradas nuevas por grupo con plantilla minima validada, detalle con JSON editable por entrada, panel de validacion cruzada y bloque avanzado de import/export/plantilla JSON del catalogo completo.
 - La UI de catalogos usa POST server-side por ingress HA, igual que `Users`; los endpoints JSON quedan como base para futuras pantallas cliente.
-- Primera release HA que incluye backend/store y UI de catalogos: `0.2.150`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.150/latest`, digest multi-arch `sha256:35e42628eeb0937ec800608e9251fa0ef8148d4f6a626aea52a13a341ba71c0f`, commit `ecf2ed8`. Validacion local: `./scripts/smoke-test.sh` OK con 97 tests. Validacion HA: no cerrarla como buena por 404 en HA ingress al pulsar `Mushroom catalogs`; fix local aplicado con rutas relativas y seeding de defaults al arrancar.
+- Primera release HA que incluye backend/store y UI de catalogos: `0.2.150`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.150/latest`, digest multi-arch `sha256:35e42628eeb0937ec800608e9251fa0ef8148d4f6a626aea52a13a341ba71c0f`, commit `ecf2ed8`. Validacion local: `./scripts/smoke-test.sh` OK con 97 tests. Validacion HA: no cerrarla como buena por 404 en HA ingress al pulsar `Mushroom catalogs`; fix local aplicado con rutas relativas, seeding de defaults al arrancar y contador `Reference errors` derivado del validador para evitar falsos positivos GIS.
+- La semantica exacta de `Reference errors` debe revisarse cuando esten completos el mantenimiento de perfiles, el mantenimiento GIS y el motor de prediccion; por ahora no debe contar cadenas tecnicas GIS que no sean IDs internos de catalogo.
 
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
