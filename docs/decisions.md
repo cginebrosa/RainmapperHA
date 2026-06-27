@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
+
+Decision:
+
+- Ajustar solo el contenido del usuario expandido en Home Assistant `Users`, sin redisenar toda la pantalla.
+- Mantener `User details`, `Permissions` y `Audit` dentro del formulario `update_user` para no romper el guardado actual.
+- Convertir `Permissions` en un grid de tarjetas con metadata centralizada para que nuevos permisos puedan anadirse sin duplicar markup.
+- Mover `Security` a un bloque separado y compacto, preservando los forms/handlers actuales de `Set password`, `Reset password` y `Delete user`.
+- Trackear la especificacion y referencia visual en `docs/ui/rainmapper-user_panel_redesign.md` y `docs/ui/rainmapper-user_panel_redesign.png`.
+
+Motivo:
+
+- La version accordion de `Users` funciona, pero el panel expandido seguia ocupando demasiado espacio y dejaba mucho desbalance visual entre detalles, permisos, seguridad, dispositivos y auditoria.
+- Los permisos van a crecer si la app evoluciona, por lo que conviene preparar una UI en tarjetas sin cambiar todavia el modelo backend.
+- Evitar cambios de endpoints o backend reduce el riesgo en una pantalla sensible de administracion.
+
+Consecuencias:
+
+- Los nombres de campos POST y `admin_action` existentes se conservan: `update_user`, `set_password`, `reset_password`, `delete_user`, `delete_device` y `delete_all_devices`.
+- La auditoria sigue siendo informativa y compacta dentro del formulario de guardado.
+- La seguridad queda visualmente separada para evitar forms anidados, manteniendo confirmaciones existentes.
+- La validacion relevante debe hacerse dentro de HA/ingress por anchura real de pantalla y estilos de Home Assistant.
+
+Estado:
+
+Publicado en imagen HA `0.2.148` con digest multi-arch `sha256:a2fcab2222519150bd20a3f9cbb1949736b03384e1c6b79f36ef50d79d28c821` y commit `48629ff`. Validacion local: `python3 -m unittest tests.test_web_server_auth` OK y `./scripts/smoke-test.sh` OK. Pendiente de validacion visual y operativa en HA.
+
 ## 2026-06-27 - Redisenar Control Panel HA como dashboard con tabs internos
 
 Decision:
@@ -25,7 +52,7 @@ Consecuencias:
 
 Estado:
 
-Publicado en imagen HA `0.2.147` con digest multi-arch `sha256:368c910b9a31fba587c1e1cbca0201395feeecca3bf9e8884f62ccc08a76feef` y commit `9ffecab`. Validacion local: `./scripts/smoke-test.sh` OK. Pendiente de validacion visual y operativa en HA.
+Publicado en imagen HA `0.2.147` con digest multi-arch `sha256:368c910b9a31fba587c1e1cbca0201395feeecca3bf9e8884f62ccc08a76feef` y commit `9ffecab`. Validacion local: `./scripts/smoke-test.sh` OK. El usuario reporto el 2026-06-27 que la `0.2.147` parece funcionar bien en HA.
 
 ## 2026-06-25 - Mantener permisos funcionales simples por usuario solo como fase actual
 
