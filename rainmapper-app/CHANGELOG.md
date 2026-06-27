@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.151
+
+- Fix mushroom catalog maintenance under Home Assistant ingress by using relative links/forms, seeding mushroom JSON defaults at server startup, and deriving reference-error counts from validator errors.
+
 ## 0.2.150
 
 - Add the first mushroom reference catalog maintenance WebUI with validation-backed persistence, catalog entry creation, JSON import/export and empty template export.
