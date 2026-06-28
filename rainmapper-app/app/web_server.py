@@ -1494,22 +1494,26 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 0;
       color: var(--fg);
       display: grid;
-      gap: 10px;
-      grid-template-columns: 28px minmax(0, 1fr);
-      min-height: 58px;
-      padding: 9px 12px;
+      gap: 8px 10px;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      min-height: 60px;
+      padding: 9px 12px 9px 14px;
       text-decoration: none;
     }}
     .profile-list-item:last-child {{
       border-bottom: 0;
     }}
     .profile-list-item.active {{
-      background: linear-gradient(90deg, rgba(3, 169, 244, .18), rgba(3, 169, 244, .04));
+      background: linear-gradient(90deg, rgba(3, 169, 244, .22), rgba(3, 169, 244, .06) 78%, rgba(3, 169, 244, 0));
       box-shadow: inset 3px 0 0 var(--accent);
+    }}
+    .profile-list-item:hover {{
+      background: rgba(3, 169, 244, .07);
     }}
     .profile-list-icon {{
       align-items: center;
-      border: 1px solid rgba(148, 163, 184, .35);
+      background: rgba(3, 169, 244, .06);
+      border: 1px solid rgba(3, 169, 244, .42);
       border-radius: 999px;
       color: var(--accent);
       display: inline-flex;
@@ -1546,7 +1550,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
-      grid-column: 2;
+      grid-column: 3;
       justify-content: end;
     }}
     .profile-chip {{
@@ -1573,7 +1577,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .profile-metrics {{
       display: grid;
       gap: 6px;
-      grid-template-columns: repeat(8, minmax(112px, 1fr));
+      grid-template-columns: repeat(8, minmax(96px, 1fr));
       margin: 0 0 14px;
     }}
     .profile-metric {{
@@ -1586,16 +1590,16 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       justify-content: space-between;
       min-width: 0;
       min-height: 34px;
-      padding: 5px 8px;
+      padding: 5px 7px;
     }}
     .profile-metric .label {{
-      font-size: 12px;
+      font-size: 11px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }}
     .profile-metric .value {{
-      font-size: 14px;
+      font-size: 13px;
       white-space: nowrap;
     }}
     .profile-editor {{
@@ -1604,7 +1608,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .profile-editor-polished {{
       background:
-        linear-gradient(180deg, rgba(3, 169, 244, .07), rgba(3, 169, 244, 0) 170px),
+        radial-gradient(circle at 8% 0%, rgba(3, 169, 244, .18), transparent 32%),
+        linear-gradient(180deg, rgba(3, 169, 244, .08), rgba(3, 169, 244, 0) 190px),
         rgba(15, 23, 42, .54);
       border-radius: 10px;
     }}
@@ -1656,11 +1661,36 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: rgba(2, 13, 22, .55);
       border: 1px solid rgba(45, 58, 71, .92);
       border-radius: 8px;
+      color: var(--fg);
       display: inline-flex;
       gap: 5px;
       min-height: 30px;
       padding: 5px 9px;
       white-space: nowrap;
+    }}
+    .profile-status-chip.accepted,
+    .profile-status-chip.excellent,
+    .profile-status-chip.good,
+    .profile-status-chip.high,
+    .profile-status-chip.very_high,
+    .profile-status-chip.locally_calibrated,
+    .profile-status-chip.reviewed,
+    .profile-status-chip.published {{
+      border-color: rgba(52, 211, 153, .42);
+      color: var(--ok);
+    }}
+    .profile-status-chip.medium,
+    .profile-status-chip.draft,
+    .profile-status-chip.not_calibrated,
+    .profile-status-chip.partially_calibrated,
+    .profile-status-chip.needs_review {{
+      border-color: rgba(255, 176, 32, .48);
+      color: #ffb020;
+    }}
+    .profile-status-chip.low,
+    .profile-status-chip.very_low {{
+      border-color: rgba(255, 107, 107, .52);
+      color: var(--danger);
     }}
     .profile-chip-label {{
       color: var(--muted);
@@ -1741,7 +1771,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       grid-template-columns: repeat(12, minmax(0, 1fr));
     }}
     .profile-overview-card {{
-      background: rgba(2, 13, 22, .32);
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, .56), rgba(2, 13, 22, .3)),
+        rgba(2, 13, 22, .32);
       border: 1px solid rgba(45, 58, 71, .82);
       border-radius: 8px;
       display: grid;
@@ -1749,15 +1781,41 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       grid-column: span 4;
       padding: 12px;
     }}
+    .profile-overview-card.identity {{
+      border-color: rgba(3, 169, 244, .26);
+    }}
     .profile-overview-card.wide {{
       grid-column: span 4;
     }}
     .profile-overview-card.full {{
       grid-column: 1 / -1;
     }}
-    .profile-overview-card h3 {{
+    .profile-card-title {{
+      align-items: center;
+      display: flex;
+      gap: 8px;
       font-size: 14px;
       margin: 0 0 2px;
+    }}
+    .profile-card-icon {{
+      align-items: center;
+      background: rgba(3, 169, 244, .08);
+      border: 1px solid rgba(3, 169, 244, .34);
+      border-radius: 999px;
+      color: var(--accent);
+      display: inline-flex;
+      height: 24px;
+      justify-content: center;
+      width: 24px;
+    }}
+    .profile-card-icon svg {{
+      fill: none;
+      height: 15px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+      width: 15px;
     }}
     .profile-kv {{
       align-items: baseline;
@@ -1765,7 +1823,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       display: grid;
       gap: 8px;
       grid-template-columns: minmax(96px, .72fr) minmax(0, 1fr);
-      padding: 4px 0;
+      padding: 5px 0;
     }}
     .profile-kv span {{
       color: var(--muted);
@@ -1777,6 +1835,17 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-weight: 700;
       line-height: 1.25;
       overflow-wrap: anywhere;
+    }}
+    .profile-subsection {{
+      border: 1px solid rgba(45, 58, 71, .55);
+      border-radius: 8px;
+      display: grid;
+      gap: 10px;
+      padding: 10px;
+    }}
+    .profile-subsection h3 {{
+      font-size: 13px;
+      margin: 0;
     }}
     .month-chip-grid {{
       display: flex;
@@ -1978,13 +2047,17 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .profile-action-bar {{
       align-items: center;
+      background: rgba(2, 13, 22, .28);
       border-top: 1px solid var(--line);
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       justify-content: flex-end;
       margin-top: 12px;
-      padding-top: 12px;
+      padding: 12px 0 0;
+    }}
+    .profile-primary-action {{
+      min-width: 210px;
     }}
     .secondary,
     .danger-button {{

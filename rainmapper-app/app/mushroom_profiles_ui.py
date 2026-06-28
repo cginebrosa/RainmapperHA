@@ -129,11 +129,28 @@ def catalog_options_for_group(catalogs: dict[str, object], group: str) -> list[t
     return sorted(options, key=lambda option: option[0])
 
 
+def css_token(value: object) -> str:
+    """Return a conservative CSS token for known controlled values."""
+    text = str(value or "").strip().lower().replace(" ", "_")
+    return "".join(character if character.isalnum() or character in ("_", "-") else "_" for character in text)
+
+
 def value_chip(value: object, label: str = "") -> str:
     """Render a compact status chip."""
     text = str(value or "-")
     label_html = f'<span class="profile-chip-label">{html.escape(label)}</span>' if label else ""
-    return f'<span class="profile-status-chip">{label_html}{html.escape(text)}</span>'
+    css_class = css_token(text)
+    return f'<span class="profile-status-chip {html.escape(css_class, quote=True)}">{label_html}{html.escape(text)}</span>'
+
+
+def card_title(number: int, title: str, icon_name: str) -> str:
+    """Render a numbered dashboard card title with a lightweight inline icon."""
+    return (
+        '<h3 class="profile-card-title">'
+        f'<span class="profile-card-icon">{icon(icon_name)}</span>'
+        f'<span>{number}. {html.escape(title)}</span>'
+        "</h3>"
+    )
 
 
 def value_row(label: str, value: object, css_class: str = "") -> str:
@@ -142,6 +159,16 @@ def value_row(label: str, value: object, css_class: str = "") -> str:
         f'<div class="profile-kv {html.escape(css_class)}">'
         f'<span>{html.escape(label)}</span><strong>{html.escape(str(value if value not in (None, "") else "-"))}</strong></div>'
     )
+
+
+def compact_list(values: object, limit: int = 5) -> str:
+    """Render short comma-separated summaries without losing overflow context."""
+    items = [str(value) for value in values] if isinstance(values, list) else []
+    if not items:
+        return "-"
+    visible = items[:limit]
+    suffix = f" +{len(items) - limit}" if len(items) > limit else ""
+    return ", ".join(visible) + suffix
 
 
 def month_chips(values: object, active_class: str = "active") -> str:
@@ -472,18 +499,16 @@ def render_general_dashboard(
     aspect_names = topography.get("preferred_aspect_ids") if isinstance(topography.get("preferred_aspect_ids"), list) else []
     return f"""
     <section class="profile-overview-grid">
-      <article class="profile-overview-card">
-        <h3>1. Identity</h3>
-        <div class="profile-grid">
-          {form_field("species_id_display", "Species ID", profile.get("species_id", ""), readonly=True)}
-          {form_field("scientific_name", "Scientific name", profile.get("scientific_name", ""))}
-          {form_textarea("common_names", "Common names", profile.get("common_names", []), rows=2)}
-          {form_select("taxonomy_status", "Taxonomy status", profile.get("taxonomy_status", ""), PROFILE_SELECT_VALUES["taxonomy_status"])}
-          {form_select("edibility", "Edibility", profile.get("edibility", ""), PROFILE_SELECT_VALUES["edibility"])}
-        </div>
+      <article class="profile-overview-card identity">
+        {card_title(1, "Identity", "identity")}
+        {value_row("Species ID", profile.get("species_id", ""))}
+        {value_row("Scientific name", profile.get("scientific_name", ""))}
+        {value_row("Common names", compact_list(profile.get("common_names", []), 4))}
+        {value_row("Taxonomy", profile.get("taxonomy_status", ""))}
+        {value_row("Edibility", profile.get("edibility", ""))}
       </article>
       <article class="profile-overview-card">
-        <h3>2. Ecology and topography</h3>
+        {card_title(2, "Ecology and topography", "ecology")}
         {value_row("Trophic mode", ecology.get("trophic_mode_id", "-"))}
         {value_row("Primary hosts", ", ".join(host_names[:4]) if host_names else "-")}
         {value_row("Altitude", f'{topography.get("altitude_min_m", "-")} - {topography.get("altitude_max_m", "-")} m')}
@@ -491,7 +516,7 @@ def render_general_dashboard(
         {value_row("Aspects", ", ".join(str(item) for item in aspect_names[:6]) if aspect_names else "-")}
       </article>
       <article class="profile-overview-card">
-        <h3>3. Phenology</h3>
+        {card_title(3, "Phenology", "phenology")}
         <span class="label">Main months</span>
         {month_chips(phenology.get("main_months", []))}
         <span class="label">Secondary months</span>
@@ -500,15 +525,15 @@ def render_general_dashboard(
         {value_row("Fruiting delay", f'{delay.get("min", "-")} / {delay.get("optimal_min", "-")}-{delay.get("optimal_max", "-")} / {delay.get("max", "-")} days')}
       </article>
       <article class="profile-overview-card wide">
-        <h3>4. Weather model summary</h3>
+        {card_title(4, "Weather model summary", "weather")}
         {render_weather_summary(weather_model)}
       </article>
       <article class="profile-overview-card">
-        <h3>5. Scoring weights</h3>
+        {card_title(5, "Scoring weights", "scoring")}
         {''.join(score_bar(key, value) for key, value in scoring.items())}
       </article>
       <article class="profile-overview-card">
-        <h3>6. Confidence and calibration</h3>
+        {card_title(6, "Confidence and calibration", "calibration")}
         {value_row("Overall", confidence.get("overall_confidence"))}
         {value_row("Habitat", confidence.get("habitat_confidence"))}
         {value_row("Phenology", confidence.get("phenology_confidence"))}
@@ -517,7 +542,7 @@ def render_general_dashboard(
         {value_row("Priority", confidence.get("calibration_priority"))}
       </article>
       <article class="profile-overview-card full">
-        <h3>7. Metadata</h3>
+        {card_title(7, "Metadata", "metadata")}
         <div class="profile-metadata-strip">
           {value_row("Created", metadata.get("created_at"))}
           {value_row("Updated", metadata.get("updated_at"))}
@@ -667,7 +692,18 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
               {form_textarea("confidence_notes", "Calibration notes", confidence.get("notes", ""), rows=3)}
             </section>
             <section class="profile-section profile-tab-panel metadata">
-              <h2>Metadata</h2>
+              <h2>Identity and metadata</h2>
+              <div class="profile-subsection">
+                <h3>Identity fields</h3>
+                <div class="profile-grid two">
+                  {form_field("scientific_name", "Scientific name", profile.get("scientific_name", ""))}
+                  {form_select("taxonomy_status", "Taxonomy status", profile.get("taxonomy_status", ""), PROFILE_SELECT_VALUES["taxonomy_status"])}
+                  {form_textarea("common_names", "Common names", profile.get("common_names", []), rows=3)}
+                  {form_select("edibility", "Edibility", profile.get("edibility", ""), PROFILE_SELECT_VALUES["edibility"])}
+                </div>
+              </div>
+              <div class="profile-subsection">
+                <h3>Maintenance metadata</h3>
               <div class="profile-grid three">
                 {form_field("profile_version", "Profile version", metadata.get("profile_version", ""))}
                 {form_field("created_at", "Created at", metadata.get("created_at", ""))}
@@ -678,6 +714,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
                 {form_select("source_quality", "Source quality", metadata.get("source_quality", ""), PROFILE_SELECT_VALUES["source_quality"])}
                 {form_field("requires_human_validation", "Requires human validation", metadata.get("requires_human_validation"), field_type="checkbox")}
               </div>
+              </div>
             </section>
             <section class="profile-section profile-tab-panel json">
               <h2>Advanced JSON</h2>
@@ -686,7 +723,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           </div>
         </div>
         <div class="profile-action-bar">
-          <button class="primary">Save species profile</button>
+          <button class="primary profile-primary-action">Save species profile</button>
           <button class="secondary" type="button" disabled>Duplicate species</button>
           <button class="secondary" type="button" disabled>Validate profile</button>
           <button class="danger-button" type="button" disabled>Archive species</button>

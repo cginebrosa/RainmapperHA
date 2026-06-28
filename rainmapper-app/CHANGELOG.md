@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.167
+
+- Continue the mushroom species maintenance visual pass toward the documented mockup without changing the JSON model or POST contract.
+- Make the `General` tab a read-only dashboard and move identity/taxonomy editing into the `Metadata` tab.
+- Add semantic status-chip classes for confidence, calibration, taxonomy, edibility and review states.
+- Add icon-bearing dashboard card titles and stronger card/list styling for the species maintenance page.
+- Keep scoring decimal inputs at `0.01`, existing validation, import/export, raw JSON and `New species` behavior unchanged.
+
 ## 0.2.166
 
 - Continue the mushroom species maintenance redesign toward the documented mockup.
