@@ -282,7 +282,7 @@ def render_new_species_form() -> str:
     return """
     <details id="new-species" class="card profile-new-species">
       <summary><strong>New species</strong></summary>
-      <p>Create a draft species profile with a complete validated starter structure. Review ecology, phenology, weather, scoring and calibration before using it for prediction.</p>
+      <p>Create a draft species profile with a complete validated starter structure.</p>
       <form class="catalog-create-form" method="post" action="" onsubmit="return confirm('Create this draft species profile and validate the full dataset?')">
         <input type="hidden" name="profile_action" value="create_profile">
         <div class="admin-form-grid">
@@ -724,9 +724,9 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
         </div>
         <div class="profile-action-bar">
           <button class="primary profile-primary-action">Save species profile</button>
-          <button class="secondary" type="button" disabled>Duplicate species</button>
-          <button class="secondary" type="button" disabled>Validate profile</button>
-          <button class="danger-button" type="button" disabled>Archive species</button>
+          <button class="secondary planned-action" type="button" disabled title="Planned action: duplicate flow is not implemented yet">Duplicate species · planned</button>
+          <button class="secondary planned-action" type="button" disabled title="Planned action: explicit single-profile validation is not implemented yet">Validate profile · planned</button>
+          <button class="danger-button planned-action" type="button" disabled title="Planned action: archive/restore safeguards are not implemented yet">Archive species · planned</button>
         </div>
       </form>
       <details class="profile-raw-json">

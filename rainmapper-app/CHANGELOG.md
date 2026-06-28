@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.168
+
+- Move the guided `New species` panel near the top of the species maintenance page so it is easier to test from Home Assistant.
+- Mark `Duplicate species`, `Validate profile` and `Archive species` as planned disabled actions instead of leaving them looking like broken maintenance buttons.
+- Document that create/duplicate/archive species flows need explicit functional review before closing the species maintenance workflow.
+
 ## 0.2.167
 
 - Continue the mushroom species maintenance visual pass toward the documented mockup without changing the JSON model or POST contract.

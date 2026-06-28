@@ -1580,6 +1580,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       grid-template-columns: repeat(8, minmax(96px, 1fr));
       margin: 0 0 14px;
     }}
+    .profile-new-species {{
+      margin: 0 0 14px;
+    }}
+    .profile-new-species summary {{
+      cursor: pointer;
+    }}
+    .profile-new-species p {{
+      margin-bottom: 10px;
+    }}
     .profile-metric {{
       align-items: center;
       background: rgba(15, 23, 42, .34);
@@ -2079,6 +2088,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .danger-button:disabled {{
       cursor: not-allowed;
       opacity: .48;
+    }}
+    .planned-action:disabled {{
+      border-style: dashed;
+      opacity: .62;
     }}
     .profile-raw-json {{
       border-top: 1px solid var(--line);
@@ -5423,6 +5436,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         </nav>
         {flash_html}
         {seeded_html}
+        {mushroom_profiles_ui.render_new_species_form()}
         {mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}
         <div class="profile-layout">
           {mushroom_profiles_ui.render_profile_list(profiles, selected_id, search)}
@@ -5432,7 +5446,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <summary><strong>Cross validation</strong> · {len(errors)} errors · {len(warnings)} warnings</summary>
           {render_catalog_alerts(errors, warnings, limit=12)}
         </details>
-        {mushroom_profiles_ui.render_new_species_form()}
         <h2 id="profiles-full-json">JSON maintenance</h2>
         {mushroom_profiles_ui.render_profile_full_json_panel(full_payload, mode)}
         """
