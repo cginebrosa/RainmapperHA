@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.173
+
+- Add top-level mushroom species `Parameters`, `Calibration` and `Observations` sections.
+- Let `Parameters` save climate, phenology, topography and scoring fields with a partial update that preserves identity and catalog-backed affinities.
+- Let `Calibration` save confidence/review fields while keeping observation coverage as a future dataset.
+- Add an `Observations` workspace placeholder that does not store observations inside `mushroom_profiles.json`.
+
 ## 0.2.172
 
 - Fix the species Summary weather card so it reads the documented `weather_model` keys used by the JSON data and Weather tab.

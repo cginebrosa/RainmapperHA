@@ -239,6 +239,48 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Observations", page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
 
+    def test_mushroom_profiles_page_renders_top_level_sections(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+
+        for section, expected in (
+            ("parameters", "Climate model"),
+            ("calibration", "Confidence profile"),
+            ("observations", "Future calibration dataset"),
+        ):
+            captured = {}
+
+            def capture_response(status: int, content: bytes, content_type: str) -> None:
+                captured["status"] = status
+                captured["content"] = content.decode("utf-8")
+                captured["content_type"] = content_type
+
+            handler.send_bytes = capture_response
+            handler.render_mushroom_profiles({"id": ["boletus_pinophilus"], "section": [section]})
+
+            self.assertEqual(200, captured["status"])
+            page = captured["content"]
+            self.assertIn(expected, page)
+            self.assertIn(f'section={section}', page)
+            self.assertIn("Boletus pinophilus", page)
+
     def test_mushroom_profiles_create_species_uses_validated_template(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
@@ -737,6 +779,83 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "main_months and secondary_months overlap",
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
         )
+
+    def test_mushroom_profiles_parameters_post_updates_only_parameter_blocks(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        store = self.web_server.default_store()
+        store.ensure_seeded()
+        payload = store.load("profiles")
+        profile = next(
+            item
+            for item in payload["species_profiles"]
+            if item["species_id"] == "boletus_pinophilus"
+        )
+        original_name = profile["scientific_name"]
+        original_common_names = list(profile["common_names"])
+
+        form = {
+            "profile_action": ["save_profile_parameters"],
+            "species_id": ["boletus_pinophilus"],
+            "trophic_mode_id": [profile["ecology"]["trophic_mode_id"]],
+            "main_months": ["\n".join(str(value) for value in profile["phenology"]["main_months"])],
+            "secondary_months": ["\n".join(str(value) for value in profile["phenology"]["secondary_months"])],
+            "season_pattern_ids": ["\n".join(profile["phenology"]["season_pattern_ids"])],
+            "preferred_aspect_ids": ["\n".join(profile["topography"]["preferred_aspect_ids"])],
+            "aspect_notes": [profile["topography"].get("aspect_notes", "")],
+        }
+        delay = profile["phenology"]["fruiting_delay_after_rain_days"]
+        for key, value in {
+            "delay_min": delay["min"],
+            "delay_optimal_min": delay["optimal_min"],
+            "delay_optimal_max": delay["optimal_max"],
+            "delay_max": delay["max"],
+            "altitude_min_m": profile["topography"]["altitude_min_m"],
+            "altitude_optimal_min_m": profile["topography"]["altitude_optimal_min_m"],
+            "altitude_optimal_max_m": profile["topography"]["altitude_optimal_max_m"],
+            "altitude_max_m": profile["topography"]["altitude_max_m"],
+        }.items():
+            form[key] = [str(value)]
+        for block_name in ("rainfall", "temperature", "humidity", "wind"):
+            for key, value in profile["weather_model"][block_name].items():
+                if isinstance(value, bool):
+                    if value:
+                        form[f"{block_name}_{key}"] = ["true"]
+                else:
+                    form[f"{block_name}_{key}"] = [str(value)]
+        form["rainfall_rain_7d_min_mm"] = ["12"]
+        for key, value in profile["scoring_weights"].items():
+            form[f"score_{key}"] = [str(value)]
+
+        redirect = handler.handle_mushroom_profiles_post(form)
+
+        self.assertEqual("?id=boletus_pinophilus&section=parameters", redirect)
+        updated_payload = store.load("profiles")
+        updated = next(
+            item
+            for item in updated_payload["species_profiles"]
+            if item["species_id"] == "boletus_pinophilus"
+        )
+        self.assertEqual(12, updated["weather_model"]["rainfall"]["rain_7d_min_mm"])
+        self.assertEqual(original_name, updated["scientific_name"])
+        self.assertEqual(original_common_names, updated["common_names"])
 
     def test_mushroom_profiles_flash_renders_validation_error_alert(self) -> None:
         html = self.web_server.render_mushroom_profiles_flash(

@@ -65,7 +65,7 @@ def icon(name: str) -> str:
     return ICONS.get(name, "")
 
 
-def profile_query_url(species_id: str = "", search: str = "", mode: str = "") -> str:
+def profile_query_url(species_id: str = "", search: str = "", mode: str = "", section: str = "") -> str:
     """Return an ingress-safe query URL for the species maintenance page."""
     params = {}
     if species_id:
@@ -74,6 +74,8 @@ def profile_query_url(species_id: str = "", search: str = "", mode: str = "") ->
         params["q"] = search
     if mode:
         params["mode"] = mode
+    if section:
+        params["section"] = section
     return ("?" + urlencode(params)) if params else "?"
 
 
@@ -458,6 +460,54 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
     if not rows:
         rows.append('<div class="profile-list-item"><strong>No species match</strong><span class="meta">Adjust the search.</span></div>')
     return '<aside class="profile-list"><div class="profile-list-search-title">Species</div>' + "".join(rows) + "</aside>"
+
+
+def render_section_tabs(active_section: str, selected_id: str, search: str) -> str:
+    """Render top-level mushroom maintenance tabs as ingress-safe links."""
+    sections = [
+        ("summary", "Summary"),
+        ("species", "Species"),
+        ("observations", "Observations"),
+        ("parameters", "Parameters"),
+        ("calibration", "Calibration"),
+    ]
+    links = []
+    for section, label in sections:
+        active = ' class="active"' if section == active_section else ""
+        href = profile_query_url(selected_id, search, section=section)
+        links.append(f'<a{active} href="{html.escape(href, quote=True)}">{html.escape(label)}</a>')
+    return '<nav class="mushroom-section-tabs" aria-label="Mushroom maintenance sections">' + "".join(links) + "</nav>"
+
+
+def render_selected_species_header(profile: dict[str, object] | None, section: str) -> str:
+    """Render the selected species banner shared by section-level screens."""
+    if not profile:
+        return '<section class="card profile-section-screen"><h2>No species selected</h2><p class="meta">Create or select a species first.</p></section>'
+    species_id = str(profile.get("species_id", ""))
+    confidence = nested_dict(profile, "prediction_confidence")
+    metadata = nested_dict(profile, "metadata")
+    chips = "".join(
+        [
+            value_chip(profile.get("taxonomy_status", "-"), "Taxonomy"),
+            value_chip(confidence.get("overall_confidence", "-"), "Confidence"),
+            value_chip(confidence.get("local_calibration_status", "-"), "Calibration"),
+            value_chip(confidence.get("calibration_priority", "-"), "Priority"),
+            value_chip(metadata.get("review_status", "-"), "Review"),
+        ]
+    )
+    return f"""
+    <header class="profile-section-banner">
+      <div class="profile-title-block">
+        <span class="profile-hero-icon">{icon("mushroom")}</span>
+        <div>
+          <span class="meta">{html.escape(section)}</span>
+          <h2>{html.escape(str(profile.get("scientific_name", species_id)))}</h2>
+          <p class="meta">species_id: {html.escape(species_id)} · {html.escape(profile_common_name(profile) or "no common name")}</p>
+        </div>
+      </div>
+      <div class="profile-hero-chips">{chips}</div>
+    </header>
+    """
 
 
 def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str, object]) -> str:
@@ -848,6 +898,275 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           <button class="primary">Save raw JSON</button>
         </form>
       </details>
+    </section>
+    """
+
+
+def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[str, object], search: str = "") -> str:
+    """Render the top-level Parameters screen using real profile model fields."""
+    if not profile:
+        return '<section class="card profile-section-screen"><h2>Parameters</h2><p>No species selected.</p></section>'
+    species_id = str(profile.get("species_id", ""))
+    ecology = nested_dict(profile, "ecology")
+    phenology = nested_dict(profile, "phenology")
+    topography = nested_dict(profile, "topography")
+    weather_model = nested_dict(profile, "weather_model")
+    rainfall = weather_model.get("rainfall") if isinstance(weather_model.get("rainfall"), dict) else {}
+    temperature = weather_model.get("temperature") if isinstance(weather_model.get("temperature"), dict) else {}
+    humidity = weather_model.get("humidity") if isinstance(weather_model.get("humidity"), dict) else {}
+    wind = weather_model.get("wind") if isinstance(weather_model.get("wind"), dict) else {}
+    scoring = nested_dict(profile, "scoring_weights")
+    metadata = nested_dict(profile, "metadata")
+    delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
+    host_ids = [
+        str(item.get("id", ""))
+        for item in ecology.get("host_affinities", [])
+        if isinstance(item, dict) and item.get("id")
+    ] if isinstance(ecology.get("host_affinities"), list) else []
+    forest_ids = [
+        str(item.get("id", ""))
+        for item in ecology.get("forest_type_affinities", [])
+        if isinstance(item, dict) and item.get("id")
+    ] if isinstance(ecology.get("forest_type_affinities"), list) else []
+    soil_ids = [
+        str(item.get("id", ""))
+        for item in ecology.get("soil_affinities", [])
+        if isinstance(item, dict) and item.get("id")
+    ] if isinstance(ecology.get("soil_affinities"), list) else []
+    lithology_ids = [
+        str(item.get("id", ""))
+        for item in ecology.get("lithology_affinities", [])
+        if isinstance(item, dict) and item.get("id")
+    ] if isinstance(ecology.get("lithology_affinities"), list) else []
+    habitat_ids = [
+        str(item.get("id", ""))
+        for item in ecology.get("habitat_feature_affinities", [])
+        if isinstance(item, dict) and item.get("id")
+    ] if isinstance(ecology.get("habitat_feature_affinities"), list) else []
+    scoring_total = sum(float(value) for value in scoring.values() if isinstance(value, int | float))
+    species_href = profile_query_url(species_id, search, section="species")
+    return f"""
+    <section class="card profile-section-screen parameters-screen">
+      {render_selected_species_header(profile, "Parameters")}
+      <form method="post" action="{html.escape(profile_query_url(species_id, search, section='parameters'), quote=True)}" onsubmit="return confirm('Save parameter changes for this species and validate the full mushroom dataset?')">
+        <input type="hidden" name="profile_action" value="save_profile_parameters">
+        <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+        <div class="profile-parameters-grid">
+          <article class="profile-section-card">
+            <h2>{icon("weather")} Climate model</h2>
+            <div class="profile-section-card-grid two">
+              <div class="profile-subsection">
+                <h3>Rainfall</h3>
+                {''.join(form_field(f"rainfall_{key}", key, value, field_type="number") for key, value in rainfall.items())}
+              </div>
+              <div class="profile-subsection">
+                <h3>Temperature</h3>
+                {''.join(form_field(f"temperature_{key}", key, value, field_type="number") for key, value in temperature.items())}
+              </div>
+              <div class="profile-subsection">
+                <h3>Humidity</h3>
+                {''.join(form_field(f"humidity_{key}", key, value, field_type="number") for key, value in humidity.items())}
+              </div>
+              <div class="profile-subsection">
+                <h3>Wind</h3>
+                {''.join(form_field(f"wind_{key}", key, value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
+              </div>
+            </div>
+          </article>
+          <article class="profile-section-card">
+            <h2>{icon("ecology")} Habitat model</h2>
+            <div class="profile-section-card-grid two">
+              <div class="profile-subsection">
+                <h3>Ecology and habitat</h3>
+                {form_catalog_select("trophic_mode_id", "Trophic mode", ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
+                {value_row("Hosts", ", ".join(host_ids[:6]) if host_ids else "-")}
+                {value_row("Forest types", ", ".join(forest_ids[:6]) if forest_ids else "-")}
+                {value_row("Habitat features", ", ".join(habitat_ids[:6]) if habitat_ids else "-")}
+                <p class="meta">Use Species > Ecology to edit catalog-backed affinity rows and relationships.</p>
+              </div>
+              <div class="profile-subsection">
+                <h3>Soils and lithology</h3>
+                {value_row("Soils", ", ".join(soil_ids[:6]) if soil_ids else "-")}
+                {value_row("Lithology", ", ".join(lithology_ids[:6]) if lithology_ids else "-")}
+                <p class="meta">Affinity IDs are preserved here and edited in the full Species form.</p>
+              </div>
+              <div class="profile-subsection">
+                <h3>Topography</h3>
+                <div class="profile-grid two">
+                  {form_field("altitude_min_m", "Altitude min m", topography.get("altitude_min_m", ""), field_type="number")}
+                  {form_field("altitude_optimal_min_m", "Altitude optimal min m", topography.get("altitude_optimal_min_m", ""), field_type="number")}
+                  {form_field("altitude_optimal_max_m", "Altitude optimal max m", topography.get("altitude_optimal_max_m", ""), field_type="number")}
+                  {form_field("altitude_max_m", "Altitude max m", topography.get("altitude_max_m", ""), field_type="number")}
+                </div>
+                {form_textarea("preferred_aspect_ids", "Preferred aspects", topography.get("preferred_aspect_ids", []), rows=2)}
+                {form_textarea("aspect_notes", "Aspect notes", topography.get("aspect_notes", ""), rows=2)}
+              </div>
+              <div class="profile-subsection">
+                <h3>Phenology</h3>
+                {form_textarea("main_months", "Main months", phenology.get("main_months", []), rows=2)}
+                {form_textarea("secondary_months", "Secondary months", phenology.get("secondary_months", []), rows=2)}
+                {form_textarea("season_pattern_ids", "Season patterns", phenology.get("season_pattern_ids", []), rows=2)}
+                <div class="profile-grid two">
+                  {form_field("delay_min", "Delay min", delay.get("min", ""), field_type="number")}
+                  {form_field("delay_optimal_min", "Delay optimal min", delay.get("optimal_min", ""), field_type="number")}
+                  {form_field("delay_optimal_max", "Delay optimal max", delay.get("optimal_max", ""), field_type="number")}
+                  {form_field("delay_max", "Delay max", delay.get("max", ""), field_type="number")}
+                </div>
+              </div>
+              <div class="profile-subsection full">
+                <h3>Scoring weights</h3>
+                <div class="profile-scoring-total"><span>Current total</span><strong>{scoring_total:.2f}</strong><em>Target: 1.00</em></div>
+                <div class="profile-grid four">
+                  {''.join(form_field(f"score_{key}", key, value, field_type="number", step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div class="profile-action-bar">
+          <a class="button-link secondary-link" href="{html.escape(species_href, quote=True)}">Back to Species editor</a>
+          <button class="secondary" type="reset">Reset visible changes</button>
+          <button class="primary profile-primary-action">Save parameter changes</button>
+        </div>
+      </form>
+      <p class="meta">Review status: {html.escape(str(metadata.get("review_status", "-")))}. Catalog-backed affinity relationships are intentionally edited from the Species tab to avoid lossy partial updates.</p>
+    </section>
+    """
+
+
+def render_calibration_section(profile: dict[str, object] | None, search: str = "") -> str:
+    """Render the top-level Calibration screen using real confidence fields."""
+    if not profile:
+        return '<section class="card profile-section-screen"><h2>Calibration</h2><p>No species selected.</p></section>'
+    species_id = str(profile.get("species_id", ""))
+    confidence = nested_dict(profile, "prediction_confidence")
+    metadata = nested_dict(profile, "metadata")
+    minimum_total = confidence.get("minimum_observations_for_calibration", "-")
+    minimum_positive = confidence.get("minimum_positive_observations", "-")
+    minimum_negative = confidence.get("minimum_negative_observations", "-")
+    observations_href = profile_query_url(species_id, search, section="observations")
+    parameters_href = profile_query_url(species_id, search, section="parameters")
+    return f"""
+    <section class="card profile-section-screen calibration-screen">
+      {render_selected_species_header(profile, "Calibration")}
+      <form method="post" action="{html.escape(profile_query_url(species_id, search, section='calibration'), quote=True)}" onsubmit="return confirm('Save calibration settings for this species and validate the full mushroom dataset?')">
+        <input type="hidden" name="profile_action" value="save_profile_calibration">
+        <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+        <div class="profile-calibration-cards">
+          <div class="profile-metric"><span class="label">Calibration status</span><span class="value warn">{html.escape(str(confidence.get("local_calibration_status", "-")))}</span></div>
+          <div class="profile-metric"><span class="label">Priority</span><span class="value ok">{html.escape(str(confidence.get("calibration_priority", "-")))}</span></div>
+          <div class="profile-metric"><span class="label">Overall confidence</span><span class="value">{html.escape(str(confidence.get("overall_confidence", "-")))}</span></div>
+          <div class="profile-metric"><span class="label">Min observations</span><span class="value">{html.escape(str(minimum_total))}</span></div>
+          <div class="profile-metric"><span class="label">Min positive</span><span class="value">{html.escape(str(minimum_positive))}</span></div>
+          <div class="profile-metric"><span class="label">Min negative</span><span class="value">{html.escape(str(minimum_negative))}</span></div>
+        </div>
+        <div class="profile-calibration-grid">
+          <article class="profile-section-card">
+            <h2>1. Confidence profile</h2>
+            <div class="profile-grid two">
+              {form_select("overall_confidence", "Overall confidence", confidence.get("overall_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+              {form_select("habitat_confidence", "Habitat confidence", confidence.get("habitat_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+              {form_select("topography_confidence", "Topography confidence", confidence.get("topography_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+              {form_select("phenology_confidence", "Phenology confidence", confidence.get("phenology_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+              {form_select("weather_threshold_confidence", "Weather threshold confidence", confidence.get("weather_threshold_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+              {form_select("taxonomy_confidence", "Taxonomy confidence", confidence.get("taxonomy_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
+            </div>
+          </article>
+          <article class="profile-section-card">
+            <h2>2. Calibration requirements</h2>
+            <div class="profile-grid two">
+              {form_select("local_calibration_status", "Local calibration status", confidence.get("local_calibration_status", ""), PROFILE_SELECT_VALUES["calibration_status"])}
+              {form_select("calibration_priority", "Calibration priority", confidence.get("calibration_priority", ""), PROFILE_SELECT_VALUES["calibration_priority"])}
+              {form_field("minimum_observations_for_calibration", "Minimum observations", confidence.get("minimum_observations_for_calibration", ""), field_type="number", minimum="0")}
+              {form_field("minimum_positive_observations", "Minimum positive", confidence.get("minimum_positive_observations", ""), field_type="number", minimum="0")}
+              {form_field("minimum_negative_observations", "Minimum negative", confidence.get("minimum_negative_observations", ""), field_type="number", minimum="0")}
+              {form_field("requires_human_validation", "Requires human validation", metadata.get("requires_human_validation"), field_type="checkbox")}
+              {form_select("review_status", "Review status", metadata.get("review_status", ""), PROFILE_SELECT_VALUES["review_status"])}
+            </div>
+          </article>
+          <article class="profile-section-card">
+            <h2>3. Observation coverage</h2>
+            <div class="profile-coverage-grid">
+              {value_row("Total observations used", f'0 / {minimum_total}')}
+              {value_row("Positive observations", f'0 / {minimum_positive}')}
+              {value_row("Negative observations", f'0 / {minimum_negative}')}
+              {value_row("Key data gaps", "pending observation model")}
+            </div>
+            <p class="meta">Coverage will be calculated from the future observations dataset. No observation data is stored inside mushroom_profiles.json.</p>
+          </article>
+          <article class="profile-section-card">
+            <h2>4. Calibration notes</h2>
+            {form_textarea("confidence_notes", "Notes stored in prediction_confidence.notes", confidence.get("notes", ""), rows=8)}
+          </article>
+          <article class="profile-section-card full">
+            <h2>5. Actions and recommendations</h2>
+            <div class="profile-recommendation-list">
+              <a class="button-link" href="{html.escape(observations_href, quote=True)}">Add local observations</a>
+              <a class="button-link" href="{html.escape(parameters_href, quote=True)}">Review weather thresholds</a>
+              <button class="secondary planned-action" type="button" disabled>Start human validation · planned</button>
+              <button class="secondary planned-action" type="button" disabled>Recalculate scoring · planned</button>
+            </div>
+          </article>
+        </div>
+        <div class="profile-action-bar">
+          <button class="primary profile-primary-action">Save calibration</button>
+        </div>
+      </form>
+    </section>
+    """
+
+
+def render_observations_section(profile: dict[str, object] | None, profiles: list[dict[str, object]], search: str = "") -> str:
+    """Render the future observations workspace without inventing persistence."""
+    species_id = str(profile.get("species_id", "")) if profile else ""
+    calibration_href = profile_query_url(species_id, search, section="calibration") if species_id else profile_query_url(section="calibration")
+    species_options = "".join(
+        f'<option value="{html.escape(str(item.get("species_id", "")), quote=True)}"{" selected" if str(item.get("species_id", "")) == species_id else ""}>{html.escape(str(item.get("scientific_name", item.get("species_id", ""))))}</option>'
+        for item in profiles
+        if item.get("species_id")
+    )
+    return f"""
+    <section class="card profile-section-screen observations-screen">
+      {render_selected_species_header(profile, "Observations") if profile else '<h2>Observations</h2>'}
+      <div class="catalog-alert warn"><strong>Future calibration dataset</strong><br>Observations are intentionally not stored in mushroom_profiles.json. This screen prepares the workflow for a dedicated observations store, import validation and calibration coverage.</div>
+      <div class="profile-calibration-cards">
+        <div class="profile-metric"><span class="label">Total observations</span><span class="value">0</span></div>
+        <div class="profile-metric"><span class="label">Positive / present</span><span class="value ok">0</span></div>
+        <div class="profile-metric"><span class="label">Negative / not present</span><span class="value danger">0</span></div>
+        <div class="profile-metric"><span class="label">Pending validation</span><span class="value warn">0</span></div>
+      </div>
+      <div class="observations-filters">
+        <div class="admin-field"><label>Date range</label><input value="pending schema" readonly></div>
+        <div class="admin-field"><label>Species</label><select>{species_options}</select></div>
+        <div class="admin-field"><label>Result</label><select disabled><option>present / not_present / unknown</option></select></div>
+        <div class="admin-field"><label>Observer</label><input value="future field" readonly></div>
+        <div class="admin-field"><label>Source</label><input value="future field" readonly></div>
+        <div class="admin-field"><label>Validation</label><input value="future field" readonly></div>
+      </div>
+      <div class="observations-layout">
+        <article class="profile-section-card">
+          <h2>Observation records</h2>
+          <div class="observations-table-shell">
+            <table>
+              <thead><tr><th>Date</th><th>Species</th><th>Location</th><th>Habitat</th><th>Result</th><th>Quantity</th><th>Validation</th></tr></thead>
+              <tbody><tr><td colspan="7">No observations store is defined yet. Next backend step: define schema, import preview, duplicate handling and validation rules.</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+        <aside class="profile-section-card observation-detail-shell">
+          <h2>Observation detail</h2>
+          {value_row("Observation ID", "pending")}
+          {value_row("Coordinates", "pending")}
+          {value_row("Altitude", "pending")}
+          {value_row("Calibration use", "pending validation")}
+          <p class="meta">Positive and negative observations will be used to compare predictions with real field outcomes.</p>
+        </aside>
+      </div>
+      <div class="profile-action-bar">
+        <button class="secondary planned-action" type="button" disabled>New observation · planned</button>
+        <button class="secondary planned-action" type="button" disabled>Import observations · planned</button>
+        <a class="button-link primary-link" href="{html.escape(calibration_href, quote=True)}">Open calibration</a>
+      </div>
     </section>
     """
 

@@ -2151,6 +2151,131 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-top: 1px solid var(--line);
       padding-top: 10px;
     }}
+    .profile-section-screen {{
+      background:
+        radial-gradient(circle at 8% 0%, rgba(3, 169, 244, .14), transparent 30%),
+        linear-gradient(180deg, rgba(3, 169, 244, .07), rgba(3, 169, 244, 0) 180px),
+        rgba(15, 23, 42, .54);
+      display: grid;
+      gap: 14px;
+    }}
+    .profile-section-banner {{
+      align-items: center;
+      border: 1px solid rgba(3, 169, 244, .38);
+      border-radius: 8px;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      padding: 12px;
+    }}
+    .profile-section-card {{
+      background: rgba(2, 13, 22, .28);
+      border: 1px solid rgba(45, 58, 71, .76);
+      border-radius: 8px;
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }}
+    .profile-section-card h2 {{
+      align-items: center;
+      display: flex;
+      font-size: 15px;
+      gap: 8px;
+      margin: 0;
+    }}
+    .profile-section-card h2 svg {{
+      fill: none;
+      height: 17px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+      width: 17px;
+    }}
+    .profile-section-card-grid,
+    .profile-parameters-grid,
+    .profile-calibration-grid {{
+      display: grid;
+      gap: 12px;
+    }}
+    .profile-parameters-grid {{
+      grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+    }}
+    .profile-section-card-grid.two,
+    .profile-calibration-grid {{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .profile-subsection.full,
+    .profile-section-card.full {{
+      grid-column: 1 / -1;
+    }}
+    .profile-section-screen .admin-field label {{
+      font-size: 12px;
+      margin-bottom: 3px;
+    }}
+    .profile-section-screen input,
+    .profile-section-screen select {{
+      font-size: 12px;
+      min-height: 34px;
+      padding: 0 9px;
+    }}
+    .profile-section-screen textarea {{
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      font: inherit;
+      font-size: 12px;
+      line-height: 1.3;
+      min-height: 58px;
+      padding: 8px 9px;
+      resize: vertical;
+      width: 100%;
+    }}
+    .profile-calibration-cards {{
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }}
+    .profile-coverage-grid {{
+      display: grid;
+      gap: 6px;
+    }}
+    .profile-recommendation-list {{
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .observations-filters {{
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }}
+    .observations-layout {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, .32fr);
+    }}
+    .observations-table-shell {{
+      overflow-x: auto;
+    }}
+    .observations-table-shell table {{
+      border-collapse: collapse;
+      min-width: 900px;
+      width: 100%;
+    }}
+    .observations-table-shell th,
+    .observations-table-shell td {{
+      border-bottom: 1px solid rgba(45, 58, 71, .62);
+      font-size: 12px;
+      padding: 8px 10px;
+      text-align: left;
+      white-space: nowrap;
+    }}
+    .observations-table-shell th {{
+      color: var(--muted);
+      font-weight: 800;
+    }}
     .mushroom-section-tabs {{
       align-items: center;
       display: flex;
@@ -2301,13 +2426,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-grid.three,
       .profile-grid.four,
       .profile-calibration-summary,
+      .profile-calibration-cards,
+      .profile-calibration-grid,
       .profile-metrics,
+      .profile-parameters-grid,
+      .profile-section-card-grid.two,
       .profile-weather-grid,
       .profile-metadata-strip,
       .profile-affinity-row,
       .profile-section-head,
       .profile-lifecycle-grid,
       .archived-species-row,
+      .observations-filters,
+      .observations-layout,
+      .profile-recommendation-list,
       .mushroom-title-tabs {{
         grid-template-columns: 1fr;
       }}
@@ -2321,6 +2453,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       .profile-hero-chips {{
         justify-content: start;
+      }}
+      .profile-section-banner {{
+        align-items: start;
+        flex-direction: column;
       }}
     }}
     @media (max-width: 1080px) {{
@@ -4510,6 +4646,125 @@ def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -
     return profile
 
 
+def profile_parameters_from_form(existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
+    """Return a profile copy updated only with fields exposed by Parameters."""
+    profile = json.loads(json.dumps(existing))
+
+    ecology = profile_nested_dict(profile, "ecology").copy()
+    ecology["trophic_mode_id"] = catalog_form_string(form, "trophic_mode_id")
+    profile["ecology"] = ecology
+
+    phenology = profile_nested_dict(profile, "phenology").copy()
+    phenology["main_months"] = profile_form_int_list(form, "main_months")
+    phenology["secondary_months"] = profile_form_int_list(form, "secondary_months")
+    phenology["season_pattern_ids"] = catalog_split_list(catalog_form_string(form, "season_pattern_ids"))
+    phenology["fruiting_delay_after_rain_days"] = {
+        "min": profile_form_number(form, "delay_min"),
+        "optimal_min": profile_form_number(form, "delay_optimal_min"),
+        "optimal_max": profile_form_number(form, "delay_optimal_max"),
+        "max": profile_form_number(form, "delay_max"),
+    }
+    profile["phenology"] = phenology
+
+    topography = profile_nested_dict(profile, "topography").copy()
+    for key in ("altitude_min_m", "altitude_optimal_min_m", "altitude_optimal_max_m", "altitude_max_m"):
+        topography[key] = profile_form_number(form, key)
+    topography["preferred_aspect_ids"] = catalog_split_list(catalog_form_string(form, "preferred_aspect_ids"))
+    topography["aspect_notes"] = catalog_form_string(form, "aspect_notes")
+    profile["topography"] = topography
+
+    weather_model = profile_nested_dict(profile, "weather_model").copy()
+    for block_name in ("rainfall", "temperature", "humidity", "wind"):
+        block = weather_model.get(block_name)
+        block = block.copy() if isinstance(block, dict) else {}
+        for key, old_value in list(block.items()):
+            form_name = f"{block_name}_{key}"
+            block[key] = profile_form_bool(form, form_name) if isinstance(old_value, bool) else profile_form_number(form, form_name)
+        weather_model[block_name] = block
+    profile["weather_model"] = weather_model
+
+    scoring = profile_nested_dict(profile, "scoring_weights").copy()
+    for key in list(scoring):
+        scoring[key] = profile_form_number(form, f"score_{key}")
+    profile["scoring_weights"] = scoring
+    return profile
+
+
+def profile_calibration_from_form(existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
+    """Return a profile copy updated only with calibration/confidence fields."""
+    profile = json.loads(json.dumps(existing))
+    confidence = profile_nested_dict(profile, "prediction_confidence").copy()
+    for key in (
+        "overall_confidence",
+        "habitat_confidence",
+        "topography_confidence",
+        "phenology_confidence",
+        "weather_threshold_confidence",
+        "taxonomy_confidence",
+        "local_calibration_status",
+        "calibration_priority",
+    ):
+        confidence[key] = catalog_form_string(form, key)
+    for key in (
+        "minimum_observations_for_calibration",
+        "minimum_positive_observations",
+        "minimum_negative_observations",
+    ):
+        value = profile_form_number(form, key)
+        confidence[key] = int(value) if value is not None else None
+    confidence["notes"] = catalog_form_string(form, "confidence_notes")
+    profile["prediction_confidence"] = confidence
+
+    metadata = profile_nested_dict(profile, "metadata").copy()
+    metadata["review_status"] = catalog_form_string(form, "review_status")
+    metadata["requires_human_validation"] = profile_form_bool(form, "requires_human_validation")
+    profile["metadata"] = metadata
+    return profile
+
+
+def save_profile_entry_from_partial_form(
+    store: object,
+    species_id: str,
+    form: dict[str, list[str]],
+    updater: object,
+    success_prefix: str,
+    section: str,
+) -> str:
+    """Apply a partial profile form, validate, persist and return a redirect URL."""
+    profiles_payload = store.load("profiles")
+    profiles = profiles_payload.get("species_profiles")
+    existing = None
+    if isinstance(profiles, list):
+        existing = next(
+            (
+                profile
+                for profile in profiles
+                if isinstance(profile, dict) and str(profile.get("species_id", "")) == species_id
+            ),
+            None,
+        )
+    if not isinstance(existing, dict):
+        set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
+        return profile_query_url(species_id, section=section) + "#mushroom-profile-message"
+    entry = updater(existing, form)
+    semantic_errors = profile_semantic_error_messages(entry)
+    if semantic_errors:
+        set_mushroom_profiles_flash(f"{success_prefix} were not saved: " + "; ".join(semantic_errors[:3]))
+        return profile_query_url(species_id, section=section) + "#mushroom-profile-message"
+    ok, message = replace_profile_entry(profiles_payload, species_id, entry)
+    if not ok:
+        set_mushroom_profiles_flash(message)
+        return profile_query_url(species_id, section=section) + "#mushroom-profile-message"
+    result = store.replace("profiles", profiles_payload)
+    if result.ok:
+        suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+        set_mushroom_profiles_flash(f"{success_prefix} saved for {species_id}." + suffix)
+        return profile_query_url(species_id, section=section)
+    error_text = "; ".join(message.message for message in result.errors[:3])
+    set_mushroom_profiles_flash(f"{success_prefix} were not saved: " + error_text)
+    return profile_query_url(species_id, section=section) + "#mushroom-profile-message"
+
+
 def replace_profile_entry(profiles_payload: dict[str, object], species_id: str, entry: dict[str, object]) -> tuple[bool, str]:
     if str(entry.get("species_id", "")) != species_id:
         return False, "Species ID cannot be changed in the first maintenance UI."
@@ -5502,6 +5757,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         selected_id = (query.get("id") or [""])[0]
         search = (query.get("q") or [""])[0]
         mode = (query.get("mode") or ["current"])[0]
+        section = (query.get("section") or ["species"])[0]
+        if section not in {"summary", "species", "observations", "parameters", "calibration"}:
+            section = "species"
 
         store = default_store()
         try:
@@ -5590,6 +5848,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         selected_id = (query.get("id") or [""])[0]
         search = (query.get("q") or [""])[0]
         mode = (query.get("mode") or ["current"])[0]
+        section = (query.get("section") or ["species"])[0]
+        if section not in {"summary", "species", "observations", "parameters", "calibration"}:
+            section = "species"
 
         store = default_store()
         try:
@@ -5632,12 +5893,37 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         )
         status_label = "Flow validated" if not errors else "Validation errors"
         status_class = "ok" if not errors else "danger"
+        section_tabs = mushroom_profiles_ui.render_section_tabs(section, selected_id, search)
+        if section == "parameters":
+            main_content = mushroom_profiles_ui.render_parameters_section(selected, catalogs, search)
+        elif section == "calibration":
+            main_content = mushroom_profiles_ui.render_calibration_section(selected, search)
+        elif section == "observations":
+            main_content = mushroom_profiles_ui.render_observations_section(selected, profiles, search)
+        elif section == "summary":
+            main_content = (
+                f"{mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}"
+                '<section class="card profile-section-screen">'
+                '<h2>Summary</h2>'
+                '<p class="meta">Global profile summary remains focused on validation and species health metrics. Use Species, Parameters, Calibration and Observations for detailed maintenance.</p>'
+                '</section>'
+            )
+        else:
+            main_content = (
+                f"{mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}"
+                '<div class="profile-layout">'
+                f"{mushroom_profiles_ui.render_profile_list(profiles, selected_id, search)}"
+                f"{mushroom_profiles_ui.render_profile_editor(selected, catalogs)}"
+                "</div>"
+            )
         body = f"""
         <div class="catalog-toolbar">
           <a class="button-link" href="../">Back</a>
-          <a class="button-link" href="?">Refresh</a>
+          <a class="button-link" href="{html.escape(mushroom_profiles_ui.profile_query_url(selected_id, search, section=section), quote=True)}">Refresh</a>
           <a class="button-link" href="./catalogs">Reference catalogs</a>
           <form class="catalog-filter" method="get" action="">
+            <input type="hidden" name="section" value="{html.escape(section, quote=True)}">
+            <input type="hidden" name="id" value="{html.escape(selected_id, quote=True)}">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search species, ID, confidence or status">
           </form>
           <a class="button-link primary-link" href="#new-species-modal">New species</a>
@@ -5649,23 +5935,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             <h1>Mantenimiento de especies</h1>
             <p>Gestiona perfiles de especies para el predictor de floradas</p>
           </div>
-          <nav class="mushroom-section-tabs" aria-label="Mushroom maintenance sections">
-            <span>Summary</span>
-            <span class="active">Species</span>
-            <span>Observations</span>
-            <span>Parameters</span>
-            <span>Calibration</span>
-          </nav>
+          {section_tabs}
           <span class="meta mushroom-title-status">{len(profiles)} species · <span class="{status_class}">{status_label}</span></span>
         </div>
         {flash_html}
         {seeded_html}
         {mushroom_profiles_ui.render_new_species_form()}
-        {mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}
-        <div class="profile-layout">
-          {mushroom_profiles_ui.render_profile_list(profiles, selected_id, search)}
-          {mushroom_profiles_ui.render_profile_editor(selected, catalogs)}
-        </div>
+        {main_content}
         <details class="mushroom-cross-validation">
           <summary><strong>Cross validation</strong> · {len(errors)} errors · {len(warnings)} warnings</summary>
           {render_catalog_alerts(errors, warnings, limit=12)}
@@ -6189,6 +6465,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
                 return profile_message_url(species_id)
+            elif action == "save_profile_parameters":
+                return save_profile_entry_from_partial_form(
+                    store,
+                    species_id,
+                    form,
+                    profile_parameters_from_form,
+                    "Parameter changes",
+                    "parameters",
+                )
+            elif action == "save_profile_calibration":
+                return save_profile_entry_from_partial_form(
+                    store,
+                    species_id,
+                    form,
+                    profile_calibration_from_form,
+                    "Calibration settings",
+                    "calibration",
+                )
             elif action == "save_profiles":
                 payload = json.loads(self.form_value(form, "profiles_json"))
                 if not isinstance(payload, dict):
