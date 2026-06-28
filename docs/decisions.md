@@ -1273,6 +1273,8 @@ Mantener GitHub Actions automatico y esperar a que termine, construir en Home As
 ### Consecuencias
 El flujo de release exige login Docker contra GHCR en el Mac y disciplina de publicar imagen antes de subir el commit de version. A cambio, HA no deberia ofrecer un update cuyo tag de imagen aun no exista. GitHub Actions deja de ejecutarse automaticamente en cada push de `rainmapper-app`. El script publica la etiqueta versionada y `latest`; Home Assistant usa la etiqueta versionada. Desde el ajuste posterior a `0.2.60`, el script limpia etiquetas locales versionadas antiguas del mismo repositorio y conserva por defecto las dos ultimas mas `latest`. El smoke completo debe ejecutarse una vez antes del build/push; no se repite tras publicar si solo se actualiza documentacion con el digest, salvo que se toque codigo runtime, configuracion HA, assets, scripts o ficheros incluidos en la imagen despues de ese smoke.
 
+Actualizacion operativa 2026-06-28: el criterio de "version disponible para probar en HA" requiere tanto imagen GHCR publicada/verificada como commit de bump pusheado a GitHub. HA detecta la version desde `config.yaml` en GitHub, por lo que dejar el commit solo localmente o retrasar el push para documentar mantiene al usuario bloqueado. En releases de prueba HA, despues de verificar GHCR debe hacerse commit/push inmediato y avisar al usuario; la documentacion amplia se completa despues mientras el usuario instala/prueba.
+
 ### Ficheros afectados
 - `scripts/build-push-ha-image.sh`
 - `.github/workflows/build-rainmapper-app.yml`
