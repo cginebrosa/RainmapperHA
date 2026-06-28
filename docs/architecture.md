@@ -26,11 +26,11 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 
 ## Estructura de carpetas
 - `rainmapper-app/`: paquete de Home Assistant.
-- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`). El core y visores se copian desde las rutas canonicas de raiz durante el build.
+- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
-- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh` y `aemet-backfill-30-days.py`.
+- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh`, `aemet-backfill-30-days.py` y `validate-mushroom-data.py`.
 - `local_update.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_update.sh`; runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
 - `rainmapper_core/sources/meteoclimatic_local/`: cliente local Meteoclimatic.
 - `rainmapper_core/sources/sodapy_local/`: copia local/adaptada de Socrata client.
@@ -110,10 +110,10 @@ Hay varios entry points segun entorno:
 - Relacion: produce datos para Leaflet/MapLibre.
 
 ### WebUI HA
-- Ruta: `rainmapper-app/app/web_server.py`.
-- Responsabilidad: servidor HTTP, webUI, acciones, schedule, publicacion, logs, status, enable/disable estaciones y rutas protegidas de MapLibre.
+- Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py` y `rainmapper-app/app/mushroom_profiles_ui.py`.
+- Responsabilidad: servidor HTTP, webUI, acciones, schedule, publicacion, logs, status, enable/disable estaciones, rutas protegidas de MapLibre y pantallas server-rendered de mantenimiento de setas.
 - Dependencias: stdlib HTTP, subprocess, threading, json, pathlib.
-- Relacion: orquesta scripts Python y publica visores. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`.
+- Relacion: `web_server.py` orquesta rutas, POST, persistencia, validacion y publicacion; los dos modulos `mushroom_*_ui.py` concentran render server-side de pantallas grandes para evitar que `web_server.py` siga creciendo. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`.
 
 ### Wrapper HA
 - Ruta: `rainmapper-app/run.sh`.
@@ -146,8 +146,8 @@ Hay varios entry points segun entorno:
 
 ### Empaquetado HA sin copia de core
 - Ruta: `rainmapper-app/Dockerfile`, `scripts/build-push-ha-image.sh` y checks de empaquetado en `scripts/smoke-test.sh`.
-- Responsabilidad: construir la imagen HA desde la raiz del repositorio, copiando `rainmapper_core/`, wrappers raiz, configuracion compartida y `rainmapper-app/app/web_server.py`.
-- Relacion: `rainmapper-app/app` queda reservado para codigo especifico de HA; el smoke test falla si vuelven a aparecer copias de core en esa carpeta.
+- Responsabilidad: construir la imagen HA desde la raiz del repositorio, copiando `rainmapper_core/`, `mushroom-data/`, `scripts/validate-mushroom-data.py`, wrappers raiz, configuracion compartida y los modulos HA de `rainmapper-app/app/`.
+- Relacion: `rainmapper-app/app` queda reservado para codigo especifico de HA; el smoke test falla si vuelven a aparecer copias de core no permitidas en esa carpeta.
 
 ### Leaflet viewer
 - Ruta canonica: `rainmapper_core/viewers/leaflet-viewer/`.
@@ -266,7 +266,7 @@ Validaciones existentes/recomendadas:
 ./scripts/docker-offline-functional-test.sh
 .venv/bin/python -m unittest discover -s tests
 python -m unittest tests.test_web_server_auth
-python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper-app/app/web_server.py
+python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_catalogs_ui.py rainmapper-app/app/mushroom_profiles_ui.py
 node --check rainmapper_core/viewers/leaflet-viewer/app.js
 node --check rainmapper_core/viewers/maplibre-viewer/app.js
 docker compose build rainmapper
