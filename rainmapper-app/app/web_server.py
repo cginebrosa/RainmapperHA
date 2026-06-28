@@ -27,6 +27,7 @@ APP_DIR = Path(__file__).resolve().parent
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
+import mushroom_catalogs_ui
 import mushroom_profiles_ui
 from rainmapper_core.mushroom_store import default_store
 from rainmapper_core.mushroom_validation import (
@@ -305,8 +306,9 @@ def addon_settings_links() -> list[tuple[str, str]]:
     return links
 
 
-def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
+def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str = "") -> bytes:
     refresh_tag = '<meta http-equiv="refresh" content="5">' if auto_refresh else ""
+    main_class = f' class="{html.escape(page_class, quote=True)}"' if page_class else ""
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -334,9 +336,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       color: var(--fg);
     }}
     main {{
-      max-width: 1440px;
+      max-width: 1840px;
       margin: 0 auto;
       padding: 24px 20px 40px;
+    }}
+    main.mushroom-wide-page {{
+      max-width: 1840px;
     }}
     h1 {{
       margin: 0 0 8px;
@@ -1460,7 +1465,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       align-items: start;
       display: grid;
       gap: 16px;
-      grid-template-columns: minmax(330px, .34fr) minmax(820px, 1fr);
+      grid-template-columns: minmax(400px, .34fr) minmax(820px, 1fr);
     }}
     .profile-list {{
       background: linear-gradient(180deg, rgba(2, 23, 38, .72), rgba(15, 23, 42, .28));
@@ -1490,7 +1495,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       color: var(--fg);
       display: grid;
       gap: 10px;
-      grid-template-columns: 28px minmax(0, 1fr) auto;
+      grid-template-columns: 28px minmax(0, 1fr);
       min-height: 58px;
       padding: 9px 12px;
       text-decoration: none;
@@ -1528,6 +1533,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
+      grid-column: 2;
       justify-content: end;
     }}
     .profile-chip {{
@@ -1806,6 +1812,28 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       display: block;
       height: 100%;
     }}
+    .profile-scoring-total {{
+      align-items: center;
+      background: rgba(2, 13, 22, .45);
+      border: 1px solid rgba(45, 58, 71, .82);
+      border-radius: 8px;
+      display: inline-grid;
+      gap: 8px;
+      grid-template-columns: auto auto auto;
+      justify-self: start;
+      padding: 8px 10px;
+    }}
+    .profile-scoring-total span,
+    .profile-scoring-total em {{
+      color: var(--muted);
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 700;
+    }}
+    .profile-scoring-total strong {{
+      color: var(--fg);
+      font-size: 15px;
+    }}
     .profile-metadata-strip {{
       display: grid;
       gap: 8px;
@@ -1910,6 +1938,39 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     .profile-raw-json {{
       border-top: 1px solid var(--line);
       padding-top: 10px;
+    }}
+    .mushroom-section-tabs {{
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      justify-content: flex-end;
+      margin: -4px 0 14px;
+      padding: 0 0 10px;
+    }}
+    .mushroom-section-tabs a,
+    .mushroom-section-tabs span {{
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      padding: 7px 0;
+      text-decoration: none;
+    }}
+    .mushroom-section-tabs .active {{
+      border-bottom: 2px solid var(--accent);
+      color: var(--accent);
+    }}
+    .button-link.primary-link {{
+      background: linear-gradient(180deg, #0277d4, #015ca7);
+      border-color: rgba(3, 169, 244, .78);
+      color: #fff;
+    }}
+    .mushroom-cross-validation {{
+      margin-top: 18px;
+    }}
+    .mushroom-cross-validation summary {{
+      cursor: pointer;
     }}
     @media (max-width: 1320px) {{
       .permissions-grid {{
@@ -2039,7 +2100,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
   </style>
 </head>
 <body>
-  <main>
+  <main{main_class}>
     {body}
   </main>
   <script>
@@ -3749,47 +3810,22 @@ def admin_message(message: str) -> None:
         RUN_STATE["last_message"] = message
 
 
-CATALOG_DOMAIN_LABELS = {
-    "trophic_modes": "Trophic",
-    "host_taxa": "Host",
-    "forest_types": "Habitat",
-    "soil_types": "Soil",
-    "lithology_types": "Geology",
-    "aspects": "Topography",
-    "season_patterns": "Phenology",
-    "habitat_features": "Microhabitat",
-}
-
-CATALOG_ID_PREFIXES = {
-    "trophic_modes": "trophic_",
-    "host_taxa": "host_",
-    "forest_types": "forest_",
-    "soil_types": "soil_",
-    "lithology_types": "lith_",
-    "aspects": "aspect_",
-    "season_patterns": "season_",
-    "habitat_features": "feature_",
-}
-
-
-def catalog_label(item: dict[str, object]) -> str:
-    scientific_name = str(item.get("scientific_name", "") or "").strip()
-    if scientific_name:
-        return scientific_name
-    label = item.get("label")
-    if isinstance(label, dict):
-        for language in ("es", "ca", "en"):
-            value = str(label.get(language, "") or "").strip()
-            if value:
-                return value
-    common_names = item.get("common_names")
-    if isinstance(common_names, dict):
-        for language in ("es", "ca", "en"):
-            names = common_names.get(language)
-            if isinstance(names, list) and names:
-                return str(names[0])
-    return str(item.get("id", ""))
-
+CATALOG_DOMAIN_LABELS = mushroom_catalogs_ui.CATALOG_DOMAIN_LABELS
+CATALOG_ID_PREFIXES = mushroom_catalogs_ui.CATALOG_ID_PREFIXES
+catalog_label = mushroom_catalogs_ui.catalog_label
+catalog_rows = mushroom_catalogs_ui.catalog_rows
+selected_catalog_row = mushroom_catalogs_ui.selected_catalog_row
+catalog_query_url = mushroom_catalogs_ui.catalog_query_url
+render_catalog_metric_cards = mushroom_catalogs_ui.render_catalog_metric_cards
+render_catalog_group_chips = mushroom_catalogs_ui.render_catalog_group_chips
+render_catalog_domain_impact = mushroom_catalogs_ui.render_catalog_domain_impact
+render_catalog_table = mushroom_catalogs_ui.render_catalog_table
+render_catalog_alerts = mushroom_catalogs_ui.render_catalog_alerts
+catalog_ids_for_group = mushroom_catalogs_ui.catalog_ids_for_group
+catalog_cross_reference_checks = mushroom_catalogs_ui.catalog_cross_reference_checks
+render_catalog_detail = mushroom_catalogs_ui.render_catalog_detail
+render_catalog_full_json_panel = mushroom_catalogs_ui.render_catalog_full_json_panel
+render_new_catalog_entry_form = mushroom_catalogs_ui.render_new_catalog_entry_form
 
 def empty_catalog_entry(group: str, item_id: str) -> dict[str, object]:
     label = {"es": "", "ca": "", "en": ""}
@@ -3838,470 +3874,6 @@ def validate_new_catalog_entry_id(group: str, item_id: str) -> tuple[bool, str]:
     return True, ""
 
 
-def collect_catalog_usage_references(payload: object, catalog_ids: set[str]) -> dict[str, int]:
-    references = {item_id: 0 for item_id in catalog_ids}
-
-    def visit(value: object) -> None:
-        if isinstance(value, dict):
-            for nested in value.values():
-                visit(nested)
-        elif isinstance(value, list):
-            for nested in value:
-                visit(nested)
-        elif isinstance(value, str) and value in references:
-            references[value] += 1
-
-    visit(payload)
-    return references
-
-
-def catalog_rows(catalogs: dict[str, object], profiles: object, gis: object) -> tuple[list[dict[str, object]], dict[str, int]]:
-    catalog_ids = {
-        str(item.get("id"))
-        for items in catalogs.values()
-        if isinstance(items, list)
-        for item in items
-        if isinstance(item, dict) and item.get("id")
-    }
-    profile_usage = collect_catalog_usage_references(profiles, catalog_ids)
-    gis_usage = collect_catalog_usage_references(gis, catalog_ids)
-    rows: list[dict[str, object]] = []
-    hierarchy_count = 0
-    for group, items in catalogs.items():
-        if not isinstance(items, list):
-            continue
-        for index, item in enumerate(items):
-            if not isinstance(item, dict):
-                continue
-            item_id = str(item.get("id", ""))
-            if not item_id:
-                continue
-            parent_id = str(item.get("parent_id", "") or "")
-            if parent_id:
-                hierarchy_count += 1
-            profile_count = profile_usage.get(item_id, 0)
-            gis_count = gis_usage.get(item_id, 0)
-            rows.append(
-                {
-                    "group": group,
-                    "index": index,
-                    "id": item_id,
-                    "label": catalog_label(item),
-                    "parent_id": parent_id,
-                    "profile_count": profile_count,
-                    "gis_count": gis_count,
-                    "domain": CATALOG_DOMAIN_LABELS.get(group, group),
-                    "status": "Active" if profile_count or gis_count else "Unused",
-                    "item": item,
-                }
-            )
-    metrics = {
-        "groups": len([items for items in catalogs.values() if isinstance(items, list)]),
-        "ids": len(rows),
-        "profile_used": len([row for row in rows if int(row["profile_count"]) > 0]),
-        "gis_used": len([row for row in rows if int(row["gis_count"]) > 0]),
-        "unused": len([row for row in rows if row["status"] == "Unused"]),
-        "hierarchy": hierarchy_count,
-    }
-    return rows, metrics
-
-
-def selected_catalog_row(rows: list[dict[str, object]], group: str, item_id: str) -> dict[str, object] | None:
-    if group and item_id:
-        for row in rows:
-            if row["group"] == group and row["id"] == item_id:
-                return row
-    if group:
-        for row in rows:
-            if row["group"] == group:
-                return row
-    return rows[0] if rows else None
-
-
-def catalog_query_url(group: str = "", item_id: str = "", search: str = "") -> str:
-    params = {}
-    if group:
-        params["group"] = group
-    if item_id:
-        params["id"] = item_id
-    if search:
-        params["q"] = search
-    return ("?" + urlencode(params)) if params else "?"
-
-
-def catalog_reference_error_count(errors: list[object]) -> int:
-    count = 0
-    for message in errors:
-        text = str(getattr(message, "message", "")).lower()
-        if "unknown" in text and "id" in text:
-            count += 1
-    return count
-
-
-def render_catalog_metric_cards(metrics: dict[str, int], errors: list[object], warnings: list[object]) -> str:
-    errors_count = len(errors)
-    warnings_count = len(warnings)
-    reference_errors = catalog_reference_error_count(errors)
-    cards = [
-        ("Total groups", str(metrics["groups"]), ""),
-        ("Total IDs", str(metrics["ids"]), ""),
-        ("Used in profiles", str(metrics["profile_used"]), "ok"),
-        ("Used in GIS", str(metrics["gis_used"]), "ok"),
-        ("Reference errors", str(reference_errors), "danger" if reference_errors else "ok"),
-        ("Unused", str(metrics["unused"]), "warn" if metrics["unused"] else "ok"),
-        ("With hierarchy", str(metrics["hierarchy"]), ""),
-        ("Validation", f"{errors_count} errors · {warnings_count} warnings", "danger" if errors_count else "warn" if warnings_count else "ok"),
-    ]
-    return '<div class="profile-metrics">' + "".join(
-        f'<div class="profile-metric"><span class="label">{html.escape(label)}</span><span class="value {css_class}">{html.escape(value)}</span></div>'
-        for label, value, css_class in cards
-    ) + "</div>"
-
-
-def render_catalog_group_chips(catalogs: dict[str, object], rows: list[dict[str, object]], selected_group: str, search: str) -> str:
-    total = sum(len(items) for items in catalogs.values() if isinstance(items, list))
-    total_used = len([row for row in rows if int(row["profile_count"]) > 0 or int(row["gis_count"]) > 0])
-    chips = [
-        (
-            f'<a class="catalog-chip{" active" if not selected_group else ""}" href="{catalog_query_url(search=search)}">'
-            f"<strong>All catalog</strong><span>{total} IDs · {total_used} used</span></a>"
-        )
-    ]
-    for group, items in catalogs.items():
-        if not isinstance(items, list):
-            continue
-        group_rows = [row for row in rows if row["group"] == group]
-        used = len([row for row in group_rows if int(row["profile_count"]) > 0 or int(row["gis_count"]) > 0])
-        domain = CATALOG_DOMAIN_LABELS.get(group, group)
-        chips.append(
-            f'<a class="catalog-chip{" active" if group == selected_group else ""}" href="{catalog_query_url(group=group, search=search)}">'
-            f"<strong>{html.escape(domain)}</strong><span>{html.escape(group)} · {len(items)} IDs · {used} used</span></a>"
-        )
-    return '<div class="catalog-chip-row">' + "".join(chips) + "</div>"
-
-
-def render_catalog_domain_impact(rows: list[dict[str, object]], selected_group: str) -> str:
-    scoped_rows = [row for row in rows if not selected_group or row["group"] == selected_group]
-    if not scoped_rows:
-        return ""
-    title = CATALOG_DOMAIN_LABELS.get(selected_group, "Whole catalog") if selected_group else "Whole catalog"
-    ids = len(scoped_rows)
-    profile_refs = sum(int(row["profile_count"]) for row in scoped_rows)
-    gis_refs = sum(int(row["gis_count"]) for row in scoped_rows)
-    unused = len([row for row in scoped_rows if row["status"] == "Unused"])
-    examples = [
-        str(row["id"])
-        for row in scoped_rows
-        if int(row["profile_count"]) > 0 or int(row["gis_count"]) > 0
-    ][:6]
-    if not examples:
-        examples = [str(row["id"]) for row in scoped_rows[:6]]
-    example_html = "".join(f"<span>{html.escape(example)}</span>" for example in examples)
-    scope_text = selected_group or "all groups"
-    return f"""
-    <section class="card catalog-domain-impact">
-      <div>
-        <h2>Domain impact</h2>
-        <p class="meta">{html.escape(title)} · {html.escape(scope_text)}</p>
-      </div>
-      <div class="catalog-domain-impact-grid">
-        <div><span class="label">IDs in scope</span><span class="value">{ids}</span></div>
-        <div><span class="label">Profile references</span><span class="value ok">{profile_refs}</span></div>
-        <div><span class="label">GIS references</span><span class="value ok">{gis_refs}</span></div>
-        <div><span class="label">Unused IDs</span><span class="value {'warn' if unused else 'ok'}">{unused}</span></div>
-      </div>
-      <div>
-        <span class="label">Representative IDs</span>
-        <div class="catalog-domain-examples">{example_html}</div>
-      </div>
-    </section>
-    """
-
-
-def render_catalog_table(rows: list[dict[str, object]], selected: dict[str, object] | None, group: str, search: str) -> str:
-    tokens = [token.lower() for token in search.split() if token.strip()]
-    filtered_rows = []
-    for row in rows:
-        if group and row["group"] != group:
-            continue
-        searchable = " ".join(str(row.get(key, "")) for key in ("group", "id", "label", "parent_id", "domain", "status")).lower()
-        if tokens and not all(token in searchable for token in tokens):
-            continue
-        filtered_rows.append(row)
-
-    body_rows = []
-    for row in filtered_rows:
-        item_id = str(row["id"])
-        row_group = str(row["group"])
-        is_selected = selected and selected.get("group") == row_group and selected.get("id") == item_id
-        body_rows.append(
-            f'<tr class="{"selected-row" if is_selected else ""}">'
-            f'<td>{html.escape(row_group)}</td>'
-            f'<td><a class="catalog-row-link" href="{catalog_query_url(row_group, item_id, search)}">{html.escape(item_id)}</a></td>'
-            f'<td>{html.escape(str(row["label"]))}</td>'
-            f'<td>{html.escape(str(row["parent_id"] or "-"))}</td>'
-            f'<td>{int(row["profile_count"])}</td>'
-            f'<td>{int(row["gis_count"])}</td>'
-            f'<td>{html.escape(str(row["domain"]))}</td>'
-            f'<td><span class="status-pill {"" if row["status"] == "Active" else "warn"}">{html.escape(str(row["status"]))}</span></td>'
-            "</tr>"
-        )
-    if not body_rows:
-        body_rows.append('<tr><td colspan="8"><span class="meta">No catalog entries match the current filters.</span></td></tr>')
-    return (
-        '<div class="control-table-wrap">'
-        '<table class="control-table catalog-table">'
-        "<thead><tr><th>Group</th><th>ID</th><th>Label / scientific name</th><th>Parent ID</th><th>Profiles</th><th>GIS</th><th>Domain</th><th>Status</th></tr></thead>"
-        f'<tbody>{"".join(body_rows)}</tbody>'
-        "</table></div>"
-    )
-
-
-def render_catalog_alerts(errors: list[object], warnings: list[object], limit: int = 10) -> str:
-    messages = []
-    for severity, items in (("error", errors), ("warn", warnings)):
-        for message in items[:limit]:
-            location = html.escape(str(getattr(message, "location", "")))
-            text = html.escape(str(getattr(message, "message", "")))
-            messages.append(f'<div class="catalog-alert {severity}"><strong>{location}</strong><br>{text}</div>')
-    if not messages:
-        messages.append('<div class="catalog-alert"><strong>Validation clean</strong><br>No blocking validation errors.</div>')
-    return '<div class="catalog-alert-list">' + "".join(messages) + "</div>"
-
-
-def catalog_textarea_value(values: object) -> str:
-    if isinstance(values, list):
-        return "\n".join(str(value) for value in values if str(value).strip())
-    return str(values or "")
-
-
-def catalog_form_field(name: str, label: str, value: object = "", field_type: str = "text", readonly: bool = False) -> str:
-    readonly_attr = " readonly" if readonly else ""
-    step_attr = ' step="any"' if field_type == "number" else ""
-    escaped_name = html.escape(name, quote=True)
-    escaped_label = html.escape(label)
-    escaped_value = html.escape("" if value is None else str(value), quote=True)
-    return (
-        '<div class="admin-field">'
-        f'<label for="catalog-{escaped_name}">{escaped_label}</label>'
-        f'<input id="catalog-{escaped_name}" name="{escaped_name}" type="{html.escape(field_type, quote=True)}" value="{escaped_value}"{step_attr}{readonly_attr}>'
-        "</div>"
-    )
-
-
-def catalog_ids_for_group(catalogs: dict[str, object], group: str) -> list[str]:
-    items = catalogs.get(group)
-    if not isinstance(items, list):
-        return []
-    return sorted(
-        str(item.get("id", ""))
-        for item in items
-        if isinstance(item, dict) and str(item.get("id", "")).strip()
-    )
-
-
-def catalog_form_select(name: str, label: str, value: object, options: list[str], exclude: str = "") -> str:
-    current = "" if value is None else str(value)
-    escaped_name = html.escape(name, quote=True)
-    option_html = [f'<option value=""{" selected" if not current else ""}>-</option>']
-    for option in options:
-        if option == exclude:
-            continue
-        selected = " selected" if option == current else ""
-        option_html.append(f'<option value="{html.escape(option, quote=True)}"{selected}>{html.escape(option)}</option>')
-    if current and current not in options:
-        option_html.append(f'<option value="{html.escape(current, quote=True)}" selected>{html.escape(current)} (missing)</option>')
-    return (
-        '<div class="admin-field">'
-        f'<label for="catalog-{escaped_name}">{html.escape(label)}</label>'
-        f'<select id="catalog-{escaped_name}" name="{escaped_name}">{"".join(option_html)}</select>'
-        "</div>"
-    )
-
-
-def catalog_form_textarea(name: str, label: str, value: object) -> str:
-    escaped_name = html.escape(name, quote=True)
-    return (
-        '<div class="admin-field">'
-        f'<label for="catalog-{escaped_name}">{html.escape(label)}</label>'
-        f'<textarea id="catalog-{escaped_name}" name="{escaped_name}">{html.escape(catalog_textarea_value(value))}</textarea>'
-        "</div>"
-    )
-
-
-def catalog_missing_ids(values: object, allowed_ids: set[str]) -> list[str]:
-    if not isinstance(values, list):
-        values = [values] if values else []
-    return sorted(
-        str(value)
-        for value in values
-        if str(value).strip() and str(value) not in allowed_ids
-    )
-
-
-def catalog_cross_reference_checks(group: str, item: dict[str, object], catalogs: dict[str, object]) -> list[tuple[str, str, str]]:
-    host_ids = set(catalog_ids_for_group(catalogs, "host_taxa"))
-    forest_ids = set(catalog_ids_for_group(catalogs, "forest_types"))
-    soil_ids = set(catalog_ids_for_group(catalogs, "soil_types"))
-    checks: list[tuple[str, str, str]] = []
-    if group == "host_taxa":
-        parent_id = str(item.get("parent_id", "") or "")
-        if parent_id and parent_id not in host_ids:
-            checks.append(("error", "parent_id", f"{parent_id} does not exist in host_taxa."))
-        else:
-            checks.append(("ok", "parent_id", "Parent ID is empty or exists in host_taxa."))
-    elif group == "forest_types":
-        parent_id = str(item.get("parent_id", "") or "")
-        if parent_id and parent_id not in forest_ids:
-            checks.append(("error", "parent_id", f"{parent_id} does not exist in forest_types."))
-        missing_hosts = catalog_missing_ids(item.get("dominant_host_ids", []), host_ids)
-        missing_soils = catalog_missing_ids(item.get("soil_bias_ids", []), soil_ids)
-        if missing_hosts:
-            checks.append(("error", "dominant_host_ids", "Missing host_taxa IDs: " + ", ".join(missing_hosts)))
-        else:
-            checks.append(("ok", "dominant_host_ids", "Dominant host IDs exist in host_taxa."))
-        if missing_soils:
-            checks.append(("error", "soil_bias_ids", "Missing soil_types IDs: " + ", ".join(missing_soils)))
-        elif item.get("soil_bias_ids"):
-            checks.append(("ok", "soil_bias_ids", "Soil bias IDs exist in soil_types."))
-    elif group == "lithology_types":
-        missing_soils = catalog_missing_ids(item.get("parent_soil_tendency_ids", []), soil_ids)
-        if missing_soils:
-            checks.append(("error", "parent_soil_tendency_ids", "Missing soil_types IDs: " + ", ".join(missing_soils)))
-        else:
-            checks.append(("ok", "parent_soil_tendency_ids", "Parent soil tendency IDs exist in soil_types."))
-    return checks
-
-
-def render_catalog_cross_reference_checks(group: str, item: dict[str, object], catalogs: dict[str, object]) -> str:
-    checks = catalog_cross_reference_checks(group, item, catalogs)
-    if not checks:
-        return ""
-    rows = []
-    for severity, field, message in checks:
-        rows.append(
-            f'<div class="catalog-reference-check {html.escape(severity)}">'
-            f"<strong>{html.escape(field)}</strong>{html.escape(message)}</div>"
-        )
-    return '<section class="catalog-reference-checks"><h2>Cross references</h2>' + "".join(rows) + "</section>"
-
-
-def catalog_label_fields(item: dict[str, object]) -> str:
-    label = item.get("label")
-    if not isinstance(label, dict):
-        label = {}
-    return "".join(
-        catalog_form_field(f"label_{language}", f"Label {language.upper()}", label.get(language, ""))
-        for language in ("es", "ca", "en")
-    )
-
-
-def render_catalog_entry_form(row: dict[str, object], catalogs: dict[str, object]) -> str:
-    item = row.get("item", {})
-    item = item if isinstance(item, dict) else {}
-    group = str(row["group"])
-    item_id = str(row["id"])
-    fields = [
-        catalog_form_field("id", "ID", item_id, readonly=True),
-    ]
-    if group == "host_taxa":
-        common_names = item.get("common_names") if isinstance(item.get("common_names"), dict) else {}
-        fields.extend(
-            [
-                catalog_form_field("rank", "Rank", item.get("rank", "")),
-                catalog_form_field("scientific_name", "Scientific name", item.get("scientific_name", "")),
-                catalog_form_field("genus", "Genus", item.get("genus", "")),
-                catalog_form_field("family", "Family", item.get("family", "")),
-                catalog_form_select("parent_id", "Parent ID", item.get("parent_id", ""), catalog_ids_for_group(catalogs, "host_taxa"), exclude=item_id),
-                catalog_form_textarea("common_names_es", "Common names ES", common_names.get("es", [])),
-                catalog_form_textarea("common_names_ca", "Common names CA", common_names.get("ca", [])),
-                catalog_form_textarea("common_names_en", "Common names EN", common_names.get("en", [])),
-                catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
-            ]
-        )
-    else:
-        fields.append(catalog_label_fields(item))
-        if group == "forest_types":
-            fields.extend(
-                [
-                    catalog_form_select("parent_id", "Parent ID", item.get("parent_id", ""), catalog_ids_for_group(catalogs, "forest_types"), exclude=item_id),
-                    catalog_form_textarea("dominant_host_ids", "Dominant host IDs", item.get("dominant_host_ids", [])),
-                    catalog_form_textarea("soil_bias_ids", "Soil bias IDs", item.get("soil_bias_ids", [])),
-                    catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
-                ]
-            )
-        elif group == "soil_types":
-            fields.extend(
-                [
-                    catalog_form_field("ph_min", "pH min", item.get("ph_min", ""), field_type="number"),
-                    catalog_form_field("ph_max", "pH max", item.get("ph_max", ""), field_type="number"),
-                    catalog_form_field("texture", "Texture", item.get("texture", "")),
-                    catalog_form_field("organic_matter", "Organic matter", item.get("organic_matter", "")),
-                    catalog_form_field("drainage", "Drainage", item.get("drainage", "")),
-                    catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
-                ]
-            )
-        elif group == "lithology_types":
-            fields.extend(
-                [
-                    catalog_form_field("general_reaction", "General reaction", item.get("general_reaction", "")),
-                    catalog_form_textarea("parent_soil_tendency_ids", "Parent soil tendency IDs", item.get("parent_soil_tendency_ids", [])),
-                    catalog_form_textarea("gis_aliases", "GIS aliases", item.get("gis_aliases", [])),
-                ]
-            )
-        elif group == "aspects":
-            fields.extend(
-                [
-                    catalog_form_field("azimuth_min", "Azimuth min", item.get("azimuth_min", ""), field_type="number"),
-                    catalog_form_field("azimuth_max", "Azimuth max", item.get("azimuth_max", ""), field_type="number"),
-                ]
-            )
-        if "description" in item or group == "trophic_modes":
-            fields.append(catalog_form_textarea("description", "Description", item.get("description", "")))
-        if "notes" in item:
-            fields.append(catalog_form_textarea("notes", "Notes", item.get("notes", "")))
-
-    return f"""
-      <form class="catalog-entry-form" method="post" action="?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save this catalog entry and validate the full dataset?')">
-        <input type="hidden" name="catalog_action" value="save_entry_form">
-        <input type="hidden" name="group" value="{html.escape(group, quote=True)}">
-        <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
-        <div class="admin-form-grid">{''.join(fields)}</div>
-        <button class="primary">Save entry</button>
-      </form>
-    """
-
-
-def render_catalog_detail(row: dict[str, object] | None, errors: list[object], warnings: list[object], catalogs: dict[str, object]) -> str:
-    if not row:
-        return '<aside class="card catalog-detail"><h2>Catalog detail</h2><p>No catalog entry selected.</p></aside>'
-    item = row.get("item", {})
-    json_value = json.dumps(item, indent=2, ensure_ascii=False)
-    group = str(row["group"])
-    item_id = str(row["id"])
-    return f"""
-    <aside class="card catalog-detail">
-      <h2>Catalog detail</h2>
-      <p><strong>{html.escape(item_id)}</strong><br>{html.escape(group)} · {html.escape(str(row["domain"]))}</p>
-      {render_catalog_entry_form(row, catalogs)}
-      {render_catalog_cross_reference_checks(group, item if isinstance(item, dict) else {}, catalogs)}
-      <details>
-        <summary><strong>Advanced raw JSON</strong></summary>
-        <form class="catalog-json-editor" method="post" action="?group={html.escape(group, quote=True)}&id={html.escape(item_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this catalog entry and validate the full dataset?')">
-          <input type="hidden" name="catalog_action" value="save_entry">
-          <input type="hidden" name="group" value="{html.escape(group, quote=True)}">
-          <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
-          <label class="label" for="catalog-entry-json">Entry JSON</label>
-          <textarea id="catalog-entry-json" name="entry_json" spellcheck="false">{html.escape(json_value)}</textarea>
-          <button class="primary">Save raw JSON</button>
-        </form>
-      </details>
-      <h2>Validation</h2>
-      {render_catalog_alerts(errors, warnings, limit=4)}
-    </aside>
-    """
-
-
 def replace_catalog_entry(catalog_payload: dict[str, object], group: str, item_id: str, entry: dict[str, object]) -> tuple[bool, str]:
     if str(entry.get("id", "")) != item_id:
         return False, "Entry ID cannot be changed in the first maintenance UI."
@@ -4334,7 +3906,7 @@ def catalog_form_nullable_string(form: dict[str, list[str]], name: str) -> str |
 
 
 def catalog_form_optional_number(form: dict[str, list[str]], name: str) -> float | int | None:
-    value = catalog_form_string(form, name)
+    value = catalog_form_string(form, name).replace(",", ".")
     if not value:
         return None
     number = float(value)
@@ -4404,60 +3976,6 @@ def update_catalog_entry_from_form(catalog_payload: dict[str, object], group: st
     return False, f"Catalog entry {item_id} was not found."
 
 
-def render_catalog_full_json_panel(payload: dict[str, object], mode: str) -> str:
-    json_value = json.dumps(payload, indent=2, ensure_ascii=False)
-    mode_label = "empty template" if mode == "template" else "current catalog"
-    return f"""
-    <details class="card" {"open" if mode == "template" else ""}>
-      <summary><strong>Full catalog JSON import/export</strong> · {html.escape(mode_label)}</summary>
-      <p>Use this panel for controlled full-file import/export. Saving validates profiles, catalogs and GIS mappings together before replacing the persistent catalog file.</p>
-      <div class="quick-actions">
-        <a class="button-link" href="?mode=current">Current catalog</a>
-        <a class="button-link" href="?mode=default">Packaged default</a>
-        <a class="button-link" href="?mode=template">Empty template</a>
-      </div>
-      <form class="catalog-json-editor" method="post" action="" onsubmit="return confirm('Replace the full catalog JSON after validation?')">
-        <input type="hidden" name="catalog_action" value="save_catalog">
-        <label class="label" for="catalog-full-json">Catalog JSON</label>
-        <textarea id="catalog-full-json" name="catalog_json" spellcheck="false">{html.escape(json_value)}</textarea>
-        <button class="primary">Validate and save full catalog</button>
-      </form>
-    </details>
-    """
-
-
-def render_new_catalog_entry_form(catalogs: dict[str, object], selected_group: str) -> str:
-    options = []
-    for group, items in catalogs.items():
-        if not isinstance(items, list):
-            continue
-        selected = " selected" if group == selected_group else ""
-        prefix = CATALOG_ID_PREFIXES.get(group, "")
-        options.append(
-            f'<option value="{html.escape(group, quote=True)}"{selected}>{html.escape(group)} · {html.escape(prefix)}</option>'
-        )
-    return f"""
-    <section class="card">
-      <h2>New catalog entry</h2>
-      <p>Create a safe starter entry in the selected catalog group. The new ID is validated before the catalog is saved.</p>
-      <form class="catalog-create-form" method="post" action="" onsubmit="return confirm('Create this catalog entry and validate the full dataset?')">
-        <input type="hidden" name="catalog_action" value="create_entry">
-        <div class="admin-form-grid">
-          <div class="admin-field">
-            <label>Group</label>
-            <select name="group">{''.join(options)}</select>
-          </div>
-          <div class="admin-field">
-            <label>ID</label>
-            <input name="id" placeholder="host_cistus_spp" required>
-          </div>
-        </div>
-        <button class="primary">Create entry</button>
-      </form>
-    </section>
-    """
-
-
 def mushroom_catalogs_flash() -> str:
     with RUN_LOCK:
         message = str(RUN_STATE.get("mushroom_catalogs_flash", ""))
@@ -4468,26 +3986,6 @@ def mushroom_catalogs_flash() -> str:
 def set_mushroom_catalogs_flash(message: str) -> None:
     with RUN_LOCK:
         RUN_STATE["mushroom_catalogs_flash"] = message
-
-
-PROFILE_SELECT_VALUES = {
-    "taxonomy_status": ["accepted", "species_complex_operational", "uncertain_operational_taxon"],
-    "edibility": ["excellent", "good", "edible_when_thoroughly_cooked"],
-    "confidence": ["very_low", "low", "medium", "high", "very_high"],
-    "calibration_status": ["not_calibrated", "partially_calibrated", "locally_calibrated", "needs_review"],
-    "calibration_priority": ["very_high", "high", "medium", "low"],
-    "review_status": ["draft", "reviewed", "published"],
-    "source_quality": ["inferred_from_literature", "expert_reviewed", "local_observations"],
-    "relationship": ["primary", "preferred", "secondary", "possible", "avoid"],
-}
-
-PROFILE_AFFINITY_GROUPS = {
-    "host_affinities": "host_taxa",
-    "forest_type_affinities": "forest_types",
-    "soil_affinities": "soil_types",
-    "lithology_affinities": "lithology_types",
-    "habitat_feature_affinities": "habitat_features",
-}
 
 
 def mushroom_profiles_flash() -> str:
@@ -4502,456 +4000,36 @@ def set_mushroom_profiles_flash(message: str) -> None:
         RUN_STATE["mushroom_profiles_flash"] = message
 
 
-def mushroom_profiles_flash_is_error(message: str) -> bool:
-    text = message.lower()
-    return any(
-        marker in text
-        for marker in (
-            "was not saved",
-            "were not saved",
-            "invalid json",
-            "action failed",
-            "was not found",
-            "unknown species",
-            "must be an object",
-            "cannot be changed",
-        )
-    )
-
-
 def render_mushroom_profiles_flash(message: str) -> str:
-    if not message:
+    text = str(message or "").strip()
+    if not text:
         return ""
-    is_error = mushroom_profiles_flash_is_error(message)
-    css_class = "catalog-alert error" if is_error else "catalog-alert"
-    title = "Validation error" if is_error else "Status"
-    suffix = '<br><span class="meta">Nothing was saved. Review the fields and save again.</span>' if is_error else ""
-    return (
-        f'<div id="mushroom-profile-message" class="{css_class}" role="alert" tabindex="-1">'
-        f"<strong>{title}</strong><br>{html.escape(message)}{suffix}</div>"
+    lowered = text.lower()
+    is_error = (
+        "not saved" in lowered
+        or "invalid json" in lowered
+        or "failed" in lowered
+        or "was not found" in lowered
+        or "unknown species" in lowered
     )
-
-
-def profile_message_url(species_id: str = "") -> str:
-    return profile_query_url(species_id) + "#mushroom-profile-message"
-
-
-def profile_common_name(profile: dict[str, object]) -> str:
-    names = profile.get("common_names")
-    if isinstance(names, list) and names:
-        return str(names[0])
-    return ""
-
-
-def profile_nested_dict(profile: dict[str, object], key: str) -> dict[str, object]:
-    value = profile.get(key)
-    return value if isinstance(value, dict) else {}
-
-
-def profile_query_url(species_id: str = "", search: str = "", mode: str = "") -> str:
-    params = {}
-    if species_id:
-        params["id"] = species_id
-    if search:
-        params["q"] = search
-    if mode:
-        params["mode"] = mode
-    return ("?" + urlencode(params)) if params else "?"
-
-
-def render_new_species_form() -> str:
-    return """
-    <details id="new-species" class="card">
-      <summary><strong>New species</strong></summary>
-      <p>Create a draft species profile with a complete validated starter structure. Review ecology, phenology, weather, scoring and calibration before using it for prediction.</p>
-      <form class="catalog-create-form" method="post" action="" onsubmit="return confirm('Create this draft species profile and validate the full dataset?')">
-        <input type="hidden" name="profile_action" value="create_profile">
-        <div class="admin-form-grid">
-          <div class="admin-field">
-            <label>Species ID</label>
-            <input name="new_species_id" placeholder="boletus_example" required>
-          </div>
-          <div class="admin-field">
-            <label>Scientific name</label>
-            <input name="new_scientific_name" placeholder="Boletus example" required>
-          </div>
-          <div class="admin-field">
-            <label>Common name</label>
-            <input name="new_common_name" placeholder="optional">
-          </div>
-        </div>
-        <button class="primary">Create species</button>
-      </form>
-    </details>
-    """
-
-
-def selected_profile(profiles: list[dict[str, object]], species_id: str) -> dict[str, object] | None:
-    if species_id:
-        for profile in profiles:
-            if str(profile.get("species_id", "")) == species_id:
-                return profile
-    return profiles[0] if profiles else None
-
-
-def profile_metric_cards(profiles: list[dict[str, object]], errors: list[object], warnings: list[object]) -> str:
-    accepted = 0
-    operational = 0
-    uncalibrated = 0
-    draft = 0
-    priority = 0
-    human = 0
-    for profile in profiles:
-        taxonomy = str(profile.get("taxonomy_status", ""))
-        if taxonomy == "accepted":
-            accepted += 1
-        elif taxonomy:
-            operational += 1
-        confidence = profile_nested_dict(profile, "prediction_confidence")
-        metadata = profile_nested_dict(profile, "metadata")
-        if confidence.get("local_calibration_status") == "not_calibrated":
-            uncalibrated += 1
-        if metadata.get("review_status") == "draft":
-            draft += 1
-        if confidence.get("calibration_priority") in {"high", "very_high"}:
-            priority += 1
-        if metadata.get("requires_human_validation") is True:
-            human += 1
-    cards = [
-        ("Species", str(len(profiles)), ""),
-        ("Accepted taxa", str(accepted), "ok"),
-        ("Operational taxa", str(operational), "warn" if operational else ""),
-        ("Uncalibrated", str(uncalibrated), "warn" if uncalibrated else "ok"),
-        ("Draft", str(draft), "warn" if draft else "ok"),
-        ("High priority", str(priority), "warn" if priority else "ok"),
-        ("Human validation", str(human), "warn" if human else "ok"),
-        ("Validation", f"{len(errors)} errors · {len(warnings)} warnings", "danger" if errors else "warn" if warnings else "ok"),
-    ]
-    return '<div class="summary-grid">' + "".join(
-        f'<div class="card"><span class="label">{html.escape(label)}</span><span class="value {css_class}">{html.escape(value)}</span></div>'
-        for label, value, css_class in cards
-    ) + "</div>"
-
-
-def render_profile_list(profiles: list[dict[str, object]], selected_id: str, search: str) -> str:
-    tokens = [token.lower() for token in search.split() if token.strip()]
-    rows = []
-    for profile in profiles:
-        species_id = str(profile.get("species_id", ""))
-        scientific_name = str(profile.get("scientific_name", ""))
-        common_name = profile_common_name(profile)
-        confidence = profile_nested_dict(profile, "prediction_confidence")
-        metadata = profile_nested_dict(profile, "metadata")
-        searchable = " ".join(
-            [
-                species_id,
-                scientific_name,
-                common_name,
-                str(profile.get("taxonomy_status", "")),
-                str(profile.get("edibility", "")),
-                str(confidence.get("overall_confidence", "")),
-                str(confidence.get("calibration_priority", "")),
-                str(metadata.get("review_status", "")),
-            ]
-        ).lower()
-        if tokens and not all(token in searchable for token in tokens):
-            continue
-        active = " active" if species_id == selected_id else ""
-        chips = "".join(
-            f'<span class="profile-chip">{html.escape(str(value))}</span>'
-            for value in (
-                confidence.get("overall_confidence", ""),
-                confidence.get("calibration_priority", ""),
-                metadata.get("review_status", ""),
-            )
-            if value
-        )
-        rows.append(
-            f'<a class="profile-list-item{active}" href="{profile_query_url(species_id, search)}">'
-            f"<strong>{html.escape(scientific_name or species_id)}</strong>"
-            f'<span class="meta">{html.escape(common_name or species_id)}</span>'
-            f'<span class="profile-chip-line">{chips}</span></a>'
-        )
-    if not rows:
-        rows.append('<div class="profile-list-item"><strong>No species match</strong><span class="meta">Adjust the search.</span></div>')
-    return '<aside class="profile-list">' + "".join(rows) + "</aside>"
-
-
-def profile_form_field(name: str, label: str, value: object = "", field_type: str = "text", readonly: bool = False) -> str:
-    readonly_attr = " readonly" if readonly else ""
-    step_attr = ' step="any"' if field_type == "number" else ""
-    checked_attr = ' checked' if field_type == "checkbox" and value is True else ""
-    escaped_name = html.escape(name, quote=True)
-    if field_type == "checkbox":
-        control = f'<input id="profile-{escaped_name}" name="{escaped_name}" type="checkbox" value="true"{checked_attr}>'
-    else:
-        escaped_value = html.escape("" if value is None else str(value), quote=True)
-        control = f'<input id="profile-{escaped_name}" name="{escaped_name}" type="{html.escape(field_type, quote=True)}" value="{escaped_value}"{step_attr}{readonly_attr}>'
+    if not is_error:
+        return f'<div id="mushroom-profile-message" class="catalog-alert"><strong>Status</strong><br>{html.escape(text)}</div>'
     return (
-        '<div class="admin-field">'
-        f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
-        f"{control}</div>"
-    )
-
-
-def profile_form_select(name: str, label: str, value: object, options: list[str]) -> str:
-    current = "" if value is None else str(value)
-    merged = list(options)
-    if current and current not in merged:
-        merged.append(current)
-    option_html = [f'<option value=""{" selected" if not current else ""}>-</option>']
-    for option in merged:
-        selected = " selected" if option == current else ""
-        option_html.append(f'<option value="{html.escape(option, quote=True)}"{selected}>{html.escape(option)}</option>')
-    escaped_name = html.escape(name, quote=True)
-    return (
-        '<div class="admin-field">'
-        f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
-        f'<select id="profile-{escaped_name}" name="{escaped_name}">{"".join(option_html)}</select>'
+        '<div id="mushroom-profile-message" class="catalog-alert error">'
+        f"<strong>Validation error</strong><br>{html.escape(text)}"
+        "<br><span class=\"meta\">Nothing was saved. Review the fields and save again.</span>"
         "</div>"
     )
 
 
-def catalog_options_for_group(catalogs: dict[str, object], group: str) -> list[tuple[str, str]]:
-    items = catalogs.get(group)
-    if not isinstance(items, list):
-        return []
-    options = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        item_id = str(item.get("id", "") or "").strip()
-        if item_id:
-            label = catalog_label(item)
-            options.append((item_id, label))
-    return sorted(options, key=lambda option: option[0])
+PROFILE_AFFINITY_GROUPS = mushroom_profiles_ui.PROFILE_AFFINITY_GROUPS
+profile_query_url = mushroom_profiles_ui.profile_query_url
+profile_nested_dict = mushroom_profiles_ui.nested_dict
+render_profile_affinity_rows = mushroom_profiles_ui.render_profile_affinity_rows
 
 
-def profile_form_catalog_select(
-    name: str,
-    label: str,
-    value: object,
-    options: list[tuple[str, str]],
-) -> str:
-    current = "" if value is None else str(value)
-    option_ids = [option_id for option_id, _label in options]
-    option_html = [f'<option value=""{" selected" if not current else ""}>-</option>']
-    for option_id, option_label in options:
-        selected = " selected" if option_id == current else ""
-        visible_label = option_id if option_label == option_id else f"{option_id} · {option_label}"
-        option_html.append(
-            f'<option value="{html.escape(option_id, quote=True)}"{selected}>{html.escape(visible_label)}</option>'
-        )
-    if current and current not in option_ids:
-        option_html.append(f'<option value="{html.escape(current, quote=True)}" selected>{html.escape(current)} (missing)</option>')
-    escaped_name = html.escape(name, quote=True)
-    return (
-        '<div class="admin-field">'
-        f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
-        f'<select id="profile-{escaped_name}" name="{escaped_name}">{"".join(option_html)}</select>'
-        "</div>"
-    )
-
-
-def profile_form_textarea(name: str, label: str, value: object, rows: int = 3) -> str:
-    escaped_name = html.escape(name, quote=True)
-    return (
-        '<div class="admin-field">'
-        f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
-        f'<textarea id="profile-{escaped_name}" name="{escaped_name}" rows="{rows}">{html.escape(catalog_textarea_value(value))}</textarea>'
-        "</div>"
-    )
-
-
-def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str, object]) -> str:
-    catalog_group = PROFILE_AFFINITY_GROUPS[field]
-    options = catalog_options_for_group(catalogs, catalog_group)
-    affinities = values if isinstance(values, list) else []
-    used_ids = {
-        str(item.get("id", "") or "").strip()
-        for item in affinities
-        if isinstance(item, dict) and str(item.get("id", "") or "").strip()
-    }
-    rows = []
-    editable_rows = [item if isinstance(item, dict) else {} for item in affinities] + [{} for _ in range(3)]
-    for index, item in enumerate(editable_rows):
-        current_id = str(item.get("id", "") or "").strip()
-        row_options = [
-            option
-            for option in options
-            if option[0] == current_id or option[0] not in used_ids
-        ]
-        rows.append(
-            '<div class="profile-affinity-row">'
-            + profile_form_catalog_select(f"{field}_{index}_id", "ID", current_id, row_options)
-            + profile_form_select(f"{field}_{index}_relationship", "Relationship", item.get("relationship", ""), PROFILE_SELECT_VALUES["relationship"])
-            + profile_form_field(f"{field}_{index}_affinity", "Affinity", item.get("affinity", ""), field_type="number")
-            + "</div>"
-        )
-    return (
-        '<div class="profile-affinity-block">'
-        f'<h2>{html.escape(field.replace("_", " ").title())}</h2>'
-        + "".join(rows)
-        + "</div>"
-    )
-
-
-def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str, object]) -> str:
-    if not profile:
-        return '<section class="card profile-editor"><h2>Species detail</h2><p>No species selected.</p></section>'
-    species_id = str(profile.get("species_id", ""))
-    ecology = profile_nested_dict(profile, "ecology")
-    phenology = profile_nested_dict(profile, "phenology")
-    topography = profile_nested_dict(profile, "topography")
-    weather_model = profile_nested_dict(profile, "weather_model")
-    rainfall = weather_model.get("rainfall") if isinstance(weather_model.get("rainfall"), dict) else {}
-    temperature = weather_model.get("temperature") if isinstance(weather_model.get("temperature"), dict) else {}
-    humidity = weather_model.get("humidity") if isinstance(weather_model.get("humidity"), dict) else {}
-    wind = weather_model.get("wind") if isinstance(weather_model.get("wind"), dict) else {}
-    scoring = profile_nested_dict(profile, "scoring_weights")
-    confidence = profile_nested_dict(profile, "prediction_confidence")
-    metadata = profile_nested_dict(profile, "metadata")
-    delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
-    json_value = json.dumps(profile, indent=2, ensure_ascii=False)
-    affinity_blocks = "".join(render_profile_affinity_rows(field, ecology.get(field, []), catalogs) for field in PROFILE_AFFINITY_GROUPS)
-    return f"""
-    <section class="card profile-editor">
-      <div class="profile-editor-head">
-        <div>
-          <h2>{html.escape(str(profile.get("scientific_name", species_id)))}</h2>
-          <p class="meta">{html.escape(profile_common_name(profile))} · {html.escape(species_id)}</p>
-        </div>
-        <span class="status-pill">{html.escape(str(confidence.get("local_calibration_status", "-")))}</span>
-      </div>
-      <form method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save this species profile and validate the full mushroom dataset?')">
-        <input type="hidden" name="profile_action" value="save_profile_form">
-        <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-        <div class="profile-tabs">
-          <input type="radio" name="profile_tab" id="profile-tab-general" checked>
-          <input type="radio" name="profile_tab" id="profile-tab-ecology">
-          <input type="radio" name="profile_tab" id="profile-tab-phenology">
-          <input type="radio" name="profile_tab" id="profile-tab-weather">
-          <input type="radio" name="profile_tab" id="profile-tab-scoring">
-          <input type="radio" name="profile_tab" id="profile-tab-calibration">
-          <input type="radio" name="profile_tab" id="profile-tab-metadata">
-          <input type="radio" name="profile_tab" id="profile-tab-json">
-          <div class="profile-tab-labels">
-            <label for="profile-tab-general">General</label>
-            <label for="profile-tab-ecology">Ecology</label>
-            <label for="profile-tab-phenology">Phenology / topography</label>
-            <label for="profile-tab-weather">Weather</label>
-            <label for="profile-tab-scoring">Scoring</label>
-            <label for="profile-tab-calibration">Calibration</label>
-            <label for="profile-tab-metadata">Metadata</label>
-            <label for="profile-tab-json">JSON</label>
-          </div>
-          <div class="profile-tab-content">
-            <section class="profile-section profile-tab-panel general">
-              <h2>General</h2>
-              <div class="profile-grid">
-                {profile_form_field("species_id_display", "Species ID", species_id, readonly=True)}
-                {profile_form_field("scientific_name", "Scientific name", profile.get("scientific_name", ""))}
-                {profile_form_textarea("common_names", "Common names", profile.get("common_names", []), rows=2)}
-                {profile_form_select("taxonomy_status", "Taxonomy status", profile.get("taxonomy_status", ""), PROFILE_SELECT_VALUES["taxonomy_status"])}
-                {profile_form_select("edibility", "Edibility", profile.get("edibility", ""), PROFILE_SELECT_VALUES["edibility"])}
-              </div>
-            </section>
-            <section class="profile-section profile-tab-panel ecology">
-              <h2>Ecology</h2>
-              <div class="profile-grid">
-                {profile_form_catalog_select("trophic_mode_id", "Trophic mode", ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
-              </div>
-              {affinity_blocks}
-            </section>
-            <section class="profile-section profile-tab-panel phenology">
-              <h2>Phenology and topography</h2>
-              <div class="profile-grid four">
-                {profile_form_textarea("main_months", "Main months", phenology.get("main_months", []), rows=2)}
-                {profile_form_textarea("secondary_months", "Secondary months", phenology.get("secondary_months", []), rows=2)}
-                {profile_form_textarea("season_pattern_ids", "Season patterns", phenology.get("season_pattern_ids", []), rows=2)}
-                {profile_form_textarea("preferred_aspect_ids", "Preferred aspects", topography.get("preferred_aspect_ids", []), rows=2)}
-                {profile_form_field("delay_min", "Delay min", delay.get("min", ""), field_type="number")}
-                {profile_form_field("delay_optimal_min", "Delay optimal min", delay.get("optimal_min", ""), field_type="number")}
-                {profile_form_field("delay_optimal_max", "Delay optimal max", delay.get("optimal_max", ""), field_type="number")}
-                {profile_form_field("delay_max", "Delay max", delay.get("max", ""), field_type="number")}
-                {profile_form_field("altitude_min_m", "Altitude min m", topography.get("altitude_min_m", ""), field_type="number")}
-                {profile_form_field("altitude_optimal_min_m", "Altitude optimal min m", topography.get("altitude_optimal_min_m", ""), field_type="number")}
-                {profile_form_field("altitude_optimal_max_m", "Altitude optimal max m", topography.get("altitude_optimal_max_m", ""), field_type="number")}
-                {profile_form_field("altitude_max_m", "Altitude max m", topography.get("altitude_max_m", ""), field_type="number")}
-              </div>
-              {profile_form_textarea("aspect_notes", "Aspect notes", topography.get("aspect_notes", ""), rows=2)}
-            </section>
-            <section class="profile-section profile-tab-panel weather">
-              <h2>Weather model</h2>
-              <div class="profile-grid four">
-                {''.join(profile_form_field(f"rainfall_{key}", key, value, field_type="number") for key, value in rainfall.items())}
-                {''.join(profile_form_field(f"temperature_{key}", key, value, field_type="number") for key, value in temperature.items())}
-                {''.join(profile_form_field(f"humidity_{key}", key, value, field_type="number") for key, value in humidity.items())}
-                {''.join(profile_form_field(f"wind_{key}", key, value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
-              </div>
-            </section>
-            <section class="profile-section profile-tab-panel scoring">
-              <h2>Scoring weights</h2>
-              <div class="profile-grid four">
-                {''.join(profile_form_field(f"score_{key}", key, value, field_type="number") for key, value in scoring.items())}
-              </div>
-            </section>
-            <section class="profile-section profile-tab-panel calibration">
-              <h2>Calibration</h2>
-              <div class="profile-calibration-summary">
-                <div><span class="label">Current status</span><span class="value">{html.escape(str(confidence.get("local_calibration_status", "-")))}</span></div>
-                <div><span class="label">Priority</span><span class="value">{html.escape(str(confidence.get("calibration_priority", "-")))}</span></div>
-                <div><span class="label">Overall confidence</span><span class="value">{html.escape(str(confidence.get("overall_confidence", "-")))}</span></div>
-                <div><span class="label">Human validation</span><span class="value">{html.escape(str(metadata.get("requires_human_validation", "-")))}</span></div>
-              </div>
-              <div class="profile-grid four">
-                {profile_form_select("local_calibration_status", "Local calibration status", confidence.get("local_calibration_status", ""), PROFILE_SELECT_VALUES["calibration_status"])}
-                {profile_form_select("calibration_priority", "Calibration priority", confidence.get("calibration_priority", ""), PROFILE_SELECT_VALUES["calibration_priority"])}
-                {profile_form_select("overall_confidence", "Overall confidence", confidence.get("overall_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-                {profile_form_select("habitat_confidence", "Habitat confidence", confidence.get("habitat_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-                {profile_form_select("topography_confidence", "Topography confidence", confidence.get("topography_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-                {profile_form_select("phenology_confidence", "Phenology confidence", confidence.get("phenology_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-                {profile_form_select("weather_threshold_confidence", "Weather threshold confidence", confidence.get("weather_threshold_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-                {profile_form_select("taxonomy_confidence", "Taxonomy confidence", confidence.get("taxonomy_confidence", ""), PROFILE_SELECT_VALUES["confidence"])}
-                {profile_form_field("minimum_observations_for_calibration", "Min observations calibration", confidence.get("minimum_observations_for_calibration", ""), field_type="number")}
-                {profile_form_field("minimum_positive_observations", "Min positive observations", confidence.get("minimum_positive_observations", ""), field_type="number")}
-                {profile_form_field("minimum_negative_observations", "Min negative observations", confidence.get("minimum_negative_observations", ""), field_type="number")}
-              </div>
-              {profile_form_textarea("confidence_notes", "Calibration notes", confidence.get("notes", ""), rows=3)}
-            </section>
-            <section class="profile-section profile-tab-panel metadata">
-              <h2>Metadata</h2>
-              <div class="profile-grid three">
-                {profile_form_field("profile_version", "Profile version", metadata.get("profile_version", ""))}
-                {profile_form_field("created_at", "Created at", metadata.get("created_at", ""))}
-                {profile_form_field("updated_at", "Updated at", metadata.get("updated_at", ""))}
-                {profile_form_field("created_by", "Created by", metadata.get("created_by", ""))}
-                {profile_form_select("review_status", "Review status", metadata.get("review_status", ""), PROFILE_SELECT_VALUES["review_status"])}
-                {profile_form_field("reviewed_by", "Reviewed by", metadata.get("reviewed_by", ""))}
-                {profile_form_select("source_quality", "Source quality", metadata.get("source_quality", ""), PROFILE_SELECT_VALUES["source_quality"])}
-                {profile_form_field("requires_human_validation", "Requires human validation", metadata.get("requires_human_validation"), field_type="checkbox")}
-              </div>
-            </section>
-            <section class="profile-section profile-tab-panel json">
-              <h2>Advanced JSON</h2>
-              <p class="meta">Use the raw JSON panel below only when a field is not exposed by the guided form.</p>
-            </section>
-          </div>
-        </div>
-        <button class="primary">Save species profile</button>
-      </form>
-      <details>
-        <summary><strong>Advanced raw JSON</strong></summary>
-        <form class="profile-json-editor" method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this species profile and validate the full dataset?')">
-          <input type="hidden" name="profile_action" value="save_profile_json">
-          <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-          <label class="label" for="profile-json">Species profile JSON</label>
-          <textarea id="profile-json" name="profile_json" spellcheck="false">{html.escape(json_value)}</textarea>
-          <button class="primary">Save raw JSON</button>
-        </form>
-      </details>
-    </section>
-    """
+def profile_message_url(species_id: str = "", search: str = "") -> str:
+    return profile_query_url(species_id, search) + "#mushroom-profile-message"
 
 
 def profile_form_number(form: dict[str, list[str]], name: str) -> float | int | None:
@@ -5087,27 +4165,7 @@ def replace_profile_entry(profiles_payload: dict[str, object], species_id: str, 
     return False, f"Species profile {species_id} was not found."
 
 
-def render_profile_full_json_panel(payload: dict[str, object], mode: str) -> str:
-    json_value = json.dumps(payload, indent=2, ensure_ascii=False)
-    mode_label = "empty template" if mode == "template" else "current profiles"
-    return f"""
-    <details class="card" {"open" if mode == "template" else ""}>
-      <summary><strong>Full profiles JSON import/export</strong> · {html.escape(mode_label)}</summary>
-      <p>Use this panel for controlled full-file import/export. Saving validates profiles, catalogs and GIS mappings together before replacing the persistent profiles file.</p>
-      <div class="quick-actions">
-        <a class="button-link" href="?mode=current">Current profiles</a>
-        <a class="button-link" href="?mode=default">Packaged default</a>
-        <a class="button-link" href="?mode=template">Empty template</a>
-      </div>
-      <form class="profile-json-editor" method="post" action="" onsubmit="return confirm('Replace the full profiles JSON after validation?')">
-        <input type="hidden" name="profile_action" value="save_profiles">
-        <label class="label" for="profiles-full-json">Profiles JSON</label>
-        <textarea id="profiles-full-json" name="profiles_json" spellcheck="false">{html.escape(json_value)}</textarea>
-        <button class="primary">Validate and save full profiles</button>
-      </form>
-    </details>
-    """
-
+render_profile_full_json_panel = mushroom_profiles_ui.render_profile_full_json_panel
 
 def user_display_name(user: dict[str, str]) -> str:
     name = user.get("name", "").strip()
@@ -6140,7 +5198,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         <h2 id="catalog-full-json">JSON maintenance</h2>
         {render_catalog_full_json_panel(full_payload, mode)}
         """
-        self.send_bytes(200, html_page("Mushroom reference catalogs", body, auto_refresh=False), "text/html; charset=utf-8")
+        self.send_bytes(
+            200,
+            html_page("Mushroom reference catalogs", body, auto_refresh=False, page_class="mushroom-wide-page"),
+            "text/html; charset=utf-8",
+        )
 
     def render_mushroom_profiles(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
@@ -6204,9 +5266,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <form class="catalog-filter" method="get" action="">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search species, ID, confidence or status">
           </form>
-          <a class="button-link" href="#new-species">New species</a>
+          <a class="button-link primary-link" href="#new-species">New species</a>
           <a class="button-link" href="#profiles-full-json">Import/export JSON</a>
         </div>
+        <nav class="mushroom-section-tabs" aria-label="Mushroom maintenance sections">
+          <span>Summary</span>
+          <span class="active">Species</span>
+          <span>Observations</span>
+          <span>Parameters</span>
+          <span>Calibration</span>
+        </nav>
         {flash_html}
         {seeded_html}
         {mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}
@@ -6214,13 +5283,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           {mushroom_profiles_ui.render_profile_list(profiles, selected_id, search)}
           {mushroom_profiles_ui.render_profile_editor(selected, catalogs)}
         </div>
-        <h2>Cross validation</h2>
-        {render_catalog_alerts(errors, warnings, limit=12)}
+        <details class="mushroom-cross-validation">
+          <summary><strong>Cross validation</strong> · {len(errors)} errors · {len(warnings)} warnings</summary>
+          {render_catalog_alerts(errors, warnings, limit=12)}
+        </details>
         {mushroom_profiles_ui.render_new_species_form()}
         <h2 id="profiles-full-json">JSON maintenance</h2>
         {mushroom_profiles_ui.render_profile_full_json_panel(full_payload, mode)}
         """
-        self.send_bytes(200, html_page("Mushroom species", body, auto_refresh=False), "text/html; charset=utf-8")
+        self.send_bytes(
+            200,
+            html_page("Mushroom species", body, auto_refresh=False, page_class="mushroom-wide-page"),
+            "text/html; charset=utf-8",
+        )
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)

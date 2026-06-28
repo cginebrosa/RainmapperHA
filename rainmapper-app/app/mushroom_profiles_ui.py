@@ -154,19 +154,32 @@ def score_bar(label: str, value: object) -> str:
     )
 
 
-def form_field(name: str, label: str, value: object = "", field_type: str = "text", readonly: bool = False) -> str:
+def form_field(
+    name: str,
+    label: str,
+    value: object = "",
+    field_type: str = "text",
+    readonly: bool = False,
+    step: str | None = None,
+    minimum: str | None = None,
+    maximum: str | None = None,
+) -> str:
     """Render a standard form input preserving current POST field names."""
     readonly_attr = " readonly" if readonly else ""
-    step_attr = ' step="any"' if field_type == "number" else ""
+    step_value = step if step is not None else "any"
+    step_attr = f' step="{html.escape(step_value, quote=True)}"' if field_type == "number" else ""
+    min_attr = f' min="{html.escape(minimum, quote=True)}"' if field_type == "number" and minimum is not None else ""
+    max_attr = f' max="{html.escape(maximum, quote=True)}"' if field_type == "number" and maximum is not None else ""
     checked_attr = ' checked' if field_type == "checkbox" and value is True else ""
     escaped_name = html.escape(name, quote=True)
     if field_type == "checkbox":
         control = f'<input id="profile-{escaped_name}" name="{escaped_name}" type="checkbox" value="true"{checked_attr}>'
     else:
         escaped_value = html.escape("" if value is None else str(value), quote=True)
+        inputmode_attr = ' inputmode="decimal"' if field_type == "number" else ""
         control = (
             f'<input id="profile-{escaped_name}" name="{escaped_name}" type="{html.escape(field_type, quote=True)}" '
-            f'value="{escaped_value}"{step_attr}{readonly_attr}>'
+            f'value="{escaped_value}"{step_attr}{min_attr}{max_attr}{inputmode_attr}{readonly_attr}>'
         )
     return '<div class="admin-field">' f'<label for="profile-{escaped_name}">{html.escape(label)}</label>{control}</div>'
 
@@ -485,6 +498,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
     humidity = weather_model.get("humidity") if isinstance(weather_model.get("humidity"), dict) else {}
     wind = weather_model.get("wind") if isinstance(weather_model.get("wind"), dict) else {}
     scoring = nested_dict(profile, "scoring_weights")
+    scoring_total = sum(float(value) for value in scoring.values() if isinstance(value, int | float))
     confidence = nested_dict(profile, "prediction_confidence")
     metadata = nested_dict(profile, "metadata")
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
@@ -572,11 +586,14 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
             </section>
             <section class="profile-section profile-tab-panel scoring">
               <h2>Scoring weights</h2>
+              <div class="profile-scoring-total">
+                <span>Current total</span><strong>{scoring_total:.2f}</strong><em>Target: 1.00</em>
+              </div>
               <div class="profile-score-editor">
                 {''.join(score_bar(key, value) for key, value in scoring.items())}
               </div>
               <div class="profile-grid four">
-                {''.join(form_field(f"score_{key}", key, value, field_type="number") for key, value in scoring.items())}
+                {''.join(form_field(f"score_{key}", key, value, field_type="number", step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
               </div>
             </section>
             <section class="profile-section profile-tab-panel calibration">

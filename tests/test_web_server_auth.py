@@ -231,6 +231,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('href="./catalogs"', page)
         self.assertIn("New species", page)
         self.assertIn('name="new_species_id"', page)
+        self.assertIn('name="score_habitat"', page)
+        self.assertIn('step="0.01"', page)
+        self.assertIn("Current total", page)
+        self.assertIn("Summary", page)
+        self.assertIn("Species", page)
+        self.assertIn("Observations", page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
 
     def test_mushroom_profiles_create_species_uses_validated_template(self) -> None:
@@ -424,7 +430,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "trophic_mode_id": ["trophic_ectomycorrhizal"],
             "host_affinities_0_id": ["host_pinus_spp"],
             "host_affinities_0_relationship": ["primary"],
-            "host_affinities_0_affinity": ["0.9"],
+            "host_affinities_0_affinity": ["0,9"],
             "forest_type_affinities_0_id": [""],
             "soil_affinities_0_id": [""],
             "lithology_affinities_0_id": [""],
@@ -446,13 +452,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "temperature_temp_min_7d_optimal_min_c": ["4"],
             "humidity_humidity_min_7d_preferred_min_pct": ["60"],
             "wind_dry_wind_sensitive": ["true"],
-            "score_habitat": ["0.2"],
-            "score_season": ["0.2"],
-            "score_altitude": ["0.1"],
-            "score_rainfall": ["0.2"],
-            "score_temperature": ["0.1"],
-            "score_humidity": ["0.1"],
-            "score_wind_penalty": ["0.1"],
+            "score_habitat": ["0,2"],
+            "score_season": ["0,2"],
+            "score_altitude": ["0,1"],
+            "score_rainfall": ["0,2"],
+            "score_temperature": ["0,1"],
+            "score_humidity": ["0,1"],
+            "score_wind_penalty": ["0,1"],
             "overall_confidence": ["high"],
             "habitat_confidence": ["medium"],
             "topography_confidence": ["medium"],

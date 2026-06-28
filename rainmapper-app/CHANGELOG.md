@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.165
+
+- Refine the mushroom species maintenance redesign with top section tabs, a wider species navigator and collapsed cross-validation warnings.
+- Increase the Home Assistant WebUI maximum content width so Control Panel, Users and mushroom maintenance pages waste less lateral space on wide screens.
+- Make scoring weight inputs use decimal steps of `0.01` with `0..1` bounds and a visible current-total indicator.
+- Accept comma decimal values in profile/catalog numeric form submissions for Home Assistant browsers using Spanish/Catalan locale formatting.
+- Move reference catalog rendering helpers into `mushroom_catalogs_ui.py` and remove stale mushroom profile rendering copies from `web_server.py`, keeping the HA server focused on routing, POST handling and persistence.
+
 ## 0.2.164
 
 - Redesign the mushroom species detail view toward the documented species maintenance mockup.
