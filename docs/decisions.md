@@ -1275,6 +1275,8 @@ El flujo de release exige login Docker contra GHCR en el Mac y disciplina de pub
 
 Actualizacion operativa 2026-06-28: el criterio de "version disponible para probar en HA" requiere tanto imagen GHCR publicada/verificada como commit de bump pusheado a GitHub. HA detecta la version desde `config.yaml` en GitHub, por lo que dejar el commit solo localmente o retrasar el push para documentar mantiene al usuario bloqueado. En releases de prueba HA, despues de verificar GHCR debe hacerse commit/push inmediato y avisar al usuario; la documentacion amplia se completa despues mientras el usuario instala/prueba.
 
+Actualizacion operativa 2026-06-28: por las restricciones del sandbox de Codex, `git commit` puede requerir escritura elevada en `.git` y `git push`/GHCR requieren red. Cuando el usuario pida explicitamente subir a Git o publicar una version HA, primero se revisa estado/diff y se ejecutan las validaciones necesarias; despues se usan directamente permisos elevados para `git commit`, `git push`, build/push GHCR o comandos de red necesarios, evitando intentos previos que ya se sabe que fallaran por sandbox.
+
 ### Ficheros afectados
 - `scripts/build-push-ha-image.sh`
 - `.github/workflows/build-rainmapper-app.yml`

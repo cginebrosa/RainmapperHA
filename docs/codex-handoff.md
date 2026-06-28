@@ -386,6 +386,8 @@ Despliegue Home Assistant:
 ```text
 Regla operativa critica para bumps HA: priorizar que la version quede realmente disponible en Home Assistant antes de documentar el cierre. Para HA, "disponible" significa dos cosas ya completadas: imagen GHCR versionada/latest publicada y verificada, y commit con el bump de `rainmapper-app/config.yaml` pusheado a GitHub. Publicar solo la imagen no libera al usuario, porque HA detecta la version desde GitHub; commitear localmente sin push tampoco libera al usuario. Orden obligatorio cuando el usuario espera probar: ejecutar la validacion minima local necesaria, publicar la imagen GHCR con `scripts/build-push-ha-image.sh`, verificar digest/import basico, hacer commit y push inmediato del bump, avisar al usuario inmediatamente de que HA ya puede detectar la version, y solo entonces completar documentacion amplia de continuidad mientras el usuario descarga/instala/prueba. No retrasar la disponibilidad en HA por documentar primero.
 
+Regla operativa de permisos Git/publicacion: cuando el usuario pida explicitamente "subir a git" o "publicar version HA", revisar primero `git status`/diff y validar lo necesario; despues ejecutar directamente con permisos elevados los pasos que normalmente los requieren (`git commit`, `git push`, build/push GHCR o comandos de red), sin hacer antes un intento destinado a fallar por sandbox. Usar esta regla solo para esas peticiones explicitas, no para commits o publicaciones inferidas.
+
 Despliegue manual confirmado: hacer Check for updates en Home Assistant y actualizar la app desde la UI de HA. No hay comando CLI de despliegue confirmado.
 ```
 
