@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.172
+
+- Fix the species Summary weather card so it reads the documented `weather_model` keys used by the JSON data and Weather tab.
+
 ## 0.2.171
 
 - Make `Archive species` show the selected species ID as read-only, without requiring manual retyping, and return to the species list after archiving.

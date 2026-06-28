@@ -528,10 +528,10 @@ def render_weather_summary(weather_model: dict[str, object]) -> str:
     wind = weather_model.get("wind") if isinstance(weather_model.get("wind"), dict) else {}
     return f"""
     <div class="profile-weather-grid">
-      <div>{value_row("Rain 7d min", rainfall.get("min_7d_mm"))}{value_row("Rain 15d optimal", f'{rainfall.get("optimal_15d_min_mm", "-")} - {rainfall.get("optimal_15d_max_mm", "-")} mm')}{value_row("Rain saturation", rainfall.get("saturation_30d_mm"))}</div>
-      <div>{value_row("Temp optimal", f'{temperature.get("optimal_min_c", "-")} - {temperature.get("optimal_max_c", "-")} °C')}{value_row("Heat penalty", temperature.get("heat_penalty_above_c"))}{value_row("Frost penalty", temperature.get("frost_penalty_below_c"))}</div>
-      <div>{value_row("Humidity min", humidity.get("min_preferred_percent"))}{value_row("Humidity optimal", humidity.get("optimal_percent"))}{value_row("Dry wind sensitive", "yes" if wind.get("dry_wind_sensitive") is True else "no")}</div>
-      <div>{value_row("Wind penalty", wind.get("penalty_above_kmh"))}{value_row("Gust penalty", wind.get("gust_penalty_above_kmh"))}</div>
+      <div>{value_row("Rain 7d min", rainfall.get("rain_7d_min_mm"))}{value_row("Rain 15d optimal", f'{rainfall.get("rain_15d_optimal_min_mm", "-")} - {rainfall.get("rain_15d_optimal_max_mm", "-")} mm')}{value_row("Rain saturation", rainfall.get("rain_30d_saturation_penalty_mm"))}</div>
+      <div>{value_row("Temp min optimal", f'{temperature.get("temp_min_7d_optimal_min_c", "-")} - {temperature.get("temp_min_7d_optimal_max_c", "-")} °C')}{value_row("Temp max optimal", f'{temperature.get("temp_max_7d_optimal_min_c", "-")} - {temperature.get("temp_max_7d_optimal_max_c", "-")} °C')}{value_row("Heat penalty", temperature.get("heat_penalty_temp_max_c"))}{value_row("Frost penalty", temperature.get("frost_penalty_temp_min_c"))}</div>
+      <div>{value_row("Humidity min", humidity.get("humidity_min_7d_preferred_min_pct"))}{value_row("Humidity optimal", humidity.get("humidity_max_7d_preferred_min_pct"))}{value_row("Dry wind sensitive", "yes" if wind.get("dry_wind_sensitive") is True else "no")}</div>
+      <div>{value_row("Wind penalty", wind.get("wind_avg_3d_penalty_kmh"))}{value_row("Gust penalty", wind.get("wind_gust_3d_penalty_kmh"))}</div>
     </div>
     """
 
