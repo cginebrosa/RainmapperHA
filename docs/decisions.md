@@ -63,6 +63,8 @@ Consecuencias:
 - El archivo de especies archivadas no forma parte del modelo predictor activo; se usa solo para mantenimiento.
 - Si en el futuro hay observaciones/calibraciones vinculadas, el archivado/restauracion debera validar tambien esas referencias.
 
+Actualizacion 2026-06-28: `0.2.169` no debe cerrarse como buena para este flujo porque en HA los modales de `New species`, `Duplicate species` y `Restore species` quedaban visibles pero no interactivos por una colision de `z-index` del backdrop heredada de los modales antiguos de Users. `0.2.170` corrige esa capa y queda como version a validar para el ciclo de vida defensivo.
+
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
 Decision:

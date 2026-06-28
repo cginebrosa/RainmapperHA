@@ -2202,6 +2202,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: rgba(0, 0, 0, .64);
       inset: 0;
       position: absolute;
+      z-index: 0;
     }}
     .modal-card {{
       background: var(--card);

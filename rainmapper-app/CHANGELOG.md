@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.170
+
+- Fix mushroom species lifecycle modals so `New species`, `Duplicate species` and `Restore species` forms receive clicks and keyboard focus in Home Assistant.
+
 ## 0.2.169
 
 - Move the species maintenance toolbar above the page title and align the title with the mushroom section tabs to recover vertical space.
