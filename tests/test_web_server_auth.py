@@ -281,6 +281,43 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertIn(f'section={section}', page)
             self.assertIn("Boletus pinophilus", page)
 
+    def test_mushroom_parameters_render_human_labels_and_host_groups(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        store = self.web_server.default_store()
+        store.ensure_seeded()
+        profiles = store.load("profiles")
+        catalogs = store.load("catalogs")
+        profile = next(
+            item
+            for item in profiles["species_profiles"]
+            if item["species_id"] == "boletus_pinophilus"
+        )
+
+        html = self.web_server.mushroom_profiles_ui.render_parameters_section(profile, catalogs)
+
+        self.assertIn("7d min rain", html)
+        self.assertIn("Primary hosts", html)
+        self.assertIn("Secondary hosts", html)
+        self.assertIn('name="rainfall_rain_7d_min_mm"', html)
+        self.assertNotIn(">rain_7d_min_mm<", html)
+
     def test_mushroom_profiles_create_species_uses_validated_template(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")

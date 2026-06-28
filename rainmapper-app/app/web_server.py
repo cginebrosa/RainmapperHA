@@ -1862,8 +1862,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       padding: 10px;
     }}
     .profile-subsection h3 {{
+      align-items: center;
+      display: flex;
       font-size: 13px;
+      gap: 7px;
       margin: 0;
+    }}
+    .profile-subsection h3 svg {{
+      fill: none;
+      height: 16px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+      width: 16px;
     }}
     .month-chip-grid {{
       display: flex;
@@ -2172,6 +2184,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: rgba(2, 13, 22, .28);
       border: 1px solid rgba(45, 58, 71, .76);
       border-radius: 8px;
+      align-content: start;
       display: grid;
       gap: 10px;
       padding: 12px;
@@ -2199,7 +2212,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 12px;
     }}
     .profile-parameters-grid {{
-      grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+      align-items: start;
+      grid-template-columns: minmax(360px, .76fr) minmax(0, 1.24fr);
     }}
     .profile-section-card-grid.two,
     .profile-calibration-grid {{
@@ -2231,6 +2245,147 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       padding: 8px 9px;
       resize: vertical;
       width: 100%;
+    }}
+    .parameters-screen {{
+      gap: 12px;
+    }}
+    .parameters-screen .profile-section-card {{
+      gap: 8px;
+      padding: 10px;
+    }}
+    .parameters-screen .profile-subsection {{
+      gap: 7px;
+      padding: 9px;
+    }}
+    .parameter-card-note {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      margin: -2px 0 2px;
+    }}
+    .parameter-climate-grid {{
+      display: grid;
+      gap: 9px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .parameter-habitat-grid {{
+      gap: 9px;
+    }}
+    .parameter-field-row,
+    .parameter-text-row,
+    .parameter-switch-row {{
+      align-items: center;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(145px, 1fr) minmax(88px, .52fr);
+      min-height: 28px;
+    }}
+    .parameter-field-row > span:first-child,
+    .parameter-text-row > span:first-child,
+    .parameter-switch-row > span:first-child {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }}
+    .parameter-input-shell {{
+      align-items: center;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }}
+    .parameter-input-shell input,
+    .parameters-screen .parameter-field-row input {{
+      border-radius: 6px 0 0 6px;
+      min-height: 28px;
+      padding: 0 8px;
+    }}
+    .parameter-input-shell input:only-child {{
+      border-radius: 6px;
+    }}
+    .parameter-unit {{
+      align-items: center;
+      background: rgba(15, 23, 42, .72);
+      border: 1px solid var(--line);
+      border-left: 0;
+      border-radius: 0 6px 6px 0;
+      color: var(--muted);
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 800;
+      justify-content: center;
+      min-height: 28px;
+      min-width: 38px;
+      padding: 0 7px;
+    }}
+    .parameter-text-row {{
+      align-items: start;
+    }}
+    .parameter-text-row textarea {{
+      border-radius: 6px;
+      line-height: 1.25;
+      min-height: 31px;
+      padding: 6px 8px;
+    }}
+    .parameter-switch-row {{
+      grid-template-columns: minmax(145px, 1fr) auto auto;
+      justify-content: start;
+    }}
+    .parameter-switch-row input {{
+      accent-color: var(--accent);
+      height: 18px;
+      width: 18px;
+    }}
+    .parameter-switch-row em {{
+      color: var(--muted);
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 800;
+    }}
+    .parameter-duo-grid {{
+      display: grid;
+      gap: 7px 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .parameter-duo-grid .parameter-field-row {{
+      grid-template-columns: minmax(82px, 1fr) minmax(82px, .72fr);
+    }}
+    .parameter-score-grid {{
+      display: grid;
+      gap: 7px 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .parameter-score-grid .parameter-field-row {{
+      grid-template-columns: minmax(92px, 1fr) minmax(76px, .58fr);
+    }}
+    .parameter-chip-row {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }}
+    .parameter-affinity-chip {{
+      background: rgba(3, 169, 244, .08);
+      border: 1px solid rgba(3, 169, 244, .35);
+      border-radius: 6px;
+      color: var(--fg);
+      display: inline-flex;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.15;
+      max-width: 210px;
+      padding: 4px 6px;
+    }}
+    .parameter-affinity-chip em {{
+      color: var(--muted);
+      font-style: normal;
+      font-weight: 700;
+    }}
+    .parameter-affinity-chip.muted,
+    .parameter-empty {{
+      border-color: rgba(45, 58, 71, .7);
+      color: var(--muted);
     }}
     .profile-calibration-cards {{
       display: grid;
@@ -2430,6 +2585,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-calibration-grid,
       .profile-metrics,
       .profile-parameters-grid,
+      .parameter-climate-grid,
+      .parameter-duo-grid,
+      .parameter-score-grid,
       .profile-section-card-grid.two,
       .profile-weather-grid,
       .profile-metadata-strip,

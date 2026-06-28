@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.174
+
+- Compact the mushroom species `Parameters` screen toward the visual reference layout.
+- Add human parameter labels from `mushroom-data/mushroom_parameter_labels.json` with English, Spanish and Catalan entries.
+- Separate host affinities into primary, secondary and other groups in the `Parameters` habitat summary.
+- Add icons and denser controls for climate, habitat, topography, phenology and scoring blocks.
+
 ## 0.2.173
 
 - Add top-level mushroom species `Parameters`, `Calibration` and `Observations` sections.

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import html
 import json
+import os
+from pathlib import Path
 from urllib.parse import urlencode
 
 
@@ -57,12 +59,60 @@ ICONS = {
     "scoring": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-4M12 16V8M16 16v-7"/></svg>',
     "calibration": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/><path d="m15 9 3-3M9 15l-3 3M9 9 6 6M15 15l3 3"/></svg>',
     "metadata": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+    "rain": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.4 1.8A3.1 3.1 0 0 1 17 16H7Z"/><path d="M8 20l1-2M12 21l1-3M16 20l1-2"/></svg>',
+    "temperature": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5a2 2 0 1 1 4 0v9.5a4 4 0 1 1-4 0Z"/><path d="M12 8v8"/></svg>',
+    "humidity": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s6 6.2 6 11a6 6 0 0 1-12 0c0-4.8 6-11 6-11Z"/><path d="M9.5 14.5c.6 1.4 1.6 2.1 3 2.1"/></svg>',
+    "wind": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h10a2 2 0 1 0-2-2"/><path d="M4 12h15a2 2 0 1 1-2 2"/><path d="M4 16h8"/></svg>',
+    "host": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9"/><path d="M7 10c0-3.4 2.5-5.8 5-7 2.5 1.2 5 3.6 5 7a5 5 0 0 1-10 0Z"/><path d="M12 15c-2.8 0-5 1.3-7 3.4"/></svg>',
+    "soil": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17c3-2 5-2 8 0s5 2 8 0"/><path d="M4 13c3-2 5-2 8 0s5 2 8 0"/><path d="M7 9h.1M12 8h.1M17 9h.1"/></svg>',
+    "topography": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18 9 7l4 7 2-3 6 7H3Z"/><path d="M9 7l2.2 3.8"/></svg>',
 }
 
 
 def icon(name: str) -> str:
     """Return a small inline SVG icon with inherited stroke color."""
     return ICONS.get(name, "")
+
+
+def parameter_label_candidates() -> list[Path]:
+    """Return candidate parameter-label dictionaries for HA and local runs."""
+    configured_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", "").strip()
+    candidates = []
+    if configured_defaults:
+        candidates.append(Path(configured_defaults) / "mushroom_parameter_labels.json")
+    candidates.extend(
+        [
+            Path("/app/mushroom-data/mushroom_parameter_labels.json"),
+        ]
+    )
+    module_path = Path(__file__).resolve()
+    if len(module_path.parents) > 2:
+        candidates.append(module_path.parents[2] / "mushroom-data" / "mushroom_parameter_labels.json")
+    return candidates
+
+
+def load_parameter_labels() -> dict[str, dict[str, str]]:
+    """Load human parameter labels from mushroom-data with a safe empty fallback."""
+    for candidate in parameter_label_candidates():
+        if not candidate.exists():
+            continue
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        labels: dict[str, dict[str, str]] = {}
+        for key, value in payload.items():
+            if isinstance(value, dict):
+                translations = {str(language): str(label) for language, label in value.items() if label}
+                if translations:
+                    labels[str(key)] = translations
+        return labels
+    return {}
+
+
+PARAMETER_LABELS = load_parameter_labels()
 
 
 def profile_query_url(species_id: str = "", search: str = "", mode: str = "", section: str = "") -> str:
@@ -160,6 +210,14 @@ def value_row(label: str, value: object, css_class: str = "") -> str:
     return (
         f'<div class="profile-kv {html.escape(css_class)}">'
         f'<span>{html.escape(label)}</span><strong>{html.escape(str(value if value not in (None, "") else "-"))}</strong></div>'
+    )
+
+
+def value_html_row(label: str, value_html: str, css_class: str = "") -> str:
+    """Render a compact row whose value was already produced by trusted helpers."""
+    return (
+        f'<div class="profile-kv {html.escape(css_class)}">'
+        f'<span>{html.escape(label)}</span><strong>{value_html}</strong></div>'
     )
 
 
@@ -277,6 +335,112 @@ def form_textarea(name: str, label: str, value: object, rows: int = 3) -> str:
         f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
         f'<textarea id="profile-{escaped_name}" name="{escaped_name}" rows="{rows}">{html.escape(textarea_value(value))}</textarea></div>'
     )
+
+
+def parameter_unit(name: str) -> str:
+    """Infer a compact unit label from a parameter key."""
+    if name.endswith("_mm"):
+        return "mm"
+    if name.endswith("_c"):
+        return "C"
+    if name.endswith("_pct"):
+        return "%"
+    if name.endswith("_kmh"):
+        return "km/h"
+    if name.endswith("_m"):
+        return "m"
+    if name.endswith("_days"):
+        return "d"
+    return ""
+
+
+def parameter_label(name: str, language: str = "en") -> str:
+    """Return a short human label for a model parameter key."""
+    labels = PARAMETER_LABELS.get(name)
+    if labels:
+        return labels.get(language) or labels.get("en") or next(iter(labels.values()))
+    return name.replace("_", " ").strip().title()
+
+
+def parameter_field(name: str, label: str, value: object, unit: str = "", field_type: str = "number", **attrs: str) -> str:
+    """Render a dense label/input row for the Parameters screen."""
+    escaped_name = html.escape(name, quote=True)
+    escaped_label = html.escape(label)
+    if field_type == "checkbox":
+        checked_attr = ' checked' if value is True else ""
+        return (
+            '<label class="parameter-switch-row">'
+            f'<span>{escaped_label}</span>'
+            f'<input id="profile-{escaped_name}" name="{escaped_name}" type="checkbox" value="true"{checked_attr}>'
+            '<em>Yes</em></label>'
+        )
+    step_value = attrs.get("step", "any")
+    step_attr = f' step="{html.escape(step_value, quote=True)}"'
+    min_attr = f' min="{html.escape(attrs["minimum"], quote=True)}"' if "minimum" in attrs else ""
+    max_attr = f' max="{html.escape(attrs["maximum"], quote=True)}"' if "maximum" in attrs else ""
+    unit_html = f'<span class="parameter-unit">{html.escape(unit)}</span>' if unit else ""
+    escaped_value = html.escape("" if value is None else str(value), quote=True)
+    return (
+        '<label class="parameter-field-row">'
+        f'<span>{escaped_label}</span>'
+        '<span class="parameter-input-shell">'
+        f'<input id="profile-{escaped_name}" name="{escaped_name}" type="{html.escape(field_type, quote=True)}" '
+        f'value="{escaped_value}"{step_attr}{min_attr}{max_attr} inputmode="decimal">'
+        f'{unit_html}</span></label>'
+    )
+
+
+def parameter_textarea(name: str, label: str, value: object, rows: int = 1) -> str:
+    """Render a compact textarea row for list-like Parameters fields."""
+    escaped_name = html.escape(name, quote=True)
+    return (
+        '<label class="parameter-text-row">'
+        f'<span>{html.escape(label)}</span>'
+        f'<textarea id="profile-{escaped_name}" name="{escaped_name}" rows="{rows}">{html.escape(textarea_value(value))}</textarea></label>'
+    )
+
+
+def catalog_label_map(catalogs: dict[str, object], group: str) -> dict[str, str]:
+    """Return catalog labels indexed by ID for compact read-only summaries."""
+    return {item_id: label for item_id, label in catalog_options_for_group(catalogs, group)}
+
+
+def affinity_chip_list(
+    ecology: dict[str, object],
+    key: str,
+    labels: dict[str, str],
+    relationship: str | None = None,
+    exclude_relationships: set[str] | None = None,
+    limit: int = 6,
+) -> str:
+    """Render affinity rows as compact chips, optionally filtered by relationship."""
+    raw_items = ecology.get(key)
+    items = raw_items if isinstance(raw_items, list) else []
+    chips = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id", "") or "")
+        if not item_id:
+            continue
+        item_relationship = str(item.get("relationship", "") or "")
+        if relationship and item_relationship != relationship:
+            continue
+        if exclude_relationships and item_relationship in exclude_relationships:
+            continue
+        label = labels.get(item_id, item_id)
+        visible_label = label if label != item_id else item_id
+        relationship_html = f'<em>{html.escape(item_relationship)}</em>' if item_relationship and not relationship else ""
+        chips.append(
+            f'<span class="parameter-affinity-chip" title="{html.escape(item_id, quote=True)}">'
+            f'{html.escape(visible_label)}{relationship_html}</span>'
+        )
+    if not chips:
+        return '<span class="parameter-empty">-</span>'
+    visible = chips[:limit]
+    if len(chips) > limit:
+        visible.append(f'<span class="parameter-affinity-chip muted">+{len(chips) - limit}</span>')
+    return '<span class="parameter-chip-row">' + "".join(visible) + "</span>"
 
 
 def render_new_species_form() -> str:
@@ -918,31 +1082,11 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
     scoring = nested_dict(profile, "scoring_weights")
     metadata = nested_dict(profile, "metadata")
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
-    host_ids = [
-        str(item.get("id", ""))
-        for item in ecology.get("host_affinities", [])
-        if isinstance(item, dict) and item.get("id")
-    ] if isinstance(ecology.get("host_affinities"), list) else []
-    forest_ids = [
-        str(item.get("id", ""))
-        for item in ecology.get("forest_type_affinities", [])
-        if isinstance(item, dict) and item.get("id")
-    ] if isinstance(ecology.get("forest_type_affinities"), list) else []
-    soil_ids = [
-        str(item.get("id", ""))
-        for item in ecology.get("soil_affinities", [])
-        if isinstance(item, dict) and item.get("id")
-    ] if isinstance(ecology.get("soil_affinities"), list) else []
-    lithology_ids = [
-        str(item.get("id", ""))
-        for item in ecology.get("lithology_affinities", [])
-        if isinstance(item, dict) and item.get("id")
-    ] if isinstance(ecology.get("lithology_affinities"), list) else []
-    habitat_ids = [
-        str(item.get("id", ""))
-        for item in ecology.get("habitat_feature_affinities", [])
-        if isinstance(item, dict) and item.get("id")
-    ] if isinstance(ecology.get("habitat_feature_affinities"), list) else []
+    host_labels = catalog_label_map(catalogs, "host_taxa")
+    forest_labels = catalog_label_map(catalogs, "forest_types")
+    soil_labels = catalog_label_map(catalogs, "soil_types")
+    lithology_labels = catalog_label_map(catalogs, "lithology_types")
+    habitat_labels = catalog_label_map(catalogs, "habitat_features")
     scoring_total = sum(float(value) for value in scoring.values() if isinstance(value, int | float))
     species_href = profile_query_url(species_id, search, section="species")
     return f"""
@@ -954,70 +1098,74 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
         <div class="profile-parameters-grid">
           <article class="profile-section-card">
             <h2>{icon("weather")} Climate model</h2>
-            <div class="profile-section-card-grid two">
+            <p class="parameter-card-note">Weather thresholds used by the suitability model.</p>
+            <div class="parameter-climate-grid">
               <div class="profile-subsection">
-                <h3>Rainfall</h3>
-                {''.join(form_field(f"rainfall_{key}", key, value, field_type="number") for key, value in rainfall.items())}
+                <h3>{icon("rain")} Rainfall</h3>
+                {''.join(parameter_field(f"rainfall_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in rainfall.items())}
               </div>
               <div class="profile-subsection">
-                <h3>Temperature</h3>
-                {''.join(form_field(f"temperature_{key}", key, value, field_type="number") for key, value in temperature.items())}
+                <h3>{icon("temperature")} Temperature</h3>
+                {''.join(parameter_field(f"temperature_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in temperature.items())}
               </div>
               <div class="profile-subsection">
-                <h3>Humidity</h3>
-                {''.join(form_field(f"humidity_{key}", key, value, field_type="number") for key, value in humidity.items())}
+                <h3>{icon("humidity")} Humidity</h3>
+                {''.join(parameter_field(f"humidity_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in humidity.items())}
               </div>
               <div class="profile-subsection">
-                <h3>Wind</h3>
-                {''.join(form_field(f"wind_{key}", key, value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
+                <h3>{icon("wind")} Wind</h3>
+                {''.join(parameter_field(f"wind_{key}", parameter_label(key), value, unit=parameter_unit(key), field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
               </div>
             </div>
           </article>
           <article class="profile-section-card">
             <h2>{icon("ecology")} Habitat model</h2>
-            <div class="profile-section-card-grid two">
+            <p class="parameter-card-note">Habitat, terrain and season inputs used by the species model.</p>
+            <div class="profile-section-card-grid two parameter-habitat-grid">
               <div class="profile-subsection">
-                <h3>Ecology and habitat</h3>
+                <h3>{icon("host")} Ecology and habitat</h3>
                 {form_catalog_select("trophic_mode_id", "Trophic mode", ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
-                {value_row("Hosts", ", ".join(host_ids[:6]) if host_ids else "-")}
-                {value_row("Forest types", ", ".join(forest_ids[:6]) if forest_ids else "-")}
-                {value_row("Habitat features", ", ".join(habitat_ids[:6]) if habitat_ids else "-")}
+                {value_html_row("Primary hosts", affinity_chip_list(ecology, "host_affinities", host_labels, "primary"))}
+                {value_html_row("Secondary hosts", affinity_chip_list(ecology, "host_affinities", host_labels, "secondary"))}
+                {value_html_row("Other hosts", affinity_chip_list(ecology, "host_affinities", host_labels, exclude_relationships={"primary", "secondary"}))}
+                {value_html_row("Forest types", affinity_chip_list(ecology, "forest_type_affinities", forest_labels))}
+                {value_html_row("Habitat features", affinity_chip_list(ecology, "habitat_feature_affinities", habitat_labels))}
                 <p class="meta">Use Species > Ecology to edit catalog-backed affinity rows and relationships.</p>
               </div>
               <div class="profile-subsection">
-                <h3>Soils and lithology</h3>
-                {value_row("Soils", ", ".join(soil_ids[:6]) if soil_ids else "-")}
-                {value_row("Lithology", ", ".join(lithology_ids[:6]) if lithology_ids else "-")}
+                <h3>{icon("soil")} Soils and lithology</h3>
+                {value_html_row("Soils", affinity_chip_list(ecology, "soil_affinities", soil_labels))}
+                {value_html_row("Lithology", affinity_chip_list(ecology, "lithology_affinities", lithology_labels))}
                 <p class="meta">Affinity IDs are preserved here and edited in the full Species form.</p>
               </div>
               <div class="profile-subsection">
-                <h3>Topography</h3>
-                <div class="profile-grid two">
-                  {form_field("altitude_min_m", "Altitude min m", topography.get("altitude_min_m", ""), field_type="number")}
-                  {form_field("altitude_optimal_min_m", "Altitude optimal min m", topography.get("altitude_optimal_min_m", ""), field_type="number")}
-                  {form_field("altitude_optimal_max_m", "Altitude optimal max m", topography.get("altitude_optimal_max_m", ""), field_type="number")}
-                  {form_field("altitude_max_m", "Altitude max m", topography.get("altitude_max_m", ""), field_type="number")}
+                <h3>{icon("topography")} Topography</h3>
+                <div class="parameter-duo-grid">
+                  {parameter_field("altitude_min_m", "Altitude min", topography.get("altitude_min_m", ""), unit="m")}
+                  {parameter_field("altitude_optimal_min_m", "Optimal min", topography.get("altitude_optimal_min_m", ""), unit="m")}
+                  {parameter_field("altitude_optimal_max_m", "Optimal max", topography.get("altitude_optimal_max_m", ""), unit="m")}
+                  {parameter_field("altitude_max_m", "Altitude max", topography.get("altitude_max_m", ""), unit="m")}
                 </div>
-                {form_textarea("preferred_aspect_ids", "Preferred aspects", topography.get("preferred_aspect_ids", []), rows=2)}
-                {form_textarea("aspect_notes", "Aspect notes", topography.get("aspect_notes", ""), rows=2)}
+                {parameter_textarea("preferred_aspect_ids", "Preferred aspects", topography.get("preferred_aspect_ids", []), rows=1)}
+                {parameter_textarea("aspect_notes", "Aspect notes", topography.get("aspect_notes", ""), rows=1)}
               </div>
               <div class="profile-subsection">
-                <h3>Phenology</h3>
-                {form_textarea("main_months", "Main months", phenology.get("main_months", []), rows=2)}
-                {form_textarea("secondary_months", "Secondary months", phenology.get("secondary_months", []), rows=2)}
-                {form_textarea("season_pattern_ids", "Season patterns", phenology.get("season_pattern_ids", []), rows=2)}
-                <div class="profile-grid two">
-                  {form_field("delay_min", "Delay min", delay.get("min", ""), field_type="number")}
-                  {form_field("delay_optimal_min", "Delay optimal min", delay.get("optimal_min", ""), field_type="number")}
-                  {form_field("delay_optimal_max", "Delay optimal max", delay.get("optimal_max", ""), field_type="number")}
-                  {form_field("delay_max", "Delay max", delay.get("max", ""), field_type="number")}
+                <h3>{icon("phenology")} Phenology</h3>
+                {parameter_textarea("main_months", "Main months", phenology.get("main_months", []), rows=1)}
+                {parameter_textarea("secondary_months", "Secondary months", phenology.get("secondary_months", []), rows=1)}
+                {parameter_textarea("season_pattern_ids", "Season patterns", phenology.get("season_pattern_ids", []), rows=1)}
+                <div class="parameter-duo-grid">
+                  {parameter_field("delay_min", "Delay min", delay.get("min", ""), unit="d")}
+                  {parameter_field("delay_optimal_min", "Delay optimal min", delay.get("optimal_min", ""), unit="d")}
+                  {parameter_field("delay_optimal_max", "Delay optimal max", delay.get("optimal_max", ""), unit="d")}
+                  {parameter_field("delay_max", "Delay max", delay.get("max", ""), unit="d")}
                 </div>
               </div>
               <div class="profile-subsection full">
-                <h3>Scoring weights</h3>
+                <h3>{icon("scoring")} Scoring weights</h3>
                 <div class="profile-scoring-total"><span>Current total</span><strong>{scoring_total:.2f}</strong><em>Target: 1.00</em></div>
-                <div class="profile-grid four">
-                  {''.join(form_field(f"score_{key}", key, value, field_type="number", step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
+                <div class="parameter-score-grid">
+                  {''.join(parameter_field(f"score_{key}", parameter_label(key), value, step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
                 </div>
               </div>
             </div>

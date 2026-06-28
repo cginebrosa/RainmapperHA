@@ -1,0 +1,117 @@
+{
+  "rain_7d_min_mm": {
+    "en": "7d min rain",
+    "es": "Lluvia min 7d",
+    "ca": "Pluja min 7d"
+  },
+  "rain_15d_min_mm": {
+    "en": "15d min rain",
+    "es": "Lluvia min 15d",
+    "ca": "Pluja min 15d"
+  },
+  "rain_15d_optimal_min_mm": {
+    "en": "15d optimal min",
+    "es": "Optimo min 15d",
+    "ca": "Optim min 15d"
+  },
+  "rain_15d_optimal_max_mm": {
+    "en": "15d optimal max",
+    "es": "Optimo max 15d",
+    "ca": "Optim max 15d"
+  },
+  "rain_30d_saturation_penalty_mm": {
+    "en": "30d saturation",
+    "es": "Saturacion 30d",
+    "ca": "Saturacio 30d"
+  },
+  "temp_min_7d_optimal_min_c": {
+    "en": "7d min temp low",
+    "es": "7d Temp min baja",
+    "ca": "Temp min baixa"
+  },
+  "temp_min_7d_optimal_max_c": {
+    "en": "7d min temp high",
+    "es": "Temp min alta 7d",
+    "ca": "Temp min alta 7d"
+  },
+  "temp_max_7d_optimal_min_c": {
+    "en": "7d max temp low",
+    "es": "Temp max baja 7d",
+    "ca": "Temp max baixa 7d"
+  },
+  "temp_max_7d_optimal_max_c": {
+    "en": "7d max temp high",
+    "es": "Temp max alta 7d",
+    "ca": "Temp max alta"
+  },
+  "heat_penalty_temp_max_c": {
+    "en": "Heat penalty",
+    "es": "Penaliza calor",
+    "ca": "Penalitza calor"
+  },
+  "frost_penalty_temp_min_c": {
+    "en": "Frost penalty",
+    "es": "Penaliza helada",
+    "ca": "Penalitza gel"
+  },
+  "humidity_min_7d_preferred_min_pct": {
+    "en": "Min humidity 7d",
+    "es": "Humedad min 7d",
+    "ca": "Humitat min 7d"
+  },
+  "humidity_max_7d_preferred_min_pct": {
+    "en": "Max humidity 7d",
+    "es": "Humedad max 7d",
+    "ca": "Humitat max 7d"
+  },
+  "wind_avg_3d_penalty_kmh": {
+    "en": "Wind penalty 3d",
+    "es": "Penal.Viento 3d",
+    "ca": "Penal.Vent 3d"
+  },
+  "wind_gust_3d_penalty_kmh": {
+    "en": "Gust penalty 3d",
+    "es": "Penal.rachas 3d",
+    "ca": "Penal.Ratxes 3d"
+  },
+  "dry_wind_sensitive": {
+    "en": "Dry wind sensitive",
+    "es": "Sensible a viento seco",
+    "ca": "Sensible a vent sec"
+  },
+  "habitat": {
+    "en": "Habitat",
+    "es": "Habitat",
+    "ca": "Habitat"
+  },
+  "season": {
+    "en": "Season",
+    "es": "Temporada",
+    "ca": "Temporada"
+  },
+  "altitude": {
+    "en": "Altitude",
+    "es": "Altitud",
+    "ca": "Altitud"
+  },
+  "rainfall": {
+    "en": "Rainfall",
+    "es": "Lluvia",
+    "ca": "Pluja"
+  },
+  "temperature": {
+    "en": "Temperature",
+    "es": "Temperatura",
+    "ca": "Temperatura"
+  },
+  "humidity": {
+    "en": "Humidity",
+    "es": "Humedad",
+    "ca": "Humitat"
+  },
+  "wind_penalty": {
+    "en": "Wind Penal",
+    "es": "Penal.Viento",
+    "ca": "Penal.Vent"
+  }
+}
