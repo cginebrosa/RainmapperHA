@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.166
+
+- Continue the mushroom species maintenance redesign toward the documented mockup.
+- Compact the species metric strip so the validation card fits on wide Home Assistant screens.
+- Replace outlined species tabs with underline-style tabs and add lightweight inline SVG icons.
+- Add Ecology subtabs for host, forest, soil, lithology and habitat-feature affinities while preserving the existing POST fields and validation flow.
+- Reduce profile detail value typography to match field labels more closely for a denser maintenance layout.
+
 ## 0.2.165
 
 - Refine the mushroom species maintenance redesign with top section tabs, a wider species navigator and collapsed cross-validation warnings.

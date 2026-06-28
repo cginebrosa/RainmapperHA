@@ -1518,6 +1518,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       justify-content: center;
       width: 26px;
     }}
+    .profile-list-icon svg,
+    .profile-hero-icon svg,
+    .profile-tab-labels svg {{
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+    }}
+    .profile-list-icon svg {{
+      height: 17px;
+      width: 17px;
+    }}
     .profile-list-main {{
       display: grid;
       gap: 2px;
@@ -1559,8 +1572,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .profile-metrics {{
       display: grid;
-      gap: 8px;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 6px;
+      grid-template-columns: repeat(8, minmax(112px, 1fr));
       margin: 0 0 14px;
     }}
     .profile-metric {{
@@ -1569,18 +1582,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border: 1px solid var(--line);
       border-radius: 8px;
       display: flex;
-      gap: 8px;
+      gap: 6px;
       justify-content: space-between;
       min-width: 0;
-      padding: 8px 10px;
+      min-height: 34px;
+      padding: 5px 8px;
     }}
     .profile-metric .label {{
+      font-size: 12px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }}
     .profile-metric .value {{
-      font-size: 16px;
+      font-size: 14px;
       white-space: nowrap;
     }}
     .profile-editor {{
@@ -1624,6 +1639,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       height: 38px;
       justify-content: center;
       width: 38px;
+    }}
+    .profile-hero-icon svg {{
+      height: 25px;
+      width: 25px;
     }}
     .profile-hero-chips {{
       display: flex;
@@ -1673,17 +1692,24 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-bottom: 1px solid var(--line);
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      padding-bottom: 8px;
+      gap: 22px;
+      padding: 0 0 0;
     }}
     .profile-tab-labels label {{
-      border: 1px solid var(--line);
-      border-radius: 999px;
+      align-items: center;
+      border-bottom: 2px solid transparent;
       color: var(--muted);
       cursor: pointer;
+      display: inline-flex;
       font-size: 12px;
+      gap: 6px;
       font-weight: 700;
-      padding: 6px 10px;
+      min-height: 36px;
+      padding: 0 0 8px;
+    }}
+    .profile-tab-labels svg {{
+      height: 15px;
+      width: 15px;
     }}
     .profile-tab-panel {{
       display: none;
@@ -1696,8 +1722,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     #profile-tab-calibration:checked ~ .profile-tab-labels label[for="profile-tab-calibration"],
     #profile-tab-metadata:checked ~ .profile-tab-labels label[for="profile-tab-metadata"],
     #profile-tab-json:checked ~ .profile-tab-labels label[for="profile-tab-json"] {{
-      background: rgba(3, 169, 244, .12);
-      border-color: var(--accent);
+      border-bottom-color: var(--accent);
       color: var(--accent);
     }}
     #profile-tab-general:checked ~ .profile-tab-content .profile-tab-panel.general,
@@ -1748,7 +1773,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-weight: 700;
     }}
     .profile-kv strong {{
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 700;
       line-height: 1.25;
       overflow-wrap: anywhere;
     }}
@@ -1864,6 +1890,50 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       display: grid;
       gap: 6px;
     }}
+    .ecology-subtabs {{
+      display: grid;
+      gap: 10px;
+    }}
+    .ecology-subtabs > input[type="radio"] {{
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      position: absolute;
+      width: 1px;
+    }}
+    .ecology-subtab-labels {{
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+    }}
+    .ecology-subtab-labels label {{
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+      min-height: 32px;
+      padding: 0 0 8px;
+    }}
+    .ecology-subtab-panel {{
+      display: none;
+    }}
+    #eco-tab-0:checked ~ .ecology-subtab-labels label[for="eco-tab-0"],
+    #eco-tab-1:checked ~ .ecology-subtab-labels label[for="eco-tab-1"],
+    #eco-tab-2:checked ~ .ecology-subtab-labels label[for="eco-tab-2"],
+    #eco-tab-3:checked ~ .ecology-subtab-labels label[for="eco-tab-3"],
+    #eco-tab-4:checked ~ .ecology-subtab-labels label[for="eco-tab-4"] {{
+      border-bottom-color: var(--accent);
+      color: var(--accent);
+    }}
+    #eco-tab-0:checked ~ .ecology-subtab-content .panel-0,
+    #eco-tab-1:checked ~ .ecology-subtab-content .panel-1,
+    #eco-tab-2:checked ~ .ecology-subtab-content .panel-2,
+    #eco-tab-3:checked ~ .ecology-subtab-content .panel-3,
+    #eco-tab-4:checked ~ .ecology-subtab-content .panel-4 {{
+      display: grid;
+    }}
     .profile-affinity-row {{
       align-items: end;
       display: grid;
@@ -1876,6 +1946,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .profile-editor input,
     .profile-editor select {{
+      font-size: 12px;
       min-height: 34px;
       padding: 0 9px;
     }}
@@ -1885,6 +1956,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 8px;
       color: var(--fg);
       font: inherit;
+      font-size: 12px;
       line-height: 1.3;
       min-height: 58px;
       padding: 8px 9px;

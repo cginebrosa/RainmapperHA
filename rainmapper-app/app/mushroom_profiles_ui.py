@@ -48,6 +48,23 @@ MONTH_LABELS = {
 }
 
 
+ICONS = {
+    "mushroom": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5C4.6 6.2 8.1 3.5 12 3.5s7.4 2.7 8 7c.1.7-.5 1.3-1.2 1.3H5.2c-.7 0-1.3-.6-1.2-1.3Z"/><path d="M9.2 11.8c.1 2.6-.6 5-1.8 7.2h9.2c-1.2-2.2-1.9-4.6-1.8-7.2"/><path d="M9.3 7.2h.1M14.8 7.1h.1M12 9.1h.1"/></svg>',
+    "identity": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>',
+    "ecology": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V8"/><path d="M7 10c0-3.5 2.6-6 5-7 2.4 1 5 3.5 5 7a5 5 0 0 1-10 0Z"/><path d="M12 14c-3.2 0-5.5 1.7-7 4 2.2 1.1 4.6 1.4 7 1.4s4.8-.3 7-1.4c-1.5-2.3-3.8-4-7-4Z"/></svg>',
+    "phenology": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v4M17 3v4M4 9h16"/><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 13h2M12 13h2M16 13h2M8 17h2M12 17h2"/></svg>',
+    "weather": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1 0-8 6 6 0 0 1 11.4 1.9A3.3 3.3 0 0 1 18 18H7Z"/><path d="M9 21v-1M13 21v-1M17 21v-1"/></svg>',
+    "scoring": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-4M12 16V8M16 16v-7"/></svg>',
+    "calibration": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/><path d="m15 9 3-3M9 15l-3 3M9 9 6 6M15 15l3 3"/></svg>',
+    "metadata": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+}
+
+
+def icon(name: str) -> str:
+    """Return a small inline SVG icon with inherited stroke color."""
+    return ICONS.get(name, "")
+
+
 def profile_query_url(species_id: str = "", search: str = "", mode: str = "") -> str:
     """Return an ingress-safe query URL for the species maintenance page."""
     params = {}
@@ -347,7 +364,7 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
         )
         rows.append(
             f'<a class="profile-list-item{active}" href="{profile_query_url(species_id, search)}">'
-            '<span class="profile-list-icon" aria-hidden="true">◎</span>'
+            f'<span class="profile-list-icon">{icon("mushroom")}</span>'
             '<span class="profile-list-main">'
             f"<strong>{html.escape(scientific_name or species_id)}</strong>"
             f'<span class="meta">{html.escape(common_name or species_id)}</span></span>'
@@ -381,10 +398,40 @@ def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str,
             + "</div>"
         )
     return (
-        '<div class="profile-affinity-block">'
+        f'<div class="profile-affinity-block {html.escape(field)}">'
         f'<h2>{html.escape(field.replace("_", " ").title())}</h2>'
         + "".join(rows)
         + "</div>"
+    )
+
+
+def render_ecology_affinity_tabs(ecology: dict[str, object], catalogs: dict[str, object]) -> str:
+    """Render ecology affinity groups as internal subtabs without changing POST fields."""
+    fields = list(PROFILE_AFFINITY_GROUPS)
+    labels = {
+        "host_affinities": "Host affinities",
+        "forest_type_affinities": "Forest types",
+        "soil_affinities": "Soils",
+        "lithology_affinities": "Lithology",
+        "habitat_feature_affinities": "Habitat features",
+    }
+    radios = []
+    tab_labels = []
+    panels = []
+    for index, field in enumerate(fields):
+        tab_id = f"eco-tab-{index}"
+        radios.append(f'<input type="radio" name="ecology_tab" id="{tab_id}"{" checked" if index == 0 else ""}>')
+        tab_labels.append(f'<label for="{tab_id}">{html.escape(labels[field])}</label>')
+        panels.append(f'<section class="ecology-subtab-panel panel-{index}">{render_profile_affinity_rows(field, ecology.get(field, []), catalogs)}</section>')
+    return (
+        '<div class="ecology-subtabs">'
+        + "".join(radios)
+        + '<div class="ecology-subtab-labels">'
+        + "".join(tab_labels)
+        + "</div>"
+        + '<div class="ecology-subtab-content">'
+        + "".join(panels)
+        + "</div></div>"
     )
 
 
@@ -503,7 +550,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
     metadata = nested_dict(profile, "metadata")
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
     json_value = json.dumps(profile, indent=2, ensure_ascii=False)
-    affinity_blocks = "".join(render_profile_affinity_rows(field, ecology.get(field, []), catalogs) for field in PROFILE_AFFINITY_GROUPS)
+    affinity_blocks = render_ecology_affinity_tabs(ecology, catalogs)
     status_chips = "".join(
         [
             value_chip(profile.get("taxonomy_status", "-"), "Taxonomy"),
@@ -518,7 +565,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
     <section class="card profile-editor profile-editor-polished">
       <div class="profile-editor-head profile-hero">
         <div class="profile-title-block">
-          <span class="profile-hero-icon" aria-hidden="true">◎</span>
+          <span class="profile-hero-icon">{icon("mushroom")}</span>
           <div>
             <h2>{html.escape(str(profile.get("scientific_name", species_id)))}</h2>
             <p class="meta">{html.escape(profile_common_name(profile))} · {html.escape(species_id)}</p>
@@ -539,14 +586,14 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           <input type="radio" name="profile_tab" id="profile-tab-metadata">
           <input type="radio" name="profile_tab" id="profile-tab-json">
           <div class="profile-tab-labels">
-            <label for="profile-tab-general">General</label>
-            <label for="profile-tab-ecology">Ecology</label>
-            <label for="profile-tab-phenology">Phenology</label>
-            <label for="profile-tab-weather">Weather</label>
-            <label for="profile-tab-scoring">Scoring</label>
-            <label for="profile-tab-calibration">Confidence</label>
-            <label for="profile-tab-metadata">Metadata</label>
-            <label for="profile-tab-json">JSON</label>
+            <label for="profile-tab-general">{icon("identity")}General</label>
+            <label for="profile-tab-ecology">{icon("ecology")}Ecology</label>
+            <label for="profile-tab-phenology">{icon("phenology")}Phenology</label>
+            <label for="profile-tab-weather">{icon("weather")}Weather</label>
+            <label for="profile-tab-scoring">{icon("scoring")}Scoring</label>
+            <label for="profile-tab-calibration">{icon("calibration")}Confidence</label>
+            <label for="profile-tab-metadata">{icon("metadata")}Metadata</label>
+            <label for="profile-tab-json">{icon("metadata")}JSON</label>
           </div>
           <div class="profile-tab-content">
             <section class="profile-section profile-tab-panel general">{general_dashboard}</section>
