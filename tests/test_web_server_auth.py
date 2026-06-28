@@ -377,11 +377,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
             {
                 "profile_action": ["archive_profile"],
                 "species_id": ["boletus_edulis"],
-                "archive_confirm_id": ["boletus_edulis"],
             }
         )
 
-        self.assertTrue(archive_redirect.startswith("?id="))
+        self.assertEqual("?", archive_redirect)
         profiles_path = data_dir / "mushroom-data" / "mushroom_profiles.json"
         archive_path = data_dir / "mushroom-data" / "archived" / "mushroom_profiles_archived.json"
         active_payload = json.loads(profiles_path.read_text(encoding="utf-8"))
@@ -406,7 +405,6 @@ class AuthDeviceLimitTests(unittest.TestCase):
             {
                 "profile_action": ["archive_profile"],
                 "species_id": ["boletus_edulis"],
-                "archive_confirm_id": ["boletus_edulis"],
             }
         )
         delete_redirect = handler.handle_mushroom_profiles_post(

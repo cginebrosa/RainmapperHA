@@ -65,6 +65,8 @@ Consecuencias:
 
 Actualizacion 2026-06-28: `0.2.169` no debe cerrarse como buena para este flujo porque en HA los modales de `New species`, `Duplicate species` y `Restore species` quedaban visibles pero no interactivos por una colision de `z-index` del backdrop heredada de los modales antiguos de Users. `0.2.170` corrige esa capa y queda como version a validar para el ciclo de vida defensivo.
 
+Actualizacion 2026-06-28: desde `0.2.171`, `Archive species` no requiere reescribir manualmente el `species_id`. La UI muestra el ID seleccionado en solo lectura y el POST confia en el `species_id` oculto de la accion seleccionada. La confirmacion defensiva queda en el modal y el `confirm()` del navegador; el requisito de escribir el ID se retira porque era redundante y poco ergonomico para mantenimiento HA local.
+
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
 Decision:

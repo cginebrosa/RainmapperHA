@@ -6068,10 +6068,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 set_mushroom_profiles_flash("Species profile was not duplicated: " + error_text)
                 return profile_message_url(species_id)
             if action == "archive_profile":
-                confirm_id = catalog_form_string(form, "archive_confirm_id")
-                if confirm_id != species_id:
-                    set_mushroom_profiles_flash("Species profile was not archived: confirmation ID does not match.")
-                    return profile_message_url(species_id)
                 profiles_payload = store.load("profiles")
                 profiles = profile_dicts_from_payload(profiles_payload)
                 source = find_profile_by_id(profiles, species_id)
@@ -6089,9 +6085,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 result = store.replace("profiles", profiles_payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
-                    next_id = str(profiles_payload["species_profiles"][0].get("species_id", "")) if profiles_payload["species_profiles"] else ""
                     set_mushroom_profiles_flash(f"Archived species profile {species_id}." + suffix)
-                    return profile_query_url(next_id) if next_id else profile_message_url()
+                    return "?"
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Species profile was not archived: " + error_text)
                 return profile_message_url(species_id)

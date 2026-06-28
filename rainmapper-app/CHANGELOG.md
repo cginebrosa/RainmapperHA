@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.171
+
+- Make `Archive species` show the selected species ID as read-only, without requiring manual retyping, and return to the species list after archiving.
+- Sort the species maintenance sidebar alphabetically by scientific name for display without rewriting the JSON data order.
+
 ## 0.2.170
 
 - Fix mushroom species lifecycle modals so `New species`, `Duplicate species` and `Restore species` forms receive clicks and keyboard focus in Home Assistant.

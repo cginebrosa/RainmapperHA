@@ -410,7 +410,14 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
     """Render the left species navigator."""
     tokens = [token.lower() for token in search.split() if token.strip()]
     rows = []
-    for profile in profiles:
+    sorted_profiles = sorted(
+        profiles,
+        key=lambda item: (
+            str(item.get("scientific_name", "") or item.get("species_id", "")).casefold(),
+            str(item.get("species_id", "")).casefold(),
+        ),
+    )
+    for profile in sorted_profiles:
         species_id = str(profile.get("species_id", ""))
         scientific_name = str(profile.get("scientific_name", ""))
         common_name = profile_common_name(profile)
@@ -821,8 +828,8 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
             <input type="hidden" name="profile_action" value="archive_profile">
             <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
             <div class="admin-field">
-              <label for="profile-archive-confirm">Type species ID to archive</label>
-              <input id="profile-archive-confirm" name="archive_confirm_id" placeholder="{html.escape(species_id, quote=True)}" required>
+              <label for="profile-archive-species-id">Species ID to archive</label>
+              <input id="profile-archive-species-id" value="{html.escape(species_id, quote=True)}" readonly>
             </div>
             <div class="modal-actions">
               <a class="button-link" href="?id={html.escape(species_id, quote=True)}">Cancel</a>
