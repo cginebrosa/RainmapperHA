@@ -41,6 +41,28 @@ Estado de implementacion:
 - Primera release HA que incluye backend/store y UI de catalogos: `0.2.150`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.150/latest`, digest multi-arch `sha256:35e42628eeb0937ec800608e9251fa0ef8148d4f6a626aea52a13a341ba71c0f`, commit `ecf2ed8`. Validacion local: `./scripts/smoke-test.sh` OK con 97 tests. Validacion HA: no cerrarla como buena por 404 en HA ingress al pulsar `Mushroom catalogs`; fix local aplicado con rutas relativas, seeding de defaults al arrancar y contador `Reference errors` derivado del validador para evitar falsos positivos GIS.
 - La semantica exacta de `Reference errors` debe revisarse cuando esten completos el mantenimiento de perfiles, el mantenimiento GIS y el motor de prediccion; por ahora no debe contar cadenas tecnicas GIS que no sean IDs internos de catalogo.
 
+## 2026-06-28 - Borrado defensivo de especies mediante archivado previo
+
+Decision:
+
+- No permitir borrado irreversible directo de una especie activa desde `mushroom_profiles.json`.
+- El flujo soportado es activo -> archivado -> restaurado o borrado permanente desde archivo.
+- Las especies archivadas se guardan fuera del JSON activo, en `/share/rainmapper/mushroom-data/archived/mushroom_profiles_archived.json`.
+- `Restore species` solo puede restaurar si el `species_id` no existe ya en perfiles activos.
+- `Delete permanently` solo aparece para especies archivadas y debe mostrar doble advertencia de navegador, incluyendo que no se puede deshacer.
+
+Motivo:
+
+- `species_id` es clave estable del modelo de prediccion; borrar un perfil activo por error podria romper mantenimiento, calibracion futura u observaciones asociadas.
+- Archivado conserva recuperacion y auditoria practica sin contaminar el JSON activo que consume el motor.
+- El borrado permanente queda disponible para limpiar pruebas, pero requiere una accion previa defensiva.
+
+Consecuencias:
+
+- La UI debe presentar `Archive species` para perfiles activos, no `Delete species` directo.
+- El archivo de especies archivadas no forma parte del modelo predictor activo; se usa solo para mantenimiento.
+- Si en el futuro hay observaciones/calibraciones vinculadas, el archivado/restauracion debera validar tambien esas referencias.
+
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
 Decision:

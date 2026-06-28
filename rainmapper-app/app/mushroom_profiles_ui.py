@@ -278,31 +278,82 @@ def form_textarea(name: str, label: str, value: object, rows: int = 3) -> str:
 
 
 def render_new_species_form() -> str:
-    """Render the guided species creation panel."""
+    """Render the guided species creation modal."""
     return """
-    <details id="new-species" class="card profile-new-species">
-      <summary><strong>New species</strong></summary>
-      <p>Create a draft species profile with a complete validated starter structure.</p>
-      <form class="catalog-create-form" method="post" action="" onsubmit="return confirm('Create this draft species profile and validate the full dataset?')">
-        <input type="hidden" name="profile_action" value="create_profile">
-        <div class="admin-form-grid">
-          <div class="admin-field">
-            <label>Species ID</label>
-            <input name="new_species_id" placeholder="boletus_example" required>
+    <div id="new-species-modal" class="modal-layer">
+      <a class="modal-backdrop" href="?" aria-label="Cancel new species"></a>
+      <section class="modal-card">
+        <header class="modal-head">
+          <div>
+            <h2>New species</h2>
+            <p>Create a draft profile, then complete ecology, phenology, weather, scoring and calibration.</p>
           </div>
-          <div class="admin-field">
-            <label>Scientific name</label>
-            <input name="new_scientific_name" placeholder="Boletus example" required>
+          <a class="button-link" href="?">Cancel</a>
+        </header>
+        <form class="catalog-create-form" method="post" action="" onsubmit="return confirm('Create this draft species profile and validate the full dataset?')">
+          <input type="hidden" name="profile_action" value="create_profile">
+          <div class="admin-form-grid">
+            <div class="admin-field">
+              <label>Species ID</label>
+              <input name="new_species_id" placeholder="boletus_example" required>
+            </div>
+            <div class="admin-field">
+              <label>Scientific name</label>
+              <input name="new_scientific_name" placeholder="Boletus example" required>
+            </div>
+            <div class="admin-field">
+              <label>Common name</label>
+              <input name="new_common_name" placeholder="optional">
+            </div>
           </div>
-          <div class="admin-field">
-            <label>Common name</label>
-            <input name="new_common_name" placeholder="optional">
+          <div class="modal-actions">
+            <a class="button-link" href="?">Cancel</a>
+            <button class="primary">Create species</button>
           </div>
-        </div>
-        <button class="primary">Create species</button>
-      </form>
-    </details>
+        </form>
+      </section>
+    </div>
     """
+
+
+def render_archived_species_panel(archived_profiles: list[dict[str, object]]) -> str:
+    """Render restore/permanent-delete controls for archived species."""
+    rows = []
+    for profile in sorted(archived_profiles, key=lambda item: str(item.get("species_id", ""))):
+        species_id = str(profile.get("species_id", "") or "")
+        if not species_id:
+            continue
+        name = str(profile.get("scientific_name", species_id) or species_id)
+        common_name = profile_common_name(profile)
+        rows.append(
+            '<div class="archived-species-row">'
+            f'<div><strong>{html.escape(name)}</strong><span class="meta">{html.escape(common_name)} · {html.escape(species_id)}</span></div>'
+            '<div class="archived-species-actions">'
+            '<form method="post" action="" onsubmit="return confirm(\'Restore this archived species profile?\')">'
+            '<input type="hidden" name="profile_action" value="restore_profile">'
+            f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
+            '<button class="secondary">Restore species</button>'
+            "</form>"
+            '<form method="post" action="" onsubmit="return confirm(\'Delete this archived species permanently?\') && confirm(\'This action cannot be undone. The archived copy will be removed permanently.\')">'
+            '<input type="hidden" name="profile_action" value="delete_archived_profile">'
+            f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
+            f'<input type="hidden" name="delete_confirm_id" value="{html.escape(species_id, quote=True)}">'
+            '<button class="danger-button">Delete permanently</button>'
+            "</form>"
+            "</div></div>"
+        )
+    content = "".join(rows) if rows else '<p class="meta">No archived species profiles.</p>'
+    return (
+        '<div id="restore-species-modal" class="modal-layer">'
+        '<a class="modal-backdrop" href="?" aria-label="Cancel restore species"></a>'
+        '<section class="modal-card modal-card-wide">'
+        '<header class="modal-head"><div>'
+        f'<h2>Restore species</h2><p>{len(rows)} archived species profiles.</p>'
+        '</div><a class="button-link" href="?">Cancel</a></header>'
+        f'<div class="archived-species-panel">{content}</div>'
+        '<div class="modal-actions"><a class="button-link" href="?">Cancel</a></div>'
+        '</section></div>'
+    )
 
 
 def selected_profile(profiles: list[dict[str, object]], species_id: str) -> dict[str, object] | None:
@@ -586,6 +637,8 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
         ]
     )
     general_dashboard = render_general_dashboard(profile, catalogs, ecology, phenology, topography, weather_model, scoring, confidence, metadata)
+    duplicate_species_id = f"{species_id}_copy"
+    duplicate_scientific_name = f"{profile.get('scientific_name', species_id)} copy"
     return f"""
     <section class="card profile-editor profile-editor-polished">
       <div class="profile-editor-head profile-hero">
@@ -623,8 +676,8 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           <div class="profile-tab-content">
             <section class="profile-section profile-tab-panel general">{general_dashboard}</section>
             <section class="profile-section profile-tab-panel ecology">
-              <h2>Ecology</h2>
-              <div class="profile-grid">
+              <div class="profile-section-head">
+                <h2>Ecology</h2>
                 {form_catalog_select("trophic_mode_id", "Trophic mode", ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
               </div>
               {affinity_blocks}
@@ -724,11 +777,60 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
         </div>
         <div class="profile-action-bar">
           <button class="primary profile-primary-action">Save species profile</button>
-          <button class="secondary planned-action" type="button" disabled title="Planned action: duplicate flow is not implemented yet">Duplicate species · planned</button>
+          <a class="button-link secondary-link" href="#duplicate-species-modal">Duplicate species</a>
+          <a class="button-link danger-link" href="#archive-species-modal">Archive species</a>
           <button class="secondary planned-action" type="button" disabled title="Planned action: explicit single-profile validation is not implemented yet">Validate profile · planned</button>
-          <button class="danger-button planned-action" type="button" disabled title="Planned action: archive/restore safeguards are not implemented yet">Archive species · planned</button>
         </div>
       </form>
+      <div id="duplicate-species-modal" class="modal-layer">
+        <a class="modal-backdrop" href="?id={html.escape(species_id, quote=True)}" aria-label="Cancel duplicate species"></a>
+        <section class="modal-card">
+          <header class="modal-head">
+            <div>
+              <h2>Duplicate species</h2>
+              <p>Clone this profile into a new draft species ID, then review all predictor fields.</p>
+            </div>
+            <a class="button-link" href="?id={html.escape(species_id, quote=True)}">Cancel</a>
+          </header>
+          <form method="post" action="" onsubmit="return confirm('Duplicate this species profile as a new draft profile?')">
+            <input type="hidden" name="profile_action" value="duplicate_profile">
+            <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+            <div class="profile-grid">
+              {form_field("duplicate_species_id", "New species ID", duplicate_species_id)}
+              {form_field("duplicate_scientific_name", "Scientific name", duplicate_scientific_name)}
+              {form_field("duplicate_common_name", "Common name", "")}
+            </div>
+            <div class="modal-actions">
+              <a class="button-link" href="?id={html.escape(species_id, quote=True)}">Cancel</a>
+              <button class="secondary">Duplicate species</button>
+            </div>
+          </form>
+        </section>
+      </div>
+      <div id="archive-species-modal" class="modal-layer">
+        <a class="modal-backdrop" href="?id={html.escape(species_id, quote=True)}" aria-label="Cancel archive species"></a>
+        <section class="modal-card">
+          <header class="modal-head">
+            <div>
+              <h2>Archive species</h2>
+              <p>Move this profile out of active maintenance. It can be restored later if the ID is still free.</p>
+            </div>
+            <a class="button-link" href="?id={html.escape(species_id, quote=True)}">Cancel</a>
+          </header>
+          <form method="post" action="" onsubmit="return confirm('Archive this species profile? It will be removed from active profiles but can be restored.')">
+            <input type="hidden" name="profile_action" value="archive_profile">
+            <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+            <div class="admin-field">
+              <label for="profile-archive-confirm">Type species ID to archive</label>
+              <input id="profile-archive-confirm" name="archive_confirm_id" placeholder="{html.escape(species_id, quote=True)}" required>
+            </div>
+            <div class="modal-actions">
+              <a class="button-link" href="?id={html.escape(species_id, quote=True)}">Cancel</a>
+              <button class="danger-button">Archive species</button>
+            </div>
+          </form>
+        </section>
+      </div>
       <details class="profile-raw-json">
         <summary><strong>Advanced raw JSON</strong></summary>
         <form class="profile-json-editor" method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this species profile and validate the full dataset?')">

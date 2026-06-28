@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.169
+
+- Move the species maintenance toolbar above the page title and align the title with the mushroom section tabs to recover vertical space.
+- Keep `Trophic mode` on the Ecology section header line so affinity subtabs and rows start higher on the screen.
+- Replace anchor-jump controls with server-rendered modals for `New species`, `Duplicate species`, `Archive species` and `Restore species`.
+- Implement defensive species lifecycle actions: duplicate creates a reviewed draft copy, archive moves an active profile to an archive file, restore brings it back when the ID is free, and permanent delete is only available from the archive with two browser warnings.
+
 ## 0.2.168
 
 - Move the guided `New species` panel near the top of the species maintenance page so it is easier to test from Home Assistant.

@@ -1716,6 +1716,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-size: 16px;
       margin: 0;
     }}
+    .profile-section-head {{
+      align-items: end;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(120px, auto) minmax(360px, 1fr);
+    }}
+    .profile-section-head .admin-field {{
+      max-width: 720px;
+    }}
     .profile-tabs {{
       display: grid;
       gap: 12px;
@@ -2093,19 +2102,63 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-style: dashed;
       opacity: .62;
     }}
+    .profile-maintenance-actions {{
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }}
+    .profile-lifecycle-grid {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 10px;
+    }}
+    .profile-lifecycle-card {{
+      border: 1px solid rgba(45, 58, 71, .65);
+      border-radius: 8px;
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }}
+    .profile-lifecycle-card h3 {{
+      font-size: 14px;
+      margin: 0;
+    }}
+    .archived-species-panel {{
+      margin: 16px 0;
+    }}
+    .archived-species-row {{
+      align-items: center;
+      border-top: 1px solid rgba(45, 58, 71, .65);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 10px 0;
+    }}
+    .archived-species-row:first-of-type {{
+      border-top: 0;
+    }}
+    .archived-species-row .meta {{
+      display: block;
+      margin-top: 2px;
+    }}
+    .archived-species-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }}
     .profile-raw-json {{
       border-top: 1px solid var(--line);
       padding-top: 10px;
     }}
     .mushroom-section-tabs {{
       align-items: center;
-      border-bottom: 1px solid var(--line);
       display: flex;
       flex-wrap: wrap;
       gap: 24px;
       justify-content: flex-end;
-      margin: -4px 0 14px;
-      padding: 0 0 10px;
+      margin: 0;
+      padding: 0;
     }}
     .mushroom-section-tabs a,
     .mushroom-section-tabs span {{
@@ -2123,6 +2176,91 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: linear-gradient(180deg, #0277d4, #015ca7);
       border-color: rgba(3, 169, 244, .78);
       color: #fff;
+    }}
+    .button-link.secondary-link {{
+      background: rgba(15, 23, 42, .42);
+      border-color: var(--line);
+    }}
+    .button-link.danger-link {{
+      background: rgba(40, 18, 22, .44);
+      border-color: rgba(255, 107, 107, .55);
+      color: var(--danger);
+    }}
+    .modal-layer {{
+      align-items: center;
+      display: none;
+      inset: 0;
+      justify-content: center;
+      padding: 24px;
+      position: fixed;
+      z-index: 1000;
+    }}
+    .modal-layer:target {{
+      display: flex;
+    }}
+    .modal-backdrop {{
+      background: rgba(0, 0, 0, .64);
+      inset: 0;
+      position: absolute;
+    }}
+    .modal-card {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .45);
+      display: grid;
+      gap: 14px;
+      max-height: calc(100vh - 48px);
+      max-width: 760px;
+      overflow: auto;
+      padding: 16px;
+      position: relative;
+      width: min(760px, 100%);
+      z-index: 1;
+    }}
+    .modal-card-wide {{
+      max-width: 980px;
+      width: min(980px, 100%);
+    }}
+    .modal-head {{
+      align-items: start;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      padding-bottom: 12px;
+    }}
+    .modal-head h2 {{
+      margin: 0 0 4px;
+    }}
+    .modal-head p {{
+      margin: 0;
+    }}
+    .modal-actions {{
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }}
+    .mushroom-title-tabs {{
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(300px, 1fr) auto auto;
+      margin: 0 0 14px;
+      padding: 0 0 10px;
+    }}
+    .mushroom-title-tabs h1 {{
+      margin-bottom: 4px;
+    }}
+    .mushroom-title-tabs p {{
+      margin: 0;
+    }}
+    .mushroom-title-status {{
+      padding-bottom: 7px;
+      white-space: nowrap;
     }}
     .mushroom-cross-validation {{
       margin-top: 18px;
@@ -2165,7 +2303,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-metrics,
       .profile-weather-grid,
       .profile-metadata-strip,
-      .profile-affinity-row {{
+      .profile-affinity-row,
+      .profile-section-head,
+      .profile-lifecycle-grid,
+      .archived-species-row,
+      .mushroom-title-tabs {{
         grid-template-columns: 1fr;
       }}
       .profile-overview-card,
@@ -4184,10 +4326,67 @@ PROFILE_AFFINITY_GROUPS = mushroom_profiles_ui.PROFILE_AFFINITY_GROUPS
 profile_query_url = mushroom_profiles_ui.profile_query_url
 profile_nested_dict = mushroom_profiles_ui.nested_dict
 render_profile_affinity_rows = mushroom_profiles_ui.render_profile_affinity_rows
+render_archived_species_panel = mushroom_profiles_ui.render_archived_species_panel
 
 
 def profile_message_url(species_id: str = "", search: str = "") -> str:
     return profile_query_url(species_id, search) + "#mushroom-profile-message"
+
+
+def archived_profiles_path(store: object) -> Path:
+    """Return the persistent archive file for deleted mushroom profiles."""
+    data_dir = getattr(store, "data_dir")
+    return Path(data_dir) / "archived" / "mushroom_profiles_archived.json"
+
+
+def empty_archived_profiles_payload() -> dict[str, object]:
+    """Return the stable archive container used by archive/restore actions."""
+    return {
+        "schema_version": "1.0",
+        "archived_species_profiles": [],
+    }
+
+
+def load_archived_profiles(store: object) -> dict[str, object]:
+    """Load archived species profiles, tolerating the file not existing yet."""
+    path = archived_profiles_path(store)
+    if not path.exists():
+        return empty_archived_profiles_payload()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return empty_archived_profiles_payload()
+    profiles = payload.get("archived_species_profiles")
+    if not isinstance(profiles, list):
+        payload["archived_species_profiles"] = []
+    return payload
+
+
+def write_archived_profiles(store: object, payload: dict[str, object]) -> None:
+    """Persist archived species profiles with an atomic replace."""
+    from rainmapper_core.mushroom_store import write_json_atomic
+
+    path = archived_profiles_path(store)
+    write_json_atomic(path, payload)
+
+
+def archived_profile_dicts(archive_payload: dict[str, object]) -> list[dict[str, object]]:
+    """Return archived profile dictionaries only."""
+    profiles = archive_payload.get("archived_species_profiles")
+    return [profile for profile in profiles if isinstance(profile, dict)] if isinstance(profiles, list) else []
+
+
+def profile_dicts_from_payload(profiles_payload: dict[str, object]) -> list[dict[str, object]]:
+    """Return active profile dictionaries from a profiles payload."""
+    profiles = profiles_payload.get("species_profiles")
+    return [profile for profile in profiles if isinstance(profile, dict)] if isinstance(profiles, list) else []
+
+
+def find_profile_by_id(profiles: list[dict[str, object]], species_id: str) -> dict[str, object] | None:
+    """Return a profile matching the stable species ID."""
+    for profile in profiles:
+        if str(profile.get("species_id", "")) == species_id:
+            return profile
+    return None
 
 
 def profile_form_number(form: dict[str, list[str]], name: str) -> float | int | None:
@@ -4321,6 +4520,29 @@ def replace_profile_entry(profiles_payload: dict[str, object], species_id: str, 
             profiles[index] = entry
             return True, f"Updated species profile {species_id}."
     return False, f"Species profile {species_id} was not found."
+
+
+def duplicate_profile_entry(source: dict[str, object], new_species_id: str, scientific_name: str, common_name: str) -> dict[str, object]:
+    """Clone a profile as a draft that must be reviewed before prediction use."""
+    entry = json.loads(json.dumps(source))
+    entry["species_id"] = new_species_id
+    entry["scientific_name"] = scientific_name
+    entry["common_names"] = [common_name] if common_name else [f"{scientific_name} copy"]
+    now = datetime.now(UTC).date().isoformat()
+    metadata = profile_nested_dict(entry, "metadata").copy()
+    metadata["created_at"] = now
+    metadata["updated_at"] = now
+    metadata["created_by"] = "rainmapper_duplicate"
+    metadata["review_status"] = "draft"
+    metadata["reviewed_by"] = ""
+    metadata["requires_human_validation"] = True
+    entry["metadata"] = metadata
+    confidence = profile_nested_dict(entry, "prediction_confidence").copy()
+    confidence["local_calibration_status"] = "not_calibrated"
+    confidence["calibration_priority"] = "high"
+    confidence["notes"] = "Duplicated from another profile; review locally before using for prediction."
+    entry["prediction_confidence"] = confidence
+    return entry
 
 
 render_profile_full_json_panel = mushroom_profiles_ui.render_profile_full_json_panel
@@ -5373,6 +5595,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             seeded = store.ensure_seeded()
             profiles_payload = store.load("profiles")
             catalogs_payload = store.load("catalogs")
+            archived_payload = load_archived_profiles(store)
             errors, warnings = store.validate_current()
         except Exception as exc:
             body = (
@@ -5385,6 +5608,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         profiles = profiles_payload.get("species_profiles", []) if isinstance(profiles_payload, dict) else []
         profiles = [profile for profile in profiles if isinstance(profile, dict)] if isinstance(profiles, list) else []
+        archived_profiles = archived_profile_dicts(archived_payload)
         catalogs = catalogs_payload.get("catalogs", {}) if isinstance(catalogs_payload, dict) else {}
         catalogs = catalogs if isinstance(catalogs, dict) else {}
         selected = mushroom_profiles_ui.selected_profile(profiles, selected_id)
@@ -5408,15 +5632,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_label = "Flow validated" if not errors else "Validation errors"
         status_class = "ok" if not errors else "danger"
         body = f"""
-        <div class="control-head">
-          <div>
-            <h1>Mantenimiento de especies</h1>
-            <p>Gestiona perfiles de especies para el predictor de floradas</p>
-          </div>
-          <div class="control-head-actions">
-            <span class="meta">{len(profiles)} species · <span class="{status_class}">{status_label}</span></span>
-          </div>
-        </div>
         <div class="catalog-toolbar">
           <a class="button-link" href="../">Back</a>
           <a class="button-link" href="?">Refresh</a>
@@ -5424,16 +5639,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <form class="catalog-filter" method="get" action="">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search species, ID, confidence or status">
           </form>
-          <a class="button-link primary-link" href="#new-species">New species</a>
+          <a class="button-link primary-link" href="#new-species-modal">New species</a>
+          <a class="button-link" href="#restore-species-modal">Restore species</a>
           <a class="button-link" href="#profiles-full-json">Import/export JSON</a>
         </div>
-        <nav class="mushroom-section-tabs" aria-label="Mushroom maintenance sections">
-          <span>Summary</span>
-          <span class="active">Species</span>
-          <span>Observations</span>
-          <span>Parameters</span>
-          <span>Calibration</span>
-        </nav>
+        <div class="mushroom-title-tabs">
+          <div>
+            <h1>Mantenimiento de especies</h1>
+            <p>Gestiona perfiles de especies para el predictor de floradas</p>
+          </div>
+          <nav class="mushroom-section-tabs" aria-label="Mushroom maintenance sections">
+            <span>Summary</span>
+            <span class="active">Species</span>
+            <span>Observations</span>
+            <span>Parameters</span>
+            <span>Calibration</span>
+          </nav>
+          <span class="meta mushroom-title-status">{len(profiles)} species · <span class="{status_class}">{status_label}</span></span>
+        </div>
         {flash_html}
         {seeded_html}
         {mushroom_profiles_ui.render_new_species_form()}
@@ -5446,6 +5669,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <summary><strong>Cross validation</strong> · {len(errors)} errors · {len(warnings)} warnings</summary>
           {render_catalog_alerts(errors, warnings, limit=12)}
         </details>
+        {render_archived_species_panel(archived_profiles)}
         <h2 id="profiles-full-json">JSON maintenance</h2>
         {mushroom_profiles_ui.render_profile_full_json_panel(full_payload, mode)}
         """
@@ -5809,6 +6033,110 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     return profile_query_url(new_species_id)
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
+                return profile_message_url()
+            if action == "duplicate_profile":
+                new_species_id = catalog_form_string(form, "duplicate_species_id")
+                scientific_name = catalog_form_string(form, "duplicate_scientific_name")
+                common_name = catalog_form_string(form, "duplicate_common_name")
+                profiles_payload = store.load("profiles")
+                profiles = profile_dicts_from_payload(profiles_payload)
+                source = find_profile_by_id(profiles, species_id)
+                if not source:
+                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
+                    return profile_message_url(species_id)
+                ok, message = validate_new_species_id(new_species_id, profiles)
+                if not ok:
+                    set_mushroom_profiles_flash("Species profile was not duplicated: " + message)
+                    return profile_message_url(species_id)
+                if not scientific_name:
+                    set_mushroom_profiles_flash("Species profile was not duplicated: Scientific name is required.")
+                    return profile_message_url(species_id)
+                profiles_payload["species_profiles"] = profiles + [
+                    duplicate_profile_entry(source, new_species_id, scientific_name, common_name)
+                ]
+                semantic_errors = profiles_payload_semantic_error_messages(profiles_payload)
+                if semantic_errors:
+                    set_mushroom_profiles_flash("Species profile was not duplicated: " + "; ".join(semantic_errors[:3]))
+                    return profile_message_url(species_id)
+                result = store.replace("profiles", profiles_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(f"Duplicated species profile {species_id} as {new_species_id}." + suffix)
+                    return profile_query_url(new_species_id)
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Species profile was not duplicated: " + error_text)
+                return profile_message_url(species_id)
+            if action == "archive_profile":
+                confirm_id = catalog_form_string(form, "archive_confirm_id")
+                if confirm_id != species_id:
+                    set_mushroom_profiles_flash("Species profile was not archived: confirmation ID does not match.")
+                    return profile_message_url(species_id)
+                profiles_payload = store.load("profiles")
+                profiles = profile_dicts_from_payload(profiles_payload)
+                source = find_profile_by_id(profiles, species_id)
+                if not source:
+                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
+                    return profile_message_url(species_id)
+                archive_payload = load_archived_profiles(store)
+                archived = [profile for profile in archived_profile_dicts(archive_payload) if str(profile.get("species_id", "")) != species_id]
+                archived.append(json.loads(json.dumps(source)))
+                archive_payload["archived_species_profiles"] = archived
+                write_archived_profiles(store, archive_payload)
+                profiles_payload["species_profiles"] = [
+                    profile for profile in profiles if str(profile.get("species_id", "")) != species_id
+                ]
+                result = store.replace("profiles", profiles_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    next_id = str(profiles_payload["species_profiles"][0].get("species_id", "")) if profiles_payload["species_profiles"] else ""
+                    set_mushroom_profiles_flash(f"Archived species profile {species_id}." + suffix)
+                    return profile_query_url(next_id) if next_id else profile_message_url()
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Species profile was not archived: " + error_text)
+                return profile_message_url(species_id)
+            if action == "restore_profile":
+                profiles_payload = store.load("profiles")
+                profiles = profile_dicts_from_payload(profiles_payload)
+                if find_profile_by_id(profiles, species_id):
+                    set_mushroom_profiles_flash(f"Archived species profile {species_id} was not restored: active ID already exists.")
+                    return profile_message_url(species_id)
+                archive_payload = load_archived_profiles(store)
+                archived = archived_profile_dicts(archive_payload)
+                source = find_profile_by_id(archived, species_id)
+                if not source:
+                    set_mushroom_profiles_flash(f"Archived species profile {species_id} was not found.")
+                    return profile_message_url()
+                profiles_payload["species_profiles"] = profiles + [json.loads(json.dumps(source))]
+                semantic_errors = profiles_payload_semantic_error_messages(profiles_payload)
+                if semantic_errors:
+                    set_mushroom_profiles_flash("Archived species profile was not restored: " + "; ".join(semantic_errors[:3]))
+                    return profile_message_url()
+                result = store.replace("profiles", profiles_payload)
+                if result.ok:
+                    archive_payload["archived_species_profiles"] = [
+                        profile for profile in archived if str(profile.get("species_id", "")) != species_id
+                    ]
+                    write_archived_profiles(store, archive_payload)
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(f"Restored archived species profile {species_id}." + suffix)
+                    return profile_query_url(species_id)
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Archived species profile was not restored: " + error_text)
+                return profile_message_url()
+            if action == "delete_archived_profile":
+                confirm_id = catalog_form_string(form, "delete_confirm_id")
+                if confirm_id != species_id:
+                    set_mushroom_profiles_flash("Archived species profile was not deleted: confirmation ID does not match.")
+                    return profile_message_url()
+                archive_payload = load_archived_profiles(store)
+                archived = archived_profile_dicts(archive_payload)
+                remaining = [profile for profile in archived if str(profile.get("species_id", "")) != species_id]
+                if len(remaining) == len(archived):
+                    set_mushroom_profiles_flash(f"Archived species profile {species_id} was not found.")
+                    return profile_message_url()
+                archive_payload["archived_species_profiles"] = remaining
+                write_archived_profiles(store, archive_payload)
+                set_mushroom_profiles_flash(f"Deleted archived species profile {species_id} permanently.")
                 return profile_message_url()
             if action == "save_profile_json":
                 entry = json.loads(self.form_value(form, "profile_json"))

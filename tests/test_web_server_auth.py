@@ -315,6 +315,112 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
         )
 
+    def test_mushroom_profiles_duplicate_species_creates_editable_draft(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["duplicate_profile"],
+                "species_id": ["boletus_edulis"],
+                "duplicate_species_id": ["boletus_edulis_copy"],
+                "duplicate_scientific_name": ["Boletus edulis copy"],
+                "duplicate_common_name": ["copy cep"],
+            }
+        )
+
+        self.assertEqual("?id=boletus_edulis_copy", redirect)
+        payload = json.loads((data_dir / "mushroom-data" / "mushroom_profiles.json").read_text(encoding="utf-8"))
+        duplicated = next(profile for profile in payload["species_profiles"] if profile["species_id"] == "boletus_edulis_copy")
+        self.assertEqual("Boletus edulis copy", duplicated["scientific_name"])
+        self.assertEqual(["copy cep"], duplicated["common_names"])
+        self.assertEqual("draft", duplicated["metadata"]["review_status"])
+        self.assertEqual("not_calibrated", duplicated["prediction_confidence"]["local_calibration_status"])
+
+    def test_mushroom_profiles_archive_restore_and_delete_archived_species(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        archive_redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["archive_profile"],
+                "species_id": ["boletus_edulis"],
+                "archive_confirm_id": ["boletus_edulis"],
+            }
+        )
+
+        self.assertTrue(archive_redirect.startswith("?id="))
+        profiles_path = data_dir / "mushroom-data" / "mushroom_profiles.json"
+        archive_path = data_dir / "mushroom-data" / "archived" / "mushroom_profiles_archived.json"
+        active_payload = json.loads(profiles_path.read_text(encoding="utf-8"))
+        self.assertNotIn("boletus_edulis", [profile["species_id"] for profile in active_payload["species_profiles"]])
+        archived_payload = json.loads(archive_path.read_text(encoding="utf-8"))
+        self.assertIn("boletus_edulis", [profile["species_id"] for profile in archived_payload["archived_species_profiles"]])
+
+        restore_redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["restore_profile"],
+                "species_id": ["boletus_edulis"],
+            }
+        )
+
+        self.assertEqual("?id=boletus_edulis", restore_redirect)
+        active_payload = json.loads(profiles_path.read_text(encoding="utf-8"))
+        self.assertIn("boletus_edulis", [profile["species_id"] for profile in active_payload["species_profiles"]])
+        archived_payload = json.loads(archive_path.read_text(encoding="utf-8"))
+        self.assertNotIn("boletus_edulis", [profile["species_id"] for profile in archived_payload["archived_species_profiles"]])
+
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["archive_profile"],
+                "species_id": ["boletus_edulis"],
+                "archive_confirm_id": ["boletus_edulis"],
+            }
+        )
+        delete_redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["delete_archived_profile"],
+                "species_id": ["boletus_edulis"],
+                "delete_confirm_id": ["boletus_edulis"],
+            }
+        )
+
+        self.assertEqual("?#mushroom-profile-message", delete_redirect)
+        archived_payload = json.loads(archive_path.read_text(encoding="utf-8"))
+        self.assertNotIn("boletus_edulis", [profile["species_id"] for profile in archived_payload["archived_species_profiles"]])
+
     def test_mushroom_catalogs_create_entry_uses_validated_template(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
