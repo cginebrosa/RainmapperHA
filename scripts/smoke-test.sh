@@ -99,9 +99,12 @@ check_ha_app_contains_only_ha_specific_code() {
   # The HA image is now built from the repository root, so rainmapper-app/app
   # should only contain HA-specific code. Shared core files must live in
   # rainmapper_core/ and be copied directly by rainmapper-app/Dockerfile.
+  # Mushroom UI modules are HA-specific server-rendered presentation helpers,
+  # allowed here to keep web_server.py from growing without copying core code.
   unexpected="$(
     find rainmapper-app/app -mindepth 1 -maxdepth 1 \
       ! -name web_server.py \
+      ! -name 'mushroom_*_ui.py' \
       ! -name __pycache__ \
       -print
   )"
@@ -115,6 +118,7 @@ check_python_syntax() {
   local python_files=(
     scripts/check-history.py
     rainmapper-app/app/web_server.py
+    rainmapper-app/app/mushroom_profiles_ui.py
   )
 
   # Include the whole shared core package so new source-specific helpers are

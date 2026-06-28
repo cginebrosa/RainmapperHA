@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.164
+
+- Redesign the mushroom species detail view toward the documented species maintenance mockup.
+- Move mushroom species UI rendering helpers out of `web_server.py` into a HA-specific presentation module.
+- Add compact species status chips, left-side species navigation, overview cards, month chips, scoring bars and an action bar while preserving existing save/import/export behavior.
+
 ## 0.2.163
 
 - Add guided mushroom species creation from the species maintenance page.

@@ -23,6 +23,11 @@ from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
+APP_DIR = Path(__file__).resolve().parent
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR))
+
+import mushroom_profiles_ui
 from rainmapper_core.mushroom_store import default_store
 from rainmapper_core.mushroom_validation import (
     empty_species_profile,
@@ -1455,35 +1460,75 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       align-items: start;
       display: grid;
       gap: 16px;
-      grid-template-columns: minmax(360px, .36fr) minmax(760px, 1fr);
+      grid-template-columns: minmax(330px, .34fr) minmax(820px, 1fr);
     }}
     .profile-list {{
+      background: linear-gradient(180deg, rgba(2, 23, 38, .72), rgba(15, 23, 42, .28));
+      border: 1px solid var(--line);
+      border-radius: 10px;
       display: grid;
-      gap: 8px;
+      gap: 0;
+      overflow: hidden;
       position: sticky;
       top: 12px;
     }}
+    .profile-list-search-title {{
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+      padding: 10px 12px;
+      text-transform: uppercase;
+    }}
     .profile-list-item {{
-      background: rgba(15, 23, 42, .34);
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid rgba(45, 58, 71, .72);
+      border-radius: 0;
       color: var(--fg);
       display: grid;
-      gap: 5px;
-      padding: 10px 12px;
+      gap: 10px;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      min-height: 58px;
+      padding: 9px 12px;
       text-decoration: none;
     }}
+    .profile-list-item:last-child {{
+      border-bottom: 0;
+    }}
     .profile-list-item.active {{
-      background: rgba(3, 169, 244, .12);
-      border-color: var(--accent);
+      background: linear-gradient(90deg, rgba(3, 169, 244, .18), rgba(3, 169, 244, .04));
+      box-shadow: inset 3px 0 0 var(--accent);
+    }}
+    .profile-list-icon {{
+      align-items: center;
+      border: 1px solid rgba(148, 163, 184, .35);
+      border-radius: 999px;
+      color: var(--accent);
+      display: inline-flex;
+      font-size: 16px;
+      height: 26px;
+      justify-content: center;
+      width: 26px;
+    }}
+    .profile-list-main {{
+      display: grid;
+      gap: 2px;
+      min-width: 0;
     }}
     .profile-list-item strong {{
       line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }}
     .profile-chip-line {{
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
+      justify-content: end;
     }}
     .profile-chip {{
       border: 1px solid var(--line);
@@ -1491,6 +1536,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       color: var(--muted);
       font-size: 11px;
       padding: 2px 7px;
+    }}
+    .profile-chip.high,
+    .profile-chip.very_high {{
+      border-color: rgba(52, 211, 153, .42);
+      color: var(--ok);
+    }}
+    .profile-chip.medium {{
+      border-color: rgba(255, 176, 32, .46);
+      color: #ffb020;
+    }}
+    .profile-chip.low,
+    .profile-chip.very_low {{
+      border-color: rgba(255, 107, 107, .46);
+      color: var(--danger);
     }}
     .profile-metrics {{
       display: grid;
@@ -1522,11 +1581,66 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       display: grid;
       gap: 12px;
     }}
+    .profile-editor-polished {{
+      background:
+        linear-gradient(180deg, rgba(3, 169, 244, .07), rgba(3, 169, 244, 0) 170px),
+        rgba(15, 23, 42, .54);
+      border-radius: 10px;
+    }}
     .profile-editor-head {{
       align-items: start;
       display: flex;
       gap: 12px;
       justify-content: space-between;
+    }}
+    .profile-hero {{
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 12px;
+    }}
+    .profile-title-block {{
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      min-width: 0;
+    }}
+    .profile-title-block h2 {{
+      font-size: 20px;
+      margin: 0 0 4px;
+    }}
+    .profile-hero-icon {{
+      align-items: center;
+      border: 1px solid rgba(148, 163, 184, .35);
+      border-radius: 999px;
+      color: var(--accent);
+      display: inline-flex;
+      flex: 0 0 38px;
+      font-size: 24px;
+      height: 38px;
+      justify-content: center;
+      width: 38px;
+    }}
+    .profile-hero-chips {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: end;
+      max-width: 760px;
+    }}
+    .profile-status-chip {{
+      align-items: center;
+      background: rgba(2, 13, 22, .55);
+      border: 1px solid rgba(45, 58, 71, .92);
+      border-radius: 8px;
+      display: inline-flex;
+      gap: 5px;
+      min-height: 30px;
+      padding: 5px 9px;
+      white-space: nowrap;
+    }}
+    .profile-chip-label {{
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
     }}
     .profile-section {{
       border-top: 1px solid var(--line);
@@ -1589,6 +1703,113 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
     #profile-tab-metadata:checked ~ .profile-tab-content .profile-tab-panel.metadata,
     #profile-tab-json:checked ~ .profile-tab-content .profile-tab-panel.json {{
       display: grid;
+    }}
+    .profile-overview-grid {{
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+    }}
+    .profile-overview-card {{
+      background: rgba(2, 13, 22, .32);
+      border: 1px solid rgba(45, 58, 71, .82);
+      border-radius: 8px;
+      display: grid;
+      gap: 8px;
+      grid-column: span 4;
+      padding: 12px;
+    }}
+    .profile-overview-card.wide {{
+      grid-column: span 4;
+    }}
+    .profile-overview-card.full {{
+      grid-column: 1 / -1;
+    }}
+    .profile-overview-card h3 {{
+      font-size: 14px;
+      margin: 0 0 2px;
+    }}
+    .profile-kv {{
+      align-items: baseline;
+      border-bottom: 1px solid rgba(45, 58, 71, .45);
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(96px, .72fr) minmax(0, 1fr);
+      padding: 4px 0;
+    }}
+    .profile-kv span {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }}
+    .profile-kv strong {{
+      font-size: 13px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .month-chip-grid {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }}
+    .month-chip {{
+      border: 1px solid rgba(45, 58, 71, .9);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 34px;
+      padding: 4px 6px;
+      text-align: center;
+    }}
+    .month-chip.active {{
+      background: rgba(3, 169, 244, .72);
+      border-color: rgba(3, 169, 244, .96);
+      color: white;
+    }}
+    .month-chip.secondary {{
+      border-color: rgba(3, 169, 244, .7);
+      color: var(--accent);
+    }}
+    .month-chip.warn {{
+      border-color: rgba(255, 209, 102, .65);
+      color: #ffd166;
+    }}
+    .profile-weather-grid {{
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .score-row {{
+      align-items: center;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(96px, .8fr) minmax(80px, 1fr) 42px;
+      min-height: 24px;
+    }}
+    .score-row span {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }}
+    .score-row strong {{
+      font-size: 12px;
+      text-align: right;
+    }}
+    .score-track {{
+      background: rgba(2, 13, 22, .62);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }}
+    .score-track span {{
+      background: var(--accent);
+      display: block;
+      height: 100%;
+    }}
+    .profile-metadata-strip {{
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
     }}
     .profile-calibration-summary {{
       display: grid;
@@ -1655,12 +1876,54 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       resize: vertical;
       width: 100%;
     }}
+    .profile-action-bar {{
+      align-items: center;
+      border-top: 1px solid var(--line);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 12px;
+      padding-top: 12px;
+    }}
+    .secondary,
+    .danger-button {{
+      background: rgba(15, 23, 42, .42);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      min-height: 36px;
+      padding: 0 14px;
+    }}
+    .danger-button {{
+      border-color: rgba(255, 107, 107, .55);
+      color: var(--danger);
+    }}
+    .secondary:disabled,
+    .danger-button:disabled {{
+      cursor: not-allowed;
+      opacity: .48;
+    }}
+    .profile-raw-json {{
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }}
     @media (max-width: 1320px) {{
       .permissions-grid {{
         grid-template-columns: repeat(3, minmax(180px, 1fr));
       }}
       .profile-metrics {{
         grid-template-columns: repeat(4, minmax(0, 1fr));
+      }}
+      .profile-overview-card,
+      .profile-overview-card.wide {{
+        grid-column: span 6;
+      }}
+      .profile-metadata-strip {{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }}
     }}
     @media (max-width: 980px) {{
@@ -1681,8 +1944,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True) -> bytes:
       .profile-grid.four,
       .profile-calibration-summary,
       .profile-metrics,
+      .profile-weather-grid,
+      .profile-metadata-strip,
       .profile-affinity-row {{
         grid-template-columns: 1fr;
+      }}
+      .profile-overview-card,
+      .profile-overview-card.wide,
+      .profile-overview-card.full {{
+        grid-column: 1 / -1;
+      }}
+      .profile-hero {{
+        display: grid;
+      }}
+      .profile-hero-chips {{
+        justify-content: start;
       }}
     }}
     @media (max-width: 1080px) {{
@@ -5891,7 +6167,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         profiles = [profile for profile in profiles if isinstance(profile, dict)] if isinstance(profiles, list) else []
         catalogs = catalogs_payload.get("catalogs", {}) if isinstance(catalogs_payload, dict) else {}
         catalogs = catalogs if isinstance(catalogs, dict) else {}
-        selected = selected_profile(profiles, selected_id)
+        selected = mushroom_profiles_ui.selected_profile(profiles, selected_id)
         if selected:
             selected_id = str(selected.get("species_id", ""))
 
@@ -5933,16 +6209,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         </div>
         {flash_html}
         {seeded_html}
-        {profile_metric_cards(profiles, errors, warnings)}
+        {mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}
         <div class="profile-layout">
-          {render_profile_list(profiles, selected_id, search)}
-          {render_profile_editor(selected, catalogs)}
+          {mushroom_profiles_ui.render_profile_list(profiles, selected_id, search)}
+          {mushroom_profiles_ui.render_profile_editor(selected, catalogs)}
         </div>
         <h2>Cross validation</h2>
         {render_catalog_alerts(errors, warnings, limit=12)}
-        {render_new_species_form()}
+        {mushroom_profiles_ui.render_new_species_form()}
         <h2 id="profiles-full-json">JSON maintenance</h2>
-        {render_profile_full_json_panel(full_payload, mode)}
+        {mushroom_profiles_ui.render_profile_full_json_panel(full_payload, mode)}
         """
         self.send_bytes(200, html_page("Mushroom species", body, auto_refresh=False), "text/html; charset=utf-8")
 
