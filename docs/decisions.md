@@ -1,6 +1,6 @@
 # Decisions
 
-Nota de auditoria 2026-06-28: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: version HA `0.2.172`; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` contiene solo codigo especifico HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`); los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.172` esta publicada/pusheada, instalada en HA y confirmada por el usuario como funcionando correctamente el 2026-06-28; incluye la correccion de la tarjeta `Weather model summary` del tab `General/Summary` de especies. `0.2.171` corrigio el archivado de especies y ordeno la lista lateral visualmente por `scientific_name`; el ciclo `New/Duplicate/Archive/Restore/Delete permanently` queda validado por la confirmacion de `0.2.172`.
+Nota de auditoria 2026-06-29: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: version HA `0.2.175`; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` contiene solo codigo especifico HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`); los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.175` esta publicada/pusheada con imagen `ghcr.io/cginebrosa/rainmapperha:0.2.175/latest`, digest multi-arch `sha256:883695d0d414d871857a219a904ea60effc3af6c64aa320b9bf5447d10389a7e`, commit `b52cd5c`, pendiente de validar en HA. `0.2.172` fue confirmada por el usuario como funcionando correctamente el 2026-06-28; incluye la correccion de la tarjeta `Weather model summary` del tab `General/Summary` de especies. `0.2.175` introduce el store real de observaciones de setas, labels genericas y mantenimiento inicial de observaciones.
 
 ## 2026-06-27 - Mantener JSON de setas como defaults versionados y copia editable en HA
 
@@ -66,6 +66,34 @@ Consecuencias:
 Actualizacion 2026-06-28: `0.2.169` no debe cerrarse como buena para este flujo porque en HA los modales de `New species`, `Duplicate species` y `Restore species` quedaban visibles pero no interactivos por una colision de `z-index` del backdrop heredada de los modales antiguos de Users. `0.2.170` corrige esa capa y queda como version a validar para el ciclo de vida defensivo.
 
 Actualizacion 2026-06-28: desde `0.2.171`, `Archive species` no requiere reescribir manualmente el `species_id`. La UI muestra el ID seleccionado en solo lectura y el POST confia en el `species_id` oculto de la accion seleccionada. La confirmacion defensiva queda en el modal y el `confirm()` del navegador; el requisito de escribir el ID se retira porque era redundante y poco ergonomico para mantenimiento HA local.
+
+## 2026-06-29 - Observaciones de setas como store propio y calibracion futura
+
+Decision:
+
+- Guardar observaciones de floradas en `mushroom-data/mushroom_observations.json`, separado de `mushroom_profiles.json` y `mushroom_reference_catalogs.json`.
+- Mantener los valores tabulados de observaciones en `mushroom_reference_catalogs.json`, no hardcodeados en UI/backend.
+- Usar `mushroom_labels.json` como diccionario general de labels de setas, sustituyendo el antiguo `mushroom_parameter_labels.json`.
+- Tratar el alta/edicion de observaciones como mantenimiento HA server-side, con validacion global antes de persistir y backup atomico como perfiles/catalogos.
+- Aplicar estrategia defensiva al borrado: una observacion activa solo puede archivarse; el borrado permanente solo existe desde observaciones archivadas y exige doble confirmacion de navegador mas confirmacion backend por `observation_id`.
+- Mantener `calibration_use`, `validation_status` y `source_quality` como conceptos separados: uso en calibracion, aceptacion/validacion y fiabilidad del origen no significan lo mismo.
+
+Motivo:
+
+- Las observaciones seran la base para calibrar o confirmar si los parametros de especies son correctos frente a datos reales de campo.
+- Separarlas de perfiles evita mezclar modelo teorico con evidencia observada.
+- Los catalogos tabulados permiten cambiar opciones de abundancia, origen, validacion o uso sin tocar codigo.
+
+Consecuencias:
+
+- `rainmapper_core/mushroom_store.py` debe sembrar y validar tambien `observations`.
+- `scripts/validate-mushroom-data.py` valida especies, coordenadas, fechas, catalogos de observacion y rangos de calidad.
+- La UI inicial de `Observations` cubre alta, edicion, archivo, restauracion y borrado permanente; importacion CSV/JSON queda como tarea futura.
+- `ui_language` queda disponible en `config.yaml`, pero la seleccion real de idioma para mantenimientos de setas queda pendiente.
+
+Estado:
+
+- Publicado en HA `0.2.175`, imagen/digest documentados en la nota de auditoria superior; pendiente de validacion operativa en Home Assistant.
 
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
