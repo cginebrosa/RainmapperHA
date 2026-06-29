@@ -114,6 +114,86 @@
     "es": "Penal.Viento",
     "ca": "Penal.Vent"
   },
+  "catalog_group.trophic_modes": {
+    "en": "Trophic",
+    "es": "Trofico",
+    "ca": "Trofic"
+  },
+  "catalog_group.host_taxa": {
+    "en": "Host",
+    "es": "Hosts",
+    "ca": "Hosts"
+  },
+  "catalog_group.forest_types": {
+    "en": "Habitat",
+    "es": "Habitat",
+    "ca": "Habitat"
+  },
+  "catalog_group.soil_types": {
+    "en": "Soil",
+    "es": "Suelo",
+    "ca": "Sol"
+  },
+  "catalog_group.lithology_types": {
+    "en": "Geology",
+    "es": "Geologia",
+    "ca": "Geologia"
+  },
+  "catalog_group.aspects": {
+    "en": "Topography",
+    "es": "Topografia",
+    "ca": "Topografia"
+  },
+  "catalog_group.season_patterns": {
+    "en": "Phenology",
+    "es": "Fenologia",
+    "ca": "Fenologia"
+  },
+  "catalog_group.habitat_features": {
+    "en": "Microhabitat",
+    "es": "Microhabitat",
+    "ca": "Microhabitat"
+  },
+  "catalog_group.observation_flush_abundance": {
+    "en": "Obs. abundance",
+    "es": "Abundancia obs.",
+    "ca": "Abundancia obs."
+  },
+  "catalog_group.observation_validation_statuses": {
+    "en": "Obs. validation",
+    "es": "Validacion obs.",
+    "ca": "Validacio obs."
+  },
+  "catalog_group.observation_calibration_uses": {
+    "en": "Calibration use",
+    "es": "Uso calibracion",
+    "ca": "Us calibracio"
+  },
+  "catalog_group.observation_exclusion_reasons": {
+    "en": "Exclusion reason",
+    "es": "Motivo exclusion",
+    "ca": "Motiu exclusio"
+  },
+  "catalog_group.observation_source_types": {
+    "en": "Obs. source",
+    "es": "Origen obs.",
+    "ca": "Origen obs."
+  },
+  "catalog_group.observer_expertise_levels": {
+    "en": "Observer expertise",
+    "es": "Experiencia obs.",
+    "ca": "Experiencia obs."
+  },
+  "catalog_group.observation_location_sources": {
+    "en": "Location source",
+    "es": "Origen ubicacion",
+    "ca": "Origen ubicacio"
+  },
+  "catalog_group.observation_altitude_sources": {
+    "en": "Altitude source",
+    "es": "Origen altitud",
+    "ca": "Origen altitud"
+  },
   "observation_id": {
     "en": "Observation ID",
     "es": "ID de observacion",

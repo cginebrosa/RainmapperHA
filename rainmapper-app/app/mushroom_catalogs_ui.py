@@ -11,19 +11,10 @@ from __future__ import annotations
 
 import html
 import json
+import os
+from pathlib import Path
 from urllib.parse import urlencode
 
-
-CATALOG_DOMAIN_LABELS = {
-    "trophic_modes": "Trophic",
-    "host_taxa": "Host",
-    "forest_types": "Habitat",
-    "soil_types": "Soil",
-    "lithology_types": "Geology",
-    "aspects": "Topography",
-    "season_patterns": "Phenology",
-    "habitat_features": "Microhabitat",
-}
 
 CATALOG_ID_PREFIXES = {
     "trophic_modes": "trophic_",
@@ -34,7 +25,65 @@ CATALOG_ID_PREFIXES = {
     "aspects": "aspect_",
     "season_patterns": "season_",
     "habitat_features": "feature_",
+    "observation_flush_abundance": "",
+    "observation_validation_statuses": "",
+    "observation_calibration_uses": "",
+    "observation_exclusion_reasons": "",
+    "observation_source_types": "",
+    "observer_expertise_levels": "",
+    "observation_location_sources": "",
+    "observation_altitude_sources": "",
 }
+
+
+def catalog_label_candidates() -> list[Path]:
+    """Return candidate label dictionaries for HA and local runs."""
+    configured_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", "").strip()
+    candidates = []
+    if configured_defaults:
+        candidates.append(Path(configured_defaults) / "mushroom_labels.json")
+    candidates.append(Path("/app/mushroom-data/mushroom_labels.json"))
+    module_path = Path(__file__).resolve()
+    if len(module_path.parents) > 2:
+        candidates.append(module_path.parents[2] / "mushroom-data" / "mushroom_labels.json")
+    return candidates
+
+
+def load_mushroom_labels() -> dict[str, dict[str, str]]:
+    """Load mushroom-data label translations."""
+    for candidate in catalog_label_candidates():
+        if not candidate.exists():
+            continue
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        labels: dict[str, dict[str, str]] = {}
+        for key, value in payload.items():
+            if isinstance(value, dict):
+                translations = {str(language): str(label) for language, label in value.items() if label}
+                if translations:
+                    labels[str(key)] = translations
+        return labels
+    return {}
+
+
+MUSHROOM_LABELS = load_mushroom_labels()
+
+
+def mushroom_label(key: str, language: str = "en") -> str:
+    """Return a translated label or an explicit missing-label marker."""
+    labels = MUSHROOM_LABELS.get(key)
+    if not labels:
+        return f"missing label: {key}"
+    return labels.get(language) or labels.get("en") or f"missing label: {key}.{language}"
+
+
+def catalog_group_label(group: str, language: str = "en") -> str:
+    """Return the configured display label for a catalog group."""
+    return mushroom_label(f"catalog_group.{group}", language=language)
 
 
 def catalog_label(item: dict[str, object]) -> str:
@@ -111,7 +160,7 @@ def catalog_rows(catalogs: dict[str, object], profiles: object, gis: object) -> 
                     "parent_id": parent_id,
                     "profile_count": profile_count,
                     "gis_count": gis_count,
-                    "domain": CATALOG_DOMAIN_LABELS.get(group, group),
+                    "domain": catalog_group_label(group),
                     "status": "Active" if profile_count or gis_count else "Unused",
                     "item": item,
                 }
@@ -198,10 +247,10 @@ def render_catalog_group_chips(catalogs: dict[str, object], rows: list[dict[str,
             continue
         group_rows = [row for row in rows if row["group"] == group]
         used = len([row for row in group_rows if int(row["profile_count"]) > 0 or int(row["gis_count"]) > 0])
-        domain = CATALOG_DOMAIN_LABELS.get(group, group)
+        domain = catalog_group_label(group)
         chips.append(
-            f'<a class="catalog-chip{" active" if group == selected_group else ""}" href="{catalog_query_url(group=group, search=search)}">'
-            f"<strong>{html.escape(domain)}</strong><span>{html.escape(group)} · {len(items)} IDs · {used} used</span></a>"
+            f'<a class="catalog-chip{" active" if group == selected_group else ""}" href="{catalog_query_url(group=group, search=search)}" title="{html.escape(group, quote=True)}">'
+            f"<strong>{html.escape(domain)}</strong><span>{len(items)} IDs · {used} used</span></a>"
         )
     return '<div class="catalog-chip-row">' + "".join(chips) + "</div>"
 
@@ -211,7 +260,7 @@ def render_catalog_domain_impact(rows: list[dict[str, object]], selected_group: 
     scoped_rows = [row for row in rows if not selected_group or row["group"] == selected_group]
     if not scoped_rows:
         return ""
-    title = CATALOG_DOMAIN_LABELS.get(selected_group, "Whole catalog") if selected_group else "Whole catalog"
+    title = catalog_group_label(selected_group) if selected_group else "Whole catalog"
     ids = len(scoped_rows)
     profile_refs = sum(int(row["profile_count"]) for row in scoped_rows)
     gis_refs = sum(int(row["gis_count"]) for row in scoped_rows)
@@ -571,8 +620,9 @@ def render_new_catalog_entry_form(catalogs: dict[str, object], selected_group: s
             continue
         selected = " selected" if group == selected_group else ""
         prefix = CATALOG_ID_PREFIXES.get(group, "")
+        label = catalog_group_label(group)
         options.append(
-            f'<option value="{html.escape(group, quote=True)}"{selected}>{html.escape(group)} · {html.escape(prefix)}</option>'
+            f'<option value="{html.escape(group, quote=True)}"{selected}>{html.escape(label)} · {html.escape(group)}{(" · " + html.escape(prefix)) if prefix else ""}</option>'
         )
     return f"""
     <section class="card">

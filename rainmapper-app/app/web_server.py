@@ -4491,7 +4491,6 @@ def admin_message(message: str) -> None:
         RUN_STATE["last_message"] = message
 
 
-CATALOG_DOMAIN_LABELS = mushroom_catalogs_ui.CATALOG_DOMAIN_LABELS
 CATALOG_ID_PREFIXES = mushroom_catalogs_ui.CATALOG_ID_PREFIXES
 catalog_label = mushroom_catalogs_ui.catalog_label
 catalog_rows = mushroom_catalogs_ui.catalog_rows
