@@ -2043,6 +2043,15 @@
         "sort_order": 10
       },
       {
+        "id": "photo_exif",
+        "label": {
+          "es": "Foto EXIF",
+          "ca": "Foto EXIF",
+          "en": "EXIF photo"
+        },
+        "sort_order": 15
+      },
+      {
         "id": "trusted_observer",
         "label": {
           "es": "Observador de confianza",
@@ -2173,6 +2182,15 @@
         "sort_order": 30
       },
       {
+        "id": "photo_exif",
+        "label": {
+          "es": "GPS de foto EXIF",
+          "ca": "GPS de foto EXIF",
+          "en": "EXIF photo GPS"
+        },
+        "sort_order": 35
+      },
+      {
         "id": "imported_csv",
         "label": {
           "es": "CSV importado",
@@ -2200,6 +2218,15 @@
           "en": "Manual"
         },
         "sort_order": 10
+      },
+      {
+        "id": "photo_exif",
+        "label": {
+          "es": "Altitud de foto EXIF",
+          "ca": "Altitud de foto EXIF",
+          "en": "EXIF photo altitude"
+        },
+        "sort_order": 15
       },
       {
         "id": "google_maps",

@@ -808,6 +808,24 @@ def render_selected_species_header(profile: dict[str, object] | None, section: s
     """
 
 
+def render_observation_scope_header(profile: dict[str, object] | None, section: str, species_filter: str) -> str:
+    """Render the observation banner using the active observation species filter."""
+    if species_filter == "__all__":
+        return f"""
+        <header class="profile-section-banner">
+          <div class="profile-title-block">
+            <span class="profile-hero-icon">{icon("mushroom")}</span>
+            <div>
+              <span class="meta">{html.escape(section)}</span>
+              <h2>{html.escape(ui_label("ui.all_species"))}</h2>
+              <p class="meta">{html.escape(ui_label("ui.observation_records"))}</p>
+            </div>
+          </div>
+        </header>
+        """
+    return render_selected_species_header(profile, section) if profile else f'<h2>{html.escape(section)}</h2>'
+
+
 def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str, object]) -> str:
     """Render editable affinity rows while hiding already-used IDs from new rows."""
     catalog_group = PROFILE_AFFINITY_GROUPS[field]
@@ -1456,19 +1474,124 @@ def observation_filter_value(filters: dict[str, str] | None, key: str) -> str:
     return str(filters.get(key, "") or "").strip()
 
 
+def observation_context_inputs(
+    filters: dict[str, str] | None,
+    *,
+    selected_species_id: str = "",
+    archive_open: bool = False,
+    override_obs_id: str = "",
+) -> str:
+    """Render hidden inputs that preserve observation filters across POST actions."""
+    fields = []
+    if selected_species_id:
+        fields.append(f'<input type="hidden" name="return_selected_species_id" value="{html.escape(selected_species_id, quote=True)}">')
+    for key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir"):
+        value = observation_filter_value(filters, key)
+        if value:
+            fields.append(
+                f'<input type="hidden" name="return_{html.escape(key, quote=True)}" value="{html.escape(value, quote=True)}">'
+            )
+    obs_id = override_obs_id or observation_filter_value(filters, "obs_id")
+    if obs_id:
+        fields.append(f'<input type="hidden" name="return_obs_id" value="{html.escape(obs_id, quote=True)}">')
+    if archive_open:
+        fields.append('<input type="hidden" name="return_archive_open" value="1">')
+    return "".join(fields)
+
+
+def observation_sort_url(
+    selected_species_id: str,
+    search: str,
+    filters: dict[str, str] | None,
+    key: str,
+) -> str:
+    """Return a query URL that preserves observation filters and toggles a sort column."""
+    current_sort = observation_filter_value(filters, "sort") or "observed_at"
+    current_dir = observation_filter_value(filters, "dir") or "desc"
+    next_dir = "asc" if current_sort == key and current_dir == "desc" else "desc"
+    params = {"section": "observations", "sort": key, "dir": next_dir}
+    if selected_species_id:
+        params["id"] = selected_species_id
+    if search:
+        params["q"] = search
+    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "obs_id"):
+        value = observation_filter_value(filters, filter_key)
+        if value:
+            params[filter_key] = value
+    return "?" + urlencode(params)
+
+
+def observation_select_url(
+    selected_species_id: str,
+    search: str,
+    filters: dict[str, str] | None,
+    observation_id: str,
+) -> str:
+    """Return a query URL that selects one observation row without losing filters."""
+    params = {"section": "observations", "obs_id": observation_id}
+    if selected_species_id:
+        params["id"] = selected_species_id
+    if search:
+        params["q"] = search
+    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir"):
+        value = observation_filter_value(filters, filter_key)
+        if value:
+            params[filter_key] = value
+    return "?" + urlencode(params) + "#observation-detail"
+
+
+def observation_duplicate_url(
+    selected_species_id: str,
+    search: str,
+    filters: dict[str, str] | None,
+    observation_id: str,
+) -> str:
+    """Return a query URL that opens an unsaved duplicate observation template."""
+    params = {"section": "observations", "duplicate_from": observation_id}
+    if selected_species_id:
+        params["id"] = selected_species_id
+    if search:
+        params["q"] = search
+    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir", "obs_id"):
+        value = observation_filter_value(filters, filter_key)
+        if value:
+            params[filter_key] = value
+    return "?" + urlencode(params) + "#duplicate-observation"
+
+
+def observation_sort_header(
+    label: str,
+    key: str,
+    selected_species_id: str,
+    search: str,
+    filters: dict[str, str] | None,
+) -> str:
+    """Render a sortable observation table header."""
+    current_sort = observation_filter_value(filters, "sort") or "observed_at"
+    current_dir = observation_filter_value(filters, "dir") or "desc"
+    marker = " ↓" if current_sort == key and current_dir == "desc" else " ↑" if current_sort == key else ""
+    href = observation_sort_url(selected_species_id, search, filters, key)
+    return f'<a class="table-sort-link" href="{html.escape(href, quote=True)}">{html.escape(label + marker)}</a>'
+
+
 def filtered_observation_rows(
     rows: list[dict[str, object]],
     selected_species_id: str,
     filters: dict[str, str] | None,
 ) -> list[dict[str, object]]:
     """Apply the visible observation filters used by the maintenance screen."""
+    species_filter = observation_filter_value(filters, "obs_species")
     date_from = observation_filter_value(filters, "date_from")
     date_to = observation_filter_value(filters, "date_to")
     result = observation_filter_value(filters, "result")
     validation = observation_filter_value(filters, "validation")
     text = observation_filter_value(filters, "obs_q").lower()
     visible_rows = rows
-    if selected_species_id:
+    if species_filter == "__all__":
+        pass
+    elif species_filter:
+        visible_rows = [row for row in visible_rows if str(row.get("species_id", "")) == species_filter]
+    elif selected_species_id:
         visible_rows = [row for row in visible_rows if str(row.get("species_id", "")) == selected_species_id]
     if date_from:
         visible_rows = [row for row in visible_rows if str(row.get("observed_at", "")) >= date_from]
@@ -1534,13 +1657,44 @@ def render_observation_table(
     rows: list[dict[str, object]],
     catalogs: dict[str, object],
     species_labels: dict[str, str],
+    *,
+    selected_species_id: str = "",
+    search: str = "",
+    filters: dict[str, str] | None = None,
+    sort_key: str = "observed_at",
+    sort_dir: str = "desc",
 ) -> str:
     """Render the observation list with enough columns for field calibration review."""
-    visible_rows = sorted(rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
+    def sort_value(row: dict[str, object]) -> object:
+        location = row.get("location") if isinstance(row.get("location"), dict) else {}
+        altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
+        source = row.get("source") if isinstance(row.get("source"), dict) else {}
+        observer = row.get("observer") if isinstance(row.get("observer"), dict) else {}
+        if sort_key == "species":
+            return species_labels.get(str(row.get("species_id", "")), str(row.get("species_id", ""))).lower()
+        if sort_key == "coordinates":
+            return f"{location.get('lat', '')},{location.get('lon', '')}" if isinstance(location, dict) else ""
+        if sort_key == "altitude":
+            value = altitude.get("meters") if isinstance(altitude, dict) else None
+            return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else -99999.0
+        if sort_key == "abundance":
+            return observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance")).lower()
+        if sort_key == "observer":
+            return str(observer.get("name", "") if isinstance(observer, dict) else "").lower()
+        if sort_key == "source":
+            return str(source.get("label", source.get("type", "")) if isinstance(source, dict) else "").lower()
+        if sort_key == "validation":
+            return observation_catalog_label(catalogs, "observation_validation_statuses", row.get("validation_status")).lower()
+        if sort_key == "use":
+            return observation_catalog_label(catalogs, "observation_calibration_uses", row.get("calibration_use")).lower()
+        return str(row.get("observed_at", ""))
+
+    visible_rows = sorted(rows, key=sort_value, reverse=sort_dir != "asc")
     if not visible_rows:
         return f'<tr><td colspan="10">{html.escape(ui_label("ui.no_observations_filter"))}</td></tr>'
 
     body = []
+    selected_observation_id = observation_filter_value(filters, "obs_id")
     for row in visible_rows:
         location = row.get("location") if isinstance(row.get("location"), dict) else {}
         altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
@@ -1557,9 +1711,14 @@ def render_observation_table(
             coordinates = f'{float(location.get("lat")):.5f}, {float(location.get("lon")):.5f}'
         altitude_text = "-"
         if isinstance(altitude, dict) and altitude.get("meters") is not None:
-            altitude_text = f'{altitude.get("meters")} m'
+            altitude_text = f'{round(float(altitude.get("meters")))} m'
+        observation_id = str(row.get("observation_id", ""))
+        selected_class = " selected" if observation_id and observation_id == selected_observation_id else ""
+        select_href = observation_select_url(selected_species_id, search, filters, observation_id) if observation_id else "#observation-detail"
+        duplicate_href = observation_duplicate_url(selected_species_id, search, filters, observation_id) if observation_id else "#duplicate-observation"
+        archive_context_inputs = observation_context_inputs(filters, selected_species_id=selected_species_id, archive_open=True, override_obs_id="")
         body.append(
-            "<tr>"
+            f'<tr class="observation-row{selected_class}" onclick="window.location.href=\'{html.escape(select_href, quote=True)}\'">'
             f"<td>{html.escape(str(row.get('observed_at', '-')))}</td>"
             f"<td><strong>{html.escape(species_labels.get(species_id, species_id))}</strong><br><span class=\"meta\">{html.escape(species_id)}</span></td>"
             f"<td>{html.escape(coordinates)}<br><span class=\"meta\">{html.escape(str(location.get('source', '-')) if isinstance(location, dict) else '-')}</span></td>"
@@ -1570,11 +1729,13 @@ def render_observation_table(
             f"<td>{observation_badge(validation, validation_tone)}</td>"
             f"<td>{observation_badge(calibration_use, use_tone)}</td>"
             "<td class=\"observation-row-actions\">"
-            f"<a class=\"button-link compact\" href=\"#edit-observation-{html.escape(str(row.get('observation_id', '')), quote=True)}\">{html.escape(ui_label('ui.edit'))}</a>"
-            "<form method=\"post\" action=\"\" onsubmit=\"return confirm('Archive this observation?')\">"
+            f"<a class=\"button-link compact\" href=\"#edit-observation-{html.escape(observation_id, quote=True)}\" onclick=\"event.stopPropagation()\">{html.escape(ui_label('ui.edit'))}</a>"
+            f"<a class=\"button-link compact\" href=\"{html.escape(duplicate_href, quote=True)}\" onclick=\"event.stopPropagation()\">{html.escape(ui_label('ui.duplicate'))}</a>"
+            "<form method=\"post\" action=\"\" onclick=\"event.stopPropagation()\" onsubmit=\"return confirm('Archive this observation?')\">"
             "<input type=\"hidden\" name=\"profile_action\" value=\"archive_observation\">"
+            f"{archive_context_inputs}"
             f"<input type=\"hidden\" name=\"species_id\" value=\"{html.escape(species_id, quote=True)}\">"
-            f"<input type=\"hidden\" name=\"observation_id\" value=\"{html.escape(str(row.get('observation_id', '')), quote=True)}\">"
+            f"<input type=\"hidden\" name=\"observation_id\" value=\"{html.escape(observation_id, quote=True)}\">"
             f"<button class=\"secondary compact\" type=\"submit\">{html.escape(ui_label('ui.archive'))}</button>"
             "</form>"
             "</td>"
@@ -1599,6 +1760,8 @@ def render_observation_detail(
     rows: list[dict[str, object]],
     catalogs: dict[str, object],
     species_labels: dict[str, str],
+    *,
+    selected_observation_id: str = "",
 ) -> str:
     """Render the most recent observation detail panel."""
     visible_rows = sorted(rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
@@ -1607,7 +1770,14 @@ def render_observation_detail(
         <h2 id="observation-detail">""" + html.escape(ui_label("ui.observation_detail")) + """</h2>
         <p class="meta">""" + html.escape(ui_label("ui.select_or_create_observation")) + """</p>
         """
-    row = visible_rows[0]
+    row = next(
+        (
+            item
+            for item in visible_rows
+            if selected_observation_id and str(item.get("observation_id", "")) == selected_observation_id
+        ),
+        visible_rows[0],
+    )
     location = row.get("location") if isinstance(row.get("location"), dict) else {}
     altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
     site_context = row.get("site_context") if isinstance(row.get("site_context"), dict) else {}
@@ -1615,12 +1785,15 @@ def render_observation_detail(
     coords = "-"
     if isinstance(location, dict) and location.get("lat") is not None and location.get("lon") is not None:
         coords = f'{location.get("lat")}, {location.get("lon")}'
+    altitude_text = "-"
+    if isinstance(altitude, dict) and altitude.get("meters") is not None:
+        altitude_text = f'{round(float(altitude.get("meters")))} m'
     return f"""
     <h2 id="observation-detail">{html.escape(ui_label("ui.observation_detail"))}</h2>
     {value_row(ui_label("observation_id"), row.get("observation_id", "-"))}
     {value_row(ui_label("species_id"), species_labels.get(species_id, species_id))}
     {value_row(ui_label("ui.coordinates"), coords)}
-    {value_row(ui_label("altitude.meters"), f'{altitude.get("meters")} m' if isinstance(altitude, dict) and altitude.get("meters") is not None else "-")}
+    {value_row(ui_label("altitude.meters"), altitude_text)}
     {value_row(ui_label("flush_abundance"), observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance")))}
     {value_row(ui_label("source_quality"), row.get("source_quality", "-"))}
     {value_row(ui_label("ui.calibration_weight"), f"{observation_weight(catalogs, row):.2f}")}
@@ -1643,6 +1816,8 @@ def render_observation_form_modal(
     title: str,
     selected_species_id: str = "",
     form_message: str = "",
+    filters: dict[str, str] | None = None,
+    allow_exif_images: bool = False,
 ) -> str:
     """Render create/edit observation modal using one shared field layout."""
     row = row if isinstance(row, dict) else {}
@@ -1657,11 +1832,30 @@ def render_observation_form_modal(
     lat_value = "" if not isinstance(location, dict) or location.get("lat") is None else str(location.get("lat"))
     lon_value = "" if not isinstance(location, dict) or location.get("lon") is None else str(location.get("lon"))
     altitude_value = "" if not isinstance(altitude, dict) or altitude.get("meters") is None else str(altitude.get("meters"))
+    form_enctype = ' enctype="multipart/form-data"' if action == "update_observation" or allow_exif_images else ""
+    context_inputs = observation_context_inputs(
+        filters,
+        selected_species_id=selected_species_id,
+        override_obs_id=observation_id,
+    )
+    exif_edit_fields = ""
+    if action == "update_observation" or allow_exif_images:
+        exif_edit_fields = f"""
+        <div class="catalog-alert">
+          <strong>{html.escape(ui_label("ui.update_from_exif_images"))}</strong><br>
+          {html.escape(ui_label("ui.update_from_exif_images_help"))}
+          <div class="admin-field wide exif-edit-upload">
+            <label>{html.escape(ui_label("ui.exif_images"))}</label>
+            <input name="observation_exif_images" type="file" accept="image/jpeg,image/heic,image/heif" multiple webkitdirectory directory>
+          </div>
+        </div>
+        """
     return f"""
     <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
       <a class="modal-backdrop" href="#" aria-label="{html.escape(ui_label("ui.cancel"), quote=True)}"></a>
-      <form class="modal-card modal-card-wide observation-form" method="post" action="">
+      <form class="modal-card modal-card-wide observation-form" method="post" action=""{form_enctype}>
         <input type="hidden" name="profile_action" value="{html.escape(action, quote=True)}">
+        {context_inputs}
         {f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">' if observation_id else ""}
         <header class="modal-head">
           <div>
@@ -1702,6 +1896,7 @@ def render_observation_form_modal(
           {form_textarea("habitat_notes", ui_label("site_context.habitat_notes"), site_context.get("habitat_notes", "") if isinstance(site_context, dict) else "", rows=3)}
           {form_textarea("host_notes", ui_label("site_context.host_notes"), site_context.get("host_notes", "") if isinstance(site_context, dict) else "", rows=3)}
         </div>
+        {exif_edit_fields}
         <div class="profile-action-bar">
           <button class="primary profile-primary-action">{html.escape(ui_label("ui.save_observation"))}</button>
           <button class="secondary planned-action" type="button" disabled>{html.escape(ui_label("ui.recover_altitude"))}</button>
@@ -1717,6 +1912,7 @@ def render_observation_create_form(
     catalogs: dict[str, object],
     selected_species_id: str,
     form_message: str = "",
+    filters: dict[str, str] | None = None,
 ) -> str:
     """Render the observation creation modal."""
     return render_observation_form_modal(
@@ -1728,7 +1924,91 @@ def render_observation_create_form(
         title=ui_label("ui.new_observation"),
         selected_species_id=selected_species_id,
         form_message=form_message,
+        filters=filters,
     )
+
+
+def observation_duplicate_template_row(row: dict[str, object] | None) -> dict[str, object]:
+    """Return an unsaved observation template copied from an existing row."""
+    template = json.loads(json.dumps(row if isinstance(row, dict) else {}))
+    if isinstance(template, dict):
+        template.pop("observation_id", None)
+        template.pop("metadata", None)
+    return template if isinstance(template, dict) else {}
+
+
+def render_observation_duplicate_form(
+    rows: list[dict[str, object]],
+    profiles: list[dict[str, object]],
+    catalogs: dict[str, object],
+    selected_species_id: str,
+    filters: dict[str, str] | None = None,
+) -> str:
+    """Render an unsaved duplicate observation modal when requested by query string."""
+    duplicate_from = observation_filter_value(filters, "duplicate_from")
+    if not duplicate_from:
+        return ""
+    source = next((row for row in rows if str(row.get("observation_id", "")) == duplicate_from), None)
+    if not source:
+        return ""
+    return render_observation_form_modal(
+        profiles,
+        catalogs,
+        observation_duplicate_template_row(source),
+        modal_id="duplicate-observation",
+        action="create_observation",
+        title=f"{ui_label('ui.duplicate')} {duplicate_from}",
+        selected_species_id=selected_species_id,
+        filters=filters,
+        allow_exif_images=True,
+    )
+
+
+def render_observation_exif_import_form(
+    profiles: list[dict[str, object]],
+    catalogs: dict[str, object],
+    selected_species_id: str,
+    filters: dict[str, str] | None = None,
+) -> str:
+    """Render the common-field template used by EXIF image batch imports."""
+    return f"""
+    <div id="import-observation-exif" class="modal-layer">
+      <a class="modal-backdrop" href="#" aria-label="{html.escape(ui_label("ui.cancel"), quote=True)}"></a>
+      <form class="modal-card modal-card-wide observation-form" method="post" action="" enctype="multipart/form-data">
+        <input type="hidden" name="profile_action" value="import_observation_exif_images">
+        {observation_context_inputs(filters, selected_species_id=selected_species_id)}
+        <header class="modal-head">
+          <div>
+            <h2>{html.escape(ui_label("ui.import_exif_images"))}</h2>
+            <p>{html.escape(ui_label("ui.import_exif_images_help"))}</p>
+          </div>
+          <a class="button-link" href="#">{html.escape(ui_label("ui.cancel"))}</a>
+        </header>
+        <div class="profile-grid four">
+          <div class="admin-field"><label>{html.escape(ui_label("observer.name"))}</label><input name="observer_name"></div>
+          <div class="admin-field"><label>{html.escape(ui_label("observer.expertise"))}</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", "unknown")}</select></div>
+          <div class="admin-field"><label>{html.escape(ui_label("source_quality"))}</label><input name="source_quality" type="number" min="0" max="1" step="0.05" value="0.9" required></div>
+          <div class="admin-field"><label>{html.escape(ui_label("flush_abundance"))}</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", "normal")}</select></div>
+        </div>
+        <div class="profile-grid three">
+          <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation_status" required>{catalog_select_options(catalogs, "observation_validation_statuses", "draft")}</select></div>
+          <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, selected_species_id)}</select></div>
+          <div class="admin-field"><label>{html.escape(ui_label("calibration_use"))}</label><select name="calibration_use" required>{catalog_select_options(catalogs, "observation_calibration_uses", "review")}</select></div>
+        </div>
+        <div class="profile-grid two">
+          <div class="admin-field wide"><label>{html.escape(ui_label("ui.exif_images"))}</label><input name="exif_images" type="file" accept="image/jpeg,image/heic,image/heif" multiple webkitdirectory directory required></div>
+          <div class="admin-field wide"><label>{html.escape(ui_label("source.notes"))}</label><input name="source_notes"></div>
+        </div>
+        <div class="catalog-alert">
+          <strong>{html.escape(ui_label("ui.exif_filled_fields"))}</strong><br>
+          {html.escape(ui_label("ui.exif_filled_fields_help"))}
+        </div>
+        <div class="profile-action-bar">
+          <button class="primary profile-primary-action">{html.escape(ui_label("ui.import_exif_images"))}</button>
+        </div>
+      </form>
+    </div>
+    """
 
 
 def render_observation_edit_modals(
@@ -1736,11 +2016,10 @@ def render_observation_edit_modals(
     profiles: list[dict[str, object]],
     catalogs: dict[str, object],
     selected_species_id: str,
+    filters: dict[str, str] | None = None,
 ) -> str:
     """Render edit modals for active observations in the current filter."""
     visible_rows = rows
-    if selected_species_id:
-        visible_rows = [row for row in rows if str(row.get("species_id", "")) == selected_species_id]
     return "".join(
         render_observation_form_modal(
             profiles,
@@ -1750,6 +2029,7 @@ def render_observation_edit_modals(
             action="update_observation",
             title=f"{ui_label('ui.edit_observation')} {str(row.get('observation_id', ''))}",
             selected_species_id=selected_species_id,
+            filters=filters,
         )
         for row in visible_rows
         if row.get("observation_id")
@@ -1760,29 +2040,39 @@ def render_archived_observations_panel(
     archived_payload: dict[str, object] | None,
     species_labels: dict[str, str],
     selected_species_id: str,
+    filters: dict[str, str] | None = None,
 ) -> str:
     """Render archived observation restore/delete controls."""
     archived = observations_from_payload(archived_payload)
-    if selected_species_id:
+    species_filter = observation_filter_value(filters, "obs_species")
+    if species_filter == "__all__":
+        pass
+    elif species_filter:
+        archived = [row for row in archived if str(row.get("species_id", "")) == species_filter]
+    elif selected_species_id:
         archived = [row for row in archived if str(row.get("species_id", "")) == selected_species_id]
+    open_attr = " open" if observation_filter_value(filters, "archive_open") == "1" else ""
     if not archived:
-        return f'<details class="profile-section-card"><summary><strong>{html.escape(ui_label("ui.archived_observations"))}</strong></summary><p class="meta">{html.escape(ui_label("ui.no_archived_observations"))}</p></details>'
+        return f'<details id="archived-observations" class="profile-section-card"{open_attr}><summary><strong>{html.escape(ui_label("ui.archived_observations"))}</strong></summary><p class="meta">{html.escape(ui_label("ui.no_archived_observations"))}</p></details>'
     rows = []
     for row in sorted(archived, key=lambda item: str(item.get("observed_at", "")), reverse=True):
         observation_id = str(row.get("observation_id", ""))
         species_id = str(row.get("species_id", ""))
+        context_inputs = observation_context_inputs(filters, selected_species_id=selected_species_id, archive_open=True)
         rows.append(
             '<div class="archived-species-row">'
             f'<div><strong>{html.escape(observation_id)}</strong><br><span class="meta">{html.escape(str(row.get("observed_at", "-")))} · {html.escape(species_labels.get(species_id, species_id))}</span></div>'
             '<div class="archived-species-actions">'
             '<form method="post" action="">'
             '<input type="hidden" name="profile_action" value="restore_observation">'
+            f'{context_inputs}'
             f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
             f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">'
             f'<button class="secondary" type="submit">{html.escape(ui_label("ui.restore"))}</button>'
             '</form>'
             '<form method="post" action="" onsubmit="return confirm(\'Delete this archived observation permanently?\') && confirm(\'This action cannot be undone. The archived copy will be removed permanently.\')">'
             '<input type="hidden" name="profile_action" value="delete_archived_observation">'
+            f'{context_inputs}'
             f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
             f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">'
             f'<input type="hidden" name="delete_confirm_id" value="{html.escape(observation_id, quote=True)}">'
@@ -1790,7 +2080,7 @@ def render_archived_observations_panel(
             '</form>'
             '</div></div>'
         )
-    return f'<details class="profile-section-card"><summary><strong>{html.escape(ui_label("ui.archived_observations"))}</strong></summary><div class="archived-observations-list">' + "".join(rows) + '</div></details>'
+    return f'<details id="archived-observations" class="profile-section-card"{open_attr}><summary><strong>{html.escape(ui_label("ui.archived_observations"))}</strong></summary><div class="archived-observations-list">' + "".join(rows) + '</div></details>'
 
 
 def render_observations_section(
@@ -1816,14 +2106,21 @@ def render_observations_section(
     result_filter = observation_filter_value(filters, "result")
     validation_filter = observation_filter_value(filters, "validation")
     observation_search = observation_filter_value(filters, "obs_q")
-    species_filter_options = f'<option value="">{html.escape(ui_label("ui.all_species"))}</option>' + "".join(
-        f'<option value="{html.escape(str(item.get("species_id", "")), quote=True)}"{" selected" if str(item.get("species_id", "")) == selected_species_id else ""}>{html.escape(str(item.get("scientific_name", item.get("species_id", ""))))}</option>'
+    sort_key = observation_filter_value(filters, "sort") or "observed_at"
+    sort_dir = observation_filter_value(filters, "dir") or "desc"
+    selected_observation_id = observation_filter_value(filters, "obs_id")
+    species_filter = observation_filter_value(filters, "obs_species") or selected_species_id
+    visible_profile = profile
+    if species_filter and species_filter != "__all__":
+        visible_profile = next((item for item in profiles if str(item.get("species_id", "")) == species_filter), profile)
+    species_filter_options = f'<option value="__all__"{" selected" if species_filter == "__all__" else ""}>{html.escape(ui_label("ui.all_species"))}</option>' + "".join(
+        f'<option value="{html.escape(str(item.get("species_id", "")), quote=True)}"{" selected" if str(item.get("species_id", "")) == species_filter else ""}>{html.escape(str(item.get("scientific_name", item.get("species_id", ""))))}</option>'
         for item in profiles
         if item.get("species_id")
     )
     return f"""
-    <section class="card profile-section-screen observations-screen">
-      {render_selected_species_header(profile, ui_label("ui.observations")) if profile else f'<h2>{html.escape(ui_label("ui.observations"))}</h2>'}
+    <section id="observations-workspace" class="card profile-section-screen observations-screen">
+      {render_observation_scope_header(visible_profile, ui_label("ui.observations"), species_filter)}
       <div class="profile-calibration-cards observations-metrics">
         <div class="profile-metric"><span class="label">{icon("metadata")} {html.escape(ui_label("ui.total_observations"))}</span><span class="value">{total}</span></div>
         <div class="profile-metric"><span class="label">{icon("mushroom")} {html.escape(ui_label("ui.positive_present"))}</span><span class="value ok">{positive}</span></div>
@@ -1833,9 +2130,12 @@ def render_observations_section(
       <form class="observations-filters" method="get" action="">
         <input type="hidden" name="section" value="observations">
         <input type="hidden" name="q" value="{html.escape(search, quote=True)}">
+        <input type="hidden" name="sort" value="{html.escape(sort_key, quote=True)}">
+        <input type="hidden" name="dir" value="{html.escape(sort_dir, quote=True)}">
+        <input type="hidden" name="obs_id" value="{html.escape(selected_observation_id, quote=True)}">
         <div class="admin-field"><label>{html.escape(ui_label("ui.date_from"))}</label><input name="date_from" type="date" value="{html.escape(date_from, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
         <div class="admin-field"><label>{html.escape(ui_label("ui.date_to"))}</label><input name="date_to" type="date" value="{html.escape(date_to, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
-        <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="id" onchange="this.form.submit()">{species_filter_options}</select></div>
+        <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="obs_species" onchange="this.form.submit()">{species_filter_options}</select></div>
         <div class="admin-field"><label>{html.escape(ui_label("ui.result"))}</label><select name="result" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_flush_abundance", result_filter, ui_label("ui.all"))}</select></div>
         <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_validation_statuses", validation_filter, ui_label("ui.all"))}</select></div>
         <div class="admin-field"><label>{html.escape(ui_label("ui.search"))}</label><input name="obs_q" type="search" value="{html.escape(observation_search, quote=True)}"></div>
@@ -1845,20 +2145,23 @@ def render_observations_section(
           <h2>{icon("metadata")} {html.escape(ui_label("ui.observation_records"))}</h2>
           <div class="observations-table-shell">
             <table>
-              <thead><tr><th>{html.escape(ui_label("observed_at"))}</th><th>{html.escape(ui_label("species_id"))}</th><th>{html.escape(ui_label("ui.coordinates"))}</th><th>{html.escape(ui_label("ui.altitude_short"))}</th><th>{html.escape(ui_label("flush_abundance"))}</th><th>{html.escape(ui_label("observer.name"))}</th><th>{html.escape(ui_label("source.label"))}</th><th>{html.escape(ui_label("validation_status"))}</th><th>{html.escape(ui_label("ui.use"))}</th><th></th></tr></thead>
-              <tbody>{render_observation_table(filtered_rows, catalogs, species_labels)}</tbody>
+              <thead><tr><th>{observation_sort_header(ui_label("ui.date_short"), "observed_at", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("species_id"), "species", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.coordinates"), "coordinates", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.altitude_short"), "altitude", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("flush_abundance"), "abundance", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("observer.name"), "observer", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("source.label"), "source", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.status_short"), "validation", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.use"), "use", selected_species_id, search, filters)}</th><th></th></tr></thead>
+              <tbody>{render_observation_table(filtered_rows, catalogs, species_labels, selected_species_id=selected_species_id, search=search, filters=filters, sort_key=sort_key, sort_dir=sort_dir)}</tbody>
             </table>
           </div>
         </article>
         <aside class="profile-section-card observation-detail-shell">
-          {render_observation_detail(filtered_rows, catalogs, species_labels)}
+          {render_observation_detail(filtered_rows, catalogs, species_labels, selected_observation_id=selected_observation_id)}
         </aside>
       </div>
-      {render_archived_observations_panel(archived_observations_payload, species_labels, selected_species_id)}
-      {render_observation_create_form(profiles, catalogs, selected_species_id, form_message)}
-      {render_observation_edit_modals(filtered_rows, profiles, catalogs, selected_species_id)}
+      {render_archived_observations_panel(archived_observations_payload, species_labels, selected_species_id, filters)}
+      {render_observation_create_form(profiles, catalogs, selected_species_id, form_message, filters)}
+      {render_observation_exif_import_form(profiles, catalogs, selected_species_id, filters)}
+      {render_observation_duplicate_form(rows, profiles, catalogs, selected_species_id, filters)}
+      {render_observation_edit_modals(filtered_rows, profiles, catalogs, selected_species_id, filters)}
       <div class="profile-action-bar">
         <a class="button-link primary-link" href="#new-observation">{html.escape(ui_label("ui.new_observation"))}</a>
+        <a class="button-link" href="#import-observation-exif">{html.escape(ui_label("ui.import_exif_images"))}</a>
         <a class="button-link" href="{html.escape(calibration_href, quote=True)}">{html.escape(ui_label("ui.open_calibration"))}</a>
       </div>
     </section>

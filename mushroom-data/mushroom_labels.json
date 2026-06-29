@@ -419,6 +419,11 @@
     "es": "Guardar observacion",
     "ca": "Desar observacio"
   },
+  "ui.duplicate": {
+    "en": "Duplicate",
+    "es": "Duplicar",
+    "ca": "Duplicar"
+  },
   "ui.recover_altitude": {
     "en": "Recover altitude",
     "es": "Recuperar altitud",
@@ -428,6 +433,41 @@
     "en": "Import CSV",
     "es": "Importar CSV",
     "ca": "Importar CSV"
+  },
+  "ui.import_exif_images": {
+    "en": "Import EXIF images",
+    "es": "Importar imagenes EXIF",
+    "ca": "Importar imatges EXIF"
+  },
+  "ui.import_exif_images_help": {
+    "en": "Apply these common values to every selected image. Date, coordinates, altitude and source filename are read from EXIF metadata.",
+    "es": "Aplica estos valores comunes a todas las imagenes seleccionadas. La fecha, coordenadas, altitud y nombre del origen se leen desde los metadatos EXIF.",
+    "ca": "Aplica aquests valors comuns a totes les imatges seleccionades. La data, coordenades, altitud i nom de l'origen es llegeixen dels metadades EXIF."
+  },
+  "ui.exif_images": {
+    "en": "Images or folder",
+    "es": "Imagenes o carpeta",
+    "ca": "Imatges o carpeta"
+  },
+  "ui.exif_filled_fields": {
+    "en": "Fields read from each image",
+    "es": "Campos leidos de cada imagen",
+    "ca": "Camps llegits de cada imatge"
+  },
+  "ui.exif_filled_fields_help": {
+    "en": "observed_at, latitude, longitude and altitude_m are filled from EXIF. Source type is photo_exif and source label is the file name.",
+    "es": "observed_at, latitude, longitude y altitude_m se rellenan desde EXIF. El tipo de origen es photo_exif y el nombre del origen es el nombre del archivo.",
+    "ca": "observed_at, latitude, longitude i altitude_m s'omplen des d'EXIF. El tipus d'origen es photo_exif i el nom de l'origen es el nom del fitxer."
+  },
+  "ui.update_from_exif_images": {
+    "en": "Update from EXIF images",
+    "es": "Actualizar desde imagenes EXIF",
+    "ca": "Actualitzar des d'imatges EXIF"
+  },
+  "ui.update_from_exif_images_help": {
+    "en": "Optional. One image updates this observation date, location, altitude and source file. Several images use this observation as a template: the first updates it and the rest create extra observations.",
+    "es": "Opcional. Una imagen actualiza fecha, ubicacion, altitud y fichero origen de esta observacion. Varias imagenes usan esta observacion como plantilla: la primera la actualiza y el resto crea observaciones adicionales.",
+    "ca": "Opcional. Una imatge actualitza data, ubicacio, altitud i fitxer origen d'aquesta observacio. Diverses imatges usen aquesta observacio com a plantilla: la primera l'actualitza i la resta crea observacions addicionals."
   },
   "ui.total_observations": {
     "en": "Total observations",
@@ -458,6 +498,11 @@
     "en": "Date to",
     "es": "Fecha hasta",
     "ca": "Data fins a"
+  },
+  "ui.date_short": {
+    "en": "Date",
+    "es": "Fecha",
+    "ca": "Data"
   },
   "ui.result": {
     "en": "Result",
@@ -1465,6 +1510,11 @@
     "ca": "Domini"
   },
   "ui.status": {
+    "en": "Status",
+    "es": "Estado",
+    "ca": "Estat"
+  },
+  "ui.status_short": {
     "en": "Status",
     "es": "Estado",
     "ca": "Estat"

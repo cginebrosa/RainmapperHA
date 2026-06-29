@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import csv
 import base64
+import cgi
 import hashlib
 import html
+import io
 import json
 import mimetypes
 import os
@@ -2602,18 +2604,44 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-width: 0;
     }}
     .observations-table-shell {{
+      max-height: 460px;
+      overflow: auto;
+    }}
+    .observations-table-shell thead th {{
+      background: #111a23;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }}
+    .observations-table-shell tbody tr.observation-row {{
+      cursor: pointer;
+    }}
+    .observations-table-shell tbody tr.observation-row:hover {{
+      background: rgba(3, 169, 244, .06);
+    }}
+    .observations-table-shell tbody tr.observation-row.selected {{
+      background: rgba(3, 169, 244, .1);
+    }}
+    .observations-table-shell tbody tr.observation-row.selected td:first-child {{
+      box-shadow: inset 3px 0 0 var(--accent);
+    }}
+    .observations-table-shell tbody tr.observation-row:focus-within {{
+      outline: 1px solid rgba(3, 169, 244, .45);
+      outline-offset: -1px;
+    }}
+    .observations-table-shell {{
       overflow-x: auto;
     }}
     .observations-table-shell table {{
       border-collapse: collapse;
-      min-width: 900px;
+      min-width: 840px;
       width: 100%;
     }}
     .observations-table-shell th,
     .observations-table-shell td {{
       border-bottom: 1px solid rgba(45, 58, 71, .62);
       font-size: 12px;
-      padding: 8px 10px;
+      padding: 8px 7px;
       text-align: left;
       white-space: nowrap;
     }}
@@ -2659,6 +2687,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-form {{
       gap: 12px;
+    }}
+    .table-sort-link {{
+      color: inherit;
+      text-decoration: none;
+    }}
+    .table-sort-link:hover {{
+      color: var(--accent);
     }}
     .button-link.compact {{
       min-height: 28px;
@@ -4964,12 +4999,41 @@ GOOGLE_BANG_COORD_RE = re.compile(r"!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)")
 DECIMAL_COORD_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)")
 
 
-def observations_message_url(species_id: str = "") -> str:
-    return profile_query_url(species_id, section="observations") + "#mushroom-profile-message"
+def observations_message_url(species_id: str = "", anchor: str = "mushroom-profile-message") -> str:
+    return profile_query_url(species_id, section="observations") + f"#{anchor}"
 
 
 def observations_form_url(species_id: str = "") -> str:
     return profile_query_url(species_id, section="observations") + "#new-observation"
+
+
+def observations_return_url(
+    form: dict[str, list[str]],
+    fallback_species_id: str = "",
+    *,
+    anchor: str = "observations-workspace",
+    obs_id: str = "",
+    duplicate_from: str = "",
+    archive_open: bool | None = None,
+) -> str:
+    """Return to the observation workspace preserving visible filters after POST actions."""
+    selected_species_id = catalog_form_string(form, "return_selected_species_id") or fallback_species_id
+    params = {"section": "observations"}
+    if selected_species_id:
+        params["id"] = selected_species_id
+    for key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir"):
+        value = catalog_form_string(form, f"return_{key}")
+        if value:
+            params[key] = value
+    selected_obs_id = obs_id or catalog_form_string(form, "return_obs_id")
+    if selected_obs_id:
+        params["obs_id"] = selected_obs_id
+    if duplicate_from:
+        params["duplicate_from"] = duplicate_from
+    should_open_archive = archive_open if archive_open is not None else catalog_form_string(form, "return_archive_open") == "1"
+    if should_open_archive:
+        params["archive_open"] = "1"
+    return "?" + urlencode(params) + f"#{anchor}"
 
 
 def next_observation_id(observations: list[dict[str, object]], observed_at: str) -> str:
@@ -4991,6 +5055,7 @@ def next_observation_id(observations: list[dict[str, object]], observed_at: str)
 def parse_observation_coordinates(form: dict[str, list[str]]) -> tuple[str, float, float, str]:
     """Parse coordinates from explicit fields, decimal text, or common Google Maps URLs."""
     location_input = catalog_form_string(form, "location_input")
+    source_override = catalog_form_string(form, "location_source")
     raw_lat = catalog_form_string(form, "location_lat").replace(",", ".")
     raw_lon = catalog_form_string(form, "location_lon").replace(",", ".")
     if bool(raw_lat) != bool(raw_lon):
@@ -4998,11 +5063,11 @@ def parse_observation_coordinates(form: dict[str, list[str]]) -> tuple[str, floa
     if raw_lat and raw_lon:
         lat = float(raw_lat)
         lon = float(raw_lon)
-        return location_input or f"{lat}, {lon}", lat, lon, "manual_decimal"
+        return location_input or f"{lat}, {lon}", lat, lon, source_override or "manual_decimal"
     if not location_input:
         raise ValueError("Coordinates are required: paste a Google Maps link, decimal coordinates, or inform latitude and longitude.")
 
-    source = "google_maps_url" if any(marker in location_input for marker in ("google.", "maps.app.goo.gl", "goo.gl/maps")) else "manual_decimal"
+    source = source_override or ("google_maps_url" if any(marker in location_input for marker in ("google.", "maps.app.goo.gl", "goo.gl/maps")) else "manual_decimal")
     bang_match = GOOGLE_BANG_COORD_RE.search(location_input)
     if bang_match:
         return location_input, float(bang_match.group(1)), float(bang_match.group(2)), source
@@ -5126,6 +5191,188 @@ def observation_payload_from_form(
             "resolved_at": today if altitude_m is not None else None,
         }
     return observation
+
+
+def clone_observation_payload(
+    source: dict[str, object],
+    observations: list[dict[str, object]],
+) -> dict[str, object]:
+    """Return a duplicated observation ready for immediate editing."""
+    clone = json.loads(json.dumps(source))
+    observed_at = str(clone.get("observed_at", datetime.now(UTC).date().isoformat()))
+    clone["observation_id"] = next_observation_id(observations, observed_at)
+    metadata = clone.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = {}
+    today = datetime.now(UTC).date().isoformat()
+    metadata["created_at"] = today
+    metadata["updated_at"] = today
+    metadata["created_by"] = "rainmapper_ui_duplicate"
+    metadata["updated_by"] = "rainmapper_ui_duplicate"
+    clone["metadata"] = metadata
+    return clone
+
+
+def exif_ratio_to_float(value: object) -> float:
+    """Convert a Pillow EXIF rational-like value to float."""
+    numerator = getattr(value, "numerator", None)
+    denominator = getattr(value, "denominator", None)
+    if numerator is not None and denominator:
+        return float(numerator) / float(denominator)
+    if isinstance(value, tuple) and len(value) == 2:
+        return float(value[0]) / float(value[1])
+    return float(value)
+
+
+def exif_dms_to_decimal(value: object, ref: object) -> float:
+    """Convert EXIF GPS degrees/minutes/seconds to signed decimal degrees."""
+    if not isinstance(value, (tuple, list)) or len(value) != 3:
+        raise ValueError("invalid GPS coordinate format")
+    degrees = exif_ratio_to_float(value[0])
+    minutes = exif_ratio_to_float(value[1])
+    seconds = exif_ratio_to_float(value[2])
+    decimal = degrees + minutes / 60.0 + seconds / 3600.0
+    if str(ref).upper() in {"S", "W"}:
+        decimal = -decimal
+    return decimal
+
+
+def exif_ref_to_int(value: object) -> int:
+    """Convert byte or numeric EXIF reference flags to an integer."""
+    if isinstance(value, bytes):
+        return int.from_bytes(value[:1], "big") if value else 0
+    return int(value or 0)
+
+
+def extract_photo_exif_observation_fields(filename: str, content: bytes) -> dict[str, object]:
+    """Extract observation date, coordinates and altitude from a JPEG EXIF payload."""
+    try:
+        from PIL import Image
+        from PIL.ExifTags import GPSTAGS, TAGS
+    except ImportError as exc:
+        raise ValueError("Pillow is required to import EXIF images.") from exc
+
+    with Image.open(io.BytesIO(content)) as image:
+        exif = image.getexif()
+        if not exif:
+            raise ValueError("image has no EXIF metadata")
+        tags = {TAGS.get(tag, tag): value for tag, value in exif.items()}
+        raw_date = str(tags.get("DateTimeOriginal") or tags.get("DateTime") or "").strip()
+        if not raw_date:
+            raise ValueError("image has no EXIF capture date")
+        try:
+            observed_at = datetime.strptime(raw_date[:10], "%Y:%m:%d").date().isoformat()
+        except ValueError as exc:
+            raise ValueError(f"invalid EXIF capture date {raw_date!r}") from exc
+
+        gps_ifd = {}
+        try:
+            gps_ifd = exif.get_ifd(34853)
+        except Exception:
+            raw_gps = tags.get("GPSInfo")
+            gps_ifd = raw_gps if isinstance(raw_gps, dict) else {}
+        gps = {GPSTAGS.get(tag, tag): value for tag, value in gps_ifd.items()}
+        if not gps:
+            raise ValueError("image has no GPS metadata")
+        lat = exif_dms_to_decimal(gps.get("GPSLatitude"), gps.get("GPSLatitudeRef"))
+        lon = exif_dms_to_decimal(gps.get("GPSLongitude"), gps.get("GPSLongitudeRef"))
+        altitude = None
+        if gps.get("GPSAltitude") is not None:
+            altitude = exif_ratio_to_float(gps.get("GPSAltitude"))
+            if exif_ref_to_int(gps.get("GPSAltitudeRef")) == 1:
+                altitude = -altitude
+
+    return {
+        "filename": filename,
+        "observed_at": observed_at,
+        "lat": lat,
+        "lon": lon,
+        "altitude_m": altitude,
+    }
+
+
+def photo_exif_observation_payload(
+    form: dict[str, list[str]],
+    observations: list[dict[str, object]],
+    fields: dict[str, object],
+) -> dict[str, object]:
+    """Build one persisted observation from common import fields and image EXIF fields."""
+    species_id = catalog_form_string(form, "observation_species_id")
+    if not species_id:
+        raise ValueError("Species is required.")
+    filename = str(fields.get("filename", "") or "photo")
+    observed_at = str(fields["observed_at"])
+    lat = float(fields["lat"])
+    lon = float(fields["lon"])
+    altitude_m = fields.get("altitude_m")
+    today = datetime.now(UTC).date().isoformat()
+    observation: dict[str, object] = {
+        "observation_id": next_observation_id(observations, observed_at),
+        "species_id": species_id,
+        "observed_at": observed_at,
+        "location": {
+            "input": f"{lat:.8f}, {lon:.8f}",
+            "lat": lat,
+            "lon": lon,
+            "source": "photo_exif",
+            "precision_m": None,
+        },
+        "flush_abundance": catalog_form_string(form, "flush_abundance"),
+        "observer": {
+            "name": catalog_form_string(form, "observer_name"),
+            "expertise": catalog_form_string(form, "observer_expertise") or "unknown",
+        },
+        "source": {
+            "type": "photo_exif",
+            "label": filename,
+            "url": "",
+            "notes": catalog_form_string(form, "source_notes"),
+        },
+        "source_quality": catalog_form_optional_number(form, "source_quality"),
+        "validation_status": catalog_form_string(form, "validation_status"),
+        "calibration_use": catalog_form_string(form, "calibration_use"),
+        "calibration_exclusion_reason": catalog_form_string(form, "calibration_exclusion_reason") or None,
+        "site_context": {
+            "habitat_notes": "",
+            "host_notes": "",
+            "soil_notes": "",
+            "aspect_notes": "",
+        },
+        "metadata": {
+            "created_at": today,
+            "updated_at": today,
+            "created_by": "rainmapper_ui_exif_import",
+            "updated_by": "rainmapper_ui_exif_import",
+        },
+    }
+    if altitude_m is not None:
+        observation["altitude"] = {
+            "meters": round(float(altitude_m), 1),
+            "source": "photo_exif",
+            "resolved_at": today,
+        }
+    return observation
+
+
+def observation_form_with_exif_fields(
+    form: dict[str, list[str]],
+    fields: dict[str, object],
+) -> dict[str, list[str]]:
+    """Return a form copy with date, location, altitude and source overridden from EXIF."""
+    next_form = {key: list(value) for key, value in form.items()}
+    lat = float(fields["lat"])
+    lon = float(fields["lon"])
+    next_form["observed_at"] = [str(fields["observed_at"])]
+    next_form["location_input"] = [f"{lat:.8f}, {lon:.8f}"]
+    next_form["location_lat"] = [str(lat)]
+    next_form["location_lon"] = [str(lon)]
+    next_form["location_source"] = ["photo_exif"]
+    next_form["source_type"] = ["photo_exif"]
+    next_form["source_label"] = [str(fields.get("filename", "") or "photo")]
+    if fields.get("altitude_m") is not None:
+        next_form["altitude_m"] = [str(round(float(fields["altitude_m"]), 1))]
+        next_form["altitude_source"] = ["photo_exif"]
+    return next_form
 
 
 def archived_profiles_path(store: object) -> Path:
@@ -6573,6 +6820,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 "result": (query.get("result") or [""])[0],
                 "validation": (query.get("validation") or [""])[0],
                 "obs_q": (query.get("obs_q") or [""])[0],
+                "obs_species": (query.get("obs_species") or [""])[0],
+                "obs_id": (query.get("obs_id") or [""])[0],
+                "duplicate_from": (query.get("duplicate_from") or [""])[0],
+                "archive_open": (query.get("archive_open") or [""])[0],
+                "sort": (query.get("sort") or ["observed_at"])[0],
+                "dir": (query.get("dir") or ["desc"])[0],
             }
             main_content = mushroom_profiles_ui.render_observations_section(
                 selected,
@@ -6722,6 +6975,38 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         payload = self.rfile.read(length).decode("utf-8", errors="replace") if length else ""
         return parse_qs(payload)
 
+    def read_form_and_files(self) -> tuple[dict[str, list[str]], dict[str, list[dict[str, object]]]]:
+        """Read urlencoded or multipart form data for server-side admin actions."""
+        content_type = self.headers.get("Content-Type", "")
+        if not content_type.lower().startswith("multipart/form-data"):
+            return self.read_form(), {}
+
+        form: dict[str, list[str]] = {}
+        files: dict[str, list[dict[str, object]]] = {}
+        environ = {
+            "REQUEST_METHOD": "POST",
+            "CONTENT_TYPE": content_type,
+            "CONTENT_LENGTH": self.headers.get("Content-Length", "0"),
+        }
+        field_storage = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
+        for key in field_storage.keys():
+            values = field_storage[key]
+            fields = values if isinstance(values, list) else [values]
+            for field in fields:
+                filename = getattr(field, "filename", None)
+                if filename:
+                    content = field.file.read()
+                    files.setdefault(key, []).append(
+                        {
+                            "filename": Path(str(filename)).name,
+                            "content": content,
+                            "content_type": getattr(field, "type", "") or "",
+                        }
+                    )
+                else:
+                    form.setdefault(key, []).append(str(field.value))
+        return form, files
+
     def form_value(self, form: dict[str, list[str]], name: str) -> str:
         values = form.get(name, [])
         return values[0] if values else ""
@@ -6789,7 +7074,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.handle_mushroom_import()
             return
 
-        form = self.read_form()
+        form, files = self.read_form_and_files()
         if parsed.path.rstrip("/") == "/users":
             self.handle_user_admin_post(form)
             self.redirect_to("./users")
@@ -6802,7 +7087,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path.rstrip("/") == "/mushrooms/profiles":
-            redirect_target = self.handle_mushroom_profiles_post(form)
+            redirect_target = self.handle_mushroom_profiles_post(form, files)
             query = ("?" + parsed.query) if parsed.query else ""
             self.redirect_to(redirect_target or query or "?")
             return
@@ -6964,9 +7249,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             set_mushroom_catalogs_flash(f"Catalog action failed: {exc}")
         return ""
 
-    def handle_mushroom_profiles_post(self, form: dict[str, list[str]]) -> str:
+    def handle_mushroom_profiles_post(
+        self,
+        form: dict[str, list[str]],
+        files: dict[str, list[dict[str, object]]] | None = None,
+    ) -> str:
         action = self.form_value(form, "profile_action")
         species_id = self.form_value(form, "species_id")
+        files = files or {}
         store = default_store()
         try:
             store.ensure_seeded()
@@ -7098,16 +7388,63 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):
                     set_mushroom_profiles_flash("Observation was not saved: observations payload must be an object.")
-                    return observations_form_url(species_id)
+                    return observations_return_url(form, species_id, anchor="new-observation")
                 observations = observations_payload.get("observations")
                 if not isinstance(observations, list):
                     set_mushroom_profiles_flash("Observation was not saved: observations list is missing.")
-                    return observations_form_url(species_id)
+                    return observations_return_url(form, species_id, anchor="new-observation")
+                existing_rows = [row for row in observations if isinstance(row, dict)]
+                uploaded_exif = [
+                    item
+                    for item in files.get("observation_exif_images", [])
+                    if isinstance(item, dict) and item.get("filename") and item.get("content")
+                ]
+                if uploaded_exif:
+                    imported: list[dict[str, object]] = []
+                    skipped: list[str] = []
+                    working_rows = list(existing_rows)
+                    for item in uploaded_exif:
+                        filename = str(item.get("filename", "photo"))
+                        content = item.get("content")
+                        if not isinstance(content, bytes):
+                            skipped.append(f"{filename}: invalid upload payload")
+                            continue
+                        try:
+                            fields = extract_photo_exif_observation_fields(filename, content)
+                            exif_form = observation_form_with_exif_fields(form, fields)
+                            observation = observation_payload_from_form(exif_form, working_rows)
+                        except ValueError as exc:
+                            skipped.append(f"{filename}: {exc}")
+                            continue
+                        imported.append(observation)
+                        working_rows.append(observation)
+                    observation_species_id = catalog_form_string(form, "observation_species_id") or species_id
+                    if not imported:
+                        set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]))
+                        return observations_return_url(form, observation_species_id)
+                    observations_payload["observations"] = observations + imported
+                    metadata = observations_payload.get("metadata")
+                    if isinstance(metadata, dict):
+                        metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+                        metadata["updated_by"] = "rainmapper_ui"
+                    result = store.replace("observations", observations_payload)
+                    if result.ok:
+                        suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                        skipped_text = f" Skipped {len(skipped)} file(s): {'; '.join(skipped[:3])}." if skipped else ""
+                        set_mushroom_profiles_flash(f"Created {len(imported)} EXIF observation(s).{skipped_text}" + suffix)
+                        return observations_return_url(
+                            form,
+                            str(imported[0].get("species_id", observation_species_id)),
+                            obs_id=str(imported[0].get("observation_id", "")),
+                        )
+                    error_text = "; ".join(message.message for message in result.errors[:3])
+                    set_mushroom_profiles_flash("Observation was not saved: " + error_text)
+                    return observations_return_url(form, observation_species_id)
                 try:
-                    observation = observation_payload_from_form(form, [row for row in observations if isinstance(row, dict)])
+                    observation = observation_payload_from_form(form, existing_rows)
                 except ValueError as exc:
                     set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
-                    return observations_form_url(catalog_form_string(form, "observation_species_id"))
+                    return observations_return_url(form, catalog_form_string(form, "observation_species_id"), anchor="new-observation")
                 observations.append(observation)
                 observations_payload["observations"] = observations
                 metadata = observations_payload.get("metadata")
@@ -7119,30 +7456,63 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Created observation {observation.get('observation_id')}." + suffix)
-                    return observations_message_url(observation_species_id)
+                    return observations_return_url(form, observation_species_id, obs_id=str(observation.get("observation_id", "")))
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Observation was not saved: " + error_text)
-                return observations_form_url(observation_species_id)
+                return observations_return_url(form, observation_species_id, anchor="new-observation")
             if action == "update_observation":
                 observation_id = catalog_form_string(form, "observation_id")
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):
                     set_mushroom_profiles_flash("Observation was not saved: observations payload must be an object.")
-                    return observations_message_url(species_id)
+                    return observations_return_url(form, species_id)
                 observations = observation_dicts_from_payload(observations_payload)
                 existing = find_observation_by_id(observations, observation_id)
                 if not existing:
                     set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
-                    return observations_message_url(species_id)
+                    return observations_return_url(form, species_id)
+                uploaded_exif = [
+                    item
+                    for item in files.get("observation_exif_images", [])
+                    if isinstance(item, dict) and item.get("filename") and item.get("content")
+                ]
+                exif_fields: list[dict[str, object]] = []
+                skipped: list[str] = []
+                for item in uploaded_exif:
+                    filename = str(item.get("filename", "photo"))
+                    content = item.get("content")
+                    if not isinstance(content, bytes):
+                        skipped.append(f"{filename}: invalid upload payload")
+                        continue
+                    try:
+                        exif_fields.append(extract_photo_exif_observation_fields(filename, content))
+                    except ValueError as exc:
+                        skipped.append(f"{filename}: {exc}")
                 try:
-                    updated = observation_payload_from_form(form, observations, existing)
+                    updated_form = observation_form_with_exif_fields(form, exif_fields[0]) if exif_fields else form
+                    updated = observation_payload_from_form(updated_form, observations, existing)
                 except ValueError as exc:
                     set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
-                    return observations_message_url(str(existing.get("species_id", species_id)))
-                observations_payload["observations"] = [
+                    return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
+                if uploaded_exif and not exif_fields:
+                    set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]))
+                    return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
+                updated_rows = [
                     updated if str(row.get("observation_id", "")) == observation_id else row
                     for row in observations
                 ]
+                created_from_extra_photos: list[dict[str, object]] = []
+                working_rows = list(updated_rows)
+                for fields in exif_fields[1:]:
+                    try:
+                        extra_form = observation_form_with_exif_fields(form, fields)
+                        extra = observation_payload_from_form(extra_form, working_rows)
+                    except ValueError as exc:
+                        skipped.append(f"{fields.get('filename', 'photo')}: {exc}")
+                        continue
+                    created_from_extra_photos.append(extra)
+                    working_rows.append(extra)
+                observations_payload["observations"] = updated_rows + created_from_extra_photos
                 metadata = observations_payload.get("metadata")
                 if isinstance(metadata, dict):
                     metadata["updated_at"] = datetime.now(UTC).date().isoformat()
@@ -7150,11 +7520,86 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 result = store.replace("observations", observations_payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
-                    set_mushroom_profiles_flash(f"Updated observation {observation_id}." + suffix)
-                    return observations_message_url(str(updated.get("species_id", species_id)))
+                    imported_text = ""
+                    if uploaded_exif:
+                        imported_text = f" Applied EXIF from {len(exif_fields)} image(s)."
+                    if created_from_extra_photos:
+                        imported_text += f" Created {len(created_from_extra_photos)} extra observation(s)."
+                    if skipped:
+                        imported_text += f" Skipped {len(skipped)} file(s): {'; '.join(skipped[:3])}."
+                    set_mushroom_profiles_flash(f"Updated observation {observation_id}." + imported_text + suffix)
+                    return observations_return_url(form, str(updated.get("species_id", species_id)), obs_id=observation_id)
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Observation was not saved: " + error_text)
-                return observations_message_url(str(existing.get("species_id", species_id)))
+                return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
+            if action == "duplicate_observation":
+                observation_id = catalog_form_string(form, "observation_id")
+                observations_payload = store.load("observations")
+                if not isinstance(observations_payload, dict):
+                    set_mushroom_profiles_flash("Observation was not duplicated: observations payload must be an object.")
+                    return observations_return_url(form, species_id)
+                observations = observation_dicts_from_payload(observations_payload)
+                source = find_observation_by_id(observations, observation_id)
+                if not source:
+                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
+                    return observations_return_url(form, species_id)
+                set_mushroom_profiles_flash(f"Loaded observation {observation_id} as a new unsaved observation template.")
+                return observations_return_url(
+                    form,
+                    str(source.get("species_id", species_id)),
+                    anchor="duplicate-observation",
+                    duplicate_from=observation_id,
+                )
+            if action == "import_observation_exif_images":
+                observations_payload = store.load("observations")
+                if not isinstance(observations_payload, dict):
+                    set_mushroom_profiles_flash("EXIF images were not imported: observations payload must be an object.")
+                    return observations_return_url(form, species_id)
+                observations = observation_dicts_from_payload(observations_payload)
+                uploaded = [
+                    item
+                    for item in files.get("exif_images", [])
+                    if isinstance(item, dict) and item.get("filename") and item.get("content")
+                ]
+                imported: list[dict[str, object]] = []
+                skipped: list[str] = []
+                working_rows = list(observations)
+                for item in uploaded:
+                    filename = str(item.get("filename", "photo"))
+                    content = item.get("content")
+                    if not isinstance(content, bytes):
+                        skipped.append(f"{filename}: invalid upload payload")
+                        continue
+                    try:
+                        fields = extract_photo_exif_observation_fields(filename, content)
+                        observation = photo_exif_observation_payload(form, working_rows, fields)
+                    except ValueError as exc:
+                        skipped.append(f"{filename}: {exc}")
+                        continue
+                    imported.append(observation)
+                    working_rows.append(observation)
+                import_species_id = catalog_form_string(form, "observation_species_id") or species_id
+                if not uploaded:
+                    set_mushroom_profiles_flash("EXIF images were not imported: no image files were selected.")
+                    return observations_return_url(form, import_species_id)
+                if not imported:
+                    set_mushroom_profiles_flash("EXIF images were not imported: " + "; ".join(skipped[:3]))
+                    return observations_return_url(form, import_species_id)
+                observations_payload["observations"] = observations + imported
+                metadata = observations_payload.get("metadata")
+                if isinstance(metadata, dict):
+                    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+                    metadata["updated_by"] = "rainmapper_ui"
+                result = store.replace("observations", observations_payload)
+                imported_species_id = str(imported[0].get("species_id", import_species_id))
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    skipped_text = f" Skipped {len(skipped)} files: {'; '.join(skipped[:3])}." if skipped else ""
+                    set_mushroom_profiles_flash(f"Imported {len(imported)} EXIF observations.{skipped_text}" + suffix)
+                    return observations_return_url(form, imported_species_id, obs_id=str(imported[0].get("observation_id", "")))
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("EXIF images were not imported: " + error_text)
+                return observations_return_url(form, imported_species_id)
             if action == "archive_observation":
                 observation_id = catalog_form_string(form, "observation_id")
                 observations_payload = store.load("observations")
@@ -7162,7 +7607,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 source = find_observation_by_id(observations, observation_id)
                 if not source:
                     set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
-                    return observations_message_url(species_id)
+                    return observations_return_url(form, species_id, archive_open=True, obs_id="")
                 archived_payload = load_archived_observations(store)
                 archived = [
                     row
@@ -7179,23 +7624,23 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     write_archived_observations(store, archived_payload)
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Archived observation {observation_id}." + suffix)
-                    return observations_message_url(str(source.get("species_id", species_id)))
+                    return observations_return_url(form, str(source.get("species_id", species_id)), anchor="archived-observations", archive_open=True, obs_id="")
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Observation was not archived: " + error_text)
-                return observations_message_url(species_id)
+                return observations_return_url(form, species_id, archive_open=True, obs_id="")
             if action == "restore_observation":
                 observation_id = catalog_form_string(form, "observation_id")
                 observations_payload = store.load("observations")
                 observations = observation_dicts_from_payload(observations_payload)
                 if find_observation_by_id(observations, observation_id):
                     set_mushroom_profiles_flash(f"Archived observation {observation_id} was not restored: active ID already exists.")
-                    return observations_message_url(species_id)
+                    return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 archived_payload = load_archived_observations(store)
                 archived = observation_dicts_from_payload(archived_payload)
                 source = find_observation_by_id(archived, observation_id)
                 if not source:
                     set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.")
-                    return observations_message_url(species_id)
+                    return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 observations_payload["observations"] = observations + [json.loads(json.dumps(source))]
                 result = store.replace("observations", observations_payload)
                 if result.ok:
@@ -7205,26 +7650,26 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     write_archived_observations(store, archived_payload)
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Restored observation {observation_id}." + suffix)
-                    return observations_message_url(str(source.get("species_id", species_id)))
+                    return observations_return_url(form, str(source.get("species_id", species_id)), obs_id=observation_id)
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Observation was not restored: " + error_text)
-                return observations_message_url(species_id)
+                return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
             if action == "delete_archived_observation":
                 observation_id = catalog_form_string(form, "observation_id")
                 confirm_id = catalog_form_string(form, "delete_confirm_id")
                 if confirm_id != observation_id:
                     set_mushroom_profiles_flash("Archived observation was not deleted: confirmation ID does not match.")
-                    return observations_message_url(species_id)
+                    return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 archived_payload = load_archived_observations(store)
                 archived = observation_dicts_from_payload(archived_payload)
                 remaining = [row for row in archived if str(row.get("observation_id", "")) != observation_id]
                 if len(remaining) == len(archived):
                     set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.")
-                    return observations_message_url(species_id)
+                    return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 archived_payload["observations"] = remaining
                 write_archived_observations(store, archived_payload)
                 set_mushroom_profiles_flash(f"Deleted archived observation {observation_id} permanently.")
-                return observations_message_url(species_id)
+                return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
             if action == "save_profile_json":
                 entry = json.loads(self.form_value(form, "profile_json"))
                 if not isinstance(entry, dict):

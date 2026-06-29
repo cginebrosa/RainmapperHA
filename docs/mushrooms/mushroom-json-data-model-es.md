@@ -6,6 +6,7 @@ Ficheros relacionados:
 - `mushroom_profiles.json`
 - `mushroom_reference_catalogs.json`
 - `mushroom_gis_mappings.json`
+- `mushroom_labels.json`
 
 Este documento explica el propósito de los tres ficheros JSON usados por el módulo de predicción de floradas de setas, cómo se relacionan entre ellos y cómo deben mantenerse durante el desarrollo.
 
@@ -44,6 +45,11 @@ mushroom_gis_mappings.json
     Define reglas iniciales para traducir etiquetas o patrones de capas GIS
     externas a IDs internos. Es el puente entre WMS/WFS/CORINE/geología/
     vegetación y los perfiles de setas.
+
+mushroom_labels.json
+    Define etiquetas visibles y traducibles de la UI del dominio mushrooms.
+    No alimenta el motor predictivo; sirve para presentar campos, botones,
+    grupos de catalogo y valores controlados no catalogados en en/es/ca.
 ```
 
 La dependencia debe ir en esta dirección:
@@ -173,6 +179,7 @@ En Home Assistant, estos ficheros deben tratarse como defaults empaquetados. La 
 /share/rainmapper/mushroom-data/mushroom_profiles.json
 /share/rainmapper/mushroom-data/mushroom_reference_catalogs.json
 /share/rainmapper/mushroom-data/mushroom_gis_mappings.json
+/share/rainmapper/mushroom-data/mushroom_labels.json
 ```
 
 Regla operativa:
@@ -185,6 +192,8 @@ Regla operativa:
 Las pantallas de mantenimiento de perfiles y catálogos deben ofrecer importación/exportación JSON y exportación de plantilla vacía del modelo. Estas acciones deben validar antes de guardar, crear backup del fichero persistente actual y escribir de forma atómica.
 
 En la primera fase, la UI de mantenimiento cubre perfiles y catálogos. `mushroom_gis_mappings.json` sigue siendo necesario para validación cruzada, impacto y futuro motor de predicción, pero su mantenimiento visual completo queda pospuesto.
+
+`mushroom_labels.json` sustituye al antiguo `mushroom_parameter_labels.json`. La UI de setas debe usarlo para textos visibles del dominio `mushrooms` y mostrar `missing label: <clave>` si falta una traduccion. No debe haber fallback silencioso a claves raw. Documento de referencia: `docs/mushrooms/mushroom-labels-reference-es.md`.
 
 ## 8. Regla de desarrollo para sesiones de Codex
 

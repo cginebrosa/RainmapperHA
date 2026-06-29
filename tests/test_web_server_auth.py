@@ -347,7 +347,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("?id=boletus_pinophilus&section=observations#mushroom-profile-message", redirect)
+        self.assertEqual("?section=observations&id=boletus_pinophilus&obs_id=obs_20260629_0001#observations-workspace", redirect)
         observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
         payload = json.loads(observations_path.read_text(encoding="utf-8"))
         self.assertEqual(1, len(payload["observations"]))
@@ -415,7 +415,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("?id=boletus_pinophilus&section=observations#mushroom-profile-message", redirect)
+        self.assertEqual("?section=observations&id=boletus_pinophilus&obs_id=obs_20260629_0001#observations-workspace", redirect)
         payload = json.loads(observations_path.read_text(encoding="utf-8"))
         self.assertEqual(1, len(payload["observations"]))
         observation = payload["observations"][0]
@@ -461,11 +461,220 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("?id=boletus_pinophilus&section=observations#mushroom-profile-message", redirect)
+        self.assertEqual("?section=observations&id=boletus_pinophilus&obs_id=obs_20260629_0001#observations-workspace", redirect)
         payload = json.loads((data_dir / "mushroom-data" / "mushroom_observations.json").read_text(encoding="utf-8"))
         observation = payload["observations"][0]
         self.assertEqual("41.3874, 2.1686", observation["location"]["input"])
         self.assertEqual("manual_decimal", observation["location"]["source"])
+
+    def test_mushroom_observations_duplicate_opens_unsaved_template(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_pinophilus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.3874"],
+                "location_lon": ["2.1686"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["draft"],
+                "calibration_use": ["review"],
+            }
+        )
+        observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
+        source = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]
+
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["duplicate_observation"],
+                "species_id": ["boletus_pinophilus"],
+                "observation_id": [source["observation_id"]],
+            }
+        )
+
+        payload = json.loads(observations_path.read_text(encoding="utf-8"))
+        self.assertEqual(1, len(payload["observations"]))
+        self.assertEqual(
+            f"?section=observations&id=boletus_pinophilus&duplicate_from={source['observation_id']}#duplicate-observation",
+            redirect,
+        )
+
+    def test_mushroom_observations_import_exif_images_uses_common_template(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+        original_extractor = self.web_server.extract_photo_exif_observation_fields
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+            self.web_server.extract_photo_exif_observation_fields = original_extractor
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        def fake_extractor(filename: str, content: bytes) -> dict[str, object]:
+            return {
+                "filename": filename,
+                "observed_at": "2025-08-06",
+                "lat": 42.0123638888889,
+                "lon": 1.97034722222222,
+                "altitude_m": 619.9,
+            }
+
+        self.web_server.extract_photo_exif_observation_fields = fake_extractor
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["import_observation_exif_images"],
+                "observation_species_id": ["boletus_aereus"],
+                "flush_abundance": ["abundant"],
+                "source_quality": ["0.8"],
+                "validation_status": ["draft"],
+                "calibration_use": ["review"],
+                "observer_name": ["Carlos"],
+                "observer_expertise": ["experienced"],
+            },
+            files={"exif_images": [{"filename": "IMG_4144.jpeg", "content": b"fake-jpeg"}]},
+        )
+
+        self.assertEqual("?section=observations&id=boletus_aereus&obs_id=obs_20250806_0001#observations-workspace", redirect)
+        payload = json.loads((data_dir / "mushroom-data" / "mushroom_observations.json").read_text(encoding="utf-8"))
+        observation = payload["observations"][0]
+        self.assertEqual("boletus_aereus", observation["species_id"])
+        self.assertEqual("2025-08-06", observation["observed_at"])
+        self.assertEqual("photo_exif", observation["location"]["source"])
+        self.assertEqual(42.0123638888889, observation["location"]["lat"])
+        self.assertEqual(1.97034722222222, observation["location"]["lon"])
+        self.assertEqual(619.9, observation["altitude"]["meters"])
+        self.assertEqual("photo_exif", observation["source"]["type"])
+        self.assertEqual("IMG_4144.jpeg", observation["source"]["label"])
+        self.assertEqual("Carlos", observation["observer"]["name"])
+        self.assertEqual("experienced", observation["observer"]["expertise"])
+
+    def test_mushroom_observations_update_from_exif_images_updates_and_creates_extra_rows(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+        original_extractor = self.web_server.extract_photo_exif_observation_fields
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+            self.web_server.extract_photo_exif_observation_fields = original_extractor
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_aereus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.0"],
+                "location_lon": ["2.0"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["draft"],
+                "calibration_use": ["review"],
+                "observer_name": ["Carlos"],
+                "observer_expertise": ["experienced"],
+            }
+        )
+        observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
+        observation_id = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]["observation_id"]
+
+        def fake_extractor(filename: str, content: bytes) -> dict[str, object]:
+            if filename == "IMG_4144.jpeg":
+                return {
+                    "filename": filename,
+                    "observed_at": "2025-08-06",
+                    "lat": 42.0123638888889,
+                    "lon": 1.97034722222222,
+                    "altitude_m": 619.9,
+                }
+            return {
+                "filename": filename,
+                "observed_at": "2025-08-07",
+                "lat": 42.06723,
+                "lon": 1.94652,
+                "altitude_m": 761.9,
+            }
+
+        self.web_server.extract_photo_exif_observation_fields = fake_extractor
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["update_observation"],
+                "observation_id": [observation_id],
+                "observation_species_id": ["amanita_caesarea"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.0"],
+                "location_lon": ["2.0"],
+                "flush_abundance": ["scarce"],
+                "source_quality": ["1"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "observer_name": ["Carlos"],
+                "observer_expertise": ["experienced"],
+                "source_type": ["personal_observation"],
+            },
+            files={
+                "observation_exif_images": [
+                    {"filename": "IMG_4144.jpeg", "content": b"fake-jpeg-1"},
+                    {"filename": "IMG_4083.jpeg", "content": b"fake-jpeg-2"},
+                ]
+            },
+        )
+
+        self.assertEqual("?section=observations&id=amanita_caesarea&obs_id=obs_20260629_0001#observations-workspace", redirect)
+        payload = json.loads(observations_path.read_text(encoding="utf-8"))
+        self.assertEqual(2, len(payload["observations"]))
+        updated, extra = payload["observations"]
+        self.assertEqual(observation_id, updated["observation_id"])
+        self.assertEqual("amanita_caesarea", updated["species_id"])
+        self.assertEqual("2025-08-06", updated["observed_at"])
+        self.assertEqual("photo_exif", updated["location"]["source"])
+        self.assertEqual(619.9, updated["altitude"]["meters"])
+        self.assertEqual("IMG_4144.jpeg", updated["source"]["label"])
+        self.assertNotEqual(observation_id, extra["observation_id"])
+        self.assertEqual("amanita_caesarea", extra["species_id"])
+        self.assertEqual("2025-08-07", extra["observed_at"])
+        self.assertEqual(761.9, extra["altitude"]["meters"])
+        self.assertEqual("IMG_4083.jpeg", extra["source"]["label"])
 
     def test_mushroom_observations_create_reports_missing_coordinates(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -499,7 +708,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("?id=boletus_pinophilus&section=observations#new-observation", redirect)
+        self.assertEqual("?section=observations&id=boletus_pinophilus#new-observation", redirect)
         self.assertIn("Coordinates are required", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
     def test_mushroom_observations_archive_restore_and_delete(self) -> None:
@@ -666,6 +875,30 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "source_quality": 0.9,
                     "location": {"lat": 41.2, "lon": 2.2, "source": "manual_decimal"},
                 },
+                {
+                    "observation_id": "obs_20260628_0001",
+                    "species_id": "boletus_aereus",
+                    "observed_at": "2026-06-28",
+                    "flush_abundance": "normal",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "source_quality": 0.9,
+                    "location": {"lat": 41.3, "lon": 2.3, "source": "manual_decimal"},
+                },
+            ]
+        }
+        archived_observations = {
+            "observations": [
+                {
+                    "observation_id": "obs_20260627_0001",
+                    "species_id": "boletus_aereus",
+                    "observed_at": "2026-06-27",
+                    "flush_abundance": "normal",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "source_quality": 0.8,
+                    "location": {"lat": 41.4, "lon": 2.4, "source": "manual_decimal"},
+                }
             ]
         }
 
@@ -674,7 +907,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             profiles,
             catalogs,
             observations,
-            {"observations": []},
+            archived_observations,
             filters={"date_from": "2026-06-29", "result": "abundant"},
         )
 
@@ -683,8 +916,40 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('name="date_to" type="date"', filters_html)
         self.assertNotIn("readonly", filters_html)
         self.assertNotIn("disabled", filters_html)
+        self.assertIn("sort=observed_at", html)
+        self.assertIn("sort=abundance", html)
+        self.assertIn("import-observation-exif", html)
+        self.assertIn('name="exif_images"', html)
         self.assertIn("obs_20260629_0001", html)
         self.assertNotIn("obs_20260620_0001", html)
+        self.assertNotIn("obs_20260628_0001", html)
+
+        sorted_html = self.web_server.mushroom_profiles_ui.render_observations_section(
+            profile,
+            profiles,
+            catalogs,
+            observations,
+            archived_observations,
+            filters={"sort": "abundance", "dir": "asc"},
+        )
+        self.assertLess(sorted_html.index("obs_20260629_0001"), sorted_html.index("obs_20260620_0001"))
+
+        all_species_html = self.web_server.mushroom_profiles_ui.render_observations_section(
+            profile,
+            profiles,
+            catalogs,
+            observations,
+            archived_observations,
+            filters={"obs_species": "__all__", "sort": "observed_at", "dir": "desc", "obs_id": "obs_20260628_0001"},
+        )
+        self.assertIn("obs_20260629_0001", all_species_html)
+        self.assertIn("obs_20260628_0001", all_species_html)
+        self.assertIn("obs_20260627_0001", all_species_html)
+        self.assertIn("obs_species=__all__", all_species_html)
+        self.assertIn("obs_id=obs_20260628_0001", all_species_html)
+        self.assertIn('class="observation-row selected"', all_species_html)
+        self.assertIn("<h2>All species</h2>", all_species_html)
+        self.assertIn("duplicate_from=obs_20260628_0001", all_species_html)
 
     def test_mushroom_profiles_create_species_uses_validated_template(self) -> None:
         data_dir = Path(self.temp_dir.name)

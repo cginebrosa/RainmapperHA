@@ -100,6 +100,103 @@ Estado:
 - Publicado en HA `0.2.179`: el tab interno de especies `Fenologia y Topografia` separa secciones, usa pastillas editables para meses, compacta retrasos/altitudes en grids 2x2 y anade label para `snowmelt_bonus`. Queda pendiente revisar el schema climatico cuando se defina el motor de prediccion: semantica de saturacion 30d, lluvia acumulada 30d y ubicacion conceptual de deshielo.
 - Publicado y validado en HA `0.2.180`: el editor de especies conserva el tab interno tras guardar o tras errores de validacion; los filtros de observaciones son editables; los pesos de scoring se separan del modelo de habitat en Parametros; patrones de temporada y orientaciones pasan a pastillas catalogadas traducidas; la lista lateral de especies anade cabecera `Conf./Prio./Rev.`, tooltips y scroll interno.
 
+## 2026-06-29 - Evidencia obligatoria para el motor predictivo de setas
+
+Decision:
+
+- No fijar parametros numericos del futuro motor predictivo de setas por intuicion de Codex.
+- No convertir una deduccion general de literatura en umbral, peso o ventana especifica por especie sin fuente documental verificable o calibracion local.
+- No asumir que una fuente contiene un dato si no se ha podido leer su contenido real.
+- No presentar como decision tecnica un supuesto que no se pueda demostrar con documentacion, codigo fuente real o datos locales trazables.
+- Mantener una biblioteca/manifiesto de fuentes en `docs/mushrooms/literature/README.md`, separando PDFs locales reales, fuentes open access bloqueadas para descarga automatica y referencias `DOI-only`.
+- Si una fuente no esta disponible como texto completo local, la documentacion debe decirlo y limitar las conclusiones al nivel de evidencia realmente revisado.
+
+Motivo:
+
+- El motor de prediccion afectara decisiones operativas y no debe apoyarse en parametros inventados.
+- Rainmapper ya tiene datos meteorologicos amplios; el reto es elegir features y calibrarlas con evidencia, no aumentar el schema por especulacion.
+- Las observaciones reales deben convertirse en la fuente principal para ajustar el modelo local cuando la literatura no proporcione valores transferibles a Cataluna.
+
+Consecuencias:
+
+- `docs/mushrooms/mushroom-predictor-design-es.md` debe distinguir evidencia, hipotesis y decisiones pendientes.
+- Cualquier implementacion futura del motor debe poder explicar de donde sale cada parametro: fuente documental, valor global conservador o calibracion local.
+- Las fuentes bloqueadas por Cloudflare/Anubis/paywall no deben guardarse como falsos PDFs ni tratarse como leidas completas.
+- Si no hay evidencia suficiente, la salida correcta del motor o de la documentacion es "datos insuficientes", no un parametro inventado.
+
+## 2026-06-29 - Laboratorio local como base del predictor de floradas
+
+Decision:
+
+- Cambiar el enfoque del motor de setas desde literatura incompleta hacia evidencia local reproducible.
+- Crear un laboratorio local bajo `tmp/mushroom-lab/`, ignorado por Git, para procesar fotos geolocalizadas, observaciones positivas/negativas, historicos meteorologicos copiados de HA y capas DEM/GIS.
+- Usar `docker-data/` como copia mutable local de `/share/rainmapper` cuando se quiera capturar observaciones con la WebUI real sin tocar Home Assistant.
+- Mantener los datos reales del laboratorio fuera del repo: fotos, coordenadas, historicos HA y capas GIS no se versionan.
+- Generar primero condiciones observadas y parametros candidatos experimentales, no cambios automaticos sobre `mushroom_profiles.json`.
+- Posponer cualquier boton productivo de UI para recalcular parametros hasta validar el pipeline local.
+- Usar la UI local de observaciones como herramienta de captura rapida, no como fuente productiva hasta que el usuario decida subir version HA.
+
+Motivo:
+
+- Las fuentes bibliograficas localizadas no bastan para fijar umbrales por especie transferibles a Catalunya.
+- El usuario dispone de fotos geolocalizadas y observaciones reales de los ultimos anos, incluidas posibles salidas negativas.
+- Rainmapper ya tiene los historicos meteorologicos necesarios para reconstruir lluvia, temperatura, humedad y viento previo a cada observacion.
+- Las capas oficiales de ICGC/ICC e IGN/CNIG pueden aportar DEM, topografia, cubiertas, vegetacion, litologia y suelos.
+
+Consecuencias:
+
+- El siguiente trabajo debe empezar por copiar historicos HA a `tmp/mushroom-lab/input/ha-data/` y construir un extractor local.
+- Para acelerar la captura manual, la UI de observaciones puede importar fotos EXIF, duplicar observaciones como plantilla sin guardar, recuperar EXIF desde duplicados, importar varias fotos/carpeta, ordenar la tabla por cabeceras, seleccionar filas completas y preservar filtros/archivadas despues de acciones; esos guardados siguen siendo datos locales cuando se usa `rainmapper-ha-ui` montando `docker-data/`.
+- El primer POC debe resolver observaciones + meteorologia antes de anadir DEM/GIS.
+- DEM/GIS se incorporan despues como enriquecimiento local, preferentemente con raster/vector descargados o WCS/WFS; WMS sirve para visualizar, no como fuente primaria de atributos.
+- Un futuro boton de UI deberia llamarse conceptualmente `Recalcular candidatos desde observaciones`, mostrar diferencias y requerir aplicacion manual campo a campo. No debe sobrescribir parametros de especie automaticamente.
+- La documentacion canonica de este flujo es `docs/mushrooms/mushroom-local-observation-lab-es.md`.
+
+## 2026-06-30 - `mushroom_gis_mappings.json` como contrato de traduccion GIS
+
+Decision:
+
+- Mantener `mushroom_gis_mappings.json` como pieza necesaria para el predictor espacial.
+- Usarlo para traducir codigos externos de capas GIS oficiales a IDs internos de `mushroom_reference_catalogs.json`.
+- No depender en el motor de nombres crudos de capas externas ni de textos libres.
+- No completar mappings por intuicion: cada mapping debe provenir de una capa concreta, campo concreto y valor externo comprobado.
+- Si una coordenada cae en una clase externa sin mapping, el motor debe reportar un gap de GIS y reducir confianza si procede, no inventar una equivalencia.
+
+Motivo:
+
+- Los perfiles de especie expresan ecologia en vocabulario interno estable.
+- Las capas oficiales describen territorio con codigos y nomenclaturas propias.
+- Sin una capa de traduccion, cualquier cambio de fuente GIS obligaria a tocar perfiles o codigo del predictor.
+
+Consecuencias:
+
+- El laboratorio GIS debe documentar fuente, licencia, cobertura, resolucion, CRS, capa, campo y valores usados.
+- ICGC/ICC queda como primera fuente candidata para Catalunya: DEM, cubiertas, vegetacion/habitats, geologia/litologia y suelos si existe capa util.
+- IGN/CNIG queda como fuente candidata estatal: MDT/DEM, SIOSE/coberturas y otras capas descargables o consultables por WFS/WCS.
+- WMS puede usarse para inspeccion visual, pero no debe ser fuente primaria del calculo porque devuelve imagen y no atributos estructurados.
+- La UI de catalogos debe seguir mostrando impacto de dominio y referencias GIS, pero una UI completa para mappings puede esperar hasta elegir fuentes GIS definitivas.
+
+## 2026-06-30 - Duplicado de observaciones como plantilla no persistida
+
+Decision:
+
+- `Duplicar` una observacion no debe crear un registro nuevo inmediatamente.
+- Debe abrir una plantilla prellenada sin `observation_id`.
+- El `observation_id` se genera solo al guardar, usando la fecha final de la observacion.
+- Si desde la plantilla duplicada se sube una o varias fotos EXIF, las observaciones creadas usan fecha, coordenadas, altitud y origen de cada foto.
+
+Motivo:
+
+- El formato operativo `obs_YYYYMMDD_NNNN` solo tiene sentido si la fecha del ID coincide con la fecha real guardada.
+- Duplicar es una herramienta de velocidad para registrar varias especies de una misma salida o reutilizar una observacion como plantilla de importacion EXIF.
+- Crear primero y editar despues genera IDs incoherentes cuando se cambia fecha o se recupera EXIF de otra foto.
+
+Consecuencias:
+
+- El backend conserva un handler defensivo para `duplicate_observation`, pero el flujo normal de UI usa query `duplicate_from` y formulario `create_observation`.
+- Guardar desde duplicado puede crear una o varias observaciones.
+- Las acciones de observaciones deben preservar filtros, ordenacion, especie seleccionada, observacion seleccionada y estado del panel de archivadas.
+
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 
 Decision:

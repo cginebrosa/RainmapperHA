@@ -30,3 +30,17 @@ services:
       - ../docker-data/PublicData:/app/PublicData
       - ../docker-data/stations.txt:/app/stations.txt
       - ../docker-data:/rainmapper-data
+
+  rainmapper-ha-ui:
+    build:
+      context: ..
+      dockerfile: rainmapper-app/Dockerfile
+    image: rainmapperha:local-ha-ui
+    environment:
+      RAINMAPPER_APP_VERSION: local-ha-ui
+    ports:
+      - "127.0.0.1:8101:8099"
+    volumes:
+      - ../docker-data:/share/rainmapper
+      - ./options.local-ha-ui.json:/data/options.json:ro
+      - ../tmp/mushroom-lab/runtime/config-www:/config/www

@@ -1,0 +1,12 @@
+{
+  "mode": "serve",
+  "timezone": "Europe/Madrid",
+  "ui_language": "es",
+  "schedule_enabled": false,
+  "scheduled_action": "all",
+  "publish_to_www": false,
+  "create_meteoclimatic": false,
+  "create_meteocat": false,
+  "create_wunderground": false,
+  "create_aemet": false
+}
