@@ -152,6 +152,17 @@ def ui_label(key: str, language: str = UI_LANGUAGE) -> str:
     return localized_label(labels, language)
 
 
+def value_label(value: object, language: str = UI_LANGUAGE) -> str:
+    """Return a translated controlled value label without hiding missing entries."""
+    if value is None or value == "":
+        return "-"
+    text = str(value)
+    labels = PARAMETER_LABELS.get(f"value.{text}")
+    if not labels:
+        return f"missing label: value.{text}"
+    return localized_label(labels, language)
+
+
 def catalog_label(item: dict[str, object], language: str = UI_LANGUAGE) -> str:
     """Return a catalog label using the configured mushroom UI language."""
     label = item.get("label")
@@ -195,9 +206,10 @@ def css_token(value: object) -> str:
 
 def value_chip(value: object, label: str = "") -> str:
     """Render a compact status chip."""
-    text = str(value or "-")
+    raw = str(value or "-")
+    text = value_label(value) if value not in (None, "", "-") else "-"
     label_html = f'<span class="profile-chip-label">{html.escape(label)}</span>' if label else ""
-    css_class = css_token(text)
+    css_class = css_token(raw)
     return f'<span class="profile-status-chip {html.escape(css_class, quote=True)}">{label_html}{html.escape(text)}</span>'
 
 
@@ -258,7 +270,7 @@ def score_bar(label: str, value: object) -> str:
     width = max(0, min(100, int(number * 100)))
     return (
         '<div class="score-row">'
-        f'<span>{html.escape(label.replace("_", " ").title())}</span>'
+        f'<span>{html.escape(parameter_label(label))}</span>'
         f'<div class="score-track"><span style="width:{width}%"></span></div>'
         f'<strong>{number:.2f}</strong></div>'
     )
@@ -303,7 +315,7 @@ def form_select(name: str, label: str, value: object, options: list[str]) -> str
     option_html = [f'<option value=""{" selected" if not current else ""}>-</option>']
     for option in merged:
         selected = " selected" if option == current else ""
-        option_html.append(f'<option value="{html.escape(option, quote=True)}"{selected}>{html.escape(option)}</option>')
+        option_html.append(f'<option value="{html.escape(option, quote=True)}"{selected}>{html.escape(value_label(option))}</option>')
     escaped_name = html.escape(name, quote=True)
     return (
         '<div class="admin-field">'
@@ -409,6 +421,24 @@ def parameter_textarea(name: str, label: str, value: object, rows: int = 1) -> s
 def catalog_label_map(catalogs: dict[str, object], group: str) -> dict[str, str]:
     """Return catalog labels indexed by ID for compact read-only summaries."""
     return {item_id: label for item_id, label in catalog_options_for_group(catalogs, group)}
+
+
+def catalog_display(catalogs: dict[str, object], group: str, item_id: object) -> str:
+    """Return a translated catalog label for an ID, exposing missing catalog rows."""
+    text = str(item_id or "").strip()
+    if not text:
+        return "-"
+    return catalog_label_map(catalogs, group).get(text, f"{text} (missing)")
+
+
+def catalog_compact_list(catalogs: dict[str, object], group: str, values: object, limit: int = 5) -> str:
+    """Render translated catalog labels from a list of IDs."""
+    items = values if isinstance(values, list) else []
+    labels = [catalog_display(catalogs, group, item) for item in items[:limit]]
+    if not labels:
+        return "-"
+    suffix = f" +{len(items) - limit}" if len(items) > limit else ""
+    return ", ".join(labels) + suffix
 
 
 def catalog_select_options(
@@ -636,7 +666,7 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
             continue
         active = " active" if species_id == selected_id else ""
         chips = "".join(
-            f'<span class="profile-chip {html.escape(str(value))}">{html.escape(str(value))}</span>'
+            f'<span class="profile-chip {html.escape(str(value))}">{html.escape(value_label(value))}</span>'
             for value in (
                 confidence.get("overall_confidence", ""),
                 confidence.get("calibration_priority", ""),
@@ -794,10 +824,12 @@ def render_general_dashboard(
 ) -> str:
     """Render the visual first-tab dashboard inspired by the species mockup."""
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
+    host_labels = catalog_label_map(catalogs, "host_taxa")
     host_names = []
     for item in ecology.get("host_affinities", []) if isinstance(ecology.get("host_affinities"), list) else []:
         if isinstance(item, dict) and item.get("id"):
-            host_names.append(str(item.get("id")))
+            host_id = str(item.get("id"))
+            host_names.append(host_labels.get(host_id, f"{host_id} (missing)"))
     season_names = phenology.get("season_pattern_ids") if isinstance(phenology.get("season_pattern_ids"), list) else []
     aspect_names = topography.get("preferred_aspect_ids") if isinstance(topography.get("preferred_aspect_ids"), list) else []
     return f"""
@@ -807,16 +839,16 @@ def render_general_dashboard(
         {value_row(ui_label("species_id"), profile.get("species_id", ""))}
         {value_row(ui_label("ui.scientific_name"), profile.get("scientific_name", ""))}
         {value_row(ui_label("ui.common_names"), compact_list(profile.get("common_names", []), 4))}
-        {value_row(ui_label("ui.taxonomy"), profile.get("taxonomy_status", ""))}
-        {value_row(ui_label("ui.edibility"), profile.get("edibility", ""))}
+        {value_row(ui_label("ui.taxonomy"), value_label(profile.get("taxonomy_status", "")))}
+        {value_row(ui_label("ui.edibility"), value_label(profile.get("edibility", "")))}
       </article>
       <article class="profile-overview-card">
         {card_title(2, ui_label("ui.ecology_topography"), "ecology")}
-        {value_row(ui_label("ui.trophic_mode"), ecology.get("trophic_mode_id", "-"))}
+        {value_row(ui_label("ui.trophic_mode"), catalog_display(catalogs, "trophic_modes", ecology.get("trophic_mode_id", "-")))}
         {value_row(ui_label("ui.primary_hosts"), ", ".join(host_names[:4]) if host_names else "-")}
         {value_row(ui_label("altitude.meters"), f'{topography.get("altitude_min_m", "-")} - {topography.get("altitude_max_m", "-")} m')}
         {value_row(ui_label("ui.optimal_altitude"), f'{topography.get("altitude_optimal_min_m", "-")} - {topography.get("altitude_optimal_max_m", "-")} m')}
-        {value_row(ui_label("ui.preferred_aspects"), ", ".join(str(item) for item in aspect_names[:6]) if aspect_names else "-")}
+        {value_row(ui_label("ui.preferred_aspects"), catalog_compact_list(catalogs, "aspects", aspect_names, 6))}
       </article>
       <article class="profile-overview-card">
         {card_title(3, ui_label("ui.phenology"), "phenology")}
@@ -824,7 +856,7 @@ def render_general_dashboard(
         {month_chips(phenology.get("main_months", []))}
         <span class="label">{html.escape(ui_label("ui.secondary_months"))}</span>
         {month_chips(phenology.get("secondary_months", []), "secondary")}
-        {value_row(ui_label("ui.season_patterns"), ", ".join(str(item) for item in season_names[:3]) if season_names else "-")}
+        {value_row(ui_label("ui.season_patterns"), catalog_compact_list(catalogs, "season_patterns", season_names, 3))}
         {value_row(ui_label("ui.fruiting_delay"), f'{delay.get("min", "-")} / {delay.get("optimal_min", "-")}-{delay.get("optimal_max", "-")} / {delay.get("max", "-")} days')}
       </article>
       <article class="profile-overview-card wide">
@@ -837,12 +869,12 @@ def render_general_dashboard(
       </article>
       <article class="profile-overview-card">
         {card_title(6, ui_label("ui.confidence_calibration"), "calibration")}
-        {value_row(ui_label("ui.overall_confidence"), confidence.get("overall_confidence"))}
-        {value_row(ui_label("ui.habitat_confidence"), confidence.get("habitat_confidence"))}
-        {value_row(ui_label("ui.phenology_confidence"), confidence.get("phenology_confidence"))}
-        {value_row(ui_label("ui.weather_threshold_confidence"), confidence.get("weather_threshold_confidence"))}
-        {value_row(ui_label("ui.local_calibration_status"), confidence.get("local_calibration_status"))}
-        {value_row(ui_label("ui.priority"), confidence.get("calibration_priority"))}
+        {value_row(ui_label("ui.overall_confidence"), value_label(confidence.get("overall_confidence")))}
+        {value_row(ui_label("ui.habitat_confidence"), value_label(confidence.get("habitat_confidence")))}
+        {value_row(ui_label("ui.phenology_confidence"), value_label(confidence.get("phenology_confidence")))}
+        {value_row(ui_label("ui.weather_threshold_confidence"), value_label(confidence.get("weather_threshold_confidence")))}
+        {value_row(ui_label("ui.local_calibration_status"), value_label(confidence.get("local_calibration_status")))}
+        {value_row(ui_label("ui.priority"), value_label(confidence.get("calibration_priority")))}
       </article>
       <article class="profile-overview-card full">
         {card_title(7, ui_label("ui.metadata"), "metadata")}
@@ -850,9 +882,9 @@ def render_general_dashboard(
           {value_row(ui_label("metadata.created_at"), metadata.get("created_at"))}
           {value_row(ui_label("metadata.updated_at"), metadata.get("updated_at"))}
           {value_row(ui_label("metadata.created_by"), metadata.get("created_by"))}
-          {value_row(ui_label("ui.review_status"), metadata.get("review_status"))}
-          {value_row(ui_label("ui.source_quality"), metadata.get("source_quality"))}
-          {value_row(ui_label("ui.requires_human_validation"), "yes" if metadata.get("requires_human_validation") is True else "no")}
+          {value_row(ui_label("ui.review_status"), value_label(metadata.get("review_status")))}
+          {value_row(ui_label("ui.source_quality"), value_label(metadata.get("source_quality")))}
+          {value_row(ui_label("ui.requires_human_validation"), ui_label("ui.yes") if metadata.get("requires_human_validation") is True else ui_label("ui.no"))}
         </div>
       </article>
     </section>
@@ -955,10 +987,10 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
             <section class="profile-section profile-tab-panel weather">
               <h2>{html.escape(ui_label("ui.weather_model"))}</h2>
               <div class="profile-grid four">
-                {''.join(form_field(f"rainfall_{key}", key, value, field_type="number") for key, value in rainfall.items())}
-                {''.join(form_field(f"temperature_{key}", key, value, field_type="number") for key, value in temperature.items())}
-                {''.join(form_field(f"humidity_{key}", key, value, field_type="number") for key, value in humidity.items())}
-                {''.join(form_field(f"wind_{key}", key, value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
+                {''.join(form_field(f"rainfall_{key}", parameter_label(key), value, field_type="number") for key, value in rainfall.items())}
+                {''.join(form_field(f"temperature_{key}", parameter_label(key), value, field_type="number") for key, value in temperature.items())}
+                {''.join(form_field(f"humidity_{key}", parameter_label(key), value, field_type="number") for key, value in humidity.items())}
+                {''.join(form_field(f"wind_{key}", parameter_label(key), value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
               </div>
             </section>
             <section class="profile-section profile-tab-panel scoring">
@@ -970,16 +1002,16 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
                 {''.join(score_bar(key, value) for key, value in scoring.items())}
               </div>
               <div class="profile-grid four">
-                {''.join(form_field(f"score_{key}", key, value, field_type="number", step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
+                {''.join(form_field(f"score_{key}", parameter_label(key), value, field_type="number", step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
               </div>
             </section>
             <section class="profile-section profile-tab-panel calibration">
               <h2>{html.escape(ui_label("ui.confidence_calibration"))}</h2>
               <div class="profile-calibration-summary">
-                <div><span class="label">{html.escape(ui_label("ui.current_status"))}</span><span class="value">{html.escape(str(confidence.get("local_calibration_status", "-")))}</span></div>
-                <div><span class="label">{html.escape(ui_label("ui.priority"))}</span><span class="value">{html.escape(str(confidence.get("calibration_priority", "-")))}</span></div>
-                <div><span class="label">{html.escape(ui_label("ui.overall_confidence"))}</span><span class="value">{html.escape(str(confidence.get("overall_confidence", "-")))}</span></div>
-                <div><span class="label">{html.escape(ui_label("ui.human_validation"))}</span><span class="value">{html.escape(str(metadata.get("requires_human_validation", "-")))}</span></div>
+                <div><span class="label">{html.escape(ui_label("ui.current_status"))}</span><span class="value">{html.escape(value_label(confidence.get("local_calibration_status")))}</span></div>
+                <div><span class="label">{html.escape(ui_label("ui.priority"))}</span><span class="value">{html.escape(value_label(confidence.get("calibration_priority")))}</span></div>
+                <div><span class="label">{html.escape(ui_label("ui.overall_confidence"))}</span><span class="value">{html.escape(value_label(confidence.get("overall_confidence")))}</span></div>
+                <div><span class="label">{html.escape(ui_label("ui.human_validation"))}</span><span class="value">{html.escape(ui_label("ui.yes") if metadata.get("requires_human_validation") is True else ui_label("ui.no"))}</span></div>
               </div>
               <div class="profile-grid four">
                 {form_select("local_calibration_status", ui_label("ui.local_calibration_status"), confidence.get("local_calibration_status", ""), PROFILE_SELECT_VALUES["calibration_status"])}
@@ -1232,9 +1264,9 @@ def render_calibration_section(profile: dict[str, object] | None, search: str = 
         <input type="hidden" name="profile_action" value="save_profile_calibration">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
         <div class="profile-calibration-cards">
-          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.local_calibration_status"))}</span><span class="value warn">{html.escape(str(confidence.get("local_calibration_status", "-")))}</span></div>
-          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.priority"))}</span><span class="value ok">{html.escape(str(confidence.get("calibration_priority", "-")))}</span></div>
-          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.overall_confidence"))}</span><span class="value">{html.escape(str(confidence.get("overall_confidence", "-")))}</span></div>
+          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.local_calibration_status"))}</span><span class="value warn">{html.escape(value_label(confidence.get("local_calibration_status")))}</span></div>
+          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.priority"))}</span><span class="value ok">{html.escape(value_label(confidence.get("calibration_priority")))}</span></div>
+          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.overall_confidence"))}</span><span class="value">{html.escape(value_label(confidence.get("overall_confidence")))}</span></div>
           <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.minimum_observations"))}</span><span class="value">{html.escape(str(minimum_total))}</span></div>
           <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.minimum_positive_observations"))}</span><span class="value">{html.escape(str(minimum_positive))}</span></div>
           <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.minimum_negative_observations"))}</span><span class="value">{html.escape(str(minimum_negative))}</span></div>

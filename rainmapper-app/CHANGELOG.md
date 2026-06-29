@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.178
+
+- Translate the Species tab weather-model and scoring field labels from `mushroom_labels.json` instead of showing raw JSON keys.
+- Translate controlled species values such as confidence, calibration status, review status and source quality through `mushroom_labels.json`.
+- Render General tab season patterns, trophic mode, aspects and confidence summaries with localized catalog/value labels.
+- Keep month chips at a stable width so secondary-month labels do not resize the phenology layout.
+
 ## 0.2.177
 
 - Expand `mushroom-data/mushroom_labels.json` so the mushroom maintenance domain uses centralized English, Spanish and Catalan UI labels across profiles, parameters, calibration, observations and reference catalogs.

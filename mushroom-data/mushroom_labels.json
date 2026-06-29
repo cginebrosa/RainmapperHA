@@ -1659,6 +1659,141 @@
     "es": "El ID no existe en el catalogo",
     "ca": "L'ID no existeix al cataleg"
   },
+  "value.accepted": {
+    "en": "Accepted",
+    "es": "Aceptada",
+    "ca": "Acceptada"
+  },
+  "value.species_complex_operational": {
+    "en": "Species complex",
+    "es": "Complejo de especies",
+    "ca": "Complex d'especies"
+  },
+  "value.uncertain_operational_taxon": {
+    "en": "Uncertain taxon",
+    "es": "Taxon incierto",
+    "ca": "Taxon incert"
+  },
+  "value.excellent": {
+    "en": "Excellent",
+    "es": "Excelente",
+    "ca": "Excel.lent"
+  },
+  "value.good": {
+    "en": "Good",
+    "es": "Buena",
+    "ca": "Bona"
+  },
+  "value.edible_when_thoroughly_cooked": {
+    "en": "Edible well cooked",
+    "es": "Comestible bien cocinada",
+    "ca": "Comestible ben cuinada"
+  },
+  "value.very_low": {
+    "en": "Very low",
+    "es": "Muy baja",
+    "ca": "Molt baixa"
+  },
+  "value.low": {
+    "en": "Low",
+    "es": "Baja",
+    "ca": "Baixa"
+  },
+  "value.medium": {
+    "en": "Medium",
+    "es": "Media",
+    "ca": "Mitjana"
+  },
+  "value.high": {
+    "en": "High",
+    "es": "Alta",
+    "ca": "Alta"
+  },
+  "value.very_high": {
+    "en": "Very high",
+    "es": "Muy alta",
+    "ca": "Molt alta"
+  },
+  "value.not_calibrated": {
+    "en": "Not calibrated",
+    "es": "Sin calibrar",
+    "ca": "Sense calibrar"
+  },
+  "value.partially_calibrated": {
+    "en": "Partially calibrated",
+    "es": "Parcialmente calibrada",
+    "ca": "Parcialment calibrada"
+  },
+  "value.locally_calibrated": {
+    "en": "Locally calibrated",
+    "es": "Calibrada localmente",
+    "ca": "Calibrada localment"
+  },
+  "value.needs_review": {
+    "en": "Needs review",
+    "es": "Necesita revision",
+    "ca": "Necessita revisio"
+  },
+  "value.draft": {
+    "en": "Draft",
+    "es": "Borrador",
+    "ca": "Esborrany"
+  },
+  "value.reviewed": {
+    "en": "Reviewed",
+    "es": "Revisada",
+    "ca": "Revisada"
+  },
+  "value.published": {
+    "en": "Published",
+    "es": "Publicada",
+    "ca": "Publicada"
+  },
+  "value.inferred_from_literature": {
+    "en": "Inferred from literature",
+    "es": "Inferida de literatura",
+    "ca": "Inferida de literatura"
+  },
+  "value.expert_reviewed": {
+    "en": "Expert reviewed",
+    "es": "Revisada por experto",
+    "ca": "Revisada per expert"
+  },
+  "value.local_observations": {
+    "en": "Local observations",
+    "es": "Observaciones locales",
+    "ca": "Observacions locals"
+  },
+  "value.mixed": {
+    "en": "Mixed",
+    "es": "Mixta",
+    "ca": "Mixta"
+  },
+  "value.primary": {
+    "en": "Primary",
+    "es": "Primaria",
+    "ca": "Primaria"
+  },
+  "value.preferred": {
+    "en": "Preferred",
+    "es": "Preferida",
+    "ca": "Preferida"
+  },
+  "value.secondary": {
+    "en": "Secondary",
+    "es": "Secundaria",
+    "ca": "Secundaria"
+  },
+  "value.possible": {
+    "en": "Possible",
+    "es": "Posible",
+    "ca": "Possible"
+  },
+  "value.avoid": {
+    "en": "Avoid",
+    "es": "Evitar",
+    "ca": "Evitar"
+  },
   "month.1": {
     "en": "Jan",
     "es": "Ene",

@@ -1274,6 +1274,53 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("Observacions", module.ui_label("ui.observations"))
         self.assertEqual("Gen", module.ui_label("month.1"))
 
+    def test_mushroom_species_editor_translates_model_labels_and_values(self) -> None:
+        old_language = os.environ.get("RAINMAPPER_MUSHROOM_UI_LANGUAGE")
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+
+        def restore_env() -> None:
+            if old_language is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_UI_LANGUAGE", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_UI_LANGUAGE"] = old_language
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_UI_LANGUAGE"] = "es"
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+
+        spec = importlib.util.spec_from_file_location("mushroom_profiles_ui_es_test", MUSHROOM_PROFILES_UI_PATH)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader if spec else None)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        profiles = json.loads((ROOT_DIR / "mushroom-data" / "mushroom_profiles.json").read_text(encoding="utf-8"))[
+            "species_profiles"
+        ]
+        catalogs = json.loads(
+            (ROOT_DIR / "mushroom-data" / "mushroom_reference_catalogs.json").read_text(encoding="utf-8")
+        )["catalogs"]
+        profile = next(item for item in profiles if item["species_id"] == "boletus_pinophilus")
+        html = "\n".join(
+            [
+                module.render_profile_editor(profile, catalogs),
+                module.render_parameters_section(profile, catalogs),
+                module.render_calibration_section(profile),
+            ]
+        )
+
+        self.assertIn("Lluvia min 7d", html)
+        self.assertIn("Pesos de scoring", html)
+        self.assertIn("Media", html)
+        self.assertIn("Sin calibrar", html)
+        self.assertIn("Posible a final de primavera", html)
+        self.assertIn("Mixta", html)
+        self.assertNotIn("missing label:", html)
+
     def test_run_script_exports_home_assistant_ui_language_option(self) -> None:
         run_script = (ROOT_DIR / "rainmapper-app" / "run.sh").read_text(encoding="utf-8")
 

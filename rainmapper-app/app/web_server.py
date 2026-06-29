@@ -1885,10 +1885,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .month-chip {{
       border: 1px solid rgba(45, 58, 71, .9);
       border-radius: 6px;
+      box-sizing: border-box;
       color: var(--muted);
       font-size: 11px;
       font-weight: 700;
-      min-width: 34px;
+      width: 34px;
       padding: 4px 6px;
       text-align: center;
     }}
