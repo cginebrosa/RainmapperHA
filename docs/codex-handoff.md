@@ -401,8 +401,10 @@ Procedimiento estandar: para un bump/publicacion HA, ejecutar ./scripts/smoke-te
 Limpieza remota GHCR tras release HA:
 
 ```text
-Procedimiento estandar: despues de publicar una nueva imagen con scripts/build-push-ha-image.sh, subir el commit de version y validar en HA que la nueva version descarga y arranca correctamente, borrar del paquete GHCR las versiones remotas antiguas. Conservar solo la ultima version validada, latest y las entradas auxiliares sin tag del mismo push multi-arch. No borrar la version que declare rainmapper-app/config.yaml ni sus entradas auxiliares mientras HA pueda necesitar reinstalarla.
+Procedimiento estandar: despues de publicar una nueva imagen con scripts/build-push-ha-image.sh, subir el commit de version y validar en HA que la nueva version descarga y arranca correctamente, borrar del paquete GHCR las versiones remotas antiguas. Conservar solo la version actual, latest, el rollback inmediato y las entradas auxiliares sin tag de esos pushes multi-arch. No borrar la version que declare rainmapper-app/config.yaml ni sus entradas auxiliares mientras HA pueda necesitar reinstalarla.
 ```
+
+Nota operativa 2026-06-29: para listar/borrar versiones remotas de GitHub Packages/GHCR usar `GH_TOKEN` desde `~/.zshrc`, no la credencial devuelta por `git credential fill`/osxkeychain. La credencial de Git puede servir para `git push` pero no tener permisos suficientes para la API de Packages, aunque el PAT correcto si tenga `write:packages`/`delete:packages`. Tras publicar `0.2.178`, el reintento con `GH_TOKEN` funciono: se borraron 205 package versions antiguas con 0 fallos. Quedan 10 package versions: `0.2.178/latest`, `0.2.177` como rollback inmediato y sus manifests auxiliares sin tag.
 
 ## Flujo de ejecucion de la app
 1. Home Assistant arranca `rainmapper-app/run.sh`.
