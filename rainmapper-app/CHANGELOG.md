@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.176
+
+- Move reference catalog group names to `mushroom-data/mushroom_labels.json` with `catalog_group.*` keys for English, Spanish and Catalan.
+- Use those labels in the `/mushrooms/catalogs` group cards and new-entry group selector so observation catalog groups no longer show long raw IDs as their visible title.
+- Show an explicit `missing label: catalog_group.<group>` marker when a group label is absent instead of silently falling back to raw IDs.
+
 ## 0.2.175
 
 - Rename the mushroom field label dictionary to `mushroom-data/mushroom_labels.json` for use beyond `Parameters`.
