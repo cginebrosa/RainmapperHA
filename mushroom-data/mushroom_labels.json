@@ -1,0 +1,272 @@
+{
+  "rain_7d_min_mm": {
+    "en": "7d min rain",
+    "es": "Lluvia min 7d",
+    "ca": "Pluja min 7d"
+  },
+  "rain_15d_min_mm": {
+    "en": "15d min rain",
+    "es": "Lluvia min 15d",
+    "ca": "Pluja min 15d"
+  },
+  "rain_15d_optimal_min_mm": {
+    "en": "15d optimal min",
+    "es": "Optimo min 15d",
+    "ca": "Optim min 15d"
+  },
+  "rain_15d_optimal_max_mm": {
+    "en": "15d optimal max",
+    "es": "Optimo max 15d",
+    "ca": "Optim max 15d"
+  },
+  "rain_30d_saturation_penalty_mm": {
+    "en": "30d saturation",
+    "es": "Saturacion 30d",
+    "ca": "Saturacio 30d"
+  },
+  "temp_min_7d_optimal_min_c": {
+    "en": "7d min temp low",
+    "es": "7d Temp min baja",
+    "ca": "Temp min baixa"
+  },
+  "temp_min_7d_optimal_max_c": {
+    "en": "7d min temp high",
+    "es": "Temp min alta 7d",
+    "ca": "Temp min alta 7d"
+  },
+  "temp_max_7d_optimal_min_c": {
+    "en": "7d max temp low",
+    "es": "Temp max baja 7d",
+    "ca": "Temp max baixa 7d"
+  },
+  "temp_max_7d_optimal_max_c": {
+    "en": "7d max temp high",
+    "es": "Temp max alta 7d",
+    "ca": "Temp max alta"
+  },
+  "heat_penalty_temp_max_c": {
+    "en": "Heat penalty",
+    "es": "Penaliza calor",
+    "ca": "Penalitza calor"
+  },
+  "frost_penalty_temp_min_c": {
+    "en": "Frost penalty",
+    "es": "Penaliza helada",
+    "ca": "Penalitza gel"
+  },
+  "humidity_min_7d_preferred_min_pct": {
+    "en": "Min humidity 7d",
+    "es": "Humedad min 7d",
+    "ca": "Humitat min 7d"
+  },
+  "humidity_max_7d_preferred_min_pct": {
+    "en": "Max humidity 7d",
+    "es": "Humedad max 7d",
+    "ca": "Humitat max 7d"
+  },
+  "wind_avg_3d_penalty_kmh": {
+    "en": "Wind penalty 3d",
+    "es": "Penal.Viento 3d",
+    "ca": "Penal.Vent 3d"
+  },
+  "wind_gust_3d_penalty_kmh": {
+    "en": "Gust penalty 3d",
+    "es": "Penal.rachas 3d",
+    "ca": "Penal.Ratxes 3d"
+  },
+  "dry_wind_sensitive": {
+    "en": "Dry wind sensitive",
+    "es": "Sensible a viento seco",
+    "ca": "Sensible a vent sec"
+  },
+  "habitat": {
+    "en": "Habitat",
+    "es": "Habitat",
+    "ca": "Habitat"
+  },
+  "season": {
+    "en": "Season",
+    "es": "Temporada",
+    "ca": "Temporada"
+  },
+  "altitude": {
+    "en": "Altitude",
+    "es": "Altitud",
+    "ca": "Altitud"
+  },
+  "rainfall": {
+    "en": "Rainfall",
+    "es": "Lluvia",
+    "ca": "Pluja"
+  },
+  "temperature": {
+    "en": "Temperature",
+    "es": "Temperatura",
+    "ca": "Temperatura"
+  },
+  "humidity": {
+    "en": "Humidity",
+    "es": "Humedad",
+    "ca": "Humitat"
+  },
+  "wind_penalty": {
+    "en": "Wind Penal",
+    "es": "Penal.Viento",
+    "ca": "Penal.Vent"
+  },
+  "observation_id": {
+    "en": "Observation ID",
+    "es": "ID de observacion",
+    "ca": "ID d'observacio"
+  },
+  "species_id": {
+    "en": "Species",
+    "es": "Especie",
+    "ca": "Especie"
+  },
+  "observed_at": {
+    "en": "Observation date",
+    "es": "Fecha de observacion",
+    "ca": "Data d'observacio"
+  },
+  "location.input": {
+    "en": "Location input",
+    "es": "Ubicacion pegada",
+    "ca": "Ubicacio enganxada"
+  },
+  "location.lat": {
+    "en": "Latitude",
+    "es": "Latitud",
+    "ca": "Latitud"
+  },
+  "location.lon": {
+    "en": "Longitude",
+    "es": "Longitud",
+    "ca": "Longitud"
+  },
+  "location.source": {
+    "en": "Location source",
+    "es": "Origen de ubicacion",
+    "ca": "Origen d'ubicacio"
+  },
+  "location.precision_m": {
+    "en": "Location precision",
+    "es": "Precision de ubicacion",
+    "ca": "Precisio d'ubicacio"
+  },
+  "altitude.meters": {
+    "en": "Altitude",
+    "es": "Altitud",
+    "ca": "Altitud"
+  },
+  "altitude.source": {
+    "en": "Altitude source",
+    "es": "Origen de altitud",
+    "ca": "Origen d'altitud"
+  },
+  "altitude.resolved_at": {
+    "en": "Altitude resolved at",
+    "es": "Altitud recuperada en",
+    "ca": "Altitud recuperada el"
+  },
+  "flush_abundance": {
+    "en": "Flush abundance",
+    "es": "Tamano de la florada",
+    "ca": "Mida de la florada"
+  },
+  "observer.name": {
+    "en": "Observer",
+    "es": "Observador",
+    "ca": "Observador"
+  },
+  "observer.expertise": {
+    "en": "Observer expertise",
+    "es": "Experiencia del observador",
+    "ca": "Experiencia de l'observador"
+  },
+  "source.type": {
+    "en": "Source type",
+    "es": "Tipo de origen",
+    "ca": "Tipus d'origen"
+  },
+  "source.label": {
+    "en": "Source label",
+    "es": "Nombre del origen",
+    "ca": "Nom de l'origen"
+  },
+  "source.url": {
+    "en": "Source URL",
+    "es": "URL del origen",
+    "ca": "URL de l'origen"
+  },
+  "source.notes": {
+    "en": "Source notes",
+    "es": "Notas del origen",
+    "ca": "Notes de l'origen"
+  },
+  "source_quality": {
+    "en": "Source quality",
+    "es": "Calidad del origen",
+    "ca": "Qualitat de l'origen"
+  },
+  "validation_status": {
+    "en": "Validation status",
+    "es": "Estado de validacion",
+    "ca": "Estat de validacio"
+  },
+  "calibration_use": {
+    "en": "Calibration use",
+    "es": "Uso en calibracion",
+    "ca": "Us en calibracio"
+  },
+  "calibration_exclusion_reason": {
+    "en": "Exclusion reason",
+    "es": "Motivo de exclusion",
+    "ca": "Motiu d'exclusio"
+  },
+  "site_context.habitat_notes": {
+    "en": "Habitat notes",
+    "es": "Notas de habitat",
+    "ca": "Notes d'habitat"
+  },
+  "site_context.host_notes": {
+    "en": "Host notes",
+    "es": "Notas de hosts",
+    "ca": "Notes d'hosts"
+  },
+  "site_context.soil_notes": {
+    "en": "Soil notes",
+    "es": "Notas de suelo",
+    "ca": "Notes de sol"
+  },
+  "site_context.aspect_notes": {
+    "en": "Aspect notes",
+    "es": "Notas de orientacion",
+    "ca": "Notes d'orientacio"
+  },
+  "metadata.created_at": {
+    "en": "Created at",
+    "es": "Creado en",
+    "ca": "Creat el"
+  },
+  "metadata.updated_at": {
+    "en": "Updated at",
+    "es": "Actualizado en",
+    "ca": "Actualitzat el"
+  },
+  "metadata.created_by": {
+    "en": "Created by",
+    "es": "Creado por",
+    "ca": "Creat per"
+  },
+  "metadata.reviewed_by": {
+    "en": "Reviewed by",
+    "es": "Revisado por",
+    "ca": "Revisat per"
+  },
+  "metadata.reviewed_at": {
+    "en": "Reviewed at",
+    "es": "Revisado en",
+    "ca": "Revisat el"
+  }
+}

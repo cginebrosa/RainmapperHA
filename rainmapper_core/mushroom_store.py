@@ -22,13 +22,15 @@ from typing import Any
 PROFILE_FILE = "mushroom_profiles.json"
 CATALOG_FILE = "mushroom_reference_catalogs.json"
 GIS_FILE = "mushroom_gis_mappings.json"
+OBSERVATIONS_FILE = "mushroom_observations.json"
 
 MUSHROOM_FILES = {
     "profiles": PROFILE_FILE,
     "catalogs": CATALOG_FILE,
     "gis": GIS_FILE,
+    "observations": OBSERVATIONS_FILE,
 }
-WRITABLE_MUSHROOM_FILES = {"profiles", "catalogs"}
+WRITABLE_MUSHROOM_FILES = {"profiles", "catalogs", "observations"}
 
 
 @dataclass(frozen=True)
@@ -216,6 +218,8 @@ class MushroomDataStore:
             if not isinstance(catalogs, dict):
                 catalogs = {}
             payload["catalogs"] = {name: [] for name in catalogs}
+        elif normalized == "observations":
+            payload["observations"] = []
         else:
             raise ValueError("GIS mappings do not have an editable empty template in this phase")
         metadata = payload.get("metadata")
@@ -248,7 +252,7 @@ class MushroomDataStore:
     def replace(self, kind: str, payload: Any) -> ReplaceResult:
         normalized = normalize_kind(kind)
         if normalized not in WRITABLE_MUSHROOM_FILES:
-            raise ValueError("GIS mappings are read-only in the current maintenance phase")
+            raise ValueError(f"{self.file_name(normalized)} is read-only in the current maintenance phase")
         if not isinstance(payload, dict):
             return ReplaceResult(
                 ok=False,

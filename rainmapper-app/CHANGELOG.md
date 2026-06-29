@@ -1,9 +1,18 @@
 # Changelog
 
+## 0.2.175
+
+- Rename the mushroom field label dictionary to `mushroom-data/mushroom_labels.json` for use beyond `Parameters`.
+- Add English and Spanish observation schema documentation under `docs/mushrooms/`.
+- Add observation reference catalog groups for abundance, validation, calibration use, sources and exclusion reasons.
+- Add the first editable `mushroom_observations.json` store with validator coverage and Home Assistant seeding.
+- Replace the observations placeholder with a real maintenance screen: metrics, filter bar, table, detail panel and new-observation form.
+- Add `ui_language` to Home Assistant add-on options for future EN/ES/CA maintenance rendering.
+
 ## 0.2.174
 
 - Compact the mushroom species `Parameters` screen toward the visual reference layout.
-- Add human parameter labels from `mushroom-data/mushroom_parameter_labels.json` with English, Spanish and Catalan entries.
+- Add human parameter labels with English, Spanish and Catalan entries.
 - Separate host affinities into primary, secondary and other groups in the `Parameters` habitat summary.
 - Add icons and denser controls for climate, habitat, topography, phenology and scoring blocks.
 

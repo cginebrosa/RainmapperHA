@@ -79,20 +79,20 @@ def parameter_label_candidates() -> list[Path]:
     configured_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", "").strip()
     candidates = []
     if configured_defaults:
-        candidates.append(Path(configured_defaults) / "mushroom_parameter_labels.json")
+        candidates.append(Path(configured_defaults) / "mushroom_labels.json")
     candidates.extend(
         [
-            Path("/app/mushroom-data/mushroom_parameter_labels.json"),
+            Path("/app/mushroom-data/mushroom_labels.json"),
         ]
     )
     module_path = Path(__file__).resolve()
     if len(module_path.parents) > 2:
-        candidates.append(module_path.parents[2] / "mushroom-data" / "mushroom_parameter_labels.json")
+        candidates.append(module_path.parents[2] / "mushroom-data" / "mushroom_labels.json")
     return candidates
 
 
 def load_parameter_labels() -> dict[str, dict[str, str]]:
-    """Load human parameter labels from mushroom-data with a safe empty fallback."""
+    """Load human labels from mushroom-data with a safe empty fallback."""
     for candidate in parameter_label_candidates():
         if not candidate.exists():
             continue
@@ -172,13 +172,20 @@ def catalog_options_for_group(catalogs: dict[str, object], group: str) -> list[t
     if not isinstance(items, list):
         return []
     options = []
-    for item in items:
+    sorted_items = sorted(
+        (item for item in items if isinstance(item, dict)),
+        key=lambda item: (
+            item.get("sort_order") if isinstance(item.get("sort_order"), (int, float)) else 999999,
+            str(item.get("id", "")),
+        ),
+    )
+    for item in sorted_items:
         if not isinstance(item, dict):
             continue
         item_id = str(item.get("id", "") or "").strip()
         if item_id:
             options.append((item_id, catalog_label(item)))
-    return sorted(options, key=lambda option: option[0])
+    return options
 
 
 def css_token(value: object) -> str:
@@ -403,6 +410,31 @@ def parameter_textarea(name: str, label: str, value: object, rows: int = 1) -> s
 def catalog_label_map(catalogs: dict[str, object], group: str) -> dict[str, str]:
     """Return catalog labels indexed by ID for compact read-only summaries."""
     return {item_id: label for item_id, label in catalog_options_for_group(catalogs, group)}
+
+
+def catalog_select_options(
+    catalogs: dict[str, object],
+    group: str,
+    current: str = "",
+    empty_label: str = "",
+) -> str:
+    """Render select options from a reference catalog group."""
+    options = []
+    if empty_label:
+        selected = " selected" if not current else ""
+        options.append(f'<option value=""{selected}>{html.escape(empty_label)}</option>')
+    seen: set[str] = set()
+    for item_id, label in catalog_options_for_group(catalogs, group):
+        seen.add(item_id)
+        selected = " selected" if item_id == current else ""
+        options.append(
+            f'<option value="{html.escape(item_id, quote=True)}"{selected}>{html.escape(label)}</option>'
+        )
+    if current and current not in seen:
+        options.append(
+            f'<option value="{html.escape(current, quote=True)}" selected>{html.escape(current)} (missing)</option>'
+        )
+    return "".join(options)
 
 
 def affinity_chip_list(
@@ -1264,56 +1296,397 @@ def render_calibration_section(profile: dict[str, object] | None, search: str = 
     """
 
 
-def render_observations_section(profile: dict[str, object] | None, profiles: list[dict[str, object]], search: str = "") -> str:
-    """Render the future observations workspace without inventing persistence."""
-    species_id = str(profile.get("species_id", "")) if profile else ""
-    calibration_href = profile_query_url(species_id, search, section="calibration") if species_id else profile_query_url(section="calibration")
-    species_options = "".join(
-        f'<option value="{html.escape(str(item.get("species_id", "")), quote=True)}"{" selected" if str(item.get("species_id", "")) == species_id else ""}>{html.escape(str(item.get("scientific_name", item.get("species_id", ""))))}</option>'
+def observations_from_payload(payload: dict[str, object] | None) -> list[dict[str, object]]:
+    """Return observation rows from the persisted observation store."""
+    if not isinstance(payload, dict):
+        return []
+    rows = payload.get("observations")
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def profile_name_map(profiles: list[dict[str, object]]) -> dict[str, str]:
+    """Return compact species labels indexed by species ID."""
+    labels = {}
+    for profile in profiles:
+        species_id = str(profile.get("species_id", "") or "")
+        if not species_id:
+            continue
+        labels[species_id] = str(profile.get("scientific_name", species_id) or species_id)
+    return labels
+
+
+def observation_metrics(rows: list[dict[str, object]]) -> tuple[int, int, int, int]:
+    """Calculate high-level observation counters for the dashboard strip."""
+    total = len(rows)
+    positive = sum(1 for row in rows if str(row.get("flush_abundance", "")) not in {"", "absent"})
+    negative = sum(1 for row in rows if str(row.get("flush_abundance", "")) == "absent")
+    pending = sum(1 for row in rows if str(row.get("validation_status", "")) in {"", "draft", "doubtful"})
+    return total, positive, negative, pending
+
+
+def observation_catalog_label(catalogs: dict[str, object], group: str, item_id: object) -> str:
+    """Return a catalog-backed label for an observation value."""
+    value = str(item_id or "")
+    if not value:
+        return "-"
+    return catalog_label_map(catalogs, group).get(value, value)
+
+
+def observation_weight(catalogs: dict[str, object], row: dict[str, object]) -> float:
+    """Estimate the current calibration weight from quality and catalog multipliers."""
+    quality = row.get("source_quality")
+    quality_value = float(quality) if isinstance(quality, (int, float)) and not isinstance(quality, bool) else 0.0
+    multiplier = 1.0
+    statuses = catalogs.get("observation_validation_statuses")
+    if isinstance(statuses, list):
+        for item in statuses:
+            if isinstance(item, dict) and str(item.get("id", "")) == str(row.get("validation_status", "")):
+                raw_multiplier = item.get("calibration_multiplier")
+                if isinstance(raw_multiplier, (int, float)) and not isinstance(raw_multiplier, bool):
+                    multiplier = float(raw_multiplier)
+                break
+    if str(row.get("calibration_use", "")) == "exclude":
+        multiplier = 0.0
+    return round(quality_value * multiplier, 3)
+
+
+def observation_badge(text: str, tone: str = "") -> str:
+    """Render a compact status badge used by observation rows."""
+    return f'<span class="observation-badge {html.escape(tone, quote=True)}">{html.escape(text)}</span>'
+
+
+def render_observation_table(
+    rows: list[dict[str, object]],
+    catalogs: dict[str, object],
+    species_labels: dict[str, str],
+    selected_species_id: str,
+) -> str:
+    """Render the observation list with enough columns for field calibration review."""
+    visible_rows = rows
+    if selected_species_id:
+        visible_rows = [row for row in rows if str(row.get("species_id", "")) == selected_species_id]
+    visible_rows = sorted(visible_rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
+    if not visible_rows:
+        return '<tr><td colspan="10">No observations yet for the current filter. Create one from the panel below.</td></tr>'
+
+    body = []
+    for row in visible_rows:
+        location = row.get("location") if isinstance(row.get("location"), dict) else {}
+        altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
+        source = row.get("source") if isinstance(row.get("source"), dict) else {}
+        observer = row.get("observer") if isinstance(row.get("observer"), dict) else {}
+        species_id = str(row.get("species_id", ""))
+        abundance = observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance"))
+        validation = observation_catalog_label(catalogs, "observation_validation_statuses", row.get("validation_status"))
+        calibration_use = observation_catalog_label(catalogs, "observation_calibration_uses", row.get("calibration_use"))
+        validation_tone = "ok" if row.get("validation_status") == "valid" else "warn" if row.get("validation_status") in {"draft", "doubtful"} else "danger"
+        use_tone = "ok" if row.get("calibration_use") == "include" else "danger" if row.get("calibration_use") == "exclude" else "warn"
+        coordinates = "-"
+        if isinstance(location, dict) and location.get("lat") is not None and location.get("lon") is not None:
+            coordinates = f'{float(location.get("lat")):.5f}, {float(location.get("lon")):.5f}'
+        altitude_text = "-"
+        if isinstance(altitude, dict) and altitude.get("meters") is not None:
+            altitude_text = f'{altitude.get("meters")} m'
+        body.append(
+            "<tr>"
+            f"<td>{html.escape(str(row.get('observed_at', '-')))}</td>"
+            f"<td><strong>{html.escape(species_labels.get(species_id, species_id))}</strong><br><span class=\"meta\">{html.escape(species_id)}</span></td>"
+            f"<td>{html.escape(coordinates)}<br><span class=\"meta\">{html.escape(str(location.get('source', '-')) if isinstance(location, dict) else '-')}</span></td>"
+            f"<td>{html.escape(altitude_text)}</td>"
+            f"<td>{html.escape(abundance)}</td>"
+            f"<td>{html.escape(str(observer.get('name', '-') or '-') if isinstance(observer, dict) else '-')}</td>"
+            f"<td>{html.escape(str(source.get('label', source.get('type', '-')) or '-') if isinstance(source, dict) else '-')}</td>"
+            f"<td>{observation_badge(validation, validation_tone)}</td>"
+            f"<td>{observation_badge(calibration_use, use_tone)}</td>"
+            "<td class=\"observation-row-actions\">"
+            f"<a class=\"button-link compact\" href=\"#edit-observation-{html.escape(str(row.get('observation_id', '')), quote=True)}\">Edit</a>"
+            "<form method=\"post\" action=\"\" onsubmit=\"return confirm('Archive this observation?')\">"
+            "<input type=\"hidden\" name=\"profile_action\" value=\"archive_observation\">"
+            f"<input type=\"hidden\" name=\"species_id\" value=\"{html.escape(species_id, quote=True)}\">"
+            f"<input type=\"hidden\" name=\"observation_id\" value=\"{html.escape(str(row.get('observation_id', '')), quote=True)}\">"
+            "<button class=\"secondary compact\" type=\"submit\">Archive</button>"
+            "</form>"
+            "</td>"
+            "</tr>"
+        )
+    return "".join(body)
+
+
+def species_select_options(
+    profiles: list[dict[str, object]],
+    selected_species_id: str,
+) -> str:
+    """Render species options with the requested species selected."""
+    return "".join(
+        f'<option value="{html.escape(str(item.get("species_id", "")), quote=True)}"{" selected" if str(item.get("species_id", "")) == selected_species_id else ""}>{html.escape(str(item.get("scientific_name", item.get("species_id", ""))))}</option>'
+        for item in profiles
+        if item.get("species_id")
+    )
+
+
+def render_observation_detail(
+    rows: list[dict[str, object]],
+    catalogs: dict[str, object],
+    species_labels: dict[str, str],
+    selected_species_id: str,
+) -> str:
+    """Render the most recent observation detail panel."""
+    visible_rows = rows
+    if selected_species_id:
+        visible_rows = [row for row in rows if str(row.get("species_id", "")) == selected_species_id]
+    visible_rows = sorted(visible_rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
+    if not visible_rows:
+        return """
+        <h2 id="observation-detail">Observation detail</h2>
+        <p class="meta">Select or create an observation to review its calibration context.</p>
+        """
+    row = visible_rows[0]
+    location = row.get("location") if isinstance(row.get("location"), dict) else {}
+    altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
+    site_context = row.get("site_context") if isinstance(row.get("site_context"), dict) else {}
+    species_id = str(row.get("species_id", ""))
+    coords = "-"
+    if isinstance(location, dict) and location.get("lat") is not None and location.get("lon") is not None:
+        coords = f'{location.get("lat")}, {location.get("lon")}'
+    return f"""
+    <h2 id="observation-detail">Observation detail</h2>
+    {value_row("Observation ID", row.get("observation_id", "-"))}
+    {value_row("Species", species_labels.get(species_id, species_id))}
+    {value_row("Coordinates", coords)}
+    {value_row("Altitude", f'{altitude.get("meters")} m' if isinstance(altitude, dict) and altitude.get("meters") is not None else "-")}
+    {value_row("Abundance", observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance")))}
+    {value_row("Source quality", row.get("source_quality", "-"))}
+    {value_row("Calibration weight", f"{observation_weight(catalogs, row):.2f}")}
+    <div class="observation-notes">
+      <strong>Habitat notes</strong>
+      <p>{html.escape(str(site_context.get("habitat_notes", "") or "No habitat notes recorded.") if isinstance(site_context, dict) else "No habitat notes recorded.")}</p>
+      <strong>Host notes</strong>
+      <p>{html.escape(str(site_context.get("host_notes", "") or "No host notes recorded.") if isinstance(site_context, dict) else "No host notes recorded.")}</p>
+    </div>
+    """
+
+
+def render_observation_form_modal(
+    profiles: list[dict[str, object]],
+    catalogs: dict[str, object],
+    row: dict[str, object] | None,
+    *,
+    modal_id: str,
+    action: str,
+    title: str,
+    selected_species_id: str = "",
+    form_message: str = "",
+) -> str:
+    """Render create/edit observation modal using one shared field layout."""
+    row = row if isinstance(row, dict) else {}
+    location = row.get("location") if isinstance(row.get("location"), dict) else {}
+    altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
+    observer = row.get("observer") if isinstance(row.get("observer"), dict) else {}
+    source = row.get("source") if isinstance(row.get("source"), dict) else {}
+    site_context = row.get("site_context") if isinstance(row.get("site_context"), dict) else {}
+    observation_id = str(row.get("observation_id", ""))
+    current_species_id = str(row.get("species_id", "") or selected_species_id)
+    location_input = str(location.get("input", "") if isinstance(location, dict) else "")
+    lat_value = "" if not isinstance(location, dict) or location.get("lat") is None else str(location.get("lat"))
+    lon_value = "" if not isinstance(location, dict) or location.get("lon") is None else str(location.get("lon"))
+    altitude_value = "" if not isinstance(altitude, dict) or altitude.get("meters") is None else str(altitude.get("meters"))
+    return f"""
+    <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
+      <a class="modal-backdrop" href="#" aria-label="Cancel new observation"></a>
+      <form class="modal-card modal-card-wide observation-form" method="post" action="">
+        <input type="hidden" name="profile_action" value="{html.escape(action, quote=True)}">
+        {f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">' if observation_id else ""}
+        <header class="modal-head">
+          <div>
+            <h2>{html.escape(title)}</h2>
+            <p>Register a field outcome for species calibration. Use either a map link/decimal pair or explicit latitude and longitude.</p>
+          </div>
+          <a class="button-link" href="#">Cancel</a>
+        </header>
+        {f'<div class="catalog-alert error"><strong>Observation was not saved</strong><br>{html.escape(form_message.replace("Observation was not saved: ", ""))}</div>' if form_message else ""}
+        <div class="profile-grid four">
+          <div class="admin-field"><label>Species</label><select name="observation_species_id" required>{species_select_options(profiles, current_species_id)}</select></div>
+          <div class="admin-field"><label>Date</label><input name="observed_at" type="date" value="{html.escape(str(row.get("observed_at", "")), quote=True)}" onchange="this.blur()" required></div>
+          <div class="admin-field"><label>Abundance</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", str(row.get("flush_abundance", "") or "normal"))}</select></div>
+          <div class="admin-field"><label>Source quality</label><input name="source_quality" type="number" min="0" max="1" step="0.05" value="{html.escape(str(row.get("source_quality", 0.75)), quote=True)}" required></div>
+        </div>
+        <div class="profile-grid three">
+          <div class="admin-field wide"><label>Coordinates or Google Maps link</label><input name="location_input" value="{html.escape(location_input, quote=True)}" placeholder="41.38740, 2.16860 or Google Maps URL"></div>
+          <div class="admin-field"><label>Latitude</label><input name="location_lat" type="number" step="any" value="{html.escape(lat_value, quote=True)}"></div>
+          <div class="admin-field"><label>Longitude</label><input name="location_lon" type="number" step="any" value="{html.escape(lon_value, quote=True)}"></div>
+        </div>
+        <div class="profile-grid four">
+          <div class="admin-field"><label>Altitude m</label><input name="altitude_m" type="number" step="1" value="{html.escape(altitude_value, quote=True)}"></div>
+          <div class="admin-field"><label>Altitude source</label><select name="altitude_source">{catalog_select_options(catalogs, "observation_altitude_sources", str(altitude.get("source", "") if isinstance(altitude, dict) else ""), "Not informed")}</select></div>
+          <div class="admin-field"><label>Validation</label><select name="validation_status" required>{catalog_select_options(catalogs, "observation_validation_statuses", str(row.get("validation_status", "") or "draft"))}</select></div>
+          <div class="admin-field"><label>Calibration use</label><select name="calibration_use" required>{catalog_select_options(catalogs, "observation_calibration_uses", str(row.get("calibration_use", "") or "review"))}</select></div>
+        </div>
+        <div class="profile-grid four">
+          <div class="admin-field"><label>Exclusion reason</label><select name="calibration_exclusion_reason">{catalog_select_options(catalogs, "observation_exclusion_reasons", str(row.get("calibration_exclusion_reason", "") or ""), "None")}</select></div>
+          <div class="admin-field"><label>Observer</label><input name="observer_name" value="{html.escape(str(observer.get("name", "") if isinstance(observer, dict) else ""), quote=True)}"></div>
+          <div class="admin-field"><label>Expertise</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", str(observer.get("expertise", "") if isinstance(observer, dict) else "") or "unknown")}</select></div>
+          <div class="admin-field"><label>Source type</label><select name="source_type">{catalog_select_options(catalogs, "observation_source_types", str(source.get("type", "") if isinstance(source, dict) else "") or "personal_observation")}</select></div>
+        </div>
+        <div class="profile-grid two">
+          <div class="admin-field"><label>Source label</label><input name="source_label" value="{html.escape(str(source.get("label", "") if isinstance(source, dict) else ""), quote=True)}"></div>
+          <div class="admin-field wide"><label>Source URL</label><input name="source_url" type="url" value="{html.escape(str(source.get("url", "") if isinstance(source, dict) else ""), quote=True)}"></div>
+        </div>
+        <div class="profile-grid two">
+          {form_textarea("habitat_notes", "Habitat notes", site_context.get("habitat_notes", "") if isinstance(site_context, dict) else "", rows=3)}
+          {form_textarea("host_notes", "Host notes", site_context.get("host_notes", "") if isinstance(site_context, dict) else "", rows=3)}
+        </div>
+        <div class="profile-action-bar">
+          <button class="primary profile-primary-action">Save observation</button>
+          <button class="secondary planned-action" type="button" disabled>Recover altitude</button>
+          <button class="secondary planned-action" type="button" disabled>Import CSV</button>
+        </div>
+      </form>
+    </div>
+    """
+
+
+def render_observation_create_form(
+    profiles: list[dict[str, object]],
+    catalogs: dict[str, object],
+    selected_species_id: str,
+    form_message: str = "",
+) -> str:
+    """Render the observation creation modal."""
+    return render_observation_form_modal(
+        profiles,
+        catalogs,
+        None,
+        modal_id="new-observation",
+        action="create_observation",
+        title="New observation",
+        selected_species_id=selected_species_id,
+        form_message=form_message,
+    )
+
+
+def render_observation_edit_modals(
+    rows: list[dict[str, object]],
+    profiles: list[dict[str, object]],
+    catalogs: dict[str, object],
+    selected_species_id: str,
+) -> str:
+    """Render edit modals for active observations in the current filter."""
+    visible_rows = rows
+    if selected_species_id:
+        visible_rows = [row for row in rows if str(row.get("species_id", "")) == selected_species_id]
+    return "".join(
+        render_observation_form_modal(
+            profiles,
+            catalogs,
+            row,
+            modal_id=f"edit-observation-{str(row.get('observation_id', ''))}",
+            action="update_observation",
+            title=f"Edit observation {str(row.get('observation_id', ''))}",
+            selected_species_id=selected_species_id,
+        )
+        for row in visible_rows
+        if row.get("observation_id")
+    )
+
+
+def render_archived_observations_panel(
+    archived_payload: dict[str, object] | None,
+    species_labels: dict[str, str],
+    selected_species_id: str,
+) -> str:
+    """Render archived observation restore/delete controls."""
+    archived = observations_from_payload(archived_payload)
+    if selected_species_id:
+        archived = [row for row in archived if str(row.get("species_id", "")) == selected_species_id]
+    if not archived:
+        return '<details class="profile-section-card"><summary><strong>Archived observations</strong></summary><p class="meta">No archived observations for the current filter.</p></details>'
+    rows = []
+    for row in sorted(archived, key=lambda item: str(item.get("observed_at", "")), reverse=True):
+        observation_id = str(row.get("observation_id", ""))
+        species_id = str(row.get("species_id", ""))
+        rows.append(
+            '<div class="archived-species-row">'
+            f'<div><strong>{html.escape(observation_id)}</strong><br><span class="meta">{html.escape(str(row.get("observed_at", "-")))} · {html.escape(species_labels.get(species_id, species_id))}</span></div>'
+            '<div class="archived-species-actions">'
+            '<form method="post" action="">'
+            '<input type="hidden" name="profile_action" value="restore_observation">'
+            f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
+            f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">'
+            '<button class="secondary" type="submit">Restore</button>'
+            '</form>'
+            '<form method="post" action="" onsubmit="return confirm(\'Delete this archived observation permanently?\') && confirm(\'This action cannot be undone. The archived copy will be removed permanently.\')">'
+            '<input type="hidden" name="profile_action" value="delete_archived_observation">'
+            f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
+            f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">'
+            f'<input type="hidden" name="delete_confirm_id" value="{html.escape(observation_id, quote=True)}">'
+            '<button class="danger" type="submit">Delete permanently</button>'
+            '</form>'
+            '</div></div>'
+        )
+    return '<details class="profile-section-card"><summary><strong>Archived observations</strong></summary><div class="archived-observations-list">' + "".join(rows) + '</div></details>'
+
+
+def render_observations_section(
+    profile: dict[str, object] | None,
+    profiles: list[dict[str, object]],
+    catalogs: dict[str, object],
+    observations_payload: dict[str, object] | None,
+    archived_observations_payload: dict[str, object] | None,
+    search: str = "",
+    form_message: str = "",
+) -> str:
+    """Render the observation workspace backed by mushroom_observations.json."""
+    selected_species_id = str(profile.get("species_id", "")) if profile else ""
+    rows = observations_from_payload(observations_payload)
+    species_labels = profile_name_map(profiles)
+    total, positive, negative, pending = observation_metrics(
+        [row for row in rows if not selected_species_id or str(row.get("species_id", "")) == selected_species_id]
+    )
+    calibration_href = profile_query_url(selected_species_id, search, section="calibration") if selected_species_id else profile_query_url(section="calibration")
+    species_filter_options = '<option value="">All species</option>' + "".join(
+        f'<option value="{html.escape(str(item.get("species_id", "")), quote=True)}"{" selected" if str(item.get("species_id", "")) == selected_species_id else ""}>{html.escape(str(item.get("scientific_name", item.get("species_id", ""))))}</option>'
         for item in profiles
         if item.get("species_id")
     )
     return f"""
     <section class="card profile-section-screen observations-screen">
       {render_selected_species_header(profile, "Observations") if profile else '<h2>Observations</h2>'}
-      <div class="catalog-alert warn"><strong>Future calibration dataset</strong><br>Observations are intentionally not stored in mushroom_profiles.json. This screen prepares the workflow for a dedicated observations store, import validation and calibration coverage.</div>
-      <div class="profile-calibration-cards">
-        <div class="profile-metric"><span class="label">Total observations</span><span class="value">0</span></div>
-        <div class="profile-metric"><span class="label">Positive / present</span><span class="value ok">0</span></div>
-        <div class="profile-metric"><span class="label">Negative / not present</span><span class="value danger">0</span></div>
-        <div class="profile-metric"><span class="label">Pending validation</span><span class="value warn">0</span></div>
+      <div class="profile-calibration-cards observations-metrics">
+        <div class="profile-metric"><span class="label">{icon("metadata")} Total observations</span><span class="value">{total}</span></div>
+        <div class="profile-metric"><span class="label">{icon("mushroom")} Positive / present</span><span class="value ok">{positive}</span></div>
+        <div class="profile-metric"><span class="label">{icon("scoring")} Negative / absent</span><span class="value danger">{negative}</span></div>
+        <div class="profile-metric"><span class="label">{icon("calibration")} Pending validation</span><span class="value warn">{pending}</span></div>
       </div>
       <div class="observations-filters">
-        <div class="admin-field"><label>Date range</label><input value="pending schema" readonly></div>
-        <div class="admin-field"><label>Species</label><select>{species_options}</select></div>
-        <div class="admin-field"><label>Result</label><select disabled><option>present / not_present / unknown</option></select></div>
-        <div class="admin-field"><label>Observer</label><input value="future field" readonly></div>
-        <div class="admin-field"><label>Source</label><input value="future field" readonly></div>
-        <div class="admin-field"><label>Validation</label><input value="future field" readonly></div>
+        <div class="admin-field"><label>Date from</label><input type="date" readonly></div>
+        <div class="admin-field"><label>Date to</label><input type="date" readonly></div>
+        <div class="admin-field"><label>Species</label><select disabled>{species_filter_options}</select></div>
+        <div class="admin-field"><label>Result</label><select disabled>{catalog_select_options(catalogs, "observation_flush_abundance", "", "All")}</select></div>
+        <div class="admin-field"><label>Validation</label><select disabled>{catalog_select_options(catalogs, "observation_validation_statuses", "", "All")}</select></div>
+        <div class="admin-field"><label>Search</label><input value="{html.escape(search, quote=True)}" readonly></div>
       </div>
       <div class="observations-layout">
-        <article class="profile-section-card">
-          <h2>Observation records</h2>
+        <article class="profile-section-card observations-table-card">
+          <h2>{icon("metadata")} Observation records</h2>
           <div class="observations-table-shell">
             <table>
-              <thead><tr><th>Date</th><th>Species</th><th>Location</th><th>Habitat</th><th>Result</th><th>Quantity</th><th>Validation</th></tr></thead>
-              <tbody><tr><td colspan="7">No observations store is defined yet. Next backend step: define schema, import preview, duplicate handling and validation rules.</td></tr></tbody>
+              <thead><tr><th>Date</th><th>Species</th><th>Coordinates</th><th>Alt.</th><th>Abundance</th><th>Observer</th><th>Source</th><th>Validation</th><th>Use</th><th></th></tr></thead>
+              <tbody>{render_observation_table(rows, catalogs, species_labels, selected_species_id)}</tbody>
             </table>
           </div>
         </article>
         <aside class="profile-section-card observation-detail-shell">
-          <h2>Observation detail</h2>
-          {value_row("Observation ID", "pending")}
-          {value_row("Coordinates", "pending")}
-          {value_row("Altitude", "pending")}
-          {value_row("Calibration use", "pending validation")}
-          <p class="meta">Positive and negative observations will be used to compare predictions with real field outcomes.</p>
+          {render_observation_detail(rows, catalogs, species_labels, selected_species_id)}
         </aside>
       </div>
+      {render_archived_observations_panel(archived_observations_payload, species_labels, selected_species_id)}
+      {render_observation_create_form(profiles, catalogs, selected_species_id, form_message)}
+      {render_observation_edit_modals(rows, profiles, catalogs, selected_species_id)}
       <div class="profile-action-bar">
-        <button class="secondary planned-action" type="button" disabled>New observation · planned</button>
-        <button class="secondary planned-action" type="button" disabled>Import observations · planned</button>
-        <a class="button-link primary-link" href="{html.escape(calibration_href, quote=True)}">Open calibration</a>
+        <a class="button-link primary-link" href="#new-observation">New observation</a>
+        <a class="button-link" href="{html.escape(calibration_href, quote=True)}">Open calibration</a>
       </div>
     </section>
     """

@@ -1823,6 +1823,411 @@
           "en": "Open warm woodland"
         }
       }
+    ],
+    "observation_flush_abundance": [
+      {
+        "id": "exceptional",
+        "label": {
+          "es": "Excepcional",
+          "ca": "Excepcional",
+          "en": "Exceptional"
+        },
+        "sort_order": 10,
+        "calibration_score": 1.0
+      },
+      {
+        "id": "very_abundant",
+        "label": {
+          "es": "Muy abundante",
+          "ca": "Molt abundant",
+          "en": "Very abundant"
+        },
+        "sort_order": 20,
+        "calibration_score": 0.85
+      },
+      {
+        "id": "abundant",
+        "label": {
+          "es": "Abundante",
+          "ca": "Abundant",
+          "en": "Abundant"
+        },
+        "sort_order": 30,
+        "calibration_score": 0.7
+      },
+      {
+        "id": "normal",
+        "label": {
+          "es": "Normal",
+          "ca": "Normal",
+          "en": "Normal"
+        },
+        "sort_order": 40,
+        "calibration_score": 0.5
+      },
+      {
+        "id": "scarce",
+        "label": {
+          "es": "Escasa",
+          "ca": "Escassa",
+          "en": "Scarce"
+        },
+        "sort_order": 50,
+        "calibration_score": 0.3
+      },
+      {
+        "id": "very_scarce",
+        "label": {
+          "es": "Muy escasa",
+          "ca": "Molt escassa",
+          "en": "Very scarce"
+        },
+        "sort_order": 60,
+        "calibration_score": 0.15
+      },
+      {
+        "id": "absent",
+        "label": {
+          "es": "Inexistente",
+          "ca": "Inexistent",
+          "en": "Absent"
+        },
+        "sort_order": 70,
+        "calibration_score": 0.0
+      }
+    ],
+    "observation_validation_statuses": [
+      {
+        "id": "draft",
+        "label": {
+          "es": "Borrador",
+          "ca": "Esborrany",
+          "en": "Draft"
+        },
+        "sort_order": 10,
+        "calibration_multiplier": 0.5
+      },
+      {
+        "id": "valid",
+        "label": {
+          "es": "Valida",
+          "ca": "Valida",
+          "en": "Valid"
+        },
+        "sort_order": 20,
+        "calibration_multiplier": 1.0
+      },
+      {
+        "id": "doubtful",
+        "label": {
+          "es": "Dudosa",
+          "ca": "Dubtosa",
+          "en": "Doubtful"
+        },
+        "sort_order": 30,
+        "calibration_multiplier": 0.25
+      },
+      {
+        "id": "invalid",
+        "label": {
+          "es": "No valida",
+          "ca": "No valida",
+          "en": "Invalid"
+        },
+        "sort_order": 40,
+        "calibration_multiplier": 0.0
+      }
+    ],
+    "observation_calibration_uses": [
+      {
+        "id": "include",
+        "label": {
+          "es": "Usar para calibracion",
+          "ca": "Usar per calibracio",
+          "en": "Use for calibration"
+        },
+        "sort_order": 10
+      },
+      {
+        "id": "review",
+        "label": {
+          "es": "Revisar antes de usar",
+          "ca": "Revisar abans d'usar",
+          "en": "Review before use"
+        },
+        "sort_order": 20
+      },
+      {
+        "id": "exclude",
+        "label": {
+          "es": "Excluir de calibracion",
+          "ca": "Excloure de calibracio",
+          "en": "Exclude from calibration"
+        },
+        "sort_order": 30
+      }
+    ],
+    "observation_exclusion_reasons": [
+      {
+        "id": "location_too_imprecise",
+        "label": {
+          "es": "Ubicacion demasiado imprecisa",
+          "ca": "Ubicacio massa imprecisa",
+          "en": "Location too imprecise"
+        },
+        "sort_order": 10
+      },
+      {
+        "id": "species_uncertain",
+        "label": {
+          "es": "Especie incierta",
+          "ca": "Especie incerta",
+          "en": "Species uncertain"
+        },
+        "sort_order": 20
+      },
+      {
+        "id": "cultivated_or_market",
+        "label": {
+          "es": "Cultivo o mercado",
+          "ca": "Cultiu o mercat",
+          "en": "Cultivated or market"
+        },
+        "sort_order": 30
+      },
+      {
+        "id": "duplicate",
+        "label": {
+          "es": "Duplicada",
+          "ca": "Duplicada",
+          "en": "Duplicate"
+        },
+        "sort_order": 40
+      },
+      {
+        "id": "outside_model_area",
+        "label": {
+          "es": "Fuera del area modelada",
+          "ca": "Fora de l'area modelada",
+          "en": "Outside model area"
+        },
+        "sort_order": 50
+      },
+      {
+        "id": "invalid_date",
+        "label": {
+          "es": "Fecha no valida",
+          "ca": "Data no valida",
+          "en": "Invalid date"
+        },
+        "sort_order": 60
+      },
+      {
+        "id": "other",
+        "label": {
+          "es": "Otro motivo",
+          "ca": "Altres motius",
+          "en": "Other reason"
+        },
+        "sort_order": 70
+      }
+    ],
+    "observation_source_types": [
+      {
+        "id": "personal_observation",
+        "label": {
+          "es": "Observacion propia",
+          "ca": "Observacio propia",
+          "en": "Personal observation"
+        },
+        "sort_order": 10
+      },
+      {
+        "id": "trusted_observer",
+        "label": {
+          "es": "Observador de confianza",
+          "ca": "Observador de confianca",
+          "en": "Trusted observer"
+        },
+        "sort_order": 20
+      },
+      {
+        "id": "whatsapp",
+        "label": {
+          "es": "WhatsApp",
+          "ca": "WhatsApp",
+          "en": "WhatsApp"
+        },
+        "sort_order": 30
+      },
+      {
+        "id": "telegram",
+        "label": {
+          "es": "Telegram",
+          "ca": "Telegram",
+          "en": "Telegram"
+        },
+        "sort_order": 40
+      },
+      {
+        "id": "social_media",
+        "label": {
+          "es": "Red social",
+          "ca": "Xarxa social",
+          "en": "Social media"
+        },
+        "sort_order": 50
+      },
+      {
+        "id": "forum",
+        "label": {
+          "es": "Foro",
+          "ca": "Forum",
+          "en": "Forum"
+        },
+        "sort_order": 60
+      },
+      {
+        "id": "imported_dataset",
+        "label": {
+          "es": "Dataset importado",
+          "ca": "Dataset importat",
+          "en": "Imported dataset"
+        },
+        "sort_order": 70
+      },
+      {
+        "id": "other",
+        "label": {
+          "es": "Otro origen",
+          "ca": "Altres origens",
+          "en": "Other source"
+        },
+        "sort_order": 80
+      }
+    ],
+    "observer_expertise_levels": [
+      {
+        "id": "unknown",
+        "label": {
+          "es": "Desconocida",
+          "ca": "Desconeguda",
+          "en": "Unknown"
+        },
+        "sort_order": 10
+      },
+      {
+        "id": "beginner",
+        "label": {
+          "es": "Principiante",
+          "ca": "Principiant",
+          "en": "Beginner"
+        },
+        "sort_order": 20
+      },
+      {
+        "id": "experienced",
+        "label": {
+          "es": "Experimentado",
+          "ca": "Experimentat",
+          "en": "Experienced"
+        },
+        "sort_order": 30
+      },
+      {
+        "id": "expert",
+        "label": {
+          "es": "Experto",
+          "ca": "Expert",
+          "en": "Expert"
+        },
+        "sort_order": 40
+      }
+    ],
+    "observation_location_sources": [
+      {
+        "id": "manual_decimal",
+        "label": {
+          "es": "Coordenadas decimales",
+          "ca": "Coordenades decimals",
+          "en": "Decimal coordinates"
+        },
+        "sort_order": 10
+      },
+      {
+        "id": "google_maps_url",
+        "label": {
+          "es": "Enlace de Google Maps",
+          "ca": "Enllac de Google Maps",
+          "en": "Google Maps URL"
+        },
+        "sort_order": 20
+      },
+      {
+        "id": "device_gps",
+        "label": {
+          "es": "GPS del dispositivo",
+          "ca": "GPS del dispositiu",
+          "en": "Device GPS"
+        },
+        "sort_order": 30
+      },
+      {
+        "id": "imported_csv",
+        "label": {
+          "es": "CSV importado",
+          "ca": "CSV importat",
+          "en": "Imported CSV"
+        },
+        "sort_order": 40
+      },
+      {
+        "id": "inferred",
+        "label": {
+          "es": "Inferida",
+          "ca": "Inferida",
+          "en": "Inferred"
+        },
+        "sort_order": 50
+      }
+    ],
+    "observation_altitude_sources": [
+      {
+        "id": "manual",
+        "label": {
+          "es": "Manual",
+          "ca": "Manual",
+          "en": "Manual"
+        },
+        "sort_order": 10
+      },
+      {
+        "id": "google_maps",
+        "label": {
+          "es": "Google Maps",
+          "ca": "Google Maps",
+          "en": "Google Maps"
+        },
+        "sort_order": 20
+      },
+      {
+        "id": "dem",
+        "label": {
+          "es": "Modelo digital de elevacion",
+          "ca": "Model digital d'elevacio",
+          "en": "Digital elevation model"
+        },
+        "sort_order": 30
+      },
+      {
+        "id": "imported",
+        "label": {
+          "es": "Importada",
+          "ca": "Importada",
+          "en": "Imported"
+        },
+        "sort_order": 40
+      }
     ]
   },
   "metadata": {

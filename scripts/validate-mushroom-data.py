@@ -11,6 +11,7 @@ modifies input files.
 from __future__ import annotations
 
 import argparse
+import re
 import json
 import sys
 from dataclasses import dataclass
@@ -30,6 +31,7 @@ DEFAULT_DATA_DIR = REPO_ROOT / "mushroom-data"
 PROFILE_FILE = "mushroom_profiles.json"
 CATALOG_FILE = "mushroom_reference_catalogs.json"
 GIS_FILE = "mushroom_gis_mappings.json"
+OBSERVATIONS_FILE = "mushroom_observations.json"
 
 REQUIRED_PROFILE_ROOT_KEYS = {
     "schema_version",
@@ -55,6 +57,12 @@ REQUIRED_GIS_ROOT_KEYS = {
     "corine_land_cover_mappings",
     "lithology_mappings",
     "derived_rules",
+    "metadata",
+}
+REQUIRED_OBSERVATION_ROOT_KEYS = {
+    "schema_version",
+    "model_purpose",
+    "observations",
     "metadata",
 }
 REQUIRED_CATALOGS = {
@@ -128,6 +136,23 @@ REQUIRED_PROFILE_METADATA_KEYS = {
     "source_quality",
     "requires_human_validation",
 }
+REQUIRED_OBSERVATION_KEYS = {
+    "observation_id",
+    "species_id",
+    "observed_at",
+    "location",
+    "flush_abundance",
+    "source_quality",
+    "validation_status",
+    "calibration_use",
+    "metadata",
+}
+REQUIRED_OBSERVATION_LOCATION_KEYS = {
+    "input",
+    "lat",
+    "lon",
+    "source",
+}
 EXPECTED_WEIGHT_KEYS = {
     "habitat",
     "season",
@@ -154,6 +179,7 @@ LOCAL_CALIBRATION_STATUSES = {
 CALIBRATION_PRIORITIES = {"low", "medium", "high", "very_high"}
 GIS_CONFIDENCE_VALUES = {"low", "medium", "high"}
 REVIEW_STATUSES = {"draft", "needs_review", "reviewed", "validated", "deprecated"}
+ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 @dataclass(frozen=True)
@@ -271,7 +297,7 @@ def collect_catalog_ids(
     catalogs_payload: Any,
     messages: list[ValidationMessage],
 ) -> dict[str, set[str]]:
-    ids_by_catalog: dict[str, set[str]] = {catalog: set() for catalog in REQUIRED_CATALOGS}
+    ids_by_catalog: dict[str, set[str]] = {}
     if not require_mapping(catalogs_payload, REQUIRED_CATALOG_ROOT_KEYS, "catalogs", messages):
         return ids_by_catalog
 
@@ -279,11 +305,13 @@ def collect_catalog_ids(
     if not require_mapping(catalogs, REQUIRED_CATALOGS, "catalogs.catalogs", messages):
         return ids_by_catalog
 
-    for catalog_name in sorted(REQUIRED_CATALOGS):
+    catalog_names = sorted(name for name, entries in catalogs.items() if isinstance(entries, list))
+    for catalog_name in catalog_names:
         entries = catalogs.get(catalog_name)
         if not require_list(entries, f"catalogs.catalogs.{catalog_name}", messages):
             continue
         seen: set[str] = set()
+        ids_by_catalog.setdefault(catalog_name, set())
         for index, entry in enumerate(entries):
             location = f"catalogs.{catalog_name}[{index}]"
             if not isinstance(entry, dict):
@@ -839,12 +867,157 @@ def validate_gis(
                 used_ids.setdefault(all_catalog_lookup[output_id], set()).add(output_id)
 
 
+def collect_species_ids(profiles_payload: Any) -> set[str]:
+    if not isinstance(profiles_payload, dict):
+        return set()
+    profiles = profiles_payload.get("species_profiles")
+    if not isinstance(profiles, list):
+        return set()
+    return {
+        str(profile.get("species_id"))
+        for profile in profiles
+        if isinstance(profile, dict) and isinstance(profile.get("species_id"), str) and profile.get("species_id")
+    }
+
+
+def validate_observations(
+    observations_payload: Any,
+    species_ids: set[str],
+    ids_by_catalog: dict[str, set[str]],
+    messages: list[ValidationMessage],
+    used_ids: dict[str, set[str]],
+) -> None:
+    if observations_payload is None:
+        return
+    if not require_mapping(observations_payload, REQUIRED_OBSERVATION_ROOT_KEYS, "observations", messages):
+        return
+    observations = observations_payload.get("observations")
+    if not require_list(observations, "observations.observations", messages):
+        return
+
+    seen_observations: set[str] = set()
+    for index, observation in enumerate(observations):
+        location = f"observations.observations[{index}]"
+        if not isinstance(observation, dict):
+            messages.append(error(location, "expected an object"))
+            continue
+        validate_required_keys(observation, REQUIRED_OBSERVATION_KEYS, location, messages)
+
+        observation_id = observation.get("observation_id")
+        if not isinstance(observation_id, str) or not observation_id:
+            messages.append(error(f"{location}.observation_id", "missing or invalid observation ID"))
+        elif observation_id in seen_observations:
+            messages.append(error(f"{location}.observation_id", f"duplicate observation ID {observation_id!r}"))
+        else:
+            seen_observations.add(observation_id)
+
+        species_id = observation.get("species_id")
+        if not isinstance(species_id, str) or not species_id:
+            messages.append(error(f"{location}.species_id", "missing or invalid species ID"))
+        elif species_id not in species_ids:
+            messages.append(error(f"{location}.species_id", f"unknown species ID {species_id!r}"))
+
+        observed_at = observation.get("observed_at")
+        if not isinstance(observed_at, str) or not ISO_DATE_RE.match(observed_at):
+            messages.append(error(f"{location}.observed_at", "expected ISO date YYYY-MM-DD"))
+
+        obs_location = observation.get("location")
+        if require_mapping(obs_location, REQUIRED_OBSERVATION_LOCATION_KEYS, f"{location}.location", messages):
+            validate_number(obs_location.get("lat"), f"{location}.location.lat", messages, minimum=-90, maximum=90)
+            validate_number(obs_location.get("lon"), f"{location}.location.lon", messages, minimum=-180, maximum=180)
+            validate_id(
+                obs_location.get("source"),
+                "observation_location_sources",
+                ids_by_catalog,
+                f"{location}.location.source",
+                messages,
+                used_ids,
+            )
+            if "precision_m" in obs_location and obs_location.get("precision_m") is not None:
+                validate_number(obs_location.get("precision_m"), f"{location}.location.precision_m", messages, minimum=0)
+
+        altitude = observation.get("altitude")
+        if altitude is not None:
+            if not isinstance(altitude, dict):
+                messages.append(error(f"{location}.altitude", "expected an object"))
+            else:
+                if "meters" in altitude and altitude.get("meters") is not None:
+                    validate_number(altitude.get("meters"), f"{location}.altitude.meters", messages, minimum=-500, maximum=9000)
+                if altitude.get("source"):
+                    validate_id(
+                        altitude.get("source"),
+                        "observation_altitude_sources",
+                        ids_by_catalog,
+                        f"{location}.altitude.source",
+                        messages,
+                        used_ids,
+                    )
+
+        validate_id(
+            observation.get("flush_abundance"),
+            "observation_flush_abundance",
+            ids_by_catalog,
+            f"{location}.flush_abundance",
+            messages,
+            used_ids,
+        )
+        validate_number(observation.get("source_quality"), f"{location}.source_quality", messages, minimum=0, maximum=1)
+        validate_id(
+            observation.get("validation_status"),
+            "observation_validation_statuses",
+            ids_by_catalog,
+            f"{location}.validation_status",
+            messages,
+            used_ids,
+        )
+        validate_id(
+            observation.get("calibration_use"),
+            "observation_calibration_uses",
+            ids_by_catalog,
+            f"{location}.calibration_use",
+            messages,
+            used_ids,
+        )
+        if observation.get("calibration_exclusion_reason"):
+            validate_id(
+                observation.get("calibration_exclusion_reason"),
+                "observation_exclusion_reasons",
+                ids_by_catalog,
+                f"{location}.calibration_exclusion_reason",
+                messages,
+                used_ids,
+            )
+
+        observer = observation.get("observer")
+        if isinstance(observer, dict) and observer.get("expertise"):
+            validate_id(
+                observer.get("expertise"),
+                "observer_expertise_levels",
+                ids_by_catalog,
+                f"{location}.observer.expertise",
+                messages,
+                used_ids,
+            )
+        source = observation.get("source")
+        if isinstance(source, dict) and source.get("type"):
+            validate_id(
+                source.get("type"),
+                "observation_source_types",
+                ids_by_catalog,
+                f"{location}.source.type",
+                messages,
+                used_ids,
+            )
+
+
 def add_unused_catalog_warnings(
     ids_by_catalog: dict[str, set[str]],
     used_ids: dict[str, set[str]],
     messages: list[ValidationMessage],
 ) -> None:
     for catalog_name, ids in sorted(ids_by_catalog.items()):
+        if catalog_name not in REQUIRED_CATALOGS:
+            continue
         unused = sorted(ids - used_ids.get(catalog_name, set()))
         for item_id in unused:
             messages.append(
@@ -859,15 +1032,23 @@ def validate_mushroom_data(data_dir: Path = DEFAULT_DATA_DIR) -> list[Validation
     profile_payload, profile_messages = load_json(data_dir / PROFILE_FILE)
     catalog_payload, catalog_messages = load_json(data_dir / CATALOG_FILE)
     gis_payload, gis_messages = load_json(data_dir / GIS_FILE)
-    messages = [*profile_messages, *catalog_messages, *gis_messages]
-    if profile_payload is None or catalog_payload is None or gis_payload is None:
+    observations_payload, observations_messages = load_json(data_dir / OBSERVATIONS_FILE)
+    messages = [*profile_messages, *catalog_messages, *gis_messages, *observations_messages]
+    if profile_payload is None or catalog_payload is None or gis_payload is None or observations_payload is None:
         return messages
 
     ids_by_catalog = collect_catalog_ids(catalog_payload, messages)
-    used_ids: dict[str, set[str]] = {catalog_name: set() for catalog_name in REQUIRED_CATALOGS}
+    used_ids: dict[str, set[str]] = {catalog_name: set() for catalog_name in ids_by_catalog}
 
     validate_profiles(profile_payload, ids_by_catalog, messages, used_ids)
     validate_gis(gis_payload, ids_by_catalog, messages, used_ids)
+    validate_observations(
+        observations_payload,
+        collect_species_ids(profile_payload),
+        ids_by_catalog,
+        messages,
+        used_ids,
+    )
     add_unused_catalog_warnings(ids_by_catalog, used_ids, messages)
     return messages
 

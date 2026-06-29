@@ -28,7 +28,7 @@ def load_json(name: str):
     return json.loads((DATA_DIR / name).read_text(encoding="utf-8"))
 
 
-def write_dataset(target: Path, profiles, catalogs, gis) -> None:
+def write_dataset(target: Path, profiles, catalogs, gis, observations) -> None:
     target.mkdir(parents=True, exist_ok=True)
     (target / "mushroom_profiles.json").write_text(
         json.dumps(profiles, indent=2), encoding="utf-8"
@@ -39,6 +39,9 @@ def write_dataset(target: Path, profiles, catalogs, gis) -> None:
     (target / "mushroom_gis_mappings.json").write_text(
         json.dumps(gis, indent=2), encoding="utf-8"
     )
+    (target / "mushroom_observations.json").write_text(
+        json.dumps(observations, indent=2), encoding="utf-8"
+    )
 
 
 class MushroomDataValidatorTests(unittest.TestCase):
@@ -46,8 +49,9 @@ class MushroomDataValidatorTests(unittest.TestCase):
         self.profiles = load_json("mushroom_profiles.json")
         self.catalogs = load_json("mushroom_reference_catalogs.json")
         self.gis = load_json("mushroom_gis_mappings.json")
+        self.observations = load_json("mushroom_observations.json")
 
-    def validate_temp_dataset(self, profiles=None, catalogs=None, gis=None):
+    def validate_temp_dataset(self, profiles=None, catalogs=None, gis=None, observations=None):
         with tempfile.TemporaryDirectory() as tmpdir:
             target = Path(tmpdir)
             write_dataset(
@@ -55,6 +59,7 @@ class MushroomDataValidatorTests(unittest.TestCase):
                 copy.deepcopy(profiles if profiles is not None else self.profiles),
                 copy.deepcopy(catalogs if catalogs is not None else self.catalogs),
                 copy.deepcopy(gis if gis is not None else self.gis),
+                copy.deepcopy(observations if observations is not None else self.observations),
             )
             return VALIDATOR.validate_mushroom_data(target)
 
@@ -125,6 +130,75 @@ class MushroomDataValidatorTests(unittest.TestCase):
 
         self.assertTrue(any("taxonomy_status" in message for message in errors))
         self.assertTrue(any("altitude_optimal_max_m" in message for message in errors))
+
+    def test_validator_accepts_observation_catalog_references(self) -> None:
+        observations = copy.deepcopy(self.observations)
+        observations["observations"] = [
+            {
+                "observation_id": "obs_20260629_0001",
+                "species_id": self.profiles["species_profiles"][0]["species_id"],
+                "observed_at": "2026-06-29",
+                "location": {
+                    "input": "41.3874, 2.1686",
+                    "lat": 41.3874,
+                    "lon": 2.1686,
+                    "source": "manual_decimal",
+                    "precision_m": 50,
+                },
+                "altitude": {"meters": 120, "source": "manual"},
+                "flush_abundance": "abundant",
+                "observer": {"name": "Unit Test", "expertise": "experienced"},
+                "source": {"type": "personal_observation", "label": "field note"},
+                "source_quality": 0.9,
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "metadata": {
+                    "created_at": "2026-06-29",
+                    "updated_at": "2026-06-29",
+                    "created_by": "unit_test",
+                    "updated_by": "unit_test",
+                },
+            }
+        ]
+
+        messages = self.validate_temp_dataset(observations=observations)
+        errors = [message.format() for message in messages if message.severity == "ERROR"]
+
+        self.assertEqual([], errors)
+
+    def test_validator_reports_observation_unknown_species_and_catalog_ids(self) -> None:
+        observations = copy.deepcopy(self.observations)
+        observations["observations"] = [
+            {
+                "observation_id": "obs_20260629_0001",
+                "species_id": "missing_species",
+                "observed_at": "2026-06-29",
+                "location": {
+                    "input": "41.3874, 2.1686",
+                    "lat": 41.3874,
+                    "lon": 2.1686,
+                    "source": "unknown_location_source",
+                },
+                "flush_abundance": "made_up_abundance",
+                "source_quality": 1.2,
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "metadata": {
+                    "created_at": "2026-06-29",
+                    "updated_at": "2026-06-29",
+                    "created_by": "unit_test",
+                    "updated_by": "unit_test",
+                },
+            }
+        ]
+
+        messages = self.validate_temp_dataset(observations=observations)
+        errors = [message.format() for message in messages if message.severity == "ERROR"]
+
+        self.assertTrue(any("missing_species" in message for message in errors))
+        self.assertTrue(any("unknown_location_source" in message for message in errors))
+        self.assertTrue(any("made_up_abundance" in message for message in errors))
+        self.assertTrue(any("source_quality" in message for message in errors))
 
 
 if __name__ == "__main__":

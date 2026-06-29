@@ -21,10 +21,11 @@ class MushroomDataStoreTests(unittest.TestCase):
     def test_ensure_seeded_copies_missing_defaults_only(self) -> None:
         copied = self.store.ensure_seeded()
 
-        self.assertEqual(["profiles", "catalogs", "gis"], copied)
+        self.assertEqual(["profiles", "catalogs", "gis", "observations"], copied)
         self.assertTrue((self.data_dir / "mushroom_profiles.json").exists())
         self.assertTrue((self.data_dir / "mushroom_reference_catalogs.json").exists())
         self.assertTrue((self.data_dir / "mushroom_gis_mappings.json").exists())
+        self.assertTrue((self.data_dir / "mushroom_observations.json").exists())
         self.assertEqual([], self.store.ensure_seeded())
 
     def test_validate_current_reports_warnings_but_no_errors_for_seeded_defaults(self) -> None:
@@ -36,11 +37,13 @@ class MushroomDataStoreTests(unittest.TestCase):
     def test_empty_templates_preserve_root_shape_and_clear_editable_arrays(self) -> None:
         profile_template = self.store.empty_template("profiles")["data"]
         catalog_template = self.store.empty_template("catalogs")["data"]
+        observation_template = self.store.empty_template("observations")["data"]
 
         self.assertEqual([], profile_template["species_profiles"])
         self.assertIn("metadata", profile_template)
         self.assertTrue(catalog_template["catalogs"])
         self.assertTrue(all(items == [] for items in catalog_template["catalogs"].values()))
+        self.assertEqual([], observation_template["observations"])
 
     def test_replace_writes_atomically_and_keeps_backup(self) -> None:
         self.store.ensure_seeded()

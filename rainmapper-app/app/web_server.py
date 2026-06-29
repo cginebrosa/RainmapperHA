@@ -2403,13 +2403,34 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observations-filters {{
       display: grid;
-      gap: 10px;
+      background: rgba(2, 13, 22, .25);
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      gap: 8px;
       grid-template-columns: repeat(6, minmax(0, 1fr));
+      padding: 10px;
     }}
     .observations-layout {{
       display: grid;
       gap: 12px;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, .32fr);
+      grid-template-columns: minmax(0, 1fr) minmax(300px, .28fr);
+    }}
+    .observations-metrics .profile-metric .label {{
+      align-items: center;
+      display: flex;
+      gap: 7px;
+    }}
+    .observations-metrics svg {{
+      fill: none;
+      height: 16px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+      width: 16px;
+    }}
+    .observations-table-card {{
+      min-width: 0;
     }}
     .observations-table-shell {{
       overflow-x: auto;
@@ -2430,6 +2451,71 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observations-table-shell th {{
       color: var(--muted);
       font-weight: 800;
+    }}
+    .observation-badge {{
+      background: rgba(148, 163, 184, .1);
+      border: 1px solid rgba(148, 163, 184, .28);
+      border-radius: 6px;
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 5px 7px;
+    }}
+    .observation-badge.ok {{
+      border-color: rgba(76, 175, 80, .5);
+      color: var(--ok);
+    }}
+    .observation-badge.warn {{
+      border-color: rgba(255, 193, 7, .55);
+      color: var(--warn);
+    }}
+    .observation-badge.danger {{
+      border-color: rgba(255, 82, 82, .5);
+      color: var(--danger);
+    }}
+    .observation-detail-shell {{
+      align-self: start;
+    }}
+    .observation-notes {{
+      border-top: 1px solid rgba(45, 58, 71, .62);
+      display: grid;
+      gap: 6px;
+      padding-top: 10px;
+    }}
+    .observation-notes p {{
+      color: var(--muted);
+      font-size: 12px;
+      margin: 0;
+    }}
+    .observation-form {{
+      gap: 12px;
+    }}
+    .button-link.compact {{
+      min-height: 28px;
+      padding: 5px 8px;
+    }}
+    .observation-row-actions {{
+      align-items: center;
+      display: flex;
+      gap: 6px;
+      height: 100%;
+      white-space: nowrap;
+    }}
+    .observation-row-actions form {{
+      margin: 0;
+    }}
+    .observation-row-actions button.compact {{
+      font-size: 12px;
+      min-height: 28px;
+      padding: 5px 8px;
+    }}
+    .archived-observations-list {{
+      display: grid;
+      gap: 8px;
+      max-height: 320px;
+      overflow: auto;
+      padding-top: 10px;
     }}
     .mushroom-section-tabs {{
       align-items: center;
@@ -4628,6 +4714,174 @@ def profile_message_url(species_id: str = "", search: str = "") -> str:
     return profile_query_url(species_id, search) + "#mushroom-profile-message"
 
 
+GOOGLE_BANG_COORD_RE = re.compile(r"!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)")
+DECIMAL_COORD_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)")
+
+
+def observations_message_url(species_id: str = "") -> str:
+    return profile_query_url(species_id, section="observations") + "#mushroom-profile-message"
+
+
+def observations_form_url(species_id: str = "") -> str:
+    return profile_query_url(species_id, section="observations") + "#new-observation"
+
+
+def next_observation_id(observations: list[dict[str, object]], observed_at: str) -> str:
+    """Return a stable observation ID using the observation date and local sequence."""
+    compact_date = observed_at.replace("-", "")
+    prefix = f"obs_{compact_date}_"
+    highest = 0
+    for row in observations:
+        value = str(row.get("observation_id", ""))
+        if not value.startswith(prefix):
+            continue
+        try:
+            highest = max(highest, int(value.rsplit("_", 1)[1]))
+        except (IndexError, ValueError):
+            continue
+    return f"{prefix}{highest + 1:04d}"
+
+
+def parse_observation_coordinates(form: dict[str, list[str]]) -> tuple[str, float, float, str]:
+    """Parse coordinates from explicit fields, decimal text, or common Google Maps URLs."""
+    location_input = catalog_form_string(form, "location_input")
+    raw_lat = catalog_form_string(form, "location_lat").replace(",", ".")
+    raw_lon = catalog_form_string(form, "location_lon").replace(",", ".")
+    if bool(raw_lat) != bool(raw_lon):
+        raise ValueError("Latitude and longitude must both be informed when using coordinate fields.")
+    if raw_lat and raw_lon:
+        lat = float(raw_lat)
+        lon = float(raw_lon)
+        return location_input or f"{lat}, {lon}", lat, lon, "manual_decimal"
+    if not location_input:
+        raise ValueError("Coordinates are required: paste a Google Maps link, decimal coordinates, or inform latitude and longitude.")
+
+    source = "google_maps_url" if any(marker in location_input for marker in ("google.", "maps.app.goo.gl", "goo.gl/maps")) else "manual_decimal"
+    bang_match = GOOGLE_BANG_COORD_RE.search(location_input)
+    if bang_match:
+        return location_input, float(bang_match.group(1)), float(bang_match.group(2)), source
+    decimal_match = DECIMAL_COORD_RE.search(location_input)
+    if decimal_match:
+        return location_input, float(decimal_match.group(1)), float(decimal_match.group(2)), source
+    raise ValueError("Coordinates could not be parsed from the observation location.")
+
+
+def archived_observations_path(store: object) -> Path:
+    """Return the persistent archive file for mushroom observations."""
+    data_dir = getattr(store, "data_dir")
+    return Path(data_dir) / "archived" / "mushroom_observations_archived.json"
+
+
+def empty_archived_observations_payload() -> dict[str, object]:
+    """Return the stable archive container used by observation archive/restore actions."""
+    return {
+        "schema_version": "0.1",
+        "observations": [],
+        "metadata": {
+            "created_at": datetime.now(UTC).date().isoformat(),
+            "updated_at": datetime.now(UTC).date().isoformat(),
+            "updated_by": "rainmapper_ui",
+        },
+    }
+
+
+def load_archived_observations(store: object) -> dict[str, object]:
+    path = archived_observations_path(store)
+    if not path.exists():
+        return empty_archived_observations_payload()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else empty_archived_observations_payload()
+
+
+def write_archived_observations(store: object, payload: dict[str, object]) -> None:
+    from rainmapper_core.mushroom_store import write_json_atomic
+
+    metadata = payload.setdefault("metadata", {})
+    if isinstance(metadata, dict):
+        metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+        metadata["updated_by"] = "rainmapper_ui"
+    write_json_atomic(archived_observations_path(store), payload)
+
+
+def observation_dicts_from_payload(payload: dict[str, object]) -> list[dict[str, object]]:
+    rows = payload.get("observations")
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def find_observation_by_id(rows: list[dict[str, object]], observation_id: str) -> dict[str, object] | None:
+    for row in rows:
+        if str(row.get("observation_id", "")) == observation_id:
+            return row
+    return None
+
+
+def observation_payload_from_form(
+    form: dict[str, list[str]],
+    observations: list[dict[str, object]],
+    existing: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Build a persisted observation from the server-side maintenance form."""
+    existing = existing if isinstance(existing, dict) else {}
+    species_id = catalog_form_string(form, "observation_species_id")
+    observed_at = catalog_form_string(form, "observed_at")
+    if not species_id:
+        raise ValueError("Species is required.")
+    if not observed_at:
+        raise ValueError("Observation date is required.")
+    location_input, lat, lon, location_source = parse_observation_coordinates(form)
+    altitude_m = catalog_form_optional_number(form, "altitude_m")
+    today = datetime.now(UTC).date().isoformat()
+    existing_metadata = existing.get("metadata") if isinstance(existing.get("metadata"), dict) else {}
+    observation: dict[str, object] = {
+        "observation_id": str(existing.get("observation_id", "") or next_observation_id(observations, observed_at)),
+        "species_id": species_id,
+        "observed_at": observed_at,
+        "location": {
+            "input": location_input,
+            "lat": lat,
+            "lon": lon,
+            "source": location_source,
+            "precision_m": catalog_form_optional_number(form, "location_precision_m"),
+        },
+        "flush_abundance": catalog_form_string(form, "flush_abundance"),
+        "observer": {
+            "name": catalog_form_string(form, "observer_name"),
+            "expertise": catalog_form_string(form, "observer_expertise"),
+        },
+        "source": {
+            "type": catalog_form_string(form, "source_type"),
+            "label": catalog_form_string(form, "source_label"),
+            "url": catalog_form_string(form, "source_url"),
+            "notes": catalog_form_string(form, "source_notes"),
+        },
+        "source_quality": catalog_form_optional_number(form, "source_quality"),
+        "validation_status": catalog_form_string(form, "validation_status"),
+        "calibration_use": catalog_form_string(form, "calibration_use"),
+        "calibration_exclusion_reason": catalog_form_string(form, "calibration_exclusion_reason") or None,
+        "site_context": {
+            "habitat_notes": catalog_form_string(form, "habitat_notes"),
+            "host_notes": catalog_form_string(form, "host_notes"),
+            "soil_notes": catalog_form_string(form, "soil_notes"),
+            "aspect_notes": catalog_form_string(form, "aspect_notes"),
+        },
+        "metadata": {
+            "created_at": str(existing_metadata.get("created_at", today)),
+            "updated_at": today,
+            "created_by": str(existing_metadata.get("created_by", "rainmapper_ui")),
+            "updated_by": "rainmapper_ui",
+        },
+    }
+    if altitude_m is not None or catalog_form_string(form, "altitude_source"):
+        observation["altitude"] = {
+            "meters": altitude_m,
+            "source": catalog_form_string(form, "altitude_source") or "manual",
+            "resolved_at": today if altitude_m is not None else None,
+        }
+    return observation
+
+
 def archived_profiles_path(store: object) -> Path:
     """Return the persistent archive file for deleted mushroom profiles."""
     data_dir = getattr(store, "data_dir")
@@ -6015,7 +6269,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             seeded = store.ensure_seeded()
             profiles_payload = store.load("profiles")
             catalogs_payload = store.load("catalogs")
+            observations_payload = store.load("observations")
             archived_payload = load_archived_profiles(store)
+            archived_observations_payload = load_archived_observations(store)
             errors, warnings = store.validate_current()
         except Exception as exc:
             body = (
@@ -6031,6 +6287,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         archived_profiles = archived_profile_dicts(archived_payload)
         catalogs = catalogs_payload.get("catalogs", {}) if isinstance(catalogs_payload, dict) else {}
         catalogs = catalogs if isinstance(catalogs, dict) else {}
+        observations_payload = observations_payload if isinstance(observations_payload, dict) else {}
         selected = mushroom_profiles_ui.selected_profile(profiles, selected_id)
         if selected:
             selected_id = str(selected.get("species_id", ""))
@@ -6044,7 +6301,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             mode = "current"
 
         flash = mushroom_profiles_flash()
-        flash_html = render_mushroom_profiles_flash(flash)
+        observation_form_message = flash if section == "observations" and flash.startswith("Observation was not saved: ") else ""
+        flash_html = "" if observation_form_message else render_mushroom_profiles_flash(flash)
         seeded_html = (
             f'<div class="catalog-alert"><strong>Seeded defaults</strong><br>{html.escape(", ".join(seeded))}</div>'
             if seeded else ""
@@ -6057,7 +6315,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         elif section == "calibration":
             main_content = mushroom_profiles_ui.render_calibration_section(selected, search)
         elif section == "observations":
-            main_content = mushroom_profiles_ui.render_observations_section(selected, profiles, search)
+            main_content = mushroom_profiles_ui.render_observations_section(
+                selected,
+                profiles,
+                catalogs,
+                observations_payload,
+                archived_observations_payload,
+                search,
+                observation_form_message,
+            )
         elif section == "summary":
             main_content = (
                 f"{mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}"
@@ -6568,6 +6834,137 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 write_archived_profiles(store, archive_payload)
                 set_mushroom_profiles_flash(f"Deleted archived species profile {species_id} permanently.")
                 return profile_message_url()
+            if action == "create_observation":
+                observations_payload = store.load("observations")
+                if not isinstance(observations_payload, dict):
+                    set_mushroom_profiles_flash("Observation was not saved: observations payload must be an object.")
+                    return observations_form_url(species_id)
+                observations = observations_payload.get("observations")
+                if not isinstance(observations, list):
+                    set_mushroom_profiles_flash("Observation was not saved: observations list is missing.")
+                    return observations_form_url(species_id)
+                try:
+                    observation = observation_payload_from_form(form, [row for row in observations if isinstance(row, dict)])
+                except ValueError as exc:
+                    set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
+                    return observations_form_url(catalog_form_string(form, "observation_species_id"))
+                observations.append(observation)
+                observations_payload["observations"] = observations
+                metadata = observations_payload.get("metadata")
+                if isinstance(metadata, dict):
+                    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+                    metadata["updated_by"] = "rainmapper_ui"
+                result = store.replace("observations", observations_payload)
+                observation_species_id = str(observation.get("species_id", ""))
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(f"Created observation {observation.get('observation_id')}." + suffix)
+                    return observations_message_url(observation_species_id)
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Observation was not saved: " + error_text)
+                return observations_form_url(observation_species_id)
+            if action == "update_observation":
+                observation_id = catalog_form_string(form, "observation_id")
+                observations_payload = store.load("observations")
+                if not isinstance(observations_payload, dict):
+                    set_mushroom_profiles_flash("Observation was not saved: observations payload must be an object.")
+                    return observations_message_url(species_id)
+                observations = observation_dicts_from_payload(observations_payload)
+                existing = find_observation_by_id(observations, observation_id)
+                if not existing:
+                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
+                    return observations_message_url(species_id)
+                try:
+                    updated = observation_payload_from_form(form, observations, existing)
+                except ValueError as exc:
+                    set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
+                    return observations_message_url(str(existing.get("species_id", species_id)))
+                observations_payload["observations"] = [
+                    updated if str(row.get("observation_id", "")) == observation_id else row
+                    for row in observations
+                ]
+                metadata = observations_payload.get("metadata")
+                if isinstance(metadata, dict):
+                    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+                    metadata["updated_by"] = "rainmapper_ui"
+                result = store.replace("observations", observations_payload)
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(f"Updated observation {observation_id}." + suffix)
+                    return observations_message_url(str(updated.get("species_id", species_id)))
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Observation was not saved: " + error_text)
+                return observations_message_url(str(existing.get("species_id", species_id)))
+            if action == "archive_observation":
+                observation_id = catalog_form_string(form, "observation_id")
+                observations_payload = store.load("observations")
+                observations = observation_dicts_from_payload(observations_payload)
+                source = find_observation_by_id(observations, observation_id)
+                if not source:
+                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
+                    return observations_message_url(species_id)
+                archived_payload = load_archived_observations(store)
+                archived = [
+                    row
+                    for row in observation_dicts_from_payload(archived_payload)
+                    if str(row.get("observation_id", "")) != observation_id
+                ]
+                archived.append(json.loads(json.dumps(source)))
+                archived_payload["observations"] = archived
+                observations_payload["observations"] = [
+                    row for row in observations if str(row.get("observation_id", "")) != observation_id
+                ]
+                result = store.replace("observations", observations_payload)
+                if result.ok:
+                    write_archived_observations(store, archived_payload)
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(f"Archived observation {observation_id}." + suffix)
+                    return observations_message_url(str(source.get("species_id", species_id)))
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Observation was not archived: " + error_text)
+                return observations_message_url(species_id)
+            if action == "restore_observation":
+                observation_id = catalog_form_string(form, "observation_id")
+                observations_payload = store.load("observations")
+                observations = observation_dicts_from_payload(observations_payload)
+                if find_observation_by_id(observations, observation_id):
+                    set_mushroom_profiles_flash(f"Archived observation {observation_id} was not restored: active ID already exists.")
+                    return observations_message_url(species_id)
+                archived_payload = load_archived_observations(store)
+                archived = observation_dicts_from_payload(archived_payload)
+                source = find_observation_by_id(archived, observation_id)
+                if not source:
+                    set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.")
+                    return observations_message_url(species_id)
+                observations_payload["observations"] = observations + [json.loads(json.dumps(source))]
+                result = store.replace("observations", observations_payload)
+                if result.ok:
+                    archived_payload["observations"] = [
+                        row for row in archived if str(row.get("observation_id", "")) != observation_id
+                    ]
+                    write_archived_observations(store, archived_payload)
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_profiles_flash(f"Restored observation {observation_id}." + suffix)
+                    return observations_message_url(str(source.get("species_id", species_id)))
+                error_text = "; ".join(message.message for message in result.errors[:3])
+                set_mushroom_profiles_flash("Observation was not restored: " + error_text)
+                return observations_message_url(species_id)
+            if action == "delete_archived_observation":
+                observation_id = catalog_form_string(form, "observation_id")
+                confirm_id = catalog_form_string(form, "delete_confirm_id")
+                if confirm_id != observation_id:
+                    set_mushroom_profiles_flash("Archived observation was not deleted: confirmation ID does not match.")
+                    return observations_message_url(species_id)
+                archived_payload = load_archived_observations(store)
+                archived = observation_dicts_from_payload(archived_payload)
+                remaining = [row for row in archived if str(row.get("observation_id", "")) != observation_id]
+                if len(remaining) == len(archived):
+                    set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.")
+                    return observations_message_url(species_id)
+                archived_payload["observations"] = remaining
+                write_archived_observations(store, archived_payload)
+                set_mushroom_profiles_flash(f"Deleted archived observation {observation_id} permanently.")
+                return observations_message_url(species_id)
             if action == "save_profile_json":
                 entry = json.loads(self.form_value(form, "profile_json"))
                 if not isinstance(entry, dict):

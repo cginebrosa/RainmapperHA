@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.1",
+  "model_purpose": "field_observations_for_mushroom_species_calibration",
+  "important_note": "Observations are used to compare mushroom prediction parameters with real field outcomes. Required fields stay intentionally small; optional context can be filled when available.",
+  "requires_catalog_file": "mushroom_reference_catalogs.json",
+  "observations": [],
+  "metadata": {
+    "created_at": "2026-06-29",
+    "updated_at": "2026-06-29",
+    "updated_by": "codex",
+    "notes": "Initial empty observation store."
+  }
+}

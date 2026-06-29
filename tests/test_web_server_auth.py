@@ -263,7 +263,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         for section, expected in (
             ("parameters", "Climate model"),
             ("calibration", "Confidence profile"),
-            ("observations", "Future calibration dataset"),
+            ("observations", "Observation records"),
         ):
             captured = {}
 
@@ -280,6 +280,284 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertIn(expected, page)
             self.assertIn(f'section={section}', page)
             self.assertIn("Boletus pinophilus", page)
+
+    def test_mushroom_observations_create_persists_valid_record(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_pinophilus"],
+                "observed_at": ["2026-06-29"],
+                "location_input": ["https://www.google.com/maps/@41.3874,2.1686,15z"],
+                "flush_abundance": ["abundant"],
+                "source_quality": ["0.85"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "observer_name": ["Unit observer"],
+                "observer_expertise": ["experienced"],
+                "source_type": ["personal_observation"],
+                "source_label": ["field report"],
+                "altitude_m": ["120"],
+                "altitude_source": ["manual"],
+                "habitat_notes": ["oak woodland"],
+            }
+        )
+
+        self.assertEqual("?id=boletus_pinophilus&section=observations#mushroom-profile-message", redirect)
+        observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
+        payload = json.loads(observations_path.read_text(encoding="utf-8"))
+        self.assertEqual(1, len(payload["observations"]))
+        observation = payload["observations"][0]
+        self.assertEqual("boletus_pinophilus", observation["species_id"])
+        self.assertEqual("abundant", observation["flush_abundance"])
+        self.assertEqual("google_maps_url", observation["location"]["source"])
+        self.assertAlmostEqual(41.3874, observation["location"]["lat"])
+        self.assertAlmostEqual(2.1686, observation["location"]["lon"])
+        self.assertEqual(120, observation["altitude"]["meters"])
+        self.assertNotIn("evidence", observation)
+
+    def test_mushroom_observations_update_replaces_existing_record(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_pinophilus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.3874"],
+                "location_lon": ["2.1686"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["draft"],
+                "calibration_use": ["review"],
+            }
+        )
+        observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
+        observation_id = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]["observation_id"]
+
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["update_observation"],
+                "observation_id": [observation_id],
+                "observation_species_id": ["boletus_pinophilus"],
+                "observed_at": ["2026-06-30"],
+                "location_lat": ["41.4000"],
+                "location_lon": ["2.1700"],
+                "flush_abundance": ["abundant"],
+                "source_quality": ["0.9"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "observer_name": ["Updated observer"],
+                "observer_expertise": ["expert"],
+                "source_type": ["trusted_observer"],
+                "habitat_notes": ["updated habitat"],
+            }
+        )
+
+        self.assertEqual("?id=boletus_pinophilus&section=observations#mushroom-profile-message", redirect)
+        payload = json.loads(observations_path.read_text(encoding="utf-8"))
+        self.assertEqual(1, len(payload["observations"]))
+        observation = payload["observations"][0]
+        self.assertEqual(observation_id, observation["observation_id"])
+        self.assertEqual("2026-06-30", observation["observed_at"])
+        self.assertEqual("abundant", observation["flush_abundance"])
+        self.assertEqual("Updated observer", observation["observer"]["name"])
+        self.assertEqual("updated habitat", observation["site_context"]["habitat_notes"])
+
+    def test_mushroom_observations_create_accepts_lat_lon_without_main_coordinates(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_pinophilus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.3874"],
+                "location_lon": ["2.1686"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["draft"],
+                "calibration_use": ["review"],
+                "observer_expertise": ["unknown"],
+                "source_type": ["personal_observation"],
+            }
+        )
+
+        self.assertEqual("?id=boletus_pinophilus&section=observations#mushroom-profile-message", redirect)
+        payload = json.loads((data_dir / "mushroom-data" / "mushroom_observations.json").read_text(encoding="utf-8"))
+        observation = payload["observations"][0]
+        self.assertEqual("41.3874, 2.1686", observation["location"]["input"])
+        self.assertEqual("manual_decimal", observation["location"]["source"])
+
+    def test_mushroom_observations_create_reports_missing_coordinates(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_pinophilus"],
+                "observed_at": ["2026-06-29"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["draft"],
+                "calibration_use": ["review"],
+            }
+        )
+
+        self.assertEqual("?id=boletus_pinophilus&section=observations#new-observation", redirect)
+        self.assertIn("Coordinates are required", self.web_server.RUN_STATE["mushroom_profiles_flash"])
+
+    def test_mushroom_observations_archive_restore_and_delete(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_pinophilus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.3874"],
+                "location_lon": ["2.1686"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+            }
+        )
+        observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
+        observation_id = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]["observation_id"]
+
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["archive_observation"],
+                "species_id": ["boletus_pinophilus"],
+                "observation_id": [observation_id],
+            }
+        )
+        self.assertEqual([], json.loads(observations_path.read_text(encoding="utf-8"))["observations"])
+        archived_path = data_dir / "mushroom-data" / "archived" / "mushroom_observations_archived.json"
+        self.assertEqual(observation_id, json.loads(archived_path.read_text(encoding="utf-8"))["observations"][0]["observation_id"])
+
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["restore_observation"],
+                "species_id": ["boletus_pinophilus"],
+                "observation_id": [observation_id],
+            }
+        )
+        self.assertEqual(observation_id, json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]["observation_id"])
+        self.assertEqual([], json.loads(archived_path.read_text(encoding="utf-8"))["observations"])
+
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["archive_observation"],
+                "species_id": ["boletus_pinophilus"],
+                "observation_id": [observation_id],
+            }
+        )
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["delete_archived_observation"],
+                "species_id": ["boletus_pinophilus"],
+                "observation_id": [observation_id],
+                "delete_confirm_id": ["wrong_id"],
+            }
+        )
+        self.assertEqual(1, len(json.loads(archived_path.read_text(encoding="utf-8"))["observations"]))
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["delete_archived_observation"],
+                "species_id": ["boletus_pinophilus"],
+                "observation_id": [observation_id],
+                "delete_confirm_id": [observation_id],
+            }
+        )
+        self.assertEqual([], json.loads(archived_path.read_text(encoding="utf-8"))["observations"])
 
     def test_mushroom_parameters_render_human_labels_and_host_groups(self) -> None:
         data_dir = Path(self.temp_dir.name)
