@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.180
+
+- Keep mushroom species saves on the current internal tab after saving or validation errors.
+- Improve mushroom observation filters with editable date fields and automatic date-picker submission.
+- Move scoring weights into their own Parameters section and rebalance the Parameters layout.
+- Replace phenology season-pattern and topography aspect textareas with localized selectable catalog chips.
+- Add localized tooltips and aligned headers for the species-list confidence, calibration-priority and review-status chips, with internal scrolling for long species lists.
+
 ## 0.2.179
 
 - Refine the mushroom Species editor `Fenología y Topografía` tab with separate phenology/topography sections and denser desktop-first layouts.

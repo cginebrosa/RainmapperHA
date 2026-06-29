@@ -11,6 +11,7 @@ from __future__ import annotations
 import html
 import json
 import os
+from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -376,6 +377,48 @@ def form_month_toggles(name: str, label: str, values: object, active_class: str 
     )
 
 
+def form_catalog_toggles(
+    name: str,
+    label: str,
+    values: object,
+    catalogs: dict[str, object],
+    group: str,
+) -> str:
+    """Render editable catalog-backed checkboxes as compact visual chips."""
+    selected = {str(value) for value in values if str(value or "")} if isinstance(values, list) else set()
+    labels = catalog_label_map(catalogs, group)
+    items = catalogs.get(group)
+    items = items if isinstance(items, list) else []
+    escaped_name = html.escape(name, quote=True)
+    chips = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id", "") or "")
+        if not item_id:
+            continue
+        checked = " checked" if item_id in selected else ""
+        chips.append(
+            '<label class="catalog-toggle">'
+            f'<input type="checkbox" name="{escaped_name}" value="{html.escape(item_id, quote=True)}"{checked}>'
+            f'<span class="catalog-chip">{html.escape(labels.get(item_id, item_id))}</span>'
+            "</label>"
+        )
+    extras = sorted(selected - {str(item.get("id", "") or "") for item in items if isinstance(item, dict)})
+    chips.extend(
+        '<span class="catalog-chip missing">'
+        f'{html.escape(value)}'
+        '</span>'
+        for value in extras
+    )
+    return (
+        '<div class="admin-field catalog-toggle-field">'
+        f'<span class="field-label">{html.escape(label)}</span>'
+        f'<div class="catalog-toggle-grid">{"".join(chips)}</div>'
+        "</div>"
+    )
+
+
 def parameter_unit(name: str) -> str:
     """Infer a compact unit label from a parameter key."""
     if name.endswith("_mm"):
@@ -686,13 +729,14 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
         if tokens and not all(token in searchable for token in tokens):
             continue
         active = " active" if species_id == selected_id else ""
+        chip_items = (
+            (confidence.get("overall_confidence", ""), ui_label("ui.overall_confidence")),
+            (confidence.get("calibration_priority", ""), ui_label("ui.calibration_priority")),
+            (metadata.get("review_status", ""), ui_label("ui.review_status")),
+        )
         chips = "".join(
-            f'<span class="profile-chip {html.escape(str(value))}">{html.escape(value_label(value))}</span>'
-            for value in (
-                confidence.get("overall_confidence", ""),
-                confidence.get("calibration_priority", ""),
-                metadata.get("review_status", ""),
-            )
+            f'<span class="profile-chip {html.escape(str(value))}" title="{html.escape(label, quote=True)}: {html.escape(value_label(value), quote=True)}">{html.escape(value_label(value))}</span>'
+            for value, label in chip_items
             if value
         )
         rows.append(
@@ -705,7 +749,15 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
         )
     if not rows:
         rows.append(f'<div class="profile-list-item"><strong>{html.escape(ui_label("ui.no_species_match"))}</strong><span class="meta">{html.escape(ui_label("ui.adjust_search"))}</span></div>')
-    return f'<aside class="profile-list"><div class="profile-list-search-title">{html.escape(ui_label("ui.species"))}</div>' + "".join(rows) + "</aside>"
+    legend = (
+        f'<span class="profile-list-title">{html.escape(ui_label("ui.species"))}</span>'
+        '<span class="profile-list-chip-legend">'
+        f'<span title="{html.escape(ui_label("ui.overall_confidence"), quote=True)}">{html.escape(ui_label("ui.profile_list_confidence_short"))}</span>'
+        f'<span title="{html.escape(ui_label("ui.calibration_priority"), quote=True)}">{html.escape(ui_label("ui.profile_list_priority_short"))}</span>'
+        f'<span title="{html.escape(ui_label("ui.review_status"), quote=True)}">{html.escape(ui_label("ui.profile_list_review_short"))}</span>'
+        "</span>"
+    )
+    return f'<aside class="profile-list"><div class="profile-list-search-title">{legend}</div><div class="profile-list-rows">' + "".join(rows) + "</div></aside>"
 
 
 def render_section_tabs(active_section: str, selected_id: str, search: str) -> str:
@@ -959,6 +1011,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
       <form method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save this species profile and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_form">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+        <input type="hidden" name="profile_return_tab" value="profile-tab-general">
         <div class="profile-tabs">
           <input type="radio" name="profile_tab" id="profile-tab-general" checked>
           <input type="radio" name="profile_tab" id="profile-tab-ecology">
@@ -1003,7 +1056,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
                   </div>
                 </div>
                 <div class="profile-season-pattern-field">
-                  {form_textarea("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), rows=6)}
+                  {form_catalog_toggles("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), catalogs, "season_patterns")}
                 </div>
               </div>
               <h3>{html.escape(ui_label("ui.topography"))}</h3>
@@ -1015,7 +1068,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
                   {form_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), field_type="number")}
                 </div>
                 <div class="profile-aspect-field">
-                  {form_textarea("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), rows=5)}
+                  {form_catalog_toggles("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), catalogs, "aspects")}
                 </div>
               </div>
               {form_textarea("aspect_notes", ui_label("site_context.aspect_notes"), topography.get("aspect_notes", ""), rows=2)}
@@ -1156,6 +1209,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
         <form class="profile-json-editor" method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this species profile and validate the full dataset?')">
           <input type="hidden" name="profile_action" value="save_profile_json">
           <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+          <input type="hidden" name="profile_return_tab" value="profile-tab-json">
           <label class="label" for="profile-json">{html.escape(ui_label("ui.species_profile_json"))}</label>
           <textarea id="profile-json" name="profile_json" spellcheck="false">{html.escape(json_value)}</textarea>
           <button class="primary">{html.escape(ui_label("ui.save_raw_json"))}</button>
@@ -1195,28 +1249,37 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
         <input type="hidden" name="profile_action" value="save_profile_parameters">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
         <div class="profile-parameters-grid">
-          <article class="profile-section-card">
-            <h2>{icon("weather")} {html.escape(ui_label("ui.climate_model"))}</h2>
-            <p class="parameter-card-note">{html.escape(ui_label("ui.weather_thresholds_note"))}</p>
-            <div class="parameter-climate-grid">
-              <div class="profile-subsection">
-                <h3>{icon("rain")} {html.escape(ui_label("rainfall"))}</h3>
-                {''.join(parameter_field(f"rainfall_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in rainfall.items())}
+          <div class="parameter-left-stack">
+            <article class="profile-section-card">
+              <h2>{icon("weather")} {html.escape(ui_label("ui.climate_model"))}</h2>
+              <p class="parameter-card-note">{html.escape(ui_label("ui.weather_thresholds_note"))}</p>
+              <div class="parameter-climate-grid">
+                <div class="profile-subsection">
+                  <h3>{icon("rain")} {html.escape(ui_label("rainfall"))}</h3>
+                  {''.join(parameter_field(f"rainfall_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in rainfall.items())}
+                </div>
+                <div class="profile-subsection">
+                  <h3>{icon("temperature")} {html.escape(ui_label("temperature"))}</h3>
+                  {''.join(parameter_field(f"temperature_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in temperature.items())}
+                </div>
+                <div class="profile-subsection">
+                  <h3>{icon("humidity")} {html.escape(ui_label("humidity"))}</h3>
+                  {''.join(parameter_field(f"humidity_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in humidity.items())}
+                </div>
+                <div class="profile-subsection">
+                  <h3>{icon("wind")} {html.escape(ui_label("ui.wind"))}</h3>
+                  {''.join(parameter_field(f"wind_{key}", parameter_label(key), value, unit=parameter_unit(key), field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
+                </div>
               </div>
-              <div class="profile-subsection">
-                <h3>{icon("temperature")} {html.escape(ui_label("temperature"))}</h3>
-                {''.join(parameter_field(f"temperature_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in temperature.items())}
+            </article>
+            <article class="profile-section-card">
+              <h2>{icon("scoring")} {html.escape(ui_label("ui.scoring_weights"))}</h2>
+              <div class="profile-scoring-total"><span>{html.escape(ui_label("ui.current_total"))}</span><strong>{scoring_total:.2f}</strong><em>{html.escape(ui_label("ui.target"))}: 1.00</em></div>
+              <div class="parameter-score-grid">
+                {''.join(parameter_field(f"score_{key}", parameter_label(key), value, step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
               </div>
-              <div class="profile-subsection">
-                <h3>{icon("humidity")} {html.escape(ui_label("humidity"))}</h3>
-                {''.join(parameter_field(f"humidity_{key}", parameter_label(key), value, unit=parameter_unit(key)) for key, value in humidity.items())}
-              </div>
-              <div class="profile-subsection">
-                <h3>{icon("wind")} {html.escape(ui_label("ui.wind"))}</h3>
-                {''.join(parameter_field(f"wind_{key}", parameter_label(key), value, unit=parameter_unit(key), field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
-              </div>
-            </div>
-          </article>
+            </article>
+          </div>
           <article class="profile-section-card">
             <h2>{icon("ecology")} {html.escape(ui_label("ui.habitat_model"))}</h2>
             <p class="parameter-card-note">{html.escape(ui_label("ui.habitat_model_note"))}</p>
@@ -1245,26 +1308,19 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
                   {parameter_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), unit="m")}
                   {parameter_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), unit="m")}
                 </div>
-                {parameter_textarea("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), rows=1)}
+                {form_catalog_toggles("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), catalogs, "aspects")}
                 {parameter_textarea("aspect_notes", ui_label("site_context.aspect_notes"), topography.get("aspect_notes", ""), rows=1)}
               </div>
               <div class="profile-subsection">
                 <h3>{icon("phenology")} {html.escape(ui_label("ui.phenology"))}</h3>
                 {parameter_textarea("main_months", ui_label("ui.main_months"), phenology.get("main_months", []), rows=1)}
                 {parameter_textarea("secondary_months", ui_label("ui.secondary_months"), phenology.get("secondary_months", []), rows=1)}
-                {parameter_textarea("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), rows=1)}
+                {form_catalog_toggles("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), catalogs, "season_patterns")}
                 <div class="parameter-duo-grid">
                   {parameter_field("delay_min", ui_label("ui.delay_min"), delay.get("min", ""), unit="d")}
                   {parameter_field("delay_optimal_min", ui_label("ui.delay_optimal_min"), delay.get("optimal_min", ""), unit="d")}
                   {parameter_field("delay_optimal_max", ui_label("ui.delay_optimal_max"), delay.get("optimal_max", ""), unit="d")}
                   {parameter_field("delay_max", ui_label("ui.delay_max"), delay.get("max", ""), unit="d")}
-                </div>
-              </div>
-              <div class="profile-subsection full">
-                <h3>{icon("scoring")} {html.escape(ui_label("ui.scoring_weights"))}</h3>
-                <div class="profile-scoring-total"><span>{html.escape(ui_label("ui.current_total"))}</span><strong>{scoring_total:.2f}</strong><em>{html.escape(ui_label("ui.target"))}: 1.00</em></div>
-                <div class="parameter-score-grid">
-                  {''.join(parameter_field(f"score_{key}", parameter_label(key), value, step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
                 </div>
               </div>
             </div>
@@ -1393,6 +1449,56 @@ def observation_metrics(rows: list[dict[str, object]]) -> tuple[int, int, int, i
     return total, positive, negative, pending
 
 
+def observation_filter_value(filters: dict[str, str] | None, key: str) -> str:
+    """Return a normalized observation filter value."""
+    if not isinstance(filters, dict):
+        return ""
+    return str(filters.get(key, "") or "").strip()
+
+
+def filtered_observation_rows(
+    rows: list[dict[str, object]],
+    selected_species_id: str,
+    filters: dict[str, str] | None,
+) -> list[dict[str, object]]:
+    """Apply the visible observation filters used by the maintenance screen."""
+    date_from = observation_filter_value(filters, "date_from")
+    date_to = observation_filter_value(filters, "date_to")
+    result = observation_filter_value(filters, "result")
+    validation = observation_filter_value(filters, "validation")
+    text = observation_filter_value(filters, "obs_q").lower()
+    visible_rows = rows
+    if selected_species_id:
+        visible_rows = [row for row in visible_rows if str(row.get("species_id", "")) == selected_species_id]
+    if date_from:
+        visible_rows = [row for row in visible_rows if str(row.get("observed_at", "")) >= date_from]
+    if date_to:
+        visible_rows = [row for row in visible_rows if str(row.get("observed_at", "")) <= date_to]
+    if result:
+        visible_rows = [row for row in visible_rows if str(row.get("flush_abundance", "")) == result]
+    if validation:
+        visible_rows = [row for row in visible_rows if str(row.get("validation_status", "")) == validation]
+    if text:
+        def row_text(row: dict[str, object]) -> str:
+            location = row.get("location") if isinstance(row.get("location"), dict) else {}
+            source = row.get("source") if isinstance(row.get("source"), dict) else {}
+            observer = row.get("observer") if isinstance(row.get("observer"), dict) else {}
+            parts = [
+                row.get("observation_id", ""),
+                row.get("species_id", ""),
+                row.get("flush_abundance", ""),
+                row.get("validation_status", ""),
+                observer.get("name", "") if isinstance(observer, dict) else "",
+                source.get("label", "") if isinstance(source, dict) else "",
+                source.get("type", "") if isinstance(source, dict) else "",
+                location.get("input", "") if isinstance(location, dict) else "",
+            ]
+            return " ".join(str(part) for part in parts).lower()
+
+        visible_rows = [row for row in visible_rows if text in row_text(row)]
+    return visible_rows
+
+
 def observation_catalog_label(catalogs: dict[str, object], group: str, item_id: object) -> str:
     """Return a catalog-backed label for an observation value."""
     value = str(item_id or "")
@@ -1428,13 +1534,9 @@ def render_observation_table(
     rows: list[dict[str, object]],
     catalogs: dict[str, object],
     species_labels: dict[str, str],
-    selected_species_id: str,
 ) -> str:
     """Render the observation list with enough columns for field calibration review."""
-    visible_rows = rows
-    if selected_species_id:
-        visible_rows = [row for row in rows if str(row.get("species_id", "")) == selected_species_id]
-    visible_rows = sorted(visible_rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
+    visible_rows = sorted(rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
     if not visible_rows:
         return f'<tr><td colspan="10">{html.escape(ui_label("ui.no_observations_filter"))}</td></tr>'
 
@@ -1497,13 +1599,9 @@ def render_observation_detail(
     rows: list[dict[str, object]],
     catalogs: dict[str, object],
     species_labels: dict[str, str],
-    selected_species_id: str,
 ) -> str:
     """Render the most recent observation detail panel."""
-    visible_rows = rows
-    if selected_species_id:
-        visible_rows = [row for row in rows if str(row.get("species_id", "")) == selected_species_id]
-    visible_rows = sorted(visible_rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
+    visible_rows = sorted(rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
     if not visible_rows:
         return """
         <h2 id="observation-detail">""" + html.escape(ui_label("ui.observation_detail")) + """</h2>
@@ -1703,15 +1801,21 @@ def render_observations_section(
     archived_observations_payload: dict[str, object] | None,
     search: str = "",
     form_message: str = "",
+    filters: dict[str, str] | None = None,
 ) -> str:
     """Render the observation workspace backed by mushroom_observations.json."""
     selected_species_id = str(profile.get("species_id", "")) if profile else ""
     rows = observations_from_payload(observations_payload)
+    filtered_rows = filtered_observation_rows(rows, selected_species_id, filters)
     species_labels = profile_name_map(profiles)
-    total, positive, negative, pending = observation_metrics(
-        [row for row in rows if not selected_species_id or str(row.get("species_id", "")) == selected_species_id]
-    )
+    total, positive, negative, pending = observation_metrics(filtered_rows)
     calibration_href = profile_query_url(selected_species_id, search, section="calibration") if selected_species_id else profile_query_url(section="calibration")
+    today_value = date.today().isoformat()
+    date_from = observation_filter_value(filters, "date_from")
+    date_to = observation_filter_value(filters, "date_to")
+    result_filter = observation_filter_value(filters, "result")
+    validation_filter = observation_filter_value(filters, "validation")
+    observation_search = observation_filter_value(filters, "obs_q")
     species_filter_options = f'<option value="">{html.escape(ui_label("ui.all_species"))}</option>' + "".join(
         f'<option value="{html.escape(str(item.get("species_id", "")), quote=True)}"{" selected" if str(item.get("species_id", "")) == selected_species_id else ""}>{html.escape(str(item.get("scientific_name", item.get("species_id", ""))))}</option>'
         for item in profiles
@@ -1726,31 +1830,33 @@ def render_observations_section(
         <div class="profile-metric"><span class="label">{icon("scoring")} {html.escape(ui_label("ui.negative_absent"))}</span><span class="value danger">{negative}</span></div>
         <div class="profile-metric"><span class="label">{icon("calibration")} {html.escape(ui_label("ui.pending_validation"))}</span><span class="value warn">{pending}</span></div>
       </div>
-      <div class="observations-filters">
-        <div class="admin-field"><label>{html.escape(ui_label("ui.date_from"))}</label><input type="date" readonly></div>
-        <div class="admin-field"><label>{html.escape(ui_label("ui.date_to"))}</label><input type="date" readonly></div>
-        <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select disabled>{species_filter_options}</select></div>
-        <div class="admin-field"><label>{html.escape(ui_label("ui.result"))}</label><select disabled>{catalog_select_options(catalogs, "observation_flush_abundance", "", ui_label("ui.all"))}</select></div>
-        <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select disabled>{catalog_select_options(catalogs, "observation_validation_statuses", "", ui_label("ui.all"))}</select></div>
-        <div class="admin-field"><label>{html.escape(ui_label("ui.search"))}</label><input value="{html.escape(search, quote=True)}" readonly></div>
-      </div>
+      <form class="observations-filters" method="get" action="">
+        <input type="hidden" name="section" value="observations">
+        <input type="hidden" name="q" value="{html.escape(search, quote=True)}">
+        <div class="admin-field"><label>{html.escape(ui_label("ui.date_from"))}</label><input name="date_from" type="date" value="{html.escape(date_from, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
+        <div class="admin-field"><label>{html.escape(ui_label("ui.date_to"))}</label><input name="date_to" type="date" value="{html.escape(date_to, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
+        <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="id" onchange="this.form.submit()">{species_filter_options}</select></div>
+        <div class="admin-field"><label>{html.escape(ui_label("ui.result"))}</label><select name="result" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_flush_abundance", result_filter, ui_label("ui.all"))}</select></div>
+        <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_validation_statuses", validation_filter, ui_label("ui.all"))}</select></div>
+        <div class="admin-field"><label>{html.escape(ui_label("ui.search"))}</label><input name="obs_q" type="search" value="{html.escape(observation_search, quote=True)}"></div>
+      </form>
       <div class="observations-layout">
         <article class="profile-section-card observations-table-card">
           <h2>{icon("metadata")} {html.escape(ui_label("ui.observation_records"))}</h2>
           <div class="observations-table-shell">
             <table>
               <thead><tr><th>{html.escape(ui_label("observed_at"))}</th><th>{html.escape(ui_label("species_id"))}</th><th>{html.escape(ui_label("ui.coordinates"))}</th><th>{html.escape(ui_label("ui.altitude_short"))}</th><th>{html.escape(ui_label("flush_abundance"))}</th><th>{html.escape(ui_label("observer.name"))}</th><th>{html.escape(ui_label("source.label"))}</th><th>{html.escape(ui_label("validation_status"))}</th><th>{html.escape(ui_label("ui.use"))}</th><th></th></tr></thead>
-              <tbody>{render_observation_table(rows, catalogs, species_labels, selected_species_id)}</tbody>
+              <tbody>{render_observation_table(filtered_rows, catalogs, species_labels)}</tbody>
             </table>
           </div>
         </article>
         <aside class="profile-section-card observation-detail-shell">
-          {render_observation_detail(rows, catalogs, species_labels, selected_species_id)}
+          {render_observation_detail(filtered_rows, catalogs, species_labels)}
         </aside>
       </div>
       {render_archived_observations_panel(archived_observations_payload, species_labels, selected_species_id)}
       {render_observation_create_form(profiles, catalogs, selected_species_id, form_message)}
-      {render_observation_edit_modals(rows, profiles, catalogs, selected_species_id)}
+      {render_observation_edit_modals(filtered_rows, profiles, catalogs, selected_species_id)}
       <div class="profile-action-bar">
         <a class="button-link primary-link" href="#new-observation">{html.escape(ui_label("ui.new_observation"))}</a>
         <a class="button-link" href="{html.escape(calibration_href, quote=True)}">{html.escape(ui_label("ui.open_calibration"))}</a>

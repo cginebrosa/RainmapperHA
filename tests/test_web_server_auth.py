@@ -226,6 +226,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Host Affinities", page)
         self.assertIn("profile-metrics", page)
         self.assertIn("profile-tab-labels", page)
+        self.assertIn("profile-list-rows", page)
+        self.assertIn("profile-list-chip-legend", page)
+        self.assertIn('title="Overall confidence:', page)
+        self.assertIn('title="Calibration priority:', page)
+        self.assertIn('title="Review status:', page)
+        self.assertIn('name="profile_return_tab" value="profile-tab-general"', page)
         self.assertIn("Calibration", page)
         self.assertIn("Local calibration status", page)
         self.assertIn("Full profiles JSON import/export", page)
@@ -281,6 +287,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertIn(expected, page)
             self.assertIn(f'section={section}', page)
             self.assertIn("Boletus pinophilus", page)
+            if section == "species":
+                self.assertIn('name="profile_return_tab" value="profile-tab-general"', page)
+
+    def test_mushroom_profile_save_return_preserves_internal_tab(self) -> None:
+        ok_redirect = self.web_server.profile_save_return_url(
+            "boletus_pinophilus",
+            {"profile_return_tab": ["profile-tab-phenology"]},
+        )
+        error_redirect = self.web_server.profile_save_return_url(
+            "boletus_pinophilus",
+            {"profile_return_tab": ["profile-tab-phenology"]},
+            message=True,
+        )
+
+        self.assertEqual("?id=boletus_pinophilus&section=species#profile-tab-phenology", ok_redirect)
+        self.assertEqual(
+            "?id=boletus_pinophilus&section=species&profile_tab=profile-tab-phenology#mushroom-profile-message",
+            error_redirect,
+        )
 
     def test_mushroom_observations_create_persists_valid_record(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -594,8 +619,72 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("7d min rain", html)
         self.assertIn("Primary hosts", html)
         self.assertIn("Secondary hosts", html)
+        self.assertIn("parameter-left-stack", html)
         self.assertIn('name="rainfall_rain_7d_min_mm"', html)
+        self.assertLess(html.index("Climate model"), html.index("Scoring weights"))
+        self.assertLess(html.index("Scoring weights"), html.index("Habitat model"))
         self.assertNotIn(">rain_7d_min_mm<", html)
+
+    def test_mushroom_observation_filters_are_editable_and_filter_rows(self) -> None:
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+
+        profiles = json.loads((ROOT_DIR / "mushroom-data" / "mushroom_profiles.json").read_text(encoding="utf-8"))[
+            "species_profiles"
+        ]
+        catalogs = json.loads(
+            (ROOT_DIR / "mushroom-data" / "mushroom_reference_catalogs.json").read_text(encoding="utf-8")
+        )["catalogs"]
+        profile = next(item for item in profiles if item["species_id"] == "boletus_pinophilus")
+        observations = {
+            "observations": [
+                {
+                    "observation_id": "obs_20260620_0001",
+                    "species_id": "boletus_pinophilus",
+                    "observed_at": "2026-06-20",
+                    "flush_abundance": "scarce",
+                    "validation_status": "draft",
+                    "calibration_use": "review",
+                    "source_quality": 0.5,
+                    "location": {"lat": 41.1, "lon": 2.1, "source": "manual_decimal"},
+                },
+                {
+                    "observation_id": "obs_20260629_0001",
+                    "species_id": "boletus_pinophilus",
+                    "observed_at": "2026-06-29",
+                    "flush_abundance": "abundant",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "source_quality": 0.9,
+                    "location": {"lat": 41.2, "lon": 2.2, "source": "manual_decimal"},
+                },
+            ]
+        }
+
+        html = self.web_server.mushroom_profiles_ui.render_observations_section(
+            profile,
+            profiles,
+            catalogs,
+            observations,
+            {"observations": []},
+            filters={"date_from": "2026-06-29", "result": "abundant"},
+        )
+
+        filters_html = html[html.index('<form class="observations-filters"') : html.index('<div class="observations-layout">')]
+        self.assertIn('name="date_from" type="date" value="2026-06-29"', filters_html)
+        self.assertIn('name="date_to" type="date"', filters_html)
+        self.assertNotIn("readonly", filters_html)
+        self.assertNotIn("disabled", filters_html)
+        self.assertIn("obs_20260629_0001", html)
+        self.assertNotIn("obs_20260620_0001", html)
 
     def test_mushroom_profiles_create_species_uses_validated_template(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -1042,11 +1131,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
             {
                 "profile_action": ["save_profile_json"],
                 "species_id": ["boletus_pinophilus"],
+                "profile_return_tab": ["profile-tab-json"],
                 "profile_json": [json.dumps(profile)],
             }
         )
 
-        self.assertEqual("?id=boletus_pinophilus#mushroom-profile-message", redirect)
+        self.assertEqual("?id=boletus_pinophilus&section=species&profile_tab=profile-tab-json#mushroom-profile-message", redirect)
         self.assertIn(
             "host_affinities: contains duplicate IDs",
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
@@ -1086,11 +1176,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
             {
                 "profile_action": ["save_profile_json"],
                 "species_id": ["boletus_edulis"],
+                "profile_return_tab": ["profile-tab-json"],
                 "profile_json": [json.dumps(profile)],
             }
         )
 
-        self.assertEqual("?id=boletus_edulis#mushroom-profile-message", redirect)
+        self.assertEqual("?id=boletus_edulis&section=species&profile_tab=profile-tab-json#mushroom-profile-message", redirect)
         self.assertIn(
             "main_months and secondary_months overlap",
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
@@ -1133,8 +1224,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "trophic_mode_id": [profile["ecology"]["trophic_mode_id"]],
             "main_months": ["\n".join(str(value) for value in profile["phenology"]["main_months"])],
             "secondary_months": ["\n".join(str(value) for value in profile["phenology"]["secondary_months"])],
-            "season_pattern_ids": ["\n".join(profile["phenology"]["season_pattern_ids"])],
-            "preferred_aspect_ids": ["\n".join(profile["topography"]["preferred_aspect_ids"])],
+            "season_pattern_ids": list(profile["phenology"]["season_pattern_ids"]),
+            "preferred_aspect_ids": list(profile["topography"]["preferred_aspect_ids"]),
             "aspect_notes": [profile["topography"].get("aspect_notes", "")],
         }
         delay = profile["phenology"]["fruiting_delay_after_rain_days"]
@@ -1319,10 +1410,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Media", html)
         self.assertIn("Sin calibrar", html)
         self.assertIn("Posible a final de primavera", html)
+        self.assertIn("Verano", html)
+        self.assertIn("Norte", html)
         self.assertIn("Mixta", html)
         self.assertIn('name="main_months" value="6" checked', editor_html)
         self.assertIn('name="secondary_months" value="5" checked', editor_html)
+        self.assertIn('name="season_pattern_ids" value="season_summer" checked', editor_html)
+        self.assertIn('name="preferred_aspect_ids" value="aspect_N" checked', editor_html)
         self.assertNotIn('textarea id="profile-main_months"', editor_html)
+        self.assertNotIn('textarea id="profile-season_pattern_ids"', editor_html)
+        self.assertNotIn('textarea id="profile-preferred_aspect_ids"', editor_html)
         self.assertNotIn("missing label:", html)
 
     def test_run_script_exports_home_assistant_ui_language_option(self) -> None:

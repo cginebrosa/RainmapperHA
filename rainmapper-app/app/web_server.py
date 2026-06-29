@@ -1473,18 +1473,48 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 10px;
       display: grid;
       gap: 0;
+      grid-template-rows: auto minmax(0, 1fr);
+      max-height: calc(100vh - 24px);
       overflow: hidden;
       position: sticky;
       top: 12px;
     }}
     .profile-list-search-title {{
+      align-items: center;
       border-bottom: 1px solid var(--line);
       color: var(--muted);
+      display: grid;
       font-size: 12px;
       font-weight: 800;
+      gap: 10px;
+      grid-template-columns: 28px minmax(0, 1fr) 54px 54px 70px;
       letter-spacing: 0;
-      padding: 10px 12px;
+      padding: 10px 12px 10px 14px;
       text-transform: uppercase;
+    }}
+    .profile-list-title {{
+      grid-column: 1 / 3;
+    }}
+    .profile-list-chip-legend {{
+      align-items: center;
+      display: grid;
+      gap: 5px;
+      grid-column: 3 / 6;
+      grid-template-columns: 54px 54px 70px;
+      text-transform: none;
+    }}
+    .profile-list-chip-legend span {{
+      border: 1px solid rgba(148, 163, 184, .22);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1;
+      padding: 2px 5px;
+      text-align: center;
+    }}
+    .profile-list-rows {{
+      min-height: 0;
+      overflow-y: auto;
     }}
     .profile-list-item {{
       align-items: center;
@@ -1495,7 +1525,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       color: var(--fg);
       display: grid;
       gap: 8px 10px;
-      grid-template-columns: 28px minmax(0, 1fr) auto;
+      grid-template-columns: 28px minmax(0, 1fr) 54px 54px 70px;
       min-height: 60px;
       padding: 9px 12px 9px 14px;
       text-decoration: none;
@@ -1541,25 +1571,28 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-width: 0;
     }}
     .profile-list-item strong {{
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.2;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }}
     .profile-chip-line {{
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
       gap: 5px;
-      grid-column: 3;
-      justify-content: end;
+      grid-column: 3 / 6;
+      grid-template-columns: 54px 54px 70px;
     }}
     .profile-chip {{
       border: 1px solid var(--line);
       border-radius: 999px;
       color: var(--muted);
       font-size: 11px;
+      overflow: hidden;
       padding: 2px 7px;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }}
     .profile-chip.high,
     .profile-chip.very_high {{
@@ -1948,6 +1981,52 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: rgba(3, 169, 244, .72);
       border-color: rgba(3, 169, 244, .96);
       color: white;
+    }}
+    .catalog-toggle-field {{
+      display: block;
+    }}
+    .catalog-toggle-field .field-label {{
+      color: var(--muted);
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }}
+    .catalog-toggle-grid {{
+      align-content: start;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }}
+    .catalog-toggle input {{
+      opacity: 0;
+      pointer-events: none;
+      position: absolute;
+    }}
+    .catalog-chip {{
+      background: transparent;
+      border: 1px solid rgba(45, 58, 71, .9);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.15;
+      max-width: 210px;
+      min-height: 26px;
+      padding: 5px 7px;
+      user-select: none;
+    }}
+    .catalog-toggle input:checked + .catalog-chip {{
+      background: rgba(3, 169, 244, .72);
+      border-color: rgba(3, 169, 244, .96);
+      color: white;
+    }}
+    .catalog-chip.missing {{
+      border-color: rgba(255, 209, 102, .65);
+      color: #ffd166;
+      cursor: default;
     }}
     .profile-weather-grid {{
       display: grid;
@@ -2354,6 +2433,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 9px;
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }}
+    .parameter-left-stack {{
+      align-content: start;
+      display: grid;
+      gap: 12px;
+    }}
     .parameter-habitat-grid {{
       gap: 9px;
     }}
@@ -2439,7 +2523,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .parameter-score-grid {{
       display: grid;
       gap: 7px 10px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }}
     .parameter-score-grid .parameter-field-row {{
       grid-template-columns: minmax(92px, 1fr) minmax(76px, .58fr);
@@ -2746,6 +2830,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         grid-template-columns: 1fr;
       }}
       .profile-list {{
+        max-height: none;
         position: static;
       }}
       .profile-grid,
@@ -2761,6 +2846,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-calibration-grid,
       .profile-metrics,
       .profile-parameters-grid,
+      .parameter-left-stack,
       .parameter-climate-grid,
       .parameter-duo-grid,
       .parameter-score-grid,
@@ -2976,6 +3062,37 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       setControlTab(tabName || "summary");
     }}
+    function activeProfileTabId() {{
+      var checked = document.querySelector(".profile-tabs input[name='profile_tab']:checked");
+      return checked ? checked.id : "profile-tab-general";
+    }}
+    function setProfileReturnTabs() {{
+      var activeTab = activeProfileTabId();
+      Array.prototype.slice.call(document.querySelectorAll("input[name='profile_return_tab']")).forEach(function(input) {{
+        if (!input.value || input.value.indexOf("profile-tab-") === 0) {{
+          input.value = activeTab;
+        }}
+      }});
+    }}
+    function restoreProfileTab() {{
+      var tabId = "";
+      if (window.location.hash && window.location.hash.indexOf("#profile-tab-") === 0) {{
+        tabId = window.location.hash.slice(1);
+      }}
+      if (!tabId) {{
+        try {{
+          tabId = new URLSearchParams(window.location.search).get("profile_tab") || "";
+        }} catch (error) {{}}
+      }}
+      if (!tabId || tabId.indexOf("profile-tab-") !== 0) {{
+        return;
+      }}
+      var tab = document.getElementById(tabId);
+      if (tab && tab.name === "profile_tab") {{
+        tab.checked = true;
+        setProfileReturnTabs();
+      }}
+    }}
     function applyUsersFilter() {{
       var input = document.getElementById("users-filter");
       var list = document.getElementById("users-list");
@@ -3070,7 +3187,23 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         applyUsersFilter();
       }}
     }});
+    document.addEventListener("change", function(event) {{
+      if (event.target && event.target.name === "profile_tab") {{
+        setProfileReturnTabs();
+      }}
+    }});
+    document.addEventListener("submit", function(event) {{
+      if (event.target && event.target.querySelector("input[name='profile_return_tab']")) {{
+        setProfileReturnTabs();
+      }}
+    }});
     document.addEventListener("click", function(event) {{
+      var dateInput = event.target.closest(".observations-filters input[type='date'], .observation-form input[type='date']");
+      if (dateInput && typeof dateInput.showPicker === "function") {{
+        try {{
+          dateInput.showPicker();
+        }} catch (error) {{}}
+      }}
       var toggle = event.target.closest("[data-user-toggle]");
       if (toggle) {{
         toggleUserCard(toggle);
@@ -3107,6 +3240,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       applyUsersFilter();
       collapseUserCards();
       restoreControlTab();
+      restoreProfileTab();
+      setProfileReturnTabs();
     }});
   </script>
 </body>
@@ -4803,6 +4938,28 @@ def profile_message_url(species_id: str = "", search: str = "") -> str:
     return profile_query_url(species_id, search) + "#mushroom-profile-message"
 
 
+PROFILE_RETURN_TABS = {
+    "profile-tab-general",
+    "profile-tab-ecology",
+    "profile-tab-phenology",
+    "profile-tab-weather",
+    "profile-tab-scoring",
+    "profile-tab-calibration",
+    "profile-tab-metadata",
+    "profile-tab-json",
+}
+
+
+def profile_save_return_url(species_id: str, form: dict[str, list[str]], *, message: bool = False) -> str:
+    """Return to the species editor and restore the active internal tab."""
+    tab = catalog_form_string(form, "profile_return_tab")
+    if tab not in PROFILE_RETURN_TABS:
+        tab = "profile-tab-general"
+    if message:
+        return profile_query_url(species_id, section="species") + f"&profile_tab={tab}#mushroom-profile-message"
+    return profile_query_url(species_id, section="species") + f"#{tab}"
+
+
 GOOGLE_BANG_COORD_RE = re.compile(r"!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)")
 DECIMAL_COORD_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)")
 
@@ -5039,6 +5196,10 @@ def profile_form_int_list(form: dict[str, list[str]], name: str) -> list[int]:
     return values
 
 
+def profile_form_string_list(form: dict[str, list[str]], name: str) -> list[str]:
+    return [str(value).strip() for value in form.get(name, []) if str(value).strip()]
+
+
 def profile_form_bool(form: dict[str, list[str]], name: str) -> bool:
     return catalog_form_string(form, name) == "true"
 
@@ -5085,7 +5246,7 @@ def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -
     phenology = profile_nested_dict(profile, "phenology").copy()
     phenology["main_months"] = profile_form_int_list(form, "main_months")
     phenology["secondary_months"] = profile_form_int_list(form, "secondary_months")
-    phenology["season_pattern_ids"] = catalog_split_list(catalog_form_string(form, "season_pattern_ids"))
+    phenology["season_pattern_ids"] = profile_form_string_list(form, "season_pattern_ids")
     phenology["fruiting_delay_after_rain_days"] = {
         "min": profile_form_number(form, "delay_min"),
         "optimal_min": profile_form_number(form, "delay_optimal_min"),
@@ -5097,7 +5258,7 @@ def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -
     topography = profile_nested_dict(profile, "topography").copy()
     for key in ("altitude_min_m", "altitude_optimal_min_m", "altitude_optimal_max_m", "altitude_max_m"):
         topography[key] = profile_form_number(form, key)
-    topography["preferred_aspect_ids"] = catalog_split_list(catalog_form_string(form, "preferred_aspect_ids"))
+    topography["preferred_aspect_ids"] = profile_form_string_list(form, "preferred_aspect_ids")
     topography["aspect_notes"] = catalog_form_string(form, "aspect_notes")
     profile["topography"] = topography
 
@@ -5159,7 +5320,7 @@ def profile_parameters_from_form(existing: dict[str, object], form: dict[str, li
     phenology = profile_nested_dict(profile, "phenology").copy()
     phenology["main_months"] = profile_form_int_list(form, "main_months")
     phenology["secondary_months"] = profile_form_int_list(form, "secondary_months")
-    phenology["season_pattern_ids"] = catalog_split_list(catalog_form_string(form, "season_pattern_ids"))
+    phenology["season_pattern_ids"] = profile_form_string_list(form, "season_pattern_ids")
     phenology["fruiting_delay_after_rain_days"] = {
         "min": profile_form_number(form, "delay_min"),
         "optimal_min": profile_form_number(form, "delay_optimal_min"),
@@ -5171,7 +5332,7 @@ def profile_parameters_from_form(existing: dict[str, object], form: dict[str, li
     topography = profile_nested_dict(profile, "topography").copy()
     for key in ("altitude_min_m", "altitude_optimal_min_m", "altitude_optimal_max_m", "altitude_max_m"):
         topography[key] = profile_form_number(form, key)
-    topography["preferred_aspect_ids"] = catalog_split_list(catalog_form_string(form, "preferred_aspect_ids"))
+    topography["preferred_aspect_ids"] = profile_form_string_list(form, "preferred_aspect_ids")
     topography["aspect_notes"] = catalog_form_string(form, "aspect_notes")
     profile["topography"] = topography
 
@@ -6406,6 +6567,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         elif section == "calibration":
             main_content = mushroom_profiles_ui.render_calibration_section(selected, search)
         elif section == "observations":
+            observation_filters = {
+                "date_from": (query.get("date_from") or [""])[0],
+                "date_to": (query.get("date_to") or [""])[0],
+                "result": (query.get("result") or [""])[0],
+                "validation": (query.get("validation") or [""])[0],
+                "obs_q": (query.get("obs_q") or [""])[0],
+            }
             main_content = mushroom_profiles_ui.render_observations_section(
                 selected,
                 profiles,
@@ -6414,6 +6582,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 archived_observations_payload,
                 search,
                 observation_form_message,
+                observation_filters,
             )
         elif section == "summary":
             main_content = (
@@ -7060,24 +7229,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 entry = json.loads(self.form_value(form, "profile_json"))
                 if not isinstance(entry, dict):
                     set_mushroom_profiles_flash("Species profile JSON must be an object.")
-                    return profile_message_url(species_id)
+                    return profile_save_return_url(species_id, form, message=True)
                 semantic_errors = profile_semantic_error_messages(entry)
                 if semantic_errors:
                     set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(semantic_errors[:3]))
-                    return profile_message_url(species_id)
+                    return profile_save_return_url(species_id, form, message=True)
                 profiles_payload = store.load("profiles")
                 ok, message = replace_profile_entry(profiles_payload, species_id, entry)
                 if not ok:
                     set_mushroom_profiles_flash(message)
-                    return profile_message_url(species_id)
+                    return profile_save_return_url(species_id, form, message=True)
                 result = store.replace("profiles", profiles_payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(message + suffix)
-                    return profile_query_url(species_id)
+                    return profile_save_return_url(species_id, form)
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
-                return profile_message_url(species_id)
+                return profile_save_return_url(species_id, form, message=True)
             elif action == "save_profile_form":
                 profiles_payload = store.load("profiles")
                 profiles = profiles_payload.get("species_profiles")
@@ -7093,24 +7262,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     )
                 if not isinstance(existing, dict):
                     set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
-                    return profile_message_url(species_id)
+                    return profile_save_return_url(species_id, form, message=True)
                 entry = profile_from_form(existing, form)
                 semantic_errors = profile_semantic_error_messages(entry)
                 if semantic_errors:
                     set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(semantic_errors[:3]))
-                    return profile_message_url(species_id)
+                    return profile_save_return_url(species_id, form, message=True)
                 ok, message = replace_profile_entry(profiles_payload, species_id, entry)
                 if not ok:
                     set_mushroom_profiles_flash(message)
-                    return profile_message_url(species_id)
+                    return profile_save_return_url(species_id, form, message=True)
                 result = store.replace("profiles", profiles_payload)
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(message + suffix)
-                    return profile_query_url(species_id)
+                    return profile_save_return_url(species_id, form)
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Species profile was not saved: " + error_text)
-                return profile_message_url(species_id)
+                return profile_save_return_url(species_id, form, message=True)
             elif action == "save_profile_parameters":
                 return save_profile_entry_from_partial_form(
                     store,

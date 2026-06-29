@@ -574,6 +574,21 @@
     "es": "Especies",
     "ca": "Especies"
   },
+  "ui.profile_list_confidence_short": {
+    "en": "Conf.",
+    "es": "Conf.",
+    "ca": "Conf."
+  },
+  "ui.profile_list_priority_short": {
+    "en": "Prio.",
+    "es": "Prio.",
+    "ca": "Prio."
+  },
+  "ui.profile_list_review_short": {
+    "en": "Review",
+    "es": "Rev.",
+    "ca": "Rev."
+  },
   "ui.parameters": {
     "en": "Parameters",
     "es": "Parametros",
