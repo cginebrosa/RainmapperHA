@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.177
+
+- Expand `mushroom-data/mushroom_labels.json` so the mushroom maintenance domain uses centralized English, Spanish and Catalan UI labels across profiles, parameters, calibration, observations and reference catalogs.
+- Wire the Home Assistant `ui_language` option to the mushroom maintenance screens through `RAINMAPPER_MUSHROOM_UI_LANGUAGE`, with `en`, `es` and `ca` supported after add-on restart.
+- Count observation references in the reference catalog hub so observation-backed catalog entries are not reported as unused.
+
 ## 0.2.176
 
 - Move reference catalog group names to `mushroom-data/mushroom_labels.json` with `catalog_group.*` keys for English, Spanish and Catalan.

@@ -6178,6 +6178,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             catalogs_payload = store.load("catalogs")
             profiles_payload = store.load("profiles")
             gis_payload = store.load("gis")
+            observations_payload = store.load("observations")
             errors, warnings = store.validate_current()
         except Exception as exc:
             body = (
@@ -6190,7 +6191,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         catalogs = catalogs_payload.get("catalogs", {}) if isinstance(catalogs_payload, dict) else {}
         catalogs = catalogs if isinstance(catalogs, dict) else {}
-        rows, metrics = catalog_rows(catalogs, profiles_payload, gis_payload)
+        rows, metrics = catalog_rows(catalogs, profiles_payload, gis_payload, observations_payload)
         selected = selected_catalog_row(rows, selected_group, selected_id)
         if selected and selected_group and not selected_id:
             selected_id = str(selected["id"])

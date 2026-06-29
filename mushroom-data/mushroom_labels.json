@@ -114,6 +114,26 @@
     "es": "Penal.Viento",
     "ca": "Penal.Vent"
   },
+  "altitude_min_m": {
+    "en": "Altitude min",
+    "es": "Altitud min",
+    "ca": "Altitud min"
+  },
+  "altitude_optimal_min_m": {
+    "en": "Optimal min",
+    "es": "Optima min",
+    "ca": "Optima min"
+  },
+  "altitude_optimal_max_m": {
+    "en": "Optimal max",
+    "es": "Optima max",
+    "ca": "Optima max"
+  },
+  "altitude_max_m": {
+    "en": "Altitude max",
+    "es": "Altitud max",
+    "ca": "Altitud max"
+  },
   "catalog_group.trophic_modes": {
     "en": "Trophic",
     "es": "Trofico",
@@ -348,5 +368,1355 @@
     "en": "Reviewed at",
     "es": "Revisado en",
     "ca": "Revisat el"
+  },
+  "ui.observations": {
+    "en": "Observations",
+    "es": "Observaciones",
+    "ca": "Observacions"
+  },
+  "ui.observation_detail": {
+    "en": "Observation detail",
+    "es": "Detalle de observacion",
+    "ca": "Detall d'observacio"
+  },
+  "ui.select_or_create_observation": {
+    "en": "Select or create an observation to review its calibration context.",
+    "es": "Selecciona o crea una observacion para revisar su contexto de calibracion.",
+    "ca": "Selecciona o crea una observacio per revisar el seu context de calibracio."
+  },
+  "ui.new_observation": {
+    "en": "New observation",
+    "es": "Nueva observacion",
+    "ca": "Nova observacio"
+  },
+  "ui.edit_observation": {
+    "en": "Edit observation",
+    "es": "Editar observacion",
+    "ca": "Editar observacio"
+  },
+  "ui.observation_form_help": {
+    "en": "Register a field outcome for species calibration. Use either a map link/decimal pair or explicit latitude and longitude.",
+    "es": "Registra un resultado de campo para calibrar especies. Usa un enlace de mapa/par decimal o latitud y longitud explicitas.",
+    "ca": "Registra un resultat de camp per calibrar especies. Usa un enllac de mapa/parell decimal o latitud i longitud explicites."
+  },
+  "ui.observation_not_saved": {
+    "en": "Observation was not saved",
+    "es": "La observacion no se ha guardado",
+    "ca": "L'observacio no s'ha desat"
+  },
+  "ui.cancel": {
+    "en": "Cancel",
+    "es": "Cancelar",
+    "ca": "Cancel.lar"
+  },
+  "ui.save_observation": {
+    "en": "Save observation",
+    "es": "Guardar observacion",
+    "ca": "Desar observacio"
+  },
+  "ui.recover_altitude": {
+    "en": "Recover altitude",
+    "es": "Recuperar altitud",
+    "ca": "Recuperar altitud"
+  },
+  "ui.import_csv": {
+    "en": "Import CSV",
+    "es": "Importar CSV",
+    "ca": "Importar CSV"
+  },
+  "ui.total_observations": {
+    "en": "Total observations",
+    "es": "Total observaciones",
+    "ca": "Total observacions"
+  },
+  "ui.positive_present": {
+    "en": "Positive / present",
+    "es": "Positiva / presente",
+    "ca": "Positiva / present"
+  },
+  "ui.negative_absent": {
+    "en": "Negative / absent",
+    "es": "Negativa / ausente",
+    "ca": "Negativa / absent"
+  },
+  "ui.pending_validation": {
+    "en": "Pending validation",
+    "es": "Pendiente de validacion",
+    "ca": "Pendent de validacio"
+  },
+  "ui.date_from": {
+    "en": "Date from",
+    "es": "Fecha desde",
+    "ca": "Data des de"
+  },
+  "ui.date_to": {
+    "en": "Date to",
+    "es": "Fecha hasta",
+    "ca": "Data fins a"
+  },
+  "ui.result": {
+    "en": "Result",
+    "es": "Resultado",
+    "ca": "Resultat"
+  },
+  "ui.search": {
+    "en": "Search",
+    "es": "Buscar",
+    "ca": "Cercar"
+  },
+  "ui.observation_records": {
+    "en": "Observation records",
+    "es": "Registros de observacion",
+    "ca": "Registres d'observacio"
+  },
+  "ui.coordinates": {
+    "en": "Coordinates",
+    "es": "Coordenadas",
+    "ca": "Coordenades"
+  },
+  "ui.altitude_short": {
+    "en": "Alt.",
+    "es": "Alt.",
+    "ca": "Alt."
+  },
+  "ui.use": {
+    "en": "Use",
+    "es": "Uso",
+    "ca": "Us"
+  },
+  "ui.calibration_weight": {
+    "en": "Calibration weight",
+    "es": "Peso calibracion",
+    "ca": "Pes calibracio"
+  },
+  "ui.no_observations_filter": {
+    "en": "No observations yet for the current filter. Create one from the panel below.",
+    "es": "No hay observaciones para el filtro actual. Crea una desde el panel inferior.",
+    "ca": "No hi ha observacions per al filtre actual. Crea'n una des del panell inferior."
+  },
+  "ui.no_habitat_notes": {
+    "en": "No habitat notes recorded.",
+    "es": "No hay notas de habitat.",
+    "ca": "No hi ha notes d'habitat."
+  },
+  "ui.no_host_notes": {
+    "en": "No host notes recorded.",
+    "es": "No hay notas de hosts.",
+    "ca": "No hi ha notes d'hosts."
+  },
+  "ui.archived_observations": {
+    "en": "Archived observations",
+    "es": "Observaciones archivadas",
+    "ca": "Observacions arxivades"
+  },
+  "ui.no_archived_observations": {
+    "en": "No archived observations for the current filter.",
+    "es": "No hay observaciones archivadas para el filtro actual.",
+    "ca": "No hi ha observacions arxivades per al filtre actual."
+  },
+  "ui.restore": {
+    "en": "Restore",
+    "es": "Restaurar",
+    "ca": "Restaurar"
+  },
+  "ui.delete_permanently": {
+    "en": "Delete permanently",
+    "es": "Borrar definitivamente",
+    "ca": "Esborrar definitivament"
+  },
+  "ui.open_calibration": {
+    "en": "Open calibration",
+    "es": "Abrir calibracion",
+    "ca": "Obrir calibracio"
+  },
+  "ui.edit": {
+    "en": "Edit",
+    "es": "Editar",
+    "ca": "Editar"
+  },
+  "ui.archive": {
+    "en": "Archive",
+    "es": "Archivar",
+    "ca": "Arxivar"
+  },
+  "ui.all": {
+    "en": "All",
+    "es": "Todos",
+    "ca": "Tots"
+  },
+  "ui.all_species": {
+    "en": "All species",
+    "es": "Todas las especies",
+    "ca": "Totes les especies"
+  },
+  "ui.not_informed": {
+    "en": "Not informed",
+    "es": "No informado",
+    "ca": "No informat"
+  },
+  "ui.none": {
+    "en": "None",
+    "es": "Ninguno",
+    "ca": "Cap"
+  },
+  "ui.summary": {
+    "en": "Summary",
+    "es": "Resumen",
+    "ca": "Resum"
+  },
+  "ui.species": {
+    "en": "Species",
+    "es": "Especies",
+    "ca": "Especies"
+  },
+  "ui.parameters": {
+    "en": "Parameters",
+    "es": "Parametros",
+    "ca": "Parametres"
+  },
+  "ui.calibration": {
+    "en": "Calibration",
+    "es": "Calibracion",
+    "ca": "Calibracio"
+  },
+  "ui.no_species_selected": {
+    "en": "No species selected",
+    "es": "No hay especie seleccionada",
+    "ca": "No hi ha cap especie seleccionada"
+  },
+  "ui.create_or_select_species": {
+    "en": "Create or select a species first.",
+    "es": "Crea o selecciona una especie primero.",
+    "ca": "Crea o selecciona una especie primer."
+  },
+  "ui.no_species_match": {
+    "en": "No species match",
+    "es": "No hay especies coincidentes",
+    "ca": "No hi ha especies coincidents"
+  },
+  "ui.adjust_search": {
+    "en": "Adjust the search.",
+    "es": "Ajusta la busqueda.",
+    "ca": "Ajusta la cerca."
+  },
+  "ui.species_detail": {
+    "en": "Species detail",
+    "es": "Detalle de especie",
+    "ca": "Detall d'especie"
+  },
+  "ui.general": {
+    "en": "General",
+    "es": "General",
+    "ca": "General"
+  },
+  "ui.ecology": {
+    "en": "Ecology",
+    "es": "Ecologia",
+    "ca": "Ecologia"
+  },
+  "ui.phenology": {
+    "en": "Phenology",
+    "es": "Fenologia",
+    "ca": "Fenologia"
+  },
+  "ui.weather": {
+    "en": "Weather",
+    "es": "Meteorologia",
+    "ca": "Meteorologia"
+  },
+  "ui.scoring": {
+    "en": "Scoring",
+    "es": "Puntuacion",
+    "ca": "Puntuacio"
+  },
+  "ui.confidence": {
+    "en": "Confidence",
+    "es": "Confianza",
+    "ca": "Confianca"
+  },
+  "ui.metadata": {
+    "en": "Metadata",
+    "es": "Metadatos",
+    "ca": "Metadades"
+  },
+  "ui.json": {
+    "en": "JSON",
+    "es": "JSON",
+    "ca": "JSON"
+  },
+  "ui.identity": {
+    "en": "Identity",
+    "es": "Identidad",
+    "ca": "Identitat"
+  },
+  "ui.identity_fields": {
+    "en": "Identity fields",
+    "es": "Campos de identidad",
+    "ca": "Camps d'identitat"
+  },
+  "ui.identity_metadata": {
+    "en": "Identity and metadata",
+    "es": "Identidad y metadatos",
+    "ca": "Identitat i metadades"
+  },
+  "ui.maintenance_metadata": {
+    "en": "Maintenance metadata",
+    "es": "Metadatos de mantenimiento",
+    "ca": "Metadades de manteniment"
+  },
+  "ui.scientific_name": {
+    "en": "Scientific name",
+    "es": "Nombre cientifico",
+    "ca": "Nom cientific"
+  },
+  "ui.common_names": {
+    "en": "Common names",
+    "es": "Nombres comunes",
+    "ca": "Noms comuns"
+  },
+  "ui.taxonomy": {
+    "en": "Taxonomy",
+    "es": "Taxonomia",
+    "ca": "Taxonomia"
+  },
+  "ui.taxonomy_status": {
+    "en": "Taxonomy status",
+    "es": "Estado taxonomico",
+    "ca": "Estat taxonomic"
+  },
+  "ui.edibility": {
+    "en": "Edibility",
+    "es": "Comestibilidad",
+    "ca": "Comestibilitat"
+  },
+  "ui.ecology_topography": {
+    "en": "Ecology and topography",
+    "es": "Ecologia y topografia",
+    "ca": "Ecologia i topografia"
+  },
+  "ui.trophic_mode": {
+    "en": "Trophic mode",
+    "es": "Modo trofico",
+    "ca": "Mode trofic"
+  },
+  "ui.primary_hosts": {
+    "en": "Primary hosts",
+    "es": "Hosts primarios",
+    "ca": "Hosts primaris"
+  },
+  "ui.secondary_hosts": {
+    "en": "Secondary hosts",
+    "es": "Hosts secundarios",
+    "ca": "Hosts secundaris"
+  },
+  "ui.other_hosts": {
+    "en": "Other hosts",
+    "es": "Otros hosts",
+    "ca": "Altres hosts"
+  },
+  "ui.forest_types": {
+    "en": "Forest types",
+    "es": "Tipos de bosque",
+    "ca": "Tipus de bosc"
+  },
+  "ui.habitat_features": {
+    "en": "Habitat features",
+    "es": "Rasgos de habitat",
+    "ca": "Trets d'habitat"
+  },
+  "ui.soils": {
+    "en": "Soils",
+    "es": "Suelos",
+    "ca": "Sols"
+  },
+  "ui.lithology": {
+    "en": "Lithology",
+    "es": "Litologia",
+    "ca": "Litologia"
+  },
+  "ui.topography": {
+    "en": "Topography",
+    "es": "Topografia",
+    "ca": "Topografia"
+  },
+  "ui.phenology_topography": {
+    "en": "Phenology and topography",
+    "es": "Fenologia y topografia",
+    "ca": "Fenologia i topografia"
+  },
+  "ui.main_months": {
+    "en": "Main months",
+    "es": "Meses principales",
+    "ca": "Mesos principals"
+  },
+  "ui.secondary_months": {
+    "en": "Secondary months",
+    "es": "Meses secundarios",
+    "ca": "Mesos secundaris"
+  },
+  "ui.season_patterns": {
+    "en": "Season patterns",
+    "es": "Patrones de temporada",
+    "ca": "Patrons de temporada"
+  },
+  "ui.preferred_aspects": {
+    "en": "Preferred aspects",
+    "es": "Orientaciones preferidas",
+    "ca": "Orientacions preferides"
+  },
+  "ui.weather_model": {
+    "en": "Weather model",
+    "es": "Modelo meteorologico",
+    "ca": "Model meteorologic"
+  },
+  "ui.weather_model_summary": {
+    "en": "Weather model summary",
+    "es": "Resumen del modelo meteorologico",
+    "ca": "Resum del model meteorologic"
+  },
+  "ui.climate_model": {
+    "en": "Climate model",
+    "es": "Modelo climatico",
+    "ca": "Model climatic"
+  },
+  "ui.habitat_model": {
+    "en": "Habitat model",
+    "es": "Modelo de habitat",
+    "ca": "Model d'habitat"
+  },
+  "ui.confidence_calibration": {
+    "en": "Confidence and calibration",
+    "es": "Confianza y calibracion",
+    "ca": "Confianca i calibracio"
+  },
+  "ui.confidence_profile": {
+    "en": "Confidence profile",
+    "es": "Perfil de confianza",
+    "ca": "Perfil de confianca"
+  },
+  "ui.calibration_requirements": {
+    "en": "Calibration requirements",
+    "es": "Requisitos de calibracion",
+    "ca": "Requisits de calibracio"
+  },
+  "ui.observation_coverage": {
+    "en": "Observation coverage",
+    "es": "Cobertura de observaciones",
+    "ca": "Cobertura d'observacions"
+  },
+  "ui.calibration_notes": {
+    "en": "Calibration notes",
+    "es": "Notas de calibracion",
+    "ca": "Notes de calibracio"
+  },
+  "ui.actions_recommendations": {
+    "en": "Actions and recommendations",
+    "es": "Acciones y recomendaciones",
+    "ca": "Accions i recomanacions"
+  },
+  "ui.add_local_observations": {
+    "en": "Add local observations",
+    "es": "Anadir observaciones locales",
+    "ca": "Afegir observacions locals"
+  },
+  "ui.review_weather_thresholds": {
+    "en": "Review weather thresholds",
+    "es": "Revisar umbrales meteorologicos",
+    "ca": "Revisar llindars meteorologics"
+  },
+  "ui.save_calibration": {
+    "en": "Save calibration",
+    "es": "Guardar calibracion",
+    "ca": "Desar calibracio"
+  },
+  "ui.save_parameter_changes": {
+    "en": "Save parameter changes",
+    "es": "Guardar parametros",
+    "ca": "Desar parametres"
+  },
+  "ui.back_to_species_editor": {
+    "en": "Back to Species editor",
+    "es": "Volver al editor de especies",
+    "ca": "Tornar a l'editor d'especies"
+  },
+  "ui.reset_visible_changes": {
+    "en": "Reset visible changes",
+    "es": "Reiniciar cambios visibles",
+    "ca": "Restablir canvis visibles"
+  },
+  "ui.review_status": {
+    "en": "Review status",
+    "es": "Estado de revision",
+    "ca": "Estat de revisio"
+  },
+  "ui.source_quality": {
+    "en": "Source quality",
+    "es": "Calidad del origen",
+    "ca": "Qualitat de l'origen"
+  },
+  "ui.requires_human_validation": {
+    "en": "Requires human validation",
+    "es": "Requiere validacion humana",
+    "ca": "Requereix validacio humana"
+  },
+  "ui.new_species": {
+    "en": "New species",
+    "es": "Nueva especie",
+    "ca": "Nova especie"
+  },
+  "ui.create_species": {
+    "en": "Create species",
+    "es": "Crear especie",
+    "ca": "Crear especie"
+  },
+  "ui.create_species_help": {
+    "en": "Create a draft profile, then complete ecology, phenology, weather, scoring and calibration.",
+    "es": "Crea un perfil borrador y completa ecologia, fenologia, meteorologia, scoring y calibracion.",
+    "ca": "Crea un perfil esborrany i completa ecologia, fenologia, meteorologia, puntuacio i calibracio."
+  },
+  "ui.species_id": {
+    "en": "Species ID",
+    "es": "ID de especie",
+    "ca": "ID d'especie"
+  },
+  "ui.common_name": {
+    "en": "Common name",
+    "es": "Nombre comun",
+    "ca": "Nom comu"
+  },
+  "ui.restore_species": {
+    "en": "Restore species",
+    "es": "Restaurar especie",
+    "ca": "Restaurar especie"
+  },
+  "ui.delete_permanently": {
+    "en": "Delete permanently",
+    "es": "Borrar definitivamente",
+    "ca": "Esborrar definitivament"
+  },
+  "ui.no_archived_species": {
+    "en": "No archived species profiles.",
+    "es": "No hay perfiles de especies archivados.",
+    "ca": "No hi ha perfils d'especies arxivats."
+  },
+  "ui.archived_species_count": {
+    "en": "archived species profiles",
+    "es": "perfiles de especies archivados",
+    "ca": "perfils d'especies arxivats"
+  },
+  "ui.priority": {
+    "en": "Priority",
+    "es": "Prioridad",
+    "ca": "Prioritat"
+  },
+  "ui.current_status": {
+    "en": "Current status",
+    "es": "Estado actual",
+    "ca": "Estat actual"
+  },
+  "ui.overall_confidence": {
+    "en": "Overall confidence",
+    "es": "Confianza global",
+    "ca": "Confianca global"
+  },
+  "ui.human_validation": {
+    "en": "Human validation",
+    "es": "Validacion humana",
+    "ca": "Validacio humana"
+  },
+  "ui.local_calibration_status": {
+    "en": "Local calibration status",
+    "es": "Estado de calibracion local",
+    "ca": "Estat de calibracio local"
+  },
+  "ui.calibration_priority": {
+    "en": "Calibration priority",
+    "es": "Prioridad de calibracion",
+    "ca": "Prioritat de calibracio"
+  },
+  "ui.habitat_confidence": {
+    "en": "Habitat confidence",
+    "es": "Confianza habitat",
+    "ca": "Confianca habitat"
+  },
+  "ui.topography_confidence": {
+    "en": "Topography confidence",
+    "es": "Confianza topografia",
+    "ca": "Confianca topografia"
+  },
+  "ui.phenology_confidence": {
+    "en": "Phenology confidence",
+    "es": "Confianza fenologia",
+    "ca": "Confianca fenologia"
+  },
+  "ui.weather_threshold_confidence": {
+    "en": "Weather confidence",
+    "es": "Confianza meteorologica",
+    "ca": "Confianca meteorologica"
+  },
+  "ui.taxonomy_confidence": {
+    "en": "Taxonomy confidence",
+    "es": "Confianza taxonomica",
+    "ca": "Confianca taxonomica"
+  },
+  "ui.minimum_observations": {
+    "en": "Minimum observations",
+    "es": "Observaciones minimas",
+    "ca": "Observacions minimes"
+  },
+  "ui.minimum_positive_observations": {
+    "en": "Minimum positive",
+    "es": "Positivas minimas",
+    "ca": "Positives minimes"
+  },
+  "ui.minimum_negative_observations": {
+    "en": "Minimum negative",
+    "es": "Negativas minimas",
+    "ca": "Negatives minimes"
+  },
+  "ui.minimum_observations_for_calibration": {
+    "en": "Min observations calibration",
+    "es": "Min observaciones calibracion",
+    "ca": "Min observacions calibracio"
+  },
+  "ui.scoring_weights": {
+    "en": "Scoring weights",
+    "es": "Pesos de scoring",
+    "ca": "Pesos de puntuacio"
+  },
+  "ui.current_total": {
+    "en": "Current total",
+    "es": "Total actual",
+    "ca": "Total actual"
+  },
+  "ui.target": {
+    "en": "Target",
+    "es": "Objetivo",
+    "ca": "Objectiu"
+  },
+  "ui.wind": {
+    "en": "Wind",
+    "es": "Viento",
+    "ca": "Vent"
+  },
+  "ui.weather_thresholds_note": {
+    "en": "Weather thresholds used by the suitability model.",
+    "es": "Umbrales meteorologicos usados por el modelo de aptitud.",
+    "ca": "Llindars meteorologics usats pel model d'aptitud."
+  },
+  "ui.habitat_model_note": {
+    "en": "Habitat, terrain and season inputs used by the species model.",
+    "es": "Entradas de habitat, terreno y temporada usadas por el modelo de especie.",
+    "ca": "Entrades d'habitat, terreny i temporada usades pel model d'especie."
+  },
+  "ui.ecology_and_habitat": {
+    "en": "Ecology and habitat",
+    "es": "Ecologia y habitat",
+    "ca": "Ecologia i habitat"
+  },
+  "ui.soils_and_lithology": {
+    "en": "Soils and lithology",
+    "es": "Suelos y litologia",
+    "ca": "Sols i litologia"
+  },
+  "ui.edit_affinities_note": {
+    "en": "Use Species > Ecology to edit catalog-backed affinity rows and relationships.",
+    "es": "Usa Especies > Ecologia para editar afinidades y relaciones basadas en catalogos.",
+    "ca": "Usa Especies > Ecologia per editar afinitats i relacions basades en catalegs."
+  },
+  "ui.affinity_ids_note": {
+    "en": "Affinity IDs are preserved here and edited in the full Species form.",
+    "es": "Los IDs de afinidad se preservan aqui y se editan en el formulario completo de Especies.",
+    "ca": "Els IDs d'afinitat es preserven aqui i s'editen al formulari complet d'Especies."
+  },
+  "ui.optimal_altitude": {
+    "en": "Optimal altitude",
+    "es": "Altitud optima",
+    "ca": "Altitud optima"
+  },
+  "ui.delay_min": {
+    "en": "Delay min",
+    "es": "Retraso min",
+    "ca": "Retard min"
+  },
+  "ui.delay_optimal_min": {
+    "en": "Delay optimal min",
+    "es": "Retraso optimo min",
+    "ca": "Retard optim min"
+  },
+  "ui.delay_optimal_max": {
+    "en": "Delay optimal max",
+    "es": "Retraso optimo max",
+    "ca": "Retard optim max"
+  },
+  "ui.delay_max": {
+    "en": "Delay max",
+    "es": "Retraso max",
+    "ca": "Retard max"
+  },
+  "ui.fruiting_delay": {
+    "en": "Fruiting delay",
+    "es": "Retraso de fructificacion",
+    "ca": "Retard de fructificacio"
+  },
+  "ui.advanced_json": {
+    "en": "Advanced JSON",
+    "es": "JSON avanzado",
+    "ca": "JSON avancat"
+  },
+  "ui.advanced_raw_json": {
+    "en": "Advanced raw JSON",
+    "es": "JSON raw avanzado",
+    "ca": "JSON raw avancat"
+  },
+  "ui.raw_json_help": {
+    "en": "Use the raw JSON panel only when a field is not exposed by the guided form.",
+    "es": "Usa el panel JSON raw solo cuando un campo no este expuesto en el formulario guiado.",
+    "ca": "Usa el panell JSON raw nomes quan un camp no estigui exposat al formulari guiat."
+  },
+  "ui.species_profile_json": {
+    "en": "Species profile JSON",
+    "es": "JSON del perfil de especie",
+    "ca": "JSON del perfil d'especie"
+  },
+  "ui.save_raw_json": {
+    "en": "Save raw JSON",
+    "es": "Guardar JSON raw",
+    "ca": "Desar JSON raw"
+  },
+  "ui.save_species_profile": {
+    "en": "Save species profile",
+    "es": "Guardar perfil de especie",
+    "ca": "Desar perfil d'especie"
+  },
+  "ui.duplicate_species": {
+    "en": "Duplicate species",
+    "es": "Duplicar especie",
+    "ca": "Duplicar especie"
+  },
+  "ui.archive_species": {
+    "en": "Archive species",
+    "es": "Archivar especie",
+    "ca": "Arxivar especie"
+  },
+  "ui.validate_profile_planned": {
+    "en": "Validate profile - planned",
+    "es": "Validar perfil - pendiente",
+    "ca": "Validar perfil - pendent"
+  },
+  "ui.duplicate_species_help": {
+    "en": "Clone this profile into a new draft species ID, then review all predictor fields.",
+    "es": "Clona este perfil en un nuevo ID borrador y revisa todos los campos del predictor.",
+    "ca": "Clona aquest perfil en un nou ID esborrany i revisa tots els camps del predictor."
+  },
+  "ui.archive_species_help": {
+    "en": "Move this profile out of active maintenance. It can be restored later if the ID is still free.",
+    "es": "Mueve este perfil fuera del mantenimiento activo. Podra restaurarse despues si el ID sigue libre.",
+    "ca": "Mou aquest perfil fora del manteniment actiu. Es podra restaurar despres si l'ID continua lliure."
+  },
+  "ui.species_id_to_archive": {
+    "en": "Species ID to archive",
+    "es": "ID de especie a archivar",
+    "ca": "ID d'especie a arxivar"
+  },
+  "ui.new_species_id": {
+    "en": "New species ID",
+    "es": "Nuevo ID de especie",
+    "ca": "Nou ID d'especie"
+  },
+  "ui.profile_version": {
+    "en": "Profile version",
+    "es": "Version del perfil",
+    "ca": "Versio del perfil"
+  },
+  "ui.catalog_all": {
+    "en": "All catalog",
+    "es": "Todo el catalogo",
+    "ca": "Tot el cataleg"
+  },
+  "ui.used": {
+    "en": "used",
+    "es": "usados",
+    "ca": "usats"
+  },
+  "ui.whole_catalog": {
+    "en": "Whole catalog",
+    "es": "Catalogo completo",
+    "ca": "Cataleg complet"
+  },
+  "ui.all_groups": {
+    "en": "all groups",
+    "es": "todos los grupos",
+    "ca": "tots els grups"
+  },
+  "ui.domain_impact": {
+    "en": "Domain impact",
+    "es": "Impacto de dominio",
+    "ca": "Impacte de domini"
+  },
+  "ui.ids_in_scope": {
+    "en": "IDs in scope",
+    "es": "IDs en alcance",
+    "ca": "IDs en abast"
+  },
+  "ui.profile_references": {
+    "en": "Profile references",
+    "es": "Referencias en perfiles",
+    "ca": "Referencies en perfils"
+  },
+  "ui.gis_references": {
+    "en": "GIS references",
+    "es": "Referencias GIS",
+    "ca": "Referencies GIS"
+  },
+  "ui.observation_references": {
+    "en": "Observation references",
+    "es": "Referencias en observaciones",
+    "ca": "Referencies en observacions"
+  },
+  "ui.unused_ids": {
+    "en": "Unused IDs",
+    "es": "IDs sin uso",
+    "ca": "IDs sense us"
+  },
+  "ui.representative_ids": {
+    "en": "Representative IDs",
+    "es": "IDs representativos",
+    "ca": "IDs representatius"
+  },
+  "ui.catalog_detail": {
+    "en": "Catalog detail",
+    "es": "Detalle de catalogo",
+    "ca": "Detall de cataleg"
+  },
+  "ui.no_catalog_entry_selected": {
+    "en": "No catalog entry selected.",
+    "es": "No hay entrada de catalogo seleccionada.",
+    "ca": "No hi ha entrada de cataleg seleccionada."
+  },
+  "ui.validation": {
+    "en": "Validation",
+    "es": "Validacion",
+    "ca": "Validacio"
+  },
+  "ui.save_entry": {
+    "en": "Save entry",
+    "es": "Guardar entrada",
+    "ca": "Desar entrada"
+  },
+  "ui.entry_json": {
+    "en": "Entry JSON",
+    "es": "JSON de entrada",
+    "ca": "JSON d'entrada"
+  },
+  "ui.full_catalog_json_import_export": {
+    "en": "Full catalog JSON import/export",
+    "es": "Import/export JSON completo de catalogos",
+    "ca": "Import/export JSON complet de catalegs"
+  },
+  "ui.full_profiles_json_import_export": {
+    "en": "Full profiles JSON import/export",
+    "es": "Import/export JSON completo de perfiles",
+    "ca": "Import/export JSON complet de perfils"
+  },
+  "ui.current_catalog": {
+    "en": "Current catalog",
+    "es": "Catalogo actual",
+    "ca": "Cataleg actual"
+  },
+  "ui.current_profiles": {
+    "en": "Current profiles",
+    "es": "Perfiles actuales",
+    "ca": "Perfils actuals"
+  },
+  "ui.packaged_default": {
+    "en": "Packaged default",
+    "es": "Default empaquetado",
+    "ca": "Default empaquetat"
+  },
+  "ui.empty_template": {
+    "en": "Empty template",
+    "es": "Plantilla vacia",
+    "ca": "Plantilla buida"
+  },
+  "ui.import_export_help_catalog": {
+    "en": "Use this panel for controlled full-file import/export. Saving validates profiles, catalogs and GIS mappings together before replacing the persistent catalog file.",
+    "es": "Usa este panel para import/export controlado de fichero completo. Al guardar se validan perfiles, catalogos y GIS antes de reemplazar el fichero persistente de catalogos.",
+    "ca": "Usa aquest panell per a import/export controlat de fitxer complet. En desar es validen perfils, catalegs i GIS abans de substituir el fitxer persistent de catalegs."
+  },
+  "ui.import_export_help_profiles": {
+    "en": "Use this panel for controlled full-file import/export. Saving validates profiles, catalogs and GIS mappings together before replacing the persistent profiles file.",
+    "es": "Usa este panel para import/export controlado de fichero completo. Al guardar se validan perfiles, catalogos y GIS antes de reemplazar el fichero persistente de perfiles.",
+    "ca": "Usa aquest panell per a import/export controlat de fitxer complet. En desar es validen perfils, catalegs i GIS abans de substituir el fitxer persistent de perfils."
+  },
+  "ui.profiles_json": {
+    "en": "Profiles JSON",
+    "es": "JSON de perfiles",
+    "ca": "JSON de perfils"
+  },
+  "ui.catalog_json": {
+    "en": "Catalog JSON",
+    "es": "JSON de catalogo",
+    "ca": "JSON de cataleg"
+  },
+  "ui.validate_save_full_profiles": {
+    "en": "Validate and save full profiles",
+    "es": "Validar y guardar perfiles completos",
+    "ca": "Validar i desar perfils complets"
+  },
+  "ui.validate_save_full_catalog": {
+    "en": "Validate and save full catalog",
+    "es": "Validar y guardar catalogo completo",
+    "ca": "Validar i desar cataleg complet"
+  },
+  "ui.total_observations_used": {
+    "en": "Total observations used",
+    "es": "Observaciones usadas",
+    "ca": "Observacions usades"
+  },
+  "ui.positive_observations": {
+    "en": "Positive observations",
+    "es": "Observaciones positivas",
+    "ca": "Observacions positives"
+  },
+  "ui.negative_observations": {
+    "en": "Negative observations",
+    "es": "Observaciones negativas",
+    "ca": "Observacions negatives"
+  },
+  "ui.key_data_gaps": {
+    "en": "Key data gaps",
+    "es": "Huecos clave de datos",
+    "ca": "Buits clau de dades"
+  },
+  "ui.pending_observation_model": {
+    "en": "pending observation model",
+    "es": "modelo de observaciones pendiente",
+    "ca": "model d'observacions pendent"
+  },
+  "ui.observation_coverage_help": {
+    "en": "Coverage will be calculated from the future observations dataset. No observation data is stored inside mushroom_profiles.json.",
+    "es": "La cobertura se calculara desde el dataset de observaciones. No se guardan observaciones dentro de mushroom_profiles.json.",
+    "ca": "La cobertura es calculara des del dataset d'observacions. No es desen observacions dins de mushroom_profiles.json."
+  },
+  "ui.start_human_validation_planned": {
+    "en": "Start human validation - planned",
+    "es": "Iniciar validacion humana - pendiente",
+    "ca": "Iniciar validacio humana - pendent"
+  },
+  "ui.recalculate_scoring_planned": {
+    "en": "Recalculate scoring - planned",
+    "es": "Recalcular scoring - pendiente",
+    "ca": "Recalcular puntuacio - pendent"
+  },
+  "ui.yes": {
+    "en": "Yes",
+    "es": "Si",
+    "ca": "Si"
+  },
+  "ui.no": {
+    "en": "No",
+    "es": "No",
+    "ca": "No"
+  },
+  "ui.accepted": {
+    "en": "Accepted",
+    "es": "Aceptadas",
+    "ca": "Acceptades"
+  },
+  "ui.operational": {
+    "en": "Operational",
+    "es": "Operativas",
+    "ca": "Operatives"
+  },
+  "ui.uncalibrated": {
+    "en": "Uncalibrated",
+    "es": "Sin calibrar",
+    "ca": "Sense calibrar"
+  },
+  "ui.draft": {
+    "en": "Draft",
+    "es": "Borrador",
+    "ca": "Esborrany"
+  },
+  "ui.high_priority": {
+    "en": "High priority",
+    "es": "Alta prioridad",
+    "ca": "Alta prioritat"
+  },
+  "ui.errors": {
+    "en": "errors",
+    "es": "errores",
+    "ca": "errors"
+  },
+  "ui.warnings": {
+    "en": "warnings",
+    "es": "warnings",
+    "ca": "warnings"
+  },
+  "ui.total_groups": {
+    "en": "Total groups",
+    "es": "Total grupos",
+    "ca": "Total grups"
+  },
+  "ui.total_ids": {
+    "en": "Total IDs",
+    "es": "Total IDs",
+    "ca": "Total IDs"
+  },
+  "ui.used_in_profiles": {
+    "en": "Used in profiles",
+    "es": "Usados en perfiles",
+    "ca": "Usats en perfils"
+  },
+  "ui.used_in_gis": {
+    "en": "Used in GIS",
+    "es": "Usados en GIS",
+    "ca": "Usats en GIS"
+  },
+  "ui.used_in_observations": {
+    "en": "Used in observations",
+    "es": "Usados en observaciones",
+    "ca": "Usats en observacions"
+  },
+  "ui.reference_errors": {
+    "en": "Reference errors",
+    "es": "Errores de referencia",
+    "ca": "Errors de referencia"
+  },
+  "ui.unused": {
+    "en": "Unused",
+    "es": "Sin uso",
+    "ca": "Sense us"
+  },
+  "ui.with_hierarchy": {
+    "en": "With hierarchy",
+    "es": "Con jerarquia",
+    "ca": "Amb jerarquia"
+  },
+  "ui.active": {
+    "en": "Active",
+    "es": "Activo",
+    "ca": "Actiu"
+  },
+  "ui.group": {
+    "en": "Group",
+    "es": "Grupo",
+    "ca": "Grup"
+  },
+  "ui.label_scientific_name": {
+    "en": "Label / scientific name",
+    "es": "Etiqueta / nombre cientifico",
+    "ca": "Etiqueta / nom cientific"
+  },
+  "ui.label_es": {
+    "en": "Label ES",
+    "es": "Etiqueta ES",
+    "ca": "Etiqueta ES"
+  },
+  "ui.label_ca": {
+    "en": "Label CA",
+    "es": "Etiqueta CA",
+    "ca": "Etiqueta CA"
+  },
+  "ui.label_en": {
+    "en": "Label EN",
+    "es": "Etiqueta EN",
+    "ca": "Etiqueta EN"
+  },
+  "ui.parent_id": {
+    "en": "Parent ID",
+    "es": "ID padre",
+    "ca": "ID pare"
+  },
+  "ui.profiles": {
+    "en": "Profiles",
+    "es": "Perfiles",
+    "ca": "Perfils"
+  },
+  "ui.obs_short": {
+    "en": "Obs.",
+    "es": "Obs.",
+    "ca": "Obs."
+  },
+  "ui.domain": {
+    "en": "Domain",
+    "es": "Dominio",
+    "ca": "Domini"
+  },
+  "ui.status": {
+    "en": "Status",
+    "es": "Estado",
+    "ca": "Estat"
+  },
+  "ui.no_catalog_entries_match": {
+    "en": "No catalog entries match the current filters.",
+    "es": "No hay entradas de catalogo para los filtros actuales.",
+    "ca": "No hi ha entrades de cataleg per als filtres actuals."
+  },
+  "ui.validation_clean": {
+    "en": "Validation clean",
+    "es": "Validacion limpia",
+    "ca": "Validacio neta"
+  },
+  "ui.no_blocking_validation_errors": {
+    "en": "No blocking validation errors.",
+    "es": "No hay errores bloqueantes de validacion.",
+    "ca": "No hi ha errors bloquejants de validacio."
+  },
+  "ui.cross_references": {
+    "en": "Cross references",
+    "es": "Referencias cruzadas",
+    "ca": "Referencies creuades"
+  },
+  "ui.relationship": {
+    "en": "Relationship",
+    "es": "Relacion",
+    "ca": "Relacio"
+  },
+  "ui.affinity": {
+    "en": "Affinity",
+    "es": "Afinidad",
+    "ca": "Afinitat"
+  },
+  "ui.rank": {
+    "en": "Rank",
+    "es": "Rango",
+    "ca": "Rang"
+  },
+  "ui.genus": {
+    "en": "Genus",
+    "es": "Genero",
+    "ca": "Genere"
+  },
+  "ui.family": {
+    "en": "Family",
+    "es": "Familia",
+    "ca": "Familia"
+  },
+  "ui.common_names_es": {
+    "en": "Common names ES",
+    "es": "Nombres comunes ES",
+    "ca": "Noms comuns ES"
+  },
+  "ui.common_names_ca": {
+    "en": "Common names CA",
+    "es": "Nombres comunes CA",
+    "ca": "Noms comuns CA"
+  },
+  "ui.common_names_en": {
+    "en": "Common names EN",
+    "es": "Nombres comunes EN",
+    "ca": "Noms comuns EN"
+  },
+  "ui.gis_aliases": {
+    "en": "GIS aliases",
+    "es": "Alias GIS",
+    "ca": "Alias GIS"
+  },
+  "ui.dominant_host_ids": {
+    "en": "Dominant host IDs",
+    "es": "IDs de hosts dominantes",
+    "ca": "IDs de hosts dominants"
+  },
+  "ui.soil_bias_ids": {
+    "en": "Soil bias IDs",
+    "es": "IDs de sesgo de suelo",
+    "ca": "IDs de biaix de sol"
+  },
+  "ui.ph_min": {
+    "en": "pH min",
+    "es": "pH min",
+    "ca": "pH min"
+  },
+  "ui.ph_max": {
+    "en": "pH max",
+    "es": "pH max",
+    "ca": "pH max"
+  },
+  "ui.texture": {
+    "en": "Texture",
+    "es": "Textura",
+    "ca": "Textura"
+  },
+  "ui.organic_matter": {
+    "en": "Organic matter",
+    "es": "Materia organica",
+    "ca": "Materia organica"
+  },
+  "ui.drainage": {
+    "en": "Drainage",
+    "es": "Drenaje",
+    "ca": "Drenatge"
+  },
+  "ui.general_reaction": {
+    "en": "General reaction",
+    "es": "Reaccion general",
+    "ca": "Reaccio general"
+  },
+  "ui.parent_soil_tendency_ids": {
+    "en": "Parent soil tendency IDs",
+    "es": "IDs de tendencia de suelo padre",
+    "ca": "IDs de tendencia de sol pare"
+  },
+  "ui.azimuth_min": {
+    "en": "Azimuth min",
+    "es": "Azimut min",
+    "ca": "Azimut min"
+  },
+  "ui.azimuth_max": {
+    "en": "Azimuth max",
+    "es": "Azimut max",
+    "ca": "Azimut max"
+  },
+  "ui.description": {
+    "en": "Description",
+    "es": "Descripcion",
+    "ca": "Descripcio"
+  },
+  "ui.notes": {
+    "en": "Notes",
+    "es": "Notas",
+    "ca": "Notes"
+  },
+  "ui.new_catalog_entry": {
+    "en": "New catalog entry",
+    "es": "Nueva entrada de catalogo",
+    "ca": "Nova entrada de cataleg"
+  },
+  "ui.new_catalog_entry_help": {
+    "en": "Create a safe starter entry in the selected catalog group. The new ID is validated before the catalog is saved.",
+    "es": "Crea una entrada inicial segura en el grupo seleccionado. El nuevo ID se valida antes de guardar el catalogo.",
+    "ca": "Crea una entrada inicial segura al grup seleccionat. El nou ID es valida abans de desar el cataleg."
+  },
+  "ui.create_entry": {
+    "en": "Create entry",
+    "es": "Crear entrada",
+    "ca": "Crear entrada"
+  },
+  "ui.rain_15d_optimal": {
+    "en": "Rain 15d optimal",
+    "es": "Lluvia optima 15d",
+    "ca": "Pluja optima 15d"
+  },
+  "ui.rain_saturation": {
+    "en": "Rain saturation",
+    "es": "Saturacion lluvia",
+    "ca": "Saturacio pluja"
+  },
+  "ui.temp_min_optimal": {
+    "en": "Temp min optimal",
+    "es": "Temp min optima",
+    "ca": "Temp min optima"
+  },
+  "ui.temp_max_optimal": {
+    "en": "Temp max optimal",
+    "es": "Temp max optima",
+    "ca": "Temp max optima"
+  },
+  "ui.humidity_optimal": {
+    "en": "Humidity optimal",
+    "es": "Humedad optima",
+    "ca": "Humitat optima"
+  },
+  "ui.gust_penalty": {
+    "en": "Gust penalty",
+    "es": "Penalizacion rachas",
+    "ca": "Penalitzacio ratxes"
+  },
+  "ui.planned_profile_validation_title": {
+    "en": "Planned action: explicit single-profile validation is not implemented yet",
+    "es": "Accion pendiente: la validacion explicita de un unico perfil aun no esta implementada",
+    "ca": "Accio pendent: la validacio explicita d'un unic perfil encara no esta implementada"
+  },
+  "ui.parent_id_empty_or_exists": {
+    "en": "Parent ID is empty or exists in the expected catalog.",
+    "es": "El ID padre esta vacio o existe en el catalogo esperado.",
+    "ca": "L'ID pare esta buit o existeix al cataleg esperat."
+  },
+  "ui.dominant_host_ids_exist": {
+    "en": "Dominant host IDs exist in host_taxa.",
+    "es": "Los IDs de hosts dominantes existen en host_taxa.",
+    "ca": "Els IDs de hosts dominants existeixen a host_taxa."
+  },
+  "ui.soil_bias_ids_exist": {
+    "en": "Soil bias IDs exist in soil_types.",
+    "es": "Los IDs de sesgo de suelo existen en soil_types.",
+    "ca": "Els IDs de biaix de sol existeixen a soil_types."
+  },
+  "ui.parent_soil_tendency_ids_exist": {
+    "en": "Parent soil tendency IDs exist in soil_types.",
+    "es": "Los IDs de tendencia de suelo padre existen en soil_types.",
+    "ca": "Els IDs de tendencia de sol pare existeixen a soil_types."
+  },
+  "ui.missing_ids": {
+    "en": "Missing IDs",
+    "es": "IDs ausentes",
+    "ca": "IDs absents"
+  },
+  "ui.id_not_in_catalog": {
+    "en": "ID does not exist in catalog",
+    "es": "El ID no existe en el catalogo",
+    "ca": "L'ID no existeix al cataleg"
+  },
+  "month.1": {
+    "en": "Jan",
+    "es": "Ene",
+    "ca": "Gen"
+  },
+  "month.2": {
+    "en": "Feb",
+    "es": "Feb",
+    "ca": "Feb"
+  },
+  "month.3": {
+    "en": "Mar",
+    "es": "Mar",
+    "ca": "Mar"
+  },
+  "month.4": {
+    "en": "Apr",
+    "es": "Abr",
+    "ca": "Abr"
+  },
+  "month.5": {
+    "en": "May",
+    "es": "May",
+    "ca": "Mai"
+  },
+  "month.6": {
+    "en": "Jun",
+    "es": "Jun",
+    "ca": "Jun"
+  },
+  "month.7": {
+    "en": "Jul",
+    "es": "Jul",
+    "ca": "Jul"
+  },
+  "month.8": {
+    "en": "Aug",
+    "es": "Ago",
+    "ca": "Ago"
+  },
+  "month.9": {
+    "en": "Sep",
+    "es": "Sep",
+    "ca": "Set"
+  },
+  "month.10": {
+    "en": "Oct",
+    "es": "Oct",
+    "ca": "Oct"
+  },
+  "month.11": {
+    "en": "Nov",
+    "es": "Nov",
+    "ca": "Nov"
+  },
+  "month.12": {
+    "en": "Dec",
+    "es": "Dic",
+    "ca": "Des"
   }
 }

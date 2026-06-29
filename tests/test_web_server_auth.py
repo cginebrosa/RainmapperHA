@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 WEB_SERVER_PATH = ROOT_DIR / "rainmapper-app" / "app" / "web_server.py"
+MUSHROOM_PROFILES_UI_PATH = ROOT_DIR / "rainmapper-app" / "app" / "mushroom_profiles_ui.py"
 
 
 def load_web_server_module():
@@ -1204,6 +1205,80 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Reference errors", html)
         self.assertIn("Validation", html)
         self.assertIn("0 errors · 0 warnings", html)
+
+    def test_mushroom_catalog_usage_counts_observation_references(self) -> None:
+        catalogs = {
+            "observer_expertise_levels": [
+                {"id": "unknown", "label": {"en": "Unknown"}},
+                {"id": "experienced", "label": {"en": "Experienced"}},
+            ],
+            "observation_calibration_uses": [
+                {"id": "review", "label": {"en": "Review"}},
+            ],
+        }
+        observations = {
+            "observations": [
+                {
+                    "observer": {"expertise": "experienced"},
+                    "calibration_use": "review",
+                }
+            ]
+        }
+
+        rows, metrics = self.web_server.catalog_rows(
+            catalogs,
+            {"species_profiles": []},
+            {"mapping_sources": []},
+            observations,
+        )
+        experienced = next(row for row in rows if row["id"] == "experienced")
+        review = next(row for row in rows if row["id"] == "review")
+
+        self.assertEqual(1, experienced["observation_count"])
+        self.assertEqual(1, review["observation_count"])
+        self.assertEqual("active", experienced["status"])
+        self.assertEqual("active", review["status"])
+        self.assertEqual(2, metrics["observation_used"])
+
+        table_html = self.web_server.render_catalog_table(rows, experienced, "observer_expertise_levels", "")
+        impact_html = self.web_server.render_catalog_domain_impact(rows, "observer_expertise_levels")
+
+        self.assertIn("<th>Obs.</th>", table_html)
+        self.assertIn("Observation references", impact_html)
+        self.assertIn("<span class=\"value ok\">1</span>", impact_html)
+
+    def test_mushroom_ui_language_is_loaded_from_addon_option_environment(self) -> None:
+        old_language = os.environ.get("RAINMAPPER_MUSHROOM_UI_LANGUAGE")
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+
+        def restore_env() -> None:
+            if old_language is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_UI_LANGUAGE", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_UI_LANGUAGE"] = old_language
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_UI_LANGUAGE"] = "ca"
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+
+        spec = importlib.util.spec_from_file_location("mushroom_profiles_ui_ca_test", MUSHROOM_PROFILES_UI_PATH)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader if spec else None)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        self.assertEqual("Observacions", module.ui_label("ui.observations"))
+        self.assertEqual("Gen", module.ui_label("month.1"))
+
+    def test_run_script_exports_home_assistant_ui_language_option(self) -> None:
+        run_script = (ROOT_DIR / "rainmapper-app" / "run.sh").read_text(encoding="utf-8")
+
+        self.assertIn('UI_LANGUAGE_VALUE="$(option ui_language en)"', run_script)
+        self.assertIn('export RAINMAPPER_MUSHROOM_UI_LANGUAGE="$UI_LANGUAGE_VALUE"', run_script)
 
     def test_mushroom_catalog_group_filter_selects_first_row_in_group(self) -> None:
         rows = [
