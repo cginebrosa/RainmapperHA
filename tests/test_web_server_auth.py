@@ -1305,9 +1305,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
             (ROOT_DIR / "mushroom-data" / "mushroom_reference_catalogs.json").read_text(encoding="utf-8")
         )["catalogs"]
         profile = next(item for item in profiles if item["species_id"] == "boletus_pinophilus")
+        editor_html = module.render_profile_editor(profile, catalogs)
         html = "\n".join(
             [
-                module.render_profile_editor(profile, catalogs),
+                editor_html,
                 module.render_parameters_section(profile, catalogs),
                 module.render_calibration_section(profile),
             ]
@@ -1319,6 +1320,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Sin calibrar", html)
         self.assertIn("Posible a final de primavera", html)
         self.assertIn("Mixta", html)
+        self.assertIn('name="main_months" value="6" checked', editor_html)
+        self.assertIn('name="secondary_months" value="5" checked', editor_html)
+        self.assertNotIn('textarea id="profile-main_months"', editor_html)
         self.assertNotIn("missing label:", html)
 
     def test_run_script_exports_home_assistant_ui_language_option(self) -> None:

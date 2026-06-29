@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.179
+
+- Refine the mushroom Species editor `Fenología y Topografía` tab with separate phenology/topography sections and denser desktop-first layouts.
+- Replace editable month textareas with toggleable month chips while preserving list-based saves.
+- Align primary and secondary month chip styling in the editor and General summary.
+- Add the missing `snowmelt_bonus` label as `Snowmelt bonus` / `Bonus deshielo` / `Bonus desglaç`.
+
 ## 0.2.178
 
 - Translate the Species tab weather-model and scoring field labels from `mushroom_labels.json` instead of showing raw JSON keys.

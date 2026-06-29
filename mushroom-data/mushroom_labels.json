@@ -24,6 +24,11 @@
     "es": "Saturacion 30d",
     "ca": "Saturacio 30d"
   },
+  "snowmelt_bonus": {
+    "en": "Snowmelt bonus",
+    "es": "Bonus deshielo",
+    "ca": "Bonus desglaç"
+  },
   "temp_min_7d_optimal_min_c": {
     "en": "7d min temp low",
     "es": "7d Temp min baja",
@@ -616,7 +621,7 @@
   },
   "ui.phenology": {
     "en": "Phenology",
-    "es": "Fenologia",
+    "es": "Fenología",
     "ca": "Fenologia"
   },
   "ui.weather": {
@@ -736,12 +741,12 @@
   },
   "ui.topography": {
     "en": "Topography",
-    "es": "Topografia",
+    "es": "Topografía",
     "ca": "Topografia"
   },
   "ui.phenology_topography": {
     "en": "Phenology and topography",
-    "es": "Fenologia y topografia",
+    "es": "Fenología y Topografía",
     "ca": "Fenologia i topografia"
   },
   "ui.main_months": {

@@ -254,8 +254,8 @@ def month_chips(values: object, active_class: str = "active") -> str:
     months = values if isinstance(values, list) else []
     rendered = []
     for month in range(1, 13):
-        css_class = active_class if month in months else ""
-        rendered.append(f'<span class="month-chip {css_class}">{html.escape(ui_label(f"month.{month}"))}</span>')
+        css_class = f" {active_class}" if month in months else ""
+        rendered.append(f'<span class="month-chip{css_class}">{html.escape(ui_label(f"month.{month}"))}</span>')
     extras = [value for value in months if not isinstance(value, int) or value < 1 or value > 12]
     rendered.extend(f'<span class="month-chip warn">{html.escape(str(value))}</span>' for value in extras)
     return '<div class="month-chip-grid">' + "".join(rendered) + "</div>"
@@ -352,6 +352,27 @@ def form_textarea(name: str, label: str, value: object, rows: int = 3) -> str:
         '<div class="admin-field">'
         f'<label for="profile-{escaped_name}">{html.escape(label)}</label>'
         f'<textarea id="profile-{escaped_name}" name="{escaped_name}" rows="{rows}">{html.escape(textarea_value(value))}</textarea></div>'
+    )
+
+
+def form_month_toggles(name: str, label: str, values: object, active_class: str = "active") -> str:
+    """Render editable month checkboxes as compact visual chips."""
+    selected = {value for value in values if isinstance(value, int)} if isinstance(values, list) else set()
+    escaped_name = html.escape(name, quote=True)
+    chips = []
+    for month in range(1, 13):
+        checked = " checked" if month in selected else ""
+        chips.append(
+            '<label class="month-toggle">'
+            f'<input type="checkbox" name="{escaped_name}" value="{month}"{checked}>'
+            f'<span class="month-chip {html.escape(active_class)}">{html.escape(ui_label(f"month.{month}"))}</span>'
+            "</label>"
+        )
+    return (
+        '<div class="admin-field month-toggle-field">'
+        f'<span class="field-label">{html.escape(label)}</span>'
+        f'<div class="month-toggle-grid">{"".join(chips)}</div>'
+        "</div>"
     )
 
 
@@ -855,7 +876,7 @@ def render_general_dashboard(
         <span class="label">{html.escape(ui_label("ui.main_months"))}</span>
         {month_chips(phenology.get("main_months", []))}
         <span class="label">{html.escape(ui_label("ui.secondary_months"))}</span>
-        {month_chips(phenology.get("secondary_months", []), "secondary")}
+        {month_chips(phenology.get("secondary_months", []), "secondary-month")}
         {value_row(ui_label("ui.season_patterns"), catalog_compact_list(catalogs, "season_patterns", season_names, 3))}
         {value_row(ui_label("ui.fruiting_delay"), f'{delay.get("min", "-")} / {delay.get("optimal_min", "-")}-{delay.get("optimal_max", "-")} / {delay.get("max", "-")} days')}
       </article>
@@ -950,7 +971,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           <div class="profile-tab-labels">
             <label for="profile-tab-general">{icon("identity")}{html.escape(ui_label("ui.general"))}</label>
             <label for="profile-tab-ecology">{icon("ecology")}{html.escape(ui_label("ui.ecology"))}</label>
-            <label for="profile-tab-phenology">{icon("phenology")}{html.escape(ui_label("ui.phenology"))}</label>
+            <label for="profile-tab-phenology">{icon("phenology")}{html.escape(ui_label("ui.phenology_topography"))}</label>
             <label for="profile-tab-weather">{icon("weather")}{html.escape(ui_label("ui.weather"))}</label>
             <label for="profile-tab-scoring">{icon("scoring")}{html.escape(ui_label("ui.scoring"))}</label>
             <label for="profile-tab-calibration">{icon("calibration")}{html.escape(ui_label("ui.confidence"))}</label>
@@ -967,20 +988,35 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
               {affinity_blocks}
             </section>
             <section class="profile-section profile-tab-panel phenology">
-              <h2>{html.escape(ui_label("ui.phenology_topography"))}</h2>
-              <div class="profile-grid four">
-                {form_textarea("main_months", ui_label("ui.main_months"), phenology.get("main_months", []), rows=2)}
-                {form_textarea("secondary_months", ui_label("ui.secondary_months"), phenology.get("secondary_months", []), rows=2)}
-                {form_textarea("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), rows=2)}
-                {form_textarea("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), rows=2)}
-                {form_field("delay_min", ui_label("ui.delay_min"), delay.get("min", ""), field_type="number")}
-                {form_field("delay_optimal_min", ui_label("ui.delay_optimal_min"), delay.get("optimal_min", ""), field_type="number")}
-                {form_field("delay_optimal_max", ui_label("ui.delay_optimal_max"), delay.get("optimal_max", ""), field_type="number")}
-                {form_field("delay_max", ui_label("ui.delay_max"), delay.get("max", ""), field_type="number")}
-                {form_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), field_type="number")}
-                {form_field("altitude_optimal_min_m", parameter_label("altitude_optimal_min_m"), topography.get("altitude_optimal_min_m", ""), field_type="number")}
-                {form_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), field_type="number")}
-                {form_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), field_type="number")}
+              <h3>{html.escape(ui_label("ui.phenology"))}</h3>
+              <div class="profile-phenology-layout">
+                <div class="profile-phenology-left">
+                  <div class="profile-month-grid">
+                    {form_month_toggles("main_months", ui_label("ui.main_months"), phenology.get("main_months", []))}
+                    {form_month_toggles("secondary_months", ui_label("ui.secondary_months"), phenology.get("secondary_months", []), "secondary-month")}
+                  </div>
+                  <div class="profile-delay-grid">
+                    {form_field("delay_min", ui_label("ui.delay_min"), delay.get("min", ""), field_type="number")}
+                    {form_field("delay_optimal_min", ui_label("ui.delay_optimal_min"), delay.get("optimal_min", ""), field_type="number")}
+                    {form_field("delay_max", ui_label("ui.delay_max"), delay.get("max", ""), field_type="number")}
+                    {form_field("delay_optimal_max", ui_label("ui.delay_optimal_max"), delay.get("optimal_max", ""), field_type="number")}
+                  </div>
+                </div>
+                <div class="profile-season-pattern-field">
+                  {form_textarea("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), rows=6)}
+                </div>
+              </div>
+              <h3>{html.escape(ui_label("ui.topography"))}</h3>
+              <div class="profile-topography-layout">
+                <div class="profile-altitude-grid">
+                  {form_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), field_type="number")}
+                  {form_field("altitude_optimal_min_m", parameter_label("altitude_optimal_min_m"), topography.get("altitude_optimal_min_m", ""), field_type="number")}
+                  {form_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), field_type="number")}
+                  {form_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), field_type="number")}
+                </div>
+                <div class="profile-aspect-field">
+                  {form_textarea("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), rows=5)}
+                </div>
               </div>
               {form_textarea("aspect_notes", ui_label("site_context.aspect_notes"), topography.get("aspect_notes", ""), rows=2)}
             </section>

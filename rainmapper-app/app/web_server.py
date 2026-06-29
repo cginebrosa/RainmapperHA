@@ -1541,6 +1541,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-width: 0;
     }}
     .profile-list-item strong {{
+      font-size: 15px;
       line-height: 1.2;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1898,13 +1899,55 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-color: rgba(3, 169, 244, .96);
       color: white;
     }}
-    .month-chip.secondary {{
-      border-color: rgba(3, 169, 244, .7);
-      color: var(--accent);
+    .month-chip.secondary-month {{
+      background: rgba(3, 169, 244, .72);
+      border-color: rgba(3, 169, 244, .96);
+      color: white;
     }}
     .month-chip.warn {{
       border-color: rgba(255, 209, 102, .65);
       color: #ffd166;
+    }}
+    .month-toggle-field {{
+      display: block;
+    }}
+    .month-toggle-field .field-label {{
+      color: var(--muted);
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }}
+    .month-toggle-grid {{
+      display: grid;
+      gap: 6px;
+      grid-template-columns: repeat(6, 34px);
+    }}
+    .month-toggle input {{
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }}
+    .month-toggle .month-chip {{
+      cursor: pointer;
+      display: block;
+      user-select: none;
+    }}
+    .month-toggle input:not(:checked) + .month-chip.active,
+    .month-toggle input:not(:checked) + .month-chip.secondary-month {{
+      background: transparent;
+      border-color: rgba(45, 58, 71, .9);
+      color: var(--muted);
+    }}
+    .month-toggle input:checked + .month-chip.active {{
+      background: rgba(3, 169, 244, .72);
+      border-color: rgba(3, 169, 244, .96);
+      color: white;
+    }}
+    .month-toggle input:checked + .month-chip.secondary-month {{
+      background: rgba(3, 169, 244, .72);
+      border-color: rgba(3, 169, 244, .96);
+      color: white;
     }}
     .profile-weather-grid {{
       display: grid;
@@ -1985,6 +2028,47 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .profile-grid.four {{
       grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .profile-phenology-layout {{
+      display: grid;
+      gap: 9px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .profile-phenology-left {{
+      display: grid;
+      gap: 9px;
+    }}
+    .profile-month-grid,
+    .profile-delay-grid {{
+      display: grid;
+      gap: 9px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .profile-season-pattern-field,
+    .profile-season-pattern-field .admin-field {{
+      min-height: 100%;
+    }}
+    .profile-season-pattern-field textarea {{
+      height: 100%;
+      min-height: 160px;
+    }}
+    .profile-topography-layout {{
+      display: grid;
+      gap: 9px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .profile-altitude-grid {{
+      display: grid;
+      gap: 9px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .profile-aspect-field,
+    .profile-aspect-field .admin-field {{
+      min-height: 100%;
+    }}
+    .profile-aspect-field textarea {{
+      height: 100%;
+      min-height: 106px;
     }}
     .profile-affinity-block {{
       display: grid;
@@ -2667,6 +2751,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-grid,
       .profile-grid.three,
       .profile-grid.four,
+      .profile-phenology-layout,
+      .profile-month-grid,
+      .profile-delay-grid,
+      .profile-topography-layout,
+      .profile-altitude-grid,
       .profile-calibration-summary,
       .profile-calibration-cards,
       .profile-calibration-grid,
@@ -4944,8 +5033,9 @@ def profile_form_number(form: dict[str, list[str]], name: str) -> float | int | 
 
 def profile_form_int_list(form: dict[str, list[str]], name: str) -> list[int]:
     values = []
-    for part in catalog_split_list(catalog_form_string(form, name)):
-        values.append(int(part))
+    for raw_value in form.get(name, []):
+        for part in catalog_split_list(raw_value):
+            values.append(int(part))
     return values
 
 
