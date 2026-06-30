@@ -530,6 +530,81 @@ def catalog_select_options(
     return "".join(options)
 
 
+def host_observation_label(item: dict[str, object], language: str = UI_LANGUAGE) -> str:
+    """Return a compact field-observation label for a host taxon."""
+    common_names = item.get("common_names")
+    if isinstance(common_names, dict):
+        names = common_names.get(language) or common_names.get("en")
+        if isinstance(names, list) and names:
+            return str(names[0])
+        if isinstance(names, str) and names:
+            return names
+    scientific = item.get("scientific_name")
+    if scientific:
+        return str(scientific)
+    return str(item.get("id", ""))
+
+
+def host_observation_label_map(catalogs: dict[str, object]) -> dict[str, str]:
+    """Return host labels meant for the field-observation selector."""
+    items = catalogs.get("host_taxa")
+    if not isinstance(items, list):
+        return {}
+    labels: dict[str, str] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id", "") or "").strip()
+        if item_id:
+            labels[item_id] = host_observation_label(item)
+    return labels
+
+
+def observed_host_toggles(catalogs: dict[str, object], selected_values: object) -> str:
+    """Render observed-host checkboxes with the same chip pattern used by month toggles."""
+    selected = {str(value) for value in selected_values if str(value or "")} if isinstance(selected_values, list) else set()
+    items = catalogs.get("host_taxa")
+    items = items if isinstance(items, list) else []
+    sorted_items = sorted(
+        (item for item in items if isinstance(item, dict)),
+        key=lambda item: (
+            item.get("sort_order") if isinstance(item.get("sort_order"), (int, float)) else 999999,
+            host_observation_label(item).lower(),
+            str(item.get("id", "")),
+        ),
+    )
+    chips = []
+    seen: set[str] = set()
+    for item in sorted_items:
+        item_id = str(item.get("id", "") or "").strip()
+        if not item_id:
+            continue
+        seen.add(item_id)
+        checked = " checked" if item_id in selected else ""
+        chips.append(
+            '<label class="month-toggle host-toggle">'
+            f'<input type="checkbox" name="observed_host_ids" value="{html.escape(item_id, quote=True)}"{checked}>'
+            f'<span class="month-chip host-chip active">{html.escape(host_observation_label(item))}</span>'
+            '</label>'
+        )
+    for missing_id in sorted(selected - seen):
+        chips.append(
+            '<span class="month-chip host-chip warn">'
+            f'{html.escape(missing_id)}'
+            '</span>'
+        )
+    return "".join(chips)
+
+
+def observed_host_names(catalogs: dict[str, object], site_context: dict[str, object]) -> str:
+    """Return a readable list of manually observed hosts."""
+    host_ids = site_context.get("observed_host_ids")
+    if not isinstance(host_ids, list) or not host_ids:
+        return "-"
+    labels = host_observation_label_map(catalogs)
+    return ", ".join(labels.get(str(host_id), str(host_id)) for host_id in host_ids if str(host_id or ""))
+
+
 def affinity_chip_list(
     ecology: dict[str, object],
     key: str,
@@ -1797,6 +1872,7 @@ def render_observation_detail(
     {value_row(ui_label("flush_abundance"), observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance")))}
     {value_row(ui_label("source_quality"), row.get("source_quality", "-"))}
     {value_row(ui_label("ui.calibration_weight"), f"{observation_weight(catalogs, row):.2f}")}
+    {value_row(ui_label("site_context.observed_host_ids"), observed_host_names(catalogs, site_context))}
     <div class="observation-notes">
       <strong>{html.escape(ui_label("site_context.habitat_notes"))}</strong>
       <p>{html.escape(str(site_context.get("habitat_notes", "") or ui_label("ui.no_habitat_notes")) if isinstance(site_context, dict) else ui_label("ui.no_habitat_notes"))}</p>
@@ -1891,6 +1967,13 @@ def render_observation_form_modal(
         <div class="profile-grid two">
           <div class="admin-field"><label>{html.escape(ui_label("source.label"))}</label><input name="source_label" value="{html.escape(str(source.get("label", "") if isinstance(source, dict) else ""), quote=True)}"></div>
           <div class="admin-field wide"><label>{html.escape(ui_label("source.url"))}</label><input name="source_url" type="url" value="{html.escape(str(source.get("url", "") if isinstance(source, dict) else ""), quote=True)}"></div>
+        </div>
+        <div class="profile-grid full">
+          <div class="admin-field wide">
+            <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
+            <div class="month-toggle-grid host-toggle-grid">{observed_host_toggles(catalogs, site_context.get("observed_host_ids") if isinstance(site_context, dict) else [])}</div>
+            <span class="meta">{html.escape(ui_label("ui.observed_hosts_help"))}</span>
+          </div>
         </div>
         <div class="profile-grid two">
           {form_textarea("habitat_notes", ui_label("site_context.habitat_notes"), site_context.get("habitat_notes", "") if isinstance(site_context, dict) else "", rows=3)}
@@ -1998,6 +2081,13 @@ def render_observation_exif_import_form(
         <div class="profile-grid two">
           <div class="admin-field wide"><label>{html.escape(ui_label("ui.exif_images"))}</label><input name="exif_images" type="file" accept="image/jpeg,image/heic,image/heif" multiple webkitdirectory directory required></div>
           <div class="admin-field wide"><label>{html.escape(ui_label("source.notes"))}</label><input name="source_notes"></div>
+        </div>
+        <div class="profile-grid full">
+          <div class="admin-field wide">
+            <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
+            <div class="month-toggle-grid host-toggle-grid">{observed_host_toggles(catalogs, [])}</div>
+            <span class="meta">{html.escape(ui_label("ui.observed_hosts_help"))}</span>
+          </div>
         </div>
         <div class="catalog-alert">
           <strong>{html.escape(ui_label("ui.exif_filled_fields"))}</strong><br>

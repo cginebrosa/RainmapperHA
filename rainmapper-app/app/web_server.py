@@ -1282,6 +1282,37 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .catalog-json-editor textarea {{
       width: 100%;
     }}
+    .profile-metrics.catalog-metrics {{
+      display: grid;
+      gap: 5px;
+      grid-template-columns: repeat(9, minmax(0, 1fr));
+      margin-bottom: 10px;
+    }}
+    .profile-metrics.catalog-metrics .profile-metric {{
+      align-items: center;
+      display: flex;
+      gap: 6px;
+      justify-content: flex-start;
+      min-height: 34px;
+      padding: 6px 7px;
+    }}
+    .profile-metrics.catalog-metrics .profile-metric .label {{
+      font-size: 11px;
+      line-height: 1.1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .profile-metrics.catalog-metrics .profile-metric .label::after {{
+      content: ":";
+      margin-left: 1px;
+    }}
+    .profile-metrics.catalog-metrics .profile-metric .value {{
+      flex: 0 0 auto;
+      font-size: 13px;
+      margin: 0;
+      white-space: nowrap;
+    }}
     .catalog-chip-row {{
       display: grid;
       gap: 10px;
@@ -1344,8 +1375,27 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 16px;
       grid-template-columns: minmax(660px, 1fr) minmax(520px, .56fr);
     }}
+    .catalog-table-wrap {{
+      max-height: calc(100vh - 390px);
+      min-height: 320px;
+      overflow: auto;
+    }}
+    .catalog-table thead th {{
+      background: var(--card);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }}
+    .catalog-click-row {{
+      cursor: pointer;
+    }}
+    .catalog-click-row:hover td {{
+      background: rgba(3, 169, 244, .06);
+    }}
     .catalog-detail {{
       font-size: 13px;
+      max-height: calc(100vh - 24px);
+      overflow-y: auto;
       position: sticky;
       top: 12px;
     }}
@@ -1374,6 +1424,22 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-size: 12px;
       margin-bottom: 3px;
     }}
+    .catalog-entry-form .admin-field.compact {{
+      align-items: center;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(112px, .34fr) minmax(0, 1fr);
+    }}
+    .catalog-entry-form .admin-field.compact label {{
+      margin-bottom: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .catalog-entry-form .admin-field.compact label::after {{
+      content: ":";
+      margin-left: 1px;
+    }}
     .catalog-entry-form input,
     .catalog-entry-form select {{
       min-height: 34px;
@@ -1390,6 +1456,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       padding: 8px 9px;
       resize: vertical;
       width: 100%;
+    }}
+    .catalog-entry-actions {{
+      background: linear-gradient(180deg, rgba(30, 39, 46, .78), var(--card) 35%);
+      bottom: -14px;
+      display: flex;
+      justify-content: flex-end;
+      margin: 0 -14px;
+      padding: 10px 14px 14px;
+      position: sticky;
+      z-index: 2;
+    }}
+    .catalog-entry-actions .primary {{
+      min-width: 180px;
     }}
     .catalog-reference-checks {{
       display: grid;
@@ -1984,6 +2063,23 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-color: rgba(3, 169, 244, .96);
       color: white;
     }}
+    .host-toggle-grid {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      grid-template-columns: none;
+    }}
+    .month-toggle .host-chip {{
+      display: inline-flex;
+      max-width: 220px;
+      min-height: 26px;
+      width: auto;
+    }}
+    .month-toggle input:not(:checked) + .host-chip.active {{
+      background: transparent;
+      border-color: rgba(45, 58, 71, .9);
+      color: var(--muted);
+    }}
     .catalog-toggle-field {{
       display: block;
     }}
@@ -2109,6 +2205,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .profile-grid.four {{
       grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .profile-grid.full {{
+      grid-template-columns: minmax(0, 1fr);
     }}
     .profile-phenology-layout {{
       display: grid;
@@ -4840,6 +4939,11 @@ def catalog_form_string(form: dict[str, list[str]], name: str) -> str:
     return values[0].strip() if values else ""
 
 
+def catalog_form_list(form: dict[str, list[str]], name: str) -> list[str]:
+    """Return a cleaned list from a repeated form field."""
+    return [value.strip() for value in form.get(name, []) if value.strip()]
+
+
 def catalog_form_nullable_string(form: dict[str, list[str]], name: str) -> str | None:
     value = catalog_form_string(form, name)
     return value or None
@@ -5143,6 +5247,9 @@ def observation_payload_from_form(
         raise ValueError("Observation date is required.")
     location_input, lat, lon, location_source = parse_observation_coordinates(form)
     altitude_m = catalog_form_optional_number(form, "altitude_m")
+    observed_host_ids = catalog_form_list(form, "observed_host_ids")
+    if len(observed_host_ids) > 3:
+        raise ValueError("Select at most 3 observed host trees.")
     today = datetime.now(UTC).date().isoformat()
     existing_metadata = existing.get("metadata") if isinstance(existing.get("metadata"), dict) else {}
     observation: dict[str, object] = {
@@ -5172,6 +5279,7 @@ def observation_payload_from_form(
         "calibration_use": catalog_form_string(form, "calibration_use"),
         "calibration_exclusion_reason": catalog_form_string(form, "calibration_exclusion_reason") or None,
         "site_context": {
+            "observed_host_ids": observed_host_ids,
             "habitat_notes": catalog_form_string(form, "habitat_notes"),
             "host_notes": catalog_form_string(form, "host_notes"),
             "soil_notes": catalog_form_string(form, "soil_notes"),
@@ -5300,6 +5408,9 @@ def photo_exif_observation_payload(
     species_id = catalog_form_string(form, "observation_species_id")
     if not species_id:
         raise ValueError("Species is required.")
+    observed_host_ids = catalog_form_list(form, "observed_host_ids")
+    if len(observed_host_ids) > 3:
+        raise ValueError("Select at most 3 observed host trees.")
     filename = str(fields.get("filename", "") or "photo")
     observed_at = str(fields["observed_at"])
     lat = float(fields["lat"])
@@ -5333,6 +5444,7 @@ def photo_exif_observation_payload(
         "calibration_use": catalog_form_string(form, "calibration_use"),
         "calibration_exclusion_reason": catalog_form_string(form, "calibration_exclusion_reason") or None,
         "site_context": {
+            "observed_host_ids": observed_host_ids,
             "habitat_notes": "",
             "host_notes": "",
             "soil_notes": "",

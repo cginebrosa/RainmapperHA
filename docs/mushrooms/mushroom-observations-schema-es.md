@@ -105,6 +105,10 @@ Campos obligatorios:
   "calibration_use": "include",
   "calibration_exclusion_reason": "",
   "site_context": {
+    "observed_host_ids": [
+      "host_pinus_sylvestris",
+      "host_quercus_ilex"
+    ],
     "habitat_notes": "",
     "host_notes": "",
     "soil_notes": "",
@@ -265,7 +269,13 @@ No es lo mismo que `validation_status`. Un registro puede ser valido pero exclui
 
 ### Contexto del sitio
 
-`site_context` es opcional y en la primera version queda como texto libre:
+`site_context` es opcional. La primera informacion estructurada de sitio es:
+
+- `observed_host_ids`: hasta 3 arboles/hosts observados en campo, como IDs de `catalogs.host_taxa`.
+
+Este campo describe lo observado por la persona en el punto, no lo inferido por GIS. Sirve para comparar observaciones reales contra `host_affinities` de la especie y, mas adelante, contra hosts o tipos forestales inferidos desde capas oficiales.
+
+El resto queda como notas libres:
 
 - `habitat_notes`
 - `host_notes`

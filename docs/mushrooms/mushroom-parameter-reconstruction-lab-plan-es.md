@@ -83,7 +83,8 @@ Reconstruir condiciones meteorologicas previas por observacion desde los increme
 Alcance inicial:
 
 - leer observaciones activas y utiles para analisis;
-- normalizar fecha, especie, resultado, abundancia, coordenadas, altitud, validacion, calidad de fuente y uso de calibracion;
+- normalizar fecha, especie, abundancia real (`flush_abundance`), resultado derivado para analisis, coordenadas, altitud, validacion, calidad de fuente y uso de calibracion;
+- conservar hosts observados manualmente (`site_context.observed_host_ids`) como evidencia de campo, separada de cualquier inferencia GIS futura;
 - leer incrementales disponibles en `docker-data/Data/`;
 - calcular lluvia acumulada previa en ventanas 1/7/14/21/30/60/90 dias;
 - calcular temperatura, humedad y viento disponibles cuando existan;
@@ -97,8 +98,8 @@ Campos minimos esperados por observacion:
 observation_id
 species_id
 observed_at
-result
-abundance
+analysis_result
+flush_abundance
 validation_status
 calibration_use
 source_quality
@@ -126,9 +127,19 @@ wind_avg_kmh
 wind_gust_kmh
 wind_direction_deg
 data_gaps
+observed_host_ids
 ```
 
-Los nombres exactos pueden ajustarse al implementar, pero la salida debe conservar trazabilidad suficiente para revisar cada fila.
+`analysis_result` no existe en el JSON real de observaciones. Es un campo derivado del extractor:
+
+```text
+analysis_result = absent   si flush_abundance == absent
+analysis_result = present  si flush_abundance != absent
+```
+
+El extractor debe conservar siempre el valor original `flush_abundance` para no perder la intensidad observada de la florada. Los nombres exactos pueden ajustarse al implementar, pero la salida debe conservar trazabilidad suficiente para revisar cada fila.
+
+`observed_host_ids` procede de la observacion base y debe tratarse como evidencia manual de campo. No debe confundirse con hosts o tipos de bosque inferidos por GIS, que se generaran mas adelante en `observations_gis_features`.
 
 ## Metodo meteorologico inicial
 

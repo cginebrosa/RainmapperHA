@@ -242,7 +242,7 @@ def render_catalog_metric_cards(metrics: dict[str, int], errors: list[object], w
         (ui_label("ui.with_hierarchy"), str(metrics["hierarchy"]), ""),
         (ui_label("ui.validation"), f"{errors_count} {ui_label('ui.errors')} · {warnings_count} {ui_label('ui.warnings')}", "danger" if errors_count else "warn" if warnings_count else "ok"),
     ]
-    return '<div class="profile-metrics">' + "".join(
+    return '<div class="profile-metrics catalog-metrics">' + "".join(
         f'<div class="profile-metric"><span class="label">{html.escape(label)}</span><span class="value {css_class}">{html.escape(value)}</span></div>'
         for label, value, css_class in cards
     ) + "</div>"
@@ -328,11 +328,12 @@ def render_catalog_table(rows: list[dict[str, object]], selected: dict[str, obje
     for row in filtered_rows:
         item_id = str(row["id"])
         row_group = str(row["group"])
+        detail_url = catalog_query_url(row_group, item_id, search)
         is_selected = selected and selected.get("group") == row_group and selected.get("id") == item_id
         body_rows.append(
-            f'<tr class="{"selected-row" if is_selected else ""}">'
+            f'<tr class="catalog-click-row{" selected-row" if is_selected else ""}" data-href="{html.escape(detail_url, quote=True)}" onclick="if (!event.target.closest(\'a, button, input, select, textarea\')) window.location.href = this.dataset.href">'
             f'<td>{html.escape(row_group)}</td>'
-            f'<td><a class="catalog-row-link" href="{catalog_query_url(row_group, item_id, search)}">{html.escape(item_id)}</a></td>'
+            f'<td><a class="catalog-row-link" href="{html.escape(detail_url, quote=True)}">{html.escape(item_id)}</a></td>'
             f'<td>{html.escape(str(row["label"]))}</td>'
             f'<td>{html.escape(str(row["parent_id"] or "-"))}</td>'
             f'<td>{int(row["profile_count"])}</td>'
@@ -345,7 +346,7 @@ def render_catalog_table(rows: list[dict[str, object]], selected: dict[str, obje
     if not body_rows:
         body_rows.append(f'<tr><td colspan="9"><span class="meta">{html.escape(ui_label("ui.no_catalog_entries_match"))}</span></td></tr>')
     return (
-        '<div class="control-table-wrap">'
+        '<div class="control-table-wrap catalog-table-wrap">'
         '<table class="control-table catalog-table">'
         f'<thead><tr><th>{html.escape(ui_label("ui.group"))}</th><th>ID</th><th>{html.escape(ui_label("ui.label_scientific_name"))}</th><th>{html.escape(ui_label("ui.parent_id"))}</th><th>{html.escape(ui_label("ui.profiles"))}</th><th>GIS</th><th>{html.escape(ui_label("ui.obs_short"))}</th><th>{html.escape(ui_label("ui.domain"))}</th><th>{html.escape(ui_label("ui.status"))}</th></tr></thead>'
         f'<tbody>{"".join(body_rows)}</tbody>'
@@ -381,7 +382,7 @@ def catalog_form_field(name: str, label: str, value: object = "", field_type: st
     escaped_label = html.escape(label)
     escaped_value = html.escape("" if value is None else str(value), quote=True)
     return (
-        '<div class="admin-field">'
+        '<div class="admin-field compact">'
         f'<label for="catalog-{escaped_name}">{escaped_label}</label>'
         f'<input id="catalog-{escaped_name}" name="{escaped_name}" type="{html.escape(field_type, quote=True)}" value="{escaped_value}"{step_attr}{readonly_attr}>'
         "</div>"
@@ -413,7 +414,7 @@ def catalog_form_select(name: str, label: str, value: object, options: list[str]
     if current and current not in options:
         option_html.append(f'<option value="{html.escape(current, quote=True)}" selected>{html.escape(current)} (missing)</option>')
     return (
-        '<div class="admin-field">'
+        '<div class="admin-field compact">'
         f'<label for="catalog-{escaped_name}">{html.escape(label)}</label>'
         f'<select id="catalog-{escaped_name}" name="{escaped_name}">{"".join(option_html)}</select>'
         "</div>"
@@ -572,7 +573,9 @@ def render_catalog_entry_form(row: dict[str, object], catalogs: dict[str, object
         <input type="hidden" name="group" value="{html.escape(group, quote=True)}">
         <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
         <div class="admin-form-grid">{''.join(fields)}</div>
-        <button class="primary">{html.escape(ui_label("ui.save_entry"))}</button>
+        <div class="catalog-entry-actions">
+          <button class="primary">{html.escape(ui_label("ui.save_entry"))}</button>
+        </div>
       </form>
     """
 

@@ -1009,6 +1009,33 @@ def validate_observations(
                 used_ids,
             )
 
+        site_context = observation.get("site_context")
+        if isinstance(site_context, dict) and "observed_host_ids" in site_context:
+            observed_host_ids = site_context.get("observed_host_ids")
+            if not isinstance(observed_host_ids, list):
+                messages.append(error(f"{location}.site_context.observed_host_ids", "expected a list"))
+            elif len(observed_host_ids) > 3:
+                messages.append(error(f"{location}.site_context.observed_host_ids", "expected at most 3 host IDs"))
+            else:
+                seen_hosts: set[str] = set()
+                for host_index, host_id in enumerate(observed_host_ids):
+                    host_location = f"{location}.site_context.observed_host_ids[{host_index}]"
+                    if not isinstance(host_id, str) or not host_id:
+                        messages.append(error(host_location, "expected a host catalog ID"))
+                        continue
+                    if host_id in seen_hosts:
+                        messages.append(error(host_location, f"duplicate host ID {host_id!r}"))
+                        continue
+                    seen_hosts.add(host_id)
+                    validate_id(
+                        host_id,
+                        "host_taxa",
+                        ids_by_catalog,
+                        host_location,
+                        messages,
+                        used_ids,
+                    )
+
 
 def add_unused_catalog_warnings(
     ids_by_catalog: dict[str, set[str]],

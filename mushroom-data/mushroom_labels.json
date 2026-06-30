@@ -329,6 +329,11 @@
     "es": "Motivo de exclusion",
     "ca": "Motiu d'exclusio"
   },
+  "site_context.observed_host_ids": {
+    "en": "Observed trees",
+    "es": "Arboles observados",
+    "ca": "Arbres observats"
+  },
   "site_context.habitat_notes": {
     "en": "Habitat notes",
     "es": "Notas de habitat",
@@ -553,6 +558,11 @@
     "en": "No host notes recorded.",
     "es": "No hay notas de hosts.",
     "ca": "No hi ha notes d'hosts."
+  },
+  "ui.observed_hosts_help": {
+    "en": "Select up to 3 trees observed at the point. This is field evidence, not GIS inference.",
+    "es": "Selecciona hasta 3 arboles observados en el punto. Es evidencia de campo, no inferencia GIS.",
+    "ca": "Selecciona fins a 3 arbres observats al punt. Es evidencia de camp, no inferencia GIS."
   },
   "ui.archived_observations": {
     "en": "Archived observations",

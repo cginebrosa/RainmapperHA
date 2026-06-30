@@ -105,6 +105,10 @@ Required fields:
   "calibration_use": "include",
   "calibration_exclusion_reason": "",
   "site_context": {
+    "observed_host_ids": [
+      "host_pinus_sylvestris",
+      "host_quercus_ilex"
+    ],
     "habitat_notes": "",
     "host_notes": "",
     "soil_notes": "",
@@ -265,7 +269,13 @@ This is not the same as `validation_status`. A record can be valid but excluded 
 
 ### Site Context
 
-`site_context` is optional and intentionally free-text in the first version:
+`site_context` is optional. The first structured site field is:
+
+- `observed_host_ids`: up to 3 trees/hosts observed in the field, as IDs from `catalogs.host_taxa`.
+
+This field describes what the observer saw at the point, not what GIS inferred. It can be compared with species `host_affinities` and, later, with host or forest-type features inferred from official GIS layers.
+
+The remaining fields are free-text notes:
 
 - `habitat_notes`
 - `host_notes`

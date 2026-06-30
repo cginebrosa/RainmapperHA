@@ -119,6 +119,12 @@ Siguiente paso recomendado: construir el laboratorio local de observaciones real
   - Estado: tarea futura; no implementar durante `0.2.159`.
 
 ## Prioridad alta
+- [ ] Controlar `host_taxa.rank` desde catalogo/valores permitidos
+  - Contexto: en `/mushrooms/catalogs`, el campo `Rango` de `host_taxa` se edita actualmente como texto libre. Esto permite valores accidentales como `Pepito`, aunque semanticamente representa el rango taxonomico del host (`family`, `genus`, `species`, etc.).
+  - Ficheros relacionados: `mushroom-data/mushroom_reference_catalogs.json`, `scripts/validate-mushroom-data.py`, `rainmapper-app/app/mushroom_catalogs_ui.py`, `rainmapper-app/app/web_server.py`, `tests/test_mushroom_data_validator.py`, `tests/test_web_server_auth.py`, `docs/mushrooms/ui/reference-catalogs/reference-catalog-maintenance-proposal.md`.
+  - Criterio de aceptacion: decidir si los rangos viven como nuevo grupo controlado del catalogo o como enum validado del schema; renderizar `Rango` como `<select>` en la UI; validar CLI/backend contra los valores permitidos; preservar valores existentes si aparece alguno no contemplado mostrando error o estado missing, no guardando silenciosamente texto libre.
+  - Estado: pendiente deliberado; no implementado en este bloque para evitar cambiar schema/catalogos mientras se cerraba la UI del laboratorio.
+
 - [ ] Repetir backfill manual AEMET cuando el diario publique los dias pendientes
   - Contexto: el 2026-06-24 se ejecuto `scripts/aemet-backfill-30-days.py` con un catalogo enriquecido AEMET. AEMET diario solo devolvia datos efectivos hasta `2026-06-20`; el fichero horario descargado desde HA aporto `2026-06-23` y `2026-06-24`. Se genero primero un resultado temporal con 25.067 filas, 851 estaciones y 0 duplicados `Codi Estació` + `Data Local`, pero quedaban sin cubrir `2026-06-21` y `2026-06-22`. Tras el fix de `0.2.114`, el artefacto local vigente es `tmp/aemet-backfill-0.2.114-output/Aemet_incremental.csv`.
   - Ficheros relacionados: `scripts/aemet-backfill-30-days.py`, `tmp/aemet-backfill-0.2.114-input/estacions_aemet.csv`, `tmp/aemet-backfill-0.2.114-input/Aemet_incremental_from_HA.csv`, `tmp/aemet-backfill-0.2.114-output/Aemet_incremental.csv`.

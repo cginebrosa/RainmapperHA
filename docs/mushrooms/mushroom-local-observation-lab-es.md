@@ -89,16 +89,16 @@ docker-data/mushroom-data/mushroom_observations.json
 
 Si `docker-data/mushroom-data/` no existe, la app lo sembrara desde los defaults versionados al arrancar. Para trabajar con los datos reales actuales de HA, copiar previamente `/share/rainmapper/mushroom-data/` dentro de `docker-data/mushroom-data/`.
 
-Comandos:
+Comando recomendado desde la raiz del repo:
 
 ```bash
-docker compose -f rainmapper-local/docker-compose.yml up --build rainmapper-ha-ui
+./mushroom_lab_start.sh
 ```
 
 Parar el servidor:
 
 ```bash
-docker compose -f rainmapper-local/docker-compose.yml stop rainmapper-ha-ui
+./mushroom_lab_stop.sh
 ```
 
 Este servicio no debe usarse para publicar una version HA ni para escribir en Home Assistant. Es solo una copia local de trabajo.
@@ -113,7 +113,7 @@ Estado operativo verificado el 2026-06-30:
 - El contenedor local quedo parado con:
 
 ```bash
-docker compose -f rainmapper-local/docker-compose.yml stop rainmapper-ha-ui
+./mushroom_lab_stop.sh
 ```
 
 - Los datos locales no se borraron. Las observaciones cargadas siguen en:
@@ -125,13 +125,7 @@ docker-data/mushroom-data/mushroom_observations.json
 Para continuar, el proximo Codex debe arrancar de nuevo el servicio solo si el usuario quiere seguir introduciendo observaciones desde UI:
 
 ```bash
-docker compose -f rainmapper-local/docker-compose.yml up --build rainmapper-ha-ui
-```
-
-o en background:
-
-```bash
-docker compose -f rainmapper-local/docker-compose.yml up --build -d rainmapper-ha-ui
+./mushroom_lab_start.sh
 ```
 
 URL:
@@ -342,16 +336,17 @@ tmp/mushroom-lab/input/manual/manual_observations.csv
 Columnas recomendadas para el primer POC:
 
 ```csv
-observation_id,species_id,observed_at,latitude,longitude,result,abundance,source,source_quality,validation_status,notes
+observation_id,species_id,observed_at,latitude,longitude,flush_abundance,source,source_quality,validation_status,notes
 ```
 
 Valores iniciales:
 
-- `result`: `present` o `absent`
-- `abundance`: `exceptional`, `very_abundant`, `abundant`, `normal`, `scarce`, `very_scarce`, `none`
+- `flush_abundance`: `exceptional`, `very_abundant`, `abundant`, `normal`, `scarce`, `very_scarce`, `absent`
 - `source`: `photo_exif`, `manual`, `whatsapp`, `field_note`
 - `source_quality`: numero entre `0` y `1`
 - `validation_status`: `draft`, `valid`, `doubtful`, `invalid`
+
+Para analisis, la ausencia/presencia se deriva de `flush_abundance`: `absent` equivale a observacion negativa y cualquier otro valor equivale a presencia con intensidad de florada.
 
 ## Capas GIS
 

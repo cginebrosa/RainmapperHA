@@ -42,6 +42,25 @@ reference-catalog-domain-impact-reference.png
 
 Estas imágenes son referencias visuales, no contratos funcionales exactos. El código real debe respetar siempre el modelo de datos de los JSON existentes.
 
+## Estado implementado de la UI
+
+La pantalla `/mushrooms/catalogs` ya funciona como mantenimiento operativo del catalogo maestro.
+
+Comportamiento actual:
+
+- metricas superiores compactas en una sola linea cuando el ancho de escritorio lo permite, con formato `titulo: valor`;
+- filtros por grupo renderizados como pastillas legibles con nombre humano, numero de IDs y numero de usados;
+- tabla principal con scroll interno para que la pagina completa no se desplace al recorrer grupos largos;
+- cabecera de tabla sticky dentro del scroll interno;
+- seleccion de entrada haciendo click en cualquier punto de la fila, no solo en el ID;
+- panel lateral derecho sticky con scroll interno cuando el formulario es mas alto que la ventana;
+- campos cortos del detalle en formato compacto `titulo: valor` en una sola linea;
+- boton `Guardar entrada` en barra inferior sticky dentro del panel de detalle, para que siga visible durante la edicion;
+- formulario amable por tipo de catalogo y editor JSON avanzado plegado;
+- validacion cruzada y alertas visibles sin guardar cambios invalidos.
+
+Regla de mantenimiento: si se anaden mas grupos o campos largos al catalogo, conservar este patron de tabla con scroll interno, fila completa seleccionable y acciones de guardado siempre accesibles.
+
 ---
 
 # 1. Contexto del modelo
@@ -1027,6 +1046,7 @@ label/nombre humano disponible si el grupo lo requiere
 ### host_taxa
 
 ```text
+rank debe ser un valor controlado, no texto libre
 scientific_name recomendado si rank = species
 genus recomendado
 family recomendado
@@ -1036,9 +1056,10 @@ parent_id debe existir si se informa
 Estado de implementacion pendiente:
 
 ```text
-La WebUI actual permite editar host_taxa.parent_id, pero debe anadirse feedback de
-validacion cruzada visible en pantalla para confirmar que el parent_id existe en
-catalogs.host_taxa antes/despues de guardar.
+La WebUI actual ya muestra validacion cruzada para host_taxa.parent_id, pero
+host_taxa.rank sigue siendo texto libre. Convertirlo en un valor controlado es
+prioridad alta: decidir si vive como nuevo grupo de catalogo o como enum del
+schema, renderizarlo como select y validarlo en backend/CLI.
 ```
 
 ### soil_types

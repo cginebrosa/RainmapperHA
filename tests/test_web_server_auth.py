@@ -874,6 +874,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "calibration_use": "include",
                     "source_quality": 0.9,
                     "location": {"lat": 41.2, "lon": 2.2, "source": "manual_decimal"},
+                    "site_context": {
+                        "observed_host_ids": ["host_pinus_sylvestris"],
+                        "habitat_notes": "",
+                        "host_notes": "",
+                    },
                 },
                 {
                     "observation_id": "obs_20260628_0001",
@@ -920,6 +925,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("sort=abundance", html)
         self.assertIn("import-observation-exif", html)
         self.assertIn('name="exif_images"', html)
+        self.assertIn('name="observed_host_ids"', html)
+        self.assertIn("Scots pine", html)
+        self.assertNotIn("missing label:", html)
         self.assertIn("obs_20260629_0001", html)
         self.assertNotIn("obs_20260620_0001", html)
         self.assertNotIn("obs_20260628_0001", html)

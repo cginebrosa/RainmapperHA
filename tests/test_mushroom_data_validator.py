@@ -152,6 +152,13 @@ class MushroomDataValidatorTests(unittest.TestCase):
                 "source_quality": 0.9,
                 "validation_status": "valid",
                 "calibration_use": "include",
+                "site_context": {
+                    "observed_host_ids": ["host_pinus_sylvestris", "host_quercus_ilex"],
+                    "habitat_notes": "",
+                    "host_notes": "",
+                    "soil_notes": "",
+                    "aspect_notes": "",
+                },
                 "metadata": {
                     "created_at": "2026-06-29",
                     "updated_at": "2026-06-29",
@@ -165,6 +172,85 @@ class MushroomDataValidatorTests(unittest.TestCase):
         errors = [message.format() for message in messages if message.severity == "ERROR"]
 
         self.assertEqual([], errors)
+
+    def test_validator_reports_observation_invalid_observed_hosts(self) -> None:
+        observations = copy.deepcopy(self.observations)
+        observations["observations"] = [
+            {
+                "observation_id": "obs_20260629_0001",
+                "species_id": self.profiles["species_profiles"][0]["species_id"],
+                "observed_at": "2026-06-29",
+                "location": {
+                    "input": "41.3874, 2.1686",
+                    "lat": 41.3874,
+                    "lon": 2.1686,
+                    "source": "manual_decimal",
+                },
+                "flush_abundance": "abundant",
+                "source_quality": 0.9,
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "site_context": {
+                    "observed_host_ids": [
+                        "host_pinus_sylvestris",
+                        "host_pinus_sylvestris",
+                        "host_quercus_ilex",
+                        "host_missing",
+                    ]
+                },
+                "metadata": {
+                    "created_at": "2026-06-29",
+                    "updated_at": "2026-06-29",
+                    "created_by": "unit_test",
+                    "updated_by": "unit_test",
+                },
+            }
+        ]
+
+        messages = self.validate_temp_dataset(observations=observations)
+        errors = [message.format() for message in messages if message.severity == "ERROR"]
+
+        self.assertTrue(any("observed_host_ids" in message for message in errors))
+        self.assertTrue(any("at most 3" in message for message in errors))
+
+    def test_validator_reports_observation_duplicate_and_unknown_observed_hosts(self) -> None:
+        observations = copy.deepcopy(self.observations)
+        observations["observations"] = [
+            {
+                "observation_id": "obs_20260629_0001",
+                "species_id": self.profiles["species_profiles"][0]["species_id"],
+                "observed_at": "2026-06-29",
+                "location": {
+                    "input": "41.3874, 2.1686",
+                    "lat": 41.3874,
+                    "lon": 2.1686,
+                    "source": "manual_decimal",
+                },
+                "flush_abundance": "abundant",
+                "source_quality": 0.9,
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "site_context": {
+                    "observed_host_ids": [
+                        "host_pinus_sylvestris",
+                        "host_pinus_sylvestris",
+                        "host_missing",
+                    ]
+                },
+                "metadata": {
+                    "created_at": "2026-06-29",
+                    "updated_at": "2026-06-29",
+                    "created_by": "unit_test",
+                    "updated_by": "unit_test",
+                },
+            }
+        ]
+
+        messages = self.validate_temp_dataset(observations=observations)
+        errors = [message.format() for message in messages if message.severity == "ERROR"]
+
+        self.assertTrue(any("duplicate host ID" in message for message in errors))
+        self.assertTrue(any("host_missing" in message for message in errors))
 
     def test_validator_reports_observation_unknown_species_and_catalog_ids(self) -> None:
         observations = copy.deepcopy(self.observations)

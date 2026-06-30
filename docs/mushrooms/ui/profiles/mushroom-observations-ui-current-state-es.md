@@ -17,6 +17,34 @@ Casos principales:
 - revisar, archivar, restaurar y borrar definitivamente observaciones sin perder filtros;
 - trabajar en local contra `docker-data/` sin tocar Home Assistant.
 
+## Regla UI para listas seleccionables
+
+Cuando un campo de la UI de setas represente una lista seleccionable de valores controlados y haya espacio suficiente, debe editarse con pastillas seleccionables en lenguaje humano, siguiendo el patron usado en fenologia, patrones de temporada, orientaciones y arboles observados.
+
+Reglas:
+
+- mostrar labels humanos desde `mushroom_labels.json` o `mushroom_reference_catalogs.json`, no IDs crudos;
+- permitir seleccion multiple con checkboxes ocultos y pastillas visibles cuando el campo sea multi-valor;
+- usar estados visuales claros para seleccionado/no seleccionado;
+- hacer que el bloque use todo el ancho disponible si la lista puede crecer;
+- mantener la validacion real en backend/validador, aunque la UI reduzca errores;
+- reservar `<select>` para elecciones de un unico valor, listas muy largas o campos donde un control compacto sea claramente mas usable.
+
+## Arboles observados
+
+Las observaciones pueden registrar `site_context.observed_host_ids`.
+
+Uso:
+
+- seleccionar hasta 3 arboles/hosts observados directamente en el punto;
+- guardar IDs de `catalogs.host_taxa`, no texto libre;
+- mostrar nombres humanos del catalogo en el formulario y en el panel de detalle;
+- tratarlo como evidencia de campo, no como inferencia GIS.
+
+La UI debe renderizar este campo como pastillas seleccionables de ancho completo en alta, edicion, duplicado e importacion EXIF. No debe volver a un `<select multiple>` porque en navegadores como Safari puede comportarse de forma poco clara para multi-seleccion y obliga a ocupar altura sin mejorar la captura.
+
+El backend y el validador deben rechazar mas de 3 hosts, IDs duplicados o IDs que no existan en `catalogs.host_taxa`. Las observaciones existentes sin este campo siguen siendo validas.
+
 ## Filtros y cabecera
 
 La cabecera de la pantalla de Observaciones debe reflejar el filtro activo de especie:
