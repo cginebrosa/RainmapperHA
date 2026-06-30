@@ -17,6 +17,10 @@ Documento relacionado de UI:
 
 - `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`
 
+Documento de plan vivo para seguir/adaptar el diseno del extractor y la reconstruccion de parametros:
+
+- `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`
+
 ## Regla critica
 
 Los datos de este laboratorio son sensibles:
@@ -491,9 +495,10 @@ Antes de tocar codigo:
 2. Leer este documento completo.
 3. Leer `docs/mushrooms/mushroom-predictor-design-es.md`.
 4. Leer `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`.
-5. Verificar `pwd` en `/Users/carlosginebrosa/Developer/RainmapperHA`.
-6. Revisar `git status --short`.
-7. Confirmar que se trabaja sobre `docker-data/` y `tmp/mushroom-lab/`, no contra `/share/rainmapper` real de HA.
+5. Leer `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`.
+6. Verificar `pwd` en `/Users/carlosginebrosa/Developer/RainmapperHA`.
+7. Revisar `git status --short`.
+8. Confirmar que se trabaja sobre `docker-data/` y `tmp/mushroom-lab/`, no contra `/share/rainmapper` real de HA.
 
 Datos locales relevantes:
 
