@@ -1,6 +1,6 @@
 # Decisions
 
-Nota de auditoria 2026-06-29: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: version HA `0.2.180`; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` contiene solo codigo especifico HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`); los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.180` esta publicada/pusheada, instalada y funcionando en HA con imagen `ghcr.io/cginebrosa/rainmapperha:0.2.180/latest`, digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, commit `0415067`. `0.2.172` fue confirmada por el usuario como funcionando correctamente el 2026-06-28; incluye la correccion de la tarjeta `Weather model summary` del tab `General/Summary` de especies. `0.2.175` introduce el store real de observaciones de setas, labels genericas y mantenimiento inicial de observaciones. `0.2.176` mueve los nombres de grupos de `/mushrooms/catalogs` a `mushroom_labels.json` mediante claves `catalog_group.*`, para que los catalogos nuevos de observaciones no ensucien las tarjetas superiores con IDs raw. `0.2.177` centraliza labels visibles del dominio `mushrooms` en `mushroom_labels.json`, aplica `ui_language` del add-on a setas y cuenta referencias desde observaciones en el mantenimiento de catalogos. `0.2.178` completa la traduccion visible de labels y valores controlados en la pantalla interna de especies. `0.2.179` refina el tab `Fenologia y Topografia`, meses editables como pastillas y la label `snowmelt_bonus`. `0.2.180` mantiene el tab actual tras guardar especies, mejora filtros de observaciones, separa scoring en Parametros y cambia patrones/orientaciones a pastillas catalogadas traducidas.
+Nota de auditoria 2026-06-30: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: version HA `0.2.180`; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` contiene solo codigo especifico HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`); los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.180` esta publicada/pusheada, instalada y funcionando en HA con imagen `ghcr.io/cginebrosa/rainmapperha:0.2.180/latest`, digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, commit `0415067`. El ultimo commit pusheado del repo es `720e1d6 Add mushroom observation lab and EXIF workflows`; es posterior a la release `0.2.180`, no cambia la version HA y documenta/implementa el laboratorio local de observaciones y EXIF. `0.2.172` fue confirmada por el usuario como funcionando correctamente el 2026-06-28; incluye la correccion de la tarjeta `Weather model summary` del tab `General/Summary` de especies. `0.2.175` introduce el store real de observaciones de setas, labels genericas y mantenimiento inicial de observaciones. `0.2.176` mueve los nombres de grupos de `/mushrooms/catalogs` a `mushroom_labels.json` mediante claves `catalog_group.*`, para que los catalogos nuevos de observaciones no ensucien las tarjetas superiores con IDs raw. `0.2.177` centraliza labels visibles del dominio `mushrooms` en `mushroom_labels.json`, aplica `ui_language` del add-on a setas y cuenta referencias desde observaciones en el mantenimiento de catalogos. `0.2.178` completa la traduccion visible de labels y valores controlados en la pantalla interna de especies. `0.2.179` refina el tab `Fenologia y Topografia`, meses editables como pastillas y la label `snowmelt_bonus`. `0.2.180` mantiene el tab actual tras guardar especies, mejora filtros de observaciones, separa scoring en Parametros y cambia patrones/orientaciones a pastillas catalogadas traducidas.
 
 ## 2026-06-27 - Mantener JSON de setas como defaults versionados y copia editable en HA
 
@@ -196,6 +196,31 @@ Consecuencias:
 - El backend conserva un handler defensivo para `duplicate_observation`, pero el flujo normal de UI usa query `duplicate_from` y formulario `create_observation`.
 - Guardar desde duplicado puede crear una o varias observaciones.
 - Las acciones de observaciones deben preservar filtros, ordenacion, especie seleccionada, observacion seleccionada y estado del panel de archivadas.
+
+## 2026-06-30 - Importacion EXIF de observaciones y subida colaborativa futura
+
+Decision:
+
+- Mantener `Pillow==12.2.0` en `requirements.txt` mientras exista importacion o recuperacion EXIF desde observaciones.
+- La UI de observaciones puede importar una o varias fotos JPEG con EXIF, usando una plantilla comun para observador, experiencia, calidad, abundancia, validacion, especie y uso en calibracion.
+- Los campos extraidos automaticamente desde EXIF son fecha de observacion, latitud, longitud, altitud si existe, `source.type = photo_exif`, `location.source = photo_exif` y `source.label` basado en el nombre del archivo.
+- Si una foto no tiene EXIF util de fecha/GPS, no se deben inventar coordenadas ni fecha.
+- HEIC/HEIF no queda garantizado por esta decision. Si se necesita soportarlo, evaluar conversion server-side a JPEG preservando EXIF util y documentar dependencias extra en HA.
+- La subida futura desde MapLibre para colaboradores debe quedar detras de un permiso/toggle de usuario, por ejemplo `can_upload_mushroom_observations`, similar a metricas, IDW y Heatmap.
+- Las observaciones subidas por colaboradores deben quedar pendientes de revision y fuera de calibracion automatica hasta validacion manual del propietario.
+
+Motivo:
+
+- Las fotos geolocalizadas del usuario son la via mas rapida para construir una base local de observaciones historicas.
+- Duplicar observaciones y recuperar EXIF reduce mucho el tiempo de carga cuando una salida contiene varias especies.
+- La subida colaborativa puede acelerar la recopilacion, pero introduce riesgos de privacidad, calidad de datos y validacion.
+
+Consecuencias:
+
+- El laboratorio local puede crecer con datos reales sin tocar HA productivo si se usa `rainmapper-ha-ui` contra `docker-data/`.
+- No persistir imagenes completas salvo decision explicita posterior; la preferencia inicial es guardar metadata/observacion.
+- Validar tamano, cantidad, EXIF ausente y permisos antes de exponer esta funcionalidad en MapLibre.
+- Documentacion relacionada: `docs/mushrooms/mushroom-local-observation-lab-es.md`, `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`, `docs/mushrooms/mushroom-predictor-design-es.md` y `docs/todo.md`.
 
 ## 2026-06-27 - Compactar panel expandido de usuarios sin cambiar contratos backend
 

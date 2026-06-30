@@ -14,7 +14,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - Runtime Python: `python:3.11-slim` en Docker.
 - Gestor de paquetes Python: `pip` con `requirements.txt`.
 - Sistema de build: Dockerfile y Docker Compose.
-- Librerias Python principales: pandas, numpy, requests, BeautifulSoup, lxml, googlemaps, bokeh, pytz.
+- Librerias Python principales: pandas, numpy, requests, BeautifulSoup, lxml, googlemaps, bokeh, pytz, Pillow.
 - Librerias UI: Leaflet 1.9.4 via CDN, MapLibre GL JS 4.7.1 via CDN.
 - Librerias de estado JS: no detectadas.
 - Librerias de routing JS: no detectadas.
@@ -28,6 +28,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `rainmapper-app/`: paquete de Home Assistant.
 - `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
+- `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para laboratorio local sin tocar Home Assistant.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh`, `aemet-backfill-30-days.py` y `validate-mushroom-data.py`.
@@ -132,6 +133,13 @@ Hay varios entry points segun entorno:
 - Responsabilidad: automatizar la secuencia de prueba local: `docker compose build rainmapper`, `docker compose run --rm -e MODE=all rainmapper` y servidor HTTP local para abrir visores.
 - Dependencias: Docker Compose y `python3`.
 - Relacion: acceso rapido a `http://127.0.0.1:8080/rainmapper_core/viewers/maplibre-viewer/` y `http://127.0.0.1:8080/rainmapper_core/viewers/leaflet-viewer/` tras regenerar datos locales.
+
+### Laboratorio local WebUI HA
+- Ruta: `rainmapper-local/docker-compose.yml`, servicio `rainmapper-ha-ui`.
+- Responsabilidad: levantar la WebUI de Home Assistant en local usando `rainmapper-app/Dockerfile` y montando `docker-data/` como `/share/rainmapper`.
+- Puerto local: `http://127.0.0.1:8101`.
+- Relacion: permite cargar observaciones reales/historicas de setas, importar EXIF y probar flujos de mantenimiento sin escribir en la instalacion HA real. Usa `rainmapper-local/options.local-ha-ui.json` como opciones de add-on y `tmp/mushroom-lab/runtime/config-www` como `/config/www`.
+- Estado de cierre 2026-06-30: `docker compose -f rainmapper-local/docker-compose.yml ps` no muestra servicios activos; los datos locales permanecen en `docker-data/`.
 
 ### Runner local solo mapas
 - Ruta: `rainmapper-local/local_maps.sh`; `local_maps.sh` en raiz es un wrapper compatible.
