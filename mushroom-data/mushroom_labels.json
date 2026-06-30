@@ -775,9 +775,9 @@
     "ca": "Mode trofic"
   },
   "ui.primary_hosts": {
-    "en": "Primary hosts",
-    "es": "Hosts primarios",
-    "ca": "Hosts primaris"
+    "en": "Hosts",
+    "es": "Hosts",
+    "ca": "Hosts"
   },
   "ui.secondary_hosts": {
     "en": "Secondary hosts",

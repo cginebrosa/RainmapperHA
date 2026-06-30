@@ -826,7 +826,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         html = self.web_server.mushroom_profiles_ui.render_parameters_section(profile, catalogs)
 
         self.assertIn("7d min rain", html)
-        self.assertIn("Primary hosts", html)
+        self.assertIn("Hosts", html)
         self.assertIn("Secondary hosts", html)
         self.assertIn("parameter-left-stack", html)
         self.assertIn('name="rainfall_rain_7d_min_mm"', html)

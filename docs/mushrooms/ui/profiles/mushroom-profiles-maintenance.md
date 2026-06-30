@@ -1604,6 +1604,14 @@ review_status
 requires_human_validation
 ```
 
+## Navegacion interna
+
+Al cambiar de especie desde la lista lateral, la UI debe conservar la pestaña interna activa siempre que tenga sentido. Ejemplo: si el usuario esta revisando `Especies > Ecologia > Hosts` en `Boletus pinophilus`, al cambiar a `Amanita caesarea` debe seguir en `Ecologia > Hosts`, no volver a `General`.
+
+La pestaña `Hosts` agrupa afinidades primarias, secundarias y otras relaciones de host. No debe etiquetarse como `Hosts primarios` en la UI de edición porque el bloque contiene mas relaciones que las primarias.
+
+Las filas de afinidad deben ser compactas: campos cortos en formato `titulo: valor` en la misma linea, valores numericos de afinidad con paso `0.01` y scroll interno cuando haya mas de unas 8 filas visibles, para facilitar revision comparativa entre especies sin perder los botones inferiores.
+
 ## Tablas
 
 - Filas compactas.

@@ -1840,6 +1840,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .profile-section-head .admin-field {{
       max-width: 720px;
     }}
+    .profile-section-head .admin-field {{
+      align-items: center;
+      display: grid;
+      gap: 6px;
+      grid-template-columns: auto minmax(0, 1fr);
+    }}
+    .profile-section-head .admin-field label {{
+      margin-bottom: 0;
+      white-space: nowrap;
+    }}
+    .profile-section-head .admin-field label::after {{
+      content: ":";
+      margin-left: 1px;
+    }}
     .profile-tabs {{
       display: grid;
       gap: 12px;
@@ -2254,6 +2268,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       display: grid;
       gap: 6px;
     }}
+    .profile-affinity-rows {{
+      display: grid;
+      gap: 7px;
+      max-height: 352px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }}
     .ecology-subtabs {{
       display: grid;
       gap: 10px;
@@ -2303,6 +2324,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       display: grid;
       gap: 7px;
       grid-template-columns: minmax(220px, 1fr) minmax(130px, .5fr) minmax(86px, .28fr);
+    }}
+    .profile-affinity-row .admin-field {{
+      align-items: center;
+      display: grid;
+      gap: 6px;
+      grid-template-columns: auto minmax(0, 1fr);
+    }}
+    .profile-affinity-row .admin-field label {{
+      margin-bottom: 0;
+      white-space: nowrap;
+    }}
+    .profile-affinity-row .admin-field label::after {{
+      content: ":";
+      margin-left: 1px;
     }}
     .profile-editor .admin-field label {{
       font-size: 12px;
@@ -3200,6 +3235,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       var checked = document.querySelector(".profile-tabs input[name='profile_tab']:checked");
       return checked ? checked.id : "profile-tab-general";
     }}
+    function activeEcologyTabId() {{
+      var checked = document.querySelector(".ecology-subtabs input[name='ecology_tab']:checked");
+      return checked ? checked.id : "";
+    }}
     function setProfileReturnTabs() {{
       var activeTab = activeProfileTabId();
       Array.prototype.slice.call(document.querySelectorAll("input[name='profile_return_tab']")).forEach(function(input) {{
@@ -3226,6 +3265,40 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         tab.checked = true;
         setProfileReturnTabs();
       }}
+    }}
+    function restoreEcologyTab() {{
+      var tabId = "";
+      try {{
+        tabId = new URLSearchParams(window.location.search).get("ecology_tab") || "";
+      }} catch (error) {{}}
+      if (!tabId || tabId.indexOf("eco-tab-") !== 0) {{
+        return;
+      }}
+      var tab = document.getElementById(tabId);
+      if (tab && tab.name === "ecology_tab") {{
+        tab.checked = true;
+      }}
+    }}
+    function speciesUrlWithActiveProfileState(href) {{
+      var url;
+      try {{
+        url = new URL(href, window.location.href);
+      }} catch (error) {{
+        return href;
+      }}
+      var activeTab = activeProfileTabId();
+      var ecologyTab = activeEcologyTabId();
+      if (activeTab && activeTab !== "profile-tab-general") {{
+        url.searchParams.set("profile_tab", activeTab);
+      }} else {{
+        url.searchParams.delete("profile_tab");
+      }}
+      if (activeTab === "profile-tab-ecology" && ecologyTab) {{
+        url.searchParams.set("ecology_tab", ecologyTab);
+      }} else {{
+        url.searchParams.delete("ecology_tab");
+      }}
+      return (url.search || "?") + url.hash;
     }}
     function applyUsersFilter() {{
       var input = document.getElementById("users-filter");
@@ -3332,6 +3405,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
     }});
     document.addEventListener("click", function(event) {{
+      var speciesLink = event.target.closest(".profile-list-item[href]");
+      if (speciesLink) {{
+        speciesLink.href = speciesUrlWithActiveProfileState(speciesLink.href);
+      }}
       var dateInput = event.target.closest(".observations-filters input[type='date'], .observation-form input[type='date']");
       if (dateInput && typeof dateInput.showPicker === "function") {{
         try {{
@@ -3375,6 +3452,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       collapseUserCards();
       restoreControlTab();
       restoreProfileTab();
+      restoreEcologyTab();
       setProfileReturnTabs();
     }});
   </script>

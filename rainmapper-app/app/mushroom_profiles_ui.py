@@ -920,14 +920,15 @@ def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str,
             '<div class="profile-affinity-row">'
             + form_catalog_select(f"{field}_{index}_id", "ID", current_id, row_options)
             + form_select(f"{field}_{index}_relationship", ui_label("ui.relationship"), item.get("relationship", ""), PROFILE_SELECT_VALUES["relationship"])
-            + form_field(f"{field}_{index}_affinity", ui_label("ui.affinity"), item.get("affinity", ""), field_type="number")
+            + form_field(f"{field}_{index}_affinity", ui_label("ui.affinity"), item.get("affinity", ""), field_type="number", step="0.01")
             + "</div>"
         )
     return (
         f'<div class="profile-affinity-block {html.escape(field)}">'
         f'<h2>{html.escape(field.replace("_", " ").title())}</h2>'
+        '<div class="profile-affinity-rows">'
         + "".join(rows)
-        + "</div>"
+        + "</div></div>"
     )
 
 
