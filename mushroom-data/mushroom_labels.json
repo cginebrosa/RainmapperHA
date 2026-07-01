@@ -1164,6 +1164,11 @@
     "es": "Guardar perfil de especie",
     "ca": "Desar perfil d'especie"
   },
+  "ui.backup": {
+    "en": "Backup",
+    "es": "Backup",
+    "ca": "Backup"
+  },
   "ui.duplicate_species": {
     "en": "Duplicate species",
     "es": "Duplicar especie",

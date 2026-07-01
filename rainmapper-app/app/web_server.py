@@ -31,6 +31,7 @@ if str(APP_DIR) not in sys.path:
 
 import mushroom_catalogs_ui
 import mushroom_profiles_ui
+from rainmapper_core import mushroom_gis_lab
 from rainmapper_core.mushroom_store import default_store
 from rainmapper_core.mushroom_validation import (
     empty_species_profile,
@@ -2804,6 +2805,80 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-badge.danger {{
       border-color: rgba(255, 82, 82, .5);
       color: var(--danger);
+    }}
+    .gis-reconstruction-lab {{
+      margin-top: 12px;
+    }}
+    .gis-reconstruction-lab h2 svg {{
+      fill: none;
+      height: 18px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+      width: 18px;
+    }}
+    .gis-lab-form {{
+      border-top: 1px solid rgba(45, 58, 71, .62);
+      margin-top: 10px;
+      padding-top: 10px;
+    }}
+    .gis-observation-grid {{
+      max-height: 104px;
+      overflow: auto;
+      padding-right: 4px;
+    }}
+    .gis-observation-toggle .catalog-chip {{
+      max-width: none;
+      min-height: 28px;
+    }}
+    .profile-action-bar.inline {{
+      background: transparent;
+      margin-top: 8px;
+      padding-top: 8px;
+    }}
+    .gis-lab-results {{
+      border-top: 1px solid rgba(45, 58, 71, .62);
+      margin-top: 12px;
+      padding-top: 10px;
+    }}
+    .gis-results-table {{
+      max-height: 340px;
+    }}
+    .gis-results-table table {{
+      min-width: 980px;
+    }}
+    .gis-results-table td {{
+      max-width: 320px;
+      vertical-align: top;
+      white-space: normal;
+    }}
+    .gis-result-detail-list {{
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }}
+    .gis-result-details {{
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }}
+    .gis-result-details summary {{
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .gis-result-details ul {{
+      color: var(--muted);
+      display: grid;
+      gap: 6px;
+      list-style: none;
+      margin: 8px 0 0;
+      padding: 0;
+    }}
+    .gis-result-details li {{
+      font-size: 12px;
+      line-height: 1.35;
     }}
     .observation-detail-shell {{
       align-self: start;
@@ -7026,6 +7101,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 search,
                 observation_form_message,
                 observation_filters,
+                mushroom_gis_lab.load_latest_reconstruction(),
             )
         elif section == "summary":
             main_content = (
@@ -7201,6 +7277,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         values = form.get(name, [])
         return values[0] if values else ""
 
+    def form_action_value(self, form: dict[str, list[str]], name: str) -> str:
+        values = form.get(name, [])
+        return values[-1] if values else ""
+
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/auth/login":
@@ -7358,11 +7438,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         admin_message(message)
 
     def handle_mushroom_catalogs_post(self, form: dict[str, list[str]]) -> str:
-        action = self.form_value(form, "catalog_action")
+        action = self.form_action_value(form, "catalog_action")
         store = default_store()
         try:
             store.ensure_seeded()
-            if action == "save_entry":
+            if action == "backup_catalog_keep":
+                backup_path = store.backup_current("catalogs", keep=True)
+                suffix = f" Backup: {backup_path}" if backup_path else ""
+                set_mushroom_catalogs_flash("Manual reference catalog backup created." + suffix)
+            elif action == "save_entry":
                 group = self.form_value(form, "group")
                 item_id = self.form_value(form, "id")
                 entry = json.loads(self.form_value(form, "entry_json"))
@@ -7444,12 +7528,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         form: dict[str, list[str]],
         files: dict[str, list[dict[str, object]]] | None = None,
     ) -> str:
-        action = self.form_value(form, "profile_action")
+        action = self.form_action_value(form, "profile_action")
         species_id = self.form_value(form, "species_id")
         files = files or {}
         store = default_store()
         try:
             store.ensure_seeded()
+            if action == "backup_profiles_keep":
+                backup_path = store.backup_current("profiles", keep=True)
+                suffix = f" Backup: {backup_path}" if backup_path else ""
+                set_mushroom_profiles_flash("Manual species profiles backup created." + suffix)
+                return profile_message_url(species_id)
             if action == "create_profile":
                 new_species_id = catalog_form_string(form, "new_species_id")
                 scientific_name = catalog_form_string(form, "new_scientific_name")
@@ -7574,6 +7663,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 write_archived_profiles(store, archive_payload)
                 set_mushroom_profiles_flash(f"Deleted archived species profile {species_id} permanently.")
                 return profile_message_url()
+            if action == "reconstruct_observation_gis":
+                selected_observation_ids = [
+                    str(value).strip()
+                    for value in form.get("gis_observation_ids", [])
+                    if str(value).strip()
+                ]
+                if not selected_observation_ids:
+                    set_mushroom_profiles_flash("GIS reconstruction was not run: select at least one observation.")
+                    return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
+                observations_payload = store.load("observations")
+                if not isinstance(observations_payload, dict):
+                    set_mushroom_profiles_flash("GIS reconstruction was not run: observations payload must be an object.")
+                    return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
+                observations = observation_dicts_from_payload(observations_payload)
+                result = mushroom_gis_lab.reconstruct_observations(observations, selected_observation_ids)
+                result_count = result.get("result_count", 0)
+                set_mushroom_profiles_flash(f"GIS reconstruction completed for {result_count} observation(s).")
+                return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
             if action == "create_observation":
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):

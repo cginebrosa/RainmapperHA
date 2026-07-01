@@ -1243,6 +1243,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           </div>
         </div>
         <div class="profile-action-bar">
+          <button class="secondary" name="profile_action" value="backup_profiles_keep" type="submit" formnovalidate onclick="return confirm('Create a manual keep backup of the full species profiles file now?')">{html.escape(ui_label("ui.backup"))}</button>
           <button class="primary profile-primary-action">{html.escape(ui_label("ui.save_species_profile"))}</button>
           <a class="button-link secondary-link" href="#duplicate-species-modal">{html.escape(ui_label("ui.duplicate_species"))}</a>
           <a class="button-link danger-link" href="#archive-species-modal">{html.escape(ui_label("ui.archive_species"))}</a>
@@ -2174,6 +2175,194 @@ def render_archived_observations_panel(
     return f'<details id="archived-observations" class="profile-section-card"{open_attr}><summary><strong>{html.escape(ui_label("ui.archived_observations"))}</strong></summary><div class="archived-observations-list">' + "".join(rows) + '</div></details>'
 
 
+def observation_has_coordinates(row: dict[str, object]) -> bool:
+    location = row.get("location")
+    if not isinstance(location, dict):
+        return False
+    return location.get("lat") not in (None, "") and location.get("lon") not in (None, "")
+
+
+def gis_layer_property(layer_result: dict[str, object], *keys: str) -> str:
+    properties = layer_result.get("properties")
+    if not isinstance(properties, dict):
+        return "-"
+    for key in keys:
+        value = properties.get(key)
+        if value not in (None, ""):
+            return str(value)
+    return "-"
+
+
+def gis_layer_status_badge(layer_result: object) -> str:
+    if not isinstance(layer_result, dict):
+        return observation_badge("-", "warn")
+    status = str(layer_result.get("status", "") or "-")
+    status_labels = {
+        "ok": "ok",
+        "missing_layer": "capa no montada",
+        "query_error": "error consulta",
+        "invalid_json": "error lectura",
+        "no_coverage_at_point": "sin cobertura",
+        "no_value": "sin valor",
+        "no_data": "sin dato",
+    }
+    tone = "ok" if status == "ok" else "warn"
+    return observation_badge(status_labels.get(status, status), tone)
+
+
+def gis_observation_status_badge(status: object, has_gaps: bool) -> str:
+    status_text = str(status or "-")
+    labels = {
+        "complete": "completa",
+        "complete_with_gaps": "con gaps",
+        "skipped": "omitida",
+        "error": "error",
+        "pending": "pendiente",
+    }
+    return observation_badge(labels.get(status_text, status_text), "ok" if not has_gaps else "warn")
+
+
+def render_gis_result_summary(result: dict[str, object] | None, species_labels: dict[str, str]) -> str:
+    """Render the latest local GIS reconstruction in a compact review table."""
+    if not isinstance(result, dict):
+        return '<p class="meta">Todavia no hay reconstruccion GIS local. Selecciona observaciones y ejecuta la reconstruccion.</p>'
+    rows = result.get("results")
+    rows = rows if isinstance(rows, list) else []
+    if not rows:
+        return '<p class="meta">La ultima reconstruccion GIS no contiene resultados revisables.</p>'
+    table_rows = []
+    detail_cards = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        observation_id = str(item.get("observation_id", "") or "")
+        species_id = str(item.get("species_id", "") or "")
+        layers = item.get("layers")
+        layers = layers if isinstance(layers, dict) else {}
+        mvc50 = layers.get("mvc50") if isinstance(layers.get("mvc50"), dict) else {}
+        geology = layers.get("geology_50000") if isinstance(layers.get("geology_50000"), dict) else {}
+        dem = layers.get("dem_5m") if isinstance(layers.get("dem_5m"), dict) else {}
+        gaps = item.get("gaps")
+        gaps = gaps if isinstance(gaps, list) else []
+        display_gaps = [str(gap) for gap in gaps if str(gap) != "soil_25000"]
+        dem_altitude = "-"
+        dem_delta = "-"
+        if isinstance(dem, dict):
+            if dem.get("elevation_m") not in (None, ""):
+                dem_altitude = f"{dem.get('elevation_m')} m"
+            if dem.get("delta_observed_vs_dem_m") not in (None, ""):
+                dem_delta = f"{dem.get('delta_observed_vs_dem_m')} m"
+        table_rows.append(
+            "<tr>"
+            f"<td><strong>{html.escape(observation_id)}</strong><br><span class=\"meta\">{html.escape(str(item.get('observed_at', '-')))} · {html.escape(species_labels.get(species_id, species_id))}</span></td>"
+            f"<td>{gis_layer_status_badge(mvc50)}<br>{html.escape(gis_layer_property(mvc50, 'LLVA_niv2t', 'LLFISCAT_t', 'LLVA_txt'))}</td>"
+            f"<td>{gis_layer_status_badge(geology)}<br>{html.escape(gis_layer_property(geology, 'Codi'))} · {html.escape(gis_layer_property(geology, 'Descripcio'))}</td>"
+            f"<td>{gis_layer_status_badge(dem)}<br>{html.escape(dem_altitude)}<br><span class=\"meta\">delta obs.: {html.escape(dem_delta)}</span></td>"
+            f"<td>{gis_observation_status_badge(item.get('status', '-'), bool(display_gaps))}<br><span class=\"meta\">{html.escape(', '.join(display_gaps) if display_gaps else 'sin gaps')}</span></td>"
+            "</tr>"
+        )
+        detail_lines = []
+        for source_id, layer_result in layers.items():
+            if source_id == "soil_25000":
+                continue
+            if not isinstance(layer_result, dict):
+                continue
+            properties = layer_result.get("properties")
+            if isinstance(properties, dict) and properties:
+                rendered_properties = "; ".join(
+                    f"{key}: {value}" for key, value in properties.items() if value not in (None, "")
+                )
+            else:
+                scalar_values = {
+                    key: value
+                    for key, value in layer_result.items()
+                    if key not in {"status", "source", "properties"} and value not in (None, "")
+                }
+                rendered_properties = (
+                    "; ".join(f"{key}: {value}" for key, value in scalar_values.items())
+                    or str(layer_result.get("message") or layer_result.get("error") or layer_result.get("raw") or "-")
+                )
+            detail_lines.append(
+                f"<li><strong>{html.escape(str(source_id))}</strong>: {gis_layer_status_badge(layer_result)} "
+                f"<span>{html.escape(rendered_properties)}</span></li>"
+            )
+        detail_cards.append(
+            f'<details class="gis-result-details"><summary>{html.escape(observation_id)} · valores crudos de capas</summary>'
+            f'<ul>{"".join(detail_lines)}</ul></details>'
+        )
+    generated_at = str(result.get("generated_at", "") or "")
+    qgis_points_path = str(result.get("qgis_points_host_path") or result.get("qgis_points_path") or "")
+    qgis_note = (
+        f'<br>Revision visual QGIS: <code>{html.escape(qgis_points_path)}</code>'
+        if qgis_points_path
+        else ""
+    )
+    return (
+        f'<p class="meta">Ultima reconstruccion: {html.escape(generated_at)} · {len(table_rows)} observacion(es). '
+        f'Las coordenadas se leen localmente pero no se muestran en esta revision.{qgis_note}</p>'
+        '<div class="observations-table-shell gis-results-table"><table>'
+        '<thead><tr><th>Observacion</th><th>MVC50</th><th>Geologia</th><th>DEM</th><th>Estado</th></tr></thead>'
+        f'<tbody>{"".join(table_rows)}</tbody></table></div>'
+        f'<div class="gis-result-detail-list">{"".join(detail_cards)}</div>'
+    )
+
+
+def render_observation_gis_lab(
+    filtered_rows: list[dict[str, object]],
+    species_labels: dict[str, str],
+    selected_species_id: str,
+    search: str,
+    filters: dict[str, str] | None,
+    result: dict[str, object] | None = None,
+) -> str:
+    """Render the local GIS reconstruction lab for explicitly selected observations."""
+    candidate_rows = [row for row in filtered_rows if observation_has_coordinates(row)]
+    selected_ids = set()
+    if isinstance(result, dict):
+        raw_ids = result.get("selected_observation_ids")
+        if isinstance(raw_ids, list):
+            selected_ids = {str(item) for item in raw_ids}
+    chips = []
+    for row in candidate_rows:
+        observation_id = str(row.get("observation_id", "") or "")
+        if not observation_id:
+            continue
+        species_id = str(row.get("species_id", "") or "")
+        checked = " checked" if observation_id in selected_ids else ""
+        label = f"{row.get('observed_at', '-')} · {species_labels.get(species_id, species_id)} · {row.get('flush_abundance', '-')}"
+        chips.append(
+            '<label class="catalog-toggle gis-observation-toggle">'
+            f'<input type="checkbox" name="gis_observation_ids" value="{html.escape(observation_id, quote=True)}"{checked}>'
+            f'<span class="catalog-chip" title="{html.escape(observation_id, quote=True)}">{html.escape(label)}</span>'
+            '</label>'
+        )
+    picker = (
+        '<div class="catalog-toggle-grid gis-observation-grid">' + "".join(chips) + "</div>"
+        if chips
+        else '<p class="meta">No hay observaciones visibles con coordenadas validas para reconstruir.</p>'
+    )
+    return f"""
+    <article id="gis-reconstruction-lab" class="profile-section-card gis-reconstruction-lab">
+      <h2>{icon("topography")} Reconstruccion GIS local</h2>
+      <p class="meta">Selecciona las observaciones visibles que quieres comprobar contra MVC50, geologia y DEM. Este laboratorio no cambia observaciones ni perfiles.</p>
+      <form method="post" action="#gis-reconstruction-lab" class="gis-lab-form">
+        <input type="hidden" name="profile_action" value="reconstruct_observation_gis">
+        {observation_context_inputs(filters, selected_species_id=selected_species_id)}
+        <div class="admin-field catalog-toggle-field">
+          <span class="field-label">Observaciones a reconstruir</span>
+          {picker}
+        </div>
+        <div class="profile-action-bar inline">
+          <button class="primary profile-primary-action" {"disabled" if not chips else ""}>Reconstruir GIS seleccionadas</button>
+        </div>
+      </form>
+      <div class="gis-lab-results">
+        {render_gis_result_summary(result, species_labels)}
+      </div>
+    </article>
+    """
+
+
 def render_observations_section(
     profile: dict[str, object] | None,
     profiles: list[dict[str, object]],
@@ -2183,6 +2372,7 @@ def render_observations_section(
     search: str = "",
     form_message: str = "",
     filters: dict[str, str] | None = None,
+    gis_reconstruction_payload: dict[str, object] | None = None,
 ) -> str:
     """Render the observation workspace backed by mushroom_observations.json."""
     selected_species_id = str(profile.get("species_id", "")) if profile else ""
@@ -2246,6 +2436,7 @@ def render_observations_section(
         </aside>
       </div>
       {render_archived_observations_panel(archived_observations_payload, species_labels, selected_species_id, filters)}
+      {render_observation_gis_lab(filtered_rows, species_labels, selected_species_id, search, filters, gis_reconstruction_payload)}
       {render_observation_create_form(profiles, catalogs, selected_species_id, form_message, filters)}
       {render_observation_exif_import_form(profiles, catalogs, selected_species_id, filters)}
       {render_observation_duplicate_form(rows, profiles, catalogs, selected_species_id, filters)}

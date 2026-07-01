@@ -15,6 +15,9 @@ MERGED_*.csv
 /docker-empty-test/
 /backups/
 /tmp/
+/mushroom-GIS/*
+!/mushroom-GIS/.gitignore
+!/mushroom-GIS/README.md
 
 # Local tests and old scripts
 /_My test files/

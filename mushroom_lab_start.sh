@@ -11,6 +11,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${REPO_ROOT}/rainmapper-local/docker-compose.yml"
 LAB_URL="http://127.0.0.1:8101/mushrooms/profiles?section=observations"
+export RAINMAPPER_LOCAL_REPO_ROOT="${REPO_ROOT}"
 
 cd "${REPO_ROOT}"
 

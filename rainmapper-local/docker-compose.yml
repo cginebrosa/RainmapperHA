@@ -38,9 +38,12 @@ services:
     image: rainmapperha:local-ha-ui
     environment:
       RAINMAPPER_APP_VERSION: local-ha-ui
+      RAINMAPPER_LOCAL_REPO_ROOT: ${RAINMAPPER_LOCAL_REPO_ROOT:-}
     ports:
       - "127.0.0.1:8101:8099"
     volumes:
       - ../docker-data:/share/rainmapper
+      - ../mushroom-GIS:/app/mushroom-GIS:ro
+      - ../tmp:/app/tmp
       - ./options.local-ha-ui.json:/data/options.json:ro
       - ../tmp/mushroom-lab/runtime/config-www:/config/www

@@ -574,6 +574,7 @@ def render_catalog_entry_form(row: dict[str, object], catalogs: dict[str, object
         <input type="hidden" name="id" value="{html.escape(item_id, quote=True)}">
         <div class="admin-form-grid">{''.join(fields)}</div>
         <div class="catalog-entry-actions">
+          <button class="secondary" name="catalog_action" value="backup_catalog_keep" type="submit" formnovalidate onclick="return confirm('Create a manual keep backup of the full reference catalog now?')">{html.escape(ui_label("ui.backup"))}</button>
           <button class="primary">{html.escape(ui_label("ui.save_entry"))}</button>
         </div>
       </form>

@@ -74,11 +74,84 @@ tmp/mushroom-lab/output/reports/species_observed_conditions.md
 
 Estas salidas son locales, ignoradas por Git y revisables manualmente.
 
-## Fase 1: extractor meteorologico local
+## Fase 0: mini-fase GIS acotada
 
 Objetivo:
 
-Reconstruir condiciones meteorologicas previas por observacion desde los incrementales de Rainmapper.
+Antes de implementar el `observation_context_builder`, identificar que capas
+oficiales son realmente utilizables para Catalunya y que equivalentes
+peninsulares quedan como fallback.
+
+Alcance:
+
+- usar `docs/mushrooms/gis-layer-inventory-es.md` como inventario vivo;
+- construir la v0 GIS solo para Catalunya;
+- mantener la Peninsula Iberica espanola como fase 2 del predictor siguiendo la
+  misma metodologia documental y tecnica;
+- en fase 2 solo deberian faltar fuentes equivalentes no catalanas para DEM,
+  coberturas, suelos y litologia; la reconstruccion meteorologica se basara en
+  el mismo `observation_context_builder` y los historicos Rainmapper ya
+  disponibles;
+- dejar fuera de alcance Canarias, Baleares, Ceuta y Melilla;
+- no versionar capas grandes; las copias locales bajo `mushroom-GIS/` deben
+  seguir ignoradas por Git y fuera de la imagen HA;
+- no crear mappings nuevos por intuicion sin inspeccionar atributos reales.
+
+Duracion maxima:
+
+- 2 dias de trabajo efectivo.
+
+Salida esperada:
+
+- lista corta de capas v0;
+- decision raster/vector por capa;
+- fuente, licencia, formato, CRS y resolucion documentados;
+- primeros codigos/campos externos candidatos para `mushroom_gis_mappings.json`;
+- gaps conocidos antes de disenar el builder.
+
+Capas Catalunya v0 seleccionadas:
+
+- MVC50 para vegetacion, hosts, habitat y substrato preferente.
+- ICGC Geologia territorial 1:50.000
+  `geologia-territorial-50000-geologic-v3r0-202412` para litologia/geologia.
+- ICGC Model d'elevacions del terreny topografic Catalunya 5 m
+  `model-elevacions-terreny-topografic-catalunya-5m-2009-2018` para altitud,
+  pendiente y orientacion.
+
+Capas Catalunya aparcadas:
+
+- ICGC/MCSC `cobertes-sol-v1r0-2024`, candidata futura para cobertura
+  estructural general. No se usara para hosts y no bloquea la v0.
+- ICGC Mapa de suelos 1:25.000 `sols-25000-v1r1-202512`, descartada para v0:
+  cobertura parcial, poca utilidad predictiva frente a `MVC50.LLVA_Subst` y
+  mapping poco directo contra los IDs internos de suelo de especies.
+
+Plan inmediato tras cerrar la mini-fase GIS:
+
+1. Documentar el estado final de capas v0 y dejarlo referenciado en
+   continuidad.
+2. Probar consultas por coordenada sobre 2-3 observaciones reales o
+   anonimizadas, sin publicar coordenadas.
+3. Disenar la salida experimental `observations_gis_features` con campos,
+   fuentes, codigos crudos y gaps.
+4. Implementar el `observation_context_builder` meteorologico local desde
+   `docker-data/Data/`.
+5. Integrar DEM/GIS en el laboratorio, ya sea como fase del mismo builder o como
+   builder GIS separado.
+6. Crear mappings solo desde codigos reales observados y mantener sin mapping
+   cualquier clase no revisada.
+
+Decision de suelo v0:
+
+- No usar capa edafologica externa en v0. El sustrato predictivo sale de
+  `MVC50.LLVA_Subst`; el suelo real detallado queda fuera hasta que exista una
+  fuente continua y claramente mapeable.
+
+## Fase 1: `observation_context_builder` meteorologico local
+
+Objetivo:
+
+Reconstruir condiciones meteorologicas previas por observacion desde los incrementales de Rainmapper, dejando preparada la estructura para DEM/GIS.
 
 Alcance inicial:
 
@@ -272,5 +345,5 @@ Estado al crear este plan:
 - HA sigue en `0.2.180`.
 - El laboratorio local y la UI de observaciones ya permiten cargar observaciones reales en `docker-data/`.
 - El contenedor `rainmapper-ha-ui` estaba parado en el cierre previo.
-- El siguiente trabajo tecnico sera implementar la Fase 1 como extractor local experimental.
+- El siguiente trabajo tecnico sera cerrar la mini-fase GIS acotada y despues implementar la Fase 1 como `observation_context_builder` local experimental.
 - Este documento sera la guia que se ira adaptando segun decisiones sobre metodo meteorologico, DEM/GIS y generacion de candidatos.

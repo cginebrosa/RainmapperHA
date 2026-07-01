@@ -31,6 +31,7 @@ MUSHROOM_FILES = {
     "observations": OBSERVATIONS_FILE,
 }
 WRITABLE_MUSHROOM_FILES = {"profiles", "catalogs", "observations"}
+AUTOMATIC_BACKUPS_PER_FILE = 20
 
 
 @dataclass(frozen=True)
@@ -173,6 +174,49 @@ class MushroomDataStore:
     def backup_dir(self) -> Path:
         return self.data_dir / "backups"
 
+    def backup_path(self, kind: str, *, keep: bool = False) -> Path:
+        normalized = normalize_kind(kind)
+        target = self.persistent_path(normalized)
+        marker = ".keep" if keep else ""
+        base_name = f"{target.stem}.{timestamp()}{marker}{target.suffix}"
+        candidate = self.backup_dir() / base_name
+        counter = 1
+        while candidate.exists():
+            candidate = self.backup_dir() / f"{target.stem}.{timestamp()}-{counter}{marker}{target.suffix}"
+            counter += 1
+        return candidate
+
+    def backup_current(self, kind: str, *, keep: bool = True) -> Path | None:
+        normalized = normalize_kind(kind)
+        self.ensure_seeded()
+        return self._backup_existing(normalized, keep=keep)
+
+    def _backup_existing(self, kind: str, *, keep: bool = False) -> Path | None:
+        target = self.persistent_path(kind)
+        if not target.exists():
+            return None
+        self.backup_dir().mkdir(parents=True, exist_ok=True)
+        backup_path = self.backup_path(kind, keep=keep)
+        shutil.copy2(target, backup_path)
+        if not keep:
+            self.prune_automatic_backups(kind)
+        return backup_path
+
+    def prune_automatic_backups(self, kind: str, *, keep_latest: int = AUTOMATIC_BACKUPS_PER_FILE) -> None:
+        normalized = normalize_kind(kind)
+        target = self.persistent_path(normalized)
+        backup_dir = self.backup_dir()
+        if not backup_dir.exists() or keep_latest < 0:
+            return
+        backups = [
+            path
+            for path in backup_dir.glob(f"{target.stem}.*{target.suffix}")
+            if ".keep" not in path.stem
+        ]
+        backups.sort(key=lambda path: path.name)
+        for obsolete in backups[:-keep_latest]:
+            obsolete.unlink(missing_ok=True)
+
     def ensure_seeded(self) -> list[str]:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         copied: list[str] = []
@@ -272,11 +316,7 @@ class MushroomDataStore:
             return ReplaceResult(ok=False, errors=errors, warnings=warnings)
 
         target = self.persistent_path(normalized)
-        backup_path = None
-        if target.exists():
-            self.backup_dir().mkdir(parents=True, exist_ok=True)
-            backup_path = self.backup_dir() / f"{target.stem}.{timestamp()}{target.suffix}"
-            shutil.copy2(target, backup_path)
+        backup_path = self._backup_existing(normalized)
         write_json_atomic(target, payload)
         return ReplaceResult(ok=True, errors=[], warnings=warnings, backup_path=backup_path)
 

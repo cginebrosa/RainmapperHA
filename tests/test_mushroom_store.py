@@ -60,6 +60,42 @@ class MushroomDataStoreTests(unittest.TestCase):
         persisted = json.loads((self.data_dir / "mushroom_profiles.json").read_text(encoding="utf-8"))
         self.assertEqual("unit_test", persisted["metadata"]["updated_by"])
 
+    def test_manual_keep_backup_uses_keep_marker(self) -> None:
+        self.store.ensure_seeded()
+
+        backup_path = self.store.backup_current("profiles", keep=True)
+
+        self.assertIsNotNone(backup_path)
+        assert backup_path is not None
+        self.assertTrue(backup_path.exists())
+        self.assertIn(".keep", backup_path.stem)
+
+    def test_replace_prunes_automatic_backups_but_preserves_keep_backups(self) -> None:
+        self.store.ensure_seeded()
+        backup_dir = self.store.backup_dir()
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        for index in range(22):
+            (backup_dir / f"mushroom_profiles.20260101T0000{index:02d}Z.json").write_text(
+                "{}\n",
+                encoding="utf-8",
+            )
+        keep_path = backup_dir / "mushroom_profiles.20260101T999999Z.keep.json"
+        keep_path.write_text("{}\n", encoding="utf-8")
+        profiles = self.store.load("profiles")
+        updated = copy.deepcopy(profiles)
+        updated["metadata"]["updated_by"] = "retention_test"
+
+        result = self.store.replace("profiles", updated)
+
+        self.assertTrue(result.ok)
+        automatic_backups = [
+            path
+            for path in backup_dir.glob("mushroom_profiles.*.json")
+            if ".keep" not in path.stem
+        ]
+        self.assertLessEqual(len(automatic_backups), 20)
+        self.assertTrue(keep_path.exists())
+
     def test_replace_invalid_payload_reports_errors_and_preserves_existing_file(self) -> None:
         self.store.ensure_seeded()
         original = (self.data_dir / "mushroom_profiles.json").read_text(encoding="utf-8")
