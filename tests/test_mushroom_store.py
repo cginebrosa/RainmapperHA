@@ -109,9 +109,17 @@ class MushroomDataStoreTests(unittest.TestCase):
         current = (self.data_dir / "mushroom_profiles.json").read_text(encoding="utf-8")
         self.assertEqual(original, current)
 
-    def test_gis_replace_is_blocked_in_current_phase(self) -> None:
-        with self.assertRaises(ValueError):
-            self.store.replace("gis", self.store.load("gis"))
+    def test_gis_replace_is_validated_and_backed_up(self) -> None:
+        self.store.ensure_seeded()
+        payload = self.store.load("gis")
+        payload["metadata"]["updated_by"] = "gis_mapping_ui_test"
+
+        result = self.store.replace("gis", payload)
+
+        self.assertTrue(result.ok)
+        self.assertIsNotNone(result.backup_path)
+        current = self.store.load("gis")
+        self.assertEqual(current["metadata"]["updated_by"], "gis_mapping_ui_test")
 
 
 if __name__ == "__main__":

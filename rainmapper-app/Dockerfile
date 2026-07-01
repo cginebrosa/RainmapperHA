@@ -27,6 +27,7 @@ COPY scripts/validate-mushroom-data.py /app/scripts/validate-mushroom-data.py
 COPY rainmapper_core/ /app/rainmapper_core/
 COPY rainmapper-app/app/web_server.py /app/web_server.py
 COPY rainmapper-app/app/mushroom_catalogs_ui.py /app/mushroom_catalogs_ui.py
+COPY rainmapper-app/app/mushroom_gis_mappings_ui.py /app/mushroom_gis_mappings_ui.py
 COPY rainmapper-app/app/mushroom_profiles_ui.py /app/mushroom_profiles_ui.py
 COPY rainmapper-app/run.sh /run.sh
 RUN chmod +x /run.sh

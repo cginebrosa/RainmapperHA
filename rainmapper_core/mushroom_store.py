@@ -30,7 +30,7 @@ MUSHROOM_FILES = {
     "gis": GIS_FILE,
     "observations": OBSERVATIONS_FILE,
 }
-WRITABLE_MUSHROOM_FILES = {"profiles", "catalogs", "observations"}
+WRITABLE_MUSHROOM_FILES = {"profiles", "catalogs", "gis", "observations"}
 AUTOMATIC_BACKUPS_PER_FILE = 20
 
 

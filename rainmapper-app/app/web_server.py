@@ -30,6 +30,7 @@ if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
 import mushroom_catalogs_ui
+import mushroom_gis_mappings_ui
 import mushroom_profiles_ui
 from rainmapper_core import mushroom_gis_lab
 from rainmapper_core.mushroom_store import default_store
@@ -2846,12 +2847,56 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       max-height: 340px;
     }}
     .gis-results-table table {{
-      min-width: 980px;
+      min-width: 1680px;
+      table-layout: fixed;
+    }}
+    .gis-results-table th:nth-child(1),
+    .gis-results-table td:nth-child(1) {{
+      width: 280px;
+    }}
+    .gis-results-table th:nth-child(2),
+    .gis-results-table td:nth-child(2) {{
+      width: 430px;
+    }}
+    .gis-results-table th:nth-child(3),
+    .gis-results-table td:nth-child(3) {{
+      width: 110px;
+    }}
+    .gis-results-table th:nth-child(4),
+    .gis-results-table td:nth-child(4) {{
+      width: 520px;
+    }}
+    .gis-results-table th:nth-child(5),
+    .gis-results-table td:nth-child(5) {{
+      width: 220px;
+    }}
+    .gis-results-table th:nth-child(6),
+    .gis-results-table td:nth-child(6) {{
+      width: 120px;
     }}
     .gis-results-table td {{
-      max-width: 320px;
-      vertical-align: top;
-      white-space: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+      white-space: nowrap;
+    }}
+    .gis-inline {{
+      align-items: center;
+      display: inline-flex;
+      gap: 6px;
+      max-width: 100%;
+      min-width: 0;
+      white-space: nowrap;
+    }}
+    .gis-inline .observation-badge {{
+      flex: 0 0 auto;
+    }}
+    .gis-inline-text,
+    .gis-inline .meta {{
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }}
     .gis-result-detail-list {{
       display: grid;
@@ -2879,6 +2924,353 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .gis-result-details li {{
       font-size: 12px;
       line-height: 1.35;
+    }}
+    .gis-mapping-page {{
+      display: grid;
+      gap: 12px;
+    }}
+    .gis-mapping-head {{
+      margin-bottom: 0;
+      padding-bottom: 12px;
+    }}
+    .gis-mapping-toolbar {{
+      border-bottom: 1px solid rgba(45, 58, 71, .72);
+      margin-bottom: 0;
+      padding-bottom: 10px;
+    }}
+    .gis-mapping-toolbar .gis-mapping-json-link {{
+      margin-left: auto;
+    }}
+    .gis-mapping-search {{
+      flex: 1 1 420px;
+      max-width: none;
+      min-width: min(420px, 100%);
+    }}
+    .gis-mapping-search input {{
+      min-height: 38px;
+      width: 100%;
+    }}
+    .gis-mapping-metrics {{
+      display: grid;
+      gap: 6px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      margin-bottom: 8px;
+    }}
+    .gis-mapping-metric {{
+      align-items: center;
+      background: linear-gradient(135deg, rgba(10, 24, 38, .98), rgba(17, 34, 51, .74));
+      border: 1px solid rgba(45, 58, 71, .82);
+      color: inherit;
+      display: flex;
+      gap: 8px;
+      min-height: 58px;
+      padding: 8px;
+      text-decoration: none;
+    }}
+    a.gis-mapping-metric {{
+      cursor: pointer;
+    }}
+    a.gis-mapping-metric:hover,
+    .gis-mapping-metric.active {{
+      background: linear-gradient(135deg, rgba(3, 169, 244, .18), rgba(17, 34, 51, .82));
+      border-color: rgba(3, 169, 244, .72);
+    }}
+    .gis-mapping-metric-icon {{
+      background: rgba(3, 169, 244, .12);
+      border: 1px solid rgba(3, 169, 244, .32);
+      border-radius: 8px;
+      flex: 0 0 28px;
+      height: 28px;
+      position: relative;
+      width: 28px;
+    }}
+    .gis-mapping-metric-icon::after {{
+      color: var(--accent);
+      font-size: 16px;
+      font-weight: 900;
+      left: 50%;
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }}
+    .gis-mapping-metric-icon.list::after {{ content: "#"; }}
+    .gis-mapping-metric-icon.ok::after {{ content: "OK"; font-size: 11px; }}
+    .gis-mapping-metric-icon.pending::after {{ content: "!"; }}
+    .gis-mapping-metric-icon.source::after {{ content: "S"; }}
+    .gis-mapping-metric-icon.field::after {{ content: "F"; }}
+    .gis-mapping-metric-icon.check::after {{ content: "V"; }}
+    .gis-mapping-metric-body {{
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }}
+    .gis-mapping-metric .label {{
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.15;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .gis-mapping-metric .value {{
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.1;
+      margin: 0;
+    }}
+    .gis-mapping-metric .meta {{
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.15;
+    }}
+    .gis-mapping-filter-panel {{
+      background: rgba(8, 18, 30, .58);
+      border: 1px solid rgba(45, 58, 71, .7);
+      border-radius: 8px;
+      display: grid;
+      gap: 7px;
+      margin-bottom: 8px;
+      padding: 8px;
+    }}
+    .gis-mapping-filter-row {{
+      align-items: center;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 70px minmax(0, 1fr);
+    }}
+    .gis-mapping-filter-label {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .gis-mapping-filter-grid {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
+    }}
+    .gis-mapping-filter-grid .catalog-chip {{
+      align-items: center;
+      display: flex;
+      gap: 6px;
+      min-height: 30px;
+      padding: 5px 9px;
+    }}
+    .gis-mapping-filter-grid .catalog-chip strong {{
+      font-size: 12px;
+      white-space: nowrap;
+    }}
+    .gis-mapping-filter-grid .catalog-chip span {{
+      font-size: 11px;
+      white-space: nowrap;
+    }}
+    .gis-mapping-workbench {{
+      gap: 14px;
+      grid-template-columns: minmax(720px, 1fr) minmax(480px, .48fr);
+    }}
+    .gis-mapping-list {{
+      min-width: 0;
+    }}
+    .gis-mapping-list-card {{
+      background: rgba(8, 18, 30, .42);
+      border: 1px solid rgba(45, 58, 71, .72);
+      border-radius: 8px;
+      overflow: hidden;
+    }}
+    .gis-mapping-table-shell {{
+      border: 0;
+      max-height: min(720px, calc(100vh - 320px));
+      min-height: 360px;
+    }}
+    .gis-mapping-table-shell table {{
+      min-width: 980px;
+      table-layout: fixed;
+    }}
+    .gis-mapping-table-shell th,
+    .gis-mapping-table-shell td {{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .gis-mapping-table-shell tbody tr.catalog-row {{
+      cursor: pointer;
+    }}
+    .gis-mapping-table-shell tbody tr.catalog-row:hover td {{
+      background: rgba(3, 169, 244, .06);
+    }}
+    .gis-mapping-table-shell tbody tr.catalog-row.selected td {{
+      background: rgba(3, 169, 244, .16);
+      border-bottom-color: rgba(3, 169, 244, .38);
+      border-top: 1px solid rgba(3, 169, 244, .38);
+    }}
+    .gis-mapping-table-shell tbody tr.catalog-row.selected td:first-child {{
+      border-left: 3px solid var(--accent);
+      color: var(--accent);
+    }}
+    .gis-mapping-table-shell tbody tr.catalog-row.selected td:last-child {{
+      border-right: 1px solid rgba(3, 169, 244, .38);
+    }}
+    .gis-mapping-table-shell th:nth-child(1),
+    .gis-mapping-table-shell td:nth-child(1) {{
+      width: 110px;
+    }}
+    .gis-mapping-table-shell th:nth-child(2),
+    .gis-mapping-table-shell td:nth-child(2) {{
+      width: 135px;
+    }}
+    .gis-mapping-table-shell th:nth-child(3),
+    .gis-mapping-table-shell td:nth-child(3) {{
+      width: 38%;
+    }}
+    .gis-mapping-table-shell th:nth-child(4),
+    .gis-mapping-table-shell td:nth-child(4) {{
+      width: 28%;
+    }}
+    .gis-mapping-table-shell th:nth-child(5),
+    .gis-mapping-table-shell td:nth-child(5) {{
+      width: 120px;
+    }}
+    .gis-table-source {{
+      color: var(--fg);
+      font-weight: 800;
+    }}
+    .gis-table-raw,
+    .gis-table-targets {{
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .gis-mapping-detail {{
+      background: linear-gradient(180deg, rgba(15, 30, 45, .96), rgba(11, 22, 34, .96));
+      border: 1px solid rgba(45, 58, 71, .86);
+      border-radius: 8px;
+      max-height: calc(100vh - 178px);
+      padding: 12px;
+    }}
+    .gis-mapping-detail-head {{
+      align-items: start;
+      border-bottom: 1px solid rgba(45, 58, 71, .72);
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+    }}
+    .gis-mapping-detail-head h2 {{
+      font-size: 16px;
+      line-height: 1.2;
+      margin: 0 0 4px;
+      word-break: break-word;
+    }}
+    .gis-mapping-detail-head .meta {{
+      line-height: 1.25;
+      max-height: 44px;
+      overflow: auto;
+    }}
+    .gis-mapping-detail .compact-labels {{
+      gap: 6px 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .gis-mapping-detail .compact-labels label {{
+      min-width: 0;
+    }}
+    .gis-mapping-detail .compact-labels .span-full {{
+      grid-column: 1 / -1;
+    }}
+    .gis-mapping-detail textarea {{
+      min-height: 52px;
+    }}
+    .gis-mapping-context {{
+      background: rgba(3, 169, 244, .08);
+      border: 1px solid rgba(3, 169, 244, .28);
+      border-radius: 8px;
+      display: grid;
+      gap: 5px;
+      margin-top: 8px;
+      padding: 8px;
+    }}
+    .gis-mapping-context strong {{
+      color: var(--accent);
+      font-size: 12px;
+    }}
+    .gis-mapping-context span {{
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }}
+    .gis-mapping-context code {{
+      color: var(--fg);
+      font-family: inherit;
+      font-weight: 800;
+    }}
+    .gis-mapping-targets {{
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }}
+    .gis-mapping-target-section {{
+      background: rgba(8, 18, 30, .42);
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      padding: 8px;
+    }}
+    .gis-mapping-target-section summary {{
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }}
+    .gis-mapping-target-grid {{
+      display: grid;
+      gap: 6px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      max-height: 164px;
+      overflow: auto;
+      padding-right: 4px;
+    }}
+    .gis-mapping-target-grid .catalog-chip {{
+      min-height: 36px;
+      padding: 6px 7px;
+    }}
+    .gis-mapping-target-grid .catalog-chip span,
+    .gis-mapping-target-grid .catalog-chip strong {{
+      line-height: 1.15;
+    }}
+    .gis-mapping-quality-grid {{
+      display: grid;
+      gap: 7px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 8px;
+    }}
+    .gis-mapping-quality-card {{
+      background: rgba(8, 18, 30, .46);
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      display: grid;
+      gap: 5px;
+      padding: 8px;
+    }}
+    .gis-mapping-quality-card strong {{
+      font-size: 13px;
+    }}
+    .gis-mapping-quality-card span {{
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }}
+    .gis-mapping-save-bar {{
+      border-top: 1px solid rgba(45, 58, 71, .72);
+      margin-top: 10px;
+      padding-top: 8px;
+    }}
+    .modal-layer.validation-modal-open {{
+      display: flex;
+    }}
+    .modal-card.validation-error-card {{
+      border-color: rgba(255, 82, 82, .55);
+      max-width: 720px;
     }}
     .observation-detail-shell {{
       align-self: start;
@@ -3055,6 +3447,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-metrics {{
         grid-template-columns: repeat(4, minmax(0, 1fr));
       }}
+      .gis-mapping-metrics {{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }}
+      .gis-mapping-workbench {{
+        grid-template-columns: minmax(620px, 1fr) minmax(420px, .5fr);
+      }}
       .profile-overview-card,
       .profile-overview-card.wide {{
         grid-column: span 6;
@@ -3068,6 +3466,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         grid-template-columns: 1fr;
       }}
       .catalog-detail {{
+        position: static;
+      }}
+      .gis-mapping-workbench {{
+        grid-template-columns: 1fr;
+      }}
+      .gis-mapping-detail {{
+        max-height: none;
         position: static;
       }}
       .profile-layout {{
@@ -3177,6 +3582,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         padding-top: 10px;
       }}
       .device-row {{
+        grid-template-columns: 1fr;
+      }}
+      .gis-mapping-metrics,
+      .gis-mapping-detail .compact-labels,
+      .gis-mapping-quality-grid {{
+        grid-template-columns: 1fr;
+      }}
+      .gis-mapping-toolbar .gis-mapping-json-link {{
+        margin-left: 0;
+      }}
+      .gis-mapping-filter-row {{
+        align-items: stretch;
+        grid-template-columns: 1fr;
+      }}
+      .gis-mapping-target-grid {{
         grid-template-columns: 1fr;
       }}
     }}
@@ -5173,6 +5593,59 @@ def update_catalog_entry_from_form(catalog_payload: dict[str, object], group: st
     return False, f"Catalog entry {item_id} was not found."
 
 
+def gis_mapping_from_form(form: dict[str, list[str]]) -> tuple[dict[str, object] | None, str]:
+    source_id = catalog_form_string(form, "source_id")
+    field = catalog_form_string(form, "field")
+    raw_value = catalog_form_string(form, "raw_value")
+    if not source_id or not field or not raw_value:
+        return None, "Source, field and raw value are required."
+    confidence = catalog_form_string(form, "confidence") or "medium"
+    review_status = catalog_form_string(form, "review_status") or "pending_review"
+    mapping: dict[str, object] = {
+        "source_id": source_id,
+        "field": field,
+        "raw_value": raw_value,
+        "confidence": confidence,
+        "review_status": review_status,
+    }
+    mapped_count = 0
+    for target_field, _catalog_group in mushroom_gis_mappings_ui.TARGET_CATALOG_FIELDS:
+        values = [str(value).strip() for value in form.get(target_field, []) if str(value).strip()]
+        if values:
+            mapping[target_field] = values
+            mapped_count += len(values)
+    notes = catalog_form_string(form, "notes")
+    if notes:
+        mapping["notes"] = notes
+    if review_status == "accepted" and mapped_count == 0:
+        return None, "Accepted GIS mappings must select at least one catalog target. Use ignored if this raw value should not map to the model."
+    return mapping, "ok"
+
+
+def upsert_exact_gis_mapping(gis_payload: dict[str, object], mapping: dict[str, object]) -> tuple[bool, str]:
+    mappings = gis_payload.setdefault("exact_value_mappings", [])
+    if not isinstance(mappings, list):
+        return False, "GIS payload exact_value_mappings must be a list."
+    key = mushroom_gis_mappings_ui.mapping_key(
+        mapping.get("source_id", ""),
+        mapping.get("field", ""),
+        mapping.get("raw_value", ""),
+    )
+    for index, existing in enumerate(mappings):
+        if not isinstance(existing, dict):
+            continue
+        existing_key = mushroom_gis_mappings_ui.mapping_key(
+            existing.get("source_id", ""),
+            existing.get("field", ""),
+            existing.get("raw_value", ""),
+        )
+        if existing_key == key:
+            mappings[index] = mapping
+            return True, f"Updated GIS mapping for {mapping.get('source_id')}.{mapping.get('field')}."
+    mappings.append(mapping)
+    return True, f"Created GIS mapping for {mapping.get('source_id')}.{mapping.get('field')}."
+
+
 def mushroom_catalogs_flash() -> str:
     with RUN_LOCK:
         message = str(RUN_STATE.get("mushroom_catalogs_flash", ""))
@@ -5183,6 +5656,18 @@ def mushroom_catalogs_flash() -> str:
 def set_mushroom_catalogs_flash(message: str) -> None:
     with RUN_LOCK:
         RUN_STATE["mushroom_catalogs_flash"] = message
+
+
+def mushroom_gis_mappings_flash() -> str:
+    with RUN_LOCK:
+        message = str(RUN_STATE.get("mushroom_gis_mappings_flash", ""))
+        RUN_STATE["mushroom_gis_mappings_flash"] = ""
+    return message
+
+
+def set_mushroom_gis_mappings_flash(message: str) -> None:
+    with RUN_LOCK:
+        RUN_STATE["mushroom_gis_mappings_flash"] = message
 
 
 def mushroom_profiles_flash() -> str:
@@ -6990,6 +7475,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="../">Back</a>
           <a class="button-link" href="?">Refresh</a>
           <a class="button-link" href="./profiles">Mushroom species</a>
+          <a class="button-link" href="./gis-mappings">GIS mappings</a>
           <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="group" value="{html.escape(selected_group, quote=True)}">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search ID, group, label or domain">
@@ -7016,6 +7502,130 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self.send_bytes(
             200,
             html_page("Mushroom reference catalogs", body, auto_refresh=False, page_class="mushroom-wide-page"),
+            "text/html; charset=utf-8",
+        )
+
+    def render_mushroom_gis_mappings(self, query: dict[str, list[str]] | None = None) -> None:
+        query = query or {}
+        selected_key = (query.get("key") or [""])[0]
+        selected_source = (query.get("source") or [""])[0]
+        selected_field = (query.get("field") or [""])[0]
+        search = (query.get("q") or [""])[0]
+        selected_status = (query.get("status") or [""])[0]
+        if selected_status not in {"mapped", "pending"}:
+            selected_status = ""
+        sort_by = (query.get("sort") or [""])[0]
+        if sort_by not in {"source", "field", "raw_value", "mapped_ids", "status"}:
+            sort_by = ""
+        sort_dir = (query.get("dir") or [""])[0]
+        if sort_dir not in {"asc", "desc"}:
+            sort_dir = "asc" if sort_by else ""
+        store = default_store()
+        try:
+            seeded = store.ensure_seeded()
+            gis_payload = store.load("gis")
+            catalogs_payload = store.load("catalogs")
+            errors, warnings = store.validate_current()
+        except Exception as exc:
+            body = (
+                '<p><a class="button-link" href="../">Back</a></p>'
+                "<h1>GIS mappings</h1>"
+                f'<div class="catalog-alert error"><strong>Cannot load GIS mappings</strong><br>{html.escape(str(exc))}</div>'
+            )
+            self.send_bytes(500, html_page("GIS mappings", body, auto_refresh=False), "text/html; charset=utf-8")
+            return
+
+        gis_payload = gis_payload if isinstance(gis_payload, dict) else {}
+        catalogs_payload = catalogs_payload if isinstance(catalogs_payload, dict) else {}
+        catalogs = catalogs_payload.get("catalogs", {})
+        catalogs = catalogs if isinstance(catalogs, dict) else {}
+        reconstruction_payload = mushroom_gis_lab.load_latest_reconstruction()
+        rows = mushroom_gis_mappings_ui.mapping_rows(gis_payload, reconstruction_payload)
+        filtered_rows = mushroom_gis_mappings_ui.filtered_mapping_rows(rows, selected_source, selected_field, search, selected_status)
+        filtered_rows = mushroom_gis_mappings_ui.sorted_mapping_rows(filtered_rows, sort_by, sort_dir)
+        selected = mushroom_gis_mappings_ui.selected_mapping_row(filtered_rows, selected_key)
+        metrics = mushroom_gis_mappings_ui.mapping_metrics(rows, errors, warnings)
+        flash = mushroom_gis_mappings_flash()
+        is_error_flash = flash.startswith("ERROR:")
+        flash_text = flash.removeprefix("ERROR:").strip() if is_error_flash else flash
+        close_url = mushroom_gis_mappings_ui.mappings_query_url(
+            selected_key=str(selected.get("key", "")) if isinstance(selected, dict) else "",
+            source_id=selected_source,
+            field=selected_field,
+            search=search,
+            status_filter=selected_status,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+        )
+        flash_html = (
+            f'<div class="catalog-alert{" error" if is_error_flash else ""}"><strong>{"Validation error" if is_error_flash else "Status"}</strong><br>{html.escape(flash_text)}</div>'
+            if flash
+            else ""
+        )
+        modal_html = (
+            '<div class="modal-layer validation-modal-open">'
+            '<div class="modal-backdrop"></div>'
+            '<div class="modal-card validation-error-card">'
+            '<h2>GIS mapping was not saved</h2>'
+            f'<p>{html.escape(flash_text)}</p>'
+            f'<a class="button-link" href="{html.escape(close_url, quote=True)}">Cerrar</a>'
+            '</div>'
+            '</div>'
+            if is_error_flash
+            else ""
+        )
+        seeded_html = (
+            f'<div class="catalog-alert"><strong>Seeded defaults</strong><br>{html.escape(", ".join(seeded))}</div>'
+            if seeded else ""
+        )
+        status_label = "Flow validated" if not errors else "Validation errors"
+        status_class = "ok" if not errors else "danger"
+        body = f"""
+        <div class="gis-mapping-page">
+        <div class="control-head gis-mapping-head">
+          <div>
+            <h1>GIS mappings</h1>
+            <p>Conecta valores crudos de capas GIS con IDs internos del catálogo</p>
+          </div>
+          <div class="control-head-actions">
+            <span class="meta">{metrics["mapped"]} mapped · {metrics["pending"]} pending · <span class="{status_class}">{status_label}</span></span>
+          </div>
+        </div>
+        <div class="catalog-toolbar gis-mapping-toolbar">
+          <a class="button-link" href="../">Back</a>
+          <a class="button-link" href="?">Refresh</a>
+          <a class="button-link" href="./profiles">Mushroom species</a>
+          <a class="button-link" href="./catalogs">Reference catalogs</a>
+          <form class="catalog-filter gis-mapping-search" method="get" action="">
+            <input type="hidden" name="source" value="{html.escape(selected_source, quote=True)}">
+            <input type="hidden" name="field" value="{html.escape(selected_field, quote=True)}">
+            <input type="hidden" name="status" value="{html.escape(selected_status, quote=True)}">
+            <input type="hidden" name="sort" value="{html.escape(sort_by, quote=True)}">
+            <input type="hidden" name="dir" value="{html.escape(sort_dir, quote=True)}">
+            <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search source, field, raw value or mapped ID">
+          </form>
+          <a class="button-link gis-mapping-json-link" href="#gis-mappings-json">View JSON</a>
+        </div>
+        {modal_html}
+        {flash_html}
+        {seeded_html}
+        <div class="catalog-layout gis-mapping-workbench">
+          <section class="gis-mapping-list">
+            {mushroom_gis_mappings_ui.render_mapping_metric_cards(metrics, selected_status, selected_source, selected_field, search, sort_by, sort_dir)}
+            {mushroom_gis_mappings_ui.render_source_field_chips(rows, selected_source, selected_field, search, selected_status, sort_by, sort_dir)}
+            {mushroom_gis_mappings_ui.render_mapping_table(filtered_rows, selected, selected_source, selected_field, search, selected_status, sort_by, sort_dir)}
+          </section>
+          {mushroom_gis_mappings_ui.render_mapping_detail(selected, catalogs)}
+        </div>
+        <h2>Cross validation</h2>
+        {render_catalog_alerts(errors, warnings, limit=12)}
+        <h2 id="gis-mappings-json">JSON maintenance</h2>
+        {mushroom_gis_mappings_ui.render_full_json_panel(gis_payload)}
+        </div>
+        """
+        self.send_bytes(
+            200,
+            html_page("GIS mappings", body, auto_refresh=False, page_class="mushroom-wide-page"),
             "text/html; charset=utf-8",
         )
 
@@ -7124,6 +7734,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="../">Back</a>
           <a class="button-link" href="{html.escape(mushroom_profiles_ui.profile_query_url(selected_id, search, section=section), quote=True)}">Refresh</a>
           <a class="button-link" href="./catalogs">Reference catalogs</a>
+          <a class="button-link" href="./gis-mappings">GIS mappings</a>
           <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="section" value="{html.escape(section, quote=True)}">
             <input type="hidden" name="id" value="{html.escape(selected_id, quote=True)}">
@@ -7177,6 +7788,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/mushrooms/catalogs":
             self.render_mushroom_catalogs(parse_qs(parsed.query))
+            return
+
+        if path == "/mushrooms/gis-mappings":
+            self.render_mushroom_gis_mappings(parse_qs(parsed.query))
             return
 
         if path == "/mushrooms/profiles":
@@ -7356,6 +7971,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.redirect_to(redirect_target or query or "?")
             return
 
+        if parsed.path.rstrip("/") == "/mushrooms/gis-mappings":
+            redirect_target = self.handle_mushroom_gis_mappings_post(form)
+            query = ("?" + parsed.query) if parsed.query else ""
+            self.redirect_to(redirect_target or query or "?")
+            return
+
         if parsed.path.rstrip("/") == "/mushrooms/profiles":
             redirect_target = self.handle_mushroom_profiles_post(form, files)
             query = ("?" + parsed.query) if parsed.query else ""
@@ -7523,6 +8144,43 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             set_mushroom_catalogs_flash(f"Catalog action failed: {exc}")
         return ""
 
+    def handle_mushroom_gis_mappings_post(self, form: dict[str, list[str]]) -> str:
+        action = self.form_action_value(form, "gis_mapping_action")
+        store = default_store()
+        try:
+            store.ensure_seeded()
+            if action == "save_exact_mapping":
+                mapping, message = gis_mapping_from_form(form)
+                selected_key = catalog_form_string(form, "mapping_key")
+                if mapping is None:
+                    set_mushroom_gis_mappings_flash("ERROR: " + message)
+                    return mushroom_gis_mappings_ui.mappings_query_url(selected_key=selected_key)
+                gis_payload = store.load("gis")
+                if not isinstance(gis_payload, dict):
+                    set_mushroom_gis_mappings_flash("ERROR: GIS mappings payload must be a JSON object.")
+                    return mushroom_gis_mappings_ui.mappings_query_url(selected_key=selected_key)
+                ok, upsert_message = upsert_exact_gis_mapping(gis_payload, mapping)
+                if not ok:
+                    set_mushroom_gis_mappings_flash("ERROR: " + upsert_message)
+                    return mushroom_gis_mappings_ui.mappings_query_url(selected_key=selected_key)
+                result = store.replace("gis", gis_payload)
+                new_key = mushroom_gis_mappings_ui.mapping_key(
+                    mapping.get("source_id", ""),
+                    mapping.get("field", ""),
+                    mapping.get("raw_value", ""),
+                )
+                if result.ok:
+                    suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
+                    set_mushroom_gis_mappings_flash(upsert_message + suffix)
+                    return mushroom_gis_mappings_ui.mappings_query_url(selected_key=new_key)
+                error_text = "; ".join(message.message for message in result.errors[:4])
+                set_mushroom_gis_mappings_flash("ERROR: GIS mapping was not saved: " + error_text)
+                return mushroom_gis_mappings_ui.mappings_query_url(selected_key=new_key)
+            set_mushroom_gis_mappings_flash("ERROR: Unknown GIS mapping action.")
+        except Exception as exc:
+            set_mushroom_gis_mappings_flash(f"ERROR: GIS mapping action failed: {exc}")
+        return ""
+
     def handle_mushroom_profiles_post(
         self,
         form: dict[str, list[str]],
@@ -7664,22 +8322,32 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 set_mushroom_profiles_flash(f"Deleted archived species profile {species_id} permanently.")
                 return profile_message_url()
             if action == "reconstruct_observation_gis":
+                reconstruction_scope = catalog_form_string(form, "gis_reconstruction_scope") or "selected"
+                selected_field_name = "gis_visible_observation_ids" if reconstruction_scope == "visible" else "gis_observation_ids"
                 selected_observation_ids = [
                     str(value).strip()
-                    for value in form.get("gis_observation_ids", [])
+                    for value in form.get(selected_field_name, [])
                     if str(value).strip()
                 ]
                 if not selected_observation_ids:
-                    set_mushroom_profiles_flash("GIS reconstruction was not run: select at least one observation.")
+                    set_mushroom_profiles_flash("GIS reconstruction was not run: no visible observation with coordinates was selected.")
                     return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):
                     set_mushroom_profiles_flash("GIS reconstruction was not run: observations payload must be an object.")
                     return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
                 observations = observation_dicts_from_payload(observations_payload)
-                result = mushroom_gis_lab.reconstruct_observations(observations, selected_observation_ids)
+                gis_payload = store.load("gis")
+                catalogs_payload = store.load("catalogs")
+                result = mushroom_gis_lab.reconstruct_observations(
+                    observations,
+                    selected_observation_ids,
+                    gis_payload=gis_payload if isinstance(gis_payload, dict) else None,
+                    catalogs_payload=catalogs_payload if isinstance(catalogs_payload, dict) else None,
+                )
                 result_count = result.get("result_count", 0)
-                set_mushroom_profiles_flash(f"GIS reconstruction completed for {result_count} observation(s).")
+                scope_label = "visible filtered" if reconstruction_scope == "visible" else "selected"
+                set_mushroom_profiles_flash(f"GIS reconstruction completed for {result_count} {scope_label} observation(s).")
                 return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
             if action == "create_observation":
                 observations_payload = store.load("observations")
@@ -8097,6 +8765,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./users">Users</a>
           <a class="button-link" href="./mushrooms/catalogs">Mushroom catalogs</a>
           <a class="button-link" href="./mushrooms/profiles">Mushroom species</a>
+          <a class="button-link" href="./mushrooms/gis-mappings">GIS mappings</a>
         </div>
         """
         head_controls = f"""

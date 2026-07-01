@@ -728,8 +728,57 @@ Para v0 en Catalunya, el orden mas pragmatico es:
 1. MVC50 1:50.000 para vegetacion, hosts, habitat y substrato preferente.
 2. ICGC Model d'elevacions del terreny topografic Catalunya 5 m para DEM,
    pendiente y orientacion.
-3. ICGC Mapa de sols 1:25.000 solo como capa parcial; buscar fallback
-   edafologico continuo o aceptar suelo como gap/proxy fuera de sus poligonos.
-4. ICGC geologia territorial 1:50.000 GeoPackage para geologia/litologia.
+3. ICGC geologia territorial 1:50.000 GeoPackage como apoyo secundario y
+   trazabilidad litologica, sin sustituir el substrato directo de MVC50 en v0.
+4. ICGC Mapa de sols 1:25.000 descartado para v0 por cobertura parcial,
+   foco agrario y mapping poco directo contra los IDs internos que usan las
+   especies.
 5. SIOSE/MITECO/CNIG como fallback peninsular despues de cerrar el flujo
    catalan.
+
+## GIS mappings revisables
+
+La pantalla futura `GIS mappings` debe mantener el contrato entre valores GIS
+crudos y codigos internos del catalogo. No debe editar IDs en campos libres:
+
+- cada valor externo se identifica por `source_id`, `field` y `raw_value`;
+- los destinos se eligen con selects cerrados contra
+  `mushroom_reference_catalogs.json` (`host_taxa`, `forest_types`,
+  `soil_types`, `lithology_types`, `habitat_features`);
+- el reconstructor conserva siempre el valor crudo y solo anade IDs internos a
+  la salida computable cuando el mapping exacto esta `accepted`;
+- si una reconstruccion encuentra un valor no presente en
+  `mushroom_gis_mappings.json`, lo lista como candidato pendiente de revision,
+  pero no modifica automaticamente el catalogo ni los mappings.
+
+La seccion `exact_value_mappings` de `mushroom_gis_mappings.json` es el formato
+preferente para las capas locales activas como MVC50. Los mappings antiguos por
+patron de texto quedan como ayuda inicial, no como fuente definitiva para campos
+criticos.
+
+Contrato de estados de revision para `exact_value_mappings`:
+
+- `accepted`: valor revisado y usable. Puede emitir IDs internos hacia el
+  laboratorio y el futuro motor.
+- `pending_review`: valor persistido para no perderlo, pero pendiente de
+  decision humana. Puede guardarse sin IDs internos si todavia no hay criterio,
+  o con IDs propuestos para revision, pero no alimenta el futuro motor hasta
+  pasar a `accepted`.
+- `ignored`: valor revisado y descartado. No emite IDs internos, pero queda
+  persistido para que futuras reconstrucciones no lo vuelvan a listar como
+  pendiente.
+
+El reconstructor no debe sobrescribir `mushroom_gis_mappings.json`. Solo lee los
+mappings existentes, aplica a la salida computable los `accepted` con IDs
+validos, mantiene los `pending_review` como valores conocidos pendientes y trata
+los `ignored` como valores conocidos sin salida computable. El resultado
+temporal de la reconstruccion se escribe bajo `tmp/`. La escritura de mappings
+solo ocurre desde la pantalla `GIS mappings` cuando el usuario pulsa guardar.
+
+La UI inicial de `GIS mappings` trabaja de forma incremental: muestra los
+mappings exactos ya aceptados y los valores nuevos detectados por la ultima
+reconstruccion de observaciones. No escanea por defecto todas las combinaciones
+posibles de las capas originales completas. Esta decision es intencionada para
+el laboratorio: primero se estabilizan los valores que aparecen en observaciones
+reales y despues, si hace falta cerrar cobertura antes de generar mapas masivos,
+se puede anadir una auditoria batch de valores unicos por capa/campo.

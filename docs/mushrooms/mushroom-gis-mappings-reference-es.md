@@ -33,6 +33,7 @@ El motor no debe depender directamente de textos externos de WMS/WFS/CORINE. Deb
   "model_purpose": "initial_semantic_mappings_from_external_gis_layers_to_mushroom_reference_catalogs",
   "important_note": "...",
   "mapping_sources": [],
+  "exact_value_mappings": [],
   "vegetation_mappings": [],
   "corine_land_cover_mappings": [],
   "lithology_mappings": [],
@@ -46,6 +47,7 @@ El motor no debe depender directamente de textos externos de WMS/WFS/CORINE. Deb
 El fichero actual es una base operativa inicial y conservadora. Contiene:
 
 - `mapping_sources`: 4 fuentes conceptuales.
+- `exact_value_mappings`: mappings exactos revisables para capas locales activas.
 - `vegetation_mappings`: 19 reglas.
 - `corine_land_cover_mappings`: 6 reglas.
 - `lithology_mappings`: 10 reglas.
@@ -71,7 +73,60 @@ Cada fuente debería tener:
 - `type`: vegetación, cobertura, litología, etc.;
 - `notes`: comentarios.
 
-## 5. `vegetation_mappings`
+## 5. `exact_value_mappings`
+
+Traduce valores exactos de una capa GIS local a IDs internos del catalogo. Es el
+contrato preferente para capas activas del laboratorio porque evita depender de
+textos libres o coincidencias aproximadas.
+
+Cada entrada se identifica por:
+
+- `source_id`: fuente GIS interna, por ejemplo `mvc50` o `geology_50000`;
+- `field`: atributo de la capa, por ejemplo `LLFISCAT_t`, `LLVA_Subst` o
+  `Codi`;
+- `raw_value`: valor bruto exacto encontrado en la capa.
+
+Ejemplo:
+
+```json
+{
+  "source_id": "mvc50",
+  "field": "LLVA_Subst",
+  "raw_value": "Silici",
+  "mapped_soil_tendency_ids": ["soil_siliceous"],
+  "confidence": "high",
+  "review_status": "accepted",
+  "notes": "Exact MVC50 substrate value."
+}
+```
+
+Los destinos solo pueden ser listas de IDs existentes en
+`mushroom_reference_catalogs.json`:
+
+- `mapped_host_ids` contra `host_taxa`;
+- `mapped_forest_type_ids` contra `forest_types`;
+- `mapped_habitat_feature_ids` contra `habitat_features`;
+- `mapped_lithology_ids` contra `lithology_types`;
+- `mapped_soil_tendency_ids` contra `soil_types`.
+
+### Estados de revision
+
+`review_status` tiene un contrato operativo cerrado:
+
+- `accepted`: valor revisado y usable. Puede emitir IDs internos.
+- `pending_review`: valor persistido para no perderlo, pero todavia pendiente
+  de decision. Puede guardarse sin IDs internos o con IDs propuestos, pero no
+  emite salida computable hasta pasar a `accepted`.
+- `ignored`: valor revisado y descartado. No emite IDs internos, pero queda
+  persistido para que no vuelva a aparecer como candidato pendiente.
+
+El reconstructor GIS no modifica este fichero. Solo lee los mappings existentes,
+aplica IDs validos de entradas `accepted` y genera candidatos temporales para los
+valores sin mapping. Las entradas `pending_review` e `ignored` quedan como
+valores conocidos sin salida computable. La pantalla `GIS mappings` es la que
+persiste entradas nuevas o actualiza entradas existentes.
+
+## 6. `vegetation_mappings`
 
 Traduce clases de vegetación, bosque o hábitat a:
 
@@ -102,7 +157,7 @@ Indica fiabilidad del mapeo:
 - `medium`: mapeo razonable, pero puede depender del contexto.
 - `low`: mapeo tentativo.
 
-## 6. `corine_land_cover_mappings`
+## 7. `corine_land_cover_mappings`
 
 Traduce clases generales de cobertura del suelo.
 
@@ -118,7 +173,7 @@ forest_mixed_conifer
 
 No debería tener el mismo peso que una capa de vegetación detallada.
 
-## 7. `lithology_mappings`
+## 8. `lithology_mappings`
 
 Traduce clases litológicas o geológicas a:
 
@@ -138,7 +193,7 @@ Ejemplo:
 
 La relación litología → suelo es una aproximación. Debe tratarse como tendencia, no como certeza.
 
-## 8. `derived_rules`
+## 9. `derived_rules`
 
 Reglas que combinan varias señales para inferir IDs internos.
 
@@ -153,7 +208,7 @@ Si hay nieve/deshielo → feature_snowmelt
 
 Las reglas derivadas deben tener prioridad menor que datos directos de una capa especializada.
 
-## 9. Uso en el flujo de predicción
+## 10. Uso en el flujo de predicción
 
 Para cada celda:
 

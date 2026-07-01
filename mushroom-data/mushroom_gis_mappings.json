@@ -1,7 +1,7 @@
 {
   "schema_version": "0.1",
   "model_purpose": "initial_semantic_mappings_from_external_gis_layers_to_mushroom_reference_catalogs",
-  "important_note": "These are not authoritative layer-code mappings. They are conservative text/pattern mappings to help start implementation. Replace or extend with exact WMS/WFS layer IDs and attribute codes from your selected GIS sources.",
+  "important_note": "This file is the reviewable GIS mappings contract. Exact source_id/field/raw_value mappings should be preferred for active local layers; older text/pattern mappings remain as conservative bootstrap helpers. UI editing must use closed selectors backed by mushroom_reference_catalogs.json, never free-text catalog IDs.",
   "mapping_sources": [
     {
       "source_id": "habitats_catalunya",
@@ -392,6 +392,69 @@
         "habitat_disturbed_forest"
       ],
       "confidence": "low"
+    }
+  ],
+  "exact_value_mappings": [
+    {
+      "source_id": "mvc50",
+      "field": "LLFISCAT_t",
+      "raw_value": "Pi roig (Pinus sylvestris)",
+      "mapped_host_ids": [
+        "host_pinus_sylvestris"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_montane_pine"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "Observed in the local reconstruction lab and mapped against reference catalog IDs."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLFISCAT_t",
+      "raw_value": "Pi negre (Pinus uncinata)",
+      "mapped_host_ids": [
+        "host_pinus_uncinata"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_subalpine_pine"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "Observed in the local reconstruction lab and mapped against reference catalog IDs."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_niv2t",
+      "raw_value": "Boscos boreals de pi roig montans i altimontans",
+      "mapped_forest_type_ids": [
+        "forest_montane_pine"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "Observed in the local reconstruction lab and mapped against reference catalog IDs."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_Subst",
+      "raw_value": "Silici",
+      "mapped_soil_tendency_ids": [
+        "soil_siliceous"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "Exact MVC50 substrate value."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_Subst",
+      "raw_value": "Carbonatat",
+      "mapped_soil_tendency_ids": [
+        "soil_calcareous"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "Exact MVC50 substrate value."
     }
   ],
   "lithology_mappings": [

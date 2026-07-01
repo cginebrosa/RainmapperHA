@@ -53,6 +53,7 @@ REQUIRED_GIS_ROOT_KEYS = {
     "model_purpose",
     "important_note",
     "mapping_sources",
+    "exact_value_mappings",
     "vegetation_mappings",
     "corine_land_cover_mappings",
     "lithology_mappings",
@@ -178,6 +179,7 @@ LOCAL_CALIBRATION_STATUSES = {
 }
 CALIBRATION_PRIORITIES = {"low", "medium", "high", "very_high"}
 GIS_CONFIDENCE_VALUES = {"low", "medium", "high"}
+GIS_REVIEW_STATUS_VALUES = {"accepted", "pending_review", "ignored"}
 REVIEW_STATUSES = {"draft", "needs_review", "reviewed", "validated", "deprecated"}
 ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -761,6 +763,69 @@ def validate_gis(
 ) -> None:
     if not require_mapping(gis_payload, REQUIRED_GIS_ROOT_KEYS, "gis", messages):
         return
+
+    exact_value_mappings = gis_payload.get("exact_value_mappings")
+    if require_list(exact_value_mappings, "gis.exact_value_mappings", messages):
+        for index, mapping in enumerate(exact_value_mappings):
+            location = f"gis.exact_value_mappings[{index}]"
+            if not isinstance(mapping, dict):
+                messages.append(error(location, "expected an object"))
+                continue
+            for key in ("source_id", "field", "raw_value"):
+                if not isinstance(mapping.get(key), str) or not mapping.get(key):
+                    messages.append(error(f"{location}.{key}", "expected non-empty string"))
+            validate_id_list(
+                mapping.get("mapped_host_ids"),
+                "host_taxa",
+                ids_by_catalog,
+                f"{location}.mapped_host_ids",
+                messages,
+                used_ids,
+            )
+            validate_id_list(
+                mapping.get("mapped_forest_type_ids"),
+                "forest_types",
+                ids_by_catalog,
+                f"{location}.mapped_forest_type_ids",
+                messages,
+                used_ids,
+            )
+            validate_id_list(
+                mapping.get("mapped_habitat_feature_ids"),
+                "habitat_features",
+                ids_by_catalog,
+                f"{location}.mapped_habitat_feature_ids",
+                messages,
+                used_ids,
+            )
+            validate_id_list(
+                mapping.get("mapped_lithology_ids"),
+                "lithology_types",
+                ids_by_catalog,
+                f"{location}.mapped_lithology_ids",
+                messages,
+                used_ids,
+            )
+            validate_id_list(
+                mapping.get("mapped_soil_tendency_ids"),
+                "soil_types",
+                ids_by_catalog,
+                f"{location}.mapped_soil_tendency_ids",
+                messages,
+                used_ids,
+            )
+            validate_controlled(
+                mapping.get("confidence"),
+                GIS_CONFIDENCE_VALUES,
+                f"{location}.confidence",
+                messages,
+            )
+            validate_controlled(
+                mapping.get("review_status"),
+                GIS_REVIEW_STATUS_VALUES,
+                f"{location}.review_status",
+                messages,
+            )
 
     for section in ("vegetation_mappings", "corine_land_cover_mappings"):
         mappings = gis_payload.get(section)

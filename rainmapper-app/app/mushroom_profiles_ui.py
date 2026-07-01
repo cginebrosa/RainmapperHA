@@ -2193,6 +2193,65 @@ def gis_layer_property(layer_result: dict[str, object], *keys: str) -> str:
     return "-"
 
 
+def gis_layer_properties_join(layer_result: dict[str, object], *keys: str) -> str:
+    properties = layer_result.get("properties")
+    if not isinstance(properties, dict):
+        return "-"
+    values = []
+    for key in keys:
+        value = properties.get(key)
+        if value not in (None, ""):
+            text = str(value)
+            if text not in values:
+                values.append(text)
+    return " · ".join(values) if values else "-"
+
+
+def gis_layer_mapped_ids(layer_result: dict[str, object], *keys: str) -> str:
+    mapped = layer_result.get("mapped")
+    if not isinstance(mapped, dict):
+        return "-"
+    values = []
+    for key in keys:
+        raw_values = mapped.get(key)
+        if not isinstance(raw_values, list):
+            continue
+        for value in raw_values:
+            text = str(value)
+            if text and text not in values:
+                values.append(text)
+    return " · ".join(values) if values else "-"
+
+
+def render_gis_unmapped_candidates(result: dict[str, object]) -> str:
+    candidates = result.get("unmapped_candidates")
+    if not isinstance(candidates, list) or not candidates:
+        return ""
+    items = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        source_id = str(candidate.get("source_id", "") or "")
+        field = str(candidate.get("field", "") or "")
+        raw_value = str(candidate.get("raw_value", "") or "")
+        if not source_id or not field or not raw_value:
+            continue
+        items.append(
+            "<li>"
+            f"<strong>{html.escape(source_id)}.{html.escape(field)}</strong>: "
+            f"<span>{html.escape(raw_value)}</span>"
+            "</li>"
+        )
+    if not items:
+        return ""
+    return (
+        '<details class="gis-result-details gis-unmapped-candidates" open>'
+        '<summary>Valores GIS pendientes de mapping</summary>'
+        f'<ul>{"".join(items)}</ul>'
+        '</details>'
+    )
+
+
 def gis_layer_status_badge(layer_result: object) -> str:
     if not isinstance(layer_result, dict):
         return observation_badge("-", "warn")
@@ -2245,6 +2304,7 @@ def render_gis_result_summary(result: dict[str, object] | None, species_labels: 
         gaps = item.get("gaps")
         gaps = gaps if isinstance(gaps, list) else []
         display_gaps = [str(gap) for gap in gaps if str(gap) != "soil_25000"]
+        substrate = gis_layer_property(mvc50, "LLVA_Subst")
         dem_altitude = "-"
         dem_delta = "-"
         if isinstance(dem, dict):
@@ -2254,11 +2314,12 @@ def render_gis_result_summary(result: dict[str, object] | None, species_labels: 
                 dem_delta = f"{dem.get('delta_observed_vs_dem_m')} m"
         table_rows.append(
             "<tr>"
-            f"<td><strong>{html.escape(observation_id)}</strong><br><span class=\"meta\">{html.escape(str(item.get('observed_at', '-')))} · {html.escape(species_labels.get(species_id, species_id))}</span></td>"
-            f"<td>{gis_layer_status_badge(mvc50)}<br>{html.escape(gis_layer_property(mvc50, 'LLVA_niv2t', 'LLFISCAT_t', 'LLVA_txt'))}</td>"
-            f"<td>{gis_layer_status_badge(geology)}<br>{html.escape(gis_layer_property(geology, 'Codi'))} · {html.escape(gis_layer_property(geology, 'Descripcio'))}</td>"
-            f"<td>{gis_layer_status_badge(dem)}<br>{html.escape(dem_altitude)}<br><span class=\"meta\">delta obs.: {html.escape(dem_delta)}</span></td>"
-            f"<td>{gis_observation_status_badge(item.get('status', '-'), bool(display_gaps))}<br><span class=\"meta\">{html.escape(', '.join(display_gaps) if display_gaps else 'sin gaps')}</span></td>"
+            f"<td><span class=\"gis-inline\"><strong>{html.escape(observation_id)}</strong><span class=\"meta\">{html.escape(species_labels.get(species_id, species_id))}</span></span></td>"
+            f"<td><span class=\"gis-inline\">{gis_layer_status_badge(mvc50)}<span class=\"gis-inline-text\">{html.escape(gis_layer_properties_join(mvc50, 'LLVA_niv2t', 'LLFISCAT_t'))}</span></span></td>"
+            f"<td><span class=\"gis-inline\">{gis_layer_status_badge(mvc50)}<span class=\"gis-inline-text\">{html.escape(substrate)}</span></span></td>"
+            f"<td><span class=\"gis-inline\">{gis_layer_status_badge(geology)}<span class=\"gis-inline-text\">{html.escape(gis_layer_property(geology, 'Codi'))} · {html.escape(gis_layer_property(geology, 'Descripcio'))}</span></span></td>"
+            f"<td><span class=\"gis-inline\">{gis_layer_status_badge(dem)}<span class=\"gis-inline-text\">{html.escape(dem_altitude)} · delta obs.: {html.escape(dem_delta)}</span></span></td>"
+            f"<td><span class=\"gis-inline\">{gis_observation_status_badge(item.get('status', '-'), bool(display_gaps))}<span class=\"gis-inline-text meta\">{html.escape(', '.join(display_gaps) if display_gaps else 'sin gaps')}</span></span></td>"
             "</tr>"
         )
         detail_lines = []
@@ -2272,6 +2333,28 @@ def render_gis_result_summary(result: dict[str, object] | None, species_labels: 
                 rendered_properties = "; ".join(
                     f"{key}: {value}" for key, value in properties.items() if value not in (None, "")
                 )
+                mapped = layer_result.get("mapped")
+                if isinstance(mapped, dict):
+                    mapped_bits = []
+                    for key in (
+                        "mapped_host_ids",
+                        "mapped_forest_type_ids",
+                        "mapped_soil_tendency_ids",
+                        "mapped_lithology_ids",
+                    ):
+                        values = mapped.get(key)
+                        if isinstance(values, list) and values:
+                            mapped_bits.append(f"{key}: {', '.join(str(value) for value in values)}")
+                    unmapped_values = mapped.get("unmapped_values")
+                    if isinstance(unmapped_values, list) and unmapped_values:
+                        pending = [
+                            f"{item.get('field')}: {item.get('raw_value')}"
+                            for item in unmapped_values
+                            if isinstance(item, dict)
+                        ]
+                        mapped_bits.append(f"unmapped: {', '.join(pending)}")
+                    if mapped_bits:
+                        rendered_properties = f"{rendered_properties}; mapped: {'; '.join(mapped_bits)}"
             else:
                 scalar_values = {
                     key: value
@@ -2301,8 +2384,9 @@ def render_gis_result_summary(result: dict[str, object] | None, species_labels: 
         f'<p class="meta">Ultima reconstruccion: {html.escape(generated_at)} · {len(table_rows)} observacion(es). '
         f'Las coordenadas se leen localmente pero no se muestran en esta revision.{qgis_note}</p>'
         '<div class="observations-table-shell gis-results-table"><table>'
-        '<thead><tr><th>Observacion</th><th>MVC50</th><th>Geologia</th><th>DEM</th><th>Estado</th></tr></thead>'
+        '<thead><tr><th>Observacion</th><th>MVC50</th><th>Sustrato</th><th>Geologia</th><th>DEM</th><th>Estado</th></tr></thead>'
         f'<tbody>{"".join(table_rows)}</tbody></table></div>'
+        f'{render_gis_unmapped_candidates(result)}'
         f'<div class="gis-result-detail-list">{"".join(detail_cards)}</div>'
     )
 
@@ -2316,17 +2400,24 @@ def render_observation_gis_lab(
     result: dict[str, object] | None = None,
 ) -> str:
     """Render the local GIS reconstruction lab for explicitly selected observations."""
-    candidate_rows = [row for row in filtered_rows if observation_has_coordinates(row)]
+    candidate_rows = sorted(
+        [row for row in filtered_rows if observation_has_coordinates(row)],
+        key=lambda row: str(row.get("observation_id", "") or ""),
+    )
     selected_ids = set()
     if isinstance(result, dict):
         raw_ids = result.get("selected_observation_ids")
         if isinstance(raw_ids, list):
             selected_ids = {str(item) for item in raw_ids}
     chips = []
+    visible_hidden_inputs = []
     for row in candidate_rows:
         observation_id = str(row.get("observation_id", "") or "")
         if not observation_id:
             continue
+        visible_hidden_inputs.append(
+            f'<input type="hidden" name="gis_visible_observation_ids" value="{html.escape(observation_id, quote=True)}">'
+        )
         species_id = str(row.get("species_id", "") or "")
         checked = " checked" if observation_id in selected_ids else ""
         label = f"{row.get('observed_at', '-')} · {species_labels.get(species_id, species_id)} · {row.get('flush_abundance', '-')}"
@@ -2348,12 +2439,14 @@ def render_observation_gis_lab(
       <form method="post" action="#gis-reconstruction-lab" class="gis-lab-form">
         <input type="hidden" name="profile_action" value="reconstruct_observation_gis">
         {observation_context_inputs(filters, selected_species_id=selected_species_id)}
+        {"".join(visible_hidden_inputs)}
         <div class="admin-field catalog-toggle-field">
           <span class="field-label">Observaciones a reconstruir</span>
           {picker}
         </div>
         <div class="profile-action-bar inline">
-          <button class="primary profile-primary-action" {"disabled" if not chips else ""}>Reconstruir GIS seleccionadas</button>
+          <button class="primary profile-primary-action" name="gis_reconstruction_scope" value="selected" {"disabled" if not chips else ""}>Reconstruir GIS seleccionadas</button>
+          <button class="button-link" name="gis_reconstruction_scope" value="visible" {"disabled" if not chips else ""}>Reconstruir GIS visibles ({len(chips)})</button>
         </div>
       </form>
       <div class="gis-lab-results">
