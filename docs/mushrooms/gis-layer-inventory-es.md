@@ -775,6 +775,12 @@ los `ignored` como valores conocidos sin salida computable. El resultado
 temporal de la reconstruccion se escribe bajo `tmp/`. La escritura de mappings
 solo ocurre desde la pantalla `GIS mappings` cuando el usuario pulsa guardar.
 
+Antes de mover este flujo a HA real hay que cambiar el contrato de rutas: `tmp/`
+queda reservado para laboratorio local y artefactos QGIS, mientras que cualquier
+resultado persistente que HA deba reutilizar tendra que vivir bajo
+`/share/rainmapper/mushroom-data/` o `/share/rainmapper/mushroom-lab/`. El
+reconstructor debe aceptar rutas por entorno y no depender de paths del repo.
+
 La UI inicial de `GIS mappings` trabaja de forma incremental: muestra los
 mappings exactos ya aceptados y los valores nuevos detectados por la ultima
 reconstruccion de observaciones. No escanea por defecto todas las combinaciones

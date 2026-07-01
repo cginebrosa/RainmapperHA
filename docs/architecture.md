@@ -26,7 +26,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 
 ## Estructura de carpetas
 - `rainmapper-app/`: paquete de Home Assistant.
-- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
+- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
 - `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para laboratorio local sin tocar Home Assistant.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
@@ -111,10 +111,10 @@ Hay varios entry points segun entorno:
 - Relacion: produce datos para Leaflet/MapLibre.
 
 ### WebUI HA
-- Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py` y `rainmapper-app/app/mushroom_profiles_ui.py`.
+- Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py`, `rainmapper-app/app/mushroom_profiles_ui.py` y `rainmapper-app/app/mushroom_gis_mappings_ui.py`.
 - Responsabilidad: servidor HTTP, webUI, acciones, schedule, publicacion, logs, status, enable/disable estaciones, rutas protegidas de MapLibre y pantallas server-rendered de mantenimiento de setas.
 - Dependencias: stdlib HTTP, subprocess, threading, json, pathlib.
-- Relacion: `web_server.py` orquesta rutas, POST, persistencia, validacion y publicacion; los dos modulos `mushroom_*_ui.py` concentran render server-side de pantallas grandes para evitar que `web_server.py` siga creciendo. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`.
+- Relacion: `web_server.py` orquesta rutas, POST, persistencia, validacion y publicacion; los modulos `mushroom_*_ui.py` concentran render server-side de pantallas grandes para evitar que `web_server.py` siga creciendo. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`.
 
 ### Wrapper HA
 - Ruta: `rainmapper-app/run.sh`.
@@ -139,7 +139,7 @@ Hay varios entry points segun entorno:
 - Responsabilidad: levantar la WebUI de Home Assistant en local usando `rainmapper-app/Dockerfile` y montando `docker-data/` como `/share/rainmapper`.
 - Puerto local: `http://127.0.0.1:8101`.
 - Relacion: permite cargar observaciones reales/historicas de setas, importar EXIF y probar flujos de mantenimiento sin escribir en la instalacion HA real. Usa `rainmapper-local/options.local-ha-ui.json` como opciones de add-on y `tmp/mushroom-lab/runtime/config-www` como `/config/www`.
-- Estado de cierre 2026-06-30: `docker compose -f rainmapper-local/docker-compose.yml ps` no muestra servicios activos; los datos locales permanecen en `docker-data/`.
+- Estado de cierre 2026-07-01: `docker compose -f rainmapper-local/docker-compose.yml ps` no muestra servicios activos; los datos locales permanecen en `docker-data/`.
 
 ### Runner local solo mapas
 - Ruta: `rainmapper-local/local_maps.sh`; `local_maps.sh` en raiz es un wrapper compatible.
@@ -274,7 +274,7 @@ Validaciones existentes/recomendadas:
 ./scripts/docker-offline-functional-test.sh
 .venv/bin/python -m unittest discover -s tests
 python -m unittest tests.test_web_server_auth
-python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_catalogs_ui.py rainmapper-app/app/mushroom_profiles_ui.py
+python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_catalogs_ui.py rainmapper-app/app/mushroom_profiles_ui.py rainmapper-app/app/mushroom_gis_mappings_ui.py
 node --check rainmapper_core/viewers/leaflet-viewer/app.js
 node --check rainmapper_core/viewers/maplibre-viewer/app.js
 docker compose build rainmapper
@@ -303,7 +303,7 @@ Home Assistant:
 - Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version. Esto evita que HA vea un update antes de que exista la imagen en GHCR.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
 - El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
-- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. `0.2.137/latest` se publico y valido en HA el 2026-06-25 con digest multi-arch `sha256:539c879d2c7f9dfc282d671b71c627a858b48d59778e3195ec2d0254accee928`. Tras la limpieza remota, GHCR conserva solo `0.2.137,latest` y cuatro auxiliares sin tag del mismo push multi-arch.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.180/latest` esta documentada como imagen publicada, validada e instalada en HA con digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, y `0.2.179` queda como rollback inmediato. Antecedente historico: `0.2.137/latest` se publico y valido en HA el 2026-06-25 con digest multi-arch `sha256:539c879d2c7f9dfc282d671b71c627a858b48d59778e3195ec2d0254accee928`; tras aquella limpieza remota, GHCR conservaba solo `0.2.137,latest` y cuatro auxiliares sin tag del mismo push multi-arch.
 - Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando solo la ultima version validada, `latest` y las entradas auxiliares sin tag asociadas al mismo push multi-arch. Esto evita acumular basura en GitHub Packages. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch mientras HA pueda necesitar reinstalarla.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
 - Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit a GitHub, abriendo el repo temporalmente si HA necesita detectar metadata, y usando `Check for updates`/`Update` en HA. Tras validar la version, el repo debe volver a privado.
