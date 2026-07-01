@@ -867,10 +867,14 @@ def validate_gis(
                 messages,
             )
 
-    lithology_mappings = gis_payload.get("lithology_mappings")
-    if require_list(lithology_mappings, "gis.lithology_mappings", messages):
+    for section in ("lithology_mappings", "geology_soil_tendency_mappings"):
+        lithology_mappings = gis_payload.get(section)
+        if lithology_mappings is None and section == "geology_soil_tendency_mappings":
+            continue
+        if not require_list(lithology_mappings, f"gis.{section}", messages):
+            continue
         for index, mapping in enumerate(lithology_mappings):
-            location = f"gis.lithology_mappings[{index}]"
+            location = f"gis.{section}[{index}]"
             if not isinstance(mapping, dict):
                 messages.append(error(location, "expected an object"))
                 continue

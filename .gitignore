@@ -19,6 +19,10 @@ MERGED_*.csv
 !/mushroom-GIS/.gitignore
 !/mushroom-GIS/README.md
 
+# Local literature source files supplied manually by the user. Commit derived
+# notes and normalized summaries, not large scanned/source PDFs.
+/docs/mushrooms/literature/Marc_EstevezSpecies.pdf
+
 # Local tests and old scripts
 /_My test files/
 /Rainmapper_old.py

@@ -52,6 +52,43 @@ La tercera capa responde a:
 
 Esta separación es importante porque un sitio ecológicamente perfecto puede no estar en momento de florada, y una semana meteorológicamente favorable no debería producir predicción alta si la especie no encaja con el hábitat, el árbol huésped, el suelo, la altitud o la orientación.
 
+### 1.1 Dirección v0 acordada: señales amplias, no modelo hiperparametrizado
+
+La v0 operativa debe empezar con un predictor más simple y explicable que el
+modelo completo descrito en este documento. La literatura práctica y las guías
+de campo suelen describir las especies con categorías amplias:
+
+- bosques o árboles asociados;
+- suelos ácidos/silíceos, calcáreos/básicos, arenosos, húmedos, yesíferos o
+  variables;
+- altitud o piso aproximado;
+- temporada;
+- hábitats sencillos como ribera, bosque montano, encinar, robledal, pinar,
+  hayedo o prados/bordes.
+
+Por tanto, las capas GIS deben ayudar a clasificar cada punto del mapa en esas
+características internas. DEM aporta altitud/topografía; MVC50 aporta
+vegetación, hábitat y sustrato; geología puede aportar una tendencia edáfica
+cuando no hay una capa de suelo mejor. La geología detallada no debe convertirse
+en el eje del predictor inicial: una roca como pizarra puede traducirse a
+tendencia silícea/ácida, pero no debe crear una preferencia específica de especie
+por `lith_slate` salvo fuente verificable.
+
+La meteorología histórica de los incrementales de Rainmapper se aplicará después
+como capa dinámica sobre esa aptitud estática del punto. Con pocas observaciones,
+el resultado correcto puede ser todavía "apto por hábitat, meteorología
+insuficientemente calibrada" o "datos insuficientes", no una puntuación
+aparentemente precisa.
+
+El modelo rico descrito en versiones previas de este documento queda como una
+arquitectura futura de enriquecimiento avanzado, no como objetivo de cierre de
+la v0. La v0 no debe intentar rellenar todos los campos actuales de
+`mushroom_profiles.json`, ni usar pesos, ventanas meteorológicas o litologías
+finas por especie como si fueran verdad productiva. Esos campos pueden
+mantenerse por compatibilidad de datos, UI y exploración, pero los valores
+efectivos de la v0 deben salir de un seed literario mínimo, trazable y revisable,
+y de observaciones locales contrastadas cuando existan suficientes datos.
+
 ## 2. Fuentes fiables usadas como referencia
 
 Se han priorizado papers científicos y fuentes primarias. Las aplicaciones comerciales o páginas de pronóstico sin metodología pública no se consideran base suficiente para el diseño.

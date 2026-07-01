@@ -777,6 +777,161 @@
       "notes": "Maps explicit gypsum/gypsiferous source text."
     }
   ],
+  "geology_soil_tendency_mappings": [
+    {
+      "source_patterns": [
+        "granite",
+        "granito",
+        "granit",
+        "granits",
+        "granodiorite",
+        "granodiorita",
+        "granodiorites",
+        "tonalite",
+        "tonalita",
+        "tonalites",
+        "quartzite",
+        "cuarcita",
+        "cuarcitas",
+        "quarsita",
+        "quarsites",
+        "quartzita",
+        "quartzites",
+        "slate",
+        "pizarra",
+        "pizarras",
+        "pissarra",
+        "pissarres",
+        "schist",
+        "esquisto",
+        "esquistos",
+        "esquist",
+        "esquists",
+        "micaesquist",
+        "micaesquists",
+        "gneiss",
+        "gneis",
+        "gneissos"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_acidic",
+        "soil_siliceous"
+      ],
+      "confidence": "high",
+      "notes": "Broad geology-to-soil tendency: siliceous or acidic parent material. Specific rock names are only used as evidence; the predictor-facing signal is the broad soil tendency."
+    },
+    {
+      "source_patterns": [
+        "limestone",
+        "caliza",
+        "calizas",
+        "calcària",
+        "calcàries",
+        "calcari",
+        "calcaris",
+        "calcarenite",
+        "calcarenita",
+        "calcarenites",
+        "calcilutite",
+        "calcilutita",
+        "calcilutites",
+        "dolomite",
+        "dolomía",
+        "dolomías",
+        "dolomia",
+        "dolomies",
+        "dolomita",
+        "dolomites",
+        "carbonated",
+        "carbonatado",
+        "carbonatada",
+        "carbonatat",
+        "carbonatada"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_calcareous",
+        "soil_basic"
+      ],
+      "confidence": "high",
+      "notes": "Broad geology-to-soil tendency: calcareous or basic parent material. Specific carbonate rock names are only used as evidence."
+    },
+    {
+      "source_patterns": [
+        "marl",
+        "marls",
+        "marga",
+        "margas",
+        "margocalcària",
+        "margocalcàries",
+        "margocaliza",
+        "margocalizas"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_calcareous",
+        "soil_loamy"
+      ],
+      "confidence": "medium",
+      "notes": "Broad geology-to-soil tendency: marl usually suggests calcareous and loamy tendency, but mixed descriptions remain review-only."
+    },
+    {
+      "source_patterns": [
+        "sandstone",
+        "arenisca",
+        "areniscas",
+        "gres",
+        "gresos",
+        "sorrenca",
+        "sorrenques"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_sandy",
+        "soil_siliceous"
+      ],
+      "confidence": "medium",
+      "notes": "Broad geology-to-soil tendency: sandstone-like source text suggests sandy and often siliceous tendency, but composition can vary."
+    },
+    {
+      "source_patterns": [
+        "alluvial",
+        "aluvial",
+        "aluviales",
+        "al·luvial",
+        "fluvial",
+        "fluviales",
+        "terrace",
+        "terraces",
+        "terraza",
+        "terrazas",
+        "terrassa",
+        "terrasses"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_loamy",
+        "soil_sandy_loam",
+        "soil_moist"
+      ],
+      "confidence": "medium",
+      "notes": "Broad geology-to-soil tendency: alluvial or fluvial deposits suggest texture and moisture tendencies, not a stable pH reaction."
+    },
+    {
+      "source_patterns": [
+        "gypsum",
+        "gypsiferous",
+        "yeso",
+        "yesos",
+        "yesífero",
+        "yesífera",
+        "guix",
+        "guixenc",
+        "guixenca"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_gypsiferous"
+      ],
+      "confidence": "high",
+      "notes": "Broad geology-to-soil tendency: explicit gypsum or gypsiferous source text."
+    }
+  ],
   "batch_suggestion_rules": [
     {
       "rule_id": "mvc50_llfiscat_vegetation_text_patterns",
@@ -921,11 +1076,11 @@
         "Codi_protolit",
         "Descripcio_protolit"
       ],
-      "source_section": "lithology_mappings",
+      "source_section": "geology_soil_tendency_mappings",
       "auto_accept_confidences": [
         "high"
       ],
-      "notes": "Auto-accepted for high-confidence official geology description text matches declared in lithology_mappings; lower confidence matches remain review-only."
+      "notes": "Auto-accepted only for high-confidence broad geology-to-soil tendencies; mixed or variable parent material remains review-only."
     }
   ],
   "derived_rules": [

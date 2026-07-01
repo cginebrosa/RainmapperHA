@@ -1,6 +1,6 @@
 # Decisions
 
-Nota de auditoria 2026-07-01: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: version HA `0.2.180` en `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` contiene solo codigo especifico HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`); los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.180` esta publicada/pusheada, instalada y funcionando en HA con imagen `ghcr.io/cginebrosa/rainmapperha:0.2.180/latest`, digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, commit `0415067`. El ultimo commit pusheado del repo es `ef9bbc6 Add GIS mappings lab UI`; es posterior a la release `0.2.180`, no cambia la version HA y documenta/implementa el laboratorio GIS local y la pantalla `GIS mappings`. `0.2.172` fue confirmada por el usuario como funcionando correctamente el 2026-06-28; incluye la correccion de la tarjeta `Weather model summary` del tab `General/Summary` de especies. `0.2.175` introduce el store real de observaciones de setas, labels genericas y mantenimiento inicial de observaciones. `0.2.176` mueve los nombres de grupos de `/mushrooms/catalogs` a `mushroom_labels.json` mediante claves `catalog_group.*`, para que los catalogos nuevos de observaciones no ensucien las tarjetas superiores con IDs raw. `0.2.177` centraliza labels visibles del dominio `mushrooms` en `mushroom_labels.json`, aplica `ui_language` del add-on a setas y cuenta referencias desde observaciones en el mantenimiento de catalogos. `0.2.178` completa la traduccion visible de labels y valores controlados en la pantalla interna de especies. `0.2.179` refina el tab `Fenologia y Topografia`, meses editables como pastillas y la label `snowmelt_bonus`. `0.2.180` mantiene el tab actual tras guardar especies, mejora filtros de observaciones, separa scoring en Parametros y cambia patrones/orientaciones a pastillas catalogadas traducidas.
+Nota de auditoria 2026-07-02: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`, ultimo commit local `76c5b5e Add batch GIS mapping reconstruction workflow`; version HA `0.2.180` en `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y cache-busters de visores; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` contiene solo codigo especifico HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`); los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.180` esta documentada/confirmada previamente como publicada, pusheada, instalada y funcionando en HA con imagen `ghcr.io/cginebrosa/rainmapperha:0.2.180/latest`, digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, commit de release `0415067`; no se ha reconsultado GHCR en esta auditoria. Tras ejecutar `./mushroom_lab_stop.sh`, `rainmapper-ha-ui` queda parado y Docker no muestra servicios activos. El PDF local `docs/mushrooms/literature/Marc_EstevezSpecies.pdf` queda ignorado/no versionado; se versiona el resumen `marc-estevez-species-conclusions-es.md`. `0.2.172` fue confirmada por el usuario como funcionando correctamente el 2026-06-28; incluye la correccion de la tarjeta `Weather model summary` del tab `General/Summary` de especies. `0.2.175` introduce el store real de observaciones de setas, labels genericas y mantenimiento inicial de observaciones. `0.2.176` mueve los nombres de grupos de `/mushrooms/catalogs` a `mushroom_labels.json` mediante claves `catalog_group.*`, para que los catalogos nuevos de observaciones no ensucien las tarjetas superiores con IDs raw. `0.2.177` centraliza labels visibles del dominio `mushrooms` en `mushroom_labels.json`, aplica `ui_language` del add-on a setas y cuenta referencias desde observaciones en el mantenimiento de catalogos. `0.2.178` completa la traduccion visible de labels y valores controlados en la pantalla interna de especies. `0.2.179` refina el tab `Fenologia y Topografia`, meses editables como pastillas y la label `snowmelt_bonus`. `0.2.180` mantiene el tab actual tras guardar especies, mejora filtros de observaciones, separa scoring en Parametros y cambia patrones/orientaciones a pastillas catalogadas traducidas.
 
 ## 2026-06-27 - Mantener JSON de setas como defaults versionados y copia editable en HA
 
@@ -1586,3 +1586,57 @@ Cada usuario se muestra como una fila compacta con resumen, permisos y ultimo di
 
 ### Estado
 Publicado en imagen HA `0.2.146` con digest multi-arch `sha256:fefbc22459cd8e388f6660ac533293557f157a33e3a1f8dc1cb781359a6c8ca8` y commit `ab5b2dd`. Validacion local: `./scripts/smoke-test.sh` OK. Validada/dada por buena en HA el 2026-06-27.
+
+## 2026-07-01 - Predictor de setas v0 con senales amplias y calibracion progresiva
+
+### Decision
+No deshacer el trabajo de catalogos, observaciones, GIS mappings, DEM ni
+reconstructor, pero usar una v0 del predictor de setas con menos parametros y
+mas alineada con la literatura fiable disponible. La v0 debe trabajar con
+senales amplias de habitat: vegetacion/bosque asociado, arbol huesped cuando
+aplique, suelo acido/siliceo, calcario/basico, arenoso, humedo, yesifero o
+variable, altitud aproximada, temporada y rasgos simples de habitat.
+
+Las capas GIS siguen siendo necesarias para clasificar cada punto del mapa en
+esas caracteristicas internas. La meteorologia de los incrementales de
+Rainmapper se combina despues con esa aptitud estatica para estimar si hay
+condiciones recientes de fructificacion. La geologia fina queda como
+trazabilidad o apoyo, no como eje del scoring inicial.
+
+### Motivo
+La literatura y guias de campo accesibles al usuario describen las especies en
+terminos ecologicos amplios, no como dependencia de codigos geologicos
+detallados. Intentar mapear miles de clases GIS finas antes de tener un modelo
+simple validable aumenta mantenimiento sin aportar necesariamente poder
+predictivo. Un modelo v0 pequeno permite explicar resultados, revisar errores y
+usar observaciones reales para enriquecer solo lo que demuestre valor.
+
+### Consecuencias
+`mushroom_gis_mappings.json` puede conservar litologias y mappings detallados,
+pero el batch masivo de geologia debe priorizar tendencias edaficas amplias,
+por ejemplo mediante `geology_soil_tendency_mappings`. Las fichas escaneadas o
+fuentes literarias deben producir un seed experimental normalizado, separado de
+perfiles productivos, sin copiar texto largo ni inventar umbrales.
+
+El schema rico y los campos ya existentes en `mushroom_profiles.json` quedan
+como compatibilidad, UI y posible arquitectura futura, no como contrato de la
+v0. La v0 no se considera incompleta por no rellenar cada parametro fino. La
+promocion de parametros adicionales solo debe ocurrir cuando haya soporte
+documental o patrones locales reproducibles a partir de observaciones y
+meteorologia historica.
+
+Las observaciones reales no modifican automaticamente el modelo. Generan
+candidatos o hipotesis reproducibles: ventanas de lluvia observadas, rangos
+altitudinales locales, asociaciones de bosque/suelo o gaps de datos. Cada
+candidato debe testearse en laboratorio y promocionarse manualmente si encaja
+con datos y literatura disponible.
+
+### Ficheros afectados
+- `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`
+- `docs/mushrooms/mushroom-predictor-design-es.md`
+- `mushroom-data/mushroom_gis_mappings.json`
+- `scripts/validate-mushroom-data.py`
+
+### Estado
+Decision documentada localmente durante la fase de laboratorio GIS. No hay bump
+de version HA ni publicacion de imagen asociada.

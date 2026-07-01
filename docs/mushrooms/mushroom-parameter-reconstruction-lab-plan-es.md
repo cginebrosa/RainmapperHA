@@ -25,6 +25,96 @@ El resultado esperado no es "el predictor definitivo", sino una base verificable
 - que diferencias aparecen entre observaciones positivas y negativas;
 - que parametros candidatos por especie podrian revisarse manualmente mas adelante.
 
+## Cambio de direccion 2026-07-01: predictor inicial mas simple
+
+El trabajo hecho no se deshace: observaciones, GIS mappings, catalogos, DEM y
+reconstructor siguen siendo piezas utiles. El cambio acordado es usar menos
+parametros en la v0 del predictor y hacer que esos parametros reflejen mejor la
+literatura fiable realmente disponible. El laboratorio no debe intentar arrancar
+con una taxonomia geologica fina ni con un predictor complejo. La direccion es
+construir primero un predictor explicable basado en las mismas senales amplias
+que suelen aparecer en fichas micologicas y guias de campo:
+
+- vegetacion o bosque asociado;
+- arboles huesped o arboles acompanantes cuando sean relevantes;
+- tipo de suelo amplio: acido/siliceo, calcario/basico, arenoso, humedo,
+  yesifero o variable;
+- altitud aproximada;
+- temporada;
+- rasgos simples de habitat, por ejemplo ribera, bosque montano, sotobosque
+  humedo o zonas abiertas.
+
+Las capas GIS siguen siendo necesarias, pero su papel cambia: deben clasificar
+cada punto del mapa en esas caracteristicas internas simples. La geologia,
+vegetacion, sustrato y DEM son traductores de contexto; no son por si mismos el
+modelo predictivo. Por ejemplo, una descripcion GIS de pizarra puede servir como
+evidencia de tendencia `soil_siliceous`/`soil_acidic`, pero el predictor inicial
+no deberia requerir que una especie "prefiera pizarra" salvo que una fuente
+fiable lo diga explicitamente.
+
+La meteorologia de los incrementales de Rainmapper se combina despues con esa
+aptitud estatica del punto. El flujo conceptual queda:
+
+```text
+punto del mapa
+  -> DEM/GIS: altitud, vegetacion, host probable, suelo amplio, habitat
+  -> perfiles/literatura: especies compatibles con ese contexto
+  -> incrementales meteorologicos: lluvia, temperatura, humedad, viento previos
+  -> observaciones reales: calibracion local y candidatos revisables
+```
+
+La primera carga de conocimiento por especie puede venir de fichas escaneadas o
+libros revisados por el usuario, pero debe convertirse a datos normalizados y
+revisables. No debe copiar texto largo de las fuentes ni fijar umbrales
+meteorologicos por intuicion. El output inicial recomendado es un JSON
+experimental de seed literario, separado de perfiles productivos, con campos de
+suelo, vegetacion, habitat, altitud/temporada aproximadas y estado
+`needs_review`.
+
+Despues, las observaciones reales deben servir para inferir parametros nuevos o
+refinar parametros existentes, pero no para modificar el modelo a ciegas. El
+ciclo correcto es:
+
+```text
+observaciones + contexto GIS/DEM + meteorologia historica
+  -> hipotesis o candidato de parametro
+  -> test reproducible en laboratorio
+  -> revision humana de si encaja con datos y literatura disponible
+  -> promocion manual al modelo si aporta valor
+```
+
+Ejemplos de candidatos aceptables como hipotesis: una ventana de lluvia que
+aparece repetidamente antes de positivos, un rango altitudinal local mas
+estrecho que el descrito en la ficha, o una asociacion fuerte con un tipo de
+bosque en las observaciones propias. Hasta que se validen, esos candidatos deben
+vivir en outputs experimentales y reportes, no en el scoring productivo.
+
+Esta decision no elimina la UI de `GIS mappings` ni los catalogos existentes; la
+reorienta hacia mappings mas mantenibles. `geology_50000.Codi` debe priorizar
+salidas de tendencia edafica amplia mediante reglas declarativas, y conservar la
+litologia fina como trazabilidad, auditoria o futuro enriquecimiento cuando la
+evidencia lo justifique. Las categorias finas pueden permanecer en el dataset,
+pero no deben ser obligatorias ni dominar el scoring inicial.
+
+El camino anterior, basado en intentar completar muchos parametros finos por
+especie desde el inicio, queda aparcado como fase futura de enriquecimiento
+avanzado. No es criterio de exito de la v0 rellenar todo `mushroom_profiles.json`
+ni convertir cada detalle GIS en un parametro predictivo. Para v0, el dato
+minimo util es una ficha normalizada que permita comparar un punto del mapa
+contra habitat, vegetacion/host, suelo amplio, altitud, temporada y meteorologia
+reconstruida. Si algun dia las observaciones locales permiten justificar mas
+detalle, ese detalle debe entrar como candidato probado, no como obligacion del
+schema inicial.
+
+Fuera de alcance de v0:
+
+- completar todos los pesos y subparametros actuales por especie;
+- fijar ventanas de lluvia, temperatura, humedad o viento por intuicion;
+- usar litologias exactas como `lith_slate` o `lith_basaltic` para scoring salvo
+  evidencia documental o local verificable;
+- promocionar automaticamente hipotesis inferidas desde pocas observaciones;
+- tratar el catalogo fino como una lista de campos obligatorios.
+
 ## Reglas criticas
 
 - No escribir en Home Assistant real.
@@ -477,6 +567,6 @@ Estado al crear este plan:
 
 - HA sigue en `0.2.180`.
 - El laboratorio local y la UI de observaciones ya permiten cargar observaciones reales en `docker-data/`.
-- El contenedor `rainmapper-ha-ui` estaba parado en el cierre previo.
-- El siguiente trabajo tecnico sera cerrar la mini-fase GIS acotada y despues implementar la Fase 1 como `observation_context_builder` local experimental.
+- El contenedor `rainmapper-ha-ui` queda parado tras ejecutar `./mushroom_lab_stop.sh`; auditoria Docker del 2026-07-02 no muestra servicios activos y `docker-data/` queda preservado.
+- La mini-fase GIS acotada ya produjo UI `GIS mappings`, rebuild batch reutilizable y reglas declarativas de tendencia edafica amplia. El siguiente trabajo tecnico sera definir el schema minimo del seed literario v0 y despues implementar la Fase 1 como `observation_context_builder` local experimental.
 - Este documento sera la guia que se ira adaptando segun decisiones sobre metodo meteorologico, DEM/GIS y generacion de candidatos.
