@@ -463,8 +463,13 @@
         "granite",
         "granito",
         "granit",
+        "granits",
         "granodiorite",
-        "granodiorita"
+        "granodiorita",
+        "granodiorites",
+        "tonalite",
+        "tonalita",
+        "tonalites"
       ],
       "mapped_lithology_ids": [
         "lith_granite"
@@ -479,7 +484,11 @@
       "source_patterns": [
         "schist",
         "esquisto",
-        "esquist"
+        "esquistos",
+        "esquist",
+        "esquists",
+        "micaesquist",
+        "micaesquists"
       ],
       "mapped_lithology_ids": [
         "lith_schist"
@@ -494,7 +503,9 @@
       "source_patterns": [
         "slate",
         "pizarra",
-        "pissarra"
+        "pizarras",
+        "pissarra",
+        "pissarres"
       ],
       "mapped_lithology_ids": [
         "lith_slate"
@@ -509,7 +520,11 @@
       "source_patterns": [
         "sandstone",
         "arenisca",
-        "gres"
+        "areniscas",
+        "gres",
+        "gresos",
+        "sorrenca",
+        "sorrenques"
       ],
       "mapped_lithology_ids": [
         "lith_sandstone"
@@ -524,7 +539,11 @@
       "source_patterns": [
         "quartzite",
         "cuarcita",
-        "quarsita"
+        "cuarcitas",
+        "quarsita",
+        "quarsites",
+        "quartzita",
+        "quartzites"
       ],
       "mapped_lithology_ids": [
         "lith_quartzite"
@@ -539,8 +558,17 @@
       "source_patterns": [
         "limestone",
         "caliza",
+        "calizas",
         "calcària",
-        "calcari"
+        "calcàries",
+        "calcari",
+        "calcaris",
+        "calcarenite",
+        "calcarenita",
+        "calcarenites",
+        "calcilutite",
+        "calcilutita",
+        "calcilutites"
       ],
       "mapped_lithology_ids": [
         "lith_limestone"
@@ -555,7 +583,11 @@
       "source_patterns": [
         "dolomite",
         "dolomía",
-        "dolomia"
+        "dolomías",
+        "dolomia",
+        "dolomies",
+        "dolomita",
+        "dolomites"
       ],
       "mapped_lithology_ids": [
         "lith_dolomite"
@@ -569,7 +601,13 @@
     {
       "source_patterns": [
         "marl",
-        "marga"
+        "marls",
+        "marga",
+        "margas",
+        "margocalcària",
+        "margocalcàries",
+        "margocaliza",
+        "margocalizas"
       ],
       "mapped_lithology_ids": [
         "lith_calcareous_marl"
@@ -584,8 +622,16 @@
       "source_patterns": [
         "alluvial",
         "aluvial",
+        "aluviales",
         "al·luvial",
-        "fluvial"
+        "fluvial",
+        "fluviales",
+        "terrace",
+        "terraces",
+        "terraza",
+        "terrazas",
+        "terrassa",
+        "terrasses"
       ],
       "mapped_lithology_ids": [
         "lith_alluvial"
@@ -601,7 +647,9 @@
       "source_patterns": [
         "decalcified",
         "descalcificado",
-        "descalcificat"
+        "descalcificada",
+        "descalcificat",
+        "descalcificada"
       ],
       "mapped_lithology_ids": [
         "lith_decalcified_soil"
@@ -611,6 +659,273 @@
         "soil_neutral"
       ],
       "confidence": "medium"
+    },
+    {
+      "source_patterns": [
+        "basalt",
+        "basalto",
+        "basaltos",
+        "basaltic",
+        "basáltico",
+        "basáltica",
+        "basàltic",
+        "basàltica"
+      ],
+      "mapped_lithology_ids": [
+        "lith_basaltic"
+      ],
+      "confidence": "high",
+      "notes": "Maps explicit basalt/basaltic lithology only. It does not infer soil reaction."
+    },
+    {
+      "source_patterns": [
+        "volcanic",
+        "volcánico",
+        "volcánica",
+        "volcànic",
+        "volcànica",
+        "lava",
+        "lavas",
+        "pyroclast",
+        "pyroclastic",
+        "piroclasto",
+        "piroclastos",
+        "piroclast",
+        "piroclasts",
+        "ignimbrite",
+        "ignimbrita",
+        "ignimbrites",
+        "andesite",
+        "andesita",
+        "andesites",
+        "dacite",
+        "dacita",
+        "dacites",
+        "rhyodacite",
+        "riodacita",
+        "riodacites"
+      ],
+      "mapped_lithology_ids": [
+        "lith_volcanic"
+      ],
+      "confidence": "medium",
+      "notes": "Broad volcanic-rock signal for habitat context; no soil reaction is inferred."
+    },
+    {
+      "source_patterns": [
+        "claystone",
+        "mudstone",
+        "siltstone",
+        "lutite",
+        "lutita",
+        "lutitas",
+        "lutites",
+        "argila",
+        "argiles",
+        "arcilla",
+        "arcillas",
+        "limolita",
+        "limolitas",
+        "limolites"
+      ],
+      "mapped_lithology_ids": [
+        "lith_fine_clastic"
+      ],
+      "confidence": "medium",
+      "notes": "Fine clastic lithology indicates parent material/texture, not pH."
+    },
+    {
+      "source_patterns": [
+        "conglomerate",
+        "conglomerates",
+        "conglomerado",
+        "conglomerados",
+        "conglomerat",
+        "conglomerats",
+        "breccia",
+        "breccias",
+        "brecha",
+        "brechas",
+        "bretxa",
+        "bretxes"
+      ],
+      "mapped_lithology_ids": [
+        "lith_conglomerate_breccia"
+      ],
+      "confidence": "medium",
+      "notes": "Conglomerates and breccias are compositionally variable unless the source description states the clast or cement composition."
+    },
+    {
+      "source_patterns": [
+        "gypsum",
+        "gypsiferous",
+        "yeso",
+        "yesos",
+        "yesífero",
+        "yesífera",
+        "guix",
+        "guixenc",
+        "guixenca"
+      ],
+      "mapped_lithology_ids": [
+        "lith_gypsum"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_gypsiferous"
+      ],
+      "confidence": "high",
+      "notes": "Maps explicit gypsum/gypsiferous source text."
+    }
+  ],
+  "batch_suggestion_rules": [
+    {
+      "rule_id": "mvc50_llfiscat_vegetation_text_patterns",
+      "source_id": "mvc50",
+      "field": "LLFISCAT_t",
+      "match_fields": [
+        "raw_value"
+      ],
+      "source_section": "vegetation_mappings",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "Auto-accepted for high-confidence MVC50 physiognomic forest text matches declared in vegetation_mappings; lower confidence matches remain review-only."
+    },
+    {
+      "rule_id": "mvc50_llva_niv2_vegetation_text_patterns",
+      "source_id": "mvc50",
+      "field": "LLVA_niv2t",
+      "match_fields": [
+        "raw_value"
+      ],
+      "source_section": "vegetation_mappings",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "Auto-accepted for high-confidence MVC50 vegetation level 2 text matches declared in vegetation_mappings; lower confidence matches remain review-only."
+    },
+    {
+      "rule_id": "mvc50_substrate_siliceous",
+      "source_id": "mvc50",
+      "field": "LLVA_Subst",
+      "raw_values": [
+        "Silici",
+        "Rocós silici"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_siliceous"
+      ],
+      "confidence": "high",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "Direct MVC50 substrate class: siliceous."
+    },
+    {
+      "rule_id": "mvc50_substrate_calcareous",
+      "source_id": "mvc50",
+      "field": "LLVA_Subst",
+      "raw_values": [
+        "Carbonatat",
+        "Rocós carbonatat"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_calcareous"
+      ],
+      "confidence": "high",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "Direct MVC50 substrate class: calcareous/carbonated."
+    },
+    {
+      "rule_id": "mvc50_substrate_alluvial",
+      "source_id": "mvc50",
+      "field": "LLVA_Subst",
+      "raw_values": [
+        "Al·luvial"
+      ],
+      "mapped_lithology_ids": [
+        "lith_alluvial"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_loamy",
+        "soil_sandy_loam",
+        "soil_moist"
+      ],
+      "confidence": "medium",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "MVC50 substrate class indicates alluvial tendency; soil IDs are review-only tendencies."
+    },
+    {
+      "rule_id": "mvc50_substrate_sandy",
+      "source_id": "mvc50",
+      "field": "LLVA_Subst",
+      "raw_values": [
+        "Arenós"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_sandy"
+      ],
+      "confidence": "high",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "Direct MVC50 substrate class: sandy."
+    },
+    {
+      "rule_id": "mvc50_substrate_waterlogged",
+      "source_id": "mvc50",
+      "field": "LLVA_Subst",
+      "raw_values": [
+        "Inundat"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_waterlogged",
+        "soil_moist"
+      ],
+      "confidence": "medium",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "MVC50 substrate class indicates flooded/waterlogged tendency."
+    },
+    {
+      "rule_id": "mvc50_substrate_gypsiferous",
+      "source_id": "mvc50",
+      "field": "LLVA_Subst",
+      "raw_values": [
+        "Guixenc"
+      ],
+      "mapped_lithology_ids": [
+        "lith_gypsum"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_gypsiferous"
+      ],
+      "confidence": "high",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "Direct MVC50 substrate class: gypsiferous."
+    },
+    {
+      "rule_id": "geology_50000_lithology_text_patterns",
+      "source_id": "geology_50000",
+      "field": "Codi",
+      "match_fields": [
+        "Descripcio",
+        "Descripcio_metamorfisme",
+        "Codi_protolit",
+        "Descripcio_protolit"
+      ],
+      "source_section": "lithology_mappings",
+      "auto_accept_confidences": [
+        "high"
+      ],
+      "notes": "Auto-accepted for high-confidence official geology description text matches declared in lithology_mappings; lower confidence matches remain review-only."
     }
   ],
   "derived_rules": [

@@ -141,6 +141,139 @@ Plan inmediato tras cerrar la mini-fase GIS:
 6. Crear mappings solo desde codigos reales observados y mantener sin mapping
    cualquier clase no revisada.
 
+Auditoria batch reutilizable:
+
+```bash
+./mushroom_gis_mappings_rebuild.sh
+```
+
+Este comando recorre los valores unicos de los campos GIS mapeables configurados
+en `rainmapper_core.mushroom_gis_lab`, no usa coordenadas de observaciones y
+escribe el payload local que consume `/mushrooms/gis-mappings`:
+
+```text
+docker-data/mushroom-lab/working/features/gis_observation_reconstruction.json
+```
+
+Por defecto lee `docker-data/mushroom-data/` si existe para respetar la copia
+mutable del laboratorio local; si no, usa `mushroom-data/`. El script no escribe
+`mushroom_gis_mappings.json`: solo genera candidatos de revision. Las
+sugerencias derivadas de texto litologico oficial son preselecciones
+revisables, no mappings `accepted` computables. La salida de consola y el JSON
+incluyen metricas por capa/campo (`unique`, `existing`, `candidates`,
+`suggested`) y tiempos de ejecucion por campo mas tiempo total.
+
+La ruta de salida no requiere configuracion manual en el lanzamiento normal. El
+core usa, por orden:
+
+1. `RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH`, si se quiere forzar un JSON
+   concreto.
+2. `RAINMAPPER_MUSHROOM_LAB_DIR`, si se quiere forzar el directorio base del
+   laboratorio.
+3. `/share/rainmapper/mushroom-lab/` dentro de Home Assistant.
+4. `docker-data/mushroom-lab/` en el laboratorio local del repo.
+5. `tmp/mushroom-lab/` solo como fallback local si no existe `docker-data/`.
+
+El payload batch es una cache reconstruible, no fuente de verdad. La fuente de
+verdad son las capas GIS, `mushroom_reference_catalogs.json`,
+`mushroom_gis_mappings.json` y las reglas declarativas. Para preparar promocion
+futura a HA sin rehacer el motor, el core acepta:
+
+```bash
+RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH=/share/rainmapper/mushroom-lab/working/features/gis_observation_reconstruction.json
+```
+
+Tambien acepta un directorio base persistente, mas comodo para HA:
+
+```bash
+RAINMAPPER_MUSHROOM_LAB_DIR=/share/rainmapper/mushroom-lab
+```
+
+o el parametro puntual del wrapper:
+
+```bash
+./mushroom_gis_mappings_rebuild.sh --output /share/rainmapper/mushroom-lab/working/features/gis_observation_reconstruction.json
+```
+
+En HA real, el default ya apunta a `/share/rainmapper/mushroom-lab/` si existe
+`/share/rainmapper`; no hace falta pasar la variable en el arranque normal.
+
+Si se quiere auditar contra los defaults versionados en vez de la copia mutable
+local:
+
+```bash
+./mushroom_gis_mappings_rebuild.sh --mushroom-data-root mushroom-data
+```
+
+### Promocion controlada de reglas batch a la copia mutable
+
+Mientras las reglas batch se estan probando, la copia versionada:
+
+```text
+mushroom-data/mushroom_reference_catalogs.json
+mushroom-data/mushroom_gis_mappings.json
+```
+
+puede ir por delante de la copia mutable local:
+
+```text
+docker-data/mushroom-data/mushroom_reference_catalogs.json
+docker-data/mushroom-data/mushroom_gis_mappings.json
+```
+
+La copia mutable local representa el futuro `/share/rainmapper/mushroom-data/`
+de HA. Cuando la UI `/mushrooms/gis-mappings` muestre que las reglas nuevas son
+razonables, una sesion posterior puede promover esas reglas a la copia mutable.
+
+Reglas de promocion:
+
+1. No promocionar observaciones, historicos, perfiles ni backups. Esta promocion
+   se limita a `mushroom_reference_catalogs.json` y
+   `mushroom_gis_mappings.json`.
+2. Hacer backup previo de los dos JSON destino bajo
+   `docker-data/mushroom-data/backups/`, con timestamp y sufijo claro de
+   promocion GIS.
+3. Comparar versionado contra mutable antes de escribir. No asumir que
+   `docker-data/mushroom-data/` es identico a `mushroom-data/`.
+4. Fusionar los cambios nuevos del laboratorio GIS:
+   - nuevos IDs de `soil_types` y `lithology_types`;
+   - aliases y reglas nuevas de `lithology_mappings` y
+     `vegetation_mappings`;
+   - seccion `batch_suggestion_rules`;
+   - cualquier ajuste relacionado requerido para que el validador cruce IDs.
+5. Preservar cambios vivos no relacionados si existen. Esto significa no perder
+   textos, labels o descripciones que esten en la copia mutable y no formen
+   parte del cambio GIS que se esta promoviendo. Si una sesion Codex anterior
+   escribio labels adicionales en `docker-data/mushroom-data/`, revisarlos y
+   mantenerlos salvo que sean claramente obsoletos.
+6. Validar despues de escribir:
+
+```bash
+python3 scripts/validate-mushroom-data.py
+```
+
+7. Reconstruir el payload batch usando ya la copia mutable normal:
+
+```bash
+./mushroom_gis_mappings_rebuild.sh
+```
+
+8. Abrir `/mushrooms/gis-mappings` en el Docker local y confirmar que los
+   candidatos y sugerencias coinciden con lo revisado.
+
+Solo despues de estar satisfechos en Docker local se debe repetir la promocion
+equivalente en HA real sobre:
+
+```text
+/share/rainmapper/mushroom-data/mushroom_reference_catalogs.json
+/share/rainmapper/mushroom-data/mushroom_gis_mappings.json
+```
+
+En HA real aplicar el mismo criterio defensivo: backup previo, comparacion,
+fusion controlada, validacion y reconstruccion del payload bajo
+`/share/rainmapper/mushroom-lab/`. No copiar a ciegas desde el repo si la copia
+viva de HA contiene cambios posteriores hechos desde la UI.
+
 Decision de suelo v0:
 
 - No usar capa edafologica externa en v0. El sustrato predictivo sale de

@@ -1276,6 +1276,22 @@
           "chalky",
           "cretoso"
         ]
+      },
+      {
+        "id": "soil_gypsiferous",
+        "label": {
+          "es": "Yesífero",
+          "ca": "Guixenc",
+          "en": "Gypsiferous"
+        },
+        "parent_material": "gypsum",
+        "gis_aliases": [
+          "gypsum",
+          "yeso",
+          "yesífero",
+          "guix",
+          "guixenc"
+        ]
       }
     ],
     "lithology_types": [
@@ -1494,6 +1510,118 @@
           "alluvial",
           "aluvial",
           "al·luvial"
+        ]
+      },
+      {
+        "id": "lith_basaltic",
+        "label": {
+          "es": "Basáltico",
+          "ca": "Basàltic",
+          "en": "Basaltic"
+        },
+        "general_reaction": "variable_basic_non_calcareous",
+        "parent_soil_tendency_ids": [],
+        "gis_aliases": [
+          "basalt",
+          "basalto",
+          "basaltos",
+          "basaltic",
+          "basáltico",
+          "basáltica",
+          "basàltic",
+          "basàltica"
+        ]
+      },
+      {
+        "id": "lith_volcanic",
+        "label": {
+          "es": "Volcánico",
+          "ca": "Volcànic",
+          "en": "Volcanic"
+        },
+        "general_reaction": "variable",
+        "parent_soil_tendency_ids": [],
+        "gis_aliases": [
+          "volcanic",
+          "volcánico",
+          "volcánica",
+          "volcànic",
+          "volcànica",
+          "lava",
+          "lavas",
+          "pyroclast",
+          "pyroclastic",
+          "piroclasto",
+          "piroclastos",
+          "piroclast"
+        ]
+      },
+      {
+        "id": "lith_fine_clastic",
+        "label": {
+          "es": "Clástico fino",
+          "ca": "Clàstic fi",
+          "en": "Fine clastic"
+        },
+        "general_reaction": "variable",
+        "parent_soil_tendency_ids": [],
+        "gis_aliases": [
+          "claystone",
+          "lutite",
+          "lutita",
+          "lutites",
+          "mudstone",
+          "siltstone",
+          "clay",
+          "claystone",
+          "arcilla",
+          "arcillas",
+          "argila",
+          "argiles",
+          "limolita",
+          "limolites"
+        ]
+      },
+      {
+        "id": "lith_conglomerate_breccia",
+        "label": {
+          "es": "Conglomerado o brecha",
+          "ca": "Conglomerat o bretxa",
+          "en": "Conglomerate or breccia"
+        },
+        "general_reaction": "variable",
+        "parent_soil_tendency_ids": [],
+        "gis_aliases": [
+          "conglomerate",
+          "conglomerado",
+          "conglomerat",
+          "breccia",
+          "breccias",
+          "brecha",
+          "brechas",
+          "bretxa"
+        ]
+      },
+      {
+        "id": "lith_gypsum",
+        "label": {
+          "es": "Yeso",
+          "ca": "Guix",
+          "en": "Gypsum"
+        },
+        "general_reaction": "gypsiferous",
+        "parent_soil_tendency_ids": [
+          "soil_gypsiferous"
+        ],
+        "gis_aliases": [
+          "gypsum",
+          "yeso",
+          "yesos",
+          "guix",
+          "gypsiferous",
+          "yesífero",
+          "yesífera",
+          "guixenc"
         ]
       },
       {

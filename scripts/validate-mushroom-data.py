@@ -897,6 +897,87 @@ def validate_gis(
                 messages,
             )
 
+    batch_suggestion_rules = gis_payload.get("batch_suggestion_rules")
+    if batch_suggestion_rules is not None and require_list(batch_suggestion_rules, "gis.batch_suggestion_rules", messages):
+        for index, mapping in enumerate(batch_suggestion_rules):
+            location = f"gis.batch_suggestion_rules[{index}]"
+            if not isinstance(mapping, dict):
+                messages.append(error(location, "expected an object"))
+                continue
+            for key in ("rule_id", "source_id", "field"):
+                if not isinstance(mapping.get(key), str) or not mapping.get(key):
+                    messages.append(error(f"{location}.{key}", "expected non-empty string"))
+            source_section = mapping.get("source_section")
+            if source_section is not None and (not isinstance(source_section, str) or not source_section):
+                messages.append(error(f"{location}.source_section", "expected non-empty string when present"))
+            auto_accept_confidences = mapping.get("auto_accept_confidences")
+            if auto_accept_confidences is not None:
+                if not isinstance(auto_accept_confidences, list):
+                    messages.append(error(f"{location}.auto_accept_confidences", "expected a list when present"))
+                else:
+                    for value_index, value in enumerate(auto_accept_confidences):
+                        validate_controlled(
+                            value,
+                            GIS_CONFIDENCE_VALUES,
+                            f"{location}.auto_accept_confidences[{value_index}]",
+                            messages,
+                        )
+            validate_id_list(
+                mapping.get("mapped_host_ids"),
+                "host_taxa",
+                ids_by_catalog,
+                f"{location}.mapped_host_ids",
+                messages,
+                used_ids,
+            )
+            validate_id_list(
+                mapping.get("mapped_forest_type_ids"),
+                "forest_types",
+                ids_by_catalog,
+                f"{location}.mapped_forest_type_ids",
+                messages,
+                used_ids,
+            )
+            validate_id_list(
+                mapping.get("mapped_habitat_feature_ids"),
+                "habitat_features",
+                ids_by_catalog,
+                f"{location}.mapped_habitat_feature_ids",
+                messages,
+                used_ids,
+            )
+            validate_id_list(
+                mapping.get("mapped_lithology_ids"),
+                "lithology_types",
+                ids_by_catalog,
+                f"{location}.mapped_lithology_ids",
+                messages,
+                used_ids,
+            )
+            validate_id_list(
+                mapping.get("mapped_soil_tendency_ids"),
+                "soil_types",
+                ids_by_catalog,
+                f"{location}.mapped_soil_tendency_ids",
+                messages,
+                used_ids,
+            )
+            mapped_keys = (
+                "mapped_host_ids",
+                "mapped_forest_type_ids",
+                "mapped_habitat_feature_ids",
+                "mapped_lithology_ids",
+                "mapped_soil_tendency_ids",
+            )
+            has_direct_targets = any(key in mapping for key in mapped_keys)
+            if "confidence" in mapping or has_direct_targets or not source_section:
+                validate_controlled(
+                    mapping.get("confidence"),
+                    GIS_CONFIDENCE_VALUES,
+                    f"{location}.confidence",
+                    messages,
+                )
+
     all_catalog_lookup = {
         item_id: catalog_name
         for catalog_name, values in ids_by_catalog.items()

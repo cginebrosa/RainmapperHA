@@ -9,6 +9,7 @@ close to the domain UI.
 from __future__ import annotations
 
 import html
+import json
 from urllib.parse import urlencode
 
 import mushroom_catalogs_ui
@@ -31,6 +32,24 @@ TARGETS_BY_SOURCE_FIELD = {
 
 CONFIDENCE_VALUES = ("high", "medium", "low")
 REVIEW_STATUS_VALUES = ("accepted", "pending_review", "ignored")
+
+
+def has_review_suggestion(context: object) -> bool:
+    """Return true when a reconstruction candidate carries preselected target IDs."""
+    if not isinstance(context, dict):
+        return False
+    return any(isinstance(context.get(f"suggested_{target_field}"), list) for target_field, _group in TARGET_CATALOG_FIELDS)
+
+
+def suggested_status_from_context(context: object) -> str:
+    """Return the review status declared by reconstruction suggestions."""
+    if not has_review_suggestion(context):
+        return "unmapped"
+    if isinstance(context, dict):
+        status = str(context.get("suggested_review_status", "") or "")
+        if status in REVIEW_STATUS_VALUES:
+            return status
+    return "pending_review"
 
 
 def mapping_key(source_id: object, field: object, raw_value: object) -> str:
@@ -79,7 +98,7 @@ def candidate_rows(reconstruction_payload: dict[str, object] | None) -> list[dic
         if source_id == "geology_50000" and field == "Descripcio":
             continue
         context = {
-            key: str(value)
+            key: value
             for key, value in candidate.items()
             if key not in {"source_id", "field", "raw_value"} and value not in (None, "")
         }
@@ -91,7 +110,7 @@ def candidate_rows(reconstruction_payload: dict[str, object] | None) -> list[dic
                 "field": field,
                 "raw_value": raw_value,
                 "context": context,
-                "status": "unmapped",
+                "status": suggested_status_from_context(context),
                 "key": mapping_key(source_id, field, raw_value),
                 "mapping": None,
             }
@@ -180,6 +199,24 @@ def mapping_target_summary(mapping: dict[str, object] | None) -> str:
     return ", ".join(values) if values else "-"
 
 
+def suggested_mapping_from_context(context: object) -> dict[str, object]:
+    """Return a mapping-shaped payload from review suggestions in row context."""
+    if not isinstance(context, dict):
+        return {}
+    suggestion: dict[str, object] = {}
+    for target_field, _catalog_group in TARGET_CATALOG_FIELDS:
+        suggested = context.get(f"suggested_{target_field}")
+        if isinstance(suggested, list):
+            suggestion[target_field] = [str(item) for item in suggested if item]
+    confidence = str(context.get("suggested_confidence", "") or "")
+    if confidence:
+        suggestion["confidence"] = confidence
+    notes = str(context.get("suggestion_notes", "") or "")
+    if notes:
+        suggestion["notes"] = notes
+    return suggestion
+
+
 def status_tone(status: str) -> str:
     """Return the UI tone for a mapping status."""
     if status == "accepted":
@@ -206,8 +243,32 @@ def raw_value_label(row: dict[str, object]) -> str:
 def render_mapping_context(row: dict[str, object], mapping: dict[str, object]) -> str:
     """Render non-persistent context that explains what a raw GIS value means."""
     context = row.get("context")
-    if not isinstance(context, dict) or not context:
+    if not isinstance(context, dict):
         return ""
+    suggestion = suggested_mapping_from_context(context)
+    suggestion_html = ""
+    if suggestion:
+        suggested_ids = mapping_target_summary(suggestion)
+        suggested_confidence = str(context.get("suggested_confidence", "") or "")
+        suggestion_source = str(context.get("suggestion_source", "") or "")
+        suggestion_notes = str(context.get("suggestion_notes", "") or "")
+        suggestion_html = (
+            '<div class="gis-mapping-context">'
+            '<strong>Review suggestion</strong>'
+            f'<span>Suggested IDs: {html.escape(suggested_ids)}</span>'
+            f'<span>Confidence: {html.escape(suggested_confidence or "-")}</span>'
+            f'<span>Source: {html.escape(suggestion_source or "-")}</span>'
+            f'<span>{html.escape(suggestion_notes)}</span>'
+            '</div>'
+        )
+    elif not isinstance(row.get("mapping"), dict):
+        suggestion_html = (
+            '<div class="gis-mapping-context">'
+            '<strong>No automatic suggestion</strong>'
+            '<span>No declarative batch rule produced catalog IDs for this raw GIS value.</span>'
+            '<span>Keep it as pending review, mark it ignored, or select targets manually before saving.</span>'
+            '</div>'
+        )
     if row.get("source_id") == "geology_50000" and row.get("field") == "Codi":
         description = str(context.get("description", "") or "")
         if description:
@@ -217,8 +278,9 @@ def render_mapping_context(row: dict[str, object], mapping: dict[str, object]) -
                 f'<span>El mapping se guarda por <code>Codi</code>: <code>{html.escape(str(row.get("raw_value", "")))}</code></span>'
                 f'<span>Descripcion asociada: {html.escape(description)}</span>'
                 '</div>'
+                + suggestion_html
             )
-    return ""
+    return suggestion_html
 
 
 def mapping_metrics(rows: list[dict[str, object]], errors: list[object], warnings: list[object]) -> dict[str, int]:
@@ -396,13 +458,17 @@ def render_mapping_table(
     if not rows:
         return '<div class="catalog-alert"><strong>No GIS mapping values</strong><br>Run the local GIS reconstructor or add exact mappings.</div>'
     body = []
+    scroll_key = "gis_mappings_scroll:" + "|".join(
+        str(value)
+        for value in (selected_source, selected_field, search, selected_status, sort_by, sort_dir)
+    )
     for row in rows:
         key = str(row.get("key", ""))
         active = " selected" if key == selected_key else ""
         status = str(row.get("status", "") or "-")
         tone = status_tone(status)
         mapping = row.get("mapping") if isinstance(row.get("mapping"), dict) else None
-        target_summary = mapping_target_summary(mapping)
+        target_summary = mapping_target_summary(mapping or suggested_mapping_from_context(row.get("context")))
         raw_label = raw_value_label(row)
         row_url = mappings_query_url(
             selected_key=key,
@@ -414,7 +480,7 @@ def render_mapping_table(
             sort_dir=sort_dir,
         )
         body.append(
-            f'<tr class="catalog-row{active}" onclick="window.location.href=\'{html.escape(row_url, quote=True)}\'">'
+            f'<tr class="catalog-row{active}" data-href="{html.escape(row_url, quote=True)}" onclick="window.saveGisMappingListScroll(this.dataset.href)">'
             f'<td><span class="gis-table-source">{html.escape(str(row.get("source_id", "")))}</span></td>'
             f'<td><strong>{html.escape(str(row.get("field", "")))}</strong></td>'
             f'<td><span class="gis-table-raw" title="{html.escape(raw_label, quote=True)}">{html.escape(raw_label)}</span></td>'
@@ -426,7 +492,7 @@ def render_mapping_table(
         ("source", "Source"),
         ("field", "Field"),
         ("raw_value", "Raw value"),
-        ("mapped_ids", "Mapped IDs"),
+        ("mapped_ids", "Mapped / suggested IDs"),
         ("status", "Status"),
     ]
     headers = []
@@ -445,9 +511,22 @@ def render_mapping_table(
             f'<th><a class="table-sort-link" href="{html.escape(href, quote=True)}">{html.escape(label)}{html.escape(arrow)}</a></th>'
         )
     return (
-        '<div class="gis-mapping-list-card"><div class="observations-table-shell catalog-table-shell gis-mapping-table-shell"><table>'
+        '<div class="gis-mapping-list-card"><div id="gis-mapping-table-shell" class="observations-table-shell catalog-table-shell gis-mapping-table-shell"><table>'
         f'<thead><tr>{"".join(headers)}</tr></thead>'
         f'<tbody>{"".join(body)}</tbody></table></div></div>'
+        '<script>'
+        '(function(){'
+        'const shell=document.getElementById("gis-mapping-table-shell");'
+        f'const key={json.dumps(scroll_key)};'
+        'if(!shell){return;}'
+        'const saved=sessionStorage.getItem(key);'
+        'if(saved!==null){shell.scrollTop=parseInt(saved,10)||0;}'
+        'window.saveGisMappingListScroll=function(url){'
+        'sessionStorage.setItem(key,String(shell.scrollTop));'
+        'window.location.href=url;'
+        '};'
+        '})();'
+        '</script>'
     )
 
 
@@ -506,13 +585,20 @@ def render_mapping_detail(row: dict[str, object] | None, catalogs: dict[str, obj
     """Render the editable mapping detail panel."""
     if not isinstance(row, dict):
         return '<aside class="catalog-detail gis-mapping-detail"><h2>GIS mapping detail</h2><p class="meta">No mapping value selected.</p></aside>'
-    mapping = row.get("mapping") if isinstance(row.get("mapping"), dict) else {}
+    stored_mapping = row.get("mapping") if isinstance(row.get("mapping"), dict) else {}
+    suggested_mapping = suggested_mapping_from_context(row.get("context")) if not stored_mapping else {}
+    mapping = stored_mapping or suggested_mapping
     source_id = str(row.get("source_id", "") or "")
     field = str(row.get("field", "") or "")
     raw_value = str(row.get("raw_value", "") or "")
     key = str(row.get("key", "") or "")
     confidence = str(mapping.get("confidence", "") if isinstance(mapping, dict) else "") or "medium"
-    review_status = str(mapping.get("review_status", "") if isinstance(mapping, dict) else "") or ("accepted" if mapping else "pending_review")
+    if isinstance(stored_mapping, dict) and stored_mapping:
+        review_status = str(mapping.get("review_status", "") or "accepted")
+    elif suggested_mapping:
+        review_status = suggested_status_from_context(row.get("context"))
+    else:
+        review_status = "pending_review"
     notes = str(mapping.get("notes", "") if isinstance(mapping, dict) else "")
     existing_index = str(row.get("index", "")) if "index" in row else ""
     status_tone_class = status_tone(review_status)
@@ -537,48 +623,54 @@ def render_mapping_detail(row: dict[str, object] | None, catalogs: dict[str, obj
         f'<option value="{value}"{" selected" if value == review_status else ""}>{value}</option>'
         for value in REVIEW_STATUS_VALUES
     )
-    quality_status = "Stored mapping" if isinstance(row.get("mapping"), dict) else "Candidate from reconstruction"
-    quality_status_tone = "ok" if isinstance(row.get("mapping"), dict) else "warn"
+    quality_status = "Stored mapping" if isinstance(stored_mapping, dict) and stored_mapping else "Candidate from reconstruction"
+    if suggested_mapping:
+        quality_status = "Candidate with review suggestion"
+    quality_status_tone = "ok" if isinstance(stored_mapping, dict) and stored_mapping else "warn"
     active_groups = ", ".join(mushroom_catalogs_ui.catalog_group_label(group) for _field, group in relevant_targets)
     return f"""
     <aside class="catalog-detail gis-mapping-detail">
-      <div class="gis-mapping-detail-head">
-        <div>
-          <h2>{html.escape(source_id)} · {html.escape(field)}</h2>
-          <p class="meta">{html.escape(raw_value)}</p>
-        </div>
-        <span class="observation-badge {html.escape(status_tone_class)}">{html.escape(review_status)}</span>
-      </div>
       <form method="post" action="">
         <input type="hidden" name="gis_mapping_action" value="save_exact_mapping">
         <input type="hidden" name="mapping_key" value="{html.escape(key, quote=True)}">
         <input type="hidden" name="mapping_index" value="{html.escape(existing_index, quote=True)}">
-        <div class="catalog-entry-form compact-labels">
-          <label><span>Source:</span><input name="source_id" value="{html.escape(source_id, quote=True)}" readonly></label>
-          <label><span>Field:</span><input name="field" value="{html.escape(field, quote=True)}" readonly></label>
-          <label><span>Raw value:</span><input name="raw_value" value="{html.escape(raw_value, quote=True)}" readonly></label>
-          <label><span>Confidence:</span><select name="confidence">{confidence_options}</select></label>
-          <label><span>Review status:</span><select name="review_status">{status_options}</select></label>
-          <label class="span-full"><span>Notes:</span><textarea name="notes">{html.escape(notes)}</textarea></label>
-        </div>
-        {render_mapping_context(row, mapping if isinstance(mapping, dict) else {})}
-        <div class="gis-mapping-targets">
-          {"".join(target_sections)}
-        </div>
-        <div class="gis-mapping-quality-grid">
-          <div class="gis-mapping-quality-card">
-            <strong>Use and impact</strong>
-            <span><span class="observation-badge {quality_status_tone}">{html.escape(quality_status)}</span></span>
-            <span>{selected_target_count} selected catalog ID(s)</span>
+        <div class="gis-mapping-detail-fixed">
+          <div class="gis-mapping-detail-head">
+            <div>
+              <h2>{html.escape(source_id)} · {html.escape(field)}</h2>
+              <p class="meta">{html.escape(raw_value)}</p>
+            </div>
+            <div class="gis-mapping-detail-actions">
+              <span class="observation-badge {html.escape(status_tone_class)}">{html.escape(review_status)}</span>
+              <button class="primary gis-mapping-save-button">Guardar</button>
+            </div>
           </div>
-          <div class="gis-mapping-quality-card">
-            <strong>Validation and quality</strong>
-            <span>Targets: {html.escape(active_groups)}</span>
-            <span>Catalog IDs are validated before saving.</span>
+          <div class="catalog-entry-form compact-labels">
+            <label><span>Source:</span><input name="source_id" value="{html.escape(source_id, quote=True)}" readonly></label>
+            <label><span>Field:</span><input name="field" value="{html.escape(field, quote=True)}" readonly></label>
+            <label><span>Raw value:</span><input name="raw_value" value="{html.escape(raw_value, quote=True)}" readonly></label>
+            <label><span>Confidence:</span><select name="confidence">{confidence_options}</select></label>
+            <label><span>Review status:</span><select name="review_status">{status_options}</select></label>
+            <label class="span-full"><span>Notes:</span><textarea name="notes">{html.escape(notes)}</textarea></label>
           </div>
+          {render_mapping_context(row, mapping if isinstance(mapping, dict) else {})}
         </div>
-        <div class="profile-action-bar gis-mapping-save-bar">
-          <button class="primary">Guardar GIS mapping</button>
+        <div class="gis-mapping-detail-scroll">
+          <div class="gis-mapping-targets">
+            {"".join(target_sections)}
+          </div>
+          <div class="gis-mapping-quality-grid">
+            <div class="gis-mapping-quality-card">
+              <strong>Use and impact</strong>
+              <span><span class="observation-badge {quality_status_tone}">{html.escape(quality_status)}</span></span>
+              <span>{selected_target_count} selected catalog ID(s)</span>
+            </div>
+            <div class="gis-mapping-quality-card">
+              <strong>Validation and quality</strong>
+              <span>Targets: {html.escape(active_groups)}</span>
+              <span>Catalog IDs are validated before saving.</span>
+            </div>
+          </div>
         </div>
       </form>
     </aside>

@@ -3145,8 +3145,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: linear-gradient(180deg, rgba(15, 30, 45, .96), rgba(11, 22, 34, .96));
       border: 1px solid rgba(45, 58, 71, .86);
       border-radius: 8px;
+      display: flex;
+      flex-direction: column;
       max-height: calc(100vh - 178px);
       padding: 12px;
+    }}
+    .gis-mapping-detail form {{
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+    }}
+    .gis-mapping-detail-fixed {{
+      flex: 0 0 auto;
     }}
     .gis-mapping-detail-head {{
       align-items: start;
@@ -3156,6 +3167,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       justify-content: space-between;
       margin-bottom: 10px;
       padding-bottom: 10px;
+    }}
+    .gis-mapping-detail-actions {{
+      align-items: flex-end;
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      gap: 8px;
+    }}
+    .gis-mapping-save-button {{
+      min-height: 34px;
+      padding: 7px 12px;
+      white-space: nowrap;
     }}
     .gis-mapping-detail-head h2 {{
       font-size: 16px;
@@ -3204,10 +3227,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-family: inherit;
       font-weight: 800;
     }}
+    .gis-mapping-detail-scroll {{
+      display: grid;
+      flex: 1 1 auto;
+      gap: 8px;
+      margin-top: 10px;
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }}
     .gis-mapping-targets {{
       display: grid;
       gap: 8px;
-      margin-top: 10px;
     }}
     .gis-mapping-target-section {{
       background: rgba(8, 18, 30, .42);
@@ -3216,18 +3247,32 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       padding: 8px;
     }}
     .gis-mapping-target-section summary {{
-      color: var(--muted);
+      align-items: center;
+      background: rgba(8, 18, 30, .46);
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 6px;
+      color: var(--fg);
       cursor: pointer;
-      font-size: 12px;
+      display: flex;
+      font-size: 13px;
       font-weight: 900;
-      margin-bottom: 8px;
+      justify-content: space-between;
+      line-height: 1.2;
+      margin: 0 0 8px;
+      min-height: 32px;
+      padding: 7px 8px;
+    }}
+    .gis-mapping-target-section summary::marker {{
+      color: var(--muted);
+    }}
+    .gis-mapping-target-section summary:hover {{
+      border-color: rgba(3, 169, 244, .38);
+      color: var(--accent);
     }}
     .gis-mapping-target-grid {{
       display: grid;
       gap: 6px;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      max-height: 164px;
-      overflow: auto;
       padding-right: 4px;
     }}
     .gis-mapping-target-grid .catalog-chip {{
@@ -3259,11 +3304,6 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       color: var(--muted);
       font-size: 12px;
       line-height: 1.25;
-    }}
-    .gis-mapping-save-bar {{
-      border-top: 1px solid rgba(45, 58, 71, .72);
-      margin-top: 10px;
-      padding-top: 8px;
     }}
     .modal-layer.validation-modal-open {{
       display: flex;

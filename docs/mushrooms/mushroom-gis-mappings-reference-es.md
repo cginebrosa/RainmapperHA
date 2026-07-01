@@ -193,6 +193,53 @@ Ejemplo:
 
 La relación litología → suelo es una aproximación. Debe tratarse como tendencia, no como certeza.
 
+En el laboratorio GIS, estas reglas pueden usarse para generar sugerencias de
+revision desde descripciones oficiales de geologia. Una sugerencia no equivale a
+un mapping `accepted`: debe conservar el `Codi` y la `Descripcio` oficiales,
+mostrar los IDs propuestos y requerir revision humana antes de emitir salida
+computable. Las reglas de geologia deben usar conceptos reutilizables
+internacionalmente (`lith_basaltic`, `lith_volcanic`, `lith_fine_clastic`,
+etc.), con aliases multilingues solo como ayuda para reconocer textos de capas
+externas.
+
+## 8.1 `batch_suggestion_rules`
+
+`batch_suggestion_rules` define como el laboratorio batch debe generar
+preselecciones revisables para valores GIS nuevos. Es una capa declarativa: el
+codigo Python no contiene equivalencias de dominio como `Pi roig ->
+host_pinus_sylvestris`; solo lee reglas, valida IDs contra
+`mushroom_reference_catalogs.json` y escribe sugerencias temporales.
+
+Ejemplo conceptual:
+
+```json
+{
+  "rule_id": "geology_50000_lithology_text_patterns",
+  "source_id": "geology_50000",
+  "field": "Codi",
+  "match_fields": ["Descripcio", "Descripcio_protolit"],
+  "source_section": "lithology_mappings",
+  "auto_accept_confidences": ["high"]
+}
+```
+
+Reglas:
+
+- el catalogo maestro no debe copiar clases de cada capa GIS;
+- el catalogo maestro solo debe contener conceptos internos estables;
+- las reglas batch traducen valores de capas hacia esos conceptos;
+- `auto_accept_confidences` declara que niveles de confianza pueden tratarse
+  como `accepted` en la reconstruccion batch; coincidencias fuera de esa lista
+  quedan como `pending_review`;
+- si una capa revela un concepto interno util que falta, se anade una vez al
+  catalogo con labels y aliases;
+- si una clase externa no encaja en conceptos utiles, debe quedar sin sugerencia
+  o como `ignored`, no forzarse.
+
+Esto evita el bucle de mantenimiento de copiar miles de codigos externos al
+catalogo: los codigos externos viven en `exact_value_mappings` cuando se revisan,
+y el catalogo conserva solo vocabulario del modelo.
+
 ## 9. `derived_rules`
 
 Reglas que combinan varias señales para inferir IDs internos.

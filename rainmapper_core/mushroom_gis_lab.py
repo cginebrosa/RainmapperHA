@@ -1,9 +1,10 @@
-"""Local GIS reconstruction helpers for mushroom observation lab work.
+"""GIS reconstruction helpers for mushroom observation lab work.
 
 This module is intentionally experimental and read-only. It samples local GIS
-layers for selected observation coordinates and writes a review payload under
-`tmp/` so the UI can show traceable raw layer values without changing species
-profiles, predictor parameters, or observation records.
+layers for selected observation coordinates or batch mapping audits and writes a
+review payload in the first persistent lab location available. The UI can show
+traceable raw layer values without changing species profiles, predictor
+parameters, or observation records.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import json
 import math
 import os
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -31,8 +33,28 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def default_mushroom_lab_root() -> Path:
+    """Return the best writable lab root for reusable mushroom reconstruction outputs."""
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_LAB_DIR", "").strip()
+    if configured:
+        return Path(configured)
+
+    ha_share_root = Path("/share/rainmapper")
+    if ha_share_root.exists():
+        return ha_share_root / "mushroom-lab"
+
+    local_share_copy = repo_root() / "docker-data"
+    if local_share_copy.exists():
+        return local_share_copy / "mushroom-lab"
+
+    return repo_root() / "tmp" / "mushroom-lab"
+
+
 def default_output_path() -> Path:
-    return repo_root() / "tmp" / "mushroom-lab" / "working" / "features" / "gis_observation_reconstruction.json"
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH", "").strip()
+    if configured:
+        return Path(configured)
+    return default_mushroom_lab_root() / "working" / "features" / "gis_observation_reconstruction.json"
 
 
 def default_qgis_points_path() -> Path:
@@ -132,6 +154,14 @@ def run_command(args: list[str], input_text: str | None = None, timeout: int = 6
         check=False,
         timeout=timeout,
     )
+
+
+def sql_identifier(name: str) -> str:
+    """Return a SQLite identifier quoted only when the layer name needs it."""
+    safe = name.replace('"', '""')
+    if safe.replace("_", "").isalnum():
+        return safe
+    return f'"{safe}"'
 
 
 def transform_wgs84_to_utm31(lon: float, lat: float) -> tuple[float, float]:
@@ -241,6 +271,11 @@ def exact_mapping_lookup(gis_payload: dict[str, Any] | None) -> dict[tuple[str, 
     return lookup
 
 
+def exact_mapping_key_set(gis_payload: dict[str, Any] | None) -> set[tuple[str, str, str]]:
+    """Return normalized keys for existing exact mappings."""
+    return set(exact_mapping_lookup(gis_payload))
+
+
 def valid_catalog_ids(mapping: dict[str, Any], ids_by_catalog: dict[str, set[str]]) -> tuple[dict[str, list[str]], list[str]]:
     valid: dict[str, list[str]] = {}
     invalid: list[str] = []
@@ -262,6 +297,269 @@ def valid_catalog_ids(mapping: dict[str, Any], ids_by_catalog: dict[str, set[str
         if accepted:
             valid[output_field] = accepted
     return valid, invalid
+
+
+def _text_matches_pattern(text: str, pattern: object) -> bool:
+    normalized_pattern = str(pattern or "").strip().casefold()
+    return bool(normalized_pattern and normalized_pattern in text)
+
+
+def _rule_match_text(rule: dict[str, Any], properties: dict[str, Any], raw_field: str) -> str:
+    fields = rule.get("match_fields")
+    if not isinstance(fields, list) or not fields:
+        fields = ["raw_value"]
+    values = []
+    for field in fields:
+        key = str(field or "")
+        if key == "raw_value":
+            values.append(properties.get(raw_field))
+        else:
+            values.append(properties.get(key))
+    return " | ".join(str(value or "").casefold() for value in values)
+
+
+def _rule_matches(rule: dict[str, Any], properties: dict[str, Any], raw_field: str) -> bool:
+    raw_values = rule.get("raw_values")
+    if isinstance(raw_values, list):
+        raw_value = normalized_mapping_key(properties.get(raw_field))
+        normalized_values = {normalized_mapping_key(item) for item in raw_values if item not in (None, "")}
+        if raw_value in normalized_values:
+            return True
+    patterns = rule.get("source_patterns")
+    if isinstance(patterns, list):
+        match_text = _rule_match_text(rule, properties, raw_field)
+        return any(_text_matches_pattern(match_text, pattern) for pattern in patterns)
+    return False
+
+
+def _candidate_rules_from_batch_rule(
+    rule: dict[str, Any],
+    gis_payload: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    source_section = str(rule.get("source_section", "") or "")
+    if not source_section:
+        return [rule]
+    section_rules = gis_payload.get(source_section) if isinstance(gis_payload, dict) else None
+    if not isinstance(section_rules, list):
+        return []
+    derived_rules: list[dict[str, Any]] = []
+    for section_rule in section_rules:
+        if not isinstance(section_rule, dict):
+            continue
+        derived = dict(section_rule)
+        derived.setdefault("match_fields", rule.get("match_fields", ["raw_value"]))
+        derived.setdefault("suggestion_source", source_section)
+        derived.setdefault("suggestion_notes", rule.get("notes", "Review-only suggestion from declarative GIS mapping rules."))
+        derived.setdefault("auto_accept_confidences", rule.get("auto_accept_confidences", []))
+        derived_rules.append(derived)
+    return derived_rules
+
+
+def _suggested_review_status(rule: dict[str, Any], confidence: str) -> str:
+    """Return the review status declared for a suggested mapping."""
+    explicit_status = str(rule.get("suggested_review_status", "") or "")
+    if explicit_status in {"accepted", "pending_review", "ignored"}:
+        return explicit_status
+    auto_accept_confidences = rule.get("auto_accept_confidences")
+    if isinstance(auto_accept_confidences, list) and confidence in {str(item) for item in auto_accept_confidences}:
+        return "accepted"
+    return "pending_review"
+
+
+def suggested_batch_mapping(
+    source_id: str,
+    field: str,
+    properties: dict[str, Any],
+    gis_payload: dict[str, Any] | None,
+    catalogs_payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return review-only suggestions from declarative batch rules."""
+    batch_rules = gis_payload.get("batch_suggestion_rules") if isinstance(gis_payload, dict) else None
+    if not isinstance(batch_rules, list):
+        return {}
+
+    ids_by_catalog = catalog_ids_by_group(catalogs_payload)
+    selected_mapping: dict[str, list[str]] = {field_name: [] for field_name in MAPPING_ID_CATALOGS}
+    confidences: list[str] = []
+    review_statuses: list[str] = []
+    auto_accept_confidences: list[str] = []
+    suggestion_sources: list[str] = []
+    suggestion_notes: list[str] = []
+    invalid_references: list[str] = []
+    matched_count = 0
+
+    for batch_rule in batch_rules:
+        if not isinstance(batch_rule, dict):
+            continue
+        if str(batch_rule.get("source_id", "") or "") != source_id or str(batch_rule.get("field", "") or "") != field:
+            continue
+        for rule in _candidate_rules_from_batch_rule(batch_rule, gis_payload):
+            if not _rule_matches(rule, properties, field):
+                continue
+            matched_count += 1
+            confidence = str(rule.get("confidence", "") or batch_rule.get("confidence", "") or "medium")
+            confidences.append(confidence)
+            review_statuses.append(_suggested_review_status(rule, confidence))
+            raw_auto_accept_confidences = rule.get("auto_accept_confidences")
+            if isinstance(raw_auto_accept_confidences, list):
+                for item in raw_auto_accept_confidences:
+                    item_value = str(item)
+                    if item_value and item_value not in auto_accept_confidences:
+                        auto_accept_confidences.append(item_value)
+            source = str(rule.get("suggestion_source", "") or batch_rule.get("rule_id", "") or batch_rule.get("source_section", "") or "batch_suggestion_rules")
+            if source and source not in suggestion_sources:
+                suggestion_sources.append(source)
+            notes = str(rule.get("suggestion_notes", "") or rule.get("notes", "") or batch_rule.get("notes", "") or "")
+            if notes and notes not in suggestion_notes:
+                suggestion_notes.append(notes)
+            valid_ids, invalid_ids = valid_catalog_ids(rule, ids_by_catalog)
+            invalid_references.extend(invalid_ids)
+            for output_field, item_ids in valid_ids.items():
+                for item_id in item_ids:
+                    if item_id not in selected_mapping[output_field]:
+                        selected_mapping[output_field].append(item_id)
+
+    selected_mapping = {field_name: item_ids for field_name, item_ids in selected_mapping.items() if item_ids}
+    if not selected_mapping:
+        return {}
+    confidence_rank = {"low": 0, "medium": 1, "high": 2}
+    confidence = min(confidences, key=lambda item: confidence_rank.get(item, 1)) if confidences else "medium"
+    suggestion: dict[str, Any] = {
+        "suggested_confidence": confidence,
+        "suggested_review_status": "pending_review" if "pending_review" in review_statuses else "accepted",
+        "suggestion_source": ", ".join(suggestion_sources) or "batch_suggestion_rules",
+        "suggested_rule_count": str(matched_count),
+        **{f"suggested_{field_name}": item_ids for field_name, item_ids in selected_mapping.items()},
+    }
+    auto_accept_label = ", ".join(auto_accept_confidences) if auto_accept_confidences else "none"
+    if suggestion["suggested_review_status"] == "accepted":
+        status_note = f"Auto-accepted because the matched rule confidence is {confidence} and this rule allows auto-accept for: {auto_accept_label}."
+    else:
+        status_note = f"Pending review because the matched rule confidence is {confidence}; this rule only auto-accepts: {auto_accept_label}."
+    suggestion["suggestion_notes"] = status_note
+    if invalid_references:
+        suggestion["suggestion_invalid_references"] = "; ".join(invalid_references)
+    return suggestion
+
+
+def unique_vector_values_for_field(layer: VectorLayer, field: str) -> list[dict[str, Any]]:
+    """Return unique non-empty raw values for a vector field with review context.
+
+    The query is attribute-only and does not load geometries. It is used by the
+    batch GIS mapping audit to populate the same candidate queue that point-based
+    observation reconstruction uses, without writing mappings.
+    """
+    if not layer.path.exists():
+        raise FileNotFoundError(layer.path)
+    table = sql_identifier(layer.layer_name)
+    if layer.source_id == "geology_50000" and field == "Codi":
+        sql = (
+            "SELECT Codi AS raw_value, MIN(Descripcio) AS Descripcio, "
+            "MIN(Descripcio_metamorfisme) AS Descripcio_metamorfisme, "
+            "MIN(Codi_protolit) AS Codi_protolit, "
+            "MIN(Descripcio_protolit) AS Descripcio_protolit, "
+            f"COUNT(*) AS feature_count FROM {table} "
+            "WHERE Codi IS NOT NULL AND LENGTH(TRIM(Codi)) > 0 GROUP BY Codi"
+        )
+    else:
+        sql = (
+            f"SELECT {field} AS raw_value, COUNT(*) AS feature_count FROM {table} "
+            f"WHERE {field} IS NOT NULL AND LENGTH(TRIM({field})) > 0 GROUP BY {field}"
+        )
+    result = run_command(
+        ["ogrinfo", "-json", "-features", "-dialect", "SQLite", "-sql", sql, str(layer.path)],
+        timeout=180,
+    )
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout).strip())
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"ogrinfo returned invalid JSON for {layer.source_id}.{field}: {exc}") from exc
+    layers = payload.get("layers") if isinstance(payload, dict) else None
+    features = layers[0].get("features") if isinstance(layers, list) and layers else None
+    if not isinstance(features, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for feature in features:
+        properties = feature.get("properties") if isinstance(feature, dict) else None
+        if not isinstance(properties, dict):
+            continue
+        raw_value = properties.get("raw_value")
+        if raw_value in (None, ""):
+            continue
+        rows.append(properties)
+    return rows
+
+
+def exact_mapping_candidate_context(source_id: str, field: str, row: dict[str, Any]) -> dict[str, Any]:
+    """Return review context for a unique batch row using point-sampling policy."""
+    properties = dict(row)
+    raw_value = properties.pop("raw_value", "")
+    properties[field] = raw_value
+    return mapping_context(source_id, field, properties)
+
+
+def build_batch_unmapped_candidates(
+    gis_payload: dict[str, Any] | None,
+    catalogs_payload: dict[str, Any] | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Build candidate mappings from every unique value in configured GIS layers.
+
+    Existing exact mappings are skipped. Returned candidates are review inputs
+    only; they do not alter `mushroom_gis_mappings.json` and do not emit
+    computable IDs until a reviewer stores them as accepted exact mappings.
+    """
+    existing_keys = exact_mapping_key_set(gis_payload)
+    candidates: list[dict[str, Any]] = []
+    field_summaries: list[dict[str, Any]] = []
+    for layer in vector_layers():
+        for field in MAPPABLE_LAYER_FIELDS.get(layer.source_id, ()):
+            field_started = time.monotonic()
+            unique_rows = unique_vector_values_for_field(layer, field)
+            field_total = 0
+            field_existing = 0
+            field_candidates = 0
+            field_suggested = 0
+            for row in unique_rows:
+                raw_value = str(row.get("raw_value", "") or "")
+                if not raw_value:
+                    continue
+                field_total += 1
+                key = (layer.source_id, field, normalized_mapping_key(raw_value))
+                if key in existing_keys:
+                    field_existing += 1
+                    continue
+                item: dict[str, Any] = {
+                    "source_id": layer.source_id,
+                    "field": field,
+                    "raw_value": raw_value,
+                }
+                feature_count = row.get("feature_count")
+                if feature_count not in (None, ""):
+                    item["feature_count"] = str(feature_count)
+                item.update(exact_mapping_candidate_context(layer.source_id, field, row))
+                suggestion_properties = dict(row)
+                suggestion_properties[field] = raw_value
+                suggestion = suggested_batch_mapping(layer.source_id, field, suggestion_properties, gis_payload, catalogs_payload)
+                if suggestion:
+                    field_suggested += 1
+                    item.update(suggestion)
+                candidates.append(item)
+                field_candidates += 1
+            field_summaries.append(
+                {
+                    "source_id": layer.source_id,
+                    "field": field,
+                    "unique_values": field_total,
+                    "existing_exact_mappings": field_existing,
+                    "candidate_values": field_candidates,
+                    "suggested_values": field_suggested,
+                    "duration_seconds": round(time.monotonic() - field_started, 3),
+                }
+            )
+    candidates.sort(key=lambda item: (str(item.get("source_id", "")), str(item.get("field", "")), str(item.get("raw_value", ""))))
+    return candidates, field_summaries
 
 
 def mapping_context(source_id: str, field: str, properties: dict[str, Any]) -> dict[str, str]:
@@ -309,6 +607,7 @@ def apply_exact_layer_mappings(
                 "raw_value": str(value),
             }
             unmapped_item.update(context)
+            unmapped_item.update(suggested_batch_mapping(source_id, field, properties, gis_payload, catalogs_payload))
             unmapped_values.append(unmapped_item)
             continue
         review_status = str(mapping.get("review_status", "") or "accepted")
@@ -513,6 +812,33 @@ def reconstruct_observations(
     return payload
 
 
+def reconstruct_all_gis_mapping_candidates(
+    output_path: Path | None = None,
+    gis_payload: dict[str, Any] | None = None,
+    catalogs_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Write a batch GIS mapping reconstruction for all configured layer values."""
+    started = time.monotonic()
+    candidates, field_summaries = build_batch_unmapped_candidates(gis_payload, catalogs_payload)
+    duration_seconds = round(time.monotonic() - started, 3)
+    payload: dict[str, Any] = {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_mapping_batch_reconstruction",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "duration_seconds": duration_seconds,
+        "result_count": 0,
+        "coordinate_policy": "Batch reconstruction reads layer attributes only; no observation coordinates are used.",
+        "mapping_policy": "Existing exact mappings are skipped. New values are emitted as review candidates; suggestions from text patterns are not computable until saved as accepted exact mappings.",
+        "field_summaries": field_summaries,
+        "unmapped_candidates": candidates,
+        "results": [],
+    }
+    target = output_path or default_output_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return payload
+
+
 def collect_unmapped_candidates(results: list[dict[str, Any]]) -> list[dict[str, str]]:
     """Collect unique source/field/raw GIS values that need human mapping review."""
     seen: set[tuple[str, str, str]] = set()
@@ -546,7 +872,7 @@ def collect_unmapped_candidates(results: list[dict[str, Any]]) -> list[dict[str,
                         "field": field,
                         "raw_value": raw_value,
                         **{
-                            key: str(value)
+                            key: value
                             for key, value in item.items()
                             if key not in {"source_id", "field", "raw_value"} and value not in (None, "")
                         },

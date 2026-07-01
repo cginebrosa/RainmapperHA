@@ -55,8 +55,8 @@ Cobertura actual:
 - `trophic_modes`: 4 entradas
 - `host_taxa`: 26 entradas
 - `forest_types`: 18 entradas
-- `soil_types`: 17 entradas
-- `lithology_types`: 13 entradas
+- `soil_types`: 18 entradas
+- `lithology_types`: 18 entradas
 - `aspects`: 10 entradas
 - `season_patterns`: 17 entradas
 - `habitat_features`: 9 entradas
@@ -206,6 +206,11 @@ Ejemplos:
 - `lith_dolomite`
 - `lith_calcareous_marl`
 - `lith_alluvial`
+- `lith_basaltic`
+- `lith_volcanic`
+- `lith_fine_clastic`
+- `lith_conglomerate_breccia`
+- `lith_gypsum`
 - `lith_variable`
 
 Campos útiles:
@@ -219,7 +224,9 @@ Campos útiles:
 }
 ```
 
-La litología no equivale exactamente al suelo, pero permite derivar tendencias.
+La litología no equivale exactamente al suelo. Puede permitir tendencias
+revisables cuando el texto fuente lo soporte claramente, pero el motor no debe
+tratar una litología como medición edáfica directa.
 
 ## 10. Catálogo `aspects`
 
