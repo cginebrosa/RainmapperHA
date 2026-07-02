@@ -275,6 +275,14 @@ verdad son las capas GIS, `mushroom_reference_catalogs.json`,
 `mushroom_gis_mappings.json` y las reglas declarativas. Para preparar promocion
 futura a HA sin rehacer el motor, el core acepta:
 
+Desde la proyeccion v0 GIS, no hay que lanzar un segundo paso para obtener la
+salida operativa por observacion. Las reconstrucciones por observacion que se
+ejecutan desde la UI de Observaciones incluyen `gis_context_v0` dentro de cada
+resultado, derivado del payload rico y sin volver a leer capas. El wrapper batch
+`./mushroom_gis_mappings_rebuild.sh` no reconstruye observaciones ni genera
+contextos v0 por punto: sigue siendo solo la herramienta para reconstruir la
+cola de candidatos de mappings de capas completas.
+
 ```bash
 RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH=/share/rainmapper/mushroom-lab/working/features/gis_observation_reconstruction.json
 ```
@@ -375,6 +383,214 @@ Decision de suelo v0:
 - No usar capa edafologica externa en v0. El sustrato predictivo sale de
   `MVC50.LLVA_Subst`; el suelo real detallado queda fuera hasta que exista una
   fuente continua y claramente mapeable.
+
+## Diseno del cache territorial GIS v0
+
+Objetivo:
+
+Construir, en una fase posterior al laboratorio puntual de observaciones, una
+cache estatica para Catalunya que permita consultar rapidamente la aptitud
+ecologica base de cualquier celda del mapa. Esta cache no sustituye a
+`mushroom_gis_mappings.json`: lo consume. Tampoco sustituye a la meteorologia:
+solo representa el contexto estatico del territorio.
+
+Flujo conceptual:
+
+```text
+capas GIS oficiales + DEM
+  -> valores crudos por celda/poligono
+  -> mushroom_gis_mappings.json
+  -> gis_context_v0 territorial
+  -> predictor v0 + meteorologia reciente
+```
+
+La UI de Observaciones queda como laboratorio de control: permite comprobar en
+puntos reales si las capas y mappings producen un `gis_context_v0` coherente.
+El producto final no debe depender de recorrer solo observaciones.
+
+### Responsabilidades separadas
+
+- `mushroom_gis_mappings_rebuild.sh`: reconstruye candidatos de mappings desde
+  valores unicos de capas completas. No usa coordenadas ni DEM por punto.
+- Reconstruccion GIS desde Observaciones: muestrea puntos reales y adjunta
+  `gis_context_v0` por observacion para validacion humana.
+- Cache territorial GIS v0 futuro: genera una estructura consultable para todo
+  Catalunya, derivada de capas GIS y mappings revisados.
+
+No mezclar estos flujos en un solo script. Si se implementa la cache territorial,
+debe tener wrapper y salidas propias.
+
+### Regla de reconstruccion MVC50 para hosts/bosques
+
+La reconstruccion territorial no debe limitarse a mirar un unico campo de MVC50.
+En las observaciones locales ya aparecio el caso de puntos completos y sin gaps
+donde `LLVA_niv2t`, `LLFISCAT_t`, `LLVA_txt` y otros campos MVC50 juntos
+contenian la senal ecologica util para v0, aunque un campo aislado no bastara.
+Ejemplos revisados:
+
+- `LLVA_niv2t = Carrascars` y textos de carrascar/roureda en otros campos:
+  emitir senales amplias de encinar/carrascar mediterraneo.
+- `LLFISCAT_t = Carrasca (Quercus rotundifolia)`: emitir host/bosque de
+  carrasca/encinar usando el grupo v0 existente de `Quercus ilex`.
+- `LLVA_niv2t = Rouredes i pinedes submediterrànies de pi roig i pinassa`:
+  emitir host/bosque mixto de robles y pinos declarados por la propia clase.
+- `LLVA_niv2t = Brolles de romaní i matollars mediterranis afins`: emitir
+  habitat de matorral mediterraneo/calcicola, pero no inventar host ni bosque
+  si MVC50 no declara arbol dominante.
+
+Regla operativa: estas deducciones se convierten en mappings declarativos por
+`source_id` + `field` + `raw_value` dentro de `mushroom_gis_mappings.json`.
+No se crean reglas dependientes de la especie observada ni del resultado de una
+florada concreta. Si una clase territorial solo permite habitat, la salida v0
+queda sin host/bosque y se considera informacion incompleta pero valida.
+
+### Contrato minimo por celda
+
+Cada unidad territorial debe poder devolver, como minimo:
+
+```json
+{
+  "host_ids": [],
+  "forest_type_ids": [],
+  "soil_tendency_ids": [],
+  "habitat_feature_ids": [],
+  "altitude_m": null,
+  "altitude_band_m": null,
+  "evidence": {
+    "source_layers": [],
+    "mapping_gaps": [],
+    "raw_refs": []
+  }
+}
+```
+
+Campos fuera del contrato v0:
+
+- `mapped_lithology_ids` como input de scoring principal;
+- textos crudos completos de capas dentro del producto rapido;
+- pesos por especie;
+- meteorologia historica o reciente;
+- candidatos de calibracion.
+
+La litologia fina puede mantenerse como referencia en `evidence.raw_refs` o en
+un fichero auxiliar trazable, pero no debe ser la senal principal del predictor
+v0.
+
+### Unidad espacial recomendada
+
+No empezar rasterizando Catalunya a maxima resolucion ni elegir una malla
+arbitraria como si todas las fuentes tuvieran la misma precision. La fuente que
+manda la semantica v0 de vegetacion/host/habitat es MVC50, y MVC50 es vectorial
+a escala 1:50.000, no un raster con celda fija. Por tanto, la unidad espacial
+debe respetar la escala efectiva de MVC50.
+
+Regla recomendada:
+
+- usar los poligonos/clases de MVC50 como unidad semantica primaria para
+  vegetacion, hosts, habitat y substrato;
+- cruzar o muestrear geologia y DEM sobre esa unidad o sobre una malla derivada;
+- si se usa malla regular por conveniencia del mapa, no hacerla mas fina que la
+  precision util de MVC50;
+- tratar la resolucion del DEM de 5 m solo como fuente para resumir altitud, no
+  como resolucion del predictor;
+- documentar en el manifest si la cache se genero por poligono MVC50, por malla
+  regular o por una combinacion de ambos.
+
+Motivo:
+
+- MVC50 no justifica una precision operativa de pocos metros para prediccion
+  micologica v0;
+- una malla mas fina que la fuente dominante solo crea falsa precision;
+- la meteorologia Rainmapper se apoya en estaciones y campos interpolados, no en
+  microclima de 5 m;
+- una malla puede facilitar cachear y consultar desde un mapa diario, pero debe
+  ser una salida operativa derivada, no la verdad semantica principal;
+- facilita versionar metadatos de generacion sin guardar capas GIS pesadas.
+
+Si se usa celda, debe guardar su centroide o clave espacial, no coordenadas de
+observaciones. Las coordenadas reales de observaciones siguen siendo dato local
+del laboratorio.
+
+### Formato de cache
+
+Formato inicial recomendado:
+
+```text
+docker-data/mushroom-lab/working/features/catalunya_static_context_v0/
+```
+
+Con:
+
+```text
+manifest.json
+cells.geojsonl     # piloto/debug humano, no producto final grande
+cells.parquet      # candidato preferido si el toolchain local lo permite
+```
+
+Si Parquet complica dependencias, usar GeoJSONL o CSV comprimido para el piloto
+y aplazar optimizacion. No meter esta cache en la imagen HA ni versionarla en
+Git. Es reconstruible desde capas GIS locales, DEM, catalogos y mappings.
+
+`manifest.json` debe incluir:
+
+- fecha de generacion;
+- version del schema;
+- CRS de trabajo;
+- unidad espacial (`mvc50_polygon`, `regular_grid` o `hybrid`);
+- escala/fuente dominante;
+- resolucion de celda si aplica;
+- extent usado;
+- paths/fingerprints de capas GIS locales;
+- hash o timestamp de `mushroom_gis_mappings.json`;
+- hash o timestamp de `mushroom_reference_catalogs.json`;
+- conteo de celdas;
+- conteo de gaps por fuente/campo.
+
+### Piloto recomendado
+
+Antes de Catalunya completa:
+
+1. Elegir una zona pequena con observaciones reales y variedad de habitats.
+2. Generar un piloto basado en MVC50:
+   - opcion A: poligonos MVC50 recortados a la zona piloto;
+   - opcion B: malla regular derivada solo si el visor/predictor la necesita.
+3. Para cada unidad piloto:
+   - leer clase MVC50 principal;
+   - cruzar o muestrear geologia;
+   - resumir DEM;
+   - aplicar mappings aceptados;
+   - construir `gis_context_v0`.
+4. Comparar visualmente varias celdas con Observaciones y QGIS.
+5. Medir tiempo, tamano de salida y gaps.
+6. Solo entonces decidir resolucion de Catalunya completa.
+
+### Regeneracion
+
+La cache territorial debe considerarse invalida si cambia:
+
+- MVC50 o su version local;
+- geologia territorial ICGC;
+- DEM o derivados topograficos;
+- `mushroom_gis_mappings.json`;
+- `mushroom_reference_catalogs.json`;
+- resolucion/extent de la malla;
+- schema `gis_context_v0`.
+
+No hace falta regenerarla por cambios meteorologicos diarios. El predictor
+diario debe combinar:
+
+```text
+cache estatica GIS v0 + meteorologia reciente + perfil de especie v0
+```
+
+### Fuera de alcance inmediato
+
+- cache territorial para Peninsula Iberica completa;
+- microtopografia a 5 m;
+- slope/aspect como scoring numerico si no hay soporte posterior;
+- uso de MCSC/CatLC hasta que MVC50 demuestre quedarse corto;
+- publicacion en HA real;
+- generacion de mapas de probabilidad diarios.
 
 ## Fase 1: `observation_context_builder` meteorologico local
 
@@ -552,6 +768,22 @@ Flujo futuro recomendado:
 4. Permitir aplicar manualmente campos concretos.
 5. Guardar con validacion, backup y trazabilidad.
 
+Revision de evidencia local v0:
+
+- La UI de especies debe exponer una pestanya `Evidencia` separada de
+  `Observaciones`, `Parametros` y `Calibracion`.
+- La pantalla compara lo declarado en el perfil v0 contra lo reconstruido desde
+  observaciones (`gis_context_v0`) para Hosts, Bosques, Suelos y Habitat.
+- Debe mostrar los dos sentidos de la discrepancia:
+  - observado localmente pero no declarado en el perfil;
+  - declarado en el perfil pero no observado localmente.
+- Las decisiones humanas (`promover`, `ignorar`, `mantener`, `marcar dudoso`)
+  se guardan aparte y son reversibles. No deben modificar automaticamente
+  `mushroom_profiles.json`.
+- El fichero de decisiones locales es estado de revision, no fuente biologica
+  canonica de especie. La promocion real al perfil debe ser un paso posterior,
+  explicito y validado.
+
 El boton productivo de HA queda fuera del alcance hasta que el laboratorio local este validado.
 
 ## Validacion minima de la primera implementacion
@@ -574,5 +806,5 @@ Estado al crear este plan:
 - HA sigue en `0.2.180`.
 - El laboratorio local y la UI de observaciones ya permiten cargar observaciones reales en `docker-data/`.
 - El contenedor `rainmapper-ha-ui` queda parado tras ejecutar `./mushroom_lab_stop.sh`; auditoria Docker del 2026-07-02 no muestra servicios activos y `docker-data/` queda preservado.
-- La mini-fase GIS acotada ya produjo UI `GIS mappings`, rebuild batch reutilizable y reglas declarativas de tendencia edafica amplia. El contrato operativo v0 de perfiles queda iniciado como proyeccion de `mushroom_profiles.json`, no como descarte del modelo ni de la UI rica. El siguiente trabajo tecnico sera completar esa proyeccion con la nueva fuente estructurada y despues implementar la Fase 1 como `observation_context_builder` local experimental.
+- La mini-fase GIS acotada ya produjo UI `GIS mappings`, rebuild batch reutilizable, reglas declarativas de tendencia edafica amplia y proyeccion `gis_context_v0` sobre reconstrucciones por observacion. El contrato operativo v0 de perfiles queda iniciado como proyeccion de `mushroom_profiles.json`, no como descarte del modelo ni de la UI rica. El siguiente trabajo tecnico sera implementar la Fase 1 como `observation_context_builder` local experimental.
 - Este documento sera la guia que se ira adaptando segun decisiones sobre metodo meteorologico, DEM/GIS y generacion de candidatos.

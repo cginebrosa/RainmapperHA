@@ -144,6 +144,13 @@ MAPPING_ID_CATALOGS = {
     "mapped_soil_tendency_ids": "soil_types",
 }
 
+GIS_V0_OUTPUT_FIELDS = {
+    "mapped_host_ids": "host_ids",
+    "mapped_forest_type_ids": "forest_type_ids",
+    "mapped_habitat_feature_ids": "habitat_feature_ids",
+    "mapped_soil_tendency_ids": "soil_tendency_ids",
+}
+
 
 def run_command(args: list[str], input_text: str | None = None, timeout: int = 60) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -687,6 +694,80 @@ def apply_exact_layer_mappings(
     }
 
 
+def append_unique(target: list[str], values: object) -> None:
+    """Append string IDs while preserving first-seen order."""
+    if not isinstance(values, list):
+        return
+    for value in values:
+        item = str(value or "").strip()
+        if item and item not in target:
+            target.append(item)
+
+
+def build_gis_context_v0(reconstruction: dict[str, Any]) -> dict[str, Any]:
+    """Project a rich GIS reconstruction into the minimal predictor-v0 context.
+
+    This adapter does not query GIS layers. It only reads the traceable
+    reconstruction payload and emits broad ecological signals that the v0
+    predictor can consume without depending on enriched/debug fields.
+    """
+    context: dict[str, Any] = {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [],
+        "habitat_feature_ids": [],
+        "evidence": {
+            "source_layers": [],
+            "mapped_source_layers": [],
+            "pending_source_layers": [],
+            "unmapped_source_layers": [],
+            "invalid_source_layers": [],
+            "gaps": list(reconstruction.get("gaps", [])) if isinstance(reconstruction.get("gaps"), list) else [],
+            "has_pending_values": False,
+            "has_unmapped_values": False,
+            "has_invalid_references": False,
+        },
+    }
+    layers = reconstruction.get("layers")
+    if not isinstance(layers, dict):
+        return context
+
+    evidence = context["evidence"]
+    for source_id, layer_result in layers.items():
+        if source_id == "dem_5m" or not isinstance(layer_result, dict):
+            continue
+        str_source_id = str(source_id)
+        evidence["source_layers"].append(str_source_id)
+        mapped = layer_result.get("mapped")
+        if not isinstance(mapped, dict):
+            continue
+        status = str(mapped.get("status", "") or "")
+        if status in {"mapped", "partial"}:
+            evidence["mapped_source_layers"].append(str_source_id)
+        if status in {"pending_review", "partial"} and mapped.get("pending_values"):
+            evidence["pending_source_layers"].append(str_source_id)
+            evidence["has_pending_values"] = True
+        if status in {"unmapped", "partial"} and mapped.get("unmapped_values"):
+            evidence["unmapped_source_layers"].append(str_source_id)
+            evidence["has_unmapped_values"] = True
+        if status == "invalid_mapping" or mapped.get("invalid_references"):
+            evidence["invalid_source_layers"].append(str_source_id)
+            evidence["has_invalid_references"] = True
+        for source_field, target_field in GIS_V0_OUTPUT_FIELDS.items():
+            append_unique(context[target_field], mapped.get(source_field))
+
+    dem = layers.get("dem_5m")
+    if isinstance(dem, dict) and dem.get("status") == "ok":
+        try:
+            context["altitude_m"] = float(dem["elevation_m"])
+            context["altitude_source"] = "dem_5m"
+        except (KeyError, TypeError, ValueError):
+            pass
+    return context
+
+
 def sample_dem(lon: float, lat: float, observed_altitude: object) -> dict[str, Any]:
     path = dem_path()
     if not path.exists():
@@ -776,6 +857,7 @@ def reconstruct_observation(
     ]
     base["gaps"] = gaps
     base["status"] = "complete_with_gaps" if gaps else "complete"
+    base["gis_context_v0"] = build_gis_context_v0(base)
     return base
 
 

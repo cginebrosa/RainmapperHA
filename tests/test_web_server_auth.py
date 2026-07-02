@@ -877,6 +877,35 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertLess(html.index("Scoring weights"), html.index("Habitat model"))
         self.assertNotIn(">rain_7d_min_mm<", html)
 
+    def test_mushroom_parameters_v0_does_not_reserve_empty_left_column(self) -> None:
+        profiles = json.loads((ROOT_DIR / "mushroom-data" / "mushroom_profiles.json").read_text(encoding="utf-8"))[
+            "species_profiles"
+        ]
+        catalogs = json.loads(
+            (ROOT_DIR / "mushroom-data" / "mushroom_reference_catalogs.json").read_text(encoding="utf-8")
+        )["catalogs"]
+        profile = next(item for item in profiles if item["species_id"] == "amanita_caesarea")
+
+        html = self.web_server.mushroom_profiles_ui.render_parameters_section(profile, catalogs, profile_view="v0")
+
+        self.assertIn("profile-parameters-grid v0", html)
+        self.assertIn("parameter-habitat-grid v0", html)
+        self.assertNotIn("parameter-left-stack", html)
+        self.assertNotIn("Climate model", html)
+        self.assertIn("Habitat model", html)
+        self.assertIn("month-toggle-field", html)
+        self.assertIn('name="main_months" value="9" checked', html)
+        self.assertIn('name="secondary_months" value="6" checked', html)
+        self.assertNotIn('textarea id="profile-main_months"', html)
+        self.assertNotIn('textarea id="profile-secondary_months"', html)
+        self.assertIn('textarea id="profile-aspect_notes" name="aspect_notes" rows="3"', html)
+        self.assertIn('class="profile-kv stacked"><span>Forest types</span>', html)
+        self.assertIn('title="forest_cork_oak"', html)
+        self.assertIn('class="parameter-affinity-label">Cork oak woodland</span>', html)
+        self.assertIn('class="parameter-affinity-badge preferred">Preferente</span>', html)
+        self.assertIn('class="parameter-affinity-badge source">Fuente v0</span>', html)
+        self.assertIn('class="parameter-affinity-badge catalog">Catalogo</span>', html)
+
     def test_mushroom_observation_filters_are_editable_and_filter_rows(self) -> None:
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
 
@@ -1001,6 +1030,156 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('class="observation-row selected"', all_species_html)
         self.assertIn("<h2>All species</h2>", all_species_html)
         self.assertIn("duplicate_from=obs_20260628_0001", all_species_html)
+
+    def test_mushroom_observation_gis_summary_renders_v0_context(self) -> None:
+        result = {
+            "generated_at": "2026-07-02T12:00:00",
+            "results": [
+                {
+                    "observation_id": "obs_20260702_0001",
+                    "species_id": "boletus_edulis",
+                    "status": "complete",
+                    "layers": {
+                        "mvc50": {
+                            "status": "ok",
+                            "properties": {"LLVA_niv2t": "pinedes", "LLVA_Subst": "silici"},
+                        },
+                        "geology_50000": {
+                            "status": "ok",
+                            "properties": {"Codi": "Q", "Descripcio": "quaternari"},
+                        },
+                        "dem_5m": {
+                            "status": "ok",
+                            "elevation_m": 1200.0,
+                            "delta_observed_vs_dem_m": 3.5,
+                        },
+                    },
+                    "gis_context_v0": {
+                        "schema_version": "0.1",
+                        "kind": "mushroom_gis_context_v0",
+                        "host_ids": ["host_pinus_sylvestris"],
+                        "forest_type_ids": ["forest_pine"],
+                        "soil_tendency_ids": ["soil_siliceous"],
+                        "habitat_feature_ids": ["feature_montane_forest"],
+                        "altitude_m": 1200.0,
+                        "altitude_source": "dem_5m",
+                    },
+                    "gaps": [],
+                }
+            ],
+        }
+
+        html = self.web_server.mushroom_profiles_ui.render_gis_result_summary(
+            result,
+            {"boletus_edulis": "Boletus edulis"},
+        )
+
+        self.assertIn("Contexto v0", html)
+        self.assertIn("host_pinus_sylvestris", html)
+        self.assertIn("forest_pine", html)
+        self.assertIn("soil_siliceous", html)
+        self.assertIn("feature_montane_forest", html)
+        self.assertIn("1200.0 m", html)
+
+    def test_mushroom_local_evidence_section_renders_review_actions(self) -> None:
+        profile = {
+            "species_id": "boletus_aereus",
+            "scientific_name": "Boletus aereus",
+            "common_names": ["hongo negro"],
+            "ecology": {
+                "host_affinities": [{"id": "host_quercus_suber", "v0_active": True}],
+                "forest_type_affinities": [{"id": "forest_cork_oak", "v0_active": True}],
+                "soil_affinities": [{"id": "soil_calcareous", "v0_active": True}],
+                "habitat_feature_affinities": [],
+            },
+            "prediction_confidence": {},
+            "metadata": {},
+        }
+        catalogs = {
+            "host_taxa": [
+                {"id": "host_quercus_ilex", "label": {"en": "Holm oak"}},
+                {"id": "host_quercus_suber", "label": {"en": "Cork oak"}},
+            ],
+            "forest_types": [
+                {"id": "forest_holm_oak", "label": {"en": "Holm oak forest"}},
+                {"id": "forest_cork_oak", "label": {"en": "Cork oak forest"}},
+            ],
+            "soil_types": [{"id": "soil_calcareous", "label": {"en": "Calcareous"}}],
+            "habitat_features": [{"id": "feature_open_warm_woodland", "label": {"en": "Open warm woodland"}}],
+        }
+        reconstruction = {
+            "generated_at": "2026-07-02T12:00:00",
+            "results": [
+                {
+                    "observation_id": "obs_1",
+                    "species_id": "boletus_aereus",
+                    "gis_context_v0": {
+                        "host_ids": ["host_quercus_ilex"],
+                        "forest_type_ids": ["forest_holm_oak"],
+                        "soil_tendency_ids": ["soil_calcareous"],
+                        "habitat_feature_ids": ["feature_open_warm_woodland"],
+                    },
+                }
+            ],
+        }
+        decisions = {
+            "decisions": [
+                {
+                    "species_id": "boletus_aereus",
+                    "group": "host_affinities",
+                    "item_id": "host_quercus_ilex",
+                    "decision": "promote",
+                }
+            ]
+        }
+
+        html = self.web_server.mushroom_profiles_ui.render_local_evidence_section(
+            profile,
+            catalogs,
+            reconstruction,
+            decisions,
+        )
+
+        self.assertIn("Evidencia local v0", html)
+        self.assertIn("Observado no declarado", html)
+        self.assertIn("Declarado no observado", html)
+        self.assertIn("Promover", html)
+        self.assertIn("Dudoso", html)
+        self.assertIn('name="profile_action" value="update_evidence_decision"', html)
+        self.assertIn("host_quercus_ilex", html)
+        self.assertIn("host_quercus_suber", html)
+        self.assertNotIn("Ejemplos", html)
+
+    def test_mushroom_evidence_decisions_are_reversible(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+
+        class EvidenceStore:
+            pass
+
+        store = EvidenceStore()
+        store.data_dir = data_dir
+
+        ok, message = self.web_server.save_evidence_decision(
+            store,
+            "boletus_aereus",
+            "host_affinities",
+            "host_quercus_ilex",
+            "promote",
+        )
+        self.assertTrue(ok, message)
+        payload = self.web_server.load_evidence_decisions(store)
+        self.assertEqual(payload["decisions"][0]["decision"], "promote")
+
+        ok, message = self.web_server.save_evidence_decision(
+            store,
+            "boletus_aereus",
+            "host_affinities",
+            "host_quercus_ilex",
+            "unreviewed",
+        )
+        self.assertTrue(ok, message)
+        payload = self.web_server.load_evidence_decisions(store)
+        self.assertEqual(payload["decisions"], [])
 
     def test_mushroom_profiles_create_species_uses_validated_template(self) -> None:
         data_dir = Path(self.temp_dir.name)

@@ -33,7 +33,7 @@ import mushroom_catalogs_ui
 import mushroom_gis_mappings_ui
 import mushroom_profiles_ui
 from rainmapper_core import mushroom_gis_lab
-from rainmapper_core.mushroom_store import default_store
+from rainmapper_core.mushroom_store import default_store, write_json_atomic
 from rainmapper_core.mushroom_validation import (
     empty_species_profile,
     validate_new_species_id,
@@ -1991,7 +1991,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       grid-template-columns: minmax(96px, .72fr) minmax(0, 1fr);
       padding: 5px 0;
     }}
-    .profile-kv span {{
+    .profile-kv.stacked {{
+      align-items: start;
+      gap: 6px;
+      grid-template-columns: minmax(0, 1fr);
+      padding: 7px 0;
+    }}
+    .profile-kv > span {{
       color: var(--muted);
       font-size: 12px;
       font-weight: 700;
@@ -2534,6 +2540,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items: start;
       grid-template-columns: minmax(360px, .76fr) minmax(0, 1.24fr);
     }}
+    .profile-parameters-grid.v0 {{
+      grid-template-columns: minmax(0, 1fr);
+    }}
     .profile-section-card-grid.two,
     .profile-calibration-grid {{
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2595,6 +2604,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .parameter-habitat-grid {{
       gap: 9px;
+    }}
+    .parameter-habitat-grid.v0 {{
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }}
     .parameter-field-row,
     .parameter-text-row,
@@ -2694,17 +2706,62 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 6px;
       color: var(--fg);
       display: inline-flex;
-      gap: 5px;
+      flex-wrap: wrap;
+      gap: 4px 6px;
       font-size: 11px;
       font-weight: 800;
+      justify-content: space-between;
       line-height: 1.15;
-      max-width: 210px;
-      padding: 4px 6px;
+      max-width: 100%;
+      min-width: 0;
+      padding: 5px 6px;
     }}
-    .parameter-affinity-chip em {{
+    .parameter-affinity-label {{
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }}
+    .parameter-affinity-badges {{
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 3px;
+    }}
+    .parameter-affinity-badge {{
+      border: 1px solid rgba(148, 163, 184, .32);
+      border-radius: 999px;
       color: var(--muted);
-      font-style: normal;
       font-weight: 700;
+      line-height: 1;
+      padding: 2px 5px;
+      white-space: nowrap;
+    }}
+    .parameter-affinity-badge.primary,
+    .parameter-affinity-badge.preferred {{
+      background: rgba(76, 175, 80, .12);
+      border-color: rgba(76, 175, 80, .42);
+      color: var(--ok);
+    }}
+    .parameter-affinity-badge.secondary,
+    .parameter-affinity-badge.possible {{
+      background: rgba(255, 193, 7, .10);
+      border-color: rgba(255, 193, 7, .42);
+      color: var(--warn);
+    }}
+    .parameter-affinity-badge.source,
+    .parameter-affinity-badge.v0 {{
+      background: rgba(3, 169, 244, .12);
+      border-color: rgba(3, 169, 244, .46);
+      color: var(--accent);
+    }}
+    .parameter-affinity-badge.catalog {{
+      background: rgba(168, 85, 247, .12);
+      border-color: rgba(168, 85, 247, .42);
+      color: #c4b5fd;
+    }}
+    .parameter-affinity-badge.avoid,
+    .parameter-affinity-badge.parked {{
+      background: rgba(239, 83, 80, .10);
+      border-color: rgba(239, 83, 80, .42);
+      color: var(--bad);
     }}
     .parameter-affinity-chip.muted,
     .parameter-empty {{
@@ -2882,33 +2939,39 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .gis-results-table {{
       max-height: 340px;
+      max-width: 100%;
+      overflow-x: auto;
     }}
     .gis-results-table table {{
-      min-width: 1680px;
+      min-width: 1320px;
       table-layout: fixed;
     }}
     .gis-results-table th:nth-child(1),
     .gis-results-table td:nth-child(1) {{
-      width: 280px;
+      width: 230px;
     }}
     .gis-results-table th:nth-child(2),
     .gis-results-table td:nth-child(2) {{
-      width: 430px;
+      width: 300px;
     }}
     .gis-results-table th:nth-child(3),
     .gis-results-table td:nth-child(3) {{
-      width: 110px;
+      width: 120px;
     }}
     .gis-results-table th:nth-child(4),
     .gis-results-table td:nth-child(4) {{
-      width: 520px;
+      width: 300px;
     }}
     .gis-results-table th:nth-child(5),
     .gis-results-table td:nth-child(5) {{
-      width: 220px;
+      width: 160px;
     }}
     .gis-results-table th:nth-child(6),
     .gis-results-table td:nth-child(6) {{
+      width: 310px;
+    }}
+    .gis-results-table th:nth-child(7),
+    .gis-results-table td:nth-child(7) {{
       width: 120px;
     }}
     .gis-results-table td {{
@@ -2923,17 +2986,42 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 6px;
       max-width: 100%;
       min-width: 0;
-      white-space: nowrap;
+      white-space: normal;
     }}
     .gis-inline .observation-badge {{
       flex: 0 0 auto;
     }}
     .gis-inline-text,
     .gis-inline .meta {{
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      line-height: 1.25;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: normal;
+    }}
+    .gis-v0-summary {{
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      line-height: 1.25;
+      max-width: 100%;
+      white-space: normal;
+    }}
+    .gis-v0-summary span {{
+      color: var(--muted);
+      font-size: 11px;
+    }}
+    .gis-v0-summary strong {{
+      color: var(--fg);
+    }}
+    .gis-result-v0-detail {{
+      border-bottom: 1px solid rgba(45, 58, 71, .48);
+      margin: 8px 0 0;
+      padding-bottom: 8px;
     }}
     .gis-result-detail-list {{
       display: grid;
@@ -2961,6 +3049,128 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .gis-result-details li {{
       font-size: 12px;
       line-height: 1.35;
+    }}
+    .evidence-screen {{
+      display: grid;
+      gap: 12px;
+    }}
+    .evidence-summary-cards {{
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .evidence-grid {{
+      display: grid;
+      gap: 12px;
+      grid-auto-rows: minmax(360px, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      min-height: min(760px, calc(100vh - 460px));
+    }}
+    .evidence-group {{
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+    }}
+    .evidence-group h3 {{
+      margin: 0 0 8px;
+    }}
+    .evidence-table-shell {{
+      max-height: none;
+      overflow: auto;
+    }}
+    .evidence-table-shell table {{
+      border-collapse: collapse;
+      min-width: 660px;
+      table-layout: fixed;
+      width: 100%;
+    }}
+    .evidence-table-shell th,
+    .evidence-table-shell td {{
+      border-bottom: 1px solid rgba(45, 58, 71, .62);
+      font-size: 12px;
+      padding: 8px 7px;
+      text-align: left;
+      vertical-align: middle;
+    }}
+    .evidence-table-shell th {{
+      background: #111a23;
+      border-bottom: 1px solid rgba(78, 95, 115, .9);
+      color: var(--muted);
+      font-weight: 800;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }}
+    .evidence-table-shell th:nth-child(1),
+    .evidence-table-shell td:nth-child(1) {{
+      width: 28%;
+    }}
+    .evidence-table-shell th:nth-child(2),
+    .evidence-table-shell td:nth-child(2) {{
+      text-align: center;
+      width: 58px;
+    }}
+    .evidence-table-shell th:nth-child(3),
+    .evidence-table-shell td:nth-child(3) {{
+      text-align: center;
+      width: 44px;
+    }}
+    .evidence-table-shell th:nth-child(4),
+    .evidence-table-shell td:nth-child(4) {{
+      width: 170px;
+    }}
+    .evidence-table-shell th:nth-child(5),
+    .evidence-table-shell td:nth-child(5) {{
+      width: 108px;
+    }}
+    .evidence-table-shell th:nth-child(6),
+    .evidence-table-shell td:nth-child(6) {{
+      width: 118px;
+    }}
+    .evidence-table-shell td:first-child strong,
+    .evidence-table-shell td:first-child span {{
+      display: block;
+    }}
+    .evidence-status,
+    .evidence-decision {{
+      border: 1px solid rgba(148, 163, 184, .28);
+      border-radius: 6px;
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 5px 6px;
+      white-space: nowrap;
+    }}
+    .evidence-status.ok {{
+      border-color: rgba(76, 175, 80, .5);
+      color: var(--ok);
+    }}
+    .evidence-status.warn {{
+      border-color: rgba(255, 193, 7, .55);
+      color: var(--warn);
+    }}
+    .evidence-status.muted {{
+      color: var(--muted);
+    }}
+    .evidence-action-form {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }}
+    .evidence-action-button {{
+      background: rgba(17, 26, 35, .88);
+      border: 1px solid rgba(148, 163, 184, .28);
+      border-radius: 5px;
+      color: var(--fg);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 5px 6px;
+    }}
+    .evidence-action-button:hover,
+    .evidence-action-button.active {{
+      border-color: rgba(3, 169, 244, .75);
+      color: var(--accent);
     }}
     .gis-mapping-page {{
       display: grid;
@@ -3534,6 +3744,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-overview-card.wide {{
         grid-column: span 6;
       }}
+      .parameter-habitat-grid.v0 {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
       .profile-metadata-strip {{
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }}
@@ -3582,6 +3795,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-affinity-row,
       .profile-section-head,
       .profile-lifecycle-grid,
+      .evidence-grid,
       .archived-species-row,
       .observations-filters,
       .observations-layout,
@@ -5846,6 +6060,100 @@ def profile_message_url(species_id: str = "", search: str = "") -> str:
     return profile_query_url(species_id, search) + "#mushroom-profile-message"
 
 
+EVIDENCE_DECISIONS_FILE = "mushroom_evidence_decisions.json"
+EVIDENCE_DECISION_VALUES = {"promote", "ignore", "keep", "doubtful", "unreviewed"}
+EVIDENCE_GROUP_VALUES = {
+    "host_affinities",
+    "forest_type_affinities",
+    "soil_affinities",
+    "habitat_feature_affinities",
+}
+
+
+def evidence_decisions_path(store: object) -> Path:
+    data_dir = getattr(store, "data_dir")
+    return Path(data_dir) / EVIDENCE_DECISIONS_FILE
+
+
+def load_evidence_decisions(store: object) -> dict[str, object]:
+    path = evidence_decisions_path(store)
+    if not path.exists():
+        return {
+            "schema_version": "0.1",
+            "kind": "mushroom_local_evidence_decisions",
+            "decisions": [],
+        }
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {
+            "schema_version": "0.1",
+            "kind": "mushroom_local_evidence_decisions",
+            "decisions": [],
+        }
+    if not isinstance(payload, dict):
+        payload = {}
+    decisions = payload.get("decisions")
+    if not isinstance(decisions, list):
+        decisions = []
+    return {
+        "schema_version": str(payload.get("schema_version", "0.1") or "0.1"),
+        "kind": "mushroom_local_evidence_decisions",
+        "decisions": [item for item in decisions if isinstance(item, dict)],
+    }
+
+
+def save_evidence_decision(
+    store: object,
+    species_id: str,
+    group: str,
+    item_id: str,
+    decision: str,
+) -> tuple[bool, str]:
+    species_id = species_id.strip()
+    group = group.strip()
+    item_id = item_id.strip()
+    decision = decision.strip()
+    if not species_id or not item_id:
+        return False, "Evidence decision was not saved: species and item ID are required."
+    if group not in EVIDENCE_GROUP_VALUES:
+        return False, "Evidence decision was not saved: invalid evidence group."
+    if decision not in EVIDENCE_DECISION_VALUES:
+        return False, "Evidence decision was not saved: invalid decision."
+    payload = load_evidence_decisions(store)
+    decisions = payload.get("decisions")
+    decisions = decisions if isinstance(decisions, list) else []
+    key = (species_id, group, item_id)
+    kept = [
+        item
+        for item in decisions
+        if not (
+            isinstance(item, dict)
+            and (str(item.get("species_id", "") or ""), str(item.get("group", "") or ""), str(item.get("item_id", "") or "")) == key
+        )
+    ]
+    if decision != "unreviewed":
+        kept.append(
+            {
+                "species_id": species_id,
+                "group": group,
+                "item_id": item_id,
+                "decision": decision,
+                "updated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
+                "updated_by": "rainmapper_local_ui",
+            }
+        )
+    payload["decisions"] = kept
+    write_json_atomic(evidence_decisions_path(store), payload)
+    if decision == "unreviewed":
+        return True, f"Evidence decision reset for {item_id}."
+    return True, f"Evidence decision saved for {item_id}: {decision}."
+
+
+def evidence_return_url(species_id: str, search: str = "", profile_view: str = "") -> str:
+    return profile_query_url(species_id, search, section="evidence", profile_view=profile_view) + "#mushroom-profile-message"
+
+
 PROFILE_RETURN_TABS = {
     "profile-tab-general",
     "profile-tab-ecology",
@@ -7764,7 +8072,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         mode = (query.get("mode") or ["current"])[0]
         section = (query.get("section") or ["species"])[0]
         profile_view = mushroom_profiles_ui.normalize_profile_view((query.get("view") or ["enriched"])[0])
-        if section not in {"summary", "species", "observations", "parameters", "calibration"}:
+        if section not in {"summary", "species", "observations", "evidence", "parameters", "calibration"}:
             section = "species"
 
         store = default_store()
@@ -7773,6 +8081,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             profiles_payload = store.load("profiles")
             catalogs_payload = store.load("catalogs")
             observations_payload = store.load("observations")
+            evidence_decisions_payload = load_evidence_decisions(store)
             archived_payload = load_archived_profiles(store)
             archived_observations_payload = load_archived_observations(store)
             errors, warnings = store.validate_current()
@@ -7842,6 +8151,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 observation_filters,
                 mushroom_gis_lab.load_latest_reconstruction(),
             )
+        elif section == "evidence":
+            main_content = mushroom_profiles_ui.render_local_evidence_section(
+                selected,
+                catalogs,
+                mushroom_gis_lab.load_latest_reconstruction(),
+                evidence_decisions_payload,
+                search,
+                profile_view,
+            )
         elif section == "summary":
             main_content = (
                 f"{mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}"
@@ -7859,11 +8177,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 "</div>"
             )
         view_switch = mushroom_profiles_ui.render_profile_view_switch(selected_id, search, section, profile_view)
-        full_json_link = "" if mushroom_profiles_ui.is_v0_view(profile_view) else '<a class="button-link" href="#profiles-full-json">Import/export JSON</a>'
-        full_json_section = "" if mushroom_profiles_ui.is_v0_view(profile_view) else (
+        hide_technical_panels = section == "evidence"
+        full_json_link = "" if mushroom_profiles_ui.is_v0_view(profile_view) or hide_technical_panels else '<a class="button-link" href="#profiles-full-json">Import/export JSON</a>'
+        full_json_section = "" if mushroom_profiles_ui.is_v0_view(profile_view) or hide_technical_panels else (
             '<h2 id="profiles-full-json">JSON maintenance</h2>'
             f"{mushroom_profiles_ui.render_profile_full_json_panel(full_payload, mode)}"
         )
+        cross_validation_section = "" if hide_technical_panels else f"""
+        <details class="mushroom-cross-validation">
+          <summary><strong>Cross validation</strong> · {len(errors)} errors · {len(warnings)} warnings</summary>
+          {render_catalog_alerts(errors, warnings, limit=12)}
+        </details>
+        """
         body = f"""
         <div class="catalog-toolbar">
           <a class="button-link" href="../">Back</a>
@@ -7893,10 +8218,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         {seeded_html}
         {mushroom_profiles_ui.render_new_species_form()}
         {main_content}
-        <details class="mushroom-cross-validation">
-          <summary><strong>Cross validation</strong> · {len(errors)} errors · {len(warnings)} warnings</summary>
-          {render_catalog_alerts(errors, warnings, limit=12)}
-        </details>
+        {cross_validation_section}
         {render_archived_species_panel(archived_profiles)}
         {full_json_section}
         """
@@ -8333,6 +8655,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 suffix = f" Backup: {backup_path}" if backup_path else ""
                 set_mushroom_profiles_flash("Manual species profiles backup created." + suffix)
                 return profile_message_url(species_id)
+            if action == "update_evidence_decision":
+                group = catalog_form_string(form, "evidence_group")
+                item_id = catalog_form_string(form, "evidence_item_id")
+                decision = catalog_form_string(form, "evidence_decision")
+                ok, message = save_evidence_decision(store, species_id, group, item_id, decision)
+                set_mushroom_profiles_flash(message)
+                return evidence_return_url(species_id)
             if action == "create_profile":
                 new_species_id = catalog_form_string(form, "new_species_id")
                 scientific_name = catalog_form_string(form, "new_scientific_name")

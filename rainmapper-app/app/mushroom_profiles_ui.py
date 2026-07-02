@@ -636,6 +636,28 @@ def observed_host_names(catalogs: dict[str, object], site_context: dict[str, obj
     return ", ".join(labels.get(str(host_id), str(host_id)) for host_id in host_ids if str(host_id or ""))
 
 
+def affinity_badge(text: str, tone: str) -> str:
+    """Render a separated visual badge inside a compact affinity chip."""
+    return (
+        f'<span class="parameter-affinity-badge {html.escape(tone, quote=True)}">'
+        f'{html.escape(text)}</span>'
+    )
+
+
+def affinity_relationship_badge(item: dict[str, object], relationship: str) -> str:
+    """Return a human relationship badge for parameter affinity chips."""
+    labels = {
+        "primary": ("Principal", "primary"),
+        "preferred": ("Preferente", "preferred"),
+        "secondary": ("Secundario", "secondary"),
+        "possible": ("Posible", "possible"),
+        "source": ("Fuente v0" if item.get("v0_placeholder") else "Fuente", "source"),
+        "avoid": ("Evitar", "avoid"),
+    }
+    label, tone = labels.get(relationship, (relationship, "neutral"))
+    return affinity_badge(label, tone)
+
+
 def affinity_chip_list(
     ecology: dict[str, object],
     key: str,
@@ -665,19 +687,20 @@ def affinity_chip_list(
             continue
         label = labels.get(item_id, item_id)
         visible_label = label if label != item_id else item_id
-        relationship_html = f'<em>{html.escape(item_relationship)}</em>' if item_relationship and not relationship else ""
         badges = []
+        if item_relationship and not relationship:
+            badges.append(affinity_relationship_badge(item, item_relationship))
         if item.get("v0_placeholder"):
-            badges.append("v0")
+            badges.append(affinity_badge("v0", "v0"))
         if item.get("v0_catalog_gap_promoted"):
-            badges.append("catalog")
+            badges.append(affinity_badge("Catalogo", "catalog"))
         if inactive_v0:
-            badges.append("parked")
-        badge_html = "".join(f"<em>{html.escape(badge)}</em>" for badge in badges)
+            badges.append(affinity_badge("Aparcado", "parked"))
+        badge_html = f'<span class="parameter-affinity-badges">{"".join(badges)}</span>' if badges else ""
         css_class = "parameter-affinity-chip parked" if inactive_v0 else "parameter-affinity-chip"
         chips.append(
             f'<span class="{css_class}" title="{html.escape(item_id, quote=True)}">'
-            f'{html.escape(visible_label)}{relationship_html}{badge_html}</span>'
+            f'<span class="parameter-affinity-label">{html.escape(visible_label)}</span>{badge_html}</span>'
         )
     if not chips:
         return '<span class="parameter-empty">-</span>'
@@ -885,6 +908,7 @@ def render_section_tabs(active_section: str, selected_id: str, search: str, prof
         ("summary", ui_label("ui.summary")),
         ("species", ui_label("ui.species")),
         ("observations", ui_label("ui.observations")),
+        ("evidence", "Evidencia"),
         ("parameters", ui_label("ui.parameters")),
         ("calibration", ui_label("ui.calibration")),
     ]
@@ -956,6 +980,292 @@ def render_observation_scope_header(profile: dict[str, object] | None, section: 
         </header>
         """
     return render_selected_species_header(profile, section) if profile else f'<h2>{html.escape(section)}</h2>'
+
+
+LOCAL_EVIDENCE_GROUPS = [
+    {
+        "title": "Hosts",
+        "catalog_group": "host_taxa",
+        "profile_field": "host_affinities",
+        "context_field": "host_ids",
+    },
+    {
+        "title": "Bosques",
+        "catalog_group": "forest_types",
+        "profile_field": "forest_type_affinities",
+        "context_field": "forest_type_ids",
+    },
+    {
+        "title": "Suelos",
+        "catalog_group": "soil_types",
+        "profile_field": "soil_affinities",
+        "context_field": "soil_tendency_ids",
+    },
+    {
+        "title": "Habitat",
+        "catalog_group": "habitat_features",
+        "profile_field": "habitat_feature_affinities",
+        "context_field": "habitat_feature_ids",
+    },
+]
+
+
+def profile_v0_affinity_ids(ecology: dict[str, object], field: str) -> list[str]:
+    """Return active v0 affinity IDs declared by the current profile."""
+    values = ecology.get(field)
+    if not isinstance(values, list):
+        return []
+    ids = []
+    for item in values:
+        if not isinstance(item, dict) or not v0_active_affinity(item):
+            continue
+        item_id = str(item.get("id", "") or "").strip()
+        if item_id and item_id not in ids:
+            ids.append(item_id)
+    return ids
+
+
+def local_evidence_counts(
+    species_id: str,
+    reconstruction_payload: dict[str, object] | None,
+) -> tuple[int, dict[str, dict[str, dict[str, object]]]]:
+    """Aggregate latest observation GIS v0 contexts for one species."""
+    results = reconstruction_payload.get("results") if isinstance(reconstruction_payload, dict) else None
+    rows = results if isinstance(results, list) else []
+    counts: dict[str, dict[str, dict[str, object]]] = {
+        str(group["context_field"]): {} for group in LOCAL_EVIDENCE_GROUPS
+    }
+    observation_count = 0
+    seen_observations: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict) or str(row.get("species_id", "") or "") != species_id:
+            continue
+        context = row.get("gis_context_v0")
+        if not isinstance(context, dict):
+            continue
+        observation_id = str(row.get("observation_id", "") or "")
+        if observation_id and observation_id not in seen_observations:
+            seen_observations.add(observation_id)
+            observation_count += 1
+        for group in LOCAL_EVIDENCE_GROUPS:
+            context_field = str(group["context_field"])
+            values = context.get(context_field)
+            if not isinstance(values, list):
+                continue
+            for value in values:
+                item_id = str(value or "").strip()
+                if not item_id:
+                    continue
+                item = counts[context_field].setdefault(item_id, {"count": 0, "observations": []})
+                item["count"] = int(item.get("count", 0) or 0) + 1
+                examples = item.get("observations")
+                if isinstance(examples, list) and observation_id and observation_id not in examples:
+                    examples.append(observation_id)
+    return observation_count, counts
+
+
+def local_evidence_status(declared: bool, observed_count: int, observation_count: int) -> tuple[str, str]:
+    """Return display status for one profile-vs-observation evidence row."""
+    if declared and observed_count:
+        return "Declarado y observado", "ok"
+    if not declared and observed_count:
+        return "Observado no declarado", "warn"
+    if declared and observation_count:
+        return "Declarado no observado", "muted"
+    return "Sin evidencia local", "muted"
+
+
+def local_evidence_decision_lookup(decisions_payload: dict[str, object] | None) -> dict[tuple[str, str, str], str]:
+    """Return local evidence decisions indexed by species, group and item ID."""
+    decisions = decisions_payload.get("decisions") if isinstance(decisions_payload, dict) else None
+    rows = decisions if isinstance(decisions, list) else []
+    lookup = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        species_id = str(row.get("species_id", "") or "")
+        group = str(row.get("group", "") or "")
+        item_id = str(row.get("item_id", "") or "")
+        decision = str(row.get("decision", "") or "")
+        if species_id and group and item_id and decision and decision != "unreviewed":
+            lookup[(species_id, group, item_id)] = decision
+    return lookup
+
+
+def local_evidence_decision_label(decision: str) -> str:
+    labels = {
+        "promote": "Promover",
+        "ignore": "Ignorar",
+        "keep": "Mantener",
+        "doubtful": "Marcar dudoso",
+    }
+    return labels.get(decision, "Sin decision")
+
+
+def evidence_decision_button(
+    species_id: str,
+    group_key: str,
+    item_id: str,
+    decision: str,
+    label: str,
+    current_decision: str,
+) -> str:
+    """Render one reversible evidence decision button."""
+    active = " active" if decision == current_decision else ""
+    confirm = f"Guardar decision de evidencia: {label} para {item_id}?"
+    return (
+        '<button class="evidence-action-button'
+        f'{active}" name="evidence_decision" value="{html.escape(decision, quote=True)}" '
+        f'type="submit" onclick="return confirm(\'{html.escape(confirm, quote=True)}\')">'
+        f'{html.escape(label)}</button>'
+    )
+
+
+def render_local_evidence_group(
+    title: str,
+    group_key: str,
+    catalog_group: str,
+    species_id: str,
+    declared_ids: list[str],
+    observed_items: dict[str, dict[str, object]],
+    observation_count: int,
+    catalogs: dict[str, object],
+    decisions: dict[tuple[str, str, str], str],
+) -> str:
+    """Render one group of observed/declared local v0 evidence."""
+    labels = catalog_label_map(catalogs, catalog_group)
+    all_ids = sorted(set(declared_ids) | set(observed_items), key=lambda item: labels.get(item, item))
+    if not all_ids:
+        return f"""
+        <article class="profile-section-card evidence-group">
+          <h3>{html.escape(title)}</h3>
+          <p class="meta">No hay valores declarados ni observados para este grupo.</p>
+        </article>
+        """
+    rows = []
+    for item_id in all_ids:
+        observed = observed_items.get(item_id, {})
+        count = int(observed.get("count", 0) or 0)
+        declared = item_id in declared_ids
+        status, tone = local_evidence_status(declared, count, observation_count)
+        current_decision = decisions.get((species_id, group_key, item_id), "")
+        primary_actions = (
+            [
+                ("promote", "Promover"),
+                ("ignore", "Ignorar"),
+            ]
+            if count and not declared else
+            [
+                ("keep", "Mantener"),
+                ("doubtful", "Dudoso"),
+            ]
+            if declared and observation_count and not count else
+            [
+                ("keep", "Confirmar"),
+            ]
+            if declared and count else
+            []
+        )
+        action_buttons = "".join(
+            evidence_decision_button(species_id, group_key, item_id, decision, label, current_decision)
+            for decision, label in primary_actions
+        )
+        reset_button = (
+            evidence_decision_button(species_id, group_key, item_id, "unreviewed", "Reset", current_decision)
+            if current_decision else ""
+        )
+        rows.append(
+            "<tr>"
+            f"<td><strong>{html.escape(labels.get(item_id, item_id))}</strong><span class=\"meta\">{html.escape(item_id)}</span></td>"
+            f"<td>{'Si' if declared else 'No'}</td>"
+            f"<td>{count}</td>"
+            f"<td><span class=\"evidence-status {html.escape(tone)}\">{html.escape(status)}</span></td>"
+            f"<td><span class=\"evidence-decision\">{html.escape(local_evidence_decision_label(current_decision))}</span></td>"
+            '<td><form method="post" class="evidence-action-form">'
+            '<input type="hidden" name="profile_action" value="update_evidence_decision">'
+            f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
+            f'<input type="hidden" name="evidence_group" value="{html.escape(group_key, quote=True)}">'
+            f'<input type="hidden" name="evidence_item_id" value="{html.escape(item_id, quote=True)}">'
+            f'{action_buttons}{reset_button}</form></td>'
+            "</tr>"
+        )
+    return f"""
+    <article class="profile-section-card evidence-group">
+      <h3>{html.escape(title)}</h3>
+      <div class="evidence-table-shell">
+        <table>
+          <thead><tr><th>ID</th><th>Perfil v0</th><th>Obs.</th><th>Estado</th><th>Decision</th><th>Acciones</th></tr></thead>
+          <tbody>{''.join(rows)}</tbody>
+        </table>
+      </div>
+    </article>
+    """
+
+
+def render_local_evidence_section(
+    profile: dict[str, object] | None,
+    catalogs: dict[str, object],
+    reconstruction_payload: dict[str, object] | None,
+    decisions_payload: dict[str, object] | None = None,
+    search: str = "",
+    profile_view: str = "enriched",
+) -> str:
+    """Render profile-vs-observed local v0 evidence without changing profiles."""
+    if not profile:
+        return '<section class="card profile-section-screen"><h2>Evidencia</h2><p class="meta">Selecciona una especie para revisar evidencia local v0.</p></section>'
+    species_id = str(profile.get("species_id", "") or "")
+    ecology = nested_dict(profile, "ecology")
+    observation_count, counts = local_evidence_counts(species_id, reconstruction_payload)
+    decisions = local_evidence_decision_lookup(decisions_payload)
+    generated_at = str(reconstruction_payload.get("generated_at", "") or "") if isinstance(reconstruction_payload, dict) else ""
+    groups = []
+    summary_values = {"observed_not_declared": 0, "declared_not_observed": 0, "declared_observed": 0}
+    for group in LOCAL_EVIDENCE_GROUPS:
+        declared_ids = profile_v0_affinity_ids(ecology, str(group["profile_field"]))
+        observed_items = counts.get(str(group["context_field"]), {})
+        for item_id in set(declared_ids) | set(observed_items):
+            observed_count = int(observed_items.get(item_id, {}).get("count", 0) or 0)
+            declared = item_id in declared_ids
+            if declared and observed_count:
+                summary_values["declared_observed"] += 1
+            elif declared and observation_count:
+                summary_values["declared_not_observed"] += 1
+            elif observed_count:
+                summary_values["observed_not_declared"] += 1
+        groups.append(
+            render_local_evidence_group(
+                str(group["title"]),
+                str(group["profile_field"]),
+                str(group["catalog_group"]),
+                species_id,
+                declared_ids,
+                observed_items,
+                observation_count,
+                catalogs,
+                decisions,
+            )
+        )
+    if not isinstance(reconstruction_payload, dict):
+        note = "No hay reconstruccion GIS local cargada. Ejecuta la reconstruccion desde Observaciones."
+    elif not observation_count:
+        note = "La ultima reconstruccion no contiene observaciones para esta especie."
+    else:
+        note = "Vista de solo lectura. No modifica perfiles; sirve para decidir promociones o dudas de forma manual."
+    return f"""
+    <section class="card profile-section-screen evidence-screen">
+      {render_selected_species_header(profile, "Evidencia local v0")}
+      <div class="profile-calibration-cards evidence-summary-cards">
+        <div class="profile-metric"><span class="label">Obs. reconstruidas</span><span class="value">{observation_count}</span></div>
+        <div class="profile-metric"><span class="label">Observado no declarado</span><span class="value warn">{summary_values["observed_not_declared"]}</span></div>
+        <div class="profile-metric"><span class="label">Declarado observado</span><span class="value ok">{summary_values["declared_observed"]}</span></div>
+        <div class="profile-metric"><span class="label">Declarado no observado</span><span class="value">{summary_values["declared_not_observed"]}</span></div>
+      </div>
+      <p class="meta">Ultima reconstruccion: {html.escape(generated_at or '-')} · {html.escape(note)}</p>
+      <div class="evidence-grid">
+        {''.join(groups)}
+      </div>
+    </section>
+    """
 
 
 def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str, object], profile_view: str = "enriched") -> str:
@@ -1471,6 +1781,7 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
     habitat_labels = catalog_label_map(catalogs, "habitat_features")
     scoring_total = sum(float(value) for value in scoring.values() if isinstance(value, int | float))
     species_href = profile_query_url(species_id, search, section="species", profile_view=profile_view)
+    affinity_row_class = "stacked"
     climate_card = "" if v0_mode else f"""
             <article class="profile-section-card">
               <h2>{icon("weather")} {html.escape(ui_label("ui.climate_model"))}</h2>
@@ -1504,7 +1815,17 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
               </div>
             </article>
     """
-    lithology_row = "" if v0_mode else value_html_row(ui_label("ui.lithology"), affinity_chip_list(ecology, "lithology_affinities", lithology_labels, profile_view=profile_view))
+    left_stack_html = "" if v0_mode else f"""
+          <div class="parameter-left-stack">
+            {climate_card}
+            {scoring_card}
+          </div>
+    """
+    lithology_row = "" if v0_mode else value_html_row(
+        ui_label("ui.lithology"),
+        affinity_chip_list(ecology, "lithology_affinities", lithology_labels, profile_view=profile_view),
+        affinity_row_class,
+    )
     optimal_altitude_fields = "" if v0_mode else (
         f'{parameter_field("altitude_optimal_min_m", parameter_label("altitude_optimal_min_m"), topography.get("altitude_optimal_min_m", ""), unit="m")}'
         f'{parameter_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), unit="m")}'
@@ -1517,51 +1838,63 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
                   {parameter_field("delay_max", ui_label("ui.delay_max"), delay.get("max", ""), unit="d")}
                 </div>
     """
+    main_months_control = (
+        form_month_toggles("main_months", ui_label("ui.main_months"), phenology.get("main_months", []))
+        if v0_mode else
+        parameter_textarea("main_months", ui_label("ui.main_months"), phenology.get("main_months", []), rows=1)
+    )
+    secondary_months_control = (
+        form_month_toggles("secondary_months", ui_label("ui.secondary_months"), phenology.get("secondary_months", []), "secondary-month")
+        if v0_mode else
+        parameter_textarea("secondary_months", ui_label("ui.secondary_months"), phenology.get("secondary_months", []), rows=1)
+    )
+    aspect_notes_control = (
+        parameter_textarea("aspect_notes", ui_label("site_context.aspect_notes"), topography.get("aspect_notes", ""), rows=3)
+        if v0_mode else
+        parameter_textarea("aspect_notes", ui_label("site_context.aspect_notes"), topography.get("aspect_notes", ""), rows=1)
+    )
     return f"""
     <section class="card profile-section-screen parameters-screen">
       {render_selected_species_header(profile, ui_label("ui.parameters"))}
       <form method="post" action="{html.escape(profile_query_url(species_id, search, section='parameters', profile_view=profile_view), quote=True)}" onsubmit="return confirm('Save parameter changes for this species and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_parameters">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-        <div class="profile-parameters-grid">
-          <div class="parameter-left-stack">
-            {climate_card}
-            {scoring_card}
-          </div>
+        <div class="profile-parameters-grid{' v0' if v0_mode else ''}">
+          {left_stack_html}
           <article class="profile-section-card">
             <h2>{icon("ecology")} {html.escape(ui_label("ui.habitat_model"))}</h2>
             <p class="parameter-card-note">{html.escape(ui_label("ui.habitat_model_note"))}</p>
-            <div class="profile-section-card-grid two parameter-habitat-grid">
+            <div class="profile-section-card-grid two parameter-habitat-grid{' v0' if v0_mode else ''}">
               <div class="profile-subsection">
                 <h3>{icon("host")} {html.escape(ui_label("ui.ecology_and_habitat"))}</h3>
                 {form_catalog_select("trophic_mode_id", ui_label("ui.trophic_mode"), ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
-                {value_html_row(ui_label("ui.primary_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, "primary", profile_view=profile_view))}
-                {value_html_row(ui_label("ui.secondary_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, "secondary", profile_view=profile_view))}
-                {value_html_row(ui_label("ui.other_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, exclude_relationships={"primary", "secondary"}, profile_view=profile_view))}
-                {value_html_row(ui_label("ui.forest_types"), affinity_chip_list(ecology, "forest_type_affinities", forest_labels, profile_view=profile_view))}
-                {value_html_row(ui_label("ui.habitat_features"), affinity_chip_list(ecology, "habitat_feature_affinities", habitat_labels, profile_view=profile_view))}
+                {value_html_row(ui_label("ui.primary_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, "primary", profile_view=profile_view), affinity_row_class)}
+                {value_html_row(ui_label("ui.secondary_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, "secondary", profile_view=profile_view), affinity_row_class)}
+                {value_html_row(ui_label("ui.other_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, exclude_relationships={"primary", "secondary"}, profile_view=profile_view), affinity_row_class)}
+                {value_html_row(ui_label("ui.forest_types"), affinity_chip_list(ecology, "forest_type_affinities", forest_labels, profile_view=profile_view), affinity_row_class)}
+                {value_html_row(ui_label("ui.habitat_features"), affinity_chip_list(ecology, "habitat_feature_affinities", habitat_labels, profile_view=profile_view), affinity_row_class)}
                 <p class="meta">{html.escape(ui_label("ui.edit_affinities_note"))}</p>
               </div>
               <div class="profile-subsection">
                 <h3>{icon("soil")} {html.escape(ui_label("ui.soils_and_lithology"))}</h3>
-                {value_html_row(ui_label("ui.soils"), affinity_chip_list(ecology, "soil_affinities", soil_labels, profile_view=profile_view))}
+                {value_html_row(ui_label("ui.soils"), affinity_chip_list(ecology, "soil_affinities", soil_labels, profile_view=profile_view), affinity_row_class)}
                 {lithology_row}
                 <p class="meta">{html.escape(ui_label("ui.affinity_ids_note"))}</p>
               </div>
               <div class="profile-subsection">
                 <h3>{icon("topography")} {html.escape(ui_label("ui.topography"))}</h3>
+                {aspect_notes_control}
                 <div class="parameter-duo-grid">
                   {parameter_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), unit="m")}
                   {parameter_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), unit="m")}
                   {optimal_altitude_fields}
                 </div>
                 {form_catalog_toggles("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), catalogs, "aspects")}
-                {parameter_textarea("aspect_notes", ui_label("site_context.aspect_notes"), topography.get("aspect_notes", ""), rows=1)}
               </div>
               <div class="profile-subsection">
                 <h3>{icon("phenology")} {html.escape(ui_label("ui.phenology"))}</h3>
-                {parameter_textarea("main_months", ui_label("ui.main_months"), phenology.get("main_months", []), rows=1)}
-                {parameter_textarea("secondary_months", ui_label("ui.secondary_months"), phenology.get("secondary_months", []), rows=1)}
+                {main_months_control}
+                {secondary_months_control}
                 {form_catalog_toggles("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), catalogs, "season_patterns")}
                 {delay_fields}
               </div>
@@ -2370,6 +2703,43 @@ def gis_layer_mapped_ids(layer_result: dict[str, object], *keys: str) -> str:
     return " · ".join(values) if values else "-"
 
 
+def gis_context_v0_value(context: dict[str, object], key: str, limit: int = 4) -> str:
+    """Return compact v0 GIS context IDs for table display."""
+    raw_values = context.get(key)
+    if not isinstance(raw_values, list) or not raw_values:
+        return "-"
+    values = [str(value) for value in raw_values if str(value or "").strip()]
+    if not values:
+        return "-"
+    suffix = f" +{len(values) - limit}" if len(values) > limit else ""
+    return ", ".join(values[:limit]) + suffix
+
+
+def render_gis_context_v0_summary(context: object) -> str:
+    """Render the predictor-v0 GIS projection for one observation."""
+    if not isinstance(context, dict):
+        return '<span class="meta">sin contexto v0</span>'
+    parts = [
+        ("Hosts", gis_context_v0_value(context, "host_ids")),
+        ("Bosque", gis_context_v0_value(context, "forest_type_ids")),
+        ("Suelo", gis_context_v0_value(context, "soil_tendency_ids")),
+        ("Habitat", gis_context_v0_value(context, "habitat_feature_ids")),
+    ]
+    altitude = context.get("altitude_m")
+    if altitude not in (None, ""):
+        parts.append(("Alt.", f"{altitude} m"))
+    return (
+        '<span class="gis-v0-summary">'
+        + "".join(
+            f'<span><strong>{html.escape(label)}:</strong> {html.escape(value)}</span>'
+            for label, value in parts
+            if value != "-"
+        )
+        + ('<span class="meta">sin senales v0</span>' if all(value == "-" for _, value in parts) else "")
+        + "</span>"
+    )
+
+
 def render_gis_unmapped_candidates(result: dict[str, object]) -> str:
     candidates = result.get("unmapped_candidates")
     if not isinstance(candidates, list) or not candidates:
@@ -2448,6 +2818,7 @@ def render_gis_result_summary(result: dict[str, object] | None, species_labels: 
         mvc50 = layers.get("mvc50") if isinstance(layers.get("mvc50"), dict) else {}
         geology = layers.get("geology_50000") if isinstance(layers.get("geology_50000"), dict) else {}
         dem = layers.get("dem_5m") if isinstance(layers.get("dem_5m"), dict) else {}
+        gis_context_v0 = item.get("gis_context_v0")
         gaps = item.get("gaps")
         gaps = gaps if isinstance(gaps, list) else []
         display_gaps = [str(gap) for gap in gaps if str(gap) != "soil_25000"]
@@ -2466,6 +2837,7 @@ def render_gis_result_summary(result: dict[str, object] | None, species_labels: 
             f"<td><span class=\"gis-inline\">{gis_layer_status_badge(mvc50)}<span class=\"gis-inline-text\">{html.escape(substrate)}</span></span></td>"
             f"<td><span class=\"gis-inline\">{gis_layer_status_badge(geology)}<span class=\"gis-inline-text\">{html.escape(gis_layer_property(geology, 'Codi'))} · {html.escape(gis_layer_property(geology, 'Descripcio'))}</span></span></td>"
             f"<td><span class=\"gis-inline\">{gis_layer_status_badge(dem)}<span class=\"gis-inline-text\">{html.escape(dem_altitude)} · delta obs.: {html.escape(dem_delta)}</span></span></td>"
+            f"<td>{render_gis_context_v0_summary(gis_context_v0)}</td>"
             f"<td><span class=\"gis-inline\">{gis_observation_status_badge(item.get('status', '-'), bool(display_gaps))}<span class=\"gis-inline-text meta\">{html.escape(', '.join(display_gaps) if display_gaps else 'sin gaps')}</span></span></td>"
             "</tr>"
         )
@@ -2518,6 +2890,7 @@ def render_gis_result_summary(result: dict[str, object] | None, species_labels: 
             )
         detail_cards.append(
             f'<details class="gis-result-details"><summary>{html.escape(observation_id)} · valores crudos de capas</summary>'
+            f'<div class="gis-result-v0-detail"><strong>Contexto v0:</strong> {render_gis_context_v0_summary(gis_context_v0)}</div>'
             f'<ul>{"".join(detail_lines)}</ul></details>'
         )
     generated_at = str(result.get("generated_at", "") or "")
@@ -2531,7 +2904,7 @@ def render_gis_result_summary(result: dict[str, object] | None, species_labels: 
         f'<p class="meta">Ultima reconstruccion: {html.escape(generated_at)} · {len(table_rows)} observacion(es). '
         f'Las coordenadas se leen localmente pero no se muestran en esta revision.{qgis_note}</p>'
         '<div class="observations-table-shell gis-results-table"><table>'
-        '<thead><tr><th>Observacion</th><th>MVC50</th><th>Sustrato</th><th>Geologia</th><th>DEM</th><th>Estado</th></tr></thead>'
+        '<thead><tr><th>Observacion</th><th>MVC50</th><th>Sustrato</th><th>Geologia</th><th>DEM</th><th>Contexto v0</th><th>Estado</th></tr></thead>'
         f'<tbody>{"".join(table_rows)}</tbody></table></div>'
         f'{render_gis_unmapped_candidates(result)}'
         f'<div class="gis-result-detail-list">{"".join(detail_cards)}</div>'

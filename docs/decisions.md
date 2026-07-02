@@ -1703,3 +1703,31 @@ en `Enriched`.
 ### Estado
 Decision documentada localmente durante la fase de laboratorio GIS. No hay bump
 de version HA ni publicacion de imagen asociada.
+
+## 2026-07-02 - UX humana por defecto en pantallas de mantenimiento
+
+### Decision
+Las pantallas nuevas de mantenimiento deben ser coherentes con el look&feel
+existente, usables por una persona y orientadas a decisiones claras. La UI no
+debe exponer por defecto dumps tecnicos, tablas crudas interminables ni textos
+que obliguen a interpretar estructuras internas si existe una forma razonable
+de presentar metricas, estados, acciones y contexto humano.
+
+Las vistas tecnicas crudas siguen permitidas, pero solo cuando el usuario lo
+pida explicitamente o se acuerde como modo avanzado/laboratorio. En ese caso
+deben quedar separadas del flujo principal y no sustituir a una pantalla de
+mantenimiento entendible.
+
+### Motivo
+RainmapperHA se opera desde una UI local/HA para mantenimiento real, no solo
+como inspeccion de artefactos JSON. En el predictor de setas, especialmente,
+los flujos de evidencia, GIS mappings y perfiles v0 necesitan ayudar a decidir
+que revisar, promover, ignorar o mantener, no obligar a leer payloads tecnicos.
+
+### Consecuencias
+- Cualquier nueva pestaña o pantalla debe empezar por resumen, estados y
+  acciones claras.
+- Los detalles tecnicos pueden existir como `details`, modo avanzado o descarga,
+  pero no como experiencia primaria.
+- Si una sesion Codex propone una UI tecnica cruda, debe pedir acuerdo explicito
+  antes de implementarla.

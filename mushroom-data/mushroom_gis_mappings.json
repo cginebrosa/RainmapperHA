@@ -455,6 +455,83 @@
       "confidence": "high",
       "review_status": "accepted",
       "notes": "Exact MVC50 substrate value."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_niv2t",
+      "raw_value": "Carrascars",
+      "mapped_host_ids": [
+        "host_quercus_ilex"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_holm_oak",
+        "forest_mediterranean_oak"
+      ],
+      "mapped_habitat_feature_ids": [
+        "feature_open_warm_woodland"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "MVC50 vegetation class for carrascar/holm-oak woodland. Carrasca is treated under the existing Quercus ilex host catalog ID for v0."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLFISCAT_t",
+      "raw_value": "Carrasca (Quercus rotundifolia)",
+      "mapped_host_ids": [
+        "host_quercus_ilex"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_holm_oak",
+        "forest_mediterranean_oak"
+      ],
+      "mapped_habitat_feature_ids": [
+        "feature_open_warm_woodland"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "MVC50 dominant tree value. Quercus rotundifolia is kept at v0 as the existing holm-oak host group."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_niv2t",
+      "raw_value": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+      "mapped_host_ids": [
+        "host_quercus_spp",
+        "host_pinus_sylvestris",
+        "host_pinus_nigra"
+      ],
+      "mapped_forest_type_ids": [
+        "forest_deciduous_broadleaf",
+        "forest_montane_pine",
+        "forest_mixed_woodland"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "MVC50 mixed sub-Mediterranean oak and pine vegetation class; mapped to broad v0 host and forest groups stated in the class name."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_niv2t",
+      "raw_value": "Brolles de romaní i matollars mediterranis afins",
+      "mapped_habitat_feature_ids": [
+        "feature_mediterranean_shrubland",
+        "feature_calcicolous_shrubland"
+      ],
+      "confidence": "high",
+      "review_status": "accepted",
+      "notes": "MVC50 shrubland class. It contributes habitat features only; no tree host or forest type is inferred."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLFISCAT_t",
+      "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+      "mapped_habitat_feature_ids": [
+        "feature_mediterranean_shrubland"
+      ],
+      "confidence": "medium",
+      "review_status": "accepted",
+      "notes": "Broad MVC50 shrubland/low woodland class. It is useful as habitat context but too generic to infer host or forest type."
     }
   ],
   "lithology_mappings": [
