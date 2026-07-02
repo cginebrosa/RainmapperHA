@@ -1280,6 +1280,23 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       flex: 1 1 280px;
       min-width: min(420px, 100%);
     }}
+    .profile-view-switch {{
+      align-items: center;
+      display: inline-flex;
+      gap: 6px;
+      margin: 0 0 12px;
+    }}
+    .profile-view-switch.toolbar-switch {{
+      margin: 0;
+    }}
+    .profile-view-switch .button-link {{
+      padding: 7px 12px;
+    }}
+    .profile-view-switch .button-link.active {{
+      background: rgba(3, 169, 244, .16);
+      border-color: rgba(3, 169, 244, .8);
+      color: var(--accent);
+    }}
     .catalog-filter input,
     .catalog-json-editor textarea {{
       width: 100%;
@@ -2694,6 +2711,26 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-color: rgba(45, 58, 71, .7);
       color: var(--muted);
     }}
+    .parameter-affinity-chip.parked {{
+      background: rgba(148, 163, 184, .08);
+      border-color: rgba(148, 163, 184, .38);
+      color: var(--muted);
+    }}
+    .profile-v0-row-flags {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 5px;
+    }}
+    .profile-v0-row-flags span {{
+      border: 1px solid rgba(148, 163, 184, .34);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      text-transform: uppercase;
+    }}
     .profile-calibration-cards {{
       display: grid;
       gap: 8px;
@@ -3814,6 +3851,50 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         tab.checked = true;
       }}
     }}
+    function fitProfileListToViewport() {{
+      var list = document.querySelector(".profile-list");
+      if (!list) {{
+        return;
+      }}
+      if (window.matchMedia && window.matchMedia("(max-width: 980px)").matches) {{
+        list.style.maxHeight = "";
+        return;
+      }}
+      var rect = list.getBoundingClientRect();
+      var available = Math.max(260, window.innerHeight - rect.top - 16);
+      list.style.maxHeight = available + "px";
+    }}
+    function revealActiveProfileListItem() {{
+      var rows = document.querySelector(".profile-list-rows");
+      var active = rows ? rows.querySelector(".profile-list-item.active") : null;
+      if (!rows || !active) {{
+        return;
+      }}
+      var target = active.offsetTop - (rows.clientHeight / 2) + (active.clientHeight / 2);
+      rows.scrollTop = Math.max(0, target);
+    }}
+    function fitCatalogTableToViewport() {{
+      var tableWrap = document.querySelector(".catalog-table-wrap");
+      if (!tableWrap) {{
+        return;
+      }}
+      if (window.matchMedia && window.matchMedia("(max-width: 980px)").matches) {{
+        tableWrap.style.maxHeight = "";
+        return;
+      }}
+      var rect = tableWrap.getBoundingClientRect();
+      var available = Math.max(320, window.innerHeight - rect.top - 16);
+      tableWrap.style.maxHeight = available + "px";
+    }}
+    function revealSelectedCatalogRow() {{
+      var tableWrap = document.querySelector(".catalog-table-wrap");
+      var selected = tableWrap ? tableWrap.querySelector("tr.selected-row") : null;
+      if (!tableWrap || !selected) {{
+        return;
+      }}
+      var target = selected.offsetTop - (tableWrap.clientHeight / 2) + (selected.clientHeight / 2);
+      tableWrap.scrollTop = Math.max(0, target);
+    }}
     function speciesUrlWithActiveProfileState(href) {{
       var url;
       try {{
@@ -3982,12 +4063,22 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         closeCreateUserModal();
       }}
     }});
+    window.addEventListener("resize", function() {{
+      fitProfileListToViewport();
+      revealActiveProfileListItem();
+      fitCatalogTableToViewport();
+      revealSelectedCatalogRow();
+    }});
     document.addEventListener("DOMContentLoaded", function() {{
       applyUsersFilter();
       collapseUserCards();
       restoreControlTab();
       restoreProfileTab();
       restoreEcologyTab();
+      fitProfileListToViewport();
+      revealActiveProfileListItem();
+      fitCatalogTableToViewport();
+      revealSelectedCatalogRow();
       setProfileReturnTabs();
     }});
   </script>
@@ -7457,9 +7548,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         selected_id = (query.get("id") or [""])[0]
         search = (query.get("q") or [""])[0]
         mode = (query.get("mode") or ["current"])[0]
-        section = (query.get("section") or ["species"])[0]
-        if section not in {"summary", "species", "observations", "parameters", "calibration"}:
-            section = "species"
 
         store = default_store()
         try:
@@ -7675,6 +7763,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         search = (query.get("q") or [""])[0]
         mode = (query.get("mode") or ["current"])[0]
         section = (query.get("section") or ["species"])[0]
+        profile_view = mushroom_profiles_ui.normalize_profile_view((query.get("view") or ["enriched"])[0])
         if section not in {"summary", "species", "observations", "parameters", "calibration"}:
             section = "species"
 
@@ -7723,9 +7812,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         )
         status_label = "Flow validated" if not errors else "Validation errors"
         status_class = "ok" if not errors else "danger"
-        section_tabs = mushroom_profiles_ui.render_section_tabs(section, selected_id, search)
+        section_tabs = mushroom_profiles_ui.render_section_tabs(section, selected_id, search, profile_view)
         if section == "parameters":
-            main_content = mushroom_profiles_ui.render_parameters_section(selected, catalogs, search)
+            main_content = mushroom_profiles_ui.render_parameters_section(selected, catalogs, search, profile_view)
         elif section == "calibration":
             main_content = mushroom_profiles_ui.render_calibration_section(selected, search)
         elif section == "observations":
@@ -7765,24 +7854,32 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             main_content = (
                 f"{mushroom_profiles_ui.profile_metric_cards(profiles, errors, warnings)}"
                 '<div class="profile-layout">'
-                f"{mushroom_profiles_ui.render_profile_list(profiles, selected_id, search)}"
-                f"{mushroom_profiles_ui.render_profile_editor(selected, catalogs)}"
+                f"{mushroom_profiles_ui.render_profile_list(profiles, selected_id, search, profile_view)}"
+                f"{mushroom_profiles_ui.render_profile_editor(selected, catalogs, profile_view, search)}"
                 "</div>"
             )
+        view_switch = mushroom_profiles_ui.render_profile_view_switch(selected_id, search, section, profile_view)
+        full_json_link = "" if mushroom_profiles_ui.is_v0_view(profile_view) else '<a class="button-link" href="#profiles-full-json">Import/export JSON</a>'
+        full_json_section = "" if mushroom_profiles_ui.is_v0_view(profile_view) else (
+            '<h2 id="profiles-full-json">JSON maintenance</h2>'
+            f"{mushroom_profiles_ui.render_profile_full_json_panel(full_payload, mode)}"
+        )
         body = f"""
         <div class="catalog-toolbar">
           <a class="button-link" href="../">Back</a>
-          <a class="button-link" href="{html.escape(mushroom_profiles_ui.profile_query_url(selected_id, search, section=section), quote=True)}">Refresh</a>
+          <a class="button-link" href="{html.escape(mushroom_profiles_ui.profile_query_url(selected_id, search, section=section, profile_view=profile_view), quote=True)}">Refresh</a>
           <a class="button-link" href="./catalogs">Reference catalogs</a>
           <a class="button-link" href="./gis-mappings">GIS mappings</a>
+          {view_switch}
           <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="section" value="{html.escape(section, quote=True)}">
             <input type="hidden" name="id" value="{html.escape(selected_id, quote=True)}">
+            <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search species, ID, confidence or status">
           </form>
           <a class="button-link primary-link" href="#new-species-modal">New species</a>
           <a class="button-link" href="#restore-species-modal">Restore species</a>
-          <a class="button-link" href="#profiles-full-json">Import/export JSON</a>
+          {full_json_link}
         </div>
         <div class="mushroom-title-tabs">
           <div>
@@ -7801,8 +7898,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           {render_catalog_alerts(errors, warnings, limit=12)}
         </details>
         {render_archived_species_panel(archived_profiles)}
-        <h2 id="profiles-full-json">JSON maintenance</h2>
-        {mushroom_profiles_ui.render_profile_full_json_panel(full_payload, mode)}
+        {full_json_section}
         """
         self.send_bytes(
             200,

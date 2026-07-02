@@ -1631,6 +1631,22 @@ Las filas de afinidad deben ser compactas: campos cortos en formato `titulo: val
   - m
   - días
 
+## Modos V0 y Enriched
+
+Desde 2026-07-02 la pantalla de mantenimiento de especies debe conservar dos
+modos sobre el mismo `mushroom_profiles.json`:
+
+- `Enriched`: vista completa existente, con todos los campos ricos, raw JSON e
+  import/export JSON. Es el modo de edicion completa.
+- `V0`: proyeccion operativa minima para el predictor v0. Debe ocultar campos
+  aparcados o no usados en v0, especialmente meteorologia fina, scoring,
+  litologia fina, raw JSON y afinidades con `v0_active=false`.
+
+La vista `V0` no debe borrar ni sobrescribir datos enriquecidos. Mientras haya
+campos ocultos, no debe ofrecer guardado completo del formulario para evitar que
+un POST parcial pierda valores no visibles. Si en el futuro se permite edicion
+desde `V0`, debe ser con handlers parciales explicitos para campos activos.
+
 ## Responsive
 
 - Desktop: layout de 2 columnas cuando tenga sentido.

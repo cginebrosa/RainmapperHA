@@ -103,7 +103,13 @@ def load_parameter_labels() -> dict[str, dict[str, str]]:
 PARAMETER_LABELS = load_parameter_labels()
 
 
-def profile_query_url(species_id: str = "", search: str = "", mode: str = "", section: str = "") -> str:
+def profile_query_url(
+    species_id: str = "",
+    search: str = "",
+    mode: str = "",
+    section: str = "",
+    profile_view: str = "",
+) -> str:
     """Return an ingress-safe query URL for the species maintenance page."""
     params = {}
     if species_id:
@@ -114,7 +120,32 @@ def profile_query_url(species_id: str = "", search: str = "", mode: str = "", se
         params["mode"] = mode
     if section:
         params["section"] = section
+    if profile_view and profile_view != "enriched":
+        params["view"] = profile_view
     return ("?" + urlencode(params)) if params else "?"
+
+
+def normalize_profile_view(value: object) -> str:
+    """Return the active profile maintenance view."""
+    text = str(value or "").strip().lower()
+    return "v0" if text == "v0" else "enriched"
+
+
+def is_v0_view(profile_view: str) -> bool:
+    return normalize_profile_view(profile_view) == "v0"
+
+
+def v0_active_affinity(item: dict[str, object]) -> bool:
+    return item.get("v0_active") is not False
+
+
+def inactive_v0_affinity_count(ecology: dict[str, object]) -> int:
+    count = 0
+    for field in PROFILE_AFFINITY_GROUPS:
+        values = ecology.get(field)
+        if isinstance(values, list):
+            count += sum(1 for item in values if isinstance(item, dict) and item.get("v0_active") is False)
+    return count
 
 
 def nested_dict(payload: dict[str, object], key: str) -> dict[str, object]:
@@ -612,6 +643,7 @@ def affinity_chip_list(
     relationship: str | None = None,
     exclude_relationships: set[str] | None = None,
     limit: int = 6,
+    profile_view: str = "enriched",
 ) -> str:
     """Render affinity rows as compact chips, optionally filtered by relationship."""
     raw_items = ecology.get(key)
@@ -619,6 +651,9 @@ def affinity_chip_list(
     chips = []
     for item in items:
         if not isinstance(item, dict):
+            continue
+        inactive_v0 = item.get("v0_active") is False
+        if is_v0_view(profile_view) and inactive_v0:
             continue
         item_id = str(item.get("id", "") or "")
         if not item_id:
@@ -631,9 +666,18 @@ def affinity_chip_list(
         label = labels.get(item_id, item_id)
         visible_label = label if label != item_id else item_id
         relationship_html = f'<em>{html.escape(item_relationship)}</em>' if item_relationship and not relationship else ""
+        badges = []
+        if item.get("v0_placeholder"):
+            badges.append("v0")
+        if item.get("v0_catalog_gap_promoted"):
+            badges.append("catalog")
+        if inactive_v0:
+            badges.append("parked")
+        badge_html = "".join(f"<em>{html.escape(badge)}</em>" for badge in badges)
+        css_class = "parameter-affinity-chip parked" if inactive_v0 else "parameter-affinity-chip"
         chips.append(
-            f'<span class="parameter-affinity-chip" title="{html.escape(item_id, quote=True)}">'
-            f'{html.escape(visible_label)}{relationship_html}</span>'
+            f'<span class="{css_class}" title="{html.escape(item_id, quote=True)}">'
+            f'{html.escape(visible_label)}{relationship_html}{badge_html}</span>'
         )
     if not chips:
         return '<span class="parameter-empty">-</span>'
@@ -772,7 +816,7 @@ def profile_metric_cards(profiles: list[dict[str, object]], errors: list[object]
     ) + "</div>"
 
 
-def render_profile_list(profiles: list[dict[str, object]], selected_id: str, search: str) -> str:
+def render_profile_list(profiles: list[dict[str, object]], selected_id: str, search: str, profile_view: str = "enriched") -> str:
     """Render the left species navigator."""
     tokens = [token.lower() for token in search.split() if token.strip()]
     rows = []
@@ -815,7 +859,7 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
             if value
         )
         rows.append(
-            f'<a class="profile-list-item{active}" href="{profile_query_url(species_id, search)}">'
+            f'<a class="profile-list-item{active}" href="{profile_query_url(species_id, search, profile_view=profile_view)}">'
             f'<span class="profile-list-icon">{icon("mushroom")}</span>'
             '<span class="profile-list-main">'
             f"<strong>{html.escape(scientific_name or species_id)}</strong>"
@@ -835,7 +879,7 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
     return f'<aside class="profile-list"><div class="profile-list-search-title">{legend}</div><div class="profile-list-rows">' + "".join(rows) + "</div></aside>"
 
 
-def render_section_tabs(active_section: str, selected_id: str, search: str) -> str:
+def render_section_tabs(active_section: str, selected_id: str, search: str, profile_view: str = "enriched") -> str:
     """Render top-level mushroom maintenance tabs as ingress-safe links."""
     sections = [
         ("summary", ui_label("ui.summary")),
@@ -847,9 +891,22 @@ def render_section_tabs(active_section: str, selected_id: str, search: str) -> s
     links = []
     for section, label in sections:
         active = ' class="active"' if section == active_section else ""
-        href = profile_query_url(selected_id, search, section=section)
+        href = profile_query_url(selected_id, search, section=section, profile_view=profile_view)
         links.append(f'<a{active} href="{html.escape(href, quote=True)}">{html.escape(label)}</a>')
     return '<nav class="mushroom-section-tabs" aria-label="Mushroom maintenance sections">' + "".join(links) + "</nav>"
+
+
+def render_profile_view_switch(selected_id: str, search: str, section: str, profile_view: str) -> str:
+    """Render the V0/Enriched mode switch without changing the underlying data."""
+    current = normalize_profile_view(profile_view)
+    v0_href = profile_query_url(selected_id, search, section=section, profile_view="v0")
+    enriched_href = profile_query_url(selected_id, search, section=section, profile_view="enriched")
+    return (
+        '<div class="profile-view-switch toolbar-switch">'
+        f'<a class="button-link {"active" if current == "v0" else ""}" href="{html.escape(v0_href, quote=True)}">V0</a>'
+        f'<a class="button-link {"active" if current == "enriched" else ""}" href="{html.escape(enriched_href, quote=True)}">Enriched</a>'
+        "</div>"
+    )
 
 
 def render_selected_species_header(profile: dict[str, object] | None, section: str) -> str:
@@ -901,7 +958,7 @@ def render_observation_scope_header(profile: dict[str, object] | None, section: 
     return render_selected_species_header(profile, section) if profile else f'<h2>{html.escape(section)}</h2>'
 
 
-def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str, object]) -> str:
+def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str, object], profile_view: str = "enriched") -> str:
     """Render editable affinity rows while hiding already-used IDs from new rows."""
     catalog_group = PROFILE_AFFINITY_GROUPS[field]
     options = catalog_options_for_group(catalogs, catalog_group)
@@ -912,15 +969,32 @@ def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str,
         if isinstance(item, dict) and str(item.get("id", "") or "").strip()
     }
     rows = []
-    editable_rows = [item if isinstance(item, dict) else {} for item in affinities] + [{} for _ in range(3)]
+    visible_affinities = [
+        item for item in affinities
+        if isinstance(item, dict) and (not is_v0_view(profile_view) or v0_active_affinity(item))
+    ]
+    editable_rows = visible_affinities + ([] if is_v0_view(profile_view) else [{} for _ in range(3)])
     for index, item in enumerate(editable_rows):
         current_id = str(item.get("id", "") or "").strip()
         row_options = [option for option in options if option[0] == current_id or option[0] not in used_ids]
+        inactive_v0 = item.get("v0_active") is False
+        status = []
+        if item.get("v0_placeholder"):
+            status.append("Fuente v0")
+        if item.get("v0_catalog_gap_promoted"):
+            status.append("Catalogo v0")
+        if inactive_v0:
+            status.append("Aparcado v0")
+        status_html = (
+            '<div class="profile-v0-row-flags">' + "".join(f"<span>{html.escape(flag)}</span>" for flag in status) + "</div>"
+            if status else ""
+        )
         rows.append(
             '<div class="profile-affinity-row">'
             + form_catalog_select(f"{field}_{index}_id", "ID", current_id, row_options)
             + form_select(f"{field}_{index}_relationship", ui_label("ui.relationship"), item.get("relationship", ""), PROFILE_SELECT_VALUES["relationship"])
             + form_field(f"{field}_{index}_affinity", ui_label("ui.affinity"), item.get("affinity", ""), field_type="number", step="0.01")
+            + status_html
             + "</div>"
         )
     return (
@@ -932,9 +1006,9 @@ def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str,
     )
 
 
-def render_ecology_affinity_tabs(ecology: dict[str, object], catalogs: dict[str, object]) -> str:
+def render_ecology_affinity_tabs(ecology: dict[str, object], catalogs: dict[str, object], profile_view: str = "enriched") -> str:
     """Render ecology affinity groups as internal subtabs without changing POST fields."""
-    fields = list(PROFILE_AFFINITY_GROUPS)
+    fields = [field for field in PROFILE_AFFINITY_GROUPS if not (is_v0_view(profile_view) and field == "lithology_affinities")]
     labels = {
         "host_affinities": ui_label("ui.primary_hosts"),
         "forest_type_affinities": ui_label("ui.forest_types"),
@@ -949,7 +1023,7 @@ def render_ecology_affinity_tabs(ecology: dict[str, object], catalogs: dict[str,
         tab_id = f"eco-tab-{index}"
         radios.append(f'<input type="radio" name="ecology_tab" id="{tab_id}"{" checked" if index == 0 else ""}>')
         tab_labels.append(f'<label for="{tab_id}">{html.escape(labels[field])}</label>')
-        panels.append(f'<section class="ecology-subtab-panel panel-{index}">{render_profile_affinity_rows(field, ecology.get(field, []), catalogs)}</section>')
+        panels.append(f'<section class="ecology-subtab-panel panel-{index}">{render_profile_affinity_rows(field, ecology.get(field, []), catalogs, profile_view)}</section>')
     return (
         '<div class="ecology-subtabs">'
         + "".join(radios)
@@ -988,6 +1062,7 @@ def render_general_dashboard(
     scoring: dict[str, object],
     confidence: dict[str, object],
     metadata: dict[str, object],
+    profile_view: str = "enriched",
 ) -> str:
     """Render the visual first-tab dashboard inspired by the species mockup."""
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
@@ -995,10 +1070,28 @@ def render_general_dashboard(
     host_names = []
     for item in ecology.get("host_affinities", []) if isinstance(ecology.get("host_affinities"), list) else []:
         if isinstance(item, dict) and item.get("id"):
+            if is_v0_view(profile_view) and not v0_active_affinity(item):
+                continue
             host_id = str(item.get("id"))
             host_names.append(host_labels.get(host_id, f"{host_id} (missing)"))
     season_names = phenology.get("season_pattern_ids") if isinstance(phenology.get("season_pattern_ids"), list) else []
     aspect_names = topography.get("preferred_aspect_ids") if isinstance(topography.get("preferred_aspect_ids"), list) else []
+    weather_card = "" if is_v0_view(profile_view) else f"""
+      <article class="profile-overview-card wide">
+        {card_title(4, ui_label("ui.weather_model_summary"), "weather")}
+        {render_weather_summary(weather_model)}
+      </article>
+    """
+    scoring_card = "" if is_v0_view(profile_view) else f"""
+      <article class="profile-overview-card">
+        {card_title(5, ui_label("ui.scoring_weights"), "scoring")}
+        {''.join(score_bar(key, value) for key, value in scoring.items())}
+      </article>
+    """
+    delay_row = "" if is_v0_view(profile_view) else value_row(ui_label("ui.fruiting_delay"), f'{delay.get("min", "-")} / {delay.get("optimal_min", "-")}-{delay.get("optimal_max", "-")} / {delay.get("max", "-")} days')
+    optimal_altitude_row = "" if is_v0_view(profile_view) else value_row(ui_label("ui.optimal_altitude"), f'{topography.get("altitude_optimal_min_m", "-")} - {topography.get("altitude_optimal_max_m", "-")} m')
+    parked_count = inactive_v0_affinity_count(ecology)
+    parked_row = value_row("Aparcado para v0", f"{parked_count} afinidades") if is_v0_view(profile_view) and parked_count else ""
     return f"""
     <section class="profile-overview-grid">
       <article class="profile-overview-card identity">
@@ -1014,8 +1107,9 @@ def render_general_dashboard(
         {value_row(ui_label("ui.trophic_mode"), catalog_display(catalogs, "trophic_modes", ecology.get("trophic_mode_id", "-")))}
         {value_row(ui_label("ui.primary_hosts"), ", ".join(host_names[:4]) if host_names else "-")}
         {value_row(ui_label("altitude.meters"), f'{topography.get("altitude_min_m", "-")} - {topography.get("altitude_max_m", "-")} m')}
-        {value_row(ui_label("ui.optimal_altitude"), f'{topography.get("altitude_optimal_min_m", "-")} - {topography.get("altitude_optimal_max_m", "-")} m')}
+        {optimal_altitude_row}
         {value_row(ui_label("ui.preferred_aspects"), catalog_compact_list(catalogs, "aspects", aspect_names, 6))}
+        {parked_row}
       </article>
       <article class="profile-overview-card">
         {card_title(3, ui_label("ui.phenology"), "phenology")}
@@ -1024,16 +1118,10 @@ def render_general_dashboard(
         <span class="label">{html.escape(ui_label("ui.secondary_months"))}</span>
         {month_chips(phenology.get("secondary_months", []), "secondary-month")}
         {value_row(ui_label("ui.season_patterns"), catalog_compact_list(catalogs, "season_patterns", season_names, 3))}
-        {value_row(ui_label("ui.fruiting_delay"), f'{delay.get("min", "-")} / {delay.get("optimal_min", "-")}-{delay.get("optimal_max", "-")} / {delay.get("max", "-")} days')}
+        {delay_row}
       </article>
-      <article class="profile-overview-card wide">
-        {card_title(4, ui_label("ui.weather_model_summary"), "weather")}
-        {render_weather_summary(weather_model)}
-      </article>
-      <article class="profile-overview-card">
-        {card_title(5, ui_label("ui.scoring_weights"), "scoring")}
-        {''.join(score_bar(key, value) for key, value in scoring.items())}
-      </article>
+      {weather_card}
+      {scoring_card}
       <article class="profile-overview-card">
         {card_title(6, ui_label("ui.confidence_calibration"), "calibration")}
         {value_row(ui_label("ui.overall_confidence"), value_label(confidence.get("overall_confidence")))}
@@ -1058,11 +1146,13 @@ def render_general_dashboard(
     """
 
 
-def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str, object]) -> str:
+def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str, object], profile_view: str = "enriched", search: str = "") -> str:
     """Render the selected profile editor using the existing POST contract."""
     if not profile:
         return f'<section class="card profile-editor"><h2>{html.escape(ui_label("ui.species_detail"))}</h2><p>{html.escape(ui_label("ui.no_species_selected"))}</p></section>'
     species_id = str(profile.get("species_id", ""))
+    profile_view = normalize_profile_view(profile_view)
+    v0_mode = is_v0_view(profile_view)
     ecology = nested_dict(profile, "ecology")
     phenology = nested_dict(profile, "phenology")
     topography = nested_dict(profile, "topography")
@@ -1077,7 +1167,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
     metadata = nested_dict(profile, "metadata")
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
     json_value = json.dumps(profile, indent=2, ensure_ascii=False)
-    affinity_blocks = render_ecology_affinity_tabs(ecology, catalogs)
+    affinity_blocks = render_ecology_affinity_tabs(ecology, catalogs, profile_view)
     status_chips = "".join(
         [
             value_chip(profile.get("taxonomy_status", "-"), ui_label("ui.taxonomy")),
@@ -1087,9 +1177,90 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
             value_chip(metadata.get("review_status", "-"), ui_label("ui.review_status")),
         ]
     )
-    general_dashboard = render_general_dashboard(profile, catalogs, ecology, phenology, topography, weather_model, scoring, confidence, metadata)
+    general_dashboard = render_general_dashboard(profile, catalogs, ecology, phenology, topography, weather_model, scoring, confidence, metadata, profile_view)
     duplicate_species_id = f"{species_id}_copy"
     duplicate_scientific_name = f"{profile.get('scientific_name', species_id)} copy"
+    v0_href = profile_query_url(species_id, search, section="species", profile_view="v0")
+    enriched_href = profile_query_url(species_id, search, section="species", profile_view="enriched")
+    view_switch = (
+        '<div class="profile-view-switch">'
+        f'<a class="button-link {"active" if v0_mode else ""}" href="{html.escape(v0_href, quote=True)}">V0</a>'
+        f'<a class="button-link {"active" if not v0_mode else ""}" href="{html.escape(enriched_href, quote=True)}">Enriched</a>'
+        "</div>"
+    )
+    weather_tab_input = '' if v0_mode else '<input type="radio" name="profile_tab" id="profile-tab-weather">'
+    scoring_tab_input = '' if v0_mode else '<input type="radio" name="profile_tab" id="profile-tab-scoring">'
+    json_tab_input = '' if v0_mode else '<input type="radio" name="profile_tab" id="profile-tab-json">'
+    weather_tab_label = '' if v0_mode else f'<label for="profile-tab-weather">{icon("weather")}{html.escape(ui_label("ui.weather"))}</label>'
+    scoring_tab_label = '' if v0_mode else f'<label for="profile-tab-scoring">{icon("scoring")}{html.escape(ui_label("ui.scoring"))}</label>'
+    json_tab_label = '' if v0_mode else f'<label for="profile-tab-json">{icon("metadata")}{html.escape(ui_label("ui.json"))}</label>'
+    weather_panel = '' if v0_mode else f"""
+            <section class="profile-section profile-tab-panel weather">
+              <h2>{html.escape(ui_label("ui.weather_model"))}</h2>
+              <div class="profile-grid four">
+                {''.join(form_field(f"rainfall_{key}", parameter_label(key), value, field_type="number") for key, value in rainfall.items())}
+                {''.join(form_field(f"temperature_{key}", parameter_label(key), value, field_type="number") for key, value in temperature.items())}
+                {''.join(form_field(f"humidity_{key}", parameter_label(key), value, field_type="number") for key, value in humidity.items())}
+                {''.join(form_field(f"wind_{key}", parameter_label(key), value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
+              </div>
+            </section>
+    """
+    scoring_panel = '' if v0_mode else f"""
+            <section class="profile-section profile-tab-panel scoring">
+              <h2>{html.escape(ui_label("ui.scoring_weights"))}</h2>
+              <div class="profile-scoring-total">
+                <span>{html.escape(ui_label("ui.current_total"))}</span><strong>{scoring_total:.2f}</strong><em>{html.escape(ui_label("ui.target"))}: 1.00</em>
+              </div>
+              <div class="profile-score-editor">
+                {''.join(score_bar(key, value) for key, value in scoring.items())}
+              </div>
+              <div class="profile-grid four">
+                {''.join(form_field(f"score_{key}", parameter_label(key), value, field_type="number", step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
+              </div>
+            </section>
+    """
+    json_panel = '' if v0_mode else f"""
+            <section class="profile-section profile-tab-panel json">
+              <h2>{html.escape(ui_label("ui.advanced_json"))}</h2>
+              <p class="meta">{html.escape(ui_label("ui.raw_json_help"))}</p>
+            </section>
+    """
+    delay_grid = '' if v0_mode else f"""
+                  <div class="profile-delay-grid">
+                    {form_field("delay_min", ui_label("ui.delay_min"), delay.get("min", ""), field_type="number")}
+                    {form_field("delay_optimal_min", ui_label("ui.delay_optimal_min"), delay.get("optimal_min", ""), field_type="number")}
+                    {form_field("delay_max", ui_label("ui.delay_max"), delay.get("max", ""), field_type="number")}
+                    {form_field("delay_optimal_max", ui_label("ui.delay_optimal_max"), delay.get("optimal_max", ""), field_type="number")}
+                  </div>
+    """
+    altitude_fields = (
+        f'{form_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), field_type="number")}'
+        f'{form_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), field_type="number")}'
+        if v0_mode else
+        f'{form_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), field_type="number")}'
+        f'{form_field("altitude_optimal_min_m", parameter_label("altitude_optimal_min_m"), topography.get("altitude_optimal_min_m", ""), field_type="number")}'
+        f'{form_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), field_type="number")}'
+        f'{form_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), field_type="number")}'
+    )
+    save_button = (
+        '<span class="meta">V0 view hides parked fields. Use Enriched mode for full-profile editing.</span>'
+        if v0_mode else
+        f'<button class="primary profile-primary-action">{html.escape(ui_label("ui.save_species_profile"))}</button>'
+    )
+    raw_json_details = "" if v0_mode else f"""
+      <details class="profile-raw-json">
+        <summary><strong>{html.escape(ui_label("ui.advanced_raw_json"))}</strong></summary>
+        <form class="profile-json-editor" method="post" action="{html.escape(profile_query_url(species_id, search, section='species'), quote=True)}" onsubmit="return confirm('Save raw JSON for this species profile and validate the full dataset?')">
+          <input type="hidden" name="profile_action" value="save_profile_json">
+          <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+          <input type="hidden" name="profile_return_tab" value="profile-tab-json">
+          <label class="label" for="profile-json">{html.escape(ui_label("ui.species_profile_json"))}</label>
+          <textarea id="profile-json" name="profile_json" spellcheck="false">{html.escape(json_value)}</textarea>
+          <button class="primary">{html.escape(ui_label("ui.save_raw_json"))}</button>
+        </form>
+      </details>
+    """
+    modal_return_href = profile_query_url(species_id, search, section="species", profile_view=profile_view)
     return f"""
     <section class="card profile-editor profile-editor-polished">
       <div class="profile-editor-head profile-hero">
@@ -1102,7 +1273,8 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
         </div>
         <div class="profile-hero-chips">{status_chips}</div>
       </div>
-      <form method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save this species profile and validate the full mushroom dataset?')">
+      {view_switch}
+      <form method="post" action="{html.escape(profile_query_url(species_id, search, section='species', profile_view=profile_view), quote=True)}" onsubmit="return confirm('Save this species profile and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_form">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
         <input type="hidden" name="profile_return_tab" value="profile-tab-general">
@@ -1110,20 +1282,20 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           <input type="radio" name="profile_tab" id="profile-tab-general" checked>
           <input type="radio" name="profile_tab" id="profile-tab-ecology">
           <input type="radio" name="profile_tab" id="profile-tab-phenology">
-          <input type="radio" name="profile_tab" id="profile-tab-weather">
-          <input type="radio" name="profile_tab" id="profile-tab-scoring">
+          {weather_tab_input}
+          {scoring_tab_input}
           <input type="radio" name="profile_tab" id="profile-tab-calibration">
           <input type="radio" name="profile_tab" id="profile-tab-metadata">
-          <input type="radio" name="profile_tab" id="profile-tab-json">
+          {json_tab_input}
           <div class="profile-tab-labels">
             <label for="profile-tab-general">{icon("identity")}{html.escape(ui_label("ui.general"))}</label>
             <label for="profile-tab-ecology">{icon("ecology")}{html.escape(ui_label("ui.ecology"))}</label>
             <label for="profile-tab-phenology">{icon("phenology")}{html.escape(ui_label("ui.phenology_topography"))}</label>
-            <label for="profile-tab-weather">{icon("weather")}{html.escape(ui_label("ui.weather"))}</label>
-            <label for="profile-tab-scoring">{icon("scoring")}{html.escape(ui_label("ui.scoring"))}</label>
+            {weather_tab_label}
+            {scoring_tab_label}
             <label for="profile-tab-calibration">{icon("calibration")}{html.escape(ui_label("ui.confidence"))}</label>
             <label for="profile-tab-metadata">{icon("metadata")}{html.escape(ui_label("ui.metadata"))}</label>
-            <label for="profile-tab-json">{icon("metadata")}{html.escape(ui_label("ui.json"))}</label>
+            {json_tab_label}
           </div>
           <div class="profile-tab-content">
             <section class="profile-section profile-tab-panel general">{general_dashboard}</section>
@@ -1142,12 +1314,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
                     {form_month_toggles("main_months", ui_label("ui.main_months"), phenology.get("main_months", []))}
                     {form_month_toggles("secondary_months", ui_label("ui.secondary_months"), phenology.get("secondary_months", []), "secondary-month")}
                   </div>
-                  <div class="profile-delay-grid">
-                    {form_field("delay_min", ui_label("ui.delay_min"), delay.get("min", ""), field_type="number")}
-                    {form_field("delay_optimal_min", ui_label("ui.delay_optimal_min"), delay.get("optimal_min", ""), field_type="number")}
-                    {form_field("delay_max", ui_label("ui.delay_max"), delay.get("max", ""), field_type="number")}
-                    {form_field("delay_optimal_max", ui_label("ui.delay_optimal_max"), delay.get("optimal_max", ""), field_type="number")}
-                  </div>
+                  {delay_grid}
                 </div>
                 <div class="profile-season-pattern-field">
                   {form_catalog_toggles("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), catalogs, "season_patterns")}
@@ -1156,10 +1323,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
               <h3>{html.escape(ui_label("ui.topography"))}</h3>
               <div class="profile-topography-layout">
                 <div class="profile-altitude-grid">
-                  {form_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), field_type="number")}
-                  {form_field("altitude_optimal_min_m", parameter_label("altitude_optimal_min_m"), topography.get("altitude_optimal_min_m", ""), field_type="number")}
-                  {form_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), field_type="number")}
-                  {form_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), field_type="number")}
+                  {altitude_fields}
                 </div>
                 <div class="profile-aspect-field">
                   {form_catalog_toggles("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), catalogs, "aspects")}
@@ -1167,27 +1331,8 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
               </div>
               {form_textarea("aspect_notes", ui_label("site_context.aspect_notes"), topography.get("aspect_notes", ""), rows=2)}
             </section>
-            <section class="profile-section profile-tab-panel weather">
-              <h2>{html.escape(ui_label("ui.weather_model"))}</h2>
-              <div class="profile-grid four">
-                {''.join(form_field(f"rainfall_{key}", parameter_label(key), value, field_type="number") for key, value in rainfall.items())}
-                {''.join(form_field(f"temperature_{key}", parameter_label(key), value, field_type="number") for key, value in temperature.items())}
-                {''.join(form_field(f"humidity_{key}", parameter_label(key), value, field_type="number") for key, value in humidity.items())}
-                {''.join(form_field(f"wind_{key}", parameter_label(key), value, field_type="checkbox" if isinstance(value, bool) else "number") for key, value in wind.items())}
-              </div>
-            </section>
-            <section class="profile-section profile-tab-panel scoring">
-              <h2>{html.escape(ui_label("ui.scoring_weights"))}</h2>
-              <div class="profile-scoring-total">
-                <span>{html.escape(ui_label("ui.current_total"))}</span><strong>{scoring_total:.2f}</strong><em>{html.escape(ui_label("ui.target"))}: 1.00</em>
-              </div>
-              <div class="profile-score-editor">
-                {''.join(score_bar(key, value) for key, value in scoring.items())}
-              </div>
-              <div class="profile-grid four">
-                {''.join(form_field(f"score_{key}", parameter_label(key), value, field_type="number", step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
-              </div>
-            </section>
+            {weather_panel}
+            {scoring_panel}
             <section class="profile-section profile-tab-panel calibration">
               <h2>{html.escape(ui_label("ui.confidence_calibration"))}</h2>
               <div class="profile-calibration-summary">
@@ -1236,29 +1381,26 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
               </div>
               </div>
             </section>
-            <section class="profile-section profile-tab-panel json">
-              <h2>{html.escape(ui_label("ui.advanced_json"))}</h2>
-              <p class="meta">{html.escape(ui_label("ui.raw_json_help"))}</p>
-            </section>
+            {json_panel}
           </div>
         </div>
         <div class="profile-action-bar">
           <button class="secondary" name="profile_action" value="backup_profiles_keep" type="submit" formnovalidate onclick="return confirm('Create a manual keep backup of the full species profiles file now?')">{html.escape(ui_label("ui.backup"))}</button>
-          <button class="primary profile-primary-action">{html.escape(ui_label("ui.save_species_profile"))}</button>
+          {save_button}
           <a class="button-link secondary-link" href="#duplicate-species-modal">{html.escape(ui_label("ui.duplicate_species"))}</a>
           <a class="button-link danger-link" href="#archive-species-modal">{html.escape(ui_label("ui.archive_species"))}</a>
           <button class="secondary planned-action" type="button" disabled title="{html.escape(ui_label('ui.planned_profile_validation_title'), quote=True)}">{html.escape(ui_label("ui.validate_profile_planned"))}</button>
         </div>
       </form>
       <div id="duplicate-species-modal" class="modal-layer">
-        <a class="modal-backdrop" href="?id={html.escape(species_id, quote=True)}" aria-label="Cancel duplicate species"></a>
+        <a class="modal-backdrop" href="{html.escape(modal_return_href, quote=True)}" aria-label="Cancel duplicate species"></a>
         <section class="modal-card">
           <header class="modal-head">
             <div>
               <h2>{html.escape(ui_label("ui.duplicate_species"))}</h2>
               <p>{html.escape(ui_label("ui.duplicate_species_help"))}</p>
             </div>
-            <a class="button-link" href="?id={html.escape(species_id, quote=True)}">{html.escape(ui_label("ui.cancel"))}</a>
+            <a class="button-link" href="{html.escape(modal_return_href, quote=True)}">{html.escape(ui_label("ui.cancel"))}</a>
           </header>
           <form method="post" action="" onsubmit="return confirm('Duplicate this species profile as a new draft profile?')">
             <input type="hidden" name="profile_action" value="duplicate_profile">
@@ -1269,21 +1411,21 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
               {form_field("duplicate_common_name", ui_label("ui.common_name"), "")}
             </div>
             <div class="modal-actions">
-              <a class="button-link" href="?id={html.escape(species_id, quote=True)}">{html.escape(ui_label("ui.cancel"))}</a>
+              <a class="button-link" href="{html.escape(modal_return_href, quote=True)}">{html.escape(ui_label("ui.cancel"))}</a>
               <button class="secondary">{html.escape(ui_label("ui.duplicate_species"))}</button>
             </div>
           </form>
         </section>
       </div>
       <div id="archive-species-modal" class="modal-layer">
-        <a class="modal-backdrop" href="?id={html.escape(species_id, quote=True)}" aria-label="Cancel archive species"></a>
+        <a class="modal-backdrop" href="{html.escape(modal_return_href, quote=True)}" aria-label="Cancel archive species"></a>
         <section class="modal-card">
           <header class="modal-head">
             <div>
               <h2>{html.escape(ui_label("ui.archive_species"))}</h2>
               <p>{html.escape(ui_label("ui.archive_species_help"))}</p>
             </div>
-            <a class="button-link" href="?id={html.escape(species_id, quote=True)}">{html.escape(ui_label("ui.cancel"))}</a>
+            <a class="button-link" href="{html.escape(modal_return_href, quote=True)}">{html.escape(ui_label("ui.cancel"))}</a>
           </header>
           <form method="post" action="" onsubmit="return confirm('Archive this species profile? It will be removed from active profiles but can be restored.')">
             <input type="hidden" name="profile_action" value="archive_profile">
@@ -1293,32 +1435,24 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
               <input id="profile-archive-species-id" value="{html.escape(species_id, quote=True)}" readonly>
             </div>
             <div class="modal-actions">
-              <a class="button-link" href="?id={html.escape(species_id, quote=True)}">{html.escape(ui_label("ui.cancel"))}</a>
+              <a class="button-link" href="{html.escape(modal_return_href, quote=True)}">{html.escape(ui_label("ui.cancel"))}</a>
               <button class="danger-button">{html.escape(ui_label("ui.archive_species"))}</button>
             </div>
           </form>
         </section>
       </div>
-      <details class="profile-raw-json">
-        <summary><strong>{html.escape(ui_label("ui.advanced_raw_json"))}</strong></summary>
-        <form class="profile-json-editor" method="post" action="?id={html.escape(species_id, quote=True)}" onsubmit="return confirm('Save raw JSON for this species profile and validate the full dataset?')">
-          <input type="hidden" name="profile_action" value="save_profile_json">
-          <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-          <input type="hidden" name="profile_return_tab" value="profile-tab-json">
-          <label class="label" for="profile-json">{html.escape(ui_label("ui.species_profile_json"))}</label>
-          <textarea id="profile-json" name="profile_json" spellcheck="false">{html.escape(json_value)}</textarea>
-          <button class="primary">{html.escape(ui_label("ui.save_raw_json"))}</button>
-        </form>
-      </details>
+      {raw_json_details}
     </section>
     """
 
 
-def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[str, object], search: str = "") -> str:
+def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[str, object], search: str = "", profile_view: str = "enriched") -> str:
     """Render the top-level Parameters screen using real profile model fields."""
     if not profile:
         return f'<section class="card profile-section-screen"><h2>{html.escape(ui_label("ui.parameters"))}</h2><p>{html.escape(ui_label("ui.no_species_selected"))}</p></section>'
     species_id = str(profile.get("species_id", ""))
+    profile_view = normalize_profile_view(profile_view)
+    v0_mode = is_v0_view(profile_view)
     ecology = nested_dict(profile, "ecology")
     phenology = nested_dict(profile, "phenology")
     topography = nested_dict(profile, "topography")
@@ -1336,15 +1470,8 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
     lithology_labels = catalog_label_map(catalogs, "lithology_types")
     habitat_labels = catalog_label_map(catalogs, "habitat_features")
     scoring_total = sum(float(value) for value in scoring.values() if isinstance(value, int | float))
-    species_href = profile_query_url(species_id, search, section="species")
-    return f"""
-    <section class="card profile-section-screen parameters-screen">
-      {render_selected_species_header(profile, ui_label("ui.parameters"))}
-      <form method="post" action="{html.escape(profile_query_url(species_id, search, section='parameters'), quote=True)}" onsubmit="return confirm('Save parameter changes for this species and validate the full mushroom dataset?')">
-        <input type="hidden" name="profile_action" value="save_profile_parameters">
-        <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-        <div class="profile-parameters-grid">
-          <div class="parameter-left-stack">
+    species_href = profile_query_url(species_id, search, section="species", profile_view=profile_view)
+    climate_card = "" if v0_mode else f"""
             <article class="profile-section-card">
               <h2>{icon("weather")} {html.escape(ui_label("ui.climate_model"))}</h2>
               <p class="parameter-card-note">{html.escape(ui_label("ui.weather_thresholds_note"))}</p>
@@ -1367,6 +1494,8 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
                 </div>
               </div>
             </article>
+    """
+    scoring_card = "" if v0_mode else f"""
             <article class="profile-section-card">
               <h2>{icon("scoring")} {html.escape(ui_label("ui.scoring_weights"))}</h2>
               <div class="profile-scoring-total"><span>{html.escape(ui_label("ui.current_total"))}</span><strong>{scoring_total:.2f}</strong><em>{html.escape(ui_label("ui.target"))}: 1.00</em></div>
@@ -1374,6 +1503,30 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
                 {''.join(parameter_field(f"score_{key}", parameter_label(key), value, step="0.01", minimum="0", maximum="1") for key, value in scoring.items())}
               </div>
             </article>
+    """
+    lithology_row = "" if v0_mode else value_html_row(ui_label("ui.lithology"), affinity_chip_list(ecology, "lithology_affinities", lithology_labels, profile_view=profile_view))
+    optimal_altitude_fields = "" if v0_mode else (
+        f'{parameter_field("altitude_optimal_min_m", parameter_label("altitude_optimal_min_m"), topography.get("altitude_optimal_min_m", ""), unit="m")}'
+        f'{parameter_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), unit="m")}'
+    )
+    delay_fields = "" if v0_mode else f"""
+                <div class="parameter-duo-grid">
+                  {parameter_field("delay_min", ui_label("ui.delay_min"), delay.get("min", ""), unit="d")}
+                  {parameter_field("delay_optimal_min", ui_label("ui.delay_optimal_min"), delay.get("optimal_min", ""), unit="d")}
+                  {parameter_field("delay_optimal_max", ui_label("ui.delay_optimal_max"), delay.get("optimal_max", ""), unit="d")}
+                  {parameter_field("delay_max", ui_label("ui.delay_max"), delay.get("max", ""), unit="d")}
+                </div>
+    """
+    return f"""
+    <section class="card profile-section-screen parameters-screen">
+      {render_selected_species_header(profile, ui_label("ui.parameters"))}
+      <form method="post" action="{html.escape(profile_query_url(species_id, search, section='parameters', profile_view=profile_view), quote=True)}" onsubmit="return confirm('Save parameter changes for this species and validate the full mushroom dataset?')">
+        <input type="hidden" name="profile_action" value="save_profile_parameters">
+        <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+        <div class="profile-parameters-grid">
+          <div class="parameter-left-stack">
+            {climate_card}
+            {scoring_card}
           </div>
           <article class="profile-section-card">
             <h2>{icon("ecology")} {html.escape(ui_label("ui.habitat_model"))}</h2>
@@ -1382,26 +1535,25 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
               <div class="profile-subsection">
                 <h3>{icon("host")} {html.escape(ui_label("ui.ecology_and_habitat"))}</h3>
                 {form_catalog_select("trophic_mode_id", ui_label("ui.trophic_mode"), ecology.get("trophic_mode_id", ""), catalog_options_for_group(catalogs, "trophic_modes"))}
-                {value_html_row(ui_label("ui.primary_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, "primary"))}
-                {value_html_row(ui_label("ui.secondary_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, "secondary"))}
-                {value_html_row(ui_label("ui.other_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, exclude_relationships={"primary", "secondary"}))}
-                {value_html_row(ui_label("ui.forest_types"), affinity_chip_list(ecology, "forest_type_affinities", forest_labels))}
-                {value_html_row(ui_label("ui.habitat_features"), affinity_chip_list(ecology, "habitat_feature_affinities", habitat_labels))}
+                {value_html_row(ui_label("ui.primary_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, "primary", profile_view=profile_view))}
+                {value_html_row(ui_label("ui.secondary_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, "secondary", profile_view=profile_view))}
+                {value_html_row(ui_label("ui.other_hosts"), affinity_chip_list(ecology, "host_affinities", host_labels, exclude_relationships={"primary", "secondary"}, profile_view=profile_view))}
+                {value_html_row(ui_label("ui.forest_types"), affinity_chip_list(ecology, "forest_type_affinities", forest_labels, profile_view=profile_view))}
+                {value_html_row(ui_label("ui.habitat_features"), affinity_chip_list(ecology, "habitat_feature_affinities", habitat_labels, profile_view=profile_view))}
                 <p class="meta">{html.escape(ui_label("ui.edit_affinities_note"))}</p>
               </div>
               <div class="profile-subsection">
                 <h3>{icon("soil")} {html.escape(ui_label("ui.soils_and_lithology"))}</h3>
-                {value_html_row(ui_label("ui.soils"), affinity_chip_list(ecology, "soil_affinities", soil_labels))}
-                {value_html_row(ui_label("ui.lithology"), affinity_chip_list(ecology, "lithology_affinities", lithology_labels))}
+                {value_html_row(ui_label("ui.soils"), affinity_chip_list(ecology, "soil_affinities", soil_labels, profile_view=profile_view))}
+                {lithology_row}
                 <p class="meta">{html.escape(ui_label("ui.affinity_ids_note"))}</p>
               </div>
               <div class="profile-subsection">
                 <h3>{icon("topography")} {html.escape(ui_label("ui.topography"))}</h3>
                 <div class="parameter-duo-grid">
                   {parameter_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), unit="m")}
-                  {parameter_field("altitude_optimal_min_m", parameter_label("altitude_optimal_min_m"), topography.get("altitude_optimal_min_m", ""), unit="m")}
-                  {parameter_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), unit="m")}
                   {parameter_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), unit="m")}
+                  {optimal_altitude_fields}
                 </div>
                 {form_catalog_toggles("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), catalogs, "aspects")}
                 {parameter_textarea("aspect_notes", ui_label("site_context.aspect_notes"), topography.get("aspect_notes", ""), rows=1)}
@@ -1411,12 +1563,7 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
                 {parameter_textarea("main_months", ui_label("ui.main_months"), phenology.get("main_months", []), rows=1)}
                 {parameter_textarea("secondary_months", ui_label("ui.secondary_months"), phenology.get("secondary_months", []), rows=1)}
                 {form_catalog_toggles("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), catalogs, "season_patterns")}
-                <div class="parameter-duo-grid">
-                  {parameter_field("delay_min", ui_label("ui.delay_min"), delay.get("min", ""), unit="d")}
-                  {parameter_field("delay_optimal_min", ui_label("ui.delay_optimal_min"), delay.get("optimal_min", ""), unit="d")}
-                  {parameter_field("delay_optimal_max", ui_label("ui.delay_optimal_max"), delay.get("optimal_max", ""), unit="d")}
-                  {parameter_field("delay_max", ui_label("ui.delay_max"), delay.get("max", ""), unit="d")}
-                </div>
+                {delay_fields}
               </div>
             </div>
           </article>

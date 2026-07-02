@@ -1864,6 +1864,11 @@
     "es": "Preferida",
     "ca": "Preferida"
   },
+  "value.source": {
+    "en": "Source",
+    "es": "Fuente",
+    "ca": "Font"
+  },
   "value.secondary": {
     "en": "Secondary",
     "es": "Secundaria",

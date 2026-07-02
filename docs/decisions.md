@@ -124,6 +124,50 @@ Consecuencias:
 - Las fuentes bloqueadas por Cloudflare/Anubis/paywall no deben guardarse como falsos PDFs ni tratarse como leidas completas.
 - Si no hay evidencia suficiente, la salida correcta del motor o de la documentacion es "datos insuficientes", no un parametro inventado.
 
+## 2026-07-02 - Perfiles v0 promovidos dentro del schema rico
+
+Decision:
+
+- Promover la primera carga v0 a `mushroom-data/mushroom_profiles.json`.
+- Mantener la estructura rica completa de `mushroom_profiles.json`, pero
+  tratar como activos v0 solo ecologia amplia, temporada, altitud amplia y
+  estado de revision/calibracion.
+- Conservar la UI rica actual como vista avanzada/aparcada. La futura UI v0
+  debe mostrar solo campos activos, no borrar ni reescribir el trabajo rico.
+- Si el schema rico exige campos numericos para validar, permitir placeholders
+  marcados explicitamente como `v0_placeholder`. La proyeccion v0 no debe
+  usarlos como pesos ni parametros.
+- Conservar afinidades enriquecidas antiguas que no proceden de la fuente v0
+  dentro de los arrays ricos, pero marcarlas con `v0_active: false` para que la
+  proyeccion v0 las ignore.
+- Promover tambien los gaps de catalogo v0 a
+  `mushroom-data/mushroom_reference_catalogs.json`, siempre referenciandolos en
+  los perfiles productivos que los solicitaron para no introducir warnings de
+  catalogo sin uso.
+
+Motivo:
+
+- El usuario quiere evitar tirar el trabajo ya hecho en perfiles, catalogos y
+  UI, pero tambien necesita una v0 operativa y explicable.
+- La fuente normalizada cubre 21 especies, incluyendo las 11 iniciales y 10
+  especies incorporadas en esta promocion.
+- Los catalogos iniciales cubrian la mayor parte de la v0. Los gaps detectados
+  se promocionan de forma controlada junto con sus referencias de perfil.
+
+Estado:
+
+- Implementado `scripts/build-mushroom-profile-v0-candidate.py`.
+- Documentado en `docs/mushrooms/mushroom-profiles-v0-candidate-build-es.md`.
+- `mushroom-data/mushroom_profiles.json` contiene 21 perfiles productivos.
+- `mushroom-data/mushroom_reference_catalogs.json` contiene los 12 IDs nuevos
+  necesarios para cerrar los gaps v0 iniciales, con 32 referencias desde
+  perfiles.
+- El script sigue generando salidas revisables en
+  `tmp/mushroom-lab/working/profiles/` y reporte en
+  `tmp/mushroom-lab/output/reports/`.
+- Cubierto por `tests.test_mushroom_profile_v0_candidate_builder`.
+- No hay bump de version HA ni publicacion de imagen por esta decision.
+
 ## 2026-07-01 - GIS mappings como contrato revisable entre capas locales y catalogos internos
 
 Decision:
@@ -1614,16 +1658,22 @@ usar observaciones reales para enriquecer solo lo que demuestre valor.
 ### Consecuencias
 `mushroom_gis_mappings.json` puede conservar litologias y mappings detallados,
 pero el batch masivo de geologia debe priorizar tendencias edaficas amplias,
-por ejemplo mediante `geology_soil_tendency_mappings`. Las fichas escaneadas o
-fuentes literarias deben producir un seed experimental normalizado, separado de
-perfiles productivos, sin copiar texto largo ni inventar umbrales.
+por ejemplo mediante `geology_soil_tendency_mappings`.
+
+Aclaracion posterior del 2026-07-02: la v0 no debe interpretarse como reinicio
+en un JSON paralelo que sustituya el mantenimiento existente. `mushroom_profiles.json`
+sigue siendo la entidad principal y la v0 se expresa como proyeccion operativa
+de campos activos, iniciada en `rainmapper_core/mushroom_profile_v0.py` y
+documentada en `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`.
+La fuente estructurada revisada debe alimentar esos campos activos y catalogos
+compartidos, no descartar el perfil rico ni la UI actual.
 
 El schema rico y los campos ya existentes en `mushroom_profiles.json` quedan
-como compatibilidad, UI y posible arquitectura futura, no como contrato de la
-v0. La v0 no se considera incompleta por no rellenar cada parametro fino. La
-promocion de parametros adicionales solo debe ocurrir cuando haya soporte
-documental o patrones locales reproducibles a partir de observaciones y
-meteorologia historica.
+como compatibilidad, UI rica aparcada y posible arquitectura futura, no como
+contrato numerico de la v0. La v0 no se considera incompleta por no rellenar
+cada parametro fino. La promocion de parametros adicionales solo debe ocurrir
+cuando haya soporte documental o patrones locales reproducibles a partir de
+observaciones y meteorologia historica.
 
 Las observaciones reales no modifican automaticamente el modelo. Generan
 candidatos o hipotesis reproducibles: ventanas de lluvia observadas, rangos
@@ -1631,10 +1681,23 @@ altitudinales locales, asociaciones de bosque/suelo o gaps de datos. Cada
 candidato debe testearse en laboratorio y promocionarse manualmente si encaja
 con datos y literatura disponible.
 
+Actualizacion posterior del 2026-07-02: la UI de mantenimiento no se reinicia
+ni se duplica en otra aplicacion. `/mushrooms/profiles` incorpora dos modos
+sobre la misma estructura de datos: `Enriched`, que mantiene el editor completo
+existente, y `V0`, que filtra la vista a los campos operativos de la v0 y oculta
+campos aparcados. La vista `V0` es conservadora con la persistencia: no permite
+guardar un formulario completo mientras haya campos ocultos para evitar
+perdidas por POST parcial. La edicion completa, raw JSON e import/export quedan
+en `Enriched`.
+
 ### Ficheros afectados
 - `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`
 - `docs/mushrooms/mushroom-predictor-design-es.md`
+- `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
+- `rainmapper_core/mushroom_profile_v0.py`
 - `mushroom-data/mushroom_gis_mappings.json`
+- `rainmapper-app/app/mushroom_profiles_ui.py`
+- `rainmapper-app/app/web_server.py`
 - `scripts/validate-mushroom-data.py`
 
 ### Estado

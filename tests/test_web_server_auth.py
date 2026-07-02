@@ -246,6 +246,49 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Observations", page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
 
+    def test_mushroom_profiles_v0_view_hides_parked_and_enriched_fields(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured = {}
+
+        def capture_response(status: int, content: bytes, content_type: str) -> None:
+            captured["status"] = status
+            captured["content"] = content.decode("utf-8")
+            captured["content_type"] = content_type
+
+        handler.send_bytes = capture_response
+        handler.render_mushroom_profiles({"id": ["boletus_pinophilus"], "view": ["v0"]})
+
+        self.assertEqual(captured["status"], 200)
+        page = captured["content"]
+        self.assertIn("Boletus pinophilus", page)
+        self.assertIn('name="view" value="v0"', page)
+        self.assertIn("Aparcado para v0", page)
+        self.assertIn("host_abies_alba", page)
+        self.assertNotIn("host_picea_spp", page)
+        self.assertNotIn('id="profile-tab-weather"', page)
+        self.assertNotIn('id="profile-tab-scoring"', page)
+        self.assertNotIn('id="profile-tab-json"', page)
+        self.assertNotIn('name="score_habitat"', page)
+        self.assertNotIn('id="profile-json"', page)
+
     def test_mushroom_profiles_page_renders_top_level_sections(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
@@ -1687,7 +1730,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Norte", html)
         self.assertIn("Mixta", html)
         self.assertIn('name="main_months" value="6" checked', editor_html)
-        self.assertIn('name="secondary_months" value="5" checked', editor_html)
+        self.assertIn('name="secondary_months" value="10" checked', editor_html)
         self.assertIn('name="season_pattern_ids" value="season_summer" checked', editor_html)
         self.assertIn('name="preferred_aspect_ids" value="aspect_N" checked', editor_html)
         self.assertNotIn('textarea id="profile-main_months"', editor_html)

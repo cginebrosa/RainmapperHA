@@ -8,6 +8,7 @@ Documentos relacionados:
 
 - `docs/mushrooms/mushroom-local-observation-lab-es.md`
 - `docs/mushrooms/mushroom-predictor-design-es.md`
+- `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
 - `docs/mushrooms/mushroom-observations-schema-es.md`
 - `docs/mushrooms/mushroom-gis-mappings-reference-es.md`
 - `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`
@@ -66,10 +67,13 @@ punto del mapa
 La primera carga de conocimiento por especie puede venir de fichas escaneadas o
 libros revisados por el usuario, pero debe convertirse a datos normalizados y
 revisables. No debe copiar texto largo de las fuentes ni fijar umbrales
-meteorologicos por intuicion. El output inicial recomendado es un JSON
-experimental de seed literario, separado de perfiles productivos, con campos de
-suelo, vegetacion, habitat, altitud/temporada aproximadas y estado
-`needs_review`.
+meteorologicos por intuicion. El output inicial recomendado no es un modelo
+paralelo definitivo, sino una proyeccion v0 operativa de
+`mushroom_profiles.json`: campos activos minimos de suelo amplio, vegetacion,
+habitat, altitud/temporada aproximadas y estado de revision/calibracion. El
+contrato esta documentado en
+`docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md` y en
+`rainmapper_core/mushroom_profile_v0.py`.
 
 Despues, las observaciones reales deben servir para inferir parametros nuevos o
 refinar parametros existentes, pero no para modificar el modelo a ciegas. El
@@ -114,6 +118,8 @@ Fuera de alcance de v0:
   evidencia documental o local verificable;
 - promocionar automaticamente hipotesis inferidas desde pocas observaciones;
 - tratar el catalogo fino como una lista de campos obligatorios.
+- descartar la UI rica actual de perfiles; debe quedar aparcada como vista
+  avanzada/futura mientras la UI v0 muestra solo los campos activos.
 
 ## Reglas criticas
 
@@ -568,5 +574,5 @@ Estado al crear este plan:
 - HA sigue en `0.2.180`.
 - El laboratorio local y la UI de observaciones ya permiten cargar observaciones reales en `docker-data/`.
 - El contenedor `rainmapper-ha-ui` queda parado tras ejecutar `./mushroom_lab_stop.sh`; auditoria Docker del 2026-07-02 no muestra servicios activos y `docker-data/` queda preservado.
-- La mini-fase GIS acotada ya produjo UI `GIS mappings`, rebuild batch reutilizable y reglas declarativas de tendencia edafica amplia. El siguiente trabajo tecnico sera definir el schema minimo del seed literario v0 y despues implementar la Fase 1 como `observation_context_builder` local experimental.
+- La mini-fase GIS acotada ya produjo UI `GIS mappings`, rebuild batch reutilizable y reglas declarativas de tendencia edafica amplia. El contrato operativo v0 de perfiles queda iniciado como proyeccion de `mushroom_profiles.json`, no como descarte del modelo ni de la UI rica. El siguiente trabajo tecnico sera completar esa proyeccion con la nueva fuente estructurada y despues implementar la Fase 1 como `observation_context_builder` local experimental.
 - Este documento sera la guia que se ira adaptando segun decisiones sobre metodo meteorologico, DEM/GIS y generacion de candidatos.

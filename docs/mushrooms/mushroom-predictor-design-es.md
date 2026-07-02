@@ -85,9 +85,18 @@ arquitectura futura de enriquecimiento avanzado, no como objetivo de cierre de
 la v0. La v0 no debe intentar rellenar todos los campos actuales de
 `mushroom_profiles.json`, ni usar pesos, ventanas meteorológicas o litologías
 finas por especie como si fueran verdad productiva. Esos campos pueden
-mantenerse por compatibilidad de datos, UI y exploración, pero los valores
-efectivos de la v0 deben salir de un seed literario mínimo, trazable y revisable,
-y de observaciones locales contrastadas cuando existan suficientes datos.
+mantenerse por compatibilidad de datos, UI y exploración. Los valores efectivos
+de la v0 deben salir de una proyección mínima y trazable del perfil mantenido,
+documentada en `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
+y en `rainmapper_core/mushroom_profile_v0.py`, enriquecida después con la fuente
+estructurada revisada y observaciones locales contrastadas cuando existan
+suficientes datos.
+
+Esta decisión evita reiniciar el mantenimiento desde cero: `mushroom_profiles.json`,
+`mushroom_reference_catalogs.json`, `mushroom_gis_mappings.json` y la UI rica
+actual se conservan. La futura UI v0 debe usar la misma base de mantenimiento,
+pero mostrar solo los campos activos de v0 y aparcar los bloques ricos como vista
+avanzada/futura.
 
 ## 2. Fuentes fiables usadas como referencia
 

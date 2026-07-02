@@ -706,6 +706,80 @@
           "prat",
           "pastizal"
         ]
+      },
+      {
+        "id": "host_corylus_avellana",
+        "rank": "species",
+        "scientific_name": "Corylus avellana",
+        "genus": "Corylus",
+        "family": "Betulaceae",
+        "common_names": {
+          "es": [
+            "avellano"
+          ],
+          "ca": [
+            "avellaner"
+          ],
+          "en": [
+            "hazel"
+          ]
+        },
+        "parent_id": null,
+        "gis_aliases": [
+          "Corylus avellana",
+          "hazel",
+          "avellano",
+          "avellaner"
+        ]
+      },
+      {
+        "id": "host_quercus_coccifera",
+        "rank": "species",
+        "scientific_name": "Quercus coccifera",
+        "genus": "Quercus",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "coscoja"
+          ],
+          "ca": [
+            "garric"
+          ],
+          "en": [
+            "kermes oak"
+          ]
+        },
+        "parent_id": "host_quercus_spp",
+        "gis_aliases": [
+          "Quercus coccifera",
+          "coscoja",
+          "garric",
+          "kermes oak"
+        ]
+      },
+      {
+        "id": "host_quercus_faginea",
+        "rank": "species",
+        "scientific_name": "Quercus faginea",
+        "genus": "Quercus",
+        "family": "Fagaceae",
+        "common_names": {
+          "es": [
+            "quejigo"
+          ],
+          "ca": [
+            "roure valencia"
+          ],
+          "en": [
+            "Portuguese oak"
+          ]
+        },
+        "parent_id": "host_quercus_spp",
+        "gis_aliases": [
+          "Quercus faginea",
+          "quejigo",
+          "roure valencia"
+        ]
       }
     ],
     "forest_types": [
@@ -1949,6 +2023,78 @@
           "es": "Bosque abierto y cálido",
           "ca": "Bosc obert i càlid",
           "en": "Open warm woodland"
+        }
+      },
+      {
+        "id": "feature_blueberry_understory",
+        "label": {
+          "es": "Sotobosque de arandano",
+          "ca": "Sotabosc de nabiu",
+          "en": "Blueberry understory"
+        }
+      },
+      {
+        "id": "feature_calcicolous_shrubland",
+        "label": {
+          "es": "Matorral calcicola",
+          "ca": "Matollar calcicola",
+          "en": "Calcicolous shrubland"
+        }
+      },
+      {
+        "id": "feature_disturbed_soil",
+        "label": {
+          "es": "Suelo removido",
+          "ca": "Sol remogut",
+          "en": "Disturbed soil"
+        }
+      },
+      {
+        "id": "feature_heath_rockrose_understory",
+        "label": {
+          "es": "Sotobosque de brezos o jaras",
+          "ca": "Sotabosc de brucs o estepes",
+          "en": "Heath or rockrose understory"
+        }
+      },
+      {
+        "id": "feature_mature_forest",
+        "label": {
+          "es": "Bosque maduro",
+          "ca": "Bosc madur",
+          "en": "Mature forest"
+        }
+      },
+      {
+        "id": "feature_mediterranean_shrubland",
+        "label": {
+          "es": "Matorral mediterraneo",
+          "ca": "Matollar mediterrani",
+          "en": "Mediterranean shrubland"
+        }
+      },
+      {
+        "id": "feature_moist_forest",
+        "label": {
+          "es": "Bosque humedo",
+          "ca": "Bosc humit",
+          "en": "Moist forest"
+        }
+      },
+      {
+        "id": "feature_organic_debris",
+        "label": {
+          "es": "Restos organicos visibles",
+          "ca": "Restes organiques visibles",
+          "en": "Organic debris"
+        }
+      },
+      {
+        "id": "feature_shaded_slope",
+        "label": {
+          "es": "Umbria",
+          "ca": "Obaga",
+          "en": "Shaded slope"
         }
       }
     ],
