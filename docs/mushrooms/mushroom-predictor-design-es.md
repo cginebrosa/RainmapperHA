@@ -98,6 +98,87 @@ actual se conservan. La futura UI v0 debe usar la misma base de mantenimiento,
 pero mostrar solo los campos activos de v0 y aparcar los bloques ricos como vista
 avanzada/futura.
 
+### 1.2 Modelo aprendido v0 desde observaciones locales
+
+El primer `mushroom_model_v0.json` generado por
+`mushroom_learned_model_v0_build.sh` no es todavia el predictor operativo. Es
+una capa descriptiva y auditable que resume que dicen las observaciones locales
+ya reconstruidas sobre cada especie.
+
+Entrada actual:
+
+- `docker-data/mushroom-lab/working/features/observation_features_v0.json`;
+- observaciones incluidas para calibracion local y con estado valido;
+- contexto GIS v0 por observacion: hosts, bosques, suelos, habitat y altitud;
+- meteorologia reconstruida por observacion: lluvia 1/7/14/21/30/60/90,
+  temperatura 7/14/21/30 y humedad 7/14/21/30;
+- gaps meteorologicos, GIS o de feature conservados como datos de calidad.
+
+Salida actual:
+
+- un bloque por especie;
+- numero de observaciones usadas;
+- separacion entre observaciones positivas y negativas;
+- soporte de variables categoricas: cuantas positivas/negativas contienen cada
+  host, bosque, suelo o rasgo de habitat;
+- ratios positivo/negativo cuando hay datos suficientes;
+- rangos numericos observados en positivos y negativos: minimo, maximo y media
+  para altitud, lluvia, temperatura y humedad;
+- gaps agregados por especie.
+
+Lo que hace:
+
+- permite auditar si los valores declarados en `mushroom_profiles.json` estan
+  apoyados por observaciones locales;
+- muestra candidatos o contradicciones potenciales, por ejemplo un host
+  observado que no esta declarado o un suelo declarado que no aparece en ninguna
+  observacion;
+- permite comparar positivos contra negativos cuando existan observaciones de
+  ausencia o salidas negativas suficientes;
+- sirve como base para generar candidatos revisables por especie.
+
+Lo que no hace todavia:
+
+- no predice floradas por celda ni por fecha;
+- no calcula un score operativo;
+- no modifica `mushroom_profiles.json`;
+- no promociona automaticamente hosts, suelos, habitats, altitudes, meses ni
+  rangos meteorologicos;
+- no fija pesos, umbrales ni ventanas meteorologicas por especie;
+- no debe interpretarse como evidencia fuerte si solo hay pocas observaciones o
+  si solo hay positivos y ninguna negativa.
+
+La pantalla `Evidencia > Modelo aprendido` es por tanto un detalle tecnico de
+auditoria. Para que sea realmente util en mantenimiento, esa informacion debe
+aparecer junto al dato que se esta revisando:
+
+- en `Parametros`, al lado de hosts, bosques, suelos, habitat, altitud,
+  fenologia y metricas meteorologicas v0;
+- en `Especies > General`, como resumen compacto de observaciones usadas,
+  gaps, contradicciones principales y estado de aprendizaje;
+- en `Especies > Ecologia`, junto a cada host/bosque/suelo/habitat declarado o
+  candidato;
+- en `Especies > Fenologia y Topografia`, comparando meses y rango altitudinal
+  declarados con lo observado;
+- en meteorologia, como rangos observados y alertas de calidad de datos, no
+  como parametros productivos aprobados automaticamente.
+
+El flujo correcto sigue siendo no destructivo:
+
+```text
+observacion aprobada
+  -> features v0 reconstruidas
+  -> modelo aprendido descriptivo
+  -> evidencia visible junto al parametro
+  -> decision humana o candidato revisable
+  -> promocion manual y trazable si procede
+```
+
+Esta capa puede evolucionar hacia un modelo estadistico o ML sencillo, pero debe
+mantener explicabilidad y trazabilidad. El primer uso no debe ser "aprobar pesos
+a mano", sino ayudar a detectar relaciones observadas y discrepancias entre el
+perfil base y los datos reales.
+
 ## 2. Fuentes fiables usadas como referencia
 
 Se han priorizado papers científicos y fuentes primarias. Las aplicaciones comerciales o páginas de pronóstico sin metodología pública no se consideran base suficiente para el diseño.

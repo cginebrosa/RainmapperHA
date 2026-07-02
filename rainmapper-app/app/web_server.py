@@ -33,6 +33,8 @@ import mushroom_catalogs_ui
 import mushroom_gis_mappings_ui
 import mushroom_profiles_ui
 from rainmapper_core import mushroom_gis_lab
+from rainmapper_core import mushroom_learned_model
+from rainmapper_core import mushroom_observation_context
 from rainmapper_core import mushroom_observation_features
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
 from rainmapper_core.mushroom_validation import (
@@ -1777,6 +1779,31 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-size: 20px;
       margin: 0 0 4px;
     }}
+    .profile-hero-side {{
+      align-items: flex-end;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: min(420px, 42vw);
+    }}
+    .profile-header-selector {{
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      max-width: 100%;
+    }}
+    .profile-header-selector label {{
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }}
+    .profile-header-selector select {{
+      max-width: min(360px, 36vw);
+      min-width: 220px;
+    }}
     .profile-hero-icon {{
       align-items: center;
       border: 1px solid rgba(148, 163, 184, .35);
@@ -3212,31 +3239,68 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       stroke-width: 2;
       width: 18px;
     }}
-    .weather-evidence-ranges {{
+    .weather-evidence .evidence-summary-cards {{
       display: grid;
       gap: 8px;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
     }}
-    .weather-evidence-ranges > div {{
+    .weather-evidence .evidence-summary-cards .profile-metric {{
+      min-width: 0;
+      padding: 7px 9px;
+    }}
+    .weather-evidence .evidence-summary-cards .label,
+    .weather-evidence .evidence-summary-cards .value {{
+      white-space: nowrap;
+    }}
+    .weather-evidence-ranges {{
       background: rgba(8, 17, 27, .42);
       border: 1px solid rgba(45, 58, 71, .65);
-      border-radius: 8px;
-      min-width: 0;
-      padding: 8px 10px;
+      border-radius: 6px;
+      min-height: 0;
+      overflow: auto;
     }}
-    .weather-evidence-ranges .label {{
+    .weather-evidence-ranges table {{
+      border-collapse: collapse;
+      min-width: 100%;
+      table-layout: fixed;
+    }}
+    .weather-evidence-ranges th,
+    .weather-evidence-ranges td {{
+      border-bottom: 1px solid rgba(45, 58, 71, .5);
+      padding: 5px 8px;
+      text-align: left;
+      white-space: nowrap;
+    }}
+    .weather-evidence-ranges thead th {{
+      background: rgba(15, 25, 36, .92);
       color: var(--muted);
-      display: block;
       font-size: 11px;
       font-weight: 800;
-      margin-bottom: 4px;
+      position: sticky;
+      text-transform: uppercase;
+      top: 0;
+      z-index: 1;
     }}
-    .weather-evidence-ranges strong {{
+    .weather-evidence-ranges tbody th,
+    .weather-evidence-ranges td {{
       color: var(--fg);
-      font-size: 13px;
+      font-size: 12px;
+      line-height: 1.1;
+    }}
+    .weather-evidence-ranges tbody th {{
+      font-weight: 900;
+    }}
+    .weather-evidence-ranges th:nth-child(1) {{
+      width: 44%;
+    }}
+    .weather-evidence-ranges th:nth-child(2),
+    .weather-evidence-ranges th:nth-child(3),
+    .weather-evidence-ranges td:nth-child(2),
+    .weather-evidence-ranges td:nth-child(3) {{
+      width: 28%;
     }}
     .weather-evidence-table table {{
-      min-width: 1180px;
+      min-width: 1820px;
     }}
     .weather-evidence-table {{
       min-height: 0;
@@ -3254,13 +3318,98 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .weather-evidence-table td:nth-child(2) {{
       width: 120px;
     }}
-    .weather-evidence-table th:nth-child(9),
-    .weather-evidence-table td:nth-child(9) {{
+    .weather-evidence-table th:nth-child(18),
+    .weather-evidence-table td:nth-child(18) {{
       width: 130px;
     }}
-    .weather-evidence-table th:nth-child(10),
-    .weather-evidence-table td:nth-child(10) {{
-      width: 180px;
+    .weather-evidence-table th:nth-child(19),
+    .weather-evidence-table td:nth-child(19) {{
+      width: 170px;
+    }}
+    .learned-model-panel {{
+      display: grid;
+      gap: 12px;
+      min-height: 0;
+      overflow: hidden;
+    }}
+    .learned-model-panel h3,
+    .learned-model-panel h4 {{
+      margin: 0;
+    }}
+    .learned-model-toolbar {{
+      align-items: start;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }}
+    .learned-model-toolbar form {{
+      flex: 0 0 auto;
+    }}
+    .learned-model-summary {{
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }}
+    .learned-model-grid {{
+      display: grid;
+      gap: 12px;
+      grid-template-rows: minmax(220px, .8fr) minmax(260px, 1fr);
+      min-height: 0;
+    }}
+    .learned-model-grid > section {{
+      display: grid;
+      gap: 8px;
+      min-height: 0;
+    }}
+    .learned-model-table {{
+      max-height: none;
+      min-height: 0;
+    }}
+    .learned-model-table table {{
+      min-width: 980px;
+    }}
+    .learned-model-table-categorical th:nth-child(1),
+    .learned-model-table-categorical td:nth-child(1) {{
+      width: 32%;
+    }}
+    .learned-model-table-categorical th:nth-child(2),
+    .learned-model-table-categorical td:nth-child(2) {{
+      width: 18%;
+    }}
+    .learned-model-table-categorical th:nth-child(3),
+    .learned-model-table-categorical td:nth-child(3),
+    .learned-model-table-categorical th:nth-child(4),
+    .learned-model-table-categorical td:nth-child(4),
+    .learned-model-table-categorical th:nth-child(5),
+    .learned-model-table-categorical td:nth-child(5) {{
+      width: 12%;
+    }}
+    .learned-model-table.numeric table {{
+      min-width: 840px;
+      table-layout: fixed;
+    }}
+    .learned-model-table.numeric th:nth-child(1),
+    .learned-model-table.numeric td:nth-child(1) {{
+      width: 34%;
+    }}
+    .learned-model-table.numeric th:nth-child(2),
+    .learned-model-table.numeric td:nth-child(2),
+    .learned-model-table.numeric th:nth-child(3),
+    .learned-model-table.numeric td:nth-child(3) {{
+      width: 33%;
+    }}
+    .learned-model-table th,
+    .learned-model-table td {{
+      white-space: nowrap;
+    }}
+    .learned-numeric-count {{
+      display: inline-block;
+      font-weight: 800;
+      min-width: 22px;
+    }}
+    .learned-numeric-range {{
+      display: inline-block;
+      font-weight: 700;
+      margin-left: 10px;
+      min-width: 150px;
     }}
     .evidence-status,
     .evidence-decision {{
@@ -4155,6 +4304,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .weather-evidence {{
         overflow: visible;
       }}
+      .weather-evidence .evidence-summary-cards {{
+        grid-template-columns: 1fr;
+      }}
+      .learned-model-summary {{
+        grid-template-columns: 1fr;
+      }}
+      .learned-model-toolbar {{
+        align-items: stretch;
+        flex-direction: column;
+      }}
+      .learned-model-grid {{
+        grid-template-rows: auto;
+      }}
       .evidence-table-shell {{
         max-height: min(520px, 70vh);
       }}
@@ -4168,6 +4330,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       .profile-hero-chips {{
         justify-content: start;
+      }}
+      .profile-hero-side {{
+        align-items: stretch;
+        min-width: 0;
+        width: 100%;
+      }}
+      .profile-header-selector {{
+        justify-content: start;
+      }}
+      .profile-header-selector select {{
+        max-width: 100%;
+        min-width: 0;
+        width: 100%;
       }}
       .profile-section-banner {{
         align-items: start;
@@ -8515,9 +8690,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_class = "ok" if not errors else "danger"
         section_tabs = mushroom_profiles_ui.render_section_tabs(section, selected_id, search, profile_view)
         if section == "parameters":
-            main_content = mushroom_profiles_ui.render_parameters_section(selected, catalogs, search, profile_view)
+            main_content = mushroom_profiles_ui.render_parameters_section(selected, catalogs, profiles, search, profile_view)
         elif section == "calibration":
-            main_content = mushroom_profiles_ui.render_calibration_section(selected, search)
+            main_content = mushroom_profiles_ui.render_calibration_section(selected, profiles, search)
         elif section == "observations":
             observation_filters = {
                 "date_from": (query.get("date_from") or [""])[0],
@@ -8546,15 +8721,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         elif section == "evidence":
             evidence_view = (query.get("evidence_view") or ["gis"])[0]
             main_content = mushroom_profiles_ui.render_local_evidence_section(
-                selected,
-                catalogs,
-                mushroom_gis_lab.load_latest_reconstruction(),
-                mushroom_observation_features.load_latest_features(),
-                evidence_decisions_payload,
-                search,
-                profile_view,
-                evidence_view,
+                profile=selected,
+                catalogs=catalogs,
+                reconstruction_payload=mushroom_gis_lab.load_latest_reconstruction(),
+                observation_features_payload=mushroom_observation_features.load_latest_features(),
+                decisions_payload=evidence_decisions_payload,
+                learned_model_payload=mushroom_learned_model.load_latest_model(),
+                search=search,
+                profile_view=profile_view,
+                evidence_view=evidence_view,
                 observations_payload=observations_payload,
+                profiles=profiles,
             )
         elif section == "summary":
             main_content = (
@@ -9060,6 +9237,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 ok, message = save_evidence_decision(store, species_id, group, item_id, decision)
                 set_mushroom_profiles_flash(message)
                 return evidence_return_url(species_id, profile_view=profile_view, evidence_view=evidence_view)
+            if action == "rebuild_learned_model_v0":
+                profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
+                mushroom_observation_context.build_and_write_observation_weather_features()
+                features_payload = mushroom_observation_features.build_and_write_observation_features_v0()
+                learned_payload = mushroom_learned_model.build_and_write_learned_model_v0()
+                features_summary = features_payload.get("summary") if isinstance(features_payload.get("summary"), dict) else {}
+                learned_summary = learned_payload.get("summary") if isinstance(learned_payload.get("summary"), dict) else {}
+                set_mushroom_profiles_flash(
+                    "Learned v0 model rebuilt: "
+                    f"{learned_summary.get('observations', 0)} used observation(s), "
+                    f"{learned_summary.get('excluded_observations', 0)} excluded, "
+                    f"{learned_summary.get('species', 0)} species. "
+                    f"Joined features: {features_summary.get('observations', 0)} observation(s)."
+                )
+                return evidence_return_url(species_id, profile_view=profile_view, evidence_view="learned_model")
             if action == "create_profile":
                 new_species_id = catalog_form_string(form, "new_species_id")
                 scientific_name = catalog_form_string(form, "new_scientific_name")

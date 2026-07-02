@@ -950,7 +950,67 @@ def render_profile_view_switch(selected_id: str, search: str, section: str, prof
     )
 
 
-def render_selected_species_header(profile: dict[str, object] | None, section: str) -> str:
+def species_header_selector(
+    profiles: list[dict[str, object]] | None,
+    selected_id: str,
+    *,
+    search: str = "",
+    section_key: str = "",
+    profile_view: str = "enriched",
+    evidence_view: str = "",
+    include_all: bool = False,
+    all_selected: bool = False,
+    select_name: str = "id",
+) -> str:
+    """Render a compact species selector for section headers."""
+    if not profiles:
+        return ""
+    options = []
+    if include_all:
+        options.append(
+            f'<option value="__all__"{" selected" if all_selected else ""}>{html.escape(ui_label("ui.all_species"))}</option>'
+        )
+    for item in profiles:
+        species_id = str(item.get("species_id", "") or "")
+        if not species_id:
+            continue
+        selected = " selected" if not all_selected and species_id == selected_id else ""
+        label = str(item.get("scientific_name", species_id) or species_id)
+        common = profile_common_name(item)
+        visible_label = f"{label} - {common}" if common else label
+        options.append(f'<option value="{html.escape(species_id, quote=True)}"{selected}>{html.escape(visible_label)}</option>')
+    if not options:
+        return ""
+    hidden = []
+    if section_key:
+        hidden.append(f'<input type="hidden" name="section" value="{html.escape(section_key, quote=True)}">')
+    if search:
+        hidden.append(f'<input type="hidden" name="q" value="{html.escape(search, quote=True)}">')
+    if profile_view and normalize_profile_view(profile_view) == "v0":
+        hidden.append('<input type="hidden" name="view" value="v0">')
+    if evidence_view:
+        hidden.append(f'<input type="hidden" name="evidence_view" value="{html.escape(evidence_view, quote=True)}">')
+    return (
+        '<form class="profile-header-selector" method="get" action="">'
+        f'<label>{html.escape(ui_label("ui.change_species"))}</label>'
+        f'{"".join(hidden)}'
+        f'<select name="{html.escape(select_name, quote=True)}" onchange="this.form.submit()">{"".join(options)}</select>'
+        "</form>"
+    )
+
+
+def render_selected_species_header(
+    profile: dict[str, object] | None,
+    section: str,
+    profiles: list[dict[str, object]] | None = None,
+    search: str = "",
+    section_key: str = "",
+    profile_view: str = "enriched",
+    evidence_view: str = "",
+    include_all: bool = False,
+    all_selected: bool = False,
+    select_name: str = "id",
+) -> str:
     """Render the selected species banner shared by section-level screens."""
     if not profile:
         return f'<section class="card profile-section-screen"><h2>{html.escape(ui_label("ui.no_species_selected"))}</h2><p class="meta">{html.escape(ui_label("ui.create_or_select_species"))}</p></section>'
@@ -966,6 +1026,17 @@ def render_selected_species_header(profile: dict[str, object] | None, section: s
             value_chip(metadata.get("review_status", "-"), ui_label("ui.review_status")),
         ]
     )
+    selector = species_header_selector(
+        profiles,
+        species_id,
+        search=search,
+        section_key=section_key,
+        profile_view=profile_view,
+        evidence_view=evidence_view,
+        include_all=include_all,
+        all_selected=all_selected,
+        select_name=select_name,
+    )
     return f"""
     <header class="profile-section-banner">
       <div class="profile-title-block">
@@ -976,13 +1047,32 @@ def render_selected_species_header(profile: dict[str, object] | None, section: s
           <p class="meta">species_id: {html.escape(species_id)} · {html.escape(profile_common_name(profile) or "-")}</p>
         </div>
       </div>
-      <div class="profile-hero-chips">{chips}</div>
+      <div class="profile-hero-side">
+        <div class="profile-hero-chips">{chips}</div>
+        {selector}
+      </div>
     </header>
     """
 
 
-def render_observation_scope_header(profile: dict[str, object] | None, section: str, species_filter: str) -> str:
+def render_observation_scope_header(
+    profile: dict[str, object] | None,
+    section: str,
+    species_filter: str,
+    profiles: list[dict[str, object]] | None = None,
+    search: str = "",
+) -> str:
     """Render the observation banner using the active observation species filter."""
+    selected_id = str(profile.get("species_id", "") or "") if profile else ""
+    selector = species_header_selector(
+        profiles,
+        selected_id,
+        search=search,
+        section_key="observations",
+        include_all=True,
+        all_selected=species_filter == "__all__",
+        select_name="obs_species",
+    )
     if species_filter == "__all__":
         return f"""
         <header class="profile-section-banner">
@@ -994,9 +1084,19 @@ def render_observation_scope_header(profile: dict[str, object] | None, section: 
               <p class="meta">{html.escape(ui_label("ui.observation_records"))}</p>
             </div>
           </div>
+          <div class="profile-hero-side">{selector}</div>
         </header>
         """
-    return render_selected_species_header(profile, section) if profile else f'<h2>{html.escape(section)}</h2>'
+    return render_selected_species_header(
+        profile,
+        section,
+        profiles=profiles,
+        search=search,
+        section_key="observations",
+        include_all=True,
+        all_selected=False,
+        select_name="obs_species",
+    ) if profile else f'<h2>{html.escape(section)}</h2>'
 
 
 LOCAL_EVIDENCE_GROUPS = [
@@ -1521,12 +1621,298 @@ def numeric_range_label(rows: list[dict[str, object]], key: str, unit: str = "")
     return f"{low:g}-{high:g}{suffix}"
 
 
+def numeric_range_label_first(rows: list[dict[str, object]], keys: tuple[str, ...], unit: str = "") -> str:
+    """Return a range using the first available numeric key per row."""
+    values = []
+    for row in rows:
+        for key in keys:
+            value = row.get(key)
+            if isinstance(value, int | float):
+                values.append(float(value))
+                break
+    if not values:
+        return "-"
+    suffix = f" {unit}" if unit else ""
+    low = min(values)
+    high = max(values)
+    if low == high:
+        return f"{low:g}{suffix}"
+    return f"{low:g}-{high:g}{suffix}"
+
+
+def numeric_minmax_label(rows: list[dict[str, object]], key: str, unit: str = "") -> tuple[str, str]:
+    values = numeric_values(rows, key)
+    if not values:
+        return "-", "-"
+    suffix = f" {unit}" if unit else ""
+    return f"{min(values):g}{suffix}", f"{max(values):g}{suffix}"
+
+
+def numeric_minmax_label_first(rows: list[dict[str, object]], keys: tuple[str, ...], unit: str = "") -> tuple[str, str]:
+    """Return min/max labels using the first available numeric key per row."""
+    values = []
+    for row in rows:
+        for key in keys:
+            value = row.get(key)
+            if isinstance(value, int | float):
+                values.append(float(value))
+                break
+    if not values:
+        return "-", "-"
+    suffix = f" {unit}" if unit else ""
+    return f"{min(values):g}{suffix}", f"{max(values):g}{suffix}"
+
+
+def weather_cell(row: dict[str, object], key: str, fallback_key: str = "") -> str:
+    value = row.get(key)
+    if value is None and fallback_key:
+        value = row.get(fallback_key)
+    return html.escape(str(value if value is not None else "-"))
+
+
+def temperature_window_label(row: dict[str, object], days: int) -> str:
+    min_key = f"temp_min_{days}d_c"
+    max_key = f"temp_max_{days}d_c"
+    min_value = row.get(min_key)
+    max_value = row.get(max_key)
+    if days == 7:
+        min_value = min_value if min_value is not None else row.get("temp_min_c")
+        max_value = max_value if max_value is not None else row.get("temp_max_c")
+    if min_value is None and max_value is None:
+        return "-"
+    return f"{min_value if min_value is not None else '-'} / {max_value if max_value is not None else '-'}"
+
+
+def humidity_window_label(row: dict[str, object], days: int) -> str:
+    min_key = f"humidity_min_{days}d_pct"
+    max_key = f"humidity_max_{days}d_pct"
+    min_value = row.get(min_key)
+    max_value = row.get(max_key)
+    if days == 7:
+        min_value = min_value if min_value is not None else row.get("humidity_min_pct")
+        max_value = max_value if max_value is not None else row.get("humidity_max_pct")
+    if min_value is None and max_value is None:
+        return "-"
+    return f"{min_value if min_value is not None else '-'} / {max_value if max_value is not None else '-'}"
+
+
+def weather_range_row(label: str, min_value: str, max_value: str) -> str:
+    return (
+        "<tr>"
+        f"<th scope=\"row\">{html.escape(label)}</th>"
+        f"<td>{html.escape(min_value)}</td>"
+        f"<td>{html.escape(max_value)}</td>"
+        "</tr>"
+    )
+
+
 def compact_gap_label(gaps: object, limit: int = 2) -> str:
     values = [str(value) for value in gaps if str(value or "").strip()] if isinstance(gaps, list) else []
     if not values:
         return "-"
     suffix = f" +{len(values) - limit}" if len(values) > limit else ""
     return ", ".join(values[:limit]) + suffix
+
+
+def ratio_label(value: object) -> str:
+    if isinstance(value, int | float):
+        return f"{value * 100:.0f}%"
+    return "-"
+
+
+def model_number_label(value: object, unit: str = "") -> str:
+    if isinstance(value, int | float):
+        suffix = f" {unit}" if unit else ""
+        return f"{value:g}{suffix}"
+    return "-"
+
+
+def learned_model_for_species(payload: dict[str, object] | None, species_id: str) -> dict[str, object] | None:
+    models = payload.get("species_models") if isinstance(payload, dict) else None
+    if not isinstance(models, list):
+        return None
+    for model in models:
+        if isinstance(model, dict) and str(model.get("species_id", "") or "") == species_id:
+            return model
+    return None
+
+
+def learned_categorical_feature_rows(model: dict[str, object], catalogs: dict[str, object]) -> str:
+    groups = [
+        ("hosts", ui_label("ui.evidence_hosts"), "host_taxa"),
+        ("forests", ui_label("ui.evidence_forests"), "forest_types"),
+        ("soils", ui_label("ui.evidence_soils"), "soil_types"),
+        ("habitat", ui_label("ui.evidence_habitat"), "habitat_features"),
+    ]
+    categorical = model.get("categorical_features") if isinstance(model.get("categorical_features"), dict) else {}
+    rows = []
+    for key, title, catalog_group in groups:
+        labels = {
+            str(item.get("id", "") or ""): host_scientific_common_label(item)
+            for item in catalogs.get(catalog_group, [])
+            if catalog_group == "host_taxa" and isinstance(item, dict) and str(item.get("id", "") or "")
+        } if catalog_group == "host_taxa" else catalog_label_map(catalogs, catalog_group)
+        items = categorical.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items[:8]:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id", "") or "")
+            rows.append(
+                "<tr>"
+                f"<td><strong>{html.escape(labels.get(item_id, item_id))}</strong><span class=\"meta\">{html.escape(item_id)}</span></td>"
+                f"<td>{html.escape(title)}</td>"
+                f"<td><strong>{html.escape(str(item.get('positive_support', 0) or 0))}</strong><span class=\"meta\">{html.escape(ratio_label(item.get('positive_ratio')))}</span></td>"
+                f"<td><strong>{html.escape(str(item.get('negative_support', 0) or 0))}</strong><span class=\"meta\">{html.escape(ratio_label(item.get('negative_ratio')))}</span></td>"
+                f"<td>{html.escape(ratio_label(item.get('ratio_delta')))}</td>"
+                "</tr>"
+            )
+    if not rows:
+        return f'<p class="meta">{html.escape(ui_label("ui.learned_no_categorical_features"))}</p>'
+    return (
+        '<div class="evidence-table-shell learned-model-table learned-model-table-categorical"><table>'
+        "<thead><tr>"
+        "<th>ID</th>"
+        f"<th>{html.escape(ui_label('ui.group'))}</th>"
+        f"<th>{html.escape(ui_label('ui.learned_positive_short'))}</th>"
+        f"<th>{html.escape(ui_label('ui.learned_negative_short'))}</th>"
+        f"<th>{html.escape(ui_label('ui.learned_ratio_delta'))}</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def learned_numeric_summary_cell(stats: dict[str, object], unit: str) -> str:
+    """Render compact support, range and mean for learned numeric evidence."""
+    count = str(stats.get("count", 0) or 0)
+    minimum = model_number_label(stats.get("min"), unit)
+    maximum = model_number_label(stats.get("max"), unit)
+    mean = model_number_label(stats.get("mean"), unit)
+    if minimum == "-" and maximum == "-":
+        range_label = "-"
+    else:
+        range_label = f"{minimum} - {maximum}"
+    return (
+        f'<span class="learned-numeric-count">{html.escape(count)}</span>'
+        f'<span class="learned-numeric-range">{html.escape(range_label)}</span>'
+        f'<span class="meta">{html.escape(ui_label("ui.learned_mean"))}: {html.escape(mean)}</span>'
+    )
+
+
+def learned_numeric_feature_rows(model: dict[str, object]) -> str:
+    labels = {
+        "altitude_m": ui_label("altitude"),
+        "rain_7d_mm": f"{ui_label('rainfall')} 7d",
+        "rain_14d_mm": f"{ui_label('rainfall')} 14d",
+        "rain_21d_mm": f"{ui_label('rainfall')} 21d",
+        "rain_30d_mm": f"{ui_label('rainfall')} 30d",
+        "rain_60d_mm": f"{ui_label('rainfall')} 60d",
+        "rain_90d_mm": f"{ui_label('rainfall')} 90d",
+        "temp_min_7d_c": "Temp min 7d",
+        "temp_max_7d_c": "Temp max 7d",
+        "temp_min_14d_c": "Temp min 14d",
+        "temp_max_14d_c": "Temp max 14d",
+        "temp_min_21d_c": "Temp min 21d",
+        "temp_max_21d_c": "Temp max 21d",
+        "temp_min_30d_c": "Temp min 30d",
+        "temp_max_30d_c": "Temp max 30d",
+        "humidity_min_7d_pct": "Hum min 7d",
+        "humidity_max_7d_pct": "Hum max 7d",
+        "humidity_min_14d_pct": "Hum min 14d",
+        "humidity_max_14d_pct": "Hum max 14d",
+        "humidity_min_21d_pct": "Hum min 21d",
+        "humidity_max_21d_pct": "Hum max 21d",
+        "humidity_min_30d_pct": "Hum min 30d",
+        "humidity_max_30d_pct": "Hum max 30d",
+    }
+    units = {
+        "altitude_m": "m",
+        **{key: "mm" for key in labels if key.startswith("rain_")},
+        **{key: "C" for key in labels if key.startswith("temp_")},
+        **{key: "%" for key in labels if key.startswith("humidity_")},
+    }
+    numeric = model.get("numeric_features") if isinstance(model.get("numeric_features"), dict) else {}
+    rows = []
+    for key, label in labels.items():
+        item = numeric.get(key)
+        if not isinstance(item, dict):
+            continue
+        positive = item.get("positive") if isinstance(item.get("positive"), dict) else {}
+        negative = item.get("negative") if isinstance(item.get("negative"), dict) else {}
+        unit = units.get(key, "")
+        rows.append(
+            "<tr>"
+            f"<td><strong>{html.escape(label)}</strong><span class=\"meta\">{html.escape(key)}</span></td>"
+            f"<td>{learned_numeric_summary_cell(positive, unit)}</td>"
+            f"<td>{learned_numeric_summary_cell(negative, unit)}</td>"
+            "</tr>"
+        )
+    if not rows:
+        return f'<p class="meta">{html.escape(ui_label("ui.learned_no_numeric_features"))}</p>'
+    return (
+        '<div class="evidence-table-shell learned-model-table numeric"><table>'
+        "<thead><tr>"
+        f"<th>{html.escape(ui_label('ui.variable'))}</th>"
+        f"<th>{html.escape(ui_label('ui.learned_positive_short'))}</th>"
+        f"<th>{html.escape(ui_label('ui.learned_negative_short'))}</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def render_learned_model_section(
+    profile: dict[str, object],
+    catalogs: dict[str, object],
+    learned_model_payload: dict[str, object] | None,
+    search: str = "",
+    profile_view: str = "enriched",
+) -> str:
+    """Render the experimental observation-learned v0 model for one species."""
+    species_id = str(profile.get("species_id", "") or "")
+    model = learned_model_for_species(learned_model_payload, species_id)
+    generated_at = str(learned_model_payload.get("generated_at", "") or "") if isinstance(learned_model_payload, dict) else ""
+    if model is None:
+        return f"""
+        <article class="profile-section-card learned-model-panel">
+          <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
+          <p class="meta">{html.escape(ui_label("ui.learned_model_missing"))}</p>
+        </article>
+        """
+    return f"""
+    <article class="profile-section-card learned-model-panel">
+      <div class="learned-model-toolbar">
+        <div>
+          <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
+          <p class="meta">{html.escape(ui_label("ui.learned_model_note"))} · {html.escape(generated_at or '-')}</p>
+        </div>
+        <form method="post" action="{html.escape(profile_query_url(species_id, search, section='evidence', profile_view=profile_view, evidence_view='learned_model'), quote=True)}" onsubmit="return confirm('{html.escape(ui_label("ui.rebuild_learned_model_help"), quote=True)}')">
+          <input type="hidden" name="profile_action" value="rebuild_learned_model_v0">
+          <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+          <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
+          <input type="hidden" name="evidence_view" value="learned_model">
+          <button class="secondary" type="submit" title="{html.escape(ui_label("ui.rebuild_learned_model_help"), quote=True)}">{html.escape(ui_label("ui.rebuild_learned_model"))}</button>
+        </form>
+      </div>
+      <div class="profile-calibration-cards evidence-summary-cards learned-model-summary">
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.total_observations_used"))}</span><span class="value">{html.escape(str(model.get("observation_count", 0) or 0))}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.positive_observations"))}</span><span class="value ok">{html.escape(str(model.get("positive_count", 0) or 0))}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.negative_observations"))}</span><span class="value">{html.escape(str(model.get("negative_count", 0) or 0))}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.weather_gaps"))}</span><span class="value warn">{html.escape(str(model.get("weather_gap_count", 0) or 0))}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.gis_gaps"))}</span><span class="value">{html.escape(str(model.get("gis_gap_count", 0) or 0))}</span></div>
+      </div>
+      <div class="learned-model-grid">
+        <section>
+          <h4>{html.escape(ui_label("ui.learned_categorical_features"))}</h4>
+          {learned_categorical_feature_rows(model, catalogs)}
+        </section>
+        <section>
+          <h4>{html.escape(ui_label("ui.learned_numeric_features"))}</h4>
+          {learned_numeric_feature_rows(model)}
+        </section>
+      </div>
+    </article>
+    """
 
 
 def render_weather_evidence_section(profile: dict[str, object], features_payload: dict[str, object] | None) -> str:
@@ -1540,11 +1926,11 @@ def render_weather_evidence_section(profile: dict[str, object], features_payload
     ]
     generated_at = str(features_payload.get("generated_at", "") or "") if isinstance(features_payload, dict) else ""
     if not isinstance(features_payload, dict):
-        note = "No hay features v0 unificadas. Ejecuta mushroom_observation_features_v0_build.sh tras reconstruir meteorologia y GIS."
+        note = ui_label("ui.weather_features_missing")
     elif not species_rows:
-        note = "Las features v0 actuales no contienen observaciones para esta especie."
+        note = ui_label("ui.weather_features_species_missing")
     else:
-        note = "Vista de solo lectura. Resume condiciones observadas; no calcula umbrales ni modifica perfiles."
+        note = ui_label("ui.weather_readonly_note")
     present_rows = [row for row in species_rows if row.get("analysis_result") != "absent"]
     absent_rows = [row for row in species_rows if row.get("analysis_result") == "absent"]
     weather_gap_count = sum(1 for row in species_rows if row.get("weather_gaps"))
@@ -1556,42 +1942,89 @@ def render_weather_evidence_section(profile: dict[str, object], features_payload
             "<tr>"
             f"<td><strong>{html.escape(str(row.get('observed_at', '-') or '-'))}</strong><span class=\"meta\">{html.escape(str(row.get('observation_id', '-') or '-'))}</span></td>"
             f"<td><span class=\"evidence-status {result_tone}\">{html.escape(str(row.get('analysis_result', '-') or '-'))}</span><span class=\"meta\">{html.escape(str(row.get('flush_abundance', '-') or '-'))}</span></td>"
-            f"<td>{html.escape(str(row.get('rain_7d_mm', '-') if row.get('rain_7d_mm') is not None else '-'))}</td>"
-            f"<td>{html.escape(str(row.get('rain_14d_mm', '-') if row.get('rain_14d_mm') is not None else '-'))}</td>"
-            f"<td>{html.escape(str(row.get('rain_30d_mm', '-') if row.get('rain_30d_mm') is not None else '-'))}</td>"
-            f"<td>{html.escape(str(row.get('rain_90d_mm', '-') if row.get('rain_90d_mm') is not None else '-'))}</td>"
-            f"<td>{html.escape(str(row.get('temp_min_c', '-') if row.get('temp_min_c') is not None else '-'))} / {html.escape(str(row.get('temp_max_c', '-') if row.get('temp_max_c') is not None else '-'))}</td>"
-            f"<td>{html.escape(str(row.get('humidity_min_pct', '-') if row.get('humidity_min_pct') is not None else '-'))} / {html.escape(str(row.get('humidity_max_pct', '-') if row.get('humidity_max_pct') is not None else '-'))}</td>"
+            f"<td>{weather_cell(row, 'gis_altitude_m', 'altitude_m')}</td>"
+            f"<td>{weather_cell(row, 'rain_7d_mm')}</td>"
+            f"<td>{weather_cell(row, 'rain_14d_mm')}</td>"
+            f"<td>{weather_cell(row, 'rain_21d_mm')}</td>"
+            f"<td>{weather_cell(row, 'rain_30d_mm')}</td>"
+            f"<td>{weather_cell(row, 'rain_60d_mm')}</td>"
+            f"<td>{weather_cell(row, 'rain_90d_mm')}</td>"
+            f"<td>{html.escape(temperature_window_label(row, 7))}</td>"
+            f"<td>{html.escape(temperature_window_label(row, 14))}</td>"
+            f"<td>{html.escape(temperature_window_label(row, 21))}</td>"
+            f"<td>{html.escape(temperature_window_label(row, 30))}</td>"
+            f"<td>{html.escape(humidity_window_label(row, 7))}</td>"
+            f"<td>{html.escape(humidity_window_label(row, 14))}</td>"
+            f"<td>{html.escape(humidity_window_label(row, 21))}</td>"
+            f"<td>{html.escape(humidity_window_label(row, 30))}</td>"
             f"<td><strong>{html.escape(str(row.get('weather_source', '-') or '-'))}</strong><span class=\"meta\">{html.escape(str(row.get('weather_station_code', '-') or '-'))} · {html.escape(str(row.get('weather_station_distance_km', '-') if row.get('weather_station_distance_km') is not None else '-'))} km</span></td>"
             f"<td><span class=\"meta\">{html.escape(compact_gap_label(row.get('weather_gaps')))}</span></td>"
             "</tr>"
         )
+    altitude_min, altitude_max = numeric_minmax_label_first(present_rows, ("gis_altitude_m", "altitude_m"), "m")
+    range_rows = [weather_range_row("Alt.", altitude_min, altitude_max)]
+    for days in (7, 14, 21, 30, 60, 90):
+        rain_min, rain_max = numeric_minmax_label(present_rows, f"rain_{days}d_mm", "mm")
+        range_rows.append(weather_range_row(f"{ui_label('rainfall')} {days}d", rain_min, rain_max))
+    for days in (7, 14, 21, 30):
+        if days == 7:
+            temp_min, _unused = numeric_minmax_label_first(present_rows, ("temp_min_7d_c", "temp_min_c"), "C")
+            _unused, temp_max = numeric_minmax_label_first(present_rows, ("temp_max_7d_c", "temp_max_c"), "C")
+        else:
+            temp_min, _unused = numeric_minmax_label(present_rows, f"temp_min_{days}d_c", "C")
+            _unused, temp_max = numeric_minmax_label(present_rows, f"temp_max_{days}d_c", "C")
+        range_rows.append(weather_range_row(f"Temp {days}d", temp_min, temp_max))
+    for days in (7, 14, 21, 30):
+        if days == 7:
+            humidity_min, _unused = numeric_minmax_label_first(present_rows, ("humidity_min_7d_pct", "humidity_min_pct"), "%")
+            _unused, humidity_max = numeric_minmax_label_first(present_rows, ("humidity_max_7d_pct", "humidity_max_pct"), "%")
+        else:
+            humidity_min, _unused = numeric_minmax_label(present_rows, f"humidity_min_{days}d_pct", "%")
+            _unused, humidity_max = numeric_minmax_label(present_rows, f"humidity_max_{days}d_pct", "%")
+        range_rows.append(weather_range_row(f"Hum {days}d", humidity_min, humidity_max))
+    range_table = (
+        '<div class="weather-evidence-ranges">'
+        "<table><thead><tr>"
+        f"<th>{html.escape(ui_label('ui.range_title'))}</th>"
+        f"<th>{html.escape(ui_label('ui.range_minimum'))}</th>"
+        f"<th>{html.escape(ui_label('ui.range_maximum'))}</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(range_rows)}</tbody></table>"
+        "</div>"
+    )
     table_html = (
         '<div class="evidence-table-shell weather-evidence-table"><table>'
-        "<thead><tr><th>Fecha</th><th>Resultado</th><th>Lluvia 7d</th><th>Lluvia 14d</th><th>Lluvia 30d</th><th>Lluvia 90d</th><th>Temp min/max</th><th>Hum min/max</th><th>Estacion</th><th>Gaps</th></tr></thead>"
+        "<thead><tr>"
+        f"<th>{html.escape(ui_label('ui.date_short'))}</th>"
+        f"<th>{html.escape(ui_label('ui.result'))}</th>"
+        f"<th>{html.escape(ui_label('ui.altitude_short'))}</th>"
+        f"<th>{html.escape(ui_label('rainfall'))} 7d</th>"
+        f"<th>{html.escape(ui_label('rainfall'))} 14d</th>"
+        f"<th>{html.escape(ui_label('rainfall'))} 21d</th>"
+        f"<th>{html.escape(ui_label('rainfall'))} 30d</th>"
+        f"<th>{html.escape(ui_label('rainfall'))} 60d</th>"
+        f"<th>{html.escape(ui_label('rainfall'))} 90d</th>"
+        "<th>Temp 7d</th><th>Temp 14d</th><th>Temp 21d</th><th>Temp 30d</th>"
+        "<th>Hum 7d</th><th>Hum 14d</th><th>Hum 21d</th><th>Hum 30d</th>"
+        f"<th>{html.escape(ui_label('ui.station'))}</th>"
+        f"<th>{html.escape(ui_label('ui.weather_gaps'))}</th>"
+        "</tr></thead>"
         f"<tbody>{''.join(table_rows)}</tbody></table></div>"
         if table_rows else
-        '<p class="meta">No hay filas meteorologicas para esta especie.</p>'
+        f'<p class="meta">{html.escape(ui_label("ui.weather_no_rows"))}</p>'
     )
     return f"""
     <article class="profile-section-card weather-evidence">
-      <h3>{icon("weather")} Evidencia meteorologica</h3>
-      <p class="meta">Ultima union features v0: {html.escape(generated_at or '-')} · {html.escape(note)}</p>
+      <h3>{icon("weather")} {html.escape(ui_label("ui.weather_evidence"))}</h3>
+      <p class="meta">{html.escape(ui_label("ui.latest_features_join"))}: {html.escape(generated_at or '-')} · {html.escape(note)}</p>
       <div class="profile-calibration-cards evidence-summary-cards">
-        <div class="profile-metric"><span class="label">Observaciones</span><span class="value">{len(species_rows)}</span></div>
-        <div class="profile-metric"><span class="label">Presentes</span><span class="value ok">{len(present_rows)}</span></div>
-        <div class="profile-metric"><span class="label">Ausencias</span><span class="value">{len(absent_rows)}</span></div>
-        <div class="profile-metric"><span class="label">Gaps meteo</span><span class="value warn">{weather_gap_count}</span></div>
-        <div class="profile-metric"><span class="label">Gaps GIS</span><span class="value">{gis_gap_count}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.observations"))}</span><span class="value">{len(species_rows)}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.present_observations"))}</span><span class="value ok">{len(present_rows)}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.absent_observations"))}</span><span class="value">{len(absent_rows)}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.weather_gaps"))}</span><span class="value warn">{weather_gap_count}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.gis_gaps"))}</span><span class="value">{gis_gap_count}</span></div>
       </div>
-      <div class="weather-evidence-ranges">
-        <div><span class="label">Lluvia 7d presentes</span><strong>{html.escape(numeric_range_label(present_rows, "rain_7d_mm", "mm"))}</strong></div>
-        <div><span class="label">Lluvia 14d presentes</span><strong>{html.escape(numeric_range_label(present_rows, "rain_14d_mm", "mm"))}</strong></div>
-        <div><span class="label">Lluvia 30d presentes</span><strong>{html.escape(numeric_range_label(present_rows, "rain_30d_mm", "mm"))}</strong></div>
-        <div><span class="label">Lluvia 90d presentes</span><strong>{html.escape(numeric_range_label(present_rows, "rain_90d_mm", "mm"))}</strong></div>
-        <div><span class="label">Temp presentes</span><strong>{html.escape(numeric_range_label(present_rows, "temp_min_c", "C"))} / {html.escape(numeric_range_label(present_rows, "temp_max_c", "C"))}</strong></div>
-        <div><span class="label">Humedad presentes</span><strong>{html.escape(numeric_range_label(present_rows, "humidity_min_pct", "%"))} / {html.escape(numeric_range_label(present_rows, "humidity_max_pct", "%"))}</strong></div>
-      </div>
+      {range_table}
       {table_html}
     </article>
     """
@@ -1600,12 +2033,13 @@ def render_weather_evidence_section(profile: dict[str, object], features_payload
 def render_evidence_view_tabs(species_id: str, search: str, profile_view: str, evidence_view: str) -> str:
     """Render the local evidence subnavigation."""
     active = str(evidence_view or "").strip().lower()
-    if active not in {"gis_hosts_forests", "gis_soils_habitat", "weather"}:
+    if active not in {"gis_hosts_forests", "gis_soils_habitat", "weather", "learned_model"}:
         active = "gis_hosts_forests"
     tabs = [
         ("gis_hosts_forests", ui_label("ui.evidence_gis_hosts_forests")),
         ("gis_soils_habitat", ui_label("ui.evidence_gis_soils_habitat")),
         ("weather", ui_label("ui.evidence_weather")),
+        ("learned_model", ui_label("ui.evidence_learned_model")),
     ]
     links = []
     for key, label in tabs:
@@ -1627,10 +2061,12 @@ def render_local_evidence_section(
     reconstruction_payload: dict[str, object] | None,
     observation_features_payload: dict[str, object] | None = None,
     decisions_payload: dict[str, object] | None = None,
+    learned_model_payload: dict[str, object] | None = None,
     search: str = "",
     profile_view: str = "enriched",
     evidence_view: str = "gis",
     observations_payload: dict[str, object] | None = None,
+    profiles: list[dict[str, object]] | None = None,
 ) -> str:
     """Render profile-vs-observed local v0 evidence without changing profiles."""
     if not profile:
@@ -1645,7 +2081,7 @@ def render_local_evidence_section(
     evidence_view = str(evidence_view or "").strip().lower()
     if evidence_view == "gis":
         evidence_view = "gis_hosts_forests"
-    if evidence_view not in {"gis_hosts_forests", "gis_soils_habitat", "weather"}:
+    if evidence_view not in {"gis_hosts_forests", "gis_soils_habitat", "weather", "learned_model"}:
         evidence_view = "gis_hosts_forests"
     visible_groups = [
         group for group in LOCAL_EVIDENCE_GROUPS
@@ -1694,16 +2130,26 @@ def render_local_evidence_section(
         return f"""
         <section class="card profile-section-screen evidence-screen">
           <div class="evidence-sticky-header">
-            {render_selected_species_header(profile, "Evidencia local v0")}
+            {render_selected_species_header(profile, "Evidencia local v0", profiles=profiles, search=search, section_key="evidence", profile_view=profile_view, evidence_view=evidence_view)}
             {tabs_html}
           </div>
           {render_weather_evidence_section(profile, observation_features_payload)}
         </section>
         """
+    if evidence_view == "learned_model":
+        return f"""
+        <section class="card profile-section-screen evidence-screen">
+          <div class="evidence-sticky-header">
+            {render_selected_species_header(profile, "Evidencia local v0", profiles=profiles, search=search, section_key="evidence", profile_view=profile_view, evidence_view=evidence_view)}
+            {tabs_html}
+          </div>
+          {render_learned_model_section(profile, catalogs, learned_model_payload, search=search, profile_view=profile_view)}
+        </section>
+        """
     return f"""
     <section class="card profile-section-screen evidence-screen">
       <div class="evidence-sticky-header">
-        {render_selected_species_header(profile, "Evidencia local v0")}
+        {render_selected_species_header(profile, "Evidencia local v0", profiles=profiles, search=search, section_key="evidence", profile_view=profile_view, evidence_view=evidence_view)}
         {tabs_html}
         <div class="profile-calibration-cards evidence-summary-cards">
           <div class="profile-metric"><span class="label">Obs. reconstruidas</span><span class="value">{observation_count}</span></div>
@@ -2208,7 +2654,13 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
     """
 
 
-def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[str, object], search: str = "", profile_view: str = "enriched") -> str:
+def render_parameters_section(
+    profile: dict[str, object] | None,
+    catalogs: dict[str, object],
+    profiles: list[dict[str, object]] | None = None,
+    search: str = "",
+    profile_view: str = "enriched",
+) -> str:
     """Render the top-level Parameters screen using real profile model fields."""
     if not profile:
         return f'<section class="card profile-section-screen"><h2>{html.escape(ui_label("ui.parameters"))}</h2><p>{html.escape(ui_label("ui.no_species_selected"))}</p></section>'
@@ -2307,7 +2759,7 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
     )
     return f"""
     <section class="card profile-section-screen parameters-screen">
-      {render_selected_species_header(profile, ui_label("ui.parameters"))}
+      {render_selected_species_header(profile, ui_label("ui.parameters"), profiles=profiles, search=search, section_key="parameters", profile_view=profile_view)}
       <form method="post" action="{html.escape(profile_query_url(species_id, search, section='parameters', profile_view=profile_view), quote=True)}" onsubmit="return confirm('Save parameter changes for this species and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_parameters">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
@@ -2364,7 +2816,11 @@ def render_parameters_section(profile: dict[str, object] | None, catalogs: dict[
     """
 
 
-def render_calibration_section(profile: dict[str, object] | None, search: str = "") -> str:
+def render_calibration_section(
+    profile: dict[str, object] | None,
+    profiles: list[dict[str, object]] | None = None,
+    search: str = "",
+) -> str:
     """Render the top-level Calibration screen using real confidence fields."""
     if not profile:
         return f'<section class="card profile-section-screen"><h2>{html.escape(ui_label("ui.calibration"))}</h2><p>{html.escape(ui_label("ui.no_species_selected"))}</p></section>'
@@ -2378,7 +2834,7 @@ def render_calibration_section(profile: dict[str, object] | None, search: str = 
     parameters_href = profile_query_url(species_id, search, section="parameters")
     return f"""
     <section class="card profile-section-screen calibration-screen">
-      {render_selected_species_header(profile, ui_label("ui.calibration"))}
+      {render_selected_species_header(profile, ui_label("ui.calibration"), profiles=profiles, search=search, section_key="calibration")}
       <form method="post" action="{html.escape(profile_query_url(species_id, search, section='calibration'), quote=True)}" onsubmit="return confirm('Save calibration settings for this species and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_calibration">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
@@ -3466,7 +3922,7 @@ def render_observations_section(
     )
     return f"""
     <section id="observations-workspace" class="card profile-section-screen observations-screen">
-      {render_observation_scope_header(visible_profile, ui_label("ui.observations"), species_filter)}
+      {render_observation_scope_header(visible_profile, ui_label("ui.observations"), species_filter, profiles=profiles, search=search)}
       <div class="profile-calibration-cards observations-metrics">
         <div class="profile-metric"><span class="label">{icon("metadata")} {html.escape(ui_label("ui.total_observations"))}</span><span class="value">{total}</span></div>
         <div class="profile-metric"><span class="label">{icon("mushroom")} {html.escape(ui_label("ui.positive_present"))}</span><span class="value ok">{positive}</span></div>

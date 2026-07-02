@@ -145,8 +145,16 @@ class MushroomObservationContextTests(unittest.TestCase):
         self.assertEqual(first["weather_station_code"], "ST_NEAR")
         self.assertEqual(first["rain_1d_mm"], 2.5)
         self.assertEqual(first["rain_7d_mm"], 4.0)
+        self.assertEqual(first["temp_min_7d_c"], 10.0)
+        self.assertEqual(first["temp_max_7d_c"], 24.0)
+        self.assertEqual(first["temp_min_14d_c"], 10.0)
+        self.assertEqual(first["temp_max_14d_c"], 24.0)
         self.assertEqual(first["temp_min_c"], 10.0)
         self.assertEqual(first["temp_max_c"], 24.0)
+        self.assertEqual(first["humidity_min_7d_pct"], 40.0)
+        self.assertEqual(first["humidity_max_7d_pct"], 90.0)
+        self.assertEqual(first["humidity_min_14d_pct"], 40.0)
+        self.assertEqual(first["humidity_max_14d_pct"], 90.0)
         self.assertEqual(first["wind_avg_kmh"], 15.0)
         self.assertEqual(first["wind_gust_kmh"], 35.0)
         self.assertEqual(first["wind_direction_deg"], 90.0)
@@ -154,6 +162,48 @@ class MushroomObservationContextTests(unittest.TestCase):
         self.assertEqual(first["observed_host_ids"], ["host_pinus_sylvestris"])
         self.assertEqual(second["analysis_result"], "absent")
         self.assertIn("no_weather_station_with_90d_coverage", second["data_gaps"])
+
+    def test_build_weather_features_excludes_suspect_daily_rain(self) -> None:
+        self.write_observations()
+        self.write_daily_file(
+            "Wunderground_incremental.csv",
+            [
+                {
+                    "Codi Estació": "ST_NEAR",
+                    "Estació": "Near station",
+                    "Latitud": "42.01",
+                    "Longitud": "2.01",
+                    "Data Local": "20260710",
+                    "Total": "2.5",
+                },
+                {
+                    "Codi Estació": "ST_NEAR",
+                    "Estació": "Near station",
+                    "Latitud": "42.01",
+                    "Longitud": "2.01",
+                    "Data Local": "20260709",
+                    "Total": "955.29",
+                },
+                {
+                    "Codi Estació": "ST_NEAR",
+                    "Estació": "Near station",
+                    "Latitud": "42.01",
+                    "Longitud": "2.01",
+                    "Data Local": "20260708",
+                    "Total": "1.5",
+                },
+            ],
+        )
+
+        payload = mushroom_observation_context.build_observation_weather_features(
+            observations_path=self.observations_path,
+            weather_data_dir=self.data_dir,
+        )
+        first = payload["rows"][0]
+
+        self.assertEqual(first["rain_7d_mm"], 4.0)
+        self.assertIn("rain_7d_coverage_2/7", first["data_gaps"])
+        self.assertIn("rain_suspect_daily_20260709_955.29mm", first["data_gaps"])
 
     def test_build_and_write_weather_features_outputs_json_csv_and_report(self) -> None:
         self.write_observations()

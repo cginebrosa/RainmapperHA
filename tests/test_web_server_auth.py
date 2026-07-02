@@ -12,6 +12,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -1216,10 +1217,29 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "flush_abundance": "abundant",
                     "rain_7d_mm": 11.0,
                     "rain_14d_mm": 22.0,
+                    "rain_21d_mm": 27.0,
                     "rain_30d_mm": 33.0,
+                    "rain_60d_mm": 60.0,
                     "rain_90d_mm": 90.0,
+                    "gis_altitude_m": 705.0,
+                    "temp_min_7d_c": 7.0,
+                    "temp_max_7d_c": 21.0,
+                    "temp_min_14d_c": 6.0,
+                    "temp_max_14d_c": 22.0,
+                    "temp_min_21d_c": 5.0,
+                    "temp_max_21d_c": 23.0,
+                    "temp_min_30d_c": 4.0,
+                    "temp_max_30d_c": 24.0,
                     "temp_min_c": 7.0,
                     "temp_max_c": 21.0,
+                    "humidity_min_7d_pct": 50.0,
+                    "humidity_max_7d_pct": 88.0,
+                    "humidity_min_14d_pct": 48.0,
+                    "humidity_max_14d_pct": 89.0,
+                    "humidity_min_21d_pct": 46.0,
+                    "humidity_max_21d_pct": 90.0,
+                    "humidity_min_30d_pct": 44.0,
+                    "humidity_max_30d_pct": 91.0,
                     "humidity_min_pct": 50.0,
                     "humidity_max_pct": 88.0,
                     "weather_source": "meteocat",
@@ -1249,14 +1269,146 @@ class AuthDeviceLimitTests(unittest.TestCase):
             evidence_view="weather",
         )
 
-        self.assertIn("Evidencia meteorologica", html)
-        self.assertIn("Ultima union features v0: 2026-07-02T14:00:00", html)
-        self.assertIn("Presentes", html)
-        self.assertIn("Ausencias", html)
-        self.assertIn("Lluvia 7d presentes", html)
+        self.assertIn("Weather evidence", html)
+        self.assertIn("Latest v0 features join: 2026-07-02T14:00:00", html)
+        self.assertIn("Present", html)
+        self.assertIn("Absent", html)
+        self.assertIn("Rainfall 21d", html)
+        self.assertIn("Rainfall 60d", html)
+        self.assertIn("Temp 30d", html)
+        self.assertIn("Hum 30d", html)
+        self.assertIn("705 m", html)
         self.assertIn("11 mm", html)
         self.assertIn("meteocat", html)
         self.assertIn("wind_no_data_7d", html)
+
+    def test_mushroom_local_evidence_section_renders_learned_model(self) -> None:
+        profile = {
+            "species_id": "boletus_aereus",
+            "scientific_name": "Boletus aereus",
+            "common_names": {"en": ["Black bolete"]},
+            "ecology": {},
+            "prediction_confidence": {},
+            "metadata": {},
+        }
+        catalogs = {
+            "host_taxa": [
+                {
+                    "id": "host_quercus_ilex",
+                    "scientific_name": "Quercus ilex",
+                    "common_names": {"en": ["Holm oak"]},
+                }
+            ],
+            "forest_types": [],
+            "soil_types": [],
+            "habitat_features": [],
+        }
+        learned_model = {
+            "generated_at": "2026-07-02T15:00:00",
+            "species_models": [
+                {
+                    "species_id": "boletus_aereus",
+                    "observation_count": 3,
+                    "positive_count": 2,
+                    "negative_count": 1,
+                    "weather_gap_count": 1,
+                    "gis_gap_count": 0,
+                    "categorical_features": {
+                        "hosts": [
+                            {
+                                "id": "host_quercus_ilex",
+                                "positive_support": 2,
+                                "positive_ratio": 1.0,
+                                "negative_support": 1,
+                                "negative_ratio": 1.0,
+                                "ratio_delta": 0.0,
+                            }
+                        ]
+                    },
+                    "numeric_features": {
+                        "rain_14d_mm": {
+                            "positive": {"count": 2, "min": 20.0, "max": 30.0, "mean": 25.0},
+                            "negative": {"count": 1, "min": 2.0, "max": 2.0, "mean": 2.0},
+                        },
+                        "altitude_m": {
+                            "positive": {"count": 2, "min": 650.0, "max": 700.0, "mean": 675.0},
+                            "negative": {"count": 1, "min": 680.0, "max": 680.0, "mean": 680.0},
+                        },
+                    },
+                }
+            ],
+        }
+
+        html = self.web_server.mushroom_profiles_ui.render_local_evidence_section(
+            profile,
+            catalogs,
+            {"generated_at": "2026-07-02T12:00:00", "results": []},
+            None,
+            None,
+            learned_model_payload=learned_model,
+            evidence_view="learned_model",
+        )
+
+        self.assertIn("Learned model", html)
+        self.assertIn("Learned v0 model", html)
+        self.assertIn("Quercus ilex - Holm oak", html)
+        self.assertIn("Rainfall 14d", html)
+        self.assertIn("rain_14d_mm", html)
+        self.assertIn("25 mm", html)
+        self.assertIn("2026-07-02T15:00:00", html)
+        self.assertIn('name="profile_action" value="rebuild_learned_model_v0"', html)
+        self.assertIn("Rebuild v0 model", html)
+
+    def test_mushroom_learned_model_rebuild_post_runs_builders(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(self.web_server.mushroom_observation_context, "build_and_write_observation_weather_features") as weather_builder, \
+            mock.patch.object(self.web_server.mushroom_observation_features, "build_and_write_observation_features_v0") as features_builder, \
+            mock.patch.object(self.web_server.mushroom_learned_model, "build_and_write_learned_model_v0") as model_builder:
+            weather_builder.return_value = {"summary": {"observations": 3}}
+            features_builder.return_value = {"summary": {"observations": 3}}
+            model_builder.return_value = {
+                "summary": {
+                    "observations": 2,
+                    "excluded_observations": 1,
+                    "species": 1,
+                }
+            }
+
+            redirect = handler.handle_mushroom_profiles_post(
+                {
+                    "profile_action": ["rebuild_learned_model_v0"],
+                    "species_id": ["amanita_caesarea"],
+                    "view": ["v0"],
+                    "evidence_view": ["learned_model"],
+                }
+            )
+
+        weather_builder.assert_called_once_with()
+        features_builder.assert_called_once_with()
+        model_builder.assert_called_once_with()
+        self.assertEqual(
+            "?id=amanita_caesarea&section=evidence&view=v0&evidence_view=learned_model#mushroom-profile-message",
+            redirect,
+        )
+        self.assertIn("Learned v0 model rebuilt", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
     def test_mushroom_evidence_decisions_are_reversible(self) -> None:
         data_dir = Path(self.temp_dir.name)

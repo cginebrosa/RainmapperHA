@@ -43,9 +43,21 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
                             "rain_30d_mm": 30.0,
                             "rain_60d_mm": 60.0,
                             "rain_90d_mm": 90.0,
+                            "temp_min_7d_c": 10.0,
+                            "temp_max_7d_c": 24.0,
+                            "temp_mean_7d_c": 17.0,
+                            "temp_min_14d_c": 9.0,
+                            "temp_max_14d_c": 25.0,
+                            "temp_mean_14d_c": 17.0,
                             "temp_min_c": 10.0,
                             "temp_max_c": 24.0,
                             "temp_mean_c": 17.0,
+                            "humidity_min_7d_pct": 40.0,
+                            "humidity_max_7d_pct": 90.0,
+                            "humidity_mean_7d_pct": 65.0,
+                            "humidity_min_14d_pct": 35.0,
+                            "humidity_max_14d_pct": 92.0,
+                            "humidity_mean_14d_pct": 64.0,
                             "humidity_min_pct": 40.0,
                             "humidity_max_pct": 90.0,
                             "humidity_mean_pct": 65.0,
@@ -103,6 +115,8 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
         self.assertEqual(payload["summary"]["observations"], 2)
         self.assertEqual(payload["summary"]["with_gis"], 1)
         self.assertEqual(first["rain_7d_mm"], 11.0)
+        self.assertEqual(first["temp_min_14d_c"], 9.0)
+        self.assertEqual(first["humidity_max_14d_pct"], 92.0)
         self.assertEqual(first["host_ids"], ["host_quercus_ilex"])
         self.assertEqual(first["forest_type_ids"], ["forest_holm_oak"])
         self.assertEqual(first["soil_tendency_ids"], ["soil_calcareous"])

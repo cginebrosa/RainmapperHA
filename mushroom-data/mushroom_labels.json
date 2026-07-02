@@ -609,6 +609,11 @@
     "es": "Todas las especies",
     "ca": "Totes les especies"
   },
+  "ui.change_species": {
+    "en": "Change species",
+    "es": "Cambiar especie",
+    "ca": "Canviar especie"
+  },
   "ui.not_informed": {
     "en": "Not informed",
     "es": "No informado",
@@ -713,6 +718,161 @@
     "en": "Weather",
     "es": "Meteorologia",
     "ca": "Meteorologia"
+  },
+  "ui.evidence_learned_model": {
+    "en": "Learned model",
+    "es": "Modelo aprendido",
+    "ca": "Model apres"
+  },
+  "ui.learned_model": {
+    "en": "Learned v0 model",
+    "es": "Modelo v0 aprendido",
+    "ca": "Model v0 apres"
+  },
+  "ui.learned_model_missing": {
+    "en": "No learned model has been generated yet. Run mushroom_learned_model_v0_build.sh after building observation features.",
+    "es": "Aun no se ha generado ningun modelo aprendido. Ejecuta mushroom_learned_model_v0_build.sh despues de generar features de observaciones.",
+    "ca": "Encara no s'ha generat cap model apres. Executa mushroom_learned_model_v0_build.sh despres de generar features d'observacions."
+  },
+  "ui.learned_model_note": {
+    "en": "Experimental model recalculated from approved/local observation features. It does not modify profiles.",
+    "es": "Modelo experimental recalculado desde features de observaciones aprobadas/locales. No modifica perfiles.",
+    "ca": "Model experimental recalculat des de features d'observacions aprovades/locals. No modifica perfils."
+  },
+  "ui.rebuild_learned_model": {
+    "en": "Rebuild v0 model",
+    "es": "Reconstruir modelo v0",
+    "ca": "Reconstruir model v0"
+  },
+  "ui.rebuild_learned_model_help": {
+    "en": "Runs weather reconstruction, joins v0 observation features and rebuilds the learned model. Profiles are not modified.",
+    "es": "Ejecuta reconstruccion meteorologica, une features v0 de observaciones y reconstruye el modelo aprendido. No modifica perfiles.",
+    "ca": "Executa reconstruccio meteorologica, uneix features v0 d'observacions i reconstrueix el model apres. No modifica perfils."
+  },
+  "ui.learned_categorical_features": {
+    "en": "Categorical variables",
+    "es": "Variables categoricas",
+    "ca": "Variables categòriques"
+  },
+  "ui.learned_numeric_features": {
+    "en": "Numeric variables",
+    "es": "Variables numericas",
+    "ca": "Variables numeriques"
+  },
+  "ui.learned_no_categorical_features": {
+    "en": "No categorical variables have been learned for this species.",
+    "es": "No hay variables categoricas aprendidas para esta especie.",
+    "ca": "No hi ha variables categòriques apreses per a aquesta especie."
+  },
+  "ui.learned_no_numeric_features": {
+    "en": "No numeric variables have been learned for this species.",
+    "es": "No hay variables numericas aprendidas para esta especie.",
+    "ca": "No hi ha variables numeriques apreses per a aquesta especie."
+  },
+  "ui.learned_positive_short": {
+    "en": "Pos.",
+    "es": "Pos.",
+    "ca": "Pos."
+  },
+  "ui.learned_negative_short": {
+    "en": "Neg.",
+    "es": "Neg.",
+    "ca": "Neg."
+  },
+  "ui.learned_ratio_delta": {
+    "en": "Difference",
+    "es": "Diferencia",
+    "ca": "Diferencia"
+  },
+  "ui.learned_mean_positive": {
+    "en": "Mean +",
+    "es": "Media +",
+    "ca": "Mitjana +"
+  },
+  "ui.learned_mean_negative": {
+    "en": "Mean -",
+    "es": "Media -",
+    "ca": "Mitjana -"
+  },
+  "ui.learned_mean": {
+    "en": "Mean",
+    "es": "Media",
+    "ca": "Mitjana"
+  },
+  "ui.variable": {
+    "en": "Variable",
+    "es": "Variable",
+    "ca": "Variable"
+  },
+  "ui.station": {
+    "en": "Station",
+    "es": "Estacion",
+    "ca": "Estacio"
+  },
+  "ui.weather_gaps": {
+    "en": "Weather gaps",
+    "es": "Gaps meteo",
+    "ca": "Gaps meteo"
+  },
+  "ui.gis_gaps": {
+    "en": "GIS gaps",
+    "es": "Gaps GIS",
+    "ca": "Gaps GIS"
+  },
+  "ui.range_title": {
+    "en": "Title",
+    "es": "Titulo",
+    "ca": "Titol"
+  },
+  "ui.range_minimum": {
+    "en": "Minimum",
+    "es": "Minimo",
+    "ca": "Minim"
+  },
+  "ui.range_maximum": {
+    "en": "Maximum",
+    "es": "Maximo",
+    "ca": "Maxim"
+  },
+  "ui.weather_no_rows": {
+    "en": "No weather rows are available for this species.",
+    "es": "No hay filas meteorologicas para esta especie.",
+    "ca": "No hi ha files meteorologiques per a aquesta especie."
+  },
+  "ui.weather_features_missing": {
+    "en": "No unified v0 features are loaded. Run mushroom_observation_features_v0_build.sh after rebuilding weather and GIS.",
+    "es": "No hay features v0 unificadas. Ejecuta mushroom_observation_features_v0_build.sh tras reconstruir meteorologia y GIS.",
+    "ca": "No hi ha features v0 unificades. Executa mushroom_observation_features_v0_build.sh despres de reconstruir meteorologia i GIS."
+  },
+  "ui.weather_features_species_missing": {
+    "en": "The current v0 features do not contain observations for this species.",
+    "es": "Las features v0 actuales no contienen observaciones para esta especie.",
+    "ca": "Les features v0 actuals no contenen observacions per a aquesta especie."
+  },
+  "ui.weather_readonly_note": {
+    "en": "Read-only view. It summarizes observed conditions; it does not calculate thresholds or modify profiles.",
+    "es": "Vista de solo lectura. Resume condiciones observadas; no calcula umbrales ni modifica perfiles.",
+    "ca": "Vista de nomes lectura. Resumeix condicions observades; no calcula llindars ni modifica perfils."
+  },
+  "ui.weather_evidence": {
+    "en": "Weather evidence",
+    "es": "Evidencia meteorologica",
+    "ca": "Evidencia meteorologica"
+  },
+  "ui.latest_features_join": {
+    "en": "Latest v0 features join",
+    "es": "Ultima union features v0",
+    "ca": "Ultima unio features v0"
+  },
+  "ui.present_observations": {
+    "en": "Present",
+    "es": "Presentes",
+    "ca": "Presents"
+  },
+  "ui.absent_observations": {
+    "en": "Absent",
+    "es": "Ausencias",
+    "ca": "Absencies"
   },
   "ui.evidence_hosts": {
     "en": "Hosts",

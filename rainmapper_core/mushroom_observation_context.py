@@ -19,7 +19,12 @@ from typing import Any
 
 
 RAIN_WINDOWS_DAYS = (1, 7, 14, 21, 30, 60, 90)
+TEMPERATURE_WINDOWS_DAYS = (7, 14, 21, 30)
+HUMIDITY_WINDOWS_DAYS = (7, 14, 21, 30)
 SUMMARY_WINDOW_DAYS = 7
+# Data-quality guard only. Values above this are kept out of experimental
+# weather sums and reported as gaps; this is not a mushroom predictor threshold.
+DAILY_RAIN_SANITY_LIMIT_MM = 300.0
 DAILY_INCREMENTAL_FILES = (
     ("aemet", "Aemet_incremental.csv"),
     ("meteocat", "Meteocat_incremental.csv"),
@@ -52,9 +57,33 @@ CSV_FIELDS = (
     "rain_30d_mm",
     "rain_60d_mm",
     "rain_90d_mm",
+    "temp_min_7d_c",
+    "temp_max_7d_c",
+    "temp_mean_7d_c",
+    "temp_min_14d_c",
+    "temp_max_14d_c",
+    "temp_mean_14d_c",
+    "temp_min_21d_c",
+    "temp_max_21d_c",
+    "temp_mean_21d_c",
+    "temp_min_30d_c",
+    "temp_max_30d_c",
+    "temp_mean_30d_c",
     "temp_min_c",
     "temp_max_c",
     "temp_mean_c",
+    "humidity_min_7d_pct",
+    "humidity_max_7d_pct",
+    "humidity_mean_7d_pct",
+    "humidity_min_14d_pct",
+    "humidity_max_14d_pct",
+    "humidity_mean_14d_pct",
+    "humidity_min_21d_pct",
+    "humidity_max_21d_pct",
+    "humidity_mean_21d_pct",
+    "humidity_min_30d_pct",
+    "humidity_max_30d_pct",
+    "humidity_mean_30d_pct",
     "humidity_min_pct",
     "humidity_max_pct",
     "humidity_mean_pct",
@@ -330,15 +359,52 @@ def records_for_window(station: WeatherStation, observed_day: date, days: int) -
     ]
 
 
+def usable_rain_value(record: DailyWeatherRecord, gaps: list[str]) -> float | None:
+    """Return daily rain unless it is a clear station-history anomaly."""
+    value = record.rain_mm
+    if value is None:
+        return None
+    if value > DAILY_RAIN_SANITY_LIMIT_MM:
+        gap = f"rain_suspect_daily_{record.day.strftime('%Y%m%d')}_{round_or_none(value)}mm"
+        if gap not in gaps:
+            gaps.append(gap)
+        return None
+    return value
+
+
 def build_weather_values(station: WeatherStation, observed_day: date) -> tuple[dict[str, Any], list[str]]:
     values: dict[str, Any] = {}
     gaps: list[str] = []
     for days in RAIN_WINDOWS_DAYS:
         records = records_for_window(station, observed_day, days)
-        rain_values = [record.rain_mm for record in records if record.rain_mm is not None]
+        rain_values = [
+            rain_value
+            for record in records
+            if (rain_value := usable_rain_value(record, gaps)) is not None
+        ]
         values[f"rain_{days}d_mm"] = round_or_none(sum(rain_values), 2) if rain_values else None
         if len(rain_values) < days:
             gaps.append(f"rain_{days}d_coverage_{len(rain_values)}/{days}")
+
+    for days in TEMPERATURE_WINDOWS_DAYS:
+        records = records_for_window(station, observed_day, days)
+        temp_min_values = [record.temp_min_c for record in records if record.temp_min_c is not None]
+        temp_max_values = [record.temp_max_c for record in records if record.temp_max_c is not None]
+        values[f"temp_min_{days}d_c"] = round_or_none(min(temp_min_values), 2) if temp_min_values else None
+        values[f"temp_max_{days}d_c"] = round_or_none(max(temp_max_values), 2) if temp_max_values else None
+        values[f"temp_mean_{days}d_c"] = round_or_none(mean(temp_min_values + temp_max_values), 2)
+        if not temp_min_values and not temp_max_values:
+            gaps.append(f"temperature_no_data_{days}d")
+
+    for days in HUMIDITY_WINDOWS_DAYS:
+        records = records_for_window(station, observed_day, days)
+        humidity_min_values = [record.humidity_min_pct for record in records if record.humidity_min_pct is not None]
+        humidity_max_values = [record.humidity_max_pct for record in records if record.humidity_max_pct is not None]
+        values[f"humidity_min_{days}d_pct"] = round_or_none(min(humidity_min_values), 2) if humidity_min_values else None
+        values[f"humidity_max_{days}d_pct"] = round_or_none(max(humidity_max_values), 2) if humidity_max_values else None
+        values[f"humidity_mean_{days}d_pct"] = round_or_none(mean(humidity_min_values + humidity_max_values), 2)
+        if not humidity_min_values and not humidity_max_values:
+            gaps.append(f"humidity_no_data_{days}d")
 
     summary_records = records_for_window(station, observed_day, SUMMARY_WINDOW_DAYS)
     temp_min_values = [record.temp_min_c for record in summary_records if record.temp_min_c is not None]
@@ -362,10 +428,6 @@ def build_weather_values(station: WeatherStation, observed_day: date) -> tuple[d
             "wind_direction_deg": round_or_none(circular_mean_degrees(wind_direction_values), 1),
         }
     )
-    if not temp_min_values and not temp_max_values:
-        gaps.append("temperature_no_data_7d")
-    if not humidity_min_values and not humidity_max_values:
-        gaps.append("humidity_no_data_7d")
     if not wind_avg_values and not wind_gust_values:
         gaps.append("wind_no_data_7d")
     return values, gaps
@@ -402,6 +464,14 @@ def build_observation_weather_row(
     gaps: list[str] = []
     for days in RAIN_WINDOWS_DAYS:
         row[f"rain_{days}d_mm"] = None
+    for days in TEMPERATURE_WINDOWS_DAYS:
+        row[f"temp_min_{days}d_c"] = None
+        row[f"temp_max_{days}d_c"] = None
+        row[f"temp_mean_{days}d_c"] = None
+    for days in HUMIDITY_WINDOWS_DAYS:
+        row[f"humidity_min_{days}d_pct"] = None
+        row[f"humidity_max_{days}d_pct"] = None
+        row[f"humidity_mean_{days}d_pct"] = None
     for key in (
         "temp_min_c",
         "temp_max_c",

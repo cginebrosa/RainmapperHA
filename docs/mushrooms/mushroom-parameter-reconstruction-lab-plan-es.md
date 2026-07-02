@@ -170,6 +170,54 @@ tmp/mushroom-lab/output/reports/species_observed_conditions.md
 
 Estas salidas son locales, ignoradas por Git y revisables manualmente.
 
+Salida aprendida v0 ya implementada:
+
+```text
+docker-data/mushroom-lab/working/models/mushroom_model_v0.json
+docker-data/mushroom-lab/output/reports/mushroom_model_v0.md
+```
+
+Se genera con:
+
+```bash
+./mushroom_learned_model_v0_build.sh
+```
+
+o desde la WebUI local en `Evidencia > Modelo aprendido` mediante
+`Reconstruir modelo v0`. Este rebuild encadena la reconstruccion meteorologica,
+el joiner de features v0 y el builder del modelo aprendido. No modifica
+`mushroom_profiles.json`.
+
+Semantica actual del modelo aprendido:
+
+- es descriptivo y auditable, no predictivo;
+- resume observaciones validas/incluidas por especie;
+- separa positivos y negativos;
+- para variables categoricas muestra soporte de hosts, bosques, suelos y
+  habitat en positivos/negativos;
+- para variables numericas muestra rango minimo/maximo y media en positivos y
+  negativos;
+- conserva gaps de meteorologia/GIS/feature como informacion de calidad;
+- no fija umbrales, pesos ni ventanas por especie;
+- no aplica decisiones ni escribe perfiles.
+
+Uso previsto inmediato:
+
+El modelo aprendido aislado sirve para auditar, pero el mantenimiento real debe
+mostrar esta evidencia junto al parametro afectado. El siguiente cambio de UI
+debe proyectar los calculos del modelo aprendido en:
+
+- `Parametros`, al lado de los campos v0 seleccionados/no seleccionados;
+- `Especies > General`, como resumen de aprendizaje, gaps y contradicciones;
+- `Especies > Ecologia`, junto a hosts, bosques, suelos y habitat;
+- `Especies > Fenologia y Topografia`, junto a meses, altitud y orientaciones
+  cuando haya evidencia reconstruida.
+
+La pantalla `Evidencia > Modelo aprendido` queda como detalle tecnico y
+explicativo. La aplicacion de cambios al perfil debe seguir siendo manual,
+visible y reversible, preferentemente mediante candidatos o diffs por campo
+antes de escribir `mushroom_profiles.json`.
+
 ## Fase 0: mini-fase GIS acotada
 
 Objetivo:
