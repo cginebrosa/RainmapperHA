@@ -668,11 +668,99 @@ Decision inicial prudente:
 - evitar interpolacion hasta comprobar calidad de datos y cobertura;
 - no mezclar varias fuentes sin explicar la decision.
 
+Implementacion local inicial 2026-07-02:
+
+- modulo: `rainmapper_core/mushroom_observation_context.py`;
+- wrapper: `./mushroom_observation_context_rebuild.sh`;
+- script: `scripts/reconstruct-mushroom-observation-context.py`;
+- entradas por defecto:
+  - `docker-data/mushroom-data/mushroom_observations.json`;
+  - `docker-data/Data/{Aemet,Meteocat,Meteoclimatic,Wunderground}_incremental.csv`;
+- salidas por defecto:
+  - `docker-data/mushroom-lab/working/features/observations_weather_features.json`;
+  - `docker-data/mushroom-lab/working/features/observations_weather_features.csv`;
+  - `docker-data/mushroom-lab/output/reports/observations_weather_features.md`;
+- metodo: `nearest_station_single_source_daily`;
+- seleccion: estacion diaria mas cercana con al menos un dato dentro de la
+  ventana previa de 90 dias;
+- lluvia: acumulados de 1/7/14/21/30/60/90 dias, incluyendo la fecha de
+  observacion como extremo final;
+- temperatura, humedad y viento: resumen de 7 dias, indicado por
+  `weather_summary_window_days`;
+- cobertura incompleta: se calcula con los dias disponibles y se anade un gap
+  del tipo `rain_30d_coverage_17/30`;
+- no se define distancia maxima aceptable todavia; por tanto no se descartan
+  estaciones lejanas por umbral inventado;
+- no se mezclan fuentes: si la estacion elegida no tiene viento, el viento queda
+  como gap (`wind_no_data_7d`) aunque otra fuente cercana pueda tenerlo.
+
+Resultado de la primera reconstruccion local sobre 45 observaciones: 45 filas
+con estacion meteorologica asignada, 43 con algun gap, principalmente por viento
+ausente en la estacion cercana elegida o cobertura parcial en ventanas largas.
+Este resultado es util para inspeccion y candidatos, pero no debe interpretarse
+todavia como calibracion meteorologica productiva.
+
+Nota sobre viento:
+
+Wunderground ya recupera viento en ejecuciones actuales, pero los historicos
+locales disponibles para algunas observaciones antiguas pueden no conservarlo.
+Se deja como TODO una reconstruccion historica controlada de Wunderground de los
+ultimos 2-3 anos, con backups y `check-history`, antes de usar el viento como
+evidencia fuerte. La direccion media requeriria calculo circular, similar al
+criterio usado con Meteocat/Tomap, porque el scraping historico mensual diario
+no entrega directamente una direccion media fiable en el formato actual. Para
+la v0 micologica inicial, el viento queda como campo reconstruible/gap trazable,
+pero no debe entrar en scoring ni bloquear candidatos salvo decision posterior.
+
+## Fase 1b: features v0 unificadas por observacion
+
+Implementacion local inicial 2026-07-02:
+
+- modulo: `rainmapper_core/mushroom_observation_features.py`;
+- wrapper: `./mushroom_observation_features_v0_build.sh`;
+- script: `scripts/build-mushroom-observation-features-v0.py`;
+- entradas por defecto:
+  - `docker-data/mushroom-lab/working/features/observations_weather_features.json`;
+  - `docker-data/mushroom-lab/working/features/gis_observation_reconstruction.json`;
+- salidas por defecto:
+  - `docker-data/mushroom-lab/working/features/observation_features_v0.json`;
+  - `docker-data/mushroom-lab/working/features/observation_features_v0.csv`;
+  - `docker-data/mushroom-lab/output/reports/observation_features_v0.md`.
+
+Contrato:
+
+El builder une meteorologia y GIS por `observation_id` y genera una tabla plana
+de revision con:
+
+- identidad de observacion, especie, fecha y resultado (`present`/`absent`);
+- lluvia acumulada 1/7/14/21/30/60/90 dias;
+- temperatura/humedad/viento disponibles;
+- `host_ids`, `forest_type_ids`, `soil_tendency_ids`, `habitat_feature_ids`;
+- altitud GIS/DEM;
+- `weather_gaps`, `gis_gaps` y `feature_gaps`.
+
+No genera candidatos de parametros ni modifica perfiles. Sirve como contrato
+intermedio reutilizable: cuando se reconstruya Wunderground historico o se cree
+la cache territorial GIS de Catalunya, el siguiente paso debe seguir escribiendo
+o consumiendo este tipo de features por observacion.
+
+Resultado de la primera union local:
+
+- 45 observaciones;
+- 45 con meteorologia;
+- 45 con GIS;
+- 43 con gaps meteorologicos;
+- 0 con gaps GIS/feature.
+
+Lectura operativa: para estas observaciones, GIS v0 ya no es el bloqueo
+principal; la calidad meteorologica historica, especialmente viento, es el punto
+que necesita decision antes de usar candidatos meteorologicos.
+
 Decisiones pendientes antes o durante la implementacion:
 
-- elegir si el primer POC selecciona la estacion mas cercana global, por fuente, o por disponibilidad en la ventana;
+- decidir si el siguiente POC mantiene estacion unica o permite fuente distinta
+  para lluvia/temperatura/humedad/viento con trazabilidad separada;
 - definir distancia maxima aceptable antes de marcar gap;
-- decidir si lluvia, temperatura, humedad y viento deben venir de la misma estacion o pueden usar estaciones/fuentes distintas con trazabilidad separada;
 - decidir si se calcula `days_since_significant_rain` en la primera version o se deja para una segunda iteracion;
 - si se calcula, definir el umbral como global exploratorio y documentarlo como no productivo;
 - decidir si se incluyen observaciones `draft` en modo diagnostico o solo observaciones validadas/aceptadas.
@@ -772,6 +860,9 @@ Revision de evidencia local v0:
 
 - La UI de especies debe exponer una pestanya `Evidencia` separada de
   `Observaciones`, `Parametros` y `Calibracion`.
+- La pestanya `Evidencia` puede tener subtabs internas para no mezclar tipos
+  de decision. En el estado actual, `GIS` contiene decisiones manuales y
+  `Meteorologia` contiene lectura de features observadas.
 - La pantalla compara lo declarado en el perfil v0 contra lo reconstruido desde
   observaciones (`gis_context_v0`) para Hosts, Bosques, Suelos y Habitat.
 - Debe mostrar los dos sentidos de la discrepancia:
@@ -783,6 +874,8 @@ Revision de evidencia local v0:
 - El fichero de decisiones locales es estado de revision, no fuente biologica
   canonica de especie. La promocion real al perfil debe ser un paso posterior,
   explicito y validado.
+- La lectura meteorologica consume `observation_features_v0.json` y solo resume
+  rangos/gaps por especie. No debe inferir umbrales ni escribir parametros.
 
 El boton productivo de HA queda fuera del alcance hasta que el laboratorio local este validado.
 

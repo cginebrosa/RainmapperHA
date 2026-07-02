@@ -833,6 +833,12 @@ def reconstruct_observation(
         base["gaps"].append("missing_coordinates")
         return base
     lat, lon = location
+    base["location"] = {
+        "lat": round(lat, 7),
+        "lon": round(lon, 7),
+        "source": "mushroom_observations",
+    }
+    base["location_redacted"] = False
     try:
         x, y = transform_wgs84_to_utm31(lon, lat)
     except Exception as exc:

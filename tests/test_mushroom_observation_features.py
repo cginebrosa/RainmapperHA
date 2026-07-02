@@ -1,0 +1,140 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from rainmapper_core import mushroom_observation_features
+
+
+class MushroomObservationFeaturesTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.root = Path(self.temp_dir.name)
+        self.weather_path = self.root / "weather.json"
+        self.gis_path = self.root / "gis.json"
+
+    def write_inputs(self) -> None:
+        self.weather_path.write_text(
+            json.dumps(
+                {
+                    "kind": "mushroom_observation_weather_features",
+                    "rows": [
+                        {
+                            "observation_id": "obs_1",
+                            "species_id": "boletus_test",
+                            "observed_at": "2026-07-10",
+                            "analysis_result": "present",
+                            "flush_abundance": "normal",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                            "source_quality": 1,
+                            "latitude": 42.0,
+                            "longitude": 2.0,
+                            "altitude_m": 700,
+                            "weather_source": "meteocat",
+                            "weather_station_code": "ST_NEAR",
+                            "weather_station_distance_km": 1.2,
+                            "weather_station_coverage_days_90d": 90,
+                            "rain_1d_mm": 2.5,
+                            "rain_7d_mm": 11.0,
+                            "rain_14d_mm": 20.0,
+                            "rain_21d_mm": 25.0,
+                            "rain_30d_mm": 30.0,
+                            "rain_60d_mm": 60.0,
+                            "rain_90d_mm": 90.0,
+                            "temp_min_c": 10.0,
+                            "temp_max_c": 24.0,
+                            "temp_mean_c": 17.0,
+                            "humidity_min_pct": 40.0,
+                            "humidity_max_pct": 90.0,
+                            "humidity_mean_pct": 65.0,
+                            "wind_avg_kmh": None,
+                            "wind_gust_kmh": None,
+                            "wind_direction_deg": None,
+                            "data_gaps": ["wind_no_data_7d"],
+                        },
+                        {
+                            "observation_id": "obs_2",
+                            "species_id": "boletus_test",
+                            "observed_at": "2026-07-11",
+                            "analysis_result": "absent",
+                            "data_gaps": [],
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        self.gis_path.write_text(
+            json.dumps(
+                {
+                    "kind": "mushroom_observation_gis_reconstruction",
+                    "results": [
+                        {
+                            "observation_id": "obs_1",
+                            "species_id": "boletus_test",
+                            "gaps": [],
+                            "gis_context_v0": {
+                                "host_ids": ["host_quercus_ilex"],
+                                "forest_type_ids": ["forest_holm_oak"],
+                                "soil_tendency_ids": ["soil_calcareous"],
+                                "habitat_feature_ids": ["feature_open_warm_woodland"],
+                                "altitude_m": 705.0,
+                            },
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def test_build_observation_features_joins_weather_and_gis_context(self) -> None:
+        self.write_inputs()
+
+        payload = mushroom_observation_features.build_observation_features_v0(
+            weather_features_path=self.weather_path,
+            gis_reconstruction_path=self.gis_path,
+        )
+        rows = payload["rows"]
+        first = next(row for row in rows if row["observation_id"] == "obs_1")
+        second = next(row for row in rows if row["observation_id"] == "obs_2")
+
+        self.assertEqual(payload["summary"]["observations"], 2)
+        self.assertEqual(payload["summary"]["with_gis"], 1)
+        self.assertEqual(first["rain_7d_mm"], 11.0)
+        self.assertEqual(first["host_ids"], ["host_quercus_ilex"])
+        self.assertEqual(first["forest_type_ids"], ["forest_holm_oak"])
+        self.assertEqual(first["soil_tendency_ids"], ["soil_calcareous"])
+        self.assertEqual(first["habitat_feature_ids"], ["feature_open_warm_woodland"])
+        self.assertEqual(first["gis_altitude_m"], 705.0)
+        self.assertEqual(first["weather_gaps"], ["wind_no_data_7d"])
+        self.assertEqual(first["feature_gaps"], [])
+        self.assertEqual(second["analysis_result"], "absent")
+        self.assertIn("missing_gis_reconstruction", second["feature_gaps"])
+
+    def test_build_and_write_observation_features_outputs_files(self) -> None:
+        self.write_inputs()
+        output_json = self.root / "out" / "features.json"
+        output_csv = self.root / "out" / "features.csv"
+        report = self.root / "out" / "features.md"
+
+        payload = mushroom_observation_features.build_and_write_observation_features_v0(
+            weather_features_path=self.weather_path,
+            gis_reconstruction_path=self.gis_path,
+            output_json_path=output_json,
+            output_csv_path=output_csv,
+            report_path=report,
+        )
+
+        self.assertTrue(output_json.exists())
+        self.assertTrue(output_csv.exists())
+        self.assertTrue(report.exists())
+        self.assertEqual(json.loads(output_json.read_text(encoding="utf-8"))["output_paths"]["report"], str(report))
+        self.assertIn("host_quercus_ilex", output_csv.read_text(encoding="utf-8"))
+        self.assertIn("Mushroom Observation Features v0", report.read_text(encoding="utf-8"))
+        self.assertEqual(payload["summary"]["with_weather_gaps"], 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

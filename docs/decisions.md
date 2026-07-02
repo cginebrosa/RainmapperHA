@@ -1731,3 +1731,55 @@ que revisar, promover, ignorar o mantener, no obligar a leer payloads tecnicos.
   pero no como experiencia primaria.
 - Si una sesion Codex propone una UI tecnica cruda, debe pedir acuerdo explicito
   antes de implementarla.
+
+## 2026-07-02 - UI multiidioma por defecto
+
+### Decision
+Las pantallas visibles de RainmapperHA deben tratarse como multiidioma por
+defecto. En el dominio de setas, cualquier texto visible nuevo debe salir de
+`mushroom-data/mushroom_labels.json` mediante los helpers de labels existentes
+(`ui_label`, `value_label`, etc.) y debe incluir al menos `en`, `es` y `ca`.
+
+Esto aplica tambien a estados, decisiones, acciones, cabeceras, tooltips,
+mensajes de ayuda y textos de pestanyas. Los textos hardcoded en Python solo
+son aceptables para identificadores tecnicos no visibles, tests internos o
+mensajes temporales de desarrollo que no formen parte de la UI.
+
+### Motivo
+El add-on ya expone `ui_language` y la WebUI de setas se usa en varios idiomas.
+Mezclar textos fijos con labels traducibles degrada la experiencia y hace que
+las revisiones futuras sean mas caras, especialmente en pantallas de
+mantenimiento donde estados y acciones deben ser claros.
+
+### Consecuencias
+- Cualquier feature nueva de UI debe anadir sus labels junto con el cambio.
+- Los tests deben aceptar el idioma por defecto o verificar explicitamente el
+  idioma que se este cargando.
+- Si aparece un `missing label: ...` durante desarrollo, debe resolverse antes
+  de cerrar la tarea salvo que sea una prueba deliberada de deteccion.
+
+## 2026-07-02 - Mapa hibrido externo para revision de evidencia local
+
+### Decision
+La pestanya `Evidencia` de especies puede usar Google Maps embebido en modales
+de revision para inspeccionar observaciones concretas que alimentan un ID GIS
+observado. El mapa debe ser hibrido/satelite, con zoom, y cada observacion debe
+poder abrirse tambien en la pantalla interna de Observaciones.
+
+Esta decision aplica solo a la revision manual en navegador. No convierte
+Google Maps en dependencia del motor de scoring ni del reconstructor GIS.
+
+### Motivo
+Para decidir si un host, bosque, suelo o habitat observado por GIS debe
+promocionarse al perfil, el contexto visual del punto es mas util que un mapa
+abstracto. Google Maps hibrido resuelve esa inspeccion con poca infraestructura
+y sin redisenyar la UI de observaciones.
+
+### Consecuencias
+- Al abrir el modal, el navegador consulta Google Maps con la coordenada
+  seleccionada.
+- El artefacto `gis_observation_reconstruction.json` puede guardar `location`
+  para que la revision sea autocontenida; la UI puede usar
+  `mushroom_observations.json` como fallback si el artefacto es antiguo.
+- Si se necesita revision offline o sin dependencia externa, se debera crear
+  una alternativa MapLibre con tiles/ortofoto controlados.

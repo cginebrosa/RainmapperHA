@@ -289,6 +289,8 @@ class MushroomGisLabTests(unittest.TestCase):
             result = mushroom_gis_lab.reconstruct_observation(observation)
 
         self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["location"], {"lat": 42.0, "lon": 2.0, "source": "mushroom_observations"})
+        self.assertFalse(result["location_redacted"])
         self.assertIn("gis_context_v0", result)
         self.assertEqual(result["gis_context_v0"]["host_ids"], ["host_pinus_sylvestris"])
         self.assertEqual(result["gis_context_v0"]["forest_type_ids"], ["forest_montane_pine"])

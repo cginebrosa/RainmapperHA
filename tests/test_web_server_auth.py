@@ -1097,8 +1097,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         }
         catalogs = {
             "host_taxa": [
-                {"id": "host_quercus_ilex", "label": {"en": "Holm oak"}},
-                {"id": "host_quercus_suber", "label": {"en": "Cork oak"}},
+                {
+                    "id": "host_quercus_ilex",
+                    "scientific_name": "Quercus ilex",
+                    "common_names": {"en": ["Holm oak"]},
+                },
+                {
+                    "id": "host_quercus_suber",
+                    "scientific_name": "Quercus suber",
+                    "common_names": {"en": ["Cork oak"]},
+                },
             ],
             "forest_types": [
                 {"id": "forest_holm_oak", "label": {"en": "Holm oak forest"}},
@@ -1113,6 +1121,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 {
                     "observation_id": "obs_1",
                     "species_id": "boletus_aereus",
+                    "location": {"lat": 41.75, "lon": 2.15, "source": "mushroom_observations"},
                     "gis_context_v0": {
                         "host_ids": ["host_quercus_ilex"],
                         "forest_type_ids": ["forest_holm_oak"],
@@ -1137,18 +1146,117 @@ class AuthDeviceLimitTests(unittest.TestCase):
             profile,
             catalogs,
             reconstruction,
+            None,
             decisions,
+            profile_view="v0",
         )
 
         self.assertIn("Evidencia local v0", html)
-        self.assertIn("Observado no declarado", html)
-        self.assertIn("Declarado no observado", html)
-        self.assertIn("Promover", html)
-        self.assertIn("Dudoso", html)
+        self.assertIn("Observed, not declared", html)
+        self.assertIn("Declared, not observed", html)
+        self.assertIn("Promote", html)
+        self.assertIn("Doubtful", html)
+        self.assertIn("GIS (hosts + forests)", html)
+        self.assertIn("GIS (soils + habitat)", html)
         self.assertIn('name="profile_action" value="update_evidence_decision"', html)
+        self.assertIn('name="view" value="v0"', html)
+        self.assertIn('name="evidence_view" value="gis_hosts_forests"', html)
         self.assertIn("host_quercus_ilex", html)
         self.assertIn("host_quercus_suber", html)
+        self.assertIn("Quercus ilex - Holm oak", html)
+        self.assertIn("Quercus suber - Cork oak", html)
+        self.assertIn("Whether this ID is already declared", html)
+        self.assertIn("Evidence observations", html)
+        self.assertIn("maps.google.com/maps?", html)
+        self.assertIn("Open Google Maps", html)
+        self.assertIn("?section=observations&amp;obs_id=obs_1&amp;id=boletus_aereus#observation-detail", html)
         self.assertNotIn("Ejemplos", html)
+
+        soils_html = self.web_server.mushroom_profiles_ui.render_local_evidence_section(
+            profile,
+            catalogs,
+            reconstruction,
+            None,
+            decisions,
+            profile_view="v0",
+            evidence_view="gis_soils_habitat",
+        )
+        self.assertIn("Soils", soils_html)
+        self.assertIn("Habitat", soils_html)
+        self.assertIn('name="view" value="v0"', soils_html)
+        self.assertIn('name="evidence_view" value="gis_soils_habitat"', soils_html)
+        self.assertNotIn("Quercus ilex - Holm oak", soils_html)
+
+        self.assertEqual(
+            "?id=boletus_aereus&section=evidence&view=v0&evidence_view=gis_soils_habitat#mushroom-profile-message",
+            self.web_server.evidence_return_url(
+                "boletus_aereus",
+                profile_view="v0",
+                evidence_view="gis_soils_habitat",
+            ),
+        )
+
+    def test_mushroom_local_evidence_section_renders_weather_features(self) -> None:
+        profile = {
+            "species_id": "boletus_aereus",
+            "scientific_name": "Boletus aereus",
+            "common_names": {"en": ["Black bolete"]},
+            "ecology": {},
+            "prediction_confidence": {},
+            "metadata": {},
+        }
+        features_payload = {
+            "generated_at": "2026-07-02T14:00:00",
+            "rows": [
+                {
+                    "observation_id": "obs_1",
+                    "species_id": "boletus_aereus",
+                    "observed_at": "2025-09-30",
+                    "analysis_result": "present",
+                    "flush_abundance": "abundant",
+                    "rain_7d_mm": 11.0,
+                    "rain_14d_mm": 22.0,
+                    "rain_30d_mm": 33.0,
+                    "rain_90d_mm": 90.0,
+                    "temp_min_c": 7.0,
+                    "temp_max_c": 21.0,
+                    "humidity_min_pct": 50.0,
+                    "humidity_max_pct": 88.0,
+                    "weather_source": "meteocat",
+                    "weather_station_code": "X1",
+                    "weather_station_distance_km": 4.2,
+                    "weather_gaps": ["wind_no_data_7d"],
+                },
+                {
+                    "observation_id": "obs_2",
+                    "species_id": "boletus_aereus",
+                    "observed_at": "2025-10-01",
+                    "analysis_result": "absent",
+                    "flush_abundance": "absent",
+                    "rain_7d_mm": 4.0,
+                    "weather_source": "meteocat",
+                    "weather_station_code": "X1",
+                },
+            ],
+        }
+
+        html = self.web_server.mushroom_profiles_ui.render_local_evidence_section(
+            profile,
+            {},
+            {"generated_at": "2026-07-02T12:00:00", "results": []},
+            features_payload,
+            None,
+            evidence_view="weather",
+        )
+
+        self.assertIn("Evidencia meteorologica", html)
+        self.assertIn("Ultima union features v0: 2026-07-02T14:00:00", html)
+        self.assertIn("Presentes", html)
+        self.assertIn("Ausencias", html)
+        self.assertIn("Lluvia 7d presentes", html)
+        self.assertIn("11 mm", html)
+        self.assertIn("meteocat", html)
+        self.assertIn("wind_no_data_7d", html)
 
     def test_mushroom_evidence_decisions_are_reversible(self) -> None:
         data_dir = Path(self.temp_dir.name)

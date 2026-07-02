@@ -699,6 +699,271 @@
     "es": "Meteorologia",
     "ca": "Meteorologia"
   },
+  "ui.evidence_gis_hosts_forests": {
+    "en": "GIS (hosts + forests)",
+    "es": "GIS (hosts + bosques)",
+    "ca": "GIS (hosts + boscos)"
+  },
+  "ui.evidence_gis_soils_habitat": {
+    "en": "GIS (soils + habitat)",
+    "es": "GIS (suelos + habitat)",
+    "ca": "GIS (sols + habitat)"
+  },
+  "ui.evidence_weather": {
+    "en": "Weather",
+    "es": "Meteorologia",
+    "ca": "Meteorologia"
+  },
+  "ui.evidence_hosts": {
+    "en": "Hosts",
+    "es": "Hosts",
+    "ca": "Hosts"
+  },
+  "ui.evidence_forests": {
+    "en": "Forests",
+    "es": "Bosques",
+    "ca": "Boscos"
+  },
+  "ui.evidence_soils": {
+    "en": "Soils",
+    "es": "Suelos",
+    "ca": "Sols"
+  },
+  "ui.evidence_habitat": {
+    "en": "Habitat",
+    "es": "Habitat",
+    "ca": "Habitat"
+  },
+  "ui.evidence_profile_v0": {
+    "en": "Profile v0",
+    "es": "Perfil v0",
+    "ca": "Perfil v0"
+  },
+  "ui.evidence_status": {
+    "en": "Status",
+    "es": "Estado",
+    "ca": "Estat"
+  },
+  "ui.evidence_decision": {
+    "en": "Decision",
+    "es": "Decision",
+    "ca": "Decisio"
+  },
+  "ui.evidence_actions": {
+    "en": "Actions",
+    "es": "Acciones",
+    "ca": "Accions"
+  },
+  "ui.evidence_profile_v0_help": {
+    "en": "Whether this ID is already declared as an active v0 value in the species profile.",
+    "es": "Indica si este ID ya esta declarado como valor activo v0 en el perfil de la especie.",
+    "ca": "Indica si aquest ID ja esta declarat com a valor actiu v0 al perfil de l'especie."
+  },
+  "ui.evidence_observations_help": {
+    "en": "Number of reconstructed local observations for this species where GIS produced this ID.",
+    "es": "Numero de observaciones locales reconstruidas de esta especie en las que GIS produjo este ID.",
+    "ca": "Nombre d'observacions locals reconstruides d'aquesta especie en que GIS ha produit aquest ID."
+  },
+  "ui.evidence_status_help": {
+    "en": "Automatic comparison between the active v0 profile and local GIS evidence.",
+    "es": "Comparacion automatica entre el perfil v0 activo y la evidencia GIS local.",
+    "ca": "Comparacio automatica entre el perfil v0 actiu i l'evidencia GIS local."
+  },
+  "ui.evidence_decision_help": {
+    "en": "Manual review state saved separately from the profile. It does not change profile data.",
+    "es": "Estado de revision manual guardado separado del perfil. No cambia los datos del perfil.",
+    "ca": "Estat de revisio manual desat separat del perfil. No canvia les dades del perfil."
+  },
+  "ui.evidence_actions_help": {
+    "en": "Buttons to set or reset the manual review decision for this evidence row.",
+    "es": "Botones para fijar o reiniciar la decision manual de revision de esta fila.",
+    "ca": "Botons per fixar o reiniciar la decisio manual de revisio d'aquesta fila."
+  },
+  "ui.evidence_declared_observed": {
+    "en": "Declared and observed",
+    "es": "Declarado y observado",
+    "ca": "Declarat i observat"
+  },
+  "ui.evidence_observed_not_declared": {
+    "en": "Observed, not declared",
+    "es": "Observado no declarado",
+    "ca": "Observat no declarat"
+  },
+  "ui.evidence_declared_not_observed": {
+    "en": "Declared, not observed",
+    "es": "Declarado no observado",
+    "ca": "Declarat no observat"
+  },
+  "ui.evidence_no_local_evidence": {
+    "en": "No local evidence",
+    "es": "Sin evidencia local",
+    "ca": "Sense evidencia local"
+  },
+  "ui.evidence_decision_none": {
+    "en": "No decision",
+    "es": "Sin decision",
+    "ca": "Sense decisio"
+  },
+  "ui.evidence_decision_promote": {
+    "en": "Promote",
+    "es": "Promover",
+    "ca": "Promoure"
+  },
+  "ui.evidence_decision_ignore": {
+    "en": "Ignore",
+    "es": "Ignorar",
+    "ca": "Ignorar"
+  },
+  "ui.evidence_decision_keep": {
+    "en": "Keep",
+    "es": "Mantener",
+    "ca": "Mantenir"
+  },
+  "ui.evidence_decision_doubtful": {
+    "en": "Doubtful",
+    "es": "Dudoso",
+    "ca": "Dubtos"
+  },
+  "ui.evidence_decision_confirm": {
+    "en": "Confirm",
+    "es": "Confirmar",
+    "ca": "Confirmar"
+  },
+  "ui.evidence_decision_reset": {
+    "en": "Reset",
+    "es": "Reiniciar",
+    "ca": "Reiniciar"
+  },
+  "ui.evidence_profile_value_declared_help": {
+    "en": "This ID is declared as an active value in this species v0 profile.",
+    "es": "Este ID esta declarado como valor activo en el perfil v0 de esta especie.",
+    "ca": "Aquest ID esta declarat com a valor actiu al perfil v0 d'aquesta especie."
+  },
+  "ui.evidence_profile_value_not_declared_help": {
+    "en": "This ID is not declared as an active value in this species v0 profile.",
+    "es": "Este ID no esta declarado como valor activo en el perfil v0 de esta especie.",
+    "ca": "Aquest ID no esta declarat com a valor actiu al perfil v0 d'aquesta especie."
+  },
+  "ui.evidence_observations_value_help": {
+    "en": "Reconstructed observations for this species where GIS produced this ID.",
+    "es": "Observaciones reconstruidas de esta especie en las que GIS produjo este ID.",
+    "ca": "Observacions reconstruides d'aquesta especie en que GIS ha produit aquest ID."
+  },
+  "ui.evidence_status_declared_observed_help": {
+    "en": "The v0 profile contains this ID and local reconstructed observations also produced it.",
+    "es": "El perfil v0 ya contiene este ID y tambien aparece en observaciones locales reconstruidas.",
+    "ca": "El perfil v0 ja conte aquest ID i tambe apareix en observacions locals reconstruides."
+  },
+  "ui.evidence_status_observed_not_declared_help": {
+    "en": "Local reconstructed observations produced this ID, but the v0 profile does not declare it yet.",
+    "es": "Este ID aparece en observaciones locales reconstruidas, pero aun no esta declarado en el perfil v0.",
+    "ca": "Aquest ID apareix en observacions locals reconstruides, pero encara no esta declarat al perfil v0."
+  },
+  "ui.evidence_status_declared_not_observed_help": {
+    "en": "The v0 profile contains this ID, but the latest local reconstruction did not observe it for this species.",
+    "es": "El perfil v0 contiene este ID, pero la ultima reconstruccion local no lo ha observado para esta especie.",
+    "ca": "El perfil v0 conte aquest ID, pero l'ultima reconstruccio local no l'ha observat per a aquesta especie."
+  },
+  "ui.evidence_status_no_local_evidence_help": {
+    "en": "There is no reconstructed local evidence to compare this ID.",
+    "es": "No hay evidencia local reconstruida para contrastar este ID.",
+    "ca": "No hi ha evidencia local reconstruida per contrastar aquest ID."
+  },
+  "ui.evidence_decision_promote_help": {
+    "en": "Manual decision: candidate to promote to the profile after review.",
+    "es": "Decision manual: candidato a promover al perfil despues de revision.",
+    "ca": "Decisio manual: candidat a promoure al perfil despres de revisio."
+  },
+  "ui.evidence_decision_ignore_help": {
+    "en": "Manual decision: reviewed evidence discarded for the profile.",
+    "es": "Decision manual: evidencia revisada y descartada para el perfil.",
+    "ca": "Decisio manual: evidencia revisada i descartada per al perfil."
+  },
+  "ui.evidence_decision_keep_help": {
+    "en": "Manual decision: keep the current profile value.",
+    "es": "Decision manual: mantener el valor actual del perfil.",
+    "ca": "Decisio manual: mantenir el valor actual del perfil."
+  },
+  "ui.evidence_decision_doubtful_help": {
+    "en": "Manual decision: mark this value as doubtful for later review.",
+    "es": "Decision manual: valor marcado como dudoso para revisarlo mas adelante.",
+    "ca": "Decisio manual: valor marcat com a dubtos per revisar-lo mes endavant."
+  },
+  "ui.evidence_decision_none_help": {
+    "en": "No manual decision saved for this row.",
+    "es": "Sin decision manual guardada para esta fila.",
+    "ca": "Sense decisio manual desada per a aquesta fila."
+  },
+  "ui.evidence_view_observations": {
+    "en": "View observations",
+    "es": "Ver observaciones",
+    "ca": "Veure observacions"
+  },
+  "ui.evidence_observations_modal_title": {
+    "en": "Evidence observations",
+    "es": "Observaciones de evidencia",
+    "ca": "Observacions d'evidencia"
+  },
+  "ui.evidence_observations_modal_help": {
+    "en": "These are the reconstructed observations that produced this GIS evidence ID. The map is local to this set and supports zoom.",
+    "es": "Estas son las observaciones reconstruidas que produjeron este ID de evidencia GIS. El mapa es local a este conjunto y permite zoom.",
+    "ca": "Aquestes son les observacions reconstruides que han produit aquest ID d'evidencia GIS. El mapa es local a aquest conjunt i permet zoom."
+  },
+  "ui.evidence_observation_list": {
+    "en": "Observation list",
+    "es": "Lista de observaciones",
+    "ca": "Llista d'observacions"
+  },
+  "ui.evidence_open_observation": {
+    "en": "Open observation",
+    "es": "Abrir observacion",
+    "ca": "Obrir observacio"
+  },
+  "ui.evidence_show_on_map": {
+    "en": "Map",
+    "es": "Mapa",
+    "ca": "Mapa"
+  },
+  "ui.evidence_open_google_maps": {
+    "en": "Open Google Maps",
+    "es": "Abrir Google Maps",
+    "ca": "Obrir Google Maps"
+  },
+  "ui.evidence_map": {
+    "en": "Map",
+    "es": "Mapa",
+    "ca": "Mapa"
+  },
+  "ui.evidence_no_coordinates": {
+    "en": "No coordinates available",
+    "es": "Sin coordenadas disponibles",
+    "ca": "Sense coordenades disponibles"
+  },
+  "ui.evidence_zoom_in": {
+    "en": "Zoom in",
+    "es": "Acercar",
+    "ca": "Apropar"
+  },
+  "ui.evidence_zoom_out": {
+    "en": "Zoom out",
+    "es": "Alejar",
+    "ca": "Allunyar"
+  },
+  "ui.evidence_zoom_reset": {
+    "en": "Reset zoom",
+    "es": "Reiniciar zoom",
+    "ca": "Reiniciar zoom"
+  },
+  "ui.evidence_observations_short": {
+    "en": "observations",
+    "es": "observaciones",
+    "ca": "observacions"
+  },
+  "ui.close": {
+    "en": "Close",
+    "es": "Cerrar",
+    "ca": "Tancar"
+  },
   "ui.scoring": {
     "en": "Scoring",
     "es": "Puntuacion",

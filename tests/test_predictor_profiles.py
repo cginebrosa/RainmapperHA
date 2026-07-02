@@ -11,17 +11,27 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate-mushroom-data.py"
 
 
 EXPECTED_SPECIES_IDS = {
-    "boletus_pinophilus",
-    "boletus_edulis",
-    "boletus_aereus",
     "amanita_caesarea",
+    "boletus_aereus",
+    "boletus_edulis",
+    "boletus_pinophilus",
+    "calocybe_gambosa",
+    "cantharellus_cibarius_sl",
+    "cantharellus_lutescens",
+    "craterellus_cornucopioides",
+    "hygrophorus_latitabundus",
+    "hygrophorus_marzuolus",
+    "lactarius_deliciosus",
+    "lactarius_salmonicolor_quieticolor_group",
     "lactarius_sanguifluus",
     "lactarius_vinosus",
-    "hygrophorus_marzuolus",
+    "lepista_nuda",
+    "macrolepiota_procera",
+    "marasmius_oreades",
     "morchella_elata_complex",
-    "calocybe_gambosa",
-    "hygrophorus_latitabundus",
-    "cantharellus_cibarius_sl",
+    "russula_virescens",
+    "tricholoma_terreum",
+    "tuber_melanosporum",
 }
 
 

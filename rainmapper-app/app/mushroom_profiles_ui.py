@@ -109,6 +109,7 @@ def profile_query_url(
     mode: str = "",
     section: str = "",
     profile_view: str = "",
+    evidence_view: str = "",
 ) -> str:
     """Return an ingress-safe query URL for the species maintenance page."""
     params = {}
@@ -122,6 +123,8 @@ def profile_query_url(
         params["section"] = section
     if profile_view and profile_view != "enriched":
         params["view"] = profile_view
+    if evidence_view and evidence_view != "gis":
+        params["evidence_view"] = evidence_view
     return ("?" + urlencode(params)) if params else "?"
 
 
@@ -576,6 +579,20 @@ def host_observation_label(item: dict[str, object], language: str = UI_LANGUAGE)
     return str(item.get("id", ""))
 
 
+def host_scientific_common_label(item: dict[str, object], language: str = UI_LANGUAGE) -> str:
+    """Return a host label with scientific and localized common names."""
+    scientific = str(item.get("scientific_name", "") or "").strip()
+    common = host_observation_label(item, language).strip()
+    item_id = str(item.get("id", "") or "").strip()
+    if scientific and common and common != scientific:
+        return f"{scientific} - {common}"
+    if scientific:
+        return scientific
+    if common:
+        return common
+    return item_id
+
+
 def host_observation_label_map(catalogs: dict[str, object]) -> dict[str, str]:
     """Return host labels meant for the field-observation selector."""
     items = catalogs.get("host_taxa")
@@ -984,28 +1001,32 @@ def render_observation_scope_header(profile: dict[str, object] | None, section: 
 
 LOCAL_EVIDENCE_GROUPS = [
     {
-        "title": "Hosts",
+        "title_label": "ui.evidence_hosts",
         "catalog_group": "host_taxa",
         "profile_field": "host_affinities",
         "context_field": "host_ids",
+        "evidence_view": "gis_hosts_forests",
     },
     {
-        "title": "Bosques",
+        "title_label": "ui.evidence_forests",
         "catalog_group": "forest_types",
         "profile_field": "forest_type_affinities",
         "context_field": "forest_type_ids",
+        "evidence_view": "gis_hosts_forests",
     },
     {
-        "title": "Suelos",
+        "title_label": "ui.evidence_soils",
         "catalog_group": "soil_types",
         "profile_field": "soil_affinities",
         "context_field": "soil_tendency_ids",
+        "evidence_view": "gis_soils_habitat",
     },
     {
-        "title": "Habitat",
+        "title_label": "ui.evidence_habitat",
         "catalog_group": "habitat_features",
         "profile_field": "habitat_feature_affinities",
         "context_field": "habitat_feature_ids",
+        "evidence_view": "gis_soils_habitat",
     },
 ]
 
@@ -1064,15 +1085,216 @@ def local_evidence_counts(
     return observation_count, counts
 
 
+def local_evidence_row_lookup(payload: dict[str, object] | None) -> dict[str, dict[str, object]]:
+    """Return observation reconstruction rows by observation ID."""
+    results = payload.get("results") if isinstance(payload, dict) else None
+    rows = results if isinstance(results, list) else []
+    lookup = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        observation_id = str(row.get("observation_id", "") or "").strip()
+        if observation_id:
+            lookup[observation_id] = row
+    return lookup
+
+
+def observation_payload_lookup(payload: dict[str, object] | None) -> dict[str, dict[str, object]]:
+    """Return persisted mushroom observations by observation ID."""
+    observations = payload.get("observations") if isinstance(payload, dict) else None
+    rows = observations if isinstance(observations, list) else []
+    lookup = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        observation_id = str(row.get("observation_id", "") or row.get("id", "") or "").strip()
+        if observation_id:
+            lookup[observation_id] = row
+    return lookup
+
+
+def evidence_anchor_id(*parts: object) -> str:
+    """Return a stable HTML anchor ID for an evidence modal."""
+    raw = "-".join(str(part or "") for part in parts)
+    safe = "".join(char if char.isalnum() else "-" for char in raw.lower()).strip("-")
+    return safe or "evidence-observations"
+
+
+def observation_location(row: dict[str, object] | None) -> tuple[float, float] | None:
+    """Extract a WGS84 latitude/longitude pair from one observation-like row."""
+    if not isinstance(row, dict):
+        return None
+    location = row.get("location")
+    if isinstance(location, dict):
+        lat = location.get("lat", location.get("latitude"))
+        lon = location.get("lon", location.get("longitude"))
+        if isinstance(lat, int | float) and isinstance(lon, int | float):
+            return float(lat), float(lon)
+    lat = row.get("lat", row.get("latitude"))
+    lon = row.get("lon", row.get("longitude"))
+    if isinstance(lat, int | float) and isinstance(lon, int | float):
+        return float(lat), float(lon)
+    return None
+
+
+def evidence_observation_rows(
+    observation_ids: list[str],
+    reconstruction_lookup: dict[str, dict[str, object]],
+    observation_lookup: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
+    """Build modal rows that combine reconstruction and persisted observation fields."""
+    rows = []
+    for observation_id in observation_ids:
+        reconstruction_row = reconstruction_lookup.get(observation_id, {})
+        observation_row = observation_lookup.get(observation_id, {})
+        location = observation_location(reconstruction_row) or observation_location(observation_row)
+        rows.append(
+            {
+                "observation_id": observation_id,
+                "observed_at": observation_row.get("observed_at") or reconstruction_row.get("observed_at") or "",
+                "flush_abundance": observation_row.get("flush_abundance") or reconstruction_row.get("flush_abundance") or "",
+                "analysis_result": observation_row.get("analysis_result") or reconstruction_row.get("analysis_result") or "",
+                "location": location,
+            }
+        )
+    return rows
+
+
+def google_maps_embed_src(lat: float, lon: float, zoom: int = 16) -> str:
+    """Return a Google Maps hybrid embed URL for one point."""
+    params = urlencode({"q": f"{lat:.7f},{lon:.7f}", "t": "h", "z": str(zoom), "output": "embed"})
+    return f"https://maps.google.com/maps?{params}"
+
+
+def google_maps_external_url(lat: float, lon: float) -> str:
+    """Return an external Google Maps URL for one point."""
+    params = urlencode({"api": "1", "query": f"{lat:.7f},{lon:.7f}"})
+    return f"https://www.google.com/maps/search/?{params}"
+
+
+def render_evidence_observation_map(rows: list[dict[str, object]], map_id: str) -> str:
+    """Render a Google Maps hybrid iframe for the observations listed in one evidence modal."""
+    located = [
+        (index, row, row.get("location"))
+        for index, row in enumerate(rows, start=1)
+        if isinstance(row.get("location"), tuple)
+    ]
+    if not located:
+        return f'<div class="evidence-map-empty">{html.escape(ui_label("ui.evidence_no_coordinates"))}</div>'
+    _, first_row, first_location = located[0]
+    lat, lon = float(first_location[0]), float(first_location[1])
+    external_href = google_maps_external_url(lat, lon)
+    return f"""
+    <div class="evidence-map-viewport">
+      <iframe
+        class="evidence-google-map"
+        data-evidence-map-frame="{html.escape(map_id, quote=True)}"
+        src="{html.escape(google_maps_embed_src(lat, lon), quote=True)}"
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"
+        title="{html.escape(ui_label("ui.evidence_map"), quote=True)}"></iframe>
+      <div class="evidence-map-toolbar">
+        <span>{html.escape(str(first_row.get("observation_id", "") or ""))}</span>
+        <a class="button-link compact-button" data-evidence-map-external="{html.escape(map_id, quote=True)}" href="{html.escape(external_href, quote=True)}" target="_blank" rel="noopener">{html.escape(ui_label("ui.evidence_open_google_maps"))}</a>
+      </div>
+    </div>
+    """
+
+
+def render_evidence_observation_modal(
+    modal_id: str,
+    species_id: str,
+    search: str,
+    profile_view: str,
+    evidence_view: str,
+    item_label: str,
+    rows: list[dict[str, object]],
+) -> str:
+    """Render a modal with observation rows and a zoomable local map."""
+    close_href = profile_query_url(
+        species_id,
+        search,
+        section="evidence",
+        profile_view=profile_view,
+        evidence_view=evidence_view,
+    )
+    list_rows = []
+    for index, row in enumerate(rows, start=1):
+        observation_id = str(row.get("observation_id", "") or "")
+        location = row.get("location")
+        if isinstance(location, tuple):
+            coords = f"{location[0]:.6f}, {location[1]:.6f}"
+            map_button = (
+                f'<button class="evidence-map-select-button" type="button" '
+                f'data-evidence-map-target="{html.escape(modal_id, quote=True)}" '
+                f'data-map-label="{html.escape(observation_id, quote=True)}" '
+                f'data-map-src="{html.escape(google_maps_embed_src(float(location[0]), float(location[1])), quote=True)}" '
+                f'data-map-external="{html.escape(google_maps_external_url(float(location[0]), float(location[1])), quote=True)}">'
+                f'{html.escape(ui_label("ui.evidence_show_on_map"))}</button>'
+            )
+        else:
+            coords = ui_label("ui.evidence_no_coordinates")
+            map_button = ""
+        open_href = observation_select_url(species_id, search, None, observation_id)
+        list_rows.append(
+            '<li class="evidence-observation-item">'
+            f'<span class="evidence-observation-index">{index}</span>'
+            f'<strong class="evidence-observation-date">{html.escape(str(row.get("observed_at", "") or "-"))}</strong>'
+            '<span class="evidence-observation-main">'
+            f'<strong>{html.escape(observation_id)}</strong>'
+            f'<span class="meta">{html.escape(str(row.get("flush_abundance", "") or "-"))} · {html.escape(str(row.get("analysis_result", "") or "-"))}</span>'
+            "</span>"
+            f'<span class="evidence-observation-coords">{html.escape(coords)}</span>'
+            f'{map_button}'
+            f'<a class="button-link compact-button" href="{html.escape(open_href, quote=True)}">{html.escape(ui_label("ui.evidence_open_observation"))}</a>'
+            "</li>"
+        )
+    return f"""
+    <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
+      <div class="modal-card evidence-map-modal">
+        <div class="modal-header">
+          <div>
+            <h2>{html.escape(ui_label("ui.evidence_observations_modal_title"))}</h2>
+            <p class="meta">{html.escape(item_label)} · {len(rows)} {html.escape(ui_label("ui.evidence_observations_short"))}</p>
+          </div>
+          <a class="button-link compact-button" href="{html.escape(close_href, quote=True)}">{html.escape(ui_label("ui.close"))}</a>
+        </div>
+        <p class="meta">{html.escape(ui_label("ui.evidence_observations_modal_help"))}</p>
+        <div class="evidence-observation-layout">
+          <section>
+            <h3>{html.escape(ui_label("ui.evidence_observation_list"))}</h3>
+            <ol class="evidence-observation-list">{"".join(list_rows)}</ol>
+          </section>
+          <section>
+            <h3>{html.escape(ui_label("ui.evidence_map"))}</h3>
+            {render_evidence_observation_map(rows, modal_id)}
+          </section>
+        </div>
+      </div>
+    </div>
+    """
+
+
 def local_evidence_status(declared: bool, observed_count: int, observation_count: int) -> tuple[str, str]:
     """Return display status for one profile-vs-observation evidence row."""
     if declared and observed_count:
-        return "Declarado y observado", "ok"
+        return ui_label("ui.evidence_declared_observed"), "ok"
     if not declared and observed_count:
-        return "Observado no declarado", "warn"
+        return ui_label("ui.evidence_observed_not_declared"), "warn"
     if declared and observation_count:
-        return "Declarado no observado", "muted"
-    return "Sin evidencia local", "muted"
+        return ui_label("ui.evidence_declared_not_observed"), "muted"
+    return ui_label("ui.evidence_no_local_evidence"), "muted"
+
+
+def local_evidence_status_help(declared: bool, observed_count: int, observation_count: int) -> str:
+    """Return contextual help for one profile-vs-observation evidence value."""
+    if declared and observed_count:
+        return ui_label("ui.evidence_status_declared_observed_help")
+    if not declared and observed_count:
+        return ui_label("ui.evidence_status_observed_not_declared_help")
+    if declared and observation_count:
+        return ui_label("ui.evidence_status_declared_not_observed_help")
+    return ui_label("ui.evidence_status_no_local_evidence_help")
 
 
 def local_evidence_decision_lookup(decisions_payload: dict[str, object] | None) -> dict[tuple[str, str, str], str]:
@@ -1094,12 +1316,23 @@ def local_evidence_decision_lookup(decisions_payload: dict[str, object] | None) 
 
 def local_evidence_decision_label(decision: str) -> str:
     labels = {
-        "promote": "Promover",
-        "ignore": "Ignorar",
-        "keep": "Mantener",
-        "doubtful": "Marcar dudoso",
+        "promote": ui_label("ui.evidence_decision_promote"),
+        "ignore": ui_label("ui.evidence_decision_ignore"),
+        "keep": ui_label("ui.evidence_decision_keep"),
+        "doubtful": ui_label("ui.evidence_decision_doubtful"),
     }
-    return labels.get(decision, "Sin decision")
+    return labels.get(decision, ui_label("ui.evidence_decision_none"))
+
+
+def local_evidence_decision_help(decision: str) -> str:
+    """Return contextual help for one manual evidence decision."""
+    labels = {
+        "promote": ui_label("ui.evidence_decision_promote_help"),
+        "ignore": ui_label("ui.evidence_decision_ignore_help"),
+        "keep": ui_label("ui.evidence_decision_keep_help"),
+        "doubtful": ui_label("ui.evidence_decision_doubtful_help"),
+    }
+    return labels.get(decision, ui_label("ui.evidence_decision_none_help"))
 
 
 def evidence_decision_button(
@@ -1116,6 +1349,7 @@ def evidence_decision_button(
     return (
         '<button class="evidence-action-button'
         f'{active}" name="evidence_decision" value="{html.escape(decision, quote=True)}" '
+        f'title="{html.escape(local_evidence_decision_help(decision), quote=True)}" '
         f'type="submit" onclick="return confirm(\'{html.escape(confirm, quote=True)}\')">'
         f'{html.escape(label)}</button>'
     )
@@ -1131,9 +1365,23 @@ def render_local_evidence_group(
     observation_count: int,
     catalogs: dict[str, object],
     decisions: dict[tuple[str, str, str], str],
+    reconstruction_lookup: dict[str, dict[str, object]] | None = None,
+    observation_lookup: dict[str, dict[str, object]] | None = None,
+    search: str = "",
+    profile_view: str = "enriched",
+    evidence_view: str = "gis_hosts_forests",
 ) -> str:
     """Render one group of observed/declared local v0 evidence."""
-    labels = catalog_label_map(catalogs, catalog_group)
+    if catalog_group == "host_taxa":
+        catalog_items = catalogs.get(catalog_group)
+        catalog_items = catalog_items if isinstance(catalog_items, list) else []
+        labels = {
+            str(item.get("id", "") or ""): host_scientific_common_label(item)
+            for item in catalog_items
+            if isinstance(item, dict) and str(item.get("id", "") or "")
+        }
+    else:
+        labels = catalog_label_map(catalogs, catalog_group)
     all_ids = sorted(set(declared_ids) | set(observed_items), key=lambda item: labels.get(item, item))
     if not all_ids:
         return f"""
@@ -1143,25 +1391,33 @@ def render_local_evidence_group(
         </article>
         """
     rows = []
+    modals = []
+    reconstruction_lookup = reconstruction_lookup or {}
+    observation_lookup = observation_lookup or {}
     for item_id in all_ids:
         observed = observed_items.get(item_id, {})
         count = int(observed.get("count", 0) or 0)
+        observation_ids = [
+            str(value)
+            for value in observed.get("observations", [])
+            if str(value or "").strip()
+        ] if isinstance(observed.get("observations"), list) else []
         declared = item_id in declared_ids
         status, tone = local_evidence_status(declared, count, observation_count)
         current_decision = decisions.get((species_id, group_key, item_id), "")
         primary_actions = (
             [
-                ("promote", "Promover"),
-                ("ignore", "Ignorar"),
+                ("promote", ui_label("ui.evidence_decision_promote")),
+                ("ignore", ui_label("ui.evidence_decision_ignore")),
             ]
             if count and not declared else
             [
-                ("keep", "Mantener"),
-                ("doubtful", "Dudoso"),
+                ("keep", ui_label("ui.evidence_decision_keep")),
+                ("doubtful", ui_label("ui.evidence_decision_doubtful")),
             ]
             if declared and observation_count and not count else
             [
-                ("keep", "Confirmar"),
+                ("keep", ui_label("ui.evidence_decision_confirm")),
             ]
             if declared and count else
             []
@@ -1171,44 +1427,210 @@ def render_local_evidence_group(
             for decision, label in primary_actions
         )
         reset_button = (
-            evidence_decision_button(species_id, group_key, item_id, "unreviewed", "Reset", current_decision)
+            evidence_decision_button(species_id, group_key, item_id, "unreviewed", ui_label("ui.evidence_decision_reset"), current_decision)
             if current_decision else ""
         )
+        profile_help = (
+            ui_label("ui.evidence_profile_value_declared_help")
+            if declared else
+            ui_label("ui.evidence_profile_value_not_declared_help")
+        )
+        observations_help = f"{count}. {ui_label('ui.evidence_observations_value_help')}"
+        observations_cell = html.escape(str(count))
+        if count and observation_ids:
+            modal_id = evidence_anchor_id("evidence-observations", group_key, item_id)
+            item_label = labels.get(item_id, item_id)
+            modal_rows = evidence_observation_rows(observation_ids, reconstruction_lookup, observation_lookup)
+            observations_cell = (
+                f'<a class="evidence-observation-link" href="#{html.escape(modal_id, quote=True)}" '
+                f'title="{html.escape(ui_label("ui.evidence_view_observations"), quote=True)}">'
+                f'{count}</a>'
+            )
+            modals.append(
+                render_evidence_observation_modal(
+                    modal_id,
+                    species_id,
+                    search,
+                    profile_view,
+                    evidence_view,
+                    item_label,
+                    modal_rows,
+                )
+            )
+        status_help = local_evidence_status_help(declared, count, observation_count)
+        decision_help = local_evidence_decision_help(current_decision)
         rows.append(
             "<tr>"
             f"<td><strong>{html.escape(labels.get(item_id, item_id))}</strong><span class=\"meta\">{html.escape(item_id)}</span></td>"
-            f"<td>{'Si' if declared else 'No'}</td>"
-            f"<td>{count}</td>"
-            f"<td><span class=\"evidence-status {html.escape(tone)}\">{html.escape(status)}</span></td>"
-            f"<td><span class=\"evidence-decision\">{html.escape(local_evidence_decision_label(current_decision))}</span></td>"
-            '<td><form method="post" class="evidence-action-form">'
+            f'<td title="{html.escape(profile_help, quote=True)}">{html.escape(ui_label("ui.yes") if declared else ui_label("ui.no"))}</td>'
+            f'<td title="{html.escape(observations_help, quote=True)}">{observations_cell}</td>'
+            f'<td><span class="evidence-status {html.escape(tone)}" title="{html.escape(status_help, quote=True)}">{html.escape(status)}</span></td>'
+            f'<td><span class="evidence-decision" title="{html.escape(decision_help, quote=True)}">{html.escape(local_evidence_decision_label(current_decision))}</span></td>'
+            f'<td title="{html.escape(ui_label("ui.evidence_actions_help"), quote=True)}"><form method="post" class="evidence-action-form">'
             '<input type="hidden" name="profile_action" value="update_evidence_decision">'
             f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
+            f'<input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">'
+            f'<input type="hidden" name="evidence_view" value="{html.escape(evidence_view, quote=True)}">'
             f'<input type="hidden" name="evidence_group" value="{html.escape(group_key, quote=True)}">'
             f'<input type="hidden" name="evidence_item_id" value="{html.escape(item_id, quote=True)}">'
             f'{action_buttons}{reset_button}</form></td>'
             "</tr>"
         )
+    header = (
+        "<thead><tr>"
+        "<th>ID</th>"
+        f'<th title="{html.escape(ui_label("ui.evidence_profile_v0_help"), quote=True)}">{html.escape(ui_label("ui.evidence_profile_v0"))}</th>'
+        f'<th title="{html.escape(ui_label("ui.evidence_observations_help"), quote=True)}">Obs.</th>'
+        f'<th title="{html.escape(ui_label("ui.evidence_status_help"), quote=True)}">{html.escape(ui_label("ui.evidence_status"))}</th>'
+        f'<th title="{html.escape(ui_label("ui.evidence_decision_help"), quote=True)}">{html.escape(ui_label("ui.evidence_decision"))}</th>'
+        f'<th title="{html.escape(ui_label("ui.evidence_actions_help"), quote=True)}">{html.escape(ui_label("ui.evidence_actions"))}</th>'
+        "</tr></thead>"
+    )
     return f"""
     <article class="profile-section-card evidence-group">
       <h3>{html.escape(title)}</h3>
       <div class="evidence-table-shell">
         <table>
-          <thead><tr><th>ID</th><th>Perfil v0</th><th>Obs.</th><th>Estado</th><th>Decision</th><th>Acciones</th></tr></thead>
+          {header}
           <tbody>{''.join(rows)}</tbody>
         </table>
       </div>
+      {''.join(modals)}
     </article>
     """
+
+
+def numeric_values(rows: list[dict[str, object]], key: str) -> list[float]:
+    values = []
+    for row in rows:
+        value = row.get(key)
+        if isinstance(value, int | float):
+            values.append(float(value))
+    return values
+
+
+def numeric_range_label(rows: list[dict[str, object]], key: str, unit: str = "") -> str:
+    values = numeric_values(rows, key)
+    if not values:
+        return "-"
+    low = min(values)
+    high = max(values)
+    suffix = f" {unit}" if unit else ""
+    if low == high:
+        return f"{low:g}{suffix}"
+    return f"{low:g}-{high:g}{suffix}"
+
+
+def compact_gap_label(gaps: object, limit: int = 2) -> str:
+    values = [str(value) for value in gaps if str(value or "").strip()] if isinstance(gaps, list) else []
+    if not values:
+        return "-"
+    suffix = f" +{len(values) - limit}" if len(values) > limit else ""
+    return ", ".join(values[:limit]) + suffix
+
+
+def render_weather_evidence_section(profile: dict[str, object], features_payload: dict[str, object] | None) -> str:
+    """Render read-only weather evidence from joined v0 observation features."""
+    species_id = str(profile.get("species_id", "") or "")
+    rows = features_payload.get("rows") if isinstance(features_payload, dict) else None
+    all_rows = rows if isinstance(rows, list) else []
+    species_rows = [
+        row for row in all_rows
+        if isinstance(row, dict) and str(row.get("species_id", "") or "") == species_id
+    ]
+    generated_at = str(features_payload.get("generated_at", "") or "") if isinstance(features_payload, dict) else ""
+    if not isinstance(features_payload, dict):
+        note = "No hay features v0 unificadas. Ejecuta mushroom_observation_features_v0_build.sh tras reconstruir meteorologia y GIS."
+    elif not species_rows:
+        note = "Las features v0 actuales no contienen observaciones para esta especie."
+    else:
+        note = "Vista de solo lectura. Resume condiciones observadas; no calcula umbrales ni modifica perfiles."
+    present_rows = [row for row in species_rows if row.get("analysis_result") != "absent"]
+    absent_rows = [row for row in species_rows if row.get("analysis_result") == "absent"]
+    weather_gap_count = sum(1 for row in species_rows if row.get("weather_gaps"))
+    gis_gap_count = sum(1 for row in species_rows if row.get("gis_gaps") or row.get("feature_gaps"))
+    table_rows = []
+    for row in sorted(species_rows, key=lambda item: (str(item.get("observed_at", "")), str(item.get("observation_id", ""))))[:80]:
+        result_tone = "muted" if row.get("analysis_result") == "absent" else "ok"
+        table_rows.append(
+            "<tr>"
+            f"<td><strong>{html.escape(str(row.get('observed_at', '-') or '-'))}</strong><span class=\"meta\">{html.escape(str(row.get('observation_id', '-') or '-'))}</span></td>"
+            f"<td><span class=\"evidence-status {result_tone}\">{html.escape(str(row.get('analysis_result', '-') or '-'))}</span><span class=\"meta\">{html.escape(str(row.get('flush_abundance', '-') or '-'))}</span></td>"
+            f"<td>{html.escape(str(row.get('rain_7d_mm', '-') if row.get('rain_7d_mm') is not None else '-'))}</td>"
+            f"<td>{html.escape(str(row.get('rain_14d_mm', '-') if row.get('rain_14d_mm') is not None else '-'))}</td>"
+            f"<td>{html.escape(str(row.get('rain_30d_mm', '-') if row.get('rain_30d_mm') is not None else '-'))}</td>"
+            f"<td>{html.escape(str(row.get('rain_90d_mm', '-') if row.get('rain_90d_mm') is not None else '-'))}</td>"
+            f"<td>{html.escape(str(row.get('temp_min_c', '-') if row.get('temp_min_c') is not None else '-'))} / {html.escape(str(row.get('temp_max_c', '-') if row.get('temp_max_c') is not None else '-'))}</td>"
+            f"<td>{html.escape(str(row.get('humidity_min_pct', '-') if row.get('humidity_min_pct') is not None else '-'))} / {html.escape(str(row.get('humidity_max_pct', '-') if row.get('humidity_max_pct') is not None else '-'))}</td>"
+            f"<td><strong>{html.escape(str(row.get('weather_source', '-') or '-'))}</strong><span class=\"meta\">{html.escape(str(row.get('weather_station_code', '-') or '-'))} · {html.escape(str(row.get('weather_station_distance_km', '-') if row.get('weather_station_distance_km') is not None else '-'))} km</span></td>"
+            f"<td><span class=\"meta\">{html.escape(compact_gap_label(row.get('weather_gaps')))}</span></td>"
+            "</tr>"
+        )
+    table_html = (
+        '<div class="evidence-table-shell weather-evidence-table"><table>'
+        "<thead><tr><th>Fecha</th><th>Resultado</th><th>Lluvia 7d</th><th>Lluvia 14d</th><th>Lluvia 30d</th><th>Lluvia 90d</th><th>Temp min/max</th><th>Hum min/max</th><th>Estacion</th><th>Gaps</th></tr></thead>"
+        f"<tbody>{''.join(table_rows)}</tbody></table></div>"
+        if table_rows else
+        '<p class="meta">No hay filas meteorologicas para esta especie.</p>'
+    )
+    return f"""
+    <article class="profile-section-card weather-evidence">
+      <h3>{icon("weather")} Evidencia meteorologica</h3>
+      <p class="meta">Ultima union features v0: {html.escape(generated_at or '-')} · {html.escape(note)}</p>
+      <div class="profile-calibration-cards evidence-summary-cards">
+        <div class="profile-metric"><span class="label">Observaciones</span><span class="value">{len(species_rows)}</span></div>
+        <div class="profile-metric"><span class="label">Presentes</span><span class="value ok">{len(present_rows)}</span></div>
+        <div class="profile-metric"><span class="label">Ausencias</span><span class="value">{len(absent_rows)}</span></div>
+        <div class="profile-metric"><span class="label">Gaps meteo</span><span class="value warn">{weather_gap_count}</span></div>
+        <div class="profile-metric"><span class="label">Gaps GIS</span><span class="value">{gis_gap_count}</span></div>
+      </div>
+      <div class="weather-evidence-ranges">
+        <div><span class="label">Lluvia 7d presentes</span><strong>{html.escape(numeric_range_label(present_rows, "rain_7d_mm", "mm"))}</strong></div>
+        <div><span class="label">Lluvia 14d presentes</span><strong>{html.escape(numeric_range_label(present_rows, "rain_14d_mm", "mm"))}</strong></div>
+        <div><span class="label">Lluvia 30d presentes</span><strong>{html.escape(numeric_range_label(present_rows, "rain_30d_mm", "mm"))}</strong></div>
+        <div><span class="label">Lluvia 90d presentes</span><strong>{html.escape(numeric_range_label(present_rows, "rain_90d_mm", "mm"))}</strong></div>
+        <div><span class="label">Temp presentes</span><strong>{html.escape(numeric_range_label(present_rows, "temp_min_c", "C"))} / {html.escape(numeric_range_label(present_rows, "temp_max_c", "C"))}</strong></div>
+        <div><span class="label">Humedad presentes</span><strong>{html.escape(numeric_range_label(present_rows, "humidity_min_pct", "%"))} / {html.escape(numeric_range_label(present_rows, "humidity_max_pct", "%"))}</strong></div>
+      </div>
+      {table_html}
+    </article>
+    """
+
+
+def render_evidence_view_tabs(species_id: str, search: str, profile_view: str, evidence_view: str) -> str:
+    """Render the local evidence subnavigation."""
+    active = str(evidence_view or "").strip().lower()
+    if active not in {"gis_hosts_forests", "gis_soils_habitat", "weather"}:
+        active = "gis_hosts_forests"
+    tabs = [
+        ("gis_hosts_forests", ui_label("ui.evidence_gis_hosts_forests")),
+        ("gis_soils_habitat", ui_label("ui.evidence_gis_soils_habitat")),
+        ("weather", ui_label("ui.evidence_weather")),
+    ]
+    links = []
+    for key, label in tabs:
+        css = "mushroom-title-tab active" if key == active else "mushroom-title-tab"
+        href = profile_query_url(
+            species_id,
+            search,
+            section="evidence",
+            profile_view=profile_view,
+            evidence_view=key,
+        )
+        links.append(f'<a class="{css}" href="{html.escape(href, quote=True)}">{html.escape(label)}</a>')
+    return f'<nav class="evidence-view-tabs">{"".join(links)}</nav>'
 
 
 def render_local_evidence_section(
     profile: dict[str, object] | None,
     catalogs: dict[str, object],
     reconstruction_payload: dict[str, object] | None,
+    observation_features_payload: dict[str, object] | None = None,
     decisions_payload: dict[str, object] | None = None,
     search: str = "",
     profile_view: str = "enriched",
+    evidence_view: str = "gis",
+    observations_payload: dict[str, object] | None = None,
 ) -> str:
     """Render profile-vs-observed local v0 evidence without changing profiles."""
     if not profile:
@@ -1216,11 +1638,22 @@ def render_local_evidence_section(
     species_id = str(profile.get("species_id", "") or "")
     ecology = nested_dict(profile, "ecology")
     observation_count, counts = local_evidence_counts(species_id, reconstruction_payload)
+    reconstruction_lookup = local_evidence_row_lookup(reconstruction_payload)
+    observation_lookup = observation_payload_lookup(observations_payload)
     decisions = local_evidence_decision_lookup(decisions_payload)
     generated_at = str(reconstruction_payload.get("generated_at", "") or "") if isinstance(reconstruction_payload, dict) else ""
+    evidence_view = str(evidence_view or "").strip().lower()
+    if evidence_view == "gis":
+        evidence_view = "gis_hosts_forests"
+    if evidence_view not in {"gis_hosts_forests", "gis_soils_habitat", "weather"}:
+        evidence_view = "gis_hosts_forests"
+    visible_groups = [
+        group for group in LOCAL_EVIDENCE_GROUPS
+        if str(group.get("evidence_view", "")) == evidence_view
+    ]
     groups = []
     summary_values = {"observed_not_declared": 0, "declared_not_observed": 0, "declared_observed": 0}
-    for group in LOCAL_EVIDENCE_GROUPS:
+    for group in visible_groups:
         declared_ids = profile_v0_affinity_ids(ecology, str(group["profile_field"]))
         observed_items = counts.get(str(group["context_field"]), {})
         for item_id in set(declared_ids) | set(observed_items):
@@ -1234,7 +1667,7 @@ def render_local_evidence_section(
                 summary_values["observed_not_declared"] += 1
         groups.append(
             render_local_evidence_group(
-                str(group["title"]),
+                ui_label(str(group["title_label"])),
                 str(group["profile_field"]),
                 str(group["catalog_group"]),
                 species_id,
@@ -1243,6 +1676,11 @@ def render_local_evidence_section(
                 observation_count,
                 catalogs,
                 decisions,
+                reconstruction_lookup,
+                observation_lookup,
+                search,
+                profile_view,
+                evidence_view,
             )
         )
     if not isinstance(reconstruction_payload, dict):
@@ -1251,16 +1689,30 @@ def render_local_evidence_section(
         note = "La ultima reconstruccion no contiene observaciones para esta especie."
     else:
         note = "Vista de solo lectura. No modifica perfiles; sirve para decidir promociones o dudas de forma manual."
+    tabs_html = render_evidence_view_tabs(species_id, search, profile_view, evidence_view)
+    if evidence_view == "weather":
+        return f"""
+        <section class="card profile-section-screen evidence-screen">
+          <div class="evidence-sticky-header">
+            {render_selected_species_header(profile, "Evidencia local v0")}
+            {tabs_html}
+          </div>
+          {render_weather_evidence_section(profile, observation_features_payload)}
+        </section>
+        """
     return f"""
     <section class="card profile-section-screen evidence-screen">
-      {render_selected_species_header(profile, "Evidencia local v0")}
-      <div class="profile-calibration-cards evidence-summary-cards">
-        <div class="profile-metric"><span class="label">Obs. reconstruidas</span><span class="value">{observation_count}</span></div>
-        <div class="profile-metric"><span class="label">Observado no declarado</span><span class="value warn">{summary_values["observed_not_declared"]}</span></div>
-        <div class="profile-metric"><span class="label">Declarado observado</span><span class="value ok">{summary_values["declared_observed"]}</span></div>
-        <div class="profile-metric"><span class="label">Declarado no observado</span><span class="value">{summary_values["declared_not_observed"]}</span></div>
+      <div class="evidence-sticky-header">
+        {render_selected_species_header(profile, "Evidencia local v0")}
+        {tabs_html}
+        <div class="profile-calibration-cards evidence-summary-cards">
+          <div class="profile-metric"><span class="label">Obs. reconstruidas</span><span class="value">{observation_count}</span></div>
+          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.evidence_observed_not_declared"))}</span><span class="value warn">{summary_values["observed_not_declared"]}</span></div>
+          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.evidence_declared_observed"))}</span><span class="value ok">{summary_values["declared_observed"]}</span></div>
+          <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.evidence_declared_not_observed"))}</span><span class="value">{summary_values["declared_not_observed"]}</span></div>
+        </div>
+        <p class="meta">Ultima reconstruccion: {html.escape(generated_at or '-')} · {html.escape(note)}</p>
       </div>
-      <p class="meta">Ultima reconstruccion: {html.escape(generated_at or '-')} · {html.escape(note)}</p>
       <div class="evidence-grid">
         {''.join(groups)}
       </div>

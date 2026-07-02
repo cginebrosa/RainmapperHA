@@ -33,6 +33,7 @@ import mushroom_catalogs_ui
 import mushroom_gis_mappings_ui
 import mushroom_profiles_ui
 from rainmapper_core import mushroom_gis_lab
+from rainmapper_core import mushroom_observation_features
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
 from rainmapper_core.mushroom_validation import (
     empty_species_profile,
@@ -3053,6 +3054,30 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .evidence-screen {{
       display: grid;
       gap: 12px;
+      grid-template-rows: auto minmax(0, 1fr);
+      max-height: calc(100vh - 150px);
+      min-height: min(820px, calc(100vh - 150px));
+      overflow: hidden;
+    }}
+    .evidence-sticky-header {{
+      background: linear-gradient(135deg, rgba(13, 32, 49, .97), rgba(15, 23, 42, .97));
+      border: 1px solid rgba(3, 169, 244, .18);
+      border-radius: 8px;
+      display: grid;
+      gap: 12px;
+      padding: 0 0 12px;
+      position: sticky;
+      top: 0;
+      z-index: 8;
+    }}
+    .evidence-sticky-header .profile-section-banner {{
+      margin: 0;
+    }}
+    .evidence-sticky-header .evidence-view-tabs,
+    .evidence-sticky-header .evidence-summary-cards,
+    .evidence-sticky-header > .meta {{
+      margin-left: 0;
+      margin-right: 0;
     }}
     .evidence-summary-cards {{
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3060,20 +3085,55 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .evidence-grid {{
       display: grid;
       gap: 12px;
-      grid-auto-rows: minmax(360px, 1fr);
+      grid-auto-rows: minmax(0, 1fr);
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      min-height: min(760px, calc(100vh - 460px));
+      min-height: 0;
+      overflow: hidden;
+    }}
+    .evidence-view-tabs {{
+      align-items: center;
+      border-bottom: 1px solid rgba(45, 58, 71, .72);
+      display: inline-flex;
+      gap: 6px;
+      justify-self: start;
+      margin: 0;
+      padding: 0 0 8px;
+    }}
+    .evidence-view-tabs .mushroom-title-tab {{
+      align-items: center;
+      background: rgba(17, 26, 35, .88);
+      border: 1px solid rgba(148, 163, 184, .24);
+      border-radius: 8px;
+      color: var(--muted);
+      display: inline-flex;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1;
+      min-height: 34px;
+      padding: 0 14px;
+      text-decoration: none;
+    }}
+    .evidence-view-tabs .mushroom-title-tab:hover {{
+      border-color: rgba(3, 169, 244, .55);
+      color: var(--fg);
+    }}
+    .evidence-view-tabs .mushroom-title-tab.active {{
+      background: rgba(3, 169, 244, .13);
+      border-color: rgba(3, 169, 244, .85);
+      color: var(--accent);
     }}
     .evidence-group {{
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
+      min-height: 0;
       min-width: 0;
+      overflow: hidden;
     }}
     .evidence-group h3 {{
       margin: 0 0 8px;
     }}
     .evidence-table-shell {{
-      max-height: none;
+      max-height: 100%;
       overflow: auto;
     }}
     .evidence-table-shell table {{
@@ -3086,7 +3146,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .evidence-table-shell td {{
       border-bottom: 1px solid rgba(45, 58, 71, .62);
       font-size: 12px;
-      padding: 8px 7px;
+      padding: 6px 7px;
       text-align: left;
       vertical-align: middle;
     }}
@@ -3115,19 +3175,92 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .evidence-table-shell th:nth-child(4),
     .evidence-table-shell td:nth-child(4) {{
-      width: 170px;
+      width: 160px;
     }}
     .evidence-table-shell th:nth-child(5),
     .evidence-table-shell td:nth-child(5) {{
-      width: 108px;
+      width: 96px;
     }}
     .evidence-table-shell th:nth-child(6),
     .evidence-table-shell td:nth-child(6) {{
-      width: 118px;
+      width: 152px;
     }}
     .evidence-table-shell td:first-child strong,
     .evidence-table-shell td:first-child span {{
       display: block;
+    }}
+    .weather-evidence {{
+      display: grid;
+      gap: 12px;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+      min-height: 0;
+      overflow: hidden;
+    }}
+    .weather-evidence h3 {{
+      align-items: center;
+      display: inline-flex;
+      gap: 8px;
+      margin: 0;
+    }}
+    .weather-evidence h3 svg {{
+      color: var(--accent);
+      flex: 0 0 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
+      width: 18px;
+    }}
+    .weather-evidence-ranges {{
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }}
+    .weather-evidence-ranges > div {{
+      background: rgba(8, 17, 27, .42);
+      border: 1px solid rgba(45, 58, 71, .65);
+      border-radius: 8px;
+      min-width: 0;
+      padding: 8px 10px;
+    }}
+    .weather-evidence-ranges .label {{
+      color: var(--muted);
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }}
+    .weather-evidence-ranges strong {{
+      color: var(--fg);
+      font-size: 13px;
+    }}
+    .weather-evidence-table table {{
+      min-width: 1180px;
+    }}
+    .weather-evidence-table {{
+      min-height: 0;
+    }}
+    .weather-evidence-table th:nth-child(n),
+    .weather-evidence-table td:nth-child(n) {{
+      text-align: left;
+      width: auto;
+    }}
+    .weather-evidence-table th:nth-child(1),
+    .weather-evidence-table td:nth-child(1) {{
+      width: 170px;
+    }}
+    .weather-evidence-table th:nth-child(2),
+    .weather-evidence-table td:nth-child(2) {{
+      width: 120px;
+    }}
+    .weather-evidence-table th:nth-child(9),
+    .weather-evidence-table td:nth-child(9) {{
+      width: 130px;
+    }}
+    .weather-evidence-table th:nth-child(10),
+    .weather-evidence-table td:nth-child(10) {{
+      width: 180px;
     }}
     .evidence-status,
     .evidence-decision {{
@@ -3153,7 +3286,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .evidence-action-form {{
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 4px;
     }}
     .evidence-action-button {{
@@ -3165,12 +3298,217 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-size: 11px;
       font-weight: 800;
       line-height: 1;
-      padding: 5px 6px;
+      padding: 5px 7px;
+      white-space: nowrap;
     }}
     .evidence-action-button:hover,
     .evidence-action-button.active {{
       border-color: rgba(3, 169, 244, .75);
       color: var(--accent);
+    }}
+    .evidence-observation-link {{
+      align-items: center;
+      border: 1px solid rgba(3, 169, 244, .55);
+      border-radius: 999px;
+      color: var(--accent);
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 900;
+      justify-content: center;
+      line-height: 1;
+      min-width: 28px;
+      padding: 5px 8px;
+      text-decoration: none;
+    }}
+    .evidence-observation-link:hover {{
+      background: rgba(3, 169, 244, .14);
+      border-color: rgba(3, 169, 244, .9);
+    }}
+    .modal-card.evidence-map-modal {{
+      max-height: calc(100vh - 32px);
+      max-width: min(1680px, calc(100vw - 32px));
+      overflow: auto;
+      padding: 18px;
+      width: min(1680px, 100%);
+    }}
+    .evidence-observation-layout {{
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(700px, .95fr) minmax(720px, 1.05fr);
+      min-height: 0;
+    }}
+    .evidence-observation-layout h3 {{
+      margin: 0 0 10px;
+    }}
+    .evidence-observation-list {{
+      display: grid;
+      gap: 8px;
+      list-style: none;
+      margin: 0;
+      max-height: min(700px, calc(100vh - 245px));
+      overflow: auto;
+      padding: 0;
+    }}
+    .evidence-observation-item {{
+      align-items: center;
+      background: rgba(8, 17, 27, .42);
+      border: 1px solid rgba(45, 58, 71, .7);
+      border-radius: 8px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 28px 88px minmax(190px, 1fr) 140px auto auto;
+      padding: 9px 10px;
+    }}
+    .evidence-observation-date {{
+      font-size: 13px;
+      line-height: 1;
+      white-space: nowrap;
+    }}
+    .evidence-observation-main {{
+      min-width: 0;
+    }}
+    .evidence-observation-main strong,
+    .evidence-observation-main .meta {{
+      display: inline;
+    }}
+    .evidence-observation-main .meta {{
+      margin-left: 8px;
+    }}
+    .evidence-observation-coords {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }}
+    .evidence-observation-index {{
+      align-items: center;
+      background: rgba(3, 169, 244, .14);
+      border: 1px solid rgba(3, 169, 244, .45);
+      border-radius: 999px;
+      color: var(--accent);
+      display: inline-flex;
+      font-size: 12px;
+      font-weight: 900;
+      height: 28px;
+      justify-content: center;
+      width: 28px;
+    }}
+    .evidence-map-viewport {{
+      background: radial-gradient(circle at 22% 25%, rgba(3, 169, 244, .1), transparent 35%), #08111b;
+      border: 1px solid rgba(45, 58, 71, .78);
+      border-radius: 8px;
+      min-height: min(700px, calc(100vh - 245px));
+      overflow: hidden;
+      position: relative;
+    }}
+    .evidence-google-map {{
+      border: 0;
+      display: block;
+      height: min(700px, calc(100vh - 245px));
+      min-height: 560px;
+      width: 100%;
+    }}
+    .evidence-map-toolbar {{
+      align-items: center;
+      background: rgba(8, 17, 27, .86);
+      border: 1px solid rgba(45, 58, 71, .75);
+      border-radius: 8px;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      left: 10px;
+      max-width: calc(100% - 20px);
+      padding: 6px 8px;
+      position: absolute;
+      right: 10px;
+      top: 10px;
+    }}
+    .evidence-map-toolbar span {{
+      color: var(--fg);
+      font-size: 12px;
+      font-weight: 900;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .evidence-map-select-button {{
+      background: rgba(17, 26, 35, .88);
+      border: 1px solid rgba(3, 169, 244, .45);
+      border-radius: 6px;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+      min-height: 30px;
+      padding: 7px 9px;
+      white-space: nowrap;
+    }}
+    .evidence-map-select-button:hover {{
+      background: rgba(3, 169, 244, .14);
+      border-color: rgba(3, 169, 244, .85);
+    }}
+    .evidence-map-svg {{
+      display: block;
+      height: 440px;
+      width: 100%;
+    }}
+    .evidence-map-svg rect {{
+      fill: rgba(15, 23, 42, .68);
+      stroke: rgba(148, 163, 184, .22);
+      stroke-width: .8;
+    }}
+    .evidence-map-svg path {{
+      fill: none;
+      stroke: rgba(148, 163, 184, .25);
+      stroke-linecap: round;
+      stroke-width: .8;
+    }}
+    .evidence-map-point circle {{
+      fill: var(--accent);
+      stroke: rgba(232, 238, 242, .95);
+      stroke-width: .8;
+    }}
+    .evidence-map-point text {{
+      fill: var(--fg);
+      font-size: 4px;
+      font-weight: 900;
+      paint-order: stroke;
+      stroke: #08111b;
+      stroke-width: .8;
+      text-anchor: middle;
+    }}
+    .evidence-map-controls {{
+      display: flex;
+      gap: 6px;
+      position: absolute;
+      right: 10px;
+      top: 10px;
+    }}
+    .evidence-map-controls button {{
+      background: rgba(17, 26, 35, .94);
+      border: 1px solid rgba(148, 163, 184, .35);
+      border-radius: 6px;
+      color: var(--fg);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 900;
+      min-height: 30px;
+      min-width: 34px;
+    }}
+    .evidence-map-controls button:hover {{
+      border-color: rgba(3, 169, 244, .75);
+      color: var(--accent);
+    }}
+    .evidence-map-empty {{
+      align-items: center;
+      color: var(--muted);
+      display: flex;
+      font-size: 13px;
+      font-weight: 800;
+      justify-content: center;
+      min-height: 440px;
+      text-align: center;
     }}
     .gis-mapping-page {{
       display: grid;
@@ -3796,12 +4134,29 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-section-head,
       .profile-lifecycle-grid,
       .evidence-grid,
+      .weather-evidence-ranges,
       .archived-species-row,
       .observations-filters,
       .observations-layout,
       .profile-recommendation-list,
       .mushroom-title-tabs {{
         grid-template-columns: 1fr;
+      }}
+      .evidence-screen {{
+        max-height: none;
+        min-height: 0;
+        overflow: visible;
+      }}
+      .evidence-grid {{
+        grid-auto-rows: auto;
+        overflow: visible;
+      }}
+      .evidence-group,
+      .weather-evidence {{
+        overflow: visible;
+      }}
+      .evidence-table-shell {{
+        max-height: min(520px, 70vh);
       }}
       .profile-overview-card,
       .profile-overview-card.wide,
@@ -3940,6 +4295,31 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     function textMatchesTokens(text, tokens) {{
       var haystack = (text || "").toLowerCase();
       return tokens.every(function(token) {{ return haystack.indexOf(token) !== -1; }});
+    }}
+    function selectEvidenceMapPoint(button) {{
+      var mapId = button.getAttribute("data-evidence-map-target");
+      var src = button.getAttribute("data-map-src");
+      if (!mapId || !src) {{
+        return;
+      }}
+      var frame = document.querySelector('[data-evidence-map-frame="' + mapId + '"]');
+      if (frame) {{
+        frame.setAttribute("src", src);
+      }}
+      var label = button.getAttribute("data-map-label") || "";
+      var toolbarLabel = null;
+      if (frame) {{
+        var viewport = frame.closest(".evidence-map-viewport");
+        toolbarLabel = viewport ? viewport.querySelector(".evidence-map-toolbar span") : null;
+      }}
+      if (toolbarLabel && label) {{
+        toolbarLabel.textContent = label;
+      }}
+      var external = button.getAttribute("data-map-external") || "";
+      var externalLink = document.querySelector('[data-evidence-map-external="' + mapId + '"]');
+      if (externalLink && external) {{
+        externalLink.setAttribute("href", external);
+      }}
     }}
     function setExpandedUser(username) {{
       var cards = Array.prototype.slice.call(document.querySelectorAll(".user-card"));
@@ -4275,6 +4655,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     document.addEventListener("keydown", function(event) {{
       if (event.key === "Escape") {{
         closeCreateUserModal();
+      }}
+    }});
+    document.addEventListener("click", function(event) {{
+      var mapButton = event.target.closest("[data-evidence-map-target]");
+      if (mapButton) {{
+        selectEvidenceMapPoint(mapButton);
       }}
     }});
     window.addEventListener("resize", function() {{
@@ -6150,8 +6536,14 @@ def save_evidence_decision(
     return True, f"Evidence decision saved for {item_id}: {decision}."
 
 
-def evidence_return_url(species_id: str, search: str = "", profile_view: str = "") -> str:
-    return profile_query_url(species_id, search, section="evidence", profile_view=profile_view) + "#mushroom-profile-message"
+def evidence_return_url(species_id: str, search: str = "", profile_view: str = "", evidence_view: str = "") -> str:
+    return profile_query_url(
+        species_id,
+        search,
+        section="evidence",
+        profile_view=profile_view,
+        evidence_view=evidence_view,
+    ) + "#mushroom-profile-message"
 
 
 PROFILE_RETURN_TABS = {
@@ -8152,13 +8544,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 mushroom_gis_lab.load_latest_reconstruction(),
             )
         elif section == "evidence":
+            evidence_view = (query.get("evidence_view") or ["gis"])[0]
             main_content = mushroom_profiles_ui.render_local_evidence_section(
                 selected,
                 catalogs,
                 mushroom_gis_lab.load_latest_reconstruction(),
+                mushroom_observation_features.load_latest_features(),
                 evidence_decisions_payload,
                 search,
                 profile_view,
+                evidence_view,
+                observations_payload=observations_payload,
             )
         elif section == "summary":
             main_content = (
@@ -8659,9 +9055,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 group = catalog_form_string(form, "evidence_group")
                 item_id = catalog_form_string(form, "evidence_item_id")
                 decision = catalog_form_string(form, "evidence_decision")
+                profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
+                evidence_view = catalog_form_string(form, "evidence_view")
                 ok, message = save_evidence_decision(store, species_id, group, item_id, decision)
                 set_mushroom_profiles_flash(message)
-                return evidence_return_url(species_id)
+                return evidence_return_url(species_id, profile_view=profile_view, evidence_view=evidence_view)
             if action == "create_profile":
                 new_species_id = catalog_form_string(form, "new_species_id")
                 scientific_name = catalog_form_string(form, "new_scientific_name")
