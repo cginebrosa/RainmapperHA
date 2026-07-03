@@ -3345,6 +3345,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .learned-model-toolbar form {{
       flex: 0 0 auto;
     }}
+    .learned-model-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }}
     .learned-model-summary {{
       grid-template-columns: repeat(5, minmax(0, 1fr));
     }}
@@ -4313,6 +4319,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .learned-model-toolbar {{
         align-items: stretch;
         flex-direction: column;
+      }}
+      .learned-model-actions {{
+        justify-content: flex-start;
       }}
       .learned-model-grid {{
         grid-template-rows: auto;
@@ -9237,7 +9246,28 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 ok, message = save_evidence_decision(store, species_id, group, item_id, decision)
                 set_mushroom_profiles_flash(message)
                 return evidence_return_url(species_id, profile_view=profile_view, evidence_view=evidence_view)
-            if action == "rebuild_learned_model_v0":
+            if action == "rebuild_learned_model_v0_species":
+                profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
+                learned_payload = mushroom_learned_model.build_and_write_species_learned_model_v0(species_id)
+                selected_model = None
+                models = learned_payload.get("species_models")
+                if isinstance(models, list):
+                    selected_model = next(
+                        (
+                            model
+                            for model in models
+                            if isinstance(model, dict) and str(model.get("species_id", "") or "") == species_id
+                        ),
+                        None,
+                    )
+                selected_count = selected_model.get("observation_count", 0) if isinstance(selected_model, dict) else 0
+                set_mushroom_profiles_flash(
+                    "Learned v0 model rebuilt for selected species: "
+                    f"{species_id} with {selected_count} used observation(s). "
+                    "Weather and observation feature caches were not rebuilt."
+                )
+                return evidence_return_url(species_id, profile_view=profile_view, evidence_view="learned_model")
+            if action in {"rebuild_learned_model_v0", "rebuild_learned_model_v0_all"}:
                 profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
                 mushroom_observation_context.build_and_write_observation_weather_features()
                 features_payload = mushroom_observation_features.build_and_write_observation_features_v0()

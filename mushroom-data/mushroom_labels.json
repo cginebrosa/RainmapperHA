@@ -749,6 +749,26 @@
     "es": "Ejecuta reconstruccion meteorologica, une features v0 de observaciones y reconstruye el modelo aprendido. No modifica perfiles.",
     "ca": "Executa reconstruccio meteorologica, uneix features v0 d'observacions i reconstrueix el model apres. No modifica perfils."
   },
+  "ui.rebuild_selected_learned_model": {
+    "en": "Rebuild this species",
+    "es": "Reconstruir esta especie",
+    "ca": "Reconstruir aquesta especie"
+  },
+  "ui.rebuild_selected_learned_model_help": {
+    "en": "Rebuilds only the selected species model from the existing v0 observation features. Weather and feature caches are not rebuilt.",
+    "es": "Reconstruye solo el modelo de la especie seleccionada desde las features v0 existentes. No reconstruye caches meteorologicas ni de features.",
+    "ca": "Reconstrueix nomes el model de l'especie seleccionada des de les features v0 existents. No reconstrueix caches meteorologiques ni de features."
+  },
+  "ui.rebuild_all_learned_model": {
+    "en": "Rebuild all species",
+    "es": "Reconstruir todas",
+    "ca": "Reconstruir totes"
+  },
+  "ui.rebuild_all_learned_model_help": {
+    "en": "Runs the full global chain: weather reconstruction, v0 feature join and learned model rebuild for every species. Profiles are not modified.",
+    "es": "Ejecuta la cadena global completa: reconstruccion meteorologica, union de features v0 y reconstruccion del modelo aprendido para todas las especies. No modifica perfiles.",
+    "ca": "Executa la cadena global completa: reconstruccio meteorologica, unio de features v0 i reconstruccio del model apres per a totes les especies. No modifica perfils."
+  },
   "ui.learned_categorical_features": {
     "en": "Categorical variables",
     "es": "Variables categoricas",

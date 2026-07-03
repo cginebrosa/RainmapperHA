@@ -1886,13 +1886,22 @@ def render_learned_model_section(
           <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
           <p class="meta">{html.escape(ui_label("ui.learned_model_note"))} · {html.escape(generated_at or '-')}</p>
         </div>
-        <form method="post" action="{html.escape(profile_query_url(species_id, search, section='evidence', profile_view=profile_view, evidence_view='learned_model'), quote=True)}" onsubmit="return confirm('{html.escape(ui_label("ui.rebuild_learned_model_help"), quote=True)}')">
-          <input type="hidden" name="profile_action" value="rebuild_learned_model_v0">
-          <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-          <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
-          <input type="hidden" name="evidence_view" value="learned_model">
-          <button class="secondary" type="submit" title="{html.escape(ui_label("ui.rebuild_learned_model_help"), quote=True)}">{html.escape(ui_label("ui.rebuild_learned_model"))}</button>
-        </form>
+        <div class="learned-model-actions">
+          <form method="post" action="{html.escape(profile_query_url(species_id, search, section='evidence', profile_view=profile_view, evidence_view='learned_model'), quote=True)}" onsubmit="return confirm('{html.escape(ui_label("ui.rebuild_selected_learned_model_help"), quote=True)}')">
+            <input type="hidden" name="profile_action" value="rebuild_learned_model_v0_species">
+            <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+            <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
+            <input type="hidden" name="evidence_view" value="learned_model">
+            <button class="secondary" type="submit" title="{html.escape(ui_label("ui.rebuild_selected_learned_model_help"), quote=True)}">{html.escape(ui_label("ui.rebuild_selected_learned_model"))}</button>
+          </form>
+          <form method="post" action="{html.escape(profile_query_url(species_id, search, section='evidence', profile_view=profile_view, evidence_view='learned_model'), quote=True)}" onsubmit="return confirm('{html.escape(ui_label("ui.rebuild_all_learned_model_help"), quote=True)}')">
+            <input type="hidden" name="profile_action" value="rebuild_learned_model_v0_all">
+            <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+            <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
+            <input type="hidden" name="evidence_view" value="learned_model">
+            <button class="secondary" type="submit" title="{html.escape(ui_label("ui.rebuild_all_learned_model_help"), quote=True)}">{html.escape(ui_label("ui.rebuild_all_learned_model"))}</button>
+          </form>
+        </div>
       </div>
       <div class="profile-calibration-cards evidence-summary-cards learned-model-summary">
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.total_observations_used"))}</span><span class="value">{html.escape(str(model.get("observation_count", 0) or 0))}</span></div>

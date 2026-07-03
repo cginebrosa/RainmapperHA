@@ -119,6 +119,66 @@ class MushroomLearnedModelTests(unittest.TestCase):
             self.assertEqual(payload["output_paths"]["json"], str(output_json))
             self.assertIn("Mushroom Learned Model v0", report.read_text(encoding="utf-8"))
 
+    def test_build_and_write_species_learned_model_replaces_only_selected_species(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            features_path = root / "features.json"
+            output_json = root / "model.json"
+            report = root / "model.md"
+            features_path.write_text(
+                json.dumps(
+                    {
+                        "rows": [
+                            {
+                                "observation_id": "obs_1",
+                                "species_id": "amanita_caesarea",
+                                "analysis_result": "present",
+                                "validation_status": "valid",
+                                "calibration_use": "include",
+                                "host_ids": ["host_quercus_ilex"],
+                            },
+                            {
+                                "observation_id": "obs_2",
+                                "species_id": "boletus_aereus",
+                                "analysis_result": "present",
+                                "validation_status": "valid",
+                                "calibration_use": "include",
+                                "host_ids": ["host_quercus_suber"],
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            mushroom_learned_model.build_and_write_learned_model_v0(
+                features_path=features_path,
+                output_json_path=output_json,
+                report_path=report,
+            )
+            updated_rows = json.loads(features_path.read_text(encoding="utf-8"))["rows"]
+            updated_rows[0]["host_ids"] = ["host_castanea_sativa"]
+            features_path.write_text(json.dumps({"rows": updated_rows}), encoding="utf-8")
+
+            payload = mushroom_learned_model.build_and_write_species_learned_model_v0(
+                "amanita_caesarea",
+                features_path=features_path,
+                output_json_path=output_json,
+                report_path=report,
+            )
+            models = {model["species_id"]: model for model in payload["species_models"]}
+            amanita_hosts = {
+                item["id"]
+                for item in models["amanita_caesarea"]["categorical_features"]["hosts"]
+            }
+            boletus_hosts = {
+                item["id"]
+                for item in models["boletus_aereus"]["categorical_features"]["hosts"]
+            }
+
+            self.assertEqual(amanita_hosts, {"host_castanea_sativa"})
+            self.assertEqual(boletus_hosts, {"host_quercus_suber"})
+            self.assertEqual(payload["last_species_rebuild"]["species_id"], "amanita_caesarea")
+
 
 if __name__ == "__main__":
     unittest.main()

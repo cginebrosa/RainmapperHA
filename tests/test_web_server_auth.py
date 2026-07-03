@@ -1356,8 +1356,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("rain_14d_mm", html)
         self.assertIn("25 mm", html)
         self.assertIn("2026-07-02T15:00:00", html)
-        self.assertIn('name="profile_action" value="rebuild_learned_model_v0"', html)
-        self.assertIn("Rebuild v0 model", html)
+        self.assertIn('name="profile_action" value="rebuild_learned_model_v0_species"', html)
+        self.assertIn('name="profile_action" value="rebuild_learned_model_v0_all"', html)
+        self.assertIn("Rebuild this species", html)
+        self.assertIn("Rebuild all species", html)
 
     def test_mushroom_learned_model_rebuild_post_runs_builders(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -1394,7 +1396,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
             redirect = handler.handle_mushroom_profiles_post(
                 {
-                    "profile_action": ["rebuild_learned_model_v0"],
+                    "profile_action": ["rebuild_learned_model_v0_all"],
                     "species_id": ["amanita_caesarea"],
                     "view": ["v0"],
                     "evidence_view": ["learned_model"],
@@ -1409,6 +1411,56 @@ class AuthDeviceLimitTests(unittest.TestCase):
             redirect,
         )
         self.assertIn("Learned v0 model rebuilt", self.web_server.RUN_STATE["mushroom_profiles_flash"])
+
+    def test_mushroom_learned_model_rebuild_selected_species_does_not_rebuild_caches(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(self.web_server.mushroom_observation_context, "build_and_write_observation_weather_features") as weather_builder, \
+            mock.patch.object(self.web_server.mushroom_observation_features, "build_and_write_observation_features_v0") as features_builder, \
+            mock.patch.object(self.web_server.mushroom_learned_model, "build_and_write_species_learned_model_v0") as species_builder:
+            species_builder.return_value = {
+                "species_models": [
+                    {
+                        "species_id": "amanita_caesarea",
+                        "observation_count": 2,
+                    }
+                ]
+            }
+
+            redirect = handler.handle_mushroom_profiles_post(
+                {
+                    "profile_action": ["rebuild_learned_model_v0_species"],
+                    "species_id": ["amanita_caesarea"],
+                    "view": ["v0"],
+                    "evidence_view": ["learned_model"],
+                }
+            )
+
+        weather_builder.assert_not_called()
+        features_builder.assert_not_called()
+        species_builder.assert_called_once_with("amanita_caesarea")
+        self.assertEqual(
+            "?id=amanita_caesarea&section=evidence&view=v0&evidence_view=learned_model#mushroom-profile-message",
+            redirect,
+        )
+        self.assertIn("selected species", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
     def test_mushroom_evidence_decisions_are_reversible(self) -> None:
         data_dir = Path(self.temp_dir.name)

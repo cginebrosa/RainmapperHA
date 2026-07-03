@@ -213,8 +213,9 @@ def summarize_species(species_id: str, rows: list[dict[str, Any]]) -> dict[str, 
     }
 
 
-def build_learned_model_v0(features_path: Path | None = None) -> dict[str, Any]:
+def build_learned_model_v0(features_path: Path | None = None, species_id_filter: str | None = None) -> dict[str, Any]:
     features_path = features_path or mushroom_observation_features.default_output_json_path()
+    selected_species_id = str(species_id_filter or "").strip()
     features_payload = load_json_payload(features_path)
     feature_rows = features_payload.get("rows")
     all_rows = [row for row in feature_rows if isinstance(row, dict)] if isinstance(feature_rows, list) else []
@@ -222,6 +223,8 @@ def build_learned_model_v0(features_path: Path | None = None) -> dict[str, Any]:
     by_species: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         species_id = str(row.get("species_id", "") or "").strip()
+        if selected_species_id and species_id != selected_species_id:
+            continue
         if species_id:
             by_species.setdefault(species_id, []).append(row)
     species_models = [
@@ -233,6 +236,9 @@ def build_learned_model_v0(features_path: Path | None = None) -> dict[str, Any]:
         "kind": "mushroom_learned_model_v0",
         "generated_at": datetime.now(UTC).isoformat(),
         "model_status": "experimental_observation_learned",
+        "scope": {
+            "species_id": selected_species_id or None,
+        },
         "model_notes": [
             "This model is recalculated from observation_features_v0.json.",
             "It does not write mushroom_profiles.json and does not define production thresholds.",
@@ -313,3 +319,63 @@ def build_and_write_learned_model_v0(
     write_json(output_json_path, payload)
     write_report(report_path, payload)
     return payload
+
+
+def build_and_write_species_learned_model_v0(
+    species_id: str,
+    features_path: Path | None = None,
+    output_json_path: Path | None = None,
+    report_path: Path | None = None,
+) -> dict[str, Any]:
+    """Rebuild one species model and merge it into the shared learned model file."""
+    selected_species_id = species_id.strip()
+    if not selected_species_id:
+        raise ValueError("species_id is required")
+    output_json_path = output_json_path or default_output_json_path()
+    report_path = report_path or default_report_path()
+    species_payload = build_learned_model_v0(features_path, species_id_filter=selected_species_id)
+    existing_payload = load_latest_model(output_json_path)
+    if existing_payload is None:
+        existing_payload = build_learned_model_v0(features_path)
+
+    existing_models = existing_payload.get("species_models")
+    model_by_species = {
+        str(model.get("species_id", "") or ""): model
+        for model in existing_models
+        if isinstance(model, dict) and str(model.get("species_id", "") or "").strip()
+    } if isinstance(existing_models, list) else {}
+    replacement_models = species_payload.get("species_models")
+    replacement = replacement_models[0] if isinstance(replacement_models, list) and replacement_models else None
+    if isinstance(replacement, dict):
+        model_by_species[selected_species_id] = replacement
+    else:
+        model_by_species.pop(selected_species_id, None)
+
+    merged_models = [model_by_species[key] for key in sorted(model_by_species)]
+    summary = dict(existing_payload.get("summary") if isinstance(existing_payload.get("summary"), dict) else {})
+    summary.update(
+        {
+            "observations": sum(int(model.get("observation_count", 0) or 0) for model in merged_models),
+            "species": len(merged_models),
+            "positive_observations": sum(int(model.get("positive_count", 0) or 0) for model in merged_models),
+            "negative_observations": sum(int(model.get("negative_count", 0) or 0) for model in merged_models),
+        }
+    )
+
+    merged_payload = dict(existing_payload)
+    merged_payload["generated_at"] = datetime.now(UTC).isoformat()
+    merged_payload["scope"] = {"species_id": None}
+    merged_payload["summary"] = summary
+    merged_payload["species_models"] = merged_models
+    merged_payload["last_species_rebuild"] = {
+        "species_id": selected_species_id,
+        "generated_at": merged_payload["generated_at"],
+        "observation_count": int(replacement.get("observation_count", 0) or 0) if isinstance(replacement, dict) else 0,
+    }
+    merged_payload["output_paths"] = {
+        "json": str(output_json_path),
+        "report": str(report_path),
+    }
+    write_json(output_json_path, merged_payload)
+    write_report(report_path, merged_payload)
+    return merged_payload
