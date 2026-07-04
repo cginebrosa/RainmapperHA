@@ -1,5 +1,10 @@
 # Codex Handoff
 
+Nota 2026-07-05: para nuevas sesiones, el punto de entrada breve y estable es
+`docs/codex-start-here.md`, seguido de `docs/active-context.md`. Este fichero
+queda como handoff largo/auditoria historica y debe consultarse bajo demanda,
+no como carga completa inicial salvo que la tarea lo requiera.
+
 ## Ruta real del proyecto
 
 La copia activa y valida del repositorio esta en:
