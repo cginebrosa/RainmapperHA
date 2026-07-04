@@ -1,6 +1,65 @@
 # Decisions
 
-Nota de auditoria 2026-07-02: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`, commit de trabajo cerrado y pusheado `9c52bdf Document mushroom predictor v0 direction`, posterior a `76c5b5e Add batch GIS mapping reconstruction workflow`; version HA `0.2.180` en `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y cache-busters de visores; `.github/workflows/build-rainmapper-app.yml` solo es fallback manual (`workflow_dispatch`); el build HA soportado usa la raiz del repo como contexto; `rainmapper-app/app` contiene solo codigo especifico HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`); los entrypoints activos son modulos `rainmapper_core` y wrappers shell actuales; los wrappers raiz `Rainmapper.py`, `Rainmapper_Client.py`, `tomap_builder.py`, `tomap_to_geojson.py` y scripts de sincronizacion `scripts/sync-app-files.sh`/`scripts/sync-manifest.sh` no existen y no deben reintroducirse. `0.2.180` esta documentada/confirmada previamente como publicada, pusheada, instalada y funcionando en HA con imagen `ghcr.io/cginebrosa/rainmapperha:0.2.180/latest`, digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, commit de release `0415067`; no se ha reconsultado GHCR en esta auditoria. Tras ejecutar `./mushroom_lab_stop.sh`, `rainmapper-ha-ui` queda parado y Docker no muestra servicios activos. El PDF local `docs/mushrooms/literature/Marc_EstevezSpecies.pdf` queda ignorado/no versionado; se versiona el resumen `marc-estevez-species-conclusions-es.md`. Validaciones de cierre: validador de setas OK con 0 errores y 7 warnings conocidos, tests GIS/validator OK, py_compile GIS/validator OK y `git diff --check` OK. `0.2.172` fue confirmada por el usuario como funcionando correctamente el 2026-06-28; incluye la correccion de la tarjeta `Weather model summary` del tab `General/Summary` de especies. `0.2.175` introduce el store real de observaciones de setas, labels genericas y mantenimiento inicial de observaciones. `0.2.176` mueve los nombres de grupos de `/mushrooms/catalogs` a `mushroom_labels.json` mediante claves `catalog_group.*`, para que los catalogos nuevos de observaciones no ensucien las tarjetas superiores con IDs raw. `0.2.177` centraliza labels visibles del dominio `mushrooms` en `mushroom_labels.json`, aplica `ui_language` del add-on a setas y cuenta referencias desde observaciones en el mantenimiento de catalogos. `0.2.178` completa la traduccion visible de labels y valores controlados en la pantalla interna de especies. `0.2.179` refina el tab `Fenologia y Topografia`, meses editables como pastillas y la label `snowmelt_bonus`. `0.2.180` mantiene el tab actual tras guardar especies, mejora filtros de observaciones, separa scoring en Parametros y cambia patrones/orientaciones a pastillas catalogadas traducidas.
+Nota de auditoria 2026-07-04: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`, ultimo commit pusheado antes del cierre `c583692 Split learned model rebuild scopes`; version HA `0.2.180` verificada en `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`; no hay bump ni publicacion HA nueva. La imagen/digest `0.2.180/latest` quedan como estado previamente confirmado por el usuario, no reconsultado. Los wrappers actuales del laboratorio v0 son `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`. `mushroom_gis_mappings_rebuild.sh` reconstruye candidatos de mappings para capas GIS; no reconstruye observaciones. La evidencia GIS/meteo por observacion y el modelo aprendido v0 viven en el laboratorio local y no modifican perfiles automaticamente. La UI de setas queda en fase local posterior a `0.2.180`: Observaciones con mapas de coordenadas y reconstruccion GIS colapsable; Evidencia con subpestanas GIS/meteo/modelo; Parametros con tabs internos y comparacion inicial contra modelo aprendido. Las decisiones de evidencia guardan estado interno reversible, no aplican cambios a `mushroom_profiles.json`. Directiva nueva: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
+
+## 2026-07-04 - Modelo aprendido v0 como evidencia descriptiva
+
+Decision:
+
+- Mantener `mushroom_model_v0.json` como salida descriptiva/auditable del laboratorio local.
+- No tratarlo todavia como predictor operativo ni como modelo ML supervisado completo.
+- Generarlo desde observaciones locales reconstruidas, separando positivos y negativos cuando existan.
+- Mostrar soporte, ratios, gaps y rangos observados por especie.
+- No escribir `mushroom_profiles.json` desde el modelo aprendido.
+- No fijar pesos, umbrales ni ventanas meteorologicas por especie a partir de pocas observaciones.
+
+Motivo:
+
+- El usuario quiere empezar a aprender desde las observaciones ya disponibles sin esperar miles de datos.
+- Con pocas observaciones, el valor real esta en ver relaciones, contradicciones y gaps, no en producir una puntuacion aparentemente definitiva.
+- La v0 debe seguir siendo explicable y trazable.
+
+Consecuencias:
+
+- La pantalla `Evidencia > Modelo aprendido` es una auditoria tecnica.
+- El valor principal debe aparecer junto al parametro revisado: `Parametros`, `Especies > General`, `Especies > Ecologia` y `Fenologia y Topografia`.
+- Cualquier promocion de candidatos al perfil debe ser manual, visible y reversible.
+
+## 2026-07-04 - Evidencia local no modifica perfiles automaticamente
+
+Decision:
+
+- Las decisiones de evidencia GIS (`promover`, `ignorar`, `mantener`, `dudoso`, `confirmar`, `reiniciar`) guardan estado de revision interno.
+- Ese estado permite ordenar el trabajo humano y evitar repetir decisiones.
+- No cambia automaticamente hosts, bosques, suelos, habitat, altitud, fenologia ni meteorologia en el perfil.
+
+Motivo:
+
+- Evita contaminar perfiles productivos con inferencias prematuras.
+- Permite iterar con observaciones reales sin convertir cada gap o candidato en dato productivo.
+
+Consecuencias:
+
+- Hace falta una fase futura de "candidatos/diff/promocion" para aplicar cambios al perfil.
+- Esa fase debe mostrar de donde sale cada propuesta y permitir revertir.
+
+## 2026-07-04 - Directiva UI multiidioma y usable
+
+Decision:
+
+- Toda pantalla nueva o modificada del dominio setas debe ser coherente con el look and feel existente, usable para una persona y multiidioma.
+- No se aceptan paneles tecnicos crudos salvo acuerdo explicito con el usuario.
+- Estados, decisiones, botones, cabeceras y ayudas visibles deben tener labels traducibles.
+
+Motivo:
+
+- El mantenimiento de especies/catalogos/evidencias va a crecer y debe seguir siendo operable.
+- La UI de Rainmapper ya soporta `ui_language`; romper esa regla crea deuda inmediata.
+
+Consecuencias:
+
+- Antes de hardcodear texto visible en `mushroom_profiles_ui.py`, revisar si pertenece a `mushroom_labels.json`.
+- Las futuras pantallas de evidencias/modelo deben priorizar comparacion visual y claridad, no dumps JSON.
 
 ## 2026-06-27 - Mantener JSON de setas como defaults versionados y copia editable en HA
 

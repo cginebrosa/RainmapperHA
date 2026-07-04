@@ -872,10 +872,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("7d min rain", html)
         self.assertIn("Hosts", html)
         self.assertIn("Secondary hosts", html)
-        self.assertIn("parameter-left-stack", html)
+        self.assertIn("parameter-section-tabs", html)
+        self.assertIn("parameter-tab-panel active", html)
+        self.assertIn("parameter-tab-panel inactive", html)
         self.assertIn('name="rainfall_rain_7d_min_mm"', html)
+        self.assertIn('parameter_view=climate', html)
+        self.assertLess(html.index("Habitat model"), html.index("Climate model"))
         self.assertLess(html.index("Climate model"), html.index("Scoring weights"))
-        self.assertLess(html.index("Scoring weights"), html.index("Habitat model"))
         self.assertNotIn(">rain_7d_min_mm<", html)
 
     def test_mushroom_parameters_v0_does_not_reserve_empty_left_column(self) -> None:
@@ -889,8 +892,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         html = self.web_server.mushroom_profiles_ui.render_parameters_section(profile, catalogs, profile_view="v0")
 
-        self.assertIn("profile-parameters-grid v0", html)
-        self.assertIn("parameter-habitat-grid v0", html)
+        self.assertIn("profile-parameters-grid parameter-tabbed-grid v0", html)
+        self.assertIn("parameter-section-tabs", html)
         self.assertNotIn("parameter-left-stack", html)
         self.assertNotIn("Climate model", html)
         self.assertIn("Habitat model", html)
@@ -900,7 +903,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('textarea id="profile-main_months"', html)
         self.assertNotIn('textarea id="profile-secondary_months"', html)
         self.assertIn('textarea id="profile-aspect_notes" name="aspect_notes" rows="3"', html)
-        self.assertIn('class="profile-kv stacked"><span>Forest types</span>', html)
+        self.assertIn("parameter-section-forests parameter-profile-section", html)
+        self.assertIn("<h4>Forest types</h4>", html)
         self.assertIn('title="forest_cork_oak"', html)
         self.assertIn('class="parameter-affinity-label">Cork oak woodland</span>', html)
         self.assertIn('class="parameter-affinity-badge preferred">Preferente</span>', html)
@@ -999,6 +1003,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("import-observation-exif", html)
         self.assertIn('name="exif_images"', html)
         self.assertIn('name="observed_host_ids"', html)
+        self.assertIn('class="profile-action-bar observations-main-actions"', html)
+        self.assertIn('<details id="gis-reconstruction-lab"', html)
+        self.assertLess(html.index('href="#new-observation"'), html.index('id="archived-observations"'))
+        self.assertLess(html.index('href="#new-observation"'), html.index('id="gis-reconstruction-lab"'))
+        self.assertIn('data-observation-select data-observation-href=', html)
+        self.assertIn('onclick="selectObservationRow(this)"', html)
+        self.assertIn('class="observation-map-link" href="#observation-map-obs-20260629-0001"', html)
+        self.assertIn('id="observation-map-obs-20260629-0001"', html)
+        self.assertIn("maps.google.com/maps?", html)
+        self.assertIn('href="#observation-map-obs-20260629-0001">Map</a>', html)
         self.assertIn("Scots pine", html)
         self.assertNotIn("missing label:", html)
         self.assertIn("obs_20260629_0001", html)
@@ -1044,6 +1058,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                         "mvc50": {
                             "status": "ok",
                             "properties": {"LLVA_niv2t": "pinedes", "LLVA_Subst": "silici"},
+                            "mapped": {
+                                "unmapped_values": [
+                                    {"source_id": "mvc50", "field": "LLVA_niv2t", "raw_value": "pinedes"}
+                                ]
+                            },
                         },
                         "geology_50000": {
                             "status": "ok",
@@ -1066,6 +1085,24 @@ class AuthDeviceLimitTests(unittest.TestCase):
                         "altitude_source": "dem_5m",
                     },
                     "gaps": [],
+                },
+                {
+                    "observation_id": "obs_20260702_0002",
+                    "species_id": "amanita_caesarea",
+                    "status": "complete",
+                    "layers": {
+                        "mvc50": {
+                            "status": "ok",
+                            "properties": {"LLVA_niv2t": "alzinar"},
+                            "mapped": {
+                                "unmapped_values": [
+                                    {"source_id": "mvc50", "field": "LLVA_niv2t", "raw_value": "alzinar"}
+                                ]
+                            },
+                        },
+                    },
+                    "gis_context_v0": {},
+                    "gaps": [],
                 }
             ],
         }
@@ -1073,6 +1110,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         html = self.web_server.mushroom_profiles_ui.render_gis_result_summary(
             result,
             {"boletus_edulis": "Boletus edulis"},
+            "boletus_edulis",
         )
 
         self.assertIn("Contexto v0", html)
@@ -1081,6 +1119,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("soil_siliceous", html)
         self.assertIn("feature_montane_forest", html)
         self.assertIn("1200.0 m", html)
+        self.assertIn("Observations used for the latest reconstruction", html)
+        self.assertIn("pinedes", html)
+        self.assertNotIn("obs_20260702_0002", html)
+        self.assertNotIn("alzinar", html)
 
     def test_mushroom_local_evidence_section_renders_review_actions(self) -> None:
         profile = {
@@ -1170,6 +1212,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Evidence observations", html)
         self.assertIn("maps.google.com/maps?", html)
         self.assertIn("Open Google Maps", html)
+        self.assertIn(">Open</a>", html)
         self.assertIn("?section=observations&amp;obs_id=obs_1&amp;id=boletus_aereus#observation-detail", html)
         self.assertNotIn("Ejemplos", html)
 

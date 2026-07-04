@@ -90,6 +90,12 @@ Columnas actuales:
 
 La tabla debe tener altura contenida. No debe crecer indefinidamente hasta desplazar botones inferiores o el panel de archivadas fuera de la zona de trabajo.
 
+Las acciones principales de pantalla (`Nueva observacion`, `Importar imagenes
+EXIF`, `Abrir calibracion`) deben estar justo debajo de la lista/detalle de
+observaciones activas. No deben quedar debajo de archivadas ni debajo de la
+reconstruccion GIS local, porque esa posicion dificulta la captura rapida de
+observaciones.
+
 ## Acciones de fila
 
 Acciones activas:
@@ -102,6 +108,25 @@ Regla de interaccion:
 
 - pulsar en la fila selecciona la observacion;
 - pulsar en un boton ejecuta esa accion y no debe disparar tambien la seleccion de fila.
+- seleccionar una fila no debe mover la pagina hacia arriba ni hacia el final
+  del formulario; la UI debe preservar la posicion de scroll operativa.
+
+## Coordenadas y mapa
+
+Las coordenadas de una observacion son accionables en:
+
+- la columna `Coordenadas` de la tabla;
+- el campo `Coordenadas` del detalle lateral;
+- el modal de alta/edicion, mediante un boton `Mapa` cuando hay latitud y
+  longitud.
+
+La accion abre un modal local de mapa con vista hibrida/Google Maps y boton para
+abrir Google Maps externo. El modal sirve para revisar visualmente el punto,
+hacer zoom y comparar varias observaciones cuando se abre desde evidencia.
+
+Los datos son locales del usuario. No se debe describir esta pantalla como
+anonimizadora ni como ocultacion por privacidad; la UI muestra las coordenadas
+porque son necesarias para revisar observaciones.
 
 ## Duplicar observacion
 
@@ -231,6 +256,23 @@ Esto permite cargar observaciones reales en local y despues construir el engine 
 
 La UI de observaciones es ahora la via preferida para capturar datos reales antes de construir el extractor meteorologico.
 
+## Reconstruccion GIS local
+
+La seccion `Reconstruccion GIS local` debe permanecer colapsable y cerrada por
+defecto. Es una herramienta de revision, no el flujo principal de captura.
+
+Subsecciones actuales:
+
+- `Observaciones a reconstruir`: filtra por la especie seleccionada.
+- `Valores GIS pendientes de mapping`: debe filtrar por la especie seleccionada
+  cuando los pendientes procedan de observaciones reconstruidas.
+- `Observaciones usadas para ultima reconstruccion`: seccion propia colapsable
+  con los valores crudos de capa por observacion, cerrada por defecto.
+
+Esta reconstruccion de observaciones no debe confundirse con
+`mushroom_gis_mappings_rebuild.sh`, que reconstruye candidatos batch de mappings
+para capas GIS y no contexto por observacion.
+
 ## Pendientes
 
 - Decidir si la importacion EXIF multiple desde edicion debe tener una confirmacion explicita antes de crear varias observaciones.
@@ -238,3 +280,5 @@ La UI de observaciones es ahora la via preferida para capturar datos reales ante
 - Conectar las observaciones al extractor meteorologico local.
 - Mostrar en el futuro candidatos de parametros por especie, sin sobrescribir perfiles automaticamente.
 - Revisar si las observaciones archivadas deben poder filtrarse y ordenarse con las mismas cabeceras que las activas cuando crezcan mucho.
+- Seguir puliendo el modal de mapa para listas largas de observaciones sin
+  perder legibilidad.

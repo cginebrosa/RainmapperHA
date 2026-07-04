@@ -180,13 +180,25 @@ docker-data/mushroom-lab/output/reports/mushroom_model_v0.md
 Se genera con:
 
 ```bash
+./mushroom_observation_context_rebuild.sh
+./mushroom_observation_features_v0_build.sh
 ./mushroom_learned_model_v0_build.sh
 ```
 
-o desde la WebUI local en `Evidencia > Modelo aprendido` mediante
-`Reconstruir modelo v0`. Este rebuild encadena la reconstruccion meteorologica,
-el joiner de features v0 y el builder del modelo aprendido. No modifica
-`mushroom_profiles.json`.
+o desde la WebUI local en `Evidencia > Modelo aprendido`. La UI debe ofrecer
+rebuild de la especie seleccionada y rebuild global cuando tenga sentido. El
+rebuild encadena la reconstruccion de contexto, el joiner de features v0 y el
+builder del modelo aprendido. No modifica `mushroom_profiles.json`.
+
+Diferenciar wrappers:
+
+- `mushroom_gis_mappings_rebuild.sh` reconstruye la cola batch de candidatos de
+  mappings GIS para capas/fuentes; no reconstruye observaciones.
+- `mushroom_observation_context_rebuild.sh` reconstruye contexto por
+  observacion usando observaciones locales, GIS/DEM y meteorologia disponible.
+- `mushroom_observation_features_v0_build.sh` normaliza esas reconstrucciones
+  como features v0 por observacion.
+- `mushroom_learned_model_v0_build.sh` resume esas features por especie.
 
 Semantica actual del modelo aprendido:
 
@@ -200,6 +212,19 @@ Semantica actual del modelo aprendido:
 - conserva gaps de meteorologia/GIS/feature como informacion de calidad;
 - no fija umbrales, pesos ni ventanas por especie;
 - no aplica decisiones ni escribe perfiles.
+
+La pantalla meteorologica de evidencia debe ser compacta y comparable. El
+estado actual trabaja con lluvia 7/14/21/30/60/90 dias, temperatura 7/14/21/30,
+humedad 7/14/21/30 y altitud cuando existe en GIS/DEM. Los outliers de
+estaciones deben tratarse como problema de calidad de datos. Como trabajo futuro
+se propone calcular una segunda evidencia meteorologica mediante IDW en radios
+de 10 km y 15 km para comparar contra la estacion mas cercana, no para
+sustituirla automaticamente.
+
+Wunderground aporta velocidad de viento historica con el scrape mensual actual,
+pero no direccion. Queda como TODO reconstruir 2-3 años si interesa y estudiar
+una direccion media equivalente a Meteocat. No usar viento como señal productiva
+de v0 hasta tener suficiente calidad y evidencia.
 
 Uso previsto inmediato:
 

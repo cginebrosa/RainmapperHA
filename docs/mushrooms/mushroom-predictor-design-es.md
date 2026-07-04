@@ -179,6 +179,22 @@ mantener explicabilidad y trazabilidad. El primer uso no debe ser "aprobar pesos
 a mano", sino ayudar a detectar relaciones observadas y discrepancias entre el
 perfil base y los datos reales.
 
+Variantes futuras posibles, sin implementarlas todavia:
+
+- estadistica descriptiva actual: soportes, ratios, rangos y gaps por especie;
+- scoring explicable semi-automatico: convertir candidatos revisados en pesos o
+  reglas simples, manteniendo trazabilidad;
+- modelos clasicos ligeros cuando haya mas datos: regresion logistica, arboles
+  pequenos o random forest limitado para comparar variables, siempre mostrando
+  importancia/soporte y evitando una caja negra;
+- evaluacion por especie con pocos datos: entrenar desde pocas observaciones es
+  posible como experimento, pero la UI debe mostrar incertidumbre y no venderlo
+  como verdad productiva.
+
+No se recomienda deep learning ni modelos complejos en esta fase. El valor
+inmediato esta en comparar el perfil base con lo que se observa localmente, y en
+hacer visibles los calculos junto a cada parametro revisable.
+
 ## 2. Fuentes fiables usadas como referencia
 
 Se han priorizado papers científicos y fuentes primarias. Las aplicaciones comerciales o páginas de pronóstico sin metodología pública no se consideran base suficiente para el diseño.

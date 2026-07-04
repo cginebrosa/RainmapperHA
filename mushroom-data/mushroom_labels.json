@@ -574,6 +574,11 @@
     "es": "No hay observaciones archivadas para el filtro actual.",
     "ca": "No hi ha observacions arxivades per al filtre actual."
   },
+  "ui.gis_last_reconstruction_observations": {
+    "en": "Observations used for the latest reconstruction",
+    "es": "Observaciones usadas para ultima reconstruccion",
+    "ca": "Observacions usades per a l'ultima reconstruccio"
+  },
   "ui.restore": {
     "en": "Restore",
     "es": "Restaurar",
@@ -593,6 +598,11 @@
     "en": "Edit",
     "es": "Editar",
     "ca": "Editar"
+  },
+  "ui.open": {
+    "en": "Open",
+    "es": "Abrir",
+    "ca": "Obrir"
   },
   "ui.archive": {
     "en": "Archive",
@@ -788,6 +798,26 @@
     "en": "No numeric variables have been learned for this species.",
     "es": "No hay variables numericas aprendidas para esta especie.",
     "ca": "No hi ha variables numeriques apreses per a aquesta especie."
+  },
+  "ui.profile_overlap": {
+    "en": "Profile overlap",
+    "es": "Coincidencia del perfil",
+    "ca": "Coincidencia del perfil"
+  },
+  "ui.learned_parameter_comparison_note": {
+    "en": "Read-only comparison with learned evidence. It does not modify profiles.",
+    "es": "Comparacion de solo lectura con la evidencia aprendida. No modifica perfiles.",
+    "ca": "Comparacio de nomes lectura amb l'evidencia apresa. No modifica perfils."
+  },
+  "ui.profile_range": {
+    "en": "Profile range",
+    "es": "Rango del perfil",
+    "ca": "Rang del perfil"
+  },
+  "ui.observed_range": {
+    "en": "Observed range",
+    "es": "Rango observado",
+    "ca": "Rang observat"
   },
   "ui.learned_positive_short": {
     "en": "Pos.",

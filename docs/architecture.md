@@ -31,7 +31,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para laboratorio local sin tocar Home Assistant.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
-- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh`, `aemet-backfill-30-days.py`, `reconstruct-mushroom-gis-mappings.py` y `validate-mushroom-data.py`.
+- `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh`, `aemet-backfill-30-days.py`, `reconstruct-mushroom-gis-mappings.py`, `reconstruct-mushroom-observation-context.py`, `build-mushroom-observation-features-v0.py`, `build-mushroom-learned-model-v0.py`, `build-mushroom-profile-v0-candidate.py`, `audit-mushroom-profile-v0-source.py` y `validate-mushroom-data.py`.
 - `local_update.sh`: wrapper compatible de raiz hacia `rainmapper-local/local_update.sh`; runner local solo update, util para refrescar descargas actuales e incrementales sin reconstruir `Tomap` ni publicar visores.
 - `rainmapper_core/sources/meteoclimatic_local/`: cliente local Meteoclimatic.
 - `rainmapper_core/sources/sodapy_local/`: copia local/adaptada de Socrata client.
@@ -57,6 +57,7 @@ Hay varios entry points segun entorno:
 - Mapas Bokeh: `python -m rainmapper_core.bokeh_maps` como entrypoint canonico; implementacion en `rainmapper_core/bokeh_maps.py`.
 - GeoJSON: `rainmapper_core/geojson.py` como entrypoint canonico ejecutable con `python -m rainmapper_core.geojson`.
 - WebUI HA: `rainmapper-app/app/web_server.py`.
+- Laboratorio setas v0: wrappers raiz `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`.
 - Leaflet: `rainmapper_core/viewers/leaflet-viewer/index.html` y `app.js`, desde la ruta canonica.
 - MapLibre: `rainmapper_core/viewers/maplibre-viewer/index.html` y `app.js`, desde la ruta canonica.
 
@@ -140,6 +141,24 @@ Hay varios entry points segun entorno:
 - Puerto local: `http://127.0.0.1:8101`.
 - Relacion: permite cargar observaciones reales/historicas de setas, importar EXIF y probar flujos de mantenimiento sin escribir en la instalacion HA real. Usa `rainmapper-local/options.local-ha-ui.json` como opciones de add-on y `tmp/mushroom-lab/runtime/config-www` como `/config/www`.
 - Estado verificado 2026-07-02: tras ejecutar `./mushroom_lab_stop.sh`, `docker compose -f rainmapper-local/docker-compose.yml ps` no muestra servicios activos. Los datos locales siguen preservados en `docker-data/`.
+
+### Laboratorio de setas v0
+- Rutas principales:
+  - `rainmapper_core/mushroom_observation_context.py`
+  - `rainmapper_core/mushroom_observation_features.py`
+  - `rainmapper_core/mushroom_learned_model.py`
+  - `scripts/reconstruct-mushroom-observation-context.py`
+  - `scripts/build-mushroom-observation-features-v0.py`
+  - `scripts/build-mushroom-learned-model-v0.py`
+- Wrappers raiz:
+  - `mushroom_observation_context_rebuild.sh`
+  - `mushroom_observation_features_v0_build.sh`
+  - `mushroom_learned_model_v0_build.sh`
+- Responsabilidad: reconstruir contexto GIS/DEM/meteorologico de observaciones locales, unir features v0 y generar una salida aprendida descriptiva por especie.
+- Flujo reproducible: primero `./mushroom_observation_context_rebuild.sh`, despues `./mushroom_observation_features_v0_build.sh`, despues `./mushroom_learned_model_v0_build.sh`.
+- Salidas locales principales: `docker-data/mushroom-lab/working/features/observation_features_v0.json`, `docker-data/mushroom-lab/working/models/mushroom_model_v0.json` y reportes bajo `docker-data/mushroom-lab/output/reports/`.
+- Relacion con perfiles: no modifica `mushroom-data/mushroom_profiles.json`. La WebUI muestra la evidencia para revision humana y futura promocion manual.
+- Diferencia con `mushroom_gis_mappings_rebuild.sh`: ese wrapper reconstruye candidatos de mappings para capas GIS, no reconstruye observaciones ni modelos por especie.
 
 ### Runner local solo mapas
 - Ruta: `rainmapper-local/local_maps.sh`; `local_maps.sh` en raiz es un wrapper compatible.

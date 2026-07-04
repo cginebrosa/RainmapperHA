@@ -2613,6 +2613,169 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 7px;
       padding: 9px;
     }}
+    .parameter-section-tabs {{
+      align-items: center;
+      border-bottom: 1px solid rgba(45, 58, 71, .86);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      margin: -2px 0 2px;
+    }}
+    .parameter-section-tabs a {{
+      border: 1px solid transparent;
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      margin: 0 3px -1px 0;
+      padding: 9px 14px 10px;
+      position: relative;
+      text-decoration: none;
+    }}
+    .parameter-section-tabs a:hover {{
+      background: rgba(148, 163, 184, .08);
+      color: var(--text);
+    }}
+    .parameter-section-tabs a.active {{
+      background: rgba(7, 18, 31, .96);
+      border-color: var(--accent);
+      border-bottom-color: rgba(7, 18, 31, .96);
+      color: var(--accent);
+    }}
+    .parameter-tabbed-grid {{
+      grid-template-columns: 1fr;
+    }}
+    .parameter-tab-panel {{
+      min-width: 0;
+    }}
+    .parameter-tab-panel.inactive {{
+      display: none;
+    }}
+    .parameter-focus-subsection {{
+      min-height: min(520px, 46vh);
+    }}
+    .parameter-comparison-layout {{
+      align-items: stretch;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, .74fr);
+    }}
+    .parameter-learned-comparison {{
+      background: rgba(4, 16, 28, .56);
+      align-content: start;
+      font-size: 12px;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+    }}
+    .parameter-learned-comparison h3 {{
+      align-items: center;
+      display: flex;
+      font-size: 13px;
+      gap: 7px;
+      margin: 0;
+    }}
+    .parameter-ecology-profile,
+    .parameter-ecology-learned {{
+      grid-template-rows: auto 74px 238px 106px 106px auto;
+    }}
+    .parameter-ecology-profile .parameter-profile-sections,
+    .parameter-ecology-learned .parameter-learned-rows {{
+      display: contents;
+    }}
+    .parameter-profile-sections {{
+      display: grid;
+      gap: 8px;
+    }}
+    .parameter-comparison-section {{
+      align-content: start;
+      background: rgba(3, 12, 22, .28);
+      border: 1px solid rgba(45, 58, 71, .58);
+      border-radius: 8px;
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+    }}
+    .parameter-profile-section h4,
+    .parameter-learned-row h4,
+    .parameter-learned-summary h4 {{
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin: 0;
+    }}
+    .parameter-section-values {{
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }}
+    .parameter-section-summary {{
+      min-height: 66px;
+    }}
+    .parameter-section-hosts {{
+      min-height: 154px;
+    }}
+    .parameter-section-forests,
+    .parameter-section-habitat {{
+      min-height: 96px;
+    }}
+    .parameter-learned-metrics {{
+      display: grid;
+      gap: 6px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }}
+    .parameter-learned-metrics span {{
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px;
+    }}
+    .parameter-learned-metrics strong {{
+      color: var(--text);
+      float: right;
+    }}
+    .parameter-learned-rows {{
+      display: grid;
+      gap: 8px;
+    }}
+    .parameter-learned-row {{
+      grid-template-rows: auto minmax(0, 1fr);
+    }}
+    .parameter-learned-values {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }}
+    .parameter-learned-chip {{
+      align-items: center;
+      border: 1px solid rgba(0, 174, 255, .45);
+      border-radius: 7px;
+      display: inline-flex;
+      gap: 6px;
+      max-width: 100%;
+      padding: 4px 7px;
+    }}
+    .parameter-learned-chip span {{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .parameter-learned-chip strong {{
+      color: var(--accent);
+      font-size: 12px;
+    }}
+    .parameter-learned-chip em {{
+      color: var(--muted);
+      font-size: 11px;
+      font-style: normal;
+    }}
+    .parameter-climate-stack {{
+      display: grid;
+      gap: 12px;
+    }}
     .parameter-card-note {{
       color: var(--muted);
       font-size: 12px;
@@ -3510,8 +3673,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border: 1px solid rgba(45, 58, 71, .7);
       border-radius: 8px;
       display: grid;
-      gap: 10px;
-      grid-template-columns: 28px 88px minmax(190px, 1fr) 140px auto auto;
+      gap: 8px;
+      grid-template-columns: 28px 86px minmax(230px, 1fr) 150px auto auto;
       padding: 9px 10px;
     }}
     .evidence-observation-date {{
@@ -3524,10 +3687,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .evidence-observation-main strong,
     .evidence-observation-main .meta {{
-      display: inline;
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }}
     .evidence-observation-main .meta {{
-      margin-left: 8px;
+      margin-left: 0;
     }}
     .evidence-observation-coords {{
       color: var(--muted);
@@ -3592,11 +3758,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 6px;
       color: var(--accent);
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       font-size: 11px;
       font-weight: 900;
       line-height: 1;
       min-height: 30px;
       padding: 7px 9px;
+      text-decoration: none;
       white-space: nowrap;
     }}
     .evidence-map-select-button:hover {{
@@ -4080,6 +4250,16 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-height: 28px;
       padding: 5px 8px;
     }}
+    .observation-map-link {{
+      color: var(--text);
+      font-weight: 800;
+      text-decoration: underline;
+      text-decoration-color: rgba(0, 174, 255, .55);
+      text-underline-offset: 3px;
+    }}
+    .observation-map-link:hover {{
+      color: var(--accent);
+    }}
     .observation-row-actions {{
       align-items: center;
       display: flex;
@@ -4101,6 +4281,25 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       max-height: 320px;
       overflow: auto;
       padding-top: 10px;
+    }}
+    .observations-main-actions {{
+      border-top: 1px solid var(--line);
+      margin-top: -2px;
+      padding-top: 12px;
+    }}
+    .gis-reconstruction-lab summary {{
+      cursor: pointer;
+      list-style-position: inside;
+    }}
+    .gis-reconstruction-lab summary strong {{
+      align-items: center;
+      display: inline-flex;
+      gap: 8px;
+    }}
+    .gis-reconstruction-lab .collapsible-section-body {{
+      display: grid;
+      gap: 12px;
+      padding-top: 12px;
     }}
     .mushroom-section-tabs {{
       align-items: center;
@@ -4239,6 +4438,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       .parameter-habitat-grid.v0 {{
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .parameter-comparison-layout {{
+        grid-template-columns: 1fr;
       }}
       .profile-metadata-strip {{
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4504,6 +4706,45 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (externalLink && external) {{
         externalLink.setAttribute("href", external);
       }}
+    }}
+    function selectObservationRow(row) {{
+      if (!row) {{
+        return;
+      }}
+      var href = row.getAttribute("data-observation-href");
+      if (!href) {{
+        return;
+      }}
+      try {{
+        window.sessionStorage.setItem("rainmapperObservationScrollY", String(window.scrollY || 0));
+      }} catch (error) {{}}
+      window.location.href = href;
+    }}
+    function restoreObservationScroll() {{
+      var params;
+      try {{
+        params = new URLSearchParams(window.location.search);
+      }} catch (error) {{
+        return;
+      }}
+      if (params.get("section") !== "observations" || !params.get("obs_id")) {{
+        return;
+      }}
+      var stored = "";
+      try {{
+        stored = window.sessionStorage.getItem("rainmapperObservationScrollY") || "";
+        window.sessionStorage.removeItem("rainmapperObservationScrollY");
+      }} catch (error) {{}}
+      if (!stored) {{
+        return;
+      }}
+      var scrollY = parseInt(stored, 10);
+      if (!Number.isFinite(scrollY)) {{
+        return;
+      }}
+      window.setTimeout(function() {{
+        window.scrollTo({{ top: scrollY }});
+      }}, 0);
     }}
     function setExpandedUser(username) {{
       var cards = Array.prototype.slice.call(document.querySelectorAll(".user-card"));
@@ -4864,6 +5105,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       fitCatalogTableToViewport();
       revealSelectedCatalogRow();
       setProfileReturnTabs();
+      restoreObservationScroll();
     }});
   </script>
 </body>
@@ -8699,7 +8941,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_class = "ok" if not errors else "danger"
         section_tabs = mushroom_profiles_ui.render_section_tabs(section, selected_id, search, profile_view)
         if section == "parameters":
-            main_content = mushroom_profiles_ui.render_parameters_section(selected, catalogs, profiles, search, profile_view)
+            parameter_view = (query.get("parameter_view") or ["habitat"])[0]
+            main_content = mushroom_profiles_ui.render_parameters_section(
+                selected,
+                catalogs,
+                profiles,
+                search,
+                profile_view,
+                parameter_view,
+                mushroom_learned_model.load_latest_model(),
+            )
         elif section == "calibration":
             main_content = mushroom_profiles_ui.render_calibration_section(selected, profiles, search)
         elif section == "observations":
