@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a batch GIS mapping candidate payload for the mushroom lab.
+"""Build a batch GIS mapping candidate payload for mushroom maintenance.
 
 The script scans every unique value from the configured local GIS layer fields
 and writes the same reconstruction payload consumed by `/mushrooms/gis-mappings`.
@@ -33,7 +33,7 @@ def read_json(path: Path) -> dict[str, Any]:
 
 
 def default_mushroom_data_root() -> Path:
-    """Prefer the mutable local lab copy, then fall back to versioned defaults."""
+    """Prefer the mutable local mushroom-data copy, then fall back to versioned defaults."""
     local_root = REPO_ROOT / "docker-data" / "mushroom-data"
     if (local_root / "mushroom_gis_mappings.json").exists() and (local_root / "mushroom_reference_catalogs.json").exists():
         return local_root
@@ -43,11 +43,11 @@ def default_mushroom_data_root() -> Path:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="mushroom_gis_mappings_rebuild.sh",
-        description="Rebuild batch GIS mapping candidates for the mushroom lab UI.",
+        description="Rebuild batch GIS mapping candidates for the mushroom maintenance UI.",
         epilog=(
             "Default output uses RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH when set, "
-            "then RAINMAPPER_MUSHROOM_LAB_DIR, then /share/rainmapper/mushroom-lab "
-            "inside Home Assistant, then docker-data/mushroom-lab in local labs."
+            "otherwise mushroom-data/mushroom_gis_observation_reconstruction.json under "
+            "the active Rainmapper share root."
         ),
     )
     parser.add_argument(

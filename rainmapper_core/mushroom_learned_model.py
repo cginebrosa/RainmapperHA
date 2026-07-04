@@ -8,19 +8,19 @@ so the UI can compare learned evidence against manual v0 profile data.
 from __future__ import annotations
 
 import json
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from rainmapper_core import mushroom_observation_features
+from rainmapper_core import mushroom_observation_features, mushroom_paths
 
 
 CATEGORICAL_FEATURES = (
-    ("host_ids", "hosts"),
-    ("forest_type_ids", "forests"),
-    ("soil_tendency_ids", "soils"),
-    ("habitat_feature_ids", "habitat"),
+    ("host_ids", "hosts", "host_sources"),
+    ("forest_type_ids", "forests", "forest_type_sources"),
+    ("soil_tendency_ids", "soils", "soil_tendency_sources"),
+    ("habitat_feature_ids", "habitat", "habitat_feature_sources"),
+    ("aspect_ids", "aspects", "aspect_sources"),
 )
 
 NUMERIC_FEATURES = (
@@ -51,34 +51,15 @@ NUMERIC_FEATURES = (
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def default_lab_root() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_LAB_DIR", "").strip()
-    if configured:
-        return Path(configured)
-    ha_share_root = Path("/share/rainmapper")
-    if ha_share_root.exists():
-        return ha_share_root / "mushroom-lab"
-    local_share_copy = repo_root() / "docker-data"
-    if local_share_copy.exists():
-        return local_share_copy / "mushroom-lab"
-    return repo_root() / "tmp" / "mushroom-lab"
+    return mushroom_paths.repo_root()
 
 
 def default_output_json_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_LEARNED_MODEL_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_lab_root() / "working" / "models" / "mushroom_model_v0.json"
+    return mushroom_paths.mushroom_learned_model_json_path()
 
 
 def default_report_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_LEARNED_MODEL_REPORT_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_lab_root() / "output" / "reports" / "mushroom_model_v0.md"
+    return mushroom_paths.mushroom_learned_model_report_path()
 
 
 def load_json_payload(path: Path) -> dict[str, Any]:
@@ -134,21 +115,39 @@ def list_values(value: object) -> list[str]:
     return [str(item) for item in value if str(item or "").strip()]
 
 
+def source_values(row: dict[str, Any], source_key: str, item_id: str) -> list[str]:
+    sources = row.get(source_key)
+    if not isinstance(sources, dict):
+        return ["v0"]
+    values = sources.get(item_id)
+    if not isinstance(values, list):
+        return ["v0"]
+    normalized = [str(value) for value in values if str(value or "").strip()]
+    return normalized or ["v0"]
+
+
 def summarize_categorical(
     positive_rows: list[dict[str, Any]],
     negative_rows: list[dict[str, Any]],
     key: str,
+    source_key: str,
 ) -> list[dict[str, Any]]:
     positive_counts: dict[str, set[str]] = {}
     negative_counts: dict[str, set[str]] = {}
+    positive_source_counts: dict[str, dict[str, set[str]]] = {}
+    negative_source_counts: dict[str, dict[str, set[str]]] = {}
     for row in positive_rows:
         observation_id = str(row.get("observation_id", "") or "")
         for item_id in list_values(row.get(key)):
             positive_counts.setdefault(item_id, set()).add(observation_id)
+            for source in source_values(row, source_key, item_id):
+                positive_source_counts.setdefault(item_id, {}).setdefault(source, set()).add(observation_id)
     for row in negative_rows:
         observation_id = str(row.get("observation_id", "") or "")
         for item_id in list_values(row.get(key)):
             negative_counts.setdefault(item_id, set()).add(observation_id)
+            for source in source_values(row, source_key, item_id):
+                negative_source_counts.setdefault(item_id, {}).setdefault(source, set()).add(observation_id)
 
     rows = []
     positive_total = len(positive_rows)
@@ -168,6 +167,16 @@ def summarize_categorical(
                 "id": item_id,
                 "positive_support": positive_support,
                 "negative_support": negative_support,
+                "positive_source_support": {
+                    source: len(observation_ids)
+                    for source, observation_ids in sorted(positive_source_counts.get(item_id, {}).items())
+                },
+                "negative_source_support": {
+                    source: len(observation_ids)
+                    for source, observation_ids in sorted(negative_source_counts.get(item_id, {}).items())
+                },
+                "positive_sources": sorted(positive_source_counts.get(item_id, {})),
+                "negative_sources": sorted(negative_source_counts.get(item_id, {})),
                 "positive_ratio": round(positive_ratio, 4) if positive_ratio is not None else None,
                 "negative_ratio": round(negative_ratio, 4) if negative_ratio is not None else None,
                 "ratio_delta": ratio_delta,
@@ -191,8 +200,8 @@ def summarize_species(species_id: str, rows: list[dict[str, Any]]) -> dict[str, 
     weather_gap_rows = [row for row in rows if list_values(row.get("weather_gaps"))]
     gis_gap_rows = [row for row in rows if list_values(row.get("gis_gaps")) or list_values(row.get("feature_gaps"))]
     categorical = {
-        output_key: summarize_categorical(positive_rows, negative_rows, source_key)
-        for source_key, output_key in CATEGORICAL_FEATURES
+        output_key: summarize_categorical(positive_rows, negative_rows, source_key, source_tracking_key)
+        for source_key, output_key, source_tracking_key in CATEGORICAL_FEATURES
     }
     numeric = {
         output_key: {
@@ -246,7 +255,7 @@ def build_learned_model_v0(features_path: Path | None = None, species_id_filter:
         ],
         "input_paths": {"observation_features_v0": str(features_path)},
         "feature_contract": {
-            "categorical": [key for _source, key in CATEGORICAL_FEATURES],
+            "categorical": [key for _source, key, _source_tracking in CATEGORICAL_FEATURES],
             "numeric": [key for _source, key in NUMERIC_FEATURES],
         },
         "summary": {

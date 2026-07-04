@@ -6,6 +6,13 @@ Este documento describe el flujo usado para convertir la fuente normalizada de
 Marc Estevez en perfiles operativos v0 dentro de la estructura rica existente de
 `mushroom-data/mushroom_profiles.json`.
 
+Nota de vigencia 2026-07-05: el script sigue siendo util como regenerador y
+auditor de candidatos, pero el origen documental principal aplicado a los
+perfiles productivos es Marc Estevez mediante
+`scripts/apply-mushroom-literature-source.py`. No reintroducir
+`v0_catalog_gap_promoted` como origen visible ni usar `tmp/mushroom-lab/` como
+ruta operativa estable.
+
 ## Principio
 
 La v0 no reemplaza el schema rico. Usa la misma estructura completa de perfiles,
@@ -81,15 +88,18 @@ relaciones nuevas que vienen de la fuente normalizada, el candidato usa:
 
 ```json
 {
-  "relationship": "source",
+  "relationship": "primary",
   "affinity": 0.0,
-  "v0_placeholder": true
+  "v0_placeholder": true,
+  "source_ids": ["literature_marc_estevez"]
 }
 ```
 
 Esto no es un peso ni un parametro del predictor v0. La proyeccion v0 definida
 en `rainmapper_core/mushroom_profile_v0.py` ignora los valores numericos y solo
-usa `id` + `relationship`.
+usa `id` + `relationship`. Para Marc Estevez, una afinidad listada se considera
+documentalmente fuerte y se marca `primary`; `source_ids` solo conserva la
+procedencia para la UI.
 
 Las afinidades enriquecidas antiguas que no proceden de la fuente v0 se
 conservan en el perfil rico con `v0_active: false`. La proyeccion v0 las ignora,
@@ -104,6 +114,11 @@ validable. Esos campos siguen aparcados para v0.
 Los gaps de catalogo v0 ya estan promovidos a
 `mushroom-data/mushroom_reference_catalogs.json` y referenciados desde los
 perfiles que los solicitaron mediante `catalog_gap_candidates`.
+
+Desde el 2026-07-04 el builder no escribe `v0_catalog_gap_promoted` ni notas de
+promocion en las afinidades. Ese dato era metadato tecnico de construccion, no
+un origen ecologico. Si un ID queda referenciado por la fuente de Marc, la UI
+debe explicarlo como origen Marc, no como origen separado de catalogo.
 
 Entradas promovidas:
 
@@ -134,4 +149,4 @@ El test comprueba que el candidato:
 - no separa `lactarius_salmonicolor` y `lactarius_quieticolor`;
 - valida sin errores estructurales contra los catalogos actuales;
 - comprueba que los gaps de catalogo promovidos existen y estan referenciados
-  por perfiles.
+  por perfiles sin escribir flags tecnicos en las afinidades.

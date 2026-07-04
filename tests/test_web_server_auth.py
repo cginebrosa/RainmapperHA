@@ -218,7 +218,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             captured["content_type"] = content_type
 
         handler.send_bytes = capture_response
-        handler.render_mushroom_profiles({"id": ["boletus_pinophilus"]})
+        handler.render_mushroom_profiles({"id": ["boletus_pinophilus"], "view": ["enriched"]})
 
         self.assertEqual(captured["status"], 200)
         page = captured["content"]
@@ -246,6 +246,44 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Species", page)
         self.assertIn("Observations", page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
+
+    def test_mushroom_profiles_defaults_to_v0_view(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured = {}
+
+        def capture_response(status: int, content: bytes, content_type: str) -> None:
+            captured["status"] = status
+            captured["content"] = content.decode("utf-8")
+            captured["content_type"] = content_type
+
+        handler.send_bytes = capture_response
+        handler.render_mushroom_profiles({"section": ["observations"]})
+
+        self.assertEqual(captured["status"], 200)
+        page = captured["content"]
+        self.assertIn("Observation records", page)
+        self.assertIn('class="button-link active"', page)
+        self.assertIn('section=observations&amp;view=v0', page)
+        self.assertIn('section=observations&amp;view=enriched', page)
+        self.assertIn('name="view" value="v0"', page)
 
     def test_mushroom_profiles_v0_view_hides_parked_and_enriched_fields(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -324,7 +362,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 captured["content_type"] = content_type
 
             handler.send_bytes = capture_response
-            handler.render_mushroom_profiles({"id": ["boletus_pinophilus"], "section": [section]})
+            handler.render_mushroom_profiles({"id": ["boletus_pinophilus"], "section": [section], "view": ["enriched"]})
 
             self.assertEqual(200, captured["status"])
             page = captured["content"]
@@ -345,9 +383,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
             message=True,
         )
 
-        self.assertEqual("?id=boletus_pinophilus&section=species#profile-tab-phenology", ok_redirect)
+        self.assertEqual("?id=boletus_pinophilus&section=species&view=enriched#profile-tab-phenology", ok_redirect)
         self.assertEqual(
-            "?id=boletus_pinophilus&section=species&profile_tab=profile-tab-phenology#mushroom-profile-message",
+            "?id=boletus_pinophilus&section=species&view=enriched&profile_tab=profile-tab-phenology#mushroom-profile-message",
             error_redirect,
         )
 
@@ -387,6 +425,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "source_label": ["field report"],
                 "altitude_m": ["120"],
                 "altitude_source": ["manual"],
+                "observed_forest_type_ids": ["forest_montane_pine"],
+                "observed_soil_tendency_ids": ["soil_siliceous"],
+                "observed_habitat_feature_ids": ["feature_mature_forest"],
+                "observed_aspect_ids": ["aspect_N"],
                 "habitat_notes": ["oak woodland"],
             }
         )
@@ -402,6 +444,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertAlmostEqual(41.3874, observation["location"]["lat"])
         self.assertAlmostEqual(2.1686, observation["location"]["lon"])
         self.assertEqual(120, observation["altitude"]["meters"])
+        self.assertEqual({"month": 6, "season": "summer"}, observation["derived"])
+        self.assertEqual(["forest_montane_pine"], observation["site_context"]["observed_forest_type_ids"])
+        self.assertEqual(["soil_siliceous"], observation["site_context"]["observed_soil_tendency_ids"])
+        self.assertEqual(["feature_mature_forest"], observation["site_context"]["observed_habitat_feature_ids"])
+        self.assertEqual(["aspect_N"], observation["site_context"]["observed_aspect_ids"])
         self.assertNotIn("evidence", observation)
 
     def test_mushroom_observations_update_replaces_existing_record(self) -> None:
@@ -455,6 +502,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "observer_name": ["Updated observer"],
                 "observer_expertise": ["expert"],
                 "source_type": ["trusted_observer"],
+                "observed_forest_type_ids": ["forest_holm_oak"],
+                "observed_soil_tendency_ids": ["soil_calcareous"],
+                "observed_habitat_feature_ids": ["feature_open_warm_woodland"],
+                "observed_aspect_ids": ["aspect_S"],
                 "habitat_notes": ["updated habitat"],
             }
         )
@@ -468,6 +519,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("abundant", observation["flush_abundance"])
         self.assertEqual("Updated observer", observation["observer"]["name"])
         self.assertEqual("updated habitat", observation["site_context"]["habitat_notes"])
+        self.assertEqual({"month": 6, "season": "summer"}, observation["derived"])
+        self.assertEqual(["forest_holm_oak"], observation["site_context"]["observed_forest_type_ids"])
+        self.assertEqual(["soil_calcareous"], observation["site_context"]["observed_soil_tendency_ids"])
+        self.assertEqual(["feature_open_warm_woodland"], observation["site_context"]["observed_habitat_feature_ids"])
+        self.assertEqual(["aspect_S"], observation["site_context"]["observed_aspect_ids"])
 
     def test_mushroom_observations_create_accepts_lat_lon_without_main_coordinates(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -621,6 +677,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("IMG_4144.jpeg", observation["source"]["label"])
         self.assertEqual("Carlos", observation["observer"]["name"])
         self.assertEqual("experienced", observation["observer"]["expertise"])
+        self.assertEqual({"month": 8, "season": "summer"}, observation["derived"])
 
     def test_mushroom_observations_update_from_exif_images_updates_and_creates_extra_rows(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -714,11 +771,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("photo_exif", updated["location"]["source"])
         self.assertEqual(619.9, updated["altitude"]["meters"])
         self.assertEqual("IMG_4144.jpeg", updated["source"]["label"])
+        self.assertEqual({"month": 8, "season": "summer"}, updated["derived"])
         self.assertNotEqual(observation_id, extra["observation_id"])
         self.assertEqual("amanita_caesarea", extra["species_id"])
         self.assertEqual("2025-08-07", extra["observed_at"])
         self.assertEqual(761.9, extra["altitude"]["meters"])
         self.assertEqual("IMG_4083.jpeg", extra["source"]["label"])
+        self.assertEqual({"month": 8, "season": "summer"}, extra["derived"])
 
     def test_mushroom_observations_create_reports_missing_coordinates(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -907,9 +966,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("<h4>Forest types</h4>", html)
         self.assertIn('title="forest_cork_oak"', html)
         self.assertIn('class="parameter-affinity-label">Cork oak woodland</span>', html)
-        self.assertIn('class="parameter-affinity-badge preferred">Preferente</span>', html)
-        self.assertIn('class="parameter-affinity-badge source">Fuente v0</span>', html)
-        self.assertIn('class="parameter-affinity-badge catalog">Catalogo</span>', html)
+        self.assertIn('class="parameter-affinity-badge primary">Principal</span>', html)
+        self.assertIn('class="parameter-affinity-badge source">Marc</span>', html)
+        self.assertNotIn('class="parameter-affinity-badge catalog">Catalogo</span>', html)
 
     def test_mushroom_observation_filters_are_editable_and_filter_rows(self) -> None:
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
@@ -1505,6 +1564,70 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertIn("selected species", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
+    def test_mushroom_observation_model_rebuild_post_runs_full_v0_chain(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        class ImmediateThread:
+            def __init__(self, target, name=None, daemon=None):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(self.web_server.mushroom_gis_lab, "reconstruct_observations") as gis_builder, \
+            mock.patch.object(self.web_server.mushroom_observation_context, "build_and_write_observation_weather_features") as weather_builder, \
+            mock.patch.object(self.web_server.mushroom_observation_features, "build_and_write_observation_features_v0") as features_builder, \
+            mock.patch.object(self.web_server.mushroom_learned_model, "build_and_write_learned_model_v0") as model_builder, \
+            mock.patch.object(self.web_server.threading, "Thread", ImmediateThread):
+            gis_builder.return_value = {"result_count": 1}
+            weather_builder.return_value = {"summary": {"observations": 8}}
+            features_builder.return_value = {"summary": {"observations": 8}}
+            model_builder.return_value = {"summary": {"species": 1}}
+
+            redirect = handler.handle_mushroom_profiles_post(
+                {
+                    "profile_action": ["rebuild_observation_model_v0"],
+                    "species_id": ["amanita_caesarea"],
+                    "obs_species": ["amanita_caesarea"],
+                    "view": ["v0"],
+                    "gis_reconstruction_scope": ["selected"],
+                    "gis_observation_ids": ["obs_20250930_0001"],
+                }
+            )
+
+        gis_builder.assert_called_once()
+        self.assertEqual(["obs_20250930_0001"], gis_builder.call_args.args[1])
+        self.assertIn("progress_callback", gis_builder.call_args.kwargs)
+        weather_builder.assert_called_once_with()
+        features_builder.assert_called_once_with()
+        model_builder.assert_called_once_with()
+        self.assertIn("?section=observations&id=amanita_caesarea&rebuild_job=", redirect)
+        self.assertTrue(redirect.endswith("#gis-reconstruction-lab"))
+        job_id = redirect.split("rebuild_job=", 1)[1].split("#", 1)[0]
+        status = self.web_server.get_mushroom_rebuild_job_status(job_id)
+        self.assertIsNotNone(status)
+        self.assertEqual("complete", status["status"])
+        self.assertEqual(100, status["overall_percent"])
+        self.assertIn("elapsed", status)
+        self.assertIn("Modelo v0 rebuilt", self.web_server.RUN_STATE["mushroom_profiles_flash"])
+
     def test_mushroom_evidence_decisions_are_reversible(self) -> None:
         data_dir = Path(self.temp_dir.name)
 
@@ -1944,7 +2067,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             catalogs,
         )
 
-        self.assertEqual(1, html.count('value="host_pinus_spp"'))
+        self.assertEqual(1, html.count('<option value="host_pinus_spp"'))
         self.assertGreaterEqual(html.count('value="host_quercus_spp"'), 2)
 
     def test_mushroom_profiles_post_blocks_duplicate_affinities(self) -> None:
@@ -1986,7 +2109,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("?id=boletus_pinophilus&section=species&profile_tab=profile-tab-json#mushroom-profile-message", redirect)
+        self.assertEqual("?id=boletus_pinophilus&section=species&view=enriched&profile_tab=profile-tab-json#mushroom-profile-message", redirect)
         self.assertIn(
             "host_affinities: contains duplicate IDs",
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
@@ -2031,7 +2154,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("?id=boletus_edulis&section=species&profile_tab=profile-tab-json#mushroom-profile-message", redirect)
+        self.assertEqual("?id=boletus_edulis&section=species&view=enriched&profile_tab=profile-tab-json#mushroom-profile-message", redirect)
         self.assertIn(
             "main_months and secondary_months overlap",
             self.web_server.RUN_STATE["mushroom_profiles_flash"],
@@ -2103,7 +2226,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         redirect = handler.handle_mushroom_profiles_post(form)
 
-        self.assertEqual("?id=boletus_pinophilus&section=parameters", redirect)
+        self.assertEqual("?id=boletus_pinophilus&section=parameters&view=v0", redirect)
         updated_payload = store.load("profiles")
         updated = next(
             item

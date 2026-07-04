@@ -104,10 +104,26 @@ Required fields:
   "validation_status": "valid",
   "calibration_use": "include",
   "calibration_exclusion_reason": "",
+  "derived": {
+    "month": 6,
+    "season": "summer"
+  },
   "site_context": {
     "observed_host_ids": [
       "host_pinus_sylvestris",
       "host_quercus_ilex"
+    ],
+    "observed_forest_type_ids": [
+      "forest_montane_pine"
+    ],
+    "observed_soil_tendency_ids": [
+      "soil_siliceous"
+    ],
+    "observed_habitat_feature_ids": [
+      "feature_mature_forest"
+    ],
+    "observed_aspect_ids": [
+      "aspect_N"
     ],
     "habitat_notes": "",
     "host_notes": "",
@@ -133,6 +149,19 @@ Required fields:
 `species_id` must reference an active species in `mushroom_profiles.json`. Archived species should require explicit review before calibration use.
 
 `observed_at` is the observation date in ISO format, `YYYY-MM-DD`. Time is intentionally optional because most mushroom reports are day-level.
+
+`derived.month` and `derived.season` are cheap persisted fields calculated from
+`observed_at` when saving. They are not manual input and do not replace species
+phenology. They exist to avoid repeated recomputation during v0 model rebuilds.
+If missing in older observations, builders may recalculate them from
+`observed_at`.
+
+Simple seasons:
+
+- `winter`: December, January, February.
+- `spring`: March, April, May.
+- `summer`: June, July, August.
+- `autumn`: September, October, November.
 
 ### Location
 
@@ -192,6 +221,23 @@ The catalog also stores the numeric `calibration_score` used by calibration:
 | `absent` | 0.00 |
 
 Negative observations (`absent`) are valuable when date, species, location and source quality are credible.
+
+### Observed Field Context
+
+`site_context.observed_host_ids` stores host trees declared by the observer at
+the point. The UI keeps this intentionally short to avoid turning it into an
+unreliable exhaustive list.
+
+`site_context.observed_forest_type_ids`,
+`site_context.observed_soil_tendency_ids`,
+`site_context.observed_habitat_feature_ids` and
+`site_context.observed_aspect_ids` optionally declare observed forest, soil,
+habitat traits and aspect. They must use IDs from `forest_types`, `soil_types`,
+`habitat_features` and `aspects`.
+
+These values are field evidence. They do not automatically replace GIS/DEM or
+species parameters; the learned v0 model must preserve their provenance as
+`field` source.
 
 ### Source And Reliability
 

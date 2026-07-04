@@ -4,6 +4,8 @@ Este documento es la guia viva para disenar y ejecutar el laboratorio local que 
 
 No es todavia una especificacion cerrada del predictor productivo. Su funcion es ordenar el trabajo incremental para que cada decision quede trazada, revisable y separada de los datos productivos de Home Assistant.
 
+Nota de vigencia 2026-07-05: las secciones antiguas que mencionan `docker-data/mushroom-lab/working/` o `/share/rainmapper/mushroom-lab/` describen fases historicas del laboratorio. El contrato operativo actual para datos de setas, artefactos v0 reconstruibles y estado del modelo es `mushroom-data/`: en local `docker-data/mushroom-data/`, en HA `/share/rainmapper/mushroom-data/`. `tmp/mushroom-lab/` queda solo para pruebas locales explicitas, QGIS o scripts exploratorios.
+
 Documentos relacionados:
 
 - `docs/mushrooms/mushroom-local-observation-lab-es.md`
@@ -324,24 +326,30 @@ escribe el payload local que consume `/mushrooms/gis-mappings`:
 docker-data/mushroom-lab/working/features/gis_observation_reconstruction.json
 ```
 
-Por defecto lee `docker-data/mushroom-data/` si existe para respetar la copia
-mutable del laboratorio local; si no, usa `mushroom-data/`. El script no escribe
-`mushroom_gis_mappings.json`: solo genera candidatos de revision. Las
+Por defecto usa el resolver comun `rainmapper_core/mushroom_paths.py`: en HA
+lee la copia persistente `/share/rainmapper/mushroom-data/`; en Docker local
+`docker-data/` representa ese mismo `/share/rainmapper`; si no existe copia
+persistente, usa los defaults versionados de `mushroom-data/` o
+`/app/mushroom-data/`. El script no escribe `mushroom_gis_mappings.json`: solo
+genera candidatos de revision. Las
 sugerencias derivadas de texto litologico oficial son preselecciones
 revisables, no mappings `accepted` computables. La salida de consola y el JSON
 incluyen metricas por capa/campo (`unique`, `existing`, `candidates`,
 `suggested`) y tiempos de ejecucion por campo mas tiempo total.
 
 La ruta de salida no requiere configuracion manual en el lanzamiento normal. El
-core usa, por orden:
+core usa el resolver comun `rainmapper_core/mushroom_paths.py`, por orden:
 
 1. `RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH`, si se quiere forzar un JSON
    concreto.
 2. `RAINMAPPER_MUSHROOM_LAB_DIR`, si se quiere forzar el directorio base del
    laboratorio.
-3. `/share/rainmapper/mushroom-lab/` dentro de Home Assistant.
-4. `docker-data/mushroom-lab/` en el laboratorio local del repo.
-5. `tmp/mushroom-lab/` solo como fallback local si no existe `docker-data/`.
+3. `RAINMAPPER_SHARE_ROOT/mushroom-lab/`, si se quiere forzar la raiz
+   persistente completa.
+4. `/share/rainmapper/mushroom-lab/` dentro de Home Assistant, si existe.
+5. `docker-data/mushroom-lab/` en el laboratorio local del repo, como copia de
+   `/share/rainmapper`.
+6. `tmp/rainmapper-share/mushroom-lab/` solo como ultimo fallback local.
 
 El payload batch es una cache reconstruible, no fuente de verdad. La fuente de
 verdad son las capas GIS, `mushroom_reference_catalogs.json`,

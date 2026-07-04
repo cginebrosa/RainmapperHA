@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Join experimental weather and GIS features for mushroom observations."""
+"""Join weather and GIS v0 features for mushroom observations."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from rainmapper_core import mushroom_gis_lab, mushroom_observation_context, mush
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="mushroom_observation_features_v0_build.sh",
-        description="Join local mushroom weather features and GIS v0 context by observation_id.",
+        description="Join mushroom weather features and GIS/DEM v0 context by observation_id.",
     )
     parser.add_argument(
         "--weather-features",

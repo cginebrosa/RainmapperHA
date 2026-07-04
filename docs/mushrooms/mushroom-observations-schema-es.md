@@ -104,10 +104,26 @@ Campos obligatorios:
   "validation_status": "valid",
   "calibration_use": "include",
   "calibration_exclusion_reason": "",
+  "derived": {
+    "month": 6,
+    "season": "summer"
+  },
   "site_context": {
     "observed_host_ids": [
       "host_pinus_sylvestris",
       "host_quercus_ilex"
+    ],
+    "observed_forest_type_ids": [
+      "forest_montane_pine"
+    ],
+    "observed_soil_tendency_ids": [
+      "soil_siliceous"
+    ],
+    "observed_habitat_feature_ids": [
+      "feature_mature_forest"
+    ],
+    "observed_aspect_ids": [
+      "aspect_N"
     ],
     "habitat_notes": "",
     "host_notes": "",
@@ -133,6 +149,19 @@ Campos obligatorios:
 `species_id` debe referenciar una especie activa de `mushroom_profiles.json`. Las especies archivadas deberian exigir revision explicita antes de usar la observacion para calibrar.
 
 `observed_at` es la fecha de observacion en formato ISO, `YYYY-MM-DD`. La hora queda opcional porque la mayoria de reportes de setas son a nivel de dia.
+
+`derived.month` y `derived.season` son campos persistidos baratos calculados
+desde `observed_at` al guardar. No son entrada manual ni sustituyen a la
+fenologia de la especie. Sirven para evitar recomputo durante reconstrucciones
+del modelo v0. Si faltan en observaciones antiguas, los builders pueden
+recalcularlos desde `observed_at`.
+
+Estaciones simples:
+
+- `winter`: diciembre, enero, febrero.
+- `spring`: marzo, abril, mayo.
+- `summer`: junio, julio, agosto.
+- `autumn`: septiembre, octubre, noviembre.
 
 ### Ubicacion
 
@@ -192,6 +221,23 @@ El catalogo tambien guarda el `calibration_score` numerico usado por la calibrac
 | `absent` | 0.00 |
 
 Las observaciones negativas (`absent`) son muy valiosas si fecha, especie, ubicacion y calidad del origen son creibles.
+
+### Contexto observado de campo
+
+`site_context.observed_host_ids` recoge arboles declarados por el observador en
+el punto. La UI limita este campo a pocos hosts para evitar convertirlo en una
+lista exhaustiva poco fiable.
+
+Los campos `site_context.observed_forest_type_ids`,
+`site_context.observed_soil_tendency_ids`,
+`site_context.observed_habitat_feature_ids` y
+`site_context.observed_aspect_ids` permiten declarar, de forma opcional,
+bosque, suelo, rasgos de habitat y orientacion observados. Deben usar IDs de
+`forest_types`, `soil_types`, `habitat_features` y `aspects`.
+
+Estos valores representan evidencia de campo. No sustituyen automaticamente a
+GIS/DEM ni a los parametros de especie; el modelo v0 aprendido debe conservar
+su procedencia como fuente `field`.
 
 ### Origen y fiabilidad
 

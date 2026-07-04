@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Rebuild local weather features for mushroom observations.
+"""Rebuild weather features for mushroom observations.
 
 This script reads Rainmapper incremental weather history and mushroom
-observations, then writes experimental weather features under the mushroom lab
-directory. It does not modify observations, profiles, catalogs or historical
-CSV files.
+observations, then writes v0 weather features under `mushroom-data`. It does
+not modify observations, profiles, catalogs or historical CSV files.
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ def parse_args() -> argparse.Namespace:
         epilog=(
             "Defaults read docker-data/mushroom-data/mushroom_observations.json and "
             "docker-data/Data/ in local labs, or /share/rainmapper paths inside HA. "
-            "Outputs go under the mushroom lab working/features and output/reports dirs."
+            "Outputs go under mushroom-data and mushroom-data/reports."
         ),
     )
     parser.add_argument(

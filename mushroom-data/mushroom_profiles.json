@@ -20,22 +20,34 @@
           {
             "id": "host_quercus_suber",
             "relationship": "primary",
-            "affinity": 0.95
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_ilex",
             "relationship": "primary",
-            "affinity": 0.95
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_spp",
             "relationship": "primary",
-            "affinity": 1.0
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_castanea_sativa",
             "relationship": "primary",
-            "affinity": 0.85
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_fagus_sylvatica",
@@ -55,23 +67,35 @@
         "forest_type_affinities": [
           {
             "id": "forest_cork_oak",
-            "relationship": "preferred",
-            "affinity": 0.95
+            "relationship": "primary",
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_holm_oak",
-            "relationship": "preferred",
-            "affinity": 0.95
+            "relationship": "primary",
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mediterranean_oak",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_chestnut",
-            "relationship": "preferred",
-            "affinity": 0.8
+            "relationship": "primary",
+            "affinity": 0.8,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mixed_woodland",
@@ -84,20 +108,29 @@
         "soil_affinities": [
           {
             "id": "soil_siliceous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
-            "relationship": "preferred",
-            "affinity": 0.85
+            "relationship": "primary",
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_neutral",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_sandy",
@@ -158,8 +191,11 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_open_warm_woodland",
-            "relationship": "preferred",
-            "affinity": 0.9
+            "relationship": "primary",
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_clearing",
@@ -177,19 +213,21 @@
           },
           {
             "id": "feature_mediterranean_shrubland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_heath_rockrose_understory",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -308,22 +346,34 @@
           {
             "id": "host_quercus_suber",
             "relationship": "primary",
-            "affinity": 0.95
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_ilex",
             "relationship": "primary",
-            "affinity": 1.0
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_castanea_sativa",
             "relationship": "primary",
-            "affinity": 0.8
+            "affinity": 0.8,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_spp",
             "relationship": "primary",
-            "affinity": 0.9
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_cistus_spp",
@@ -343,23 +393,35 @@
         "forest_type_affinities": [
           {
             "id": "forest_cork_oak",
-            "relationship": "preferred",
-            "affinity": 0.95
+            "relationship": "primary",
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_holm_oak",
-            "relationship": "preferred",
-            "affinity": 0.95
+            "relationship": "primary",
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_chestnut",
-            "relationship": "preferred",
-            "affinity": 0.75
+            "relationship": "primary",
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mediterranean_oak",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_deciduous_broadleaf",
@@ -372,13 +434,19 @@
         "soil_affinities": [
           {
             "id": "soil_siliceous",
-            "relationship": "preferred",
-            "affinity": 0.9
+            "relationship": "primary",
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
-            "relationship": "preferred",
-            "affinity": 0.9
+            "relationship": "primary",
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_neutral",
@@ -432,8 +500,11 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_open_warm_woodland",
-            "relationship": "preferred",
-            "affinity": 0.7
+            "relationship": "primary",
+            "affinity": 0.7,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_forest_edge",
@@ -444,19 +515,21 @@
           },
           {
             "id": "feature_mediterranean_shrubland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_heath_rockrose_understory",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -575,31 +648,46 @@
         "host_affinities": [
           {
             "id": "host_pinus_uncinata",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_sylvestris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_alba",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_fagus_sylvatica",
             "relationship": "primary",
-            "affinity": 0.95
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_betula_spp",
             "relationship": "primary",
-            "affinity": 0.8
+            "affinity": 0.8,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_spp",
@@ -647,30 +735,45 @@
         "forest_type_affinities": [
           {
             "id": "forest_montane_pine",
-            "relationship": "secondary",
-            "affinity": 0.7
+            "relationship": "primary",
+            "affinity": 0.7,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_subalpine_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_fir",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_beech",
-            "relationship": "preferred",
-            "affinity": 0.9
+            "relationship": "primary",
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mixed_conifer",
-            "relationship": "preferred",
-            "affinity": 0.8
+            "relationship": "primary",
+            "affinity": 0.8,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_chestnut",
@@ -697,13 +800,19 @@
         "soil_affinities": [
           {
             "id": "soil_acidic",
-            "relationship": "preferred",
-            "affinity": 0.8
+            "relationship": "primary",
+            "affinity": 0.8,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_siliceous",
-            "relationship": "preferred",
-            "affinity": 0.75
+            "relationship": "primary",
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_loamy",
@@ -778,8 +887,11 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_mossy_forest",
-            "relationship": "secondary",
-            "affinity": 0.45
+            "relationship": "primary",
+            "affinity": 0.45,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_clearing",
@@ -797,27 +909,30 @@
           },
           {
             "id": "feature_mature_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_heath_rockrose_understory",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_blueberry_understory",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -934,17 +1049,26 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 1.0
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_uncinata",
             "relationship": "primary",
-            "affinity": 0.95
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_alba",
-            "relationship": "secondary",
-            "affinity": 0.55
+            "relationship": "primary",
+            "affinity": 0.55,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_castanea_sativa",
@@ -985,18 +1109,27 @@
         "forest_type_affinities": [
           {
             "id": "forest_montane_pine",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_subalpine_pine",
-            "relationship": "preferred",
-            "affinity": 0.95
+            "relationship": "primary",
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_fir",
-            "relationship": "secondary",
-            "affinity": 0.55
+            "relationship": "primary",
+            "affinity": 0.55,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_beech",
@@ -1016,13 +1149,19 @@
         "soil_affinities": [
           {
             "id": "soil_acidic",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_siliceous",
-            "relationship": "preferred",
-            "affinity": 0.9
+            "relationship": "primary",
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_sandy",
@@ -1076,9 +1215,12 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_mossy_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_clearing",
@@ -1103,19 +1245,21 @@
           },
           {
             "id": "feature_mature_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_heath_rockrose_understory",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -1231,20 +1375,29 @@
         "host_affinities": [
           {
             "id": "host_grassland_vegetation",
-            "relationship": "associated",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "habitat_grassland_meadow",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "habitat_woodland_edge",
-            "relationship": "preferred",
-            "affinity": 0.7
+            "relationship": "primary",
+            "affinity": 0.7,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_deciduous_broadleaf",
@@ -1257,13 +1410,19 @@
         "soil_affinities": [
           {
             "id": "soil_calcareous",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_basic",
-            "relationship": "preferred",
-            "affinity": 0.85
+            "relationship": "primary",
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
@@ -1321,9 +1480,12 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_clearing",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_fairy_ring",
@@ -1341,11 +1503,12 @@
           },
           {
             "id": "feature_calcicolous_shrubland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -1461,41 +1624,62 @@
           {
             "id": "host_fagus_sylvatica",
             "relationship": "primary",
-            "affinity": 0.85
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_spp",
             "relationship": "primary",
-            "affinity": 0.75
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_castanea_sativa",
             "relationship": "primary",
-            "affinity": 0.65
+            "affinity": 0.65,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_ilex",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_suber",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_sylvestris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_uncinata",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_betula_spp",
@@ -1522,42 +1706,63 @@
         "forest_type_affinities": [
           {
             "id": "forest_beech",
-            "relationship": "preferred",
-            "affinity": 0.75
+            "relationship": "primary",
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_deciduous_broadleaf",
-            "relationship": "preferred",
-            "affinity": 0.85
+            "relationship": "primary",
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_chestnut",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_holm_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_cork_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_montane_pine",
-            "relationship": "secondary",
-            "affinity": 0.45
+            "relationship": "primary",
+            "affinity": 0.45,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_subalpine_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mixed_conifer",
@@ -1577,18 +1782,27 @@
         "soil_affinities": [
           {
             "id": "soil_siliceous",
-            "relationship": "preferred",
-            "affinity": 0.9
+            "relationship": "primary",
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
-            "relationship": "preferred",
-            "affinity": 0.95
+            "relationship": "primary",
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_moist",
-            "relationship": "preferred",
-            "affinity": 0.85
+            "relationship": "primary",
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_calcareous",
@@ -1647,8 +1861,11 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_mossy_forest",
-            "relationship": "preferred",
-            "affinity": 0.75
+            "relationship": "primary",
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_riparian_moisture",
@@ -1659,27 +1876,30 @@
           },
           {
             "id": "feature_mature_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_heath_rockrose_understory",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_moist_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -1795,98 +2015,136 @@
         "host_affinities": [
           {
             "id": "host_pinus_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_sylvestris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_nigra",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_halepensis",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_pinaster",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_pinea",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_mixed_conifer",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_montane_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mediterranean_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mixed_woodland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_moist",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_clearing",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_moist_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_shaded_slope",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -1993,128 +2251,181 @@
         "host_affinities": [
           {
             "id": "host_fagus_sylvatica",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_alba",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_ilex",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_suber",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_sylvestris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_beech",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_fir",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_deciduous_broadleaf",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_holm_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_cork_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mixed_woodland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_siliceous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_neutral",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_moist",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_riparian_moisture",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_moist_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_shaded_slope",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -2225,51 +2536,78 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.85
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_nigra",
             "relationship": "primary",
-            "affinity": 0.9
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_halepensis",
             "relationship": "primary",
-            "affinity": 0.9
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_spp",
             "relationship": "primary",
-            "affinity": 1.0
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_calcareous_pine",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_montane_pine",
-            "relationship": "secondary",
-            "affinity": 0.55
+            "relationship": "primary",
+            "affinity": 0.55,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mediterranean_pine",
-            "relationship": "preferred",
-            "affinity": 0.85
+            "relationship": "primary",
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_calcareous",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_basic",
-            "relationship": "preferred",
-            "affinity": 0.85
+            "relationship": "primary",
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
@@ -2318,8 +2656,11 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_needle_litter",
-            "relationship": "preferred",
-            "affinity": 0.45
+            "relationship": "primary",
+            "affinity": 0.45,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_mossy_forest",
@@ -2330,11 +2671,12 @@
           },
           {
             "id": "feature_shaded_slope",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -2448,23 +2790,35 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.8
+            "affinity": 0.8,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_alba",
             "relationship": "primary",
-            "affinity": 1.0
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_uncinata",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_fagus_sylvatica",
-            "relationship": "secondary",
-            "affinity": 0.35
+            "relationship": "primary",
+            "affinity": 0.35,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_spp",
@@ -2512,24 +2866,36 @@
         "forest_type_affinities": [
           {
             "id": "forest_montane_pine",
-            "relationship": "preferred",
-            "affinity": 0.75
+            "relationship": "primary",
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_fir",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_subalpine_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_beech",
-            "relationship": "secondary",
-            "affinity": 0.35
+            "relationship": "primary",
+            "affinity": 0.35,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mixed_conifer",
@@ -2542,13 +2908,19 @@
         "soil_affinities": [
           {
             "id": "soil_siliceous",
-            "relationship": "preferred",
-            "affinity": 0.75
+            "relationship": "primary",
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
-            "relationship": "preferred",
-            "affinity": 0.8
+            "relationship": "primary",
+            "affinity": 0.8,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_calcareous",
@@ -2611,8 +2983,11 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_snowmelt",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_mossy_forest",
@@ -2630,19 +3005,21 @@
           },
           {
             "id": "feature_shaded_slope",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_blueberry_understory",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -2756,94 +3133,136 @@
         "host_affinities": [
           {
             "id": "host_pinus_sylvestris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_pinaster",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_pinea",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_halepensis",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_nigra",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_uncinata",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_montane_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_subalpine_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mediterranean_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_siliceous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_sandy",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_well_drained",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_needle_litter",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -2951,72 +3370,100 @@
         "host_affinities": [
           {
             "id": "host_abies_alba",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_uncinata",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_fir",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_subalpine_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_acidic",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_siliceous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_moist",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_riparian_moisture",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_clearing",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_shaded_slope",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -3126,17 +3573,26 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.85
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_nigra",
             "relationship": "primary",
-            "affinity": 0.9
+            "affinity": 0.9,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_halepensis",
             "relationship": "primary",
-            "affinity": 0.95
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_pinea",
@@ -3156,30 +3612,45 @@
         "forest_type_affinities": [
           {
             "id": "forest_calcareous_pine",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_montane_pine",
-            "relationship": "secondary",
-            "affinity": 0.65
+            "relationship": "primary",
+            "affinity": 0.65,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mediterranean_pine",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_calcareous",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_basic",
-            "relationship": "preferred",
-            "affinity": 0.85
+            "relationship": "primary",
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
@@ -3228,8 +3699,11 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_needle_litter",
-            "relationship": "preferred",
-            "affinity": 0.55
+            "relationship": "primary",
+            "affinity": 0.55,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_forest_edge",
@@ -3240,11 +3714,12 @@
           },
           {
             "id": "feature_calcicolous_shrubland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -3359,18 +3834,27 @@
           {
             "id": "host_pinus_pinea",
             "relationship": "primary",
-            "affinity": 0.85
+            "affinity": 0.85,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_halepensis",
             "relationship": "primary",
-            "affinity": 0.95
+            "affinity": 0.95,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_pinaster",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_nigra",
@@ -3390,8 +3874,11 @@
         "forest_type_affinities": [
           {
             "id": "forest_mediterranean_pine",
-            "relationship": "preferred",
-            "affinity": 1.0
+            "relationship": "primary",
+            "affinity": 1.0,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_calcareous_pine",
@@ -3404,14 +3891,20 @@
         "soil_affinities": [
           {
             "id": "soil_siliceous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
-            "relationship": "avoid",
-            "affinity": -0.55
+            "relationship": "primary",
+            "affinity": -0.55,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_basic",
@@ -3455,15 +3948,21 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_open_warm_woodland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_clearing",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_forest_edge",
@@ -3589,114 +4088,163 @@
         "host_affinities": [
           {
             "id": "host_pinus_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_ilex",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_grassland_vegetation",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_mixed_conifer",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_montane_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mediterranean_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_deciduous_broadleaf",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_holm_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "habitat_grassland_meadow",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "habitat_woodland_edge",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_humus_rich",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_organic_rich",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_forest_edge",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_fairy_ring",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_needle_litter",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_organic_debris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -3806,98 +4354,136 @@
         "host_affinities": [
           {
             "id": "host_grassland_vegetation",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_mixed_woodland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_montane_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_beech",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_holm_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_deciduous_broadleaf",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "habitat_grassland_meadow",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "habitat_woodland_edge",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_humus_rich",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_organic_rich",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_clearing",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_forest_edge",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_organic_debris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_mediterranean_shrubland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -4004,40 +4590,55 @@
         "host_affinities": [
           {
             "id": "host_grassland_vegetation",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "habitat_grassland_meadow",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_moist",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_organic_rich",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_fairy_ring",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -4150,36 +4751,54 @@
         "host_affinities": [
           {
             "id": "host_populus_spp",
-            "relationship": "associated",
-            "affinity": 0.6
+            "relationship": "primary",
+            "affinity": 0.6,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_fraxinus_spp",
-            "relationship": "associated",
-            "affinity": 0.6
+            "relationship": "primary",
+            "affinity": 0.6,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_ulmus_spp",
-            "relationship": "associated",
-            "affinity": 0.5
+            "relationship": "primary",
+            "affinity": 0.5,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_sylvestris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_uncinata",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_alba",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_spp",
@@ -4206,41 +4825,62 @@
         "forest_type_affinities": [
           {
             "id": "forest_riparian",
-            "relationship": "preferred",
-            "affinity": 0.75
+            "relationship": "primary",
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "habitat_woodland_edge",
-            "relationship": "secondary",
-            "affinity": 0.45
+            "relationship": "primary",
+            "affinity": 0.45,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "habitat_burned_forest",
-            "relationship": "preferred",
-            "affinity": 0.7
+            "relationship": "primary",
+            "affinity": 0.7,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "habitat_disturbed_forest",
-            "relationship": "preferred",
-            "affinity": 0.65
+            "relationship": "primary",
+            "affinity": 0.65,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_montane_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_subalpine_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_fir",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mixed_conifer",
@@ -4342,18 +4982,27 @@
         "habitat_feature_affinities": [
           {
             "id": "feature_riparian_moisture",
-            "relationship": "preferred",
-            "affinity": 0.8
+            "relationship": "primary",
+            "affinity": 0.8,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_burned_area",
-            "relationship": "preferred",
-            "affinity": 0.75
+            "relationship": "primary",
+            "affinity": 0.75,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_forest_edge",
-            "relationship": "secondary",
-            "affinity": 0.45
+            "relationship": "primary",
+            "affinity": 0.45,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_snowmelt",
@@ -4364,11 +5013,12 @@
           },
           {
             "id": "feature_disturbed_soil",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -4483,110 +5133,154 @@
         "host_affinities": [
           {
             "id": "host_castanea_sativa",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_ilex",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_suber",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_fagus_sylvatica",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_betula_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_chestnut",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_holm_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_cork_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_deciduous_broadleaf",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_beech",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_siliceous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_acidic",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_moist",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_moist_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_heath_rockrose_understory",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -4693,88 +5387,127 @@
         "host_affinities": [
           {
             "id": "host_pinus_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_abies_alba",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_nigra",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_pinus_sylvestris",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_mixed_conifer",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_fir",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_montane_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_calcareous_pine",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_calcareous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_siliceous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_mossy_forest",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_forest_edge",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_clearing",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },
@@ -4884,84 +5617,109 @@
         "host_affinities": [
           {
             "id": "host_quercus_ilex",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_spp",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_corylus_avellana",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_faginea",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "host_quercus_coccifera",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_holm_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "forest_mediterranean_oak",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_calcareous",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "soil_basic",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ],
         "lithology_affinities": [],
         "habitat_feature_affinities": [
           {
             "id": "feature_open_warm_woodland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
-            "v0_placeholder": true
+            "v0_placeholder": true,
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           },
           {
             "id": "feature_calcicolous_shrubland",
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
-            "v0_catalog_gap_promoted": true,
-            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
+            "source_ids": [
+              "literature_marc_estevez"
+            ]
           }
         ]
       },

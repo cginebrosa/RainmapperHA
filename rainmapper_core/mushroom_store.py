@@ -18,6 +18,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from rainmapper_core import mushroom_paths
+
 
 PROFILE_FILE = "mushroom_profiles.json"
 CATALOG_FILE = "mushroom_reference_catalogs.json"
@@ -61,24 +63,15 @@ class ReplaceResult:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return mushroom_paths.repo_root()
 
 
 def default_data_dir() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", "").strip()
-    if configured:
-        return Path(configured)
-    app_defaults = Path("/app/mushroom-data")
-    if app_defaults.exists():
-        return app_defaults
-    return repo_root() / "mushroom-data"
+    return mushroom_paths.app_mushroom_defaults_dir()
 
 
 def persistent_data_dir() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR", "").strip()
-    if configured:
-        return Path(configured)
-    return Path("/share/rainmapper/mushroom-data")
+    return mushroom_paths.mushroom_data_dir()
 
 
 def validator_script_path() -> Path:

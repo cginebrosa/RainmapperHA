@@ -1,9 +1,9 @@
-"""Weather context reconstruction for local mushroom observations.
+"""Weather context reconstruction for mushroom observations.
 
 This module is intentionally read-only for Rainmapper history and mushroom
-observation files. It builds an experimental feature table under the mushroom
-lab directory so profile calibration work can inspect observed weather without
-changing productive species profiles or observation records.
+observation files. It builds a v0 feature table under `mushroom-data` so
+profile calibration work can inspect observed weather without changing species
+profiles or observation records.
 """
 
 from __future__ import annotations
@@ -11,11 +11,12 @@ from __future__ import annotations
 import csv
 import json
 import math
-import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from rainmapper_core import mushroom_observations, mushroom_paths
 
 
 RAIN_WINDOWS_DAYS = (1, 7, 14, 21, 30, 60, 90)
@@ -37,6 +38,8 @@ CSV_FIELDS = (
     "observed_at",
     "analysis_result",
     "flush_abundance",
+    "month",
+    "season",
     "validation_status",
     "calibration_use",
     "source_quality",
@@ -92,6 +95,10 @@ CSV_FIELDS = (
     "wind_direction_deg",
     "data_gaps",
     "observed_host_ids",
+    "observed_forest_type_ids",
+    "observed_soil_tendency_ids",
+    "observed_habitat_feature_ids",
+    "observed_aspect_ids",
 )
 
 
@@ -124,61 +131,27 @@ class WeatherStation:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return mushroom_paths.repo_root()
 
 
 def default_weather_data_dir() -> Path:
-    configured = os.environ.get("RAINMAPPER_WEATHER_DATA_DIR", "").strip()
-    if configured:
-        return Path(configured)
-    ha_data = Path("/share/rainmapper/Data")
-    if ha_data.exists():
-        return ha_data
-    return repo_root() / "docker-data" / "Data"
+    return mushroom_paths.weather_data_dir()
 
 
 def default_observations_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATIONS_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    local_path = repo_root() / "docker-data" / "mushroom-data" / "mushroom_observations.json"
-    if local_path.exists():
-        return local_path
-    return repo_root() / "mushroom-data" / "mushroom_observations.json"
-
-
-def default_lab_root() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_LAB_DIR", "").strip()
-    if configured:
-        return Path(configured)
-    ha_share_root = Path("/share/rainmapper")
-    if ha_share_root.exists():
-        return ha_share_root / "mushroom-lab"
-    local_share_copy = repo_root() / "docker-data"
-    if local_share_copy.exists():
-        return local_share_copy / "mushroom-lab"
-    return repo_root() / "tmp" / "mushroom-lab"
+    return mushroom_paths.mushroom_observations_path()
 
 
 def default_output_json_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_WEATHER_FEATURES_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_lab_root() / "working" / "features" / "observations_weather_features.json"
+    return mushroom_paths.mushroom_weather_features_json_path()
 
 
 def default_output_csv_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_WEATHER_FEATURES_CSV_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_lab_root() / "working" / "features" / "observations_weather_features.csv"
+    return mushroom_paths.mushroom_weather_features_csv_path()
 
 
 def default_report_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_WEATHER_REPORT_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_lab_root() / "output" / "reports" / "observations_weather_features.md"
+    return mushroom_paths.mushroom_weather_report_path()
 
 
 def parse_float(value: object) -> float | None:
@@ -297,13 +270,28 @@ def observation_altitude(observation: dict[str, Any]) -> float | None:
 
 
 def observed_host_ids(observation: dict[str, Any]) -> list[str]:
+    return observed_site_context_ids(observation, "observed_host_ids")
+
+
+def observed_site_context_ids(observation: dict[str, Any], key: str) -> list[str]:
     site_context = observation.get("site_context")
     if not isinstance(site_context, dict):
         return []
-    values = site_context.get("observed_host_ids")
+    values = site_context.get(key)
     if not isinstance(values, list):
         return []
     return [str(value) for value in values if str(value or "").strip()]
+
+
+def observation_derived(observation: dict[str, Any]) -> dict[str, Any]:
+    derived = observation.get("derived")
+    if not isinstance(derived, dict):
+        return mushroom_observations.derived_fields_from_observed_at(observation.get("observed_at"))
+    if "month" in derived and "season" in derived:
+        return derived
+    next_derived = dict(derived)
+    next_derived.update(mushroom_observations.derived_fields_from_observed_at(observation.get("observed_at")))
+    return next_derived
 
 
 def analysis_result(flush_abundance: object) -> str:
@@ -440,12 +428,15 @@ def build_observation_weather_row(
     observed_day = parse_day(observation.get("observed_at"))
     lat, lon = observation_location(observation)
     flush_abundance = str(observation.get("flush_abundance", "") or "")
+    derived = observation_derived(observation)
     row: dict[str, Any] = {
         "observation_id": str(observation.get("observation_id", "") or ""),
         "species_id": str(observation.get("species_id", "") or ""),
         "observed_at": str(observation.get("observed_at", "") or ""),
         "analysis_result": analysis_result(flush_abundance),
         "flush_abundance": flush_abundance,
+        "month": derived.get("month"),
+        "season": derived.get("season"),
         "validation_status": str(observation.get("validation_status", "") or ""),
         "calibration_use": str(observation.get("calibration_use", "") or ""),
         "source_quality": observation.get("source_quality"),
@@ -460,6 +451,10 @@ def build_observation_weather_row(
         "weather_station_coverage_days_90d": 0,
         "weather_summary_window_days": SUMMARY_WINDOW_DAYS,
         "observed_host_ids": observed_host_ids(observation),
+        "observed_forest_type_ids": observed_site_context_ids(observation, "observed_forest_type_ids"),
+        "observed_soil_tendency_ids": observed_site_context_ids(observation, "observed_soil_tendency_ids"),
+        "observed_habitat_feature_ids": observed_site_context_ids(observation, "observed_habitat_feature_ids"),
+        "observed_aspect_ids": observed_site_context_ids(observation, "observed_aspect_ids"),
     }
     gaps: list[str] = []
     for days in RAIN_WINDOWS_DAYS:

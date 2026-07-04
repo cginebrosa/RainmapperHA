@@ -26,6 +26,8 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
                             "observed_at": "2026-07-10",
                             "analysis_result": "present",
                             "flush_abundance": "normal",
+                            "month": 7,
+                            "season": "summer",
                             "validation_status": "valid",
                             "calibration_use": "include",
                             "source_quality": 1,
@@ -65,6 +67,11 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
                             "wind_gust_kmh": None,
                             "wind_direction_deg": None,
                             "data_gaps": ["wind_no_data_7d"],
+                            "observed_host_ids": ["host_pinus_sylvestris"],
+                            "observed_forest_type_ids": ["forest_montane_pine"],
+                            "observed_soil_tendency_ids": ["soil_siliceous"],
+                            "observed_habitat_feature_ids": ["feature_mature_forest"],
+                            "observed_aspect_ids": ["aspect_N"],
                         },
                         {
                             "observation_id": "obs_2",
@@ -114,13 +121,24 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
 
         self.assertEqual(payload["summary"]["observations"], 2)
         self.assertEqual(payload["summary"]["with_gis"], 1)
+        self.assertEqual(first["month"], 7)
+        self.assertEqual(first["season"], "summer")
         self.assertEqual(first["rain_7d_mm"], 11.0)
         self.assertEqual(first["temp_min_14d_c"], 9.0)
         self.assertEqual(first["humidity_max_14d_pct"], 92.0)
-        self.assertEqual(first["host_ids"], ["host_quercus_ilex"])
-        self.assertEqual(first["forest_type_ids"], ["forest_holm_oak"])
-        self.assertEqual(first["soil_tendency_ids"], ["soil_calcareous"])
-        self.assertEqual(first["habitat_feature_ids"], ["feature_open_warm_woodland"])
+        self.assertEqual(first["host_ids"], ["host_pinus_sylvestris", "host_quercus_ilex"])
+        self.assertEqual(
+            first["host_sources"],
+            {"host_pinus_sylvestris": ["field"], "host_quercus_ilex": ["gis"]},
+        )
+        self.assertEqual(first["forest_type_ids"], ["forest_montane_pine", "forest_holm_oak"])
+        self.assertEqual(first["forest_type_sources"], {"forest_montane_pine": ["field"], "forest_holm_oak": ["gis"]})
+        self.assertEqual(first["soil_tendency_ids"], ["soil_siliceous", "soil_calcareous"])
+        self.assertEqual(first["soil_tendency_sources"], {"soil_siliceous": ["field"], "soil_calcareous": ["gis"]})
+        self.assertEqual(first["habitat_feature_ids"], ["feature_mature_forest", "feature_open_warm_woodland"])
+        self.assertEqual(first["habitat_feature_sources"], {"feature_mature_forest": ["field"], "feature_open_warm_woodland": ["gis"]})
+        self.assertEqual(first["aspect_ids"], ["aspect_N"])
+        self.assertEqual(first["aspect_sources"], {"aspect_N": ["field"]})
         self.assertEqual(first["gis_altitude_m"], 705.0)
         self.assertEqual(first["weather_gaps"], ["wind_no_data_7d"])
         self.assertEqual(first["feature_gaps"], [])

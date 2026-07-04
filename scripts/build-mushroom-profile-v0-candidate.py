@@ -64,11 +64,12 @@ DEFAULT_OUTPUT_REPORT_PATH = (
 )
 
 SOURCE_TO_PROFILE_FIELDS = {
-    "host_ids": ("ecology", "host_affinities", "source"),
-    "forest_type_ids": ("ecology", "forest_type_affinities", "source"),
-    "soil_tendency_ids": ("ecology", "soil_affinities", "source"),
-    "habitat_feature_ids": ("ecology", "habitat_feature_affinities", "source"),
+    "host_ids": ("ecology", "host_affinities", "primary"),
+    "forest_type_ids": ("ecology", "forest_type_affinities", "primary"),
+    "soil_tendency_ids": ("ecology", "soil_affinities", "primary"),
+    "habitat_feature_ids": ("ecology", "habitat_feature_affinities", "primary"),
 }
+LITERATURE_SOURCE_ID = "literature_marc_estevez"
 
 NEW_SPECIES_TROPHIC_MODE_IDS = {
     "cantharellus_lutescens": "trophic_ectomycorrhizal",
@@ -313,6 +314,13 @@ def build_source_affinities(
         if item_id in existing_by_id:
             item = existing_by_id[item_id]
             item.pop("v0_active", None)
+            item["relationship"] = relationship
+            source_ids_list = item.get("source_ids")
+            if not isinstance(source_ids_list, list):
+                source_ids_list = []
+            if LITERATURE_SOURCE_ID not in source_ids_list:
+                source_ids_list.append(LITERATURE_SOURCE_ID)
+            item["source_ids"] = source_ids_list
             affinities.append(item)
             continue
         affinities.append(
@@ -321,6 +329,7 @@ def build_source_affinities(
                 "relationship": relationship,
                 "affinity": 0.0,
                 "v0_placeholder": True,
+                "source_ids": [LITERATURE_SOURCE_ID],
             }
         )
     if preserve_legacy:
@@ -338,7 +347,6 @@ def append_source_affinity_if_missing(
     ecology: dict[str, Any],
     field: str,
     item_id: str,
-    note: str,
 ) -> None:
     items = ecology.setdefault(field, [])
     if not isinstance(items, list):
@@ -349,11 +357,10 @@ def append_source_affinity_if_missing(
     items.append(
         {
             "id": item_id,
-            "relationship": "source",
+            "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": True,
-            "v0_catalog_gap_promoted": True,
-            "notes": note,
+            "source_ids": [LITERATURE_SOURCE_ID],
         }
     )
 
@@ -365,12 +372,11 @@ def apply_catalog_gap_candidates_to_profile(
     """Reference promoted catalog gaps from the profiles that requested them."""
 
     ecology = candidate.setdefault("ecology", {})
-    note = "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight."
     for gap_id in source_values(source_profile, "catalog_gap_candidates"):
         if gap_id.startswith("feature_"):
-            append_source_affinity_if_missing(ecology, "habitat_feature_affinities", gap_id, note)
+            append_source_affinity_if_missing(ecology, "habitat_feature_affinities", gap_id)
         elif gap_id.startswith("host_"):
-            append_source_affinity_if_missing(ecology, "host_affinities", gap_id, note)
+            append_source_affinity_if_missing(ecology, "host_affinities", gap_id)
 
 
 def normalize_parked_topography_bounds(topography: dict[str, Any]) -> None:

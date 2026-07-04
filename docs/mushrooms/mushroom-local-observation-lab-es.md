@@ -1,5 +1,12 @@
 # Laboratorio local de observaciones de setas
 
+Nota de vigencia 2026-07-05: este documento conserva el diseno historico del
+laboratorio local. El contrato operativo actual para datos vivos de setas,
+artefactos v0 reconstruibles y estado del modelo es `mushroom-data/`: en local
+`docker-data/mushroom-data/`, en HA `/share/rainmapper/mushroom-data/`.
+`tmp/mushroom-lab/` queda reservado para fotos, QGIS, pruebas explicitas y
+artefactos exploratorios, no para el modelo v0 estable.
+
 Este documento define el flujo local para construir una primera base experimental de observaciones reales de setas a partir de fotos geolocalizadas, observaciones negativas y datos historicos de Rainmapper.
 
 El objetivo no es modificar Home Assistant ni los JSON productivos. El objetivo es crear una BBDD experimental local para inferir condiciones observadas de fructificacion y, mas adelante, proponer parametros candidatos por especie.
@@ -33,8 +40,10 @@ Los datos de este laboratorio son sensibles:
 
 Por tanto, todo dato real debe vivir en rutas ignoradas por Git:
 
-- `docker-data/`, para la copia local mutable equivalente a `/share/rainmapper` y para usar la WebUI local.
-- `tmp/mushroom-lab/`, para fotos, capas GIS, ficheros intermedios, reportes y experimentos.
+- `docker-data/mushroom-data/`, para la copia local mutable equivalente a
+  `/share/rainmapper/mushroom-data` y para artefactos v0 operativos.
+- `tmp/mushroom-lab/`, para fotos, QGIS, ficheros intermedios exploratorios,
+  reportes no operativos y experimentos.
 
 No subir observaciones reales, fotos, coordenadas, historicos meteorologicos ni capas GIS al repositorio.
 
@@ -87,7 +96,13 @@ Los datos que guardes desde esa UI quedan en:
 docker-data/mushroom-data/mushroom_observations.json
 ```
 
-Si `docker-data/mushroom-data/` no existe, la app lo sembrara desde los defaults versionados al arrancar. Para trabajar con los datos reales actuales de HA, copiar previamente `/share/rainmapper/mushroom-data/` dentro de `docker-data/mushroom-data/`.
+Si `docker-data/mushroom-data/` no existe, la app lo sembrara desde los defaults
+versionados al arrancar.
+
+Durante la fase actual de pruebas, `docker-data/mushroom-data/` es la fuente de
+verdad operativa para setas. No mantener otra copia paralela como referencia.
+Cuando se decida subir este trabajo a HA, se reemplazaran los datos micologicos
+persistentes de HA por esta copia local validada.
 
 Comando recomendado desde la raiz del repo:
 
@@ -102,6 +117,50 @@ Parar el servidor:
 ```
 
 Este servicio no debe usarse para publicar una version HA ni para escribir en Home Assistant. Es solo una copia local de trabajo.
+
+## Despliegue futuro a Home Assistant
+
+Cuando se decida llevar el trabajo local de setas a Home Assistant, la operacion
+de datos debe ser una sustitucion controlada de los JSON micologicos, no una
+mezcla con lo que haya en HA.
+
+Fuente de verdad para esa sustitucion:
+
+```text
+docker-data/mushroom-data/
+```
+
+Destino en HA:
+
+```text
+/share/rainmapper/mushroom-data/
+```
+
+Ficheros micologicos que deben reemplazarse desde local:
+
+- `mushroom_profiles.json`
+- `mushroom_observations.json`
+- `mushroom_reference_catalogs.json`
+- `mushroom_gis_mappings.json`
+- `mushroom_labels.json`
+
+No forman parte de esta sustitucion:
+
+- `users.json`
+- `devices.json`
+- historicos meteorologicos bajo `/share/rainmapper/Data/`
+- catalogos de estaciones y ficheros de lectura de fuentes meteorologicas
+- preferencias o datos operativos generales de Rainmapper no micologicos
+
+Antes de copiar a HA, validar la copia local:
+
+```bash
+python3 scripts/validate-mushroom-data.py --data-dir docker-data/mushroom-data
+```
+
+Tambien conviene conservar un backup manual del directorio de destino HA antes
+de reemplazarlo, aunque los datos de setas actuales de HA no sean la fuente de
+verdad en esta fase.
 
 ## Estado local al cierre de la iteracion UI
 

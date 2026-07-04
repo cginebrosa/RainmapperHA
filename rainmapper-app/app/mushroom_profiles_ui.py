@@ -122,7 +122,7 @@ def profile_query_url(
         params["mode"] = mode
     if section:
         params["section"] = section
-    if profile_view and profile_view != "enriched":
+    if profile_view:
         params["view"] = profile_view
     if evidence_view and evidence_view != "gis":
         params["evidence_view"] = evidence_view
@@ -628,6 +628,26 @@ def host_observation_label_map(catalogs: dict[str, object]) -> dict[str, str]:
     return labels
 
 
+def host_affinity_options(catalogs: dict[str, object]) -> list[tuple[str, str]]:
+    """Return host options for species affinities with scientific and UI-language names."""
+    items = catalogs.get("host_taxa")
+    if not isinstance(items, list):
+        return []
+    options = []
+    sorted_items = sorted(
+        (item for item in items if isinstance(item, dict)),
+        key=lambda item: (
+            item.get("sort_order") if isinstance(item.get("sort_order"), (int, float)) else 999999,
+            str(item.get("id", "")),
+        ),
+    )
+    for item in sorted_items:
+        item_id = str(item.get("id", "") or "").strip()
+        if item_id:
+            options.append((item_id, host_scientific_common_label(item)))
+    return options
+
+
 def observed_host_toggles(catalogs: dict[str, object], selected_values: object) -> str:
     """Render observed-host checkboxes with the same chip pattern used by month toggles."""
     selected = {str(value) for value in selected_values if str(value or "")} if isinstance(selected_values, list) else set()
@@ -664,6 +684,40 @@ def observed_host_toggles(catalogs: dict[str, object], selected_values: object) 
     return "".join(chips)
 
 
+def observation_catalog_toggles(
+    catalogs: dict[str, object],
+    group: str,
+    field_name: str,
+    selected_values: object,
+) -> str:
+    """Render optional observed site-context catalog values as compact chips."""
+    selected = {str(value) for value in selected_values if str(value or "")} if isinstance(selected_values, list) else set()
+    items = catalogs.get(group)
+    items = items if isinstance(items, list) else []
+    chips = []
+    seen: set[str] = set()
+    for item_id, label in catalog_options_for_group(catalogs, group):
+        seen.add(item_id)
+        checked = " checked" if item_id in selected else ""
+        chips.append(
+            '<label class="catalog-toggle observation-context-toggle">'
+            f'<input type="checkbox" name="{html.escape(field_name, quote=True)}" value="{html.escape(item_id, quote=True)}"{checked}>'
+            f'<span class="catalog-chip">{html.escape(label)}</span>'
+            '</label>'
+        )
+    for missing_id in sorted(selected - seen):
+        chips.append(f'<span class="catalog-chip missing">{html.escape(missing_id)}</span>')
+    return "".join(chips)
+
+
+def observation_catalog_names(catalogs: dict[str, object], group: str, values: object) -> str:
+    """Return readable observed site-context catalog labels."""
+    if not isinstance(values, list) or not values:
+        return "-"
+    labels = catalog_label_map(catalogs, group)
+    return ", ".join(labels.get(str(value), str(value)) for value in values if str(value or ""))
+
+
 def observed_host_names(catalogs: dict[str, object], site_context: dict[str, object]) -> str:
     """Return a readable list of manually observed hosts."""
     host_ids = site_context.get("observed_host_ids")
@@ -688,11 +742,68 @@ def affinity_relationship_badge(item: dict[str, object], relationship: str) -> s
         "preferred": ("Preferente", "preferred"),
         "secondary": ("Secundario", "secondary"),
         "possible": ("Posible", "possible"),
-        "source": ("Fuente v0" if item.get("v0_placeholder") else "Fuente", "source"),
         "avoid": ("Evitar", "avoid"),
     }
     label, tone = labels.get(relationship, (relationship, "neutral"))
     return affinity_badge(label, tone)
+
+
+def affinity_source_label(source_id: str) -> str:
+    labels = {
+        "literature_marc_estevez": ui_label("ui.source_marc_estevez"),
+    }
+    return labels.get(source_id, source_id)
+
+
+def affinity_origin_badges(item: dict[str, object], profile_source_v0: bool = False) -> str:
+    """Render the explicit provenance known for an ecology affinity row."""
+    origins: list[tuple[str, str]] = []
+    source_ids = item.get("source_ids")
+    if isinstance(source_ids, list):
+        for source_id in source_ids:
+            source_text = str(source_id or "").strip()
+            if source_text:
+                origins.append((source_text, affinity_source_label(source_text)))
+    active_v0_row = item.get("v0_active") is not False
+    if not origins and active_v0_row and (profile_source_v0 or item.get("v0_placeholder")):
+        origins.append(("v0", ui_label("ui.source_v0")))
+    unique_origins = []
+    seen = set()
+    for tone, label in origins:
+        key = (tone, label)
+        if key not in seen:
+            unique_origins.append((tone, label))
+            seen.add(key)
+    if not unique_origins:
+        return '<span class="profile-origin-empty">-</span>'
+    badges = "".join(
+        f'<span class="profile-origin-badge {css_token(tone)}">{html.escape(label)}</span>'
+        for tone, label in unique_origins
+    )
+    return f'<div class="profile-origin-badges">{badges}</div>'
+
+
+def affinity_hidden_metadata_fields(field: str, index: int, item: dict[str, object]) -> str:
+    """Preserve non-editable affinity metadata while allowing visible edits."""
+    current_id = str(item.get("id", "") or "").strip()
+    if not current_id:
+        return ""
+    hidden = [
+        f'<input type="hidden" name="{html.escape(field, quote=True)}_{index}_original_id" value="{html.escape(current_id, quote=True)}">'
+    ]
+    source_ids = item.get("source_ids")
+    if isinstance(source_ids, list):
+        for source_id in source_ids:
+            source_text = str(source_id or "").strip()
+            if source_text:
+                hidden.append(
+                    f'<input type="hidden" name="{html.escape(field, quote=True)}_{index}_source_ids" value="{html.escape(source_text, quote=True)}">'
+                )
+    if item.get("v0_placeholder") is True:
+        hidden.append(f'<input type="hidden" name="{html.escape(field, quote=True)}_{index}_v0_placeholder" value="true">')
+    if item.get("v0_active") is False:
+        hidden.append(f'<input type="hidden" name="{html.escape(field, quote=True)}_{index}_v0_active" value="false">')
+    return "".join(hidden)
 
 
 def affinity_chip_list(
@@ -727,10 +838,14 @@ def affinity_chip_list(
         badges = []
         if item_relationship and not relationship:
             badges.append(affinity_relationship_badge(item, item_relationship))
+        source_ids = item.get("source_ids")
+        if isinstance(source_ids, list):
+            for source_id in source_ids:
+                source_text = str(source_id or "").strip()
+                if source_text:
+                    badges.append(affinity_badge(affinity_source_label(source_text), "source"))
         if item.get("v0_placeholder"):
             badges.append(affinity_badge("v0", "v0"))
-        if item.get("v0_catalog_gap_promoted"):
-            badges.append(affinity_badge("Catalogo", "catalog"))
         if inactive_v0:
             badges.append(affinity_badge("Aparcado", "parked"))
         badge_html = f'<span class="parameter-affinity-badges">{"".join(badges)}</span>' if badges else ""
@@ -1009,6 +1124,7 @@ def species_header_selector(
     section_key: str = "",
     profile_view: str = "enriched",
     evidence_view: str = "",
+    parameter_view: str = "",
     include_all: bool = False,
     all_selected: bool = False,
     select_name: str = "id",
@@ -1041,6 +1157,8 @@ def species_header_selector(
         hidden.append('<input type="hidden" name="view" value="v0">')
     if evidence_view:
         hidden.append(f'<input type="hidden" name="evidence_view" value="{html.escape(evidence_view, quote=True)}">')
+    if parameter_view:
+        hidden.append(f'<input type="hidden" name="parameter_view" value="{html.escape(parameter_view, quote=True)}">')
     return (
         '<form class="profile-header-selector" method="get" action="">'
         f'<label>{html.escape(ui_label("ui.change_species"))}</label>'
@@ -1058,9 +1176,11 @@ def render_selected_species_header(
     section_key: str = "",
     profile_view: str = "enriched",
     evidence_view: str = "",
+    parameter_view: str = "",
     include_all: bool = False,
     all_selected: bool = False,
     select_name: str = "id",
+    compact: bool = False,
 ) -> str:
     """Render the selected species banner shared by section-level screens."""
     if not profile:
@@ -1084,16 +1204,19 @@ def render_selected_species_header(
         section_key=section_key,
         profile_view=profile_view,
         evidence_view=evidence_view,
+        parameter_view=parameter_view,
         include_all=include_all,
         all_selected=all_selected,
         select_name=select_name,
     )
+    section_label = "" if compact else f'<span class="meta">{html.escape(section)}</span>'
+    banner_class = "profile-section-banner compact" if compact else "profile-section-banner"
     return f"""
-    <header class="profile-section-banner">
+    <header class="{banner_class}">
       <div class="profile-title-block">
         <span class="profile-hero-icon">{icon("mushroom")}</span>
         <div>
-          <span class="meta">{html.escape(section)}</span>
+          {section_label}
           <h2>{html.escape(str(profile.get("scientific_name", species_id)))}</h2>
           <p class="meta">species_id: {html.escape(species_id)} · {html.escape(profile_common_name(profile) or "-")}</p>
         </div>
@@ -1838,6 +1961,179 @@ def learned_model_for_species(payload: dict[str, object] | None, species_id: str
     return None
 
 
+FIELD_OBSERVATION_FEATURES = (
+    ("observed_host_ids", "hosts"),
+    ("observed_forest_type_ids", "forests"),
+    ("observed_soil_tendency_ids", "soils"),
+    ("observed_habitat_feature_ids", "habitat"),
+    ("observed_aspect_ids", "aspects"),
+)
+
+
+def observation_is_training_row(row: dict[str, object]) -> bool:
+    return (
+        str(row.get("validation_status", "") or "").strip() == "valid"
+        and str(row.get("calibration_use", "") or "").strip() == "include"
+    )
+
+
+def observation_is_positive(row: dict[str, object]) -> bool:
+    result = str(row.get("analysis_result", "") or "").strip()
+    abundance = str(row.get("flush_abundance", "") or "").strip()
+    return result != "absent" and abundance != "absent"
+
+
+def list_string_values(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item or "").strip()]
+
+
+def field_evidence_model_from_observations(
+    observations_payload: dict[str, object] | None,
+    species_id: str,
+) -> dict[str, object] | None:
+    """Build live field-source evidence directly from persisted observations."""
+    rows = [
+        row for row in observations_from_payload(observations_payload)
+        if str(row.get("species_id", "") or "").strip() == species_id and observation_is_training_row(row)
+    ]
+    if not rows:
+        return None
+    positive_rows = [row for row in rows if observation_is_positive(row)]
+    negative_rows = [row for row in rows if not observation_is_positive(row)]
+    categorical: dict[str, list[dict[str, object]]] = {}
+    for observed_key, output_key in FIELD_OBSERVATION_FEATURES:
+        positive_by_id: dict[str, set[str]] = {}
+        negative_by_id: dict[str, set[str]] = {}
+        for row in rows:
+            site_context = row.get("site_context") if isinstance(row.get("site_context"), dict) else {}
+            observation_id = str(row.get("observation_id", "") or "").strip()
+            if not observation_id:
+                continue
+            target = positive_by_id if observation_is_positive(row) else negative_by_id
+            for item_id in list_string_values(site_context.get(observed_key)):
+                target.setdefault(item_id, set()).add(observation_id)
+        item_ids = sorted(set(positive_by_id) | set(negative_by_id))
+        items = []
+        for item_id in item_ids:
+            positive_ids = sorted(positive_by_id.get(item_id, set()))
+            negative_ids = sorted(negative_by_id.get(item_id, set()))
+            items.append(
+                {
+                    "id": item_id,
+                    "positive_support": len(positive_ids),
+                    "negative_support": len(negative_ids),
+                    "positive_ratio": round(len(positive_ids) / len(positive_rows), 4) if positive_rows else None,
+                    "negative_ratio": round(len(negative_ids) / len(negative_rows), 4) if negative_rows else None,
+                    "positive_sources": ["field"] if positive_ids else [],
+                    "negative_sources": ["field"] if negative_ids else [],
+                    "positive_source_support": {"field": len(positive_ids)} if positive_ids else {},
+                    "negative_source_support": {"field": len(negative_ids)} if negative_ids else {},
+                    "positive_observations": positive_ids,
+                    "negative_observations": negative_ids,
+                }
+            )
+        categorical[output_key] = items
+    return {
+        "schema_version": "0.1",
+        "kind": "mushroom_live_field_evidence_v0",
+        "species_id": species_id,
+        "observation_count": len(rows),
+        "positive_count": len(positive_rows),
+        "negative_count": len(negative_rows),
+        "categorical_features": categorical,
+        "numeric_features": {},
+    }
+
+
+def strip_field_source(item: dict[str, object]) -> dict[str, object]:
+    cleaned = dict(item)
+    for key in ("positive_sources", "negative_sources"):
+        values = cleaned.get(key)
+        cleaned[key] = [source for source in values if source != "field"] if isinstance(values, list) else []
+    for key in ("positive_source_support", "negative_source_support"):
+        support = dict(cleaned.get(key)) if isinstance(cleaned.get(key), dict) else {}
+        support.pop("field", None)
+        cleaned[key] = support
+    if not cleaned.get("positive_sources") and not cleaned.get("positive_source_support"):
+        cleaned["positive_support"] = 0
+        cleaned["positive_ratio"] = None
+    if not cleaned.get("negative_sources") and not cleaned.get("negative_source_support"):
+        cleaned["negative_support"] = 0
+        cleaned["negative_ratio"] = None
+    return cleaned
+
+
+def merge_source_lists(left: object, right: object) -> list[str]:
+    values = []
+    for source in list_string_values(left) + list_string_values(right):
+        if source not in values:
+            values.append(source)
+    return values
+
+
+def merge_field_item(base: dict[str, object] | None, field: dict[str, object]) -> dict[str, object]:
+    merged = strip_field_source(base or {})
+    merged["id"] = str(field.get("id", "") or merged.get("id", ""))
+    for polarity in ("positive", "negative"):
+        observations_key = f"{polarity}_observations"
+        support_key = f"{polarity}_support"
+        ratio_key = f"{polarity}_ratio"
+        sources_key = f"{polarity}_sources"
+        source_support_key = f"{polarity}_source_support"
+        observations = sorted(set(list_string_values(merged.get(observations_key))) | set(list_string_values(field.get(observations_key))))
+        merged[observations_key] = observations
+        source_support = dict(merged.get(source_support_key)) if isinstance(merged.get(source_support_key), dict) else {}
+        field_support = field.get(source_support_key)
+        if isinstance(field_support, dict):
+            source_support.update(field_support)
+        merged[source_support_key] = source_support
+        merged[sources_key] = merge_source_lists(merged.get(sources_key), field.get(sources_key))
+        merged[support_key] = max(int(merged.get(support_key, 0) or 0), int(field.get(support_key, 0) or 0), len(observations))
+        merged[ratio_key] = field.get(ratio_key) if field.get(ratio_key) is not None else merged.get(ratio_key)
+    return merged
+
+
+def merge_live_field_model(
+    learned_model: dict[str, object] | None,
+    field_model: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if not isinstance(learned_model, dict) and not isinstance(field_model, dict):
+        return None
+    if not isinstance(field_model, dict):
+        return learned_model
+    merged = dict(learned_model) if isinstance(learned_model, dict) else {}
+    merged["observation_count"] = max(int(merged.get("observation_count", 0) or 0), int(field_model.get("observation_count", 0) or 0))
+    merged["positive_count"] = max(int(merged.get("positive_count", 0) or 0), int(field_model.get("positive_count", 0) or 0))
+    merged["negative_count"] = max(int(merged.get("negative_count", 0) or 0), int(field_model.get("negative_count", 0) or 0))
+    base_categorical = merged.get("categorical_features") if isinstance(merged.get("categorical_features"), dict) else {}
+    field_categorical = field_model.get("categorical_features") if isinstance(field_model.get("categorical_features"), dict) else {}
+    categorical: dict[str, list[dict[str, object]]] = {}
+    for key in sorted(set(base_categorical) | set(field_categorical)):
+        base_items = base_categorical.get(key) if isinstance(base_categorical, dict) else []
+        field_items = field_categorical.get(key) if isinstance(field_categorical, dict) else []
+        by_id = {
+            str(item.get("id", "") or ""): strip_field_source(item)
+            for item in base_items
+            if isinstance(item, dict) and str(item.get("id", "") or "")
+        } if isinstance(base_items, list) else {}
+        if isinstance(field_items, list):
+            for item in field_items:
+                if not isinstance(item, dict):
+                    continue
+                item_id = str(item.get("id", "") or "")
+                if not item_id:
+                    continue
+                by_id[item_id] = merge_field_item(by_id.get(item_id), item)
+        categorical[key] = [
+            item for item in by_id.values()
+            if int(item.get("positive_support", 0) or 0) > 0 or int(item.get("negative_support", 0) or 0) > 0
+        ]
+    merged["categorical_features"] = categorical
+    return merged
+
+
 def active_affinity_ids(ecology: dict[str, object], key: str, profile_view: str = "enriched") -> set[str]:
     """Return affinity IDs visible in the active profile view."""
     raw_items = ecology.get(key)
@@ -1866,6 +2162,28 @@ def learned_positive_items(model: dict[str, object] | None, key: str) -> list[di
     ]
 
 
+def learned_source_label(source: object) -> str:
+    key = str(source or "").strip()
+    labels = {
+        "field": ui_label("ui.source_field"),
+        "gis": ui_label("ui.source_gis_dem"),
+        "dem": ui_label("ui.source_gis_dem"),
+        "v0": ui_label("ui.source_v0"),
+    }
+    return labels.get(key, key or ui_label("ui.source_v0"))
+
+
+def learned_source_badges(item: dict[str, object], source_key: str = "positive_sources") -> str:
+    values = item.get(source_key)
+    sources = [str(value) for value in values if str(value or "").strip()] if isinstance(values, list) else []
+    if not sources:
+        sources = ["v0"]
+    return "".join(
+        f'<em class="parameter-source-badge source-{html.escape(css_token(source), quote=True)}">{html.escape(learned_source_label(source))}</em>'
+        for source in sources
+    )
+
+
 def learned_item_chip(item: dict[str, object], labels: dict[str, str]) -> str:
     """Render a compact learned-model support chip."""
     item_id = str(item.get("id", "") or "")
@@ -1877,6 +2195,7 @@ def learned_item_chip(item: dict[str, object], labels: dict[str, str]) -> str:
         f'<span>{html.escape(label)}</span>'
         f'<strong>{html.escape(str(support))}</strong>'
         f'<em>{html.escape(ratio)}</em>'
+        f'{learned_source_badges(item)}'
         '</span>'
     )
 
@@ -1887,15 +2206,25 @@ def learned_parameter_comparison_row(
     learned_items: list[dict[str, object]],
     labels: dict[str, str],
     section_class: str = "",
+    value_mode: str = "matches",
 ) -> str:
     """Render one compact comparison row between profile values and learned evidence."""
     observed_ids = {str(item.get("id", "") or "") for item in learned_items}
     configured_observed = configured_ids & observed_ids
+    matching_items = [item for item in learned_items if str(item.get("id", "") or "") in configured_observed]
     emerging_items = [item for item in learned_items if str(item.get("id", "") or "") not in configured_ids]
     observed_label = f"{len(configured_observed)}/{len(configured_ids)}" if configured_ids else "0/0"
-    emerging_html = (
-        "".join(learned_item_chip(item, labels) for item in emerging_items[:4])
-        if emerging_items else
+    if value_mode == "emerging":
+        visible_items = emerging_items
+        meta_label = ui_label("ui.emerging_outside_profile")
+        meta_value = str(len(emerging_items))
+    else:
+        visible_items = matching_items
+        meta_label = ui_label("ui.profile_overlap")
+        meta_value = observed_label
+    values_html = (
+        "".join(learned_item_chip(item, labels) for item in visible_items[:4])
+        if visible_items else
         f'<span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span>'
     )
     css_class = f"parameter-comparison-section parameter-learned-row {section_class}".strip()
@@ -1903,9 +2232,9 @@ def learned_parameter_comparison_row(
       <div class="{html.escape(css_class, quote=True)}">
         <div>
           <h4>{html.escape(title)}</h4>
-          <span class="meta">{html.escape(ui_label("ui.profile_overlap"))}: {html.escape(observed_label)}</span>
+          <span class="meta">{html.escape(meta_label)}: {html.escape(meta_value)}</span>
         </div>
-        <div class="parameter-learned-values">{emerging_html}</div>
+        <div class="parameter-learned-values">{values_html}</div>
       </div>
     """
 
@@ -1915,12 +2244,14 @@ def render_habitat_learned_comparison(
     ecology: dict[str, object],
     catalogs: dict[str, object],
     profile_view: str = "enriched",
+    value_mode: str = "matches",
 ) -> str:
     """Render learned-model context beside habitat parameters."""
+    title_label = "ui.learned_emerging_values" if value_mode == "emerging" else "ui.learned_observational_evidence"
     if not isinstance(model, dict):
         return f"""
         <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-ecology-learned">
-          <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
+          <h3>{html.escape(ui_label(title_label))}</h3>
           <p class="meta">{html.escape(ui_label("ui.learned_model_missing"))}</p>
         </aside>
         """
@@ -1936,6 +2267,7 @@ def render_habitat_learned_comparison(
             learned_positive_items(model, "hosts"),
             host_labels,
             "parameter-section-hosts",
+            value_mode,
         ),
         learned_parameter_comparison_row(
             ui_label("ui.forest_types"),
@@ -1943,6 +2275,7 @@ def render_habitat_learned_comparison(
             learned_positive_items(model, "forests"),
             catalog_label_map(catalogs, "forest_types"),
             "parameter-section-forests",
+            value_mode,
         ),
         learned_parameter_comparison_row(
             ui_label("ui.habitat_features"),
@@ -1950,11 +2283,12 @@ def render_habitat_learned_comparison(
             learned_positive_items(model, "habitat"),
             catalog_label_map(catalogs, "habitat_features"),
             "parameter-section-habitat",
+            value_mode,
         ),
     ]
     return f"""
       <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-ecology-learned">
-        <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
+        <h3>{html.escape(ui_label(title_label))}</h3>
         <div class="parameter-comparison-section parameter-section-summary parameter-learned-summary">
           <h4>{html.escape(ui_label("ui.observations"))}</h4>
           <div class="parameter-learned-metrics">
@@ -1973,13 +2307,21 @@ def render_soils_learned_comparison(
     ecology: dict[str, object],
     catalogs: dict[str, object],
     profile_view: str = "enriched",
+    value_mode: str = "matches",
 ) -> str:
     """Render learned-model context beside soil parameters."""
+    title_label = "ui.learned_emerging_values" if value_mode == "emerging" else "ui.learned_observational_evidence"
     if not isinstance(model, dict):
         return f"""
-        <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison">
-          <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
-          <p class="meta">{html.escape(ui_label("ui.learned_model_missing"))}</p>
+        <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-aligned-column parameter-soils-column">
+          <div class="parameter-comparison-section parameter-section-summary parameter-learned-summary">
+            <h3>{html.escape(ui_label(title_label))}</h3>
+          </div>
+          <div class="parameter-comparison-section parameter-learned-row">
+            <h4>{html.escape(ui_label("ui.soils"))}</h4>
+            <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+          </div>
+          <p class="meta parameter-pending-note">{html.escape(ui_label("ui.learned_model_missing"))}</p>
         </aside>
         """
     row = learned_parameter_comparison_row(
@@ -1987,16 +2329,18 @@ def render_soils_learned_comparison(
         active_affinity_ids(ecology, "soil_affinities", profile_view),
         learned_positive_items(model, "soils"),
         catalog_label_map(catalogs, "soil_types"),
+        value_mode=value_mode,
     )
     return f"""
-      <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison">
-        <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
-        <div class="parameter-learned-metrics">
-          <span>{html.escape(ui_label("ui.total_observations_used"))}: <strong>{html.escape(str(model.get("observation_count", 0) or 0))}</strong></span>
-          <span>{html.escape(ui_label("ui.positive_observations"))}: <strong>{html.escape(str(model.get("positive_count", 0) or 0))}</strong></span>
-          <span>{html.escape(ui_label("ui.negative_observations"))}: <strong>{html.escape(str(model.get("negative_count", 0) or 0))}</strong></span>
+      <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-aligned-column parameter-soils-column">
+        <div class="parameter-comparison-section parameter-section-summary parameter-learned-summary">
+          <h3>{html.escape(ui_label(title_label))}</h3>
+          <div class="parameter-learned-metrics">
+            <span>{html.escape(ui_label("ui.total_observations_used"))}: <strong>{html.escape(str(model.get("observation_count", 0) or 0))}</strong></span>
+            <span>{html.escape(ui_label("ui.positive_observations"))}: <strong>{html.escape(str(model.get("positive_count", 0) or 0))}</strong></span>
+            <span>{html.escape(ui_label("ui.negative_observations"))}: <strong>{html.escape(str(model.get("negative_count", 0) or 0))}</strong></span>
+          </div>
         </div>
-        <p class="meta">{html.escape(ui_label("ui.learned_parameter_comparison_note"))}</p>
         <div class="parameter-learned-rows">{row}</div>
       </aside>
     """
@@ -2013,13 +2357,25 @@ def learned_numeric_positive(model: dict[str, object] | None, key: str) -> dict[
 def render_topography_learned_comparison(
     model: dict[str, object] | None,
     topography: dict[str, object],
+    value_mode: str = "matches",
 ) -> str:
     """Render learned altitude evidence beside topography parameters."""
+    title_label = "ui.learned_emerging_values" if value_mode == "emerging" else "ui.learned_observational_evidence"
     if not isinstance(model, dict):
         return f"""
-        <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison">
-          <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
-          <p class="meta">{html.escape(ui_label("ui.learned_model_missing"))}</p>
+        <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-aligned-column parameter-topography-column">
+          <div class="parameter-comparison-section parameter-section-summary parameter-learned-summary">
+            <h3>{html.escape(ui_label(title_label))}</h3>
+          </div>
+          <div class="parameter-comparison-section parameter-learned-row">
+            <h4>{html.escape(ui_label("altitude.meters"))}</h4>
+            <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+          </div>
+          <div class="parameter-comparison-section parameter-learned-row">
+            <h4>{html.escape(ui_label("ui.preferred_aspects"))}</h4>
+            <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+          </div>
+          <p class="meta parameter-pending-note">{html.escape(ui_label("ui.learned_model_missing"))}</p>
         </aside>
         """
     altitude = learned_numeric_positive(model, "altitude_m")
@@ -2032,27 +2388,78 @@ def render_topography_learned_comparison(
         f"{model_number_label(altitude.get('max'), 'm')}"
     )
     mean_label = model_number_label(altitude.get("mean"), "m")
+    emerging_altitude = False
+    try:
+        profile_min = float(topography.get("altitude_min_m"))
+        profile_max = float(topography.get("altitude_max_m"))
+        observed_min = float(altitude.get("min"))
+        observed_max = float(altitude.get("max"))
+        emerging_altitude = observed_min < profile_min or observed_max > profile_max
+    except (TypeError, ValueError):
+        emerging_altitude = False
+    if value_mode == "emerging":
+        altitude_meta_label = ui_label("ui.emerging_outside_profile")
+        altitude_meta_value = "1" if emerging_altitude else "0"
+        altitude_values_html = (
+            f'<span class="parameter-learned-chip"><span>{html.escape(ui_label("ui.observed_range"))}</span><strong>{html.escape(observed_range)}</strong></span>'
+            if emerging_altitude else
+            f'<span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span>'
+        )
+    else:
+        altitude_meta_label = ui_label("ui.profile_range")
+        altitude_meta_value = profile_range
+        altitude_values_html = (
+            f'<span class="parameter-learned-chip"><span>{html.escape(ui_label("ui.observed_range"))}</span><strong>{html.escape(observed_range)}</strong></span>'
+            f'<span class="parameter-learned-chip"><span>{html.escape(ui_label("ui.learned_mean"))}</span><strong>{html.escape(mean_label)}</strong></span>'
+        )
     return f"""
-      <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison">
-        <h3>{html.escape(ui_label("ui.learned_model"))}</h3>
-        <div class="parameter-learned-metrics">
-          <span>{html.escape(ui_label("ui.total_observations_used"))}: <strong>{html.escape(str(model.get("observation_count", 0) or 0))}</strong></span>
-          <span>{html.escape(ui_label("ui.positive_observations"))}: <strong>{html.escape(str(model.get("positive_count", 0) or 0))}</strong></span>
-          <span>{html.escape(ui_label("ui.gis_gaps"))}: <strong>{html.escape(str(model.get("gis_gap_count", 0) or 0))}</strong></span>
-        </div>
-        <p class="meta">{html.escape(ui_label("ui.learned_parameter_comparison_note"))}</p>
-        <div class="parameter-learned-rows">
-          <div class="parameter-learned-row">
-            <div>
-              <strong>{html.escape(ui_label("altitude.meters"))}</strong>
-              <span class="meta">{html.escape(ui_label("ui.profile_range"))}: {html.escape(profile_range)}</span>
-            </div>
-            <div class="parameter-learned-values">
-              <span class="parameter-learned-chip"><span>{html.escape(ui_label("ui.observed_range"))}</span><strong>{html.escape(observed_range)}</strong></span>
-              <span class="parameter-learned-chip"><span>{html.escape(ui_label("ui.learned_mean"))}</span><strong>{html.escape(mean_label)}</strong></span>
-            </div>
+      <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-aligned-column parameter-topography-column">
+        <div class="parameter-comparison-section parameter-section-summary parameter-learned-summary">
+          <h3>{html.escape(ui_label(title_label))}</h3>
+          <div class="parameter-learned-metrics">
+            <span>{html.escape(ui_label("ui.total_observations_used"))}: <strong>{html.escape(str(model.get("observation_count", 0) or 0))}</strong></span>
+            <span>{html.escape(ui_label("ui.positive_observations"))}: <strong>{html.escape(str(model.get("positive_count", 0) or 0))}</strong></span>
+            <span>{html.escape(ui_label("ui.gis_gaps"))}: <strong>{html.escape(str(model.get("gis_gap_count", 0) or 0))}</strong></span>
           </div>
         </div>
+        <div class="parameter-learned-rows">
+          <div class="parameter-comparison-section parameter-learned-row">
+            <h4>{html.escape(ui_label("altitude.meters"))}</h4>
+            <span class="meta">{html.escape(altitude_meta_label)}: {html.escape(altitude_meta_value)}</span>
+            <div class="parameter-learned-values">
+              {altitude_values_html}
+            </div>
+          </div>
+          <div class="parameter-comparison-section parameter-learned-row">
+            <h4>{html.escape(ui_label("ui.preferred_aspects"))}</h4>
+            <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+          </div>
+        </div>
+      </aside>
+    """
+
+
+def render_phenology_pending_comparison(value_mode: str = "matches") -> str:
+    """Render a consistent learned-model column for phenology parameters."""
+    title_label = "ui.learned_emerging_values" if value_mode == "emerging" else "ui.learned_observational_evidence"
+    return f"""
+      <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-aligned-column parameter-phenology-column">
+        <div class="parameter-comparison-section parameter-section-summary parameter-learned-summary">
+          <h3>{html.escape(ui_label(title_label))}</h3>
+        </div>
+        <div class="parameter-comparison-section parameter-learned-row">
+          <h4>{html.escape(ui_label("ui.main_months"))}</h4>
+          <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+        </div>
+        <div class="parameter-comparison-section parameter-learned-row">
+          <h4>{html.escape(ui_label("ui.secondary_months"))}</h4>
+          <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+        </div>
+        <div class="parameter-comparison-section parameter-learned-row">
+          <h4>{html.escape(ui_label("ui.season_patterns"))}</h4>
+          <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+        </div>
+        <p class="meta parameter-pending-note">{html.escape(ui_label("ui.learned_model_missing"))}</p>
       </aside>
     """
 
@@ -2495,10 +2902,16 @@ def render_local_evidence_section(
     """
 
 
-def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str, object], profile_view: str = "enriched") -> str:
+def render_profile_affinity_rows(
+    field: str,
+    values: object,
+    catalogs: dict[str, object],
+    profile_view: str = "enriched",
+    profile_source_v0: bool = False,
+) -> str:
     """Render editable affinity rows while hiding already-used IDs from new rows."""
     catalog_group = PROFILE_AFFINITY_GROUPS[field]
-    options = catalog_options_for_group(catalogs, catalog_group)
+    options = host_affinity_options(catalogs) if field == "host_affinities" else catalog_options_for_group(catalogs, catalog_group)
     affinities = values if isinstance(values, list) else []
     used_ids = {
         str(item.get("id", "") or "").strip()
@@ -2516,10 +2929,6 @@ def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str,
         row_options = [option for option in options if option[0] == current_id or option[0] not in used_ids]
         inactive_v0 = item.get("v0_active") is False
         status = []
-        if item.get("v0_placeholder"):
-            status.append("Fuente v0")
-        if item.get("v0_catalog_gap_promoted"):
-            status.append("Catalogo v0")
         if inactive_v0:
             status.append("Aparcado v0")
         status_html = (
@@ -2528,8 +2937,15 @@ def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str,
         )
         rows.append(
             '<div class="profile-affinity-row">'
+            + affinity_hidden_metadata_fields(field, index, item)
             + form_catalog_select(f"{field}_{index}_id", "ID", current_id, row_options)
             + form_select(f"{field}_{index}_relationship", ui_label("ui.relationship"), item.get("relationship", ""), PROFILE_SELECT_VALUES["relationship"])
+            + (
+                '<div class="admin-field profile-affinity-origins">'
+                f'<label>{html.escape(ui_label("ui.origins"))}</label>'
+                f'<div>{affinity_origin_badges(item, profile_source_v0)}</div>'
+                "</div>"
+            )
             + form_field(f"{field}_{index}_affinity", ui_label("ui.affinity"), item.get("affinity", ""), field_type="number", step="0.01")
             + status_html
             + "</div>"
@@ -2543,7 +2959,12 @@ def render_profile_affinity_rows(field: str, values: object, catalogs: dict[str,
     )
 
 
-def render_ecology_affinity_tabs(ecology: dict[str, object], catalogs: dict[str, object], profile_view: str = "enriched") -> str:
+def render_ecology_affinity_tabs(
+    ecology: dict[str, object],
+    catalogs: dict[str, object],
+    profile_view: str = "enriched",
+    profile_source_v0: bool = False,
+) -> str:
     """Render ecology affinity groups as internal subtabs without changing POST fields."""
     fields = [field for field in PROFILE_AFFINITY_GROUPS if not (is_v0_view(profile_view) and field == "lithology_affinities")]
     labels = {
@@ -2560,7 +2981,11 @@ def render_ecology_affinity_tabs(ecology: dict[str, object], catalogs: dict[str,
         tab_id = f"eco-tab-{index}"
         radios.append(f'<input type="radio" name="ecology_tab" id="{tab_id}"{" checked" if index == 0 else ""}>')
         tab_labels.append(f'<label for="{tab_id}">{html.escape(labels[field])}</label>')
-        panels.append(f'<section class="ecology-subtab-panel panel-{index}">{render_profile_affinity_rows(field, ecology.get(field, []), catalogs, profile_view)}</section>')
+        panels.append(
+            f'<section class="ecology-subtab-panel panel-{index}">'
+            f'{render_profile_affinity_rows(field, ecology.get(field, []), catalogs, profile_view, profile_source_v0)}'
+            "</section>"
+        )
     return (
         '<div class="ecology-subtabs">'
         + "".join(radios)
@@ -2704,7 +3129,8 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
     metadata = nested_dict(profile, "metadata")
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
     json_value = json.dumps(profile, indent=2, ensure_ascii=False)
-    affinity_blocks = render_ecology_affinity_tabs(ecology, catalogs, profile_view)
+    profile_source_v0 = bool(str(metadata.get("v0_candidate_source", "") or "").strip())
+    affinity_blocks = render_ecology_affinity_tabs(ecology, catalogs, profile_view, profile_source_v0)
     status_chips = "".join(
         [
             value_chip(profile.get("taxonomy_status", "-"), ui_label("ui.taxonomy")),
@@ -2779,17 +3205,14 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
         f'{form_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), field_type="number")}'
         f'{form_field("altitude_optimal_max_m", parameter_label("altitude_optimal_max_m"), topography.get("altitude_optimal_max_m", ""), field_type="number")}'
     )
-    save_button = (
-        '<span class="meta">V0 view hides parked fields. Use Enriched mode for full-profile editing.</span>'
-        if v0_mode else
-        f'<button class="primary profile-primary-action">{html.escape(ui_label("ui.save_species_profile"))}</button>'
-    )
+    save_button = f'<button class="primary profile-primary-action">{html.escape(ui_label("ui.save_species_profile"))}</button>'
     raw_json_details = "" if v0_mode else f"""
       <details class="profile-raw-json">
         <summary><strong>{html.escape(ui_label("ui.advanced_raw_json"))}</strong></summary>
-        <form class="profile-json-editor" method="post" action="{html.escape(profile_query_url(species_id, search, section='species'), quote=True)}" onsubmit="return confirm('Save raw JSON for this species profile and validate the full dataset?')">
+        <form class="profile-json-editor" method="post" action="{html.escape(profile_query_url(species_id, search, section='species', profile_view=profile_view), quote=True)}" onsubmit="return confirm('Save raw JSON for this species profile and validate the full dataset?')">
           <input type="hidden" name="profile_action" value="save_profile_json">
           <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+          <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
           <input type="hidden" name="profile_return_tab" value="profile-tab-json">
           <label class="label" for="profile-json">{html.escape(ui_label("ui.species_profile_json"))}</label>
           <textarea id="profile-json" name="profile_json" spellcheck="false">{html.escape(json_value)}</textarea>
@@ -2814,6 +3237,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
       <form method="post" action="{html.escape(profile_query_url(species_id, search, section='species', profile_view=profile_view), quote=True)}" onsubmit="return confirm('Save this species profile and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_form">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+        <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
         <input type="hidden" name="profile_return_tab" value="profile-tab-general">
         <div class="profile-tabs">
           <input type="radio" name="profile_tab" id="profile-tab-general" checked>
@@ -2991,6 +3415,7 @@ def render_parameters_section(
     profile_view: str = "enriched",
     parameter_view: str = "habitat",
     learned_model_payload: dict[str, object] | None = None,
+    observations_payload: dict[str, object] | None = None,
 ) -> str:
     """Render the top-level Parameters screen using real profile model fields."""
     if not profile:
@@ -3009,7 +3434,10 @@ def render_parameters_section(
     wind = weather_model.get("wind") if isinstance(weather_model.get("wind"), dict) else {}
     scoring = nested_dict(profile, "scoring_weights")
     metadata = nested_dict(profile, "metadata")
-    learned_model = learned_model_for_species(learned_model_payload, species_id)
+    learned_model = merge_live_field_model(
+        learned_model_for_species(learned_model_payload, species_id),
+        field_evidence_model_from_observations(observations_payload, species_id),
+    )
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
     host_labels = catalog_label_map(catalogs, "host_taxa")
     forest_labels = catalog_label_map(catalogs, "forest_types")
@@ -3018,6 +3446,7 @@ def render_parameters_section(
     habitat_labels = catalog_label_map(catalogs, "habitat_features")
     scoring_total = sum(float(value) for value in scoring.values() if isinstance(value, int | float))
     species_href = profile_query_url(species_id, search, section="species", profile_view=profile_view)
+    species_ecology_href = f"{species_href}#profile-tab-ecology"
     affinity_row_class = "stacked"
     climate_card = "" if v0_mode else f"""
             <article class="profile-section-card">
@@ -3091,8 +3520,10 @@ def render_parameters_section(
 
     habitat_panel = f"""
       <article class="profile-section-card">
-        <h2>{icon("ecology")} {html.escape(ui_label("ui.habitat_model"))}</h2>
-        <p class="parameter-card-note">{html.escape(ui_label("ui.habitat_model_note"))}</p>
+        <div class="parameter-card-heading">
+          <h2>{icon("ecology")} {html.escape(ui_label("ui.habitat_model"))}</h2>
+          <p class="parameter-card-note">{html.escape(ui_label("ui.habitat_model_note"))}</p>
+        </div>
         <div class="parameter-comparison-layout">
           <div class="profile-subsection parameter-focus-subsection parameter-ecology-profile">
             <h3>{icon("host")} {html.escape(ui_label("ui.ecology_and_habitat"))}</h3>
@@ -3115,50 +3546,85 @@ def render_parameters_section(
                 <div class="parameter-section-values">{affinity_chip_list(ecology, "habitat_feature_affinities", habitat_labels, profile_view=profile_view)}</div>
               </div>
             </div>
-            <p class="meta">{html.escape(ui_label("ui.edit_affinities_note"))}</p>
           </div>
           {render_habitat_learned_comparison(learned_model, ecology, catalogs, profile_view)}
+          {render_habitat_learned_comparison(learned_model, ecology, catalogs, profile_view, value_mode="emerging")}
         </div>
+        <div class="parameter-edit-note"><a href="{html.escape(species_ecology_href, quote=True)}">{html.escape(ui_label("ui.edit_affinities_note"))}</a></div>
       </article>
     """
     soils_panel = f"""
       <article class="profile-section-card">
-        <h2>{icon("soil")} {html.escape(ui_label("ui.soils_and_lithology"))}</h2>
+        <div class="parameter-card-heading">
+          <h2>{icon("soil")} {html.escape(ui_label("ui.soils_and_lithology"))}</h2>
+        </div>
         <div class="parameter-comparison-layout">
-          <div class="profile-subsection parameter-focus-subsection">
-            {value_html_row(ui_label("ui.soils"), affinity_chip_list(ecology, "soil_affinities", soil_labels, profile_view=profile_view), affinity_row_class)}
-            {lithology_row}
+          <div class="profile-subsection parameter-focus-subsection parameter-aligned-column parameter-soils-column">
+            <div class="parameter-comparison-section parameter-section-summary parameter-profile-section"></div>
+            <div class="parameter-comparison-section parameter-profile-section">
+              <h4>{html.escape(ui_label("ui.soils"))}</h4>
+              <div class="parameter-section-values">{affinity_chip_list(ecology, "soil_affinities", soil_labels, profile_view=profile_view)}</div>
+            </div>
+            {f'<div class="parameter-comparison-section parameter-profile-section"><h4>{html.escape(ui_label("ui.lithology"))}</h4><div class="parameter-section-values">{affinity_chip_list(ecology, "lithology_affinities", lithology_labels, profile_view=profile_view)}</div></div>' if not v0_mode else ""}
             <p class="meta">{html.escape(ui_label("ui.affinity_ids_note"))}</p>
           </div>
           {render_soils_learned_comparison(learned_model, ecology, catalogs, profile_view)}
+          {render_soils_learned_comparison(learned_model, ecology, catalogs, profile_view, value_mode="emerging")}
         </div>
       </article>
     """
     topography_panel = f"""
       <article class="profile-section-card">
-        <h2>{icon("topography")} {html.escape(ui_label("ui.topography"))}</h2>
+        <div class="parameter-card-heading">
+          <h2>{icon("topography")} {html.escape(ui_label("ui.topography"))}</h2>
+        </div>
         <div class="parameter-comparison-layout">
-          <div class="profile-subsection parameter-focus-subsection">
-            {aspect_notes_control}
-            <div class="parameter-duo-grid">
-              {parameter_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), unit="m")}
-              {parameter_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), unit="m")}
-              {optimal_altitude_fields}
+          <div class="profile-subsection parameter-focus-subsection parameter-aligned-column parameter-topography-column">
+            <div class="parameter-comparison-section parameter-section-summary parameter-profile-section parameter-topography-notes">
+              {aspect_notes_control}
             </div>
-            {form_catalog_toggles("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), catalogs, "aspects")}
+            <div class="parameter-comparison-section parameter-profile-section">
+              <h4>{html.escape(ui_label("altitude.meters"))}</h4>
+              <div class="parameter-duo-grid">
+                {parameter_field("altitude_min_m", parameter_label("altitude_min_m"), topography.get("altitude_min_m", ""), unit="m")}
+                {parameter_field("altitude_max_m", parameter_label("altitude_max_m"), topography.get("altitude_max_m", ""), unit="m")}
+                {optimal_altitude_fields}
+              </div>
+            </div>
+            <div class="parameter-comparison-section parameter-profile-section">
+              <h4>{html.escape(ui_label("ui.preferred_aspects"))}</h4>
+              {form_catalog_toggles("preferred_aspect_ids", ui_label("ui.preferred_aspects"), topography.get("preferred_aspect_ids", []), catalogs, "aspects")}
+            </div>
           </div>
           {render_topography_learned_comparison(learned_model, topography)}
+          {render_topography_learned_comparison(learned_model, topography, value_mode="emerging")}
         </div>
       </article>
     """
     phenology_panel = f"""
       <article class="profile-section-card">
-        <h2>{icon("phenology")} {html.escape(ui_label("ui.phenology"))}</h2>
-        <div class="profile-subsection parameter-focus-subsection">
-          {main_months_control}
-          {secondary_months_control}
-          {form_catalog_toggles("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), catalogs, "season_patterns")}
-          {delay_fields}
+        <div class="parameter-card-heading">
+          <h2>{icon("phenology")} {html.escape(ui_label("ui.phenology"))}</h2>
+        </div>
+        <div class="parameter-comparison-layout">
+          <div class="profile-subsection parameter-focus-subsection parameter-aligned-column parameter-phenology-column">
+            <div class="parameter-comparison-section parameter-section-summary parameter-profile-section"></div>
+            <div class="parameter-comparison-section parameter-profile-section">
+              <h4>{html.escape(ui_label("ui.main_months"))}</h4>
+              {main_months_control}
+            </div>
+            <div class="parameter-comparison-section parameter-profile-section">
+              <h4>{html.escape(ui_label("ui.secondary_months"))}</h4>
+              {secondary_months_control}
+            </div>
+            <div class="parameter-comparison-section parameter-profile-section">
+              <h4>{html.escape(ui_label("ui.season_patterns"))}</h4>
+              {form_catalog_toggles("season_pattern_ids", ui_label("ui.season_patterns"), phenology.get("season_pattern_ids", []), catalogs, "season_patterns")}
+            </div>
+            {f'<div class="parameter-comparison-section parameter-profile-section">{delay_fields}</div>' if delay_fields else ""}
+          </div>
+          {render_phenology_pending_comparison()}
+          {render_phenology_pending_comparison(value_mode="emerging")}
         </div>
       </article>
     """
@@ -3170,11 +3636,12 @@ def render_parameters_section(
     """
     return f"""
     <section class="card profile-section-screen parameters-screen">
-      {render_selected_species_header(profile, ui_label("ui.parameters"), profiles=profiles, search=search, section_key="parameters", profile_view=profile_view)}
+      {render_selected_species_header(profile, ui_label("ui.parameters"), profiles=profiles, search=search, section_key="parameters", profile_view=profile_view, parameter_view=parameter_view, compact=True)}
       {render_parameter_tabs(parameter_view, species_id, search, profile_view)}
       <form method="post" action="{html.escape(profile_query_url(species_id, search, section='parameters', profile_view=profile_view, parameter_view=parameter_view), quote=True)}" onsubmit="return confirm('Save parameter changes for this species and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_parameters">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
+        <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
         <input type="hidden" name="parameter_view" value="{html.escape(parameter_view, quote=True)}">
         <div class="profile-parameters-grid parameter-tabbed-grid{' v0' if v0_mode else ''}">
           {parameter_panel("habitat", habitat_panel)}
@@ -3637,6 +4104,10 @@ def render_observation_detail(
     {value_row(ui_label("source_quality"), row.get("source_quality", "-"))}
     {value_row(ui_label("ui.calibration_weight"), f"{observation_weight(catalogs, row):.2f}")}
     {value_row(ui_label("site_context.observed_host_ids"), observed_host_names(catalogs, site_context))}
+    {value_row(ui_label("site_context.observed_forest_type_ids"), observation_catalog_names(catalogs, "forest_types", site_context.get("observed_forest_type_ids") if isinstance(site_context, dict) else []))}
+    {value_row(ui_label("site_context.observed_soil_tendency_ids"), observation_catalog_names(catalogs, "soil_types", site_context.get("observed_soil_tendency_ids") if isinstance(site_context, dict) else []))}
+    {value_row(ui_label("site_context.observed_habitat_feature_ids"), observation_catalog_names(catalogs, "habitat_features", site_context.get("observed_habitat_feature_ids") if isinstance(site_context, dict) else []))}
+    {value_row(ui_label("site_context.observed_aspect_ids"), observation_catalog_names(catalogs, "aspects", site_context.get("observed_aspect_ids") if isinstance(site_context, dict) else []))}
     <div class="observation-notes">
       <strong>{html.escape(ui_label("site_context.habitat_notes"))}</strong>
       <p>{html.escape(str(site_context.get("habitat_notes", "") or ui_label("ui.no_habitat_notes")) if isinstance(site_context, dict) else ui_label("ui.no_habitat_notes"))}</p>
@@ -3711,38 +4182,68 @@ def render_observation_form_modal(
           <a class="button-link" href="#">{html.escape(ui_label("ui.cancel"))}</a>
         </header>
         {f'<div class="catalog-alert error"><strong>{html.escape(ui_label("ui.observation_not_saved"))}</strong><br>{html.escape(form_message.replace("Observation was not saved: ", ""))}</div>' if form_message else ""}
-        <div class="profile-grid four">
-          <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, current_species_id)}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("observed_at"))}</label><input name="observed_at" type="date" value="{html.escape(str(row.get("observed_at", "")), quote=True)}" onchange="this.blur()" required></div>
-          <div class="admin-field"><label>{html.escape(ui_label("flush_abundance"))}</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", str(row.get("flush_abundance", "") or "normal"))}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("source_quality"))}</label><input name="source_quality" type="number" min="0" max="1" step="0.05" value="{html.escape(str(row.get("source_quality", 0.75)), quote=True)}" required></div>
-        </div>
-        <div class="profile-grid three">
-          <div class="admin-field wide"><label>{html.escape(ui_label("location.input"))}</label><input name="location_input" value="{html.escape(location_input, quote=True)}" placeholder="41.38740, 2.16860 or Google Maps URL"></div>
-          <div class="admin-field"><label>{html.escape(ui_label("location.lat"))}</label><input name="location_lat" type="number" step="any" value="{html.escape(lat_value, quote=True)}"></div>
-          <div class="admin-field"><label>{html.escape(ui_label("location.lon"))}</label><input name="location_lon" type="number" step="any" value="{html.escape(lon_value, quote=True)}"></div>
-        </div>
-        <div class="profile-grid four">
-          <div class="admin-field"><label>{html.escape(ui_label("altitude.meters"))}</label><input name="altitude_m" type="number" step="1" value="{html.escape(altitude_value, quote=True)}"></div>
-          <div class="admin-field"><label>{html.escape(ui_label("altitude.source"))}</label><select name="altitude_source">{catalog_select_options(catalogs, "observation_altitude_sources", str(altitude.get("source", "") if isinstance(altitude, dict) else ""), ui_label("ui.not_informed"))}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation_status" required>{catalog_select_options(catalogs, "observation_validation_statuses", str(row.get("validation_status", "") or "draft"))}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("calibration_use"))}</label><select name="calibration_use" required>{catalog_select_options(catalogs, "observation_calibration_uses", str(row.get("calibration_use", "") or "review"))}</select></div>
-        </div>
-        <div class="profile-grid four">
-          <div class="admin-field"><label>{html.escape(ui_label("calibration_exclusion_reason"))}</label><select name="calibration_exclusion_reason">{catalog_select_options(catalogs, "observation_exclusion_reasons", str(row.get("calibration_exclusion_reason", "") or ""), ui_label("ui.none"))}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("observer.name"))}</label><input name="observer_name" value="{html.escape(str(observer.get("name", "") if isinstance(observer, dict) else ""), quote=True)}"></div>
-          <div class="admin-field"><label>{html.escape(ui_label("observer.expertise"))}</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", str(observer.get("expertise", "") if isinstance(observer, dict) else "") or "unknown")}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("source.type"))}</label><select name="source_type">{catalog_select_options(catalogs, "observation_source_types", str(source.get("type", "") if isinstance(source, dict) else "") or "personal_observation")}</select></div>
-        </div>
-        <div class="profile-grid two">
-          <div class="admin-field"><label>{html.escape(ui_label("source.label"))}</label><input name="source_label" value="{html.escape(str(source.get("label", "") if isinstance(source, dict) else ""), quote=True)}"></div>
-          <div class="admin-field wide"><label>{html.escape(ui_label("source.url"))}</label><input name="source_url" type="url" value="{html.escape(str(source.get("url", "") if isinstance(source, dict) else ""), quote=True)}"></div>
+        <div class="observation-field-groups">
+          <section class="observation-field-group observation-record-group">
+            <h3>{html.escape(ui_label("ui.observation_group_record"))}</h3>
+            <div class="observation-group-grid record">
+              <div class="admin-field wide"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, current_species_id)}</select></div>
+              <div class="admin-field compact"><label>{html.escape(ui_label("observed_at"))}</label><input name="observed_at" type="date" value="{html.escape(str(row.get("observed_at", "")), quote=True)}" onchange="this.blur()" required></div>
+              <div class="admin-field"><label>{html.escape(ui_label("flush_abundance"))}</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", str(row.get("flush_abundance", "") or "normal"))}</select></div>
+              <div class="admin-field compact"><label>{html.escape(ui_label("source_quality"))}</label><input name="source_quality" type="number" min="0" max="1" step="0.05" value="{html.escape(str(row.get("source_quality", 0.75)), quote=True)}" required></div>
+            </div>
+          </section>
+          <section class="observation-field-group observation-location-group">
+            <h3>{html.escape(ui_label("ui.observation_group_location"))}</h3>
+            <div class="observation-group-grid location">
+              <div class="admin-field location-input"><label>{html.escape(ui_label("location.input"))}</label><input name="location_input" value="{html.escape(location_input, quote=True)}" placeholder="41.38740, 2.16860 or Google Maps URL"></div>
+              <div class="admin-field"><label>{html.escape(ui_label("location.lat"))}</label><input name="location_lat" type="number" step="any" value="{html.escape(lat_value, quote=True)}"></div>
+              <div class="admin-field"><label>{html.escape(ui_label("location.lon"))}</label><input name="location_lon" type="number" step="any" value="{html.escape(lon_value, quote=True)}"></div>
+              <div class="admin-field compact"><label>{html.escape(ui_label("altitude.meters"))}</label><input name="altitude_m" type="number" step="1" value="{html.escape(altitude_value, quote=True)}"></div>
+              <div class="admin-field"><label>{html.escape(ui_label("altitude.source"))}</label><select name="altitude_source">{catalog_select_options(catalogs, "observation_altitude_sources", str(altitude.get("source", "") if isinstance(altitude, dict) else ""), ui_label("ui.not_informed"))}</select></div>
+            </div>
+          </section>
+          <section class="observation-field-group observation-validation-group">
+            <h3>{html.escape(ui_label("ui.observation_group_validation"))}</h3>
+            <div class="observation-group-grid validation">
+              <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation_status" required>{catalog_select_options(catalogs, "observation_validation_statuses", str(row.get("validation_status", "") or "draft"))}</select></div>
+              <div class="admin-field"><label>{html.escape(ui_label("calibration_use"))}</label><select name="calibration_use" required>{catalog_select_options(catalogs, "observation_calibration_uses", str(row.get("calibration_use", "") or "review"))}</select></div>
+              <div class="admin-field"><label>{html.escape(ui_label("calibration_exclusion_reason"))}</label><select name="calibration_exclusion_reason">{catalog_select_options(catalogs, "observation_exclusion_reasons", str(row.get("calibration_exclusion_reason", "") or ""), ui_label("ui.none"))}</select></div>
+            </div>
+          </section>
+          <section class="observation-field-group observation-source-group">
+            <h3>{html.escape(ui_label("ui.observation_group_source"))}</h3>
+            <div class="observation-group-grid source">
+              <div class="admin-field"><label>{html.escape(ui_label("observer.name"))}</label><input name="observer_name" value="{html.escape(str(observer.get("name", "") if isinstance(observer, dict) else ""), quote=True)}"></div>
+              <div class="admin-field"><label>{html.escape(ui_label("observer.expertise"))}</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", str(observer.get("expertise", "") if isinstance(observer, dict) else "") or "unknown")}</select></div>
+              <div class="admin-field"><label>{html.escape(ui_label("source.type"))}</label><select name="source_type">{catalog_select_options(catalogs, "observation_source_types", str(source.get("type", "") if isinstance(source, dict) else "") or "personal_observation")}</select></div>
+              <div class="admin-field"><label>{html.escape(ui_label("source.label"))}</label><input name="source_label" value="{html.escape(str(source.get("label", "") if isinstance(source, dict) else ""), quote=True)}"></div>
+              <div class="admin-field source-url"><label>{html.escape(ui_label("source.url"))}</label><input name="source_url" type="url" value="{html.escape(str(source.get("url", "") if isinstance(source, dict) else ""), quote=True)}"></div>
+            </div>
+          </section>
         </div>
         <div class="profile-grid full">
           <div class="admin-field wide">
             <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
             <div class="month-toggle-grid host-toggle-grid">{observed_host_toggles(catalogs, site_context.get("observed_host_ids") if isinstance(site_context, dict) else [])}</div>
             <span class="meta">{html.escape(ui_label("ui.observed_hosts_help"))}</span>
+          </div>
+        </div>
+        <div class="profile-grid two observation-context-grid">
+          <div class="admin-field wide catalog-toggle-field">
+            <span class="field-label">{html.escape(ui_label("site_context.observed_forest_type_ids"))}</span>
+            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "forest_types", "observed_forest_type_ids", site_context.get("observed_forest_type_ids") if isinstance(site_context, dict) else [])}</div>
+          </div>
+          <div class="admin-field wide catalog-toggle-field">
+            <span class="field-label">{html.escape(ui_label("site_context.observed_soil_tendency_ids"))}</span>
+            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "soil_types", "observed_soil_tendency_ids", site_context.get("observed_soil_tendency_ids") if isinstance(site_context, dict) else [])}</div>
+          </div>
+          <div class="admin-field wide catalog-toggle-field">
+            <span class="field-label">{html.escape(ui_label("site_context.observed_habitat_feature_ids"))}</span>
+            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "habitat_features", "observed_habitat_feature_ids", site_context.get("observed_habitat_feature_ids") if isinstance(site_context, dict) else [])}</div>
+          </div>
+          <div class="admin-field wide catalog-toggle-field">
+            <span class="field-label">{html.escape(ui_label("site_context.observed_aspect_ids"))}</span>
+            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "aspects", "observed_aspect_ids", site_context.get("observed_aspect_ids") if isinstance(site_context, dict) else [])}</div>
           </div>
         </div>
         <div class="profile-grid two">
@@ -3858,6 +4359,24 @@ def render_observation_exif_import_form(
             <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
             <div class="month-toggle-grid host-toggle-grid">{observed_host_toggles(catalogs, [])}</div>
             <span class="meta">{html.escape(ui_label("ui.observed_hosts_help"))}</span>
+          </div>
+        </div>
+        <div class="profile-grid two observation-context-grid">
+          <div class="admin-field wide catalog-toggle-field">
+            <span class="field-label">{html.escape(ui_label("site_context.observed_forest_type_ids"))}</span>
+            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "forest_types", "observed_forest_type_ids", [])}</div>
+          </div>
+          <div class="admin-field wide catalog-toggle-field">
+            <span class="field-label">{html.escape(ui_label("site_context.observed_soil_tendency_ids"))}</span>
+            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "soil_types", "observed_soil_tendency_ids", [])}</div>
+          </div>
+          <div class="admin-field wide catalog-toggle-field">
+            <span class="field-label">{html.escape(ui_label("site_context.observed_habitat_feature_ids"))}</span>
+            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "habitat_features", "observed_habitat_feature_ids", [])}</div>
+          </div>
+          <div class="admin-field wide catalog-toggle-field">
+            <span class="field-label">{html.escape(ui_label("site_context.observed_aspect_ids"))}</span>
+            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "aspects", "observed_aspect_ids", [])}</div>
           </div>
         </div>
         <div class="catalog-alert">
@@ -4289,24 +4808,24 @@ def render_observation_gis_lab(
     picker = (
         '<div class="catalog-toggle-grid gis-observation-grid">' + "".join(chips) + "</div>"
         if chips
-        else '<p class="meta">No hay observaciones visibles con coordenadas validas para reconstruir.</p>'
+        else f'<p class="meta">{html.escape(ui_label("ui.rebuild_observation_model_v0_none"))}</p>'
     )
     return f"""
     <details id="gis-reconstruction-lab" class="profile-section-card gis-reconstruction-lab">
-      <summary><strong>{icon("topography")} Reconstruccion GIS local</strong></summary>
+      <summary><strong>{icon("topography")} {html.escape(ui_label("ui.rebuild_observation_model_v0_lab"))}</strong></summary>
       <div class="collapsible-section-body">
-        <p class="meta">Selecciona las observaciones visibles que quieres comprobar contra MVC50, geologia y DEM. Este laboratorio no cambia observaciones ni perfiles.</p>
+        <p class="meta">{html.escape(ui_label("ui.rebuild_observation_model_v0_lab_help"))}</p>
         <form method="post" action="#gis-reconstruction-lab" class="gis-lab-form">
-          <input type="hidden" name="profile_action" value="reconstruct_observation_gis">
+          <input type="hidden" name="profile_action" value="rebuild_observation_model_v0">
           {observation_context_inputs(filters, selected_species_id=selected_species_id)}
           {"".join(visible_hidden_inputs)}
           <div class="admin-field catalog-toggle-field">
-            <span class="field-label">Observaciones a reconstruir</span>
+            <span class="field-label">{html.escape(ui_label("ui.rebuild_observation_model_v0_observations"))}</span>
             {picker}
           </div>
           <div class="profile-action-bar inline">
-            <button class="primary profile-primary-action" name="gis_reconstruction_scope" value="selected" {"disabled" if not chips else ""}>Reconstruir GIS seleccionadas</button>
-            <button class="button-link" name="gis_reconstruction_scope" value="visible" {"disabled" if not chips else ""}>Reconstruir GIS visibles ({len(chips)})</button>
+            <button class="primary profile-primary-action" name="gis_reconstruction_scope" value="selected" {"disabled" if not chips else ""}>{html.escape(ui_label("ui.rebuild_observation_model_v0_selected"))}</button>
+            <button class="button-link" name="gis_reconstruction_scope" value="visible" {"disabled" if not chips else ""}>{html.escape(ui_label("ui.rebuild_observation_model_v0_visible"))} ({len(chips)})</button>
           </div>
         </form>
         <div class="gis-lab-results">

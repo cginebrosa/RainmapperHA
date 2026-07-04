@@ -283,8 +283,39 @@ class MushroomDataValidatorTests(unittest.TestCase):
 
         self.assertTrue(any("missing_species" in message for message in errors))
         self.assertTrue(any("unknown_location_source" in message for message in errors))
-        self.assertTrue(any("made_up_abundance" in message for message in errors))
-        self.assertTrue(any("source_quality" in message for message in errors))
+
+    def test_validator_reports_invalid_observation_derived_fields(self) -> None:
+        observations = copy.deepcopy(self.observations)
+        observations["observations"] = [
+            {
+                "observation_id": "obs_20260629_0001",
+                "species_id": self.profiles["species_profiles"][0]["species_id"],
+                "observed_at": "2026-06-29",
+                "derived": {"month": 13, "season": "monsoon"},
+                "location": {
+                    "input": "41.3874, 2.1686",
+                    "lat": 41.3874,
+                    "lon": 2.1686,
+                    "source": "manual_decimal",
+                },
+                "flush_abundance": "abundant",
+                "source_quality": 0.9,
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "metadata": {
+                    "created_at": "2026-06-29",
+                    "updated_at": "2026-06-29",
+                    "created_by": "unit_test",
+                    "updated_by": "unit_test",
+                },
+            }
+        ]
+
+        messages = self.validate_temp_dataset(observations=observations)
+        errors = [message.format() for message in messages if message.severity == "ERROR"]
+
+        self.assertTrue(any("derived.month" in message for message in errors))
+        self.assertTrue(any("derived.season" in message for message in errors))
 
 
 if __name__ == "__main__":

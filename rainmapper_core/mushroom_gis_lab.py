@@ -1,10 +1,10 @@
-"""GIS reconstruction helpers for mushroom observation lab work.
+"""GIS reconstruction helpers for mushroom observations.
 
-This module is intentionally experimental and read-only. It samples local GIS
-layers for selected observation coordinates or batch mapping audits and writes a
-review payload in the first persistent lab location available. The UI can show
-traceable raw layer values without changing species profiles, predictor
-parameters, or observation records.
+This module samples local GIS layers for selected observation coordinates or
+batch mapping audits. Reconstructed observation context is an operational v0
+artifact under `mushroom-data`; QGIS scratch exports remain local lab files.
+The UI can show traceable raw layer values without changing species profiles,
+predictor parameters, or observation records.
 """
 
 from __future__ import annotations
@@ -19,6 +19,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from rainmapper_core import mushroom_paths
+
 
 @dataclass(frozen=True)
 class VectorLayer:
@@ -30,31 +32,11 @@ class VectorLayer:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def default_mushroom_lab_root() -> Path:
-    """Return the best writable lab root for reusable mushroom reconstruction outputs."""
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_LAB_DIR", "").strip()
-    if configured:
-        return Path(configured)
-
-    ha_share_root = Path("/share/rainmapper")
-    if ha_share_root.exists():
-        return ha_share_root / "mushroom-lab"
-
-    local_share_copy = repo_root() / "docker-data"
-    if local_share_copy.exists():
-        return local_share_copy / "mushroom-lab"
-
-    return repo_root() / "tmp" / "mushroom-lab"
+    return mushroom_paths.repo_root()
 
 
 def default_output_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_mushroom_lab_root() / "working" / "features" / "gis_observation_reconstruction.json"
+    return mushroom_paths.mushroom_gis_reconstruction_path()
 
 
 def default_qgis_points_path() -> Path:
@@ -873,11 +855,17 @@ def reconstruct_observations(
     output_path: Path | None = None,
     gis_payload: dict[str, Any] | None = None,
     catalogs_payload: dict[str, Any] | None = None,
+    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
     selected_ids = [item for item in observation_ids if item]
     selected_set = set(selected_ids)
     rows = [row for row in observations if str(row.get("observation_id", "")) in selected_set]
-    results = [reconstruct_observation(row, gis_payload=gis_payload, catalogs_payload=catalogs_payload) for row in rows]
+    results = []
+    total = len(rows)
+    for index, row in enumerate(rows, start=1):
+        results.append(reconstruct_observation(row, gis_payload=gis_payload, catalogs_payload=catalogs_payload))
+        if progress_callback:
+            progress_callback(index, total)
     unmapped_candidates = collect_unmapped_candidates(results)
     qgis_points_path = write_qgis_points(rows)
     payload: dict[str, Any] = {

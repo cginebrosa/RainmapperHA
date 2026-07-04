@@ -1,6 +1,21 @@
 # Decisions
 
-Nota de auditoria 2026-07-04: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`, ultimo commit pusheado antes del cierre `c583692 Split learned model rebuild scopes`; version HA `0.2.180` verificada en `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`; no hay bump ni publicacion HA nueva. La imagen/digest `0.2.180/latest` quedan como estado previamente confirmado por el usuario, no reconsultado. Los wrappers actuales del laboratorio v0 son `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`. `mushroom_gis_mappings_rebuild.sh` reconstruye candidatos de mappings para capas GIS; no reconstruye observaciones. La evidencia GIS/meteo por observacion y el modelo aprendido v0 viven en el laboratorio local y no modifican perfiles automaticamente. La UI de setas queda en fase local posterior a `0.2.180`: Observaciones con mapas de coordenadas y reconstruccion GIS colapsable; Evidencia con subpestanas GIS/meteo/modelo; Parametros con tabs internos y comparacion inicial contra modelo aprendido. Las decisiones de evidencia guardan estado interno reversible, no aplican cambios a `mushroom_profiles.json`. Directiva nueva: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
+Nota de auditoria 2026-07-05: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`, ultimo commit pusheado antes de preparar el cierre `08797ae Document mushroom v0 evidence workflow`; version HA `0.2.180` verificada en `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`; no hay bump ni publicacion HA nueva. La imagen/digest `0.2.180/latest` quedan como estado previamente confirmado por el usuario, no reconsultado. Los wrappers actuales del flujo v0 son `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`. `mushroom_gis_mappings_rebuild.sh` reconstruye candidatos de mappings para capas GIS; no reconstruye observaciones. Datos vivos, artefactos v0 y estado del modelo viven bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA); `tmp/mushroom-lab/` queda solo para pruebas locales explicitas/QGIS. La evidencia GIS/meteo por observacion y el modelo aprendido v0 no modifican perfiles automaticamente. La UI de setas queda en fase local posterior a `0.2.180`: Observaciones captura hosts/bosque/suelo/habitat/orientacion observados y marca especies pendientes; Evidencia conserva subpestanas GIS/meteo/modelo pero necesita separar mejor Campo y GIS/DEM; Parametros tiene tres columnas perfil/evidencia v0/valores emergentes en Ecologia/Suelos/Topografia/Fenologia. Las decisiones de evidencia guardan estado interno reversible, no aplican cambios a `mushroom_profiles.json`. Directiva vigente: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
+
+## 2026-07-05 - `mushroom-data` como fuente operativa unica de setas
+
+Decision:
+
+- Centralizar datos micologicos vivos, artefactos v0 reconstruibles y estado del modelo bajo `/share/rainmapper/mushroom-data/`; en desarrollo local esto es `docker-data/mushroom-data/`.
+- Dejar `tmp/mushroom-lab/` solo para pruebas locales explicitas, QGIS o scripts exploratorios. No usar `mushroom-lab` para artefactos estables del modelo v0.
+- No mantener fallbacks de lectura a rutas antiguas del modelo. Si falta `mushroom-data/mushroom_model_v0.json`, la UI debe tratar el modelo como pendiente y reconstruirlo desde las observaciones actuales.
+- Persistir el estado de especies pendientes en `mushroom-data/mushroom_model_v0_state.json`.
+- Al subir este trabajo a HA, reemplazar los datos de especies, observaciones, catalogos, mappings, labels y artefactos v0 por la copia validada local de `mushroom-data`; no mezclarla con datos micologicos antiguos de HA.
+
+Motivo:
+
+- El proyecto ya no esta en una fase de laboratorio separada para estas piezas. Mantener rutas paralelas (`mushroom-data`, `mushroom-lab/working`, defaults versionados) hizo que pantallas distintas leyeran estados distintos y genero confusion sobre si el modelo estaba actualizado.
+- Home Assistant tendra menos CPU que el Mac local; por eso el estado pendiente permite reconstrucciones manuales y acotadas por especies, pero sin ocultar que el modelo esta desactualizado.
 
 ## 2026-07-04 - Modelo aprendido v0 como evidencia descriptiva
 
@@ -24,6 +39,31 @@ Consecuencias:
 - La pantalla `Evidencia > Modelo aprendido` es una auditoria tecnica.
 - El valor principal debe aparecer junto al parametro revisado: `Parametros`, `Especies > General`, `Especies > Ecologia` y `Fenologia y Topografia`.
 - Cualquier promocion de candidatos al perfil debe ser manual, visible y reversible.
+
+## 2026-07-04 - Reconstruccion de modelo v0 desde observaciones, no solo GIS
+
+Decision:
+
+- El laboratorio de observaciones deja de tratarse como una accion aislada de "reconstruir GIS".
+- La accion visible debe reconstruir el modelo v0 local desde las observaciones seleccionadas o visibles:
+  GIS/DEM por observacion, contexto meteorologico, features v0 unificadas y modelo aprendido v0.
+- Las features v0 deben conservar la procedencia de los valores cuando sea posible:
+  `field` para lo declarado por el observador y `gis` para lo inferido por capas GIS/DEM.
+- La pantalla `Parametros` debe comparar perfil, evidencia v0 y valores emergentes mostrando la fuente dentro de cada chip.
+- "Evidencia observacional" no debe usarse para una mezcla de observacion de campo y GIS si no se distingue la procedencia.
+
+Motivo:
+
+- El usuario necesita ver juntos los tres puntos de vista: parametros declarados de la especie, lo observado en campo y lo que dicen GIS/DEM.
+- Una observacion puede no declarar todos los arboles o rasgos presentes, y GIS puede aportar contexto adicional; a la vez, GIS puede ser incompleto o depender de mappings.
+- Llamar "GIS" al flujo completo confundia el objetivo real y ocultaba que el resultado alimenta el modelo v0 aprendido.
+
+Consecuencias:
+
+- El modelo aprendido v0 sigue sin escribir perfiles automaticamente.
+- Cualquier promocion futura de valores debe ser manual y mostrar soporte por fuente.
+- La pantalla `Evidencia` debe distinguir mejor en futuras iteraciones entre evidencia declarada por observador, evidencia GIS/DEM y coincidencias mixtas.
+- La entrada de observaciones debe distinguir siempre campo (`field`) de GIS/DEM (`gis`) en features/modelo; el formulario ya captura hosts, bosque, suelo, habitat y orientacion observados como evidencia de campo opcional.
 
 ## 2026-07-04 - Evidencia local no modifica perfiles automaticamente
 
@@ -87,6 +127,21 @@ Consecuencias:
 - Importar un JSON debe mostrar resumen de cambios antes de confirmar y bloquear referencias rotas.
 - Exportar plantilla vacia debe preservar `schema_version`, `model_purpose`, estructura raiz y grupos/campos principales, pero sin datos de especies o catalogos.
 - No modificar automaticamente perfiles al importar catalogos, ni catalogos al importar perfiles, salvo flujo de migracion explicito y confirmado.
+- En pruebas locales, la unica copia operativa es `docker-data/mushroom-data/`,
+  porque representa `/share/rainmapper/mushroom-data/` y es lo que lee la UI.
+  Los scripts de mantenimiento que afecten a datos visibles deben apuntar por
+  defecto a esa copia viva mediante `rainmapper_core.mushroom_paths`; los
+  defaults versionados se actualizan solo con una opcion explicita.
+- Cuando se decida subir el modulo de setas a HA, los datos micologicos vivos
+  de HA no son fuente de verdad para especies, observaciones, catalogos ni
+  mappings. En esta fase la fuente de verdad funcional es la copia local
+  `docker-data/mushroom-data/`; el despliegue debe reemplazar en HA:
+  `mushroom_profiles.json`, `mushroom_observations.json`,
+  `mushroom_reference_catalogs.json`, `mushroom_gis_mappings.json` y
+  `mushroom_labels.json` por los equivalentes locales validados.
+- Ese reemplazo no afecta a `users.json`, `devices.json`, historicos
+  meteorologicos, ficheros de estaciones ni datos de lectura de fuentes
+  meteorologicas bajo `/share/rainmapper/Data/`.
 
 Estado de implementacion:
 
@@ -227,6 +282,67 @@ Estado:
 - Cubierto por `tests.test_mushroom_profile_v0_candidate_builder`.
 - No hay bump de version HA ni publicacion de imagen por esta decision.
 
+## 2026-07-04 - Retirar `v0_catalog_gap_promoted` como origen visible
+
+Decision:
+
+- Eliminar `v0_catalog_gap_promoted` de los perfiles productivos y del builder
+  candidato v0.
+- Mantener los IDs de catalogo ya promovidos y las referencias desde perfiles,
+  pero no tratarlos como un origen ecologico separado.
+- No mostrar `Catalogo v0` como origen en la UI. Los origenes operativos deben
+  quedar limitados a fuentes comprensibles para revision humana: perfil
+  original, Marc Estevez, observacion de campo y GIS/DEM.
+
+Motivo:
+
+- `v0_catalog_gap_promoted` era metadato tecnico de una migracion: indicaba que
+  un ID faltaba en catalogos y fue creado para poder representar una senal de la
+  fuente v0.
+- Ese flag no aporta fuerza ecologica ni evidencia adicional. Mantenerlo en la
+  UI confundia el origen real de la afinidad con un detalle de construccion.
+- El proyecto aun tiene pocas especies y pocas observaciones; es mejor retirar
+  ahora el ruido tecnico que arrastrarlo hasta HA.
+
+Consecuencias:
+
+- El builder puede seguir usando `catalog_gap_candidates` como entrada historica
+  para asegurar referencias validas, pero no escribira flags ni notas de
+  promocion en cada afinidad.
+- La auditoria historica queda en Git, en la fuente normalizada de Marc y en
+  esta decision, no en campos visibles de mantenimiento.
+
+## 2026-07-04 - Marc Estevez como fuente documental primaria reutilizable
+
+Decision:
+
+- Crear `scripts/apply-mushroom-literature-source.py` para aplicar fuentes
+  literarias normalizadas a afinidades ecologicas de perfiles.
+- Usar `source_ids` como metadato minimo de procedencia dentro de cada afinidad,
+  sin crear una estructura grande de evidencias persistidas.
+- Aplicar la fuente normalizada de Marc Estevez como `relationship: primary`
+  para cada afinidad listada.
+- Mantener `affinity: 0.0` + `v0_placeholder: true` solo cuando haya que crear
+  una fila nueva para cumplir el schema rico, sin tratarlo como peso numerico.
+
+Motivo:
+
+- Marc Estevez es la fuente documental mas fiable disponible en esta fase. Si
+  lista una afinidad, la ficha debe reflejarla como afinidad fuerte salvo que
+  una fuente normalizada futura marque explicitamente lo contrario.
+- La UI necesita mostrar de donde sale una relacion (`Marc`) sin mezclarlo con
+  evidencia local viva (`Obs`, `GIS/DEM`) ni con detalles tecnicos de catalogo.
+- El mismo flujo debe poder reutilizarse si se anade otra fuente literaria
+  fiable o nuevas especies.
+
+Consecuencias:
+
+- `source_ids` es procedencia documental, no parametro del motor numerico.
+- Observaciones y GIS/DEM seguiran entrando por el modelo v0 aprendido o por
+  promocion manual revisable, no por este script.
+- La operativa queda documentada en
+  `docs/mushrooms/mushroom-literature-source-apply-es.md`.
+
 ## 2026-07-01 - GIS mappings como contrato revisable entre capas locales y catalogos internos
 
 Decision:
@@ -253,13 +369,84 @@ Consecuencias:
 - `accepted` es el unico estado que alimenta features computables del laboratorio y futuro motor.
 - `pending_review` e `ignored` deben conservarse como valores conocidos sin salida computable.
 - La UI `/mushrooms/gis-mappings` debe mantener filtros por mapeado/pendiente, busqueda, ordenacion, fila seleccionada visible, detalle editable, modal visible de errores y selector de IDs restringido a grupos relevantes.
-- Antes de promover el reconstructor GIS a HA real hay que resolver el contrato de rutas persistentes: `tmp/mushroom-lab/` queda para laboratorio local/QGIS, y cualquier salida HA reutilizable debe vivir bajo `/share/rainmapper/mushroom-data/` o `/share/rainmapper/mushroom-lab/`.
+- Nota supersedida por la decision del 2026-07-05: el contrato persistente ya queda resuelto. Las salidas HA reutilizables de setas viven bajo `/share/rainmapper/mushroom-data/`; `tmp/mushroom-lab/` queda para pruebas locales/QGIS.
 
 Estado:
 
 - Implementado localmente en commit `ef9bbc6 Add GIS mappings lab UI`.
 - Validado en esa implementacion con `py_compile`, `git diff --check`, `tests.test_mushroom_store`, `tests.test_mushroom_data_validator` y `scripts/validate-mushroom-data.py` con 0 errores y 7 warnings conocidos.
 - No hay bump de version HA ni publicacion de imagen por esta decision.
+
+## 2026-07-04 - Rutas micologicas centralizadas para HA y laboratorio local
+
+Decision historica, supersedida en parte por la decision del 2026-07-05 `mushroom-data` como fuente operativa unica:
+
+- Centralizar la resolucion de rutas de setas en `rainmapper_core/mushroom_paths.py`.
+- Mantener un unico contrato conceptual:
+  - defaults versionados: `mushroom-data/` en repo o `/app/mushroom-data/` en imagen HA;
+  - datos vivos editables: `/share/rainmapper/mushroom-data/`;
+  - artefactos derivados del modelo v0: desde 2026-07-05 tambien `/share/rainmapper/mushroom-data/`;
+  - desarrollo local: `docker-data/` representa `/share/rainmapper`;
+  - `tmp/` queda para artefactos temporales/locales no persistentes, como QGIS o pruebas aisladas.
+- Los modulos `mushroom_store`, `mushroom_gis_lab`, `mushroom_observation_context`, `mushroom_observation_features` y `mushroom_learned_model` deben usar este helper en vez de repetir heuristicas propias.
+- Se conserva compatibilidad con overrides por entorno (`RAINMAPPER_SHARE_ROOT`, `RAINMAPPER_MUSHROOM_DATA_DIR`, rutas concretas de artefactos y `RAINMAPPER_WEATHER_DATA_DIR`). No reintroducir `RAINMAPPER_MUSHROOM_LAB_DIR` para artefactos operativos estables.
+
+Motivo:
+
+- El rebuild completo del modelo v0 podia vaciar el modelo aprendido si un modulo leia defaults vacios en vez de la copia persistente con observaciones.
+- Tener la logica de rutas repetida en cada builder aumenta el riesgo de que HA, Docker local y scripts lean/escriban sitios distintos.
+
+Consecuencias:
+
+- Antes de subir este flujo a HA, la ruta contractual para datos maestros, features, modelos reconstruibles y estado es `/share/rainmapper/mushroom-data/`.
+- `docker-data/mushroom-data/` es la representacion local de ese contrato.
+- Los defaults versionados solo sirven para seed/fallback, tests y recuperacion; no deben ganar prioridad sobre datos persistentes existentes.
+
+## 2026-07-04 - Rebuild v0 con progreso visible y tiempos
+
+Decision:
+
+- La accion de reconstruir modelo v0 desde Observaciones no debe bloquear la pagina hasta terminar.
+- El POST arranca un job en segundo plano y vuelve inmediatamente a la pantalla con una ventana modal de progreso.
+- La ventana consulta `/api/mushrooms/rebuild-status` y muestra:
+  - fase actual y numero de fase;
+  - porcentaje total;
+  - porcentaje de fase;
+  - tiempo total transcurrido;
+  - tiempo de la fase actual;
+  - ETA total y ETA de fase cuando hay progreso medible;
+  - mensaje final o error.
+- La ventana no se cierra automaticamente. El boton `Close` solo aparece cuando el job termina o falla, para poder leer el tiempo final real.
+- El paso GIS/DEM reporta progreso por observacion mediante callback. Las fases meteorologia, features y modelo aprendido reportan inicio/fin de fase y tiempos, sin inventar progreso interno.
+
+Motivo:
+
+- En Mac el rebuild puede parecer rapido, pero en Home Assistant puede tardar bastante mas.
+- El usuario necesita saber si la reconstruccion sigue viva, que paso esta ejecutando y cuanto tarda cada fase antes de promover el flujo a HA.
+
+Consecuencias:
+
+- El estado del job es en memoria y sirve para feedback operativo de la WebUI; los artefactos persistentes operativos son JSON/CSV bajo `mushroom-data/`.
+- Si se reinicia el servidor durante un job, se pierde la ventana de estado pero no cambia el contrato de datos.
+- Si una fase futura necesita progreso interno fiable, debe exponer callback o contadores; no simular porcentajes tecnicos sin soporte.
+
+## 2026-07-04 - Vista V0 como default operativo de setas
+
+Decision:
+
+- La WebUI de mantenimiento de setas entra por defecto en vista `V0` cuando la
+  URL no trae `view`.
+- La vista `Enriched` sigue existiendo, pero debe pedirse explicitamente con
+  `view=enriched` desde el conmutador.
+- Los enlaces y selectores de especie deben preservar `view=v0` para no saltar
+  accidentalmente a `Enriched` al navegar entre especies o secciones.
+
+Motivo:
+
+- La revision diaria de observaciones, evidencia, parametros y modelo v0 se
+  esta haciendo sobre el contrato operacional v0. Que `Enriched` sea el default
+  confundia el estado visual y ocultaba si se estaba trabajando en el contrato
+  productivo o en el perfil rico completo.
 
 ## 2026-06-29 - Laboratorio local como base del predictor de floradas
 
@@ -1842,3 +2029,65 @@ y sin redisenyar la UI de observaciones.
   `mushroom_observations.json` como fallback si el artefacto es antiguo.
 - Si se necesita revision offline o sin dependencia externa, se debera crear
   una alternativa MapLibre con tiles/ortofoto controlados.
+
+## 2026-07-04 - Derivados de fecha persistidos en observaciones
+
+### Decision
+Las observaciones de setas pueden guardar un bloque `derived` con campos
+baratos calculados desde `observed_at`. La version inicial persiste:
+
+- `derived.month`: mes numerico `1-12`.
+- `derived.season`: estacion simple `winter`, `spring`, `summer` o `autumn`.
+
+Estos campos se calculan mediante una rutina comun antes de guardar una
+observacion desde alta manual, edicion, duplicado/plantilla o importacion EXIF.
+Las observaciones existentes se pueden migrar una vez con
+`scripts/update-mushroom-observation-derived-fields.py`.
+
+### Motivo
+En HA interesa reducir trabajo repetido durante reconstrucciones del modelo v0.
+El proyecto acepta esta desnormalizacion controlada porque tenemos mas margen
+de disco que de CPU. `observed_at` sigue siendo la fuente canonica y los campos
+derivados son regenerables.
+
+### Consecuencias
+- Los rebuilds pueden leer `month` y `season` ya persistidos, con fallback a
+  calculo en memoria para artefactos antiguos.
+- El validador permite `derived` y comprueba que `month` y `season` tengan
+  valores validos si existen.
+- La estacion simple no sustituye a `phenology.main_months`,
+  `secondary_months` ni `season_pattern_ids`; solo describe la fecha concreta
+  de una observacion.
+
+## 2026-07-04 - Guardado comun de perfiles y contexto de campo ampliado
+
+### Decision
+El guardado de perfiles de especie debe pasar por una normalizacion comun antes
+de persistir. En esta fase se centraliza solo metadata de guardado
+(`metadata.updated_at`, `metadata.updated_by`) para los caminos de formulario
+completo, JSON raw, parametros y calibracion. No se recalculan parametros ni se
+promociona evidencia automaticamente.
+
+Las observaciones de campo pueden declarar, ademas de arboles observados:
+
+- `site_context.observed_forest_type_ids`
+- `site_context.observed_soil_tendency_ids`
+- `site_context.observed_habitat_feature_ids`
+- `site_context.observed_aspect_ids`
+
+Estos valores son opcionales, catalogados y representan lo que declara el
+observador. El joiner v0 los marca como fuente `field`; GIS/DEM sigue marcado
+como fuente `gis`.
+
+### Motivo
+La UI y el modelo comparativo necesitan los tres puntos de vista: parametros de
+la especie, evidencia declarada por observador y evidencia GIS/DEM. Sin bosque,
+suelo, habitat y orientacion en la observacion, parte de esa evidencia nunca
+podria ser observacional.
+
+### Consecuencias
+- `Enriched` debe ir siempre con `view=enriched` en URL; como `V0` es default,
+  omitir `view` ya no significa enriched.
+- Guardar desde cualquier subflujo de perfil preserva la vista activa.
+- Las observaciones enriquecidas no modifican perfiles; solo alimentan features
+  v0 y modelo aprendido descriptivo.

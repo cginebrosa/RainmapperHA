@@ -14,6 +14,12 @@ Este documento propone una primera arquitectura funcional para el predictor de f
 
 La propuesta se ha contrastado con literatura científica identificada sobre productividad micológica, fructificación, fenología y modelos de distribución de hongos, pero no todos los artículos están disponibles como texto completo local. Por tanto, este documento distingue entre evidencia documental verificable, deducción prudente de diseño y trabajo pendiente. El dataset actual debe seguir considerándose un modelo inicial mantenible y explicable, no un modelo científico calibrado localmente.
 
+Nota de vigencia 2026-07-05: las referencias antiguas a
+`docker-data/mushroom-lab/working/` describen fases historicas. El modelo v0
+operativo, sus features y su estado viven ahora en `mushroom-data/`
+(`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en
+HA). `tmp/mushroom-lab/` queda para pruebas explicitas/QGIS.
+
 Regla crítica:
 
 ```text
@@ -109,10 +115,15 @@ Entrada actual:
 
 - `docker-data/mushroom-lab/working/features/observation_features_v0.json`;
 - observaciones incluidas para calibracion local y con estado valido;
+- contexto de campo declarado por el observador, cuando exista, empezando por
+  hosts observados;
 - contexto GIS v0 por observacion: hosts, bosques, suelos, habitat y altitud;
 - meteorologia reconstruida por observacion: lluvia 1/7/14/21/30/60/90,
   temperatura 7/14/21/30 y humedad 7/14/21/30;
-- gaps meteorologicos, GIS o de feature conservados como datos de calidad.
+- gaps meteorologicos, GIS o de feature conservados como datos de calidad;
+- procedencia por valor en las features categoricas cuando sea posible:
+  `field` para evidencia declarada por el observador y `gis` para evidencia
+  reconstruida desde GIS/DEM.
 
 Salida actual:
 
@@ -130,6 +141,8 @@ Lo que hace:
 
 - permite auditar si los valores declarados en `mushroom_profiles.json` estan
   apoyados por observaciones locales;
+- permite diferenciar si el soporte de un valor viene de campo, de GIS/DEM o de
+  ambos, sin mezclarlo como si tuviera la misma naturaleza;
 - muestra candidatos o contradicciones potenciales, por ejemplo un host
   observado que no esta declarado o un suelo declarado que no aparece en ninguna
   observacion;
@@ -167,9 +180,10 @@ El flujo correcto sigue siendo no destructivo:
 
 ```text
 observacion aprobada
-  -> features v0 reconstruidas
+  -> GIS/DEM y meteorologia reconstruidos
+  -> features v0 reconstruidas con procedencia Campo/GIS
   -> modelo aprendido descriptivo
-  -> evidencia visible junto al parametro
+  -> evidencia v0 y valores emergentes visibles junto al parametro
   -> decision humana o candidato revisable
   -> promocion manual y trazable si procede
 ```

@@ -28,7 +28,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `rainmapper-app/`: paquete de Home Assistant.
 - `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
-- `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para laboratorio local sin tocar Home Assistant.
+- `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para pruebas locales sin tocar Home Assistant.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh`, `aemet-backfill-30-days.py`, `reconstruct-mushroom-gis-mappings.py`, `reconstruct-mushroom-observation-context.py`, `build-mushroom-observation-features-v0.py`, `build-mushroom-learned-model-v0.py`, `build-mushroom-profile-v0-candidate.py`, `audit-mushroom-profile-v0-source.py` y `validate-mushroom-data.py`.
@@ -57,7 +57,7 @@ Hay varios entry points segun entorno:
 - Mapas Bokeh: `python -m rainmapper_core.bokeh_maps` como entrypoint canonico; implementacion en `rainmapper_core/bokeh_maps.py`.
 - GeoJSON: `rainmapper_core/geojson.py` como entrypoint canonico ejecutable con `python -m rainmapper_core.geojson`.
 - WebUI HA: `rainmapper-app/app/web_server.py`.
-- Laboratorio setas v0: wrappers raiz `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`.
+- Flujo setas v0: wrappers raiz `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`.
 - Leaflet: `rainmapper_core/viewers/leaflet-viewer/index.html` y `app.js`, desde la ruta canonica.
 - MapLibre: `rainmapper_core/viewers/maplibre-viewer/index.html` y `app.js`, desde la ruta canonica.
 
@@ -135,18 +135,19 @@ Hay varios entry points segun entorno:
 - Dependencias: Docker Compose y `python3`.
 - Relacion: acceso rapido a `http://127.0.0.1:8080/rainmapper_core/viewers/maplibre-viewer/` y `http://127.0.0.1:8080/rainmapper_core/viewers/leaflet-viewer/` tras regenerar datos locales.
 
-### Laboratorio local WebUI HA
+### WebUI HA local
 - Ruta: `rainmapper-local/docker-compose.yml`, servicio `rainmapper-ha-ui`.
 - Responsabilidad: levantar la WebUI de Home Assistant en local usando `rainmapper-app/Dockerfile` y montando `docker-data/` como `/share/rainmapper`.
 - Puerto local: `http://127.0.0.1:8101`.
-- Relacion: permite cargar observaciones reales/historicas de setas, importar EXIF y probar flujos de mantenimiento sin escribir en la instalacion HA real. Usa `rainmapper-local/options.local-ha-ui.json` como opciones de add-on y `tmp/mushroom-lab/runtime/config-www` como `/config/www`.
-- Estado verificado 2026-07-02: tras ejecutar `./mushroom_lab_stop.sh`, `docker compose -f rainmapper-local/docker-compose.yml ps` no muestra servicios activos. Los datos locales siguen preservados en `docker-data/`.
+- Relacion: permite cargar observaciones reales/historicas de setas, importar EXIF y probar flujos de mantenimiento sin escribir en la instalacion HA real. Usa `rainmapper-local/options.local-ha-ui.json` como opciones de add-on y `tmp/mushroom-lab/runtime/config-www` como `/config/www`; esa ruta de `tmp/` es runtime local, no fuente operativa del modelo v0.
+- Estado verificado 2026-07-05: `docker compose -f rainmapper-local/docker-compose.yml ps` no muestra servicios activos. Los datos locales siguen preservados en `docker-data/`.
 
-### Laboratorio de setas v0
+### Flujo de setas v0
 - Rutas principales:
   - `rainmapper_core/mushroom_observation_context.py`
   - `rainmapper_core/mushroom_observation_features.py`
   - `rainmapper_core/mushroom_learned_model.py`
+  - `rainmapper_core/mushroom_paths.py`
   - `scripts/reconstruct-mushroom-observation-context.py`
   - `scripts/build-mushroom-observation-features-v0.py`
   - `scripts/build-mushroom-learned-model-v0.py`
@@ -155,9 +156,11 @@ Hay varios entry points segun entorno:
   - `mushroom_observation_features_v0_build.sh`
   - `mushroom_learned_model_v0_build.sh`
 - Responsabilidad: reconstruir contexto GIS/DEM/meteorologico de observaciones locales, unir features v0 y generar una salida aprendida descriptiva por especie.
+- Contrato de rutas: `mushroom_paths.py` centraliza defaults (`mushroom-data/` o `/app/mushroom-data/`) y toda la copia operativa de setas bajo `/share/rainmapper/mushroom-data/`. En Docker local, `docker-data/` representa `/share/rainmapper`. `tmp/mushroom-lab/` queda reservado para pruebas locales explicitas, no para artefactos estables del modelo v0.
 - Flujo reproducible: primero `./mushroom_observation_context_rebuild.sh`, despues `./mushroom_observation_features_v0_build.sh`, despues `./mushroom_learned_model_v0_build.sh`.
-- Salidas locales principales: `docker-data/mushroom-lab/working/features/observation_features_v0.json`, `docker-data/mushroom-lab/working/models/mushroom_model_v0.json` y reportes bajo `docker-data/mushroom-lab/output/reports/`.
+- Salidas locales principales: `docker-data/mushroom-data/mushroom_gis_observation_reconstruction.json`, `docker-data/mushroom-data/mushroom_observations_weather_features.json`, `docker-data/mushroom-data/mushroom_observation_features_v0.json`, `docker-data/mushroom-data/mushroom_model_v0.json`, `docker-data/mushroom-data/mushroom_model_v0_state.json` y reportes bajo `docker-data/mushroom-data/reports/`.
 - Relacion con perfiles: no modifica `mushroom-data/mushroom_profiles.json`. La WebUI muestra la evidencia para revision humana y futura promocion manual.
+- WebUI: el rebuild completo desde Observaciones arranca un job en segundo plano y expone progreso por `/api/mushrooms/rebuild-status`, con tiempos y ETA para medir coste real en HA sin congelar la pagina.
 - Diferencia con `mushroom_gis_mappings_rebuild.sh`: ese wrapper reconstruye candidatos de mappings para capas GIS, no reconstruye observaciones ni modelos por especie.
 
 ### Runner local solo mapas
@@ -322,7 +325,7 @@ Home Assistant:
 - Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version. Esto evita que HA vea un update antes de que exista la imagen en GHCR.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
 - El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
-- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.180/latest` esta documentada como imagen publicada, validada e instalada en HA con digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, y `0.2.179` queda como rollback inmediato. No se ha reconsultado GHCR en la auditoria local del 2026-07-02. Antecedente historico: `0.2.137/latest` se publico y valido en HA el 2026-06-25 con digest multi-arch `sha256:539c879d2c7f9dfc282d671b71c627a858b48d59778e3195ec2d0254accee928`; tras aquella limpieza remota, GHCR conservaba solo `0.2.137,latest` y cuatro auxiliares sin tag del mismo push multi-arch.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.180/latest` esta documentada como imagen publicada, validada e instalada en HA con digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, y `0.2.179` queda como rollback inmediato. No se ha reconsultado GHCR en la auditoria local del 2026-07-05. Antecedente historico: `0.2.137/latest` se publico y valido en HA el 2026-06-25 con digest multi-arch `sha256:539c879d2c7f9dfc282d671b71c627a858b48d59778e3195ec2d0254accee928`; tras aquella limpieza remota, GHCR conservaba solo `0.2.137,latest` y cuatro auxiliares sin tag del mismo push multi-arch.
 - Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando solo la ultima version validada, `latest` y las entradas auxiliares sin tag asociadas al mismo push multi-arch. Esto evita acumular basura en GitHub Packages. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch mientras HA pueda necesitar reinstalarla.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
 - Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit a GitHub, abriendo el repo temporalmente si HA necesita detectar metadata, y usando `Check for updates`/`Update` en HA. Tras validar la version, el repo debe volver a privado.

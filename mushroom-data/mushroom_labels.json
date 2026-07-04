@@ -334,6 +334,26 @@
     "es": "Arboles observados",
     "ca": "Arbres observats"
   },
+  "site_context.observed_forest_type_ids": {
+    "en": "Forest observed",
+    "es": "Bosque observado",
+    "ca": "Bosc observat"
+  },
+  "site_context.observed_soil_tendency_ids": {
+    "en": "Soil observed",
+    "es": "Suelo observado",
+    "ca": "Sol observat"
+  },
+  "site_context.observed_habitat_feature_ids": {
+    "en": "Habitat observed",
+    "es": "Habitat observado",
+    "ca": "Habitat observat"
+  },
+  "site_context.observed_aspect_ids": {
+    "en": "Aspect observed",
+    "es": "Orientacion observada",
+    "ca": "Orientacio observada"
+  },
   "site_context.habitat_notes": {
     "en": "Habitat notes",
     "es": "Notas de habitat",
@@ -408,6 +428,26 @@
     "en": "Register a field outcome for species calibration. Use either a map link/decimal pair or explicit latitude and longitude.",
     "es": "Registra un resultado de campo para calibrar especies. Usa un enlace de mapa/par decimal o latitud y longitud explicitas.",
     "ca": "Registra un resultat de camp per calibrar especies. Usa un enllac de mapa/parell decimal o latitud i longitud explicites."
+  },
+  "ui.observation_group_record": {
+    "en": "Observation",
+    "es": "Observacion",
+    "ca": "Observacio"
+  },
+  "ui.observation_group_location": {
+    "en": "Location",
+    "es": "Ubicacion",
+    "ca": "Ubicacio"
+  },
+  "ui.observation_group_validation": {
+    "en": "Validation",
+    "es": "Validacion",
+    "ca": "Validacio"
+  },
+  "ui.observation_group_source": {
+    "en": "Source",
+    "es": "Origen",
+    "ca": "Origen"
   },
   "ui.observation_not_saved": {
     "en": "Observation was not saved",
@@ -739,6 +779,41 @@
     "es": "Modelo v0 aprendido",
     "ca": "Model v0 apres"
   },
+  "ui.learned_observational_evidence": {
+    "en": "v0 evidence",
+    "es": "Evidencia v0",
+    "ca": "Evidencia v0"
+  },
+  "ui.learned_emerging_values": {
+    "en": "Emerging values",
+    "es": "Valores emergentes",
+    "ca": "Valors emergents"
+  },
+  "ui.source_field": {
+    "en": "Field",
+    "es": "Campo",
+    "ca": "Camp"
+  },
+  "ui.source_gis_dem": {
+    "en": "GIS/DEM",
+    "es": "GIS/DEM",
+    "ca": "GIS/DEM"
+  },
+  "ui.source_v0": {
+    "en": "v0",
+    "es": "v0",
+    "ca": "v0"
+  },
+  "ui.source_marc_estevez": {
+    "en": "Marc",
+    "es": "Marc",
+    "ca": "Marc"
+  },
+  "ui.origins": {
+    "en": "Origins",
+    "es": "Origenes",
+    "ca": "Origens"
+  },
   "ui.learned_model_missing": {
     "en": "No learned model has been generated yet. Run mushroom_learned_model_v0_build.sh after building observation features.",
     "es": "Aun no se ha generado ningun modelo aprendido. Ejecuta mushroom_learned_model_v0_build.sh despues de generar features de observaciones.",
@@ -758,6 +833,106 @@
     "en": "Runs weather reconstruction, joins v0 observation features and rebuilds the learned model. Profiles are not modified.",
     "es": "Ejecuta reconstruccion meteorologica, une features v0 de observaciones y reconstruye el modelo aprendido. No modifica perfiles.",
     "ca": "Executa reconstruccio meteorologica, uneix features v0 d'observacions i reconstrueix el model apres. No modifica perfils."
+  },
+  "ui.rebuild_observation_model_v0_lab": {
+    "en": "Local v0 model reconstruction",
+    "es": "Reconstruccion modelo v0 local",
+    "ca": "Reconstruccio model v0 local"
+  },
+  "ui.rebuild_observation_model_v0_lab_help": {
+    "en": "Select visible observations to rebuild against GIS/DEM and use them to refresh v0 features and the v0 model. This lab does not change observations or profiles.",
+    "es": "Selecciona las observaciones visibles que quieres reconstruir contra GIS/DEM y usar para refrescar features y modelo v0. Este laboratorio no cambia observaciones ni perfiles.",
+    "ca": "Selecciona les observacions visibles que vols reconstruir contra GIS/DEM i usar per refrescar features i model v0. Aquest laboratori no canvia observacions ni perfils."
+  },
+  "ui.rebuild_observation_model_v0_observations": {
+    "en": "Observations to rebuild",
+    "es": "Observaciones a reconstruir",
+    "ca": "Observacions a reconstruir"
+  },
+  "ui.rebuild_observation_model_v0_none": {
+    "en": "No visible observations with valid coordinates are available to rebuild.",
+    "es": "No hay observaciones visibles con coordenadas validas para reconstruir.",
+    "ca": "No hi ha observacions visibles amb coordenades valides per reconstruir."
+  },
+  "ui.rebuild_observation_model_v0_selected": {
+    "en": "Rebuild selected v0 model",
+    "es": "Reconstruir modelo v0 seleccionadas",
+    "ca": "Reconstruir model v0 seleccionades"
+  },
+  "ui.rebuild_observation_model_v0_visible": {
+    "en": "Rebuild visible v0 model",
+    "es": "Reconstruir modelo v0 visibles",
+    "ca": "Reconstruir model v0 visibles"
+  },
+  "ui.rebuild_progress_title": {
+    "en": "v0 model reconstruction",
+    "es": "Reconstruccion modelo v0",
+    "ca": "Reconstruccio model v0"
+  },
+  "ui.rebuild_progress_preparing": {
+    "en": "Preparing reconstruction...",
+    "es": "Preparando reconstruccion...",
+    "ca": "Preparant reconstruccio..."
+  },
+  "ui.rebuild_progress_total": {
+    "en": "Total",
+    "es": "Total",
+    "ca": "Total"
+  },
+  "ui.rebuild_progress_current_step": {
+    "en": "Current step",
+    "es": "Paso actual",
+    "ca": "Pas actual"
+  },
+  "ui.rebuild_progress_step": {
+    "en": "Step",
+    "es": "Paso",
+    "ca": "Pas"
+  },
+  "ui.rebuild_progress_total_elapsed": {
+    "en": "Total elapsed",
+    "es": "Tiempo total",
+    "ca": "Temps total"
+  },
+  "ui.rebuild_progress_step_elapsed": {
+    "en": "Step elapsed",
+    "es": "Tiempo paso",
+    "ca": "Temps pas"
+  },
+  "ui.rebuild_progress_total_eta": {
+    "en": "Total ETA",
+    "es": "ETA total",
+    "ca": "ETA total"
+  },
+  "ui.rebuild_progress_step_eta": {
+    "en": "Step ETA",
+    "es": "ETA paso",
+    "ca": "ETA pas"
+  },
+  "ui.rebuild_progress_calculating": {
+    "en": "calculating",
+    "es": "calculando",
+    "ca": "calculant"
+  },
+  "ui.rebuild_progress_refresh_screen": {
+    "en": "Refresh screen",
+    "es": "Refrescar pantalla",
+    "ca": "Refrescar pantalla"
+  },
+  "ui.model_v0_outdated": {
+    "en": "v0 model outdated",
+    "es": "Modelo v0 desactualizado",
+    "ca": "Model v0 desactualitzat"
+  },
+  "ui.rebuild_pending_model_v0": {
+    "en": "Rebuild pending v0 model",
+    "es": "Reconstruir modelo v0 pendiente",
+    "ca": "Reconstruir model v0 pendent"
+  },
+  "ui.rebuild_pending_model_v0_help": {
+    "en": "Rebuilds GIS/DEM, weather/features and the learned v0 model for species with changed observations. Profiles are not modified.",
+    "es": "Reconstruye GIS/DEM, meteorologia/features y el modelo aprendido v0 para especies con observaciones cambiadas. No modifica perfiles.",
+    "ca": "Reconstrueix GIS/DEM, meteorologia/features i el model apres v0 per a especies amb observacions canviades. No modifica perfils."
   },
   "ui.rebuild_selected_learned_model": {
     "en": "Rebuild this species",
@@ -803,6 +978,11 @@
     "en": "Profile overlap",
     "es": "Coincidencia del perfil",
     "ca": "Coincidencia del perfil"
+  },
+  "ui.emerging_outside_profile": {
+    "en": "Outside profile",
+    "es": "Fuera del perfil",
+    "ca": "Fora del perfil"
   },
   "ui.learned_parameter_comparison_note": {
     "en": "Read-only comparison with learned evidence. It does not modify profiles.",
@@ -1635,9 +1815,9 @@
     "ca": "Desar JSON raw"
   },
   "ui.save_species_profile": {
-    "en": "Save species profile",
-    "es": "Guardar perfil de especie",
-    "ca": "Desar perfil d'especie"
+    "en": "Save",
+    "es": "Guardar",
+    "ca": "Desar"
   },
   "ui.backup": {
     "en": "Backup",
@@ -1645,14 +1825,14 @@
     "ca": "Backup"
   },
   "ui.duplicate_species": {
-    "en": "Duplicate species",
-    "es": "Duplicar especie",
-    "ca": "Duplicar especie"
+    "en": "Duplicate",
+    "es": "Duplicar",
+    "ca": "Duplicar"
   },
   "ui.archive_species": {
-    "en": "Archive species",
-    "es": "Archivar especie",
-    "ca": "Arxivar especie"
+    "en": "Archive",
+    "es": "Archivar",
+    "ca": "Arxivar"
   },
   "ui.validate_profile_planned": {
     "en": "Validate profile - planned",

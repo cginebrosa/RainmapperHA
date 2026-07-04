@@ -21,6 +21,7 @@ class MushroomLearnedModelTests(unittest.TestCase):
                                 "validation_status": "valid",
                                 "calibration_use": "include",
                                 "host_ids": ["host_quercus_ilex"],
+                                "host_sources": {"host_quercus_ilex": ["field", "gis"]},
                                 "forest_type_ids": ["forest_holm_oak"],
                                 "soil_tendency_ids": ["soil_calcareous"],
                                 "habitat_feature_ids": ["feature_open_warm_woodland"],
@@ -34,6 +35,7 @@ class MushroomLearnedModelTests(unittest.TestCase):
                                 "validation_status": "valid",
                                 "calibration_use": "include",
                                 "host_ids": ["host_quercus_ilex"],
+                                "host_sources": {"host_quercus_ilex": ["gis"]},
                                 "forest_type_ids": ["forest_holm_oak"],
                                 "soil_tendency_ids": ["soil_calcareous"],
                                 "habitat_feature_ids": ["feature_open_warm_woodland"],
@@ -80,6 +82,13 @@ class MushroomLearnedModelTests(unittest.TestCase):
             self.assertEqual(model["weather_gap_count"], 1)
             self.assertEqual(hosts["host_quercus_ilex"]["positive_support"], 1)
             self.assertEqual(hosts["host_quercus_ilex"]["negative_support"], 1)
+            self.assertEqual(hosts["host_quercus_ilex"]["positive_sources"], ["field", "gis"])
+            self.assertEqual(
+                hosts["host_quercus_ilex"]["positive_source_support"],
+                {"field": 1, "gis": 1},
+            )
+            self.assertEqual(hosts["host_quercus_ilex"]["negative_sources"], ["gis"])
+            self.assertEqual(hosts["host_quercus_ilex"]["negative_source_support"], {"gis": 1})
             self.assertNotIn("host_pinus_sylvestris", hosts)
             self.assertEqual(altitude["positive"]["min"], 650.0)
             self.assertEqual(altitude["positive"]["max"], 700.0)

@@ -126,6 +126,11 @@ class MushroomProfileV0CandidateBuilderTests(unittest.TestCase):
         self.assertIn("host_corylus_avellana", host_ids)
         self.assertIn("host_quercus_faginea", host_ids)
         self.assertIn("feature_calcicolous_shrubland", habitat_ids)
+        all_affinities = (
+            tuber["ecology"]["host_affinities"]
+            + tuber["ecology"]["habitat_feature_affinities"]
+        )
+        self.assertFalse(any(item.get("v0_catalog_gap_promoted") for item in all_affinities))
 
 
 if __name__ == "__main__":

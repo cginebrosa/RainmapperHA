@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the experimental learned v0 mushroom model from observation features."""
+"""Build the learned v0 mushroom model from observation features."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from rainmapper_core import mushroom_learned_model, mushroom_observation_feature
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="mushroom_learned_model_v0_build.sh",
-        description="Build an experimental observation-learned v0 mushroom model.",
+        description="Build the observation-learned v0 mushroom model.",
     )
     parser.add_argument(
         "--features",

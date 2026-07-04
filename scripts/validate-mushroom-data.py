@@ -154,6 +154,7 @@ REQUIRED_OBSERVATION_LOCATION_KEYS = {
     "lon",
     "source",
 }
+OBSERVATION_DERIVED_SEASONS = {"spring", "summer", "autumn", "winter"}
 EXPECTED_WEIGHT_KEYS = {
     "habitat",
     "season",
@@ -1071,6 +1072,20 @@ def validate_observations(
         if not isinstance(observed_at, str) or not ISO_DATE_RE.match(observed_at):
             messages.append(error(f"{location}.observed_at", "expected ISO date YYYY-MM-DD"))
 
+        derived = observation.get("derived")
+        if derived is not None:
+            if not isinstance(derived, dict):
+                messages.append(error(f"{location}.derived", "expected an object"))
+            else:
+                if "month" in derived:
+                    month = derived.get("month")
+                    if not isinstance(month, int) or isinstance(month, bool) or month < 1 or month > 12:
+                        messages.append(error(f"{location}.derived.month", "expected integer 1-12"))
+                if "season" in derived:
+                    season = derived.get("season")
+                    if not isinstance(season, str) or season not in OBSERVATION_DERIVED_SEASONS:
+                        messages.append(error(f"{location}.derived.season", "expected spring, summer, autumn or winter"))
+
         obs_location = observation.get("location")
         if require_mapping(obs_location, REQUIRED_OBSERVATION_LOCATION_KEYS, f"{location}.location", messages):
             validate_number(obs_location.get("lat"), f"{location}.location.lat", messages, minimum=-90, maximum=90)
@@ -1182,6 +1197,38 @@ def validate_observations(
                         "host_taxa",
                         ids_by_catalog,
                         host_location,
+                        messages,
+                        used_ids,
+                    )
+        if isinstance(site_context, dict):
+            for field, catalog_name in (
+                ("observed_forest_type_ids", "forest_types"),
+                ("observed_soil_tendency_ids", "soil_types"),
+                ("observed_habitat_feature_ids", "habitat_features"),
+                ("observed_aspect_ids", "aspects"),
+            ):
+                if field not in site_context:
+                    continue
+                values = site_context.get(field)
+                field_location = f"{location}.site_context.{field}"
+                if not isinstance(values, list):
+                    messages.append(error(field_location, "expected a list"))
+                    continue
+                seen_values: set[str] = set()
+                for value_index, item_id in enumerate(values):
+                    item_location = f"{field_location}[{value_index}]"
+                    if not isinstance(item_id, str) or not item_id:
+                        messages.append(error(item_location, f"expected a {catalog_name} catalog ID"))
+                        continue
+                    if item_id in seen_values:
+                        messages.append(error(item_location, f"duplicate ID {item_id!r}"))
+                        continue
+                    seen_values.add(item_id)
+                    validate_id(
+                        item_id,
+                        catalog_name,
+                        ids_by_catalog,
+                        item_location,
                         messages,
                         used_ids,
                     )

@@ -7,25 +7,25 @@ from rainmapper_core import mushroom_gis_lab
 
 class MushroomGisLabTests(unittest.TestCase):
     def test_default_output_path_accepts_explicit_reconstruction_path(self):
-        configured_path = "/share/rainmapper/mushroom-lab/custom/reconstruction.json"
+        configured_path = "/share/rainmapper/mushroom-data/custom/reconstruction.json"
 
         with patch.dict("os.environ", {"RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH": configured_path}, clear=False):
             self.assertEqual(mushroom_gis_lab.default_output_path(), Path(configured_path))
 
-    def test_default_output_path_uses_configured_lab_dir(self):
-        lab_dir = "/share/rainmapper/mushroom-lab"
+    def test_default_output_path_uses_mushroom_data_dir(self):
+        data_dir = "/share/rainmapper/mushroom-data"
 
         with patch.dict(
             "os.environ",
             {
-                "RAINMAPPER_MUSHROOM_LAB_DIR": lab_dir,
+                "RAINMAPPER_MUSHROOM_DATA_DIR": data_dir,
                 "RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH": "",
             },
             clear=False,
         ):
             self.assertEqual(
                 mushroom_gis_lab.default_output_path(),
-                Path(lab_dir) / "working" / "features" / "gis_observation_reconstruction.json",
+                Path(data_dir) / "mushroom_gis_observation_reconstruction.json",
             )
 
     def test_geology_lithology_suggestion_uses_catalog_ids(self):

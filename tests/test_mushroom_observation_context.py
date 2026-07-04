@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from rainmapper_core import mushroom_observation_context
 
@@ -67,7 +68,13 @@ class MushroomObservationContextTests(unittest.TestCase):
                             "validation_status": "valid",
                             "calibration_use": "include",
                             "source_quality": 1,
-                            "site_context": {"observed_host_ids": ["host_pinus_sylvestris"]},
+                            "site_context": {
+                                "observed_host_ids": ["host_pinus_sylvestris"],
+                                "observed_forest_type_ids": ["forest_montane_pine"],
+                                "observed_soil_tendency_ids": ["soil_siliceous"],
+                                "observed_habitat_feature_ids": ["feature_mature_forest"],
+                                "observed_aspect_ids": ["aspect_N"],
+                            },
                         },
                         {
                             "observation_id": "obs_2",
@@ -85,6 +92,20 @@ class MushroomObservationContextTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+
+    def test_default_observations_path_prefers_persistent_share_file(self) -> None:
+        share_path = Path("/share/rainmapper/mushroom-data/mushroom_observations.json")
+
+        def fake_exists(path: Path) -> bool:
+            return str(path) == str(share_path)
+
+        with mock.patch.dict(
+            "os.environ",
+            {"RAINMAPPER_MUSHROOM_OBSERVATIONS_PATH": "", "RAINMAPPER_SHARE_ROOT": "/share/rainmapper"},
+            clear=False,
+        ), \
+            mock.patch.object(Path, "exists", fake_exists):
+            self.assertEqual(mushroom_observation_context.default_observations_path(), share_path)
 
     def test_build_weather_features_uses_nearest_available_station_and_reports_gaps(self) -> None:
         self.write_observations()
@@ -142,6 +163,8 @@ class MushroomObservationContextTests(unittest.TestCase):
 
         self.assertEqual(payload["summary"]["observations"], 2)
         self.assertEqual(first["weather_source"], "meteocat")
+        self.assertEqual(first["month"], 7)
+        self.assertEqual(first["season"], "summer")
         self.assertEqual(first["weather_station_code"], "ST_NEAR")
         self.assertEqual(first["rain_1d_mm"], 2.5)
         self.assertEqual(first["rain_7d_mm"], 4.0)
@@ -160,6 +183,10 @@ class MushroomObservationContextTests(unittest.TestCase):
         self.assertEqual(first["wind_direction_deg"], 90.0)
         self.assertIn("rain_7d_coverage_2/7", first["data_gaps"])
         self.assertEqual(first["observed_host_ids"], ["host_pinus_sylvestris"])
+        self.assertEqual(first["observed_forest_type_ids"], ["forest_montane_pine"])
+        self.assertEqual(first["observed_soil_tendency_ids"], ["soil_siliceous"])
+        self.assertEqual(first["observed_habitat_feature_ids"], ["feature_mature_forest"])
+        self.assertEqual(first["observed_aspect_ids"], ["aspect_N"])
         self.assertEqual(second["analysis_result"], "absent")
         self.assertIn("no_weather_station_with_90d_coverage", second["data_gaps"])
 

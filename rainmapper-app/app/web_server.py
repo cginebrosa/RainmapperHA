@@ -34,8 +34,10 @@ import mushroom_gis_mappings_ui
 import mushroom_profiles_ui
 from rainmapper_core import mushroom_gis_lab
 from rainmapper_core import mushroom_learned_model
+from rainmapper_core import mushroom_model_state
 from rainmapper_core import mushroom_observation_context
 from rainmapper_core import mushroom_observation_features
+from rainmapper_core import mushroom_observations
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
 from rainmapper_core.mushroom_validation import (
     empty_species_profile,
@@ -124,6 +126,8 @@ RUN_STATE = {
     "users_flash": "",
     "mushroom_profiles_flash": "",
 }
+MUSHROOM_REBUILD_JOBS: dict[str, dict[str, object]] = {}
+MUSHROOM_REBUILD_JOB_TTL_SECONDS = 3600
 
 
 def set_current_process(process: subprocess.Popen | None) -> None:
@@ -1544,7 +1548,22 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       color: var(--accent);
     }}
     .catalog-table .selected-row td {{
-      background: rgba(3, 169, 244, 0.08);
+      background: rgba(3, 169, 244, .16);
+      border-bottom-color: rgba(3, 169, 244, .46);
+      border-top: 1px solid rgba(3, 169, 244, .46);
+      color: var(--fg);
+    }}
+    .catalog-table .selected-row td:first-child {{
+      border-left: 4px solid var(--accent);
+      padding-left: 8px;
+    }}
+    .catalog-table .selected-row .catalog-row-link {{
+      color: var(--accent);
+      font-weight: 900;
+    }}
+    .catalog-table .selected-row td:nth-child(3) {{
+      color: #fff;
+      font-weight: 800;
     }}
     .catalog-alert-list {{
       display: grid;
@@ -2376,7 +2395,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items: end;
       display: grid;
       gap: 7px;
-      grid-template-columns: minmax(220px, 1fr) minmax(130px, .5fr) minmax(86px, .28fr);
+      grid-template-columns: minmax(230px, .85fr) minmax(126px, .38fr) minmax(126px, .34fr) minmax(78px, .22fr);
     }}
     .profile-affinity-row .admin-field {{
       align-items: center;
@@ -2391,6 +2410,31 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .profile-affinity-row .admin-field label::after {{
       content: ":";
       margin-left: 1px;
+    }}
+    .profile-affinity-origins > div {{
+      min-width: 0;
+    }}
+    .profile-origin-badges {{
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 26px;
+    }}
+    .profile-origin-badge {{
+      border: 1px solid rgba(3, 169, 244, .48);
+      border-radius: 999px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 3px 7px;
+      white-space: nowrap;
+    }}
+    .profile-origin-empty {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
     }}
     .profile-editor .admin-field label {{
       font-size: 12px;
@@ -2533,6 +2577,44 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       justify-content: space-between;
       padding: 12px;
     }}
+    .parameters-screen .profile-section-banner.compact {{
+      align-items: center;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(260px, .46fr) minmax(620px, .54fr);
+      padding: 8px 14px 6px;
+    }}
+    .parameters-screen .profile-section-banner.compact .profile-title-block h2 {{
+      font-size: 19px;
+      margin: 0 0 3px;
+    }}
+    .parameters-screen .profile-section-banner.compact .profile-hero-icon {{
+      height: 38px;
+      width: 38px;
+    }}
+    .parameters-screen .profile-section-banner.compact .profile-hero-side {{
+      gap: 5px;
+      min-width: 0;
+    }}
+    .parameters-screen .profile-section-banner.compact .profile-hero-chips {{
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+      max-width: none;
+      width: 100%;
+    }}
+    .parameters-screen .profile-section-banner.compact .profile-status-chip {{
+      border-radius: 7px;
+      font-size: 12px;
+      gap: 4px;
+      min-height: 26px;
+      padding: 3px 7px;
+    }}
+    .parameters-screen .profile-section-banner.compact .profile-chip-label {{
+      font-size: 9px;
+    }}
+    .parameters-screen .profile-section-banner.compact .profile-header-selector select {{
+      min-height: 26px;
+    }}
     .profile-section-card {{
       background: rgba(2, 13, 22, .28);
       border: 1px solid rgba(45, 58, 71, .76);
@@ -2659,7 +2741,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items: stretch;
       display: grid;
       gap: 10px;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, .74fr);
+      grid-template-columns: minmax(360px, 1.1fr) minmax(280px, .85fr) minmax(280px, .85fr);
     }}
     .parameter-learned-comparison {{
       background: rgba(4, 16, 28, .56);
@@ -2676,10 +2758,27 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .parameter-ecology-profile,
     .parameter-ecology-learned {{
-      grid-template-rows: auto 74px 238px 106px 106px auto;
+      display: grid;
+      grid-template-rows: auto minmax(66px, auto) minmax(224px, auto) minmax(76px, auto) minmax(88px, auto);
+      min-height: 0;
+    }}
+    .parameter-aligned-column {{
+      display: grid;
+      grid-template-rows: minmax(66px, auto) minmax(84px, auto) minmax(84px, auto) minmax(84px, auto) auto;
+      min-height: 0;
+    }}
+    .parameter-soils-column {{
+      grid-template-rows: 66px 96px 96px auto;
+    }}
+    .parameter-topography-column {{
+      grid-template-rows: 82px 100px 108px auto;
+    }}
+    .parameter-phenology-column {{
+      grid-template-rows: 72px 112px 112px 166px auto;
     }}
     .parameter-ecology-profile .parameter-profile-sections,
-    .parameter-ecology-learned .parameter-learned-rows {{
+    .parameter-ecology-learned .parameter-learned-rows,
+    .parameter-aligned-column .parameter-learned-rows {{
       display: contents;
     }}
     .parameter-profile-sections {{
@@ -2713,12 +2812,28 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .parameter-section-summary {{
       min-height: 66px;
     }}
+    .parameter-profile-section > .admin-field > .field-label,
+    .parameter-profile-section > .parameter-text-row > span {{
+      display: none;
+    }}
+    .parameter-topography-notes {{
+      align-content: start;
+    }}
+    .parameter-topography-notes .parameter-text-row textarea {{
+      min-height: 44px;
+      width: 100%;
+    }}
+    .parameter-pending-note {{
+      align-self: start;
+      margin: 0;
+      padding: 0 2px;
+    }}
     .parameter-section-hosts {{
-      min-height: 154px;
+      min-height: 0;
     }}
     .parameter-section-forests,
     .parameter-section-habitat {{
-      min-height: 96px;
+      min-height: 0;
     }}
     .parameter-learned-metrics {{
       display: grid;
@@ -2742,9 +2857,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 8px;
     }}
     .parameter-learned-row {{
-      grid-template-rows: auto minmax(0, 1fr);
+      align-content: start;
+      grid-template-rows: auto auto;
     }}
     .parameter-learned-values {{
+      align-items: flex-start;
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
@@ -2755,7 +2872,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 7px;
       display: inline-flex;
       gap: 6px;
+      line-height: 1.15;
       max-width: 100%;
+      min-height: 24px;
       padding: 4px 7px;
     }}
     .parameter-learned-chip span {{
@@ -2782,6 +2901,34 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-weight: 600;
       line-height: 1.3;
       margin: -2px 0 2px;
+    }}
+    .parameter-card-heading {{
+      align-items: baseline;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+    }}
+    .parameter-card-heading .parameter-card-note {{
+      margin: 0;
+    }}
+    .parameter-edit-note {{
+      background: rgba(4, 16, 28, .58);
+      border: 1px solid rgba(45, 58, 71, .72);
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.25;
+      padding: 6px 8px;
+    }}
+    .parameter-edit-note a {{
+      color: var(--accent);
+      display: block;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }}
+    .parameter-edit-note a:hover {{
+      color: var(--text);
     }}
     .parameter-climate-grid {{
       display: grid;
@@ -2892,20 +3039,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 5px;
     }}
     .parameter-affinity-chip {{
+      align-items: center;
       background: rgba(3, 169, 244, .08);
       border: 1px solid rgba(3, 169, 244, .35);
       border-radius: 6px;
       color: var(--fg);
       display: inline-flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 4px 6px;
       font-size: 11px;
       font-weight: 800;
-      justify-content: space-between;
+      justify-content: flex-start;
       line-height: 1.15;
       max-width: 100%;
       min-width: 0;
-      padding: 5px 6px;
+      padding: 4px 6px;
     }}
     .parameter-affinity-label {{
       min-width: 0;
@@ -2913,16 +3061,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .parameter-affinity-badges {{
       display: inline-flex;
-      flex-wrap: wrap;
-      gap: 3px;
+      flex-wrap: nowrap;
+      gap: 5px;
     }}
     .parameter-affinity-badge {{
+      align-items: center;
       border: 1px solid rgba(148, 163, 184, .32);
       border-radius: 999px;
       color: var(--muted);
-      font-weight: 700;
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 800;
       line-height: 1;
-      padding: 2px 5px;
+      min-height: 16px;
+      padding: 0 5px;
       white-space: nowrap;
     }}
     .parameter-affinity-badge.primary,
@@ -3127,6 +3279,80 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-top: 1px solid rgba(45, 58, 71, .62);
       margin-top: 12px;
       padding-top: 10px;
+    }}
+    .mushroom-progress-backdrop {{
+      align-items: center;
+      background: rgba(0, 0, 0, .62);
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      left: 0;
+      padding: 24px;
+      position: fixed;
+      right: 0;
+      top: 0;
+      z-index: 1000;
+    }}
+    .mushroom-progress-dialog {{
+      background: #172029;
+      border: 1px solid rgba(86, 111, 135, .75);
+      border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, .42);
+      color: var(--text);
+      max-width: 720px;
+      padding: 18px;
+      width: min(720px, 100%);
+    }}
+    .mushroom-progress-header {{
+      align-items: flex-start;
+      border-bottom: 1px solid rgba(86, 111, 135, .42);
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+    }}
+    .mushroom-progress-header h2 {{
+      margin: 0 0 4px;
+    }}
+    .mushroom-progress-grid {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .mushroom-progress-grid progress {{
+      width: 100%;
+    }}
+    .mushroom-progress-grid strong {{
+      display: block;
+      margin-top: 4px;
+    }}
+    .mushroom-progress-metrics {{
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-top: 14px;
+    }}
+    .mushroom-progress-metrics span {{
+      border: 1px solid rgba(86, 111, 135, .42);
+      border-radius: 6px;
+      padding: 8px;
+    }}
+    .mushroom-progress-metrics em {{
+      color: var(--muted);
+      font-style: normal;
+    }}
+    .mushroom-progress-actions {{
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 14px;
+    }}
+    @media (max-width: 720px) {{
+      .mushroom-progress-grid,
+      .mushroom-progress-metrics {{
+        grid-template-columns: 1fr;
+      }}
     }}
     .gis-results-table {{
       max-height: 340px;
@@ -4239,6 +4465,95 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-form {{
       gap: 12px;
     }}
+    .modal-card.observation-form {{
+      gap: 10px;
+      max-height: calc(100vh - 36px);
+      max-width: min(1480px, calc(100vw - 48px));
+      padding: 14px;
+      width: min(1480px, calc(100vw - 48px));
+    }}
+    .observation-form .modal-head {{
+      padding-bottom: 10px;
+    }}
+    .observation-form .admin-field label,
+    .observation-form .catalog-toggle-field .field-label {{
+      color: var(--fg);
+      font-weight: 800;
+    }}
+    .observation-form .admin-field .meta {{
+      color: var(--muted);
+      font-weight: 700;
+    }}
+    .observation-form input,
+    .observation-form select {{
+      min-height: 30px;
+      padding: 0 8px;
+    }}
+    .observation-form .admin-field label,
+    .observation-form .catalog-toggle-field .field-label {{
+      margin-bottom: 3px;
+    }}
+    .observation-field-groups {{
+      align-items: stretch;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(250px, .85fr) minmax(420px, 1.35fr) minmax(260px, .86fr) minmax(350px, 1.05fr);
+    }}
+    .observation-field-group {{
+      align-content: start;
+      background: rgba(2, 13, 22, .22);
+      border: 1px solid rgba(45, 58, 71, .68);
+      border-radius: 8px;
+      display: grid;
+      gap: 7px;
+      padding: 8px;
+    }}
+    .observation-field-group h3 {{
+      color: var(--fg);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin: 0;
+    }}
+    .observation-group-grid {{
+      display: grid;
+      gap: 7px 8px;
+    }}
+    .observation-group-grid.record {{
+      grid-template-columns: minmax(0, 1fr) 92px;
+    }}
+    .observation-group-grid.record .wide {{
+      grid-column: 1 / -1;
+    }}
+    .observation-group-grid.location {{
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 92px;
+    }}
+    .observation-group-grid.location .location-input,
+    .observation-group-grid.location .admin-field:last-child {{
+      grid-column: 1 / -1;
+    }}
+    .observation-group-grid.validation {{
+      grid-template-columns: minmax(0, 1fr);
+    }}
+    .observation-group-grid.source {{
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }}
+    .observation-group-grid.source .source-url {{
+      grid-column: 1 / -1;
+    }}
+    .observation-context-grid {{
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }}
+    .observation-context-grid .catalog-toggle-field {{
+      align-content: start;
+      min-width: 0;
+    }}
+    .observation-context-grid .catalog-toggle-grid {{
+      align-content: start;
+      max-height: 156px;
+      overflow: auto;
+      padding-right: 2px;
+    }}
     .table-sort-link {{
       color: inherit;
       text-decoration: none;
@@ -4399,7 +4714,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-bottom: 1px solid var(--line);
       display: grid;
       gap: 14px;
-      grid-template-columns: minmax(300px, 1fr) auto auto;
+      grid-template-columns: minmax(300px, 1fr) auto auto auto;
       margin: 0 0 14px;
       padding: 0 0 10px;
     }}
@@ -4412,6 +4727,26 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .mushroom-title-status {{
       padding-bottom: 7px;
       white-space: nowrap;
+    }}
+    .mushroom-model-stale-form {{
+      margin: 0 0 2px;
+    }}
+    .mushroom-model-stale-button {{
+      background: rgba(127, 29, 29, .88);
+      border: 1px solid rgba(255, 107, 107, .95);
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 900;
+      padding: 9px 12px;
+      text-align: left;
+    }}
+    .mushroom-model-stale-button span {{
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      opacity: .86;
     }}
     .mushroom-cross-validation {{
       margin-top: 18px;
@@ -4444,6 +4779,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       .profile-metadata-strip {{
         grid-template-columns: repeat(3, minmax(0, 1fr));
+      }}
+      .observation-field-groups {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .observation-context-grid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }}
     }}
     @media (max-width: 980px) {{
@@ -4497,6 +4838,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .observations-layout,
       .profile-recommendation-list,
       .mushroom-title-tabs {{
+        grid-template-columns: 1fr;
+      }}
+      .observation-context-grid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .observation-field-groups {{
         grid-template-columns: 1fr;
       }}
       .evidence-screen {{
@@ -4558,6 +4905,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .profile-section-banner {{
         align-items: start;
         flex-direction: column;
+      }}
+      .parameters-screen .profile-section-banner.compact {{
+        grid-template-columns: 1fr;
+      }}
+      .parameters-screen .profile-section-banner.compact .profile-hero-chips {{
+        flex-wrap: wrap;
+        justify-content: flex-start;
       }}
     }}
     @media (max-width: 1080px) {{
@@ -4630,6 +4984,27 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       .gis-mapping-target-grid {{
         grid-template-columns: 1fr;
+      }}
+      .modal-layer {{
+        padding: 10px;
+      }}
+      .modal-card.observation-form {{
+        max-height: calc(100vh - 20px);
+        max-width: calc(100vw - 20px);
+        width: calc(100vw - 20px);
+      }}
+      .observation-context-grid {{
+        grid-template-columns: 1fr;
+      }}
+      .observation-group-grid.record,
+      .observation-group-grid.location,
+      .observation-group-grid.source {{
+        grid-template-columns: 1fr;
+      }}
+      .observation-group-grid.location .location-input,
+      .observation-group-grid.location .admin-field:last-child,
+      .observation-group-grid.source .source-url {{
+        grid-column: auto;
       }}
     }}
     pre {{
@@ -6839,6 +7214,178 @@ def set_mushroom_profiles_flash(message: str) -> None:
         RUN_STATE["mushroom_profiles_flash"] = message
 
 
+def compact_duration(seconds: float | int | None) -> str:
+    if seconds is None:
+        return ""
+    total = max(0, int(seconds))
+    minutes, sec = divmod(total, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m {sec}s"
+    if minutes:
+        return f"{minutes}m {sec}s"
+    return f"{sec}s"
+
+
+def append_query_param(url: str, key: str, value: str) -> str:
+    base, sep, anchor = url.partition("#")
+    delimiter = "&" if "?" in base else "?"
+    updated = f"{base}{delimiter}{urlencode({key: value})}"
+    return f"{updated}{sep}{anchor}" if sep else updated
+
+
+def observation_species_ids(rows: list[dict[str, object]]) -> list[str]:
+    return sorted({str(row.get("species_id", "") or "").strip() for row in rows if str(row.get("species_id", "") or "").strip()})
+
+
+def observation_has_coordinates(row: dict[str, object]) -> bool:
+    location = row.get("location")
+    if not isinstance(location, dict):
+        return False
+    try:
+        float(location.get("lat"))  # type: ignore[arg-type]
+        float(location.get("lon"))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def eligible_model_species_ids(observations: list[dict[str, object]]) -> list[str]:
+    return observation_species_ids(
+        [
+            row
+            for row in observations
+            if str(row.get("validation_status", "") or "").strip() == "valid"
+            and str(row.get("calibration_use", "") or "").strip() == "include"
+            and observation_has_coordinates(row)
+        ]
+    )
+
+
+def eligible_observation_ids_for_species(
+    observations: list[dict[str, object]],
+    species_ids: list[str] | set[str],
+) -> list[str]:
+    selected_species = {str(species_id).strip() for species_id in species_ids if str(species_id or "").strip()}
+    ids = []
+    for row in observations:
+        if str(row.get("species_id", "") or "").strip() not in selected_species:
+            continue
+        if str(row.get("validation_status", "") or "").strip() != "valid":
+            continue
+        if str(row.get("calibration_use", "") or "").strip() != "include":
+            continue
+        if not observation_has_coordinates(row):
+            continue
+        observation_id = str(row.get("observation_id", "") or "").strip()
+        if observation_id:
+            ids.append(observation_id)
+    return ids
+
+
+def cleanup_mushroom_rebuild_jobs(now: float | None = None) -> None:
+    now = now if now is not None else time.time()
+    with RUN_LOCK:
+        expired = [
+            job_id
+            for job_id, job in MUSHROOM_REBUILD_JOBS.items()
+            if job.get("finished_at_ts") and now - float(job.get("finished_at_ts") or 0) > MUSHROOM_REBUILD_JOB_TTL_SECONDS
+        ]
+        for job_id in expired:
+            MUSHROOM_REBUILD_JOBS.pop(job_id, None)
+
+
+def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
+    now = time.time()
+    started_at_ts = float(job.get("started_at_ts") or now)
+    phase_started_at_ts = float(job.get("phase_started_at_ts") or started_at_ts)
+    finished_at_ts = job.get("finished_at_ts")
+    current_ts = float(finished_at_ts or now)
+    total_elapsed = current_ts - started_at_ts
+    phase_elapsed = current_ts - phase_started_at_ts
+    overall_percent = int(job.get("overall_percent") or 0)
+    phase_percent = int(job.get("phase_percent") or 0)
+
+    total_eta = None
+    if 0 < overall_percent < 100:
+        total_eta = max(0, (total_elapsed / overall_percent) * (100 - overall_percent))
+    phase_eta = None
+    if 0 < phase_percent < 100:
+        phase_eta = max(0, (phase_elapsed / phase_percent) * (100 - phase_percent))
+
+    return {
+        "job_id": job.get("job_id", ""),
+        "status": job.get("status", "unknown"),
+        "phase": job.get("phase", ""),
+        "phase_index": job.get("phase_index", 0),
+        "phase_count": job.get("phase_count", 0),
+        "phase_percent": phase_percent,
+        "overall_percent": overall_percent,
+        "message": job.get("message", ""),
+        "error": job.get("error", ""),
+        "result": job.get("result", {}),
+        "elapsed": compact_duration(total_elapsed),
+        "phase_elapsed": compact_duration(phase_elapsed),
+        "eta": compact_duration(total_eta) if total_eta is not None else "",
+        "phase_eta": compact_duration(phase_eta) if phase_eta is not None else "",
+        "started_at": job.get("started_at", ""),
+        "finished_at": job.get("finished_at", ""),
+    }
+
+
+def set_mushroom_rebuild_progress(
+    job_id: str,
+    *,
+    status: str | None = None,
+    phase: str | None = None,
+    phase_index: int | None = None,
+    phase_count: int | None = None,
+    phase_percent: int | None = None,
+    overall_percent: int | None = None,
+    message: str | None = None,
+    error: str | None = None,
+    result: dict[str, object] | None = None,
+    reset_phase_timer: bool = False,
+) -> None:
+    now = time.time()
+    with RUN_LOCK:
+        job = MUSHROOM_REBUILD_JOBS.get(job_id)
+        if not job:
+            return
+        if status is not None:
+            job["status"] = status
+        if phase is not None:
+            job["phase"] = phase
+        if phase_index is not None:
+            job["phase_index"] = phase_index
+        if phase_count is not None:
+            job["phase_count"] = phase_count
+        if phase_percent is not None:
+            job["phase_percent"] = max(0, min(100, int(phase_percent)))
+        if overall_percent is not None:
+            job["overall_percent"] = max(0, min(100, int(overall_percent)))
+        if message is not None:
+            job["message"] = message
+        if error is not None:
+            job["error"] = error
+        if result is not None:
+            job["result"] = result
+        if reset_phase_timer:
+            job["phase_started_at_ts"] = now
+        if status in {"complete", "failed"}:
+            job["finished_at_ts"] = now
+            job["finished_at"] = datetime.now(get_timezone()).isoformat(timespec="seconds")
+
+
+def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
+    cleanup_mushroom_rebuild_jobs()
+    with RUN_LOCK:
+        job = MUSHROOM_REBUILD_JOBS.get(job_id)
+        if not job:
+            return None
+        return mushroom_rebuild_job_payload(dict(job))
+
+
 def render_mushroom_profiles_flash(message: str) -> str:
     text = str(message or "").strip()
     if not text:
@@ -6859,6 +7406,130 @@ def render_mushroom_profiles_flash(message: str) -> str:
         "<br><span class=\"meta\">Nothing was saved. Review the fields and save again.</span>"
         "</div>"
     )
+
+
+def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str:
+    if not job_id:
+        return ""
+    safe_job_id = html.escape(job_id, quote=True)
+    safe_refresh_url = html.escape(refresh_url, quote=True)
+    label = mushroom_profiles_ui.ui_label
+    title = html.escape(label("ui.rebuild_progress_title"))
+    preparing = html.escape(label("ui.rebuild_progress_preparing"))
+    total_label = html.escape(label("ui.rebuild_progress_total"))
+    current_step_label = html.escape(label("ui.rebuild_progress_current_step"))
+    step_label = html.escape(label("ui.rebuild_progress_step"))
+    total_elapsed_label = html.escape(label("ui.rebuild_progress_total_elapsed"))
+    step_elapsed_label = html.escape(label("ui.rebuild_progress_step_elapsed"))
+    total_eta_label = html.escape(label("ui.rebuild_progress_total_eta"))
+    step_eta_label = html.escape(label("ui.rebuild_progress_step_eta"))
+    calculating = html.escape(label("ui.rebuild_progress_calculating"))
+    refresh_screen = html.escape(label("ui.rebuild_progress_refresh_screen"))
+    close_label = html.escape(label("ui.close"))
+    return f"""
+    <div id="mushroom-rebuild-progress-modal" class="mushroom-progress-backdrop" data-job-id="{safe_job_id}">
+      <section class="mushroom-progress-dialog" role="dialog" aria-modal="true" aria-labelledby="mushroom-rebuild-progress-title">
+        <header class="mushroom-progress-header">
+          <div>
+            <h2 id="mushroom-rebuild-progress-title">{title}</h2>
+            <p id="mushroom-rebuild-progress-message" class="meta">{preparing}</p>
+          </div>
+          <span id="mushroom-rebuild-progress-status" class="status-pill">running</span>
+        </header>
+        <div class="mushroom-progress-grid">
+          <div>
+            <span class="field-label">{total_label}</span>
+            <progress id="mushroom-rebuild-progress-total" max="100" value="0"></progress>
+            <strong id="mushroom-rebuild-progress-total-label">0%</strong>
+          </div>
+          <div>
+            <span class="field-label">{current_step_label}</span>
+            <progress id="mushroom-rebuild-progress-phase" max="100" value="0"></progress>
+            <strong id="mushroom-rebuild-progress-phase-label">0%</strong>
+          </div>
+        </div>
+        <div class="mushroom-progress-metrics">
+          <span><strong>{step_label}</strong><br><em id="mushroom-rebuild-progress-phase-name">-</em></span>
+          <span><strong>{total_elapsed_label}</strong><br><em id="mushroom-rebuild-progress-elapsed">0s</em></span>
+          <span><strong>{step_elapsed_label}</strong><br><em id="mushroom-rebuild-progress-phase-elapsed">0s</em></span>
+          <span><strong>{total_eta_label}</strong><br><em id="mushroom-rebuild-progress-eta">{calculating}</em></span>
+          <span><strong>{step_eta_label}</strong><br><em id="mushroom-rebuild-progress-phase-eta">{calculating}</em></span>
+        </div>
+        <p id="mushroom-rebuild-progress-error" class="catalog-alert error" hidden></p>
+        <footer class="mushroom-progress-actions">
+          <a id="mushroom-rebuild-progress-refresh" class="button-link" href="{safe_refresh_url}" hidden>{refresh_screen}</a>
+          <button id="mushroom-rebuild-progress-close" class="button-link" type="button" hidden>{close_label}</button>
+        </footer>
+      </section>
+    </div>
+    <script>
+    (() => {{
+      const modal = document.getElementById("mushroom-rebuild-progress-modal");
+      if (!modal) return;
+      const jobId = modal.dataset.jobId;
+      const closeButton = document.getElementById("mushroom-rebuild-progress-close");
+      const refreshLink = document.getElementById("mushroom-rebuild-progress-refresh");
+      const fields = {{
+        status: document.getElementById("mushroom-rebuild-progress-status"),
+        message: document.getElementById("mushroom-rebuild-progress-message"),
+        total: document.getElementById("mushroom-rebuild-progress-total"),
+        totalLabel: document.getElementById("mushroom-rebuild-progress-total-label"),
+        phase: document.getElementById("mushroom-rebuild-progress-phase"),
+        phaseLabel: document.getElementById("mushroom-rebuild-progress-phase-label"),
+        phaseName: document.getElementById("mushroom-rebuild-progress-phase-name"),
+        elapsed: document.getElementById("mushroom-rebuild-progress-elapsed"),
+        phaseElapsed: document.getElementById("mushroom-rebuild-progress-phase-elapsed"),
+        eta: document.getElementById("mushroom-rebuild-progress-eta"),
+        phaseEta: document.getElementById("mushroom-rebuild-progress-phase-eta"),
+        error: document.getElementById("mushroom-rebuild-progress-error"),
+      }};
+      const setText = (node, value) => {{ if (node) node.textContent = value || "-"; }};
+      const setProgress = (node, label, value) => {{
+        const pct = Math.max(0, Math.min(100, Number(value || 0)));
+        if (node) node.value = pct;
+        setText(label, `${{pct}}%`);
+      }};
+      async function poll() {{
+        try {{
+          const response = await fetch(`/api/mushrooms/rebuild-status?job_id=${{encodeURIComponent(jobId)}}`, {{cache: "no-store"}});
+          const payload = await response.json();
+          if (!payload.ok) throw new Error(payload.error || "Cannot read rebuild status.");
+          const job = payload.job || {{}};
+          setText(fields.status, job.status || "running");
+          setText(fields.message, job.message || "");
+          setProgress(fields.total, fields.totalLabel, job.overall_percent);
+          setProgress(fields.phase, fields.phaseLabel, job.phase_percent);
+          const phaseIndex = job.phase_index || 0;
+          const phaseCount = job.phase_count || 0;
+          setText(fields.phaseName, `${{job.phase || "-"}} (${{phaseIndex}}/${{phaseCount}})`);
+          setText(fields.elapsed, job.elapsed || "0s");
+          setText(fields.phaseElapsed, job.phase_elapsed || "0s");
+          setText(fields.eta, job.eta || "{calculating}");
+          setText(fields.phaseEta, job.phase_eta || "{calculating}");
+          if (job.error) {{
+            fields.error.hidden = false;
+            fields.error.textContent = job.error;
+          }}
+          if (job.status === "complete" || job.status === "failed") {{
+            closeButton.hidden = false;
+            refreshLink.hidden = false;
+            return;
+          }}
+        }} catch (error) {{
+          fields.error.hidden = false;
+          fields.error.textContent = error.message || String(error);
+          closeButton.hidden = false;
+          return;
+        }}
+        window.setTimeout(poll, 1000);
+      }}
+      closeButton.addEventListener("click", () => {{
+        modal.remove();
+      }});
+      poll();
+    }})();
+    </script>
+    """
 
 
 PROFILE_AFFINITY_GROUPS = mushroom_profiles_ui.PROFILE_AFFINITY_GROUPS
@@ -6989,9 +7660,10 @@ def profile_save_return_url(species_id: str, form: dict[str, list[str]], *, mess
     tab = catalog_form_string(form, "profile_return_tab")
     if tab not in PROFILE_RETURN_TABS:
         tab = "profile-tab-general"
+    profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view") or "enriched")
     if message:
-        return profile_query_url(species_id, section="species") + f"&profile_tab={tab}#mushroom-profile-message"
-    return profile_query_url(species_id, section="species") + f"#{tab}"
+        return profile_query_url(species_id, section="species", profile_view=profile_view) + f"&profile_tab={tab}#mushroom-profile-message"
+    return profile_query_url(species_id, section="species", profile_view=profile_view) + f"#{tab}"
 
 
 GOOGLE_BANG_COORD_RE = re.compile(r"!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)")
@@ -7033,6 +7705,180 @@ def observations_return_url(
     if should_open_archive:
         params["archive_open"] = "1"
     return "?" + urlencode(params) + f"#{anchor}"
+
+
+def start_mushroom_model_rebuild_job(
+    *,
+    selected_observation_ids: list[str],
+    reconstruction_scope: str,
+    return_url: str,
+    pending_species_ids: list[str] | None = None,
+) -> str:
+    cleanup_mushroom_rebuild_jobs()
+    job_id = secrets.token_urlsafe(12)
+    now = time.time()
+    phase_count = 4
+    with RUN_LOCK:
+        MUSHROOM_REBUILD_JOBS[job_id] = {
+            "job_id": job_id,
+            "status": "running",
+            "phase": "Preparing",
+            "phase_index": 0,
+            "phase_count": phase_count,
+            "phase_percent": 0,
+            "overall_percent": 0,
+            "message": f"Queued rebuild for {len(selected_observation_ids)} observation(s).",
+            "error": "",
+            "result": {},
+            "started_at_ts": now,
+            "phase_started_at_ts": now,
+            "finished_at_ts": None,
+            "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+            "finished_at": "",
+            "return_url": return_url,
+        }
+
+    def run_job() -> None:
+        try:
+            store = default_store()
+            observations_payload = store.load("observations")
+            if not isinstance(observations_payload, dict):
+                raise RuntimeError("observations payload must be an object")
+            observations = observation_dicts_from_payload(observations_payload)
+            gis_payload = store.load("gis")
+            catalogs_payload = store.load("catalogs")
+            selected_total = len(selected_observation_ids)
+            if reconstruction_scope == "visible":
+                scope_label = "visible filtered"
+            elif reconstruction_scope == "pending":
+                scope_label = "pending-species"
+            else:
+                scope_label = "selected"
+            pending_species = sorted({str(species_id) for species_id in (pending_species_ids or []) if str(species_id or "").strip()})
+
+            set_mushroom_rebuild_progress(
+                job_id,
+                phase="GIS/DEM",
+                phase_index=1,
+                phase_count=phase_count,
+                phase_percent=0,
+                overall_percent=5,
+                message=f"Reconstructing GIS/DEM for {selected_total} {scope_label} observation(s).",
+                reset_phase_timer=True,
+            )
+
+            def gis_progress(current: int, total: int) -> None:
+                phase_percent = int((current / total) * 100) if total else 100
+                overall_percent = 5 + int(phase_percent * 0.35)
+                set_mushroom_rebuild_progress(
+                    job_id,
+                    phase_percent=phase_percent,
+                    overall_percent=overall_percent,
+                    message=f"GIS/DEM {current}/{total} observation(s).",
+                )
+
+            gis_result = mushroom_gis_lab.reconstruct_observations(
+                observations,
+                selected_observation_ids,
+                gis_payload=gis_payload if isinstance(gis_payload, dict) else None,
+                catalogs_payload=catalogs_payload if isinstance(catalogs_payload, dict) else None,
+                progress_callback=gis_progress,
+            )
+            result_count = int(gis_result.get("result_count", 0) or 0)
+
+            set_mushroom_rebuild_progress(
+                job_id,
+                phase="Meteorologia",
+                phase_index=2,
+                phase_percent=0,
+                overall_percent=42,
+                message="Reconstruyendo contexto meteorologico.",
+                reset_phase_timer=True,
+            )
+            weather_payload = mushroom_observation_context.build_and_write_observation_weather_features()
+            weather_count = (
+                int(weather_payload.get("summary", {}).get("observations", 0) or 0)
+                if isinstance(weather_payload, dict) else 0
+            )
+            set_mushroom_rebuild_progress(
+                job_id,
+                phase_percent=100,
+                overall_percent=60,
+                message=f"Contexto meteorologico reconstruido para {weather_count} observacion(es).",
+            )
+
+            set_mushroom_rebuild_progress(
+                job_id,
+                phase="Features v0",
+                phase_index=3,
+                phase_percent=0,
+                overall_percent=62,
+                message="Uniendo features meteorologicas y GIS/DEM.",
+                reset_phase_timer=True,
+            )
+            features_payload = mushroom_observation_features.build_and_write_observation_features_v0()
+            feature_count = (
+                int(features_payload.get("summary", {}).get("observations", 0) or 0)
+                if isinstance(features_payload, dict) else 0
+            )
+            set_mushroom_rebuild_progress(
+                job_id,
+                phase_percent=100,
+                overall_percent=78,
+                message=f"Features v0 reconstruidas para {feature_count} observacion(es).",
+            )
+
+            set_mushroom_rebuild_progress(
+                job_id,
+                phase="Modelo aprendido v0",
+                phase_index=4,
+                phase_percent=0,
+                overall_percent=80,
+                message="Construyendo modelo aprendido v0.",
+                reset_phase_timer=True,
+            )
+            if pending_species:
+                learned_payload = None
+                for pending_species_id in pending_species:
+                    learned_payload = mushroom_learned_model.build_and_write_species_learned_model_v0(pending_species_id)
+            else:
+                learned_payload = mushroom_learned_model.build_and_write_learned_model_v0()
+            model_species_count = (
+                int(learned_payload.get("summary", {}).get("species", 0) or 0)
+                if isinstance(learned_payload, dict) else 0
+            )
+            message = (
+                "Modelo v0 rebuilt: "
+                f"GIS/DEM {result_count} {scope_label} observation(s), "
+                f"weather {weather_count}, features {feature_count}, species models {model_species_count}."
+            )
+            if pending_species:
+                mushroom_model_state.clear_species_pending(pending_species)
+            else:
+                mushroom_model_state.clear_all_pending(full_rebuild=True)
+            set_mushroom_profiles_flash(message)
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="complete",
+                phase_percent=100,
+                overall_percent=100,
+                message=message,
+                result={
+                    "gis_observations": result_count,
+                    "weather_observations": weather_count,
+                    "feature_observations": feature_count,
+                    "model_species": model_species_count,
+                    "return_url": return_url,
+                },
+            )
+        except Exception as exc:
+            error = f"Modelo v0 rebuild failed: {exc}"
+            set_mushroom_profiles_flash(error)
+            set_mushroom_rebuild_progress(job_id, status="failed", error=error, message=error)
+
+    thread = threading.Thread(target=run_job, name=f"mushroom-rebuild-{job_id}", daemon=True)
+    thread.start()
+    return job_id
 
 
 def next_observation_id(observations: list[dict[str, object]], observed_at: str) -> str:
@@ -7145,6 +7991,10 @@ def observation_payload_from_form(
     observed_host_ids = catalog_form_list(form, "observed_host_ids")
     if len(observed_host_ids) > 3:
         raise ValueError("Select at most 3 observed host trees.")
+    observed_forest_type_ids = catalog_form_list(form, "observed_forest_type_ids")
+    observed_soil_tendency_ids = catalog_form_list(form, "observed_soil_tendency_ids")
+    observed_habitat_feature_ids = catalog_form_list(form, "observed_habitat_feature_ids")
+    observed_aspect_ids = catalog_form_list(form, "observed_aspect_ids")
     today = datetime.now(UTC).date().isoformat()
     existing_metadata = existing.get("metadata") if isinstance(existing.get("metadata"), dict) else {}
     observation: dict[str, object] = {
@@ -7175,6 +8025,10 @@ def observation_payload_from_form(
         "calibration_exclusion_reason": catalog_form_string(form, "calibration_exclusion_reason") or None,
         "site_context": {
             "observed_host_ids": observed_host_ids,
+            "observed_forest_type_ids": observed_forest_type_ids,
+            "observed_soil_tendency_ids": observed_soil_tendency_ids,
+            "observed_habitat_feature_ids": observed_habitat_feature_ids,
+            "observed_aspect_ids": observed_aspect_ids,
             "habitat_notes": catalog_form_string(form, "habitat_notes"),
             "host_notes": catalog_form_string(form, "host_notes"),
             "soil_notes": catalog_form_string(form, "soil_notes"),
@@ -7193,7 +8047,7 @@ def observation_payload_from_form(
             "source": catalog_form_string(form, "altitude_source") or "manual",
             "resolved_at": today if altitude_m is not None else None,
         }
-    return observation
+    return mushroom_observations.finalize_observation_payload(observation)
 
 
 def clone_observation_payload(
@@ -7213,7 +8067,7 @@ def clone_observation_payload(
     metadata["created_by"] = "rainmapper_ui_duplicate"
     metadata["updated_by"] = "rainmapper_ui_duplicate"
     clone["metadata"] = metadata
-    return clone
+    return mushroom_observations.finalize_observation_payload(clone)
 
 
 def exif_ratio_to_float(value: object) -> float:
@@ -7306,6 +8160,10 @@ def photo_exif_observation_payload(
     observed_host_ids = catalog_form_list(form, "observed_host_ids")
     if len(observed_host_ids) > 3:
         raise ValueError("Select at most 3 observed host trees.")
+    observed_forest_type_ids = catalog_form_list(form, "observed_forest_type_ids")
+    observed_soil_tendency_ids = catalog_form_list(form, "observed_soil_tendency_ids")
+    observed_habitat_feature_ids = catalog_form_list(form, "observed_habitat_feature_ids")
+    observed_aspect_ids = catalog_form_list(form, "observed_aspect_ids")
     filename = str(fields.get("filename", "") or "photo")
     observed_at = str(fields["observed_at"])
     lat = float(fields["lat"])
@@ -7340,6 +8198,10 @@ def photo_exif_observation_payload(
         "calibration_exclusion_reason": catalog_form_string(form, "calibration_exclusion_reason") or None,
         "site_context": {
             "observed_host_ids": observed_host_ids,
+            "observed_forest_type_ids": observed_forest_type_ids,
+            "observed_soil_tendency_ids": observed_soil_tendency_ids,
+            "observed_habitat_feature_ids": observed_habitat_feature_ids,
+            "observed_aspect_ids": observed_aspect_ids,
             "habitat_notes": "",
             "host_notes": "",
             "soil_notes": "",
@@ -7358,7 +8220,7 @@ def photo_exif_observation_payload(
             "source": "photo_exif",
             "resolved_at": today,
         }
-    return observation
+    return mushroom_observations.finalize_observation_payload(observation)
 
 
 def observation_form_with_exif_fields(
@@ -7471,9 +8333,30 @@ def profile_affinities_from_form(form: dict[str, list[str]], field: str) -> list
                 item["relationship"] = relationship
             if affinity is not None:
                 item["affinity"] = affinity
+            original_id = catalog_form_string(form, f"{field}_{index}_original_id")
+            if original_id == item_id:
+                source_ids = profile_form_string_list(form, f"{field}_{index}_source_ids")
+                if source_ids:
+                    item["source_ids"] = source_ids
+                if catalog_form_string(form, f"{field}_{index}_v0_placeholder") == "true":
+                    item["v0_placeholder"] = True
+                if catalog_form_string(form, f"{field}_{index}_v0_active") == "false":
+                    item["v0_active"] = False
             affinities.append(item)
         index += 1
     return affinities
+
+
+def finalize_species_profile_payload(profile: dict[str, object], *, updated_by: str = "rainmapper_ui") -> dict[str, object]:
+    """Return a profile copy with shared save-time metadata normalized."""
+    finalized = json.loads(json.dumps(profile))
+    metadata = finalized.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = {}
+    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+    metadata["updated_by"] = updated_by
+    finalized["metadata"] = metadata
+    return finalized
 
 
 def profile_semantic_error_messages(profile: dict[str, object]) -> list[str]:
@@ -7486,34 +8369,52 @@ def profiles_payload_semantic_error_messages(payload: dict[str, object]) -> list
 
 def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
     profile = json.loads(json.dumps(existing))
-    profile["scientific_name"] = catalog_form_string(form, "scientific_name")
-    profile["common_names"] = catalog_split_list(catalog_form_string(form, "common_names"))
-    profile["taxonomy_status"] = catalog_form_string(form, "taxonomy_status")
-    profile["edibility"] = catalog_form_string(form, "edibility")
+    if "scientific_name" in form:
+        profile["scientific_name"] = catalog_form_string(form, "scientific_name")
+    if "common_names" in form:
+        profile["common_names"] = catalog_split_list(catalog_form_string(form, "common_names"))
+    if "taxonomy_status" in form:
+        profile["taxonomy_status"] = catalog_form_string(form, "taxonomy_status")
+    if "edibility" in form:
+        profile["edibility"] = catalog_form_string(form, "edibility")
 
     ecology = profile_nested_dict(profile, "ecology").copy()
-    ecology["trophic_mode_id"] = catalog_form_string(form, "trophic_mode_id")
+    if "trophic_mode_id" in form:
+        ecology["trophic_mode_id"] = catalog_form_string(form, "trophic_mode_id")
     for field in PROFILE_AFFINITY_GROUPS:
-        ecology[field] = profile_affinities_from_form(form, field)
+        if any(key.startswith(f"{field}_") for key in form):
+            ecology[field] = profile_affinities_from_form(form, field)
     profile["ecology"] = ecology
 
     phenology = profile_nested_dict(profile, "phenology").copy()
-    phenology["main_months"] = profile_form_int_list(form, "main_months")
-    phenology["secondary_months"] = profile_form_int_list(form, "secondary_months")
-    phenology["season_pattern_ids"] = profile_form_string_list(form, "season_pattern_ids")
-    phenology["fruiting_delay_after_rain_days"] = {
-        "min": profile_form_number(form, "delay_min"),
-        "optimal_min": profile_form_number(form, "delay_optimal_min"),
-        "optimal_max": profile_form_number(form, "delay_optimal_max"),
-        "max": profile_form_number(form, "delay_max"),
-    }
+    if "main_months" in form:
+        phenology["main_months"] = profile_form_int_list(form, "main_months")
+    if "secondary_months" in form:
+        phenology["secondary_months"] = profile_form_int_list(form, "secondary_months")
+    if "season_pattern_ids" in form:
+        phenology["season_pattern_ids"] = profile_form_string_list(form, "season_pattern_ids")
+    if any(key in form for key in ("delay_min", "delay_optimal_min", "delay_optimal_max", "delay_max")):
+        delay = phenology.get("fruiting_delay_after_rain_days")
+        delay = delay.copy() if isinstance(delay, dict) else {}
+        for key, form_name in (
+            ("min", "delay_min"),
+            ("optimal_min", "delay_optimal_min"),
+            ("optimal_max", "delay_optimal_max"),
+            ("max", "delay_max"),
+        ):
+            if form_name in form:
+                delay[key] = profile_form_number(form, form_name)
+        phenology["fruiting_delay_after_rain_days"] = delay
     profile["phenology"] = phenology
 
     topography = profile_nested_dict(profile, "topography").copy()
     for key in ("altitude_min_m", "altitude_optimal_min_m", "altitude_optimal_max_m", "altitude_max_m"):
-        topography[key] = profile_form_number(form, key)
-    topography["preferred_aspect_ids"] = profile_form_string_list(form, "preferred_aspect_ids")
-    topography["aspect_notes"] = catalog_form_string(form, "aspect_notes")
+        if key in form:
+            topography[key] = profile_form_number(form, key)
+    if "preferred_aspect_ids" in form:
+        topography["preferred_aspect_ids"] = profile_form_string_list(form, "preferred_aspect_ids")
+    if "aspect_notes" in form:
+        topography["aspect_notes"] = catalog_form_string(form, "aspect_notes")
     profile["topography"] = topography
 
     weather_model = profile_nested_dict(profile, "weather_model").copy()
@@ -7522,13 +8423,16 @@ def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -
         block = block.copy() if isinstance(block, dict) else {}
         for key, old_value in list(block.items()):
             form_name = f"{block_name}_{key}"
-            block[key] = profile_form_bool(form, form_name) if isinstance(old_value, bool) else profile_form_number(form, form_name)
+            if form_name in form:
+                block[key] = profile_form_bool(form, form_name) if isinstance(old_value, bool) else profile_form_number(form, form_name)
         weather_model[block_name] = block
     profile["weather_model"] = weather_model
 
     scoring = profile_nested_dict(profile, "scoring_weights").copy()
     for key in list(scoring):
-        scoring[key] = profile_form_number(form, f"score_{key}")
+        form_name = f"score_{key}"
+        if form_name in form:
+            scoring[key] = profile_form_number(form, form_name)
     profile["scoring_weights"] = scoring
 
     confidence = profile_nested_dict(profile, "prediction_confidence").copy()
@@ -7542,25 +8446,32 @@ def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -
         "local_calibration_status",
         "calibration_priority",
     ):
-        confidence[key] = catalog_form_string(form, key)
+        if key in form:
+            confidence[key] = catalog_form_string(form, key)
     for key in (
         "minimum_observations_for_calibration",
         "minimum_positive_observations",
         "minimum_negative_observations",
     ):
-        value = profile_form_number(form, key)
-        confidence[key] = int(value) if value is not None else None
-    confidence["notes"] = catalog_form_string(form, "confidence_notes")
+        if key in form:
+            value = profile_form_number(form, key)
+            confidence[key] = int(value) if value is not None else None
+    if "confidence_notes" in form:
+        confidence["notes"] = catalog_form_string(form, "confidence_notes")
     profile["prediction_confidence"] = confidence
 
     metadata = profile_nested_dict(profile, "metadata").copy()
     for key in ("profile_version", "created_at", "updated_at", "created_by", "reviewed_by"):
-        metadata[key] = catalog_form_string(form, key)
-    metadata["review_status"] = catalog_form_string(form, "review_status")
-    metadata["source_quality"] = catalog_form_string(form, "source_quality")
-    metadata["requires_human_validation"] = profile_form_bool(form, "requires_human_validation")
+        if key in form:
+            metadata[key] = catalog_form_string(form, key)
+    if "review_status" in form:
+        metadata["review_status"] = catalog_form_string(form, "review_status")
+    if "source_quality" in form:
+        metadata["source_quality"] = catalog_form_string(form, "source_quality")
+    if "requires_human_validation" in form:
+        metadata["requires_human_validation"] = profile_form_bool(form, "requires_human_validation")
     profile["metadata"] = metadata
-    return profile
+    return finalize_species_profile_payload(profile)
 
 
 def profile_parameters_from_form(existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
@@ -7604,7 +8515,7 @@ def profile_parameters_from_form(existing: dict[str, object], form: dict[str, li
     for key in list(scoring):
         scoring[key] = profile_form_number(form, f"score_{key}")
     profile["scoring_weights"] = scoring
-    return profile
+    return finalize_species_profile_payload(profile)
 
 
 def profile_calibration_from_form(existing: dict[str, object], form: dict[str, list[str]]) -> dict[str, object]:
@@ -7636,7 +8547,7 @@ def profile_calibration_from_form(existing: dict[str, object], form: dict[str, l
     metadata["review_status"] = catalog_form_string(form, "review_status")
     metadata["requires_human_validation"] = profile_form_bool(form, "requires_human_validation")
     profile["metadata"] = metadata
-    return profile
+    return finalize_species_profile_payload(profile)
 
 
 def save_profile_entry_from_partial_form(
@@ -7648,6 +8559,7 @@ def save_profile_entry_from_partial_form(
     section: str,
 ) -> str:
     """Apply a partial profile form, validate, persist and return a redirect URL."""
+    profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view") or "v0")
     profiles_payload = store.load("profiles")
     profiles = profiles_payload.get("species_profiles")
     existing = None
@@ -7662,24 +8574,24 @@ def save_profile_entry_from_partial_form(
         )
     if not isinstance(existing, dict):
         set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
-        return profile_query_url(species_id, section=section) + "#mushroom-profile-message"
+        return profile_query_url(species_id, section=section, profile_view=profile_view) + "#mushroom-profile-message"
     entry = updater(existing, form)
     semantic_errors = profile_semantic_error_messages(entry)
     if semantic_errors:
         set_mushroom_profiles_flash(f"{success_prefix} were not saved: " + "; ".join(semantic_errors[:3]))
-        return profile_query_url(species_id, section=section) + "#mushroom-profile-message"
+        return profile_query_url(species_id, section=section, profile_view=profile_view) + "#mushroom-profile-message"
     ok, message = replace_profile_entry(profiles_payload, species_id, entry)
     if not ok:
         set_mushroom_profiles_flash(message)
-        return profile_query_url(species_id, section=section) + "#mushroom-profile-message"
+        return profile_query_url(species_id, section=section, profile_view=profile_view) + "#mushroom-profile-message"
     result = store.replace("profiles", profiles_payload)
     if result.ok:
         suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
         set_mushroom_profiles_flash(f"{success_prefix} saved for {species_id}." + suffix)
-        return profile_query_url(species_id, section=section)
+        return profile_query_url(species_id, section=section, profile_view=profile_view)
     error_text = "; ".join(message.message for message in result.errors[:3])
     set_mushroom_profiles_flash(f"{success_prefix} were not saved: " + error_text)
-    return profile_query_url(species_id, section=section) + "#mushroom-profile-message"
+    return profile_query_url(species_id, section=section, profile_view=profile_view) + "#mushroom-profile-message"
 
 
 def replace_profile_entry(profiles_payload: dict[str, object], species_id: str, entry: dict[str, object]) -> tuple[bool, str]:
@@ -8889,7 +9801,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         search = (query.get("q") or [""])[0]
         mode = (query.get("mode") or ["current"])[0]
         section = (query.get("section") or ["species"])[0]
-        profile_view = mushroom_profiles_ui.normalize_profile_view((query.get("view") or ["enriched"])[0])
+        profile_view = mushroom_profiles_ui.normalize_profile_view((query.get("view") or ["v0"])[0])
         if section not in {"summary", "species", "observations", "evidence", "parameters", "calibration"}:
             section = "species"
 
@@ -8931,6 +9843,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             mode = "current"
 
         flash = mushroom_profiles_flash()
+        rebuild_job_id = (query.get("rebuild_job") or [""])[0]
+        refresh_query = {key: values for key, values in query.items() if key != "rebuild_job"}
+        rebuild_refresh_url = "?" + urlencode(refresh_query, doseq=True) if refresh_query else profile_query_url(selected_id, search, section=section, profile_view=profile_view)
+        rebuild_progress_modal = render_mushroom_rebuild_progress_modal(rebuild_job_id, rebuild_refresh_url)
         observation_form_message = flash if section == "observations" and flash.startswith("Observation was not saved: ") else ""
         flash_html = "" if observation_form_message else render_mushroom_profiles_flash(flash)
         seeded_html = (
@@ -8940,6 +9856,31 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_label = "Flow validated" if not errors else "Validation errors"
         status_class = "ok" if not errors else "danger"
         section_tabs = mushroom_profiles_ui.render_section_tabs(section, selected_id, search, profile_view)
+        learned_model_payload = mushroom_learned_model.load_latest_model()
+        model_state = mushroom_model_state.load_state()
+        pending_species = [
+            str(value)
+            for value in model_state.get("pending_rebuild_species_ids", [])
+            if str(value or "").strip()
+        ]
+        if not pending_species and learned_model_payload is None:
+            pending_species = eligible_model_species_ids(observation_dicts_from_payload(observations_payload))
+        pending_rebuild_button = ""
+        if pending_species:
+            pending_count = len(pending_species)
+            species_count_label = mushroom_profiles_ui.ui_label("ui.species").lower()
+            pending_rebuild_button = f"""
+          <form class="mushroom-model-stale-form" method="post" action="">
+            <input type="hidden" name="profile_action" value="rebuild_pending_model_v0">
+            <input type="hidden" name="species_id" value="{html.escape(selected_id, quote=True)}">
+            <input type="hidden" name="section" value="{html.escape(section, quote=True)}">
+            <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
+            <button class="mushroom-model-stale-button" type="submit" title="{html.escape(mushroom_profiles_ui.ui_label("ui.rebuild_pending_model_v0_help"), quote=True)}">
+              {html.escape(mushroom_profiles_ui.ui_label("ui.model_v0_outdated"))}
+              <span>{pending_count} {html.escape(species_count_label)} · {html.escape(mushroom_profiles_ui.ui_label("ui.rebuild_pending_model_v0"))}</span>
+            </button>
+          </form>
+            """
         if section == "parameters":
             parameter_view = (query.get("parameter_view") or ["habitat"])[0]
             main_content = mushroom_profiles_ui.render_parameters_section(
@@ -8949,7 +9890,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 search,
                 profile_view,
                 parameter_view,
-                mushroom_learned_model.load_latest_model(),
+                learned_model_payload,
+                observations_payload,
             )
         elif section == "calibration":
             main_content = mushroom_profiles_ui.render_calibration_section(selected, profiles, search)
@@ -8986,7 +9928,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 reconstruction_payload=mushroom_gis_lab.load_latest_reconstruction(),
                 observation_features_payload=mushroom_observation_features.load_latest_features(),
                 decisions_payload=evidence_decisions_payload,
-                learned_model_payload=mushroom_learned_model.load_latest_model(),
+                learned_model_payload=learned_model_payload,
                 search=search,
                 profile_view=profile_view,
                 evidence_view=evidence_view,
@@ -9045,6 +9987,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             <p>Gestiona perfiles de especies para el predictor de floradas</p>
           </div>
           {section_tabs}
+          {pending_rebuild_button}
           <span class="meta mushroom-title-status">{len(profiles)} species · <span class="{status_class}">{status_label}</span></span>
         </div>
         {flash_html}
@@ -9054,6 +9997,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         {cross_validation_section}
         {render_archived_species_panel(archived_profiles)}
         {full_json_section}
+        {rebuild_progress_modal}
         """
         self.send_bytes(
             200,
@@ -9087,6 +10031,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/mushrooms/profiles":
             self.render_mushroom_profiles(parse_qs(parsed.query))
+            return
+
+        if path == "/api/mushrooms/rebuild-status":
+            query = parse_qs(parsed.query)
+            job_id = (query.get("job_id") or [""])[0]
+            status = get_mushroom_rebuild_job_status(job_id)
+            if status is None:
+                self.send_json(404, {"ok": False, "error": "Rebuild job was not found."})
+                return
+            self.send_json(200, {"ok": True, "job": status})
             return
 
         if path == "/log":
@@ -9517,6 +10471,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     f"{species_id} with {selected_count} used observation(s). "
                     "Weather and observation feature caches were not rebuilt."
                 )
+                mushroom_model_state.clear_species_pending([species_id])
                 return evidence_return_url(species_id, profile_view=profile_view, evidence_view="learned_model")
             if action in {"rebuild_learned_model_v0", "rebuild_learned_model_v0_all"}:
                 profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
@@ -9532,7 +10487,37 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     f"{learned_summary.get('species', 0)} species. "
                     f"Joined features: {features_summary.get('observations', 0)} observation(s)."
                 )
+                mushroom_model_state.clear_all_pending(full_rebuild=True)
                 return evidence_return_url(species_id, profile_view=profile_view, evidence_view="learned_model")
+            if action == "rebuild_pending_model_v0":
+                profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
+                state = mushroom_model_state.load_state()
+                pending_species = [
+                    str(value)
+                    for value in state.get("pending_rebuild_species_ids", [])
+                    if str(value or "").strip()
+                ]
+                observations_payload = store.load("observations")
+                observations = observation_dicts_from_payload(observations_payload)
+                if not pending_species and mushroom_learned_model.load_latest_model() is None:
+                    pending_species = eligible_model_species_ids(observations)
+                if not pending_species:
+                    set_mushroom_profiles_flash("Modelo v0 is already up to date.")
+                    return profile_query_url(species_id, section=catalog_form_string(form, "section") or "parameters", profile_view=profile_view)
+                selected_observation_ids = eligible_observation_ids_for_species(observations, pending_species)
+                if not selected_observation_ids:
+                    mushroom_model_state.clear_species_pending(pending_species)
+                    set_mushroom_profiles_flash("Modelo v0 pending state cleared: no eligible observations with coordinates were found.")
+                    return profile_query_url(species_id, section=catalog_form_string(form, "section") or "parameters", profile_view=profile_view)
+                return_url = profile_query_url(species_id, section=catalog_form_string(form, "section") or "parameters", profile_view=profile_view)
+                set_mushroom_profiles_flash(f"Modelo v0 pending rebuild started for {len(pending_species)} species.")
+                job_id = start_mushroom_model_rebuild_job(
+                    selected_observation_ids=selected_observation_ids,
+                    reconstruction_scope="pending",
+                    return_url=return_url,
+                    pending_species_ids=pending_species,
+                )
+                return append_query_param(return_url, "rebuild_job", job_id)
             if action == "create_profile":
                 new_species_id = catalog_form_string(form, "new_species_id")
                 scientific_name = catalog_form_string(form, "new_scientific_name")
@@ -9657,7 +10642,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 write_archived_profiles(store, archive_payload)
                 set_mushroom_profiles_flash(f"Deleted archived species profile {species_id} permanently.")
                 return profile_message_url()
-            if action == "reconstruct_observation_gis":
+            if action in {"reconstruct_observation_gis", "rebuild_observation_model_v0"}:
                 reconstruction_scope = catalog_form_string(form, "gis_reconstruction_scope") or "selected"
                 selected_field_name = "gis_visible_observation_ids" if reconstruction_scope == "visible" else "gis_observation_ids"
                 selected_observation_ids = [
@@ -9666,25 +10651,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     if str(value).strip()
                 ]
                 if not selected_observation_ids:
-                    set_mushroom_profiles_flash("GIS reconstruction was not run: no visible observation with coordinates was selected.")
+                    set_mushroom_profiles_flash("Modelo v0 was not rebuilt: no visible observation with coordinates was selected.")
                     return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
-                observations_payload = store.load("observations")
-                if not isinstance(observations_payload, dict):
-                    set_mushroom_profiles_flash("GIS reconstruction was not run: observations payload must be an object.")
-                    return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
-                observations = observation_dicts_from_payload(observations_payload)
-                gis_payload = store.load("gis")
-                catalogs_payload = store.load("catalogs")
-                result = mushroom_gis_lab.reconstruct_observations(
-                    observations,
-                    selected_observation_ids,
-                    gis_payload=gis_payload if isinstance(gis_payload, dict) else None,
-                    catalogs_payload=catalogs_payload if isinstance(catalogs_payload, dict) else None,
+                return_url = observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
+                set_mushroom_profiles_flash(f"Modelo v0 rebuild started for {len(selected_observation_ids)} observation(s).")
+                job_id = start_mushroom_model_rebuild_job(
+                    selected_observation_ids=selected_observation_ids,
+                    reconstruction_scope=reconstruction_scope,
+                    return_url=return_url,
                 )
-                result_count = result.get("result_count", 0)
-                scope_label = "visible filtered" if reconstruction_scope == "visible" else "selected"
-                set_mushroom_profiles_flash(f"GIS reconstruction completed for {result_count} {scope_label} observation(s).")
-                return observations_return_url(form, species_id, anchor="gis-reconstruction-lab")
+                return append_query_param(return_url, "rebuild_job", job_id)
             if action == "create_observation":
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):
@@ -9730,6 +10706,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         metadata["updated_by"] = "rainmapper_ui"
                     result = store.replace("observations", observations_payload)
                     if result.ok:
+                        mushroom_model_state.mark_species_pending(observation_species_ids(imported))
                         suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                         skipped_text = f" Skipped {len(skipped)} file(s): {'; '.join(skipped[:3])}." if skipped else ""
                         set_mushroom_profiles_flash(f"Created {len(imported)} EXIF observation(s).{skipped_text}" + suffix)
@@ -9755,6 +10732,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 result = store.replace("observations", observations_payload)
                 observation_species_id = str(observation.get("species_id", ""))
                 if result.ok:
+                    mushroom_model_state.mark_species_pending([observation_species_id])
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Created observation {observation.get('observation_id')}." + suffix)
                     return observations_return_url(form, observation_species_id, obs_id=str(observation.get("observation_id", "")))
@@ -9820,6 +10798,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     metadata["updated_by"] = "rainmapper_ui"
                 result = store.replace("observations", observations_payload)
                 if result.ok:
+                    affected_species = observation_species_ids([existing, updated] + created_from_extra_photos)
+                    mushroom_model_state.mark_species_pending(affected_species)
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     imported_text = ""
                     if uploaded_exif:
@@ -9894,6 +10874,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 result = store.replace("observations", observations_payload)
                 imported_species_id = str(imported[0].get("species_id", import_species_id))
                 if result.ok:
+                    mushroom_model_state.mark_species_pending(observation_species_ids(imported))
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     skipped_text = f" Skipped {len(skipped)} files: {'; '.join(skipped[:3])}." if skipped else ""
                     set_mushroom_profiles_flash(f"Imported {len(imported)} EXIF observations.{skipped_text}" + suffix)
@@ -9923,6 +10904,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 result = store.replace("observations", observations_payload)
                 if result.ok:
                     write_archived_observations(store, archived_payload)
+                    mushroom_model_state.mark_species_pending([str(source.get("species_id", species_id))])
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Archived observation {observation_id}." + suffix)
                     return observations_return_url(form, str(source.get("species_id", species_id)), anchor="archived-observations", archive_open=True, obs_id="")
@@ -9949,6 +10931,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         row for row in archived if str(row.get("observation_id", "")) != observation_id
                     ]
                     write_archived_observations(store, archived_payload)
+                    mushroom_model_state.mark_species_pending([str(source.get("species_id", species_id))])
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Restored observation {observation_id}." + suffix)
                     return observations_return_url(form, str(source.get("species_id", species_id)), obs_id=observation_id)
@@ -9969,6 +10952,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 archived_payload["observations"] = remaining
                 write_archived_observations(store, archived_payload)
+                if source := find_observation_by_id(archived, observation_id):
+                    mushroom_model_state.mark_species_pending([str(source.get("species_id", species_id))])
                 set_mushroom_profiles_flash(f"Deleted archived observation {observation_id} permanently.")
                 return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
             if action == "save_profile_json":
@@ -9976,6 +10961,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if not isinstance(entry, dict):
                     set_mushroom_profiles_flash("Species profile JSON must be an object.")
                     return profile_save_return_url(species_id, form, message=True)
+                entry = finalize_species_profile_payload(entry)
                 semantic_errors = profile_semantic_error_messages(entry)
                 if semantic_errors:
                     set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(semantic_errors[:3]))

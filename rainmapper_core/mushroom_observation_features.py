@@ -1,4 +1,4 @@
-"""Join experimental GIS and weather features for mushroom observations.
+"""Join GIS and weather features for mushroom observations.
 
 The joined payload is the first reusable v0 feature contract for local
 observation review. It combines previously reconstructed weather and GIS
@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import csv
 import json
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from rainmapper_core import mushroom_gis_lab, mushroom_observation_context
+from rainmapper_core import mushroom_gis_lab, mushroom_observation_context, mushroom_paths
 
 
 CSV_FIELDS = (
@@ -24,6 +23,8 @@ CSV_FIELDS = (
     "observed_at",
     "analysis_result",
     "flush_abundance",
+    "month",
+    "season",
     "validation_status",
     "calibration_use",
     "source_quality",
@@ -75,9 +76,15 @@ CSV_FIELDS = (
     "wind_gust_kmh",
     "wind_direction_deg",
     "host_ids",
+    "host_sources",
     "forest_type_ids",
+    "forest_type_sources",
     "soil_tendency_ids",
+    "soil_tendency_sources",
     "habitat_feature_ids",
+    "habitat_feature_sources",
+    "aspect_ids",
+    "aspect_sources",
     "gis_altitude_m",
     "weather_gaps",
     "gis_gaps",
@@ -86,41 +93,19 @@ CSV_FIELDS = (
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def default_lab_root() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_LAB_DIR", "").strip()
-    if configured:
-        return Path(configured)
-    ha_share_root = Path("/share/rainmapper")
-    if ha_share_root.exists():
-        return ha_share_root / "mushroom-lab"
-    local_share_copy = repo_root() / "docker-data"
-    if local_share_copy.exists():
-        return local_share_copy / "mushroom-lab"
-    return repo_root() / "tmp" / "mushroom-lab"
+    return mushroom_paths.repo_root()
 
 
 def default_output_json_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATION_FEATURES_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_lab_root() / "working" / "features" / "observation_features_v0.json"
+    return mushroom_paths.mushroom_observation_features_json_path()
 
 
 def default_output_csv_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATION_FEATURES_CSV_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_lab_root() / "working" / "features" / "observation_features_v0.csv"
+    return mushroom_paths.mushroom_observation_features_csv_path()
 
 
 def default_report_path() -> Path:
-    configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATION_FEATURES_REPORT_PATH", "").strip()
-    if configured:
-        return Path(configured)
-    return default_lab_root() / "output" / "reports" / "observation_features_v0.md"
+    return mushroom_paths.mushroom_observation_features_report_path()
 
 
 def load_json_payload(path: Path) -> dict[str, Any]:
@@ -175,6 +160,22 @@ def list_value(value: object) -> list[str]:
     return [str(item) for item in value if str(item or "").strip()]
 
 
+def merged_values_with_sources(
+    field_values: list[str] | None = None,
+    gis_values: list[str] | None = None,
+) -> tuple[list[str], dict[str, list[str]]]:
+    values: list[str] = []
+    sources: dict[str, list[str]] = {}
+    for source, source_values in (("field", field_values or []), ("gis", gis_values or [])):
+        for item_id in source_values:
+            if item_id not in values:
+                values.append(item_id)
+            sources.setdefault(item_id, [])
+            if source not in sources[item_id]:
+                sources[item_id].append(source)
+    return values, sources
+
+
 def build_joined_row(weather_row: dict[str, Any], gis_row: dict[str, Any] | None) -> dict[str, Any]:
     gis_row = gis_row if isinstance(gis_row, dict) else {}
     context = gis_row.get("gis_context_v0")
@@ -182,6 +183,25 @@ def build_joined_row(weather_row: dict[str, Any], gis_row: dict[str, Any] | None
     feature_gaps = []
     weather_gaps = list_value(weather_row.get("data_gaps"))
     gis_gaps = list_value(gis_row.get("gaps"))
+    host_ids, host_sources = merged_values_with_sources(
+        list_value(weather_row.get("observed_host_ids")),
+        list_value(context.get("host_ids")),
+    )
+    forest_type_ids, forest_type_sources = merged_values_with_sources(
+        list_value(weather_row.get("observed_forest_type_ids")),
+        list_value(context.get("forest_type_ids")),
+    )
+    soil_tendency_ids, soil_tendency_sources = merged_values_with_sources(
+        list_value(weather_row.get("observed_soil_tendency_ids")),
+        list_value(context.get("soil_tendency_ids")),
+    )
+    habitat_feature_ids, habitat_feature_sources = merged_values_with_sources(
+        list_value(weather_row.get("observed_habitat_feature_ids")),
+        list_value(context.get("habitat_feature_ids")),
+    )
+    aspect_ids, aspect_sources = merged_values_with_sources(
+        field_values=list_value(weather_row.get("observed_aspect_ids")),
+    )
     if not gis_row:
         feature_gaps.append("missing_gis_reconstruction")
     if not context:
@@ -192,6 +212,8 @@ def build_joined_row(weather_row: dict[str, Any], gis_row: dict[str, Any] | None
         "observed_at": weather_row.get("observed_at"),
         "analysis_result": weather_row.get("analysis_result"),
         "flush_abundance": weather_row.get("flush_abundance"),
+        "month": weather_row.get("month"),
+        "season": weather_row.get("season"),
         "validation_status": weather_row.get("validation_status"),
         "calibration_use": weather_row.get("calibration_use"),
         "source_quality": weather_row.get("source_quality"),
@@ -242,10 +264,16 @@ def build_joined_row(weather_row: dict[str, Any], gis_row: dict[str, Any] | None
         "wind_avg_kmh": weather_row.get("wind_avg_kmh"),
         "wind_gust_kmh": weather_row.get("wind_gust_kmh"),
         "wind_direction_deg": weather_row.get("wind_direction_deg"),
-        "host_ids": list_value(context.get("host_ids")),
-        "forest_type_ids": list_value(context.get("forest_type_ids")),
-        "soil_tendency_ids": list_value(context.get("soil_tendency_ids")),
-        "habitat_feature_ids": list_value(context.get("habitat_feature_ids")),
+        "host_ids": host_ids,
+        "host_sources": host_sources,
+        "forest_type_ids": forest_type_ids,
+        "forest_type_sources": forest_type_sources,
+        "soil_tendency_ids": soil_tendency_ids,
+        "soil_tendency_sources": soil_tendency_sources,
+        "habitat_feature_ids": habitat_feature_ids,
+        "habitat_feature_sources": habitat_feature_sources,
+        "aspect_ids": aspect_ids,
+        "aspect_sources": aspect_sources,
         "gis_altitude_m": context.get("altitude_m"),
         "weather_gaps": weather_gaps,
         "gis_gaps": gis_gaps,
@@ -291,6 +319,8 @@ def build_observation_features_v0(
 def csv_value(value: object) -> str:
     if isinstance(value, list):
         return ",".join(str(item) for item in value)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
     if value is None:
         return ""
     return str(value)
