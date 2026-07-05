@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.189
+
+- Fix partial saves from mushroom Parameters v0 so hidden/unrendered fields are preserved instead of being overwritten with null values.
+
 ## 0.2.188
 
 - Disable legacy Bokeh/Google Maps generation by default during `maps` and `all`, while keeping it available through `generate_bokeh_maps`.

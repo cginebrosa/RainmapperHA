@@ -17,12 +17,12 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release funcional preparado: `a70d08c Release Home Assistant 0.2.188`.
-- Version HA: `0.2.188`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.188`,
+- Ultimo release funcional preparado: `7a15c1a Release Home Assistant 0.2.189`.
+- Version HA: `0.2.189`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.189`,
   digest multi-arch
-  `sha256:9ebdd67556e2ef6107cf05f88e8e4baa1483750e163605dfcd9962c897c75838`.
-- `latest` apunta al mismo digest que `0.2.188`.
+  `sha256:068ffdfa74561aa19f4f11122ceeb3680254c3010e799663f55a56ddc0481779`.
+- `latest` apunta al mismo digest que `0.2.189`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -85,6 +85,11 @@ casi 1 minuto en la fase de mapas.
 `0.2.188` desactiva por defecto la generacion legacy Bokeh/Google Maps mediante
 `generate_bokeh_maps: false`. Tomap, GeoJSON, Leaflet y MapLibre se siguen
 generando; si hiciera falta reactivar Bokeh, cambiar esa opcion a `true`.
+
+`0.2.189` corrige el guardado parcial desde `Parametros` v0 de especies: los
+campos no renderizados/ausentes en el formulario se preservan y ya no se
+sobrescriben con `null`, evitando errores de validacion al cambiar solo
+topografia como `altitude_max_m`.
 
 ## Fuente de verdad operativa
 

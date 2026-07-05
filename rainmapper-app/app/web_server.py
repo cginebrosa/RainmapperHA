@@ -8698,41 +8698,63 @@ def profile_parameters_from_form(existing: dict[str, object], form: dict[str, li
     profile = json.loads(json.dumps(existing))
 
     ecology = profile_nested_dict(profile, "ecology").copy()
-    ecology["trophic_mode_id"] = catalog_form_string(form, "trophic_mode_id")
+    if "trophic_mode_id" in form:
+        ecology["trophic_mode_id"] = catalog_form_string(form, "trophic_mode_id")
     profile["ecology"] = ecology
 
     phenology = profile_nested_dict(profile, "phenology").copy()
-    phenology["main_months"] = profile_form_int_list(form, "main_months")
-    phenology["secondary_months"] = profile_form_int_list(form, "secondary_months")
-    phenology["season_pattern_ids"] = profile_form_string_list(form, "season_pattern_ids")
-    phenology["fruiting_delay_after_rain_days"] = {
-        "min": profile_form_number(form, "delay_min"),
-        "optimal_min": profile_form_number(form, "delay_optimal_min"),
-        "optimal_max": profile_form_number(form, "delay_optimal_max"),
-        "max": profile_form_number(form, "delay_max"),
-    }
+    if "main_months" in form:
+        phenology["main_months"] = profile_form_int_list(form, "main_months")
+    if "secondary_months" in form:
+        phenology["secondary_months"] = profile_form_int_list(form, "secondary_months")
+    if "season_pattern_ids" in form:
+        phenology["season_pattern_ids"] = profile_form_string_list(form, "season_pattern_ids")
+    delay = phenology.get("fruiting_delay_after_rain_days")
+    delay = delay.copy() if isinstance(delay, dict) else {}
+    for delay_key, form_name in (
+        ("min", "delay_min"),
+        ("optimal_min", "delay_optimal_min"),
+        ("optimal_max", "delay_optimal_max"),
+        ("max", "delay_max"),
+    ):
+        if form_name in form:
+            delay[delay_key] = profile_form_number(form, form_name)
+    if any(name in form for name in ("delay_min", "delay_optimal_min", "delay_optimal_max", "delay_max")):
+        phenology["fruiting_delay_after_rain_days"] = delay
     profile["phenology"] = phenology
 
     topography = profile_nested_dict(profile, "topography").copy()
     for key in ("altitude_min_m", "altitude_optimal_min_m", "altitude_optimal_max_m", "altitude_max_m"):
-        topography[key] = profile_form_number(form, key)
-    topography["preferred_aspect_ids"] = profile_form_string_list(form, "preferred_aspect_ids")
-    topography["aspect_notes"] = catalog_form_string(form, "aspect_notes")
+        if key in form:
+            topography[key] = profile_form_number(form, key)
+    if "preferred_aspect_ids" in form:
+        topography["preferred_aspect_ids"] = profile_form_string_list(form, "preferred_aspect_ids")
+    if "aspect_notes" in form:
+        topography["aspect_notes"] = catalog_form_string(form, "aspect_notes")
     profile["topography"] = topography
 
     weather_model = profile_nested_dict(profile, "weather_model").copy()
     for block_name in ("rainfall", "temperature", "humidity", "wind"):
         block = weather_model.get(block_name)
         block = block.copy() if isinstance(block, dict) else {}
+        block_form_names = [f"{block_name}_{key}" for key in block]
+        if not any(name in form for name in block_form_names):
+            weather_model[block_name] = block
+            continue
         for key, old_value in list(block.items()):
             form_name = f"{block_name}_{key}"
-            block[key] = profile_form_bool(form, form_name) if isinstance(old_value, bool) else profile_form_number(form, form_name)
+            if isinstance(old_value, bool):
+                block[key] = profile_form_bool(form, form_name)
+            elif form_name in form:
+                block[key] = profile_form_number(form, form_name)
         weather_model[block_name] = block
     profile["weather_model"] = weather_model
 
     scoring = profile_nested_dict(profile, "scoring_weights").copy()
     for key in list(scoring):
-        scoring[key] = profile_form_number(form, f"score_{key}")
+        form_name = f"score_{key}"
+        if form_name in form:
+            scoring[key] = profile_form_number(form, form_name)
     profile["scoring_weights"] = scoring
     return finalize_species_profile_payload(profile)
 

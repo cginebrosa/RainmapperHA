@@ -2472,6 +2472,67 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(original_name, updated["scientific_name"])
         self.assertEqual(original_common_names, updated["common_names"])
 
+    def test_mushroom_profiles_parameters_v0_preserves_unrendered_fields(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        store = self.web_server.default_store()
+        store.ensure_seeded()
+        payload = store.load("profiles")
+        profile = next(
+            item
+            for item in payload["species_profiles"]
+            if item["species_id"] == "boletus_pinophilus"
+        )
+        original_topography = json.loads(json.dumps(profile["topography"]))
+        original_phenology = json.loads(json.dumps(profile["phenology"]))
+        original_weather = json.loads(json.dumps(profile["weather_model"]))
+        original_scoring = json.loads(json.dumps(profile["scoring_weights"]))
+
+        form = {
+            "profile_action": ["save_profile_parameters"],
+            "species_id": ["boletus_pinophilus"],
+            "view": ["v0"],
+            "parameter_view": ["topography"],
+            "altitude_min_m": [str(profile["topography"]["altitude_min_m"])],
+            "altitude_max_m": ["2300"],
+            "aspect_notes": [profile["topography"].get("aspect_notes", "")],
+            "preferred_aspect_ids": list(profile["topography"].get("preferred_aspect_ids", [])),
+        }
+
+        redirect = handler.handle_mushroom_profiles_post(form)
+
+        self.assertEqual("?id=boletus_pinophilus&section=parameters&view=v0", redirect)
+        updated_payload = store.load("profiles")
+        updated = next(
+            item
+            for item in updated_payload["species_profiles"]
+            if item["species_id"] == "boletus_pinophilus"
+        )
+        self.assertEqual(2300, updated["topography"]["altitude_max_m"])
+        self.assertEqual(original_topography["altitude_min_m"], updated["topography"]["altitude_min_m"])
+        self.assertEqual(original_topography["altitude_optimal_min_m"], updated["topography"]["altitude_optimal_min_m"])
+        self.assertEqual(original_topography["altitude_optimal_max_m"], updated["topography"]["altitude_optimal_max_m"])
+        self.assertEqual(original_phenology, updated["phenology"])
+        self.assertEqual(original_weather, updated["weather_model"])
+        self.assertEqual(original_scoring, updated["scoring_weights"])
+
     def test_mushroom_profiles_flash_renders_validation_error_alert(self) -> None:
         html = self.web_server.render_mushroom_profiles_flash(
             "Species profile was not saved: profiles.boletus_test.phenology: main_months and secondary_months overlap: 8."
