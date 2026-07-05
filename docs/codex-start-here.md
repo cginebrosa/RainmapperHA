@@ -9,8 +9,8 @@ Assistant. Descarga historicos meteorologicos, genera mapas de lluvia y mantiene
 un modulo de setas para registrar observaciones, revisar perfiles de especies y
 construir un modelo v0 descriptivo/auditable.
 
-El trabajo activo actual esta centrado en el modulo de setas, no en publicar una
-nueva version HA.
+El trabajo activo actual esta centrado en el modulo de setas y en diagnosticar
+el rendimiento del backend `run_all`.
 
 ## Ruta obligatoria
 
@@ -73,11 +73,11 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo cierre documentado/pusheado: `717a9ec Release Home Assistant 0.2.183`.
-- Version HA del repo: `0.2.183` en `rainmapper-app/config.yaml` y
+- Ultimo cierre documentado/pusheado: `5858b21 Release Home Assistant 0.2.184`.
+- Version HA del repo: `0.2.184` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada previamente: `ghcr.io/cginebrosa/rainmapperha:0.2.183`.
+- Imagen publicada/verificada previamente: `ghcr.io/cginebrosa/rainmapperha:0.2.184`.
 
 ## Reglas de trabajo
 

@@ -17,18 +17,19 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo commit de cierre conocido: `717a9ec Release Home Assistant 0.2.183`.
-- Version HA: `0.2.183`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.183`,
+- Ultimo commit de cierre conocido: `5858b21 Release Home Assistant 0.2.184`.
+- Version HA: `0.2.184`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.184`,
   digest multi-arch
-  `sha256:4c931c2b77fdd0ff764b1073e9b6cb3952874f0626bd489edd4f1bc06e033fc0`.
-- `latest` apunta al mismo digest que `0.2.183`.
+  `sha256:a9a9c3f160838f5a433a21e36acdbb96412c01145e213263a75daa415e195ff1`.
+- `latest` apunta al mismo digest que `0.2.184`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
 ## Foco activo
 
-El foco activo es el modulo de setas:
+El foco activo combina el modulo de setas y la medicion de rendimiento del
+backend `run_all`:
 
 - Observaciones reales con hosts, bosque, suelo, habitat y orientacion
   observados.
@@ -37,9 +38,33 @@ El foco activo es el modulo de setas:
 - Comparacion visual en `Parametros`: perfil, evidencia v0 y valores emergentes.
 - Separacion clara de origenes: perfil/literatura, Campo, GIS/DEM.
 - Estado de modelo desactualizado y reconstruccion manual desde UI.
+- Diagnostico de tiempos reales por proceso/fase tras detectar `run_all` en
+  torno a 12 minutos en RPi.
 
-El resto de Rainmapper meteorologico y visores esta estable salvo que una tarea
-lo toque explicitamente.
+El resto de visores esta estable salvo que una tarea lo toque explicitamente.
+
+## Rendimiento backend
+
+`0.2.184` corrige los contadores `start_count/end_count` para que sean
+thread-local y no mezclen tiempos entre fuentes paralelas. Tambien publica en
+`source_status.json` un desglose AEMET por fases:
+
+- `fetch_seconds`
+- `normalize_seconds`
+- `read_hourly_seconds`
+- `merge_hourly_seconds`
+- `read_stations_seconds`
+- `station_catalog_seconds`
+- `station_enrichment_seconds`
+- `build_daily_seconds`
+- `read_daily_seconds`
+- `merge_daily_seconds`
+- `write_outputs_seconds`
+- `total_seconds`
+
+El panel HA muestra ese desglose en la tarjeta AEMET. En el siguiente `run_all`
+hay que revisar si el coste dominante esta en lectura/escritura CSV, merge
+horario, reconstruccion diaria o enriquecimiento de estaciones.
 
 ## Fuente de verdad operativa
 
