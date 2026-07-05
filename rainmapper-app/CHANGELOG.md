@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.187
+
+- Vectorize Meteoclimatic daily history rebuild to remove the per-station/day Python loop from source updates.
+- Vectorize Tomap last-rains rainfall aggregation to reduce map rebuild time on Raspberry Pi.
+
 ## 0.2.186
 
 - Add detailed phase timing breakdowns for Meteocat, Meteoclimatic and Wunderground source updates in the Home Assistant control panel.

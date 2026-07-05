@@ -319,8 +319,12 @@ def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
 
 def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_tomap):
     """Build the wide LastXX_rains table consumed by station popups."""
-    df = ensure_incremental_columns(df)
-    result_step1 = df.groupby(['Codi Estació', 'Data Local'], as_index=False).agg({
+    df = ensure_incremental_columns(df).copy()
+    df['Total'] = pd.to_numeric(df['Total'], errors='coerce')
+    key_columns = ['Codi Estació', 'Data Local']
+    grouped = df.groupby(key_columns, sort=False, dropna=True)
+
+    result_step1 = grouped.agg({
         'Data Lectura': 'first',
         'Estació': 'first',
         'Comarca': 'first',
@@ -331,7 +335,6 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
         'Longitud': 'first',
         'Ultima Lectura': 'first',
         'Variable': 'first',
-        'Total': optional_sum,
         'Unitat': 'first',
         'max_temp_celsius': 'first',
         'min_temp_celsius': 'first',
@@ -345,7 +348,8 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
         'wind_gust_direction_deg': 'first',
         'wind_observation_count': 'first',
         'Hora Local': 'first',
-    })
+    }).reset_index()
+    result_step1['Total'] = grouped['Total'].sum(min_count=1).round(1).to_numpy()
 
     result_step1 = filter_results(result_step1, minimum_rain_tomap)
     result_step2 = (

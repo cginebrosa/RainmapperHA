@@ -6,9 +6,8 @@ earlier same-day wind observations. This module stores raw observations first
 and then rebuilds daily rows with computed wind summaries.
 """
 
+import numpy as np
 import pandas as pd
-
-from rainmapper_core.wind import circular_mean_degrees, optional_float, optional_round
 
 
 OBSERVATION_KEY = ["Codi Estació", "Data Lectura"]
@@ -78,19 +77,6 @@ def _numeric_series(series):
     return pd.to_numeric(series, errors="coerce")
 
 
-def _aggregate_optional(series, operation, decimals=1):
-    values = _numeric_series(series).dropna()
-    if values.empty:
-        return pd.NA
-    if operation == "max":
-        return round(float(values.max()), decimals)
-    if operation == "min":
-        return round(float(values.min()), decimals)
-    if operation == "mean":
-        return round(float(values.mean()), decimals)
-    raise ValueError(f"Unsupported Meteoclimatic aggregation: {operation}")
-
-
 def build_meteoclimatic_daily_incremental(observations_df):
     """Build one daily Rainmapper row per station from raw Meteoclimatic rows.
 
@@ -103,43 +89,62 @@ def build_meteoclimatic_daily_incremental(observations_df):
     if observations.empty:
         return pd.DataFrame(columns=OBSERVATION_COLUMNS)
 
-    grouped_rows = []
-    for (_, local_date), group in observations.groupby(["Codi Estació", "Data Local"], sort=False):
-        group = group.sort_values("Data Lectura")
-        last = group.iloc[-1]
-        current_wind = _numeric_series(group["wind_avg_kmh"]).dropna()
-        grouped_rows.append(
-            {
-                "Codi Estació": last["Codi Estació"],
-                "Data Lectura": last["Data Lectura"],
-                "Estació": last["Estació"],
-                "Comarca": last["Comarca"],
-                "Municipi": last["Municipi"],
-                "Provincia": last["Provincia"],
-                "Altitud": last["Altitud"],
-                "Latitud": last["Latitud"],
-                "Longitud": last["Longitud"],
-                "Ultima Lectura": last["Ultima Lectura"],
-                "Variable": last["Variable"],
-                "Total": optional_round(last["Total"]),
-                "Unitat": last["Unitat"],
-                "max_temp_celsius": last["max_temp_celsius"],
-                "min_temp_celsius": last["min_temp_celsius"],
-                "max_humidity_percent": last["max_humidity_percent"],
-                "min_humidity_percent": last["min_humidity_percent"],
-                "Data Local": local_date,
-                "Hora Local": last["Hora Local"],
-                "wind_avg_kmh": _aggregate_optional(group["wind_avg_kmh"], "mean"),
-                "wind_min_kmh": _aggregate_optional(group["wind_avg_kmh"], "min"),
-                "wind_max_kmh": _aggregate_optional(group["wind_avg_kmh"], "max"),
-                "wind_gust_kmh": _aggregate_optional(group["wind_gust_kmh"], "max"),
-                "wind_direction_deg": circular_mean_degrees(group["wind_direction_deg"]),
-                "wind_gust_direction_deg": pd.NA,
-                "wind_observation_count": int(current_wind.count()),
-                "wind_source_height_m": pd.NA,
-            }
-        )
+    key_columns = ["Codi Estació", "Data Local"]
+    observations = observations.sort_values([*key_columns, "Data Lectura"])
+    grouped = observations.groupby(key_columns, sort=False, dropna=True)
 
-    result = pd.DataFrame(grouped_rows, columns=OBSERVATION_COLUMNS)
+    last_rows = grouped.tail(1).copy()
+    last_rows["Total"] = _numeric_series(last_rows["Total"]).round(1)
+
+    wind_avg = _numeric_series(observations["wind_avg_kmh"])
+    wind_gust = _numeric_series(observations["wind_gust_kmh"])
+    wind_direction = _numeric_series(observations["wind_direction_deg"])
+
+    wind_stats = pd.DataFrame({
+        "wind_avg_kmh": wind_avg,
+        "wind_gust_kmh": wind_gust,
+    }, index=observations.index).groupby(
+        [observations["Codi Estació"], observations["Data Local"]],
+        sort=False,
+        dropna=True,
+    ).agg(
+        wind_avg_kmh=("wind_avg_kmh", "mean"),
+        wind_min_kmh=("wind_avg_kmh", "min"),
+        wind_max_kmh=("wind_avg_kmh", "max"),
+        wind_gust_kmh=("wind_gust_kmh", "max"),
+        wind_observation_count=("wind_avg_kmh", "count"),
+    ).round({
+        "wind_avg_kmh": 1,
+        "wind_min_kmh": 1,
+        "wind_max_kmh": 1,
+        "wind_gust_kmh": 1,
+    })
+
+    direction_radians = np.deg2rad(wind_direction)
+    direction_components = pd.DataFrame({
+        "sin": np.sin(direction_radians),
+        "cos": np.cos(direction_radians),
+    }, index=observations.index)
+    direction_stats = direction_components.groupby(
+        [observations["Codi Estació"], observations["Data Local"]],
+        sort=False,
+        dropna=True,
+    ).sum(min_count=1)
+    direction_angle = (np.degrees(np.arctan2(direction_stats["sin"], direction_stats["cos"])) % 360).round(1)
+    zero_vector = np.isclose(direction_stats["sin"].fillna(0.0), 0.0, atol=1e-12) & np.isclose(
+        direction_stats["cos"].fillna(0.0),
+        0.0,
+        atol=1e-12,
+    )
+    direction_angle = direction_angle.mask(direction_stats.isna().all(axis=1) | zero_vector)
+    direction_angle = direction_angle.mask(np.isclose(direction_angle.fillna(0.0), 360.0), 0.0)
+    direction_angle.name = "wind_direction_deg"
+
+    result = last_rows.set_index(key_columns, drop=False)
+    result.update(wind_stats)
+    result["wind_direction_deg"] = direction_angle
+    result["wind_gust_direction_deg"] = pd.NA
+    result["wind_source_height_m"] = pd.NA
+    result = result.reset_index(drop=True)
     result = result.sort_values(["Codi Estació", "Data Local"], ascending=[True, False])
     return result.reset_index(drop=True)
