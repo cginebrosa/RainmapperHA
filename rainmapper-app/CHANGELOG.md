@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.185
+
+- Vectorize AEMET hourly-to-daily aggregation to remove the Python per-station/day loop that dominated runtime on Raspberry Pi.
+
 ## 0.2.184
 
 - Fix threaded elapsed-time logs so parallel source workers no longer share one timer.

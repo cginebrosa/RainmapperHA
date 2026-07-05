@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
 
 from rainmapper_core.config import const as rainmapper_const
@@ -23,7 +24,6 @@ from rainmapper_core.geocoding import extract_google_metadata, googlemaps_statio
 from rainmapper_core.wind import (
     WIND_COLUMNS,
     aemet_direction_to_degrees,
-    circular_mean_degrees,
     first_valid,
     meters_per_second_to_kmh,
     normalize_direction_degrees,
@@ -411,6 +411,37 @@ def mean_optional_numeric(series, decimals=1):
     return round(float(values.mean()), decimals)
 
 
+def non_empty_mask(series):
+    """Return True for values that should be treated as present metadata."""
+    return series.notna() & series.astype("string").str.strip().ne("") & series.astype("string").str.lower().ne("nan")
+
+
+def coalesce_present(primary, fallback=None, default=""):
+    """Return primary values when present, otherwise fallback/default values."""
+    result = primary.copy() if isinstance(primary, pd.Series) else pd.Series(primary)
+    mask = non_empty_mask(result)
+    if fallback is None:
+        return result.where(mask, default)
+    fallback_values = fallback if isinstance(fallback, pd.Series) else pd.Series(fallback, index=result.index)
+    return result.where(mask, fallback_values)
+
+
+def circular_mean_grouped(df, group_keys, column, decimals=1):
+    """Vectorized circular mean for a degree column grouped by station/day."""
+    numeric = pd.to_numeric(df[column], errors="coerce")
+    grouped = numeric.groupby([df[key] for key in group_keys], sort=False)
+    counts = grouped.count()
+    radians = np.deg2rad(numeric)
+    sin_values = pd.Series(np.sin(radians), index=df.index).where(numeric.notna())
+    cos_values = pd.Series(np.cos(radians), index=df.index).where(numeric.notna())
+    sin_sum = sin_values.groupby([df[key] for key in group_keys], sort=False).sum()
+    cos_sum = cos_values.groupby([df[key] for key in group_keys], sort=False).sum()
+    angles = (np.rad2deg(np.arctan2(sin_sum, cos_sum)) % 360.0).round(decimals)
+    angles = angles.mask(np.isclose(angles, 360.0), 0.0)
+    empty_vectors = np.isclose(sin_sum, 0.0, atol=1e-12) & np.isclose(cos_sum, 0.0, atol=1e-12)
+    return angles.mask((counts == 0) | empty_vectors, pd.NA)
+
+
 def coordinates_match(left_lat, left_lon, right_lat, right_lon):
     """Return True when two station coordinate pairs are effectively the same."""
     try:
@@ -621,47 +652,79 @@ def build_daily_incremental(hourly_df, stations_df=None):
     if df.empty:
         return pd.DataFrame(columns=DAILY_COLUMNS)
 
-    grouped_rows = []
-    stations = station_lookup(stations_df)
-    for (_, local_date), group in df.groupby(["station_code", "local_date"], sort=False):
-        group = group.sort_values("reading_local_dt")
-        last = group.iloc[-1]
-        station = stations.get(str(last["station_code"]), {})
-        total = round(float(group["rain_mm"].sum()), 1)
-        reading_local = last["reading_local_dt"]
-        grouped_rows.append(
-            {
-                "Codi Estació": last["station_code"],
-                "Data Lectura": reading_local.strftime("%Y-%m-%d %H:%M:%S"),
-                "Estació": first_non_empty(station.get("Estació"), last.get("station_name", "")),
-                "Comarca": first_non_empty(station.get("Comarca")),
-                "Municipi": first_non_empty(station.get("Municipi")),
-                "Provincia": first_non_empty(station.get("Provincia")),
-                "Altitud": first_non_empty(station.get("Altitud"), last.get("alt_m", "")),
-                "Latitud": first_non_empty(station.get("Latitud"), last.get("lat", "")),
-                "Longitud": first_non_empty(station.get("Longitud"), last.get("lon", "")),
-                "Ultima Lectura": reading_local.strftime("%Y/%m/%d %H:%M:%S"),
-                "Variable": "Precipitacion",
-                "Total": total,
-                "Unitat": "mm",
-                "Data Local": local_date,
-                "Hora Local": reading_local.strftime("%H:%M:%S"),
-                "max_temp_celsius": aggregate_optional_numeric(group["temp_celsius"], "max"),
-                "min_temp_celsius": aggregate_optional_numeric(group["temp_celsius"], "min"),
-                "max_humidity_percent": aggregate_optional_numeric(group["humidity_percent"], "max"),
-                "min_humidity_percent": aggregate_optional_numeric(group["humidity_percent"], "min"),
-                "wind_avg_kmh": mean_optional_numeric(group["wind_avg_kmh"]),
-                "wind_min_kmh": aggregate_optional_numeric(group["wind_min_kmh"], "min"),
-                "wind_max_kmh": aggregate_optional_numeric(group["wind_max_kmh"], "max"),
-                "wind_gust_kmh": aggregate_optional_numeric(group["wind_gust_kmh"], "max"),
-                "wind_direction_deg": circular_mean_degrees(group["wind_direction_deg"]),
-                "wind_gust_direction_deg": circular_mean_degrees(group["wind_gust_direction_deg"]),
-                "wind_observation_count": int(pd.to_numeric(group["wind_observation_count"], errors="coerce").fillna(0).sum()),
-                "wind_source_height_m": pd.NA,
-            }
-        )
+    group_keys = ["station_code", "local_date"]
+    grouped = df.groupby(group_keys, sort=False)
+    aggregates = grouped.agg(
+        Total=("rain_mm", "sum"),
+        max_temp_celsius=("temp_celsius", "max"),
+        min_temp_celsius=("temp_celsius", "min"),
+        max_humidity_percent=("humidity_percent", "max"),
+        min_humidity_percent=("humidity_percent", "min"),
+        wind_avg_kmh=("wind_avg_kmh", "mean"),
+        wind_min_kmh=("wind_min_kmh", "min"),
+        wind_max_kmh=("wind_max_kmh", "max"),
+        wind_gust_kmh=("wind_gust_kmh", "max"),
+        wind_observation_count=("wind_observation_count", "sum"),
+    )
+    aggregates["Total"] = aggregates["Total"].round(1)
+    for column in (
+        "max_temp_celsius",
+        "min_temp_celsius",
+        "max_humidity_percent",
+        "min_humidity_percent",
+        "wind_avg_kmh",
+        "wind_min_kmh",
+        "wind_max_kmh",
+        "wind_gust_kmh",
+    ):
+        aggregates[column] = aggregates[column].round(1)
+    aggregates["wind_direction_deg"] = circular_mean_grouped(df, group_keys, "wind_direction_deg")
+    aggregates["wind_gust_direction_deg"] = circular_mean_grouped(df, group_keys, "wind_gust_direction_deg")
+    aggregates["wind_observation_count"] = aggregates["wind_observation_count"].fillna(0).astype(int)
+    aggregates = aggregates.reset_index()
 
-    result = pd.DataFrame(grouped_rows, columns=DAILY_COLUMNS)
+    sorted_df = df.sort_values(["station_code", "local_date", "reading_local_dt"], ascending=[True, True, True])
+    last_rows = sorted_df.drop_duplicates(subset=group_keys, keep="last")[
+        [
+            "station_code",
+            "local_date",
+            "station_name",
+            "reading_local_dt",
+            "local_time",
+            "alt_m",
+            "lat",
+            "lon",
+        ]
+    ]
+    result = pd.merge(aggregates, last_rows, on=group_keys, how="left")
+    if stations_df is not None and not stations_df.empty:
+        stations = stations_df.copy()
+        for column in STATION_COLUMNS:
+            if column not in stations.columns:
+                stations[column] = ""
+        stations = stations[STATION_COLUMNS].rename(columns={"Codi Estació": "station_code"})
+        result = pd.merge(result, stations, on="station_code", how="left")
+    else:
+        for column in STATION_COLUMNS:
+            if column == "Codi Estació":
+                continue
+            result[column] = ""
+
+    result["Codi Estació"] = result["station_code"]
+    result["Data Lectura"] = result["reading_local_dt"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    result["Estació"] = coalesce_present(result["Estació"], result["station_name"])
+    for column in ("Comarca", "Municipi", "Provincia"):
+        result[column] = coalesce_present(result[column])
+    result["Altitud"] = coalesce_present(result["Altitud"], result["alt_m"])
+    result["Latitud"] = coalesce_present(result["Latitud"], result["lat"])
+    result["Longitud"] = coalesce_present(result["Longitud"], result["lon"])
+    result["Ultima Lectura"] = result["reading_local_dt"].dt.strftime("%Y/%m/%d %H:%M:%S")
+    result["Variable"] = "Precipitacion"
+    result["Unitat"] = "mm"
+    result["Data Local"] = result["local_date"]
+    result["Hora Local"] = result["reading_local_dt"].dt.strftime("%H:%M:%S")
+    result["wind_source_height_m"] = pd.NA
+    result = result[DAILY_COLUMNS]
     result = result.sort_values(["Codi Estació", "Data Local"], ascending=[True, False])
     return result.reset_index(drop=True)
 
