@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.186
+
+- Add detailed phase timing breakdowns for Meteocat, Meteoclimatic and Wunderground source updates in the Home Assistant control panel.
+
 ## 0.2.185
 
 - Vectorize AEMET hourly-to-daily aggregation to remove the Python per-station/day loop that dominated runtime on Raspberry Pi.
