@@ -43,6 +43,8 @@ meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 
 La clave `gmap_api_key` no debe guardarse en Git. Se usa para los mapas clasicos Bokeh/Google Maps y para completar metadata de estaciones durante `update` cuando hace falta consultar altitud, municipio/localidad o provincia.
 
+`generate_bokeh_maps` activa la generacion legacy de mapas Bokeh/Google Maps. Por defecto esta desactivada para que `maps` y `all` solo generen Tomap, GeoJSON, Leaflet y MapLibre.
+
 `last_rains_history` controla cuantos registros recientes de lluvia se guardan en los CSV `Tomap` y, por tanto, cuantos puede mostrar el popup de una estacion en Leaflet/MapLibre. El valor por defecto es `30`. Este dato se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
 
 `maplibre_hover_zoom` controla desde que nivel de zoom se activan los popups por hover sobre estaciones en MapLibre de escritorio. El valor por defecto es `6.0` y admite decimales como `6.5`.

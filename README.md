@@ -52,6 +52,7 @@ Variables/opciones principales:
 - `scheduled_action`: `update`, `maps` o `all`.
 - `create_meteoclimatic`, `create_meteocat`, `create_wunderground`, `create_aemet`: activan o desactivan fuentes.
 - `meteoclimatic_pattern`: patron o patrones RSS Meteoclimatic.
+- `generate_bokeh_maps`: genera los mapas legacy Bokeh/Google Maps; por defecto esta desactivado.
 - `last_rains_history`: registros recientes de lluvia que se guardan en `Tomap` para popups de estaciones; por defecto `30`.
 - `meteocat_request_timeout`: timeout en segundos para peticiones Meteocat/Socrata; por defecto `30`.
 - `meteocat_max_attempts`: reintentos de peticiones Meteocat/Socrata; por defecto `3`.

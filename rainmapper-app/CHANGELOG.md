@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.188
+
+- Disable legacy Bokeh/Google Maps generation by default during `maps` and `all`, while keeping it available through `generate_bokeh_maps`.
+- Hide the Bokeh quick viewer link when legacy Bokeh map generation is disabled.
+
 ## 0.2.187
 
 - Vectorize Meteoclimatic daily history rebuild to remove the per-station/day Python loop from source updates.

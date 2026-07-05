@@ -5716,6 +5716,16 @@ def source_flag_value(flag_name: str, only_source: str | None) -> str:
     return env(env_name, default)
 
 
+def generate_bokeh_maps_enabled() -> bool:
+    return bool_env("RAINMAPPER_GENERATE_BOKEH_MAPS", False)
+
+
+def append_optional_bokeh_maps(command: str) -> str:
+    if generate_bokeh_maps_enabled():
+        return f"{command} && python -m rainmapper_core.bokeh_maps"
+    return f"{command} && echo 'Skipping Rainmapper Bokeh maps.'"
+
+
 def command_for(action: str, only_source: str | None = None) -> list[str]:
     if only_source and only_source not in UPDATE_SOURCE_FLAGS:
         raise ValueError(f"Invalid source: {only_source}")
@@ -5758,19 +5768,23 @@ def command_for(action: str, only_source: str | None = None) -> list[str]:
     if action == "update":
         return update_command
     if action == "maps":
-        return [
-            "sh",
-            "-c",
+        maps_command = (
             "python -m rainmapper_core.tomap "
             "--data-dir /app/Data "
             "--maps-dir /app/Tomap "
             "--last-rains-history \"$RAINMAPPER_LAST_RAINS_HISTORY\" "
             "--max-threads \"$RAINMAPPER_MAX_THREADS\" "
-            "--include-aemet true "
-            "&& python -m rainmapper_core.bokeh_maps",
+            "--include-aemet true"
+        )
+        return [
+            "sh",
+            "-c",
+            append_optional_bokeh_maps(maps_command),
         ]
     if action == "all":
-        return update_command + ["&&", "python", "-m", "rainmapper_core.bokeh_maps"]
+        if generate_bokeh_maps_enabled():
+            return update_command + ["&&", "python", "-m", "rainmapper_core.bokeh_maps"]
+        return update_command + ["&&", "echo", "Skipping Rainmapper Bokeh maps."]
     raise ValueError(f"Invalid action: {action}")
 
 
@@ -11330,7 +11344,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         maplibre_url = cache_busted_url("/protected/maplibre/index.html")
         heatmap_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-heatmap/index.html") if PUBLIC_MAPLIBRE_HEATMAP_PATH.exists() else ""
         aemet_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-aemet/index.html") if PUBLIC_MAPLIBRE_AEMET_PATH.exists() else ""
-        bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html")
+        bokeh_maps_enabled = generate_bokeh_maps_enabled()
+        bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html") if bokeh_maps_enabled else ""
         heatmap_card = (
             f'<div class="card"><span class="label">MapLibre heatmap experiment</span><span class="value">{html.escape(heatmap_maplibre_url)}</span></div>'
             if heatmap_maplibre_url
@@ -11372,7 +11387,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
-          <div class="card"><span class="label">Bokeh maps</span><span class="value">/local/Plots</span></div>
+          <div class="card"><span class="label">Bokeh maps</span><span class="value">{"Enabled" if bokeh_maps_enabled else "Disabled"}</span></div>
           <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
           <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
           {heatmap_card}

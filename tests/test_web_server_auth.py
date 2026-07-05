@@ -218,7 +218,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
             captured["content_type"] = content_type
 
         handler.send_bytes = capture_response
-        handler.render_index()
+        previous_bokeh = os.environ.get("RAINMAPPER_GENERATE_BOKEH_MAPS")
+        os.environ.pop("RAINMAPPER_GENERATE_BOKEH_MAPS", None)
+        try:
+            handler.render_index()
+        finally:
+            if previous_bokeh is not None:
+                os.environ["RAINMAPPER_GENERATE_BOKEH_MAPS"] = previous_bokeh
 
         self.assertEqual(captured["status"], 200)
         page = captured["content"]
@@ -231,7 +237,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Open Leaflet viewer", page)
         self.assertIn("Open MapLibre viewer", page)
         self.assertIn("Open heatmap experiment", page)
-        self.assertIn("Open Bokeh 21 days", page)
+        self.assertIn("Bokeh maps", page)
+        self.assertIn("Disabled", page)
+        self.assertNotIn("Open Bokeh 21 days", page)
         self.assertIn("01 Tomap Last day", page)
         self.assertIn("Open full log", page)
         self.assertIn("Disable all", page)
@@ -3276,6 +3284,22 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(command[:2], ["sh", "-c"])
         self.assertIn("--include-aemet true", command[2])
+        self.assertNotIn("rainmapper_core.bokeh_maps", command[2])
+
+    def test_webui_bokeh_maps_can_be_enabled_explicitly(self) -> None:
+        previous = os.environ.get("RAINMAPPER_GENERATE_BOKEH_MAPS")
+        os.environ["RAINMAPPER_GENERATE_BOKEH_MAPS"] = "true"
+        try:
+            maps_command = self.web_server.command_for("maps")
+            all_command = self.web_server.command_for("all")
+        finally:
+            if previous is None:
+                os.environ.pop("RAINMAPPER_GENERATE_BOKEH_MAPS", None)
+            else:
+                os.environ["RAINMAPPER_GENERATE_BOKEH_MAPS"] = previous
+
+        self.assertIn("rainmapper_core.bokeh_maps", maps_command[2])
+        self.assertIn("rainmapper_core.bokeh_maps", all_command)
 
     def test_maplibre_config_includes_sanitized_hover_zoom(self) -> None:
         previous_values = {

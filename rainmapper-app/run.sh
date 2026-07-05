@@ -79,6 +79,7 @@ PY
   print_blue "Timezone: ${TIMEZONE}"
   print_blue "Mushroom UI language: ${UI_LANGUAGE_VALUE}"
   print_blue "Last rains history: ${LAST_RAINS_HISTORY_VALUE}"
+  print_blue "Generate Bokeh maps: ${GENERATE_BOKEH_MAPS_VALUE}"
   print_blue "MapLibre hover zoom: ${MAPLIBRE_HOVER_ZOOM_VALUE}"
   print_blue "MapLibre heatmap defaults: ${MAPLIBRE_HEATMAP_WEIGHT_CURVE_VALUE}, opacity ${MAPLIBRE_HEATMAP_OPACITY_VALUE}%, radius ${MAPLIBRE_HEATMAP_RADIUS_VALUE}%, intensity ${MAPLIBRE_HEATMAP_INTENSITY_VALUE}%"
   print_blue "Meteocat request timeout: ${METEOCAT_REQUEST_TIMEOUT_VALUE}s"
@@ -137,6 +138,7 @@ CREATE_AEMET_VALUE="$(option create_aemet false)"
 DAYS_INIT_VALUE="$(option days_init -7)"
 DAYS_END_VALUE="$(option days_end 0)"
 NOMAPS_VALUE="$(option nomaps false)"
+GENERATE_BOKEH_MAPS_VALUE="$(option generate_bokeh_maps false)"
 NOTOTALS_VALUE="$(option nototals false)"
 DAYS_BUCKET_VALUE="$(option days_bucket 10)"
 METEOCAT_REQUEST_TIMEOUT_VALUE="$(option meteocat_request_timeout 30)"
@@ -189,6 +191,7 @@ export RAINMAPPER_CREATE_AEMET="$CREATE_AEMET_VALUE"
 export RAINMAPPER_DAYS_INIT="$DAYS_INIT_VALUE"
 export RAINMAPPER_DAYS_END="$DAYS_END_VALUE"
 export RAINMAPPER_NOMAPS="$NOMAPS_VALUE"
+export RAINMAPPER_GENERATE_BOKEH_MAPS="$GENERATE_BOKEH_MAPS_VALUE"
 export RAINMAPPER_NOTOTALS="$NOTOTALS_VALUE"
 export RAINMAPPER_DAYS_BUCKET="$DAYS_BUCKET_VALUE"
 export RAINMAPPER_METEOCAT_REQUEST_TIMEOUT="$METEOCAT_REQUEST_TIMEOUT_VALUE"
@@ -261,7 +264,11 @@ run_maps() {
     --max-threads "$MAX_THREADS_VALUE" \
     --include-aemet true
   echo "Rainmapper Tomap finished."
-  python -m rainmapper_core.bokeh_maps
+  if [ "$GENERATE_BOKEH_MAPS_VALUE" = "true" ]; then
+    python -m rainmapper_core.bokeh_maps
+  else
+    echo "Skipping Rainmapper Bokeh maps."
+  fi
   echo "Starting Rainmapper GeoJSON..."
   python -m rainmapper_core.geojson \
     --input-dir /app/Tomap \

@@ -293,6 +293,7 @@ create_wunderground: true
 create_aemet: false
 meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 nomaps: false
+generate_bokeh_maps: false
 nototals: false
 days_bucket: 10
 meteocat_request_timeout: 30
@@ -336,6 +337,7 @@ Notas rapidas:
 - `max_threads: 3` es el valor operativo recomendado tras validacion real en Home Assistant/Raspberry Pi sin carga relevante observada. Si aparecen timeouts, errores de Wunderground o carga excesiva, bajar temporalmente a `1`.
 - `create_aemet: false` deja AEMET desactivado por defecto. Para usar AEMET, activa esta opcion y configura `aemet_api_key`.
 - `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
+- `generate_bokeh_maps: false` deja apagada la generacion legacy de mapas Bokeh/Google Maps. Tomap, GeoJSON, Leaflet y MapLibre se siguen generando normalmente.
 - `maplibre_hover_zoom: 6.0` define desde que nivel de zoom se activan los popups por hover sobre estaciones en MapLibre de escritorio. Admite decimales, por ejemplo `6.5`.
 - `maplibre_heatmap_weight_curve: soft`, `maplibre_heatmap_opacity: 65`, `maplibre_heatmap_radius: 90` y `maplibre_heatmap_intensity: 70` definen los valores iniciales del heatmap para dispositivos sin settings guardados. El boton `Reset heatmap defaults` del visor restaura estos valores y los guarda para el dispositivo al cerrar Settings.
 - `maplibre_estimated_field_*` define los defaults y parametros tecnicos de la capa experimental `IDW`. La capa se calcula en el navegador solo para el viewport visible. Los settings por dispositivo exponen activacion, opacidad, radio fisico (`small|medium|large`), calidad (`low|medium|high`), suavizado (`smooth|balanced|local`) y correccion opcional de temperatura por altitud. Los radios en km, tamano fisico de celda en km, potencia IDW, radio fisico maximo y gradiente termico se ajustan en `config.yaml` para probar sin publicar nueva imagen.
@@ -357,6 +359,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `create_meteoclimatic`, `create_meteocat`, `create_wunderground`, `create_aemet`: activan o desactivan fuentes.
 - `meteoclimatic_pattern`: patron o patrones del RSS Meteoclimatic.
 - `nomaps`, `nototals`, `days_bucket`: opciones legacy del core de Rainmapper conservadas por compatibilidad.
+- `generate_bokeh_maps`: activa la generacion legacy de HTML Bokeh/Google Maps. Por defecto esta desactivada para reducir el tiempo de `maps`/`all`.
 - `meteocat_request_timeout`, `meteocat_max_attempts`: timeout y reintentos para Meteocat/Socrata.
 - `last_rains_history`: numero de registros recientes preparados para popups.
 - `maplibre_hover_zoom`: nivel minimo de zoom para activar popups por hover sobre estaciones en MapLibre de escritorio. Admite valores decimales como `6.5`.
