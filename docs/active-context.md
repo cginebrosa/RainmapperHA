@@ -17,12 +17,12 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release funcional pusheado: `5686e6c Release Home Assistant 0.2.186`.
-- Version HA: `0.2.186`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.186`,
+- Ultimo release funcional pusheado: `11a04e6 Release Home Assistant 0.2.187`.
+- Version HA: `0.2.187`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.187`,
   digest multi-arch
-  `sha256:8bac84c6f93055d63305afd41fabeb9ac8168cec7f8eab7974fa3a372a58e9ad`.
-- `latest` apunta al mismo digest que `0.2.186`.
+  `sha256:1fc5a0eb46659b8ca9496935bb3c3491a424e9dac277eec7823ddd12983f19be`.
+- `latest` apunta al mismo digest que `0.2.187`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -69,9 +69,18 @@ agregacion vectorizada con pandas; en local, 125k filas horarias se agregaron en
 `1.23s`.
 
 `0.2.186` publica en HA los desgloses de fase para Meteocat, Meteoclimatic y
-Wunderground. En el siguiente `run_all` en RPi hay que confirmar cuanto baja
-`build_daily_seconds` de AEMET; si ya no domina, revisar las fases lentas que
-aparezcan en las tarjetas de cada fuente.
+Wunderground. Con 4 threads en RPi, el `run_all` de `0.2.186` mostro:
+
+- Wunderground `scrape_seconds=419.6s`: cuello de red/servicio remoto.
+- Meteoclimatic `build_daily_seconds=67.9s`: bucle Python por estacion/dia.
+- Tomap `last-rains duration=49.0s`: agregacion Python por grupo.
+- Meteocat y AEMET ya quedan muy condicionados por escritura CSV grande.
+
+`0.2.187` vectoriza el rebuild diario de Meteoclimatic y la agregacion Tomap
+last-rains. En local, Meteoclimatic diario con datos reales paso a `0.066s` y
+Tomap completo a `10.2s` (`last-rains=6.7s`). En el siguiente `run_all` en RPi
+hay que confirmar la mejora real; lo esperable es que siga dominando
+Wunderground salvo que se cambie la estrategia/concurrencia del scrape.
 
 ## Fuente de verdad operativa
 
