@@ -1,0 +1,2891 @@
+{
+  "schema_version": "0.1",
+  "kind": "mushroom_observation_gis_reconstruction",
+  "generated_at": "2026-07-05T00:36:50.992786+00:00",
+  "selected_observation_ids": [
+    "obs_20250801_0003",
+    "obs_20250805_0003",
+    "obs_20250806_0003",
+    "obs_20250729_0003",
+    "obs_20250725_0001",
+    "obs_20250709_0001",
+    "obs_20250618_0001",
+    "obs_20250611_0001",
+    "obs_20250909_0001",
+    "obs_20250913_0001",
+    "obs_20250913_0004",
+    "obs_20250926_0003",
+    "obs_20250930_0001",
+    "obs_20250930_0003",
+    "obs_20260703_0001",
+    "obs_20260703_0002",
+    "obs_20260703_0003",
+    "obs_20260703_0004"
+  ],
+  "result_count": 18,
+  "coordinate_policy": "Coordinates are read locally but not written to this review payload.",
+  "qgis_points_path": "/app/tmp/mushroom-lab/working/qgis/selected_observations.geojson",
+  "qgis_points_host_path": "/Users/carlosginebrosa/Developer/RainmapperHA/tmp/mushroom-lab/working/qgis/selected_observations.geojson",
+  "qgis_points_note": "Local-only GeoJSON with selected observation coordinates for visual GIS review.",
+  "mapping_policy": "Raw GIS values are preserved. Exact mappings are applied from mushroom_gis_mappings.json and only emit IDs present in mushroom_reference_catalogs.json.",
+  "unmapped_candidates": [
+    {
+      "source_id": "mvc50",
+      "field": "LLFISCAT_t",
+      "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_niv2t",
+      "raw_value": "Carrascars"
+    },
+    {
+      "source_id": "geology_50000",
+      "field": "Codi",
+      "raw_value": "POmlg",
+      "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+      "suggested_confidence": "medium",
+      "suggested_review_status": "pending_review",
+      "suggestion_source": "geology_soil_tendency_mappings",
+      "suggested_rule_count": "1",
+      "suggested_mapped_soil_tendency_ids": [
+        "soil_sandy",
+        "soil_siliceous"
+      ],
+      "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_niv2t",
+      "raw_value": "Brolles de romaní i matollars mediterranis afins",
+      "suggested_confidence": "medium",
+      "suggested_review_status": "pending_review",
+      "suggestion_source": "vegetation_mappings",
+      "suggested_rule_count": "1",
+      "suggested_mapped_host_ids": [
+        "host_populus_spp",
+        "host_fraxinus_spp",
+        "host_ulmus_spp"
+      ],
+      "suggested_mapped_forest_type_ids": [
+        "forest_riparian"
+      ],
+      "suggested_mapped_habitat_feature_ids": [
+        "feature_riparian_moisture"
+      ],
+      "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+    },
+    {
+      "source_id": "geology_50000",
+      "field": "Codi",
+      "raw_value": "Qgp",
+      "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial"
+    },
+    {
+      "source_id": "geology_50000",
+      "field": "Codi",
+      "raw_value": "Qco",
+      "description": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial"
+    },
+    {
+      "source_id": "geology_50000",
+      "field": "Codi",
+      "raw_value": "EÇOrgl",
+      "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+      "suggested_confidence": "medium",
+      "suggested_review_status": "pending_review",
+      "suggestion_source": "geology_soil_tendency_mappings",
+      "suggested_rule_count": "1",
+      "suggested_mapped_soil_tendency_ids": [
+        "soil_sandy",
+        "soil_siliceous"
+      ],
+      "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+    },
+    {
+      "source_id": "geology_50000",
+      "field": "Codi",
+      "raw_value": "Orgm",
+      "description": "Gresos, microconglomerats, lutites i roques vulcanoclàstiques",
+      "suggested_confidence": "medium",
+      "suggested_review_status": "pending_review",
+      "suggestion_source": "geology_soil_tendency_mappings",
+      "suggested_rule_count": "1",
+      "suggested_mapped_soil_tendency_ids": [
+        "soil_sandy",
+        "soil_siliceous"
+      ],
+      "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+    },
+    {
+      "source_id": "mvc50",
+      "field": "LLVA_niv2t",
+      "raw_value": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+      "suggested_confidence": "medium",
+      "suggested_review_status": "pending_review",
+      "suggestion_source": "vegetation_mappings",
+      "suggested_rule_count": "3",
+      "suggested_mapped_host_ids": [
+        "host_pinus_sylvestris",
+        "host_pinus_nigra",
+        "host_quercus_spp"
+      ],
+      "suggested_mapped_forest_type_ids": [
+        "forest_montane_pine",
+        "forest_mediterranean_pine",
+        "forest_mediterranean_oak",
+        "forest_deciduous_broadleaf"
+      ],
+      "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+    }
+  ],
+  "results": [
+    {
+      "observation_id": "obs_20250801_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-08-01",
+      "flush_abundance": "scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 75987,
+          "properties": {
+            "LLVA": 30,
+            "LLVA_txt": "Complèxida del carrascar muntanyenc calcícola: Buxo-Quercetum rotundifoliae (carrascar, boixeda) +  Quercetum cocciferae pistacietosum terebinthi (garriga) + Rosmarino-Lithospermetum (brolla) + Brachypodio-Aphyllanthetum, Phlomido-Brachypodietum retus",
+            "LLVA_niv2": "1c",
+            "LLVA_niv2t": "Carrascars",
+            "LLVA_niv3t": "Boscos esclerofil·les, màquies i garrigues, eventualment amb pins",
+            "LLFISCAT": 50,
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "LLVA_Subst": "Carbonatat",
+            "LLVP_txt": "Carrascar muntanyenc calcícola: Buxo-Quercetum rotundifoliae",
+            "LLVP_Fisio": "Bosc esclerofil·le"
+          },
+          "mapped": {
+            "status": "partial",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Carbonatat",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_calcareous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Carrascars"
+              }
+            ],
+            "invalid_references": [],
+            "mapped_soil_tendency_ids": [
+              "soil_calcareous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 22373,
+          "properties": {
+            "Codi": "POmlg",
+            "Descripcio": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Paleogen",
+            "Epoca": "Oligocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "POmlg",
+                "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 763.62,
+          "observed_altitude_m": 761.7,
+          "delta_observed_vs_dem_m": -1.92
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.06725,
+        "lon": 1.9464444,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [
+          "soil_calcareous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 763.62,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250805_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-08-05",
+      "flush_abundance": "abundant",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 75987,
+          "properties": {
+            "LLVA": 30,
+            "LLVA_txt": "Complèxida del carrascar muntanyenc calcícola: Buxo-Quercetum rotundifoliae (carrascar, boixeda) +  Quercetum cocciferae pistacietosum terebinthi (garriga) + Rosmarino-Lithospermetum (brolla) + Brachypodio-Aphyllanthetum, Phlomido-Brachypodietum retus",
+            "LLVA_niv2": "1c",
+            "LLVA_niv2t": "Carrascars",
+            "LLVA_niv3t": "Boscos esclerofil·les, màquies i garrigues, eventualment amb pins",
+            "LLFISCAT": 50,
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "LLVA_Subst": "Carbonatat",
+            "LLVP_txt": "Carrascar muntanyenc calcícola: Buxo-Quercetum rotundifoliae",
+            "LLVP_Fisio": "Bosc esclerofil·le"
+          },
+          "mapped": {
+            "status": "partial",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Carbonatat",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_calcareous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Carrascars"
+              }
+            ],
+            "invalid_references": [],
+            "mapped_soil_tendency_ids": [
+              "soil_calcareous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 22373,
+          "properties": {
+            "Codi": "POmlg",
+            "Descripcio": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Paleogen",
+            "Epoca": "Oligocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "POmlg",
+                "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 764.04,
+          "observed_altitude_m": 761.9,
+          "delta_observed_vs_dem_m": -2.14
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.0672306,
+        "lon": 1.9465222,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [
+          "soil_calcareous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 764.04,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250806_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-08-06",
+      "flush_abundance": "normal",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 77515,
+          "properties": {
+            "LLVA": 173,
+            "LLVA_txt": "Complèxida de la brolla de romaní (Rosmarinus officinalis) i sanguinària (Lithospermum fruticosum): Rosmarino-Lithospermetum (brolla) + Aphyllanthion, Thero-Brachypodion (prats secs)",
+            "LLVA_niv2": "6a",
+            "LLVA_niv2t": "Brolles de romaní i matollars mediterranis afins",
+            "LLVA_niv3t": "Brolles i prats emmatats dels sòls carbonatats de la regió mediterrània",
+            "LLFISCAT": 50,
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "LLVA_Subst": "Carbonatat",
+            "LLVP_txt": "Carrascar amb roure de fulla petita (Quercus faginea): Quercetum rotundifoliae quercetosum fagineae",
+            "LLVP_Fisio": "Bosc esclerofil·le amb marcescents"
+          },
+          "mapped": {
+            "status": "partial",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Carbonatat",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_calcareous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Brolles de romaní i matollars mediterranis afins",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "vegetation_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_host_ids": [
+                  "host_populus_spp",
+                  "host_fraxinus_spp",
+                  "host_ulmus_spp"
+                ],
+                "suggested_mapped_forest_type_ids": [
+                  "forest_riparian"
+                ],
+                "suggested_mapped_habitat_feature_ids": [
+                  "feature_riparian_moisture"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": [],
+            "mapped_soil_tendency_ids": [
+              "soil_calcareous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 22373,
+          "properties": {
+            "Codi": "POmlg",
+            "Descripcio": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Paleogen",
+            "Epoca": "Oligocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "POmlg",
+                "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 620.38,
+          "observed_altitude_m": 619.9,
+          "delta_observed_vs_dem_m": -0.48
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.0123639,
+        "lon": 1.9703472,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [
+          "soil_calcareous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 620.38,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250729_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-07-29",
+      "flush_abundance": "normal",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 75896,
+          "properties": {
+            "LLVA": 25,
+            "LLVA_txt": "Complèxida del carrascar amb roure de fulla petita (Quercus faginea), eventualment amb pi blanc (Pinus halepensis) o pinassa (P. nigra subsp. salzmannii): Quercetum rotundifoliae quercetosum fagineae (roureda, bosc mixt, pineda) + Quercetum cocciferae (",
+            "LLVA_niv2": "1c",
+            "LLVA_niv2t": "Carrascars",
+            "LLVA_niv3t": "Boscos esclerofil·les, màquies i garrigues, eventualment amb pins",
+            "LLFISCAT": 50,
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "LLVA_Subst": "Carbonatat",
+            "LLVP_txt": "Carrascar amb roure de fulla petita (Quercus faginea): Quercetum rotundifoliae quercetosum fagineae",
+            "LLVP_Fisio": "Bosc esclerofil·le amb marcescents"
+          },
+          "mapped": {
+            "status": "partial",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Carbonatat",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_calcareous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Carrascars"
+              }
+            ],
+            "invalid_references": [],
+            "mapped_soil_tendency_ids": [
+              "soil_calcareous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 22373,
+          "properties": {
+            "Codi": "POmlg",
+            "Descripcio": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Paleogen",
+            "Epoca": "Oligocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "POmlg",
+                "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 641.24,
+          "observed_altitude_m": 638.1,
+          "delta_observed_vs_dem_m": -3.14
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.0596278,
+        "lon": 1.9291222,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [
+          "soil_calcareous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 641.24,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250725_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-07-25",
+      "flush_abundance": "normal",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 5631,
+          "properties": {
+            "LLVA": 138,
+            "LLVA_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils, eventualment amb avet (Abies alba), pi negre (Pinus uncinata) o bedoll (Betula pendula): Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 12,
+            "LLFISCAT_t": "Pi negre (Pinus uncinata)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils: Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi negre (Pinus uncinata)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_uncinata"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_subalpine_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_uncinata"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_subalpine_pine",
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 12684,
+          "properties": {
+            "Codi": "Qgp",
+            "Descripcio": "Clasts angulosos, sorres i lutites. Dipòsit periglacial",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Quaternari",
+            "Epoca": "Plistocè-Holocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "Qgp",
+                "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial"
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 1872.41,
+          "observed_altitude_m": 1873.7,
+          "delta_observed_vs_dem_m": 1.29
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.4612917,
+        "lon": 1.8455222,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "forest_type_ids": [
+          "forest_subalpine_pine",
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 1872.41,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250709_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-07-09",
+      "flush_abundance": "very_scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 5630,
+          "properties": {
+            "LLVA": 138,
+            "LLVA_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils, eventualment amb avet (Abies alba), pi negre (Pinus uncinata) o bedoll (Betula pendula): Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 12,
+            "LLFISCAT_t": "Pi negre (Pinus uncinata)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils: Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi negre (Pinus uncinata)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_uncinata"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_subalpine_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_uncinata"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_subalpine_pine",
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 6433,
+          "properties": {
+            "Codi": "Qco",
+            "Descripcio": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Quaternari",
+            "Epoca": "Holocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "Qco",
+                "description": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial"
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 2213.65,
+          "observed_altitude_m": 2222.1,
+          "delta_observed_vs_dem_m": 8.45
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.4587778,
+        "lon": 1.8037389,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "forest_type_ids": [
+          "forest_subalpine_pine",
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 2213.65,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250618_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-06-18",
+      "flush_abundance": "scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 5631,
+          "properties": {
+            "LLVA": 138,
+            "LLVA_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils, eventualment amb avet (Abies alba), pi negre (Pinus uncinata) o bedoll (Betula pendula): Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 12,
+            "LLFISCAT_t": "Pi negre (Pinus uncinata)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils: Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi negre (Pinus uncinata)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_uncinata"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_subalpine_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_uncinata"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_subalpine_pine",
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 12684,
+          "properties": {
+            "Codi": "Qgp",
+            "Descripcio": "Clasts angulosos, sorres i lutites. Dipòsit periglacial",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Quaternari",
+            "Epoca": "Plistocè-Holocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "Qgp",
+                "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial"
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 1884.37,
+          "observed_altitude_m": 1889.9,
+          "delta_observed_vs_dem_m": 5.53
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.460675,
+        "lon": 1.8462861,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "forest_type_ids": [
+          "forest_subalpine_pine",
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 1884.37,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250611_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-06-11",
+      "flush_abundance": "very_scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 2171,
+          "properties": {
+            "LLVA": 136,
+            "LLVA_txt": "Complèxida del bosc de pi roig (Pinus sylvestris) montà, acidòfil i xeròfil, eventualment amb bedolls (Betula pendula): Veronico officinalis-Pinetum sylvestris typicum (bosc de pi roig, bedollar) + Senecio adonidifolii-Genistetum europaeae (balegar)",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 10,
+            "LLFISCAT_t": "Pi roig (Pinus sylvestris)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Bosc de pi roig (Pinus sylvestris) montà, acidòfil i xeròfil: Veronico officinalis-Pinetum sylvestris typicum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi roig (Pinus sylvestris)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_sylvestris"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_sylvestris"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 60719,
+          "properties": {
+            "Codi": "EÇOrgl",
+            "Descripcio": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "Eo": "Proterozoic-Fanerozoic",
+            "Era": "Neo-proterozoic-Paleozoic",
+            "Periode": "Ediacarìà-Ordovicià"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "EÇOrgl",
+                "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 1716.66,
+          "observed_altitude_m": 1723.2,
+          "delta_observed_vs_dem_m": 6.54
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.4011528,
+        "lon": 1.2790944,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_sylvestris"
+        ],
+        "forest_type_ids": [
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 1716.66,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250909_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-09-09",
+      "flush_abundance": "exceptional",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 2171,
+          "properties": {
+            "LLVA": 136,
+            "LLVA_txt": "Complèxida del bosc de pi roig (Pinus sylvestris) montà, acidòfil i xeròfil, eventualment amb bedolls (Betula pendula): Veronico officinalis-Pinetum sylvestris typicum (bosc de pi roig, bedollar) + Senecio adonidifolii-Genistetum europaeae (balegar)",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 10,
+            "LLFISCAT_t": "Pi roig (Pinus sylvestris)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Bosc de pi roig (Pinus sylvestris) montà, acidòfil i xeròfil: Veronico officinalis-Pinetum sylvestris typicum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi roig (Pinus sylvestris)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_sylvestris"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_sylvestris"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 60719,
+          "properties": {
+            "Codi": "EÇOrgl",
+            "Descripcio": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "Eo": "Proterozoic-Fanerozoic",
+            "Era": "Neo-proterozoic-Paleozoic",
+            "Periode": "Ediacarìà-Ordovicià"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "EÇOrgl",
+                "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 1720.59,
+          "observed_altitude_m": 1717.8,
+          "delta_observed_vs_dem_m": -2.79
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.399375,
+        "lon": 1.2803222,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_sylvestris"
+        ],
+        "forest_type_ids": [
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 1720.59,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250913_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-09-13",
+      "flush_abundance": "normal",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 5603,
+          "properties": {
+            "LLVA": 138,
+            "LLVA_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils, eventualment amb avet (Abies alba), pi negre (Pinus uncinata) o bedoll (Betula pendula): Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 12,
+            "LLFISCAT_t": "Pi negre (Pinus uncinata)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils: Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi negre (Pinus uncinata)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_uncinata"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_subalpine_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_uncinata"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_subalpine_pine",
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 59301,
+          "properties": {
+            "Codi": "Orgm",
+            "Descripcio": "Gresos, microconglomerats, lutites i roques vulcanoclàstiques",
+            "Eo": "Fanerozoic",
+            "Era": "Paleozoic",
+            "Periode": "Ordovicià",
+            "Epoca": "Ordovicià superior"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "Orgm",
+                "description": "Gresos, microconglomerats, lutites i roques vulcanoclàstiques",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 1684.28,
+          "observed_altitude_m": 1694.9,
+          "delta_observed_vs_dem_m": 10.62
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.3492972,
+        "lon": 1.9111583,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "forest_type_ids": [
+          "forest_subalpine_pine",
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 1684.28,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250913_0004",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-09-13",
+      "flush_abundance": "very_scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 77585,
+          "properties": {
+            "LLVA": 173,
+            "LLVA_txt": "Complèxida de la brolla de romaní (Rosmarinus officinalis) i sanguinària (Lithospermum fruticosum): Rosmarino-Lithospermetum (brolla) + Aphyllanthion, Thero-Brachypodion (prats secs)",
+            "LLVA_niv2": "6a",
+            "LLVA_niv2t": "Brolles de romaní i matollars mediterranis afins",
+            "LLVA_niv3t": "Brolles i prats emmatats dels sòls carbonatats de la regió mediterrània",
+            "LLFISCAT": 50,
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "LLVA_Subst": "Carbonatat",
+            "LLVP_txt": "Carrascar amb roure de fulla petita (Quercus faginea): Quercetum rotundifoliae quercetosum fagineae",
+            "LLVP_Fisio": "Bosc esclerofil·le amb marcescents"
+          },
+          "mapped": {
+            "status": "partial",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Carbonatat",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_calcareous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Brolles de romaní i matollars mediterranis afins",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "vegetation_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_host_ids": [
+                  "host_populus_spp",
+                  "host_fraxinus_spp",
+                  "host_ulmus_spp"
+                ],
+                "suggested_mapped_forest_type_ids": [
+                  "forest_riparian"
+                ],
+                "suggested_mapped_habitat_feature_ids": [
+                  "feature_riparian_moisture"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": [],
+            "mapped_soil_tendency_ids": [
+              "soil_calcareous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 22373,
+          "properties": {
+            "Codi": "POmlg",
+            "Descripcio": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Paleogen",
+            "Epoca": "Oligocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "POmlg",
+                "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 597.57,
+          "observed_altitude_m": 597.9,
+          "delta_observed_vs_dem_m": 0.33
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.0583806,
+        "lon": 1.9239833,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [
+          "soil_calcareous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 597.57,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250926_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-09-26",
+      "flush_abundance": "scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 75855,
+          "properties": {
+            "LLVA": 25,
+            "LLVA_txt": "Complèxida del carrascar amb roure de fulla petita (Quercus faginea), eventualment amb pi blanc (Pinus halepensis) o pinassa (P. nigra subsp. salzmannii): Quercetum rotundifoliae quercetosum fagineae (roureda, bosc mixt, pineda) + Quercetum cocciferae (",
+            "LLVA_niv2": "1c",
+            "LLVA_niv2t": "Carrascars",
+            "LLVA_niv3t": "Boscos esclerofil·les, màquies i garrigues, eventualment amb pins",
+            "LLFISCAT": 50,
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "LLVA_Subst": "Carbonatat",
+            "LLVP_txt": "Carrascar amb roure de fulla petita (Quercus faginea): Quercetum rotundifoliae quercetosum fagineae",
+            "LLVP_Fisio": "Bosc esclerofil·le amb marcescents"
+          },
+          "mapped": {
+            "status": "partial",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Carbonatat",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_calcareous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Carrascars"
+              }
+            ],
+            "invalid_references": [],
+            "mapped_soil_tendency_ids": [
+              "soil_calcareous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 22373,
+          "properties": {
+            "Codi": "POmlg",
+            "Descripcio": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Paleogen",
+            "Epoca": "Oligocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "POmlg",
+                "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 625.99,
+          "observed_altitude_m": 625.8,
+          "delta_observed_vs_dem_m": -0.19
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.013125,
+        "lon": 1.9712472,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [
+          "soil_calcareous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 625.99,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250930_0001",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-09-30",
+      "flush_abundance": "abundant",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 70196,
+          "properties": {
+            "LLVA": 60,
+            "LLVA_txt": "Complèxida de la roureda de roure de fulla petita (Quercus faginea s.l.), eventualment amb pinassa (Pinus nigra subsp. salzmannii): Violo willkommii-Quercetum fagineae (roureda, pineda) + Quercetum cocciferae (garriga) + Aphyllanthion (prats emmatats)",
+            "LLVA_niv2": "2a",
+            "LLVA_niv2t": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "LLVA_niv3t": "Boscos caducifolis i altres comunitats relacionades",
+            "LLFISCAT": 50,
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "LLVA_Subst": "Carbonatat",
+            "LLVP_txt": "Roureda de roure de fulla petita (Quercus faginea): Violo willkommii-Quercetum fagineae",
+            "LLVP_Fisio": "Bosc marcescent"
+          },
+          "mapped": {
+            "status": "partial",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Carbonatat",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_calcareous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "vegetation_mappings",
+                "suggested_rule_count": "3",
+                "suggested_mapped_host_ids": [
+                  "host_pinus_sylvestris",
+                  "host_pinus_nigra",
+                  "host_quercus_spp"
+                ],
+                "suggested_mapped_forest_type_ids": [
+                  "forest_montane_pine",
+                  "forest_mediterranean_pine",
+                  "forest_mediterranean_oak",
+                  "forest_deciduous_broadleaf"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": [],
+            "mapped_soil_tendency_ids": [
+              "soil_calcareous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 22373,
+          "properties": {
+            "Codi": "POmlg",
+            "Descripcio": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Paleogen",
+            "Epoca": "Oligocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "POmlg",
+                "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 597.48,
+          "observed_altitude_m": 596.8,
+          "delta_observed_vs_dem_m": -0.68
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 41.9970944,
+        "lon": 1.9357194,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [
+          "soil_calcareous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 597.48,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20250930_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-09-30",
+      "flush_abundance": "normal",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 75855,
+          "properties": {
+            "LLVA": 25,
+            "LLVA_txt": "Complèxida del carrascar amb roure de fulla petita (Quercus faginea), eventualment amb pi blanc (Pinus halepensis) o pinassa (P. nigra subsp. salzmannii): Quercetum rotundifoliae quercetosum fagineae (roureda, bosc mixt, pineda) + Quercetum cocciferae (",
+            "LLVA_niv2": "1c",
+            "LLVA_niv2t": "Carrascars",
+            "LLVA_niv3t": "Boscos esclerofil·les, màquies i garrigues, eventualment amb pins",
+            "LLFISCAT": 50,
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "LLVA_Subst": "Carbonatat",
+            "LLVP_txt": "Carrascar amb roure de fulla petita (Quercus faginea): Quercetum rotundifoliae quercetosum fagineae",
+            "LLVP_Fisio": "Bosc esclerofil·le amb marcescents"
+          },
+          "mapped": {
+            "status": "partial",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Carbonatat",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_calcareous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Carrascars"
+              }
+            ],
+            "invalid_references": [],
+            "mapped_soil_tendency_ids": [
+              "soil_calcareous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 22373,
+          "properties": {
+            "Codi": "POmlg",
+            "Descripcio": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Paleogen",
+            "Epoca": "Oligocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "POmlg",
+                "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+                "suggested_confidence": "medium",
+                "suggested_review_status": "pending_review",
+                "suggestion_source": "geology_soil_tendency_mappings",
+                "suggested_rule_count": "1",
+                "suggested_mapped_soil_tendency_ids": [
+                  "soil_sandy",
+                  "soil_siliceous"
+                ],
+                "suggestion_notes": "Pending review because the matched rule confidence is medium; this rule only auto-accepts: high."
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 624.23,
+          "observed_altitude_m": 624.8,
+          "delta_observed_vs_dem_m": 0.57
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.0129889,
+        "lon": 1.9707056,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [
+          "soil_calcareous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 624.23,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20260703_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2026-07-03",
+      "flush_abundance": "scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 5630,
+          "properties": {
+            "LLVA": 138,
+            "LLVA_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils, eventualment amb avet (Abies alba), pi negre (Pinus uncinata) o bedoll (Betula pendula): Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 12,
+            "LLFISCAT_t": "Pi negre (Pinus uncinata)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils: Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi negre (Pinus uncinata)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_uncinata"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_subalpine_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_uncinata"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_subalpine_pine",
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 6433,
+          "properties": {
+            "Codi": "Qco",
+            "Descripcio": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Quaternari",
+            "Epoca": "Holocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "Qco",
+                "description": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial"
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 2230.54,
+          "observed_altitude_m": 2233.2,
+          "delta_observed_vs_dem_m": 2.66
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.4597167,
+        "lon": 1.807325,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "forest_type_ids": [
+          "forest_subalpine_pine",
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 2230.54,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20260703_0002",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2026-07-03",
+      "flush_abundance": "scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 5630,
+          "properties": {
+            "LLVA": 138,
+            "LLVA_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils, eventualment amb avet (Abies alba), pi negre (Pinus uncinata) o bedoll (Betula pendula): Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 12,
+            "LLFISCAT_t": "Pi negre (Pinus uncinata)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils: Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi negre (Pinus uncinata)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_uncinata"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_subalpine_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_uncinata"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_subalpine_pine",
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 6433,
+          "properties": {
+            "Codi": "Qco",
+            "Descripcio": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Quaternari",
+            "Epoca": "Holocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "Qco",
+                "description": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial"
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 2236.34,
+          "observed_altitude_m": 2238.0,
+          "delta_observed_vs_dem_m": 1.66
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.4573333,
+        "lon": 1.8081,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "forest_type_ids": [
+          "forest_subalpine_pine",
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 2236.34,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20260703_0003",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2026-07-03",
+      "flush_abundance": "scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 5630,
+          "properties": {
+            "LLVA": 138,
+            "LLVA_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils, eventualment amb avet (Abies alba), pi negre (Pinus uncinata) o bedoll (Betula pendula): Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 12,
+            "LLFISCAT_t": "Pi negre (Pinus uncinata)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils: Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi negre (Pinus uncinata)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_uncinata"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_subalpine_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_uncinata"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_subalpine_pine",
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 6433,
+          "properties": {
+            "Codi": "Qco",
+            "Descripcio": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Quaternari",
+            "Epoca": "Holocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "Qco",
+                "description": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial"
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 2227.26,
+          "observed_altitude_m": 2231.5,
+          "delta_observed_vs_dem_m": 4.24
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.4591611,
+        "lon": 1.8084194,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "forest_type_ids": [
+          "forest_subalpine_pine",
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 2227.26,
+        "altitude_source": "dem_5m"
+      }
+    },
+    {
+      "observation_id": "obs_20260703_0004",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2026-07-03",
+      "flush_abundance": "scarce",
+      "location_redacted": false,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "fid": 5630,
+          "properties": {
+            "LLVA": 138,
+            "LLVA_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils, eventualment amb avet (Abies alba), pi negre (Pinus uncinata) o bedoll (Betula pendula): Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVA_niv2": "3a",
+            "LLVA_niv2t": "Boscos boreals de pi roig montans i altimontans",
+            "LLVA_niv3t": "Boscos boreals de coníferes i altres comunitats relacionades",
+            "LLFISCAT": 12,
+            "LLFISCAT_t": "Pi negre (Pinus uncinata)",
+            "LLVA_Subst": "Silici",
+            "LLVP_txt": "Boscos de pi roig (Pinus sylvestris) montans, acidòfils i mesòfils: Hylocomio-Pinetum catalaunicae typicum, abietetosum",
+            "LLVP_Fisio": "Bosc aciculifoli"
+          },
+          "mapped": {
+            "status": "mapped",
+            "mapped_values": [
+              {
+                "source_id": "mvc50",
+                "field": "LLFISCAT_t",
+                "raw_value": "Pi negre (Pinus uncinata)",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_host_ids": [
+                  "host_pinus_uncinata"
+                ],
+                "mapped_forest_type_ids": [
+                  "forest_subalpine_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_niv2t",
+                "raw_value": "Boscos boreals de pi roig montans i altimontans",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_forest_type_ids": [
+                  "forest_montane_pine"
+                ]
+              },
+              {
+                "source_id": "mvc50",
+                "field": "LLVA_Subst",
+                "raw_value": "Silici",
+                "confidence": "high",
+                "review_status": "accepted",
+                "mapped_soil_tendency_ids": [
+                  "soil_siliceous"
+                ]
+              }
+            ],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [],
+            "invalid_references": [],
+            "mapped_host_ids": [
+              "host_pinus_uncinata"
+            ],
+            "mapped_forest_type_ids": [
+              "forest_subalpine_pine",
+              "forest_montane_pine"
+            ],
+            "mapped_soil_tendency_ids": [
+              "soil_siliceous"
+            ]
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "fid": 6433,
+          "properties": {
+            "Codi": "Qco",
+            "Descripcio": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial",
+            "Eo": "Fanerozoic",
+            "Era": "Cenozoic",
+            "Periode": "Quaternari",
+            "Epoca": "Holocè"
+          },
+          "mapped": {
+            "status": "unmapped",
+            "mapped_values": [],
+            "pending_values": [],
+            "ignored_values": [],
+            "unmapped_values": [
+              {
+                "source_id": "geology_50000",
+                "field": "Codi",
+                "raw_value": "Qco",
+                "description": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial"
+              }
+            ],
+            "invalid_references": []
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "source": "/app/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "elevation_m": 2224.77,
+          "observed_altitude_m": 2227.8,
+          "delta_observed_vs_dem_m": 3.03
+        }
+      },
+      "status": "complete",
+      "gaps": [],
+      "location": {
+        "lat": 42.4597889,
+        "lon": 1.8082306,
+        "source": "mushroom_observations"
+      },
+      "gis_context_v0": {
+        "schema_version": "0.1",
+        "kind": "mushroom_gis_context_v0",
+        "host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "forest_type_ids": [
+          "forest_subalpine_pine",
+          "forest_montane_pine"
+        ],
+        "soil_tendency_ids": [
+          "soil_siliceous"
+        ],
+        "habitat_feature_ids": [],
+        "evidence": {
+          "source_layers": [
+            "mvc50",
+            "geology_50000"
+          ],
+          "mapped_source_layers": [
+            "mvc50"
+          ],
+          "pending_source_layers": [],
+          "unmapped_source_layers": [
+            "geology_50000"
+          ],
+          "invalid_source_layers": [],
+          "gaps": [],
+          "has_pending_values": false,
+          "has_unmapped_values": true,
+          "has_invalid_references": false
+        },
+        "altitude_m": 2224.77,
+        "altitude_source": "dem_5m"
+      }
+    }
+  ]
+}

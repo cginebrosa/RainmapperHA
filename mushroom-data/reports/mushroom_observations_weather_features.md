@@ -1,0 +1,112 @@
+# Mushroom Observation Weather Features
+
+- Generated at: 2026-07-05T00:37:00.232534+00:00
+- Observations: 49
+- With weather station: 49
+- With gaps: 47
+- Method: nearest_station_single_source_daily
+- Summary window: 7 days for temperature, humidity and wind.
+
+## Gap Summary
+
+- rain_14d_coverage_10/14: 6
+- rain_14d_coverage_11/14: 1
+- rain_14d_coverage_4/14: 1
+- rain_14d_coverage_5/14: 2
+- rain_14d_coverage_7/14: 1
+- rain_14d_coverage_8/14: 1
+- rain_14d_coverage_9/14: 3
+- rain_1d_coverage_0/1: 11
+- rain_21d_coverage_10/21: 1
+- rain_21d_coverage_11/21: 1
+- rain_21d_coverage_12/21: 1
+- rain_21d_coverage_13/21: 4
+- rain_21d_coverage_17/21: 7
+- rain_21d_coverage_7/21: 2
+- rain_30d_coverage_10/30: 1
+- rain_30d_coverage_11/30: 1
+- rain_30d_coverage_14/30: 3
+- rain_30d_coverage_16/30: 1
+- rain_30d_coverage_17/30: 3
+- rain_30d_coverage_26/30: 8
+- rain_60d_coverage_21/60: 1
+- rain_60d_coverage_24/60: 2
+- rain_60d_coverage_25/60: 1
+- rain_60d_coverage_26/60: 1
+- rain_60d_coverage_30/60: 3
+- rain_60d_coverage_32/60: 1
+- rain_60d_coverage_42/60: 1
+- rain_60d_coverage_48/60: 1
+- rain_60d_coverage_50/60: 4
+- rain_60d_coverage_56/60: 5
+- rain_60d_coverage_58/60: 5
+- rain_7d_coverage_2/7: 1
+- rain_7d_coverage_3/7: 9
+- rain_7d_coverage_4/7: 4
+- rain_7d_coverage_6/7: 1
+- rain_90d_coverage_35/90: 2
+- rain_90d_coverage_37/90: 1
+- rain_90d_coverage_38/90: 1
+- rain_90d_coverage_39/90: 1
+- rain_90d_coverage_42/90: 1
+- rain_90d_coverage_48/90: 1
+- rain_90d_coverage_53/90: 4
+- rain_90d_coverage_60/90: 4
+- rain_90d_coverage_67/90: 2
+- rain_90d_coverage_80/90: 4
+- rain_90d_coverage_82/90: 4
+- rain_90d_coverage_85/90: 1
+- rain_90d_coverage_88/90: 3
+- rain_suspect_daily_20250807_746.25mm: 2
+- rain_suspect_daily_20250825_1178.56mm: 2
+- wind_no_data_7d: 43
+
+## Rows With Gaps
+
+- obs_20250729_0002 · boletus_aereus · 2025-07-29: wind_no_data_7d
+- obs_20250801_0002 · boletus_aereus · 2025-08-01: wind_no_data_7d
+- obs_20250805_0002 · boletus_aereus · 2025-08-05: wind_no_data_7d
+- obs_20250806_0002 · boletus_aereus · 2025-08-06: rain_90d_coverage_67/90, wind_no_data_7d
+- obs_20250801_0003 · amanita_caesarea · 2025-08-01: wind_no_data_7d
+- obs_20250805_0003 · amanita_caesarea · 2025-08-05: wind_no_data_7d
+- obs_20250806_0003 · amanita_caesarea · 2025-08-06: rain_90d_coverage_67/90, wind_no_data_7d
+- obs_20250729_0003 · amanita_caesarea · 2025-07-29: wind_no_data_7d
+- obs_20250725_0001 · boletus_pinophilus · 2025-07-25: rain_90d_coverage_85/90, wind_no_data_7d
+- obs_20250709_0001 · boletus_pinophilus · 2025-07-09: rain_60d_coverage_56/60, rain_90d_coverage_82/90, wind_no_data_7d
+- obs_20250618_0001 · boletus_pinophilus · 2025-06-18: rain_60d_coverage_48/60, rain_90d_coverage_48/90, wind_no_data_7d
+- obs_20250611_0001 · boletus_pinophilus · 2025-06-11: rain_7d_coverage_3/7, rain_14d_coverage_7/14, rain_21d_coverage_11/21, rain_30d_coverage_14/30, rain_60d_coverage_21/60, rain_90d_coverage_37/90, wind_no_data_7d
+- obs_20250530_0001 · morchella_elata_complex · 2025-05-30: rain_90d_coverage_88/90, wind_no_data_7d
+- obs_20250523_0001 · morchella_elata_complex · 2025-05-23: rain_60d_coverage_58/60, rain_90d_coverage_82/90, wind_no_data_7d
+- obs_20250516_0001 · morchella_elata_complex · 2025-05-16: rain_60d_coverage_58/60, rain_90d_coverage_82/90, wind_no_data_7d
+- obs_20250516_0002 · morchella_elata_complex · 2025-05-16: rain_60d_coverage_58/60, rain_90d_coverage_82/90, wind_no_data_7d
+- obs_20250429_0001 · hygrophorus_marzuolus · 2025-04-29: rain_1d_coverage_0/1, rain_7d_coverage_3/7, rain_14d_coverage_5/14, rain_21d_coverage_7/21, rain_30d_coverage_11/30, rain_60d_coverage_24/60, rain_90d_coverage_35/90, wind_no_data_7d
+- obs_20250507_0001 · hygrophorus_marzuolus · 2025-05-07: rain_7d_coverage_2/7, rain_14d_coverage_4/14, rain_21d_coverage_7/21, rain_30d_coverage_10/30, rain_60d_coverage_26/60, rain_90d_coverage_35/90, wind_no_data_7d
+- obs_20250423_0001 · hygrophorus_marzuolus · 2025-04-23: rain_30d_coverage_26/30, rain_60d_coverage_50/60, rain_90d_coverage_80/90, wind_no_data_7d
+- obs_20250415_0001 · hygrophorus_marzuolus · 2025-04-15: rain_21d_coverage_17/21, rain_30d_coverage_26/30, rain_60d_coverage_50/60, rain_90d_coverage_80/90, wind_no_data_7d
+- obs_20250410_0001 · hygrophorus_marzuolus · 2025-04-10: rain_1d_coverage_0/1, rain_7d_coverage_3/7, rain_14d_coverage_5/14, rain_21d_coverage_10/21, rain_30d_coverage_16/30, rain_60d_coverage_25/60, rain_90d_coverage_38/90, wind_no_data_7d
+- obs_20250403_0001 · hygrophorus_marzuolus · 2025-04-03: rain_7d_coverage_4/7, rain_14d_coverage_10/14, rain_21d_coverage_17/21, rain_30d_coverage_26/30, rain_60d_coverage_50/60, rain_90d_coverage_80/90, wind_no_data_7d
+- obs_20250401_0001 · hygrophorus_marzuolus · 2025-04-01: rain_7d_coverage_3/7, rain_14d_coverage_10/14, rain_21d_coverage_17/21, rain_30d_coverage_26/30, rain_60d_coverage_50/60, rain_90d_coverage_80/90, wind_no_data_7d
+- obs_20250401_0002 · hygrophorus_marzuolus · 2025-04-01: rain_1d_coverage_0/1, rain_7d_coverage_3/7, rain_14d_coverage_8/14, rain_21d_coverage_12/21, rain_30d_coverage_14/30, rain_60d_coverage_24/60, rain_90d_coverage_39/90, wind_no_data_7d
+- obs_20250904_0001 · boletus_aereus · 2025-09-04: wind_no_data_7d
+- obs_20250904_0002 · boletus_aereus · 2025-09-04: rain_1d_coverage_0/1, rain_7d_coverage_6/7, rain_14d_coverage_11/14, rain_21d_coverage_13/21, rain_30d_coverage_14/30, rain_60d_coverage_32/60, rain_90d_coverage_53/90, wind_no_data_7d
+- obs_20250909_0001 · boletus_pinophilus · 2025-09-09: rain_60d_coverage_42/60, rain_90d_coverage_42/90, wind_no_data_7d
+- obs_20250913_0001 · boletus_pinophilus · 2025-09-13: rain_1d_coverage_0/1, rain_7d_coverage_4/7, rain_14d_coverage_9/14, rain_21d_coverage_13/21, rain_30d_coverage_17/30, rain_60d_coverage_30/60, rain_90d_coverage_53/90, wind_no_data_7d
+- obs_20250913_0002 · lactarius_sanguifluus · 2025-09-13: rain_1d_coverage_0/1, rain_7d_coverage_4/7, rain_14d_coverage_9/14, rain_21d_coverage_13/21, rain_30d_coverage_17/30, rain_60d_coverage_30/60, rain_90d_coverage_53/90, wind_no_data_7d
+- obs_20250913_0003 · cantharellus_cibarius_sl · 2025-09-13: rain_1d_coverage_0/1, rain_7d_coverage_4/7, rain_14d_coverage_9/14, rain_21d_coverage_13/21, rain_30d_coverage_17/30, rain_60d_coverage_30/60, rain_90d_coverage_53/90, wind_no_data_7d
+- obs_20250913_0004 · amanita_caesarea · 2025-09-13: wind_no_data_7d
+- obs_20250926_0001 · boletus_aereus · 2025-09-26: wind_no_data_7d
+- obs_20250926_0002 · boletus_aereus · 2025-09-26: wind_no_data_7d
+- obs_20250926_0003 · amanita_caesarea · 2025-09-26: wind_no_data_7d
+- obs_20250930_0001 · amanita_caesarea · 2025-09-30: rain_suspect_daily_20250807_746.25mm, rain_suspect_daily_20250825_1178.56mm, rain_60d_coverage_58/60, rain_90d_coverage_88/90, wind_no_data_7d
+- obs_20250930_0002 · boletus_aereus · 2025-09-30: rain_suspect_daily_20250807_746.25mm, rain_suspect_daily_20250825_1178.56mm, rain_60d_coverage_58/60, rain_90d_coverage_88/90, wind_no_data_7d
+- obs_20250930_0003 · amanita_caesarea · 2025-09-30: wind_no_data_7d
+- obs_20250930_0004 · boletus_aereus · 2025-09-30: wind_no_data_7d
+- obs_20251023_0001 · boletus_aereus · 2025-10-23: wind_no_data_7d
+- obs_20251023_0002 · cantharellus_cibarius_sl · 2025-10-23: wind_no_data_7d
+- obs_20251023_0003 · lactarius_sanguifluus · 2025-10-23: wind_no_data_7d
+- obs_20250725_0002 · boletus_aereus · 2025-07-25: wind_no_data_7d
+- obs_20250727_0001 · boletus_aereus · 2025-07-27: wind_no_data_7d
+- obs_20260703_0001 · boletus_pinophilus · 2026-07-03: rain_1d_coverage_0/1, rain_7d_coverage_3/7, rain_14d_coverage_10/14, rain_21d_coverage_17/21, rain_30d_coverage_26/30, rain_60d_coverage_56/60, rain_90d_coverage_60/90
+- obs_20260703_0002 · boletus_pinophilus · 2026-07-03: rain_1d_coverage_0/1, rain_7d_coverage_3/7, rain_14d_coverage_10/14, rain_21d_coverage_17/21, rain_30d_coverage_26/30, rain_60d_coverage_56/60, rain_90d_coverage_60/90
+- obs_20260703_0003 · boletus_pinophilus · 2026-07-03: rain_1d_coverage_0/1, rain_7d_coverage_3/7, rain_14d_coverage_10/14, rain_21d_coverage_17/21, rain_30d_coverage_26/30, rain_60d_coverage_56/60, rain_90d_coverage_60/90
+- obs_20260703_0004 · boletus_pinophilus · 2026-07-03: rain_1d_coverage_0/1, rain_7d_coverage_3/7, rain_14d_coverage_10/14, rain_21d_coverage_17/21, rain_30d_coverage_26/30, rain_60d_coverage_56/60, rain_90d_coverage_60/90

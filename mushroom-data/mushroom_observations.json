@@ -3,11 +3,2598 @@
   "model_purpose": "field_observations_for_mushroom_species_calibration",
   "important_note": "Observations are used to compare mushroom prediction parameters with real field outcomes. Required fields stay intentionally small; optional context can be filled when available.",
   "requires_catalog_file": "mushroom_reference_catalogs.json",
-  "observations": [],
+  "observations": [
+    {
+      "observation_id": "obs_20250729_0002",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-07-29",
+      "location": {
+        "input": "42.05962778, 1.92912222",
+        "lat": 42.05962777777778,
+        "lon": 1.9291222222222222,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3919.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-29",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui_exif_import",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 638.1,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250801_0002",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-08-01",
+      "location": {
+        "input": "42.06725000, 1.94644444",
+        "lat": 42.06725,
+        "lon": 1.9464444444444444,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3982.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-29",
+        "updated_at": "2026-06-29",
+        "created_by": "rainmapper_ui_exif_import",
+        "updated_by": "rainmapper_ui_exif_import"
+      },
+      "altitude": {
+        "meters": 761.7,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-29"
+      },
+      "derived": {
+        "month": 8,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250805_0002",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-08-05",
+      "location": {
+        "input": "42.06723056, 1.94652222",
+        "lat": 42.06723055555556,
+        "lon": 1.9465222222222223,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4083.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-29",
+        "updated_at": "2026-06-29",
+        "created_by": "rainmapper_ui_exif_import",
+        "updated_by": "rainmapper_ui_exif_import"
+      },
+      "altitude": {
+        "meters": 761.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-29"
+      },
+      "derived": {
+        "month": 8,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250806_0002",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-08-06",
+      "location": {
+        "input": "42.01236389, 1.97034722",
+        "lat": 42.01236388888889,
+        "lon": 1.9703472222222222,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4144.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-29",
+        "updated_at": "2026-06-29",
+        "created_by": "rainmapper_ui_exif_import",
+        "updated_by": "rainmapper_ui_exif_import"
+      },
+      "altitude": {
+        "meters": 619.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-29"
+      },
+      "derived": {
+        "month": 8,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250801_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-08-01",
+      "location": {
+        "input": "42.06725000, 1.94644444",
+        "lat": 42.06725,
+        "lon": 1.9464444444444444,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3982.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "observed_forest_type_ids": [],
+        "observed_soil_tendency_ids": [],
+        "observed_habitat_feature_ids": [],
+        "observed_aspect_ids": [],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-29",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui_duplicate",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 761.7,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 8,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250805_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-08-05",
+      "location": {
+        "input": "42.06723056, 1.94652222",
+        "lat": 42.06723055555556,
+        "lon": 1.9465222222222223,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4083.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "observed_forest_type_ids": [
+          "forest_holm_oak"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_slightly_acidic"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_open_warm_woodland"
+        ],
+        "observed_aspect_ids": [
+          "aspect_S"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-29",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui_duplicate",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 761.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 8,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250806_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-08-06",
+      "location": {
+        "input": "42.01236389, 1.97034722",
+        "lat": 42.01236388888889,
+        "lon": 1.9703472222222222,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "normal",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4144.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "observed_forest_type_ids": [
+          "forest_holm_oak"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_slightly_acidic"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_open_warm_woodland"
+        ],
+        "observed_aspect_ids": [
+          "aspect_S"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-29",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui_duplicate",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 619.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 8,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250729_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-07-29",
+      "location": {
+        "input": "42.05962778, 1.92912222",
+        "lat": 42.05962777777778,
+        "lon": 1.9291222222222222,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "normal",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3919.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "observed_forest_type_ids": [],
+        "observed_soil_tendency_ids": [],
+        "observed_habitat_feature_ids": [],
+        "observed_aspect_ids": [],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-29",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui_duplicate",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 638.1,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250725_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-07-25",
+      "location": {
+        "input": "42.46129167, 1.84552222",
+        "lat": 42.46129166666667,
+        "lon": 1.8455222222222223,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "normal",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3892.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1873.7,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250709_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-07-09",
+      "location": {
+        "input": "42.45877778, 1.80373889",
+        "lat": 42.45877777777778,
+        "lon": 1.803738888888889,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "very_scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3767.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 2222.1,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250618_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-06-18",
+      "location": {
+        "input": "42.46067500, 1.84628611",
+        "lat": 42.460675,
+        "lon": 1.8462861111111113,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3617.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1889.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 6,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250611_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-06-11",
+      "location": {
+        "input": "42.40115278, 1.27909444",
+        "lat": 42.401152777777774,
+        "lon": 1.2790944444444443,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "very_scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3589.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1723.2,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 6,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250530_0001",
+      "species_id": "morchella_elata_complex",
+      "observed_at": "2025-05-30",
+      "location": {
+        "input": "42.26753611, 1.51340278",
+        "lat": 42.26753611111111,
+        "lon": 1.5134027777777779,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "absent",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3522.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1780.2,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 5,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250523_0001",
+      "species_id": "morchella_elata_complex",
+      "observed_at": "2025-05-23",
+      "location": {
+        "input": "42.26890278, 1.51733333",
+        "lat": 42.268902777777775,
+        "lon": 1.5173333333333332,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3455.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1809.5,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 5,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250516_0001",
+      "species_id": "morchella_elata_complex",
+      "observed_at": "2025-05-16",
+      "location": {
+        "input": "42.26918056, 1.51715000",
+        "lat": 42.26918055555556,
+        "lon": 1.51715,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3362.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1802.5,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 5,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250516_0002",
+      "species_id": "morchella_elata_complex",
+      "observed_at": "2025-05-16",
+      "location": {
+        "input": "42.26949722, 1.51902500",
+        "lat": 42.26949722222222,
+        "lon": 1.5190249999999998,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3385.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1823.2,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 5,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250429_0001",
+      "species_id": "hygrophorus_marzuolus",
+      "observed_at": "2025-04-29",
+      "location": {
+        "input": "42.34288056, 1.92682222",
+        "lat": 42.34288055555556,
+        "lon": 1.926822222222222,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "normal",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3256.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1708.5,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 4,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250507_0001",
+      "species_id": "hygrophorus_marzuolus",
+      "observed_at": "2025-05-07",
+      "location": {
+        "input": "42.34329167, 1.92683056",
+        "lat": 42.343291666666666,
+        "lon": 1.9268305555555554,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3308.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1688.4,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 5,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250423_0001",
+      "species_id": "hygrophorus_marzuolus",
+      "observed_at": "2025-04-23",
+      "location": {
+        "input": "42.36761111, 1.31935833",
+        "lat": 42.36761111111111,
+        "lon": 1.3193583333333334,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "very_abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3225.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1404.1,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 4,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250415_0001",
+      "species_id": "hygrophorus_marzuolus",
+      "observed_at": "2025-04-15",
+      "location": {
+        "input": "42.37016389, 1.31960833",
+        "lat": 42.37016388888889,
+        "lon": 1.3196083333333333,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "very_abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3172.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1397.4,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 4,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250410_0001",
+      "species_id": "hygrophorus_marzuolus",
+      "observed_at": "2025-04-10",
+      "location": {
+        "input": "42.39006667, 1.28610833",
+        "lat": 42.39006666666667,
+        "lon": 1.2861083333333332,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "very_abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3130.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1709.6,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 4,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250403_0001",
+      "species_id": "hygrophorus_marzuolus",
+      "observed_at": "2025-04-03",
+      "location": {
+        "input": "42.36963611, 1.31978611",
+        "lat": 42.36963611111111,
+        "lon": 1.319786111111111,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3074.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1403.1,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 4,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250401_0001",
+      "species_id": "hygrophorus_marzuolus",
+      "observed_at": "2025-04-01",
+      "location": {
+        "input": "42.36850000, 1.32151667",
+        "lat": 42.3685,
+        "lon": 1.3215166666666667,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3046.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1382.2,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 4,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250401_0002",
+      "species_id": "hygrophorus_marzuolus",
+      "observed_at": "2025-04-01",
+      "location": {
+        "input": "42.39173611, 1.30652778",
+        "lat": 42.39173611111111,
+        "lon": 1.3065277777777777,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3013.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1378,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 4,
+        "season": "spring"
+      }
+    },
+    {
+      "observation_id": "obs_20250904_0001",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-09-04",
+      "location": {
+        "input": "42.06716944, 1.94539722",
+        "lat": 42.067169444444446,
+        "lon": 1.9453972222222222,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "very_scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4472.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 757.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20260612_0001",
+      "species_id": "morchella_elata_complex",
+      "observed_at": "2026-06-12",
+      "location": {
+        "input": "42.26918056, 1.51715000",
+        "lat": 42.26918055555556,
+        "lon": 1.51715,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "absent",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "Manual",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1802.5,
+        "source": "manual",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 6,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250904_0002",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-09-04",
+      "location": {
+        "input": "42.02785556, 1.73230556",
+        "lat": 42.027855555555554,
+        "lon": 1.7323055555555558,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "normal",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4486.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 784.1,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250909_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-09-09",
+      "location": {
+        "input": "42.39937500, 1.28032222",
+        "lat": 42.399375,
+        "lon": 1.2803222222222221,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "exceptional",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4568.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1717.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250913_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2025-09-13",
+      "location": {
+        "input": "42.34929722, 1.91115833",
+        "lat": 42.349297222222226,
+        "lon": 1.9111583333333333,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "normal",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4643.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1694.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250913_0002",
+      "species_id": "lactarius_sanguifluus",
+      "observed_at": "2025-09-13",
+      "location": {
+        "input": "42.34929722, 1.91115833",
+        "lat": 42.349297222222226,
+        "lon": 1.9111583333333333,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4643.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1694.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250913_0003",
+      "species_id": "cantharellus_cibarius_sl",
+      "observed_at": "2025-09-13",
+      "location": {
+        "input": "42.34929722, 1.91115833",
+        "lat": 42.349297222222226,
+        "lon": 1.9111583333333333,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "very_scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4643.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1694.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250913_0004",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-09-13",
+      "location": {
+        "input": "42.05838056, 1.92398333",
+        "lat": 42.05838055555555,
+        "lon": 1.9239833333333332,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "very_scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4657.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "observed_forest_type_ids": [
+          "forest_holm_oak"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_slightly_acidic"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_open_warm_woodland"
+        ],
+        "observed_aspect_ids": [
+          "aspect_NW"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 597.9,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250926_0001",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-09-26",
+      "location": {
+        "input": "42.06920556, 1.94799167",
+        "lat": 42.069205555555556,
+        "lon": 1.9479916666666668,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "exceptional",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4721.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 769.6,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250926_0002",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-09-26",
+      "location": {
+        "input": "42.01312500, 1.97124722",
+        "lat": 42.013125,
+        "lon": 1.9712472222222224,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "exceptional",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4741.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 625.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250926_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-09-26",
+      "location": {
+        "input": "42.01312500, 1.97124722",
+        "lat": 42.013125,
+        "lon": 1.9712472222222224,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4741.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "observed_forest_type_ids": [
+          "forest_holm_oak"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_slightly_acidic"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_open_warm_woodland"
+        ],
+        "observed_aspect_ids": [
+          "aspect_S"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 625.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250930_0001",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-09-30",
+      "location": {
+        "input": "41.99709444, 1.93571944",
+        "lat": 41.99709444444444,
+        "lon": 1.9357194444444445,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4802.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "observed_forest_type_ids": [
+          "forest_holm_oak",
+          "forest_mediterranean_oak"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_slightly_acidic"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_open_warm_woodland"
+        ],
+        "observed_aspect_ids": [
+          "aspect_N"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 596.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250930_0002",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-09-30",
+      "location": {
+        "input": "41.99709444, 1.93571944",
+        "lat": 41.99709444444444,
+        "lon": 1.9357194444444445,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "very_abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4802.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex",
+          "host_pinus_sylvestris"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 596.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250930_0003",
+      "species_id": "amanita_caesarea",
+      "observed_at": "2025-09-30",
+      "location": {
+        "input": "42.01298889, 1.97070556",
+        "lat": 42.01298888888889,
+        "lon": 1.9707055555555557,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "normal",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4779.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "observed_forest_type_ids": [
+          "forest_holm_oak"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_slightly_acidic"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_open_warm_woodland"
+        ],
+        "observed_aspect_ids": [
+          "aspect_S"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 624.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250930_0004",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-09-30",
+      "location": {
+        "input": "42.01298889, 1.97070556",
+        "lat": 42.01298888888889,
+        "lon": 1.9707055555555557,
+        "source": "photo_exif",
+        "precision_m": null
+      },
+      "flush_abundance": "abundant",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4779.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 624.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 9,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20251023_0001",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-10-23",
+      "location": {
+        "input": "42.06990833, 1.94804444",
+        "lat": 42.06990833333334,
+        "lon": 1.9480444444444445,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "very_scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4983.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex",
+          "host_pinus_sylvestris"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 769.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 10,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20251023_0002",
+      "species_id": "cantharellus_cibarius_sl",
+      "observed_at": "2025-10-23",
+      "location": {
+        "input": "42.06990833, 1.94804444",
+        "lat": 42.06990833333334,
+        "lon": 1.9480444444444445,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "normal",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4983.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 769.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 10,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20251023_0003",
+      "species_id": "lactarius_sanguifluus",
+      "observed_at": "2025-10-23",
+      "location": {
+        "input": "42.06990833, 1.94804444",
+        "lat": 42.06990833333334,
+        "lon": 1.9480444444444445,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "very_scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_4983.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 769.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 10,
+        "season": "autumn"
+      }
+    },
+    {
+      "observation_id": "obs_20250725_0002",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-07-25",
+      "location": {
+        "input": "42.05962778, 1.92912222",
+        "lat": 42.05962777777778,
+        "lon": 1.9291222222222222,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "absent",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3919.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_quercus_ilex"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 638.1,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20250727_0001",
+      "species_id": "boletus_aereus",
+      "observed_at": "2025-07-27",
+      "location": {
+        "input": "42.05962778, 1.92912222",
+        "lat": 42.05962777777778,
+        "lon": 1.9291222222222222,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_3919.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-06-30",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 638.1,
+        "source": "photo_exif",
+        "resolved_at": "2026-06-30"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20260617_0001",
+      "species_id": "morchella_elata_complex",
+      "observed_at": "2026-06-17",
+      "location": {
+        "input": "42.26918056, 1.51715000",
+        "lat": 42.26918055555556,
+        "lon": 1.51715,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "absent",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "Manual",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-06-30",
+        "updated_at": "2026-07-01",
+        "created_by": "rainmapper_ui",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 1802.5,
+        "source": "manual",
+        "resolved_at": "2026-07-01"
+      },
+      "derived": {
+        "month": 6,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20260703_0001",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2026-07-03",
+      "location": {
+        "input": "42.45971667, 1.80732500",
+        "lat": 42.45971666666667,
+        "lon": 1.807325,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_6452.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "observed_forest_type_ids": [
+          "forest_montane_pine",
+          "forest_subalpine_pine"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_mature_forest",
+          "feature_needle_litter"
+        ],
+        "observed_aspect_ids": [
+          "aspect_N"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-07-03",
+        "updated_at": "2026-07-05",
+        "created_by": "rainmapper_ui_exif_import",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 2233.2,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-05"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20260703_0002",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2026-07-03",
+      "location": {
+        "input": "42.45733333, 1.80810000",
+        "lat": 42.45733333333334,
+        "lon": 1.8081,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_6454.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "observed_forest_type_ids": [
+          "forest_montane_pine",
+          "forest_subalpine_pine"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_mature_forest",
+          "feature_needle_litter"
+        ],
+        "observed_aspect_ids": [
+          "aspect_N"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-07-03",
+        "updated_at": "2026-07-04",
+        "created_by": "rainmapper_ui_exif_import",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 2238,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-04"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20260703_0003",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2026-07-03",
+      "location": {
+        "input": "42.45916111, 1.80841944",
+        "lat": 42.459161111111115,
+        "lon": 1.8084194444444446,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_6457.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "observed_forest_type_ids": [
+          "forest_montane_pine",
+          "forest_subalpine_pine"
+        ],
+        "observed_soil_tendency_ids": [
+          "soil_acidic",
+          "soil_siliceous"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_mature_forest",
+          "feature_needle_litter"
+        ],
+        "observed_aspect_ids": [
+          "aspect_N"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-07-03",
+        "updated_at": "2026-07-04",
+        "created_by": "rainmapper_ui_exif_import",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 2231.5,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-04"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    },
+    {
+      "observation_id": "obs_20260703_0004",
+      "species_id": "boletus_pinophilus",
+      "observed_at": "2026-07-03",
+      "location": {
+        "input": "42.45978889, 1.80823056",
+        "lat": 42.459788888888895,
+        "lon": 1.8082305555555556,
+        "source": "manual_decimal",
+        "precision_m": null
+      },
+      "flush_abundance": "scarce",
+      "observer": {
+        "name": "Carlos",
+        "expertise": "expert"
+      },
+      "source": {
+        "type": "photo_exif",
+        "label": "IMG_6460.jpeg",
+        "url": "",
+        "notes": ""
+      },
+      "source_quality": 1,
+      "validation_status": "valid",
+      "calibration_use": "include",
+      "calibration_exclusion_reason": null,
+      "site_context": {
+        "observed_host_ids": [
+          "host_pinus_uncinata",
+          "host_pinus_sylvestris"
+        ],
+        "observed_forest_type_ids": [],
+        "observed_soil_tendency_ids": [
+          "soil_acidic"
+        ],
+        "observed_habitat_feature_ids": [
+          "feature_needle_litter"
+        ],
+        "observed_aspect_ids": [
+          "aspect_N"
+        ],
+        "habitat_notes": "",
+        "host_notes": "",
+        "soil_notes": "",
+        "aspect_notes": ""
+      },
+      "metadata": {
+        "created_at": "2026-07-03",
+        "updated_at": "2026-07-04",
+        "created_by": "rainmapper_ui_exif_import",
+        "updated_by": "rainmapper_ui"
+      },
+      "altitude": {
+        "meters": 2227.8,
+        "source": "photo_exif",
+        "resolved_at": "2026-07-04"
+      },
+      "derived": {
+        "month": 7,
+        "season": "summer"
+      }
+    }
+  ],
   "metadata": {
     "created_at": "2026-06-29",
-    "updated_at": "2026-06-29",
-    "updated_by": "codex",
+    "updated_at": "2026-07-05",
+    "updated_by": "rainmapper_ui",
     "notes": "Initial empty observation store."
   }
 }

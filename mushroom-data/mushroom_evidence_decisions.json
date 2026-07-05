@@ -1,0 +1,38 @@
+{
+  "schema_version": "0.1",
+  "kind": "mushroom_local_evidence_decisions",
+  "decisions": [
+    {
+      "species_id": "amanita_caesarea",
+      "group": "forest_type_affinities",
+      "item_id": "forest_holm_oak",
+      "decision": "keep",
+      "updated_at": "2026-07-02T16:49:38+00:00",
+      "updated_by": "rainmapper_local_ui"
+    },
+    {
+      "species_id": "amanita_caesarea",
+      "group": "forest_type_affinities",
+      "item_id": "forest_mediterranean_oak",
+      "decision": "keep",
+      "updated_at": "2026-07-02T16:49:42+00:00",
+      "updated_by": "rainmapper_local_ui"
+    },
+    {
+      "species_id": "amanita_caesarea",
+      "group": "habitat_feature_affinities",
+      "item_id": "feature_open_warm_woodland",
+      "decision": "keep",
+      "updated_at": "2026-07-02T16:50:07+00:00",
+      "updated_by": "rainmapper_local_ui"
+    },
+    {
+      "species_id": "amanita_caesarea",
+      "group": "habitat_feature_affinities",
+      "item_id": "feature_mediterranean_shrubland",
+      "decision": "keep",
+      "updated_at": "2026-07-02T16:55:21+00:00",
+      "updated_by": "rainmapper_local_ui"
+    }
+  ]
+}

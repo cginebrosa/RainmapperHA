@@ -56,6 +56,12 @@ def host_visible_path(path: Path) -> str:
 
 
 def gis_root() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_GIS_ROOT", "").strip()
+    if configured:
+        return Path(configured)
+    share_copy = mushroom_paths.share_root() / "mushroom-GIS"
+    if share_copy.exists():
+        return share_copy
     return repo_root() / "mushroom-GIS"
 
 

@@ -6217,6 +6217,7 @@ def station_group_card(title: str, group_name: str, station_ids: list[str], disa
 
 
 def publish_maps(log_file) -> tuple[bool, str]:
+    started = time.perf_counter()
     if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
         return True, "Publishing to /local/Plots is disabled."
 
@@ -6241,8 +6242,10 @@ def publish_maps(log_file) -> tuple[bool, str]:
     PUBLIC_PLOTS_TMP_PATH.rename(PUBLIC_PLOTS_PATH)
 
     published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
+    elapsed = time.perf_counter() - started
     message = f"Published {copied} map file(s) to /local/Plots at {published_at}."
     log_file.write(f"=== {message} ===\n")
+    log_file.write(f"=== publish Plots duration {format_seconds_duration(elapsed)} ===\n")
     log_file.flush()
     with RUN_LOCK:
         RUN_STATE["last_published_at"] = published_at
@@ -6252,6 +6255,7 @@ def publish_maps(log_file) -> tuple[bool, str]:
 
 
 def publish_mobile_viewer(log_file) -> tuple[bool, str]:
+    started = time.perf_counter()
     if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
         return True, "Publishing viewers to /local/rainmapper-leaflet/index.html and /protected/maplibre/index.html is disabled."
 
@@ -6262,6 +6266,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
         return False, "Cannot publish Leaflet viewer: Leaflet viewer assets are missing."
 
     PUBLIC_DATA_PATH.mkdir(parents=True, exist_ok=True)
+    geojson_started = time.perf_counter()
     process = subprocess.run(
         [
             "python",
@@ -6282,9 +6287,12 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     if process.stdout:
         log_file.write(process.stdout)
         log_file.flush()
+    log_file.write(f"=== GeoJSON publish generation duration {format_seconds_duration(time.perf_counter() - geojson_started)} ===\n")
+    log_file.flush()
     if process.returncode != 0:
         return False, "Cannot publish viewers: GeoJSON generation failed."
 
+    leaflet_started = time.perf_counter()
     PUBLIC_LEAFLET_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(PUBLIC_LEAFLET_TMP_PATH, ignore_errors=True)
     PUBLIC_LEAFLET_TMP_PATH.mkdir(parents=True, exist_ok=True)
@@ -6307,10 +6315,13 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     shutil.rmtree(PUBLIC_LEAFLET_PATH, ignore_errors=True)
     PUBLIC_LEAFLET_TMP_PATH.rename(PUBLIC_LEAFLET_PATH)
     shutil.rmtree(REMOVED_LEGACY_MOBILE_PATH, ignore_errors=True)
+    log_file.write(f"=== Leaflet publish duration {format_seconds_duration(time.perf_counter() - leaflet_started)} ===\n")
+    log_file.flush()
 
     if not MAPLIBRE_VIEWER_ASSETS_PATH.exists():
         return False, "Cannot publish MapLibre viewer: MapLibre viewer assets are missing."
 
+    maplibre_started = time.perf_counter()
     preserve_public_maplibre_data_for_transition()
     PUBLIC_MAPLIBRE_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(PUBLIC_MAPLIBRE_TMP_PATH, ignore_errors=True)
@@ -6333,8 +6344,13 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
 
     shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
     PUBLIC_MAPLIBRE_TMP_PATH.rename(PUBLIC_MAPLIBRE_PATH)
+    log_file.write(f"=== MapLibre publish duration {format_seconds_duration(time.perf_counter() - maplibre_started)} ===\n")
+    log_file.flush()
 
+    heatmap_started = time.perf_counter()
     heatmap_message = publish_heatmap_experimental_maplibre()
+    log_file.write(f"=== heatmap viewer publish duration {format_seconds_duration(time.perf_counter() - heatmap_started)} ===\n")
+    log_file.flush()
 
     aemet_message = ""
     if PUBLISH_AEMET_EXPERIMENTAL_MAPLIBRE:
@@ -6352,6 +6368,7 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     if aemet_message:
         message = f"{message} {aemet_message}"
     log_file.write(f"=== {message} ===\n")
+    log_file.write(f"=== mobile viewers publish total duration {format_seconds_duration(time.perf_counter() - started)} ===\n")
     log_file.flush()
     with RUN_LOCK:
         previous_message = RUN_STATE["last_publish_message"]
@@ -6533,6 +6550,7 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
 
         actions = ["update", "maps"] if action == "all" else [action]
         for current_action in actions:
+            step_started = time.perf_counter()
             print(f"Running Rainmapper step '{current_action}'.", flush=True)
             with RUN_LOCK:
                 RUN_STATE.update({"current_step": f"Running {current_action}", **clear_progress()})
@@ -6562,9 +6580,13 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
             finally:
                 set_current_process(None)
             print(f"Rainmapper step '{current_action}' finished with exit code {exit_code}.", flush=True)
+            step_duration = format_seconds_duration(time.perf_counter() - step_started)
+            log_file.write(f"=== step {current_action} duration {step_duration} ===\n")
+            log_file.flush()
             if exit_code not in {0, 2}:
                 break
             if current_action == "maps":
+                publish_started = time.perf_counter()
                 publish_ok, publish_message = publish_maps(log_file)
                 if not publish_ok:
                     print(publish_message, flush=True)
@@ -6575,6 +6597,8 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
                     print(publish_message, flush=True)
                     log_file.write(f"=== {publish_message} ===\n")
                     log_file.flush()
+                log_file.write(f"=== publish phase duration {format_seconds_duration(time.perf_counter() - publish_started)} ===\n")
+                log_file.flush()
 
         finished = datetime.now(get_timezone())
         duration = format_duration(started.isoformat(timespec="seconds"), finished.isoformat(timespec="seconds"))

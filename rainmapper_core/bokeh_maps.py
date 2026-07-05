@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import time as time_module
 from datetime import datetime, timedelta, timezone
 from pytz import timezone
 from bokeh.io import output_notebook, output_file, show
@@ -186,6 +187,7 @@ def process_map(_file):
 def main():
     """Generate the classic Bokeh HTML maps from the current Tomap CSV files."""
     global bokeh_width, bokeh_height, _zoom_level, _alpha, _map_type, _output_file, _file, df
+    total_started = time_module.perf_counter()
 
     bokeh_width, bokeh_height = 1450,900
     _zoom_level = 8
@@ -213,11 +215,14 @@ def main():
     ]
 
     for _file, title_prefix in maps_to_generate:
+        map_started = time_module.perf_counter()
         _title = title_prefix + _sufix
         process_map(_file)
         output_file(filename=_PLOT_PATH+_file+'.html',title=_title)
         plot_map(_title, lat, lon, map_type=_map_type,_zoom_level=_zoom_level,_alpha=_alpha)
+        print(f"Finished Bokeh map {_file}--> Time elapsed: {time_module.perf_counter() - map_started:.1f}s")
 
+    print(f"Finished Bokeh maps. Total duration: {time_module.perf_counter() - total_started:.1f}s")
     return 0
 
 

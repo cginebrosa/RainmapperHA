@@ -39,6 +39,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.web_server.USERS_JSON_PATH = data_dir / "users.json"
         self.web_server.DEVICES_PATH = data_dir / "devices.json"
 
+    def seed_empty_mushroom_observations(self, data_dir: Path) -> None:
+        self.web_server.default_store().ensure_seeded()
+        observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
+        payload = json.loads(observations_path.read_text(encoding="utf-8"))
+        payload["observations"] = []
+        observations_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
     def write_users_json(self, users: list[dict]) -> None:
         """Write the primary JSON user store used by new installations."""
         self.web_server.USERS_JSON_PATH.write_text(json.dumps({"users": users}), encoding="utf-8")
@@ -313,15 +320,15 @@ class AuthDeviceLimitTests(unittest.TestCase):
             captured["content_type"] = content_type
 
         handler.send_bytes = capture_response
-        handler.render_mushroom_profiles({"id": ["boletus_pinophilus"], "view": ["v0"]})
+        handler.render_mushroom_profiles({"id": ["morchella_elata_complex"], "view": ["v0"]})
 
         self.assertEqual(captured["status"], 200)
         page = captured["content"]
-        self.assertIn("Boletus pinophilus", page)
+        self.assertIn("Morchella elata complex", page)
         self.assertIn('name="view" value="v0"', page)
         self.assertIn("Aparcado para v0", page)
-        self.assertIn("host_abies_alba", page)
-        self.assertNotIn("host_picea_spp", page)
+        self.assertIn("feature_disturbed_soil", page)
+        self.assertNotIn("soil_humus_rich", page)
         self.assertNotIn('id="profile-tab-weather"', page)
         self.assertNotIn('id="profile-tab-scoring"', page)
         self.assertNotIn('id="profile-tab-json"', page)
@@ -407,6 +414,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         redirect = handler.handle_mushroom_profiles_post(
@@ -469,6 +477,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         handler.handle_mushroom_profiles_post(
@@ -543,6 +552,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         redirect = handler.handle_mushroom_profiles_post(
@@ -585,6 +595,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         handler.handle_mushroom_profiles_post(
@@ -638,6 +649,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         def fake_extractor(filename: str, content: bytes) -> dict[str, object]:
             return {
@@ -699,6 +711,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         handler.handle_mushroom_profiles_post(
@@ -797,6 +810,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         redirect = handler.handle_mushroom_profiles_post(
@@ -832,6 +846,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         handler.handle_mushroom_profiles_post(

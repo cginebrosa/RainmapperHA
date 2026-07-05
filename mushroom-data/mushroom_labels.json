@@ -334,26 +334,6 @@
     "es": "Arboles observados",
     "ca": "Arbres observats"
   },
-  "site_context.observed_forest_type_ids": {
-    "en": "Forest observed",
-    "es": "Bosque observado",
-    "ca": "Bosc observat"
-  },
-  "site_context.observed_soil_tendency_ids": {
-    "en": "Soil observed",
-    "es": "Suelo observado",
-    "ca": "Sol observat"
-  },
-  "site_context.observed_habitat_feature_ids": {
-    "en": "Habitat observed",
-    "es": "Habitat observado",
-    "ca": "Habitat observat"
-  },
-  "site_context.observed_aspect_ids": {
-    "en": "Aspect observed",
-    "es": "Orientacion observada",
-    "ca": "Orientacio observada"
-  },
   "site_context.habitat_notes": {
     "en": "Habitat notes",
     "es": "Notas de habitat",
@@ -428,26 +408,6 @@
     "en": "Register a field outcome for species calibration. Use either a map link/decimal pair or explicit latitude and longitude.",
     "es": "Registra un resultado de campo para calibrar especies. Usa un enlace de mapa/par decimal o latitud y longitud explicitas.",
     "ca": "Registra un resultat de camp per calibrar especies. Usa un enllac de mapa/parell decimal o latitud i longitud explicites."
-  },
-  "ui.observation_group_record": {
-    "en": "Observation",
-    "es": "Observacion",
-    "ca": "Observacio"
-  },
-  "ui.observation_group_location": {
-    "en": "Location",
-    "es": "Ubicacion",
-    "ca": "Ubicacio"
-  },
-  "ui.observation_group_validation": {
-    "en": "Validation",
-    "es": "Validacion",
-    "ca": "Validacio"
-  },
-  "ui.observation_group_source": {
-    "en": "Source",
-    "es": "Origen",
-    "ca": "Origen"
   },
   "ui.observation_not_saved": {
     "en": "Observation was not saved",
@@ -614,11 +574,6 @@
     "es": "No hay observaciones archivadas para el filtro actual.",
     "ca": "No hi ha observacions arxivades per al filtre actual."
   },
-  "ui.gis_last_reconstruction_observations": {
-    "en": "Observations used for the latest reconstruction",
-    "es": "Observaciones usadas para ultima reconstruccion",
-    "ca": "Observacions usades per a l'ultima reconstruccio"
-  },
   "ui.restore": {
     "en": "Restore",
     "es": "Restaurar",
@@ -639,11 +594,6 @@
     "es": "Editar",
     "ca": "Editar"
   },
-  "ui.open": {
-    "en": "Open",
-    "es": "Abrir",
-    "ca": "Obrir"
-  },
   "ui.archive": {
     "en": "Archive",
     "es": "Archivar",
@@ -658,11 +608,6 @@
     "en": "All species",
     "es": "Todas las especies",
     "ca": "Totes les especies"
-  },
-  "ui.change_species": {
-    "en": "Change species",
-    "es": "Cambiar especie",
-    "ca": "Canviar especie"
   },
   "ui.not_informed": {
     "en": "Not informed",
@@ -753,606 +698,6 @@
     "en": "Weather",
     "es": "Meteorologia",
     "ca": "Meteorologia"
-  },
-  "ui.evidence_hosts_forests": {
-    "en": "Hosts + forests",
-    "es": "Hosts + bosques",
-    "ca": "Hosts + boscos"
-  },
-  "ui.evidence_soils_habitat": {
-    "en": "Soils + habitat",
-    "es": "Suelos + habitat",
-    "ca": "Sols + habitat"
-  },
-  "ui.evidence_weather": {
-    "en": "Weather",
-    "es": "Meteorologia",
-    "ca": "Meteorologia"
-  },
-  "ui.evidence_learned_model": {
-    "en": "Learned model",
-    "es": "Modelo aprendido",
-    "ca": "Model apres"
-  },
-  "ui.learned_model": {
-    "en": "Learned v0 model",
-    "es": "Modelo v0 aprendido",
-    "ca": "Model v0 apres"
-  },
-  "ui.learned_observational_evidence": {
-    "en": "v0 evidence",
-    "es": "Evidencia v0",
-    "ca": "Evidencia v0"
-  },
-  "ui.learned_emerging_values": {
-    "en": "Emerging values",
-    "es": "Valores emergentes",
-    "ca": "Valors emergents"
-  },
-  "ui.source_field": {
-    "en": "Field",
-    "es": "Campo",
-    "ca": "Camp"
-  },
-  "ui.source_gis_dem": {
-    "en": "GIS/DEM",
-    "es": "GIS/DEM",
-    "ca": "GIS/DEM"
-  },
-  "ui.source_v0": {
-    "en": "v0",
-    "es": "v0",
-    "ca": "v0"
-  },
-  "ui.source_marc_estevez": {
-    "en": "Marc",
-    "es": "Marc",
-    "ca": "Marc"
-  },
-  "ui.origins": {
-    "en": "Origins",
-    "es": "Origenes",
-    "ca": "Origens"
-  },
-  "ui.learned_model_missing": {
-    "en": "No learned model has been generated yet. Run mushroom_learned_model_v0_build.sh after building observation features.",
-    "es": "Aun no se ha generado ningun modelo aprendido. Ejecuta mushroom_learned_model_v0_build.sh despues de generar features de observaciones.",
-    "ca": "Encara no s'ha generat cap model apres. Executa mushroom_learned_model_v0_build.sh despres de generar features d'observacions."
-  },
-  "ui.learned_model_note": {
-    "en": "Experimental model recalculated from approved/local observation features. It does not modify profiles.",
-    "es": "Modelo experimental recalculado desde features de observaciones aprobadas/locales. No modifica perfiles.",
-    "ca": "Model experimental recalculat des de features d'observacions aprovades/locals. No modifica perfils."
-  },
-  "ui.rebuild_learned_model": {
-    "en": "Rebuild v0 model",
-    "es": "Reconstruir modelo v0",
-    "ca": "Reconstruir model v0"
-  },
-  "ui.rebuild_learned_model_help": {
-    "en": "Runs weather reconstruction, joins v0 observation features and rebuilds the learned model. Profiles are not modified.",
-    "es": "Ejecuta reconstruccion meteorologica, une features v0 de observaciones y reconstruye el modelo aprendido. No modifica perfiles.",
-    "ca": "Executa reconstruccio meteorologica, uneix features v0 d'observacions i reconstrueix el model apres. No modifica perfils."
-  },
-  "ui.rebuild_observation_model_v0_lab": {
-    "en": "Local v0 model reconstruction",
-    "es": "Reconstruccion modelo v0 local",
-    "ca": "Reconstruccio model v0 local"
-  },
-  "ui.rebuild_observation_model_v0_lab_help": {
-    "en": "Select visible observations to rebuild against GIS/DEM and use them to refresh v0 features and the v0 model. This lab does not change observations or profiles.",
-    "es": "Selecciona las observaciones visibles que quieres reconstruir contra GIS/DEM y usar para refrescar features y modelo v0. Este laboratorio no cambia observaciones ni perfiles.",
-    "ca": "Selecciona les observacions visibles que vols reconstruir contra GIS/DEM i usar per refrescar features i model v0. Aquest laboratori no canvia observacions ni perfils."
-  },
-  "ui.rebuild_observation_model_v0_observations": {
-    "en": "Observations to rebuild",
-    "es": "Observaciones a reconstruir",
-    "ca": "Observacions a reconstruir"
-  },
-  "ui.rebuild_observation_model_v0_none": {
-    "en": "No visible observations with valid coordinates are available to rebuild.",
-    "es": "No hay observaciones visibles con coordenadas validas para reconstruir.",
-    "ca": "No hi ha observacions visibles amb coordenades valides per reconstruir."
-  },
-  "ui.rebuild_observation_model_v0_selected": {
-    "en": "Rebuild selected v0 model",
-    "es": "Reconstruir modelo v0 seleccionadas",
-    "ca": "Reconstruir model v0 seleccionades"
-  },
-  "ui.rebuild_observation_model_v0_visible": {
-    "en": "Rebuild visible v0 model",
-    "es": "Reconstruir modelo v0 visibles",
-    "ca": "Reconstruir model v0 visibles"
-  },
-  "ui.rebuild_progress_title": {
-    "en": "v0 model reconstruction",
-    "es": "Reconstruccion modelo v0",
-    "ca": "Reconstruccio model v0"
-  },
-  "ui.rebuild_progress_preparing": {
-    "en": "Preparing reconstruction...",
-    "es": "Preparando reconstruccion...",
-    "ca": "Preparant reconstruccio..."
-  },
-  "ui.rebuild_progress_total": {
-    "en": "Total",
-    "es": "Total",
-    "ca": "Total"
-  },
-  "ui.rebuild_progress_current_step": {
-    "en": "Current step",
-    "es": "Paso actual",
-    "ca": "Pas actual"
-  },
-  "ui.rebuild_progress_step": {
-    "en": "Step",
-    "es": "Paso",
-    "ca": "Pas"
-  },
-  "ui.rebuild_progress_total_elapsed": {
-    "en": "Total elapsed",
-    "es": "Tiempo total",
-    "ca": "Temps total"
-  },
-  "ui.rebuild_progress_step_elapsed": {
-    "en": "Step elapsed",
-    "es": "Tiempo paso",
-    "ca": "Temps pas"
-  },
-  "ui.rebuild_progress_total_eta": {
-    "en": "Total ETA",
-    "es": "ETA total",
-    "ca": "ETA total"
-  },
-  "ui.rebuild_progress_step_eta": {
-    "en": "Step ETA",
-    "es": "ETA paso",
-    "ca": "ETA pas"
-  },
-  "ui.rebuild_progress_calculating": {
-    "en": "calculating",
-    "es": "calculando",
-    "ca": "calculant"
-  },
-  "ui.rebuild_progress_refresh_screen": {
-    "en": "Refresh screen",
-    "es": "Refrescar pantalla",
-    "ca": "Refrescar pantalla"
-  },
-  "ui.model_v0_outdated": {
-    "en": "v0 model outdated",
-    "es": "Modelo v0 desactualizado",
-    "ca": "Model v0 desactualitzat"
-  },
-  "ui.rebuild_pending_model_v0": {
-    "en": "Rebuild pending v0 model",
-    "es": "Reconstruir modelo v0 pendiente",
-    "ca": "Reconstruir model v0 pendent"
-  },
-  "ui.rebuild_pending_model_v0_help": {
-    "en": "Rebuilds GIS/DEM, weather/features and the learned v0 model for species with changed observations. Profiles are not modified.",
-    "es": "Reconstruye GIS/DEM, meteorologia/features y el modelo aprendido v0 para especies con observaciones cambiadas. No modifica perfiles.",
-    "ca": "Reconstrueix GIS/DEM, meteorologia/features i el model apres v0 per a especies amb observacions canviades. No modifica perfils."
-  },
-  "ui.rebuild_selected_learned_model": {
-    "en": "Rebuild this species",
-    "es": "Reconstruir esta especie",
-    "ca": "Reconstruir aquesta especie"
-  },
-  "ui.rebuild_selected_learned_model_help": {
-    "en": "Rebuilds only the selected species model from the existing v0 observation features. Weather and feature caches are not rebuilt.",
-    "es": "Reconstruye solo el modelo de la especie seleccionada desde las features v0 existentes. No reconstruye caches meteorologicas ni de features.",
-    "ca": "Reconstrueix nomes el model de l'especie seleccionada des de les features v0 existents. No reconstrueix caches meteorologiques ni de features."
-  },
-  "ui.rebuild_all_learned_model": {
-    "en": "Rebuild all species",
-    "es": "Reconstruir todas",
-    "ca": "Reconstruir totes"
-  },
-  "ui.rebuild_all_learned_model_help": {
-    "en": "Runs the full global chain: weather reconstruction, v0 feature join and learned model rebuild for every species. Profiles are not modified.",
-    "es": "Ejecuta la cadena global completa: reconstruccion meteorologica, union de features v0 y reconstruccion del modelo aprendido para todas las especies. No modifica perfiles.",
-    "ca": "Executa la cadena global completa: reconstruccio meteorologica, unio de features v0 i reconstruccio del model apres per a totes les especies. No modifica perfils."
-  },
-  "ui.learned_categorical_features": {
-    "en": "Categorical variables",
-    "es": "Variables categoricas",
-    "ca": "Variables categòriques"
-  },
-  "ui.learned_numeric_features": {
-    "en": "Numeric variables",
-    "es": "Variables numericas",
-    "ca": "Variables numeriques"
-  },
-  "ui.learned_no_categorical_features": {
-    "en": "No categorical variables have been learned for this species.",
-    "es": "No hay variables categoricas aprendidas para esta especie.",
-    "ca": "No hi ha variables categòriques apreses per a aquesta especie."
-  },
-  "ui.learned_no_numeric_features": {
-    "en": "No numeric variables have been learned for this species.",
-    "es": "No hay variables numericas aprendidas para esta especie.",
-    "ca": "No hi ha variables numeriques apreses per a aquesta especie."
-  },
-  "ui.profile_overlap": {
-    "en": "Profile overlap",
-    "es": "Coincidencia del perfil",
-    "ca": "Coincidencia del perfil"
-  },
-  "ui.emerging_outside_profile": {
-    "en": "Outside profile",
-    "es": "Fuera del perfil",
-    "ca": "Fora del perfil"
-  },
-  "ui.learned_parameter_comparison_note": {
-    "en": "Read-only comparison with learned evidence. It does not modify profiles.",
-    "es": "Comparacion de solo lectura con la evidencia aprendida. No modifica perfiles.",
-    "ca": "Comparacio de nomes lectura amb l'evidencia apresa. No modifica perfils."
-  },
-  "ui.profile_range": {
-    "en": "Profile range",
-    "es": "Rango del perfil",
-    "ca": "Rang del perfil"
-  },
-  "ui.observed_range": {
-    "en": "Observed range",
-    "es": "Rango observado",
-    "ca": "Rang observat"
-  },
-  "ui.learned_positive_short": {
-    "en": "Pos.",
-    "es": "Pos.",
-    "ca": "Pos."
-  },
-  "ui.learned_negative_short": {
-    "en": "Neg.",
-    "es": "Neg.",
-    "ca": "Neg."
-  },
-  "ui.learned_ratio_delta": {
-    "en": "Difference",
-    "es": "Diferencia",
-    "ca": "Diferencia"
-  },
-  "ui.learned_mean_positive": {
-    "en": "Mean +",
-    "es": "Media +",
-    "ca": "Mitjana +"
-  },
-  "ui.learned_mean_negative": {
-    "en": "Mean -",
-    "es": "Media -",
-    "ca": "Mitjana -"
-  },
-  "ui.learned_mean": {
-    "en": "Mean",
-    "es": "Media",
-    "ca": "Mitjana"
-  },
-  "ui.variable": {
-    "en": "Variable",
-    "es": "Variable",
-    "ca": "Variable"
-  },
-  "ui.station": {
-    "en": "Station",
-    "es": "Estacion",
-    "ca": "Estacio"
-  },
-  "ui.weather_gaps": {
-    "en": "Weather gaps",
-    "es": "Gaps meteo",
-    "ca": "Gaps meteo"
-  },
-  "ui.gis_gaps": {
-    "en": "GIS gaps",
-    "es": "Gaps GIS",
-    "ca": "Gaps GIS"
-  },
-  "ui.range_title": {
-    "en": "Title",
-    "es": "Titulo",
-    "ca": "Titol"
-  },
-  "ui.range_minimum": {
-    "en": "Minimum",
-    "es": "Minimo",
-    "ca": "Minim"
-  },
-  "ui.range_maximum": {
-    "en": "Maximum",
-    "es": "Maximo",
-    "ca": "Maxim"
-  },
-  "ui.weather_no_rows": {
-    "en": "No weather rows are available for this species.",
-    "es": "No hay filas meteorologicas para esta especie.",
-    "ca": "No hi ha files meteorologiques per a aquesta especie."
-  },
-  "ui.weather_features_missing": {
-    "en": "No unified v0 features are loaded. Run mushroom_observation_features_v0_build.sh after rebuilding weather and GIS.",
-    "es": "No hay features v0 unificadas. Ejecuta mushroom_observation_features_v0_build.sh tras reconstruir meteorologia y GIS.",
-    "ca": "No hi ha features v0 unificades. Executa mushroom_observation_features_v0_build.sh despres de reconstruir meteorologia i GIS."
-  },
-  "ui.weather_features_species_missing": {
-    "en": "The current v0 features do not contain observations for this species.",
-    "es": "Las features v0 actuales no contienen observaciones para esta especie.",
-    "ca": "Les features v0 actuals no contenen observacions per a aquesta especie."
-  },
-  "ui.weather_readonly_note": {
-    "en": "Read-only view. It summarizes observed conditions; it does not calculate thresholds or modify profiles.",
-    "es": "Vista de solo lectura. Resume condiciones observadas; no calcula umbrales ni modifica perfiles.",
-    "ca": "Vista de nomes lectura. Resumeix condicions observades; no calcula llindars ni modifica perfils."
-  },
-  "ui.weather_evidence": {
-    "en": "Weather evidence",
-    "es": "Evidencia meteorologica",
-    "ca": "Evidencia meteorologica"
-  },
-  "ui.latest_features_join": {
-    "en": "Latest v0 features join",
-    "es": "Ultima union features v0",
-    "ca": "Ultima unio features v0"
-  },
-  "ui.present_observations": {
-    "en": "Present",
-    "es": "Presentes",
-    "ca": "Presents"
-  },
-  "ui.absent_observations": {
-    "en": "Absent",
-    "es": "Ausencias",
-    "ca": "Absencies"
-  },
-  "ui.evidence_hosts": {
-    "en": "Hosts",
-    "es": "Hosts",
-    "ca": "Hosts"
-  },
-  "ui.evidence_forests": {
-    "en": "Forests",
-    "es": "Bosques",
-    "ca": "Boscos"
-  },
-  "ui.evidence_soils": {
-    "en": "Soils",
-    "es": "Suelos",
-    "ca": "Sols"
-  },
-  "ui.evidence_habitat": {
-    "en": "Habitat",
-    "es": "Habitat",
-    "ca": "Habitat"
-  },
-  "ui.evidence_profile_v0": {
-    "en": "Profile v0",
-    "es": "Perfil v0",
-    "ca": "Perfil v0"
-  },
-  "ui.evidence_status": {
-    "en": "Status",
-    "es": "Estado",
-    "ca": "Estat"
-  },
-  "ui.evidence_decision": {
-    "en": "Decision",
-    "es": "Decision",
-    "ca": "Decisio"
-  },
-  "ui.evidence_actions": {
-    "en": "Actions",
-    "es": "Acciones",
-    "ca": "Accions"
-  },
-  "ui.evidence_profile_v0_help": {
-    "en": "Whether this ID is already declared as an active v0 value in the species profile.",
-    "es": "Indica si este ID ya esta declarado como valor activo v0 en el perfil de la especie.",
-    "ca": "Indica si aquest ID ja esta declarat com a valor actiu v0 al perfil de l'especie."
-  },
-  "ui.evidence_observations_help": {
-    "en": "Number of local observations for this species where Field or GIS/DEM evidence produced this ID.",
-    "es": "Numero de observaciones locales de esta especie en las que evidencia de Campo o GIS/DEM produjo este ID.",
-    "ca": "Nombre d'observacions locals d'aquesta especie en que evidencia de Camp o GIS/DEM ha produit aquest ID."
-  },
-  "ui.evidence_status_help": {
-    "en": "Automatic comparison between the active v0 profile and local Field or GIS/DEM evidence.",
-    "es": "Comparacion automatica entre el perfil v0 activo y la evidencia local de Campo o GIS/DEM.",
-    "ca": "Comparacio automatica entre el perfil v0 actiu i l'evidencia local de Camp o GIS/DEM."
-  },
-  "ui.evidence_decision_help": {
-    "en": "Manual review state saved separately from the profile. It does not change profile data.",
-    "es": "Estado de revision manual guardado separado del perfil. No cambia los datos del perfil.",
-    "ca": "Estat de revisio manual desat separat del perfil. No canvia les dades del perfil."
-  },
-  "ui.evidence_actions_help": {
-    "en": "Buttons to set or reset the manual review decision for this evidence row.",
-    "es": "Botones para fijar o reiniciar la decision manual de revision de esta fila.",
-    "ca": "Botons per fixar o reiniciar la decisio manual de revisio d'aquesta fila."
-  },
-  "ui.evidence_declared_observed": {
-    "en": "Declared and observed",
-    "es": "Declarado y observado",
-    "ca": "Declarat i observat"
-  },
-  "ui.evidence_observed_not_declared": {
-    "en": "Observed, not declared",
-    "es": "Observado no declarado",
-    "ca": "Observat no declarat"
-  },
-  "ui.evidence_declared_not_observed": {
-    "en": "Declared, not observed",
-    "es": "Declarado no observado",
-    "ca": "Declarat no observat"
-  },
-  "ui.evidence_no_local_evidence": {
-    "en": "No local evidence",
-    "es": "Sin evidencia local",
-    "ca": "Sense evidencia local"
-  },
-  "ui.evidence_decision_none": {
-    "en": "No decision",
-    "es": "Sin decision",
-    "ca": "Sense decisio"
-  },
-  "ui.evidence_decision_promote": {
-    "en": "Promote",
-    "es": "Promover",
-    "ca": "Promoure"
-  },
-  "ui.evidence_decision_ignore": {
-    "en": "Ignore",
-    "es": "Ignorar",
-    "ca": "Ignorar"
-  },
-  "ui.evidence_decision_keep": {
-    "en": "Keep",
-    "es": "Mantener",
-    "ca": "Mantenir"
-  },
-  "ui.evidence_decision_doubtful": {
-    "en": "Doubtful",
-    "es": "Dudoso",
-    "ca": "Dubtos"
-  },
-  "ui.evidence_decision_confirm": {
-    "en": "Confirm",
-    "es": "Confirmar",
-    "ca": "Confirmar"
-  },
-  "ui.evidence_decision_reset": {
-    "en": "Reset",
-    "es": "Reiniciar",
-    "ca": "Reiniciar"
-  },
-  "ui.evidence_profile_value_declared_help": {
-    "en": "This ID is declared as an active value in this species v0 profile.",
-    "es": "Este ID esta declarado como valor activo en el perfil v0 de esta especie.",
-    "ca": "Aquest ID esta declarat com a valor actiu al perfil v0 d'aquesta especie."
-  },
-  "ui.evidence_profile_value_not_declared_help": {
-    "en": "This ID is not declared as an active value in this species v0 profile.",
-    "es": "Este ID no esta declarado como valor activo en el perfil v0 de esta especie.",
-    "ca": "Aquest ID no esta declarat com a valor actiu al perfil v0 d'aquesta especie."
-  },
-  "ui.evidence_observations_value_help": {
-    "en": "Local observations for this species where Field or GIS/DEM evidence produced this ID.",
-    "es": "Observaciones locales de esta especie en las que evidencia de Campo o GIS/DEM produjo este ID.",
-    "ca": "Observacions locals d'aquesta especie en que evidencia de Camp o GIS/DEM ha produit aquest ID."
-  },
-  "ui.evidence_status_declared_observed_help": {
-    "en": "The v0 profile contains this ID and local reconstructed observations also produced it.",
-    "es": "El perfil v0 ya contiene este ID y tambien aparece en observaciones locales reconstruidas.",
-    "ca": "El perfil v0 ja conte aquest ID i tambe apareix en observacions locals reconstruides."
-  },
-  "ui.evidence_status_observed_not_declared_help": {
-    "en": "Local reconstructed observations produced this ID, but the v0 profile does not declare it yet.",
-    "es": "Este ID aparece en observaciones locales reconstruidas, pero aun no esta declarado en el perfil v0.",
-    "ca": "Aquest ID apareix en observacions locals reconstruides, pero encara no esta declarat al perfil v0."
-  },
-  "ui.evidence_status_declared_not_observed_help": {
-    "en": "The v0 profile contains this ID, but the latest local reconstruction did not observe it for this species.",
-    "es": "El perfil v0 contiene este ID, pero la ultima reconstruccion local no lo ha observado para esta especie.",
-    "ca": "El perfil v0 conte aquest ID, pero l'ultima reconstruccio local no l'ha observat per a aquesta especie."
-  },
-  "ui.evidence_status_no_local_evidence_help": {
-    "en": "There is no reconstructed local evidence to compare this ID.",
-    "es": "No hay evidencia local reconstruida para contrastar este ID.",
-    "ca": "No hi ha evidencia local reconstruida per contrastar aquest ID."
-  },
-  "ui.evidence_decision_promote_help": {
-    "en": "Manual decision: candidate to promote to the profile after review.",
-    "es": "Decision manual: candidato a promover al perfil despues de revision.",
-    "ca": "Decisio manual: candidat a promoure al perfil despres de revisio."
-  },
-  "ui.evidence_decision_ignore_help": {
-    "en": "Manual decision: reviewed evidence discarded for the profile.",
-    "es": "Decision manual: evidencia revisada y descartada para el perfil.",
-    "ca": "Decisio manual: evidencia revisada i descartada per al perfil."
-  },
-  "ui.evidence_decision_keep_help": {
-    "en": "Manual decision: keep the current profile value.",
-    "es": "Decision manual: mantener el valor actual del perfil.",
-    "ca": "Decisio manual: mantenir el valor actual del perfil."
-  },
-  "ui.evidence_decision_doubtful_help": {
-    "en": "Manual decision: mark this value as doubtful for later review.",
-    "es": "Decision manual: valor marcado como dudoso para revisarlo mas adelante.",
-    "ca": "Decisio manual: valor marcat com a dubtos per revisar-lo mes endavant."
-  },
-  "ui.evidence_decision_none_help": {
-    "en": "No manual decision saved for this row.",
-    "es": "Sin decision manual guardada para esta fila.",
-    "ca": "Sense decisio manual desada per a aquesta fila."
-  },
-  "ui.evidence_view_observations": {
-    "en": "View observations",
-    "es": "Ver observaciones",
-    "ca": "Veure observacions"
-  },
-  "ui.evidence_observations_modal_title": {
-    "en": "Evidence observations",
-    "es": "Observaciones de evidencia",
-    "ca": "Observacions d'evidencia"
-  },
-  "ui.evidence_observations_modal_help": {
-    "en": "These are the reconstructed observations that produced this GIS evidence ID. The map is local to this set and supports zoom.",
-    "es": "Estas son las observaciones reconstruidas que produjeron este ID de evidencia GIS. El mapa es local a este conjunto y permite zoom.",
-    "ca": "Aquestes son les observacions reconstruides que han produit aquest ID d'evidencia GIS. El mapa es local a aquest conjunt i permet zoom."
-  },
-  "ui.evidence_observation_list": {
-    "en": "Observation list",
-    "es": "Lista de observaciones",
-    "ca": "Llista d'observacions"
-  },
-  "ui.evidence_open_observation": {
-    "en": "Open observation",
-    "es": "Abrir observacion",
-    "ca": "Obrir observacio"
-  },
-  "ui.evidence_show_on_map": {
-    "en": "Map",
-    "es": "Mapa",
-    "ca": "Mapa"
-  },
-  "ui.evidence_open_google_maps": {
-    "en": "Open Google Maps",
-    "es": "Abrir Google Maps",
-    "ca": "Obrir Google Maps"
-  },
-  "ui.evidence_map": {
-    "en": "Map",
-    "es": "Mapa",
-    "ca": "Mapa"
-  },
-  "ui.evidence_no_coordinates": {
-    "en": "No coordinates available",
-    "es": "Sin coordenadas disponibles",
-    "ca": "Sense coordenades disponibles"
-  },
-  "ui.evidence_zoom_in": {
-    "en": "Zoom in",
-    "es": "Acercar",
-    "ca": "Apropar"
-  },
-  "ui.evidence_zoom_out": {
-    "en": "Zoom out",
-    "es": "Alejar",
-    "ca": "Allunyar"
-  },
-  "ui.evidence_zoom_reset": {
-    "en": "Reset zoom",
-    "es": "Reiniciar zoom",
-    "ca": "Reiniciar zoom"
-  },
-  "ui.evidence_observations_short": {
-    "en": "observations",
-    "es": "observaciones",
-    "ca": "observacions"
-  },
-  "ui.close": {
-    "en": "Close",
-    "es": "Cerrar",
-    "ca": "Tancar"
   },
   "ui.scoring": {
     "en": "Scoring",
@@ -1619,11 +964,6 @@
     "es": "Restaurar especie",
     "ca": "Restaurar especie"
   },
-  "ui.delete_permanently": {
-    "en": "Delete permanently",
-    "es": "Borrar definitivamente",
-    "ca": "Esborrar definitivament"
-  },
   "ui.no_archived_species": {
     "en": "No archived species profiles.",
     "es": "No hay perfiles de especies archivados.",
@@ -1815,9 +1155,9 @@
     "ca": "Desar JSON raw"
   },
   "ui.save_species_profile": {
-    "en": "Save",
-    "es": "Guardar",
-    "ca": "Desar"
+    "en": "Save species profile",
+    "es": "Guardar perfil de especie",
+    "ca": "Desar perfil d'especie"
   },
   "ui.backup": {
     "en": "Backup",
@@ -1825,14 +1165,14 @@
     "ca": "Backup"
   },
   "ui.duplicate_species": {
-    "en": "Duplicate",
-    "es": "Duplicar",
-    "ca": "Duplicar"
+    "en": "Duplicate species",
+    "es": "Duplicar especie",
+    "ca": "Duplicar especie"
   },
   "ui.archive_species": {
-    "en": "Archive",
-    "es": "Archivar",
-    "ca": "Arxivar"
+    "en": "Archive species",
+    "es": "Archivar especie",
+    "ca": "Arxivar especie"
   },
   "ui.validate_profile_planned": {
     "en": "Validate profile - planned",
@@ -2598,5 +1938,660 @@
     "en": "Dec",
     "es": "Dic",
     "ca": "Des"
+  },
+  "site_context.observed_aspect_ids": {
+    "en": "Aspect observed",
+    "es": "Orientacion observada",
+    "ca": "Orientacio observada"
+  },
+  "site_context.observed_forest_type_ids": {
+    "en": "Forest observed",
+    "es": "Bosque observado",
+    "ca": "Bosc observat"
+  },
+  "site_context.observed_habitat_feature_ids": {
+    "en": "Habitat observed",
+    "es": "Habitat observado",
+    "ca": "Habitat observat"
+  },
+  "site_context.observed_soil_tendency_ids": {
+    "en": "Soil observed",
+    "es": "Suelo observado",
+    "ca": "Sol observat"
+  },
+  "ui.absent_observations": {
+    "en": "Absent",
+    "es": "Ausencias",
+    "ca": "Absencies"
+  },
+  "ui.change_species": {
+    "en": "Change species",
+    "es": "Cambiar especie",
+    "ca": "Canviar especie"
+  },
+  "ui.close": {
+    "en": "Close",
+    "es": "Cerrar",
+    "ca": "Tancar"
+  },
+  "ui.emerging_outside_profile": {
+    "en": "Outside profile",
+    "es": "Fuera del perfil",
+    "ca": "Fora del perfil"
+  },
+  "ui.evidence_actions": {
+    "en": "Actions",
+    "es": "Acciones",
+    "ca": "Accions"
+  },
+  "ui.evidence_actions_help": {
+    "en": "Buttons to set or reset the manual review decision for this evidence row.",
+    "es": "Botones para fijar o reiniciar la decision manual de revision de esta fila.",
+    "ca": "Botons per fixar o reiniciar la decisio manual de revisio d'aquesta fila."
+  },
+  "ui.evidence_decision": {
+    "en": "Decision",
+    "es": "Decision",
+    "ca": "Decisio"
+  },
+  "ui.evidence_decision_confirm": {
+    "en": "Confirm",
+    "es": "Confirmar",
+    "ca": "Confirmar"
+  },
+  "ui.evidence_decision_doubtful": {
+    "en": "Doubtful",
+    "es": "Dudoso",
+    "ca": "Dubtos"
+  },
+  "ui.evidence_decision_doubtful_help": {
+    "en": "Manual decision: mark this value as doubtful for later review.",
+    "es": "Decision manual: valor marcado como dudoso para revisarlo mas adelante.",
+    "ca": "Decisio manual: valor marcat com a dubtos per revisar-lo mes endavant."
+  },
+  "ui.evidence_decision_help": {
+    "en": "Manual review state saved separately from the profile. It does not change profile data.",
+    "es": "Estado de revision manual guardado separado del perfil. No cambia los datos del perfil.",
+    "ca": "Estat de revisio manual desat separat del perfil. No canvia les dades del perfil."
+  },
+  "ui.evidence_decision_ignore": {
+    "en": "Ignore",
+    "es": "Ignorar",
+    "ca": "Ignorar"
+  },
+  "ui.evidence_decision_ignore_help": {
+    "en": "Manual decision: reviewed evidence discarded for the profile.",
+    "es": "Decision manual: evidencia revisada y descartada para el perfil.",
+    "ca": "Decisio manual: evidencia revisada i descartada per al perfil."
+  },
+  "ui.evidence_decision_keep": {
+    "en": "Keep",
+    "es": "Mantener",
+    "ca": "Mantenir"
+  },
+  "ui.evidence_decision_keep_help": {
+    "en": "Manual decision: keep the current profile value.",
+    "es": "Decision manual: mantener el valor actual del perfil.",
+    "ca": "Decisio manual: mantenir el valor actual del perfil."
+  },
+  "ui.evidence_decision_none": {
+    "en": "No decision",
+    "es": "Sin decision",
+    "ca": "Sense decisio"
+  },
+  "ui.evidence_decision_none_help": {
+    "en": "No manual decision saved for this row.",
+    "es": "Sin decision manual guardada para esta fila.",
+    "ca": "Sense decisio manual desada per a aquesta fila."
+  },
+  "ui.evidence_decision_promote": {
+    "en": "Promote",
+    "es": "Promover",
+    "ca": "Promoure"
+  },
+  "ui.evidence_decision_promote_help": {
+    "en": "Manual decision: candidate to promote to the profile after review.",
+    "es": "Decision manual: candidato a promover al perfil despues de revision.",
+    "ca": "Decisio manual: candidat a promoure al perfil despres de revisio."
+  },
+  "ui.evidence_decision_reset": {
+    "en": "Reset",
+    "es": "Reiniciar",
+    "ca": "Reiniciar"
+  },
+  "ui.evidence_declared_not_observed": {
+    "en": "Declared, not observed",
+    "es": "Declarado no observado",
+    "ca": "Declarat no observat"
+  },
+  "ui.evidence_declared_observed": {
+    "en": "Declared and observed",
+    "es": "Declarado y observado",
+    "ca": "Declarat i observat"
+  },
+  "ui.evidence_forests": {
+    "en": "Forests",
+    "es": "Bosques",
+    "ca": "Boscos"
+  },
+  "ui.evidence_habitat": {
+    "en": "Habitat",
+    "es": "Habitat",
+    "ca": "Habitat"
+  },
+  "ui.evidence_hosts": {
+    "en": "Hosts",
+    "es": "Hosts",
+    "ca": "Hosts"
+  },
+  "ui.evidence_hosts_forests": {
+    "en": "Hosts + forests",
+    "es": "Hosts + bosques",
+    "ca": "Hosts + boscos"
+  },
+  "ui.evidence_learned_model": {
+    "en": "Learned model",
+    "es": "Modelo aprendido",
+    "ca": "Model apres"
+  },
+  "ui.evidence_map": {
+    "en": "Map",
+    "es": "Mapa",
+    "ca": "Mapa"
+  },
+  "ui.evidence_no_coordinates": {
+    "en": "No coordinates available",
+    "es": "Sin coordenadas disponibles",
+    "ca": "Sense coordenades disponibles"
+  },
+  "ui.evidence_no_local_evidence": {
+    "en": "No local evidence",
+    "es": "Sin evidencia local",
+    "ca": "Sense evidencia local"
+  },
+  "ui.evidence_observation_list": {
+    "en": "Observation list",
+    "es": "Lista de observaciones",
+    "ca": "Llista d'observacions"
+  },
+  "ui.evidence_observations_help": {
+    "en": "Number of local observations for this species where Field or GIS/DEM evidence produced this ID.",
+    "es": "Numero de observaciones locales de esta especie en las que evidencia de Campo o GIS/DEM produjo este ID.",
+    "ca": "Nombre d'observacions locals d'aquesta especie en que evidencia de Camp o GIS/DEM ha produit aquest ID."
+  },
+  "ui.evidence_observations_modal_help": {
+    "en": "These are the reconstructed observations that produced this GIS evidence ID. The map is local to this set and supports zoom.",
+    "es": "Estas son las observaciones reconstruidas que produjeron este ID de evidencia GIS. El mapa es local a este conjunto y permite zoom.",
+    "ca": "Aquestes son les observacions reconstruides que han produit aquest ID d'evidencia GIS. El mapa es local a aquest conjunt i permet zoom."
+  },
+  "ui.evidence_observations_modal_title": {
+    "en": "Evidence observations",
+    "es": "Observaciones de evidencia",
+    "ca": "Observacions d'evidencia"
+  },
+  "ui.evidence_observations_short": {
+    "en": "observations",
+    "es": "observaciones",
+    "ca": "observacions"
+  },
+  "ui.evidence_observations_value_help": {
+    "en": "Local observations for this species where Field or GIS/DEM evidence produced this ID.",
+    "es": "Observaciones locales de esta especie en las que evidencia de Campo o GIS/DEM produjo este ID.",
+    "ca": "Observacions locals d'aquesta especie en que evidencia de Camp o GIS/DEM ha produit aquest ID."
+  },
+  "ui.evidence_observed_not_declared": {
+    "en": "Observed, not declared",
+    "es": "Observado no declarado",
+    "ca": "Observat no declarat"
+  },
+  "ui.evidence_open_google_maps": {
+    "en": "Open Google Maps",
+    "es": "Abrir Google Maps",
+    "ca": "Obrir Google Maps"
+  },
+  "ui.evidence_open_observation": {
+    "en": "Open observation",
+    "es": "Abrir observacion",
+    "ca": "Obrir observacio"
+  },
+  "ui.evidence_profile_v0": {
+    "en": "Profile v0",
+    "es": "Perfil v0",
+    "ca": "Perfil v0"
+  },
+  "ui.evidence_profile_v0_help": {
+    "en": "Whether this ID is already declared as an active v0 value in the species profile.",
+    "es": "Indica si este ID ya esta declarado como valor activo v0 en el perfil de la especie.",
+    "ca": "Indica si aquest ID ja esta declarat com a valor actiu v0 al perfil de l'especie."
+  },
+  "ui.evidence_profile_value_declared_help": {
+    "en": "This ID is declared as an active value in this species v0 profile.",
+    "es": "Este ID esta declarado como valor activo en el perfil v0 de esta especie.",
+    "ca": "Aquest ID esta declarat com a valor actiu al perfil v0 d'aquesta especie."
+  },
+  "ui.evidence_profile_value_not_declared_help": {
+    "en": "This ID is not declared as an active value in this species v0 profile.",
+    "es": "Este ID no esta declarado como valor activo en el perfil v0 de esta especie.",
+    "ca": "Aquest ID no esta declarat com a valor actiu al perfil v0 d'aquesta especie."
+  },
+  "ui.evidence_show_on_map": {
+    "en": "Map",
+    "es": "Mapa",
+    "ca": "Mapa"
+  },
+  "ui.evidence_soils": {
+    "en": "Soils",
+    "es": "Suelos",
+    "ca": "Sols"
+  },
+  "ui.evidence_soils_habitat": {
+    "en": "Soils + habitat",
+    "es": "Suelos + habitat",
+    "ca": "Sols + habitat"
+  },
+  "ui.evidence_status": {
+    "en": "Status",
+    "es": "Estado",
+    "ca": "Estat"
+  },
+  "ui.evidence_status_declared_not_observed_help": {
+    "en": "The v0 profile contains this ID, but the latest local reconstruction did not observe it for this species.",
+    "es": "El perfil v0 contiene este ID, pero la ultima reconstruccion local no lo ha observado para esta especie.",
+    "ca": "El perfil v0 conte aquest ID, pero l'ultima reconstruccio local no l'ha observat per a aquesta especie."
+  },
+  "ui.evidence_status_declared_observed_help": {
+    "en": "The v0 profile contains this ID and local reconstructed observations also produced it.",
+    "es": "El perfil v0 ya contiene este ID y tambien aparece en observaciones locales reconstruidas.",
+    "ca": "El perfil v0 ja conte aquest ID i tambe apareix en observacions locals reconstruides."
+  },
+  "ui.evidence_status_help": {
+    "en": "Automatic comparison between the active v0 profile and local Field or GIS/DEM evidence.",
+    "es": "Comparacion automatica entre el perfil v0 activo y la evidencia local de Campo o GIS/DEM.",
+    "ca": "Comparacio automatica entre el perfil v0 actiu i l'evidencia local de Camp o GIS/DEM."
+  },
+  "ui.evidence_status_no_local_evidence_help": {
+    "en": "There is no reconstructed local evidence to compare this ID.",
+    "es": "No hay evidencia local reconstruida para contrastar este ID.",
+    "ca": "No hi ha evidencia local reconstruida per contrastar aquest ID."
+  },
+  "ui.evidence_status_observed_not_declared_help": {
+    "en": "Local reconstructed observations produced this ID, but the v0 profile does not declare it yet.",
+    "es": "Este ID aparece en observaciones locales reconstruidas, pero aun no esta declarado en el perfil v0.",
+    "ca": "Aquest ID apareix en observacions locals reconstruides, pero encara no esta declarat al perfil v0."
+  },
+  "ui.evidence_view_observations": {
+    "en": "View observations",
+    "es": "Ver observaciones",
+    "ca": "Veure observacions"
+  },
+  "ui.evidence_weather": {
+    "en": "Weather",
+    "es": "Meteorologia",
+    "ca": "Meteorologia"
+  },
+  "ui.evidence_zoom_in": {
+    "en": "Zoom in",
+    "es": "Acercar",
+    "ca": "Apropar"
+  },
+  "ui.evidence_zoom_out": {
+    "en": "Zoom out",
+    "es": "Alejar",
+    "ca": "Allunyar"
+  },
+  "ui.evidence_zoom_reset": {
+    "en": "Reset zoom",
+    "es": "Reiniciar zoom",
+    "ca": "Reiniciar zoom"
+  },
+  "ui.gis_gaps": {
+    "en": "GIS gaps",
+    "es": "Gaps GIS",
+    "ca": "Gaps GIS"
+  },
+  "ui.gis_last_reconstruction_observations": {
+    "en": "Observations used for the latest reconstruction",
+    "es": "Observaciones usadas para ultima reconstruccion",
+    "ca": "Observacions usades per a l'ultima reconstruccio"
+  },
+  "ui.latest_features_join": {
+    "en": "Latest v0 features join",
+    "es": "Ultima union features v0",
+    "ca": "Ultima unio features v0"
+  },
+  "ui.learned_categorical_features": {
+    "en": "Categorical variables",
+    "es": "Variables categoricas",
+    "ca": "Variables categòriques"
+  },
+  "ui.learned_emerging_values": {
+    "en": "Emerging values",
+    "es": "Valores emergentes",
+    "ca": "Valors emergents"
+  },
+  "ui.learned_mean": {
+    "en": "Mean",
+    "es": "Media",
+    "ca": "Mitjana"
+  },
+  "ui.learned_mean_negative": {
+    "en": "Mean -",
+    "es": "Media -",
+    "ca": "Mitjana -"
+  },
+  "ui.learned_mean_positive": {
+    "en": "Mean +",
+    "es": "Media +",
+    "ca": "Mitjana +"
+  },
+  "ui.learned_model": {
+    "en": "Learned v0 model",
+    "es": "Modelo v0 aprendido",
+    "ca": "Model v0 apres"
+  },
+  "ui.learned_model_missing": {
+    "en": "No learned model has been generated yet. Run mushroom_learned_model_v0_build.sh after building observation features.",
+    "es": "Aun no se ha generado ningun modelo aprendido. Ejecuta mushroom_learned_model_v0_build.sh despues de generar features de observaciones.",
+    "ca": "Encara no s'ha generat cap model apres. Executa mushroom_learned_model_v0_build.sh despres de generar features d'observacions."
+  },
+  "ui.learned_model_note": {
+    "en": "Experimental model recalculated from approved/local observation features. It does not modify profiles.",
+    "es": "Modelo experimental recalculado desde features de observaciones aprobadas/locales. No modifica perfiles.",
+    "ca": "Model experimental recalculat des de features d'observacions aprovades/locals. No modifica perfils."
+  },
+  "ui.learned_negative_short": {
+    "en": "Neg.",
+    "es": "Neg.",
+    "ca": "Neg."
+  },
+  "ui.learned_no_categorical_features": {
+    "en": "No categorical variables have been learned for this species.",
+    "es": "No hay variables categoricas aprendidas para esta especie.",
+    "ca": "No hi ha variables categòriques apreses per a aquesta especie."
+  },
+  "ui.learned_no_numeric_features": {
+    "en": "No numeric variables have been learned for this species.",
+    "es": "No hay variables numericas aprendidas para esta especie.",
+    "ca": "No hi ha variables numeriques apreses per a aquesta especie."
+  },
+  "ui.learned_numeric_features": {
+    "en": "Numeric variables",
+    "es": "Variables numericas",
+    "ca": "Variables numeriques"
+  },
+  "ui.learned_observational_evidence": {
+    "en": "v0 evidence",
+    "es": "Evidencia v0",
+    "ca": "Evidencia v0"
+  },
+  "ui.learned_parameter_comparison_note": {
+    "en": "Read-only comparison with learned evidence. It does not modify profiles.",
+    "es": "Comparacion de solo lectura con la evidencia aprendida. No modifica perfiles.",
+    "ca": "Comparacio de nomes lectura amb l'evidencia apresa. No modifica perfils."
+  },
+  "ui.learned_positive_short": {
+    "en": "Pos.",
+    "es": "Pos.",
+    "ca": "Pos."
+  },
+  "ui.learned_ratio_delta": {
+    "en": "Difference",
+    "es": "Diferencia",
+    "ca": "Diferencia"
+  },
+  "ui.model_v0_outdated": {
+    "en": "v0 model outdated",
+    "es": "Modelo v0 desactualizado",
+    "ca": "Model v0 desactualitzat"
+  },
+  "ui.observation_group_location": {
+    "en": "Location",
+    "es": "Ubicacion",
+    "ca": "Ubicacio"
+  },
+  "ui.observation_group_record": {
+    "en": "Observation",
+    "es": "Observacion",
+    "ca": "Observacio"
+  },
+  "ui.observation_group_source": {
+    "en": "Source",
+    "es": "Origen",
+    "ca": "Origen"
+  },
+  "ui.observation_group_validation": {
+    "en": "Validation",
+    "es": "Validacion",
+    "ca": "Validacio"
+  },
+  "ui.observed_range": {
+    "en": "Observed range",
+    "es": "Rango observado",
+    "ca": "Rang observat"
+  },
+  "ui.open": {
+    "en": "Open",
+    "es": "Abrir",
+    "ca": "Obrir"
+  },
+  "ui.origins": {
+    "en": "Origins",
+    "es": "Origenes",
+    "ca": "Origens"
+  },
+  "ui.present_observations": {
+    "en": "Present",
+    "es": "Presentes",
+    "ca": "Presents"
+  },
+  "ui.profile_overlap": {
+    "en": "Profile overlap",
+    "es": "Coincidencia del perfil",
+    "ca": "Coincidencia del perfil"
+  },
+  "ui.profile_range": {
+    "en": "Profile range",
+    "es": "Rango del perfil",
+    "ca": "Rang del perfil"
+  },
+  "ui.range_maximum": {
+    "en": "Maximum",
+    "es": "Maximo",
+    "ca": "Maxim"
+  },
+  "ui.range_minimum": {
+    "en": "Minimum",
+    "es": "Minimo",
+    "ca": "Minim"
+  },
+  "ui.range_title": {
+    "en": "Title",
+    "es": "Titulo",
+    "ca": "Titol"
+  },
+  "ui.rebuild_all_learned_model": {
+    "en": "Rebuild all species",
+    "es": "Reconstruir todas",
+    "ca": "Reconstruir totes"
+  },
+  "ui.rebuild_all_learned_model_help": {
+    "en": "Runs the full global chain: weather reconstruction, v0 feature join and learned model rebuild for every species. Profiles are not modified.",
+    "es": "Ejecuta la cadena global completa: reconstruccion meteorologica, union de features v0 y reconstruccion del modelo aprendido para todas las especies. No modifica perfiles.",
+    "ca": "Executa la cadena global completa: reconstruccio meteorologica, unio de features v0 i reconstruccio del model apres per a totes les especies. No modifica perfils."
+  },
+  "ui.rebuild_learned_model": {
+    "en": "Rebuild v0 model",
+    "es": "Reconstruir modelo v0",
+    "ca": "Reconstruir model v0"
+  },
+  "ui.rebuild_learned_model_help": {
+    "en": "Runs weather reconstruction, joins v0 observation features and rebuilds the learned model. Profiles are not modified.",
+    "es": "Ejecuta reconstruccion meteorologica, une features v0 de observaciones y reconstruye el modelo aprendido. No modifica perfiles.",
+    "ca": "Executa reconstruccio meteorologica, uneix features v0 d'observacions i reconstrueix el model apres. No modifica perfils."
+  },
+  "ui.rebuild_observation_model_v0_lab": {
+    "en": "Local v0 model reconstruction",
+    "es": "Reconstruccion modelo v0 local",
+    "ca": "Reconstruccio model v0 local"
+  },
+  "ui.rebuild_observation_model_v0_lab_help": {
+    "en": "Select visible observations to rebuild against GIS/DEM and use them to refresh v0 features and the v0 model. This lab does not change observations or profiles.",
+    "es": "Selecciona las observaciones visibles que quieres reconstruir contra GIS/DEM y usar para refrescar features y modelo v0. Este laboratorio no cambia observaciones ni perfiles.",
+    "ca": "Selecciona les observacions visibles que vols reconstruir contra GIS/DEM i usar per refrescar features i model v0. Aquest laboratori no canvia observacions ni perfils."
+  },
+  "ui.rebuild_observation_model_v0_none": {
+    "en": "No visible observations with valid coordinates are available to rebuild.",
+    "es": "No hay observaciones visibles con coordenadas validas para reconstruir.",
+    "ca": "No hi ha observacions visibles amb coordenades valides per reconstruir."
+  },
+  "ui.rebuild_observation_model_v0_observations": {
+    "en": "Observations to rebuild",
+    "es": "Observaciones a reconstruir",
+    "ca": "Observacions a reconstruir"
+  },
+  "ui.rebuild_observation_model_v0_selected": {
+    "en": "Rebuild selected v0 model",
+    "es": "Reconstruir modelo v0 seleccionadas",
+    "ca": "Reconstruir model v0 seleccionades"
+  },
+  "ui.rebuild_observation_model_v0_visible": {
+    "en": "Rebuild visible v0 model",
+    "es": "Reconstruir modelo v0 visibles",
+    "ca": "Reconstruir model v0 visibles"
+  },
+  "ui.rebuild_pending_model_v0": {
+    "en": "Rebuild pending v0 model",
+    "es": "Reconstruir modelo v0 pendiente",
+    "ca": "Reconstruir model v0 pendent"
+  },
+  "ui.rebuild_pending_model_v0_help": {
+    "en": "Rebuilds GIS/DEM, weather/features and the learned v0 model for species with changed observations. Profiles are not modified.",
+    "es": "Reconstruye GIS/DEM, meteorologia/features y el modelo aprendido v0 para especies con observaciones cambiadas. No modifica perfiles.",
+    "ca": "Reconstrueix GIS/DEM, meteorologia/features i el model apres v0 per a especies amb observacions canviades. No modifica perfils."
+  },
+  "ui.rebuild_progress_calculating": {
+    "en": "calculating",
+    "es": "calculando",
+    "ca": "calculant"
+  },
+  "ui.rebuild_progress_current_step": {
+    "en": "Current step",
+    "es": "Paso actual",
+    "ca": "Pas actual"
+  },
+  "ui.rebuild_progress_preparing": {
+    "en": "Preparing reconstruction...",
+    "es": "Preparando reconstruccion...",
+    "ca": "Preparant reconstruccio..."
+  },
+  "ui.rebuild_progress_refresh_screen": {
+    "en": "Refresh screen",
+    "es": "Refrescar pantalla",
+    "ca": "Refrescar pantalla"
+  },
+  "ui.rebuild_progress_step": {
+    "en": "Step",
+    "es": "Paso",
+    "ca": "Pas"
+  },
+  "ui.rebuild_progress_step_elapsed": {
+    "en": "Step elapsed",
+    "es": "Tiempo paso",
+    "ca": "Temps pas"
+  },
+  "ui.rebuild_progress_step_eta": {
+    "en": "Step ETA",
+    "es": "ETA paso",
+    "ca": "ETA pas"
+  },
+  "ui.rebuild_progress_title": {
+    "en": "v0 model reconstruction",
+    "es": "Reconstruccion modelo v0",
+    "ca": "Reconstruccio model v0"
+  },
+  "ui.rebuild_progress_total": {
+    "en": "Total",
+    "es": "Total",
+    "ca": "Total"
+  },
+  "ui.rebuild_progress_total_elapsed": {
+    "en": "Total elapsed",
+    "es": "Tiempo total",
+    "ca": "Temps total"
+  },
+  "ui.rebuild_progress_total_eta": {
+    "en": "Total ETA",
+    "es": "ETA total",
+    "ca": "ETA total"
+  },
+  "ui.rebuild_selected_learned_model": {
+    "en": "Rebuild this species",
+    "es": "Reconstruir esta especie",
+    "ca": "Reconstruir aquesta especie"
+  },
+  "ui.rebuild_selected_learned_model_help": {
+    "en": "Rebuilds only the selected species model from the existing v0 observation features. Weather and feature caches are not rebuilt.",
+    "es": "Reconstruye solo el modelo de la especie seleccionada desde las features v0 existentes. No reconstruye caches meteorologicas ni de features.",
+    "ca": "Reconstrueix nomes el model de l'especie seleccionada des de les features v0 existents. No reconstrueix caches meteorologiques ni de features."
+  },
+  "ui.source_field": {
+    "en": "Field",
+    "es": "Campo",
+    "ca": "Camp"
+  },
+  "ui.source_gis_dem": {
+    "en": "GIS/DEM",
+    "es": "GIS/DEM",
+    "ca": "GIS/DEM"
+  },
+  "ui.source_marc_estevez": {
+    "en": "Marc",
+    "es": "Marc",
+    "ca": "Marc"
+  },
+  "ui.source_v0": {
+    "en": "v0",
+    "es": "v0",
+    "ca": "v0"
+  },
+  "ui.station": {
+    "en": "Station",
+    "es": "Estacion",
+    "ca": "Estacio"
+  },
+  "ui.variable": {
+    "en": "Variable",
+    "es": "Variable",
+    "ca": "Variable"
+  },
+  "ui.weather_evidence": {
+    "en": "Weather evidence",
+    "es": "Evidencia meteorologica",
+    "ca": "Evidencia meteorologica"
+  },
+  "ui.weather_features_missing": {
+    "en": "No unified v0 features are loaded. Run mushroom_observation_features_v0_build.sh after rebuilding weather and GIS.",
+    "es": "No hay features v0 unificadas. Ejecuta mushroom_observation_features_v0_build.sh tras reconstruir meteorologia y GIS.",
+    "ca": "No hi ha features v0 unificades. Executa mushroom_observation_features_v0_build.sh despres de reconstruir meteorologia i GIS."
+  },
+  "ui.weather_features_species_missing": {
+    "en": "The current v0 features do not contain observations for this species.",
+    "es": "Las features v0 actuales no contienen observaciones para esta especie.",
+    "ca": "Les features v0 actuals no contenen observacions per a aquesta especie."
+  },
+  "ui.weather_gaps": {
+    "en": "Weather gaps",
+    "es": "Gaps meteo",
+    "ca": "Gaps meteo"
+  },
+  "ui.weather_no_rows": {
+    "en": "No weather rows are available for this species.",
+    "es": "No hay filas meteorologicas para esta especie.",
+    "ca": "No hi ha files meteorologiques per a aquesta especie."
+  },
+  "ui.weather_readonly_note": {
+    "en": "Read-only view. It summarizes observed conditions; it does not calculate thresholds or modify profiles.",
+    "es": "Vista de solo lectura. Resume condiciones observadas; no calcula umbrales ni modifica perfiles.",
+    "ca": "Vista de nomes lectura. Resumeix condicions observades; no calcula llindars ni modifica perfils."
   }
 }

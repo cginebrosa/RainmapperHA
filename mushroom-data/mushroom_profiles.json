@@ -8,9 +8,9 @@
       "species_id": "amanita_caesarea",
       "scientific_name": "Amanita caesarea",
       "common_names": [
-        "ou de reig",
-        "oronja",
-        "amanita de los césares"
+        "Ou de reig",
+        "Oronja",
+        "Amanita de los césares"
       ],
       "taxonomy_status": "accepted",
       "edibility": "excellent",
@@ -36,7 +36,7 @@
           {
             "id": "host_quercus_spp",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -48,20 +48,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_fagus_sylvatica",
-            "relationship": "secondary",
-            "affinity": 0.45,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pinus_spp",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
@@ -84,7 +70,7 @@
           {
             "id": "forest_mediterranean_oak",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -96,21 +82,13 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_mixed_woodland",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_siliceous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -126,39 +104,10 @@
           {
             "id": "soil_neutral",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_sandy",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_slightly_acidic",
-            "relationship": "preferred",
-            "affinity": 0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_waterlogged",
-            "relationship": "avoid",
-            "affinity": -0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_well_drained",
-            "relationship": "preferred",
-            "affinity": 0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -198,24 +147,9 @@
             ]
           },
           {
-            "id": "feature_clearing",
-            "relationship": "secondary",
-            "affinity": 0.4,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "feature_forest_edge",
-            "relationship": "preferred",
-            "affinity": 0.6,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_mediterranean_shrubland",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -223,8 +157,7 @@
           {
             "id": "feature_heath_rockrose_understory",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -244,9 +177,9 @@
         "season_pattern_ids": [
           "season_summer_after_storms",
           "season_autumn",
+          "season_autumn_main",
           "season_warm_late_spring_possible",
-          "season_summer_after_rain",
-          "season_autumn_main"
+          "season_summer_after_rain"
         ],
         "fruiting_delay_after_rain_days": {
           "min": 5,
@@ -261,9 +194,9 @@
         "altitude_optimal_max_m": 1000,
         "altitude_max_m": 1000,
         "preferred_aspect_ids": [
-          "aspect_E",
-          "aspect_NE",
           "aspect_N",
+          "aspect_NE",
+          "aspect_E",
           "aspect_SE"
         ],
         "aspect_notes": "Thermophilous species; needs warmth but not severe drying."
@@ -320,23 +253,25 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "boletus_aereus",
       "scientific_name": "Boletus aereus",
       "common_names": [
-        "hongo negro",
-        "cep negre",
-        "boleto negro"
+        "Aereus",
+        "Hongo negro",
+        "Cep negre",
+        "Boleto negro"
       ],
       "taxonomy_status": "accepted",
       "edibility": "excellent",
@@ -354,7 +289,7 @@
           {
             "id": "host_quercus_ilex",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -374,20 +309,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_cistus_spp",
-            "relationship": "secondary",
-            "affinity": 0.4,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_fagus_sylvatica",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
@@ -418,17 +339,10 @@
           {
             "id": "forest_mediterranean_oak",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_deciduous_broadleaf",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
@@ -447,27 +361,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_neutral",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_waterlogged",
-            "relationship": "avoid",
-            "affinity": -0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_well_drained",
-            "relationship": "preferred",
-            "affinity": 0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -507,17 +400,9 @@
             ]
           },
           {
-            "id": "feature_forest_edge",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_mediterranean_shrubland",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -525,8 +410,7 @@
           {
             "id": "feature_heath_rockrose_understory",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -545,11 +429,11 @@
           11
         ],
         "season_pattern_ids": [
-          "season_summer_after_rain",
-          "season_autumn_main",
           "season_summer_after_storms",
+          "season_autumn_main",
           "season_early_autumn_main",
-          "season_mild_autumn_possible"
+          "season_mild_autumn_possible",
+          "season_summer_after_rain"
         ],
         "fruiting_delay_after_rain_days": {
           "min": 5,
@@ -623,23 +507,24 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "boletus_edulis",
       "scientific_name": "Boletus edulis",
       "common_names": [
-        "cep",
-        "porcini",
-        "boleto comestible"
+        "Edulis",
+        "Porcini",
+        "Boleto comestible"
       ],
       "taxonomy_status": "accepted",
       "edibility": "excellent",
@@ -649,8 +534,7 @@
           {
             "id": "host_pinus_uncinata",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -658,8 +542,7 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -667,8 +550,7 @@
           {
             "id": "host_abies_alba",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -688,48 +570,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_abies_spp",
-            "relationship": "primary",
-            "affinity": 0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_castanea_sativa",
-            "relationship": "secondary",
-            "affinity": 0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_cistus_spp",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_picea_spp",
-            "relationship": "primary",
-            "affinity": 0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pinus_spp",
-            "relationship": "secondary",
-            "affinity": 0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_quercus_spp",
-            "relationship": "primary",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
@@ -744,8 +584,7 @@
           {
             "id": "forest_subalpine_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -753,8 +592,7 @@
           {
             "id": "forest_fir",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -774,27 +612,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_chestnut",
-            "relationship": "secondary",
-            "affinity": 0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "forest_deciduous_broadleaf",
-            "relationship": "preferred",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "forest_mixed_woodland",
-            "relationship": "preferred",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
@@ -813,48 +630,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_loamy",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_neutral",
-            "relationship": "preferred",
-            "affinity": 0.6,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_sandy",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_very_dry",
-            "relationship": "avoid",
-            "affinity": -0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_waterlogged",
-            "relationship": "avoid",
-            "affinity": -0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_well_drained",
-            "relationship": "preferred",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -894,24 +669,9 @@
             ]
           },
           {
-            "id": "feature_clearing",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "feature_forest_edge",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_mature_forest",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -919,8 +679,7 @@
           {
             "id": "feature_heath_rockrose_understory",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -928,8 +687,7 @@
           {
             "id": "feature_blueberry_understory",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -948,8 +706,8 @@
         ],
         "season_pattern_ids": [
           "season_summer",
-          "season_autumn_main",
-          "season_summer_possible"
+          "season_summer_possible",
+          "season_autumn_main"
         ],
         "fruiting_delay_after_rain_days": {
           "min": 6,
@@ -1023,23 +781,24 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "boletus_pinophilus",
       "scientific_name": "Boletus pinophilus",
       "common_names": [
-        "pinícola",
-        "cep de pi",
-        "boleto de pino"
+        "Pinícola",
+        "Cep de pi",
+        "Boleto de pino"
       ],
       "taxonomy_status": "accepted",
       "edibility": "excellent",
@@ -1049,7 +808,7 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1069,48 +828,13 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_castanea_sativa",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_fagus_sylvatica",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_picea_spp",
-            "relationship": "secondary",
-            "affinity": 0.5,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pinus_spp",
-            "relationship": "primary",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_quercus_spp",
-            "relationship": "secondary",
-            "affinity": 0.3,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_montane_pine",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1130,27 +854,13 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_beech",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "forest_mixed_conifer",
-            "relationship": "preferred",
-            "affinity": 0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_acidic",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1162,27 +872,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_sandy",
-            "relationship": "preferred",
-            "affinity": 0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_strongly_calcareous",
-            "relationship": "avoid",
-            "affinity": -0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_well_drained",
-            "relationship": "preferred",
-            "affinity": 0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -1216,38 +905,15 @@
           {
             "id": "feature_mossy_forest",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
           },
           {
-            "id": "feature_clearing",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "feature_forest_edge",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "feature_needle_litter",
-            "relationship": "preferred",
-            "affinity": 0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_mature_forest",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1255,8 +921,7 @@
           {
             "id": "feature_heath_rockrose_understory",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1350,23 +1015,24 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "calocybe_gambosa",
       "scientific_name": "Calocybe gambosa",
       "common_names": [
-        "moixernó",
-        "perretxiko",
-        "seta de San Jorge"
+        "Moixernó",
+        "Perretxiko",
+        "Seta de San Jorge"
       ],
       "taxonomy_status": "accepted",
       "edibility": "good",
@@ -1376,7 +1042,7 @@
           {
             "id": "host_grassland_vegetation",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1386,7 +1052,7 @@
           {
             "id": "habitat_grassland_meadow",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1398,20 +1064,13 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_deciduous_broadleaf",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_calcareous",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1423,41 +1082,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_acidic",
-            "relationship": "avoid",
-            "affinity": -0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_chalky",
-            "relationship": "preferred",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_neutral",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_very_dry",
-            "relationship": "avoid",
-            "affinity": -0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_well_drained",
-            "relationship": "preferred",
-            "affinity": 0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -1481,31 +1105,15 @@
           {
             "id": "feature_clearing",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
           },
           {
-            "id": "feature_fairy_ring",
-            "relationship": "preferred",
-            "affinity": 1.0,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "feature_forest_edge",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_calcicolous_shrubland",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1598,23 +1206,24 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "cantharellus_cibarius_sl",
       "scientific_name": "Cantharellus cibarius sensu lato",
       "common_names": [
-        "rossinyol",
-        "rebozuelo",
-        "chantarela"
+        "Rossinyol",
+        "Rebozuelo",
+        "Chantarela"
       ],
       "taxonomy_status": "species_complex_operational",
       "edibility": "excellent",
@@ -1648,8 +1257,7 @@
           {
             "id": "host_quercus_ilex",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1657,8 +1265,7 @@
           {
             "id": "host_quercus_suber",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1666,8 +1273,7 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1675,32 +1281,10 @@
           {
             "id": "host_pinus_uncinata",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_betula_spp",
-            "relationship": "primary",
-            "affinity": 0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_picea_spp",
-            "relationship": "secondary",
-            "affinity": 0.45,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pinus_spp",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
@@ -1723,8 +1307,7 @@
           {
             "id": "forest_chestnut",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1732,8 +1315,7 @@
           {
             "id": "forest_holm_oak",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1741,8 +1323,7 @@
           {
             "id": "forest_cork_oak",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1758,25 +1339,10 @@
           {
             "id": "forest_subalpine_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_mixed_conifer",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "forest_mixed_woodland",
-            "relationship": "preferred",
-            "affinity": 0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
@@ -1803,27 +1369,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_calcareous",
-            "relationship": "avoid",
-            "affinity": -0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_very_dry",
-            "relationship": "avoid",
-            "affinity": -0.85,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_well_drained",
-            "relationship": "preferred",
-            "affinity": 0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -1868,17 +1413,9 @@
             ]
           },
           {
-            "id": "feature_riparian_moisture",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_mature_forest",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1886,8 +1423,7 @@
           {
             "id": "feature_heath_rockrose_understory",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1895,8 +1431,7 @@
           {
             "id": "feature_moist_forest",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -1994,14 +1529,15 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
@@ -2133,6 +1669,8 @@
             "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
+            "v0_catalog_gap_promoted": true,
+            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight.",
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2142,6 +1680,8 @@
             "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
+            "v0_catalog_gap_promoted": true,
+            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight.",
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2243,7 +1783,10 @@
     {
       "species_id": "craterellus_cornucopioides",
       "scientific_name": "Craterellus cornucopioides",
-      "common_names": [],
+      "common_names": [
+        "Trompeta negra",
+        "Trompeta de los muertos"
+      ],
       "taxonomy_status": "accepted",
       "edibility": "good",
       "ecology": {
@@ -2252,8 +1795,7 @@
           {
             "id": "host_fagus_sylvatica",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2261,8 +1803,7 @@
           {
             "id": "host_abies_alba",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2270,8 +1811,7 @@
           {
             "id": "host_quercus_spp",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2279,8 +1819,7 @@
           {
             "id": "host_quercus_ilex",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2288,8 +1827,7 @@
           {
             "id": "host_quercus_suber",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2297,8 +1835,7 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2308,8 +1845,7 @@
           {
             "id": "forest_beech",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2317,8 +1853,7 @@
           {
             "id": "forest_fir",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2326,8 +1861,7 @@
           {
             "id": "forest_deciduous_broadleaf",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2335,8 +1869,7 @@
           {
             "id": "forest_holm_oak",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2344,8 +1877,7 @@
           {
             "id": "forest_cork_oak",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2353,8 +1885,7 @@
           {
             "id": "forest_mixed_woodland",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2364,8 +1895,7 @@
           {
             "id": "soil_siliceous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2373,8 +1903,7 @@
           {
             "id": "soil_acidic",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2382,8 +1911,7 @@
           {
             "id": "soil_neutral",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2391,8 +1919,7 @@
           {
             "id": "soil_moist",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2403,8 +1930,7 @@
           {
             "id": "feature_riparian_moisture",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2412,8 +1938,7 @@
           {
             "id": "feature_moist_forest",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2421,8 +1946,7 @@
           {
             "id": "feature_shaded_slope",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2436,9 +1960,9 @@
           12
         ],
         "secondary_months": [
+          1,
           8,
-          9,
-          1
+          9
         ],
         "season_pattern_ids": [
           "season_late_autumn",
@@ -2511,22 +2035,24 @@
       "metadata": {
         "profile_version": "0.1",
         "created_at": "2026-07-02",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "rainmapper_ha_ui",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "hygrophorus_latitabundus",
       "scientific_name": "Hygrophorus latitabundus",
       "common_names": [
-        "llenega negra",
-        "llanega negra"
+        "Llenega negra",
+        "Llanega negra",
+        "Mucosa"
       ],
       "taxonomy_status": "accepted",
       "edibility": "good",
@@ -2560,7 +2086,7 @@
           {
             "id": "host_pinus_spp",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2570,7 +2096,7 @@
           {
             "id": "forest_calcareous_pine",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2596,7 +2122,7 @@
           {
             "id": "soil_calcareous",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2608,27 +2134,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_acidic",
-            "relationship": "avoid",
-            "affinity": -0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_moist",
-            "relationship": "preferred",
-            "affinity": 0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_strongly_calcareous",
-            "relationship": "secondary",
-            "affinity": 0.6,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -2663,17 +2168,9 @@
             ]
           },
           {
-            "id": "feature_mossy_forest",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_shaded_slope",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2765,22 +2262,23 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "hygrophorus_marzuolus",
       "scientific_name": "Hygrophorus marzuolus",
       "common_names": [
-        "marzuelo",
-        "bolet de març"
+        "Marçot",
+        "Marzuelo"
       ],
       "taxonomy_status": "accepted",
       "edibility": "good",
@@ -2798,7 +2296,7 @@
           {
             "id": "host_abies_alba",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2806,8 +2304,7 @@
           {
             "id": "host_pinus_uncinata",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2819,48 +2316,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_abies_spp",
-            "relationship": "primary",
-            "affinity": 0.95,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_castanea_sativa",
-            "relationship": "secondary",
-            "affinity": 0.25,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_picea_spp",
-            "relationship": "primary",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pinus_spp",
-            "relationship": "secondary",
-            "affinity": 0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pseudotsuga_spp",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_quercus_spp",
-            "relationship": "secondary",
-            "affinity": 0.2,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
@@ -2875,7 +2330,7 @@
           {
             "id": "forest_fir",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2883,8 +2338,7 @@
           {
             "id": "forest_subalpine_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -2896,13 +2350,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_mixed_conifer",
-            "relationship": "preferred",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
@@ -2921,41 +2368,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_calcareous",
-            "relationship": "secondary",
-            "affinity": 0.25,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_humus_rich",
-            "relationship": "preferred",
-            "affinity": 0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_moist",
-            "relationship": "preferred",
-            "affinity": 0.9,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_sandy",
-            "relationship": "secondary",
-            "affinity": 0.45,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_very_dry",
-            "relationship": "avoid",
-            "affinity": -0.8,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -2984,30 +2396,15 @@
           {
             "id": "feature_snowmelt",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
           },
           {
-            "id": "feature_mossy_forest",
-            "relationship": "preferred",
-            "affinity": 0.85,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "feature_needle_litter",
-            "relationship": "preferred",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_shaded_slope",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3015,8 +2412,7 @@
           {
             "id": "feature_blueberry_understory",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3035,9 +2431,9 @@
           6
         ],
         "season_pattern_ids": [
+          "season_late_winter",
           "season_spring",
-          "season_snowmelt_associated",
-          "season_late_winter"
+          "season_snowmelt_associated"
         ],
         "fruiting_delay_after_rain_days": {
           "min": 10,
@@ -3112,20 +2508,24 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "lactarius_deliciosus",
       "scientific_name": "Lactarius deliciosus",
-      "common_names": [],
+      "common_names": [
+        "Rovelló",
+        "Níscalo"
+      ],
       "taxonomy_status": "accepted",
       "edibility": "good",
       "ecology": {
@@ -3134,8 +2534,7 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3143,8 +2542,7 @@
           {
             "id": "host_pinus_pinaster",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3152,8 +2550,7 @@
           {
             "id": "host_pinus_pinea",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3161,8 +2558,7 @@
           {
             "id": "host_pinus_halepensis",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3170,8 +2566,7 @@
           {
             "id": "host_pinus_nigra",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3179,8 +2574,7 @@
           {
             "id": "host_pinus_uncinata",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3188,8 +2582,7 @@
           {
             "id": "host_pinus_spp",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3199,8 +2592,7 @@
           {
             "id": "forest_montane_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3208,8 +2600,7 @@
           {
             "id": "forest_subalpine_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3217,8 +2608,7 @@
           {
             "id": "forest_mediterranean_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3228,8 +2618,7 @@
           {
             "id": "soil_siliceous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3237,8 +2626,7 @@
           {
             "id": "soil_sandy",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3246,8 +2634,7 @@
           {
             "id": "soil_well_drained",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3258,8 +2645,7 @@
           {
             "id": "feature_needle_litter",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3349,20 +2735,23 @@
       "metadata": {
         "profile_version": "0.1",
         "created_at": "2026-07-02",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "rainmapper_ha_ui",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "lactarius_salmonicolor_quieticolor_group",
-      "scientific_name": "Lactarius salmonicolor / Lactarius quieticolor",
-      "common_names": [],
+      "scientific_name": "Lactarius salmonicolor / quieticolor",
+      "common_names": [
+        "Rovelló d'avet"
+      ],
       "taxonomy_status": "accepted",
       "edibility": "good",
       "ecology": {
@@ -3371,8 +2760,7 @@
           {
             "id": "host_abies_alba",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3380,8 +2768,7 @@
           {
             "id": "host_pinus_uncinata",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3391,8 +2778,7 @@
           {
             "id": "forest_fir",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3400,8 +2786,7 @@
           {
             "id": "forest_subalpine_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3411,8 +2796,7 @@
           {
             "id": "soil_acidic",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3420,8 +2804,7 @@
           {
             "id": "soil_siliceous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3429,8 +2812,7 @@
           {
             "id": "soil_moist",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3441,8 +2823,7 @@
           {
             "id": "feature_riparian_moisture",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3450,8 +2831,7 @@
           {
             "id": "feature_clearing",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3459,8 +2839,7 @@
           {
             "id": "feature_shaded_slope",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3550,7 +2929,7 @@
         "updated_at": "2026-07-02",
         "created_by": "rainmapper_ha_ui",
         "review_status": "needs_review",
-        "reviewed_by": null,
+        "reviewed_by": "",
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
@@ -3561,9 +2940,9 @@
       "species_id": "lactarius_sanguifluus",
       "scientific_name": "Lactarius sanguifluus",
       "common_names": [
-        "rovelló de sang",
-        "níscalo de sangre",
-        "esclata-sang"
+        "Rovelló de sang",
+        "Níscalo de sangre",
+        "Esclata-sang"
       ],
       "taxonomy_status": "accepted",
       "edibility": "good",
@@ -3593,27 +2972,13 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_pinus_pinea",
-            "relationship": "primary",
-            "affinity": 0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pinus_spp",
-            "relationship": "primary",
-            "affinity": 1.0,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_calcareous_pine",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3629,7 +2994,7 @@
           {
             "id": "forest_mediterranean_pine",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3639,7 +3004,7 @@
           {
             "id": "soil_calcareous",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3651,27 +3016,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_acidic",
-            "relationship": "avoid",
-            "affinity": -0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_strongly_calcareous",
-            "relationship": "secondary",
-            "affinity": 0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_well_drained",
-            "relationship": "preferred",
-            "affinity": 0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -3706,17 +3050,9 @@
             ]
           },
           {
-            "id": "feature_forest_edge",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_calcicolous_shrubland",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3809,22 +3145,23 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "lactarius_vinosus",
       "scientific_name": "Lactarius vinosus",
       "common_names": [
-        "vinader",
-        "rovelló vinader"
+        "Vinader",
+        "Rovelló vinader"
       ],
       "taxonomy_status": "uncertain_operational_taxon",
       "edibility": "good",
@@ -3850,50 +3187,27 @@
           {
             "id": "host_pinus_pinaster",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_pinus_nigra",
-            "relationship": "primary",
-            "affinity": 0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pinus_spp",
-            "relationship": "primary",
-            "affinity": 1.0,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
           {
             "id": "forest_mediterranean_pine",
             "relationship": "primary",
-            "affinity": 1.0,
+            "affinity": 1,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_calcareous_pine",
-            "relationship": "preferred",
-            "affinity": 0.85,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
           {
             "id": "soil_siliceous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3905,27 +3219,6 @@
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "soil_basic",
-            "relationship": "preferred",
-            "affinity": 0.75,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_calcareous",
-            "relationship": "preferred",
-            "affinity": 0.85,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "soil_well_drained",
-            "relationship": "preferred",
-            "affinity": 0.65,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "lithology_affinities": [
@@ -3949,8 +3242,7 @@
           {
             "id": "feature_open_warm_woodland",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -3958,25 +3250,10 @@
           {
             "id": "feature_clearing",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "feature_forest_edge",
-            "relationship": "secondary",
-            "affinity": 0.35,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "feature_needle_litter",
-            "relationship": "preferred",
-            "affinity": 0.45,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ]
       },
@@ -3990,10 +3267,10 @@
           1
         ],
         "season_pattern_ids": [
-          "season_autumn_main",
-          "season_early_winter_mild_areas",
           "season_autumn",
-          "season_late_autumn"
+          "season_autumn_main",
+          "season_late_autumn",
+          "season_early_winter_mild_areas"
         ],
         "fruiting_delay_after_rain_days": {
           "min": 7,
@@ -4067,14 +3344,15 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
@@ -4242,6 +3520,8 @@
             "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
+            "v0_catalog_gap_promoted": true,
+            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight.",
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -4472,6 +3752,8 @@
             "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
+            "v0_catalog_gap_promoted": true,
+            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight.",
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -4481,6 +3763,8 @@
             "relationship": "primary",
             "affinity": 0.0,
             "v0_placeholder": true,
+            "v0_catalog_gap_promoted": true,
+            "notes": "Promoted from source catalog_gap_candidates; numeric affinity is not a v0 weight.",
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -4740,9 +4024,9 @@
       "species_id": "morchella_elata_complex",
       "scientific_name": "Morchella elata complex",
       "common_names": [
-        "colmenilla negra",
-        "múrgola negra",
-        "morchella de bosque"
+        "Múrgola negra",
+        "Colmenilla negra",
+        "Morchella de bosque"
       ],
       "taxonomy_status": "species_complex_operational",
       "edibility": "edible_when_thoroughly_cooked",
@@ -4776,8 +4060,7 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -4785,8 +4068,7 @@
           {
             "id": "host_pinus_uncinata",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -4794,32 +4076,10 @@
           {
             "id": "host_abies_alba",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "host_abies_spp",
-            "relationship": "associated",
-            "affinity": 0.45,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_picea_spp",
-            "relationship": "associated",
-            "affinity": 0.45,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "host_pinus_spp",
-            "relationship": "associated",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "forest_type_affinities": [
@@ -4858,8 +4118,7 @@
           {
             "id": "forest_montane_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -4867,8 +4126,7 @@
           {
             "id": "forest_subalpine_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -4876,25 +4134,10 @@
           {
             "id": "forest_fir",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
-          },
-          {
-            "id": "forest_mixed_conifer",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
-            "id": "forest_mixed_woodland",
-            "relationship": "secondary",
-            "affinity": 0.55,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
           }
         ],
         "soil_affinities": [
@@ -5005,17 +4248,9 @@
             ]
           },
           {
-            "id": "feature_snowmelt",
-            "relationship": "preferred",
-            "affinity": 0.7,
-            "v0_active": false,
-            "v0_parking_reason": "legacy_enriched_affinity_not_in_v0_source"
-          },
-          {
             "id": "feature_disturbed_soil",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5035,8 +4270,8 @@
         ],
         "season_pattern_ids": [
           "season_spring",
-          "season_post_disturbance_possible",
-          "season_post_snowmelt"
+          "season_post_snowmelt",
+          "season_post_disturbance_possible"
         ],
         "fruiting_delay_after_rain_days": {
           "min": 3,
@@ -5112,20 +4347,23 @@
       "metadata": {
         "profile_version": "0.3",
         "created_at": "2026-06-27",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "chatgpt_research_assisted",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "russula_virescens",
       "scientific_name": "Russula virescens",
-      "common_names": [],
+      "common_names": [
+        "Llora verda"
+      ],
       "taxonomy_status": "accepted",
       "edibility": "good",
       "ecology": {
@@ -5134,8 +4372,7 @@
           {
             "id": "host_castanea_sativa",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5143,8 +4380,7 @@
           {
             "id": "host_quercus_ilex",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5152,8 +4388,7 @@
           {
             "id": "host_quercus_suber",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5161,8 +4396,7 @@
           {
             "id": "host_quercus_spp",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5170,8 +4404,7 @@
           {
             "id": "host_fagus_sylvatica",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5179,8 +4412,7 @@
           {
             "id": "host_betula_spp",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5190,8 +4422,7 @@
           {
             "id": "forest_chestnut",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5199,8 +4430,7 @@
           {
             "id": "forest_holm_oak",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5208,8 +4438,7 @@
           {
             "id": "forest_cork_oak",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5217,8 +4446,7 @@
           {
             "id": "forest_deciduous_broadleaf",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5226,8 +4454,7 @@
           {
             "id": "forest_beech",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5237,8 +4464,7 @@
           {
             "id": "soil_siliceous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5246,8 +4472,7 @@
           {
             "id": "soil_acidic",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5255,8 +4480,7 @@
           {
             "id": "soil_moist",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5267,8 +4491,7 @@
           {
             "id": "feature_moist_forest",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5276,8 +4499,7 @@
           {
             "id": "feature_heath_rockrose_understory",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5366,20 +4588,24 @@
       "metadata": {
         "profile_version": "0.1",
         "created_at": "2026-07-02",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "rainmapper_ha_ui",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "tricholoma_terreum",
       "scientific_name": "Tricholoma terreum",
-      "common_names": [],
+      "common_names": [
+        "Fredolic",
+        "Negrito"
+      ],
       "taxonomy_status": "accepted",
       "edibility": "good",
       "ecology": {
@@ -5388,8 +4614,7 @@
           {
             "id": "host_pinus_spp",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5397,8 +4622,7 @@
           {
             "id": "host_abies_alba",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5406,8 +4630,7 @@
           {
             "id": "host_pinus_nigra",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5415,8 +4638,7 @@
           {
             "id": "host_pinus_sylvestris",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5426,8 +4648,7 @@
           {
             "id": "forest_mixed_conifer",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5435,8 +4656,7 @@
           {
             "id": "forest_fir",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5444,8 +4664,7 @@
           {
             "id": "forest_montane_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5453,8 +4672,7 @@
           {
             "id": "forest_calcareous_pine",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5464,8 +4682,7 @@
           {
             "id": "soil_calcareous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5473,8 +4690,7 @@
           {
             "id": "soil_siliceous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5485,8 +4701,7 @@
           {
             "id": "feature_mossy_forest",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5494,8 +4709,7 @@
           {
             "id": "feature_forest_edge",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5503,8 +4717,7 @@
           {
             "id": "feature_clearing",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5513,17 +4726,17 @@
       },
       "phenology": {
         "main_months": [
+          1,
           10,
           11,
-          12,
-          1
+          12
         ],
         "secondary_months": [
+          2,
+          3,
           5,
           8,
-          9,
-          2,
-          3
+          9
         ],
         "season_pattern_ids": [
           "season_late_autumn",
@@ -5596,20 +4809,24 @@
       "metadata": {
         "profile_version": "0.1",
         "created_at": "2026-07-02",
-        "updated_at": "2026-07-02",
+        "updated_at": "2026-07-04",
         "created_by": "rainmapper_ha_ui",
         "review_status": "needs_review",
         "reviewed_by": null,
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",
-        "v0_candidate_kind": "updated_existing"
+        "v0_candidate_kind": "updated_existing",
+        "updated_by": "rainmapper_ui"
       }
     },
     {
       "species_id": "tuber_melanosporum",
       "scientific_name": "Tuber melanosporum",
-      "common_names": [],
+      "common_names": [
+        "Tófona Negra",
+        "Trufa negra"
+      ],
       "taxonomy_status": "accepted",
       "edibility": "good",
       "ecology": {
@@ -5618,8 +4835,7 @@
           {
             "id": "host_quercus_ilex",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5627,8 +4843,7 @@
           {
             "id": "host_quercus_spp",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5636,8 +4851,7 @@
           {
             "id": "host_corylus_avellana",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5645,8 +4859,7 @@
           {
             "id": "host_quercus_faginea",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5654,8 +4867,7 @@
           {
             "id": "host_quercus_coccifera",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5665,8 +4877,7 @@
           {
             "id": "forest_holm_oak",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5674,8 +4885,7 @@
           {
             "id": "forest_mediterranean_oak",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5685,8 +4895,7 @@
           {
             "id": "soil_calcareous",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5694,8 +4903,7 @@
           {
             "id": "soil_basic",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5706,8 +4914,7 @@
           {
             "id": "feature_open_warm_woodland",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5715,8 +4922,7 @@
           {
             "id": "feature_calcicolous_shrubland",
             "relationship": "primary",
-            "affinity": 0.0,
-            "v0_placeholder": true,
+            "affinity": 0,
             "source_ids": [
               "literature_marc_estevez"
             ]
@@ -5725,9 +4931,9 @@
       },
       "phenology": {
         "main_months": [
-          12,
           1,
-          2
+          2,
+          12
         ],
         "secondary_months": [
           3
@@ -5805,7 +5011,7 @@
         "updated_at": "2026-07-02",
         "created_by": "rainmapper_ha_ui",
         "review_status": "needs_review",
-        "reviewed_by": null,
+        "reviewed_by": "",
         "source_quality": "mixed",
         "requires_human_validation": true,
         "v0_candidate_source": "docs/mushrooms/literature/marc-estevez-v0-source-normalized.json",

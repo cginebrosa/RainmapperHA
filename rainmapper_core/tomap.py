@@ -8,6 +8,7 @@ the HA app package.
 
 import argparse
 import math
+import time as time_module
 import warnings
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -433,12 +434,22 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
 
 def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain_tomap, max_threads, include_aemet=False):
     """Rebuild all Tomap period files from existing incremental CSV history."""
+    total_started = time_module.perf_counter()
     maps_dir.mkdir(parents=True, exist_ok=True)
 
+    load_started = time_module.perf_counter()
     meteoclimatic_incremental = read_incremental(data_dir, 'Meteoclimatic_incremental')
     meteocat_incremental = read_incremental(data_dir, 'Meteocat_incremental')
     wunderground_incremental = read_incremental(data_dir, 'Wunderground_incremental')
     aemet_incremental = read_incremental(data_dir, 'Aemet_incremental') if include_aemet else create_empty_incremental()
+    print(
+        "Tomap load incrementals duration: "
+        f"{time_module.perf_counter() - load_started:.1f}s "
+        f"(Meteoclimatic {len(meteoclimatic_incremental)}, "
+        f"Meteocat {len(meteocat_incremental)}, "
+        f"Wunderground {len(wunderground_incremental)}, "
+        f"AEMET {len(aemet_incremental)})"
+    )
 
     if (
         len(meteoclimatic_incremental) == 0
@@ -461,6 +472,7 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
     print(f'Last rains history: {last_rains_history}')
     print(f'Include AEMET: {include_aemet}')
 
+    filter_started = time_module.perf_counter()
     with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix='TomapFilterProcesses') as executor:
         future_meteoclimatic_df = executor.submit(
             create_filtered,
@@ -494,10 +506,20 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
         meteocat_df = future_meteocat_df.result()
         wunderground_df = future_wunderground_df.result()
         aemet_df = future_aemet_df.result()
+    print(
+        "Tomap 90-day source filtering duration: "
+        f"{time_module.perf_counter() - filter_started:.1f}s "
+        f"(Meteoclimatic {len(meteoclimatic_df)}, "
+        f"Meteocat {len(meteocat_df)}, "
+        f"Wunderground {len(wunderground_df)}, "
+        f"AEMET {len(aemet_df)})"
+    )
 
+    merge_started = time_module.perf_counter()
     df_total = merge_dataframes(data_dir, meteocat_df, wunderground_df)
     df_total = merge_dataframes(data_dir, df_total, meteoclimatic_df)
     df_total = merge_dataframes(data_dir, df_total, aemet_df)
+    print(f"Tomap merge duration: {time_module.perf_counter() - merge_started:.1f}s ({len(df_total)} row(s))")
 
     if df_total.empty:
         print('')
@@ -505,14 +527,17 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
         print('')
         return 1
 
+    last_rains_started = time_module.perf_counter()
     df_last_rains = create_last_rains(
         df_total,
         maps_dir,
         nrecords=last_rains_history,
         minimum_rain_tomap=minimum_rain_tomap,
     )
+    print(f"Tomap last-rains duration: {time_module.perf_counter() - last_rains_started:.1f}s ({len(df_last_rains)} station row(s))")
 
     for days_backward, file_name, label in TOMAP_PERIODS:
+        period_started = time_module.perf_counter()
         print(f'Start processing {label} backward Tomap...')
         if days_backward == 90:
             df_period = df_total
@@ -521,9 +546,12 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
         df_toprint = create_grouped(df_period, minimum_rain_tomap)
         df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
         save_dataframe_tomap(df_tomap, maps_dir, file_name, save_to_csv=True)
-        print(f'Finished processing {label} backward Tomap')
+        print(
+            f'Finished processing {label} backward Tomap'
+            f'--> Time elapsed: {time_module.perf_counter() - period_started:.1f}s'
+        )
 
-    print('Finished rebuilding Tomap CSV files.')
+    print(f'Finished rebuilding Tomap CSV files. Total duration: {time_module.perf_counter() - total_started:.1f}s')
     return 0
 
 

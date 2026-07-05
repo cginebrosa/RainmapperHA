@@ -75,13 +75,13 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "pinos"
+            "Pinos"
           ],
           "ca": [
-            "pins"
+            "Pins"
           ],
           "en": [
-            "pines"
+            "Pines"
           ]
         },
         "parent_id": "host_pinaceae",
@@ -102,10 +102,10 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "pino silvestre"
+            "Pino Rojo"
           ],
           "ca": [
-            "pi roig"
+            "Pi roig"
           ],
           "en": [
             "Scots pine"
@@ -127,14 +127,14 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "pino negro"
+            "Pino negro"
           ],
           "ca": [
-            "pi negre"
+            "Pi negre"
           ],
           "en": [
-            "mountain pine",
-            "unhooked pine"
+            "Mountain pine",
+            "Unhooked pine"
           ]
         },
         "parent_id": "host_pinus_spp",
@@ -153,10 +153,10 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "pino carrasco"
+            "Pino carrasco"
           ],
           "ca": [
-            "pi blanc"
+            "Pi blanc"
           ],
           "en": [
             "Aleppo pine"
@@ -178,14 +178,14 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "pino laricio",
-            "pino salgareño"
+            "Pino laricio",
+            "Pino salgareño"
           ],
           "ca": [
-            "pinassa"
+            "Pinassa"
           ],
           "en": [
-            "black pine"
+            "Black pine"
           ]
         },
         "parent_id": "host_pinus_spp",
@@ -204,10 +204,10 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "pino piñonero"
+            "Pino piñonero"
           ],
           "ca": [
-            "pi pinyer"
+            "Pi pinyoner"
           ],
           "en": [
             "stone pine"
@@ -229,14 +229,14 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "pino resinero",
-            "pino marítimo"
+            "Pino resinero",
+            "Pino marítimo"
           ],
           "ca": [
-            "pinastre"
+            "Pinastre"
           ],
           "en": [
-            "maritime pine"
+            "Maritime pine"
           ]
         },
         "parent_id": "host_pinus_spp",
@@ -255,13 +255,13 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "abetos"
+            "Abetos"
           ],
           "ca": [
-            "avets"
+            "Avets"
           ],
           "en": [
-            "firs"
+            "Firs"
           ]
         },
         "parent_id": "host_pinaceae",
@@ -280,13 +280,13 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "abeto blanco"
+            "Abeto blanco"
           ],
           "ca": [
-            "avet blanc"
+            "Avet blanc"
           ],
           "en": [
-            "silver fir"
+            "Silver fir"
           ]
         },
         "parent_id": "host_abies_spp",
@@ -305,13 +305,13 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "píceas"
+            "Píceas"
           ],
           "ca": [
-            "pícees"
+            "Pícees"
           ],
           "en": [
-            "spruces"
+            "Spruces"
           ]
         },
         "parent_id": "host_pinaceae",
@@ -329,10 +329,10 @@
         "family": "Pinaceae",
         "common_names": {
           "es": [
-            "pseudotsuga"
+            "Pseudotsuga"
           ],
           "ca": [
-            "pseudotsuga"
+            "Pseudotsuga"
           ],
           "en": [
             "Douglas-fir"
@@ -353,13 +353,13 @@
         "family": "Fagaceae",
         "common_names": {
           "es": [
-            "fagáceas"
+            "Fagáceas"
           ],
           "ca": [
-            "fagàcies"
+            "Fagàcies"
           ],
           "en": [
-            "beech family"
+            "Beech family"
           ]
         },
         "parent_id": null,
@@ -377,17 +377,13 @@
         "family": "Fagaceae",
         "common_names": {
           "es": [
-            "robles",
-            "encinas",
-            "alcornoques"
+            "Robles-Encinas-Alcornoques"
           ],
           "ca": [
-            "roures",
-            "alzines",
-            "sureres"
+            "Roures-Azines-Sureres"
           ],
           "en": [
-            "oaks"
+            "Oaks"
           ]
         },
         "parent_id": "host_fagaceae",
@@ -410,13 +406,13 @@
         "family": "Fagaceae",
         "common_names": {
           "es": [
-            "encina"
+            "Encina"
           ],
           "ca": [
-            "alzina"
+            "Alzina"
           ],
           "en": [
-            "holm oak"
+            "Holm oak"
           ]
         },
         "parent_id": "host_quercus_spp",
@@ -435,13 +431,13 @@
         "family": "Fagaceae",
         "common_names": {
           "es": [
-            "alcornoque"
+            "Alcornoque"
           ],
           "ca": [
-            "surera"
+            "Surera"
           ],
           "en": [
-            "cork oak"
+            "Cork oak"
           ]
         },
         "parent_id": "host_quercus_spp",
@@ -486,13 +482,13 @@
         "family": "Fagaceae",
         "common_names": {
           "es": [
-            "roble albar"
+            "Roble albar"
           ],
           "ca": [
-            "roure de fulla gran"
+            "Roure de fulla gran"
           ],
           "en": [
-            "sessile oak"
+            "Sessile oak"
           ]
         },
         "parent_id": "host_quercus_spp",
@@ -510,10 +506,10 @@
         "family": "Fagaceae",
         "common_names": {
           "es": [
-            "haya"
+            "Haya"
           ],
           "ca": [
-            "faig"
+            "Faig"
           ],
           "en": [
             "European beech"
@@ -535,13 +531,13 @@
         "family": "Fagaceae",
         "common_names": {
           "es": [
-            "castaño"
+            "Castaño"
           ],
           "ca": [
-            "castanyer"
+            "Castanyer"
           ],
           "en": [
-            "sweet chestnut"
+            "Sweet chestnut"
           ]
         },
         "parent_id": "host_fagaceae",

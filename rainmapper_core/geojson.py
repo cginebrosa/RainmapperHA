@@ -9,6 +9,7 @@ import argparse
 import json
 import math
 import os
+import time as time_module
 from datetime import date, datetime
 from pathlib import Path
 
@@ -151,6 +152,7 @@ def dataframe_to_geojson(df, generated_at=None):
 
 
 def convert_file(input_file, output_file, ignore_station_codes):
+    started = time_module.perf_counter()
     df = pd.read_csv(input_file)
     missing_columns = {"Latitud", "Longitud"} - set(df.columns)
     if missing_columns:
@@ -173,10 +175,11 @@ def convert_file(input_file, output_file, ignore_station_codes):
         print(
             f"WARNING: {input_file} has {len(unknown_station_codes)} station code(s) with unknown source: {preview}{suffix}"
         )
-    return len(geojson["features"]), ignored_count
+    return len(geojson["features"]), ignored_count, time_module.perf_counter() - started
 
 
 def convert_all(input_dir, output_dir, ignore_stations_file):
+    started = time_module.perf_counter()
     ignore_station_codes = load_ignore_station_codes(ignore_stations_file)
     if ignore_station_codes:
         print(
@@ -191,11 +194,15 @@ def convert_all(input_dir, output_dir, ignore_stations_file):
             print(f"Skipping missing Tomap file: {input_file}")
             continue
 
-        feature_count, ignored_count = convert_file(input_file, output_file, ignore_station_codes)
+        feature_count, ignored_count, duration_seconds = convert_file(input_file, output_file, ignore_station_codes)
         converted.append(output_file)
         ignored_text = f", ignored {ignored_count} station(s)" if ignored_count else ""
-        print(f"Generated {output_file} with {feature_count} station(s){ignored_text}")
+        print(
+            f"Generated {output_file} with {feature_count} station(s){ignored_text}"
+            f"--> Time elapsed: {duration_seconds:.1f}s"
+        )
 
+    print(f"Finished GeoJSON generation. Total duration: {time_module.perf_counter() - started:.1f}s")
     return converted
 
 
