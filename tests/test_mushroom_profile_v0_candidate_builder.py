@@ -67,15 +67,15 @@ class MushroomProfileV0CandidateBuilderTests(unittest.TestCase):
 
     def test_candidate_uses_placeholders_only_for_schema_compatibility(self) -> None:
         candidate = BUILDER.build_candidate_profiles(self.profiles, self.source)
-        lactarius = next(
+        cantharellus = next(
             profile
             for profile in candidate["species_profiles"]
-            if profile["species_id"] == "lactarius_deliciosus"
+            if profile["species_id"] == "cantharellus_lutescens"
         )
 
-        self.assertEqual("updated_existing", lactarius["metadata"]["v0_candidate_kind"])
-        self.assertIn("Numeric affinities marked v0_placeholder", lactarius["prediction_confidence"]["notes"])
-        host_affinities = lactarius["ecology"]["host_affinities"]
+        self.assertEqual("updated_existing", cantharellus["metadata"]["v0_candidate_kind"])
+        self.assertIn("Numeric affinities marked v0_placeholder", cantharellus["prediction_confidence"]["notes"])
+        host_affinities = cantharellus["ecology"]["host_affinities"]
         self.assertTrue(any(item.get("v0_placeholder") for item in host_affinities))
         self.assertTrue(all("affinity" in item for item in host_affinities))
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.181
+
+- Fix mushroom evidence counts so field observations are matched against profile items consistently across hosts, forests, soils, habitat and orientations.
+- Rename evidence tabs away from GIS-only wording and improve selected-observation contrast and modal navigation history in mushroom maintenance.
+- Refresh packaged mushroom defaults from the curated local data and support Home Assistant GIS layers under `/share/rainmapper/mushroom-GIS`.
+- Add more detailed `run_all` timing instrumentation for source updates, map generation and publishing phases.
+
 ## 0.2.180
 
 - Keep mushroom species saves on the current internal tab after saving or validation errors.

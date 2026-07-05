@@ -61,7 +61,7 @@ class TomapToGeojsonTests(unittest.TestCase):
             shutil.copyfile(FIXTURE_DIR / "tomap_sample.csv", input_file)
 
             with redirect_stdout(StringIO()):
-                feature_count, ignored_count = tomap_to_geojson.convert_file(
+                feature_count, ignored_count, _duration_seconds = tomap_to_geojson.convert_file(
                     input_file,
                     output_file,
                     {"TEST_DROP"},
