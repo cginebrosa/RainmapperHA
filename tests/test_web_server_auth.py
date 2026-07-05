@@ -111,6 +111,62 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("write 5s", html)
         self.assertNotIn("metadata", html)
 
+    def test_non_aemet_source_cards_show_source_specific_timing_breakdowns(self) -> None:
+        meteocat_html = self.web_server.source_status_card(
+            "Meteocat",
+            {
+                "status": "OK",
+                "exit_code": 0,
+                "duration_seconds": 6,
+                "timings": {
+                    "metadata_seconds": 1.2,
+                    "wind_seconds": 2.4,
+                    "read_incremental_seconds": 3.6,
+                    "write_current_seconds": 4.8,
+                    "build_daily_seconds": 99,
+                },
+            },
+        )
+        self.assertIn("metadata 1s", meteocat_html)
+        self.assertIn("wind 2s", meteocat_html)
+        self.assertIn("read incr. 4s", meteocat_html)
+        self.assertIn("write current 5s", meteocat_html)
+        self.assertNotIn("build daily", meteocat_html)
+
+        meteoclimatic_html = self.web_server.source_status_card(
+            "Meteoclimatic",
+            {
+                "status": "OK",
+                "exit_code": 0,
+                "duration_seconds": 6,
+                "timings": {
+                    "fetch_seconds": 1.2,
+                    "build_daily_seconds": 2.4,
+                    "write_observations_seconds": 3.6,
+                },
+            },
+        )
+        self.assertIn("fetch 1s", meteoclimatic_html)
+        self.assertIn("build daily 2s", meteoclimatic_html)
+        self.assertIn("write obs. 4s", meteoclimatic_html)
+
+        wunderground_html = self.web_server.source_status_card(
+            "Wunderground",
+            {
+                "status": "OK",
+                "exit_code": 0,
+                "duration_seconds": 6,
+                "timings": {
+                    "scrape_seconds": 1.2,
+                    "normalize_seconds": 2.4,
+                    "upsert_incremental_seconds": 3.6,
+                },
+            },
+        )
+        self.assertIn("scrape 1s", wunderground_html)
+        self.assertIn("normalize 2s", wunderground_html)
+        self.assertIn("upsert 4s", wunderground_html)
+
     def test_control_panel_tabs_preserve_existing_actions_and_links(self) -> None:
         data_dir = Path(self.temp_dir.name)
         self.web_server.PLOTS_PATH = data_dir / "Plots"

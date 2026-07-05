@@ -265,6 +265,19 @@ def end_count(_legend=''):
     elapsed_time = timedelta(seconds=time_module.perf_counter() - start_perf)
     print(_legend+"--> Time elapsed: {}".format(elapsed_time))
 
+def record_timing(timings, key, started_at):
+    if isinstance(timings, dict):
+        timings[key] = time_module.perf_counter() - started_at
+
+def print_source_timings(source, timings):
+    timing_parts = [
+        f"{key}={value:.1f}s"
+        for key, value in timings.items()
+        if isinstance(value, (int, float))
+    ]
+    if timing_parts:
+        print(f"{source} timings: " + ", ".join(timing_parts))
+
 def local_to_utc(_datetime_local):
     # Obtiene la zona horaria local
     local_tz = pytz.timezone('Europe/Madrid')
@@ -1062,12 +1075,14 @@ def save_dataframe_tomap(df, _file_name, _save_to_csv=True, _save_to_excel=False
         df.to_excel(_MAPS_PATH+_file_name+'.xlsx', decimal=_decimal, index=False)
     #
 
-def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel):                          # Save incremental Dataframe
+def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel, timings=None):             # Save incremental Dataframe
     csv=csv_param.copy()
     #
     try:
         # Intentar cargar el archivo CSV
+        step_start_time = time_module.perf_counter()
         csv_old = read_incremental('Meteocat_incremental')
+        record_timing(timings, 'read_incremental_seconds', step_start_time)
         #print('Meteocat incremental leido:',csv_old.info())
     except FileNotFoundError:
         # Si el archivo no se encuentra, crear un DataFrame vacío con las mismas columnas que csv
@@ -1075,15 +1090,19 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel):          
     #
     # Upsert by station/day: fresh non-null values win, but fresh NaN values
     # keep existing non-null fields such as Meteocat temperature/humidity.
+    step_start_time = time_module.perf_counter()
     csv_incremental = upsert_incremental(csv, csv_old)
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
     csv_incremental.reset_index(drop=True, inplace=True)
+    record_timing(timings, 'upsert_incremental_seconds', step_start_time)
 	#
     # Filter rain > 0
     #csv_incremental = filter_results(csv_incremental,_minima_lectura_meteocat)
     #
 	# Save incremental Dataframe to csv
+    step_start_time = time_module.perf_counter()
     csv_incremental.to_csv(_DATA_PATH+'Meteocat_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
+    record_timing(timings, 'write_incremental_seconds', step_start_time)
     #print('Meteocat incremental salvado:',csv_incremental.info())
     #
 	# Save csv_incremental Dataframe to Excel
@@ -1096,42 +1115,58 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel):          
 
     return csv_incremental
 
-def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):                     # Save incremental Dataframe
+def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timings=None):        # Save incremental Dataframe
     csv=csv_param.copy()
     #
     try:
         # Intentar cargar el archivo CSV
         #csv_old = pd.read_csv(_DATA_PATH+'Meteoclimatic_incremental.csv',decimal=',')
+        step_start_time = time_module.perf_counter()
         csv_old = read_incremental('Meteoclimatic_incremental')
+        record_timing(timings, 'read_incremental_seconds', step_start_time)
 
     except FileNotFoundError:
         # Si el archivo no se encuentra, crear un DataFrame vacío con las mismas columnas que csv
         csv_old = pd.DataFrame(columns=csv.columns)
 
     observations_path = _DATA_PATH+'Meteoclimatic_observations_incremental.csv'
+    step_start_time = time_module.perf_counter()
     if os.path.exists(observations_path):
         observations_old = pd.read_csv(observations_path, decimal=',')
     else:
         observations_old = pd.DataFrame(columns=METEOCLIMATIC_OBSERVATION_COLUMNS)
+    record_timing(timings, 'read_observations_seconds', step_start_time)
 
+    step_start_time = time_module.perf_counter()
     observations_incremental = update_meteoclimatic_observations(csv, observations_old)
+    record_timing(timings, 'upsert_observations_seconds', step_start_time)
+
+    step_start_time = time_module.perf_counter()
     observations_incremental.to_csv(observations_path, decimal=',', index=False)
+    record_timing(timings, 'write_observations_seconds', step_start_time)
+
+    step_start_time = time_module.perf_counter()
     csv = build_meteoclimatic_daily_incremental(observations_incremental)
+    record_timing(timings, 'build_daily_seconds', step_start_time)
 
     # Upsert by station/day: fresh non-null values win, but fresh NaN values
     # keep existing non-null fields from earlier successful reads.
+    step_start_time = time_module.perf_counter()
     csv_incremental = upsert_incremental(csv, csv_old)
 
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
     csv_incremental.reset_index(drop=True, inplace=True)
+    record_timing(timings, 'upsert_incremental_seconds', step_start_time)
     #print(' ')
 	#
     # Refresh Station data on incremental local DB from local DB of Stations
+    step_start_time = time_module.perf_counter()
     estacions_meteoclimatic_df = pd.read_csv(_DATA_PATH+'estacions_meteoclimatic.csv',decimal=',')
 
     estacions_meteoclimatic_df.set_index(keys='Codi Estació',drop=False,inplace=True)
     csv_incremental.set_index(keys='Codi Estació',drop=False,inplace=True)
     csv_incremental.update(estacions_meteoclimatic_df)
+    record_timing(timings, 'station_incremental_update_seconds', step_start_time)
 
     # Filter rain > _minima_lectura_meteoclimatic (Daily rain in Meteoclimatic - Discard minimum readings as are errors)
     #csv_incremental = filter_results(csv_incremental,_minima_lectura_meteoclimatic)
@@ -1139,7 +1174,9 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):     
     csv_incremental.reset_index(drop=True, inplace=True)
 
 	# Save incremental Dataframe to csv
+    step_start_time = time_module.perf_counter()
     csv_incremental.to_csv(_DATA_PATH+'Meteoclimatic_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
+    record_timing(timings, 'write_incremental_seconds', step_start_time)
 	#
 	# Save csv_incremental Dataframe to Excel
 
@@ -1151,13 +1188,15 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel):     
 
     return csv_incremental
 
-def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):                     # Save incremental Dataframe
+def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel, timings=None):        # Save incremental Dataframe
     csv=csv_param.copy()
     #
     try:
         # Intentar cargar el archivo CSV
         #csv_old = pd.read_csv(_DATA_PATH+'Meteoclimatic_incremental.csv',decimal=',')
+        step_start_time = time_module.perf_counter()
         csv_old = read_incremental('Wunderground_incremental')
+        record_timing(timings, 'read_incremental_seconds', step_start_time)
 
     except FileNotFoundError:
         # Si el archivo no se encuentra, crear un DataFrame vacío con las mismas columnas que csv
@@ -1165,10 +1204,12 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):      
 
     # Upsert by station/day: fresh non-null values win, but fresh NaN values
     # keep existing non-null fields from earlier successful reads.
+    step_start_time = time_module.perf_counter()
     csv_incremental = upsert_incremental(csv, csv_old)
 
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
     csv_incremental.reset_index(drop=True, inplace=True)
+    record_timing(timings, 'upsert_incremental_seconds', step_start_time)
     #print(' ')
 	#
     '''
@@ -1186,7 +1227,9 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel):      
     csv_incremental.reset_index(drop=True, inplace=True)
 
 	# Save incremental Dataframe to csv
+    step_start_time = time_module.perf_counter()
     csv_incremental.to_csv(_DATA_PATH+'Wunderground_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
+    record_timing(timings, 'write_incremental_seconds', step_start_time)
 	#
 	# Save csv_incremental Dataframe to Excel
 
@@ -1551,12 +1594,13 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
     csv_incremental.to_csv(_DATA_PATH+'estacions_meteoclimatic.csv',decimal=',',index=False)
     return csv
 
-def create_meteoclimatic(_save_to_csv):
+def create_meteoclimatic(_save_to_csv, timings=None):
 
     client = MeteoclimaticClient()
     patterns = parse_meteoclimatic_patterns(_meteoclimatic_pattern)
     print("Meteoclimatic patterns:", ", ".join(patterns))
 
+    step_start_time = time_module.perf_counter()
     meteoclimatic_frames = []
     failed_patterns = []
     for pattern_index, pattern in enumerate(patterns):
@@ -1576,12 +1620,16 @@ def create_meteoclimatic(_save_to_csv):
             failed_text = ", ".join(pattern for pattern, _ in failed_patterns)
             raise RuntimeError(f"No Meteoclimatic data recovered. Failed pattern(s): {failed_text}")
         raise RuntimeError("No Meteoclimatic data recovered.")
+    record_timing(timings, 'fetch_seconds', step_start_time)
 
+    step_start_time = time_module.perf_counter()
     meteoclimatic_df = pd.concat(meteoclimatic_frames, ignore_index=True)
     meteoclimatic_df.drop_duplicates(subset=["Codi Estació"], keep="first", inplace=True)
     meteoclimatic_df.reset_index(drop=True, inplace=True)
     meteoclimatic_df = create_total_meteoclimatic(meteoclimatic_df, _save_to_excel = False, _save_to_csv=False)
+    record_timing(timings, 'build_current_seconds', step_start_time)
 
+    step_start_time = time_module.perf_counter()
     meteoclimatic_df['Data Local'] = meteoclimatic_df['Ultima Lectura']
     meteoclimatic_df['Hora Local'] = meteoclimatic_df['Ultima Lectura']
 
@@ -1592,7 +1640,9 @@ def create_meteoclimatic(_save_to_csv):
     meteoclimatic_df['Ultima Lectura']= meteoclimatic_df['Data Lectura'].dt.strftime("%Y/%m/%d %H:%M:%S")
     meteoclimatic_df['Data Local'] = meteoclimatic_df['Data Lectura'].dt.strftime("%Y%m%d") # Set Date as only date from 'Ultima Lectura'
     meteoclimatic_df['Hora Local'] = meteoclimatic_df['Data Lectura'].dt.strftime("%H:%M:%S")  # Set Time as only time from 'Ultima Lectura'
+    record_timing(timings, 'normalize_dates_seconds', step_start_time)
 
+    step_start_time = time_module.perf_counter()
     # Set order of columns to match Meteocat's columns order
     cols = meteoclimatic_df.columns.tolist()
     cols = cols[:1]+cols[-1:]+ cols[1:-1]
@@ -1606,17 +1656,22 @@ def create_meteoclimatic(_save_to_csv):
     meteoclimatic_df['Municipi_temp'] = meteoclimatic_df['Municipi_temp'].fillna(meteoclimatic_df['Estació'].str.extract(r'^(.*?) \(')[0])  # pandas 3.0-compatible: assign the filled Series back to the original column.
     meteoclimatic_df['Municipi'] = meteoclimatic_df['Municipi_temp']
     meteoclimatic_df.drop(columns=['Municipi_temp'], inplace=True)
+    record_timing(timings, 'normalize_columns_seconds', step_start_time)
 
     # Refresh local DB of stations (to not search for elevation in googlemaps all the time)
+    step_start_time = time_module.perf_counter()
     refreshed_stations_df = refresh_estacions_meteoclimatic(meteoclimatic_df)
+    record_timing(timings, 'station_catalog_seconds', step_start_time)
 
     # Update Altitud on meteoclimatic_df from local DB stations
+    step_start_time = time_module.perf_counter()
     refreshed_stations_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     meteoclimatic_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     meteoclimatic_df.update(refreshed_stations_df)
 
     meteoclimatic_df.reset_index(drop=True,inplace=True)
     meteoclimatic_df.sort_values(by=['Codi Estació', 'Data Lectura'], ascending=[True, False],inplace=True)
+    record_timing(timings, 'station_update_seconds', step_start_time)
 
     return meteoclimatic_df                             # Same format than Meteocat and with elevation set
 
@@ -2052,7 +2107,7 @@ def build_wunderground_dataframe(scraper_df:pd.DataFrame):
     wunderground_df['Hora Local'] = scraper_df['Hora']
     return wunderground_df
 
-def create_wunderground():
+def create_wunderground(timings=None):
     launchtime = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
     '''for url in URLS:
@@ -2082,6 +2137,7 @@ def create_wunderground():
                 next_progress += progress_step
 
     # Usa ThreadPoolExecutor para gestionar los threads
+    step_start_time = time_module.perf_counter()
     with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix="UrlScrapping") as executor:
         futures = []
         # Crea una lista de tareas usando executor.submit()
@@ -2097,17 +2153,24 @@ def create_wunderground():
         # Procesa los resultados a medida que terminan
         for future in as_completed(futures):
             register_wunderground_result(future.result())
+    record_timing(timings, 'scrape_seconds', step_start_time)
 
+    step_start_time = time_module.perf_counter()
     print_wunderground_summary(results)
+    record_timing(timings, 'metrics_seconds', step_start_time)
 
 
 
     # Convert to Rainmapper format
 
     # Move to dataframe and remove temporary created csv file = wunderground_file_name
+    step_start_time = time_module.perf_counter()
     scraper_df = pd.read_csv(wunderground_file_name , decimal=',')
     os.remove(wunderground_file_name)
+    record_timing(timings, 'read_scrape_csv_seconds', step_start_time)
+
     #print(scraper_df)
+    step_start_time = time_module.perf_counter()
     wunderground_df = build_wunderground_dataframe(scraper_df)
 
     wunderground_df['Data Lectura'] = pd.to_datetime(wunderground_df['Data Lectura'],format='%Y-%m-%d %H:%M:%S') # 'Data Lectura' como datetime64
@@ -2120,22 +2183,30 @@ def create_wunderground():
     wunderground_df['Latitud'] = wunderground_df['Latitud'].astype(str)  # Convierte la columna 'Latitud' a tipo str
     wunderground_df['Longitud'] = wunderground_df['Longitud'].astype(str)  # Convierte la columna 'Longitud' a tipo str
     wunderground_df['Data Local'] = wunderground_df['Data Local'].astype(str)  # Convierte la columna 'Data Local' a tipo str
+    record_timing(timings, 'normalize_seconds', step_start_time)
 
     # Refresh local stations DB  (to not search for elevation in googlemaps all times)
+    step_start_time = time_module.perf_counter()
     refreshed_stations_df = refresh_estacions_wunderground(wunderground_df)
+    record_timing(timings, 'station_catalog_seconds', step_start_time)
+
     # Refresh Update Altitud/Provincia/Població on wunderground_df from local DB stations
+    step_start_time = time_module.perf_counter()
     refreshed_stations_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     wunderground_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     wunderground_df.update(refreshed_stations_df)
 
     wunderground_df.reset_index(drop=True,inplace=True)
     wunderground_df.sort_values(by=['Codi Estació', 'Data Lectura'], ascending=[True, False],inplace=True)
+    record_timing(timings, 'station_update_seconds', step_start_time)
 
 
     #print(wunderground_df)
 
     # Save wunderground_df to csv
+    step_start_time = time_module.perf_counter()
     wunderground_df.to_csv(_DATA_PATH+'Wunderground'+'.csv', decimal='.', index=False)
+    record_timing(timings, 'write_current_seconds', step_start_time)
     return wunderground_df
 
 
@@ -2228,6 +2299,7 @@ def process_meteoclimatic():                                        # FOR MULTIT
     #################################
     source_started_at = datetime.now().isoformat(timespec='seconds')
     source_start_time = time_module.perf_counter()
+    source_timings = {}
     try:
         if _create_meteoclimatic:
             start_count(_legend='Start processing Meteoclimatic...')
@@ -2236,19 +2308,24 @@ def process_meteoclimatic():                                        # FOR MULTIT
             thread_name = threading.current_thread().name
             print(f"[{thread_name}] Starting thread for Meteoclimatic")
 
-            meteoclimatic_df = create_meteoclimatic(_save_to_csv=True)
+            meteoclimatic_df = create_meteoclimatic(_save_to_csv=True, timings=source_timings)
 
             if _incremental_meteoclimatic:
-                meteoclimatic_incremental = save_incremental_meteoclimatic(meteoclimatic_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
+                meteoclimatic_incremental = save_incremental_meteoclimatic(meteoclimatic_df, _save_to_excel=False, timings=source_timings) 	# Saves incremental data to csv. Also to excel depending on param
             else:
+                step_start_time = time_module.perf_counter()
                 meteoclimatic_incremental = read_incremental('Meteoclimatic_incremental')
+                record_timing(source_timings, 'read_incremental_seconds', step_start_time)
 
             # Filter results according to settings in parameters
             #meteoclimatic_df = filter_results(meteoclimatic_df,_minima_lectura_meteoclimatic)
             #print('Meteoclimatic.dtypes')
 
             # print(meteoclimatic_df.dtypes)
+            step_start_time = time_module.perf_counter()
             save_dataframe(meteoclimatic_df, 'Meteoclimatic', _save_to_csv=True, _save_to_excel=False,_decimal=',')
+            record_timing(source_timings, 'write_current_seconds', step_start_time)
+            print_source_timings('Meteoclimatic', source_timings)
             if _print_dataframes:
                 print('------------------------')
                 print('Data from Meteoclimatic:')
@@ -2270,6 +2347,7 @@ def process_meteoclimatic():                                        # FOR MULTIT
             time_module.perf_counter() - source_start_time,
             started_at=source_started_at,
             finished_at=datetime.now().isoformat(timespec='seconds'),
+            timings=source_timings,
         )
 
 ###############################################
@@ -2327,17 +2405,21 @@ def process_wunderground():                                         # FOR MULTIT
     ###############################
     source_started_at = datetime.now().isoformat(timespec='seconds')
     source_start_time = time_module.perf_counter()
+    source_timings = {}
     try:
         if _create_wunderground:
             start_count(_legend='Start processing Wunderground...')
             # run processing
             global wunderground_header
             wunderground_header = True
-            wunderground_df = create_wunderground()
+            wunderground_df = create_wunderground(timings=source_timings)
             if _incremental_wunderground:
-                wunderground_incremental = save_incremental_wunderground(wunderground_df, _save_to_excel=False) 	# Saves incremental data to csv. Also to excel depending on param
+                wunderground_incremental = save_incremental_wunderground(wunderground_df, _save_to_excel=False, timings=source_timings) 	# Saves incremental data to csv. Also to excel depending on param
             else:
+                step_start_time = time_module.perf_counter()
                 wunderground_incremental = read_incremental('Wunderground_incremental')
+                record_timing(source_timings, 'read_incremental_seconds', step_start_time)
+            print_source_timings('Wunderground', source_timings)
             end_count(_legend='Finished processing Wunderground')
         else:
             wunderground_incremental = read_incremental('Wunderground_incremental')
@@ -2350,6 +2432,7 @@ def process_wunderground():                                         # FOR MULTIT
             time_module.perf_counter() - source_start_time,
             started_at=source_started_at,
             finished_at=datetime.now().isoformat(timespec='seconds'),
+            timings=source_timings,
         )
 
 def process_aemet():                                                # FOR MULTITHREAD PURPOSES
@@ -2530,21 +2613,26 @@ def process_meteocat():                                             # FOR MULTIT
             end_count(_legend='Processed Meteocat reading precipitation from Socrata')
             # If no records returned, initialize empty meteocat's dataframes with columns from incremental
             if meteocat_df.empty:
+                step_start_time = time_module.perf_counter()
                 meteocat_incremental = read_incremental('Meteocat_incremental')
                 meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)
+                record_timing(source_timings, 'read_incremental_seconds', step_start_time)
 
-            step_start_time = time_module.perf_counter()
             if _incremental_meteocat:
                 #print('Meteocat creado:',meteocat_df.info())
-                meteocat_incremental = save_incremental_meteocat(meteocat_df, _save_to_excel=False) 			 # Saves incremental data to csv. Also to excel depending on param
+                meteocat_incremental = save_incremental_meteocat(meteocat_df, _save_to_excel=False, timings=source_timings) 			 # Saves incremental data to csv. Also to excel depending on param
                 #print('Meteocat incremental:',meteocat_incremental.info())
             else:
+                step_start_time = time_module.perf_counter()
                 meteocat_incremental = read_incremental('Meteocat_incremental')
+                record_timing(source_timings, 'read_incremental_seconds', step_start_time)
             # Filter results according to settings in parameters
             #meteocat_df = filter_results(meteocat_df, _minima_lectura_meteocat)
             # Save current readings from meteocat to csv
+            step_start_time = time_module.perf_counter()
             save_dataframe(meteocat_df, 'Meteocat', _save_to_csv=True, _save_to_excel=False,_decimal=',')
-            source_timings['save_seconds'] = time_module.perf_counter() - step_start_time
+            record_timing(source_timings, 'write_current_seconds', step_start_time)
+            print_source_timings('Meteocat', source_timings)
 
             if _print_dataframes:
                 print('-------------------')

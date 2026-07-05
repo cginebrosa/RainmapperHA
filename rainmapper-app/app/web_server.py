@@ -6024,14 +6024,51 @@ def source_status_card(source: str, payload: dict, disabled: str = "") -> str:
                 ("merge_daily_seconds", "merge daily"),
                 ("write_outputs_seconds", "write"),
             ]
-        else:
+        elif source == "Meteocat":
             timing_labels = [
                 ("metadata_seconds", "metadata"),
                 ("conditions_seconds", "conditions"),
+                ("wind_seconds", "wind"),
                 ("precipitation_seconds", "rain"),
                 ("merge_seconds", "merge"),
-                ("save_seconds", "save"),
+                ("read_incremental_seconds", "read incr."),
+                ("upsert_incremental_seconds", "upsert"),
+                ("write_incremental_seconds", "write incr."),
+                ("write_current_seconds", "write current"),
             ]
+        elif source == "Meteoclimatic":
+            timing_labels = [
+                ("fetch_seconds", "fetch"),
+                ("build_current_seconds", "build current"),
+                ("normalize_dates_seconds", "dates"),
+                ("normalize_columns_seconds", "columns"),
+                ("station_catalog_seconds", "stations"),
+                ("station_update_seconds", "station update"),
+                ("read_observations_seconds", "read obs."),
+                ("upsert_observations_seconds", "upsert obs."),
+                ("write_observations_seconds", "write obs."),
+                ("build_daily_seconds", "build daily"),
+                ("read_incremental_seconds", "read incr."),
+                ("upsert_incremental_seconds", "upsert"),
+                ("station_incremental_update_seconds", "station incr."),
+                ("write_incremental_seconds", "write incr."),
+                ("write_current_seconds", "write current"),
+            ]
+        elif source == "Wunderground":
+            timing_labels = [
+                ("scrape_seconds", "scrape"),
+                ("metrics_seconds", "metrics"),
+                ("read_scrape_csv_seconds", "read scrape"),
+                ("normalize_seconds", "normalize"),
+                ("station_catalog_seconds", "stations"),
+                ("station_update_seconds", "station update"),
+                ("write_current_seconds", "write current"),
+                ("read_incremental_seconds", "read incr."),
+                ("upsert_incremental_seconds", "upsert"),
+                ("write_incremental_seconds", "write incr."),
+            ]
+        else:
+            timing_labels = []
         timing_parts = [
             f"{label} {format_seconds_duration(timings.get(key))}"
             for key, label in timing_labels
