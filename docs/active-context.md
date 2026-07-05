@@ -17,12 +17,12 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release funcional pusheado: `11a04e6 Release Home Assistant 0.2.187`.
-- Version HA: `0.2.187`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.187`,
+- Ultimo release funcional preparado: `a70d08c Release Home Assistant 0.2.188`.
+- Version HA: `0.2.188`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.188`,
   digest multi-arch
-  `sha256:1fc5a0eb46659b8ca9496935bb3c3491a424e9dac277eec7823ddd12983f19be`.
-- `latest` apunta al mismo digest que `0.2.187`.
+  `sha256:9ebdd67556e2ef6107cf05f88e8e4baa1483750e163605dfcd9962c897c75838`.
+- `latest` apunta al mismo digest que `0.2.188`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -78,9 +78,13 @@ Wunderground. Con 4 threads en RPi, el `run_all` de `0.2.186` mostro:
 
 `0.2.187` vectoriza el rebuild diario de Meteoclimatic y la agregacion Tomap
 last-rains. En local, Meteoclimatic diario con datos reales paso a `0.066s` y
-Tomap completo a `10.2s` (`last-rains=6.7s`). En el siguiente `run_all` en RPi
-hay que confirmar la mejora real; lo esperable es que siga dominando
-Wunderground salvo que se cambie la estrategia/concurrencia del scrape.
+Tomap completo a `10.2s` (`last-rains=6.7s`). En HA, el `run_all` posterior con
+3 threads bajo a unos 10 minutos: Wunderground sigue dominando y Bokeh anadia
+casi 1 minuto en la fase de mapas.
+
+`0.2.188` desactiva por defecto la generacion legacy Bokeh/Google Maps mediante
+`generate_bokeh_maps: false`. Tomap, GeoJSON, Leaflet y MapLibre se siguen
+generando; si hiciera falta reactivar Bokeh, cambiar esa opcion a `true`.
 
 ## Fuente de verdad operativa
 
