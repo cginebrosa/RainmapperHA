@@ -17,12 +17,12 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release funcional pusheado: `1b65b1d Release Home Assistant 0.2.185`.
-- Version HA: `0.2.185`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.185`,
+- Ultimo release funcional pusheado: `5686e6c Release Home Assistant 0.2.186`.
+- Version HA: `0.2.186`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.186`,
   digest multi-arch
-  `sha256:ef64be1419633814e5cb4a24e74266dd0fc4810649376ef136099113c56b038e`.
-- `latest` apunta al mismo digest que `0.2.185`.
+  `sha256:8bac84c6f93055d63305afd41fabeb9ac8168cec7f8eab7974fa3a372a58e9ad`.
+- `latest` apunta al mismo digest que `0.2.186`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -66,9 +66,12 @@ El panel HA muestra ese desglose en la tarjeta AEMET. El `run_all` de HA
 `0.2.184` mostro que AEMET tardaba `5m38s` y que el coste dominante era
 `build_daily_seconds` con `4m32s`. `0.2.185` reemplaza ese bucle Python por
 agregacion vectorizada con pandas; en local, 125k filas horarias se agregaron en
-`1.23s`. En el siguiente `run_all` en RPi hay que confirmar cuanto baja
-`build_daily_seconds`; si ya no domina, revisar `read_hourly_seconds` y
-`write_outputs_seconds`.
+`1.23s`.
+
+`0.2.186` publica en HA los desgloses de fase para Meteocat, Meteoclimatic y
+Wunderground. En el siguiente `run_all` en RPi hay que confirmar cuanto baja
+`build_daily_seconds` de AEMET; si ya no domina, revisar las fases lentas que
+aparezcan en las tarjetas de cada fuente.
 
 ## Fuente de verdad operativa
 
