@@ -754,15 +754,15 @@
     "es": "Meteorologia",
     "ca": "Meteorologia"
   },
-  "ui.evidence_gis_hosts_forests": {
-    "en": "GIS (hosts + forests)",
-    "es": "GIS (hosts + bosques)",
-    "ca": "GIS (hosts + boscos)"
+  "ui.evidence_hosts_forests": {
+    "en": "Hosts + forests",
+    "es": "Hosts + bosques",
+    "ca": "Hosts + boscos"
   },
-  "ui.evidence_gis_soils_habitat": {
-    "en": "GIS (soils + habitat)",
-    "es": "GIS (suelos + habitat)",
-    "ca": "GIS (sols + habitat)"
+  "ui.evidence_soils_habitat": {
+    "en": "Soils + habitat",
+    "es": "Suelos + habitat",
+    "ca": "Sols + habitat"
   },
   "ui.evidence_weather": {
     "en": "Weather",
@@ -1150,14 +1150,14 @@
     "ca": "Indica si aquest ID ja esta declarat com a valor actiu v0 al perfil de l'especie."
   },
   "ui.evidence_observations_help": {
-    "en": "Number of reconstructed local observations for this species where GIS produced this ID.",
-    "es": "Numero de observaciones locales reconstruidas de esta especie en las que GIS produjo este ID.",
-    "ca": "Nombre d'observacions locals reconstruides d'aquesta especie en que GIS ha produit aquest ID."
+    "en": "Number of local observations for this species where Field or GIS/DEM evidence produced this ID.",
+    "es": "Numero de observaciones locales de esta especie en las que evidencia de Campo o GIS/DEM produjo este ID.",
+    "ca": "Nombre d'observacions locals d'aquesta especie en que evidencia de Camp o GIS/DEM ha produit aquest ID."
   },
   "ui.evidence_status_help": {
-    "en": "Automatic comparison between the active v0 profile and local GIS evidence.",
-    "es": "Comparacion automatica entre el perfil v0 activo y la evidencia GIS local.",
-    "ca": "Comparacio automatica entre el perfil v0 actiu i l'evidencia GIS local."
+    "en": "Automatic comparison between the active v0 profile and local Field or GIS/DEM evidence.",
+    "es": "Comparacion automatica entre el perfil v0 activo y la evidencia local de Campo o GIS/DEM.",
+    "ca": "Comparacio automatica entre el perfil v0 actiu i l'evidencia local de Camp o GIS/DEM."
   },
   "ui.evidence_decision_help": {
     "en": "Manual review state saved separately from the profile. It does not change profile data.",
@@ -1235,9 +1235,9 @@
     "ca": "Aquest ID no esta declarat com a valor actiu al perfil v0 d'aquesta especie."
   },
   "ui.evidence_observations_value_help": {
-    "en": "Reconstructed observations for this species where GIS produced this ID.",
-    "es": "Observaciones reconstruidas de esta especie en las que GIS produjo este ID.",
-    "ca": "Observacions reconstruides d'aquesta especie en que GIS ha produit aquest ID."
+    "en": "Local observations for this species where Field or GIS/DEM evidence produced this ID.",
+    "es": "Observaciones locales de esta especie en las que evidencia de Campo o GIS/DEM produjo este ID.",
+    "ca": "Observacions locals d'aquesta especie en que evidencia de Camp o GIS/DEM ha produit aquest ID."
   },
   "ui.evidence_status_declared_observed_help": {
     "en": "The v0 profile contains this ID and local reconstructed observations also produced it.",

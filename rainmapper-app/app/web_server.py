@@ -3193,10 +3193,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: rgba(3, 169, 244, .06);
     }}
     .observations-table-shell tbody tr.observation-row.selected {{
-      background: rgba(3, 169, 244, .1);
+      background: rgba(3, 169, 244, .2);
+      box-shadow:
+        inset 0 0 0 1px rgba(56, 189, 248, .65),
+        inset 5px 0 0 var(--accent),
+        0 0 0 1px rgba(3, 169, 244, .16);
+      color: #f8fbff;
     }}
-    .observations-table-shell tbody tr.observation-row.selected td:first-child {{
-      box-shadow: inset 3px 0 0 var(--accent);
+    .observations-table-shell tbody tr.observation-row.selected td {{
+      border-top-color: rgba(56, 189, 248, .28);
+      border-bottom-color: rgba(56, 189, 248, .28);
+    }}
+    .observations-table-shell tbody tr.observation-row.selected a {{
+      color: #b9ecff;
     }}
     .observations-table-shell tbody tr.observation-row:focus-within {{
       outline: 1px solid rgba(3, 169, 244, .45);
@@ -4713,10 +4722,30 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items: end;
       border-bottom: 1px solid var(--line);
       display: grid;
-      gap: 14px;
-      grid-template-columns: minmax(300px, 1fr) auto auto auto;
+      gap: 8px;
+      grid-template-areas:
+        "title actions"
+        "title tabs";
+      grid-template-columns: minmax(300px, 1fr) auto;
       margin: 0 0 14px;
       padding: 0 0 10px;
+    }}
+    .mushroom-title-copy {{
+      grid-area: title;
+    }}
+    .mushroom-title-row {{
+      align-items: center;
+      display: flex;
+      gap: 14px;
+      grid-area: actions;
+      justify-content: flex-end;
+    }}
+    .mushroom-tabs-row {{
+      align-items: end;
+      display: flex;
+      gap: 14px;
+      grid-area: tabs;
+      justify-content: flex-end;
     }}
     .mushroom-title-tabs h1 {{
       margin-bottom: 4px;
@@ -4725,26 +4754,30 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       margin: 0;
     }}
     .mushroom-title-status {{
-      padding-bottom: 7px;
       white-space: nowrap;
     }}
     .mushroom-model-stale-form {{
-      margin: 0 0 2px;
+      margin: 0;
     }}
     .mushroom-model-stale-button {{
+      align-items: center;
       background: rgba(127, 29, 29, .88);
       border: 1px solid rgba(255, 107, 107, .95);
       border-radius: 8px;
       color: #fff;
       cursor: pointer;
+      display: inline-flex;
       font-size: 13px;
       font-weight: 900;
-      padding: 9px 12px;
-      text-align: left;
+      gap: 8px;
+      line-height: 1;
+      min-height: 32px;
+      padding: 5px 10px;
+      text-align: center;
+      white-space: nowrap;
     }}
     .mushroom-model-stale-button span {{
-      display: block;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
       opacity: .86;
     }}
@@ -5095,6 +5128,68 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }} catch (error) {{}}
       window.location.href = href;
     }}
+    const speciesModalHistoryKey = "rainmapperSpeciesMaintenanceModalHistory";
+    function currentRelativeUrl() {{
+      return window.location.pathname + window.location.search + window.location.hash;
+    }}
+    function modalLayerForHash(hash) {{
+      if (!hash || hash === "#") {{
+        return null;
+      }}
+      try {{
+        var target = document.getElementById(decodeURIComponent(hash.slice(1)));
+        return target && target.classList.contains("modal-layer") ? target : null;
+      }} catch (error) {{
+        return null;
+      }}
+    }}
+    function readSpeciesModalHistory() {{
+      try {{
+        var payload = JSON.parse(window.sessionStorage.getItem(speciesModalHistoryKey) || "[]");
+        return Array.isArray(payload) ? payload.filter(Boolean) : [];
+      }} catch (error) {{
+        return [];
+      }}
+    }}
+    function writeSpeciesModalHistory(stack) {{
+      try {{
+        window.sessionStorage.setItem(speciesModalHistoryKey, JSON.stringify(stack.slice(-30)));
+      }} catch (error) {{}}
+    }}
+    function rememberSpeciesModalNavigation(event) {{
+      var link = event.target.closest ? event.target.closest("a[href^='#']") : null;
+      if (!link) {{
+        return;
+      }}
+      var targetHash = link.getAttribute("href") || "";
+      if (!modalLayerForHash(targetHash) || targetHash === window.location.hash) {{
+        return;
+      }}
+      var currentUrl = currentRelativeUrl();
+      var stack = readSpeciesModalHistory();
+      if (stack[stack.length - 1] !== currentUrl) {{
+        stack.push(currentUrl);
+      }}
+      writeSpeciesModalHistory(stack);
+    }}
+    function closeSpeciesModalWithHistory(event) {{
+      var link = event.target.closest ? event.target.closest("a") : null;
+      if (!link || !link.closest(".modal-layer")) {{
+        return;
+      }}
+      var isLocalClose = link.matches("[data-modal-history-close], .modal-backdrop") || link.getAttribute("href") === "#";
+      if (!isLocalClose) {{
+        return;
+      }}
+      var stack = readSpeciesModalHistory();
+      var returnUrl = stack.pop() || "";
+      if (!returnUrl) {{
+        return;
+      }}
+      event.preventDefault();
+      writeSpeciesModalHistory(stack);
+      window.location.href = returnUrl;
+    }}
     function restoreObservationScroll() {{
       var params;
       try {{
@@ -5415,6 +5510,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
     }});
     document.addEventListener("click", function(event) {{
+      closeSpeciesModalWithHistory(event);
+      if (event.defaultPrevented) {{
+        return;
+      }}
+      rememberSpeciesModalNavigation(event);
       var speciesLink = event.target.closest(".profile-list-item[href]");
       if (speciesLink) {{
         speciesLink.href = speciesUrlWithActiveProfileState(speciesLink.href);
@@ -7427,7 +7527,7 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
     refresh_screen = html.escape(label("ui.rebuild_progress_refresh_screen"))
     close_label = html.escape(label("ui.close"))
     return f"""
-    <div id="mushroom-rebuild-progress-modal" class="mushroom-progress-backdrop" data-job-id="{safe_job_id}">
+    <div id="mushroom-rebuild-progress-modal" class="mushroom-progress-backdrop" data-job-id="{safe_job_id}" data-refresh-url="{safe_refresh_url}">
       <section class="mushroom-progress-dialog" role="dialog" aria-modal="true" aria-labelledby="mushroom-rebuild-progress-title">
         <header class="mushroom-progress-header">
           <div>
@@ -7467,8 +7567,10 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
       const modal = document.getElementById("mushroom-rebuild-progress-modal");
       if (!modal) return;
       const jobId = modal.dataset.jobId;
+      const refreshUrl = modal.dataset.refreshUrl || "";
       const closeButton = document.getElementById("mushroom-rebuild-progress-close");
       const refreshLink = document.getElementById("mushroom-rebuild-progress-refresh");
+      let terminalStatus = "";
       const fields = {{
         status: document.getElementById("mushroom-rebuild-progress-status"),
         message: document.getElementById("mushroom-rebuild-progress-message"),
@@ -7511,6 +7613,7 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
             fields.error.textContent = job.error;
           }}
           if (job.status === "complete" || job.status === "failed") {{
+            terminalStatus = job.status;
             closeButton.hidden = false;
             refreshLink.hidden = false;
             return;
@@ -7524,6 +7627,10 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
         window.setTimeout(poll, 1000);
       }}
       closeButton.addEventListener("click", () => {{
+        if (terminalStatus === "complete" && refreshUrl) {{
+          window.location.href = refreshUrl;
+          return;
+        }}
         modal.remove();
       }});
       poll();
@@ -9921,7 +10028,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 mushroom_gis_lab.load_latest_reconstruction(),
             )
         elif section == "evidence":
-            evidence_view = (query.get("evidence_view") or ["gis"])[0]
+            evidence_view = (query.get("evidence_view") or ["hosts_forests"])[0]
             main_content = mushroom_profiles_ui.render_local_evidence_section(
                 profile=selected,
                 catalogs=catalogs,
@@ -9982,13 +10089,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           {full_json_link}
         </div>
         <div class="mushroom-title-tabs">
-          <div>
+          <div class="mushroom-title-copy">
             <h1>Mantenimiento de especies</h1>
             <p>Gestiona perfiles de especies para el predictor de floradas</p>
           </div>
-          {section_tabs}
-          {pending_rebuild_button}
-          <span class="meta mushroom-title-status">{len(profiles)} species · <span class="{status_class}">{status_label}</span></span>
+          <div class="mushroom-title-row">
+            {pending_rebuild_button}
+            <span class="meta mushroom-title-status">{len(profiles)} species · <span class="{status_class}">{status_label}</span></span>
+          </div>
+          <div class="mushroom-tabs-row">
+            {section_tabs}
+          </div>
         </div>
         {flash_html}
         {seeded_html}

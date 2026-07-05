@@ -164,11 +164,11 @@ Referencia: `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md`.
 
 ### Evidencia
 
-- Tiene subpestanas GIS hosts/bosques, GIS suelos/habitat, Meteorologia y Modelo
+- Tiene subpestanas Hosts/bosques, Suelos/habitat, Meteorologia y Modelo
   aprendido.
-- Sigue siendo demasiado facil confundir Campo y GIS/DEM porque algunas vistas
-  arrastran lenguaje de "GIS".
-- Debe redisenarse para separar explicitamente:
+- Hosts/bosques y Suelos/habitat deben contar evidencia local unificada cuando
+  exista: Campo + GIS/DEM, preservando origenes visibles por item.
+- Sigue pendiente redisenar la vista para separar mas explicitamente:
   - declarado/observado por campo;
   - reconstruido por GIS/DEM;
   - coincidencias con perfil;
@@ -224,8 +224,9 @@ Origenes que deben entenderse en UI:
   pero no deben leerse como contrato operativo actual.
 - `docs/todo.md` contiene backlog largo con tareas antiguas. Usarlo como
   referencia, no como lista estricta de arranque.
-- `Evidencia` necesita rediseño semantico: su nombre de subpestanas GIS puede
-  inducir a pensar que todo viene de GIS aunque haya Campo.
+- `Evidencia` necesita rediseño semantico: aunque los titulos visibles ya no
+  dicen GIS, la vista todavia debe separar mejor Campo, GIS/DEM, coincidencias
+  con perfil y decisiones.
 - `Parametros > Meteorologia` no esta cerrado en el patron de tres columnas.
 - El modelo v0 puede quedar desactualizado tras editar observaciones hasta que
   el usuario pulse reconstruccion.

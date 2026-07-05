@@ -1070,6 +1070,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('onclick="selectObservationRow(this)"', html)
         self.assertIn('class="observation-map-link" href="#observation-map-obs-20260629-0001"', html)
         self.assertIn('id="observation-map-obs-20260629-0001"', html)
+        self.assertIn('data-modal-history-close', html)
+        self.assertIn('?section=observations&amp;obs_id=obs_20260629_0001&amp;id=boletus_pinophilus&amp;date_from=2026-06-29&amp;result=abundant#observation-detail', html)
         self.assertIn("maps.google.com/maps?", html)
         self.assertIn('href="#observation-map-obs-20260629-0001">Map</a>', html)
         self.assertIn("Scots pine", html)
@@ -1104,6 +1106,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('class="observation-row selected"', all_species_html)
         self.assertIn("<h2>All species</h2>", all_species_html)
         self.assertIn("duplicate_from=obs_20260628_0001", all_species_html)
+
+    def test_mushroom_species_page_has_generic_modal_navigation_history(self) -> None:
+        page = self.web_server.html_page(
+            "Mushroom species",
+            '<a href="#edit-observation-1">Edit</a><div id="edit-observation-1" class="modal-layer"></div>',
+            auto_refresh=False,
+            page_class="mushroom-wide-page",
+        ).decode("utf-8")
+
+        self.assertIn("rainmapperSpeciesMaintenanceModalHistory", page)
+        self.assertIn("rememberSpeciesModalNavigation(event)", page)
+        self.assertIn("closeSpeciesModalWithHistory(event)", page)
+        self.assertIn("modalLayerForHash(targetHash)", page)
 
     def test_mushroom_observation_gis_summary_renders_v0_context(self) -> None:
         result = {
@@ -1258,11 +1273,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Declared, not observed", html)
         self.assertIn("Promote", html)
         self.assertIn("Doubtful", html)
-        self.assertIn("GIS (hosts + forests)", html)
-        self.assertIn("GIS (soils + habitat)", html)
+        self.assertIn("Hosts + forests", html)
+        self.assertIn("Soils + habitat", html)
         self.assertIn('name="profile_action" value="update_evidence_decision"', html)
         self.assertIn('name="view" value="v0"', html)
-        self.assertIn('name="evidence_view" value="gis_hosts_forests"', html)
+        self.assertIn('name="evidence_view" value="hosts_forests"', html)
         self.assertIn("host_quercus_ilex", html)
         self.assertIn("host_quercus_suber", html)
         self.assertIn("Quercus ilex - Holm oak", html)
@@ -1282,22 +1297,85 @@ class AuthDeviceLimitTests(unittest.TestCase):
             None,
             decisions,
             profile_view="v0",
-            evidence_view="gis_soils_habitat",
+            evidence_view="soils_habitat",
         )
         self.assertIn("Soils", soils_html)
         self.assertIn("Habitat", soils_html)
         self.assertIn('name="view" value="v0"', soils_html)
-        self.assertIn('name="evidence_view" value="gis_soils_habitat"', soils_html)
+        self.assertIn('name="evidence_view" value="soils_habitat"', soils_html)
         self.assertNotIn("Quercus ilex - Holm oak", soils_html)
 
         self.assertEqual(
-            "?id=boletus_aereus&section=evidence&view=v0&evidence_view=gis_soils_habitat#mushroom-profile-message",
+            "?id=boletus_aereus&section=evidence&view=v0&evidence_view=soils_habitat#mushroom-profile-message",
             self.web_server.evidence_return_url(
                 "boletus_aereus",
                 profile_view="v0",
-                evidence_view="gis_soils_habitat",
+                evidence_view="soils_habitat",
             ),
         )
+
+    def test_mushroom_local_evidence_section_counts_field_hosts_from_joined_features(self) -> None:
+        profile = {
+            "species_id": "boletus_aereus",
+            "scientific_name": "Boletus aereus",
+            "common_names": ["hongo negro"],
+            "ecology": {
+                "host_affinities": [{"id": "host_quercus_ilex", "v0_active": True}],
+                "forest_type_affinities": [],
+                "soil_affinities": [],
+                "habitat_feature_affinities": [],
+            },
+            "prediction_confidence": {},
+            "metadata": {},
+        }
+        catalogs = {
+            "host_taxa": [
+                {
+                    "id": "host_quercus_ilex",
+                    "scientific_name": "Quercus ilex",
+                    "common_names": {"en": ["Holm oak"]},
+                },
+            ],
+            "forest_types": [],
+            "soil_types": [],
+            "habitat_features": [],
+        }
+        reconstruction = {
+            "generated_at": "2026-07-02T12:00:00",
+            "results": [
+                {
+                    "observation_id": "obs_1",
+                    "species_id": "boletus_aereus",
+                    "location": {"lat": 41.75, "lon": 2.15, "source": "mushroom_observations"},
+                    "gis_context_v0": {"host_ids": []},
+                }
+            ],
+        }
+        features = {
+            "generated_at": "2026-07-02T14:00:00",
+            "rows": [
+                {
+                    "observation_id": "obs_1",
+                    "species_id": "boletus_aereus",
+                    "host_ids": ["host_quercus_ilex"],
+                    "host_sources": {"host_quercus_ilex": ["field"]},
+                }
+            ],
+        }
+
+        html = self.web_server.mushroom_profiles_ui.render_local_evidence_section(
+            profile,
+            catalogs,
+            reconstruction,
+            features,
+            None,
+            profile_view="v0",
+        )
+
+        self.assertIn("Quercus ilex - Holm oak", html)
+        self.assertIn(">Declared and observed<", html)
+        self.assertIn(">Field<", html)
+        self.assertIn('<span class="label">Declared, not observed</span><span class="value">0</span>', html)
 
     def test_mushroom_local_evidence_section_renders_weather_features(self) -> None:
         profile = {
@@ -1627,6 +1705,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(100, status["overall_percent"])
         self.assertIn("elapsed", status)
         self.assertIn("Modelo v0 rebuilt", self.web_server.RUN_STATE["mushroom_profiles_flash"])
+
+    def test_mushroom_rebuild_progress_close_refreshes_completed_screen(self) -> None:
+        html = self.web_server.render_mushroom_rebuild_progress_modal(
+            "job_123",
+            "?section=observations&id=amanita_caesarea#gis-reconstruction-lab",
+        )
+
+        self.assertIn('data-refresh-url="?section=observations&amp;id=amanita_caesarea#gis-reconstruction-lab"', html)
+        self.assertIn('terminalStatus === "complete"', html)
+        self.assertIn("window.location.href = refreshUrl", html)
 
     def test_mushroom_evidence_decisions_are_reversible(self) -> None:
         data_dir = Path(self.temp_dir.name)

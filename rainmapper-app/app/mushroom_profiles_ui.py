@@ -124,7 +124,7 @@ def profile_query_url(
         params["section"] = section
     if profile_view:
         params["view"] = profile_view
-    if evidence_view and evidence_view != "gis":
+    if evidence_view and evidence_view != "hosts_forests":
         params["evidence_view"] = evidence_view
     if parameter_view and parameter_view != "habitat":
         params["parameter_view"] = parameter_view
@@ -1279,28 +1279,28 @@ LOCAL_EVIDENCE_GROUPS = [
         "catalog_group": "host_taxa",
         "profile_field": "host_affinities",
         "context_field": "host_ids",
-        "evidence_view": "gis_hosts_forests",
+        "evidence_view": "hosts_forests",
     },
     {
         "title_label": "ui.evidence_forests",
         "catalog_group": "forest_types",
         "profile_field": "forest_type_affinities",
         "context_field": "forest_type_ids",
-        "evidence_view": "gis_hosts_forests",
+        "evidence_view": "hosts_forests",
     },
     {
         "title_label": "ui.evidence_soils",
         "catalog_group": "soil_types",
         "profile_field": "soil_affinities",
         "context_field": "soil_tendency_ids",
-        "evidence_view": "gis_soils_habitat",
+        "evidence_view": "soils_habitat",
     },
     {
         "title_label": "ui.evidence_habitat",
         "catalog_group": "habitat_features",
         "profile_field": "habitat_feature_affinities",
         "context_field": "habitat_feature_ids",
-        "evidence_view": "gis_soils_habitat",
+        "evidence_view": "soils_habitat",
     },
 ]
 
@@ -1356,6 +1356,52 @@ def local_evidence_counts(
                 examples = item.get("observations")
                 if isinstance(examples, list) and observation_id and observation_id not in examples:
                     examples.append(observation_id)
+    return observation_count, counts
+
+
+def local_evidence_counts_from_features(
+    species_id: str,
+    features_payload: dict[str, object] | None,
+) -> tuple[int, dict[str, dict[str, dict[str, object]]]]:
+    """Aggregate joined v0 features for one species, preserving Campo/GIS origins."""
+    rows = features_payload.get("rows") if isinstance(features_payload, dict) else None
+    feature_rows = rows if isinstance(rows, list) else []
+    counts: dict[str, dict[str, dict[str, object]]] = {
+        str(group["context_field"]): {} for group in LOCAL_EVIDENCE_GROUPS
+    }
+    observation_count = 0
+    seen_observations: set[str] = set()
+    for row in feature_rows:
+        if not isinstance(row, dict) or str(row.get("species_id", "") or "") != species_id:
+            continue
+        observation_id = str(row.get("observation_id", "") or "").strip()
+        if observation_id and observation_id not in seen_observations:
+            seen_observations.add(observation_id)
+            observation_count += 1
+        for group in LOCAL_EVIDENCE_GROUPS:
+            context_field = str(group["context_field"])
+            values = row.get(context_field)
+            if not isinstance(values, list):
+                continue
+            source_values = row.get(context_field.replace("_ids", "_sources"))
+            sources_by_id = source_values if isinstance(source_values, dict) else {}
+            for value in values:
+                item_id = str(value or "").strip()
+                if not item_id:
+                    continue
+                item = counts[context_field].setdefault(
+                    item_id,
+                    {"count": 0, "observations": [], "sources": []},
+                )
+                item["count"] = int(item.get("count", 0) or 0) + 1
+                examples = item.get("observations")
+                if isinstance(examples, list) and observation_id and observation_id not in examples:
+                    examples.append(observation_id)
+                source_list = sources_by_id.get(item_id)
+                for source in list_string_values(source_list):
+                    sources = item.get("sources")
+                    if isinstance(sources, list) and source not in sources:
+                        sources.append(source)
     return observation_count, counts
 
 
@@ -1471,7 +1517,12 @@ def observation_coordinates_html(row: dict[str, object], *, precision: int = 5) 
     )
 
 
-def render_observation_map_modal(row: dict[str, object]) -> str:
+def render_observation_map_modal(
+    row: dict[str, object],
+    selected_species_id: str = "",
+    search: str = "",
+    filters: dict[str, str] | None = None,
+) -> str:
     """Render the shared observation map modal used by observation list/detail/edit views."""
     observation_id = str(row.get("observation_id", "") or "")
     location = observation_location(row)
@@ -1479,6 +1530,7 @@ def render_observation_map_modal(row: dict[str, object]) -> str:
         return ""
     lat, lon = location
     modal_id = observation_map_modal_id(observation_id)
+    close_href = observation_select_url(selected_species_id, search, filters, observation_id)
     map_rows = [{"observation_id": observation_id, "location": (lat, lon)}]
     return f"""
     <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
@@ -1488,7 +1540,7 @@ def render_observation_map_modal(row: dict[str, object]) -> str:
             <h2>{html.escape(ui_label("ui.evidence_map"))}</h2>
             <p class="meta">{html.escape(observation_id)} · {html.escape(f"{lat:.6f}, {lon:.6f}")}</p>
           </div>
-          <a class="button-link compact-button" href="#">{html.escape(ui_label("ui.close"))}</a>
+          <a class="button-link compact-button" href="{html.escape(close_href, quote=True)}" data-modal-history-close>{html.escape(ui_label("ui.close"))}</a>
         </div>
         {render_evidence_observation_map(map_rows, modal_id)}
       </div>
@@ -1693,7 +1745,7 @@ def render_local_evidence_group(
     observation_lookup: dict[str, dict[str, object]] | None = None,
     search: str = "",
     profile_view: str = "enriched",
-    evidence_view: str = "gis_hosts_forests",
+    evidence_view: str = "hosts_forests",
 ) -> str:
     """Render one group of observed/declared local v0 evidence."""
     if catalog_group == "host_taxa":
@@ -1761,6 +1813,11 @@ def render_local_evidence_group(
         )
         observations_help = f"{count}. {ui_label('ui.evidence_observations_value_help')}"
         observations_cell = html.escape(str(count))
+        sources = [
+            learned_source_label(source)
+            for source in list_string_values(observed.get("sources"))
+        ]
+        sources_text = ", ".join(sources)
         if count and observation_ids:
             modal_id = evidence_anchor_id("evidence-observations", group_key, item_id)
             item_label = labels.get(item_id, item_id)
@@ -1781,6 +1838,8 @@ def render_local_evidence_group(
                     modal_rows,
                 )
             )
+        if count and sources_text:
+            observations_cell += f'<span class="meta">{html.escape(sources_text)}</span>'
         status_help = local_evidence_status_help(declared, count, observation_count)
         decision_help = local_evidence_decision_help(current_decision)
         rows.append(
@@ -2769,11 +2828,11 @@ def render_weather_evidence_section(profile: dict[str, object], features_payload
 def render_evidence_view_tabs(species_id: str, search: str, profile_view: str, evidence_view: str) -> str:
     """Render the local evidence subnavigation."""
     active = str(evidence_view or "").strip().lower()
-    if active not in {"gis_hosts_forests", "gis_soils_habitat", "weather", "learned_model"}:
-        active = "gis_hosts_forests"
+    if active not in {"hosts_forests", "soils_habitat", "weather", "learned_model"}:
+        active = "hosts_forests"
     tabs = [
-        ("gis_hosts_forests", ui_label("ui.evidence_gis_hosts_forests")),
-        ("gis_soils_habitat", ui_label("ui.evidence_gis_soils_habitat")),
+        ("hosts_forests", ui_label("ui.evidence_hosts_forests")),
+        ("soils_habitat", ui_label("ui.evidence_soils_habitat")),
         ("weather", ui_label("ui.evidence_weather")),
         ("learned_model", ui_label("ui.evidence_learned_model")),
     ]
@@ -2800,7 +2859,7 @@ def render_local_evidence_section(
     learned_model_payload: dict[str, object] | None = None,
     search: str = "",
     profile_view: str = "enriched",
-    evidence_view: str = "gis",
+    evidence_view: str = "hosts_forests",
     observations_payload: dict[str, object] | None = None,
     profiles: list[dict[str, object]] | None = None,
 ) -> str:
@@ -2809,16 +2868,16 @@ def render_local_evidence_section(
         return '<section class="card profile-section-screen"><h2>Evidencia</h2><p class="meta">Selecciona una especie para revisar evidencia local v0.</p></section>'
     species_id = str(profile.get("species_id", "") or "")
     ecology = nested_dict(profile, "ecology")
-    observation_count, counts = local_evidence_counts(species_id, reconstruction_payload)
+    observation_count, counts = local_evidence_counts_from_features(species_id, observation_features_payload)
+    if not observation_count:
+        observation_count, counts = local_evidence_counts(species_id, reconstruction_payload)
     reconstruction_lookup = local_evidence_row_lookup(reconstruction_payload)
     observation_lookup = observation_payload_lookup(observations_payload)
     decisions = local_evidence_decision_lookup(decisions_payload)
     generated_at = str(reconstruction_payload.get("generated_at", "") or "") if isinstance(reconstruction_payload, dict) else ""
     evidence_view = str(evidence_view or "").strip().lower()
-    if evidence_view == "gis":
-        evidence_view = "gis_hosts_forests"
-    if evidence_view not in {"gis_hosts_forests", "gis_soils_habitat", "weather", "learned_model"}:
-        evidence_view = "gis_hosts_forests"
+    if evidence_view not in {"hosts_forests", "soils_habitat", "weather", "learned_model"}:
+        evidence_view = "hosts_forests"
     visible_groups = [
         group for group in LOCAL_EVIDENCE_GROUPS
         if str(group.get("evidence_view", "")) == evidence_view
@@ -4416,7 +4475,12 @@ def render_observation_edit_modals(
     )
 
 
-def render_observation_map_modals(rows: list[dict[str, object]]) -> str:
+def render_observation_map_modals(
+    rows: list[dict[str, object]],
+    selected_species_id: str = "",
+    search: str = "",
+    filters: dict[str, str] | None = None,
+) -> str:
     """Render map modals for visible observations with coordinates."""
     seen: set[str] = set()
     modals = []
@@ -4425,7 +4489,7 @@ def render_observation_map_modals(rows: list[dict[str, object]]) -> str:
         if not observation_id or observation_id in seen or not observation_location(row):
             continue
         seen.add(observation_id)
-        modals.append(render_observation_map_modal(row))
+        modals.append(render_observation_map_modal(row, selected_species_id, search, filters))
     return "".join(modals)
 
 
@@ -4919,7 +4983,7 @@ def render_observations_section(
       {render_observation_exif_import_form(profiles, catalogs, selected_species_id, filters)}
       {render_observation_duplicate_form(rows, profiles, catalogs, selected_species_id, filters)}
       {render_observation_edit_modals(filtered_rows, profiles, catalogs, selected_species_id, filters)}
-      {render_observation_map_modals(filtered_rows)}
+      {render_observation_map_modals(filtered_rows, selected_species_id, search, filters)}
     </section>
     """
 
