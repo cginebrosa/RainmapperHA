@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.183
+
+- Fix mushroom v0 rebuild progress polling under Home Assistant ingress.
+- Filter stale pending model species against current eligible observations before showing or running the pending rebuild.
+
 ## 0.2.182
 
 - Move Home Assistant mushroom GIS layer access to `/media/rainmapper/mushroom-GIS` so full `/share` backups do not include the 5-6 GB GIS/DEM layer bundle.

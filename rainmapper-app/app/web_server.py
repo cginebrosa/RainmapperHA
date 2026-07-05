@@ -7386,6 +7386,26 @@ def eligible_model_species_ids(observations: list[dict[str, object]]) -> list[st
     )
 
 
+def pending_model_species_ids(
+    state: dict[str, object],
+    observations: list[dict[str, object]],
+    *,
+    learned_model_payload: object = None,
+) -> list[str]:
+    eligible_species = set(eligible_model_species_ids(observations))
+    pending_species = [
+        str(value).strip()
+        for value in state.get("pending_rebuild_species_ids", [])
+        if str(value or "").strip()
+    ]
+    pending_species = sorted({species_id for species_id in pending_species if species_id in eligible_species})
+    if pending_species:
+        return pending_species
+    if learned_model_payload is None:
+        return sorted(eligible_species)
+    return []
+
+
 def eligible_observation_ids_for_species(
     observations: list[dict[str, object]],
     species_ids: list[str] | set[str],
@@ -7615,9 +7635,11 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
         if (node) node.value = pct;
         setText(label, `${{pct}}%`);
       }};
+      const appBasePath = window.location.pathname.replace(new RegExp("/mushrooms/profiles/?$"), "");
+      const statusUrl = `${{appBasePath}}/api/mushrooms/rebuild-status`;
       async function poll() {{
         try {{
-          const response = await fetch(`/api/mushrooms/rebuild-status?job_id=${{encodeURIComponent(jobId)}}`, {{cache: "no-store"}});
+          const response = await fetch(`${{statusUrl}}?job_id=${{encodeURIComponent(jobId)}}`, {{cache: "no-store"}});
           const payload = await response.json();
           if (!payload.ok) throw new Error(payload.error || "Cannot read rebuild status.");
           const job = payload.job || {{}};
@@ -9989,13 +10011,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         section_tabs = mushroom_profiles_ui.render_section_tabs(section, selected_id, search, profile_view)
         learned_model_payload = mushroom_learned_model.load_latest_model()
         model_state = mushroom_model_state.load_state()
-        pending_species = [
-            str(value)
-            for value in model_state.get("pending_rebuild_species_ids", [])
-            if str(value or "").strip()
-        ]
-        if not pending_species and learned_model_payload is None:
-            pending_species = eligible_model_species_ids(observation_dicts_from_payload(observations_payload))
+        observations = observation_dicts_from_payload(observations_payload)
+        pending_species = pending_model_species_ids(model_state, observations, learned_model_payload=learned_model_payload)
         pending_rebuild_button = ""
         if pending_species:
             pending_count = len(pending_species)
@@ -10627,15 +10644,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if action == "rebuild_pending_model_v0":
                 profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
                 state = mushroom_model_state.load_state()
-                pending_species = [
-                    str(value)
-                    for value in state.get("pending_rebuild_species_ids", [])
-                    if str(value or "").strip()
-                ]
                 observations_payload = store.load("observations")
                 observations = observation_dicts_from_payload(observations_payload)
-                if not pending_species and mushroom_learned_model.load_latest_model() is None:
-                    pending_species = eligible_model_species_ids(observations)
+                pending_species = pending_model_species_ids(
+                    state,
+                    observations,
+                    learned_model_payload=mushroom_learned_model.load_latest_model(),
+                )
                 if not pending_species:
                     set_mushroom_profiles_flash("Modelo v0 is already up to date.")
                     return profile_query_url(species_id, section=catalog_form_string(form, "section") or "parameters", profile_view=profile_view)

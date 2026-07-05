@@ -1730,6 +1730,51 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('data-refresh-url="?section=observations&amp;id=amanita_caesarea#gis-reconstruction-lab"', html)
         self.assertIn('terminalStatus === "complete"', html)
         self.assertIn("window.location.href = refreshUrl", html)
+        self.assertIn('window.location.pathname.replace(new RegExp("/mushrooms/profiles/?$"), "")', html)
+        self.assertIn('${statusUrl}?job_id=${encodeURIComponent(jobId)}', html)
+        self.assertNotIn('fetch(`/api/mushrooms/rebuild-status', html)
+
+    def test_pending_model_species_uses_current_eligible_observations(self) -> None:
+        observations = [
+            {
+                "species_id": "amanita_caesarea",
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "location": {"lat": 42.0, "lon": 2.0},
+            },
+            {
+                "species_id": "boletus_aereus",
+                "validation_status": "pending",
+                "calibration_use": "include",
+                "location": {"lat": 42.0, "lon": 2.0},
+            },
+            {
+                "species_id": "boletus_pinophilus",
+                "validation_status": "valid",
+                "calibration_use": "exclude",
+                "location": {"lat": 42.0, "lon": 2.0},
+            },
+            {
+                "species_id": "lactarius_sanguifluus",
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "location": {},
+            },
+        ]
+        state = {
+            "pending_rebuild_species_ids": [
+                "amanita_caesarea",
+                "boletus_aereus",
+                "boletus_pinophilus",
+                "lactarius_sanguifluus",
+                "old_ha_species",
+            ]
+        }
+
+        self.assertEqual(
+            ["amanita_caesarea"],
+            self.web_server.pending_model_species_ids(state, observations, learned_model_payload={"kind": "model"}),
+        )
 
     def test_mushroom_evidence_decisions_are_reversible(self) -> None:
         data_dir = Path(self.temp_dir.name)
