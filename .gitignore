@@ -18,6 +18,7 @@ MERGED_*.csv
 /mushroom-GIS/*
 !/mushroom-GIS/.gitignore
 !/mushroom-GIS/README.md
+/mushroom-GIS-HA/
 
 # Local literature source files supplied manually by the user. Commit derived
 # notes and normalized summaries, not large scanned/source PDFs.

@@ -53,6 +53,14 @@ En HA:
 /share/rainmapper/mushroom-data/
 ```
 
+Las capas GIS/DEM pesadas para reconstruccion de contexto no deben vivir bajo
+`/share` porque entrarian en backups completos de Home Assistant. En HA deben
+colocarse en:
+
+```text
+/media/rainmapper/mushroom-GIS/
+```
+
 `rainmapper_core/mushroom_paths.py` centraliza rutas. Los artefactos v0
 operativos deben vivir en `mushroom-data`, no en `mushroom-lab/working`.
 
@@ -234,7 +242,8 @@ Origenes que deben entenderse en UI:
 - La UI debe seguir preservando datos no visibles al guardar formularios con
   tabs.
 - `mushroom-GIS/` contiene capas pesadas ignoradas por Git y no debe
-  versionarse.
+  versionarse; en HA la copia operativa debe estar bajo `/media/rainmapper/`
+  para no inflar backups de `/share`.
 
 ## Proximos pasos recomendados
 

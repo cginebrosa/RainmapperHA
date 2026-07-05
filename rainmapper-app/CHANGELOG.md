@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.182
+
+- Move Home Assistant mushroom GIS layer access to `/media/rainmapper/mushroom-GIS` so full `/share` backups do not include the 5-6 GB GIS/DEM layer bundle.
+- Keep `RAINMAPPER_MUSHROOM_GIS_ROOT` as an explicit override and retain `/share/rainmapper/mushroom-GIS` as a controlled fallback if it still exists.
+
 ## 0.2.181
 
 - Fix mushroom evidence counts so field observations are matched against profile items consistently across hosts, forests, soils, habitat and orientations.

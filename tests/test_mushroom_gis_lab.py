@@ -6,6 +6,24 @@ from rainmapper_core import mushroom_gis_lab
 
 
 class MushroomGisLabTests(unittest.TestCase):
+    def test_gis_root_prefers_explicit_environment_path(self):
+        configured_root = "/custom/mushroom-GIS"
+
+        with patch.dict("os.environ", {"RAINMAPPER_MUSHROOM_GIS_ROOT": configured_root}, clear=False):
+            self.assertEqual(mushroom_gis_lab.gis_root(), Path(configured_root))
+
+    def test_gis_root_uses_media_before_share_when_present(self):
+        media_root = Path("/media/rainmapper/mushroom-GIS")
+        share_root = Path("/share/rainmapper")
+
+        def fake_exists(path):
+            return path == media_root or path == share_root / "mushroom-GIS"
+
+        with patch.dict("os.environ", {"RAINMAPPER_MUSHROOM_GIS_ROOT": ""}, clear=False):
+            with patch("pathlib.Path.exists", fake_exists):
+                with patch("rainmapper_core.mushroom_paths.share_root", return_value=share_root):
+                    self.assertEqual(mushroom_gis_lab.gis_root(), media_root)
+
     def test_default_output_path_accepts_explicit_reconstruction_path(self):
         configured_path = "/share/rainmapper/mushroom-data/custom/reconstruction.json"
 

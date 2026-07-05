@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.181"
+version: "0.2.182"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -19,6 +19,8 @@ panel_icon: mdi:weather-pouring
 panel_title: Rainmapper
 map:
   - type: share
+    read_only: false
+  - type: media
     read_only: false
   - type: homeassistant_config
     read_only: false

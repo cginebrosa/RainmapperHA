@@ -59,6 +59,9 @@ def gis_root() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_GIS_ROOT", "").strip()
     if configured:
         return Path(configured)
+    media_copy = Path("/media/rainmapper/mushroom-GIS")
+    if media_copy.exists():
+        return media_copy
     share_copy = mushroom_paths.share_root() / "mushroom-GIS"
     if share_copy.exists():
         return share_copy

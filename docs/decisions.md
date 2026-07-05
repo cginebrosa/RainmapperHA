@@ -2091,3 +2091,30 @@ podria ser observacional.
 - Guardar desde cualquier subflujo de perfil preserva la vista activa.
 - Las observaciones enriquecidas no modifican perfiles; solo alimentan features
   v0 y modelo aprendido descriptivo.
+
+## 2026-07-05 - Capas GIS pesadas fuera de share en HA
+
+### Decision
+En Home Assistant, las capas GIS/DEM pesadas usadas para reconstruir contexto de
+observaciones de setas deben vivir en:
+
+```text
+/media/rainmapper/mushroom-GIS/
+```
+
+El add-on declara acceso a `media`. El resolver GIS respeta primero
+`RAINMAPPER_MUSHROOM_GIS_ROOT` si se fuerza explicitamente; sin override, busca
+`/media/rainmapper/mushroom-GIS/` antes que otras copias locales/controladas.
+
+### Motivo
+`/share` entra como unidad completa en backups de Home Assistant y del add-on de
+Google Drive Backup. Mantener 5-6 GB de capas GIS bajo `/share` infla backups,
+puede agotar cuota remota y no aporta valor porque esas capas son copiables y
+no son datos vivos editados por la UI.
+
+### Consecuencias
+- `/share/rainmapper` queda para historicos meteorologicos, datos operativos,
+  JSON de setas y artefactos v0.
+- `/media/rainmapper/mushroom-GIS` queda para capas pesadas no versionadas.
+- Los backups de HA pueden incluir `share` sin arrastrar las capas GIS, siempre
+  que no quede una copia residual en `/share/rainmapper/mushroom-GIS`.
