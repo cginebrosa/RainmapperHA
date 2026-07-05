@@ -552,6 +552,22 @@ class CreateAemetTests(unittest.TestCase):
 
             self.assertEqual(summary["current_hourly_rows"], 2)
             self.assertEqual(summary["daily_incremental_rows"], 1)
+            for key in (
+                "fetch_seconds",
+                "normalize_seconds",
+                "read_hourly_seconds",
+                "merge_hourly_seconds",
+                "read_stations_seconds",
+                "station_catalog_seconds",
+                "station_enrichment_seconds",
+                "build_daily_seconds",
+                "read_daily_seconds",
+                "merge_daily_seconds",
+                "write_outputs_seconds",
+                "total_seconds",
+            ):
+                self.assertIn(key, summary["timings"])
+                self.assertIsInstance(summary["timings"][key], float)
             self.assertTrue((Path(tmp_dir) / "Aemet.csv").exists())
             self.assertTrue((Path(tmp_dir) / "Aemet_hourly_incremental.csv").exists())
             self.assertTrue((Path(tmp_dir) / "estacions_aemet.csv").exists())

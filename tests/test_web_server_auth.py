@@ -88,6 +88,29 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("AEMET 429 in last 24h", ok_html)
         self.assertNotIn("Consecutive AEMET 429 runs", ok_html)
 
+    def test_aemet_source_card_shows_aemet_timing_breakdown(self) -> None:
+        html = self.web_server.source_status_card(
+            "AEMET",
+            {
+                "status": "OK",
+                "exit_code": 0,
+                "duration_seconds": 6,
+                "timings": {
+                    "fetch_seconds": 1.2,
+                    "read_hourly_seconds": 2.4,
+                    "build_daily_seconds": 3.6,
+                    "write_outputs_seconds": 4.8,
+                    "metadata_seconds": 99,
+                },
+            },
+        )
+
+        self.assertIn("fetch 1s", html)
+        self.assertIn("read hourly 2s", html)
+        self.assertIn("build daily 4s", html)
+        self.assertIn("write 5s", html)
+        self.assertNotIn("metadata", html)
+
     def test_control_panel_tabs_preserve_existing_actions_and_links(self) -> None:
         data_dir = Path(self.temp_dir.name)
         self.web_server.PLOTS_PATH = data_dir / "Plots"

@@ -6010,13 +6010,28 @@ def source_status_card(source: str, payload: dict, disabled: str = "") -> str:
                 + "</div>"
             )
     if isinstance(timings, dict) and timings:
-        timing_labels = [
-            ("metadata_seconds", "metadata"),
-            ("conditions_seconds", "conditions"),
-            ("precipitation_seconds", "rain"),
-            ("merge_seconds", "merge"),
-            ("save_seconds", "save"),
-        ]
+        if source == "AEMET":
+            timing_labels = [
+                ("fetch_seconds", "fetch"),
+                ("normalize_seconds", "normalize"),
+                ("read_hourly_seconds", "read hourly"),
+                ("merge_hourly_seconds", "merge hourly"),
+                ("read_stations_seconds", "read stations"),
+                ("station_catalog_seconds", "stations"),
+                ("station_enrichment_seconds", "enrich"),
+                ("build_daily_seconds", "build daily"),
+                ("read_daily_seconds", "read daily"),
+                ("merge_daily_seconds", "merge daily"),
+                ("write_outputs_seconds", "write"),
+            ]
+        else:
+            timing_labels = [
+                ("metadata_seconds", "metadata"),
+                ("conditions_seconds", "conditions"),
+                ("precipitation_seconds", "rain"),
+                ("merge_seconds", "merge"),
+                ("save_seconds", "save"),
+            ]
         timing_parts = [
             f"{label} {format_seconds_duration(timings.get(key))}"
             for key, label in timing_labels

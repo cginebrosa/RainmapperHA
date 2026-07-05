@@ -248,21 +248,21 @@ print()
 
 #In[0] ## GENERIC FUNCTION DEFINITIONS
 
-# Global variable to store start time
-start_time = None
+# Thread-local timer used by the parallel source workers.
+timer_state = threading.local()
 
 def start_count(_legend=''):
-    global start_time
-    start_time = datetime.now()
+    timer_state.start_wall = datetime.now()
+    timer_state.start_perf = time_module.perf_counter()
     print('')
     print(_legend)
 
 def end_count(_legend=''):
-    if start_time is None:
+    start_perf = getattr(timer_state, 'start_perf', None)
+    if start_perf is None:
         print("Error: start_count() not initialized.")
         return
-    end_time = datetime.now()
-    elapsed_time = end_time - start_time
+    elapsed_time = timedelta(seconds=time_module.perf_counter() - start_perf)
     print(_legend+"--> Time elapsed: {}".format(elapsed_time))
 
 def local_to_utc(_datetime_local):
@@ -2364,6 +2364,7 @@ def process_aemet():                                                # FOR MULTIT
 
     source_started_at = datetime.now().isoformat(timespec='seconds')
     source_start_time = time_module.perf_counter()
+    source_timings = {}
     try:
         if _create_aemet:
             start_count(_legend='Start processing AEMET...')
@@ -2378,6 +2379,15 @@ def process_aemet():                                                # FOR MULTIT
                 enrich_stations=True,
                 gmap_api_key=_GMAPS_KEY,
             )
+            if isinstance(summary.get('timings'), dict):
+                source_timings = summary['timings']
+                timing_parts = [
+                    f"{key}={value:.1f}s"
+                    for key, value in source_timings.items()
+                    if isinstance(value, (int, float))
+                ]
+                if timing_parts:
+                    print("AEMET timings: " + ", ".join(timing_parts))
             print(
                 "AEMET update finished: "
                 f"{summary['current_hourly_rows']} current hourly row(s), "
@@ -2407,6 +2417,7 @@ def process_aemet():                                                # FOR MULTIT
             time_module.perf_counter() - source_start_time,
             started_at=source_started_at,
             finished_at=datetime.now().isoformat(timespec='seconds'),
+            timings=source_timings,
         )
 
 ###########################################

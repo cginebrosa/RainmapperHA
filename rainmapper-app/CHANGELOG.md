@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.184
+
+- Fix threaded elapsed-time logs so parallel source workers no longer share one timer.
+- Add AEMET phase timings for fetch, CSV reads, hourly merge, station catalog, daily rebuild, daily merge and writes.
+- Show the AEMET timing breakdown in the Home Assistant control panel.
+- Read AEMET CSV text key columns with explicit dtypes to avoid mixed-type warnings.
+
 ## 0.2.183
 
 - Fix mushroom v0 rebuild progress polling under Home Assistant ingress.

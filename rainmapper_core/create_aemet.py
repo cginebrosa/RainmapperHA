@@ -96,6 +96,28 @@ STATION_COLUMNS = [
     "Longitud",
 ]
 
+CSV_TEXT_COLUMNS = {
+    "aemet_id",
+    "station_code",
+    "station_name",
+    "fint_utc",
+    "reading_utc",
+    "reading_local",
+    "local_date",
+    "local_time",
+    "Codi Estació",
+    "Data Lectura",
+    "Estació",
+    "Comarca",
+    "Municipi",
+    "Provincia",
+    "Ultima Lectura",
+    "Variable",
+    "Unitat",
+    "Data Local",
+    "Hora Local",
+}
+
 
 class AemetRateLimitError(RuntimeError):
     """Raised when AEMET reports that the client is sending too many requests."""
@@ -302,7 +324,8 @@ def read_csv_if_exists(path, columns, decimal="."):
     """Read a CSV if it exists, otherwise return an empty dataframe."""
     if not path.exists():
         return pd.DataFrame(columns=columns)
-    df = pd.read_csv(path, decimal=decimal)
+    dtype = {column: "string" for column in columns if column in CSV_TEXT_COLUMNS}
+    df = pd.read_csv(path, decimal=decimal, dtype=dtype, low_memory=False)
     for column in columns:
         if column not in df.columns:
             df[column] = pd.NA
@@ -704,23 +727,50 @@ def run_update(
     catalog, rebuild daily rows, then write all files.
     """
     data_dir = Path(data_dir)
+    total_started = time.perf_counter()
+    timings = {}
+    phase_started = time.perf_counter()
     observations = fetch_observations(api_key=api_key, timeout=timeout)
+    timings["fetch_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     current_hourly = normalize_observations(observations, local_timezone=local_timezone)
+    timings["normalize_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     existing_hourly = read_csv_if_exists(data_dir / "Aemet_hourly_incremental.csv", HOURLY_COLUMNS)
+    timings["read_hourly_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     hourly_incremental = update_hourly_incremental(current_hourly, existing_hourly)
+    timings["merge_hourly_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     existing_stations = read_csv_if_exists(data_dir / "estacions_aemet.csv", STATION_COLUMNS, decimal=",")
+    timings["read_stations_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     station_catalog = build_station_catalog(hourly_incremental, existing_stations)
+    timings["station_catalog_seconds"] = time.perf_counter() - phase_started
     enriched_station_rows = 0
     if enrich_stations:
+        phase_started = time.perf_counter()
         station_catalog, enriched_station_rows = enrich_station_catalog(
             station_catalog,
             gmap_api_key,
             reverse_geocoder=reverse_geocoder,
         )
+        timings["station_enrichment_seconds"] = time.perf_counter() - phase_started
+    else:
+        timings["station_enrichment_seconds"] = 0.0
+    phase_started = time.perf_counter()
     rebuilt_daily = build_daily_incremental(hourly_incremental, station_catalog)
+    timings["build_daily_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     existing_daily = read_csv_if_exists(data_dir / "Aemet_incremental.csv", DAILY_COLUMNS, decimal=",")
+    timings["read_daily_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     daily_incremental = merge_daily_incremental(rebuilt_daily, existing_daily)
+    timings["merge_daily_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     write_outputs(data_dir, current_hourly, hourly_incremental, station_catalog, daily_incremental)
+    timings["write_outputs_seconds"] = time.perf_counter() - phase_started
+    timings["total_seconds"] = time.perf_counter() - total_started
     return {
         "current_hourly_rows": len(current_hourly),
         "hourly_incremental_rows": len(hourly_incremental),
@@ -728,6 +778,7 @@ def run_update(
         "enriched_station_rows": enriched_station_rows,
         "daily_incremental_rows": len(daily_incremental),
         "stations": int(daily_incremental["Codi Estació"].nunique()) if not daily_incremental.empty else 0,
+        "timings": timings,
     }
 
 
