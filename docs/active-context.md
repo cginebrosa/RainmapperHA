@@ -17,10 +17,12 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo commit de cierre conocido: `ddcc926 Consolidate mushroom v0 operational flow`.
-- Version HA: `0.2.180`.
-- Imagen HA publicada/validada previamente: `ghcr.io/cginebrosa/rainmapperha:0.2.180`.
-- No hay peticion activa de bump, build o publicacion HA.
+- Ultimo commit de cierre conocido: `717a9ec Release Home Assistant 0.2.183`.
+- Version HA: `0.2.183`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.183`,
+  digest multi-arch
+  `sha256:4c931c2b77fdd0ff764b1073e9b6cb3952874f0626bd489edd4f1bc06e033fc0`.
+- `latest` apunta al mismo digest que `0.2.183`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -251,8 +253,9 @@ Origenes que deben entenderse en UI:
    especialmente origenes Campo/GIS/DEM/Marc.
 2. Cerrar `Parametros > Meteorologia` con el mismo patron de tres columnas.
 3. Redisenar `Evidencia` para separar Campo, GIS/DEM y coincidencias con perfil.
-4. Revisar el flujo de modelo desactualizado y reconstruccion por especies
-   pendientes en UI local.
+4. Validar en HA `0.2.183`: el modal de reconstruccion v0 debe refrescar
+   correctamente bajo ingress y el boton rojo debe contar solo especies
+   pendientes que sigan teniendo observaciones elegibles actuales.
 5. Diseñar promocion manual de candidatos a perfil, sin escritura automatica.
 6. Mantener o mejorar documentacion corta si se detectan nuevas contradicciones
    entre documentos largos y codigo.

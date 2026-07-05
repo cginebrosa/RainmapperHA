@@ -73,11 +73,11 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo cierre documentado/pusheado: `ddcc926 Consolidate mushroom v0 operational flow`.
-- Version HA del repo: `0.2.180` en `rainmapper-app/config.yaml` y
+- Ultimo cierre documentado/pusheado: `717a9ec Release Home Assistant 0.2.183`.
+- Version HA del repo: `0.2.183` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/validada previamente: `ghcr.io/cginebrosa/rainmapperha:0.2.180`.
+- Imagen publicada/verificada previamente: `ghcr.io/cginebrosa/rainmapperha:0.2.183`.
 
 ## Reglas de trabajo
 
