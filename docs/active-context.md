@@ -17,12 +17,12 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo commit de cierre conocido: `5858b21 Release Home Assistant 0.2.184`.
-- Version HA: `0.2.184`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.184`,
+- Ultimo release funcional pusheado: `1b65b1d Release Home Assistant 0.2.185`.
+- Version HA: `0.2.185`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.185`,
   digest multi-arch
-  `sha256:a9a9c3f160838f5a433a21e36acdbb96412c01145e213263a75daa415e195ff1`.
-- `latest` apunta al mismo digest que `0.2.184`.
+  `sha256:ef64be1419633814e5cb4a24e74266dd0fc4810649376ef136099113c56b038e`.
+- `latest` apunta al mismo digest que `0.2.185`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -45,7 +45,7 @@ El resto de visores esta estable salvo que una tarea lo toque explicitamente.
 
 ## Rendimiento backend
 
-`0.2.184` corrige los contadores `start_count/end_count` para que sean
+`0.2.184` corrigio los contadores `start_count/end_count` para que sean
 thread-local y no mezclen tiempos entre fuentes paralelas. Tambien publica en
 `source_status.json` un desglose AEMET por fases:
 
@@ -62,9 +62,13 @@ thread-local y no mezclen tiempos entre fuentes paralelas. Tambien publica en
 - `write_outputs_seconds`
 - `total_seconds`
 
-El panel HA muestra ese desglose en la tarjeta AEMET. En el siguiente `run_all`
-hay que revisar si el coste dominante esta en lectura/escritura CSV, merge
-horario, reconstruccion diaria o enriquecimiento de estaciones.
+El panel HA muestra ese desglose en la tarjeta AEMET. El `run_all` de HA
+`0.2.184` mostro que AEMET tardaba `5m38s` y que el coste dominante era
+`build_daily_seconds` con `4m32s`. `0.2.185` reemplaza ese bucle Python por
+agregacion vectorizada con pandas; en local, 125k filas horarias se agregaron en
+`1.23s`. En el siguiente `run_all` en RPi hay que confirmar cuanto baja
+`build_daily_seconds`; si ya no domina, revisar `read_hourly_seconds` y
+`write_outputs_seconds`.
 
 ## Fuente de verdad operativa
 
