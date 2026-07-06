@@ -218,13 +218,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
             captured["content_type"] = content_type
 
         handler.send_bytes = capture_response
-        previous_bokeh = os.environ.get("RAINMAPPER_GENERATE_BOKEH_MAPS")
-        os.environ.pop("RAINMAPPER_GENERATE_BOKEH_MAPS", None)
+        previous_publish = os.environ.get("RAINMAPPER_PUBLISH_TO_WWW")
+        os.environ.pop("RAINMAPPER_PUBLISH_TO_WWW", None)
         try:
             handler.render_index()
         finally:
-            if previous_bokeh is not None:
-                os.environ["RAINMAPPER_GENERATE_BOKEH_MAPS"] = previous_bokeh
+            if previous_publish is not None:
+                os.environ["RAINMAPPER_PUBLISH_TO_WWW"] = previous_publish
 
         self.assertEqual(captured["status"], 200)
         page = captured["content"]
@@ -234,10 +234,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertIn(action, page)
         for source in ("Meteoclimatic", "Meteocat", "Wunderground", "AEMET"):
             self.assertIn(f'name="source_update" value="{source}"', page)
-        self.assertIn("Open Leaflet viewer", page)
+        self.assertNotIn("Open Leaflet viewer", page)
         self.assertIn("Open MapLibre viewer", page)
-        self.assertIn("Open heatmap experiment", page)
-        self.assertIn("Bokeh maps", page)
+        self.assertNotIn("Open heatmap experiment", page)
+        self.assertIn("Legacy public publishing", page)
         self.assertIn("Disabled", page)
         self.assertNotIn("Open Bokeh 21 days", page)
         self.assertIn("01 Tomap Last day", page)
@@ -3341,23 +3341,29 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(command[command.index("--create_aemet") + 1], "false")
 
     def test_webui_maps_command_includes_aemet_in_production_tomap(self) -> None:
-        command = self.web_server.command_for("maps")
+        previous = os.environ.get("RAINMAPPER_PUBLISH_TO_WWW")
+        os.environ.pop("RAINMAPPER_PUBLISH_TO_WWW", None)
+        try:
+            command = self.web_server.command_for("maps")
+        finally:
+            if previous is not None:
+                os.environ["RAINMAPPER_PUBLISH_TO_WWW"] = previous
 
         self.assertEqual(command[:2], ["sh", "-c"])
         self.assertIn("--include-aemet true", command[2])
         self.assertNotIn("rainmapper_core.bokeh_maps", command[2])
 
-    def test_webui_bokeh_maps_can_be_enabled_explicitly(self) -> None:
-        previous = os.environ.get("RAINMAPPER_GENERATE_BOKEH_MAPS")
-        os.environ["RAINMAPPER_GENERATE_BOKEH_MAPS"] = "true"
+    def test_webui_legacy_www_enables_bokeh_maps_explicitly(self) -> None:
+        previous = os.environ.get("RAINMAPPER_PUBLISH_TO_WWW")
+        os.environ["RAINMAPPER_PUBLISH_TO_WWW"] = "true"
         try:
             maps_command = self.web_server.command_for("maps")
             all_command = self.web_server.command_for("all")
         finally:
             if previous is None:
-                os.environ.pop("RAINMAPPER_GENERATE_BOKEH_MAPS", None)
+                os.environ.pop("RAINMAPPER_PUBLISH_TO_WWW", None)
             else:
-                os.environ["RAINMAPPER_GENERATE_BOKEH_MAPS"] = previous
+                os.environ["RAINMAPPER_PUBLISH_TO_WWW"] = previous
 
         self.assertIn("rainmapper_core.bokeh_maps", maps_command[2])
         self.assertIn("rainmapper_core.bokeh_maps", all_command)

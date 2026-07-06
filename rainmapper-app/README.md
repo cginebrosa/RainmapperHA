@@ -6,15 +6,15 @@ La app se queda abierta como un servicio ligero. Desde su webUI puedes lanzar `u
 
 La webUI tambien muestra estado separado para Meteoclimatic, Meteocat, Wunderground y AEMET. Si una fuente falla completamente, Rainmapper intenta continuar con su incremental previo y la marca como `STALE`; si no hay datos reutilizables la marca como `NOK`.
 
-Cuando `publish_to_www` esta activado, cada generacion de mapas publica los visores y datos en `/config/www`, accesibles desde Home Assistant como `/local/...`.
+Por defecto no se publica nada legacy en `/config/www`. La ruta recomendada es el visor protegido MapLibre: `/protected/maplibre/index.html`. Si `publish_to_www` esta activado, cada generacion de mapas tambien publica los visores legacy en `/config/www`, accesibles desde Home Assistant como `/local/...`.
 
-Visores publicados:
+Visores:
 
 - MapLibre recomendado: `/protected/maplibre/index.html` (con login ligero).
-- Leaflet fallback: `/local/rainmapper-leaflet/index.html`.
-- Bokeh / HTML clasico como referencia: `/local/Plots/rain_21d.html` y equivalentes.
+- Leaflet legacy: `/local/rainmapper-leaflet/index.html` solo si `publish_to_www` esta activado.
+- Bokeh / HTML clasico legacy: `/local/Plots/rain_21d.html` y equivalentes solo si `publish_to_www` esta activado.
 
-MapLibre es el visor principal recomendado. Incluye capas raster Hybrid/Topographic, capas vectoriales y una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap. Se sirve por la ruta protegida `/protected/maplibre/index.html`; Leaflet se mantiene publicado como fallback.
+MapLibre es el visor principal recomendado. Incluye capas raster Hybrid/Topographic, capas vectoriales y una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap. Se sirve por la ruta protegida `/protected/maplibre/index.html` y no depende de `/config/www`.
 
 La programacion interna puede ejecutar Rainmapper una o varias veces al dia usando `schedule_time`, por ejemplo `06:00, 12:00, 18:00, 23:50`, y se puede limitar por dias con `schedule_days`.
 
@@ -43,7 +43,7 @@ meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 
 La clave `gmap_api_key` no debe guardarse en Git. Se usa para los mapas clasicos Bokeh/Google Maps y para completar metadata de estaciones durante `update` cuando hace falta consultar altitud, municipio/localidad o provincia.
 
-`generate_bokeh_maps` activa la generacion legacy de mapas Bokeh/Google Maps. Por defecto esta desactivada para que `maps` y `all` solo generen Tomap, GeoJSON, Leaflet y MapLibre.
+`publish_to_www` activa la generacion y publicacion legacy de mapas Bokeh/Google Maps y Leaflet publico. Por defecto esta desactivada para que `maps` y `all` generen Tomap, GeoJSON y MapLibre protegido sin exponer visores publicos en `/local`.
 
 `last_rains_history` controla cuantos registros recientes de lluvia se guardan en los CSV `Tomap` y, por tanto, cuantos puede mostrar el popup de una estacion en Leaflet/MapLibre. El valor por defecto es `30`. Este dato se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
 

@@ -1,6 +1,6 @@
 # Rainmapper Home Assistant App
 
-Rainmapper descarga datos meteorologicos de estaciones Meteoclimatic, Meteocat, Wunderground y AEMET opcional. Conserva historicos CSV, reconstruye CSV `Tomap`, genera mapas HTML clasicos y publica GeoJSON para los visores Leaflet/MapLibre.
+Rainmapper descarga datos meteorologicos de estaciones Meteoclimatic, Meteocat, Wunderground y AEMET opcional. Conserva historicos CSV, reconstruye CSV `Tomap` y publica GeoJSON para el visor MapLibre protegido. Los visores publicos legacy se generan solo si `publish_to_www` esta activado.
 
 La app se queda abierta como un servicio ligero. Sirve una webUI para Home Assistant, permite lanzar ejecuciones manuales, muestra los mapas generados y puede ejecutar un schedule interno.
 
@@ -15,7 +15,7 @@ Flujo habitual:
 3. Desde la webUI puedes lanzar `update`, `maps` o `all`.
 4. Si el schedule interno esta activado, la app ejecuta la accion configurada cada dia.
 5. Los datos y mapas se guardan en `/share/rainmapper`.
-6. Si `publish_to_www` esta activado, los mapas y visores se publican en `/config/www`.
+6. Si `publish_to_www` esta activado, los mapas Bokeh y el visor Leaflet legacy se publican en `/config/www`.
 
 ## Carpetas persistentes
 
@@ -52,9 +52,9 @@ Si `stations.txt` no existe, la app lo crea automaticamente copiando una plantil
 
 Si `ignore_stations_tomap.txt` no existe, la app lo crea automaticamente con una linea de comentario. Si ya existe, no se sobrescribe durante los updates.
 
-## Mapas publicados en /local/Plots
+## Mapas legacy publicados en /local/Plots
 
-Si `publish_to_www` esta activado, cada vez que `maps` termina correctamente la app copia una version publica de los mapas a:
+Si `publish_to_www` esta activado, cada vez que `maps` termina correctamente la app genera mapas Bokeh/Google Maps y copia una version publica a:
 
 ```text
 /config/www/Plots
@@ -78,13 +78,13 @@ Por ejemplo:
 /local/Plots/rain_90d.html
 ```
 
-La carpeta interna `/share/rainmapper/Plots` sigue siendo la salida principal de Rainmapper. La carpeta `/config/www/Plots` es solo una copia publicada para acceder a los mapas desde Home Assistant.
+La carpeta interna `/share/rainmapper/Plots` sigue siendo la salida legacy de Bokeh cuando `publish_to_www` esta activo. La carpeta `/config/www/Plots` es solo una copia publicada para acceder a esos mapas desde Home Assistant.
 
 Al publicar, la app recrea `/config/www/Plots` completa. Asi evita dejar HTML antiguos que ya no correspondan a la ultima generacion.
 
 ## Visores de mapas
 
-Rainmapper publica tres formas de consultar los mapas. MapLibre es el visor principal recomendado desde la validacion de `0.2.53`. Leaflet se mantiene como fallback publicado y Bokeh queda como visor clasico de referencia/compatibilidad.
+Rainmapper mantiene tres formas de consultar los mapas. MapLibre protegido es el visor principal recomendado desde la validacion de `0.2.53`. Leaflet publico y Bokeh quedan como visores legacy desactivados por defecto.
 
 ### MapLibre viewer
 
@@ -94,7 +94,7 @@ Ruta recomendada:
 /protected/maplibre/index.html
 ```
 
-El visor MapLibre carga sus datos desde `/protected/maplibre/data/*`, por lo que la ruta protegida requiere login. La ruta antigua `/local/rainmapper-maplibre/index.html` se mantiene temporalmente como fallback funcional local, con datos publicados tambien en `/local/rainmapper-maplibre/data/*`; los fallbacks externos actuales deben quedar protegidos por Cloudflare Access. No retires este fallback local sin validacion explicita.
+El visor MapLibre carga sus datos desde `/protected/maplibre/data/*`, por lo que la ruta protegida requiere login. No depende de `/config/www`.
 
 Permite usar mapas raster Hybrid/Topographic, una capa Satellite+ con imagen Esri y orientacion vectorial OpenFreeMap, y mapas vectoriales como OpenFreeMap.
 
@@ -104,19 +104,19 @@ En Settings, el filtro `Source` permite filtrar Meteocat, Meteoclimatic, Wunderg
 
 La barra derecha incluye un boton `?` al final. Abre la ayuda del mapa, con resumen de periodos, estaciones, filtros, controles, relieve, altitud, estado de fuentes y notas de autenticacion. La ayuda usa el idioma seleccionado en Settings.
 
-### Leaflet viewer
+### Leaflet viewer legacy
 
-Ruta publica fallback:
+Ruta publica legacy, solo si `publish_to_www` esta activo:
 
 ```text
 /local/rainmapper-leaflet/index.html
 ```
 
-El visor Leaflet usa los GeoJSON publicados dentro de `/config/www/rainmapper-leaflet/data`. Se mantiene publicado como fallback porque es simple, estable y ya esta probado en movil.
+El visor Leaflet usa los GeoJSON publicados dentro de `/config/www/rainmapper-leaflet/data`. Se mantiene disponible como procedimiento legacy, pero no se publica por defecto.
 
-### Bokeh / HTML clasico
+### Bokeh / HTML clasico legacy
 
-Ruta publica:
+Ruta publica legacy, solo si `publish_to_www` esta activo:
 
 ```text
 /local/Plots
@@ -134,17 +134,17 @@ Ejemplos:
 /local/Plots/rain_90d.html
 ```
 
-Este visor usa los HTML generados por `python -m rainmapper_core.bokeh_maps`. Es el visor original y sigue siendo util como referencia, pero en movil es menos comodo.
+Este visor usa los HTML generados por `python -m rainmapper_core.bokeh_maps`. Es el visor original y sigue siendo util como referencia, pero en movil es menos comodo y no se genera por defecto.
 
 ### Que se regenera en cada caso
 
 Cuando ejecutas `maps` o `all`:
 
 - se reconstruyen los CSV `Tomap` desde los historicos incrementales de `/share/rainmapper/Data`;
-- se regeneran los HTML clasicos en `/share/rainmapper/Plots`;
-- si `publish_to_www` esta activo, se publican en `/config/www/Plots`;
+- si `publish_to_www` esta activo, se regeneran los HTML clasicos en `/share/rainmapper/Plots` y se publican en `/config/www/Plots`;
 - se regeneran los GeoJSON desde `Tomap`;
-- se publican los datos y visores Leaflet/MapLibre en `/config/www`.
+- se publican los datos para MapLibre protegido;
+- si `publish_to_www` esta activo, se publica tambien Leaflet legacy en `/config/www/rainmapper-leaflet`.
 
 Si editas `ignore_stations_tomap.txt`, ejecuta `maps` o `all` para que Leaflet y MapLibre reflejen el cambio.
 
@@ -258,7 +258,7 @@ Descarga datos y actualiza historicos incrementales. No publica visores por si s
 maps
 ```
 
-Reconstruye `Tomap` desde los historicos incrementales, genera los HTML clasicos en `Plots`, genera GeoJSON y publica visores si `publish_to_www` esta activo. No descarga datos nuevos.
+Reconstruye `Tomap` desde los historicos incrementales, genera GeoJSON para MapLibre protegido y, si `publish_to_www` esta activo, genera/publica los visores legacy. No descarga datos nuevos.
 
 ```text
 all
@@ -293,7 +293,6 @@ create_wunderground: true
 create_aemet: false
 meteoclimatic_pattern: "ESCAT;ESARA;ESCLM"
 nomaps: false
-generate_bokeh_maps: false
 nototals: false
 days_bucket: 10
 meteocat_request_timeout: 30
@@ -324,7 +323,7 @@ maplibre_estimated_field_temperature_lapse_rate_c_per_100m: 0.65
 max_threads: 3
 max_attempts: 3
 wunderground_full_log: false
-publish_to_www: true
+publish_to_www: false
 gmap_api_key: ""
 aemet_api_key: ""
 ```
@@ -337,7 +336,7 @@ Notas rapidas:
 - `max_threads: 3` es el valor operativo recomendado tras validacion real en Home Assistant/Raspberry Pi sin carga relevante observada. Si aparecen timeouts, errores de Wunderground o carga excesiva, bajar temporalmente a `1`.
 - `create_aemet: false` deja AEMET desactivado por defecto. Para usar AEMET, activa esta opcion y configura `aemet_api_key`.
 - `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
-- `generate_bokeh_maps: false` deja apagada la generacion legacy de mapas Bokeh/Google Maps. Tomap, GeoJSON, Leaflet y MapLibre se siguen generando normalmente.
+- `publish_to_www: false` deja apagada la generacion/publicacion legacy de Bokeh/Google Maps y Leaflet publico. Tomap, GeoJSON y MapLibre protegido se siguen generando normalmente.
 - `maplibre_hover_zoom: 6.0` define desde que nivel de zoom se activan los popups por hover sobre estaciones en MapLibre de escritorio. Admite decimales, por ejemplo `6.5`.
 - `maplibre_heatmap_weight_curve: soft`, `maplibre_heatmap_opacity: 65`, `maplibre_heatmap_radius: 90` y `maplibre_heatmap_intensity: 70` definen los valores iniciales del heatmap para dispositivos sin settings guardados. El boton `Reset heatmap defaults` del visor restaura estos valores y los guarda para el dispositivo al cerrar Settings.
 - `maplibre_estimated_field_*` define los defaults y parametros tecnicos de la capa experimental `IDW`. La capa se calcula en el navegador solo para el viewport visible. Los settings por dispositivo exponen activacion, opacidad, radio fisico (`small|medium|large`), calidad (`low|medium|high`), suavizado (`smooth|balanced|local`) y correccion opcional de temperatura por altitud. Los radios en km, tamano fisico de celda en km, potencia IDW, radio fisico maximo y gradiente termico se ajustan en `config.yaml` para probar sin publicar nueva imagen.
@@ -359,7 +358,6 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `create_meteoclimatic`, `create_meteocat`, `create_wunderground`, `create_aemet`: activan o desactivan fuentes.
 - `meteoclimatic_pattern`: patron o patrones del RSS Meteoclimatic.
 - `nomaps`, `nototals`, `days_bucket`: opciones legacy del core de Rainmapper conservadas por compatibilidad.
-- `generate_bokeh_maps`: activa la generacion legacy de HTML Bokeh/Google Maps. Por defecto esta desactivada para reducir el tiempo de `maps`/`all`.
 - `meteocat_request_timeout`, `meteocat_max_attempts`: timeout y reintentos para Meteocat/Socrata.
 - `last_rains_history`: numero de registros recientes preparados para popups.
 - `maplibre_hover_zoom`: nivel minimo de zoom para activar popups por hover sobre estaciones en MapLibre de escritorio. Admite valores decimales como `6.5`.
@@ -367,7 +365,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `maplibre_estimated_field_enabled`, `maplibre_estimated_field_opacity`, `maplibre_estimated_field_radius`, `maplibre_estimated_field_quality`, `maplibre_estimated_field_smoothing`, `maplibre_estimated_field_altitude_correction`: valores iniciales de la capa experimental `IDW` para dispositivos sin preferencias guardadas.
 - `maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_max_radius_km`, `maplibre_estimated_field_grid_*_cell_km`, `maplibre_estimated_field_smoothing_*_power`, `maplibre_estimated_field_temperature_lapse_rate_c_per_100m`: parametros tecnicos de la interpolacion IDW. Se sirven en `/protected/maplibre/config.js` y se actualizan al reiniciar la app.
 - `max_threads`, `max_attempts`, `wunderground_full_log`: concurrencia, reintentos y logging de Wunderground.
-- `publish_to_www`: publica mapas/visores en `/config/www`.
+- `publish_to_www`: activa la generacion/publicacion legacy en `/config/www` de Bokeh/Google Maps y Leaflet publico. Por defecto esta desactivado.
 - `gmap_api_key`: clave Google Maps.
 - `aemet_api_key`: clave AEMET OpenData.
 
@@ -681,7 +679,7 @@ Ejecuta `mode: maps` o `mode: all` y comprueba `/share/rainmapper/Plots`.
 
 ### No aparecen mapas en /local/Plots
 
-Comprueba que `publish_to_www` esta en `true` y ejecuta `maps` o `all`. La publicacion solo ocurre cuando la generacion de mapas termina correctamente.
+Comprueba que `publish_to_www` esta en `true` y ejecuta `maps` o `all`. La publicacion legacy solo ocurre cuando la generacion de mapas termina correctamente.
 
 ### El log parece corto o antiguo
 

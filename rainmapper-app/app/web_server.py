@@ -5716,12 +5716,12 @@ def source_flag_value(flag_name: str, only_source: str | None) -> str:
     return env(env_name, default)
 
 
-def generate_bokeh_maps_enabled() -> bool:
-    return bool_env("RAINMAPPER_GENERATE_BOKEH_MAPS", False)
+def publish_legacy_www_enabled() -> bool:
+    return bool_env("RAINMAPPER_PUBLISH_TO_WWW", False)
 
 
 def append_optional_bokeh_maps(command: str) -> str:
-    if generate_bokeh_maps_enabled():
+    if publish_legacy_www_enabled():
         return f"{command} && python -m rainmapper_core.bokeh_maps"
     return f"{command} && echo 'Skipping Rainmapper Bokeh maps.'"
 
@@ -5782,7 +5782,7 @@ def command_for(action: str, only_source: str | None = None) -> list[str]:
             append_optional_bokeh_maps(maps_command),
         ]
     if action == "all":
-        if generate_bokeh_maps_enabled():
+        if publish_legacy_www_enabled():
             return update_command + ["&&", "python", "-m", "rainmapper_core.bokeh_maps"]
         return update_command + ["&&", "echo", "Skipping Rainmapper Bokeh maps."]
     raise ValueError(f"Invalid action: {action}")
@@ -6284,8 +6284,9 @@ def station_group_card(title: str, group_name: str, station_ids: list[str], disa
 
 def publish_maps(log_file) -> tuple[bool, str]:
     started = time.perf_counter()
-    if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
-        return True, "Publishing to /local/Plots is disabled."
+    if not publish_legacy_www_enabled():
+        shutil.rmtree(PUBLIC_PLOTS_PATH, ignore_errors=True)
+        return True, "Legacy Bokeh/Plots publishing to /local/Plots is disabled."
 
     if not Path("/config").exists():
         return False, "Cannot publish maps: /config is not available in this container."
@@ -6322,15 +6323,6 @@ def publish_maps(log_file) -> tuple[bool, str]:
 
 def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     started = time.perf_counter()
-    if not bool_env("RAINMAPPER_PUBLISH_TO_WWW", True):
-        return True, "Publishing viewers to /local/rainmapper-leaflet/index.html and /protected/maplibre/index.html is disabled."
-
-    if not Path("/config").exists():
-        return False, "Cannot publish viewers: /config is not available in this container."
-
-    if not LEAFLET_VIEWER_ASSETS_PATH.exists():
-        return False, "Cannot publish Leaflet viewer: Leaflet viewer assets are missing."
-
     PUBLIC_DATA_PATH.mkdir(parents=True, exist_ok=True)
     geojson_started = time.perf_counter()
     process = subprocess.run(
@@ -6358,77 +6350,72 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     if process.returncode != 0:
         return False, "Cannot publish viewers: GeoJSON generation failed."
 
-    leaflet_started = time.perf_counter()
-    PUBLIC_LEAFLET_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
-    shutil.rmtree(PUBLIC_LEAFLET_TMP_PATH, ignore_errors=True)
-    PUBLIC_LEAFLET_TMP_PATH.mkdir(parents=True, exist_ok=True)
-
-    for asset_name in ("index.html", "app.js", "style.css"):
-        shutil.copy2(LEAFLET_VIEWER_ASSETS_PATH / asset_name, PUBLIC_LEAFLET_TMP_PATH / asset_name)
-
     config_js = public_viewer_config_js()
-    (PUBLIC_LEAFLET_TMP_PATH / "config.js").write_text(config_js)
-
-    data_path = PUBLIC_LEAFLET_TMP_PATH / "data"
-    data_path.mkdir()
-    copied = 0
-    for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
-        shutil.copy2(source_path, data_path / source_path.name)
-        copied += 1
-    if SOURCE_STATUS_PATH.exists():
-        shutil.copy2(SOURCE_STATUS_PATH, data_path / SOURCE_STATUS_PATH.name)
-
-    shutil.rmtree(PUBLIC_LEAFLET_PATH, ignore_errors=True)
-    PUBLIC_LEAFLET_TMP_PATH.rename(PUBLIC_LEAFLET_PATH)
-    shutil.rmtree(REMOVED_LEGACY_MOBILE_PATH, ignore_errors=True)
-    log_file.write(f"=== Leaflet publish duration {format_seconds_duration(time.perf_counter() - leaflet_started)} ===\n")
-    log_file.flush()
 
     if not MAPLIBRE_VIEWER_ASSETS_PATH.exists():
         return False, "Cannot publish MapLibre viewer: MapLibre viewer assets are missing."
 
-    maplibre_started = time.perf_counter()
-    preserve_public_maplibre_data_for_transition()
-    PUBLIC_MAPLIBRE_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
-    shutil.rmtree(PUBLIC_MAPLIBRE_TMP_PATH, ignore_errors=True)
-    PUBLIC_MAPLIBRE_TMP_PATH.mkdir(parents=True, exist_ok=True)
+    public_geojson_count = len(list(PUBLIC_DATA_PATH.glob("*.geojson")))
+    leaflet_message = ""
+    heatmap_message = ""
+    if publish_legacy_www_enabled():
+        if not Path("/config").exists():
+            return False, "Cannot publish legacy public viewers: /config is not available in this container."
+        if not LEAFLET_VIEWER_ASSETS_PATH.exists():
+            return False, "Cannot publish Leaflet viewer: Leaflet viewer assets are missing."
 
-    for asset_name in ("index.html", "app.js", "style.css", "translations.json"):
-        shutil.copy2(MAPLIBRE_VIEWER_ASSETS_PATH / asset_name, PUBLIC_MAPLIBRE_TMP_PATH / asset_name)
-    (PUBLIC_MAPLIBRE_TMP_PATH / "config.js").write_text(config_js)
+        leaflet_started = time.perf_counter()
+        PUBLIC_LEAFLET_TMP_PATH.parent.mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(PUBLIC_LEAFLET_TMP_PATH, ignore_errors=True)
+        PUBLIC_LEAFLET_TMP_PATH.mkdir(parents=True, exist_ok=True)
 
-    # Transitional fallback: keep /local/rainmapper-maplibre/data available until
-    # the protected Cloudflared route has been validated in the real HA setup.
-    # TODO: restore strict protected-only data by calling
-    # remove_legacy_public_maplibre_data() after Cloudflared validation.
-    data_path = PUBLIC_MAPLIBRE_TMP_PATH / "data"
-    data_path.mkdir()
-    for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
-        shutil.copy2(source_path, data_path / source_path.name)
-    if SOURCE_STATUS_PATH.exists():
-        shutil.copy2(SOURCE_STATUS_PATH, data_path / SOURCE_STATUS_PATH.name)
+        for asset_name in ("index.html", "app.js", "style.css"):
+            shutil.copy2(LEAFLET_VIEWER_ASSETS_PATH / asset_name, PUBLIC_LEAFLET_TMP_PATH / asset_name)
 
-    shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
-    PUBLIC_MAPLIBRE_TMP_PATH.rename(PUBLIC_MAPLIBRE_PATH)
-    log_file.write(f"=== MapLibre publish duration {format_seconds_duration(time.perf_counter() - maplibre_started)} ===\n")
-    log_file.flush()
+        (PUBLIC_LEAFLET_TMP_PATH / "config.js").write_text(config_js)
 
-    heatmap_started = time.perf_counter()
-    heatmap_message = publish_heatmap_experimental_maplibre()
-    log_file.write(f"=== heatmap viewer publish duration {format_seconds_duration(time.perf_counter() - heatmap_started)} ===\n")
-    log_file.flush()
+        data_path = PUBLIC_LEAFLET_TMP_PATH / "data"
+        data_path.mkdir()
+        copied = 0
+        for source_path in sorted(PUBLIC_DATA_PATH.glob("*.geojson")):
+            shutil.copy2(source_path, data_path / source_path.name)
+            copied += 1
+        if SOURCE_STATUS_PATH.exists():
+            shutil.copy2(SOURCE_STATUS_PATH, data_path / SOURCE_STATUS_PATH.name)
+
+        shutil.rmtree(PUBLIC_LEAFLET_PATH, ignore_errors=True)
+        PUBLIC_LEAFLET_TMP_PATH.rename(PUBLIC_LEAFLET_PATH)
+        shutil.rmtree(REMOVED_LEGACY_MOBILE_PATH, ignore_errors=True)
+        log_file.write(f"=== Leaflet publish duration {format_seconds_duration(time.perf_counter() - leaflet_started)} ===\n")
+        log_file.flush()
+        leaflet_message = f" Published legacy Leaflet viewer with {copied} GeoJSON file(s) to /local/rainmapper-leaflet/index.html."
+
+        heatmap_started = time.perf_counter()
+        heatmap_message = publish_heatmap_experimental_maplibre()
+        log_file.write(f"=== heatmap viewer publish duration {format_seconds_duration(time.perf_counter() - heatmap_started)} ===\n")
+        log_file.flush()
+    else:
+        shutil.rmtree(PUBLIC_LEAFLET_PATH, ignore_errors=True)
+        shutil.rmtree(PUBLIC_LEAFLET_TMP_PATH, ignore_errors=True)
+        shutil.rmtree(PUBLIC_MAPLIBRE_PATH, ignore_errors=True)
+        shutil.rmtree(PUBLIC_MAPLIBRE_TMP_PATH, ignore_errors=True)
+        shutil.rmtree(PUBLIC_MAPLIBRE_HEATMAP_PATH, ignore_errors=True)
+        shutil.rmtree(PUBLIC_MAPLIBRE_HEATMAP_TMP_PATH, ignore_errors=True)
 
     aemet_message = ""
     if PUBLISH_AEMET_EXPERIMENTAL_MAPLIBRE:
         aemet_message = publish_aemet_experimental_maplibre(log_file, config_js)
     else:
         shutil.rmtree(PUBLIC_MAPLIBRE_AEMET_PATH, ignore_errors=True)
+        shutil.rmtree(PUBLIC_MAPLIBRE_AEMET_TMP_PATH, ignore_errors=True)
 
     published_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
     message = (
-        f"Published mobile viewers with {copied} GeoJSON file(s) to "
-        f"/local/rainmapper-leaflet/index.html and protected /protected/maplibre/index.html at {published_at}."
+        f"Published protected MapLibre data with {public_geojson_count} GeoJSON file(s) "
+        f"for /protected/maplibre/index.html at {published_at}."
     )
+    if leaflet_message:
+        message = f"{message}{leaflet_message}"
     if heatmap_message:
         message = f"{message} {heatmap_message}"
     if aemet_message:
@@ -11362,12 +11349,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         )
         source_table = source_status_table(source_payloads, disabled)
         source_cards = source_status_cards(disabled)
-        leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html")
+        legacy_www_enabled = publish_legacy_www_enabled()
+        leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html") if legacy_www_enabled else ""
         maplibre_url = cache_busted_url("/protected/maplibre/index.html")
-        heatmap_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-heatmap/index.html") if PUBLIC_MAPLIBRE_HEATMAP_PATH.exists() else ""
+        heatmap_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-heatmap/index.html") if legacy_www_enabled and PUBLIC_MAPLIBRE_HEATMAP_PATH.exists() else ""
         aemet_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-aemet/index.html") if PUBLIC_MAPLIBRE_AEMET_PATH.exists() else ""
-        bokeh_maps_enabled = generate_bokeh_maps_enabled()
-        bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html") if bokeh_maps_enabled else ""
+        bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html") if legacy_www_enabled else ""
         heatmap_card = (
             f'<div class="card"><span class="label">MapLibre heatmap experiment</span><span class="value">{html.escape(heatmap_maplibre_url)}</span></div>'
             if heatmap_maplibre_url
@@ -11409,8 +11396,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <div class="card"><span class="label">Duration</span><span class="value">{html.escape(duration)}</span></div>
           <div class="card"><span class="label">Exit code</span><span class="value">{html.escape(exit_code)}</span></div>
           <div class="card"><span class="label">Last published</span><span class="value">{html.escape(last_published_at)}</span></div>
-          <div class="card"><span class="label">Bokeh maps</span><span class="value">{"Enabled" if bokeh_maps_enabled else "Disabled"}</span></div>
-          <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>
+          <div class="card"><span class="label">Legacy public publishing</span><span class="value">{"Enabled" if legacy_www_enabled else "Disabled"}</span></div>
+          <div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url or "Disabled")}</span></div>
           <div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>
           {heatmap_card}
           {aemet_card}
@@ -11475,7 +11462,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             '<div class="control-section"><h2>Viewers</h2>'
             f"{quick_viewer_links(viewer_links)}"
             '<div class="status-grid"><div class="status-row status-row-publication">'
-            f'<div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url)}</span></div>'
+            f'<div class="card"><span class="label">Leaflet viewer</span><span class="value">{html.escape(leaflet_url or "Disabled")}</span></div>'
             f'<div class="card"><span class="label">MapLibre viewer</span><span class="value">{html.escape(maplibre_url)}</span></div>'
             f"{heatmap_card}"
             f"{aemet_card}"

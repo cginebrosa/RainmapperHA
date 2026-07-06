@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.189"
+version: "0.2.190"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -41,7 +41,6 @@ options:
   create_aemet: false
   meteoclimatic_pattern: ESCAT
   nomaps: false
-  generate_bokeh_maps: false
   nototals: false
   days_bucket: 10
   meteocat_request_timeout: 30
@@ -72,7 +71,7 @@ options:
   max_threads: 3
   max_attempts: 3
   wunderground_full_log: false
-  publish_to_www: true
+  publish_to_www: false
   gmap_api_key: ""
   aemet_api_key: ""
 schema:
@@ -91,7 +90,6 @@ schema:
   create_aemet: bool
   meteoclimatic_pattern: str
   nomaps: bool
-  generate_bokeh_maps: bool
   nototals: bool
   days_bucket: int
   meteocat_request_timeout: int

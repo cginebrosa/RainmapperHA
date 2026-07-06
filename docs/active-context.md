@@ -17,12 +17,7 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release funcional preparado: `7a15c1a Release Home Assistant 0.2.189`.
-- Version HA: `0.2.189`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.189`,
-  digest multi-arch
-  `sha256:068ffdfa74561aa19f4f11122ceeb3680254c3010e799663f55a56ddc0481779`.
-- `latest` apunta al mismo digest que `0.2.189`.
+- Version HA en preparacion/publicacion: `0.2.190`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -82,9 +77,10 @@ Tomap completo a `10.2s` (`last-rains=6.7s`). En HA, el `run_all` posterior con
 3 threads bajo a unos 10 minutos: Wunderground sigue dominando y Bokeh anadia
 casi 1 minuto en la fase de mapas.
 
-`0.2.188` desactiva por defecto la generacion legacy Bokeh/Google Maps mediante
-`generate_bokeh_maps: false`. Tomap, GeoJSON, Leaflet y MapLibre se siguen
-generando; si hiciera falta reactivar Bokeh, cambiar esa opcion a `true`.
+La generacion/publicacion legacy en `/config/www` queda controlada por
+`publish_to_www`. Con `publish_to_www: false` se omiten Bokeh/Google Maps,
+`/local/Plots` y Leaflet publico; Tomap, GeoJSON y MapLibre protegido se siguen
+generando. Si hiciera falta reactivar ese legado, cambiar esa opcion a `true`.
 
 `0.2.189` corrige el guardado parcial desde `Parametros` v0 de especies: los
 campos no renderizados/ausentes en el formulario se preservan y ya no se

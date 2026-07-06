@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.190
+
+- Use `publish_to_www` as the single switch for legacy public Bokeh/Google Maps and Leaflet publishing, disabled by default.
+
 ## 0.2.189
 
 - Fix partial saves from mushroom Parameters v0 so hidden/unrendered fields are preserved instead of being overwritten with null values.
