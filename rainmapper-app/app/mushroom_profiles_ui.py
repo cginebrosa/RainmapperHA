@@ -11,9 +11,12 @@ from __future__ import annotations
 import html
 import json
 import os
+import re
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
+
+from rainmapper_core import mushroom_paths
 
 
 PROFILE_SELECT_VALUES = {
@@ -1500,6 +1503,18 @@ def observation_map_modal_id(observation_id: str) -> str:
     return "observation-map-" + evidence_anchor_id(observation_id)
 
 
+def observation_photo_modal_id(observation_id: str, media: dict[str, object], index: int) -> str:
+    """Return a stable photo modal ID for one observation media entry."""
+    token = str(media.get("path") or media.get("stored_filename") or media.get("url") or index)
+    return "observation-photo-" + evidence_anchor_id(observation_id, token)
+
+
+def observation_photo_raw_exif_modal_id(observation_id: str, media: dict[str, object], index: int) -> str:
+    """Return a stable raw EXIF modal ID for one observation media entry."""
+    token = str(media.get("path") or media.get("stored_filename") or media.get("url") or index)
+    return "observation-photo-raw-exif-" + evidence_anchor_id(observation_id, token)
+
+
 def observation_coordinates_html(row: dict[str, object], *, precision: int = 5) -> str:
     """Render coordinates as a link to the local map modal when available."""
     observation_id = str(row.get("observation_id", "") or "")
@@ -1517,6 +1532,223 @@ def observation_coordinates_html(row: dict[str, object], *, precision: int = 5) 
     )
 
 
+def observation_photo_media(row: dict[str, object]) -> list[tuple[int, dict[str, object]]]:
+    """Return photo media rows with their original media index."""
+    media_rows = row.get("media") if isinstance(row.get("media"), list) else []
+    photos: list[tuple[int, dict[str, object]]] = []
+    for index, media in enumerate(media_rows):
+        if not isinstance(media, dict) or str(media.get("kind", "")) != "photo":
+            continue
+        if not str(media.get("url", "") or ""):
+            continue
+        photos.append((index, media))
+    return photos
+
+
+def render_observation_photo_strip(
+    row: dict[str, object],
+    *,
+    extra_class: str = "",
+    limit: int | None = None,
+) -> str:
+    """Render linked observation photo thumbnails when media is available."""
+    observation_id = str(row.get("observation_id", "") or "")
+    photo_links = []
+    for index, media in observation_photo_media(row):
+        if limit is not None and len(photo_links) >= limit:
+            break
+        url = str(media.get("url", "") or "")
+        label = str(media.get("original_filename", "") or media.get("stored_filename", "") or "photo")
+        modal_href = "#" + observation_photo_modal_id(observation_id, media, index)
+        photo_links.append(
+            '<a class="observation-photo-link" '
+            f'href="{html.escape(modal_href, quote=True)}" '
+            f'title="{html.escape(label, quote=True)}">'
+            f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">'
+            "</a>"
+        )
+    if not photo_links:
+        return ""
+    classes = "observation-photo-strip"
+    if extra_class:
+        classes += " " + extra_class
+    return f'<div class="{html.escape(classes, quote=True)}">' + "".join(photo_links) + "</div>"
+
+
+def observation_media_file_path(relative_path: str) -> Path | None:
+    """Return a safe local file path for one media path under mushroom-data."""
+    path_text = str(relative_path or "").strip().lstrip("/")
+    if not path_text or "\x00" in path_text:
+        return None
+    root = mushroom_paths.mushroom_data_dir().resolve()
+    candidate = (root / path_text).resolve()
+    if root != candidate and root not in candidate.parents:
+        return None
+    return candidate
+
+
+def exif_value_text(value: object) -> str:
+    """Return a compact readable representation for EXIF values."""
+    if isinstance(value, bytes):
+        try:
+            text = value.decode("utf-8").strip("\x00").strip()
+        except UnicodeDecodeError:
+            text = ""
+        return text if text and all(char.isprintable() for char in text) else f"<{len(value)} bytes>"
+    if isinstance(value, (list, tuple)):
+        return ", ".join(exif_value_text(item) for item in value)
+    text = str(value)
+    return text if len(text) <= 240 else text[:237] + "..."
+
+
+def observation_photo_exif_rows(media: dict[str, object]) -> list[tuple[str, str]]:
+    """Read displayable EXIF metadata for one stored observation image."""
+    rows: list[tuple[str, str]] = []
+    filename = str(media.get("original_filename", "") or media.get("stored_filename", "") or "")
+    if filename:
+        rows.append(("Archivo original", filename))
+    if media.get("size_bytes") not in (None, ""):
+        rows.append(("Tamano guardado", f"{media.get('size_bytes')} bytes"))
+    if media.get("content_type"):
+        rows.append(("Tipo", str(media.get("content_type"))))
+    path = observation_media_file_path(str(media.get("path", "") or ""))
+    if path is None or not path.exists():
+        rows.append(("EXIF", "Imagen no encontrada en disco"))
+        return rows
+    try:
+        from PIL import Image
+        from PIL.ExifTags import GPSTAGS, TAGS
+
+        with Image.open(path) as image:
+            rows.append(("Dimensiones", f"{image.width} x {image.height} px"))
+            exif = image.getexif()
+            if not exif:
+                rows.append(("EXIF", "Sin metadatos EXIF"))
+                return rows
+            for tag, value in sorted(exif.items(), key=lambda item: str(TAGS.get(item[0], item[0]))):
+                label = str(TAGS.get(tag, tag))
+                if label == "GPSInfo":
+                    continue
+                rows.append((label, exif_value_text(value)))
+            try:
+                gps_ifd = exif.get_ifd(34853)
+            except Exception:
+                gps_ifd = {}
+            if isinstance(gps_ifd, dict):
+                for tag, value in sorted(gps_ifd.items(), key=lambda item: str(GPSTAGS.get(item[0], item[0]))):
+                    label = "GPS " + str(GPSTAGS.get(tag, tag))
+                    rows.append((label, exif_value_text(value)))
+    except Exception as exc:
+        rows.append(("EXIF", f"No se pudo leer EXIF: {exc}"))
+    return rows
+
+
+def observation_photo_raw_exif_text(media: dict[str, object]) -> str:
+    """Read raw EXIF metadata as formatted JSON for a stored observation image."""
+    path = observation_media_file_path(str(media.get("path", "") or ""))
+    if path is None or not path.exists():
+        return json.dumps({"error": "image_not_found", "path": str(media.get("path", "") or "")}, indent=2, ensure_ascii=False)
+    try:
+        from PIL import Image
+        from PIL.ExifTags import GPSTAGS, TAGS
+
+        with Image.open(path) as image:
+            exif = image.getexif()
+            payload: dict[str, object] = {
+                "format": image.format,
+                "width": image.width,
+                "height": image.height,
+                "mode": image.mode,
+                "exif": {},
+                "gps": {},
+            }
+            for tag, value in sorted(exif.items(), key=lambda item: str(TAGS.get(item[0], item[0]))):
+                label = str(TAGS.get(tag, tag))
+                if label == "GPSInfo":
+                    continue
+                payload["exif"][label] = exif_value_text(value)
+            try:
+                gps_ifd = exif.get_ifd(34853)
+            except Exception:
+                gps_ifd = {}
+            if isinstance(gps_ifd, dict):
+                for tag, value in sorted(gps_ifd.items(), key=lambda item: str(GPSTAGS.get(item[0], item[0]))):
+                    payload["gps"][str(GPSTAGS.get(tag, tag))] = exif_value_text(value)
+            return json.dumps(payload, indent=2, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"error": "exif_read_failed", "message": str(exc)}, indent=2, ensure_ascii=False)
+
+
+def render_observation_photo_modal(
+    row: dict[str, object],
+    media: dict[str, object],
+    index: int,
+) -> str:
+    """Render a full-screen photo modal with EXIF data."""
+    observation_id = str(row.get("observation_id", "") or "")
+    url = str(media.get("url", "") or "")
+    if not observation_id or not url:
+        return ""
+    label = str(media.get("original_filename", "") or media.get("stored_filename", "") or "photo")
+    modal_id = observation_photo_modal_id(observation_id, media, index)
+    raw_modal_id = observation_photo_raw_exif_modal_id(observation_id, media, index)
+    rows = observation_photo_exif_rows(media)
+    exif_rows = "".join(
+        f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>"
+        for key, value in rows
+    )
+    return f"""
+    <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
+      <div class="modal-card observation-photo-modal">
+        <div class="modal-header">
+          <div>
+            <h2>{html.escape(label)}</h2>
+            <p class="meta">{html.escape(observation_id)}</p>
+          </div>
+          <div class="modal-header-actions">
+            <a class="button-link compact-button" href="#{html.escape(raw_modal_id, quote=True)}">Raw EXIF metadata</a>
+            <a class="button-link compact-button" href="#" data-modal-history-close>{html.escape(ui_label("ui.close"))}</a>
+          </div>
+        </div>
+        <div class="observation-photo-exif">
+          <table><tbody>{exif_rows}</tbody></table>
+        </div>
+        <div class="observation-photo-stage">
+          <img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">
+        </div>
+      </div>
+    </div>
+    """
+
+
+def render_observation_raw_exif_modal(
+    row: dict[str, object],
+    media: dict[str, object],
+    index: int,
+) -> str:
+    """Render a modal with raw EXIF metadata for one observation photo."""
+    observation_id = str(row.get("observation_id", "") or "")
+    if not observation_id:
+        return ""
+    label = str(media.get("original_filename", "") or media.get("stored_filename", "") or "photo")
+    modal_id = observation_photo_raw_exif_modal_id(observation_id, media, index)
+    raw_text = observation_photo_raw_exif_text(media)
+    return f"""
+    <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
+      <div class="modal-card observation-raw-exif-modal">
+        <div class="modal-header">
+          <div>
+            <h2>Raw EXIF metadata</h2>
+            <p class="meta">{html.escape(label)} · {html.escape(observation_id)}</p>
+          </div>
+          <a class="button-link compact-button" href="#" data-modal-history-close>{html.escape(ui_label("ui.close"))}</a>
+        </div>
+        <pre>{html.escape(raw_text)}</pre>
+      </div>
+    </div>
+    """
+
+
 def render_observation_map_modal(
     row: dict[str, object],
     selected_species_id: str = "",
@@ -1532,6 +1764,7 @@ def render_observation_map_modal(
     modal_id = observation_map_modal_id(observation_id)
     close_href = observation_select_url(selected_species_id, search, filters, observation_id)
     map_rows = [{"observation_id": observation_id, "location": (lat, lon)}]
+    photo_html = render_observation_photo_strip(row, extra_class="observation-map-photo-strip", limit=1)
     return f"""
     <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
       <div class="modal-card evidence-map-modal">
@@ -1540,6 +1773,7 @@ def render_observation_map_modal(
             <h2>{html.escape(ui_label("ui.evidence_map"))}</h2>
             <p class="meta">{html.escape(observation_id)} · {html.escape(f"{lat:.6f}, {lon:.6f}")}</p>
           </div>
+          {photo_html}
           <a class="button-link compact-button" href="{html.escape(close_href, quote=True)}" data-modal-history-close>{html.escape(ui_label("ui.close"))}</a>
         </div>
         {render_evidence_observation_map(map_rows, modal_id)}
@@ -1872,7 +2106,7 @@ def render_local_evidence_group(
     return f"""
     <article class="profile-section-card evidence-group">
       <h3>{html.escape(title)}</h3>
-      <div class="evidence-table-shell">
+      <div class="evidence-table-shell local-evidence-table">
         <table>
           {header}
           <tbody>{''.join(rows)}</tbody>
@@ -1923,34 +2157,29 @@ def numeric_range_label_first(rows: list[dict[str, object]], keys: tuple[str, ..
     return f"{low:g}-{high:g}{suffix}"
 
 
-def numeric_minmax_label(rows: list[dict[str, object]], key: str, unit: str = "") -> tuple[str, str]:
-    values = numeric_values(rows, key)
-    if not values:
-        return "-", "-"
+def weather_number_label(value: object, decimals: int, unit: str = "") -> str:
+    if value is None:
+        return "-"
     suffix = f" {unit}" if unit else ""
-    return f"{min(values):g}{suffix}", f"{max(values):g}{suffix}"
+    if isinstance(value, int | float):
+        return f"{value:.{decimals}f}{suffix}"
+    return f"{value}{suffix}"
 
 
-def numeric_minmax_label_first(rows: list[dict[str, object]], keys: tuple[str, ...], unit: str = "") -> tuple[str, str]:
-    """Return min/max labels using the first available numeric key per row."""
-    values = []
-    for row in rows:
-        for key in keys:
-            value = row.get(key)
-            if isinstance(value, int | float):
-                values.append(float(value))
-                break
-    if not values:
-        return "-", "-"
-    suffix = f" {unit}" if unit else ""
-    return f"{min(values):g}{suffix}", f"{max(values):g}{suffix}"
-
-
-def weather_cell(row: dict[str, object], key: str, fallback_key: str = "") -> str:
+def weather_cell(row: dict[str, object], key: str, fallback_key: str = "", unit: str = "", decimals: int = 0) -> str:
     value = row.get(key)
     if value is None and fallback_key:
         value = row.get(fallback_key)
-    return html.escape(str(value if value is not None else "-"))
+    return html.escape(weather_number_label(value, decimals, unit))
+
+
+def weather_metric_header(unit: str, period: str) -> str:
+    return (
+        '<th class="weather-metric-heading">'
+        f'<span>{html.escape(unit)}</span>'
+        f'<em>{html.escape(period)}</em>'
+        '</th>'
+    )
 
 
 def temperature_window_label(row: dict[str, object], days: int) -> str:
@@ -1963,7 +2192,7 @@ def temperature_window_label(row: dict[str, object], days: int) -> str:
         max_value = max_value if max_value is not None else row.get("temp_max_c")
     if min_value is None and max_value is None:
         return "-"
-    return f"{min_value if min_value is not None else '-'} / {max_value if max_value is not None else '-'}"
+    return f"{weather_number_label(min_value, 1)} / {weather_number_label(max_value, 1)}"
 
 
 def humidity_window_label(row: dict[str, object], days: int) -> str:
@@ -1976,25 +2205,67 @@ def humidity_window_label(row: dict[str, object], days: int) -> str:
         max_value = max_value if max_value is not None else row.get("humidity_max_pct")
     if min_value is None and max_value is None:
         return "-"
-    return f"{min_value if min_value is not None else '-'} / {max_value if max_value is not None else '-'}"
-
-
-def weather_range_row(label: str, min_value: str, max_value: str) -> str:
-    return (
-        "<tr>"
-        f"<th scope=\"row\">{html.escape(label)}</th>"
-        f"<td>{html.escape(min_value)}</td>"
-        f"<td>{html.escape(max_value)}</td>"
-        "</tr>"
-    )
+    return f"{weather_number_label(min_value, 1)} / {weather_number_label(max_value, 1)}"
 
 
 def compact_gap_label(gaps: object, limit: int = 2) -> str:
-    values = [str(value) for value in gaps if str(value or "").strip()] if isinstance(gaps, list) else []
+    values = weather_gap_values(gaps)
     if not values:
         return "-"
     suffix = f" +{len(values) - limit}" if len(values) > limit else ""
     return ", ".join(values[:limit]) + suffix
+
+
+def weather_gap_values(gaps: object) -> list[str]:
+    return [str(value) for value in gaps if str(value or "").strip()] if isinstance(gaps, list) else []
+
+
+def weather_gap_description(gap: str) -> str:
+    rain_coverage = re.fullmatch(r"rain_(\d+)d_coverage_(\d+)/(\d+)", gap)
+    if rain_coverage:
+        window_days, available_days, expected_days = rain_coverage.groups()
+        return (
+            f"Acumulado de lluvia de {window_days} dias calculado con "
+            f"{available_days} dias validos de {expected_days} ({gap})."
+        )
+    rain_suspect = re.fullmatch(r"rain_suspect_daily_(\d{8})_(.+)", gap)
+    if rain_suspect:
+        raw_day, value = rain_suspect.groups()
+        day_label = f"{raw_day[:4]}-{raw_day[4:6]}-{raw_day[6:8]}"
+        return f"Lluvia diaria sospechosa excluida del acumulado ({day_label}: {value}; {gap})."
+    temperature_missing = re.fullmatch(r"temperature_no_data_(\d+)d", gap)
+    if temperature_missing:
+        return f"Sin datos de temperatura en la ventana de {temperature_missing.group(1)} dias ({gap})."
+    humidity_missing = re.fullmatch(r"humidity_no_data_(\d+)d", gap)
+    if humidity_missing:
+        return f"Sin datos de humedad en la ventana de {humidity_missing.group(1)} dias ({gap})."
+    if gap == "wind_no_data_7d":
+        return "La estacion elegida no tiene datos de viento en la ventana de 7 dias (wind_no_data_7d)."
+    if gap == "no_weather_station_with_90d_coverage":
+        return "No se encontro estacion meteorologica con datos en los 90 dias previos (no_weather_station_with_90d_coverage)."
+    if gap == "invalid_observed_at":
+        return "Fecha de observacion no valida (invalid_observed_at)."
+    if gap == "missing_coordinates":
+        return "Faltan coordenadas para buscar estacion meteorologica (missing_coordinates)."
+    return f"Incidencia meteorologica sin descripcion especifica ({gap})."
+
+
+def weather_gap_tooltip(gaps: object) -> str:
+    values = weather_gap_values(gaps)
+    if not values:
+        return ""
+    return "\n".join(weather_gap_description(value) for value in values)
+
+
+def render_weather_gap_cell(gaps: object) -> str:
+    label = compact_gap_label(gaps)
+    tooltip = weather_gap_tooltip(gaps)
+    if not tooltip:
+        return '<td><span class="meta">-</span></td>'
+    return (
+        '<td><span class="meta weather-gap-help" '
+        f'title="{html.escape(tooltip, quote=True)}">{html.escape(label)}</span></td>'
+    )
 
 
 def ratio_label(value: object) -> str:
@@ -2413,6 +2684,193 @@ def learned_numeric_positive(model: dict[str, object] | None, key: str) -> dict[
     return positive if isinstance(positive, dict) else {}
 
 
+def phenology_evidence_from_observations(
+    observations_payload: dict[str, object] | None,
+    species_id: str,
+) -> dict[str, object] | None:
+    """Build month/season evidence directly from eligible observations."""
+    rows = [
+        row for row in observations_from_payload(observations_payload)
+        if str(row.get("species_id", "") or "").strip() == species_id and observation_is_training_row(row)
+    ]
+    if not rows:
+        return None
+    positive_rows = [row for row in rows if observation_is_positive(row)]
+    negative_rows = [row for row in rows if not observation_is_positive(row)]
+    month_counts: dict[int, int] = {}
+    season_counts: dict[str, int] = {}
+    for row in positive_rows:
+        derived = row.get("derived") if isinstance(row.get("derived"), dict) else {}
+        month = derived.get("month")
+        if isinstance(month, int) and 1 <= month <= 12:
+            month_counts[month] = month_counts.get(month, 0) + 1
+        season = str(derived.get("season", "") or "").strip()
+        if season:
+            season_counts[season] = season_counts.get(season, 0) + 1
+    return {
+        "observation_count": len(rows),
+        "positive_count": len(positive_rows),
+        "negative_count": len(negative_rows),
+        "month_counts": month_counts,
+        "season_counts": season_counts,
+    }
+
+
+def phenology_support_chip(label: str, support: int, total: int, source: str = "field") -> str:
+    ratio = ratio_label((support / total) if total else None)
+    return (
+        '<span class="parameter-learned-chip">'
+        f'<span>{html.escape(label)}</span>'
+        f'<strong>{html.escape(str(support))}</strong>'
+        f'<em>{html.escape(ratio)}</em>'
+        f'<em class="parameter-source-badge source-{html.escape(css_token(source), quote=True)}">{html.escape(learned_source_label(source))}</em>'
+        '</span>'
+    )
+
+
+def render_phenology_month_row(
+    title: str,
+    month_counts: dict[int, int],
+    visible_months: set[int],
+    total_positive: int,
+    meta_label: str,
+    meta_value: str,
+) -> str:
+    chips = [
+        phenology_support_chip(ui_label(f"month.{month}"), month_counts[month], total_positive)
+        for month in sorted(visible_months)
+        if month in month_counts
+    ]
+    values_html = (
+        "".join(chips)
+        if chips else
+        f'<span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span>'
+    )
+    return f"""
+      <div class="parameter-comparison-section parameter-learned-row">
+        <h4>{html.escape(title)}</h4>
+        <span class="meta">{html.escape(meta_label)}: {html.escape(meta_value)}</span>
+        <div class="parameter-learned-values">{values_html}</div>
+      </div>
+    """
+
+
+def render_phenology_season_row(
+    season_counts: dict[str, int],
+    total_positive: int,
+    catalogs: dict[str, object],
+) -> str:
+    season_labels = catalog_label_map(catalogs, "season_patterns")
+    chips = [
+        phenology_support_chip(season_labels.get(f"season_{season}", season), count, total_positive)
+        for season, count in sorted(season_counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    values_html = (
+        "".join(chips)
+        if chips else
+        f'<span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span>'
+    )
+    return f"""
+      <div class="parameter-comparison-section parameter-learned-row">
+        <h4>{html.escape(ui_label("ui.season_patterns"))}</h4>
+        <div class="parameter-learned-values">{values_html}</div>
+      </div>
+    """
+
+
+def render_phenology_learned_comparison(
+    phenology: dict[str, object],
+    observations_payload: dict[str, object] | None,
+    species_id: str,
+    catalogs: dict[str, object],
+    value_mode: str = "matches",
+) -> str:
+    """Render observed phenology evidence beside phenology parameters."""
+    title_label = "ui.learned_emerging_values" if value_mode == "emerging" else "ui.learned_observational_evidence"
+    evidence = phenology_evidence_from_observations(observations_payload, species_id)
+    if not isinstance(evidence, dict):
+        return f"""
+        <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-aligned-column parameter-phenology-column">
+          <div class="parameter-comparison-section parameter-section-summary parameter-learned-summary">
+            <h3>{html.escape(ui_label(title_label))}</h3>
+          </div>
+          <div class="parameter-comparison-section parameter-learned-row">
+            <h4>{html.escape(ui_label("ui.main_months"))}</h4>
+            <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+          </div>
+          <div class="parameter-comparison-section parameter-learned-row">
+            <h4>{html.escape(ui_label("ui.secondary_months"))}</h4>
+            <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+          </div>
+          <div class="parameter-comparison-section parameter-learned-row">
+            <h4>{html.escape(ui_label("ui.season_patterns"))}</h4>
+            <div class="parameter-learned-values"><span class="parameter-empty">{html.escape(ui_label("ui.none"))}</span></div>
+          </div>
+        </aside>
+        """
+    month_counts = evidence.get("month_counts") if isinstance(evidence.get("month_counts"), dict) else {}
+    season_counts = evidence.get("season_counts") if isinstance(evidence.get("season_counts"), dict) else {}
+    total_positive = int(evidence.get("positive_count", 0) or 0)
+    main_months = {month for month in phenology.get("main_months", []) if isinstance(month, int)}
+    secondary_months = {month for month in phenology.get("secondary_months", []) if isinstance(month, int)}
+    observed_months = {month for month in month_counts if isinstance(month, int)}
+    configured_months = main_months | secondary_months
+    if value_mode == "emerging":
+        emerging_months = observed_months - configured_months
+        rows = [
+            render_phenology_month_row(
+                ui_label("ui.main_months"),
+                month_counts,
+                emerging_months,
+                total_positive,
+                ui_label("ui.emerging_outside_profile"),
+                str(len(emerging_months)),
+            ),
+            render_phenology_month_row(
+                ui_label("ui.secondary_months"),
+                month_counts,
+                set(),
+                total_positive,
+                ui_label("ui.emerging_outside_profile"),
+                "0",
+            ),
+            render_phenology_season_row({}, total_positive, catalogs),
+        ]
+    else:
+        rows = [
+            render_phenology_month_row(
+                ui_label("ui.main_months"),
+                month_counts,
+                observed_months & main_months,
+                total_positive,
+                ui_label("ui.profile_overlap"),
+                f"{len(observed_months & main_months)}/{len(main_months)}" if main_months else "0/0",
+            ),
+            render_phenology_month_row(
+                ui_label("ui.secondary_months"),
+                month_counts,
+                observed_months & secondary_months,
+                total_positive,
+                ui_label("ui.profile_overlap"),
+                f"{len(observed_months & secondary_months)}/{len(secondary_months)}" if secondary_months else "0/0",
+            ),
+            render_phenology_season_row(season_counts, total_positive, catalogs),
+        ]
+    return f"""
+      <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-aligned-column parameter-phenology-column">
+        <div class="parameter-comparison-section parameter-section-summary parameter-learned-summary">
+          <h3>{html.escape(ui_label(title_label))}</h3>
+          <div class="parameter-learned-metrics">
+            <span>{html.escape(ui_label("ui.total_observations_used"))}: <strong>{html.escape(str(evidence.get("observation_count", 0) or 0))}</strong></span>
+            <span>{html.escape(ui_label("ui.positive_observations"))}: <strong>{html.escape(str(evidence.get("positive_count", 0) or 0))}</strong></span>
+            <span>{html.escape(ui_label("ui.negative_observations"))}: <strong>{html.escape(str(evidence.get("negative_count", 0) or 0))}</strong></span>
+          </div>
+        </div>
+        <div class="parameter-learned-rows">{"".join(rows)}</div>
+      </aside>
+    """
+
+
 def render_topography_learned_comparison(
     model: dict[str, object] | None,
     topography: dict[str, object],
@@ -2752,55 +3210,19 @@ def render_weather_evidence_section(profile: dict[str, object], features_payload
             f"<td>{html.escape(humidity_window_label(row, 14))}</td>"
             f"<td>{html.escape(humidity_window_label(row, 21))}</td>"
             f"<td>{html.escape(humidity_window_label(row, 30))}</td>"
-            f"<td><strong>{html.escape(str(row.get('weather_source', '-') or '-'))}</strong><span class=\"meta\">{html.escape(str(row.get('weather_station_code', '-') or '-'))} · {html.escape(str(row.get('weather_station_distance_km', '-') if row.get('weather_station_distance_km') is not None else '-'))} km</span></td>"
-            f"<td><span class=\"meta\">{html.escape(compact_gap_label(row.get('weather_gaps')))}</span></td>"
+            f"<td><strong>{html.escape(str(row.get('weather_source', '-') or '-'))}</strong><span class=\"meta weather-station-detail\">{html.escape(str(row.get('weather_station_code', '-') or '-'))} · {html.escape(str(row.get('weather_station_distance_km', '-') if row.get('weather_station_distance_km') is not None else '-'))} km</span></td>"
+            f"{render_weather_gap_cell(row.get('weather_gaps'))}"
             "</tr>"
         )
-    altitude_min, altitude_max = numeric_minmax_label_first(present_rows, ("gis_altitude_m", "altitude_m"), "m")
-    range_rows = [weather_range_row("Alt.", altitude_min, altitude_max)]
-    for days in (7, 14, 21, 30, 60, 90):
-        rain_min, rain_max = numeric_minmax_label(present_rows, f"rain_{days}d_mm", "mm")
-        range_rows.append(weather_range_row(f"{ui_label('rainfall')} {days}d", rain_min, rain_max))
-    for days in (7, 14, 21, 30):
-        if days == 7:
-            temp_min, _unused = numeric_minmax_label_first(present_rows, ("temp_min_7d_c", "temp_min_c"), "C")
-            _unused, temp_max = numeric_minmax_label_first(present_rows, ("temp_max_7d_c", "temp_max_c"), "C")
-        else:
-            temp_min, _unused = numeric_minmax_label(present_rows, f"temp_min_{days}d_c", "C")
-            _unused, temp_max = numeric_minmax_label(present_rows, f"temp_max_{days}d_c", "C")
-        range_rows.append(weather_range_row(f"Temp {days}d", temp_min, temp_max))
-    for days in (7, 14, 21, 30):
-        if days == 7:
-            humidity_min, _unused = numeric_minmax_label_first(present_rows, ("humidity_min_7d_pct", "humidity_min_pct"), "%")
-            _unused, humidity_max = numeric_minmax_label_first(present_rows, ("humidity_max_7d_pct", "humidity_max_pct"), "%")
-        else:
-            humidity_min, _unused = numeric_minmax_label(present_rows, f"humidity_min_{days}d_pct", "%")
-            _unused, humidity_max = numeric_minmax_label(present_rows, f"humidity_max_{days}d_pct", "%")
-        range_rows.append(weather_range_row(f"Hum {days}d", humidity_min, humidity_max))
-    range_table = (
-        '<div class="weather-evidence-ranges">'
-        "<table><thead><tr>"
-        f"<th>{html.escape(ui_label('ui.range_title'))}</th>"
-        f"<th>{html.escape(ui_label('ui.range_minimum'))}</th>"
-        f"<th>{html.escape(ui_label('ui.range_maximum'))}</th>"
-        "</tr></thead>"
-        f"<tbody>{''.join(range_rows)}</tbody></table>"
-        "</div>"
-    )
     table_html = (
         '<div class="evidence-table-shell weather-evidence-table"><table>'
         "<thead><tr>"
         f"<th>{html.escape(ui_label('ui.date_short'))}</th>"
         f"<th>{html.escape(ui_label('ui.result'))}</th>"
-        f"<th>{html.escape(ui_label('ui.altitude_short'))}</th>"
-        f"<th>{html.escape(ui_label('rainfall'))} 7d</th>"
-        f"<th>{html.escape(ui_label('rainfall'))} 14d</th>"
-        f"<th>{html.escape(ui_label('rainfall'))} 21d</th>"
-        f"<th>{html.escape(ui_label('rainfall'))} 30d</th>"
-        f"<th>{html.escape(ui_label('rainfall'))} 60d</th>"
-        f"<th>{html.escape(ui_label('rainfall'))} 90d</th>"
-        "<th>Temp 7d</th><th>Temp 14d</th><th>Temp 21d</th><th>Temp 30d</th>"
-        "<th>Hum 7d</th><th>Hum 14d</th><th>Hum 21d</th><th>Hum 30d</th>"
+        f"{weather_metric_header('m', ui_label('ui.altitude_short'))}"
+        f"{''.join(weather_metric_header('mm', f'{days}d') for days in (7, 14, 21, 30, 60, 90))}"
+        f"{''.join(weather_metric_header('°C', f'{days}d') for days in (7, 14, 21, 30))}"
+        f"{''.join(weather_metric_header('%', f'{days}d') for days in (7, 14, 21, 30))}"
         f"<th>{html.escape(ui_label('ui.station'))}</th>"
         f"<th>{html.escape(ui_label('ui.weather_gaps'))}</th>"
         "</tr></thead>"
@@ -2819,7 +3241,6 @@ def render_weather_evidence_section(profile: dict[str, object], features_payload
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.weather_gaps"))}</span><span class="value warn">{weather_gap_count}</span></div>
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.gis_gaps"))}</span><span class="value">{gis_gap_count}</span></div>
       </div>
-      {range_table}
       {table_html}
     </article>
     """
@@ -3682,8 +4103,8 @@ def render_parameters_section(
             </div>
             {f'<div class="parameter-comparison-section parameter-profile-section">{delay_fields}</div>' if delay_fields else ""}
           </div>
-          {render_phenology_pending_comparison()}
-          {render_phenology_pending_comparison(value_mode="emerging")}
+          {render_phenology_learned_comparison(phenology, observations_payload, species_id, catalogs)}
+          {render_phenology_learned_comparison(phenology, observations_payload, species_id, catalogs, value_mode="emerging")}
         </div>
       </article>
     """
@@ -4153,13 +4574,24 @@ def render_observation_detail(
     altitude_text = "-"
     if isinstance(altitude, dict) and altitude.get("meters") is not None:
         altitude_text = f'{round(float(altitude.get("meters")))} m'
+    photos_html = render_observation_photo_strip(row, extra_class="observation-detail-photo-strip", limit=1)
+    species_text = species_labels.get(species_id, species_id)
+    flush_text = observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance"))
+    summary_html = f"""
+    <div class="observation-detail-summary">
+      {photos_html or '<div class="observation-detail-photo-placeholder"></div>'}
+      <div class="observation-detail-summary-fields">
+        <div><strong>{html.escape(species_text)}</strong></div>
+        <div><span>ID:</span> <strong>{html.escape(str(row.get("observation_id", "-")))}</strong></div>
+        <div class="observation-detail-coordinate">{coords}</div>
+        <div><span>Altitud:</span> <strong>{html.escape(altitude_text)}</strong></div>
+        <div><span>Florada:</span> <strong>{html.escape(flush_text)}</strong></div>
+      </div>
+    </div>
+    """
     return f"""
     <h2 id="observation-detail">{html.escape(ui_label("ui.observation_detail"))}</h2>
-    {value_row(ui_label("observation_id"), row.get("observation_id", "-"))}
-    {value_row(ui_label("species_id"), species_labels.get(species_id, species_id))}
-    {value_html_row(ui_label("ui.coordinates"), coords)}
-    {value_row(ui_label("altitude.meters"), altitude_text)}
-    {value_row(ui_label("flush_abundance"), observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance")))}
+    {summary_html}
     {value_row(ui_label("source_quality"), row.get("source_quality", "-"))}
     {value_row(ui_label("ui.calibration_weight"), f"{observation_weight(catalogs, row):.2f}")}
     {value_row(ui_label("site_context.observed_host_ids"), observed_host_names(catalogs, site_context))}
@@ -4339,6 +4771,7 @@ def render_observation_create_form(
         selected_species_id=selected_species_id,
         form_message=form_message,
         filters=filters,
+        allow_exif_images=True,
     )
 
 
@@ -4490,6 +4923,24 @@ def render_observation_map_modals(
             continue
         seen.add(observation_id)
         modals.append(render_observation_map_modal(row, selected_species_id, search, filters))
+    return "".join(modals)
+
+
+def render_observation_photo_modals(rows: list[dict[str, object]]) -> str:
+    """Render photo viewer modals for visible observation media."""
+    seen: set[str] = set()
+    modals = []
+    for row in rows:
+        observation_id = str(row.get("observation_id", "") or "")
+        if not observation_id:
+            continue
+        for index, media in observation_photo_media(row):
+            modal_id = observation_photo_modal_id(observation_id, media, index)
+            if modal_id in seen:
+                continue
+            seen.add(modal_id)
+            modals.append(render_observation_photo_modal(row, media, index))
+            modals.append(render_observation_raw_exif_modal(row, media, index))
     return "".join(modals)
 
 
@@ -4984,6 +5435,7 @@ def render_observations_section(
       {render_observation_duplicate_form(rows, profiles, catalogs, selected_species_id, filters)}
       {render_observation_edit_modals(filtered_rows, profiles, catalogs, selected_species_id, filters)}
       {render_observation_map_modals(filtered_rows, selected_species_id, search, filters)}
+      {render_observation_photo_modals(filtered_rows)}
     </section>
     """
 

@@ -38,6 +38,7 @@ from rainmapper_core import mushroom_model_state
 from rainmapper_core import mushroom_observation_context
 from rainmapper_core import mushroom_observation_features
 from rainmapper_core import mushroom_observations
+from rainmapper_core import mushroom_paths
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
 from rainmapper_core.mushroom_validation import (
     empty_species_profile,
@@ -78,6 +79,8 @@ STATIONS_PATH = Path("/app/stations.txt")
 WUNDERGROUND_STATIONS_DB_PATH = Path("/app/Data/estacions_wunderground.csv")
 AUTH_TOKEN_BYTES = 32
 PASSWORD_HASH_ITERATIONS = 260_000
+MUSHROOM_OBSERVATION_IMAGE_MAX_EDGE = 1600
+MUSHROOM_OBSERVATION_IMAGE_JPEG_QUALITY = 86
 DEVICE_SETTING_PERIODS = {"01d.geojson", "07d.geojson", "14d.geojson", "21d.geojson", "30d.geojson", "60d.geojson", "90d.geojson"}
 DEVICE_SETTING_MAP_STYLES = {"esri-satellite-vector", "esri-hybrid", "opentopomap", "openfreemap-liberty"}
 DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "AEMET", "Unknown"}
@@ -3614,6 +3617,36 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .evidence-table-shell td:first-child span {{
       display: block;
     }}
+    .local-evidence-table th:nth-child(1),
+    .local-evidence-table td:nth-child(1) {{
+      width: 30%;
+    }}
+    .local-evidence-table th:nth-child(3),
+    .local-evidence-table td:nth-child(3) {{
+      width: 68px;
+    }}
+    .local-evidence-table td:nth-child(3) .meta {{
+      display: block;
+      line-height: 1.15;
+      margin-top: 2px;
+      text-align: left;
+    }}
+    .local-evidence-table th:nth-child(4),
+    .local-evidence-table td:nth-child(4) {{
+      width: 118px;
+    }}
+    .local-evidence-table th:nth-child(5),
+    .local-evidence-table td:nth-child(5) {{
+      width: 74px;
+    }}
+    .local-evidence-table .evidence-status,
+    .local-evidence-table .evidence-decision {{
+      justify-content: center;
+      line-height: 1.08;
+      text-align: center;
+      white-space: normal;
+      width: 100%;
+    }}
     .weather-evidence {{
       display: grid;
       gap: 12px;
@@ -3698,7 +3731,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       width: 28%;
     }}
     .weather-evidence-table table {{
-      min-width: 1820px;
+      table-layout: fixed;
+      min-width: 1675px;
     }}
     .weather-evidence-table {{
       min-height: 0;
@@ -3708,21 +3742,58 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       text-align: left;
       width: auto;
     }}
+    .weather-evidence-table .weather-metric-heading {{
+      line-height: 1;
+      text-align: center;
+    }}
+    .weather-evidence-table .weather-metric-heading span,
+    .weather-evidence-table .weather-metric-heading em {{
+      display: block;
+      font-style: normal;
+    }}
+    .weather-evidence-table .weather-metric-heading em {{
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 2px;
+    }}
     .weather-evidence-table th:nth-child(1),
     .weather-evidence-table td:nth-child(1) {{
-      width: 170px;
+      width: 140px;
     }}
     .weather-evidence-table th:nth-child(2),
     .weather-evidence-table td:nth-child(2) {{
-      width: 120px;
+      width: 105px;
+    }}
+    .weather-evidence-table th:nth-child(3),
+    .weather-evidence-table td:nth-child(3) {{
+      width: 48px;
+    }}
+    .weather-evidence-table th:nth-child(n+4):nth-child(-n+9),
+    .weather-evidence-table td:nth-child(n+4):nth-child(-n+9) {{
+      text-align: center;
+      width: 46px;
+    }}
+    .weather-evidence-table th:nth-child(n+10):nth-child(-n+17),
+    .weather-evidence-table td:nth-child(n+10):nth-child(-n+17) {{
+      text-align: center;
+      white-space: nowrap;
+      width: 82px;
     }}
     .weather-evidence-table th:nth-child(18),
     .weather-evidence-table td:nth-child(18) {{
-      width: 130px;
+      width: 250px;
+    }}
+    .weather-evidence-table .weather-station-detail {{
+      white-space: nowrap;
+    }}
+    .weather-evidence-table .weather-gap-help {{
+      cursor: help;
+      text-decoration: underline dotted;
+      text-underline-offset: 3px;
     }}
     .weather-evidence-table th:nth-child(19),
     .weather-evidence-table td:nth-child(19) {{
-      width: 170px;
+      width: 200px;
     }}
     .learned-model-panel {{
       display: grid;
@@ -4460,6 +4531,304 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-detail-shell {{
       align-self: start;
     }}
+    .observation-photo-strip {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 12px;
+    }}
+    .observation-photo-link {{
+      border: 1px solid rgba(45, 58, 71, .82);
+      border-radius: 6px;
+      display: inline-flex;
+      height: 92px;
+      overflow: hidden;
+      width: 122px;
+    }}
+    .observation-photo-link img {{
+      height: 100%;
+      object-fit: cover;
+      width: 100%;
+    }}
+    .observation-detail-summary {{
+      align-items: stretch;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: auto minmax(0, 1fr);
+      margin: 0 0 10px;
+    }}
+    .observation-detail-photo-strip {{
+      margin: 0;
+    }}
+    .observation-detail-photo-strip .observation-photo-link,
+    .observation-detail-photo-placeholder {{
+      height: 92px;
+      width: 122px;
+    }}
+    .observation-detail-photo-placeholder {{
+      border: 1px dashed rgba(45, 58, 71, .62);
+      border-radius: 6px;
+    }}
+    .observation-detail-summary-fields {{
+      align-content: center;
+      border-bottom: 1px solid rgba(45, 58, 71, .62);
+      display: grid;
+      gap: 4px;
+      font-size: 13px;
+      min-width: 0;
+      padding-bottom: 6px;
+    }}
+    .observation-detail-summary-fields div {{
+      line-height: 1.15;
+      min-width: 0;
+    }}
+    .observation-detail-summary-fields span {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .observation-detail-summary-fields strong {{
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }}
+    .observation-detail-summary-fields a {{
+      font-size: 13px;
+    }}
+    .observation-detail-coordinate {{
+      overflow-wrap: anywhere;
+    }}
+    .observation-map-photo-strip {{
+      flex: 1;
+      justify-content: center;
+      margin: 0;
+      min-width: 0;
+    }}
+    .observation-map-photo-strip .observation-photo-link {{
+      height: 82px;
+      width: 110px;
+    }}
+    .observation-photo-modal {{
+      grid-template-rows: auto minmax(120px, 28vh) minmax(0, 1fr);
+      height: calc(100vh - 48px);
+      max-width: calc(100vw - 48px);
+      width: calc(100vw - 48px);
+    }}
+    .observation-photo-exif {{
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      min-height: 0;
+      overflow: auto;
+    }}
+    .observation-photo-exif table {{
+      width: 100%;
+    }}
+    .observation-photo-exif th,
+    .observation-photo-exif td {{
+      border-bottom: 1px solid rgba(45, 58, 71, .42);
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }}
+    .observation-photo-exif th {{
+      color: var(--muted);
+      width: 190px;
+    }}
+    .observation-photo-stage {{
+      align-items: center;
+      background: rgba(0, 0, 0, .28);
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      min-height: 0;
+      overflow: hidden;
+    }}
+    .observation-photo-stage img {{
+      max-height: 100%;
+      max-width: 100%;
+      object-fit: contain;
+    }}
+    .observation-raw-exif-modal {{
+      grid-template-rows: auto minmax(0, 1fr);
+      height: calc(100vh - 48px);
+      max-width: calc(100vw - 48px);
+      width: calc(100vw - 48px);
+    }}
+    .observation-raw-exif-modal pre {{
+      background: rgba(0, 0, 0, .24);
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      color: var(--fg);
+      margin: 0;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }}
+    .observation-exif-preview-modal[hidden] {{
+      display: none;
+    }}
+    .observation-exif-preview-modal {{
+      align-items: center;
+      background: rgba(0, 0, 0, .72);
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      left: 0;
+      padding: 12px;
+      position: fixed;
+      right: 0;
+      top: 0;
+      z-index: 1500;
+    }}
+    .observation-exif-preview-dialog {{
+      background: var(--card);
+      border: 1px solid rgba(45, 58, 71, .9);
+      border-radius: 8px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, .46);
+      display: grid;
+      gap: 12px;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      height: calc(100vh - 24px);
+      max-width: calc(100vw - 24px);
+      padding: 14px;
+      width: min(1500px, calc(100vw - 24px));
+    }}
+    .observation-exif-preview-dialog .modal-head {{
+      padding-bottom: 10px;
+    }}
+    .observation-exif-preview-close {{
+      align-items: center;
+      border-radius: 7px;
+      display: inline-flex;
+      font-size: 20px;
+      height: 38px;
+      justify-content: center;
+      line-height: 1;
+      padding: 0;
+      width: 38px;
+    }}
+    .observation-exif-preview-content {{
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(280px, 340px) minmax(360px, 1fr) minmax(270px, 360px);
+      grid-template-rows: minmax(190px, .7fr) minmax(330px, 1.3fr);
+      min-height: 0;
+    }}
+    .observation-exif-preview-grid {{
+      align-content: start;
+      display: grid;
+      gap: 8px;
+      grid-row: 1 / -1;
+      min-height: 0;
+      overflow: auto;
+    }}
+    .observation-exif-preview-card {{
+      align-items: center;
+      background: rgba(8, 18, 30, .34);
+      border: 1px solid rgba(45, 58, 71, .82);
+      border-radius: 7px;
+      color: var(--fg);
+      cursor: pointer;
+      display: grid;
+      gap: 9px;
+      grid-template-columns: 72px minmax(0, 1fr);
+      min-height: 76px;
+      padding: 7px;
+      text-align: left;
+    }}
+    .observation-exif-preview-card.selected {{
+      border-color: rgba(3, 169, 244, .78);
+      box-shadow: 0 0 0 1px rgba(3, 169, 244, .35);
+    }}
+    .observation-exif-preview-card.error {{
+      border-color: rgba(255, 180, 0, .42);
+    }}
+    .observation-exif-preview-card img {{
+      border-radius: 5px;
+      height: 62px;
+      object-fit: cover;
+      width: 72px;
+    }}
+    .observation-exif-preview-photo {{
+      align-items: center;
+      background: rgba(0, 0, 0, .24);
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      min-height: 0;
+      overflow: hidden;
+    }}
+    .observation-exif-preview-photo img {{
+      max-height: 100%;
+      max-width: 100%;
+      object-fit: contain;
+    }}
+    .observation-exif-preview-data {{
+      align-content: start;
+      background: rgba(8, 18, 30, .3);
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      display: grid;
+      min-height: 0;
+      overflow: auto;
+      padding: 8px;
+    }}
+    .observation-exif-preview-data h3 {{
+      font-size: 13px;
+      margin: 0 0 8px;
+    }}
+    .observation-exif-preview-data-rows {{
+      display: grid;
+      min-height: 0;
+    }}
+    .observation-exif-preview-data-row {{
+      align-items: center;
+      border-top: 1px solid rgba(45, 58, 71, .42);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 20px 92px minmax(0, 1fr);
+      min-height: 32px;
+      padding: 6px 0;
+    }}
+    .observation-exif-preview-data-row .exif-icon {{
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }}
+    .observation-exif-preview-data-row span {{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .observation-exif-preview-data-row strong {{
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      text-align: right;
+    }}
+    .observation-exif-preview-body {{
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }}
+    .observation-exif-preview-body strong,
+    .observation-exif-preview-body span {{
+      overflow-wrap: anywhere;
+    }}
+    .observation-exif-preview-map {{
+      border: 1px solid rgba(45, 58, 71, .62);
+      border-radius: 8px;
+      grid-column: 2 / -1;
+      min-height: 0;
+      overflow: hidden;
+    }}
+    .observation-exif-preview-map iframe {{
+      border: 0;
+      height: 100%;
+      width: 100%;
+    }}
     .observation-notes {{
       border-top: 1px solid rgba(45, 58, 71, .62);
       display: grid;
@@ -4696,6 +5065,22 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .modal-card-wide {{
       max-width: 980px;
       width: min(980px, 100%);
+    }}
+    .modal-header {{
+      align-items: start;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+    }}
+    .modal-header > div:first-child {{
+      min-width: 0;
+    }}
+    .modal-header-actions {{
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
     }}
     .modal-head {{
       align-items: start;
@@ -5064,6 +5449,33 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
   <main{main_class}>
     {body}
   </main>
+  <div id="observation-exif-preview-modal" class="observation-exif-preview-modal" hidden>
+    <section class="observation-exif-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="observation-exif-preview-title">
+      <header class="modal-head">
+        <div>
+          <h2 id="observation-exif-preview-title">Vista previa EXIF</h2>
+          <p>Revisa la imagen, la fecha, las coordenadas y la altitud antes de aplicar los datos al formulario.</p>
+        </div>
+        <button class="secondary observation-exif-preview-close" type="button" data-observation-exif-preview-cancel aria-label="Cancelar">×</button>
+      </header>
+      <div class="observation-exif-preview-status meta"></div>
+      <div class="observation-exif-preview-content">
+        <div class="observation-exif-preview-grid"></div>
+        <div class="observation-exif-preview-photo"><img alt="EXIF image preview"></div>
+        <div class="observation-exif-preview-data">
+          <h3>Datos EXIF</h3>
+          <div class="observation-exif-preview-data-rows"></div>
+        </div>
+        <div class="observation-exif-preview-map" hidden>
+          <iframe title="EXIF location preview map" loading="lazy"></iframe>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" type="button" data-observation-exif-preview-cancel>Cancelar</button>
+        <button class="primary" type="button" data-observation-exif-preview-accept disabled>Aplicar datos EXIF</button>
+      </div>
+    </section>
+  </div>
   <script>
     function togglePasswordVisibility(checkbox) {{
       var input = document.getElementById(checkbox.getAttribute("data-target"));
@@ -5119,18 +5531,53 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (!row) {{
         return;
       }}
+      if (row.classList && row.classList.contains("selected")) {{
+        return;
+      }}
       var href = row.getAttribute("data-observation-href");
       if (!href) {{
         return;
       }}
-      try {{
-        window.sessionStorage.setItem("rainmapperObservationScrollY", String(window.scrollY || 0));
-      }} catch (error) {{}}
+      rememberSelectedDetailScroll({{ url: href }});
       window.location.href = href;
     }}
     const speciesModalHistoryKey = "rainmapperSpeciesMaintenanceModalHistory";
+    const speciesModalScrollRestoreKey = "rainmapperSpeciesMaintenanceScrollRestore";
+    const selectedDetailScrollKey = "rainmapperSelectedDetailScrollY";
     function currentRelativeUrl() {{
       return window.location.pathname + window.location.search + window.location.hash;
+    }}
+    function selectedDetailContextFromUrl(urlText) {{
+      var url;
+      try {{
+        url = new URL(urlText || currentRelativeUrl(), window.location.origin);
+      }} catch (error) {{
+        return "";
+      }}
+      var params = url.searchParams;
+      if (params.get("section") === "observations" && params.get("obs_id")) {{
+        return "observations:" + params.get("obs_id");
+      }}
+      return "";
+    }}
+    function rememberSelectedDetailScroll(options) {{
+      options = options || {{}};
+      var context = selectedDetailContextFromUrl(options.url || currentRelativeUrl());
+      if (!context) {{
+        return;
+      }}
+      try {{
+        if (options.ifMissing) {{
+          var existing = JSON.parse(window.sessionStorage.getItem(selectedDetailScrollKey) || "{{}}");
+          if (existing && existing.context === context && Number.isFinite(Number(existing.y))) {{
+            return;
+          }}
+        }}
+        window.sessionStorage.setItem(selectedDetailScrollKey, JSON.stringify({{
+          context: context,
+          y: Number.isFinite(Number(options.scrollY)) ? Number(options.scrollY) : (window.scrollY || 0)
+        }}));
+      }} catch (error) {{}}
     }}
     function modalLayerForHash(hash) {{
       if (!hash || hash === "#") {{
@@ -5146,15 +5593,67 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     function readSpeciesModalHistory() {{
       try {{
         var payload = JSON.parse(window.sessionStorage.getItem(speciesModalHistoryKey) || "[]");
-        return Array.isArray(payload) ? payload.filter(Boolean) : [];
+        if (!Array.isArray(payload)) {{
+          return [];
+        }}
+        return payload.map(function(entry) {{
+          if (typeof entry === "string") {{
+            return {{ url: entry, y: null }};
+          }}
+          if (entry && typeof entry.url === "string") {{
+            return {{
+              url: entry.url,
+              y: Number.isFinite(Number(entry.y)) ? Number(entry.y) : null
+            }};
+          }}
+          return null;
+        }}).filter(function(entry) {{ return entry && entry.url; }});
       }} catch (error) {{
         return [];
       }}
     }}
     function writeSpeciesModalHistory(stack) {{
       try {{
-        window.sessionStorage.setItem(speciesModalHistoryKey, JSON.stringify(stack.slice(-30)));
+        window.sessionStorage.setItem(speciesModalHistoryKey, JSON.stringify(stack.filter(function(entry) {{
+          return entry && entry.url;
+        }}).slice(-30)));
       }} catch (error) {{}}
+    }}
+    function rememberScrollRestoreForUrl(url, scrollY) {{
+      if (!url) {{
+        return;
+      }}
+      try {{
+        window.sessionStorage.setItem(speciesModalScrollRestoreKey, JSON.stringify({{
+          url: url,
+          y: Number.isFinite(Number(scrollY)) ? Number(scrollY) : (window.scrollY || 0)
+        }}));
+      }} catch (error) {{}}
+    }}
+    function restoreModalScrollPosition() {{
+      var payload;
+      try {{
+        payload = JSON.parse(window.sessionStorage.getItem(speciesModalScrollRestoreKey) || "{{}}");
+      }} catch (error) {{
+        return;
+      }}
+      if (!payload || payload.url !== currentRelativeUrl() || !Number.isFinite(Number(payload.y))) {{
+        return;
+      }}
+      try {{
+        window.sessionStorage.removeItem(speciesModalScrollRestoreKey);
+      }} catch (error) {{}}
+      window.setTimeout(function() {{
+        window.scrollTo({{ top: Number(payload.y) }});
+      }}, 0);
+    }}
+    function sameDocumentRelativeUrl(urlText) {{
+      try {{
+        var url = new URL(urlText, window.location.origin);
+        return url.pathname === window.location.pathname && url.search === window.location.search;
+      }} catch (error) {{
+        return false;
+      }}
     }}
     function rememberSpeciesModalNavigation(event) {{
       var link = event.target.closest ? event.target.closest("a[href^='#']") : null;
@@ -5165,10 +5664,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (!modalLayerForHash(targetHash) || targetHash === window.location.hash) {{
         return;
       }}
+      rememberSelectedDetailScroll();
       var currentUrl = currentRelativeUrl();
       var stack = readSpeciesModalHistory();
-      if (stack[stack.length - 1] !== currentUrl) {{
-        stack.push(currentUrl);
+      var last = stack[stack.length - 1];
+      if (!last || last.url !== currentUrl) {{
+        stack.push({{ url: currentUrl, y: window.scrollY || 0 }});
       }}
       writeSpeciesModalHistory(stack);
     }}
@@ -5182,13 +5683,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         return;
       }}
       var stack = readSpeciesModalHistory();
-      var returnUrl = stack.pop() || "";
+      var returnEntry = stack.pop() || null;
+      var returnUrl = returnEntry ? returnEntry.url : "";
       if (!returnUrl) {{
         return;
       }}
       event.preventDefault();
       writeSpeciesModalHistory(stack);
+      rememberSelectedDetailScroll({{ ifMissing: true }});
+      rememberScrollRestoreForUrl(returnUrl, returnEntry.y);
       window.location.href = returnUrl;
+      if (sameDocumentRelativeUrl(returnUrl) && Number.isFinite(Number(returnEntry.y))) {{
+        window.setTimeout(function() {{
+          window.scrollTo({{ top: Number(returnEntry.y) }});
+        }}, 0);
+      }}
     }}
     function restoreObservationScroll() {{
       var params;
@@ -5200,21 +5709,327 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (params.get("section") !== "observations" || !params.get("obs_id")) {{
         return;
       }}
-      var stored = "";
+      var scrollY = null;
       try {{
-        stored = window.sessionStorage.getItem("rainmapperObservationScrollY") || "";
-        window.sessionStorage.removeItem("rainmapperObservationScrollY");
+        var currentContext = selectedDetailContextFromUrl(currentRelativeUrl());
+        var payload = JSON.parse(window.sessionStorage.getItem(selectedDetailScrollKey) || "{{}}");
+        if (payload && payload.context === currentContext && Number.isFinite(Number(payload.y))) {{
+          scrollY = parseInt(payload.y, 10);
+          window.sessionStorage.removeItem(selectedDetailScrollKey);
+        }}
       }} catch (error) {{}}
-      if (!stored) {{
-        return;
+      if (scrollY === null) {{
+        var stored = "";
+        try {{
+          stored = window.sessionStorage.getItem("rainmapperObservationScrollY") || "";
+          window.sessionStorage.removeItem("rainmapperObservationScrollY");
+        }} catch (error) {{}}
+        if (!stored) {{
+          return;
+        }}
+        scrollY = parseInt(stored, 10);
       }}
-      var scrollY = parseInt(stored, 10);
       if (!Number.isFinite(scrollY)) {{
         return;
       }}
       window.setTimeout(function() {{
         window.scrollTo({{ top: scrollY }});
       }}, 0);
+    }}
+    function mushroomApiBasePath() {{
+      return window.location.pathname.replace(new RegExp("/mushrooms/profiles/?$"), "");
+    }}
+    function observationExifPreviewEndpoint() {{
+      return mushroomApiBasePath() + "/api/mushrooms/observation-exif-preview";
+    }}
+    var observationExifPreviewState = {{
+      input: null,
+      form: null,
+      payload: null,
+      selectedIndex: 0,
+      objectUrls: []
+    }};
+    function formatExifPreviewNumber(value, suffix) {{
+      if (value === null || value === undefined || value === "") {{
+        return "-";
+      }}
+      var number = Number(value);
+      if (!Number.isFinite(number)) {{
+        return String(value);
+      }}
+      return number.toFixed(suffix === " m" ? 0 : 6) + (suffix || "");
+    }}
+    function clearObservationExifPreviewObjectUrls() {{
+      observationExifPreviewState.objectUrls.forEach(function(url) {{
+        try {{
+          URL.revokeObjectURL(url);
+        }} catch (error) {{}}
+      }});
+      observationExifPreviewState.objectUrls = [];
+    }}
+    function selectedObservationExifPreview() {{
+      var previews = observationExifPreviewState.payload && Array.isArray(observationExifPreviewState.payload.previews)
+        ? observationExifPreviewState.payload.previews
+        : [];
+      return previews[observationExifPreviewState.selectedIndex] || null;
+    }}
+    function setObservationExifPreviewMap(preview, modal) {{
+      var map = modal.querySelector(".observation-exif-preview-map");
+      var frame = map ? map.querySelector("iframe") : null;
+      if (!map || !frame) {{
+        return;
+      }}
+      if (preview && preview.map_src) {{
+        frame.setAttribute("src", preview.map_src);
+        map.hidden = false;
+      }} else {{
+        frame.removeAttribute("src");
+        map.hidden = true;
+      }}
+    }}
+    function formatExifPreviewSize(bytes) {{
+      var number = Number(bytes);
+      if (!Number.isFinite(number) || number <= 0) {{
+        return "-";
+      }}
+      if (number < 1024 * 1024) {{
+        return Math.round(number / 1024) + " KB";
+      }}
+      return (number / 1024 / 1024).toFixed(1) + " MB";
+    }}
+    function renderObservationExifPreviewData(preview, modal) {{
+      var rows = modal.querySelector(".observation-exif-preview-data-rows");
+      if (!rows) {{
+        return;
+      }}
+      rows.innerHTML = "";
+      var entries = preview && preview.ok ? [
+        ["▣", "Archivo", preview.filename || "-"],
+        ["◷", "Fecha/hora", preview.captured_at_display || preview.captured_at || preview.observed_at || "-"],
+        ["⌖", "Coordenadas", formatExifPreviewNumber(preview.lat, "") + ", " + formatExifPreviewNumber(preview.lon, "")],
+        ["△", "Altitud", formatExifPreviewNumber(preview.altitude_m, " m")],
+        ["◉", "Tipo", preview.content_type || "-"],
+        ["□", "Tamaño", formatExifPreviewSize(preview.size_bytes)]
+      ] : [
+        ["▣", "Archivo", preview && preview.filename ? preview.filename : "-"],
+        ["!", "Estado", preview && preview.error ? preview.error : "Sin datos EXIF válidos"]
+      ];
+      entries.forEach(function(entry) {{
+        var row = document.createElement("div");
+        row.className = "observation-exif-preview-data-row";
+        var icon = document.createElement("span");
+        icon.className = "exif-icon";
+        icon.textContent = entry[0];
+        var label = document.createElement("span");
+        label.textContent = entry[1];
+        var value = document.createElement("strong");
+        value.textContent = entry[2];
+        row.appendChild(icon);
+        row.appendChild(label);
+        row.appendChild(value);
+        rows.appendChild(row);
+      }});
+    }}
+    function closeObservationExifPreview(options) {{
+      options = options || {{}};
+      var modal = document.getElementById("observation-exif-preview-modal");
+      if (modal) {{
+        modal.hidden = true;
+        var frame = modal.querySelector(".observation-exif-preview-map iframe");
+        if (frame) {{
+          frame.removeAttribute("src");
+        }}
+      }}
+      if (options.clearInput && observationExifPreviewState.input) {{
+        observationExifPreviewState.input.value = "";
+      }}
+      clearObservationExifPreviewObjectUrls();
+      observationExifPreviewState = {{
+        input: null,
+        form: null,
+        payload: null,
+        selectedIndex: 0,
+        objectUrls: []
+      }};
+    }}
+    function applyObservationExifPreview() {{
+      var preview = selectedObservationExifPreview();
+      var form = observationExifPreviewState.form;
+      if (!preview || !preview.ok || !form) {{
+        return;
+      }}
+      var field;
+      field = form.querySelector("[name='observed_at']");
+      if (field && preview.observed_at) {{
+        field.value = preview.observed_at;
+      }}
+      field = form.querySelector("[name='location_lat']");
+      if (field && preview.lat !== null && preview.lat !== undefined) {{
+        field.value = String(preview.lat);
+      }}
+      field = form.querySelector("[name='location_lon']");
+      if (field && preview.lon !== null && preview.lon !== undefined) {{
+        field.value = String(preview.lon);
+      }}
+      field = form.querySelector("[name='location_input']");
+      if (field && preview.lat !== null && preview.lat !== undefined && preview.lon !== null && preview.lon !== undefined) {{
+        field.value = String(preview.lat) + ", " + String(preview.lon);
+      }}
+      field = form.querySelector("[name='altitude_m']");
+      if (field && preview.altitude_m !== null && preview.altitude_m !== undefined) {{
+        field.value = String(Math.round(Number(preview.altitude_m)));
+      }}
+      field = form.querySelector("[name='altitude_source']");
+      if (field) {{
+        field.value = "photo_exif";
+      }}
+      field = form.querySelector("[name='source_type']");
+      if (field) {{
+        field.value = "photo_exif";
+      }}
+      field = form.querySelector("[name='source_label']");
+      if (field && preview.filename) {{
+        field.value = preview.filename;
+      }}
+      closeObservationExifPreview({{ clearInput: false }});
+    }}
+    function clearObservationExifInputs(scope) {{
+      if (!scope || !scope.querySelectorAll) {{
+        return;
+      }}
+      Array.prototype.slice.call(scope.querySelectorAll("input[name='observation_exif_images']")).forEach(function(input) {{
+        input.value = "";
+      }});
+    }}
+    function renderObservationExifPreview(payload) {{
+      var modal = document.getElementById("observation-exif-preview-modal");
+      if (!modal) {{
+        return;
+      }}
+      var status = modal.querySelector(".observation-exif-preview-status");
+      var grid = modal.querySelector(".observation-exif-preview-grid");
+      var photo = modal.querySelector(".observation-exif-preview-photo img");
+      var acceptButton = modal.querySelector("[data-observation-exif-preview-accept]");
+      if (!grid || !status || !photo || !acceptButton) {{
+        return;
+      }}
+      var input = observationExifPreviewState.input;
+      var files = input ? Array.prototype.slice.call(input.files || []) : [];
+      var previews = payload && Array.isArray(payload.previews) ? payload.previews : [];
+      status.textContent = previews.length ? "Vista previa EXIF de " + previews.length + " imagen(es)." : "No se pudo leer EXIF de las imagenes seleccionadas.";
+      grid.innerHTML = "";
+      clearObservationExifPreviewObjectUrls();
+      previews.forEach(function(preview, index) {{
+        var file = files[index] || null;
+        var card = document.createElement("button");
+        card.type = "button";
+        card.className = "observation-exif-preview-card" + (index === 0 ? " selected" : "") + (preview.ok ? "" : " error");
+        var image = document.createElement("img");
+        if (file) {{
+          var objectUrl = URL.createObjectURL(file);
+          observationExifPreviewState.objectUrls.push(objectUrl);
+          image.src = objectUrl;
+        }}
+        image.alt = preview.filename || "EXIF image";
+        var body = document.createElement("span");
+        body.className = "observation-exif-preview-body";
+        var title = document.createElement("strong");
+        title.textContent = preview.filename || "photo";
+        body.appendChild(title);
+        var lines = document.createElement("span");
+        lines.className = "meta";
+        if (preview.ok) {{
+          lines.textContent = [
+            "Fecha/hora: " + (preview.captured_at_display || preview.captured_at || preview.observed_at || "-"),
+            "Coord.: " + formatExifPreviewNumber(preview.lat, "") + ", " + formatExifPreviewNumber(preview.lon, ""),
+            "Altitud: " + formatExifPreviewNumber(preview.altitude_m, " m")
+          ].join(" · ");
+        }} else {{
+          lines.textContent = "EXIF no valido: " + (preview.error || "sin datos");
+        }}
+        body.appendChild(lines);
+        card.appendChild(image);
+        card.appendChild(body);
+        card.addEventListener("click", function() {{
+          Array.prototype.slice.call(grid.querySelectorAll(".observation-exif-preview-card")).forEach(function(item) {{
+            item.classList.remove("selected");
+          }});
+          card.classList.add("selected");
+          observationExifPreviewState.selectedIndex = index;
+          photo.src = image.src || "";
+          photo.alt = preview.filename || "EXIF image";
+          acceptButton.disabled = !preview.ok;
+          renderObservationExifPreviewData(preview, modal);
+          setObservationExifPreviewMap(preview, modal);
+        }});
+        grid.appendChild(card);
+      }});
+      observationExifPreviewState.selectedIndex = previews.findIndex(function(item) {{ return item && item.ok; }});
+      if (observationExifPreviewState.selectedIndex < 0) {{
+        observationExifPreviewState.selectedIndex = 0;
+      }}
+      var selectedCard = grid.querySelectorAll(".observation-exif-preview-card")[observationExifPreviewState.selectedIndex];
+      if (selectedCard) {{
+        selectedCard.click();
+      }} else {{
+        photo.removeAttribute("src");
+        acceptButton.disabled = true;
+        renderObservationExifPreviewData(null, modal);
+        setObservationExifPreviewMap(null, modal);
+      }}
+      modal.hidden = false;
+    }}
+    async function updateObservationExifPreview(input) {{
+      if (!input.files || !input.files.length) {{
+        closeObservationExifPreview({{ clearInput: false }});
+        return;
+      }}
+      var modal = document.getElementById("observation-exif-preview-modal");
+      if (!modal) {{
+        return;
+      }}
+      observationExifPreviewState.input = input;
+      observationExifPreviewState.form = input.closest("form");
+      observationExifPreviewState.payload = null;
+      observationExifPreviewState.selectedIndex = 0;
+      var status = modal.querySelector(".observation-exif-preview-status");
+      var grid = modal.querySelector(".observation-exif-preview-grid");
+      var photo = modal.querySelector(".observation-exif-preview-photo img");
+      var acceptButton = modal.querySelector("[data-observation-exif-preview-accept]");
+      if (status) {{
+        status.textContent = "Leyendo EXIF...";
+      }}
+      if (grid) {{
+        grid.innerHTML = "";
+      }}
+      if (photo) {{
+        photo.removeAttribute("src");
+      }}
+      if (acceptButton) {{
+        acceptButton.disabled = true;
+      }}
+      modal.hidden = false;
+      var formData = new FormData();
+      Array.prototype.slice.call(input.files).forEach(function(file) {{
+        formData.append("observation_exif_images", file, file.name);
+      }});
+      try {{
+        var response = await fetch(observationExifPreviewEndpoint(), {{
+          method: "POST",
+          body: formData,
+          credentials: "same-origin"
+        }});
+        var payload = await response.json();
+        if (!response.ok || !payload.ok) {{
+          throw new Error(payload.error || "preview failed");
+        }}
+        observationExifPreviewState.payload = payload;
+        renderObservationExifPreview(payload);
+      }} catch (error) {{
+        if (status) {{
+          status.textContent = "No se pudo generar el preview EXIF: " + error.message;
+        }}
+      }}
     }}
     function setExpandedUser(username) {{
       var cards = Array.prototype.slice.call(document.querySelectorAll(".user-card"));
@@ -5503,6 +6318,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (event.target && event.target.name === "profile_tab") {{
         setProfileReturnTabs();
       }}
+      if (event.target && event.target.name === "observation_exif_images") {{
+        updateObservationExifPreview(event.target);
+      }}
     }});
     document.addEventListener("submit", function(event) {{
       if (event.target && event.target.querySelector("input[name='profile_return_tab']")) {{
@@ -5510,11 +6328,32 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
     }});
     document.addEventListener("click", function(event) {{
+      rememberSpeciesModalNavigation(event);
+    }}, true);
+    document.addEventListener("click", function(event) {{
       closeSpeciesModalWithHistory(event);
       if (event.defaultPrevented) {{
         return;
       }}
-      rememberSpeciesModalNavigation(event);
+      var exifPreviewCancel = event.target.closest("[data-observation-exif-preview-cancel]");
+      if (exifPreviewCancel) {{
+        event.preventDefault();
+        closeObservationExifPreview({{ clearInput: true }});
+        return;
+      }}
+      var exifPreviewAccept = event.target.closest("[data-observation-exif-preview-accept]");
+      if (exifPreviewAccept) {{
+        event.preventDefault();
+        applyObservationExifPreview();
+        return;
+      }}
+      var observationModalClose = event.target.closest(".observation-form .modal-head a[href='#'], .modal-layer > .modal-backdrop[href='#']");
+      if (observationModalClose) {{
+        var observationLayer = observationModalClose.closest(".modal-layer");
+        if (observationLayer && observationLayer.querySelector(".observation-form")) {{
+          clearObservationExifInputs(observationLayer);
+        }}
+      }}
       var speciesLink = event.target.closest(".profile-list-item[href]");
       if (speciesLink) {{
         speciesLink.href = speciesUrlWithActiveProfileState(speciesLink.href);
@@ -5580,6 +6419,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       fitCatalogTableToViewport();
       revealSelectedCatalogRow();
       setProfileReturnTabs();
+      restoreModalScrollPosition();
       restoreObservationScroll();
     }});
   </script>
@@ -8253,6 +9093,9 @@ def observation_payload_from_form(
             "source": catalog_form_string(form, "altitude_source") or "manual",
             "resolved_at": today if altitude_m is not None else None,
         }
+    existing_media = existing.get("media")
+    if isinstance(existing_media, list):
+        observation["media"] = [item for item in existing_media if isinstance(item, dict)]
     return mushroom_observations.finalize_observation_payload(observation)
 
 
@@ -8324,7 +9167,10 @@ def extract_photo_exif_observation_fields(filename: str, content: bytes) -> dict
         if not raw_date:
             raise ValueError("image has no EXIF capture date")
         try:
-            observed_at = datetime.strptime(raw_date[:10], "%Y:%m:%d").date().isoformat()
+            capture_datetime = datetime.strptime(raw_date[:19], "%Y:%m:%d %H:%M:%S")
+            captured_at = capture_datetime.isoformat(sep=" ", timespec="seconds")
+            captured_at_display = capture_datetime.strftime("%d/%m/%Y %H:%M")
+            observed_at = capture_datetime.date().isoformat()
         except ValueError as exc:
             raise ValueError(f"invalid EXIF capture date {raw_date!r}") from exc
 
@@ -8348,10 +9194,210 @@ def extract_photo_exif_observation_fields(filename: str, content: bytes) -> dict
     return {
         "filename": filename,
         "observed_at": observed_at,
+        "captured_at": captured_at,
+        "captured_at_display": captured_at_display,
         "lat": lat,
         "lon": lon,
         "altitude_m": altitude,
     }
+
+
+def preview_photo_exif_uploads(files: dict[str, list[dict[str, object]]]) -> dict[str, object]:
+    """Return EXIF preview metadata for uploaded observation images without saving them."""
+    uploads = [
+        item
+        for item in files.get("observation_exif_images", [])
+        if isinstance(item, dict) and item.get("filename") and item.get("content")
+    ]
+    previews: list[dict[str, object]] = []
+    for index, item in enumerate(uploads):
+        filename = str(item.get("filename", "photo") or "photo")
+        content = item.get("content")
+        content_type = str(item.get("content_type", "") or "")
+        preview: dict[str, object] = {
+            "index": index,
+            "filename": filename,
+            "content_type": content_type,
+            "size_bytes": len(content) if isinstance(content, bytes) else 0,
+            "ok": False,
+        }
+        if not isinstance(content, bytes):
+            preview["error"] = "invalid upload payload"
+            previews.append(preview)
+            continue
+        try:
+            fields = extract_photo_exif_observation_fields(filename, content)
+        except ValueError as exc:
+            preview["error"] = str(exc)
+            previews.append(preview)
+            continue
+        lat = fields.get("lat")
+        lon = fields.get("lon")
+        altitude = fields.get("altitude_m")
+        preview.update(
+            {
+                "ok": True,
+                "observed_at": fields.get("observed_at"),
+                "captured_at": fields.get("captured_at"),
+                "captured_at_display": fields.get("captured_at_display"),
+                "lat": lat,
+                "lon": lon,
+                "altitude_m": altitude,
+                "map_src": mushroom_profiles_ui.google_maps_embed_src(float(lat), float(lon)) if lat is not None and lon is not None else "",
+            }
+        )
+        previews.append(preview)
+    return {"previews": previews}
+
+
+def safe_observation_media_name(filename: str, extension: str = ".jpg") -> str:
+    """Return a human-readable safe filename for one persisted observation image."""
+    source_name = Path(str(filename or "photo")).name
+    source_stem = Path(source_name).stem
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", source_stem).strip("-") or "photo"
+    ext = Path(source_name).suffix.lower() or extension
+    ext = ext if ext.startswith(".") else f".{ext}"
+    ext = re.sub(r"[^a-z0-9.]+", "", ext.lower()) or ".jpg"
+    return f"{stem}{ext}"
+
+
+def original_image_extension(filename: str, content_type: str = "") -> str:
+    """Return a conservative image extension for uploads that cannot be resized."""
+    suffix = Path(str(filename or "")).suffix.lower()
+    if suffix in {".jpg", ".jpeg", ".heic", ".heif"}:
+        return suffix
+    guessed = mimetypes.guess_extension(str(content_type or "").split(";", 1)[0].strip())
+    if guessed in {".jpg", ".jpeg", ".heic", ".heif"}:
+        return guessed
+    return ".jpg"
+
+
+def observation_image_media_url(relative_path: str) -> str:
+    return "./observation-media?" + urlencode({"path": relative_path})
+
+
+def observation_media_file_path(relative_path: str) -> Path | None:
+    """Return a safe media file path inside the configured mushroom data root."""
+    path_text = str(relative_path or "").strip().lstrip("/")
+    if not path_text or "\x00" in path_text:
+        return None
+    root = mushroom_paths.mushroom_data_dir().resolve()
+    candidate = (root / path_text).resolve()
+    if root != candidate and root not in candidate.parents:
+        return None
+    return candidate
+
+
+def legacy_observation_media_file_path(observation_id: str, stored_filename: str) -> Path | None:
+    safe_observation_id = re.sub(r"[^a-zA-Z0-9_.-]+", "", str(observation_id or ""))
+    safe_name = Path(str(stored_filename or "")).name
+    if not safe_observation_id or not safe_name or safe_name in {".", ".."}:
+        return None
+    root = mushroom_paths.mushroom_observation_images_dir().resolve()
+    candidate = (root / safe_observation_id / safe_name).resolve()
+    if root != candidate and root not in candidate.parents:
+        return None
+    return candidate
+
+
+def observation_media_year(observed_at: object = None) -> str:
+    text = str(observed_at or "").strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text[:4]
+    return datetime.now(UTC).date().isoformat()[:4]
+
+
+def unique_media_path(target_dir: Path, filename: str, content: bytes) -> Path:
+    candidate = target_dir / filename
+    if not candidate.exists() or candidate.read_bytes() == content:
+        return candidate
+    stem = candidate.stem
+    suffix = candidate.suffix
+    counter = 2
+    while True:
+        next_candidate = target_dir / f"{stem}-{counter}{suffix}"
+        if not next_candidate.exists() or next_candidate.read_bytes() == content:
+            return next_candidate
+        counter += 1
+
+
+def save_observation_image_media(
+    observation_id: str,
+    upload: dict[str, object],
+    observed_at: object = None,
+) -> dict[str, object] | None:
+    """Persist one uploaded observation image and return its JSON media entry."""
+    filename = str(upload.get("filename", "photo") or "photo")
+    content = upload.get("content")
+    if not isinstance(content, bytes) or not content:
+        return None
+    content_type = str(upload.get("content_type", "") or "")
+    year = observation_media_year(observed_at)
+    target_dir = mushroom_paths.mushroom_observation_photos_dir() / year
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    stored_filename = safe_observation_media_name(filename, ".jpg")
+    target_path = target_dir / stored_filename
+    persisted_content_type = "image/jpeg"
+    resized = False
+    exif_preserved = False
+    output_content = b""
+    try:
+        from PIL import Image
+        from PIL import ImageOps
+
+        with Image.open(io.BytesIO(content)) as image:
+            image = ImageOps.exif_transpose(image)
+            exif_bytes = image.info.get("exif", b"")
+            if image.mode not in {"RGB", "L"}:
+                image = image.convert("RGB")
+            image.thumbnail(
+                (MUSHROOM_OBSERVATION_IMAGE_MAX_EDGE, MUSHROOM_OBSERVATION_IMAGE_MAX_EDGE),
+                Image.Resampling.LANCZOS,
+            )
+            save_kwargs: dict[str, object] = {
+                "format": "JPEG",
+                "quality": MUSHROOM_OBSERVATION_IMAGE_JPEG_QUALITY,
+                "optimize": True,
+            }
+            if exif_bytes:
+                save_kwargs["exif"] = exif_bytes
+                exif_preserved = True
+            output = io.BytesIO()
+            image.save(output, **save_kwargs)
+            output_content = output.getvalue()
+            resized = True
+    except Exception:
+        extension = original_image_extension(filename, content_type)
+        stored_filename = safe_observation_media_name(filename, extension)
+        output_content = content
+        persisted_content_type = content_type.split(";", 1)[0].strip() or content_type_for(target_path)
+
+    target_path = unique_media_path(target_dir, stored_filename, output_content)
+    target_path.write_bytes(output_content)
+    stored_filename = target_path.name
+    relative_path = f"media/observation-photos/{year}/{stored_filename}"
+    return {
+        "kind": "photo",
+        "path": relative_path,
+        "url": observation_image_media_url(relative_path),
+        "stored_filename": stored_filename,
+        "original_filename": filename,
+        "content_type": persisted_content_type,
+        "size_bytes": target_path.stat().st_size,
+        "resized": resized,
+        "exif_preserved": exif_preserved,
+        "variant": "display",
+    }
+
+
+def append_observation_media(observation: dict[str, object], media: dict[str, object] | None) -> None:
+    if not media:
+        return
+    existing = observation.get("media")
+    media_rows = [item for item in existing if isinstance(item, dict)] if isinstance(existing, list) else []
+    media_rows.append(media)
+    observation["media"] = media_rows
 
 
 def photo_exif_observation_payload(
@@ -10260,6 +11306,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.render_mushroom_profiles(parse_qs(parsed.query))
             return
 
+        if path == "/mushrooms/observation-media":
+            self.serve_mushroom_observation_media(parse_qs(parsed.query))
+            return
+
         if path == "/api/mushrooms/rebuild-status":
             query = parse_qs(parsed.query)
             job_id = (query.get("job_id") or [""])[0]
@@ -10321,6 +11371,23 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             404,
             html_page("Not found", "<h1>Not found</h1><p>This Rainmapper page does not exist.</p>", auto_refresh=False),
             "text/html; charset=utf-8",
+        )
+
+    def serve_mushroom_observation_media(self, query: dict[str, list[str]]) -> None:
+        relative_path = (query.get("path") or [""])[0]
+        file_path = observation_media_file_path(relative_path)
+        if file_path is None and (query.get("observation_id") or query.get("file")):
+            observation_id = (query.get("observation_id") or [""])[0]
+            stored_filename = (query.get("file") or [""])[0]
+            file_path = legacy_observation_media_file_path(observation_id, stored_filename)
+        if file_path is None or not file_path.exists() or not file_path.is_file():
+            self.send_bytes(404, b"Observation image not found.", "text/plain; charset=utf-8")
+            return
+        self.send_bytes(
+            200,
+            file_path.read_bytes(),
+            content_type_for(file_path),
+            headers={"Cache-Control": "private, max-age=3600"},
         )
 
     def read_form(self) -> dict[str, list[str]]:
@@ -10429,6 +11496,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if not self.require_admin_api():
                 return
             self.handle_mushroom_import()
+            return
+
+        if parsed.path == "/api/mushrooms/observation-exif-preview":
+            # This preview only inspects the uploaded bytes and does not read or
+            # mutate stored mushroom data, so it must work from the backend form
+            # without MapLibre/admin API credentials.
+            _form, preview_files = self.read_form_and_files()
+            self.send_json(200, {"ok": True, **preview_photo_exif_uploads(preview_files)})
             return
 
         form, files = self.read_form_and_files()
@@ -10918,6 +11993,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         except ValueError as exc:
                             skipped.append(f"{filename}: {exc}")
                             continue
+                        append_observation_media(
+                            observation,
+                            save_observation_image_media(
+                                str(observation.get("observation_id", "")),
+                                item,
+                                observation.get("observed_at"),
+                            ),
+                        )
                         imported.append(observation)
                         working_rows.append(observation)
                     observation_species_id = catalog_form_string(form, "observation_species_id") or species_id
@@ -10980,7 +12063,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     for item in files.get("observation_exif_images", [])
                     if isinstance(item, dict) and item.get("filename") and item.get("content")
                 ]
-                exif_fields: list[dict[str, object]] = []
+                exif_uploads: list[tuple[dict[str, object], dict[str, object]]] = []
                 skipped: list[str] = []
                 for item in uploaded_exif:
                     filename = str(item.get("filename", "photo"))
@@ -10989,31 +12072,48 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         skipped.append(f"{filename}: invalid upload payload")
                         continue
                     try:
-                        exif_fields.append(extract_photo_exif_observation_fields(filename, content))
+                        exif_uploads.append((extract_photo_exif_observation_fields(filename, content), item))
                     except ValueError as exc:
                         skipped.append(f"{filename}: {exc}")
                 try:
-                    updated_form = observation_form_with_exif_fields(form, exif_fields[0]) if exif_fields else form
+                    updated_form = observation_form_with_exif_fields(form, exif_uploads[0][0]) if exif_uploads else form
                     updated = observation_payload_from_form(updated_form, observations, existing)
                 except ValueError as exc:
                     set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
-                if uploaded_exif and not exif_fields:
+                if uploaded_exif and not exif_uploads:
                     set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]))
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
+                if exif_uploads:
+                    append_observation_media(
+                        updated,
+                        save_observation_image_media(
+                            str(updated.get("observation_id", observation_id)),
+                            exif_uploads[0][1],
+                            updated.get("observed_at"),
+                        ),
+                    )
                 updated_rows = [
                     updated if str(row.get("observation_id", "")) == observation_id else row
                     for row in observations
                 ]
                 created_from_extra_photos: list[dict[str, object]] = []
                 working_rows = list(updated_rows)
-                for fields in exif_fields[1:]:
+                for fields, item in exif_uploads[1:]:
                     try:
                         extra_form = observation_form_with_exif_fields(form, fields)
                         extra = observation_payload_from_form(extra_form, working_rows)
                     except ValueError as exc:
                         skipped.append(f"{fields.get('filename', 'photo')}: {exc}")
                         continue
+                    append_observation_media(
+                        extra,
+                        save_observation_image_media(
+                            str(extra.get("observation_id", "")),
+                            item,
+                            extra.get("observed_at"),
+                        ),
+                    )
                     created_from_extra_photos.append(extra)
                     working_rows.append(extra)
                 observations_payload["observations"] = updated_rows + created_from_extra_photos
@@ -11028,7 +12128,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     imported_text = ""
                     if uploaded_exif:
-                        imported_text = f" Applied EXIF from {len(exif_fields)} image(s)."
+                        imported_text = f" Applied EXIF from {len(exif_uploads)} image(s)."
                     if created_from_extra_photos:
                         imported_text += f" Created {len(created_from_extra_photos)} extra observation(s)."
                     if skipped:
@@ -11082,6 +12182,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     except ValueError as exc:
                         skipped.append(f"{filename}: {exc}")
                         continue
+                    append_observation_media(
+                        observation,
+                        save_observation_image_media(
+                            str(observation.get("observation_id", "")),
+                            item,
+                            observation.get("observed_at"),
+                        ),
+                    )
                     imported.append(observation)
                     working_rows.append(observation)
                 import_species_id = catalog_form_string(form, "observation_species_id") or species_id

@@ -53,6 +53,25 @@ def mushroom_data_report_file(file_name: str) -> Path:
     return mushroom_data_dir() / "reports" / file_name
 
 
+def mushroom_media_dir() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_MEDIA_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    return mushroom_data_dir() / "media"
+
+
+def mushroom_observation_photos_dir() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATION_PHOTOS_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    return mushroom_media_dir() / "observation-photos"
+
+
+def mushroom_observation_images_dir() -> Path:
+    """Backward-compatible alias for observation photo storage."""
+    return mushroom_observation_photos_dir()
+
+
 def mushroom_observations_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATIONS_PATH", "").strip()
     if configured:

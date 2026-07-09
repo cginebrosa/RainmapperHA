@@ -5,7 +5,7 @@
 La ruta de trabajo valida es `/Users/carlosginebrosa/Developer/RainmapperHA`. La copia antigua en iCloud/Mobile Documents no debe usarse para desarrollo, validacion ni commits porque puede estar desfasada.
 
 ## Resumen tecnico
-RainmapperHA es una aplicacion Python empaquetada en Docker y Home Assistant. El core descarga y normaliza datos meteorologicos en CSV. Una segunda capa genera mapas HTML clasicos con Bokeh y GeoJSON para visores estaticos modernos. La app de Home Assistant anade webUI, schedule interno, publicacion a `/config/www` e integracion con ingress/sidebar.
+RainmapperHA es una aplicacion Python empaquetada en Docker y Home Assistant. El core descarga y normaliza datos meteorologicos en CSV. Una segunda capa genera GeoJSON para visores modernos y, si se activa legado publico, mapas HTML clasicos con Bokeh. La app de Home Assistant anade webUI, schedule interno, MapLibre protegido, publicacion legacy opcional a `/config/www` e integracion con ingress/sidebar.
 
 La arquitectura actual no separa completamente dominio, infraestructura y UI: todavia hay scripts grandes, aunque la duplicidad fisica entre raiz y `rainmapper-app/app` ya fue retirada. Aun asi, el flujo esta estabilizado y funciona como pipeline de ficheros.
 
@@ -69,10 +69,10 @@ Hay varios entry points segun entorno:
 5. `python -m rainmapper_core.rainmapper` descarga datos y actualiza CSV historicos/incrementales.
 6. `python -m rainmapper_core.tomap` reconstruye CSV `Tomap` para los periodos acumulados desde historicos incrementales sin descargar datos nuevos, delegando en `rainmapper_core/tomap.py`.
 7. En `MODE=maps`, `MODE=all` y `Generate maps`, `python -m rainmapper_core.tomap` reconstruye `Tomap` antes de generar salidas publicables.
-8. `python -m rainmapper_core.bokeh_maps` genera HTML Bokeh en `Plots`.
+8. Si `publish_to_www=true`, `python -m rainmapper_core.bokeh_maps` genera HTML Bokeh en `Plots`.
 9. `python -m rainmapper_core.geojson` genera GeoJSON desde `Tomap` delegando en `rainmapper_core/geojson.py`.
-10. `web_server.py` publica HTML, GeoJSON y visores estaticos en `/config/www`.
-11. Home Assistant sirve Bokeh y Leaflet por `/local/...`; MapLibre operativo recomendado se sirve desde `web_server.py` por `/protected/maplibre/index.html` y datos `/protected/maplibre/data/*`. El fallback local `/local/rainmapper-maplibre/index.html` se mantiene temporalmente, pero el fallback externo `maplibre.nomentero.com` queda protegido por Cloudflare Access.
+10. `web_server.py` deja GeoJSON en `PublicData` y sirve MapLibre protegido; solo publica HTML/visores legacy en `/config/www` si `publish_to_www=true`.
+11. Home Assistant debe usar como visor operativo `/protected/maplibre/index.html` y datos `/protected/maplibre/data/*`. Bokeh, Leaflet publico y visores publicos antiguos son legado opcional bajo `/local/...` cuando `publish_to_www=true`.
 
 ## Componentes, modulos o capas principales
 
@@ -97,7 +97,7 @@ Hay varios entry points segun entorno:
 - Ruta: `rainmapper_core/bokeh_maps.py`; entrypoint `python -m rainmapper_core.bokeh_maps`.
 - Responsabilidad: leer `Tomap` y generar HTML Bokeh en `Plots`.
 - Dependencias: Bokeh, pandas, Google Maps key.
-- Relacion: salida publicada por `web_server.py` a `/config/www/Plots`.
+- Relacion: salida legacy generada/publicada solo cuando `publish_to_www=true`.
 
 ### Reconstructor Tomap
 - Ruta: `rainmapper_core/tomap.py`, sin wrappers raiz/HA; ejecutable con `python -m rainmapper_core.tomap`.
@@ -109,7 +109,7 @@ Hay varios entry points segun entorno:
 - Ruta: `rainmapper_core/geojson.py`, sin wrappers raiz/HA; ejecutable con `python -m rainmapper_core.geojson`.
 - Responsabilidad: convertir CSV `Tomap` a GeoJSON por periodo, inferir `Source`, aplicar `ignore_stations_tomap.txt` y escribir metadata de generacion.
 - Dependencias: pandas, json, pathlib.
-- Relacion: produce datos para Leaflet/MapLibre.
+- Relacion: produce datos para MapLibre protegido y, si `publish_to_www=true`, para Leaflet legacy.
 
 ### WebUI HA
 - Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py`, `rainmapper-app/app/mushroom_profiles_ui.py` y `rainmapper-app/app/mushroom_gis_mappings_ui.py`.
@@ -127,7 +127,7 @@ Hay varios entry points segun entorno:
 - Ruta: `rainmapper-local/run.sh`; `run.sh` en raiz es un wrapper compatible.
 - Responsabilidad: ejecutar Rainmapper localmente en Docker y mapear variables cortas/largas.
 - Dependencias: shell, Python para calculo schedule.
-- Relacion: entorno seguro de pruebas en Mac. En `maps/all`, ejecuta `python -m rainmapper_core.bokeh_maps` y `python -m rainmapper_core.geojson`, dejando GeoJSON actualizado en `docker-data/PublicData` para los visores locales.
+- Relacion: entorno seguro de pruebas en Mac. En `maps/all`, ejecuta `python -m rainmapper_core.geojson` y, si corresponde por configuracion legacy, `python -m rainmapper_core.bokeh_maps`, dejando GeoJSON actualizado en `docker-data/PublicData` para los visores locales.
 
 ### Runner local completo
 - Ruta: `rainmapper-local/local_all.sh`; `local_all.sh` en raiz es un wrapper compatible.
@@ -213,7 +213,7 @@ Persistencia por CSV:
 - Ultimos registros en `Tomap/LastXX_rains.csv`; por defecto `Last30_rains.csv`, configurable con `RAINMAPPER_LAST_RAINS_HISTORY` o la opcion HA `last_rains_history`.
 - Metricas Wunderground en `Data/metricas_wunderground.csv`.
 - Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat, Wunderground y AEMET. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo. El payload puede incluir `duration_seconds`, `started_at`, `finished_at`, `rows`, `stations` y `timings`; los subtiempos actuales se usan especialmente para Meteocat.
-- GeoJSON generados en `PublicData/*.geojson`. Leaflet recibe copia publica en `/local/rainmapper-leaflet/data`; MapLibre los consume desde `/protected/maplibre/data/*` para exigir login.
+- GeoJSON generados en `PublicData/*.geojson`. MapLibre protegido los consume desde `/protected/maplibre/data/*` para exigir login. Leaflet recibe copia publica en `/local/rainmapper-leaflet/data` solo cuando `publish_to_www=true`.
 
 Campos relevantes detectados o usados:
 
@@ -247,7 +247,7 @@ Schemas completos: pendiente de confirmar en detalle leyendo todos los CSV y fun
 
 - Estado persistente principal: CSV en filesystem.
 - Estado runtime webUI: diccionario global `RUN_STATE` en `web_server.py`.
-- Estado por fuente: `Data/source_status.json`, leido por `web_server.py` para mostrar tarjetas de estado, exit code, filas y duraciones por fuente. Al publicar visores, se copia tambien a `data/source_status.json` dentro de Leaflet/MapLibre; MapLibre lo usa solo para mostrar badges junto al filtro `Source`, no tiempos de proceso.
+- Estado por fuente: `Data/source_status.json`, leido por `web_server.py` para mostrar tarjetas de estado, exit code, filas y duraciones por fuente. MapLibre protegido lo sirve desde rutas protegidas de datos; si se publican visores legacy con `publish_to_www=true`, tambien se copia a sus directorios `data/`.
 - Estado de logs: `/share/rainmapper/last_run.log` se reescribe por ejecucion.
 - Estado de estaciones desactivadas: comentarios en `stations.txt` con marcadores `rainmapper-disabled`.
 - Estado de estaciones ignoradas en mapas nuevos: `ignore_stations_tomap.txt`.
@@ -260,12 +260,14 @@ WebUI HA (`web_server.py`):
 - `GET /settings`: pagina intermedia con enlaces a configuracion de la app HA; usa Supervisor self-info y rutas fallback.
 - `GET /file/<html>`: sirve mapas HTML locales.
 - `POST`: acciones run/update/maps/all y enable/disable de grupos de estaciones.
-- La portada muestra `RAINMAPPER_APP_VERSION` en el panel de estado y sus enlaces hacia visores `/local/...` incluyen `?v=<RAINMAPPER_APP_VERSION>` para reducir cache obsoleta en el frontend de Home Assistant. Los `index.html` de Leaflet/MapLibre tambien deben mantener sus referencias internas `style.css`, `config.js` y `app.js` con el mismo cache-buster de version; `scripts/smoke-test.sh` lo valida desde `0.2.65`.
+- La portada muestra `RAINMAPPER_APP_VERSION` en el panel de estado. El enlace operativo principal a MapLibre usa `/protected/maplibre/index.html?v=<RAINMAPPER_APP_VERSION>`; los enlaces `/local/...` solo aplican a salidas legacy cuando `publish_to_www=true`. Los `index.html` de Leaflet/MapLibre tambien deben mantener sus referencias internas `style.css`, `config.js` y `app.js` con el mismo cache-buster de version; `scripts/smoke-test.sh` lo valida desde `0.2.65`.
 
-Home Assistant publica:
+Home Assistant sirve:
 
-- `/local/Plots/...`: Bokeh HTML.
-- `/local/rainmapper-leaflet/index.html`: Leaflet fallback local. En la exposicion externa actual, `leaflet.nomentero.com` queda protegido por Cloudflare Access.
+- `/protected/maplibre/index.html`: visor operativo recomendado, servido por `web_server.py`.
+- `/protected/maplibre/data/*`: GeoJSON y estado para MapLibre protegido.
+- `/local/Plots/...`: Bokeh HTML solo si `publish_to_www=true`.
+- `/local/rainmapper-leaflet/index.html`: Leaflet legacy solo si `publish_to_www=true`.
 - `http://<HA_IP>:8099/protected/maplibre/index.html`: entrada protegida MapLibre servida por `web_server.py`; Cloudflared debe apuntar el hostname externo al servicio `http://<HA_IP>:8099`.
 - OpenTopoMap y Esri: tiles raster usados por Leaflet y MapLibre.
 - Terrarium/Mapzen DEM externo: fuente `raster-dem` opcional para terrain 3D en MapLibre. No se empaqueta dentro de Docker ni se publica desde `/config/www`.
@@ -315,20 +317,20 @@ docker compose build rainmapper
 docker compose run --rm rainmapper
 ```
 
-`MODE=maps` y `MODE=all` generan tanto mapas Bokeh como GeoJSON local en `docker-data/PublicData`.
+`MODE=maps` y `MODE=all` generan GeoJSON local en `docker-data/PublicData`; Bokeh y visores publicos legacy se generan/publican solo si `publish_to_www=true`.
 
 Home Assistant:
 
 - El repo se anadio como repositorio de apps/add-ons en HA cuando era publico. Desde el 2026-06-22 se decidio mantener el repo GitHub `cginebrosa/RainmapperHA` privado para no exponer codigo ni logica de descarga, abriendolo solo en ventanas operativas para que HA detecte updates. Tras validar `0.2.137` en HA, auditoria final del 2026-06-25: repo privado (`private=true`, `visibility=private`, rama `inicial`).
 - HA detecta `repository.yaml` y `rainmapper-app/config.yaml`.
 - Desde `0.2.57`, `rainmapper-app/config.yaml` define `image: ghcr.io/cginebrosa/rainmapperha`, por lo que HA debe descargar la imagen versionada en vez de construirla localmente.
-- Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh` antes de subir el commit de version. Esto evita que HA vea un update antes de que exista la imagen en GHCR.
+- Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh`. Flujo operativo actual: validar, hacer bump, commit/push, publicar/verificar imagen y avisar al usuario en cuanto HA pueda probarla.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
 - El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
-- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.180/latest` esta documentada como imagen publicada, validada e instalada en HA con digest multi-arch `sha256:c5b59f5b534b08154b64bba94bc13a3d2aa8d74c2f10f9a3b7ccd84eecbe80b8`, y `0.2.179` queda como rollback inmediato. No se ha reconsultado GHCR en la auditoria local del 2026-07-05. Antecedente historico: `0.2.137/latest` se publico y valido en HA el 2026-06-25 con digest multi-arch `sha256:539c879d2c7f9dfc282d671b71c627a858b48d59778e3195ec2d0254accee928`; tras aquella limpieza remota, GHCR conservaba solo `0.2.137,latest` y cuatro auxiliares sin tag del mismo push multi-arch.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.190/latest` esta publicada/verificada con digest multi-arch `sha256:b0e81a8f1db09c2cef3da7af5dfa6ae25a97814c8a7ee7fffd81bc0e423f8d2b`.
 - Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando solo la ultima version validada, `latest` y las entradas auxiliares sin tag asociadas al mismo push multi-arch. Esto evita acumular basura en GitHub Packages. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch mientras HA pueda necesitar reinstalarla.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
-- Los updates se distribuyen publicando primero la imagen localmente, subiendo despues el commit a GitHub, abriendo el repo temporalmente si HA necesita detectar metadata, y usando `Check for updates`/`Update` en HA. Tras validar la version, el repo debe volver a privado.
+- Los updates se distribuyen con commit de version en GitHub e imagen GHCR publicada/verificada. Si HA necesita detectar metadata desde el repo privado, abrir el repo temporalmente, usar `Check for updates`/`Update` en HA y volver a privado tras validar.
 
 ## Convenciones de codigo
 - Scripts Python monoliticos con constantes globales y funciones procedurales.
@@ -349,5 +351,5 @@ Home Assistant:
 - `web_server.py` concentra demasiadas responsabilidades.
 - Gestion de version dispersa entre `config.yaml`, `CHANGELOG.md`, assets y Dockerfile.
 - API keys de mapas cliente son visibles en navegador si se usan tiles externos con token.
-- Bokeh, Leaflet y MapLibre conviven; MapLibre es el visor principal recomendado, Leaflet queda como fallback publicado y Bokeh como referencia/compatibilidad.
+- MapLibre protegido es el visor principal recomendado. Bokeh, Leaflet publico y visores publicos antiguos quedan como legacy opcional bajo `publish_to_www`; no asumir que existen en `/config/www` ni en `/local`.
 - La configuracion Cloudflare real no esta versionada. Estado operativo conocido desde 2026-06-22: HTTP redirige a HTTPS, HSTS esta activo con `includeSubDomains`, `rainmap.nomentero.com` sirve la ruta protegida y los subdominios fallback externos `leaflet.nomentero.com`/`maplibre.nomentero.com` quedan protegidos con Cloudflare Access.

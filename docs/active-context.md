@@ -17,14 +17,18 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Version HA en preparacion/publicacion: `0.2.190`.
+- Ultimo commit/release HA publicado: `fb2d2c7 Release Home Assistant 0.2.190`.
+- Version HA del repo: `0.2.190`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.190`
+  y `latest`, digest multi-arch
+  `sha256:b0e81a8f1db09c2cef3da7af5dfa6ae25a97814c8a7ee7fffd81bc0e423f8d2b`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
 ## Foco activo
 
-El foco activo combina el modulo de setas y la medicion de rendimiento del
-backend `run_all`:
+El foco activo vuelve a estar principalmente en el modulo de setas. La medicion
+de rendimiento de `run_all` queda como seguimiento puntual:
 
 - Observaciones reales con hosts, bosque, suelo, habitat y orientacion
   observados.
@@ -34,7 +38,8 @@ backend `run_all`:
 - Separacion clara de origenes: perfil/literatura, Campo, GIS/DEM.
 - Estado de modelo desactualizado y reconstruccion manual desde UI.
 - Diagnostico de tiempos reales por proceso/fase tras detectar `run_all` en
-  torno a 12 minutos en RPi.
+  torno a 12 minutos en RPi; tras `0.2.190`, el ultimo dato HA comunicado es
+  `08:55`, sin mejora visible atribuible a quitar Bokeh/Leaflet publico.
 
 El resto de visores esta estable salvo que una tarea lo toque explicitamente.
 
@@ -79,8 +84,31 @@ casi 1 minuto en la fase de mapas.
 
 La generacion/publicacion legacy en `/config/www` queda controlada por
 `publish_to_www`. Con `publish_to_www: false` se omiten Bokeh/Google Maps,
-`/local/Plots` y Leaflet publico; Tomap, GeoJSON y MapLibre protegido se siguen
-generando. Si hiciera falta reactivar ese legado, cambiar esa opcion a `true`.
+`/local/Plots`, Leaflet publico y el heatmap/MapLibre publico antiguo; Tomap,
+GeoJSON en `PublicData` y MapLibre protegido se siguen generando. Si hiciera
+falta reactivar ese legado, cambiar esa opcion a `true`. `0.2.190` publica este
+contrato y deja `publish_to_www: false` por defecto.
+
+El usuario valida que `0.2.190` funciona en HA. El ultimo `run_all` comunicado
+queda en `08:55`. El `source_status.json` de ese run (`2026-07-08T17:07:58`)
+muestra:
+
+- Meteoclimatic: `121.1s`; mayores costes `fetch_seconds=30.5s`,
+  `write_incremental_seconds=17.7s`, `read_observations_seconds=13.0s` y
+  `upsert_incremental_seconds=12.9s`.
+- Meteocat: `119.1s`; domina escritura/upsert CSV:
+  `write_incremental_seconds=49.4s` y `upsert_incremental_seconds=32.7s`.
+- AEMET: `125.8s`; domina `write_outputs_seconds=46.5s` y
+  `build_daily_seconds=26.1s`.
+- Wunderground: `345.8s`; domina `scrape_seconds=338.1s`.
+
+La actualizacion queda en unos `7:45` desde el primer `started_at` al
+`generated_at`; frente al `run_all` total de `08:55`, mapas/otros procesos
+quedan alrededor de `1:10`. No se observa una mejora significativa por retirar
+la publicacion legacy publica porque el tiempo restante esta en Wunderground,
+escrituras/upserts de CSV grandes y Tomap/GeoJSON protegido. Salvo que se quiera
+reducir cobertura o cambiar la estrategia de Wunderground, el frente de
+rendimiento queda practicamente agotado para optimizaciones de bajo riesgo.
 
 `0.2.189` corrige el guardado parcial desde `Parametros` v0 de especies: los
 campos no renderizados/ausentes en el formulario se preservan y ya no se
@@ -204,8 +232,7 @@ Referencia: `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-e
 
 ### Parametros
 
-- Tabs internos: `Ecologia`, `Suelos`, `Topografia`, `Fenologia` y
-  `Meteorologia`.
+- Tabs internos v0: `Ecologia`, `Suelos`, `Topografia` y `Fenologia`.
 - Ecologia/Suelos/Topografia/Fenologia tienen patron de tres columnas:
   1. perfil configurado;
   2. evidencia v0;
@@ -214,7 +241,8 @@ Referencia: `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-e
   `GIS/DEM`, `Marc`.
 - `Campo` puede calcularse desde observaciones guardadas; `GIS/DEM` y agregados
   del modelo requieren reconstruccion.
-- Pendiente: cerrar `Meteorologia` con el mismo patron de comparacion.
+- No existe tab interno `Meteorologia` en modo v0; la meteorologia reconstruida
+  se revisa desde `Evidencia > Meteorologia` y desde el modelo aprendido.
 
 Referencia: `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md`.
 
@@ -283,7 +311,9 @@ Origenes que deben entenderse en UI:
 - `Evidencia` necesita rediseño semantico: aunque los titulos visibles ya no
   dicen GIS, la vista todavia debe separar mejor Campo, GIS/DEM, coincidencias
   con perfil y decisiones.
-- `Parametros > Meteorologia` no esta cerrado en el patron de tres columnas.
+- `Parametros > Fenologia` debe mostrar evidencia observada igual que el resto
+  de tabs de Parametros; no debe decir que falta modelo aprendido si otras tabs
+  ya muestran evidencia para la especie.
 - El modelo v0 puede quedar desactualizado tras editar observaciones hasta que
   el usuario pulse reconstruccion.
 - Pocas observaciones por especie: no presentar emergentes como verdad fuerte.
@@ -292,30 +322,26 @@ Origenes que deben entenderse en UI:
 - `mushroom-GIS/` contiene capas pesadas ignoradas por Git y no debe
   versionarse; en HA la copia operativa debe estar bajo `/media/rainmapper/`
   para no inflar backups de `/share`.
+- `0.2.190` funciona en HA con `publish_to_www: false`; el rendimiento queda en
+  torno a `08:55` para el ultimo `run_all` comunicado.
 
 ## Proximos pasos recomendados
 
 1. Validar visualmente con modelo reconstruido la pantalla `Parametros`,
    especialmente origenes Campo/GIS/DEM/Marc.
-2. Cerrar `Parametros > Meteorologia` con el mismo patron de tres columnas.
-3. Redisenar `Evidencia` para separar Campo, GIS/DEM y coincidencias con perfil.
-4. Validar en HA `0.2.183`: el modal de reconstruccion v0 debe refrescar
-   correctamente bajo ingress y el boton rojo debe contar solo especies
-   pendientes que sigan teniendo observaciones elegibles actuales.
-5. Diseñar promocion manual de candidatos a perfil, sin escritura automatica.
-6. Mantener o mejorar documentacion corta si se detectan nuevas contradicciones
-   entre documentos largos y codigo.
+2. Redisenar `Evidencia` para separar Campo, GIS/DEM y coincidencias con perfil.
+3. Diseñar promocion manual de candidatos a perfil, sin escritura automatica.
+4. Solo retomar rendimiento si se decide actuar sobre Wunderground, cobertura
+   de estaciones o politicas de actualizacion.
 
 ## Validaciones recientes conocidas
 
-Ultimo cierre conocido:
+Ultimo release validado localmente:
 
-- `python3 scripts/validate-mushroom-data.py` OK, 0 errores, 6 warnings
-  conocidos.
-- `python3.11 -m py_compile` de UI/core v0 OK.
-- `python3.11 -m unittest` de rutas, estado, observaciones, GIS, contexto,
-  features, modelo, Marc, validator y web auth OK, 114 tests.
-- `git diff --check` OK.
+- `./scripts/smoke-test.sh` OK, 203 tests, antes de publicar `0.2.190`.
+- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.190`
+  OK tras publicar.
+- Commit `fb2d2c7` pusheado.
 
 Repetir validaciones relevantes antes de commit.
 
@@ -324,12 +350,13 @@ Repetir validaciones relevantes antes de commit.
 - Algunos documentos largos conservan salidas antiguas bajo
   `docker-data/mushroom-lab/working`. La decision vigente es `mushroom-data`.
 - `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md` todavia dice
-  en una seccion que fenologia/clima no se comparan todavia; el codigo y el
-  contexto reciente ya avanzaron hacia tres columnas en Fenologia y pendiente en
-  Meteorologia. Leerlo como historia de rediseño, no como estado completo.
+  en una seccion que fenologia/clima no se comparan todavia y puede mencionar
+  `Meteorologia` como tab pendiente. Leerlo como historia de rediseño, no como
+  estado completo: en v0 las tabs reales de Parametros son Ecologia, Suelos,
+  Topografia y Fenologia.
 - `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`
   mantiene "Conectar observaciones al extractor meteorologico local" como
   pendiente; el flujo v0 ya tiene context/features/modelo. Esa frase queda
   historica o parcialmente obsoleta.
 - `docs/decisions.md` y `docs/todo.md` son cronologicos; entradas antiguas de
-  versiones 0.2.150-0.2.179 no deben desplazar el estado activo 0.2.180.
+  versiones 0.2.150-0.2.189 no deben desplazar el estado activo 0.2.190.

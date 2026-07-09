@@ -1,6 +1,6 @@
 # Decisions
 
-Nota de auditoria 2026-07-05: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`, ultimo commit pusheado antes de preparar el cierre `08797ae Document mushroom v0 evidence workflow`; version HA `0.2.180` verificada en `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`; no hay bump ni publicacion HA nueva. La imagen/digest `0.2.180/latest` quedan como estado previamente confirmado por el usuario, no reconsultado. Los wrappers actuales del flujo v0 son `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`. `mushroom_gis_mappings_rebuild.sh` reconstruye candidatos de mappings para capas GIS; no reconstruye observaciones. Datos vivos, artefactos v0 y estado del modelo viven bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA); `tmp/mushroom-lab/` queda solo para pruebas locales explicitas/QGIS. La evidencia GIS/meteo por observacion y el modelo aprendido v0 no modifican perfiles automaticamente. La UI de setas queda en fase local posterior a `0.2.180`: Observaciones captura hosts/bosque/suelo/habitat/orientacion observados y marca especies pendientes; Evidencia conserva subpestanas GIS/meteo/modelo pero necesita separar mejor Campo y GIS/DEM; Parametros tiene tres columnas perfil/evidencia v0/valores emergentes en Ecologia/Suelos/Topografia/Fenologia. Las decisiones de evidencia guardan estado interno reversible, no aplican cambios a `mushroom_profiles.json`. Directiva vigente: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
+Nota de auditoria 2026-07-08: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`, ultimo commit pusheado `fb2d2c7 Release Home Assistant 0.2.190`; version HA `0.2.190` verificada en `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`; imagen `ghcr.io/cginebrosa/rainmapperha:0.2.190` y `latest` publicada/verificada con digest multi-arch `sha256:b0e81a8f1db09c2cef3da7af5dfa6ae25a97814c8a7ee7fffd81bc0e423f8d2b`. Los wrappers actuales del flujo v0 son `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`. Datos vivos, artefactos v0 y estado del modelo viven bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA); capas GIS/DEM pesadas en HA viven bajo `/media/rainmapper/mushroom-GIS/`; `tmp/mushroom-lab/` queda solo para pruebas locales explicitas/QGIS. La evidencia GIS/meteo por observacion y el modelo aprendido v0 no modifican perfiles automaticamente. La UI de setas conserva Observaciones con hosts/bosque/suelo/habitat/orientacion observados, Parametros en tres columnas salvo Meteorologia pendiente, y Evidencia pendiente de separar mejor Campo/GIS/DEM/coincidencias. Directiva vigente: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
 
 ## 2026-07-05 - `mushroom-data` como fuente operativa unica de setas
 
@@ -750,11 +750,15 @@ Consecuencias:
 
 ## 2026-06-21 - Proteger MapLibre y GeoJSON con autenticacion ligera
 
+Estado: VIGENTE para MapLibre protegido y autenticacion ligera; REEMPLAZADA
+desde 2026-07-08 en lo relativo a mantener Leaflet publico como fallback por
+defecto.
+
 Decision:
 
 - MapLibre pasa a abrirse desde `/protected/maplibre/index.html` en la webUI de Home Assistant.
 - Los GeoJSON y `source_status.json` de MapLibre se sirven desde `/protected/maplibre/data/*` y requieren sesion valida.
-- Leaflet se mantiene publicado en `/local/rainmapper-leaflet` como fallback sin autenticacion.
+- Leaflet se mantenia publicado en `/local/rainmapper-leaflet` como fallback sin autenticacion durante la transicion; desde 2026-07-08 queda como salida legacy bajo `publish_to_www`.
 - Los usuarios se gestionan de forma manual en `/share/rainmapper/users.json`.
 - Historial de formato: primero se considero un fichero plano separado por punto y coma. Esa decision queda reemplazada por `users.json` como formato unico.
 - `users.json` permite campos extensibles: `username`, `name`, `email`, `password`, `role`, `enabled`, `max_devices` y `must_change_password`. `username` es el identificador de login; `name` es el nombre de la persona; `email` queda como contacto.
@@ -1256,7 +1260,8 @@ Los mapas pueden quedar accesibles por URL publica si HA esta publicado. La auto
 - `rainmapper-app/config.yaml`
 
 ### Estado
-Confirmada.
+REEMPLAZADA parcialmente por la decision 2026-07-08: `/config/www` queda solo
+para salidas legacy cuando `publish_to_www=true`.
 
 ## 2026-06-17 - Mantener Bokeh, Leaflet y MapLibre durante transicion (fecha aproximada)
 
@@ -1280,7 +1285,9 @@ Hay mas mantenimiento, pero se puede comparar comportamiento y calidad antes de 
 - `rainmapper-app/app/web_server.py`
 
 ### Estado
-Confirmada, revisable. Modificada el 2026-06-17 para reflejar que MapLibre ya funciona bien en movil segun validacion manual/reportada por el usuario, que se mantienen publicados Leaflet y MapLibre, y que MapLibre `0.2.53` pasa a ser el visor principal recomendado. Leaflet queda como fallback.
+REEMPLAZADA por la decision 2026-07-08. MapLibre protegido sigue siendo el
+visor principal; Bokeh, Leaflet publico y visores publicos antiguos quedan como
+legacy opcional bajo `publish_to_www`.
 
 ## 2026-06-17 - Retirar ruta legacy rainmapper-mobile
 
@@ -2118,3 +2125,36 @@ no son datos vivos editados por la UI.
 - `/media/rainmapper/mushroom-GIS` queda para capas pesadas no versionadas.
 - Los backups de HA pueden incluir `share` sin arrastrar las capas GIS, siempre
   que no quede una copia residual en `/share/rainmapper/mushroom-GIS`.
+
+## 2026-07-08 - Publicacion publica legacy controlada por `publish_to_www`
+
+### Estado
+VIGENTE.
+
+### Decision
+`publish_to_www` pasa a ser el unico interruptor para salidas publicas legacy:
+
+- Bokeh/Google Maps HTML en `Plots`.
+- Copia publica de Bokeh en `/config/www/Plots` y acceso `/local/Plots`.
+- Leaflet publico en `/config/www/rainmapper-leaflet`.
+- Heatmap/MapLibre publico experimental antiguo.
+
+El valor por defecto es `false`. Con `false`, Rainmapper sigue reconstruyendo
+Tomap y GeoJSON en `PublicData`, y el visor operativo recomendado sigue siendo
+MapLibre protegido en `/protected/maplibre/index.html` con datos desde
+`/protected/maplibre/data/*`. No existe un parametro separado
+`generate_bokeh_maps`.
+
+### Motivo
+Las salidas publicas Bokeh/Leaflet/heatmap eran transicion/compatibilidad. Ya no
+son necesarias para el uso normal y anadian tiempo al `run_all`, superficie de
+exposicion publica y complejidad de configuracion.
+
+### Consecuencias
+- Las carpetas antiguas de `/config/www` pueden eliminarse; si se reactiva
+  `publish_to_www=true`, las salidas legacy se regeneran.
+- La limpieza es tolerante: no es problema que
+  `/config/www/rainmapper-mobile` o `/config/www/rainmapper-maplibre-aemet` no
+  existan.
+- El visor protegido no debe depender de `/config/www`; consume `PublicData`
+  mediante rutas protegidas.

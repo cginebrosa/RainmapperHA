@@ -464,6 +464,11 @@
     "es": "observed_at, latitude, longitude y altitude_m se rellenan desde EXIF. El tipo de origen es photo_exif y el nombre del origen es el nombre del archivo.",
     "ca": "observed_at, latitude, longitude i altitude_m s'omplen des d'EXIF. El tipus d'origen es photo_exif i el nom de l'origen es el nom del fitxer."
   },
+  "ui.exif_preview_map": {
+    "en": "EXIF location preview map",
+    "es": "Mapa preview de ubicacion EXIF",
+    "ca": "Mapa preview d'ubicacio EXIF"
+  },
   "ui.update_from_exif_images": {
     "en": "Update from EXIF images",
     "es": "Actualizar desde imagenes EXIF",

@@ -9,8 +9,9 @@ Assistant. Descarga historicos meteorologicos, genera mapas de lluvia y mantiene
 un modulo de setas para registrar observaciones, revisar perfiles de especies y
 construir un modelo v0 descriptivo/auditable.
 
-El trabajo activo actual esta centrado en el modulo de setas y en diagnosticar
-el rendimiento del backend `run_all`.
+El trabajo activo actual esta centrado en el modulo de setas, en diagnosticar
+el rendimiento del backend `run_all` y en mantener solo el visor protegido como
+salida operativa principal.
 
 ## Ruta obligatoria
 
@@ -73,12 +74,13 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release funcional preparado: `a70d08c Release Home Assistant 0.2.188`.
-- Version HA del repo: `0.2.188` en `rainmapper-app/config.yaml` y
+- Ultimo release HA publicado: `fb2d2c7 Release Home Assistant 0.2.190`.
+- Version HA del repo: `0.2.190` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada previamente: `ghcr.io/cginebrosa/rainmapperha:0.2.188`,
-  digest `sha256:9ebdd67556e2ef6107cf05f88e8e4baa1483750e163605dfcd9962c897c75838`.
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.190` y
+  `latest`, digest multi-arch
+  `sha256:b0e81a8f1db09c2cef3da7af5dfa6ae25a97814c8a7ee7fffd81bc0e423f8d2b`.
 
 ## Reglas de trabajo
 
@@ -110,6 +112,16 @@ En HA equivale a:
 /share/rainmapper/mushroom-data/
 ```
 
+Las capas GIS/DEM pesadas necesarias para reconstruir contexto de setas en HA
+viven en:
+
+```text
+/media/rainmapper/mushroom-GIS/
+```
+
+No moverlas a `/share` salvo decision explicita: inflan backups completos de
+Home Assistant.
+
 `rainmapper_core/mushroom_paths.py` es el resolver canonico. No reintroducir
 lecturas legacy del modelo en `mushroom-lab/working`.
 
@@ -133,5 +145,7 @@ python3.11 -m unittest tests.test_mushroom_paths tests.test_mushroom_model_state
 git diff --check
 ```
 
-Para release HA, leer primero `docs/todo.md` porque contiene reglas estrictas de
-orden build/push/commit/push.
+Para release HA: revisar diff, ejecutar validacion local relevante, hacer bump
+de version/cache-busters, commit/push, publicar y verificar la imagen GHCR, y
+avisar al usuario en cuanto HA pueda probarla. No retrasar una prueba en HA por
+documentacion de cierre o hashes documentales.

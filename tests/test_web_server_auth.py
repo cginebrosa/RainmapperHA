@@ -776,7 +776,61 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("IMG_4144.jpeg", observation["source"]["label"])
         self.assertEqual("Carlos", observation["observer"]["name"])
         self.assertEqual("experienced", observation["observer"]["expertise"])
+        self.assertEqual(1, len(observation["media"]))
+        media = observation["media"][0]
+        self.assertEqual("photo", media["kind"])
+        self.assertEqual("IMG_4144.jpeg", media["original_filename"])
+        self.assertEqual("media/observation-photos/2025/IMG_4144.jpeg", media["path"])
+        self.assertIn("./observation-media?path=", media["url"])
+        self.assertEqual("display", media["variant"])
+        self.assertTrue((data_dir / "mushroom-data" / media["path"]).exists())
         self.assertEqual({"month": 8, "season": "summer"}, observation["derived"])
+
+    def test_mushroom_observation_exif_preview_reports_photo_position(self) -> None:
+        original_extractor = self.web_server.extract_photo_exif_observation_fields
+
+        def restore_extractor() -> None:
+            self.web_server.extract_photo_exif_observation_fields = original_extractor
+
+        self.addCleanup(restore_extractor)
+
+        def fake_extractor(filename: str, content: bytes) -> dict[str, object]:
+            if filename == "bad.jpeg":
+                raise ValueError("image has no GPS metadata")
+            return {
+                "filename": filename,
+                "observed_at": "2025-09-30",
+                "captured_at": "2025-09-30 10:42:00",
+                "captured_at_display": "30/09/2025 10:42",
+                "lat": 41.99709444444444,
+                "lon": 1.9357194444444445,
+                "altitude_m": 597.2,
+            }
+
+        self.web_server.extract_photo_exif_observation_fields = fake_extractor
+
+        payload = self.web_server.preview_photo_exif_uploads(
+            {
+                "observation_exif_images": [
+                    {"filename": "IMG_4802.jpeg", "content": b"jpeg", "content_type": "image/jpeg"},
+                    {"filename": "bad.jpeg", "content": b"jpeg", "content_type": "image/jpeg"},
+                ]
+            }
+        )
+
+        self.assertEqual(2, len(payload["previews"]))
+        ok_preview = payload["previews"][0]
+        self.assertTrue(ok_preview["ok"])
+        self.assertEqual("IMG_4802.jpeg", ok_preview["filename"])
+        self.assertEqual("2025-09-30", ok_preview["observed_at"])
+        self.assertEqual("2025-09-30 10:42:00", ok_preview["captured_at"])
+        self.assertEqual("30/09/2025 10:42", ok_preview["captured_at_display"])
+        self.assertEqual(41.99709444444444, ok_preview["lat"])
+        self.assertEqual(1.9357194444444445, ok_preview["lon"])
+        self.assertEqual(597.2, ok_preview["altitude_m"])
+        self.assertIn("maps.google.com/maps?", ok_preview["map_src"])
+        self.assertFalse(payload["previews"][1]["ok"])
+        self.assertEqual("image has no GPS metadata", payload["previews"][1]["error"])
 
     def test_mushroom_observations_update_from_exif_images_updates_and_creates_extra_rows(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -871,12 +925,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("photo_exif", updated["location"]["source"])
         self.assertEqual(619.9, updated["altitude"]["meters"])
         self.assertEqual("IMG_4144.jpeg", updated["source"]["label"])
+        self.assertEqual("IMG_4144.jpeg", updated["media"][0]["original_filename"])
+        self.assertTrue((data_dir / "mushroom-data" / updated["media"][0]["path"]).exists())
         self.assertEqual({"month": 8, "season": "summer"}, updated["derived"])
         self.assertNotEqual(observation_id, extra["observation_id"])
         self.assertEqual("amanita_caesarea", extra["species_id"])
         self.assertEqual("2025-08-07", extra["observed_at"])
         self.assertEqual(761.9, extra["altitude"]["meters"])
         self.assertEqual("IMG_4083.jpeg", extra["source"]["label"])
+        self.assertEqual("IMG_4083.jpeg", extra["media"][0]["original_filename"])
+        self.assertTrue((data_dir / "mushroom-data" / extra["media"][0]["path"]).exists())
         self.assertEqual({"month": 8, "season": "summer"}, extra["derived"])
 
     def test_mushroom_observations_create_reports_missing_coordinates(self) -> None:
@@ -1112,6 +1170,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "calibration_use": "include",
                     "source_quality": 0.9,
                     "location": {"lat": 41.2, "lon": 2.2, "source": "manual_decimal"},
+                    "media": [
+                        {
+                            "kind": "photo",
+                            "path": "media/observation-photos/2026/IMG_0001.jpeg",
+                            "url": "./observation-media?path=media%2Fobservation-photos%2F2026%2FIMG_0001.jpeg",
+                            "stored_filename": "IMG_0001.jpeg",
+                            "original_filename": "IMG_0001.jpeg",
+                            "content_type": "image/jpeg",
+                            "size_bytes": 123456,
+                        }
+                    ],
                     "site_context": {
                         "observed_host_ids": ["host_pinus_sylvestris"],
                         "habitat_notes": "",
@@ -1163,6 +1232,20 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("sort=abundance", html)
         self.assertIn("import-observation-exif", html)
         self.assertIn('name="exif_images"', html)
+        new_observation_html = html[html.index('id="new-observation"') : html.index('id="import-observation-exif"')]
+        self.assertIn('name="observation_exif_images"', new_observation_html)
+        self.assertIn('enctype="multipart/form-data"', new_observation_html)
+        self.assertNotIn('data-observation-exif-preview', new_observation_html)
+        page = self.web_server.html_page("Mushroom species", html, auto_refresh=False).decode("utf-8")
+        self.assertIn("/api/mushrooms/observation-exif-preview", page)
+        self.assertIn("updateObservationExifPreview(event.target)", page)
+        self.assertIn("URL.createObjectURL(file)", page)
+        self.assertIn('id="observation-exif-preview-modal"', page)
+        self.assertIn("applyObservationExifPreview()", page)
+        self.assertIn("closeObservationExifPreview({ clearInput: true })", page)
+        self.assertIn("captured_at_display", page)
+        self.assertNotIn("rainmapperMaplibreAuth", page)
+        self.assertNotIn("X-Rainmapper-Device", page)
         self.assertIn('name="observed_host_ids"', html)
         self.assertIn('class="profile-action-bar observations-main-actions"', html)
         self.assertIn('<details id="gis-reconstruction-lab"', html)
@@ -1176,6 +1259,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('?section=observations&amp;obs_id=obs_20260629_0001&amp;id=boletus_pinophilus&amp;date_from=2026-06-29&amp;result=abundant#observation-detail', html)
         self.assertIn("maps.google.com/maps?", html)
         self.assertIn('href="#observation-map-obs-20260629-0001">Map</a>', html)
+        self.assertIn('class="observation-photo-link" href="#observation-photo-obs-20260629-0001-', html)
+        self.assertNotIn('class="observation-photo-link" href="./observation-media?path=', html)
+        self.assertIn('id="observation-photo-raw-exif-obs-20260629-0001-', html)
+        self.assertIn('href="#observation-photo-raw-exif-obs-20260629-0001-', html)
+        self.assertIn("Raw EXIF metadata", html)
+        self.assertIn("Imagen no encontrada en disco", html)
         self.assertIn("Scots pine", html)
         self.assertNotIn("missing label:", html)
         self.assertIn("obs_20260629_0001", html)
@@ -1218,9 +1307,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ).decode("utf-8")
 
         self.assertIn("rainmapperSpeciesMaintenanceModalHistory", page)
+        self.assertIn("rainmapperSpeciesMaintenanceScrollRestore", page)
         self.assertIn("rememberSpeciesModalNavigation(event)", page)
         self.assertIn("closeSpeciesModalWithHistory(event)", page)
         self.assertIn("modalLayerForHash(targetHash)", page)
+        self.assertIn("stack.push({ url: currentUrl, y: window.scrollY || 0 })", page)
+        self.assertIn("rememberScrollRestoreForUrl(returnUrl, returnEntry.y)", page)
+        self.assertIn("}, true);", page)
 
     def test_mushroom_observation_gis_summary_renders_v0_context(self) -> None:
         result = {
@@ -1527,7 +1620,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "weather_source": "meteocat",
                     "weather_station_code": "X1",
                     "weather_station_distance_km": 4.2,
-                    "weather_gaps": ["wind_no_data_7d"],
+                    "weather_gaps": ["rain_7d_coverage_6/7", "wind_no_data_7d"],
                 },
                 {
                     "observation_id": "obs_2",
@@ -1555,13 +1648,15 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Latest v0 features join: 2026-07-02T14:00:00", html)
         self.assertIn("Present", html)
         self.assertIn("Absent", html)
-        self.assertIn("Rainfall 21d", html)
-        self.assertIn("Rainfall 60d", html)
-        self.assertIn("Temp 30d", html)
-        self.assertIn("Hum 30d", html)
-        self.assertIn("705 m", html)
-        self.assertIn("11 mm", html)
+        self.assertIn('<span>mm</span><em>21d</em>', html)
+        self.assertIn('<span>mm</span><em>60d</em>', html)
+        self.assertIn('<span>m</span><em>Alt.</em>', html)
+        self.assertIn('<span>°C</span><em>30d</em>', html)
+        self.assertIn('<span>%</span><em>30d</em>', html)
+        self.assertIn("<td>705</td>", html)
+        self.assertIn("<td>11</td>", html)
         self.assertIn("meteocat", html)
+        self.assertIn("Acumulado de lluvia de 7 dias calculado con 6 dias validos de 7", html)
         self.assertIn("wind_no_data_7d", html)
 
     def test_mushroom_local_evidence_section_renders_learned_model(self) -> None:
@@ -2696,6 +2791,82 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn('UI_LANGUAGE_VALUE="$(option ui_language en)"', run_script)
         self.assertIn('export RAINMAPPER_MUSHROOM_UI_LANGUAGE="$UI_LANGUAGE_VALUE"', run_script)
+
+    def test_mushroom_parameters_phenology_uses_observed_evidence(self) -> None:
+        profile = {
+            "species_id": "amanita_caesarea",
+            "scientific_name": "Amanita caesarea",
+            "common_names": {"en": ["Caesar mushroom"]},
+            "ecology": {},
+            "phenology": {
+                "main_months": [8, 9],
+                "secondary_months": [7],
+                "season_pattern_ids": ["season_summer"],
+            },
+            "topography": {},
+            "weather_model": {},
+            "scoring_weights": {},
+            "metadata": {},
+        }
+        catalogs = {
+            "trophic_modes": [],
+            "host_taxa": [],
+            "forest_types": [],
+            "soil_types": [],
+            "lithology_types": [],
+            "habitat_features": [],
+            "aspects": [],
+            "season_patterns": [
+                {"id": "season_summer", "label": {"en": "Summer"}},
+                {"id": "season_autumn", "label": {"en": "Autumn"}},
+            ],
+        }
+        observations = {
+            "observations": [
+                {
+                    "observation_id": "obs_july",
+                    "species_id": "amanita_caesarea",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "flush_abundance": "normal",
+                    "derived": {"month": 7, "season": "summer"},
+                },
+                {
+                    "observation_id": "obs_august",
+                    "species_id": "amanita_caesarea",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "flush_abundance": "abundant",
+                    "derived": {"month": 8, "season": "summer"},
+                },
+                {
+                    "observation_id": "obs_september",
+                    "species_id": "amanita_caesarea",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "flush_abundance": "scarce",
+                    "derived": {"month": 9, "season": "autumn"},
+                },
+            ]
+        }
+
+        html = self.web_server.mushroom_profiles_ui.render_parameters_section(
+            profile,
+            catalogs,
+            profile_view="v0",
+            parameter_view="phenology",
+            observations_payload=observations,
+        )
+
+        self.assertIn("Total observations used", html)
+        self.assertIn("<strong>3</strong>", html)
+        self.assertIn("Jul", html)
+        self.assertIn("Aug", html)
+        self.assertIn("Sep", html)
+        self.assertIn("Field", html)
+        self.assertIn("Autumn", html)
+        self.assertNotIn("No learned model has been generated yet", html)
+        self.assertNotIn("mushroom_learned_model_v0_build.sh", html)
 
     def test_mushroom_catalog_group_filter_selects_first_row_in_group(self) -> None:
         rows = [

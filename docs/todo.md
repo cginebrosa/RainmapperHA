@@ -2,7 +2,7 @@
 
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
-Regla critica de release HA: cuando se prepare una version para que el usuario la pruebe en Home Assistant, no basta con publicar GHCR. El usuario queda desbloqueado solo cuando la imagen `ghcr.io/cginebrosa/rainmapperha:<version>` esta publicada/verificada y el commit con `rainmapper-app/config.yaml` actualizado esta pusheado a GitHub. Orden obligatorio: validacion local minima, build/push imagen, verificar digest/import, commit/push del bump y avisar al usuario inmediatamente. Antes de ese aviso esta prohibido actualizar documentacion de continuidad (`docs/codex-handoff.md`, `docs/todo.md`, `docs/decisions.md` u otras notas operativas). "Documentacion minima", "solo digest", "rapida" o "para evitar contradicciones" son excepciones falsas y no se pueden usar como escape. Tampoco sustituyen la documentacion posterior: despues de avisar al usuario hay que cerrar continuidad real con estado, version, digest, validaciones y pendientes.
+Regla critica de release HA: cuando se prepare una version para que el usuario la pruebe en Home Assistant, el objetivo es desbloquear la prueba en HA cuanto antes sin dejar el repo incoherente. Orden operativo actual: revisar diff, ejecutar validacion local relevante, hacer bump de version/cache-busters, commit/push, publicar y verificar la imagen `ghcr.io/cginebrosa/rainmapperha:<version>`, y avisar al usuario inmediatamente. No retrasar la prueba por hashes en documentacion o cierre de continuidad; la documentacion viva se actualiza despues del release o en cierre de sesion.
 
 Regla operativa de permisos: si el usuario pide explicitamente subir a Git o publicar una version HA, revisar primero estado/diff y validaciones necesarias; despues usar directamente permisos elevados para `git commit`, `git push`, build/push GHCR o comandos de red necesarios, evitando el intento normal que falla por sandbox.
 
@@ -11,6 +11,22 @@ Regla operativa GHCR: para listar o borrar versiones remotas de GitHub Packages/
 Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos, ventanas meteorologicas especificas por especie ni parametros del motor por intuicion o por extrapolacion no documentada. Cada valor predictivo debe estar soportado por evidencia documental verificable, codigo fuente real o por observaciones locales trazables en `mushroom_observations.json`. Si una fuente solo permite una deduccion general, documentarla como hipotesis de diseno y mantenerla fuera del motor numerico hasta validarla. Si Codex no ha podido leer el contenido real de una fuente, no puede usarla como soporte de un valor ni afirmar que la fuente dice algo concreto.
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
+
+## Estado operativo actual (2026-07-08)
+
+- [x] Publicar HA `0.2.190`: commit `fb2d2c7`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.190` y `latest`, digest multi-arch `sha256:b0e81a8f1db09c2cef3da7af5dfa6ae25a97814c8a7ee7fffd81bc0e423f8d2b`.
+- [x] Dejar `publish_to_www` como unico interruptor legacy para Bokeh/Google Maps, `/local/Plots`, Leaflet publico y heatmap/MapLibre publico antiguo. Valor por defecto: `false`.
+- [x] Mantener MapLibre protegido como salida operativa principal en `/protected/maplibre/index.html`, con GeoJSON desde `PublicData` servido por rutas protegidas.
+- [x] Mover en HA las capas GIS/DEM pesadas fuera de `/share`: ruta operativa `/media/rainmapper/mushroom-GIS/`. El usuario copio/verifico los ficheros y retiro `/media` de backups.
+- [x] Copiar a HA los JSON micologicos locales validados (`profiles`, `reference_catalogs`, `gis_mappings`, `observations`, `labels`) y verificar checksums contra `docker-data/mushroom-data/`.
+- [x] Validar en HA `0.2.190` tras update: funciona en HA con `publish_to_www: false`; MapLibre protegido queda como salida operativa principal.
+- [x] Medir nuevo `run_all` tras `0.2.190`: ultimo dato comunicado `08:55`. `source_status.json` del run `2026-07-08T17:07:58` muestra update en unos `7:45`: Wunderground `345.8s` con `scrape_seconds=338.1s`; Meteocat/Meteoclimatic/AEMET quedan en torno a `119-126s` y dominados por escrituras/upserts CSV. Mapas/otros quedan alrededor de `1:10`. No parece quedar mucho margen de bajo riesgo salvo decisiones sobre Wunderground/cobertura.
+- [ ] Continuar UI setas: corregir/validar `Parametros > Fenologia` para que muestre evidencia observada igual que Ecologia/Suelos/Topografia, rediseñar `Evidencia`, y preparar promocion manual de evidencia a perfil sin escritura automatica.
+
+## Notas historicas conservadas
+
+Las notas siguientes son trazabilidad cronologica. No desplazan el estado
+operativo anterior ni `docs/active-context.md`.
 
 Nota de auditoria 2026-07-05: estado real contrastado con el repo antes de cierre. Rama `inicial`; ultimo commit pusheado antes de preparar este cierre `08797ae Document mushroom v0 evidence workflow`; version HA sigue en `0.2.180` en `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`; no se ha hecho bump ni publicacion HA. `.github/workflows/build-rainmapper-app.yml` sigue siendo manual (`workflow_dispatch`). `rainmapper-local/docker-compose.yml` mantiene `rainmapper-ha-ui` en `127.0.0.1:8101`; `docker compose -f rainmapper-local/docker-compose.yml ps` no muestra servicios activos. Contrato operativo vigente de setas: datos vivos, artefactos v0 reconstruibles y estado del modelo bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA); `tmp/mushroom-lab/` queda solo para pruebas explicitas/QGIS. La pantalla `Parametros` tiene estructura de tres columnas en Ecologia/Suelos/Topografia/Fenologia; `Campo` puede calcularse desde observaciones guardadas y `GIS/DEM` requiere reconstruccion. La pantalla `Observaciones` captura hosts, bosque, suelo, habitat y orientacion observados; las ediciones/importaciones marcan especies pendientes y la cabecera muestra el boton rojo `Modelo v0 desactualizado`. Validaciones de cierre: validador de setas OK con 0 errores y 6 warnings conocidos, py_compile de UI/core v0 OK, tests de rutas/estado/observaciones/GIS/contexto/features/modelo/Marc/validator/web OK con 114 tests y `git diff --check` OK. Pendiente antes de HA: smoke completo o validacion de imagen si se publica version nueva.
 
@@ -39,13 +55,31 @@ Nota de continuidad 2026-06-29: `0.2.180` queda publicada, pusheada, instalada y
 Nota historica supersedida 2026-06-27: esta nota describia `0.2.150` como version actual y un fix local pendiente. Ese estado ya no es vigente. Se conserva solo como antecedente del primer hub de catalogos; el estado operativo verificado en el cierre actual es `0.2.180` segun las notas de continuidad anteriores.
 
 ## Proximo paso recomendado
-Siguiente paso recomendado: validar visualmente con modelo reconstruido el flujo nuevo de `Parametros` en tres columnas y cerrar la vista de `Meteorologia` con el mismo patron. Despues redisenar `Evidencia` para que no parezca una tabla puramente GIS cuando mezcla Campo, GIS/DEM y coincidencias con perfil; el objetivo es que la UI explique claramente si un valor viene del perfil, observador, GIS/DEM o fuente literaria. `mushroom_profiles.json` conserva identidad, conocimiento base y configuracion; el conocimiento aprendido desde observaciones vive en artefactos reconstruibles bajo `mushroom-data/` junto al estado `mushroom_model_v0_state.json`. La pantalla `Evidencia > Modelo aprendido` queda como auditoria tecnica, no como lugar principal de mantenimiento. El predictor v0 sigue limitado a vegetacion/host, suelo amplio, habitat, altitud aproximada, temporada y meteorologia reconstruida; no convertir geologia fina ni viento en scoring productivo sin evidencia suficiente. Usar `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`, `docs/mushrooms/mushroom-predictor-design-es.md`, `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`, `docs/mushrooms/mushroom-profiles-v0-candidate-build-es.md` y `docs/mushrooms/literature/README.md`, separando fuente estructurada, observaciones locales e hipotesis.
+Siguiente paso recomendado: validar visualmente el flujo nuevo de `Parametros`
+en tres columnas con datos reconstruidos reales, especialmente `Fenologia`, y
+despues redisenar `Evidencia` para que no parezca una tabla puramente GIS
+cuando mezcla Campo, GIS/DEM y coincidencias con perfil. El objetivo es que la
+UI explique claramente si un valor viene del perfil, observador, GIS/DEM o
+fuente literaria. `mushroom_profiles.json` conserva identidad, conocimiento
+base y configuracion; el conocimiento aprendido desde observaciones vive en
+artefactos reconstruibles bajo `mushroom-data/` junto al estado
+`mushroom_model_v0_state.json`. La pantalla `Evidencia > Modelo aprendido`
+queda como auditoria tecnica, no como lugar principal de mantenimiento. El
+predictor v0 sigue limitado a vegetacion/host, suelo amplio, habitat, altitud
+aproximada, temporada y meteorologia reconstruida; no convertir geologia fina ni
+viento en scoring productivo sin evidencia suficiente. Usar
+`docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`,
+`docs/mushrooms/mushroom-predictor-design-es.md`,
+`docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`,
+`docs/mushrooms/mushroom-profiles-v0-candidate-build-es.md` y
+`docs/mushrooms/literature/README.md`, separando fuente estructurada,
+observaciones locales e hipotesis.
 
 - [ ] Completar rediseño de `Parametros` con comparacion aprendida v0
   - Contexto: la pantalla ya tiene tabs internos y comparacion en tres columnas: perfil, evidencia v0 y valores emergentes. La evidencia v0 mezcla datos declarados por el observador y contexto GIS/DEM, por lo que los chips deben mostrar procedencia (`Campo`, `GIS/DEM` y origen literario del perfil cuando aplique) y no presentarse como evidencia puramente observacional.
   - Ficheros relacionados: `rainmapper-app/app/mushroom_profiles_ui.py`, `rainmapper-app/app/web_server.py`, `mushroom-data/mushroom_labels.json`, `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md`.
   - Criterio de aceptacion: secciones de perfil, evidencia v0 y valores emergentes alineadas visualmente en Ecologia/Suelos/Topografia/Fenologia, labels multiidioma, chips compactos con fuente visible, sin perder inputs al guardar y sin que el modelo aprendido escriba perfiles automaticamente.
-  - Estado: iniciado tras `0.2.180`; Ecologia/Suelos/Topografia/Fenologia tienen estructura base. Pendiente validar visualmente con datos reconstruidos tras el nuevo flujo completo de modelo v0 y extender Meteorologia.
+  - Estado: iniciado tras `0.2.180`; Ecologia/Suelos/Topografia/Fenologia tienen estructura base. Pendiente validar visualmente con datos reconstruidos tras el nuevo flujo completo de modelo v0. En modo v0 no existe tab `Meteorologia`; la meteorologia reconstruida se revisa desde `Evidencia > Meteorologia` y el modelo aprendido.
 
 - [ ] Separar claramente Campo, GIS/DEM y mezcla en pantallas de evidencia y modelo v0
   - Contexto: el usuario detecto que llamar `GIS` a la evidencia de hosts/bosques confundia el origen real de los datos. Un host declarado en observacion y un host detectado por GIS/DEM son evidencias distintas; ambas pueden alimentar features/modelo v0, pero la UI debe mostrar fuente y soporte sin ocultar esa diferencia.
@@ -80,7 +114,7 @@ Siguiente paso recomendado: validar visualmente con modelo reconstruido el flujo
   - Contexto: `Evidencia > Modelo aprendido` ya resume por especie los calculos de `mushroom_model_v0.json`, pero como pantalla aislada solo sirve para auditoria. Para que ayude al mantenimiento, sus calculos deben aparecer al lado del parametro que se revisa.
   - Ficheros relacionados: `rainmapper-app/app/mushroom_profiles_ui.py`, `rainmapper-app/app/web_server.py`, `rainmapper_core/mushroom_learned_model.py`, `docker-data/mushroom-data/mushroom_model_v0.json`, `docker-data/mushroom-data/mushroom_model_v0_state.json`, `mushroom-data/mushroom_labels.json`, `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md`, `docs/mushrooms/mushroom-predictor-design-es.md`, `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`.
   - Criterio de aceptacion: en `Parametros`, mostrar soporte observado junto a hosts, bosques, suelos, habitat, altitud, fenologia y meteorologia v0; en `Especies > General`, mostrar resumen compacto de observaciones usadas, gaps y contradicciones; en `Especies > Ecologia`, marcar declarado/observado/no observado junto a cada afinidad; en `Especies > Fenologia y Topografia`, comparar meses y altitud declarados contra lo observado. La UI debe ser multiidioma, compacta y humana; la vista tecnica de `Evidencia > Modelo aprendido` queda como detalle. No debe escribir perfiles automaticamente.
-  - Estado: iniciado. La pantalla `Parametros` ya tiene tabs internos (`Ecologia`, `Suelos`, `Topografia`, `Fenologia`, `Meteorologia`) y estructura de tres columnas para perfil, evidencia v0 y valores emergentes en Ecologia/Suelos/Topografia/Fenologia. Pendiente validar visualmente con datos reconstruidos y extender/cerrar Meteorologia. El modelo aprendido actual es descriptivo: separa positivos/negativos, cuenta soporte categorico con procedencia (`field`/`gis`), calcula rangos numericos y reporta gaps. No predice ni calcula score operativo.
+  - Estado: iniciado. La pantalla `Parametros` v0 tiene tabs internos (`Ecologia`, `Suelos`, `Topografia`, `Fenologia`) y estructura de tres columnas para perfil, evidencia v0 y valores emergentes. Pendiente validar visualmente con datos reconstruidos y redisenar `Evidencia`. El modelo aprendido actual es descriptivo: separa positivos/negativos, cuenta soporte categorico con procedencia (`field`/`gis`), calcula rangos numericos y reporta gaps. No predice ni calcula score operativo.
 
 - [ ] Mejorar reconstruccion meteorologica de observaciones con IDW por radio
   - Contexto: el primer `observation_context_builder` usa la estacion diaria mas cercana con cobertura suficiente. Es simple y trazable, pero puede fallar si esa estacion tiene datos inconsistentes o huecos locales. El visor MapLibre ya tiene una capa IDW que estima metricas desde estaciones cercanas dentro de un radio.
@@ -278,7 +312,7 @@ Siguiente paso recomendado: validar visualmente con modelo reconstruido el flujo
   - Contexto: MapLibre `0.2.53` incorpora Satellite+ como base por defecto, Hybrid raster, Topographic raster y estilos vectoriales; Leaflet se mantiene como fallback con Topographic/Hybrid.
   - Ficheros relacionados: `rainmapper_core/viewers/maplibre-viewer/`, `rainmapper_core/viewers/leaflet-viewer/`.
   - Criterio de aceptacion: Hybrid, Topographic y Satellite+ cargan correctamente, el cambio entre capas conserva marcadores, periodo, vista y popup en movil.
-  - Estado: validado manualmente por el usuario en HA/iPhone; pendiente de confirmacion automatizada. Leaflet queda como fallback publicado.
+  - Estado: validado manualmente por el usuario en HA/iPhone; pendiente de confirmacion automatizada. Historico: Leaflet quedaba como fallback publicado durante la transicion; desde 2026-07-08 es legacy bajo `publish_to_www`.
   - Riesgo si no se hace: decidir retirada de Leaflet sin confirmar que MapLibre cubre bien las capas raster que interesan.
 
 - [x] Mantener sincronizadas raiz y app HA
