@@ -74,13 +74,13 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA publicado: `fb2d2c7 Release Home Assistant 0.2.190`.
-- Version HA del repo: `0.2.190` en `rainmapper-app/config.yaml` y
+- Ultimo release HA publicado: `7babefc Release Home Assistant 0.2.191`.
+- Version HA del repo: `0.2.191` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.190` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.191` y
   `latest`, digest multi-arch
-  `sha256:b0e81a8f1db09c2cef3da7af5dfa6ae25a97814c8a7ee7fffd81bc0e423f8d2b`.
+  `sha256:94ea9201914ec3ef8f4a177a16c221b6432af5aa06e9b2d29033435b4e0f69db`.
 
 ## Reglas de trabajo
 

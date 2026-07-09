@@ -17,11 +17,11 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo commit/release HA publicado: `fb2d2c7 Release Home Assistant 0.2.190`.
-- Version HA del repo: `0.2.190`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.190`
+- Ultimo commit/release HA publicado: `7babefc Release Home Assistant 0.2.191`.
+- Version HA del repo: `0.2.191`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.191`
   y `latest`, digest multi-arch
-  `sha256:b0e81a8f1db09c2cef3da7af5dfa6ae25a97814c8a7ee7fffd81bc0e423f8d2b`.
+  `sha256:94ea9201914ec3ef8f4a177a16c221b6432af5aa06e9b2d29033435b4e0f69db`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -114,6 +114,14 @@ rendimiento queda practicamente agotado para optimizaciones de bajo riesgo.
 campos no renderizados/ausentes en el formulario se preservan y ya no se
 sobrescriben con `null`, evitando errores de validacion al cambiar solo
 topografia como `altitude_max_m`.
+
+`0.2.191` publica el trabajo de observaciones micologicas con imagenes:
+almacenamiento de fotos reducidas en `mushroom-data/media/observation-photos/`,
+preview EXIF con foto, fecha/hora, coordenadas, altitud y mapa antes de aplicar
+al formulario, aplicacion diferida hasta `Guardar observacion`, miniaturas en
+detalle/mapa y modales internos de imagen/EXIF. Tambien incluye compactacion de
+tablas de evidencia meteorologica y restauracion de posicion/navegacion al
+cerrar modales.
 
 ## Fuente de verdad operativa
 
@@ -323,7 +331,8 @@ Origenes que deben entenderse en UI:
   versionarse; en HA la copia operativa debe estar bajo `/media/rainmapper/`
   para no inflar backups de `/share`.
 - `0.2.190` funciona en HA con `publish_to_www: false`; el rendimiento queda en
-  torno a `08:55` para el ultimo `run_all` comunicado.
+  torno a `08:55` para el ultimo `run_all` comunicado. `0.2.191` queda
+  pendiente de validacion HA.
 
 ## Proximos pasos recomendados
 
@@ -338,10 +347,10 @@ Origenes que deben entenderse en UI:
 
 Ultimo release validado localmente:
 
-- `./scripts/smoke-test.sh` OK, 203 tests, antes de publicar `0.2.190`.
-- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.190`
+- `./scripts/smoke-test.sh` OK, 205 tests, antes de publicar `0.2.191`.
+- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.191`
   OK tras publicar.
-- Commit `fb2d2c7` pusheado.
+- Commit `7babefc` pusheado.
 
 Repetir validaciones relevantes antes de commit.
 
@@ -359,4 +368,4 @@ Repetir validaciones relevantes antes de commit.
   pendiente; el flujo v0 ya tiene context/features/modelo. Esa frase queda
   historica o parcialmente obsoleta.
 - `docs/decisions.md` y `docs/todo.md` son cronologicos; entradas antiguas de
-  versiones 0.2.150-0.2.189 no deben desplazar el estado activo 0.2.190.
+  versiones 0.2.150-0.2.190 no deben desplazar el estado activo 0.2.191.
