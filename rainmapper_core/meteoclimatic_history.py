@@ -42,6 +42,28 @@ OBSERVATION_COLUMNS = [
     "wind_source_height_m",
 ]
 
+OBSERVATION_STRING_COLUMNS = [
+    "Codi Estació",
+    "Estació",
+    "Comarca",
+    "Municipi",
+    "Provincia",
+    "Altitud",
+    "Latitud",
+    "Longitud",
+    "Ultima Lectura",
+    "Variable",
+    "Unitat",
+    "Data Local",
+    "Hora Local",
+]
+
+
+def read_meteoclimatic_observations(path):
+    """Read raw Meteoclimatic observations without pandas chunk inference."""
+    dtype = {column: "string" for column in OBSERVATION_STRING_COLUMNS}
+    return pd.read_csv(path, decimal=",", dtype=dtype, low_memory=False)
+
 
 def normalize_observation_frame(df):
     """Return Meteoclimatic observations with a stable schema and key types."""

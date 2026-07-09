@@ -30,6 +30,7 @@ from rainmapper_core.incremental_upsert import upsert_incremental
 from rainmapper_core.meteoclimatic_history import (
     OBSERVATION_COLUMNS as METEOCLIMATIC_OBSERVATION_COLUMNS,
     build_meteoclimatic_daily_incremental,
+    read_meteoclimatic_observations,
     update_meteoclimatic_observations,
 )
 from rainmapper_core.wind import (
@@ -1132,7 +1133,7 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timin
     observations_path = _DATA_PATH+'Meteoclimatic_observations_incremental.csv'
     step_start_time = time_module.perf_counter()
     if os.path.exists(observations_path):
-        observations_old = pd.read_csv(observations_path, decimal=',')
+        observations_old = read_meteoclimatic_observations(observations_path)
     else:
         observations_old = pd.DataFrame(columns=METEOCLIMATIC_OBSERVATION_COLUMNS)
     record_timing(timings, 'read_observations_seconds', step_start_time)

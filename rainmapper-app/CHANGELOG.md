@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.193
+
+- Read raw Meteoclimatic observation history with explicit text dtypes to avoid pandas mixed-type warnings on altitude/location metadata.
+
 ## 0.2.192
 
 - Refine mushroom Species and Observations layouts, including compact observation rows and a better General metadata card.

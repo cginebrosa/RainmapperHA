@@ -1,9 +1,11 @@
 import unittest
+from tempfile import TemporaryDirectory
 
 import pandas as pd
 
 from rainmapper_core.meteoclimatic_history import (
     build_meteoclimatic_daily_incremental,
+    read_meteoclimatic_observations,
     update_meteoclimatic_observations,
 )
 
@@ -66,6 +68,21 @@ class MeteoclimaticHistoryTest(unittest.TestCase):
         self.assertEqual(row["wind_gust_kmh"], 18.0)
         self.assertEqual(row["wind_direction_deg"], 0.0)
         self.assertEqual(row["wind_observation_count"], 2)
+
+    def test_read_observations_keeps_location_columns_as_strings(self):
+        rows = [
+            observation("ES1", "2026-06-24 08:00:00", 4, 10, 350),
+            observation("ES2", "2026-06-24 09:00:00", 4, 10, 350),
+        ]
+        rows[1]["Altitud"] = "Not set yet"
+        with TemporaryDirectory() as tmp_dir:
+            path = f"{tmp_dir}/observations.csv"
+            pd.DataFrame(rows).to_csv(path, decimal=",", index=False)
+
+            result = read_meteoclimatic_observations(path)
+
+        self.assertEqual(str(result["Altitud"].dtype), "string")
+        self.assertEqual(result.loc[1, "Altitud"], "Not set yet")
 
 
 if __name__ == "__main__":
