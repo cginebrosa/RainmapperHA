@@ -1806,7 +1806,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       display: flex;
       flex-direction: column;
       gap: 10px;
-      min-width: min(420px, 42vw);
+      flex: 1 1 auto;
+      min-width: min(760px, 55vw);
     }}
     .profile-header-selector {{
       align-items: center;
@@ -1844,10 +1845,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .profile-hero-chips {{
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-wrap: nowrap;
+      gap: 7px;
       justify-content: end;
-      max-width: 760px;
+      min-width: 0;
+      width: 100%;
     }}
     .profile-status-chip {{
       align-items: center;
@@ -1858,7 +1860,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       display: inline-flex;
       gap: 5px;
       min-height: 30px;
-      padding: 5px 9px;
+      padding: 5px 8px;
       white-space: nowrap;
     }}
     .profile-status-chip.accepted,
@@ -5538,12 +5540,14 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (!href) {{
         return;
       }}
+      rememberObservationListScroll();
       rememberSelectedDetailScroll({{ url: href }});
       window.location.href = href;
     }}
     const speciesModalHistoryKey = "rainmapperSpeciesMaintenanceModalHistory";
     const speciesModalScrollRestoreKey = "rainmapperSpeciesMaintenanceScrollRestore";
     const selectedDetailScrollKey = "rainmapperSelectedDetailScrollY";
+    const observationListScrollKey = "rainmapperObservationListScroll";
     function currentRelativeUrl() {{
       return window.location.pathname + window.location.search + window.location.hash;
     }}
@@ -5736,6 +5740,63 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         window.scrollTo({{ top: scrollY }});
       }}, 0);
     }}
+    function observationListContextFromUrl(urlText) {{
+      var url;
+      try {{
+        url = new URL(urlText || currentRelativeUrl(), window.location.origin);
+      }} catch (error) {{
+        return "";
+      }}
+      if (url.searchParams.get("section") !== "observations") {{
+        return "";
+      }}
+      url.searchParams.delete("obs_id");
+      return url.pathname + "?" + url.searchParams.toString() + "#observations-list";
+    }}
+    function observationListShell() {{
+      return document.querySelector("#observations-workspace .observations-table-shell");
+    }}
+    function rememberObservationListScroll() {{
+      var shell = observationListShell();
+      var context = observationListContextFromUrl(currentRelativeUrl());
+      if (!shell || !context) {{
+        return;
+      }}
+      try {{
+        window.sessionStorage.setItem(observationListScrollKey, JSON.stringify({{
+          context: context,
+          top: shell.scrollTop || 0,
+          left: shell.scrollLeft || 0
+        }}));
+      }} catch (error) {{}}
+    }}
+    function restoreObservationListScroll() {{
+      var shell = observationListShell();
+      var context = observationListContextFromUrl(currentRelativeUrl());
+      if (!shell || !context) {{
+        return;
+      }}
+      var restored = false;
+      try {{
+        var payload = JSON.parse(window.sessionStorage.getItem(observationListScrollKey) || "{{}}");
+        if (payload && payload.context === context) {{
+          if (Number.isFinite(Number(payload.top))) {{
+            shell.scrollTop = Number(payload.top);
+            restored = true;
+          }}
+          if (Number.isFinite(Number(payload.left))) {{
+            shell.scrollLeft = Number(payload.left);
+          }}
+        }}
+      }} catch (error) {{}}
+      if (!restored) {{
+        var selected = shell.querySelector("tr.observation-row.selected");
+        if (selected) {{
+          var target = selected.offsetTop - (shell.clientHeight / 2) + (selected.clientHeight / 2);
+          shell.scrollTop = Math.max(0, target);
+        }}
+      }}
+    }}
     function mushroomApiBasePath() {{
       return window.location.pathname.replace(new RegExp("/mushrooms/profiles/?$"), "");
     }}
@@ -5875,12 +5936,16 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (field && preview.lat !== null && preview.lat !== undefined && preview.lon !== null && preview.lon !== undefined) {{
         field.value = String(preview.lat) + ", " + String(preview.lon);
       }}
+      field = form.querySelector("[name='location_source']");
+      if (field && preview.lat !== null && preview.lat !== undefined && preview.lon !== null && preview.lon !== undefined) {{
+        field.value = "photo_exif";
+      }}
       field = form.querySelector("[name='altitude_m']");
       if (field && preview.altitude_m !== null && preview.altitude_m !== undefined) {{
         field.value = String(Math.round(Number(preview.altitude_m)));
       }}
       field = form.querySelector("[name='altitude_source']");
-      if (field) {{
+      if (field && preview.altitude_m !== null && preview.altitude_m !== undefined) {{
         field.value = "photo_exif";
       }}
       field = form.querySelector("[name='source_type']");
@@ -6351,6 +6416,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (observationModalClose) {{
         var observationLayer = observationModalClose.closest(".modal-layer");
         if (observationLayer && observationLayer.querySelector(".observation-form")) {{
+          rememberObservationListScroll();
           clearObservationExifInputs(observationLayer);
         }}
       }}
@@ -6402,6 +6468,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         selectEvidenceMapPoint(mapButton);
       }}
     }});
+    document.addEventListener("submit", function(event) {{
+      if (event.target && event.target.closest && event.target.closest("#observations-workspace")) {{
+        rememberObservationListScroll();
+      }}
+    }});
     window.addEventListener("resize", function() {{
       fitProfileListToViewport();
       revealActiveProfileListItem();
@@ -6421,6 +6492,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       setProfileReturnTabs();
       restoreModalScrollPosition();
       restoreObservationScroll();
+      restoreObservationListScroll();
     }});
   </script>
 </body>
@@ -9034,6 +9106,7 @@ def observation_payload_from_form(
         raise ValueError("Observation date is required.")
     location_input, lat, lon, location_source = parse_observation_coordinates(form)
     altitude_m = catalog_form_optional_number(form, "altitude_m")
+    source_type = catalog_form_string(form, "source_type")
     observed_host_ids = catalog_form_list(form, "observed_host_ids")
     if len(observed_host_ids) > 3:
         raise ValueError("Select at most 3 observed host trees.")
@@ -9060,7 +9133,7 @@ def observation_payload_from_form(
             "expertise": catalog_form_string(form, "observer_expertise"),
         },
         "source": {
-            "type": catalog_form_string(form, "source_type"),
+            "type": source_type,
             "label": catalog_form_string(form, "source_label"),
             "url": catalog_form_string(form, "source_url"),
             "notes": catalog_form_string(form, "source_notes"),

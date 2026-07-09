@@ -3534,6 +3534,17 @@ def render_general_dashboard(
     optimal_altitude_row = "" if is_v0_view(profile_view) else value_row(ui_label("ui.optimal_altitude"), f'{topography.get("altitude_optimal_min_m", "-")} - {topography.get("altitude_optimal_max_m", "-")} m')
     parked_count = inactive_v0_affinity_count(ecology)
     parked_row = value_row("Aparcado para v0", f"{parked_count} afinidades") if is_v0_view(profile_view) and parked_count else ""
+    metadata_card = f"""
+      <article class="profile-overview-card">
+        {card_title(7, ui_label("ui.metadata"), "metadata")}
+        {value_row(ui_label("metadata.created_at"), metadata.get("created_at"))}
+        {value_row(ui_label("metadata.updated_at"), metadata.get("updated_at"))}
+        {value_row(ui_label("metadata.created_by"), metadata.get("created_by"))}
+        {value_row(ui_label("ui.review_status"), value_label(metadata.get("review_status")))}
+        {value_row(ui_label("ui.source_quality"), value_label(metadata.get("source_quality")))}
+        {value_row(ui_label("ui.requires_human_validation"), ui_label("ui.yes") if metadata.get("requires_human_validation") is True else ui_label("ui.no"))}
+      </article>
+    """
     return f"""
     <section class="profile-overview-grid">
       <article class="profile-overview-card identity">
@@ -3573,17 +3584,7 @@ def render_general_dashboard(
         {value_row(ui_label("ui.local_calibration_status"), value_label(confidence.get("local_calibration_status")))}
         {value_row(ui_label("ui.priority"), value_label(confidence.get("calibration_priority")))}
       </article>
-      <article class="profile-overview-card full">
-        {card_title(7, ui_label("ui.metadata"), "metadata")}
-        <div class="profile-metadata-strip">
-          {value_row(ui_label("metadata.created_at"), metadata.get("created_at"))}
-          {value_row(ui_label("metadata.updated_at"), metadata.get("updated_at"))}
-          {value_row(ui_label("metadata.created_by"), metadata.get("created_by"))}
-          {value_row(ui_label("ui.review_status"), value_label(metadata.get("review_status")))}
-          {value_row(ui_label("ui.source_quality"), value_label(metadata.get("source_quality")))}
-          {value_row(ui_label("ui.requires_human_validation"), ui_label("ui.yes") if metadata.get("requires_human_validation") is True else ui_label("ui.no"))}
-        </div>
-      </article>
+      {metadata_card}
     </section>
     """
 
@@ -3623,14 +3624,6 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
     general_dashboard = render_general_dashboard(profile, catalogs, ecology, phenology, topography, weather_model, scoring, confidence, metadata, profile_view)
     duplicate_species_id = f"{species_id}_copy"
     duplicate_scientific_name = f"{profile.get('scientific_name', species_id)} copy"
-    v0_href = profile_query_url(species_id, search, section="species", profile_view="v0")
-    enriched_href = profile_query_url(species_id, search, section="species", profile_view="enriched")
-    view_switch = (
-        '<div class="profile-view-switch">'
-        f'<a class="button-link {"active" if v0_mode else ""}" href="{html.escape(v0_href, quote=True)}">V0</a>'
-        f'<a class="button-link {"active" if not v0_mode else ""}" href="{html.escape(enriched_href, quote=True)}">Enriched</a>'
-        "</div>"
-    )
     weather_tab_input = '' if v0_mode else '<input type="radio" name="profile_tab" id="profile-tab-weather">'
     scoring_tab_input = '' if v0_mode else '<input type="radio" name="profile_tab" id="profile-tab-scoring">'
     json_tab_input = '' if v0_mode else '<input type="radio" name="profile_tab" id="profile-tab-json">'
@@ -3711,9 +3704,10 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
             <p class="meta">{html.escape(profile_common_name(profile))} · {html.escape(species_id)}</p>
           </div>
         </div>
-        <div class="profile-hero-chips">{status_chips}</div>
+        <div class="profile-hero-side">
+          <div class="profile-hero-chips">{status_chips}</div>
+        </div>
       </div>
-      {view_switch}
       <form method="post" action="{html.escape(profile_query_url(species_id, search, section='species', profile_view=profile_view), quote=True)}" onsubmit="return confirm('Save this species profile and validate the full mushroom dataset?')">
         <input type="hidden" name="profile_action" value="save_profile_form">
         <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
@@ -3826,6 +3820,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           </div>
         </div>
         <div class="profile-action-bar">
+          <a class="button-link primary-link" href="#new-species-modal">{html.escape(ui_label("ui.new_species"))}</a>
           <button class="secondary" name="profile_action" value="backup_profiles_keep" type="submit" formnovalidate onclick="return confirm('Create a manual keep backup of the full species profiles file now?')">{html.escape(ui_label("ui.backup"))}</button>
           {save_button}
           <a class="button-link secondary-link" href="#duplicate-species-modal">{html.escape(ui_label("ui.duplicate_species"))}</a>
@@ -4508,8 +4503,8 @@ def render_observation_table(
         body.append(
             f'<tr class="observation-row{selected_class}" data-observation-select data-observation-href="{html.escape(select_href, quote=True)}" onclick="selectObservationRow(this)">'
             f"<td>{html.escape(str(row.get('observed_at', '-')))}</td>"
-            f"<td><strong>{html.escape(species_labels.get(species_id, species_id))}</strong><br><span class=\"meta\">{html.escape(species_id)}</span></td>"
-            f"<td>{coordinates}<br><span class=\"meta\">{html.escape(str(location.get('source', '-')) if isinstance(location, dict) else '-')}</span></td>"
+            f"<td><strong>{html.escape(species_labels.get(species_id, species_id))}</strong></td>"
+            f"<td>{coordinates}</td>"
             f"<td>{html.escape(altitude_text)}</td>"
             f"<td>{html.escape(abundance)}</td>"
             f"<td>{html.escape(str(observer.get('name', '-') or '-') if isinstance(observer, dict) else '-')}</td>"
@@ -4633,6 +4628,7 @@ def render_observation_form_modal(
     location_input = str(location.get("input", "") if isinstance(location, dict) else "")
     lat_value = "" if not isinstance(location, dict) or location.get("lat") is None else str(location.get("lat"))
     lon_value = "" if not isinstance(location, dict) or location.get("lon") is None else str(location.get("lon"))
+    location_source = str(location.get("source", "") if isinstance(location, dict) else "")
     altitude_value = "" if not isinstance(altitude, dict) or altitude.get("meters") is None else str(altitude.get("meters"))
     map_action = ""
     if observation_id and observation_location(row):
@@ -4690,6 +4686,7 @@ def render_observation_form_modal(
               <div class="admin-field"><label>{html.escape(ui_label("location.lat"))}</label><input name="location_lat" type="number" step="any" value="{html.escape(lat_value, quote=True)}"></div>
               <div class="admin-field"><label>{html.escape(ui_label("location.lon"))}</label><input name="location_lon" type="number" step="any" value="{html.escape(lon_value, quote=True)}"></div>
               <div class="admin-field compact"><label>{html.escape(ui_label("altitude.meters"))}</label><input name="altitude_m" type="number" step="1" value="{html.escape(altitude_value, quote=True)}"></div>
+              <div class="admin-field"><label>{html.escape(ui_label("catalog_group.observation_location_sources"))}</label><select name="location_source">{catalog_select_options(catalogs, "observation_location_sources", location_source, ui_label("ui.not_informed"))}</select></div>
               <div class="admin-field"><label>{html.escape(ui_label("altitude.source"))}</label><select name="altitude_source">{catalog_select_options(catalogs, "observation_altitude_sources", str(altitude.get("source", "") if isinstance(altitude, dict) else ""), ui_label("ui.not_informed"))}</select></div>
             </div>
           </section>

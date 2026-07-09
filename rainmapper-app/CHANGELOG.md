@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.192
+
+- Refine mushroom Species and Observations layouts, including compact observation rows and a better General metadata card.
+- Separate observation source type from location and altitude sources, and preserve explicit EXIF/manual origins.
+- Rebuild local observation origin metadata from stored photos when EXIF matches the observation.
+- Preserve the internal Observations list scroll position across row selection and observation modals.
+
 ## 0.2.191
 
 - Add mushroom observation photo storage and EXIF preview/apply flow for observation create, edit and duplicate screens.

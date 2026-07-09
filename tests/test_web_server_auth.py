@@ -664,6 +664,100 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("41.3874, 2.1686", observation["location"]["input"])
         self.assertEqual("manual_decimal", observation["location"]["source"])
 
+    def test_mushroom_observations_photo_exif_source_does_not_imply_location_source(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        redirect = handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["amanita_caesarea"],
+                "observed_at": ["2025-09-30"],
+                "location_lat": ["41.99709444"],
+                "location_lon": ["1.93571944"],
+                "altitude_m": ["596.8"],
+                "altitude_source": ["photo_exif"],
+                "flush_abundance": ["abundant"],
+                "source_quality": ["1"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "observer_expertise": ["experienced"],
+                "source_type": ["photo_exif"],
+                "source_label": ["IMG_4802.jpeg"],
+            }
+        )
+
+        self.assertEqual("?section=observations&id=amanita_caesarea&obs_id=obs_20250930_0001#observations-workspace", redirect)
+        payload = json.loads((data_dir / "mushroom-data" / "mushroom_observations.json").read_text(encoding="utf-8"))
+        observation = payload["observations"][0]
+        self.assertEqual("photo_exif", observation["source"]["type"])
+        self.assertEqual("manual_decimal", observation["location"]["source"])
+        self.assertEqual("photo_exif", observation["altitude"]["source"])
+
+    def test_mushroom_observations_explicit_location_source_is_preserved(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["amanita_caesarea"],
+                "observed_at": ["2025-09-30"],
+                "location_lat": ["41.99709444"],
+                "location_lon": ["1.93571944"],
+                "location_source": ["photo_exif"],
+                "altitude_m": ["596.8"],
+                "altitude_source": ["photo_exif"],
+                "flush_abundance": ["abundant"],
+                "source_quality": ["1"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "observer_expertise": ["experienced"],
+                "source_type": ["photo_exif"],
+                "source_label": ["IMG_4802.jpeg"],
+            }
+        )
+
+        payload = json.loads((data_dir / "mushroom-data" / "mushroom_observations.json").read_text(encoding="utf-8"))
+        observation = payload["observations"][0]
+        self.assertEqual("photo_exif", observation["source"]["type"])
+        self.assertEqual("photo_exif", observation["location"]["source"])
+        self.assertEqual("photo_exif", observation["altitude"]["source"])
+
     def test_mushroom_observations_duplicate_opens_unsaved_template(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
