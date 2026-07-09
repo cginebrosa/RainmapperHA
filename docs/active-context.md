@@ -17,11 +17,11 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo commit/release HA publicado: `7babefc Release Home Assistant 0.2.191`.
-- Version HA del repo: `0.2.191`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.191`
+- Ultimo commit/release HA publicado: `fe8150b Release Home Assistant 0.2.192`.
+- Version HA del repo: `0.2.192`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.192`
   y `latest`, digest multi-arch
-  `sha256:94ea9201914ec3ef8f4a177a16c221b6432af5aa06e9b2d29033435b4e0f69db`.
+  `sha256:8a751cde37ad159567ad483d7237b3feaf7efac297cc87c65a3b3a5d1fa51b9f`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -122,6 +122,17 @@ al formulario, aplicacion diferida hasta `Guardar observacion`, miniaturas en
 detalle/mapa y modales internos de imagen/EXIF. Tambien incluye compactacion de
 tablas de evidencia meteorologica y restauracion de posicion/navegacion al
 cerrar modales.
+
+`0.2.192` publica refinamientos posteriores de UI setas: filas de observacion
+mas compactas, tarjeta de metadatos de especies dentro de `General`, selector
+visible de origen de ubicacion, separacion estricta entre tipo de origen,
+origen de ubicacion y origen de altitud, y restauracion del scroll interno de
+la lista de Observaciones. En local se reconstruyo
+`docker-data/mushroom-data/mushroom_observations.json` comparando fotos
+guardadas bajo `mushroom-data/media/` con EXIF: 47 observaciones quedan como
+foto/EXIF coincidente y 2 Morchella sin foto quedan manuales. Ese JSON y
+`media/` son datos operativos ignorados por git; copiarlos a HA si se quiere
+replicar el estado local.
 
 ## Fuente de verdad operativa
 
@@ -347,10 +358,10 @@ Origenes que deben entenderse en UI:
 
 Ultimo release validado localmente:
 
-- `./scripts/smoke-test.sh` OK, 205 tests, antes de publicar `0.2.191`.
-- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.191`
+- `./scripts/smoke-test.sh` OK, 207 tests, antes de publicar `0.2.192`.
+- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.192`
   OK tras publicar.
-- Commit `7babefc` pusheado.
+- Commit `fe8150b` pusheado.
 
 Repetir validaciones relevantes antes de commit.
 
@@ -368,4 +379,4 @@ Repetir validaciones relevantes antes de commit.
   pendiente; el flujo v0 ya tiene context/features/modelo. Esa frase queda
   historica o parcialmente obsoleta.
 - `docs/decisions.md` y `docs/todo.md` son cronologicos; entradas antiguas de
-  versiones 0.2.150-0.2.190 no deben desplazar el estado activo 0.2.191.
+  versiones 0.2.150-0.2.191 no deben desplazar el estado activo 0.2.192.
