@@ -1664,6 +1664,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Quercus ilex - Holm oak", html)
         self.assertIn(">Declared and observed<", html)
         self.assertIn(">Field<", html)
+        self.assertIn('<a class="evidence-source-chip source-field active" href="#evidence-observations-host-affinities-host-quercus-ilex-field"', html)
+        self.assertIn('<span class="evidence-source-chip source-gis"><span>GIS/DEM</span><strong>0</strong></span>', html)
+        self.assertNotIn("evidence-observation-link", html)
         self.assertIn('<span class="label">Declared, not observed</span><span class="value">0</span>', html)
 
     def test_mushroom_local_evidence_section_renders_weather_features(self) -> None:

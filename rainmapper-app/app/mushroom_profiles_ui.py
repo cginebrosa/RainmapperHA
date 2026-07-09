@@ -1354,11 +1354,28 @@ def local_evidence_counts(
                 item_id = str(value or "").strip()
                 if not item_id:
                     continue
-                item = counts[context_field].setdefault(item_id, {"count": 0, "observations": []})
+                item = counts[context_field].setdefault(
+                    item_id,
+                    {
+                        "count": 0,
+                        "observations": [],
+                        "sources": ["gis"],
+                        "source_support": {"gis": 0},
+                        "source_observations": {"gis": []},
+                    },
+                )
                 item["count"] = int(item.get("count", 0) or 0) + 1
+                source_support = item.get("source_support")
+                if isinstance(source_support, dict):
+                    source_support["gis"] = int(source_support.get("gis", 0) or 0) + 1
                 examples = item.get("observations")
                 if isinstance(examples, list) and observation_id and observation_id not in examples:
                     examples.append(observation_id)
+                source_observations = item.get("source_observations")
+                if isinstance(source_observations, dict):
+                    gis_examples = source_observations.setdefault("gis", [])
+                    if isinstance(gis_examples, list) and observation_id and observation_id not in gis_examples:
+                        gis_examples.append(observation_id)
     return observation_count, counts
 
 
@@ -1394,7 +1411,7 @@ def local_evidence_counts_from_features(
                     continue
                 item = counts[context_field].setdefault(
                     item_id,
-                    {"count": 0, "observations": [], "sources": []},
+                    {"count": 0, "observations": [], "sources": [], "source_support": {}, "source_observations": {}},
                 )
                 item["count"] = int(item.get("count", 0) or 0) + 1
                 examples = item.get("observations")
@@ -1405,6 +1422,14 @@ def local_evidence_counts_from_features(
                     sources = item.get("sources")
                     if isinstance(sources, list) and source not in sources:
                         sources.append(source)
+                    source_support = item.get("source_support")
+                    if isinstance(source_support, dict):
+                        source_support[source] = int(source_support.get(source, 0) or 0) + 1
+                    source_observations = item.get("source_observations")
+                    if isinstance(source_observations, dict):
+                        source_examples = source_observations.setdefault(source, [])
+                        if isinstance(source_examples, list) and observation_id and observation_id not in source_examples:
+                            source_examples.append(observation_id)
     return observation_count, counts
 
 
@@ -1965,6 +1990,56 @@ def evidence_decision_button(
     )
 
 
+def evidence_source_counts(observed: dict[str, object]) -> tuple[int, int]:
+    """Return Field and GIS/DEM support counts for a local evidence item."""
+    source_support = observed.get("source_support")
+    if not isinstance(source_support, dict):
+        source_support = {}
+    sources = set(list_string_values(observed.get("sources")))
+    field_count = int(source_support.get("field", 0) or 0)
+    gis_count = int(source_support.get("gis", 0) or 0) + int(source_support.get("dem", 0) or 0)
+    total_count = int(observed.get("count", 0) or 0)
+    if not source_support:
+        if "field" in sources:
+            field_count = total_count
+        if "gis" in sources or "dem" in sources:
+            gis_count = total_count
+    return field_count, gis_count
+
+
+def evidence_source_observation_ids(observed: dict[str, object], source_group: str) -> list[str]:
+    """Return observation IDs supporting one evidence source group."""
+    source_observations = observed.get("source_observations")
+    if not isinstance(source_observations, dict):
+        return []
+    source_keys = ("field",) if source_group == "field" else ("gis", "dem")
+    values: list[str] = []
+    for source in source_keys:
+        for observation_id in list_string_values(source_observations.get(source)):
+            if observation_id not in values:
+                values.append(observation_id)
+    return values
+
+
+def evidence_source_chip(label: str, count: int, css_class: str, modal_id: str = "") -> str:
+    """Render one compact source-count chip for the local evidence table."""
+    tone = " active" if count else ""
+    content = (
+        f'<span>{html.escape(label)}</span><strong>{html.escape(str(count))}</strong>'
+    )
+    if count and modal_id:
+        return (
+            f'<a class="evidence-source-chip {html.escape(css_class, quote=True)}{tone}" '
+            f'href="#{html.escape(modal_id, quote=True)}" '
+            f'title="{html.escape(ui_label("ui.evidence_view_observations"), quote=True)}">'
+            f'{content}</a>'
+        )
+    return (
+        f'<span class="evidence-source-chip {html.escape(css_class, quote=True)}{tone}">'
+        f'{content}</span>'
+    )
+
+
 def render_local_evidence_group(
     title: str,
     group_key: str,
@@ -2007,11 +2082,6 @@ def render_local_evidence_group(
     for item_id in all_ids:
         observed = observed_items.get(item_id, {})
         count = int(observed.get("count", 0) or 0)
-        observation_ids = [
-            str(value)
-            for value in observed.get("observations", [])
-            if str(value or "").strip()
-        ] if isinstance(observed.get("observations"), list) else []
         declared = item_id in declared_ids
         status, tone = local_evidence_status(declared, count, observation_count)
         current_decision = decisions.get((species_id, group_key, item_id), "")
@@ -2045,42 +2115,51 @@ def render_local_evidence_group(
             if declared else
             ui_label("ui.evidence_profile_value_not_declared_help")
         )
-        observations_help = f"{count}. {ui_label('ui.evidence_observations_value_help')}"
-        observations_cell = html.escape(str(count))
-        sources = [
-            learned_source_label(source)
-            for source in list_string_values(observed.get("sources"))
-        ]
-        sources_text = ", ".join(sources)
-        if count and observation_ids:
-            modal_id = evidence_anchor_id("evidence-observations", group_key, item_id)
-            item_label = labels.get(item_id, item_id)
-            modal_rows = evidence_observation_rows(observation_ids, reconstruction_lookup, observation_lookup, catalogs)
-            observations_cell = (
-                f'<a class="evidence-observation-link" href="#{html.escape(modal_id, quote=True)}" '
-                f'title="{html.escape(ui_label("ui.evidence_view_observations"), quote=True)}">'
-                f'{count}</a>'
-            )
+        observations_help = ui_label("ui.evidence_observations_value_help")
+        field_count, gis_count = evidence_source_counts(observed)
+        item_label = labels.get(item_id, item_id)
+        field_observation_ids = evidence_source_observation_ids(observed, "field")
+        gis_observation_ids = evidence_source_observation_ids(observed, "gis")
+        field_modal_id = ""
+        gis_modal_id = ""
+        if field_count and field_observation_ids:
+            field_modal_id = evidence_anchor_id("evidence-observations", group_key, item_id, "field")
             modals.append(
                 render_evidence_observation_modal(
-                    modal_id,
+                    field_modal_id,
                     species_id,
                     search,
                     profile_view,
                     evidence_view,
-                    item_label,
-                    modal_rows,
+                    f"{item_label} - {ui_label('ui.source_field')}",
+                    evidence_observation_rows(field_observation_ids, reconstruction_lookup, observation_lookup, catalogs),
                 )
             )
-        if count and sources_text:
-            observations_cell += f'<span class="meta">{html.escape(sources_text)}</span>'
+        if gis_count and gis_observation_ids:
+            gis_modal_id = evidence_anchor_id("evidence-observations", group_key, item_id, "gis")
+            modals.append(
+                render_evidence_observation_modal(
+                    gis_modal_id,
+                    species_id,
+                    search,
+                    profile_view,
+                    evidence_view,
+                    f"{item_label} - {ui_label('ui.source_gis_dem')}",
+                    evidence_observation_rows(gis_observation_ids, reconstruction_lookup, observation_lookup, catalogs),
+                )
+            )
+        source_cells = (
+            evidence_source_chip(ui_label("ui.source_field"), field_count, "source-field", field_modal_id)
+            + evidence_source_chip(ui_label("ui.source_gis_dem"), gis_count, "source-gis", gis_modal_id)
+        )
+        profile_state = ui_label("ui.evidence_profile_declared") if declared else ui_label("ui.evidence_profile_not_declared")
         status_help = local_evidence_status_help(declared, count, observation_count)
         decision_help = local_evidence_decision_help(current_decision)
         rows.append(
             "<tr>"
             f"<td><strong>{html.escape(labels.get(item_id, item_id))}</strong><span class=\"meta\">{html.escape(item_id)}</span></td>"
-            f'<td title="{html.escape(profile_help, quote=True)}">{html.escape(ui_label("ui.yes") if declared else ui_label("ui.no"))}</td>'
-            f'<td title="{html.escape(observations_help, quote=True)}">{observations_cell}</td>'
+            f'<td title="{html.escape(profile_help, quote=True)}"><span class="evidence-profile-state{" declared" if declared else ""}">{html.escape(profile_state)}</span></td>'
+            f'<td title="{html.escape(observations_help, quote=True)}"><div class="evidence-source-breakdown">{source_cells}</div></td>'
             f'<td><span class="evidence-status {html.escape(tone)}" title="{html.escape(status_help, quote=True)}">{html.escape(status)}</span></td>'
             f'<td><span class="evidence-decision" title="{html.escape(decision_help, quote=True)}">{html.escape(local_evidence_decision_label(current_decision))}</span></td>'
             f'<td title="{html.escape(ui_label("ui.evidence_actions_help"), quote=True)}"><form method="post" class="evidence-action-form">'
@@ -2095,9 +2174,9 @@ def render_local_evidence_group(
         )
     header = (
         "<thead><tr>"
-        "<th>ID</th>"
+        f"<th>{html.escape(ui_label('ui.evidence_value'))}</th>"
         f'<th title="{html.escape(ui_label("ui.evidence_profile_v0_help"), quote=True)}">{html.escape(ui_label("ui.evidence_profile_v0"))}</th>'
-        f'<th title="{html.escape(ui_label("ui.evidence_observations_help"), quote=True)}">Obs.</th>'
+        f'<th title="{html.escape(ui_label("ui.evidence_observations_help"), quote=True)}">{html.escape(ui_label("ui.evidence_local_evidence"))}</th>'
         f'<th title="{html.escape(ui_label("ui.evidence_status_help"), quote=True)}">{html.escape(ui_label("ui.evidence_status"))}</th>'
         f'<th title="{html.escape(ui_label("ui.evidence_decision_help"), quote=True)}">{html.escape(ui_label("ui.evidence_decision"))}</th>'
         f'<th title="{html.escape(ui_label("ui.evidence_actions_help"), quote=True)}">{html.escape(ui_label("ui.evidence_actions"))}</th>'

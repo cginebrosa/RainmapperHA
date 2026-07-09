@@ -2169,6 +2169,21 @@
     "es": "Indica si este ID ya esta declarado como valor activo v0 en el perfil de la especie.",
     "ca": "Indica si aquest ID ja esta declarat com a valor actiu v0 al perfil de l'especie."
   },
+  "ui.evidence_local_evidence": {
+    "en": "Local evidence",
+    "es": "Evidencia local",
+    "ca": "Evidencia local"
+  },
+  "ui.evidence_profile_declared": {
+    "en": "Declared",
+    "es": "Declarado",
+    "ca": "Declarat"
+  },
+  "ui.evidence_profile_not_declared": {
+    "en": "Not declared",
+    "es": "No declarado",
+    "ca": "No declarat"
+  },
   "ui.evidence_profile_value_declared_help": {
     "en": "This ID is declared as an active value in this species v0 profile.",
     "es": "Este ID esta declarado como valor activo en el perfil v0 de esta especie.",
@@ -2228,6 +2243,11 @@
     "en": "View observations",
     "es": "Ver observaciones",
     "ca": "Veure observacions"
+  },
+  "ui.evidence_value": {
+    "en": "Value",
+    "es": "Valor",
+    "ca": "Valor"
   },
   "ui.evidence_weather": {
     "en": "Weather",

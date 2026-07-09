@@ -3621,11 +3621,17 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .local-evidence-table th:nth-child(1),
     .local-evidence-table td:nth-child(1) {{
-      width: 30%;
+      width: 220px;
+    }}
+    .local-evidence-table th:nth-child(2),
+    .local-evidence-table td:nth-child(2) {{
+      text-align: left;
+      width: 88px;
     }}
     .local-evidence-table th:nth-child(3),
     .local-evidence-table td:nth-child(3) {{
-      width: 68px;
+      text-align: left;
+      width: 140px;
     }}
     .local-evidence-table td:nth-child(3) .meta {{
       display: block;
@@ -3635,19 +3641,87 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .local-evidence-table th:nth-child(4),
     .local-evidence-table td:nth-child(4) {{
-      width: 118px;
+      width: 124px;
     }}
     .local-evidence-table th:nth-child(5),
     .local-evidence-table td:nth-child(5) {{
-      width: 74px;
+      width: 88px;
+    }}
+    .local-evidence-table th:nth-child(6),
+    .local-evidence-table td:nth-child(6) {{
+      width: 128px;
+    }}
+    .local-evidence-table table {{
+      min-width: 820px;
+    }}
+    .local-evidence-table td:first-child strong,
+    .local-evidence-table td:first-child span {{
+      overflow-wrap: anywhere;
     }}
     .local-evidence-table .evidence-status,
     .local-evidence-table .evidence-decision {{
+      box-sizing: border-box;
       justify-content: center;
       line-height: 1.08;
+      max-width: 100%;
       text-align: center;
       white-space: normal;
       width: 100%;
+    }}
+    .evidence-profile-state {{
+      border: 1px solid rgba(148, 163, 184, .26);
+      border-radius: 6px;
+      color: var(--muted);
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      justify-content: center;
+      max-width: 100%;
+      padding: 4px 5px;
+      text-align: center;
+      white-space: normal;
+      width: 100%;
+    }}
+    .evidence-profile-state.declared {{
+      border-color: rgba(76, 175, 80, .42);
+      color: var(--ok);
+    }}
+    .evidence-observation-count {{
+      align-items: center;
+      display: flex;
+      gap: 6px;
+      min-height: 24px;
+    }}
+    .evidence-source-breakdown {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 0;
+    }}
+    .evidence-source-chip {{
+      align-items: center;
+      border: 1px solid rgba(148, 163, 184, .22);
+      border-radius: 6px;
+      color: var(--muted);
+      display: inline-flex;
+      font-size: 11px;
+      gap: 4px;
+      line-height: 1;
+      padding: 4px 5px;
+      text-decoration: none;
+    }}
+    .evidence-source-chip strong {{
+      color: var(--fg);
+      font-size: 11px;
+    }}
+    .evidence-source-chip.active.source-field {{
+      border-color: rgba(3, 169, 244, .45);
+      color: var(--accent);
+    }}
+    .evidence-source-chip.active.source-gis {{
+      border-color: rgba(76, 175, 80, .42);
+      color: var(--ok);
     }}
     .weather-evidence {{
       display: grid;
@@ -3912,8 +3986,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .evidence-action-form {{
       display: flex;
-      flex-wrap: nowrap;
-      gap: 4px;
+      flex-wrap: wrap;
+      gap: 3px;
     }}
     .evidence-action-button {{
       background: rgba(17, 26, 35, .88);
@@ -3924,7 +3998,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-size: 11px;
       font-weight: 800;
       line-height: 1;
-      padding: 5px 7px;
+      padding: 5px 6px;
       white-space: nowrap;
     }}
     .evidence-action-button:hover,
@@ -3984,6 +4058,16 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 8px;
       grid-template-columns: 28px 86px minmax(230px, 1fr) 150px auto auto;
       padding: 9px 10px;
+    }}
+    .evidence-observation-item.selected {{
+      background: rgba(3, 169, 244, .13);
+      border-color: rgba(3, 169, 244, .78);
+      box-shadow: inset 3px 0 0 rgba(3, 169, 244, .95);
+    }}
+    .evidence-observation-item.selected .evidence-observation-index {{
+      background: rgba(3, 169, 244, .28);
+      border-color: rgba(3, 169, 244, .95);
+      color: #e8f7ff;
     }}
     .evidence-observation-date {{
       font-size: 13px;
@@ -5527,6 +5611,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       var externalLink = document.querySelector('[data-evidence-map-external="' + mapId + '"]');
       if (externalLink && external) {{
         externalLink.setAttribute("href", external);
+      }}
+      var selectedRow = button.closest(".evidence-observation-item");
+      if (selectedRow) {{
+        var list = selectedRow.closest(".evidence-observation-list");
+        if (list) {{
+          list.querySelectorAll(".evidence-observation-item.selected").forEach(function(row) {{
+            row.classList.remove("selected");
+            row.removeAttribute("aria-current");
+          }});
+        }}
+        selectedRow.classList.add("selected");
+        selectedRow.setAttribute("aria-current", "true");
       }}
     }}
     function selectObservationRow(row) {{
