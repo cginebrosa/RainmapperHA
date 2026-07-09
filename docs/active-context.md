@@ -17,11 +17,11 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo commit/release HA publicado: `fe8150b Release Home Assistant 0.2.192`.
-- Version HA del repo: `0.2.192`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.192`
+- Ultimo commit/release HA publicado: `50714ed Release Home Assistant 0.2.193`.
+- Version HA del repo: `0.2.193`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.193`
   y `latest`, digest multi-arch
-  `sha256:8a751cde37ad159567ad483d7237b3feaf7efac297cc87c65a3b3a5d1fa51b9f`.
+  `sha256:9cbf3327a732103577fed0273dc6e6824ebc3a8c191fc35715f5248c1b7b23d9`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -133,6 +133,12 @@ guardadas bajo `mushroom-data/media/` con EXIF: 47 observaciones quedan como
 foto/EXIF coincidente y 2 Morchella sin foto quedan manuales. Ese JSON y
 `media/` son datos operativos ignorados por git; copiarlos a HA si se quiere
 replicar el estado local.
+
+`0.2.193` corrige el `DtypeWarning` de pandas al leer
+`Meteoclimatic_observations_incremental.csv`: el historico crudo de
+observaciones Meteoclimatic ahora se lee con dtypes explicitos para metadatos
+de estacion, ubicacion y altitud, evitando inferencia por chunks sin cambiar el
+schema operativo.
 
 ## Fuente de verdad operativa
 
@@ -358,10 +364,10 @@ Origenes que deben entenderse en UI:
 
 Ultimo release validado localmente:
 
-- `./scripts/smoke-test.sh` OK, 207 tests, antes de publicar `0.2.192`.
-- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.192`
+- `./scripts/smoke-test.sh` OK, 208 tests, antes de publicar `0.2.193`.
+- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.193`
   OK tras publicar.
-- Commit `fe8150b` pusheado.
+- Commit `50714ed` pusheado.
 
 Repetir validaciones relevantes antes de commit.
 
@@ -379,4 +385,4 @@ Repetir validaciones relevantes antes de commit.
   pendiente; el flujo v0 ya tiene context/features/modelo. Esa frase queda
   historica o parcialmente obsoleta.
 - `docs/decisions.md` y `docs/todo.md` son cronologicos; entradas antiguas de
-  versiones 0.2.150-0.2.191 no deben desplazar el estado activo 0.2.192.
+  versiones 0.2.150-0.2.192 no deben desplazar el estado activo 0.2.193.

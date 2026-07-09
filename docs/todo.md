@@ -16,6 +16,7 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 
 - [x] Publicar HA `0.2.191`: commit `7babefc`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.191` y `latest`, digest multi-arch `sha256:94ea9201914ec3ef8f4a177a16c221b6432af5aa06e9b2d29033435b4e0f69db`.
 - [x] Publicar HA `0.2.192`: commit `fe8150b`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.192` y `latest`, digest multi-arch `sha256:8a751cde37ad159567ad483d7237b3feaf7efac297cc87c65a3b3a5d1fa51b9f`.
+- [x] Publicar HA `0.2.193`: commit `50714ed`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.193` y `latest`, digest multi-arch `sha256:9cbf3327a732103577fed0273dc6e6824ebc3a8c191fc35715f5248c1b7b23d9`. Corrige el `DtypeWarning` al leer observaciones crudas Meteoclimatic con dtypes explicitos.
 - [x] Publicar UI de observaciones micologicas con fotos: `mushroom-data/media/observation-photos/<year>/<nombre-original>`, preview EXIF con foto/fecha-hora/coordenadas/altitud/mapa, aplicacion diferida al formulario, miniaturas en detalle/mapa y modales internos de imagen/EXIF.
 - [x] Dejar `publish_to_www` como unico interruptor legacy para Bokeh/Google Maps, `/local/Plots`, Leaflet publico y heatmap/MapLibre publico antiguo. Valor por defecto: `false`.
 - [x] Mantener MapLibre protegido como salida operativa principal en `/protected/maplibre/index.html`, con GeoJSON desde `PublicData` servido por rutas protegidas.
@@ -23,7 +24,7 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 - [x] Copiar a HA los JSON micologicos locales validados (`profiles`, `reference_catalogs`, `gis_mappings`, `observations`, `labels`) y verificar checksums contra `docker-data/mushroom-data/`.
 - [x] Validar en HA `0.2.190` tras update: funciona en HA con `publish_to_www: false`; MapLibre protegido queda como salida operativa principal.
 - [x] Medir nuevo `run_all` tras `0.2.190`: ultimo dato comunicado `08:55`. `source_status.json` del run `2026-07-08T17:07:58` muestra update en unos `7:45`: Wunderground `345.8s` con `scrape_seconds=338.1s`; Meteocat/Meteoclimatic/AEMET quedan en torno a `119-126s` y dominados por escrituras/upserts CSV. Mapas/otros quedan alrededor de `1:10`. No parece quedar mucho margen de bajo riesgo salvo decisiones sobre Wunderground/cobertura.
-- [ ] Validar en HA `0.2.192`, especialmente origenes de observaciones, scroll interno de Observaciones, alta/edicion/duplicado con imagen EXIF y copia operativa desde local de `mushroom_observations.json` mas `mushroom-data/media/` a HA.
+- [ ] Validar en HA `0.2.193`, especialmente ausencia del `DtypeWarning` de Meteoclimatic, origenes de observaciones, scroll interno de Observaciones, alta/edicion/duplicado con imagen EXIF y copia operativa desde local de `mushroom_observations.json` mas `mushroom-data/media/` a HA.
 - [ ] Continuar UI setas: corregir/validar `Parametros > Fenologia` para que muestre evidencia observada igual que Ecologia/Suelos/Topografia, rediseñar `Evidencia`, y preparar promocion manual de evidencia a perfil sin escritura automatica.
 
 ## Notas historicas conservadas
