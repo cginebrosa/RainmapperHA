@@ -81,6 +81,10 @@ Para tareas de setas:
 - Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.193` y
   `latest`, digest multi-arch
   `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
+- `0.2.193` fue republicada tras un `manifest unknown` causado por limpieza
+  GHCR de manifests auxiliares multi-arch. Repo GitHub queda publico
+  temporalmente mientras HA instala; no cerrar repo ni limpiar GHCR hasta que
+  el usuario confirme instalacion/arranque.
 
 ## Reglas de trabajo
 
@@ -149,3 +153,7 @@ Para release HA: revisar diff, ejecutar validacion local relevante, hacer bump
 de version/cache-busters, commit/push, publicar y verificar la imagen GHCR, y
 avisar al usuario en cuanto HA pueda probarla. No retrasar una prueba en HA por
 documentacion de cierre o hashes documentales.
+
+Para limpieza GHCR: conservar siempre la version activa, `latest`, rollback
+inmediato y manifests/attestations auxiliares sin tag asociados. No limpiar
+durante una instalacion HA en curso.

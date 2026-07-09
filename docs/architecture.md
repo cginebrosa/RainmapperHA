@@ -159,6 +159,11 @@ Hay varios entry points segun entorno:
 - Contrato de rutas: `mushroom_paths.py` centraliza defaults (`mushroom-data/` o `/app/mushroom-data/`) y toda la copia operativa de setas bajo `/share/rainmapper/mushroom-data/`. En Docker local, `docker-data/` representa `/share/rainmapper`. `tmp/mushroom-lab/` queda reservado para pruebas locales explicitas, no para artefactos estables del modelo v0.
 - Flujo reproducible: primero `./mushroom_observation_context_rebuild.sh`, despues `./mushroom_observation_features_v0_build.sh`, despues `./mushroom_learned_model_v0_build.sh`.
 - Salidas locales principales: `docker-data/mushroom-data/mushroom_gis_observation_reconstruction.json`, `docker-data/mushroom-data/mushroom_observations_weather_features.json`, `docker-data/mushroom-data/mushroom_observation_features_v0.json`, `docker-data/mushroom-data/mushroom_model_v0.json`, `docker-data/mushroom-data/mushroom_model_v0_state.json` y reportes bajo `docker-data/mushroom-data/reports/`.
+- Media operativa: las fotos reducidas de observaciones se guardan bajo
+  `docker-data/mushroom-data/media/observation-photos/<year>/<nombre-original>`
+  en local y bajo `/share/rainmapper/mushroom-data/media/observation-photos/`
+  en HA. Son datos persistentes ignorados por Git y deben copiarse junto con
+  `mushroom_observations.json` cuando se quiera replicar el estado local en HA.
 - Relacion con perfiles: no modifica `mushroom-data/mushroom_profiles.json`. La WebUI muestra la evidencia para revision humana y futura promocion manual.
 - WebUI: el rebuild completo desde Observaciones arranca un job en segundo plano y expone progreso por `/api/mushrooms/rebuild-status`, con tiempos y ETA para medir coste real en HA sin congelar la pagina.
 - Diferencia con `mushroom_gis_mappings_rebuild.sh`: ese wrapper reconstruye candidatos de mappings para capas GIS, no reconstruye observaciones ni modelos por especie.
@@ -327,8 +332,8 @@ Home Assistant:
 - Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh`. Flujo operativo actual: validar, hacer bump, commit/push, publicar/verificar imagen y avisar al usuario en cuanto HA pueda probarla.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
 - El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
-- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.191/latest` esta publicada/verificada con digest multi-arch `sha256:94ea9201914ec3ef8f4a177a16c221b6432af5aa06e9b2d29033435b4e0f69db`.
-- Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando solo la ultima version validada, `latest` y las entradas auxiliares sin tag asociadas al mismo push multi-arch. Esto evita acumular basura en GitHub Packages. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch mientras HA pueda necesitar reinstalarla.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.193/latest` esta publicada/verificada con digest multi-arch `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
+- Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando la ultima version validada, `latest`, el rollback inmediato y las entradas auxiliares sin tag asociadas a los pushes multi-arch/attestations que se conserven. Esto evita acumular basura en GitHub Packages sin romper pulls de HA. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch mientras HA pueda necesitar instalarla o reinstalarla.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
 - Los updates se distribuyen con commit de version en GitHub e imagen GHCR publicada/verificada. Si HA necesita detectar metadata desde el repo privado, abrir el repo temporalmente, usar `Check for updates`/`Update` en HA y volver a privado tras validar.
 

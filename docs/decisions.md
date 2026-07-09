@@ -1,8 +1,76 @@
 # Decisions
 
-Nota de auditoria 2026-07-09: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`, ultimo commit/release HA pusheado `7babefc Release Home Assistant 0.2.191`; version HA `0.2.191` verificada en `rainmapper-app/config.yaml` y `rainmapper-app/Dockerfile`; imagen `ghcr.io/cginebrosa/rainmapperha:0.2.191` y `latest` publicada/verificada con digest multi-arch `sha256:94ea9201914ec3ef8f4a177a16c221b6432af5aa06e9b2d29033435b4e0f69db`. Los wrappers actuales del flujo v0 son `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`. Datos vivos, artefactos v0, estado del modelo y fotos reducidas de observaciones viven bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA), con fotos en `mushroom-data/media/observation-photos/<year>/`; capas GIS/DEM pesadas en HA viven bajo `/media/rainmapper/mushroom-GIS/`; `tmp/mushroom-lab/` queda solo para pruebas locales explicitas/QGIS. La evidencia GIS/meteo por observacion y el modelo aprendido v0 no modifican perfiles automaticamente. La UI de setas conserva Observaciones con hosts/bosque/suelo/habitat/orientacion observados, Parametros en tres columnas salvo Meteorologia pendiente, y Evidencia pendiente de separar mejor Campo/GIS/DEM/coincidencias. Directiva vigente: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
+Nota de auditoria 2026-07-10: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`; ultimo release HA `50714ed Release Home Assistant 0.2.193`; commit documental de republish previo al cierre `cace775 Document Home Assistant 0.2.193 republish`; version HA `0.2.193`; imagen `ghcr.io/cginebrosa/rainmapperha:0.2.193` y `latest` publicada/verificada con digest multi-arch `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`. El repo GitHub queda abierto/publico temporalmente durante la instalacion HA; no cerrarlo ni limpiar GHCR hasta que el usuario confirme que `0.2.193` instala y arranca. Los wrappers actuales del flujo v0 son `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`. Datos vivos, artefactos v0, estado del modelo y fotos reducidas de observaciones viven bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA), con fotos en `mushroom-data/media/observation-photos/<year>/`; capas GIS/DEM pesadas en HA viven bajo `/media/rainmapper/mushroom-GIS/`; `tmp/mushroom-lab/` queda solo para pruebas locales explicitas/QGIS. La evidencia GIS/meteo por observacion y el modelo aprendido v0 no modifican perfiles automaticamente. La UI de setas conserva Observaciones con hosts/bosque/suelo/habitat/orientacion observados, Parametros en tres columnas, y Evidencia pendiente de separar mejor Campo/GIS/DEM/coincidencias. Directiva vigente: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
+
+## 2026-07-10 - GHCR multi-arch y repo publico durante instalacion HA
+
+Estado: VIGENTE
+
+Decision:
+
+- Mantener el repositorio GitHub abierto/publico durante la deteccion,
+  instalacion o update de Home Assistant cuando HA necesite leer metadata desde
+  GitHub.
+- No limpiar GHCR hasta que el usuario confirme que la version HA actual instala
+  y arranca.
+- Al limpiar GHCR, conservar siempre la version activa, `latest`, el rollback
+  inmediato y las entradas auxiliares sin tag asociadas a los manifests
+  multi-arch/attestations de esas versiones.
+- Si HA devuelve `manifest unknown` para una version recien publicada, verificar
+  primero con `docker buildx imagetools inspect` y con acceso anonimo al
+  manifest GHCR antes de hacer bump de version.
+
+Motivo:
+
+- Tras publicar `0.2.193`, una limpieza GHCR borro manifests auxiliares sin tag
+  del push multi-arch. Docker local seguia pudiendo mostrar informacion parcial
+  si habia cache/autenticacion, pero HA fallo con `manifest unknown`.
+- Republicar la misma etiqueta `0.2.193` restauro los manifests necesarios sin
+  cambiar codigo ni version.
+
+Consecuencias:
+
+- La limpieza GHCR debe ser conservadora y consciente de la estructura
+  multi-arch, no solo de tags visibles.
+- No cerrar el repo ni tocar el paquete mientras HA esta instalando.
+
+## 2026-07-09 - Fotos de observaciones como media persistente
+
+Estado: VIGENTE
+
+Decision:
+
+- Guardar fotos reducidas de observaciones bajo
+  `mushroom-data/media/observation-photos/<year>/<nombre-original>`.
+- Conservar nombre original de la imagen dentro de una carpeta anual para evitar
+  carpetas por observacion y mantener trazabilidad con `source.name`.
+- Mantener las fotos y JSON operativo fuera de Git; en local viven bajo
+  `docker-data/mushroom-data/` y en HA bajo `/share/rainmapper/mushroom-data/`.
+- El preview EXIF de alta/edicion/duplicado es un modal separado: cancelar no
+  modifica el formulario; aceptar aplica fecha, coordenadas, altitud y origenes
+  al formulario, pero nada se escribe al JSON hasta `Guardar observacion`.
+- Las miniaturas abren modal interno de imagen/EXIF; no se abre una pestana
+  externa del navegador.
+
+Motivo:
+
+- El usuario quiere poder auditar posteriormente la foto usada para posicionar
+  cada observacion sin guardar originales enormes.
+- Una imagen alrededor de 1-2 MB por observacion es aceptable para el volumen
+  previsto.
+- La aplicacion debe evitar aplicar por error datos de una foto equivocada.
+
+Consecuencias:
+
+- Al mover datos locales a HA para validar fotos, copiar tanto
+  `mushroom_observations.json` como `mushroom-data/media/`.
+- Los campos de origen de ubicacion/altitud deben derivarse del flujo EXIF y
+  ser visibles/editables con cuidado; si una observacion antigua tiene foto
+  asociada cuyo EXIF coincide, puede reconstruirse como foto/EXIF.
 
 ## 2026-07-05 - `mushroom-data` como fuente operativa unica de setas
+
+Estado: VIGENTE
 
 Decision:
 
@@ -18,6 +86,8 @@ Motivo:
 - Home Assistant tendra menos CPU que el Mac local; por eso el estado pendiente permite reconstrucciones manuales y acotadas por especies, pero sin ocultar que el modelo esta desactualizado.
 
 ## 2026-07-04 - Modelo aprendido v0 como evidencia descriptiva
+
+Estado: VIGENTE
 
 Decision:
 
@@ -41,6 +111,8 @@ Consecuencias:
 - Cualquier promocion de candidatos al perfil debe ser manual, visible y reversible.
 
 ## 2026-07-04 - Reconstruccion de modelo v0 desde observaciones, no solo GIS
+
+Estado: VIGENTE
 
 Decision:
 
@@ -67,6 +139,8 @@ Consecuencias:
 
 ## 2026-07-04 - Evidencia local no modifica perfiles automaticamente
 
+Estado: VIGENTE
+
 Decision:
 
 - Las decisiones de evidencia GIS (`promover`, `ignorar`, `mantener`, `dudoso`, `confirmar`, `reiniciar`) guardan estado de revision interno.
@@ -85,6 +159,8 @@ Consecuencias:
 
 ## 2026-07-04 - Directiva UI multiidioma y usable
 
+Estado: VIGENTE
+
 Decision:
 
 - Toda pantalla nueva o modificada del dominio setas debe ser coherente con el look and feel existente, usable para una persona y multiidioma.
@@ -102,6 +178,8 @@ Consecuencias:
 - Las futuras pantallas de evidencias/modelo deben priorizar comparacion visual y claridad, no dumps JSON.
 
 ## 2026-06-27 - Mantener JSON de setas como defaults versionados y copia editable en HA
+
+Estado: VIGENTE
 
 Decision:
 

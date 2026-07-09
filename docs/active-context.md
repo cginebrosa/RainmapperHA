@@ -18,10 +18,17 @@ corresponda.
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
 - Ultimo commit/release HA publicado: `50714ed Release Home Assistant 0.2.193`.
+- Commit documental de republish previo a este cierre: `cace775 Document Home
+  Assistant 0.2.193 republish`.
 - Version HA del repo: `0.2.193`.
 - Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.193`
   y `latest`, digest multi-arch
   `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
+- Estado HA: el usuario inicio instalacion de `0.2.193` tras republicar la
+  imagen; falta confirmacion de arranque/validacion.
+- Estado GitHub/GHCR: repo GitHub abierto/publico temporalmente para facilitar
+  deteccion/instalacion en HA. No cerrar repo ni limpiar GHCR hasta que el
+  usuario confirme que `0.2.193` instala y arranca.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -38,8 +45,9 @@ de rendimiento de `run_all` queda como seguimiento puntual:
 - Separacion clara de origenes: perfil/literatura, Campo, GIS/DEM.
 - Estado de modelo desactualizado y reconstruccion manual desde UI.
 - Diagnostico de tiempos reales por proceso/fase tras detectar `run_all` en
-  torno a 12 minutos en RPi; tras `0.2.190`, el ultimo dato HA comunicado es
-  `08:55`, sin mejora visible atribuible a quitar Bokeh/Leaflet publico.
+  torno a 12 minutos en RPi; tras `0.2.190`, hubo un run de `08:55` y despues
+  el usuario reporto runs por debajo de 6 minutos. El principal pendiente
+  actual ya no es rendimiento sino validar `0.2.193`.
 
 El resto de visores esta estable salvo que una tarea lo toque explicitamente.
 
@@ -140,6 +148,14 @@ observaciones Meteoclimatic ahora se lee con dtypes explicitos para metadatos
 de estacion, ubicacion y altitud, evitando inferencia por chunks sin cambiar el
 schema operativo.
 
+Tras publicar `0.2.193`, una limpieza GHCR demasiado agresiva borro entradas
+auxiliares sin tag del push multi-arch y HA devolvio `manifest unknown`. La
+imagen `0.2.193/latest` se republico sin cambiar codigo ni version; el digest
+actual es `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
+Se verifico acceso anonimo al manifest con `status 200`. No repetir limpieza
+GHCR hasta que HA confirme instalacion correcta; al limpiar, conservar siempre
+el tag actual, `latest` y sus manifests/attestations auxiliares.
+
 ## Fuente de verdad operativa
 
 Para setas, en local:
@@ -178,6 +194,9 @@ Archivos operativos principales:
 - `mushroom_model_v0.json`
 - `mushroom_model_v0_state.json`
 - `reports/`
+- `media/observation-photos/<year>/<nombre-original>`: fotos reducidas de
+  observaciones, ignoradas por Git y copiables a HA junto con el JSON de
+  observaciones.
 
 `tmp/mushroom-lab/` queda para pruebas locales explicitas, QGIS, fotos y
 artefactos exploratorios.
@@ -347,17 +366,24 @@ Origenes que deben entenderse en UI:
 - `mushroom-GIS/` contiene capas pesadas ignoradas por Git y no debe
   versionarse; en HA la copia operativa debe estar bajo `/media/rainmapper/`
   para no inflar backups de `/share`.
-- `0.2.190` funciona en HA con `publish_to_www: false`; el rendimiento queda en
-  torno a `08:55` para el ultimo `run_all` comunicado. `0.2.191` queda
-  pendiente de validacion HA.
+- `0.2.190` funciona en HA con `publish_to_www: false`; el rendimiento quedo
+  en torno a `08:55` para el run anterior, y el usuario reporto despues un
+  `run_all` por debajo de 6 minutos.
+- `0.2.193` esta en instalacion HA en el cierre; validar que desaparece el
+  `DtypeWarning` Meteoclimatic y que los flujos nuevos de observaciones/fotos
+  siguen operativos.
+- No cerrar GitHub ni limpiar GHCR hasta validar `0.2.193` en HA.
 
 ## Proximos pasos recomendados
 
-1. Validar visualmente con modelo reconstruido la pantalla `Parametros`,
-   especialmente origenes Campo/GIS/DEM/Marc.
-2. Redisenar `Evidencia` para separar Campo, GIS/DEM y coincidencias con perfil.
-3. Diseñar promocion manual de candidatos a perfil, sin escritura automatica.
-4. Solo retomar rendimiento si se decide actuar sobre Wunderground, cobertura
+1. Confirmar instalacion y arranque de HA `0.2.193`.
+2. Si HA valida `0.2.193`, cerrar de nuevo el repo GitHub si procede y limpiar
+   GHCR con mucho cuidado conservando la version actual y rollback inmediato.
+3. Validar visualmente con modelo reconstruido la pantalla `Parametros`,
+   especialmente origenes Campo/GIS/DEM/Marc y `Fenologia`.
+4. Redisenar `Evidencia` para separar Campo, GIS/DEM y coincidencias con perfil.
+5. Diseñar promocion manual de candidatos a perfil, sin escritura automatica.
+6. Solo retomar rendimiento si se decide actuar sobre Wunderground, cobertura
    de estaciones o politicas de actualizacion.
 
 ## Validaciones recientes conocidas
@@ -367,7 +393,10 @@ Ultimo release validado localmente:
 - `./scripts/smoke-test.sh` OK, 208 tests, antes de publicar `0.2.193`.
 - `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.193`
   OK tras publicar.
+- Acceso anonimo GHCR a `0.2.193` OK (`status 200`) tras republicar la imagen
+  por el fallo `manifest unknown`.
 - Commit `50714ed` pusheado.
+- Commit documental `cace775` pusheado con el digest republicado.
 
 Repetir validaciones relevantes antes de commit.
 
