@@ -21,7 +21,7 @@ corresponda.
 - Version HA del repo: `0.2.193`.
 - Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.193`
   y `latest`, digest multi-arch
-  `sha256:9cbf3327a732103577fed0273dc6e6824ebc3a8c191fc35715f5248c1b7b23d9`.
+  `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 

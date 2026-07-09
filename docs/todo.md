@@ -16,7 +16,7 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 
 - [x] Publicar HA `0.2.191`: commit `7babefc`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.191` y `latest`, digest multi-arch `sha256:94ea9201914ec3ef8f4a177a16c221b6432af5aa06e9b2d29033435b4e0f69db`.
 - [x] Publicar HA `0.2.192`: commit `fe8150b`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.192` y `latest`, digest multi-arch `sha256:8a751cde37ad159567ad483d7237b3feaf7efac297cc87c65a3b3a5d1fa51b9f`.
-- [x] Publicar HA `0.2.193`: commit `50714ed`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.193` y `latest`, digest multi-arch `sha256:9cbf3327a732103577fed0273dc6e6824ebc3a8c191fc35715f5248c1b7b23d9`. Corrige el `DtypeWarning` al leer observaciones crudas Meteoclimatic con dtypes explicitos.
+- [x] Publicar HA `0.2.193`: commit `50714ed`, imagen `ghcr.io/cginebrosa/rainmapperha:0.2.193` y `latest`, digest multi-arch `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`. Corrige el `DtypeWarning` al leer observaciones crudas Meteoclimatic con dtypes explicitos.
 - [x] Publicar UI de observaciones micologicas con fotos: `mushroom-data/media/observation-photos/<year>/<nombre-original>`, preview EXIF con foto/fecha-hora/coordenadas/altitud/mapa, aplicacion diferida al formulario, miniaturas en detalle/mapa y modales internos de imagen/EXIF.
 - [x] Dejar `publish_to_www` como unico interruptor legacy para Bokeh/Google Maps, `/local/Plots`, Leaflet publico y heatmap/MapLibre publico antiguo. Valor por defecto: `false`.
 - [x] Mantener MapLibre protegido como salida operativa principal en `/protected/maplibre/index.html`, con GeoJSON desde `PublicData` servido por rutas protegidas.
