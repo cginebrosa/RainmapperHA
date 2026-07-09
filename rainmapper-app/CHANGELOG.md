@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.191
+
+- Add mushroom observation photo storage and EXIF preview/apply flow for observation create, edit and duplicate screens.
+- Improve mushroom observation photo, map and evidence modals with scroll restoration and compact detail layouts.
+
 ## 0.2.190
 
 - Use `publish_to_www` as the single switch for legacy public Bokeh/Google Maps and Leaflet publishing, disabled by default.
