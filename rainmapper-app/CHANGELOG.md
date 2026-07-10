@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.194
+
+- Use Wunderground daily JSON data as the primary source for monthly station weather, falling back to the existing HTML scraper only when the API has no data.
+- Reuse cached Wunderground station metadata to avoid unnecessary HTML fetches for known stations, reducing Wunderground scrape time while preserving incremental updates.
+- Show Wunderground API fallback errors in the source summary.
+
 ## 0.2.193
 
 - Read raw Meteoclimatic observation history with explicit text dtypes to avoid pandas mixed-type warnings on altitude/location metadata.

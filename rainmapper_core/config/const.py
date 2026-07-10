@@ -9,6 +9,13 @@ def _int_env(name, default):
     return value if value > 0 else default
 
 
+def _bool_env(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return str(value).lower() in ("true", "1", "yes", "on")
+
+
 # `const.py` used to live at the runtime root. After moving it under
 # `rainmapper_core/config`, derive that same runtime root from this file so
 # `/app` in HA/Docker and the repository root in local runs keep the same paths.
@@ -52,4 +59,5 @@ _print_dataframes = False               # Debug dataframes by printing (be caref
 _max_threads = 3                        # Recommended Wunderground threads after HA/RPi validation; use 1 for conservative diagnostics
 _max_attempts = 3                       # Number of attempts to scrap url from Wunderground
 _wunderground_full_log = False          # Imprimir log detallado de estaciones Wunderground
+_wunderground_daily_api = _bool_env('RAINMAPPER_WUNDERGROUND_DAILY_API', True)  # Use Wunderground daily JSON first; HTML remains fallback
 #_codi_provincia = '' ## NOT IMPLEMENTED

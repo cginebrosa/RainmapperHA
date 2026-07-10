@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.193"
+version: "0.2.194"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -70,6 +70,7 @@ options:
   maplibre_estimated_field_temperature_lapse_rate_c_per_100m: 0.65
   max_threads: 3
   max_attempts: 3
+  wunderground_daily_api: true
   wunderground_full_log: false
   publish_to_www: false
   gmap_api_key: ""
@@ -119,6 +120,7 @@ schema:
   maplibre_estimated_field_temperature_lapse_rate_c_per_100m: float
   max_threads: int
   max_attempts: int
+  wunderground_daily_api: bool
   wunderground_full_log: bool
   publish_to_www: bool
   gmap_api_key: password

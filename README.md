@@ -58,6 +58,7 @@ Variables/opciones principales:
 - `meteocat_max_attempts`: reintentos de peticiones Meteocat/Socrata; por defecto `3`.
 - `max_threads`: threads Wunderground; por defecto/recomendado `3` en HA tras validacion operativa. Usar `1` si se quiere una configuracion conservadora ante timeouts o carga.
 - `max_attempts`: reintentos Wunderground.
+- `wunderground_daily_api`: usa la API diaria de Wunderground como fuente primaria para tablas mensuales; si falla, cae al scraper HTML y contabiliza el fallback en el resumen.
 - `wunderground_full_log`: log detallado por estacion.
 - `publish_to_www`: publica mapas y visores en `/config/www`.
 

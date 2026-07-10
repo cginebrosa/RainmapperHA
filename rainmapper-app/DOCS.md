@@ -322,6 +322,7 @@ maplibre_estimated_field_smoothing_local_power: 3
 maplibre_estimated_field_temperature_lapse_rate_c_per_100m: 0.65
 max_threads: 3
 max_attempts: 3
+wunderground_daily_api: true
 wunderground_full_log: false
 publish_to_www: false
 gmap_api_key: ""
@@ -364,7 +365,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`: valores iniciales del heatmap MapLibre para dispositivos sin preferencias guardadas. Opacidad, radio e intensidad se expresan como porcentaje. El visor incluye una accion para restaurar esos defaults desde Settings > Heatmap.
 - `maplibre_estimated_field_enabled`, `maplibre_estimated_field_opacity`, `maplibre_estimated_field_radius`, `maplibre_estimated_field_quality`, `maplibre_estimated_field_smoothing`, `maplibre_estimated_field_altitude_correction`: valores iniciales de la capa experimental `IDW` para dispositivos sin preferencias guardadas.
 - `maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_max_radius_km`, `maplibre_estimated_field_grid_*_cell_km`, `maplibre_estimated_field_smoothing_*_power`, `maplibre_estimated_field_temperature_lapse_rate_c_per_100m`: parametros tecnicos de la interpolacion IDW. Se sirven en `/protected/maplibre/config.js` y se actualizan al reiniciar la app.
-- `max_threads`, `max_attempts`, `wunderground_full_log`: concurrencia, reintentos y logging de Wunderground.
+- `max_threads`, `max_attempts`, `wunderground_daily_api`, `wunderground_full_log`: concurrencia, reintentos, fuente diaria primaria y logging de Wunderground.
 - `publish_to_www`: activa la generacion/publicacion legacy en `/config/www` de Bokeh/Google Maps y Leaflet publico. Por defecto esta desactivado.
 - `gmap_api_key`: clave Google Maps.
 - `aemet_api_key`: clave AEMET OpenData.
@@ -487,6 +488,12 @@ Si aparecen timeouts, errores de Wunderground o carga excesiva, usar `max_thread
 
 ```yaml
 max_attempts: 3
+```
+
+`wunderground_daily_api` usa la API diaria de Wunderground como fuente primaria para tablas mensuales. Si la API falla, Rainmapper escribe un log de fallback, usa el scraper HTML existente y muestra el contador `API fallback errors` en el resumen de Wunderground:
+
+```yaml
+wunderground_daily_api: true
 ```
 
 `wunderground_full_log` activa log detallado por estacion:

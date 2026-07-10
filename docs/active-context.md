@@ -17,18 +17,16 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo commit/release HA publicado: `50714ed Release Home Assistant 0.2.193`.
-- Commit documental de republish previo a este cierre: `cace775 Document Home
-  Assistant 0.2.193 republish`.
-- Version HA del repo: `0.2.193`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.193`
+- Ultimo release HA preparado: `0.2.194`; commit Git pendiente de pushear al
+  actualizar este contexto.
+- Version HA del repo: `0.2.194`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.194`
   y `latest`, digest multi-arch
-  `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
-- Estado HA: el usuario inicio instalacion de `0.2.193` tras republicar la
-  imagen; falta confirmacion de arranque/validacion.
+  `sha256:74a6dee5b51421a244e277e52274f030d54e306a242d280837d884a61590907f`.
+- Estado HA: pendiente de instalar y validar `0.2.194`.
 - Estado GitHub/GHCR: repo GitHub abierto/publico temporalmente para facilitar
   deteccion/instalacion en HA. No cerrar repo ni limpiar GHCR hasta que el
-  usuario confirme que `0.2.193` instala y arranca.
+  usuario confirme que `0.2.194` instala y arranca.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -44,10 +42,8 @@ de rendimiento de `run_all` queda como seguimiento puntual:
 - Comparacion visual en `Parametros`: perfil, evidencia v0 y valores emergentes.
 - Separacion clara de origenes: perfil/literatura, Campo, GIS/DEM.
 - Estado de modelo desactualizado y reconstruccion manual desde UI.
-- Diagnostico de tiempos reales por proceso/fase tras detectar `run_all` en
-  torno a 12 minutos en RPi; tras `0.2.190`, hubo un run de `08:55` y despues
-  el usuario reporto runs por debajo de 6 minutos. El principal pendiente
-  actual ya no es rendimiento sino validar `0.2.193`.
+- Validar en HA que `0.2.194` reduce Wunderground con API diaria primaria y
+  cache de metadata, sin romper incrementales.
 
 El resto de visores esta estable salvo que una tarea lo toque explicitamente.
 
@@ -369,15 +365,18 @@ Origenes que deben entenderse en UI:
 - `0.2.190` funciona en HA con `publish_to_www: false`; el rendimiento quedo
   en torno a `08:55` para el run anterior, y el usuario reporto despues un
   `run_all` por debajo de 6 minutos.
-- `0.2.193` esta en instalacion HA en el cierre; validar que desaparece el
-  `DtypeWarning` Meteoclimatic y que los flujos nuevos de observaciones/fotos
-  siguen operativos.
-- No cerrar GitHub ni limpiar GHCR hasta validar `0.2.193` en HA.
+- `0.2.194` usa la API diaria JSON de Wunderground como fuente primaria para
+  tablas mensuales y reutiliza `estacions_wunderground.csv` como cache de
+  metadatos. En local, Wunderground con 99 estaciones paso de
+  `scrape_seconds=258.5s` a `8.2s`; 3 estaciones (`ICASCA2`, `IPUIGR11`,
+  `IQUERA1`) siguen cayendo a fallback HTML, contabilizadas como 6 fallbacks
+  por dos cortes mensuales.
+- No cerrar GitHub ni limpiar GHCR hasta validar `0.2.194` en HA.
 
 ## Proximos pasos recomendados
 
-1. Confirmar instalacion y arranque de HA `0.2.193`.
-2. Si HA valida `0.2.193`, cerrar de nuevo el repo GitHub si procede y limpiar
+1. Confirmar instalacion y arranque de HA `0.2.194`.
+2. Si HA valida `0.2.194`, cerrar de nuevo el repo GitHub si procede y limpiar
    GHCR con mucho cuidado conservando la version actual y rollback inmediato.
 3. Validar visualmente con modelo reconstruido la pantalla `Parametros`,
    especialmente origenes Campo/GIS/DEM/Marc y `Fenologia`.
@@ -390,13 +389,14 @@ Origenes que deben entenderse en UI:
 
 Ultimo release validado localmente:
 
-- `./scripts/smoke-test.sh` OK, 208 tests, antes de publicar `0.2.193`.
-- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.193`
-  OK tras publicar.
-- Acceso anonimo GHCR a `0.2.193` OK (`status 200`) tras republicar la imagen
-  por el fallo `manifest unknown`.
-- Commit `50714ed` pusheado.
-- Commit documental `cace775` pusheado con el digest republicado.
+- `./scripts/smoke-test.sh` OK, 211 tests, antes de publicar `0.2.194`.
+- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.194`
+  OK tras publicar; digest multi-arch
+  `sha256:74a6dee5b51421a244e277e52274f030d54e306a242d280837d884a61590907f`.
+- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:latest`
+  OK y apunta al mismo digest.
+- Prueba local Wunderground con 99 estaciones: `Updated stations: 99`,
+  `Failed stations: 0`, `API fallback errors: 6`, `scrape_seconds=8.2s`.
 
 Repetir validaciones relevantes antes de commit.
 

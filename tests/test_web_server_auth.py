@@ -166,6 +166,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("scrape 1s", wunderground_html)
         self.assertIn("normalize 2s", wunderground_html)
         self.assertIn("upsert 4s", wunderground_html)
+        self.assertIn("API fallback errors: 0", wunderground_html)
 
     def test_control_panel_tabs_preserve_existing_actions_and_links(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -3592,6 +3593,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("--create_aemet", command)
         self.assertEqual(command[command.index("--create_aemet") + 1], "true")
+        self.assertEqual(command[command.index("--wunderground_daily_api") + 1], "true")
 
     def test_webui_update_command_can_target_only_one_source(self) -> None:
         command = self.web_server.command_for("update", only_source="AEMET")

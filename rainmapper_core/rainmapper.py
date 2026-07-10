@@ -73,6 +73,7 @@ from rainmapper_core.config.const import   _codi_estacio,\
                     _max_threads,\
                     _max_attempts,\
                     _wunderground_full_log,\
+                    _wunderground_daily_api,\
                     _last_number_rains,\
                     _create_daily_stats,\
                     _create_monthly_stats,\
@@ -180,6 +181,13 @@ parser.add_argument('--wunderground_full_log',
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_wunderground_full_log,
                     help='Print detailed Wunderground log (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=False')
+parser.add_argument('--wunderground_daily_api',
+                    dest='_wunderground_daily_api',
+                    nargs='?',
+                    const=True,
+                    type=lambda x: (str(x).lower() in ['true','1','yes']),
+                    default=_wunderground_daily_api,
+                    help='Use Wunderground daily JSON API before HTML fallback (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=True')
 parser.add_argument('--meteoclimatic_pattern',
                     dest='_meteoclimatic_pattern',
                     nargs='?',
@@ -203,6 +211,7 @@ _meteocat_max_attempts = max(1, args._meteocat_max_attempts)
 _max_threads = args._max_threads
 _max_attempts = args._max_attempts
 _wunderground_full_log = args._wunderground_full_log
+_wunderground_daily_api = args._wunderground_daily_api
 _meteoclimatic_pattern = args._meteoclimatic_pattern
 _create_googlemaps_files = args._create_googlemaps_files
 _print_totals = args._print_totals
@@ -391,6 +400,9 @@ def read_incremental(_dataframe, _nrows=None):
 SOURCE_STATUS_PATH = os.path.join(_DATA_PATH, 'source_status.json')
 SOURCE_STATUSES = {}
 SOURCE_RUNTIME_METRICS = {}
+WUNDERGROUND_API_FALLBACK_ERRORS = 0
+WUNDERGROUND_STATION_METADATA_CACHE = None
+WUNDERGROUND_STATION_METADATA_LOCK = threading.Lock()
 
 def write_source_statuses():
     payload = {
@@ -465,6 +477,8 @@ def source_runtime_metric(source):
     return SOURCE_RUNTIME_METRICS.get(source, {})
 
 def source_extra_status(source):
+    if source == 'Wunderground':
+        return {'api_fallback_errors': WUNDERGROUND_API_FALLBACK_ERRORS}
     if source != 'AEMET':
         return {}
     try:
@@ -1707,6 +1721,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
     summary_station_name = ''
     summary_rows = 0
     summary_errors = []
+    summary_api_errors = 0
 
     if MERGE_DATA:
         file_prefix = 'MERGED'
@@ -1774,61 +1789,99 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                 wunderground_log(f'Retrieving Station Data for {weather_station_url}')
 
                 #scraper = parseStationData(weather_station_url)
-                scraper = parseStationData(url, max_attempts=_max_attempts, full_log=_wunderground_full_log)
+                scraper = None
+                html_string = None
+                metadata = cached_wunderground_station_metadata(weather_station_url)
 
-                try:
-                    # html_string se usa mas abajo
-                    html_string = scraper.fetch_data()
-                    if _wunderground_full_log:
-                        end_count(_legend='Fetched data for '+url)
+                if metadata:
+                    station_ID = metadata['station_ID']
+                    station_name = metadata['station_name']
+                    location_name = metadata['location_name']
+                    elevation = metadata['elevation']
+                    latitude = metadata['latitude']
+                    longitude = metadata['longitude']
+                else:
+                    scraper = parseStationData(url, max_attempts=_max_attempts, full_log=_wunderground_full_log)
+                    try:
+                        # html_string se usa mas abajo si la API no esta disponible
+                        html_string = scraper.fetch_data()
+                        if _wunderground_full_log:
+                            end_count(_legend='Fetched data for '+url)
 
-                    # Fetch and log station metadata.
-                    #elevation, latitude, longitude, station_name, station_ID, location_name = scraper.get_station_header()
-                    station_ID, station_name, location_name, elevation, latitude, longitude = scraper.get_station_header()
-                    summary_station_id = station_ID
-                    summary_station_name = station_name
-                    wunderground_log(f'Station code: {station_ID}')
-                    wunderground_log(f'Station name: {station_name}')
-                    wunderground_log(f'Municipality: {location_name}')
-                    wunderground_log(f"Latitude: {latitude}")
-                    wunderground_log(f"Longitude: {longitude}")
-                    wunderground_log(f"Altitude: {elevation} m")
+                        # Fetch and log station metadata.
+                        #elevation, latitude, longitude, station_name, station_ID, location_name = scraper.get_station_header()
+                        station_ID, station_name, location_name, elevation, latitude, longitude = scraper.get_station_header()
 
-                except Exception as e:
-                    summary_errors.append(str(e))
-                    wunderground_log(str(e))
-                    continue
+                    except Exception as e:
+                        summary_errors.append(str(e))
+                        wunderground_log(str(e))
+                        continue
+
+                summary_station_id = station_ID
+                summary_station_name = station_name
+                wunderground_log(f'Station code: {station_ID}')
+                wunderground_log(f'Station name: {station_name}')
+                wunderground_log(f'Municipality: {location_name}')
+                wunderground_log(f"Latitude: {latitude}")
+                wunderground_log(f"Longitude: {longitude}")
+                wunderground_log(f"Altitude: {elevation} m")
 # Fin modi
-                wunderground_log(f'Scraping data from {url}')
-                history_table = False
-                max_attempts = _max_attempts  # Número máximo de intentos
-                attempts = 0  # Contador de intentos
-                while not history_table and attempts < max_attempts:
-                    attempts += 1
-                    #html_string = session.get(url, timeout=timeout)
-                    doc = lh.fromstring(html_string.content)
-                    history_table = doc.xpath('//*[@id="main-page-content"]/div/div/div/lib-history/div[2]/lib-history-table/div/div/div/table/tbody')
-                    if not history_table:
-                        wunderground_log("refreshing session")
-                        session = requests.Session()
-                        html_string = session.get(url, timeout=timeout)
+                data_to_write = None
+                if _wunderground_daily_api and MONTHLY and UNIT_SYSTEM == "metric":
+                    try:
+                        data_to_write = fetch_wunderground_api_rows(
+                            weather_station_url,
+                            date_string,
+                            station_ID,
+                            station_name,
+                            location_name,
+                            elevation,
+                            latitude,
+                            longitude,
+                            session,
+                            timeout,
+                        )
+                    except WundergroundDailyApiError as e:
+                        summary_api_errors += 1
+                        print(f'Wunderground API failed for {station_ID} {date_string}: {e}. Falling back to HTML scraper.')
+
+                if data_to_write is None:
+                    wunderground_log(f'Scraping data from {url}')
+                    if scraper is None:
+                        scraper = parseStationData(url, max_attempts=_max_attempts, full_log=_wunderground_full_log)
+                    if html_string is None:
+                        html_string = scraper.fetch_data()
+                        if _wunderground_full_log:
+                            end_count(_legend='Fetched data for '+url)
+                    history_table = False
+                    max_attempts = _max_attempts  # Número máximo de intentos
+                    attempts = 0  # Contador de intentos
+                    while not history_table and attempts < max_attempts:
+                        attempts += 1
+                        #html_string = session.get(url, timeout=timeout)
+                        doc = lh.fromstring(html_string.content)
+                        history_table = doc.xpath('//*[@id="main-page-content"]/div/div/div/lib-history/div[2]/lib-history-table/div/div/div/table/tbody')
+                        if not history_table:
+                            wunderground_log("refreshing session")
+                            session = requests.Session()
+                            html_string = session.get(url, timeout=timeout)
 
 
-                # parse html table rows
-                #print(f'Parsing html table rows from {url}')
+                    # parse html table rows
+                    #print(f'Parsing html table rows from {url}')
 
-                data_rows = Parser.parse_html_table(date_string,
-                                                    history_table,
-                                                    station_ID,
-                                                    station_name,
-                                                    location_name,
-                                                    elevation,
-                                                    latitude,
-                                                    longitude)
+                    data_rows = Parser.parse_html_table(date_string,
+                                                        history_table,
+                                                        station_ID,
+                                                        station_name,
+                                                        location_name,
+                                                        elevation,
+                                                        latitude,
+                                                        longitude)
 
-                # convert to metric system
-                converter = ConvertToSystem(UNIT_SYSTEM, full_log=_wunderground_full_log)
-                data_to_write = converter.clean_and_convert(data_rows)
+                    # convert to metric system
+                    converter = ConvertToSystem(UNIT_SYSTEM, full_log=_wunderground_full_log)
+                    data_to_write = converter.clean_and_convert(data_rows)
                 summary_rows += len(data_to_write)
 
                 wunderground_log(f'Saving {len(data_to_write)} rows')
@@ -1848,6 +1901,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
         'rows': summary_rows,
         'ok': summary_rows > 0,
         'errors': summary_errors,
+        'api_errors': summary_api_errors,
         'duration_seconds': duration_seconds,
         'timestamp_lectura': station_started_at.isoformat(timespec='seconds'),
         'fecha_lectura': station_started_at.strftime('%Y%m%d'),
@@ -1998,8 +2052,10 @@ def save_wunderground_metrics(results):
             })
 
 def print_wunderground_summary(results):
+    global WUNDERGROUND_API_FALLBACK_ERRORS
     updated = [result for result in results if result.get('ok')]
     failed = [result for result in results if not result.get('ok')]
+    WUNDERGROUND_API_FALLBACK_ERRORS = sum(result.get("api_errors", 0) for result in results)
     timed_results = [
         result for result in results
         if isinstance(result.get('duration_seconds'), (int, float))
@@ -2011,6 +2067,7 @@ def print_wunderground_summary(results):
     print(f'Requested stations: {len(results)}')
     print(f'Updated stations: {len(updated)}')
     print(f'Failed stations: {len(failed)}')
+    print(f'API fallback errors: {WUNDERGROUND_API_FALLBACK_ERRORS}')
 
     if timed_results:
         sorted_by_duration = sorted(timed_results, key=lambda result: result['duration_seconds'])
@@ -2360,6 +2417,12 @@ import lxml.html as lh
 from rainmapper_core.sources.wunderground.UnitConverter import ConvertToSystem
 from rainmapper_core.sources.wunderground.Parser import Parser
 from rainmapper_core.sources.wunderground.Utils import Utils
+from rainmapper_core.sources.wunderground.daily_api import (
+    WundergroundDailyApiError,
+    build_monthly_rows,
+    fetch_daily_observations,
+    station_id_from_url,
+)
 #inicio modi
 from rainmapper_core.sources.wunderground.parseStationData import parseStationData
 
@@ -2399,6 +2462,87 @@ MERGE_DATA = config_wunderground.MERGE_DATA
 UNIT_SYSTEM = config_wunderground.UNIT_SYSTEM
 # find the first data entry automatically
 FIND_FIRST_DATE = config_wunderground.FIND_FIRST_DATE
+
+def load_wunderground_station_metadata_cache():
+    global WUNDERGROUND_STATION_METADATA_CACHE
+    if WUNDERGROUND_STATION_METADATA_CACHE is not None:
+        return WUNDERGROUND_STATION_METADATA_CACHE
+
+    with WUNDERGROUND_STATION_METADATA_LOCK:
+        if WUNDERGROUND_STATION_METADATA_CACHE is not None:
+            return WUNDERGROUND_STATION_METADATA_CACHE
+
+        cache = {}
+        metadata_path = os.path.join(_DATA_PATH, 'estacions_wunderground.csv')
+        try:
+            with open(metadata_path, newline='', encoding='utf-8-sig') as metadata_file:
+                for row in csv.DictReader(metadata_file):
+                    station_id = str(row.get('Codi Estació') or '').strip().upper()
+                    if not station_id:
+                        continue
+                    metadata = {
+                        'station_ID': station_id,
+                        'station_name': str(row.get('Estació') or '').strip(),
+                        'location_name': str(row.get('Municipi') or '').strip(),
+                        'elevation': str(row.get('Altitud') or '').strip(),
+                        'latitude': str(row.get('Latitud') or '').strip(),
+                        'longitude': str(row.get('Longitud') or '').strip(),
+                    }
+                    if all(metadata.values()):
+                        cache[station_id] = metadata
+        except FileNotFoundError:
+            cache = {}
+
+        WUNDERGROUND_STATION_METADATA_CACHE = cache
+        return WUNDERGROUND_STATION_METADATA_CACHE
+
+
+def cached_wunderground_station_metadata(weather_station_url):
+    station_id = station_id_from_url(weather_station_url)
+    return load_wunderground_station_metadata_cache().get(station_id)
+
+
+def month_api_range(month_date):
+    start_date = month_date.replace(day=1)
+    if start_date < START_DATE:
+        start_date = START_DATE
+    end_date = min(month_date, END_DATE)
+    return start_date, end_date
+
+
+def fetch_wunderground_api_rows(
+    weather_station_url,
+    date_string,
+    station_ID,
+    station_name,
+    location_name,
+    elevation,
+    latitude,
+    longitude,
+    session,
+    timeout,
+):
+    if not MONTHLY:
+        raise WundergroundDailyApiError("daily API fallback is only implemented for monthly mode")
+
+    month_date = datetime.strptime(date_string, "%Y-%m-%d").date()
+    api_start, api_end = month_api_range(month_date)
+    observations = fetch_daily_observations(
+        station_id_from_url(weather_station_url),
+        api_start,
+        api_end,
+        session=session,
+        timeout=timeout,
+    )
+    return build_monthly_rows(
+        observations,
+        station_ID,
+        station_name,
+        location_name,
+        elevation,
+        latitude,
+        longitude,
+    )
 
 def process_wunderground():                                         # FOR MULTITHREAD PURPOSES
     ###############################

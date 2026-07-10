@@ -6767,6 +6767,8 @@ def command_for(action: str, only_source: str | None = None) -> list[str]:
         env("RAINMAPPER_MAX_THREADS", "3"),
         "--max_attempts",
         env("RAINMAPPER_MAX_ATTEMPTS", "3"),
+        "--wunderground_daily_api",
+        env("RAINMAPPER_WUNDERGROUND_DAILY_API", "true"),
         "--wunderground_full_log",
         env("RAINMAPPER_WUNDERGROUND_FULL_LOG", "false"),
         "--meteoclimatic_pattern",
@@ -7031,6 +7033,16 @@ def source_status_card(source: str, payload: dict, disabled: str = "") -> str:
                 + "".join(f'<div class="source-alert">{html.escape(part)}</div>' for part in alert_parts)
                 + "</div>"
             )
+    elif source == "Wunderground":
+        try:
+            api_fallback_errors = int(payload.get("api_fallback_errors") or 0)
+        except (TypeError, ValueError):
+            api_fallback_errors = 0
+        alerts_text = (
+            '<div class="source-alerts">'
+            f'<div class="source-alert">API fallback errors: {api_fallback_errors}</div>'
+            "</div>"
+        )
     if isinstance(timings, dict) and timings:
         if source == "AEMET":
             timing_labels = [

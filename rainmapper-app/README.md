@@ -55,4 +55,6 @@ La clave `gmap_api_key` no debe guardarse en Git. Se usa para los mapas clasicos
 
 `meteocat_request_timeout` y `meteocat_max_attempts` controlan el timeout y los reintentos de las consultas Meteocat/Socrata. Los valores por defecto son `30` segundos y `3` intentos para evitar que un timeout transitorio de `analisi.transparenciacatalunya.cat` haga fallar un `Run all` a la primera.
 
+`wunderground_daily_api` usa la API diaria de Wunderground como fuente primaria para las tablas mensuales. Si falla, Rainmapper registra el fallback, usa el scraper HTML existente y muestra `API fallback errors` en el resumen de Wunderground.
+
 `create_aemet` activa la descarga/refresco de AEMET OpenData. Esta desactivada por defecto y requiere `aemet_api_key`. En Home Assistant, la generacion de mapas incluye AEMET en el Tomap/GeoJSON estandar siempre que exista un `Aemet_incremental.csv` utilizable.

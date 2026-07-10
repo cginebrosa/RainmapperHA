@@ -74,17 +74,16 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA publicado: `50714ed Release Home Assistant 0.2.193`.
-- Version HA del repo: `0.2.193` en `rainmapper-app/config.yaml` y
+- Ultimo release HA preparado: `0.2.194`; commit Git pendiente de pushear al
+  actualizar este contexto.
+- Version HA del repo: `0.2.194` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.193` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.194` y
   `latest`, digest multi-arch
-  `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
-- `0.2.193` fue republicada tras un `manifest unknown` causado por limpieza
-  GHCR de manifests auxiliares multi-arch. Repo GitHub queda publico
-  temporalmente mientras HA instala; no cerrar repo ni limpiar GHCR hasta que
-  el usuario confirme instalacion/arranque.
+  `sha256:74a6dee5b51421a244e277e52274f030d54e306a242d280837d884a61590907f`.
+- Repo GitHub queda publico temporalmente mientras HA instala; no cerrar repo ni
+  limpiar GHCR hasta que el usuario confirme instalacion/arranque de `0.2.194`.
 
 ## Reglas de trabajo
 
