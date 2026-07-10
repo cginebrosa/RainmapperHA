@@ -6839,6 +6839,8 @@ def update_run_progress(raw_line: str) -> None:
         updates.update({"current_step": "Running Meteocat", **clear_progress()})
     elif line.startswith("Start processing Wunderground"):
         updates.update({"current_step": "Running Wunderground", **clear_progress()})
+    elif line.startswith("Start processing AEMET"):
+        updates.update({"current_step": "Running AEMET", **clear_progress()})
     elif line.startswith("Start printing routine"):
         updates.update({"current_step": "Printing totals", **clear_progress()})
     elif line.startswith("Start rebuilding Tomap") or (line.startswith("Start processing") and "Tomap" in line):
@@ -11083,15 +11085,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_label = "Flow validated" if not errors else "Validation errors"
         status_class = "ok" if not errors else "danger"
         body = f"""
-        <div class="control-head">
-          <div>
-            <h1>Catálogo maestro de referencia</h1>
-            <p>Hub operativo del vocabulario del motor de predicción</p>
-          </div>
-          <div class="control-head-actions">
-            <span class="meta">{len(catalogs)} groups · {metrics["ids"]} IDs · <span class="{status_class}">{status_label}</span></span>
-          </div>
-        </div>
         <div class="catalog-toolbar">
           <a class="button-link" href="../">Back</a>
           <a class="button-link" href="?">Refresh</a>
@@ -11102,6 +11095,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search ID, group, label or domain">
           </form>
           <a class="button-link" href="#catalog-full-json">Import/export JSON</a>
+        </div>
+        <div class="control-head">
+          <div>
+            <h1>Catálogo maestro de referencia</h1>
+            <p>Hub operativo del vocabulario del motor de predicción</p>
+          </div>
+          <div class="control-head-actions">
+            <span class="meta">{len(catalogs)} groups · {metrics["ids"]} IDs · <span class="{status_class}">{status_label}</span></span>
+          </div>
         </div>
         {flash_html}
         {seeded_html}
@@ -11203,15 +11205,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_class = "ok" if not errors else "danger"
         body = f"""
         <div class="gis-mapping-page">
-        <div class="control-head gis-mapping-head">
-          <div>
-            <h1>GIS mappings</h1>
-            <p>Conecta valores crudos de capas GIS con IDs internos del catálogo</p>
-          </div>
-          <div class="control-head-actions">
-            <span class="meta">{metrics["mapped"]} mapped · {metrics["pending"]} pending · <span class="{status_class}">{status_label}</span></span>
-          </div>
-        </div>
         <div class="catalog-toolbar gis-mapping-toolbar">
           <a class="button-link" href="../">Back</a>
           <a class="button-link" href="?">Refresh</a>
@@ -11226,6 +11219,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search source, field, raw value or mapped ID">
           </form>
           <a class="button-link gis-mapping-json-link" href="#gis-mappings-json">View JSON</a>
+        </div>
+        <div class="control-head gis-mapping-head">
+          <div>
+            <h1>GIS mappings</h1>
+            <p>Conecta valores crudos de capas GIS con IDs internos del catálogo</p>
+          </div>
+          <div class="control-head-actions">
+            <span class="meta">{metrics["mapped"]} mapped · {metrics["pending"]} pending · <span class="{status_class}">{status_label}</span></span>
+          </div>
         </div>
         {modal_html}
         {flash_html}

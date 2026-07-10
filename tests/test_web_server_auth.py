@@ -111,6 +111,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("write 5s", html)
         self.assertNotIn("metadata", html)
 
+    def test_run_progress_detects_aemet_step(self) -> None:
+        with self.web_server.RUN_LOCK:
+            self.web_server.RUN_STATE.update(
+                {
+                    "current_step": "Running Wunderground",
+                    "progress_current": "10",
+                    "progress_total": "99",
+                    "progress_percent": "10",
+                }
+            )
+
+        self.web_server.update_run_progress("Start processing AEMET...\n")
+
+        with self.web_server.RUN_LOCK:
+            self.assertEqual(self.web_server.RUN_STATE["current_step"], "Running AEMET")
+            self.assertEqual(self.web_server.RUN_STATE["progress_current"], "")
+            self.assertEqual(self.web_server.RUN_STATE["progress_total"], "")
+            self.assertEqual(self.web_server.RUN_STATE["progress_percent"], "")
+
     def test_non_aemet_source_cards_show_source_specific_timing_breakdowns(self) -> None:
         meteocat_html = self.web_server.source_status_card(
             "Meteocat",
@@ -283,7 +302,46 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("host_pinus_spp", page)
         self.assertIn("Full catalog JSON import/export", page)
         self.assertIn('href="./profiles"', page)
+        self.assertLess(page.index('href="./profiles"'), page.index("Catálogo maestro de referencia"))
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_reference_catalogs.json").exists())
+
+    def test_mushroom_gis_mappings_page_renders_toolbar_before_title(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured = {}
+
+        def capture_response(status: int, content: bytes, content_type: str) -> None:
+            captured["status"] = status
+            captured["content"] = content.decode("utf-8")
+            captured["content_type"] = content_type
+
+        handler.send_bytes = capture_response
+        handler.render_mushroom_gis_mappings({})
+
+        self.assertEqual(captured["status"], 200)
+        page = captured["content"]
+        self.assertIn("<h1>GIS mappings</h1>", page)
+        self.assertIn('href="./profiles"', page)
+        self.assertIn('href="./catalogs"', page)
+        self.assertLess(page.index('href="./profiles"'), page.index("<h1>GIS mappings</h1>"))
+        self.assertLess(page.index('href="./catalogs"'), page.index("<h1>GIS mappings</h1>"))
 
     def test_mushroom_profiles_page_renders_species_editor(self) -> None:
         data_dir = Path(self.temp_dir.name)

@@ -17,16 +17,15 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA preparado: `0.2.194`; commit Git pendiente de pushear al
-  actualizar este contexto.
-- Version HA del repo: `0.2.194`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.194`
+- Ultimo release HA preparado: `0.2.195`.
+- Version HA del repo: `0.2.195`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.195`
   y `latest`, digest multi-arch
-  `sha256:74a6dee5b51421a244e277e52274f030d54e306a242d280837d884a61590907f`.
-- Estado HA: pendiente de instalar y validar `0.2.194`.
+  `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
+- Estado HA: pendiente de instalar y validar `0.2.195`.
 - Estado GitHub/GHCR: repo GitHub abierto/publico temporalmente para facilitar
   deteccion/instalacion en HA. No cerrar repo ni limpiar GHCR hasta que el
-  usuario confirme que `0.2.194` instala y arranca.
+  usuario confirme que `0.2.195` instala y arranca.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -42,8 +41,8 @@ de rendimiento de `run_all` queda como seguimiento puntual:
 - Comparacion visual en `Parametros`: perfil, evidencia v0 y valores emergentes.
 - Separacion clara de origenes: perfil/literatura, Campo, GIS/DEM.
 - Estado de modelo desactualizado y reconstruccion manual desde UI.
-- Validar en HA que `0.2.194` reduce Wunderground con API diaria primaria y
-  cache de metadata, sin romper incrementales.
+- Validar en HA que `0.2.195` conserva la mejora Wunderground con API diaria
+  primaria y cache de metadata, sin romper incrementales.
 
 El resto de visores esta estable salvo que una tarea lo toque explicitamente.
 
@@ -371,12 +370,15 @@ Origenes que deben entenderse en UI:
   `scrape_seconds=258.5s` a `8.2s`; 3 estaciones (`ICASCA2`, `IPUIGR11`,
   `IQUERA1`) siguen cayendo a fallback HTML, contabilizadas como 6 fallbacks
   por dos cortes mensuales.
-- No cerrar GitHub ni limpiar GHCR hasta validar `0.2.194` en HA.
+- `0.2.195` añade el paso activo `Running AEMET` durante `run_all` y alinea la
+  barra de acciones de `GIS mappings` y `Catálogo maestro de referencia` con
+  `Mantenimiento de especies`.
+- No cerrar GitHub ni limpiar GHCR hasta validar `0.2.195` en HA.
 
 ## Proximos pasos recomendados
 
-1. Confirmar instalacion y arranque de HA `0.2.194`.
-2. Si HA valida `0.2.194`, cerrar de nuevo el repo GitHub si procede y limpiar
+1. Confirmar instalacion y arranque de HA `0.2.195`.
+2. Si HA valida `0.2.195`, cerrar de nuevo el repo GitHub si procede y limpiar
    GHCR con mucho cuidado conservando la version actual y rollback inmediato.
 3. Validar visualmente con modelo reconstruido la pantalla `Parametros`,
    especialmente origenes Campo/GIS/DEM/Marc y `Fenologia`.
@@ -389,10 +391,10 @@ Origenes que deben entenderse en UI:
 
 Ultimo release validado localmente:
 
-- `./scripts/smoke-test.sh` OK, 211 tests, antes de publicar `0.2.194`.
-- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.194`
+- `./scripts/smoke-test.sh` OK, 213 tests, antes de publicar `0.2.195`.
+- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.195`
   OK tras publicar; digest multi-arch
-  `sha256:74a6dee5b51421a244e277e52274f030d54e306a242d280837d884a61590907f`.
+  `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
 - `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:latest`
   OK y apunta al mismo digest.
 - Prueba local Wunderground con 99 estaciones: `Updated stations: 99`,

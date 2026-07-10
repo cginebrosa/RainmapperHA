@@ -74,16 +74,15 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA preparado: `0.2.194`; commit Git pendiente de pushear al
-  actualizar este contexto.
-- Version HA del repo: `0.2.194` en `rainmapper-app/config.yaml` y
+- Ultimo release HA preparado: `0.2.195`.
+- Version HA del repo: `0.2.195` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.194` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.195` y
   `latest`, digest multi-arch
-  `sha256:74a6dee5b51421a244e277e52274f030d54e306a242d280837d884a61590907f`.
+  `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
 - Repo GitHub queda publico temporalmente mientras HA instala; no cerrar repo ni
-  limpiar GHCR hasta que el usuario confirme instalacion/arranque de `0.2.194`.
+  limpiar GHCR hasta que el usuario confirme instalacion/arranque de `0.2.195`.
 
 ## Reglas de trabajo
 

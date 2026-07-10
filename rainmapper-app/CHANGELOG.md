@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.195
+
+- Show AEMET as the active current step while a full run is processing AEMET data.
+- Align GIS mappings and reference catalog maintenance pages with the species maintenance header layout by showing the action bar before the title.
+
 ## 0.2.194
 
 - Use Wunderground daily JSON data as the primary source for monthly station weather, falling back to the existing HTML scraper only when the API has no data.
