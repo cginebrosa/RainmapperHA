@@ -1911,6 +1911,46 @@ Auditoria real del 2026-06-24 tras publicar `0.2.118`: GHCR conserva `0.2.118,la
 
 Actualizacion 2026-06-29: despues de publicar `0.2.178`, la limpieza remota GHCR debe usar explicitamente `GH_TOKEN` desde el entorno local. No usar `git credential fill`/osxkeychain para la API de Packages: puede devolver una credencial valida para Git pero insuficiente para listar/borrar package versions. Reintentado con `GH_TOKEN`, se borraron 205 package versions antiguas con 0 fallos y quedaron 10 entradas: `0.2.178/latest`, `0.2.177` como rollback inmediato y sus manifests auxiliares sin tag. Tras publicar `0.2.179`, se borraron las 5 entradas de `0.2.177` con 0 fallos y quedaron `0.2.179/latest`, `0.2.178` rollback y sus manifests auxiliares. Tras publicar `0.2.180`, se borraron las 5 entradas de `0.2.178` con 0 fallos y quedaron `0.2.180/latest`, `0.2.179` rollback y sus manifests auxiliares.
 
+Procedimiento vigente para limpiar GHCR desde esta maquina: no depender de
+`gh`, porque puede no estar instalado. Usar `curl` con `GH_TOKEN` ya presente en
+el entorno local. Primero listar y auditar:
+
+```bash
+zsh -ic 'curl -fsSL \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GH_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "https://api.github.com/users/cginebrosa/packages/container/rainmapperha/versions?per_page=100" \
+  -o /tmp/rainmapperha-ghcr-versions.json'
+
+jq -r '.[] | [.id, (.metadata.container.tags|join(",")), .name, .created_at] | @tsv' \
+  /tmp/rainmapperha-ghcr-versions.json
+```
+
+Conservar la version activa, el tag `latest`, el rollback inmediato y todas las
+entradas sin tag asociadas a esos dos pushes multi-arch/attestation. Borrar solo
+los IDs auditados como antiguos:
+
+```bash
+zsh -ic 'set -euo pipefail
+ids=(ID_ANTIGUO_1 ID_ANTIGUO_2)
+for id in $ids; do
+  printf "Deleting GHCR package version %s\n" "$id"
+  curl -fsSL -X DELETE \
+    -H "Accept: application/vnd.github+json" \
+    -H "Authorization: Bearer $GH_TOKEN" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    "https://api.github.com/users/cginebrosa/packages/container/rainmapperha/versions/$id" \
+    >/dev/null
+done'
+```
+
+Despues de borrar, volver a listar y verificar manifests con
+`docker buildx imagetools inspect` para la version activa, `latest` y el
+rollback. El 2026-07-11, tras validar `0.2.195` en HA, se uso este metodo y
+GHCR quedo con 10 entradas: `0.2.195/latest`, rollback `0.2.194` y sus
+auxiliares multi-arch/attestation.
+
 ### Ficheros afectados
 - `docs/codex-handoff.md`
 - `docs/todo.md`

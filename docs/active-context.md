@@ -22,10 +22,11 @@ corresponda.
 - Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.195`
   y `latest`, digest multi-arch
   `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
-- Estado HA: pendiente de instalar y validar `0.2.195`.
-- Estado GitHub/GHCR: repo GitHub abierto/publico temporalmente para facilitar
-  deteccion/instalacion en HA. No cerrar repo ni limpiar GHCR hasta que el
-  usuario confirme que `0.2.195` instala y arranca.
+- Estado HA: `0.2.195` instalada/validada por el usuario.
+- Estado GitHub/GHCR: repo GitHub abierto/publico por decision explicita del
+  usuario; no cerrarlo. GHCR remoto limpiado tras validar `0.2.195`: conserva
+  `0.2.195/latest`, rollback `0.2.194` y auxiliares multi-arch/attestation de
+  ambas versiones.
 - El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
   puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
 
@@ -373,18 +374,17 @@ Origenes que deben entenderse en UI:
 - `0.2.195` añade el paso activo `Running AEMET` durante `run_all` y alinea la
   barra de acciones de `GIS mappings` y `Catálogo maestro de referencia` con
   `Mantenimiento de especies`.
-- No cerrar GitHub ni limpiar GHCR hasta validar `0.2.195` en HA.
+- No cerrar GitHub aunque `0.2.195` ya esta validada; el usuario pidio
+  mantenerlo abierto. GHCR ya esta limpio conservando `0.2.195/latest` y
+  rollback `0.2.194`.
 
 ## Proximos pasos recomendados
 
-1. Confirmar instalacion y arranque de HA `0.2.195`.
-2. Si HA valida `0.2.195`, cerrar de nuevo el repo GitHub si procede y limpiar
-   GHCR con mucho cuidado conservando la version actual y rollback inmediato.
-3. Validar visualmente con modelo reconstruido la pantalla `Parametros`,
+1. Validar visualmente con modelo reconstruido la pantalla `Parametros`,
    especialmente origenes Campo/GIS/DEM/Marc y `Fenologia`.
-4. Redisenar `Evidencia` para separar Campo, GIS/DEM y coincidencias con perfil.
-5. Diseñar promocion manual de candidatos a perfil, sin escritura automatica.
-6. Solo retomar rendimiento si se decide actuar sobre Wunderground, cobertura
+2. Redisenar `Evidencia` para separar Campo, GIS/DEM y coincidencias con perfil.
+3. Diseñar promocion manual de candidatos a perfil, sin escritura automatica.
+4. Solo retomar rendimiento si se decide actuar sobre Wunderground, cobertura
    de estaciones o politicas de actualizacion.
 
 ## Validaciones recientes conocidas
@@ -397,6 +397,9 @@ Ultimo release validado localmente:
   `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
 - `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:latest`
   OK y apunta al mismo digest.
+- Limpieza GHCR remota posterior a validacion HA `0.2.195`: borradas entradas
+  antiguas de `0.2.193`, `0.2.192` y una auxiliar huerfana; quedan 10 entradas:
+  `0.2.195/latest`, rollback `0.2.194` y sus auxiliares multi-arch/attestation.
 - Prueba local Wunderground con 99 estaciones: `Updated stations: 99`,
   `Failed stations: 0`, `API fallback errors: 6`, `scrape_seconds=8.2s`.
 

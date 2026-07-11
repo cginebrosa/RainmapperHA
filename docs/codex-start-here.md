@@ -81,8 +81,10 @@ Para tareas de setas:
 - Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.195` y
   `latest`, digest multi-arch
   `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
-- Repo GitHub queda publico temporalmente mientras HA instala; no cerrar repo ni
-  limpiar GHCR hasta que el usuario confirme instalacion/arranque de `0.2.195`.
+- `0.2.195` queda validada en HA por el usuario. Repo GitHub sigue publico por
+  decision explicita del usuario; no cerrarlo. GHCR se limpio tras validar y
+  conserva solo `0.2.195/latest`, rollback `0.2.194` y sus auxiliares
+  multi-arch/attestation.
 
 ## Reglas de trabajo
 
@@ -154,4 +156,6 @@ documentacion de cierre o hashes documentales.
 
 Para limpieza GHCR: conservar siempre la version activa, `latest`, rollback
 inmediato y manifests/attestations auxiliares sin tag asociados. No limpiar
-durante una instalacion HA en curso.
+durante una instalacion HA en curso. En esta maquina no asumir que `gh` esta
+instalado; usar `curl` con `GH_TOKEN` como documenta `docs/decisions.md` en la
+seccion GHCR.
