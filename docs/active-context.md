@@ -9,166 +9,157 @@ indicadas.
 Este documento debe ser una ventana operativa, no un historico acumulativo.
 Cuando entre informacion nueva, debe salir, resumirse o archivarse informacion
 que ya no guie el trabajo inmediato. Las tareas cerradas, descartadas o antiguas
-no deben quedarse indefinidamente en `docs/todo.md`; mover su memoria util a
-`docs/project-archive.md`, `docs/decisions.md` o al documento largo que
+no deben quedarse indefinidamente aqui ni en `docs/todo.md`; mover su memoria
+util a `docs/project-archive.md`, `docs/decisions.md` o al documento largo que
 corresponda.
 
 ## Estado real del repo
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA preparado: `0.2.197`.
-- Version HA del repo: `0.2.197`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.197`
+- Ultimo release HA publicado: `0.2.199`.
+- Commit release: `abe0d49 Release Home Assistant 0.2.199`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.199`
   y `latest`, digest multi-arch
-  `sha256:7a6592f2cf8afc930e874a576b8036c4230b6866400b5127cd497335d1abbc30`.
-- Estado HA: `0.2.197` pendiente de instalacion/validacion por el usuario.
+  `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
+- Plataformas verificadas: `linux/amd64`, `linux/arm64`.
+- Estado HA: `0.2.199` validada por el usuario el 2026-07-11. El MapLibre
+  protegido funciona y el popup largo muestra `Pluja` en `Valores IDW`.
 - Estado GitHub/GHCR: repo GitHub abierto/publico por decision explicita del
-  usuario; no cerrarlo. GHCR remoto limpiado tras validar `0.2.195`: conserva
-  `0.2.195/latest`, rollback `0.2.194` y auxiliares multi-arch/attestation de
-  ambas versiones.
-- El servicio local HA UI se prueba con `rainmapper-local/docker-compose.yml`,
-  puerto `127.0.0.1:8101`, montando `docker-data/` como `/share/rainmapper`.
+  usuario; no cerrarlo. GHCR ya fue limpiado tras validar `0.2.195`, pero no
+  repetir limpiezas sin confirmar version activa/rollback y sin conservar
+  manifests/attestations auxiliares multi-arch.
+- Source control local: `rainmapper-local/options.local-ha-ui.json` queda
+  modificado con opciones de prueba local de backfill. No commitearlo salvo
+  peticion explicita; si se quiere limpiar el arbol, restaurar solo ese fichero.
 
 ## Foco activo
 
-El foco activo vuelve a estar principalmente en el modulo de setas. La medicion
-de rendimiento de `run_all` queda como seguimiento puntual:
+1. Decidir si limpiar GHCR de forma conservadora tras validar `0.2.199`.
+2. Continuar pruebas de backfill mensual Wunderground/AEMET con ventanas
+   pequenas y pausas.
+3. Retomar UI setas: `Fenologia` en `Parametros`, redisenar `Evidencia` y
+   preparar promocion manual de evidencia a perfil.
 
-- Observaciones reales con hosts, bosque, suelo, habitat y orientacion
-  observados.
-- Reconstruccion v0 desde observaciones: GIS/DEM, meteorologia, features y
-  modelo aprendido.
-- Comparacion visual en `Parametros`: perfil, evidencia v0 y valores emergentes.
-- Separacion clara de origenes: perfil/literatura, Campo, GIS/DEM.
-- Estado de modelo desactualizado y reconstruccion manual desde UI.
-- Validar en HA que `0.2.197` conserva la mejora Wunderground con API diaria
-  primaria y cache de metadata, sin romper incrementales, mantiene MapLibre IDW
-  con correccion DEM/valores puntuales del popup largo y permite backfill mensual
-  con backup de incrementales y filtro `source::station`.
+## Cambios recientes que importan
 
-El resto de visores esta estable salvo que una tarea lo toque explicitamente.
+### Wunderground
 
-MapLibre IDW queda preparado para validar en HA `0.2.197`: la correccion por
-altitud usa DEM Terrarium/Mapzen por celda solo en metricas de temperatura, con
-fallback a IDW normal y badge discreto en cabecera (`IDW DEM` verde o
-`IDW sin DEM` rojo).
-Los settings IDW exponen `Zoom DEM` (`8|9|10`, default `9`) y ayudas breves en
-EN/ES/CA solo para esta seccion, como prueba antes de extenderlas al resto de
-Settings.
-El popup de click largo del mapa muestra tambien `Valores IDW` puntuales antes
-de la estacion con lluvia mas cercana: temperatura normal, temperatura corregida
-por DEM, humedad y viento/racha, calculados con los parametros IDW actuales y
-con `-` cuando el punto no tiene soporte.
+- Wunderground usa la API diaria JSON como fuente primaria y el scraper HTML
+  solo como fallback cuando la API falla.
+- Los metadatos se leen primero desde `estacions_wunderground.csv`; solo se
+  consulta HTML si falta cache o hay fallback.
+- El resumen de fuente muestra `API fallback errors`.
+- La API puede devolver filas provisionales del dia actual que luego corrige al
+  cerrar el dia. Decision del usuario: no anadir logica complicada; aceptar ese
+  comportamiento de Wunderground.
 
-## Rendimiento backend
+### Backfill mensual
 
-`0.2.184` corrigio los contadores `start_count/end_count` para que sean
-thread-local y no mezclen tiempos entre fuentes paralelas. Tambien publica en
-`source_status.json` un desglose AEMET por fases:
+- Opciones HA/local:
+  - `backfill_months_enabled`
+  - `months_init`
+  - `months_end`
+  - `months_interval`
+  - `backfill_pause_seconds`
+  - `backfill_station_filter`
+- Cuando `backfill_months_enabled=true`, antes del primer lanzamiento se hace
+  backup de incrementales.
+- El `Current step` del summary debe mostrar tambien la pausa entre ventanas.
+- `backfill_station_filter` acepta entradas por fuente con separador seguro
+  `source::id1,id2`, por ejemplo `wunderground::ICANIL20`.
+- Wunderground en backfill mensual usa fechas locales exactas por ventana para
+  no reintroducir el desfase UTC que hacia repetir el mes anterior. El modo
+  normal por dias conserva deliberadamente la relectura historica al cruzar mes,
+  porque ayuda a refrescar ultimos dias cuando Wunderground aun no ha cerrado
+  datos.
+- Coste esperado Wunderground: una llamada API por estacion y mes consultado.
+  Usar ventanas pequenas y pausas para reconstrucciones largas.
 
-- `fetch_seconds`
-- `normalize_seconds`
-- `read_hourly_seconds`
-- `merge_hourly_seconds`
-- `read_stations_seconds`
-- `station_catalog_seconds`
-- `station_enrichment_seconds`
-- `build_daily_seconds`
-- `read_daily_seconds`
-- `merge_daily_seconds`
-- `write_outputs_seconds`
-- `total_seconds`
+### MapLibre
 
-El panel HA muestra ese desglose en la tarjeta AEMET. El `run_all` de HA
-`0.2.184` mostro que AEMET tardaba `5m38s` y que el coste dominante era
-`build_daily_seconds` con `4m32s`. `0.2.185` reemplaza ese bucle Python por
-agregacion vectorizada con pandas; en local, 125k filas horarias se agregaron en
-`1.23s`.
+- La correccion por altitud del IDW usa DEM Terrarium/Mapzen por celda solo en
+  metricas de temperatura.
+- El calculo ocurre en el navegador, acotado por viewport; no carga CPU de la
+  Raspberry Pi salvo servir la pagina/datos.
+- Badge visible solo cuando IDW esta activo, la metrica es temperatura y la
+  correccion por altitud esta activada:
+  - `IDW DEM` verde si usa DEM.
+  - `IDW sin DEM` rojo si cae a fallback.
+  - Sin badge si la correccion esta desactivada o la metrica no es temperatura.
+- `maplibre_estimated_field_dem_zoom` existe en config/defaults y settings de
+  dispositivo (`8|9|10`, default `9`).
+- El popup de click largo muestra `Valores IDW` antes de la estacion con lluvia
+  mas cercana. Debe listar primero `Pluja`, luego temperatura normal,
+  temperatura corregida, humedad y viento/racha, independientemente de la
+  metrica seleccionada en el mapa. Si un punto no tiene soporte IDW, mostrar
+  `-` para ese valor.
+- `0.2.199` corrige el problema de cache observado en `0.2.198`: el HTML
+  protegido se sirve con `Cache-Control: no-store` y reescribe los query strings
+  de assets a la version runtime. Si vuelve a faltar `Pluja`, mirar primero el
+  HTML servido/cache-buster antes de tocar el calculo.
 
-`0.2.186` publica en HA los desgloses de fase para Meteocat, Meteoclimatic y
-Wunderground. Con 4 threads en RPi, el `run_all` de `0.2.186` mostro:
+### Local HA UI
 
-- Wunderground `scrape_seconds=419.6s`: cuello de red/servicio remoto.
-- Meteoclimatic `build_daily_seconds=67.9s`: bucle Python por estacion/dia.
-- Tomap `last-rains duration=49.0s`: agregacion Python por grupo.
-- Meteocat y AEMET ya quedan muy condicionados por escritura CSV grande.
+- `rainmapper-local/docker-compose.yml` pasa variables desde el entorno local.
+- Si las opciones HA locales no traen clave, `run.sh` puede tomar `GMAP_API_KEY`
+  y `AEMET_API_KEY` del entorno. No hay claves reales en el repo.
+- El token de Meteocat queda descartado por ahora: la clave encontrada era de
+  Meteocat, no de Dades Obertes/GENCAT que usa el flujo actual.
 
-`0.2.187` vectoriza el rebuild diario de Meteoclimatic y la agregacion Tomap
-last-rains. En local, Meteoclimatic diario con datos reales paso a `0.066s` y
-Tomap completo a `10.2s` (`last-rains=6.7s`). En HA, el `run_all` posterior con
-3 threads bajo a unos 10 minutos: Wunderground sigue dominando y Bokeh anadia
-casi 1 minuto en la fase de mapas.
+## Validacion reciente
 
-La generacion/publicacion legacy en `/config/www` queda controlada por
-`publish_to_www`. Con `publish_to_www: false` se omiten Bokeh/Google Maps,
-`/local/Plots`, Leaflet publico y el heatmap/MapLibre publico antiguo; Tomap,
-GeoJSON en `PublicData` y MapLibre protegido se siguen generando. Si hiciera
-falta reactivar ese legado, cambiar esa opcion a `true`. `0.2.190` publica este
-contrato y deja `publish_to_www: false` por defecto.
+Para `0.2.199` se verifico:
 
-El usuario valida que `0.2.190` funciona en HA. El ultimo `run_all` comunicado
-queda en `08:55`. El `source_status.json` de ese run (`2026-07-08T17:07:58`)
-muestra:
+- `tests.test_web_server_auth`
+- `tests.test_wunderground_daily_api`
+- `node --check` del MapLibre `app.js`
+- `sh -n` de scripts shell tocados
+- `git diff --check`
+- Imagen multi-arch `0.2.199/latest` en GHCR
+- Dentro de la imagen: `index.html` referencia `app.js?v=0.2.199` y
+  `app.js` contiene `pointValues.rain`.
 
-- Meteoclimatic: `121.1s`; mayores costes `fetch_seconds=30.5s`,
-  `write_incremental_seconds=17.7s`, `read_observations_seconds=13.0s` y
-  `upsert_incremental_seconds=12.9s`.
-- Meteocat: `119.1s`; domina escritura/upsert CSV:
-  `write_incremental_seconds=49.4s` y `upsert_incremental_seconds=32.7s`.
-- AEMET: `125.8s`; domina `write_outputs_seconds=46.5s` y
-  `build_daily_seconds=26.1s`.
-- Wunderground: `345.8s`; domina `scrape_seconds=338.1s`.
+## Riesgos y dudas activas
 
-La actualizacion queda en unos `7:45` desde el primer `started_at` al
-`generated_at`; frente al `run_all` total de `08:55`, mapas/otros procesos
-quedan alrededor de `1:10`. No se observa una mejora significativa por retirar
-la publicacion legacy publica porque el tiempo restante esta en Wunderground,
-escrituras/upserts de CSV grandes y Tomap/GeoJSON protegido. Salvo que se quiera
-reducir cobertura o cambiar la estrategia de Wunderground, el frente de
-rendimiento queda practicamente agotado para optimizaciones de bajo riesgo.
+- `0.2.198` queda reemplazada para MapLibre porque el codigo tenia `Pluja` en
+  `app.js`, pero `index.html` seguia cargando `app.js?v=0.2.196`.
+- La URL manual
+  `https://ha.nomentero.com/protected/maplibre/index.html?v=0.2.198` dio
+  `404`. Para validar usar el boton/ruta normal del visor protegido y evitar
+  query manuales hasta confirmar como enruta HA/Cloudflared.
+- Backfill mensual largo puede generar muchas llamadas. Para Wunderground:
+  estaciones x meses. Usar `backfill_station_filter`, intervalos pequenos y
+  pausas.
+- Meteoclimatic RSS no sirve para historico real. Meteocat historico queda
+  limitado por la API publica sin token adecuado. AEMET deberia funcionar con
+  backfill por ventanas, pero probar primero rangos cortos.
+- No cerrar el repo GitHub. Si se limpia GHCR, conservar la version activa,
+  `latest`, el rollback inmediato y los auxiliares multi-arch asociados.
 
-`0.2.189` corrige el guardado parcial desde `Parametros` v0 de especies: los
-campos no renderizados/ausentes en el formulario se preservan y ya no se
-sobrescriben con `null`, evitando errores de validacion al cambiar solo
-topografia como `altitude_max_m`.
+## Archivos relevantes
 
-`0.2.191` publica el trabajo de observaciones micologicas con imagenes:
-almacenamiento de fotos reducidas en `mushroom-data/media/observation-photos/`,
-preview EXIF con foto, fecha/hora, coordenadas, altitud y mapa antes de aplicar
-al formulario, aplicacion diferida hasta `Guardar observacion`, miniaturas en
-detalle/mapa y modales internos de imagen/EXIF. Tambien incluye compactacion de
-tablas de evidencia meteorologica y restauracion de posicion/navegacion al
-cerrar modales.
+- `rainmapper_core/rainmapper.py`: orquestacion de fuentes, backfill mensual,
+  backup y pasos de estado.
+- `rainmapper_core/sources/wunderground/`: API diaria/fallback scraper y fechas
+  exactas de backfill.
+- `rainmapper_core/incremental_upsert.py`: contrato de upsert incremental por
+  estacion/dia.
+- `rainmapper-app/app/web_server.py`: webUI, rutas protegidas MapLibre,
+  cache-busting runtime.
+- `rainmapper-app/run.sh`: lectura de opciones HA y variables de entorno.
+- `rainmapper-app/config.yaml`: defaults empaquetados HA.
+- `rainmapper-local/options.local-ha-ui.json`: opciones locales de prueba, no
+  commitear sin pedir.
+- `rainmapper-local/docker-compose.yml`: entorno local HA UI.
+- `rainmapper_core/viewers/maplibre-viewer/index.html`
+- `rainmapper_core/viewers/maplibre-viewer/app.js`
+- `tests/test_web_server_auth.py`
+- `tests/test_wunderground_daily_api.py`
 
-`0.2.192` publica refinamientos posteriores de UI setas: filas de observacion
-mas compactas, tarjeta de metadatos de especies dentro de `General`, selector
-visible de origen de ubicacion, separacion estricta entre tipo de origen,
-origen de ubicacion y origen de altitud, y restauracion del scroll interno de
-la lista de Observaciones. En local se reconstruyo
-`docker-data/mushroom-data/mushroom_observations.json` comparando fotos
-guardadas bajo `mushroom-data/media/` con EXIF: 47 observaciones quedan como
-foto/EXIF coincidente y 2 Morchella sin foto quedan manuales. Ese JSON y
-`media/` son datos operativos ignorados por git; copiarlos a HA si se quiere
-replicar el estado local.
+## Fuente de verdad de setas
 
-`0.2.193` corrige el `DtypeWarning` de pandas al leer
-`Meteoclimatic_observations_incremental.csv`: el historico crudo de
-observaciones Meteoclimatic ahora se lee con dtypes explicitos para metadatos
-de estacion, ubicacion y altitud, evitando inferencia por chunks sin cambiar el
-schema operativo.
-
-Tras publicar `0.2.193`, una limpieza GHCR demasiado agresiva borro entradas
-auxiliares sin tag del push multi-arch y HA devolvio `manifest unknown`. La
-imagen `0.2.193/latest` se republico sin cambiar codigo ni version; el digest
-actual es `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
-Se verifico acceso anonimo al manifest con `status 200`. No repetir limpieza
-GHCR hasta que HA confirme instalacion correcta; al limpiar, conservar siempre
-el tag actual, `latest` y sus manifests/attestations auxiliares.
-
-## Fuente de verdad operativa
-
-Para setas, en local:
+En local:
 
 ```text
 docker-data/mushroom-data/
@@ -180,257 +171,12 @@ En HA:
 /share/rainmapper/mushroom-data/
 ```
 
-Las capas GIS/DEM pesadas para reconstruccion de contexto no deben vivir bajo
-`/share` porque entrarian en backups completos de Home Assistant. En HA deben
-colocarse en:
+Las capas GIS/DEM pesadas para reconstruccion de contexto de setas en HA deben
+vivir fuera de `/share`:
 
 ```text
 /media/rainmapper/mushroom-GIS/
 ```
 
 `rainmapper_core/mushroom_paths.py` centraliza rutas. Los artefactos v0
-operativos deben vivir en `mushroom-data`, no en `mushroom-lab/working`.
-
-Archivos operativos principales:
-
-- `mushroom_profiles.json`
-- `mushroom_observations.json`
-- `mushroom_reference_catalogs.json`
-- `mushroom_gis_mappings.json`
-- `mushroom_labels.json`
-- `mushroom_gis_observation_reconstruction.json`
-- `mushroom_observations_weather_features.json`
-- `mushroom_observation_features_v0.json`
-- `mushroom_model_v0.json`
-- `mushroom_model_v0_state.json`
-- `reports/`
-- `media/observation-photos/<year>/<nombre-original>`: fotos reducidas de
-  observaciones, ignoradas por Git y copiables a HA junto con el JSON de
-  observaciones.
-
-`tmp/mushroom-lab/` queda para pruebas locales explicitas, QGIS, fotos y
-artefactos exploratorios.
-
-## Modulos relevantes ahora
-
-UI y rutas:
-
-- `rainmapper-app/app/web_server.py`: rutas, POST, jobs, orquestacion.
-- `rainmapper-app/app/mushroom_profiles_ui.py`: pantallas grandes de especies,
-  observaciones, evidencia y parametros.
-- `rainmapper-app/app/mushroom_catalogs_ui.py`: catalogos.
-- `rainmapper-app/app/mushroom_gis_mappings_ui.py`: mappings GIS.
-
-Core setas:
-
-- `rainmapper_core/mushroom_paths.py`: rutas canonicas.
-- `rainmapper_core/mushroom_observations.py`: helpers comunes de guardado y
-  campos derivados de observaciones.
-- `rainmapper_core/mushroom_model_state.py`: especies pendientes de reconstruir.
-- `rainmapper_core/mushroom_observation_context.py`: contexto GIS/DEM/meteo por
-  observacion.
-- `rainmapper_core/mushroom_observation_features.py`: features v0 unificadas.
-- `rainmapper_core/mushroom_learned_model.py`: modelo v0 descriptivo.
-- `rainmapper_core/mushroom_gis_lab.py`: laboratorio/mappings GIS y QGIS.
-- `rainmapper_core/mushroom_profile_v0.py`: proyeccion v0 de perfiles ricos.
-- `rainmapper_core/mushroom_validation.py`: validacion de datos.
-
-Scripts:
-
-- `mushroom_observation_context_rebuild.sh`
-- `mushroom_observation_features_v0_build.sh`
-- `mushroom_learned_model_v0_build.sh`
-- `mushroom_gis_mappings_rebuild.sh`
-- `scripts/apply-mushroom-literature-source.py`
-- `scripts/update-mushroom-observation-derived-fields.py`
-- `scripts/validate-mushroom-data.py`
-
-## Decisiones vigentes
-
-- `mushroom-data` es la ubicacion operativa estable de setas.
-- `mushroom-lab/working` queda historico para el modelo operativo; no mantener
-  fallbacks nuevos hacia esa ruta.
-- El modelo v0 aprendido no es predictor productivo ni ML final.
-- El modelo v0 no modifica `mushroom_profiles.json`.
-- Las decisiones en `Evidencia` son estado interno reversible; no aplican
-  cambios automaticos.
-- Campo y GIS/DEM deben distinguirse en UI y datos.
-- Marc Estevez es fuente literaria fiable para afinidades ecologicas. Si una
-  afinidad esta normalizada desde Marc, se marca como origen `Marc` y relacion
-  principal en perfiles, sin inventar pesos.
-- No reintroducir `v0_catalog_gap_promoted` como origen visible.
-- No usar litologia fina ni viento como scoring productivo v0 sin evidencia
-  suficiente.
-- El despliegue futuro a HA debe reemplazar datos micologicos con la copia local
-  validada; no mezclar con datos de setas existentes en HA.
-
-## Estado UI setas
-
-### Observaciones
-
-- Captura observaciones positivas/negativas, EXIF, coordenadas, altitud, origen,
-  validacion, uso en calibracion y notas.
-- Captura opcionalmente:
-  - arboles/hosts observados;
-  - bosque observado;
-  - suelo observado;
-  - habitat observado;
-  - orientacion observada.
-- Calcula campos derivados de fecha como mes/temporada al guardar o importar.
-- Alta, edicion, importacion EXIF, archivado/restauracion y cambios relevantes
-  marcan especies pendientes en `mushroom_model_v0_state.json`.
-- La reconstruccion del modelo v0 se ejecuta en background y muestra progreso,
-  porcentaje, tiempo transcurrido y ETA.
-
-Referencia: `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`.
-
-### Parametros
-
-- Tabs internos v0: `Ecologia`, `Suelos`, `Topografia` y `Fenologia`.
-- Ecologia/Suelos/Topografia/Fenologia tienen patron de tres columnas:
-  1. perfil configurado;
-  2. evidencia v0;
-  3. valores emergentes.
-- Chips de evidencia muestran soporte y origenes cuando existen: `Campo`,
-  `GIS/DEM`, `Marc`.
-- `Campo` puede calcularse desde observaciones guardadas; `GIS/DEM` y agregados
-  del modelo requieren reconstruccion.
-- No existe tab interno `Meteorologia` en modo v0; la meteorologia reconstruida
-  se revisa desde `Evidencia > Meteorologia` y desde el modelo aprendido.
-
-Referencia: `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md`.
-
-### Evidencia
-
-- Tiene subpestanas Hosts/bosques, Suelos/habitat, Meteorologia y Modelo
-  aprendido.
-- Hosts/bosques y Suelos/habitat deben contar evidencia local unificada cuando
-  exista: Campo + GIS/DEM, preservando origenes visibles por item.
-- Sigue pendiente redisenar la vista para separar mas explicitamente:
-  - declarado/observado por campo;
-  - reconstruido por GIS/DEM;
-  - coincidencias con perfil;
-  - decisiones internas.
-
-## Modelo v0 aprendido
-
-Flujo reproducible completo:
-
-```bash
-./mushroom_observation_context_rebuild.sh
-./mushroom_observation_features_v0_build.sh
-./mushroom_learned_model_v0_build.sh
-```
-
-La UI puede reconstruir desde el boton de modelo desactualizado. El rebuild
-puede limitarse a especies pendientes cuando sea posible, pero no es
-incremental fila a fila: regenera los artefactos necesarios para esas especies.
-
-El modelo resume:
-
-- observaciones usadas, positivas y negativas;
-- soporte categorico por hosts, bosques, suelos y habitat;
-- procedencia de valores (`field`/Campo, `gis`/GIS);
-- rangos numericos de altitud y meteorologia;
-- gaps de datos.
-
-No resume todavia todos los parametros productivos ni fija umbrales.
-
-## Literatura y origenes
-
-Marc Estevez:
-
-- Resumen humano: `docs/mushrooms/literature/marc-estevez-species-conclusions-es.md`.
-- Fuente normalizada: `docs/mushrooms/literature/marc-estevez-v0-source-normalized.json`.
-- Aplicador: `scripts/apply-mushroom-literature-source.py`.
-- Documento operativo: `docs/mushrooms/mushroom-literature-source-apply-es.md`.
-
-Origenes que deben entenderse en UI:
-
-- `Marc`: fuente literaria aplicada al perfil.
-- `Campo`: valor declarado por el observador en observaciones.
-- `GIS/DEM`: valor reconstruido desde capas geograficas o DEM.
-- `Original` puede existir como contexto historico de perfiles base, pero no
-  debe confundirse con evidencia fuerte si no esta respaldado por Marc, Campo o
-  GIS/DEM.
-
-## Bugs, riesgos y limitaciones abiertas
-
-- `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md` y
-  `docs/mushrooms/mushroom-predictor-design-es.md` todavia contienen muchas
-  rutas antiguas `docker-data/mushroom-lab/working`; tienen nota de vigencia,
-  pero no deben leerse como contrato operativo actual.
-- `docs/todo.md` contiene backlog largo con tareas antiguas. Usarlo como
-  referencia, no como lista estricta de arranque.
-- `Evidencia` necesita rediseño semantico: aunque los titulos visibles ya no
-  dicen GIS, la vista todavia debe separar mejor Campo, GIS/DEM, coincidencias
-  con perfil y decisiones.
-- `Parametros > Fenologia` debe mostrar evidencia observada igual que el resto
-  de tabs de Parametros; no debe decir que falta modelo aprendido si otras tabs
-  ya muestran evidencia para la especie.
-- El modelo v0 puede quedar desactualizado tras editar observaciones hasta que
-  el usuario pulse reconstruccion.
-- Pocas observaciones por especie: no presentar emergentes como verdad fuerte.
-- La UI debe seguir preservando datos no visibles al guardar formularios con
-  tabs.
-- `mushroom-GIS/` contiene capas pesadas ignoradas por Git y no debe
-  versionarse; en HA la copia operativa debe estar bajo `/media/rainmapper/`
-  para no inflar backups de `/share`.
-- `0.2.190` funciona en HA con `publish_to_www: false`; el rendimiento quedo
-  en torno a `08:55` para el run anterior, y el usuario reporto despues un
-  `run_all` por debajo de 6 minutos.
-- `0.2.194` usa la API diaria JSON de Wunderground como fuente primaria para
-  tablas mensuales y reutiliza `estacions_wunderground.csv` como cache de
-  metadatos. En local, Wunderground con 99 estaciones paso de
-  `scrape_seconds=258.5s` a `8.2s`; 3 estaciones (`ICASCA2`, `IPUIGR11`,
-  `IQUERA1`) siguen cayendo a fallback HTML, contabilizadas como 6 fallbacks
-  por dos cortes mensuales.
-- `0.2.195` añade el paso activo `Running AEMET` durante `run_all` y alinea la
-  barra de acciones de `GIS mappings` y `Catálogo maestro de referencia` con
-  `Mantenimiento de especies`.
-- No cerrar GitHub aunque `0.2.195` ya esta validada; el usuario pidio
-  mantenerlo abierto. GHCR ya esta limpio conservando `0.2.195/latest` y
-  rollback `0.2.194`.
-
-## Proximos pasos recomendados
-
-1. Validar visualmente con modelo reconstruido la pantalla `Parametros`,
-   especialmente origenes Campo/GIS/DEM/Marc y `Fenologia`.
-2. Redisenar `Evidencia` para separar Campo, GIS/DEM y coincidencias con perfil.
-3. Diseñar promocion manual de candidatos a perfil, sin escritura automatica.
-4. Solo retomar rendimiento si se decide actuar sobre Wunderground, cobertura
-   de estaciones o politicas de actualizacion.
-
-## Validaciones recientes conocidas
-
-Ultimo release validado localmente:
-
-- `./scripts/smoke-test.sh` OK, 213 tests, antes de publicar `0.2.195`.
-- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:0.2.195`
-  OK tras publicar; digest multi-arch
-  `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
-- `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:latest`
-  OK y apunta al mismo digest.
-- Limpieza GHCR remota posterior a validacion HA `0.2.195`: borradas entradas
-  antiguas de `0.2.193`, `0.2.192` y una auxiliar huerfana; quedan 10 entradas:
-  `0.2.195/latest`, rollback `0.2.194` y sus auxiliares multi-arch/attestation.
-- Prueba local Wunderground con 99 estaciones: `Updated stations: 99`,
-  `Failed stations: 0`, `API fallback errors: 6`, `scrape_seconds=8.2s`.
-
-Repetir validaciones relevantes antes de commit.
-
-## Dudas o contradicciones detectadas
-
-- Algunos documentos largos conservan salidas antiguas bajo
-  `docker-data/mushroom-lab/working`. La decision vigente es `mushroom-data`.
-- `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md` todavia dice
-  en una seccion que fenologia/clima no se comparan todavia y puede mencionar
-  `Meteorologia` como tab pendiente. Leerlo como historia de rediseño, no como
-  estado completo: en v0 las tabs reales de Parametros son Ecologia, Suelos,
-  Topografia y Fenologia.
-- `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`
-  mantiene "Conectar observaciones al extractor meteorologico local" como
-  pendiente; el flujo v0 ya tiene context/features/modelo. Esa frase queda
-  historica o parcialmente obsoleta.
-- `docs/decisions.md` y `docs/todo.md` son cronologicos; entradas antiguas de
-  versiones 0.2.150-0.2.192 no deben desplazar el estado activo 0.2.193.
+operativos viven en `mushroom-data`, no en `mushroom-lab/working`.

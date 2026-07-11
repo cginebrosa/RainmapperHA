@@ -73,6 +73,11 @@ Hay varios entry points segun entorno:
 9. `python -m rainmapper_core.geojson` genera GeoJSON desde `Tomap` delegando en `rainmapper_core/geojson.py`.
 10. `web_server.py` deja GeoJSON en `PublicData` y sirve MapLibre protegido; solo publica HTML/visores legacy en `/config/www` si `publish_to_www=true`.
 11. Home Assistant debe usar como visor operativo `/protected/maplibre/index.html` y datos `/protected/maplibre/data/*`. Bokeh, Leaflet publico y visores publicos antiguos son legado opcional bajo `/local/...` cuando `publish_to_www=true`.
+12. Si `backfill_months_enabled=true`, el wrapper de ejecucion divide la
+    actualizacion en ventanas mensuales, hace backup previo de incrementales,
+    aplica pausas configurables entre ventanas y reutiliza los procesos de
+    fuente existentes pasando rangos convertidos a `days_init/days_end` o, en
+    Wunderground, fechas locales exactas para evitar solapes por UTC.
 
 ## Componentes, modulos o capas principales
 
@@ -80,7 +85,21 @@ Hay varios entry points segun entorno:
 - Ruta: `rainmapper_core/rainmapper.py`; entrypoint `python -m rainmapper_core.rainmapper`.
 - Responsabilidad: descarga Meteocat, Meteoclimatic, Wunderground y AEMET opcional; actualiza historicos; escribe estado por fuente; metricas Wunderground.
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps y helpers de fuente en `rainmapper_core/sources/`.
-- Relacion: alimenta `rainmapper_core.bokeh_maps` y `rainmapper_core.geojson`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global.
+- Relacion: alimenta `rainmapper_core.bokeh_maps` y `rainmapper_core.geojson`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global. Wunderground usa API diaria JSON como fuente primaria y scraper HTML como fallback; el estado de fuente expone `API fallback errors`.
+
+### Backfill mensual administrativo
+- Rutas: `rainmapper_core/rainmapper.py` y wrappers `run.sh` de HA/local.
+- Responsabilidad: reconstruir historicos por ventanas de meses sin obligar al
+  administrador a calcular manualmente `days_init/days_end`.
+- Opciones: `backfill_months_enabled`, `months_init`, `months_end`,
+  `months_interval`, `backfill_pause_seconds` y `backfill_station_filter`.
+- Contrato: al activar backfill se hace backup de incrementales antes del
+  primer lanzamiento; cada ventana se ejecuta como un update normal acotado;
+  las pausas entre ventanas aparecen en `Current step`; el filtro de estaciones
+  usa `source::id1,id2`.
+- Diferencia Wunderground: en modo mensual recibe fechas locales exactas para
+  evitar solapes. En modo normal por dias conserva la relectura historica del
+  mes anterior cuando el rango cruza mes, porque refresca datos cerrados tarde.
 
 ### Upsert incremental
 - Ruta: `rainmapper_core/incremental_upsert.py`, sin wrapper raiz.
@@ -115,13 +134,16 @@ Hay varios entry points segun entorno:
 - Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py`, `rainmapper-app/app/mushroom_profiles_ui.py` y `rainmapper-app/app/mushroom_gis_mappings_ui.py`.
 - Responsabilidad: servidor HTTP, webUI, acciones, schedule, publicacion, logs, status, enable/disable estaciones, rutas protegidas de MapLibre y pantallas server-rendered de mantenimiento de setas.
 - Dependencias: stdlib HTTP, subprocess, threading, json, pathlib.
-- Relacion: `web_server.py` orquesta rutas, POST, persistencia, validacion y publicacion; los modulos `mushroom_*_ui.py` concentran render server-side de pantallas grandes para evitar que `web_server.py` siga creciendo. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`.
+- Relacion: `web_server.py` orquesta rutas, POST, persistencia, validacion y publicacion; los modulos `mushroom_*_ui.py` concentran render server-side de pantallas grandes para evitar que `web_server.py` siga creciendo. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`. La ruta protegida `/protected/maplibre/index.html` se sirve con `Cache-Control: no-store` y reescribe los query strings de assets a la version runtime para evitar JS/CSS obsoletos tras updates HA.
 
 ### Wrapper HA
 - Ruta: `rainmapper-app/run.sh`.
 - Responsabilidad: leer opciones HA, crear persistencia, symlinks, exportar variables, arrancar modo.
 - Dependencias: shell, Python para leer JSON de opciones.
-- Relacion: entrypoint del contenedor HA.
+- Relacion: entrypoint del contenedor HA. En local/HA, las opciones pueden
+  poblar claves como Google Maps o AEMET; en local tambien puede heredarlas del
+  entorno cuando el JSON de opciones no trae valor, sin guardar secretos en el
+  repo.
 
 ### Wrapper Docker local
 - Ruta: `rainmapper-local/run.sh`; `run.sh` en raiz es un wrapper compatible.
@@ -197,6 +219,11 @@ Hay varios entry points segun entorno:
 - Responsabilidad: visor web principal con mapas vectoriales/raster, filtros cliente de estaciones, terreno 3D opcional y overlays calculados en cliente.
 - Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y DEM externo Terrarium/Mapzen para terreno 3D, consultas puntuales de altitud y correccion DEM del IDW de temperatura.
 - Relacion: los assets estaticos se siguen publicando en `/local/rainmapper-maplibre`, pero la ruta operativa recomendada en HA es `/protected/maplibre/index.html`; los GeoJSON se sirven por `/protected/maplibre/data/*` con autenticacion ligera. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. Desde `0.2.71`, el filtro `Source` muestra badges de estado por fuente si existe `data/source_status.json`; en escritorio, la ficha de estacion tambien aparece por hover desde el umbral global `maplibre_hover_zoom` de HA, por defecto `6.0` y configurable con decimales, sin cambiar el comportamiento tactil de movil. En `0.2.81` la UI se moderniza con cabecera clara, controles flotantes, selector inferior de periodo, leyenda vertical dinamica y popups claros; el popup de estacion se mantiene/refresca al cambiar de periodo si la estacion sigue visible tras filtros. Los popups de estacion muestran resumen de lluvia, temperatura, humedad y viento del periodo, y un historial diario compacto cuando el GeoJSON incluye esos campos. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. Los defaults globales del heatmap para dispositivos sin settings guardados se leen de HA (`maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`) y despues cada dispositivo puede sobrescribirlos en `devices.json` al guardar Settings. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
+- Popup de punto: una pulsacion larga muestra altitud DEM, valores IDW
+  puntuales de lluvia, temperatura normal, temperatura corregida por DEM,
+  humedad y viento/racha, y despues la estacion con lluvia mas cercana. Estos
+  valores se calculan bajo demanda con los parametros IDW actuales y no
+  dependen de la metrica seleccionada en el overlay visible.
 
 ### MapLibre client-computed overlays
 - Ruta principal: `rainmapper_core/viewers/maplibre-viewer/app.js`.
@@ -333,7 +360,7 @@ Home Assistant:
 - Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh`. Flujo operativo actual: validar, hacer bump, commit/push, publicar/verificar imagen y avisar al usuario en cuanto HA pueda probarla.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
 - El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
-- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.193/latest` esta publicada/verificada con digest multi-arch `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.199/latest` esta publicada/verificada con digest multi-arch `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
 - Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando la ultima version validada, `latest`, el rollback inmediato y las entradas auxiliares sin tag asociadas a los pushes multi-arch/attestations que se conserven. Esto evita acumular basura en GitHub Packages sin romper pulls de HA. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch mientras HA pueda necesitar instalarla o reinstalarla.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
 - Los updates se distribuyen con commit de version en GitHub e imagen GHCR publicada/verificada. Si HA necesita detectar metadata desde el repo privado, abrir el repo temporalmente, usar `Check for updates`/`Update` en HA y volver a privado tras validar.

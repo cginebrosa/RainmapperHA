@@ -9,9 +9,10 @@ Assistant. Descarga historicos meteorologicos, genera mapas de lluvia y mantiene
 un modulo de setas para registrar observaciones, revisar perfiles de especies y
 construir un modelo v0 descriptivo/auditable.
 
-El trabajo activo actual esta centrado en el modulo de setas, en diagnosticar
-el rendimiento del backend `run_all` y en mantener solo el visor protegido como
-salida operativa principal.
+El trabajo activo actual combina tres frentes: validar la ultima version HA,
+mantener el visor MapLibre protegido como salida operativa principal y seguir
+el modulo de setas con evidencia local/promocion manual. El rendimiento del
+backend ya quedo razonablemente acotado; Wunderground usa API diaria primaria.
 
 ## Ruta obligatoria
 
@@ -74,17 +75,22 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA preparado: `0.2.197`.
-- Version HA del repo: `0.2.197` en `rainmapper-app/config.yaml` y
+- Ultimo release HA publicado: `0.2.199`.
+- Version HA del repo: `0.2.199` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.197` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.199` y
   `latest`, digest multi-arch
-  `sha256:7a6592f2cf8afc930e874a576b8036c4230b6866400b5127cd497335d1abbc30`.
-- `0.2.197` queda pendiente de validacion en HA por el usuario. Repo GitHub sigue publico por
-  decision explicita del usuario; no cerrarlo. GHCR se limpio tras validar y
-  conserva solo `0.2.195/latest`, rollback `0.2.194` y sus auxiliares
-  multi-arch/attestation.
+  `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
+- Commit release: `abe0d49 Release Home Assistant 0.2.199`.
+- `0.2.199` fue validada en HA por el usuario el 2026-07-11: MapLibre protegido
+  funciona y el popup largo muestra `Pluja` en `Valores IDW`.
+- Repo GitHub sigue publico por decision explicita del usuario; no cerrarlo.
+- No limpiar GHCR sin confirmar version activa/rollback y sin conservar
+  manifests/attestations auxiliares multi-arch.
+- Cambio local no release: `rainmapper-local/options.local-ha-ui.json` puede
+  aparecer modificado por pruebas locales de backfill; no commitearlo salvo
+  peticion explicita.
 
 ## Reglas de trabajo
 
@@ -153,6 +159,11 @@ Para release HA: revisar diff, ejecutar validacion local relevante, hacer bump
 de version/cache-busters, commit/push, publicar y verificar la imagen GHCR, y
 avisar al usuario en cuanto HA pueda probarla. No retrasar una prueba en HA por
 documentacion de cierre o hashes documentales.
+
+Para MapLibre protegido: no fiarse solo de que `app.js` contenga un cambio. El
+HTML servido debe cargar assets con el cache-buster de la version runtime; desde
+`0.2.199`, `web_server.py` sirve el index protegido con `no-store` y reescribe
+los query strings de assets a `RAINMAPPER_APP_VERSION`.
 
 Para limpieza GHCR: conservar siempre la version activa, `latest`, rollback
 inmediato y manifests/attestations auxiliares sin tag asociados. No limpiar

@@ -1,8 +1,137 @@
 # Decisions
 
-Nota de auditoria 2026-07-10: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`; ultimo release HA `50714ed Release Home Assistant 0.2.193`; commit documental de republish previo al cierre `cace775 Document Home Assistant 0.2.193 republish`; version HA `0.2.193`; imagen `ghcr.io/cginebrosa/rainmapperha:0.2.193` y `latest` publicada/verificada con digest multi-arch `sha256:2f563f601ed4b8902f679e2be43b689ae6b255a28a5207a4dade2555e255c98a`. El repo GitHub queda abierto/publico temporalmente durante la instalacion HA; no cerrarlo ni limpiar GHCR hasta que el usuario confirme que `0.2.193` instala y arranca. Los wrappers actuales del flujo v0 son `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`. Datos vivos, artefactos v0, estado del modelo y fotos reducidas de observaciones viven bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA), con fotos en `mushroom-data/media/observation-photos/<year>/`; capas GIS/DEM pesadas en HA viven bajo `/media/rainmapper/mushroom-GIS/`; `tmp/mushroom-lab/` queda solo para pruebas locales explicitas/QGIS. La evidencia GIS/meteo por observacion y el modelo aprendido v0 no modifican perfiles automaticamente. La UI de setas conserva Observaciones con hosts/bosque/suelo/habitat/orientacion observados, Parametros en tres columnas, y Evidencia pendiente de separar mejor Campo/GIS/DEM/coincidencias. Directiva vigente: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
+Nota de auditoria 2026-07-11: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`; ultimo release HA `abe0d49 Release Home Assistant 0.2.199`; version HA `0.2.199`, validada por el usuario en Home Assistant; imagen `ghcr.io/cginebrosa/rainmapperha:0.2.199` y `latest` publicada/verificada con digest multi-arch `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`. MapLibre protegido funciona y el popup largo muestra `Pluja` en `Valores IDW`. El repo GitHub queda abierto/publico por decision explicita del usuario; no cerrarlo. Una futura limpieza GHCR debe ser conservadora y mantener la version activa, `latest`, el rollback inmediato y los auxiliares multi-arch asociados. El unico cambio local no release esperado puede ser `rainmapper-local/options.local-ha-ui.json` con opciones de prueba de backfill. Datos vivos, artefactos v0, estado del modelo y fotos reducidas de observaciones viven bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA), con fotos en `mushroom-data/media/observation-photos/<year>/`; capas GIS/DEM pesadas en HA viven bajo `/media/rainmapper/mushroom-GIS/`; `tmp/mushroom-lab/` queda solo para pruebas locales explicitas/QGIS. La evidencia GIS/meteo por observacion y el modelo aprendido v0 no modifican perfiles automaticamente. Directiva vigente: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
 
-Actualizacion 2026-07-10: `0.2.194` cambia Wunderground para usar la API diaria JSON como fuente primaria de datos mensuales, con fallback al scraper HTML solo cuando la API no devuelve datos. Para que el rendimiento mejore realmente, los metadatos de estacion se leen de `estacions_wunderground.csv` y solo se consulta HTML si falta cache o si la API falla. Prueba local con 99 estaciones: `scrape_seconds=8.2s`, `Updated stations: 99`, `Failed stations: 0`, `API fallback errors: 6` para `ICASCA2`, `IPUIGR11` e `IQUERA1` en dos cortes mensuales. Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.194` y `latest`, digest multi-arch `sha256:74a6dee5b51421a244e277e52274f030d54e306a242d280837d884a61590907f`; pendiente de validacion en HA.
+## 2026-07-11 - Cache-busting runtime del MapLibre protegido
+
+Estado: VIGENTE
+
+Decision:
+
+- El `index.html` protegido de MapLibre debe servirse con `Cache-Control:
+  no-store`.
+- `web_server.py` debe reescribir los query strings de assets del visor
+  protegido a `RAINMAPPER_APP_VERSION`.
+- Los cache-busters versionados de `index.html` siguen actualizandose con cada
+  release, pero la ruta protegida no debe depender solo de ese valor estatico.
+
+Motivo:
+
+- En `0.2.198`, la imagen contenia el codigo nuevo del popup IDW con
+  `pointValues.rain`, pero el HTML seguia referenciando `app.js?v=0.2.196`.
+- En navegadores/HA esto podia cargar JavaScript antiguo aunque la imagen nueva
+  estuviera instalada.
+
+Consecuencias:
+
+- Si un cambio de MapLibre no aparece en HA, comprobar primero el HTML servido,
+  el query string de assets y la cache antes de modificar el calculo.
+- `0.2.198` queda reemplazada funcionalmente por `0.2.199` para esta parte.
+
+## 2026-07-11 - Backfill mensual con ventanas locales exactas
+
+Estado: VIGENTE
+
+Decision:
+
+- `backfill_months_enabled` activa reconstrucciones por ventanas mensuales.
+- Antes del primer lanzamiento se hace backup de incrementales.
+- `months_init`, `months_end`, `months_interval` y
+  `backfill_pause_seconds` controlan el rango, tamano de ventana y pausa.
+- `Current step` debe mostrar tambien las pausas entre ventanas.
+- Wunderground en modo backfill mensual recibe fechas locales exactas
+  `YYYY-MM-DD` de la ventana; no debe aplicar el desplazamiento/relectura del
+  modo normal por dias.
+- El modo normal por dias mantiene deliberadamente la relectura de mes anterior
+  cuando el rango cruza mes, para refrescar datos recientes que Wunderground
+  puede cerrar tarde.
+
+Motivo:
+
+- El primer backfill mensual reutilizo la logica normal de Wunderground y
+  repitio llamadas de meses adyacentes, por ejemplo julio de 2024 en dos
+  ventanas consecutivas.
+- Ese comportamiento es util en updates normales cercanos a cambios de mes,
+  pero no en una reconstruccion administrativa por ventanas exactas.
+
+Consecuencias:
+
+- Hay dos comportamientos deliberados: backfill mensual exacto y update normal
+  tolerante/relector.
+- Para reconstrucciones largas, el coste esperado sigue siendo estacion x mes;
+  usar filtros, ventanas pequenas y pausas.
+
+## 2026-07-11 - Filtro de estaciones por fuente en backfill
+
+Estado: VIGENTE
+
+Decision:
+
+- `backfill_station_filter` acepta entradas con separador `source::ids`.
+- Ejemplo: `wunderground::ICANIL20`.
+- Los IDs multiples se separan por coma.
+
+Motivo:
+
+- Reconstruir historico completo por todas las estaciones es innecesario cuando
+  solo se han anadido una o dos estaciones.
+- El separador `::` evita ambiguedades razonables si algun ID externo contiene
+  `:`.
+
+Consecuencias:
+
+- Wunderground ya se puede probar de forma acotada por estacion.
+- La sintaxis conserva sitio para extender el filtro a otras fuentes sin crear
+  parametros separados por fuente.
+
+## 2026-07-11 - Valores IDW puntuales en popup MapLibre
+
+Estado: VIGENTE
+
+Decision:
+
+- El popup de click largo debe mostrar `Valores IDW` antes de la estacion con
+  lluvia mas cercana.
+- Debe calcular y mostrar todas las metricas relevantes del punto, no solo la
+  metrica seleccionada en el mapa.
+- Orden actual: lluvia, temperatura, temperatura corregida por DEM, humedad y
+  viento/racha.
+- Si el punto no tiene soporte IDW para una metrica, mostrar `-`.
+
+Motivo:
+
+- El color del overlay ayuda por zonas, pero para consultar un punto concreto el
+  usuario necesita valores numericos sin cambiar de selector de variable.
+
+Consecuencias:
+
+- El calculo extra se ejecuta solo al click largo, no en cada render continuo.
+- La lluvia debe aparecer aunque el mapa tenga seleccionada otra metrica.
+
+## 2026-07-11 - API keys locales y Meteocat
+
+Estado: VIGENTE
+
+Decision:
+
+- El entorno local puede pasar `GMAP_API_KEY` y `AEMET_API_KEY` desde variables
+  de entorno si las opciones HA locales no las tienen.
+- No guardar claves reales en el repo.
+- No anadir de momento una clave Meteocat a `config.yaml`.
+
+Motivo:
+
+- La clave detectada era de Meteocat, pero el flujo actual usa Dades Obertes de
+  GENCAT; no sirve para resolver el limite historico de esa fuente sin cambiar
+  la integracion.
+
+Consecuencias:
+
+- AEMET local no deberia fallar por ausencia de variable si existe en `.venv` o
+  en el entorno que arranca Docker.
+- Meteocat historico con token queda descartado por ahora.
+
+Actualizacion 2026-07-10: `0.2.194` cambia Wunderground para usar la API diaria JSON como fuente primaria de datos mensuales, con fallback al scraper HTML solo cuando la API no devuelve datos. Para que el rendimiento mejore realmente, los metadatos de estacion se leen de `estacions_wunderground.csv` y solo se consulta HTML si falta cache o si la API falla. Prueba local con 99 estaciones: `scrape_seconds=8.2s`, `Updated stations: 99`, `Failed stations: 0`, `API fallback errors: 6` para `ICASCA2`, `IPUIGR11` e `IQUERA1` en dos cortes mensuales. Estado de release: REEMPLAZADA por versiones posteriores; la decision de API primaria Wunderground sigue VIGENTE.
 
 Actualizacion 2026-07-11: la correccion por altitud de la capa MapLibre `IDW`
 deja de ser una aproximacion por altitud media de estaciones y pasa a usar DEM
@@ -16,9 +145,11 @@ fallback. Con correccion desactivada o metrica no temperatura, no muestra badge.
 Se anade `maplibre_estimated_field_dem_zoom` como default HA y setting por
 dispositivo (`8|9|10`, default `9`), mas globos de ayuda traducidos solo en los
 settings IDW para evaluar el patron antes de llevarlo al resto de paneles.
-Publicado en imagen HA `0.2.196` y `latest`, digest multi-arch
+Estado de release: REEMPLAZADA por `0.2.199`; la decision tecnica DEM sigue
+VIGENTE. Publicado originalmente en imagen HA `0.2.196` y `latest`, digest
+multi-arch
 `sha256:98ff4f9399cf0ef9f8b3bf8b513b92c9977ac6f520fbbc634af6a39374ba4284`;
-queda pendiente de validacion en HA.
+la validacion activa ya no es esta version sino `0.2.199`.
 
 ## 2026-07-10 - GHCR multi-arch y repo publico durante instalacion HA
 
