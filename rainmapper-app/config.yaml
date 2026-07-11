@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.195"
+version: "0.2.196"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -48,22 +48,23 @@ options:
   last_rains_history: 30
   maplibre_hover_zoom: 6.0
   maplibre_heatmap_weight_curve: soft
-  maplibre_heatmap_opacity: 65
+  maplibre_heatmap_opacity: 80
   maplibre_heatmap_radius: 90
   maplibre_heatmap_intensity: 70
   maplibre_estimated_field_enabled: false
-  maplibre_estimated_field_opacity: 65
+  maplibre_estimated_field_opacity: 90
   maplibre_estimated_field_radius: medium
   maplibre_estimated_field_quality: medium
   maplibre_estimated_field_smoothing: balanced
   maplibre_estimated_field_altitude_correction: false
+  maplibre_estimated_field_dem_zoom: 9
   maplibre_estimated_field_radius_small_km: 10
-  maplibre_estimated_field_radius_medium_km: 25
-  maplibre_estimated_field_radius_large_km: 50
-  maplibre_estimated_field_max_radius_km: 100
-  maplibre_estimated_field_grid_low_cell_km: 10
-  maplibre_estimated_field_grid_medium_cell_km: 5
-  maplibre_estimated_field_grid_high_cell_km: 2.5
+  maplibre_estimated_field_radius_medium_km: 15
+  maplibre_estimated_field_radius_large_km: 25
+  maplibre_estimated_field_max_radius_km: 50
+  maplibre_estimated_field_grid_low_cell_km: 2
+  maplibre_estimated_field_grid_medium_cell_km: 1
+  maplibre_estimated_field_grid_high_cell_km: 0.5
   maplibre_estimated_field_smoothing_smooth_power: 1
   maplibre_estimated_field_smoothing_balanced_power: 2
   maplibre_estimated_field_smoothing_local_power: 3
@@ -107,6 +108,7 @@ schema:
   maplibre_estimated_field_quality: list(low|medium|high)
   maplibre_estimated_field_smoothing: list(smooth|balanced|local)
   maplibre_estimated_field_altitude_correction: bool
+  maplibre_estimated_field_dem_zoom: list(8|9|10)
   maplibre_estimated_field_radius_small_km: float
   maplibre_estimated_field_radius_medium_km: float
   maplibre_estimated_field_radius_large_km: float

@@ -17,12 +17,12 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA preparado: `0.2.195`.
-- Version HA del repo: `0.2.195`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.195`
+- Ultimo release HA preparado: `0.2.196`.
+- Version HA del repo: `0.2.196`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.196`
   y `latest`, digest multi-arch
-  `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
-- Estado HA: `0.2.195` instalada/validada por el usuario.
+  `sha256:98ff4f9399cf0ef9f8b3bf8b513b92c9977ac6f520fbbc634af6a39374ba4284`.
+- Estado HA: `0.2.196` pendiente de instalacion/validacion por el usuario.
 - Estado GitHub/GHCR: repo GitHub abierto/publico por decision explicita del
   usuario; no cerrarlo. GHCR remoto limpiado tras validar `0.2.195`: conserva
   `0.2.195/latest`, rollback `0.2.194` y auxiliares multi-arch/attestation de
@@ -42,10 +42,23 @@ de rendimiento de `run_all` queda como seguimiento puntual:
 - Comparacion visual en `Parametros`: perfil, evidencia v0 y valores emergentes.
 - Separacion clara de origenes: perfil/literatura, Campo, GIS/DEM.
 - Estado de modelo desactualizado y reconstruccion manual desde UI.
-- Validar en HA que `0.2.195` conserva la mejora Wunderground con API diaria
-  primaria y cache de metadata, sin romper incrementales.
+- Validar en HA que `0.2.196` conserva la mejora Wunderground con API diaria
+  primaria y cache de metadata, sin romper incrementales, y que MapLibre IDW
+  mantiene la correccion DEM/valores puntuales del popup largo.
 
 El resto de visores esta estable salvo que una tarea lo toque explicitamente.
+
+MapLibre IDW queda preparado para validar en HA `0.2.196`: la correccion por
+altitud usa DEM Terrarium/Mapzen por celda solo en metricas de temperatura, con
+fallback a IDW normal y badge discreto en cabecera (`IDW DEM` verde o
+`IDW sin DEM` rojo).
+Los settings IDW exponen `Zoom DEM` (`8|9|10`, default `9`) y ayudas breves en
+EN/ES/CA solo para esta seccion, como prueba antes de extenderlas al resto de
+Settings.
+El popup de click largo del mapa muestra tambien `Valores IDW` puntuales antes
+de la estacion con lluvia mas cercana: temperatura normal, temperatura corregida
+por DEM, humedad y viento/racha, calculados con los parametros IDW actuales y
+con `-` cuando el punto no tiene soporte.
 
 ## Rendimiento backend
 

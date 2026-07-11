@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.195">
+    <link rel="stylesheet" href="style.css?v=0.2.196">
   </head>
   <body>
     <header class="topbar">
@@ -16,6 +16,7 @@
         <h1>Rainmapper</h1>
         <p id="summary">Loading map data...</p>
       </div>
+      <div class="idw-dem-status" id="idw-dem-status" hidden>IDW DEM</div>
       <div class="generated">
         <time id="generated-at">-</time>
         <div class="signed-in-user" id="signed-in-user" hidden>
@@ -258,12 +259,12 @@
             <span>Estimated field</span>
           </label>
           <div class="map-settings-row">
-            <label for="estimated-field-opacity-filter">Estimated field opacity</label>
-            <output id="estimated-field-opacity-value" for="estimated-field-opacity-filter">65%</output>
+            <label for="estimated-field-opacity-filter"><span class="map-settings-label-text">Estimated field opacity</span> <button class="map-settings-help" type="button" data-help-key="estimatedFieldOpacityHelp" aria-label="Help">?</button></label>
+            <output id="estimated-field-opacity-value" for="estimated-field-opacity-filter">90%</output>
           </div>
-          <input id="estimated-field-opacity-filter" type="range" min="0" max="100" step="5" value="65">
+          <input id="estimated-field-opacity-filter" type="range" min="0" max="100" step="5" value="90">
           <div class="map-settings-row">
-            <label for="estimated-field-radius-selector">Influence radius</label>
+            <label for="estimated-field-radius-selector"><span class="map-settings-label-text">Influence radius</span> <button class="map-settings-help" type="button" data-help-key="estimatedFieldRadiusHelp" aria-label="Help">?</button></label>
             <output class="map-settings-derived-value" id="estimated-field-radius-effective-value" for="estimated-field-radius-selector">-</output>
             <select id="estimated-field-radius-selector">
               <option value="small">Small</option>
@@ -272,7 +273,7 @@
             </select>
           </div>
           <div class="map-settings-row">
-            <label for="estimated-field-quality-selector">Quality</label>
+            <label for="estimated-field-quality-selector"><span class="map-settings-label-text">Quality</span> <button class="map-settings-help" type="button" data-help-key="estimatedFieldQualityHelp" aria-label="Help">?</button></label>
             <output class="map-settings-derived-value" id="estimated-field-quality-effective-value" for="estimated-field-quality-selector">-</output>
             <select id="estimated-field-quality-selector">
               <option value="low">Low</option>
@@ -281,7 +282,7 @@
             </select>
           </div>
           <div class="map-settings-row">
-            <label for="estimated-field-smoothing-selector">Smoothing</label>
+            <label for="estimated-field-smoothing-selector"><span class="map-settings-label-text">Smoothing</span> <button class="map-settings-help" type="button" data-help-key="estimatedFieldSmoothingHelp" aria-label="Help">?</button></label>
             <output class="map-settings-derived-value" id="estimated-field-smoothing-effective-value" for="estimated-field-smoothing-selector">-</output>
             <select id="estimated-field-smoothing-selector">
               <option value="smooth">Smooth</option>
@@ -289,9 +290,18 @@
               <option value="local">Local</option>
             </select>
           </div>
+          <div class="map-settings-row">
+            <label for="estimated-field-dem-zoom-selector"><span class="map-settings-label-text">DEM zoom</span> <button class="map-settings-help" type="button" data-help-key="estimatedFieldDemZoomHelp" aria-label="Help">?</button></label>
+            <output class="map-settings-derived-value" id="estimated-field-dem-zoom-effective-value" for="estimated-field-dem-zoom-selector">-</output>
+            <select id="estimated-field-dem-zoom-selector">
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </div>
           <label class="map-settings-check">
             <input type="checkbox" id="estimated-field-altitude-correction-toggle">
-            <span>Altitude correction</span>
+            <span><span class="map-settings-label-text">Altitude correction</span> <button class="map-settings-help" type="button" data-help-key="estimatedFieldAltitudeCorrectionHelp" aria-label="Help">?</button></span>
           </label>
           <button class="map-settings-action" id="reset-estimated-field-defaults" type="button">Reset estimated field defaults</button>
         </div>
@@ -349,7 +359,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.195"></script>
-  <script src="app.js?v=0.2.195"></script>
+  <script src="config.js?v=0.2.196"></script>
+  <script src="app.js?v=0.2.196"></script>
   </body>
 </html>

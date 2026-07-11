@@ -300,22 +300,23 @@ meteocat_max_attempts: 3
 last_rains_history: 30
 maplibre_hover_zoom: 6.0
 maplibre_heatmap_weight_curve: soft
-maplibre_heatmap_opacity: 65
+maplibre_heatmap_opacity: 80
 maplibre_heatmap_radius: 90
 maplibre_heatmap_intensity: 70
 maplibre_estimated_field_enabled: false
-maplibre_estimated_field_opacity: 65
+maplibre_estimated_field_opacity: 90
 maplibre_estimated_field_radius: medium
 maplibre_estimated_field_quality: medium
 maplibre_estimated_field_smoothing: balanced
 maplibre_estimated_field_altitude_correction: false
+maplibre_estimated_field_dem_zoom: 9
 maplibre_estimated_field_radius_small_km: 10
-maplibre_estimated_field_radius_medium_km: 25
-maplibre_estimated_field_radius_large_km: 50
-maplibre_estimated_field_max_radius_km: 100
-maplibre_estimated_field_grid_low_cell_km: 10
-maplibre_estimated_field_grid_medium_cell_km: 5
-maplibre_estimated_field_grid_high_cell_km: 2.5
+maplibre_estimated_field_radius_medium_km: 15
+maplibre_estimated_field_radius_large_km: 25
+maplibre_estimated_field_max_radius_km: 50
+maplibre_estimated_field_grid_low_cell_km: 2
+maplibre_estimated_field_grid_medium_cell_km: 1
+maplibre_estimated_field_grid_high_cell_km: 0.5
 maplibre_estimated_field_smoothing_smooth_power: 1
 maplibre_estimated_field_smoothing_balanced_power: 2
 maplibre_estimated_field_smoothing_local_power: 3
@@ -339,8 +340,8 @@ Notas rapidas:
 - `last_rains_history: 30` define cuantos registros recientes de lluvia se guardan en los CSV `Tomap` para el popup de estaciones en Leaflet/MapLibre. El valor se aplica cuando Rainmapper reconstruye `Tomap`; en Home Assistant, `maps` y `all` reconstruyen `Tomap` antes de generar HTML/GeoJSON.
 - `publish_to_www: false` deja apagada la generacion/publicacion legacy de Bokeh/Google Maps y Leaflet publico. Tomap, GeoJSON y MapLibre protegido se siguen generando normalmente.
 - `maplibre_hover_zoom: 6.0` define desde que nivel de zoom se activan los popups por hover sobre estaciones en MapLibre de escritorio. Admite decimales, por ejemplo `6.5`.
-- `maplibre_heatmap_weight_curve: soft`, `maplibre_heatmap_opacity: 65`, `maplibre_heatmap_radius: 90` y `maplibre_heatmap_intensity: 70` definen los valores iniciales del heatmap para dispositivos sin settings guardados. El boton `Reset heatmap defaults` del visor restaura estos valores y los guarda para el dispositivo al cerrar Settings.
-- `maplibre_estimated_field_*` define los defaults y parametros tecnicos de la capa experimental `IDW`. La capa se calcula en el navegador solo para el viewport visible. Los settings por dispositivo exponen activacion, opacidad, radio fisico (`small|medium|large`), calidad (`low|medium|high`), suavizado (`smooth|balanced|local`) y correccion opcional de temperatura por altitud. Los radios en km, tamano fisico de celda en km, potencia IDW, radio fisico maximo y gradiente termico se ajustan en `config.yaml` para probar sin publicar nueva imagen.
+- `maplibre_heatmap_weight_curve: soft`, `maplibre_heatmap_opacity: 80`, `maplibre_heatmap_radius: 90` y `maplibre_heatmap_intensity: 70` definen los valores iniciales del heatmap para dispositivos sin settings guardados. El boton `Reset heatmap defaults` del visor restaura estos valores y los guarda para el dispositivo al cerrar Settings.
+- `maplibre_estimated_field_*` define los defaults y parametros tecnicos de la capa experimental `IDW`. La capa se calcula en el navegador solo para el viewport visible. Los settings por dispositivo exponen activacion, opacidad, radio fisico (`small|medium|large`), calidad (`low|medium|high`), suavizado (`smooth|balanced|local`), zoom DEM (`8|9|10`) y correccion DEM opcional solo para temperatura. Cuando esa correccion se usa, el visor muestra `IDW DEM`; si esta activada pero el DEM externo no se puede usar, vuelve al IDW normal y muestra `IDW sin DEM`. Los radios en km, tamano fisico de celda en km, potencia IDW, radio fisico maximo, zoom DEM por defecto y gradiente termico se ajustan en `config.yaml` para probar sin publicar nueva imagen.
 - `gmap_api_key` se usa para los mapas Bokeh/Google Maps y para completar metadata de estaciones con servicios de Google.
 - `aemet_api_key` se usa solo si `create_aemet` esta activado.
 - `wunderground_full_log: true` aumenta mucho el detalle del log de Wunderground y normalmente solo conviene para diagnostico.
@@ -363,7 +364,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `last_rains_history`: numero de registros recientes preparados para popups.
 - `maplibre_hover_zoom`: nivel minimo de zoom para activar popups por hover sobre estaciones en MapLibre de escritorio. Admite valores decimales como `6.5`.
 - `maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`: valores iniciales del heatmap MapLibre para dispositivos sin preferencias guardadas. Opacidad, radio e intensidad se expresan como porcentaje. El visor incluye una accion para restaurar esos defaults desde Settings > Heatmap.
-- `maplibre_estimated_field_enabled`, `maplibre_estimated_field_opacity`, `maplibre_estimated_field_radius`, `maplibre_estimated_field_quality`, `maplibre_estimated_field_smoothing`, `maplibre_estimated_field_altitude_correction`: valores iniciales de la capa experimental `IDW` para dispositivos sin preferencias guardadas.
+- `maplibre_estimated_field_enabled`, `maplibre_estimated_field_opacity`, `maplibre_estimated_field_radius`, `maplibre_estimated_field_quality`, `maplibre_estimated_field_smoothing`, `maplibre_estimated_field_altitude_correction`, `maplibre_estimated_field_dem_zoom`: valores iniciales de la capa experimental `IDW` para dispositivos sin preferencias guardadas. La correccion de altitud usa DEM externo Terrarium/Mapzen por celda y solo afecta a temperatura; no se aplica a lluvia, humedad ni viento.
 - `maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_max_radius_km`, `maplibre_estimated_field_grid_*_cell_km`, `maplibre_estimated_field_smoothing_*_power`, `maplibre_estimated_field_temperature_lapse_rate_c_per_100m`: parametros tecnicos de la interpolacion IDW. Se sirven en `/protected/maplibre/config.js` y se actualizan al reiniciar la app.
 - `max_threads`, `max_attempts`, `wunderground_daily_api`, `wunderground_full_log`: concurrencia, reintentos, fuente diaria primaria y logging de Wunderground.
 - `publish_to_www`: activa la generacion/publicacion legacy en `/config/www` de Bokeh/Google Maps y Leaflet publico. Por defecto esta desactivado.

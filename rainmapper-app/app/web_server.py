@@ -90,6 +90,7 @@ DEVICE_SETTING_HEATMAP_WEIGHT_CURVES = {"linear", "soft", "strong"}
 DEVICE_SETTING_ESTIMATED_FIELD_RADII = {"small", "medium", "large"}
 DEVICE_SETTING_ESTIMATED_FIELD_QUALITIES = {"low", "medium", "high"}
 DEVICE_SETTING_ESTIMATED_FIELD_SMOOTHING = {"smooth", "balanced", "local"}
+DEVICE_SETTING_ESTIMATED_FIELD_DEM_ZOOMS = {8, 9, 10}
 UPDATE_SOURCE_FLAGS = {
     "Meteoclimatic": "create_meteoclimatic",
     "Meteocat": "create_meteocat",
@@ -204,7 +205,7 @@ def maplibre_heatmap_defaults() -> dict:
         weight_curve = "soft"
     return {
         "weightCurve": weight_curve,
-        "opacity": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY", 65, 0, 100) / 100,
+        "opacity": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_OPACITY", 80, 0, 100) / 100,
         "radiusScale": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_RADIUS", 90, 50, 300) / 100,
         "intensityScale": percent_env("RAINMAPPER_MAPLIBRE_HEATMAP_INTENSITY", 70, 20, 200) / 100,
     }
@@ -234,11 +235,12 @@ def option_env(name: str, default: str, valid_values: set[str]) -> str:
 def maplibre_estimated_field_defaults() -> dict:
     return {
         "enabled": bool_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_ENABLED", False),
-        "opacity": percent_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_OPACITY", 65, 0, 100) / 100,
+        "opacity": percent_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_OPACITY", 90, 0, 100) / 100,
         "radius": option_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS", "medium", DEVICE_SETTING_ESTIMATED_FIELD_RADII),
         "quality": option_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_QUALITY", "medium", DEVICE_SETTING_ESTIMATED_FIELD_QUALITIES),
         "smoothing": option_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING", "balanced", DEVICE_SETTING_ESTIMATED_FIELD_SMOOTHING),
         "altitudeCorrection": bool_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_ALTITUDE_CORRECTION", False),
+        "demZoom": int_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_DEM_ZOOM", 9, 8, 10),
     }
 
 
@@ -247,14 +249,14 @@ def maplibre_estimated_field_config() -> dict:
         "defaults": maplibre_estimated_field_defaults(),
         "radiusKm": {
             "small": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_SMALL_KM", 10, 1, 1000),
-            "medium": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_MEDIUM_KM", 25, 1, 1000),
-            "large": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_LARGE_KM", 50, 1, 1000),
+            "medium": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_MEDIUM_KM", 15, 1, 1000),
+            "large": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_RADIUS_LARGE_KM", 25, 1, 1000),
         },
-        "maxRadiusKm": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_MAX_RADIUS_KM", 100, 1, 1000),
+        "maxRadiusKm": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_MAX_RADIUS_KM", 50, 1, 1000),
         "grid": {
-            "low": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_CELL_KM", 10, 0.1, 100),
-            "medium": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_CELL_KM", 5, 0.1, 100),
-            "high": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_CELL_KM", 2.5, 0.1, 100),
+            "low": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_LOW_CELL_KM", 2, 0.1, 100),
+            "medium": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_MEDIUM_CELL_KM", 1, 0.1, 100),
+            "high": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_GRID_HIGH_CELL_KM", 0.5, 0.1, 100),
         },
         "smoothingPower": {
             "smooth": number_env("RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_SMOOTH_POWER", 1, 0.1, 8),
@@ -8090,7 +8092,7 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
         settings["estimated_field_enabled"] = normalize_bool_flag(raw_settings.get("estimated_field_enabled")) == "true"
 
     if "estimated_field_opacity" in raw_settings:
-        estimated_field_opacity = finite_number(raw_settings.get("estimated_field_opacity"), 0.65)
+        estimated_field_opacity = finite_number(raw_settings.get("estimated_field_opacity"), 0.9)
         settings["estimated_field_opacity"] = max(0.0, min(1.0, estimated_field_opacity))
 
     estimated_field_radius = str(raw_settings.get("estimated_field_radius", "")).strip()
@@ -8109,6 +8111,11 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
         settings["estimated_field_altitude_correction"] = (
             normalize_bool_flag(raw_settings.get("estimated_field_altitude_correction")) == "true"
         )
+
+    if "estimated_field_dem_zoom" in raw_settings:
+        estimated_field_dem_zoom = int(finite_number(raw_settings.get("estimated_field_dem_zoom"), 9))
+        if estimated_field_dem_zoom in DEVICE_SETTING_ESTIMATED_FIELD_DEM_ZOOMS:
+            settings["estimated_field_dem_zoom"] = estimated_field_dem_zoom
 
     map_view = raw_settings.get("map_view")
     if isinstance(map_view, dict):

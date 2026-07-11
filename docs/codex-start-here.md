@@ -74,14 +74,14 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA preparado: `0.2.195`.
-- Version HA del repo: `0.2.195` en `rainmapper-app/config.yaml` y
+- Ultimo release HA preparado: `0.2.196`.
+- Version HA del repo: `0.2.196` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.195` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.196` y
   `latest`, digest multi-arch
-  `sha256:1d5dbf33d5bde0b80df00acc8e974ff03793933aa5b69b3fe31bb66c30d49fd1`.
-- `0.2.195` queda validada en HA por el usuario. Repo GitHub sigue publico por
+  `sha256:98ff4f9399cf0ef9f8b3bf8b513b92c9977ac6f520fbbc634af6a39374ba4284`.
+- `0.2.196` queda pendiente de validacion en HA por el usuario. Repo GitHub sigue publico por
   decision explicita del usuario; no cerrarlo. GHCR se limpio tras validar y
   conserva solo `0.2.195/latest`, rollback `0.2.194` y sus auxiliares
   multi-arch/attestation.

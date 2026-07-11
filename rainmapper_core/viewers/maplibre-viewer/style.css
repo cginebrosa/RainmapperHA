@@ -41,12 +41,13 @@ body {
   color: var(--dark-text);
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   min-height: 68px;
   padding: 10px 18px;
 }
 
 .topbar-title {
+  grid-column: 1;
   min-width: 0;
 }
 
@@ -78,11 +79,40 @@ p {
   color: rgba(20, 32, 43, 0.68);
 }
 
+.idw-dem-status {
+  align-self: center;
+  border: 1px solid rgba(8, 21, 33, 0.16);
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(8, 21, 33, 0.08);
+  font-size: 11px;
+  font-weight: 900;
+  grid-column: 2;
+  justify-self: center;
+  letter-spacing: 0;
+  line-height: 1;
+  padding: 6px 9px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.idw-dem-status.dem {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(22, 163, 74, 0.34);
+  color: #137a3d;
+}
+
+.idw-dem-status.fallback {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(220, 38, 38, 0.34);
+  color: #b91c1c;
+}
+
 .generated {
   align-self: center;
   color: rgba(20, 32, 43, 0.58);
   display: grid;
   gap: 3px;
+  grid-column: 3;
   justify-items: end;
   line-height: 1.2;
   text-align: right;
@@ -632,6 +662,7 @@ main {
 @media (max-width: 640px) {
   .topbar {
     gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     min-height: 82px;
     padding: 12px 14px 10px;
   }
@@ -652,6 +683,11 @@ main {
   .generated {
     align-self: start;
     padding-top: 6px;
+  }
+
+  .idw-dem-status {
+    font-size: 10px;
+    padding: 5px 7px;
   }
 
   .generated time {
@@ -1017,6 +1053,61 @@ main {
   justify-content: space-between;
 }
 
+.map-settings-row label,
+.map-settings-check > span {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  min-width: 0;
+  position: relative;
+}
+
+.map-settings-help {
+  align-items: center;
+  appearance: none;
+  background: rgba(8, 21, 33, 0.08);
+  border: 1px solid rgba(8, 21, 33, 0.16);
+  border-radius: 999px;
+  color: rgba(20, 32, 43, 0.64);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 900;
+  height: 16px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 16px;
+}
+
+.map-settings-help.is-open,
+.map-settings-help:hover {
+  background: rgba(25, 173, 232, 0.15);
+  border-color: rgba(25, 173, 232, 0.42);
+  color: #11698f;
+}
+
+.map-settings-help-popover {
+  background: rgba(20, 32, 43, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(8, 21, 33, 0.22);
+  color: #f8fbff;
+  font-size: 12px;
+  font-weight: 700;
+  left: 0;
+  line-height: 1.3;
+  max-width: min(280px, calc(100vw - 42px));
+  padding: 9px 10px;
+  position: absolute;
+  text-align: left;
+  top: calc(100% + 7px);
+  width: max-content;
+  z-index: 50;
+}
+
 .map-settings-check {
   align-items: center;
   display: flex;
@@ -1341,6 +1432,15 @@ main {
 }
 
 @media (max-width: 420px) {
+  .topbar {
+    gap: 6px;
+  }
+
+  .idw-dem-status {
+    font-size: 9px;
+    padding: 5px 6px;
+  }
+
   .period-timeline {
     justify-content: flex-start;
     max-width: calc(100vw - 110px);
@@ -1388,6 +1488,7 @@ main {
   font-size: 11px;
 }
 
+.terrain-idw-title,
 .terrain-nearest-title {
   margin-top: 8px;
 }

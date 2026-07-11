@@ -4,6 +4,22 @@ Nota de auditoria 2026-07-10: este fichero es un log cronologico/historico. Las 
 
 Actualizacion 2026-07-10: `0.2.194` cambia Wunderground para usar la API diaria JSON como fuente primaria de datos mensuales, con fallback al scraper HTML solo cuando la API no devuelve datos. Para que el rendimiento mejore realmente, los metadatos de estacion se leen de `estacions_wunderground.csv` y solo se consulta HTML si falta cache o si la API falla. Prueba local con 99 estaciones: `scrape_seconds=8.2s`, `Updated stations: 99`, `Failed stations: 0`, `API fallback errors: 6` para `ICASCA2`, `IPUIGR11` e `IQUERA1` en dos cortes mensuales. Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.194` y `latest`, digest multi-arch `sha256:74a6dee5b51421a244e277e52274f030d54e306a242d280837d884a61590907f`; pendiente de validacion en HA.
 
+Actualizacion 2026-07-11: la correccion por altitud de la capa MapLibre `IDW`
+deja de ser una aproximacion por altitud media de estaciones y pasa a usar DEM
+Terrarium/Mapzen por celda, solo para metricas de temperatura. El calculo se
+mantiene en navegador, acotado por viewport y limites conservadores de
+celdas/tiles; si el DEM externo no esta disponible o excede esos limites, el
+visor vuelve al IDW normal. La cabecera del mapa solo muestra estado cuando el
+usuario tiene IDW activo, esta mirando temperatura y la correccion esta
+activada: badge verde `IDW DEM` si se usa DEM, badge rojo `IDW sin DEM` si hay
+fallback. Con correccion desactivada o metrica no temperatura, no muestra badge.
+Se anade `maplibre_estimated_field_dem_zoom` como default HA y setting por
+dispositivo (`8|9|10`, default `9`), mas globos de ayuda traducidos solo en los
+settings IDW para evaluar el patron antes de llevarlo al resto de paneles.
+Publicado en imagen HA `0.2.196` y `latest`, digest multi-arch
+`sha256:98ff4f9399cf0ef9f8b3bf8b513b92c9977ac6f520fbbc634af6a39374ba4284`;
+queda pendiente de validacion en HA.
+
 ## 2026-07-10 - GHCR multi-arch y repo publico durante instalacion HA
 
 Estado: VIGENTE

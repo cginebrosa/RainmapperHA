@@ -43,6 +43,11 @@ const TERRAIN_TILES = [
   "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
 ];
 const TERRAIN_ELEVATION_ZOOM = 15;
+const ESTIMATED_FIELD_DEM_MIN_ZOOM = 8;
+const ESTIMATED_FIELD_DEM_MAX_ZOOM = 10;
+const ESTIMATED_FIELD_DEM_MAX_TILES = 180;
+const ESTIMATED_FIELD_DEM_TILE_TIMEOUT_MS = 3500;
+const ESTIMATED_FIELD_DEM_CANVAS_CACHE_LIMIT = 240;
 const LONG_PRESS_MS = 650;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
 const configuredHoverPopupMinZoom = Number(viewerConfig.hoverPopupMinZoom);
@@ -61,8 +66,9 @@ const configuredEstimatedFieldDefaults = configuredEstimatedField.defaults || {}
 const ESTIMATED_FIELD_RADIUS_OPTIONS = ["small", "medium", "large"];
 const ESTIMATED_FIELD_QUALITY_OPTIONS = ["low", "medium", "high"];
 const ESTIMATED_FIELD_SMOOTHING_OPTIONS = ["smooth", "balanced", "local"];
+const ESTIMATED_FIELD_DEM_ZOOM_OPTIONS = [8, 9, 10];
 const DEFAULT_ESTIMATED_FIELD_ENABLED = Boolean(configuredEstimatedFieldDefaults.enabled);
-const DEFAULT_ESTIMATED_FIELD_OPACITY = clampNumber(Number(configuredEstimatedFieldDefaults.opacity), 0, 1, 0.65);
+const DEFAULT_ESTIMATED_FIELD_OPACITY = clampNumber(Number(configuredEstimatedFieldDefaults.opacity), 0, 1, 0.9);
 const DEFAULT_ESTIMATED_FIELD_RADIUS = ESTIMATED_FIELD_RADIUS_OPTIONS.includes(configuredEstimatedFieldDefaults.radius)
   ? configuredEstimatedFieldDefaults.radius
   : "medium";
@@ -73,6 +79,9 @@ const DEFAULT_ESTIMATED_FIELD_SMOOTHING = ESTIMATED_FIELD_SMOOTHING_OPTIONS.incl
   ? configuredEstimatedFieldDefaults.smoothing
   : "balanced";
 const DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION = Boolean(configuredEstimatedFieldDefaults.altitudeCorrection);
+const DEFAULT_ESTIMATED_FIELD_DEM_ZOOM = ESTIMATED_FIELD_DEM_ZOOM_OPTIONS.includes(Number(configuredEstimatedFieldDefaults.demZoom))
+  ? Number(configuredEstimatedFieldDefaults.demZoom)
+  : 9;
 const estimatedFieldGridConfig = configuredEstimatedField.grid || {};
 const estimatedFieldSmoothingPowerConfig = configuredEstimatedField.smoothingPower || {};
 const stationSources = [
@@ -306,11 +315,15 @@ let estimatedFieldRadius = DEFAULT_ESTIMATED_FIELD_RADIUS;
 let estimatedFieldQuality = DEFAULT_ESTIMATED_FIELD_QUALITY;
 let estimatedFieldSmoothing = DEFAULT_ESTIMATED_FIELD_SMOOTHING;
 let estimatedFieldAltitudeCorrection = DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION;
+let estimatedFieldDemZoom = DEFAULT_ESTIMATED_FIELD_DEM_ZOOM;
 let estimatedFieldUpdateTimer = null;
 let estimatedFieldIdleRefreshPending = false;
 let estimatedFieldDataRevision = 0;
+let estimatedFieldBuildSequence = 0;
 let lastEstimatedFieldDataKey = "";
 let lastEstimatedFieldData = null;
+let lastEstimatedFieldDemStatus = "hidden";
+let estimatedFieldDemStatus = "hidden";
 let baseStyleReloadPending = false;
 let terrainEnabled = false;
 let terrainExaggeration = 1;
@@ -326,6 +339,7 @@ let longPressStartPoint = null;
 let didTriggerLongPress = false;
 let invalidFeatureCount = 0;
 const terrainTileCache = new Map();
+const terrainTileCanvasCache = new Map();
 
 
 function authPermissionEnabled(fieldName) {
@@ -422,7 +436,13 @@ function setText(selector, text) {
 }
 
 function setLabelText(controlId, text) {
-  setText(`label[for="${controlId}"]`, text);
+  const label = document.querySelector(`label[for="${controlId}"]`);
+  const labelText = label?.querySelector?.(".map-settings-label-text");
+  if (labelText) {
+    labelText.textContent = text;
+  } else if (label) {
+    label.textContent = text;
+  }
 }
 
 function clampNumber(value, minimum, maximum, fallback) {
@@ -495,7 +515,8 @@ function applyLanguage(language = currentLanguage) {
   setLabelText("estimated-field-radius-selector", t("estimatedFieldRadius"));
   setLabelText("estimated-field-quality-selector", t("estimatedFieldQuality"));
   setLabelText("estimated-field-smoothing-selector", t("estimatedFieldSmoothing"));
-  setText("#estimated-field-altitude-correction-toggle + span", t("estimatedFieldAltitudeCorrection"));
+  setLabelText("estimated-field-dem-zoom-selector", t("estimatedFieldDemZoom"));
+  setText("#estimated-field-altitude-correction-toggle + span .map-settings-label-text", t("estimatedFieldAltitudeCorrection"));
   setLabelText("terrain-exaggeration", t("exaggeration"));
   setText("#layer-switcher legend", t("map"));
   setText(".source-settings-group legend", t("source"));
@@ -506,6 +527,11 @@ function applyLanguage(language = currentLanguage) {
   setText("#reset-heatmap-defaults", t("resetHeatmapDefaults"));
   setText("#settings-tab-estimated-field", t("estimatedField"));
   setText("#reset-estimated-field-defaults", t("resetEstimatedFieldDefaults"));
+  document.querySelectorAll(".map-settings-help").forEach((button) => {
+    const helpText = t(button.dataset.helpKey);
+    button.setAttribute("aria-label", helpText);
+    button.setAttribute("title", helpText);
+  });
   setText("#settings-tab-sources", t("sources"));
   setText("#settings-tab-terrain", t("terrain"));
   setText("#terrain-toggle + span", t("terrain3d"));
@@ -968,6 +994,7 @@ function currentDeviceSettings() {
     settings.estimated_field_quality = estimatedFieldQuality;
     settings.estimated_field_smoothing = estimatedFieldSmoothing;
     settings.estimated_field_altitude_correction = estimatedFieldAltitudeCorrection;
+    settings.estimated_field_dem_zoom = estimatedFieldDemZoom;
   }
   if (savedMapView) {
     settings.map_view = savedMapView;
@@ -1190,6 +1217,10 @@ async function applyDeviceSettings(settings) {
       }
       if (typeof settings.estimated_field_altitude_correction === "boolean") {
         estimatedFieldAltitudeCorrection = settings.estimated_field_altitude_correction;
+      }
+      const savedEstimatedFieldDemZoom = Number(settings.estimated_field_dem_zoom);
+      if (ESTIMATED_FIELD_DEM_ZOOM_OPTIONS.includes(savedEstimatedFieldDemZoom)) {
+        estimatedFieldDemZoom = savedEstimatedFieldDemZoom;
       }
       const opacitySlider = document.getElementById("estimated-field-opacity-filter");
       const altitudeToggle = document.getElementById("estimated-field-altitude-correction-toggle");
@@ -1757,10 +1788,57 @@ function estimatedFieldTemperatureLapseRate() {
   return clampNumber(Number(configuredEstimatedField.temperatureLapseRateCPer100m), 0, 2, 0.65);
 }
 
+function estimatedFieldDemWanted(metric = selectedLayerMetric()) {
+  return estimatedFieldEnabled && estimatedFieldAltitudeCorrection && isTemperatureMetric(metric);
+}
+
+function estimatedFieldDemTileZoom() {
+  return Math.max(ESTIMATED_FIELD_DEM_MIN_ZOOM, Math.min(ESTIMATED_FIELD_DEM_MAX_ZOOM, estimatedFieldDemZoom));
+}
+
+function updateEstimatedFieldDemBadge(status = estimatedFieldDemStatus) {
+  const badge = document.getElementById("idw-dem-status");
+  if (!badge) {
+    return;
+  }
+  estimatedFieldDemStatus = status === "dem" || status === "fallback" ? status : "hidden";
+  badge.hidden = estimatedFieldDemStatus === "hidden";
+  badge.className = `idw-dem-status ${estimatedFieldDemStatus}`;
+  badge.textContent = estimatedFieldDemStatus === "dem" ? "IDW DEM" : "IDW sin DEM";
+}
+
+function closeSettingsHelpPopovers() {
+  document.querySelectorAll(".map-settings-help.is-open").forEach((button) => {
+    button.classList.remove("is-open");
+    button.setAttribute("aria-expanded", "false");
+  });
+  document.querySelectorAll(".map-settings-help-popover").forEach((popover) => popover.remove());
+}
+
+function showSettingsHelpPopover(button) {
+  const key = button.dataset.helpKey;
+  const text = key ? t(key) : "";
+  if (!text) {
+    return;
+  }
+  const wasOpen = button.classList.contains("is-open");
+  closeSettingsHelpPopovers();
+  if (wasOpen) {
+    return;
+  }
+  const popover = document.createElement("div");
+  popover.className = "map-settings-help-popover";
+  popover.textContent = text;
+  button.classList.add("is-open");
+  button.setAttribute("aria-expanded", "true");
+  button.insertAdjacentElement("afterend", popover);
+}
+
 function invalidateEstimatedFieldData() {
   estimatedFieldDataRevision += 1;
   lastEstimatedFieldDataKey = "";
   lastEstimatedFieldData = null;
+  lastEstimatedFieldDemStatus = "hidden";
 }
 
 function isTemperatureMetric(metric) {
@@ -1790,6 +1868,7 @@ function removeEstimatedFieldLayer() {
   if (map.getSource(ESTIMATED_FIELD_SOURCE_ID)) {
     map.removeSource(ESTIMATED_FIELD_SOURCE_ID);
   }
+  updateEstimatedFieldDemBadge("hidden");
 }
 
 function removeHeatmapLayer() {
@@ -1822,6 +1901,7 @@ function estimatedFieldDataKey() {
     estimatedFieldQuality,
     estimatedFieldSmoothing,
     estimatedFieldAltitudeCorrection ? "altitude" : "plain",
+    estimatedFieldDemWanted(selectedLayerMetric()) ? estimatedFieldDemTileZoom() : "no-dem",
     estimatedFieldRadiusKm(),
     estimatedFieldMaxRadiusKm(),
     estimatedFieldCellKm(),
@@ -1861,11 +1941,51 @@ function estimatedFieldPaintSupport(value, metric) {
   return 1;
 }
 
-function estimateFieldCellValue(cellLngLat, stations, radiusKm, power, metric) {
+async function prepareEstimatedFieldDemContext(cols, rows, cellWidth, cellHeight) {
+  const zoom = estimatedFieldDemTileZoom();
+  const tiles = new Map();
+  for (let row = 0; row < rows; row += 1) {
+    const y = row * cellHeight + cellHeight / 2;
+    for (let col = 0; col < cols; col += 1) {
+      const x = col * cellWidth + cellWidth / 2;
+      const lngLat = map.unproject([x, y]);
+      const tile = terrariumTileForLngLat(lngLat, zoom);
+      tiles.set(`${tile.zoom}/${tile.x}/${tile.y}`, tile);
+      if (tiles.size > ESTIMATED_FIELD_DEM_MAX_TILES) {
+        console.warn("Estimated field DEM fallback", {
+          reason: "too-many-tiles",
+          tiles: tiles.size,
+          maxTiles: ESTIMATED_FIELD_DEM_MAX_TILES,
+          zoom,
+        });
+        return { status: "fallback", elevationAt: () => null };
+      }
+    }
+  }
+
+  try {
+    const loadedCanvases = await Promise.all(Array.from(tiles.values()).map((tile) => (
+      promiseWithTimeout(
+        loadTerrariumTileCanvas(tile),
+        ESTIMATED_FIELD_DEM_TILE_TIMEOUT_MS,
+        `DEM tile timeout ${tile.zoom}/${tile.x}/${tile.y}`,
+      )
+    )));
+    loadedCanvases[0]?.context.getImageData(0, 0, 1, 1);
+  } catch (error) {
+    console.warn("Estimated field DEM fallback", error);
+    return { status: "fallback", elevationAt: () => null };
+  }
+
+  return {
+    status: "dem",
+    elevationAt: (lngLat) => sampleLoadedTerrariumElevation(lngLat, zoom),
+  };
+}
+
+function estimateFieldCellValue(cellLngLat, stations, radiusKm, power, metric, targetAltitude = null) {
   let weightedValue = 0;
   let totalWeight = 0;
-  let weightedAltitude = 0;
-  let totalAltitudeWeight = 0;
   let supportWeight = 0;
   let nearestDistanceKm = Infinity;
   const nearby = [];
@@ -1886,10 +2006,6 @@ function estimateFieldCellValue(cellLngLat, stations, radiusKm, power, metric) {
     const weight = 1 / (Math.max(distanceKm, 0.1) ** power);
     supportWeight += weight * estimatedFieldPaintSupport(station.value, metric);
     nearby.push([station, weight]);
-    if (Number.isFinite(station.altitude)) {
-      weightedAltitude += station.altitude * weight;
-      totalAltitudeWeight += weight;
-    }
   });
 
   if (nearby.length === 0) {
@@ -1904,10 +2020,7 @@ function estimateFieldCellValue(cellLngLat, stations, radiusKm, power, metric) {
     return null;
   }
 
-  const targetAltitude = totalAltitudeWeight > 0 ? weightedAltitude / totalAltitudeWeight : null;
-  const applyAltitudeCorrection = estimatedFieldAltitudeCorrection
-    && isTemperatureMetric(metric)
-    && Number.isFinite(targetAltitude);
+  const applyAltitudeCorrection = isTemperatureMetric(metric) && Number.isFinite(targetAltitude);
   const lapseRate = estimatedFieldTemperatureLapseRate();
 
   nearby.forEach(([station, weight]) => {
@@ -1922,11 +2035,13 @@ function estimateFieldCellValue(cellLngLat, stations, radiusKm, power, metric) {
   return totalWeight > 0 ? weightedValue / totalWeight : null;
 }
 
-function buildEstimatedFieldData(features) {
+async function buildEstimatedFieldData(features) {
+  const emptyData = { type: "FeatureCollection", features: [] };
   if (!canUseEstimatedField() || !estimatedFieldEnabled || !map?.isStyleLoaded()) {
-    return { type: "FeatureCollection", features: [] };
+    return { data: emptyData, demStatus: "hidden" };
   }
   const metric = selectedLayerMetric();
+  const wantsDem = estimatedFieldDemWanted(metric);
   const stations = estimatedFieldUsableFeatures(features, metric)
     .map((station) => ({
       ...station,
@@ -1934,14 +2049,14 @@ function buildEstimatedFieldData(features) {
       lat: Number(station.coordinates[1]),
     }));
   if (stations.length === 0) {
-    return { type: "FeatureCollection", features: [] };
+    return { data: emptyData, demStatus: "hidden" };
   }
 
   const canvas = map.getCanvas();
   const width = canvas.clientWidth || canvas.width || 0;
   const height = canvas.clientHeight || canvas.height || 0;
   if (width <= 0 || height <= 0) {
-    return { type: "FeatureCollection", features: [] };
+    return { data: emptyData, demStatus: "hidden" };
   }
 
   const { cols, rows } = estimatedFieldGridSize(width, height);
@@ -1950,6 +2065,9 @@ function buildEstimatedFieldData(features) {
   const radiusKm = Math.min(estimatedFieldRadiusKm(), estimatedFieldMaxRadiusKm());
   const power = estimatedFieldSmoothingPower();
   const estimatedFeatures = [];
+  const demContext = wantsDem
+    ? await prepareEstimatedFieldDemContext(cols, rows, cellWidth, cellHeight)
+    : { status: "hidden", elevationAt: () => null };
 
   for (let row = 0; row < rows; row += 1) {
     const top = row * cellHeight;
@@ -1959,7 +2077,8 @@ function buildEstimatedFieldData(features) {
       const right = (col + 1) * cellWidth;
       const centerPoint = { x: left + cellWidth / 2, y: top + cellHeight / 2 };
       const centerLngLat = map.unproject([centerPoint.x, centerPoint.y]);
-      const value = estimateFieldCellValue(centerLngLat, stations, radiusKm, power, metric);
+      const targetAltitude = demContext.status === "dem" ? demContext.elevationAt(centerLngLat) : null;
+      const value = estimateFieldCellValue(centerLngLat, stations, radiusKm, power, metric, targetAltitude);
       if (!Number.isFinite(value)) {
         continue;
       }
@@ -1987,7 +2106,10 @@ function buildEstimatedFieldData(features) {
     }
   }
 
-  return { type: "FeatureCollection", features: estimatedFeatures };
+  return {
+    data: { type: "FeatureCollection", features: estimatedFeatures },
+    demStatus: wantsDem ? demContext.status : "hidden",
+  };
 }
 
 function updateEstimatedFieldLayer({ immediate = false } = {}) {
@@ -1995,7 +2117,7 @@ function updateEstimatedFieldLayer({ immediate = false } = {}) {
     window.clearTimeout(estimatedFieldUpdateTimer);
     estimatedFieldUpdateTimer = null;
   }
-  const run = () => {
+  const run = async () => {
     if (!map?.isStyleLoaded()) {
       if (!estimatedFieldIdleRefreshPending) {
         estimatedFieldIdleRefreshPending = true;
@@ -2009,15 +2131,26 @@ function updateEstimatedFieldLayer({ immediate = false } = {}) {
     estimatedFieldIdleRefreshPending = false;
     if (!canUseEstimatedField() || !estimatedFieldEnabled) {
       removeEstimatedFieldLayer();
+      updateEstimatedFieldDemBadge("hidden");
       return;
     }
+    const buildSequence = estimatedFieldBuildSequence + 1;
+    estimatedFieldBuildSequence = buildSequence;
     const dataKey = estimatedFieldDataKey();
     const canReuseData = lastEstimatedFieldDataKey === dataKey && lastEstimatedFieldData;
-    const data = canReuseData ? lastEstimatedFieldData : buildEstimatedFieldData(currentVisibleFeatures);
+    const buildResult = canReuseData
+      ? { data: lastEstimatedFieldData, demStatus: lastEstimatedFieldDemStatus }
+      : await buildEstimatedFieldData(currentVisibleFeatures);
+    if (buildSequence !== estimatedFieldBuildSequence) {
+      return;
+    }
+    const data = buildResult.data;
     if (!canReuseData) {
       lastEstimatedFieldDataKey = dataKey;
       lastEstimatedFieldData = data;
+      lastEstimatedFieldDemStatus = buildResult.demStatus;
     }
+    updateEstimatedFieldDemBadge(buildResult.demStatus);
 
     const source = map.getSource(ESTIMATED_FIELD_SOURCE_ID);
     if (!source) {
@@ -2048,10 +2181,17 @@ function updateEstimatedFieldLayer({ immediate = false } = {}) {
     map.triggerRepaint?.();
   };
 
+  const runSafely = () => {
+    run().catch((error) => {
+      console.warn("Cannot update estimated field", error);
+      updateEstimatedFieldDemBadge(estimatedFieldDemWanted() ? "fallback" : "hidden");
+    });
+  };
+
   if (immediate) {
-    run();
+    runSafely();
   } else {
-    estimatedFieldUpdateTimer = window.setTimeout(run, 180);
+    estimatedFieldUpdateTimer = window.setTimeout(runSafely, 180);
   }
 }
 
@@ -2082,6 +2222,7 @@ function updateEstimatedFieldDerivedValues() {
   const radiusOutput = document.getElementById("estimated-field-radius-effective-value");
   const qualityOutput = document.getElementById("estimated-field-quality-effective-value");
   const smoothingOutput = document.getElementById("estimated-field-smoothing-effective-value");
+  const demZoomOutput = document.getElementById("estimated-field-dem-zoom-effective-value");
   if (radiusOutput) {
     radiusOutput.textContent = `${formatEstimatedFieldConfigNumber(estimatedFieldRadiusKm())} km`;
   }
@@ -2091,12 +2232,16 @@ function updateEstimatedFieldDerivedValues() {
   if (smoothingOutput) {
     smoothingOutput.textContent = `p=${formatEstimatedFieldConfigNumber(estimatedFieldSmoothingPower(), 1)}`;
   }
+  if (demZoomOutput) {
+    demZoomOutput.textContent = `z${estimatedFieldDemTileZoom()}`;
+  }
 }
 
 function renderEstimatedFieldSelectors() {
   const radiusSelector = document.getElementById("estimated-field-radius-selector");
   const qualitySelector = document.getElementById("estimated-field-quality-selector");
   const smoothingSelector = document.getElementById("estimated-field-smoothing-selector");
+  const demZoomSelector = document.getElementById("estimated-field-dem-zoom-selector");
   if (radiusSelector) {
     radiusSelector.querySelector('option[value="small"]').textContent = t("estimatedFieldRadiusSmall");
     radiusSelector.querySelector('option[value="medium"]').textContent = t("estimatedFieldRadiusMedium");
@@ -2115,6 +2260,9 @@ function renderEstimatedFieldSelectors() {
     smoothingSelector.querySelector('option[value="local"]').textContent = t("estimatedFieldSmoothingLocal");
     smoothingSelector.value = estimatedFieldSmoothing;
   }
+  if (demZoomSelector) {
+    demZoomSelector.value = String(estimatedFieldDemZoom);
+  }
   updateEstimatedFieldDerivedValues();
 }
 
@@ -2132,6 +2280,7 @@ function applyEstimatedFieldDefaults() {
   estimatedFieldQuality = DEFAULT_ESTIMATED_FIELD_QUALITY;
   estimatedFieldSmoothing = DEFAULT_ESTIMATED_FIELD_SMOOTHING;
   estimatedFieldAltitudeCorrection = DEFAULT_ESTIMATED_FIELD_ALTITUDE_CORRECTION;
+  estimatedFieldDemZoom = DEFAULT_ESTIMATED_FIELD_DEM_ZOOM;
   const opacitySlider = document.getElementById("estimated-field-opacity-filter");
   const altitudeToggle = document.getElementById("estimated-field-altitude-correction-toggle");
   syncEstimatedFieldEnabledControl();
@@ -2847,6 +2996,19 @@ function formatRange(maxValue, minValue, unit, decimals = 1) {
   return `${formatNumber(value, decimals)} ${unit}`;
 }
 
+function formatIdwPointRange(maxValue, minValue, unit, decimals = 1) {
+  return formatRange(maxValue, minValue, unit, decimals);
+}
+
+function formatIdwPointWind(avgValue, gustValue) {
+  if (!Number.isFinite(avgValue) && !Number.isFinite(gustValue)) {
+    return "-";
+  }
+  const avgText = Number.isFinite(avgValue) ? `${formatNumber(avgValue, 1)} km/h` : "-";
+  const gustText = Number.isFinite(gustValue) ? ` · ${t("gust")} ${formatNumber(gustValue, 1)} km/h` : "";
+  return `${avgText}${gustText}`;
+}
+
 function formatDirection(value) {
   if (!Number.isFinite(value)) {
     return "-";
@@ -2949,9 +3111,29 @@ function nearestRainyStationContent(nearestStation) {
   `;
 }
 
-function terrainPopupContent(elevation, lngLat, status = "loading", nearestStation = null) {
+function idwPointValuesContent(pointValues) {
+  if (!pointValues) {
+    return "";
+  }
+  const correctedText = pointValues.correctedTemperatureStatus === "loading"
+    ? t("loading")
+    : (pointValues.correctedTemperatureStatus === "error"
+      ? t("idwNoDem")
+      : formatIdwPointRange(pointValues.correctedTemperatureMax, pointValues.correctedTemperatureMin, "°C", 1));
+  const windText = formatIdwPointWind(pointValues.windAvg, pointValues.windGust);
+  return `
+    <div class="popup-row terrain-idw-title"><strong>${t("idwPointValues")}:</strong></div>
+    <div class="popup-row"><strong>${t("temperature")}:</strong> ${formatIdwPointRange(pointValues.temperatureMax, pointValues.temperatureMin, "°C", 1)}</div>
+    <div class="popup-row"><strong>${t("idwCorrectedTemperature")}:</strong> ${correctedText}</div>
+    <div class="popup-row"><strong>${t("humidity")}:</strong> ${formatIdwPointRange(pointValues.humidityMax, pointValues.humidityMin, "%", 0)}</div>
+    <div class="popup-row"><strong>${t("wind")}:</strong> ${windText}</div>
+  `;
+}
+
+function terrainPopupContent(elevation, lngLat, status = "loading", nearestStation = null, pointValues = null) {
   const latitude = lngLat.lat.toFixed(5);
   const longitude = lngLat.lng.toFixed(5);
+  const pointValuesHtml = idwPointValuesContent(pointValues);
   const nearestStationHtml = nearestRainyStationContent(nearestStation);
   if (!Number.isFinite(elevation)) {
     const altitudeText = status === "error" ? t("unavailable") : t("loading");
@@ -2962,6 +3144,7 @@ function terrainPopupContent(elevation, lngLat, status = "loading", nearestStati
       <div class="popup-title">${latitude}, ${longitude}</div>
       <div class="popup-row"><strong>${t("altitude")}:</strong> ${altitudeText}</div>
       <div class="popup-row terrain-note">${noteText}</div>
+      ${pointValuesHtml}
       ${nearestStationHtml}
     `;
   }
@@ -2970,6 +3153,7 @@ function terrainPopupContent(elevation, lngLat, status = "loading", nearestStati
     <div class="popup-title">${latitude}, ${longitude}</div>
     <div class="popup-row"><strong>${t("altitude")}:</strong> ${Math.round(elevation).toLocaleString(currentLanguage)} m</div>
     <div class="popup-row terrain-note">${t("externalDem")}</div>
+    ${pointValuesHtml}
     ${nearestStationHtml}
   `;
 }
@@ -3015,6 +3199,60 @@ function loadTerrariumTile(tile) {
   return imagePromise;
 }
 
+function promiseWithTimeout(promise, timeoutMs, message) {
+  let timeoutId = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  });
+}
+
+async function loadTerrariumTileCanvas(tile) {
+  const cacheKey = `${tile.zoom}/${tile.x}/${tile.y}`;
+  if (terrainTileCanvasCache.has(cacheKey)) {
+    return terrainTileCanvasCache.get(cacheKey);
+  }
+
+  const canvasPromise = loadTerrariumTile(tile).then((image) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(image, 0, 0, 256, 256);
+    const canvasRecord = { canvas, context };
+    terrainTileCanvasCache.set(cacheKey, canvasRecord);
+    return canvasRecord;
+  }).catch((error) => {
+    terrainTileCanvasCache.delete(cacheKey);
+    throw error;
+  });
+  terrainTileCanvasCache.set(cacheKey, canvasPromise);
+  if (terrainTileCanvasCache.size > ESTIMATED_FIELD_DEM_CANVAS_CACHE_LIMIT) {
+    terrainTileCanvasCache.delete(terrainTileCanvasCache.keys().next().value);
+  }
+  return canvasPromise;
+}
+
+function sampleLoadedTerrariumElevation(lngLat, zoom) {
+  const tile = terrariumTileForLngLat(lngLat, zoom);
+  const cacheKey = `${tile.zoom}/${tile.x}/${tile.y}`;
+  const canvasRecord = terrainTileCanvasCache.get(cacheKey);
+  if (!canvasRecord || typeof canvasRecord.then === "function") {
+    return null;
+  }
+  try {
+    const [red, green, blue] = canvasRecord.context.getImageData(tile.pixelX, tile.pixelY, 1, 1).data;
+    const elevation = decodeTerrariumPixel(red, green, blue);
+    return Number.isFinite(elevation) ? elevation : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function queryTerrariumElevation(lngLat) {
   const tile = terrariumTileForLngLat(lngLat, TERRAIN_ELEVATION_ZOOM);
   const image = await loadTerrariumTile(tile);
@@ -3025,6 +3263,66 @@ async function queryTerrariumElevation(lngLat) {
   context.drawImage(image, tile.pixelX, tile.pixelY, 1, 1, 0, 0, 1, 1);
   const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
   return decodeTerrariumPixel(red, green, blue);
+}
+
+async function queryEstimatedFieldDemElevation(lngLat) {
+  const tile = terrariumTileForLngLat(lngLat, estimatedFieldDemTileZoom());
+  await promiseWithTimeout(
+    loadTerrariumTileCanvas(tile),
+    ESTIMATED_FIELD_DEM_TILE_TIMEOUT_MS,
+    `DEM tile timeout ${tile.zoom}/${tile.x}/${tile.y}`,
+  );
+  return sampleLoadedTerrariumElevation(lngLat, tile.zoom);
+}
+
+function estimatedFieldPointMetricValue(lngLat, metric, targetAltitude = null) {
+  const stations = estimatedFieldUsableFeatures(currentVisibleFeatures, metric)
+    .map((station) => ({
+      ...station,
+      lng: Number(station.coordinates[0]),
+      lat: Number(station.coordinates[1]),
+    }));
+  if (stations.length === 0) {
+    return null;
+  }
+  return estimateFieldCellValue(
+    lngLat,
+    stations,
+    Math.min(estimatedFieldRadiusKm(), estimatedFieldMaxRadiusKm()),
+    estimatedFieldSmoothingPower(),
+    metric,
+    targetAltitude,
+  );
+}
+
+function buildIdwPointValues(lngLat, demElevation = null, demStatus = "loading") {
+  if (!canUseEstimatedField() || !currentVisibleFeatures.length) {
+    return null;
+  }
+  const metricById = Object.fromEntries(layerMetrics.map((metric) => [metric.id, metric]));
+  const windGustMetric = {
+    id: "wind_gust",
+    property: "wind_gust_kmh",
+    unit: "km/h",
+    decimals: 1,
+    floor: 0,
+  };
+  const correctedTargetAltitude = demStatus === "loaded" && Number.isFinite(demElevation) ? demElevation : null;
+  return {
+    temperatureMax: estimatedFieldPointMetricValue(lngLat, metricById.max_temp),
+    temperatureMin: estimatedFieldPointMetricValue(lngLat, metricById.min_temp),
+    correctedTemperatureMax: Number.isFinite(correctedTargetAltitude)
+      ? estimatedFieldPointMetricValue(lngLat, metricById.max_temp, correctedTargetAltitude)
+      : null,
+    correctedTemperatureMin: Number.isFinite(correctedTargetAltitude)
+      ? estimatedFieldPointMetricValue(lngLat, metricById.min_temp, correctedTargetAltitude)
+      : null,
+    correctedTemperatureStatus: demStatus,
+    humidityMax: estimatedFieldPointMetricValue(lngLat, metricById.max_humidity),
+    humidityMin: estimatedFieldPointMetricValue(lngLat, metricById.min_humidity),
+    windAvg: estimatedFieldPointMetricValue(lngLat, metricById.wind),
+    windGust: estimatedFieldPointMetricValue(lngLat, windGustMetric),
+  };
 }
 
 function clearLongPressTimer() {
@@ -3041,6 +3339,7 @@ function showTerrainPopup(lngLat) {
   activeStationPopupProperties = null;
   activeStationPopupId = null;
   const nearestStation = nearestRainyStationForLngLat(lngLat);
+  const loadingPointValues = buildIdwPointValues(lngLat, null, "loading");
 
   const terrainPopup = new maplibregl.Popup({
     closeButton: false,
@@ -3050,7 +3349,7 @@ function showTerrainPopup(lngLat) {
     offset: 8,
   })
     .setLngLat(lngLat)
-    .setHTML(terrainPopupContent(null, lngLat, "loading", nearestStation))
+    .setHTML(terrainPopupContent(null, lngLat, "loading", nearestStation, loadingPointValues))
     .addTo(map);
   currentPopup = terrainPopup;
   terrainPopup.on("close", () => {
@@ -3061,18 +3360,34 @@ function showTerrainPopup(lngLat) {
     }
   });
 
-  queryTerrariumElevation(lngLat)
-    .then((elevation) => {
-      if (currentPopup === terrainPopup && Number.isFinite(elevation)) {
-        terrainPopup.setHTML(terrainPopupContent(elevation, lngLat, "loaded", nearestStation));
-      }
-    })
+  const terrainElevationPromise = queryTerrariumElevation(lngLat)
+    .then((elevation) => ({ status: "loaded", elevation }))
     .catch((error) => {
       console.warn("Cannot query terrain elevation", error);
-      if (currentPopup === terrainPopup) {
-        terrainPopup.setHTML(terrainPopupContent(null, lngLat, "error", nearestStation));
-      }
+      return { status: "error", elevation: null };
     });
+  const idwDemElevationPromise = loadingPointValues
+    ? queryEstimatedFieldDemElevation(lngLat)
+      .then((elevation) => ({ status: Number.isFinite(elevation) ? "loaded" : "error", elevation }))
+      .catch((error) => {
+        console.warn("Cannot query estimated field DEM elevation", error);
+        return { status: "error", elevation: null };
+      })
+    : Promise.resolve({ status: "error", elevation: null });
+
+  Promise.all([terrainElevationPromise, idwDemElevationPromise]).then(([terrainResult, demResult]) => {
+    if (currentPopup !== terrainPopup) {
+      return;
+    }
+    const pointValues = buildIdwPointValues(lngLat, demResult.elevation, demResult.status);
+    terrainPopup.setHTML(terrainPopupContent(
+      terrainResult.elevation,
+      lngLat,
+      terrainResult.status,
+      nearestStation,
+      pointValues,
+    ));
+  });
 }
 
 function setupLongPressElevation() {
@@ -3706,6 +4021,7 @@ function renderSettingsPanel() {
   const estimatedFieldRadiusSelector = document.getElementById("estimated-field-radius-selector");
   const estimatedFieldQualitySelector = document.getElementById("estimated-field-quality-selector");
   const estimatedFieldSmoothingSelector = document.getElementById("estimated-field-smoothing-selector");
+  const estimatedFieldDemZoomSelector = document.getElementById("estimated-field-dem-zoom-selector");
   const estimatedFieldAltitudeCorrectionToggle = document.getElementById("estimated-field-altitude-correction-toggle");
   const resetEstimatedFieldDefaultsButton = document.getElementById("reset-estimated-field-defaults");
   const terrainToggle = document.getElementById("terrain-toggle");
@@ -3713,6 +4029,7 @@ function renderSettingsPanel() {
   const terrainModeToggle = document.getElementById("terrain-mode-toggle");
   const saveMapViewButton = document.getElementById("save-map-view-default");
   const sourceInputs = Array.from(panel.querySelectorAll("input[name='station-source']"));
+  const settingsHelpButtons = Array.from(panel.querySelectorAll(".map-settings-help"));
   if (heatmapExperimentSettings) {
     heatmapExperimentSettings.hidden = !canUseHeatmap();
   }
@@ -3757,6 +4074,7 @@ function renderSettingsPanel() {
   updateEstimatedFieldToggle();
 
   const showSettingsTab = (tabName) => {
+    closeSettingsHelpPopovers();
     settingsTabs.forEach((tab) => {
       const isActive = tab.dataset.settingsTab === tabName;
       tab.classList.toggle("is-active", isActive);
@@ -3789,6 +4107,9 @@ function renderSettingsPanel() {
     panel.toggleAttribute("hidden", !isOpen);
     toggle.setAttribute("aria-expanded", String(isOpen));
     document.body.classList.toggle("settings-open", isOpen);
+    if (!isOpen) {
+      closeSettingsHelpPopovers();
+    }
     if (wasOpen && !isOpen && hasPendingDeviceSettingsChanges) {
       saveDeviceSettings();
       hasPendingDeviceSettingsChanges = false;
@@ -3797,6 +4118,15 @@ function renderSettingsPanel() {
 
   toggle.addEventListener("click", () => {
     setSettingsOpen(panel.hasAttribute("hidden"));
+  });
+
+  settingsHelpButtons.forEach((button) => {
+    button.setAttribute("aria-expanded", "false");
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showSettingsHelpPopover(button);
+    });
   });
 
   map.on("click", () => {
@@ -3986,6 +4316,17 @@ function renderSettingsPanel() {
       return;
     }
     estimatedFieldSmoothing = event.target.value;
+    markDeviceSettingsChanged();
+    updateEstimatedFieldDerivedValues();
+    updateEstimatedFieldLayer();
+  });
+
+  estimatedFieldDemZoomSelector?.addEventListener("change", (event) => {
+    const nextZoom = Number(event.target.value);
+    if (!ESTIMATED_FIELD_DEM_ZOOM_OPTIONS.includes(nextZoom)) {
+      return;
+    }
+    estimatedFieldDemZoom = nextZoom;
     markDeviceSettingsChanged();
     updateEstimatedFieldDerivedValues();
     updateEstimatedFieldLayer();

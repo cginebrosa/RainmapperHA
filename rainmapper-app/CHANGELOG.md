@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.196
+
+- Use Terrarium/Mapzen DEM per cell for MapLibre IDW altitude correction on temperature layers, with visible `IDW DEM` / `IDW sin DEM` status badges.
+- Add `Zoom DEM` to IDW settings and save it per device.
+- Add localized help bubbles for IDW settings.
+- Show point-specific IDW values in the long-press map popup, including normal temperature, DEM-corrected temperature, humidity and wind.
+- Align packaged MapLibre heatmap and IDW defaults with the validated Home Assistant configuration.
+
 ## 0.2.195
 
 - Show AEMET as the active current step while a full run is processing AEMET data.
