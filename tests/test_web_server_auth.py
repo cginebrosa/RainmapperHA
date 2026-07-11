@@ -3908,6 +3908,44 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn(("Cache-Control", "no-store, max-age=0"), captured["headers"])
         self.assertIn(b"window.RAINMAPPER_CONFIG", writer.content)
 
+    def test_protected_maplibre_index_uses_running_version_for_assets(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured: dict[str, object] = {"headers": []}
+        previous_version = os.environ.get("RAINMAPPER_APP_VERSION")
+        previous_assets_path = self.web_server.MAPLIBRE_VIEWER_ASSETS_PATH
+
+        class MemoryWriter:
+            def __init__(self) -> None:
+                self.content = b""
+
+            def write(self, content: bytes) -> None:
+                self.content += content
+
+        try:
+            os.environ["RAINMAPPER_APP_VERSION"] = "9.9.9-test"
+            self.web_server.MAPLIBRE_VIEWER_ASSETS_PATH = (
+                Path(__file__).resolve().parents[1] / "rainmapper_core" / "viewers" / "maplibre-viewer"
+            )
+            writer = MemoryWriter()
+            handler.wfile = writer
+            handler.send_response = lambda status: captured.update({"status": status})
+            handler.send_header = lambda name, value: captured["headers"].append((name, value))
+            handler.end_headers = lambda: None
+
+            handler.serve_protected_maplibre("/index.html")
+        finally:
+            self.web_server.MAPLIBRE_VIEWER_ASSETS_PATH = previous_assets_path
+            if previous_version is None:
+                os.environ.pop("RAINMAPPER_APP_VERSION", None)
+            else:
+                os.environ["RAINMAPPER_APP_VERSION"] = previous_version
+
+        html = writer.content.decode("utf-8")
+        self.assertEqual(captured["status"], 200)
+        self.assertIn(("Cache-Control", "no-store, max-age=0"), captured["headers"])
+        self.assertIn("app.js?v=9.9.9-test", html)
+        self.assertIn("style.css?v=9.9.9-test", html)
+
 
 if __name__ == "__main__":
     unittest.main()

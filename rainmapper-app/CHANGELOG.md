@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.199
+
+- Fix MapLibre viewer asset cache busting so Home Assistant loads the current `app.js` after add-on upgrades.
+- Serve the protected MapLibre `index.html` without browser caching and inject the running app version into viewer asset URLs.
+
 ## 0.2.198
 
 - Keep Wunderground monthly backfill windows on exact local calendar dates to avoid duplicate previous-month API calls caused by UTC conversion.

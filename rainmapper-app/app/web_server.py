@@ -175,6 +175,13 @@ def cache_busted_url(path: str) -> str:
     return f"{path}{separator}v={version}"
 
 
+def cache_bust_viewer_html(content: str) -> str:
+    version = env("RAINMAPPER_APP_VERSION").strip()
+    if not version:
+        return content
+    return re.sub(r'\?v=[0-9A-Za-z._-]+(?=")', f"?v={version}", content)
+
+
 def app_version() -> str:
     return env("RAINMAPPER_APP_VERSION", "unknown").strip() or "unknown"
 
@@ -12952,6 +12959,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
     def serve_protected_maplibre(self, requested_path: str) -> None:
         relative_path = requested_path.lstrip("/") or "index.html"
+        if relative_path == "index.html":
+            index_path = MAPLIBRE_VIEWER_ASSETS_PATH / "index.html"
+            try:
+                content = cache_bust_viewer_html(index_path.read_text(encoding="utf-8"))
+            except OSError:
+                self.send_bytes(404, b"Not found", "text/plain; charset=utf-8")
+                return
+            self.send_bytes(
+                200,
+                content.encode("utf-8"),
+                "text/html; charset=utf-8",
+                {"Cache-Control": "no-store, max-age=0"},
+            )
+            return
+
         if relative_path == "config.js":
             self.send_bytes(
                 200,
