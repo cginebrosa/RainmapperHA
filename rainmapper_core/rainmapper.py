@@ -190,6 +190,20 @@ parser.add_argument('--wunderground_daily_api',
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_wunderground_daily_api,
                     help='Use Wunderground daily JSON API before HTML fallback (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=True')
+parser.add_argument('--wunderground_local_start_date',
+                    dest='_wunderground_local_start_date',
+                    nargs='?',
+                    const='',
+                    type=str,
+                    default='',
+                    help='Optional Wunderground-only local calendar start date YYYY-MM-DD for monthly administrative backfills')
+parser.add_argument('--wunderground_local_end_date',
+                    dest='_wunderground_local_end_date',
+                    nargs='?',
+                    const='',
+                    type=str,
+                    default='',
+                    help='Optional Wunderground-only local calendar end date YYYY-MM-DD for monthly administrative backfills')
 parser.add_argument('--backfill_station_filter',
                     dest='_backfill_station_filter',
                     nargs='?',
@@ -221,6 +235,8 @@ _max_threads = args._max_threads
 _max_attempts = args._max_attempts
 _wunderground_full_log = args._wunderground_full_log
 _wunderground_daily_api = args._wunderground_daily_api
+_wunderground_local_start_date = (args._wunderground_local_start_date or '').strip()
+_wunderground_local_end_date = (args._wunderground_local_end_date or '').strip()
 _backfill_station_filter = args._backfill_station_filter
 _meteoclimatic_pattern = args._meteoclimatic_pattern
 _create_googlemaps_files = args._create_googlemaps_files
@@ -2523,8 +2539,20 @@ URLS = stations_file.readlines()
 # Date format: YYYY-MM-DD
 #START_DATE = config_wunderground.START_DATE
 #END_DATE = config_wunderground.END_DATE
-START_DATE = datetime.strptime(_start_date,'%Y-%m-%dT%H:%M:%S').date()
-END_DATE = datetime.strptime(_end_date,'%Y-%m-%dT%H:%M:%S').date()
+# Normal updates keep the legacy days_init/days_end UTC conversion. In monthly
+# Wunderground mode that deliberately rereads the previous month when a normal
+# short range crosses a month boundary, so late-arriving month totals are fixed.
+#
+# Administrative monthly backfills are different: each window is a local
+# calendar month and must not shift to the previous UTC day in Europe/Madrid.
+# When the wrapper passes explicit local dates, use them only for Wunderground
+# URL/API month selection and leave the rest of the run behavior unchanged.
+if _wunderground_local_start_date and _wunderground_local_end_date:
+    START_DATE = datetime.strptime(_wunderground_local_start_date, '%Y-%m-%d').date()
+    END_DATE = datetime.strptime(_wunderground_local_end_date, '%Y-%m-%d').date()
+else:
+    START_DATE = datetime.strptime(_start_date,'%Y-%m-%dT%H:%M:%S').date()
+    END_DATE = datetime.strptime(_end_date,'%Y-%m-%dT%H:%M:%S').date()
 #print(START_DATE, END_DATE)
 
 MONTHLY = config_wunderground.MONTHLY

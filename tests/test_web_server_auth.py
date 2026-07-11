@@ -3672,11 +3672,20 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
 
     def test_webui_update_command_accepts_backfill_day_window_override(self) -> None:
-        command = self.web_server.command_for("update", days_init=-180, days_end=-91, nototals=True)
+        command = self.web_server.command_for(
+            "update",
+            days_init=-180,
+            days_end=-91,
+            nototals=True,
+            wunderground_local_start_date="2026-01-01",
+            wunderground_local_end_date="2026-03-31",
+        )
 
         self.assertEqual(command[command.index("--days_init") + 1], "-180")
         self.assertEqual(command[command.index("--days_end") + 1], "-91")
         self.assertEqual(command[command.index("--nototals") + 1], "true")
+        self.assertEqual(command[command.index("--wunderground_local_start_date") + 1], "2026-01-01")
+        self.assertEqual(command[command.index("--wunderground_local_end_date") + 1], "2026-03-31")
 
     def test_monthly_backfill_windows_convert_month_offsets_to_day_windows(self) -> None:
         previous_values = {
@@ -3707,8 +3716,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertEqual(windows[0]["days_init"], (date(2026, 2, 1) - reference_date).days)
         self.assertEqual(windows[0]["days_end"], (date(2026, 3, 31) - reference_date).days)
+        self.assertEqual(windows[0]["local_start_date"], "2026-02-01")
+        self.assertEqual(windows[0]["local_end_date"], "2026-03-31")
         self.assertEqual(windows[-1]["days_init"], (date(2026, 6, 1) - reference_date).days)
         self.assertEqual(windows[-1]["days_end"], 0)
+        self.assertEqual(windows[-1]["local_start_date"], "2026-06-01")
+        self.assertEqual(windows[-1]["local_end_date"], "2026-07-11")
 
     def test_webui_update_command_can_target_only_one_source(self) -> None:
         command = self.web_server.command_for("update", only_source="AEMET")

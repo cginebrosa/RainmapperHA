@@ -340,7 +340,7 @@ Notas rapidas:
 
 - `mode: serve` es el modo normal para usar webUI, sidebar y schedule interno.
 - `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
-- `backfill_months_enabled: false` debe quedar desactivado en uso diario. Al activarlo, Rainmapper hace una reconstruccion administrativa por ventanas mensuales, crea antes un backup de los CSV incrementales y espera `backfill_pause_seconds` entre ventanas.
+- `backfill_months_enabled: false` debe quedar desactivado en uso diario. Al activarlo, Rainmapper hace una reconstruccion administrativa por ventanas mensuales, crea antes un backup de los CSV incrementales y espera `backfill_pause_seconds` entre ventanas. En Wunderground, las ventanas de backfill se pasan tambien como fechas locales exactas para evitar que la conversion UTC desplace el inicio al mes anterior.
 - `backfill_station_filter: ""` permite limitar una reconstruccion administrativa a estaciones concretas. El formato es `fuente::id1,id2`, por ejemplo `wunderground::IORDIN1,IMERAN22`. Usa `;` para varias fuentes, por ejemplo `wunderground::IORDIN1;aemet::1234X`. Las comillas son opcionales para IDs con espacios. Si queda vacio no filtra nada.
 - `meteocat_request_timeout: 30` y `meteocat_max_attempts: 3` hacen que las consultas Meteocat/Socrata reintenten ante timeouts transitorios antes de fallar el run.
 - `max_threads: 3` es el valor operativo recomendado tras validacion real en Home Assistant/Raspberry Pi sin carga relevante observada. Si aparecen timeouts, errores de Wunderground o carga excesiva, bajar temporalmente a `1`.
@@ -365,7 +365,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `schedule_days`: `all` o lista de dias.
 - `scheduled_action`: `update`, `maps` o `all`.
 - `days_init` / `days_end`: rango relativo de dias usado por las descargas.
-- `backfill_months_enabled`, `months_init`, `months_end`, `months_interval`, `backfill_pause_seconds`: modo administrativo para reconstrucciones por ventanas de meses. Cuando esta activado, el update calcula ventanas mensuales, las convierte a `days_init`/`days_end`, ejecuta un update por ventana, hace backup previo de los CSV incrementales y muestra la pausa entre ventanas en `Current step`.
+- `backfill_months_enabled`, `months_init`, `months_end`, `months_interval`, `backfill_pause_seconds`: modo administrativo para reconstrucciones por ventanas de meses. Cuando esta activado, el update calcula ventanas mensuales, las convierte a `days_init`/`days_end`, ejecuta un update por ventana, hace backup previo de los CSV incrementales y muestra la pausa entre ventanas en `Current step`. Para Wunderground, ademas de `days_init`/`days_end`, se pasan fechas locales exactas de inicio y fin de ventana. Esto es deliberado: el uso diario mantiene la relectura legacy del mes anterior cuando `days_init` cruza un cambio de mes, pero el backfill mensual no debe duplicar meses por el desfase UTC/local.
 - `backfill_station_filter`: filtro administrativo de estaciones por fuente. Actualmente se aplica a Wunderground y queda preparado para extenderlo a otras fuentes. Formato: `fuente::id1,id2`; separa fuentes con `;`. Dejalo vacio en uso diario para que no limite updates normales.
 - `create_meteoclimatic`, `create_meteocat`, `create_wunderground`, `create_aemet`: activan o desactivan fuentes.
 - `meteoclimatic_pattern`: patron o patrones del RSS Meteoclimatic.
@@ -447,7 +447,9 @@ backfill_station_filter: ""
 
 Con esa configuracion, Rainmapper ejecuta updates por ventanas de 3 meses
 naturales desde 48 meses atras hasta el mes actual, convirtiendo cada ventana a
-`days_init`/`days_end`. Antes de la primera ventana copia los CSV
+`days_init`/`days_end`. Para Wunderground tambien envia los limites locales
+`YYYY-MM-DD` de cada ventana, evitando releer el mes anterior por conversion UTC
+en reconstrucciones administrativas. Antes de la primera ventana copia los CSV
 `*_incremental.csv` a `Data/backups/backfill_incrementals_<timestamp>/`.
 Entre ventanas espera la pausa configurada y la muestra en el `Current step` de
 la pantalla Summary.

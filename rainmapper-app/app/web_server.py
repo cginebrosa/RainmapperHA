@@ -210,7 +210,7 @@ def backfill_pause_seconds() -> int:
     return max(0, raw_int_env("RAINMAPPER_BACKFILL_PAUSE_SECONDS", 5))
 
 
-def monthly_backfill_windows(reference: datetime | None = None) -> list[dict[str, int]]:
+def monthly_backfill_windows(reference: datetime | None = None) -> list[dict[str, int | str]]:
     reference = reference or datetime.now(get_timezone())
     months_init = raw_int_env("RAINMAPPER_MONTHS_INIT", -48)
     months_end = raw_int_env("RAINMAPPER_MONTHS_END", 0)
@@ -235,6 +235,8 @@ def monthly_backfill_windows(reference: datetime | None = None) -> list[dict[str
                 "months_end": window_end,
                 "days_init": (start_date - reference.date()).days,
                 "days_end": (end_date - reference.date()).days,
+                "local_start_date": start_date.isoformat(),
+                "local_end_date": end_date.isoformat(),
             }
         )
         current = next_current
@@ -6813,6 +6815,8 @@ def command_for(
     days_init: int | str | None = None,
     days_end: int | str | None = None,
     nototals: str | bool | None = None,
+    wunderground_local_start_date: str | None = None,
+    wunderground_local_end_date: str | None = None,
 ) -> list[str]:
     if only_source and only_source not in UPDATE_SOURCE_FLAGS:
         raise ValueError(f"Invalid source: {only_source}")
@@ -6855,6 +6859,19 @@ def command_for(
         "--meteoclimatic_pattern",
         env("RAINMAPPER_METEOCLIMATIC_PATTERN", "ESCAT"),
     ]
+    if wunderground_local_start_date and wunderground_local_end_date:
+        # Monthly backfill windows are local calendar windows. Pass explicit
+        # Wunderground dates so Europe/Madrid midnight is not converted to the
+        # previous UTC day. Normal updates intentionally keep days_init/days_end
+        # so early-month runs reread the previous month and close late WU totals.
+        update_command.extend(
+            [
+                "--wunderground_local_start_date",
+                wunderground_local_start_date,
+                "--wunderground_local_end_date",
+                wunderground_local_end_date,
+            ]
+        )
 
     if action == "update":
         return update_command
@@ -7769,7 +7786,8 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
                             time.sleep(pause_seconds)
                     step_label = (
                         f"update backfill {window_index}/{len(windows)} "
-                        f"months {window['months_init']}..{window['months_end']}"
+                        f"months {window['months_init']}..{window['months_end']} "
+                        f"({window['local_start_date']}..{window['local_end_date']})"
                     )
                     command = command_for(
                         "update",
@@ -7777,6 +7795,8 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
                         days_init=window["days_init"],
                         days_end=window["days_end"],
                         nototals=True,
+                        wunderground_local_start_date=str(window["local_start_date"]),
+                        wunderground_local_end_date=str(window["local_end_date"]),
                     )
                     exit_code, _ = execute_command_step("update", command, step_label)
                     if exit_code not in {0, 2}:

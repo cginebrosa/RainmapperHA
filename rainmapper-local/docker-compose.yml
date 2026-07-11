@@ -39,6 +39,7 @@ services:
     environment:
       RAINMAPPER_APP_VERSION: local-ha-ui
       RAINMAPPER_LOCAL_REPO_ROOT: ${RAINMAPPER_LOCAL_REPO_ROOT:-}
+      AEMET_API_KEY: ${AEMET_API_KEY:-}
     ports:
       - "127.0.0.1:8101:8099"
     volumes:

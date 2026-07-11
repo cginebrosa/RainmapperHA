@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.198
+
+- Keep Wunderground monthly backfill windows on exact local calendar dates to avoid duplicate previous-month API calls caused by UTC conversion.
+- Document the intentional difference between normal Wunderground early-month rereads and administrative monthly backfills.
+- Allow local HA UI runs to inherit Google Maps and AEMET API keys from environment variables when add-on options are empty.
+- Show point-specific IDW rain before temperature, humidity and wind in the MapLibre long-press popup.
+
 ## 0.2.197
 
 - Add administrative monthly backfill windows with incremental CSV backup and visible pause status in the Home Assistant summary.

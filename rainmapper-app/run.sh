@@ -178,8 +178,8 @@ MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_BALANCED_POWER_VALUE="$(option maplibre_estim
 MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_LOCAL_POWER_VALUE="$(option maplibre_estimated_field_smoothing_local_power 3)"
 MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_VALUE="$(option maplibre_estimated_field_temperature_lapse_rate_c_per_100m 0.65)"
 PUBLISH_TO_WWW_VALUE="$(option publish_to_www false)"
-GMAP_API_KEY_VALUE="$(option gmap_api_key '')"
-AEMET_API_KEY_VALUE="$(option aemet_api_key '')"
+GMAP_API_KEY_VALUE="$(option gmap_api_key "${GMAP_API_KEY:-}")"
+AEMET_API_KEY_VALUE="$(option aemet_api_key "${AEMET_API_KEY:-}")"
 
 export TZ="$TIMEZONE"
 export GMAP_API_KEY="$GMAP_API_KEY_VALUE"
@@ -249,7 +249,10 @@ run_update() {
   local run_days_init="${1:-$DAYS_INIT_VALUE}"
   local run_days_end="${2:-$DAYS_END_VALUE}"
   local run_nototals="${3:-$NOTOTALS_VALUE}"
-  python -m rainmapper_core.rainmapper \
+  local run_wunderground_local_start_date="${4:-}"
+  local run_wunderground_local_end_date="${5:-}"
+  set -- \
+    python -m rainmapper_core.rainmapper \
     --create_meteoclimatic "$CREATE_METEOCLIMATIC_VALUE" \
     --create_meteocat "$CREATE_METEOCAT_VALUE" \
     --create_wunderground "$CREATE_WUNDERGROUND_VALUE" \
@@ -267,6 +270,16 @@ run_update() {
     --wunderground_full_log "$WUNDERGROUND_FULL_LOG_VALUE" \
     --backfill_station_filter "$BACKFILL_STATION_FILTER_VALUE" \
     --meteoclimatic_pattern "$METEOCLIMATIC_PATTERN_VALUE"
+  if [ -n "$run_wunderground_local_start_date" ] && [ -n "$run_wunderground_local_end_date" ]; then
+    # Monthly backfill windows are local calendar windows. Pass explicit
+    # Wunderground dates so Europe/Madrid midnight is not converted to the
+    # previous UTC day. Normal updates intentionally keep days_init/days_end so
+    # early-month runs reread the previous month and close late WU totals.
+    set -- "$@" \
+      --wunderground_local_start_date "$run_wunderground_local_start_date" \
+      --wunderground_local_end_date "$run_wunderground_local_end_date"
+  fi
+  "$@"
   update_exit_code="$?"
   set -e
   echo "Rainmapper update finished with exit code ${update_exit_code}."
@@ -307,7 +320,7 @@ while (step > 0 and current <= end) or (step < 0 and current >= end):
     end_date = today if window_end == 0 else month_end(add_months(today, window_end))
     days_init = (start_date - today).days
     days_end = (end_date - today).days
-    print(f"{days_init} {days_end} {current} {window_end}")
+    print(f"{days_init} {days_end} {current} {window_end} {start_date.isoformat()} {end_date.isoformat()}")
     current = window_end + (1 if step > 0 else -1)'
 }
 
@@ -340,15 +353,15 @@ run_update_windows() {
   local first_window=1
   echo "Monthly backfill enabled: months_init=${MONTHS_INIT_VALUE}, months_end=${MONTHS_END_VALUE}, months_interval=${MONTHS_INTERVAL_VALUE}, pause=${BACKFILL_PAUSE_SECONDS_VALUE}s."
   backup_incrementals_for_backfill
-  while read -r window_days_init window_days_end window_months_init window_months_end; do
+  while read -r window_days_init window_days_end window_months_init window_months_end window_start_date window_end_date; do
     [ -n "$window_days_init" ] || continue
     if [ "$first_window" -eq 0 ]; then
       echo "Waiting ${BACKFILL_PAUSE_SECONDS_VALUE}s before next monthly backfill window."
       sleep "$BACKFILL_PAUSE_SECONDS_VALUE"
     fi
     first_window=0
-    echo "Running monthly backfill window months ${window_months_init}..${window_months_end} as days_init=${window_days_init}, days_end=${window_days_end}."
-    run_update "$window_days_init" "$window_days_end" true
+    echo "Running monthly backfill window months ${window_months_init}..${window_months_end} as ${window_start_date}..${window_end_date}."
+    run_update "$window_days_init" "$window_days_end" true "$window_start_date" "$window_end_date"
     window_code="$?"
     if [ "$window_code" -eq 1 ]; then
       return 1

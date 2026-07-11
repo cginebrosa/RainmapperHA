@@ -3123,6 +3123,7 @@ function idwPointValuesContent(pointValues) {
   const windText = formatIdwPointWind(pointValues.windAvg, pointValues.windGust);
   return `
     <div class="popup-row terrain-idw-title"><strong>${t("idwPointValues")}:</strong></div>
+    <div class="popup-row"><strong>${t("rain")}:</strong> ${formatIdwPointRange(pointValues.rain, null, "mm", 1)}</div>
     <div class="popup-row"><strong>${t("temperature")}:</strong> ${formatIdwPointRange(pointValues.temperatureMax, pointValues.temperatureMin, "°C", 1)}</div>
     <div class="popup-row"><strong>${t("idwCorrectedTemperature")}:</strong> ${correctedText}</div>
     <div class="popup-row"><strong>${t("humidity")}:</strong> ${formatIdwPointRange(pointValues.humidityMax, pointValues.humidityMin, "%", 0)}</div>
@@ -3309,6 +3310,7 @@ function buildIdwPointValues(lngLat, demElevation = null, demStatus = "loading")
   };
   const correctedTargetAltitude = demStatus === "loaded" && Number.isFinite(demElevation) ? demElevation : null;
   return {
+    rain: estimatedFieldPointMetricValue(lngLat, metricById.rain),
     temperatureMax: estimatedFieldPointMetricValue(lngLat, metricById.max_temp),
     temperatureMin: estimatedFieldPointMetricValue(lngLat, metricById.min_temp),
     correctedTemperatureMax: Number.isFinite(correctedTargetAltitude)
