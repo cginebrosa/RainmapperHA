@@ -88,9 +88,9 @@ Para tareas de setas:
 - Repo GitHub sigue publico por decision explicita del usuario; no cerrarlo.
 - No limpiar GHCR sin confirmar version activa/rollback y sin conservar
   manifests/attestations auxiliares multi-arch.
-- Cambio local no release: `rainmapper-local/options.local-ha-ui.json` puede
-  aparecer modificado por pruebas locales de backfill; no commitearlo salvo
-  peticion explicita.
+- `rainmapper-local/options.local-ha-ui.json` es el perfil versionado de la HA
+  UI local. Puede modificarse temporalmente durante pruebas de backfill, pero no
+  debe contener claves reales.
 
 ## Reglas de trabajo
 

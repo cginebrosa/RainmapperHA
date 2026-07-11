@@ -29,9 +29,8 @@ corresponda.
   usuario; no cerrarlo. GHCR ya fue limpiado tras validar `0.2.195`, pero no
   repetir limpiezas sin confirmar version activa/rollback y sin conservar
   manifests/attestations auxiliares multi-arch.
-- Source control local: `rainmapper-local/options.local-ha-ui.json` queda
-  modificado con opciones de prueba local de backfill. No commitearlo salvo
-  peticion explicita; si se quiere limpiar el arbol, restaurar solo ese fichero.
+- `rainmapper-local/options.local-ha-ui.json` mantiene un perfil local de
+  desarrollo con backfill desactivado, filtro vacio y Wunderground activo.
 
 ## Foco activo
 
@@ -149,8 +148,8 @@ Para `0.2.199` se verifico:
   cache-busting runtime.
 - `rainmapper-app/run.sh`: lectura de opciones HA y variables de entorno.
 - `rainmapper-app/config.yaml`: defaults empaquetados HA.
-- `rainmapper-local/options.local-ha-ui.json`: opciones locales de prueba, no
-  commitear sin pedir.
+- `rainmapper-local/options.local-ha-ui.json`: perfil versionado para la HA UI
+  local; no guardar claves reales.
 - `rainmapper-local/docker-compose.yml`: entorno local HA UI.
 - `rainmapper_core/viewers/maplibre-viewer/index.html`
 - `rainmapper_core/viewers/maplibre-viewer/app.js`

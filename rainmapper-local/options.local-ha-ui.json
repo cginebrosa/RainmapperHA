@@ -5,8 +5,15 @@
   "schedule_enabled": false,
   "scheduled_action": "all",
   "publish_to_www": false,
+  "nototals": true,
+  "backfill_months_enabled": false,
+  "months_init": -4,
+  "months_end": -1,
+  "months_interval": 1,
+  "backfill_pause_seconds": 10,
+  "backfill_station_filter": "",
   "create_meteoclimatic": false,
   "create_meteocat": false,
-  "create_wunderground": false,
+  "create_wunderground": true,
   "create_aemet": false
 }
