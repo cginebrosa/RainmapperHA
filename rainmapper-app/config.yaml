@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.196"
+version: "0.2.197"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -35,6 +35,12 @@ options:
   scheduled_action: all
   days_init: -7
   days_end: 0
+  backfill_months_enabled: false
+  months_init: -48
+  months_end: 0
+  months_interval: 3
+  backfill_pause_seconds: 5
+  backfill_station_filter: ""
   create_meteoclimatic: true
   create_meteocat: true
   create_wunderground: true
@@ -86,6 +92,12 @@ schema:
   scheduled_action: list(update|maps|all)
   days_init: int
   days_end: int
+  backfill_months_enabled: bool
+  months_init: int
+  months_end: int
+  months_interval: int
+  backfill_pause_seconds: int
+  backfill_station_filter: str
   create_meteoclimatic: bool
   create_meteocat: bool
   create_wunderground: bool

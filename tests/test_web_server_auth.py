@@ -11,6 +11,7 @@ import json
 import os
 import tempfile
 import unittest
+from datetime import date, datetime
 from pathlib import Path
 from unittest import mock
 
@@ -3652,6 +3653,62 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("--create_aemet", command)
         self.assertEqual(command[command.index("--create_aemet") + 1], "true")
         self.assertEqual(command[command.index("--wunderground_daily_api") + 1], "true")
+        self.assertEqual(command[command.index("--backfill_station_filter") + 1], "")
+
+    def test_webui_update_command_passes_backfill_station_filter(self) -> None:
+        previous = os.environ.get("RAINMAPPER_BACKFILL_STATION_FILTER")
+        os.environ["RAINMAPPER_BACKFILL_STATION_FILTER"] = "wunderground::IORDIN1,IMERAN22"
+        try:
+            command = self.web_server.command_for("update")
+        finally:
+            if previous is None:
+                os.environ.pop("RAINMAPPER_BACKFILL_STATION_FILTER", None)
+            else:
+                os.environ["RAINMAPPER_BACKFILL_STATION_FILTER"] = previous
+
+        self.assertEqual(
+            command[command.index("--backfill_station_filter") + 1],
+            "wunderground::IORDIN1,IMERAN22",
+        )
+
+    def test_webui_update_command_accepts_backfill_day_window_override(self) -> None:
+        command = self.web_server.command_for("update", days_init=-180, days_end=-91, nototals=True)
+
+        self.assertEqual(command[command.index("--days_init") + 1], "-180")
+        self.assertEqual(command[command.index("--days_end") + 1], "-91")
+        self.assertEqual(command[command.index("--nototals") + 1], "true")
+
+    def test_monthly_backfill_windows_convert_month_offsets_to_day_windows(self) -> None:
+        previous_values = {
+            name: os.environ.get(name)
+            for name in (
+                "RAINMAPPER_MONTHS_INIT",
+                "RAINMAPPER_MONTHS_END",
+                "RAINMAPPER_MONTHS_INTERVAL",
+            )
+        }
+        os.environ["RAINMAPPER_MONTHS_INIT"] = "-5"
+        os.environ["RAINMAPPER_MONTHS_END"] = "0"
+        os.environ["RAINMAPPER_MONTHS_INTERVAL"] = "2"
+        try:
+            reference = datetime(2026, 7, 11, tzinfo=self.web_server.get_timezone())
+            windows = self.web_server.monthly_backfill_windows(reference)
+        finally:
+            for name, previous in previous_values.items():
+                if previous is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = previous
+
+        reference_date = date(2026, 7, 11)
+        self.assertEqual(
+            [(window["months_init"], window["months_end"]) for window in windows],
+            [(-5, -4), (-3, -2), (-1, 0)],
+        )
+        self.assertEqual(windows[0]["days_init"], (date(2026, 2, 1) - reference_date).days)
+        self.assertEqual(windows[0]["days_end"], (date(2026, 3, 31) - reference_date).days)
+        self.assertEqual(windows[-1]["days_init"], (date(2026, 6, 1) - reference_date).days)
+        self.assertEqual(windows[-1]["days_end"], 0)
 
     def test_webui_update_command_can_target_only_one_source(self) -> None:
         command = self.web_server.command_for("update", only_source="AEMET")

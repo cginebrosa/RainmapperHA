@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import calendar
 import csv
 import base64
 import cgi
@@ -181,6 +182,76 @@ def app_version() -> str:
 def bool_env(name: str, default: bool = False) -> bool:
     value = env(name, "true" if default else "false").strip().lower()
     return value in {"1", "true", "yes", "on"}
+
+
+def raw_int_env(name: str, default: int) -> int:
+    try:
+        return int(env(name, str(default)))
+    except ValueError:
+        return default
+
+
+def month_start_for_offset(reference: datetime, offset: int) -> datetime:
+    month_index = reference.year * 12 + reference.month - 1 + offset
+    return datetime(month_index // 12, month_index % 12 + 1, 1, tzinfo=reference.tzinfo)
+
+
+def month_end_for_offset(reference: datetime, offset: int) -> datetime:
+    month_start = month_start_for_offset(reference, offset)
+    last_day = calendar.monthrange(month_start.year, month_start.month)[1]
+    return month_start.replace(day=last_day)
+
+
+def monthly_backfill_enabled() -> bool:
+    return bool_env("RAINMAPPER_BACKFILL_MONTHS_ENABLED", False)
+
+
+def backfill_pause_seconds() -> int:
+    return max(0, raw_int_env("RAINMAPPER_BACKFILL_PAUSE_SECONDS", 5))
+
+
+def monthly_backfill_windows(reference: datetime | None = None) -> list[dict[str, int]]:
+    reference = reference or datetime.now(get_timezone())
+    months_init = raw_int_env("RAINMAPPER_MONTHS_INIT", -48)
+    months_end = raw_int_env("RAINMAPPER_MONTHS_END", 0)
+    months_interval = max(1, abs(raw_int_env("RAINMAPPER_MONTHS_INTERVAL", 3)))
+    step = months_interval if months_init <= months_end else -months_interval
+
+    windows: list[dict[str, int]] = []
+    current = months_init
+    while (step > 0 and current <= months_end) or (step < 0 and current >= months_end):
+        if step > 0:
+            window_end = min(current + step - 1, months_end)
+            next_current = window_end + 1
+        else:
+            window_end = max(current + step + 1, months_end)
+            next_current = window_end - 1
+
+        start_date = month_start_for_offset(reference, current).date()
+        end_date = reference.date() if window_end == 0 else month_end_for_offset(reference, window_end).date()
+        windows.append(
+            {
+                "months_init": current,
+                "months_end": window_end,
+                "days_init": (start_date - reference.date()).days,
+                "days_end": (end_date - reference.date()).days,
+            }
+        )
+        current = next_current
+    return windows
+
+
+def backup_incrementals_for_backfill() -> str:
+    backup_dir = DATA_PATH / "backups" / f"backfill_incrementals_{datetime.now(get_timezone()).strftime('%Y%m%d_%H%M%S')}"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for source_path in sorted(DATA_PATH.glob("*_incremental.csv")):
+        if source_path.is_file():
+            shutil.copy2(source_path, backup_dir / source_path.name)
+            copied += 1
+    if copied:
+        return f"Backed up {copied} incremental CSV file(s) to {backup_dir}."
+    return "No incremental CSV files found to back up before monthly backfill."
 
 
 def maplibre_hover_zoom() -> float:
@@ -6736,7 +6807,13 @@ def append_optional_bokeh_maps(command: str) -> str:
     return f"{command} && echo 'Skipping Rainmapper Bokeh maps.'"
 
 
-def command_for(action: str, only_source: str | None = None) -> list[str]:
+def command_for(
+    action: str,
+    only_source: str | None = None,
+    days_init: int | str | None = None,
+    days_end: int | str | None = None,
+    nototals: str | bool | None = None,
+) -> list[str]:
     if only_source and only_source not in UPDATE_SOURCE_FLAGS:
         raise ValueError(f"Invalid source: {only_source}")
     update_command = [
@@ -6752,13 +6829,13 @@ def command_for(action: str, only_source: str | None = None) -> list[str]:
         "--create_aemet",
         source_flag_value("create_aemet", only_source),
         "--days_init",
-        env("RAINMAPPER_DAYS_INIT", "-7"),
+        str(days_init if days_init is not None else env("RAINMAPPER_DAYS_INIT", "-7")),
         "--days_end",
-        env("RAINMAPPER_DAYS_END", "0"),
+        str(days_end if days_end is not None else env("RAINMAPPER_DAYS_END", "0")),
         "--nomaps",
         env("RAINMAPPER_NOMAPS", "false"),
         "--nototals",
-        env("RAINMAPPER_NOTOTALS", "false"),
+        str(nototals).lower() if nototals is not None else env("RAINMAPPER_NOTOTALS", "false"),
         "--days_bucket",
         env("RAINMAPPER_DAYS_BUCKET", "10"),
         "--meteocat_request_timeout",
@@ -6773,6 +6850,8 @@ def command_for(action: str, only_source: str | None = None) -> list[str]:
         env("RAINMAPPER_WUNDERGROUND_DAILY_API", "true"),
         "--wunderground_full_log",
         env("RAINMAPPER_WUNDERGROUND_FULL_LOG", "false"),
+        "--backfill_station_filter",
+        env("RAINMAPPER_BACKFILL_STATION_FILTER", ""),
         "--meteoclimatic_pattern",
         env("RAINMAPPER_METEOCLIMATIC_PATTERN", "ESCAT"),
     ]
@@ -7625,15 +7704,14 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
         log_file.write(f"=== {started.isoformat(timespec='seconds')} - {action_label} ({source}) ===\n")
         log_file.flush()
 
-        actions = ["update", "maps"] if action == "all" else [action]
-        for current_action in actions:
+        def execute_command_step(current_action: str, command: list[str], step_label: str) -> tuple[int, float]:
+            nonlocal final_exit_code
             step_started = time.perf_counter()
-            print(f"Running Rainmapper step '{current_action}'.", flush=True)
+            print(f"Running Rainmapper step '{step_label}'.", flush=True)
             with RUN_LOCK:
-                RUN_STATE.update({"current_step": f"Running {current_action}", **clear_progress()})
-            log_file.write(f"=== running step {current_action} ===\n")
+                RUN_STATE.update({"current_step": f"Running {step_label}", **clear_progress()})
+            log_file.write(f"=== running step {step_label} ===\n")
             log_file.flush()
-            command = command_for(current_action, only_source=only_source if current_action == "update" else None)
             process = subprocess.Popen(
                 command,
                 cwd="/app",
@@ -7656,10 +7734,59 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
                     final_exit_code = 2
             finally:
                 set_current_process(None)
-            print(f"Rainmapper step '{current_action}' finished with exit code {exit_code}.", flush=True)
-            step_duration = format_seconds_duration(time.perf_counter() - step_started)
-            log_file.write(f"=== step {current_action} duration {step_duration} ===\n")
+            print(f"Rainmapper step '{step_label}' finished with exit code {exit_code}.", flush=True)
+            elapsed = time.perf_counter() - step_started
+            step_duration = format_seconds_duration(elapsed)
+            log_file.write(f"=== step {step_label} duration {step_duration} ===\n")
             log_file.flush()
+            return exit_code, elapsed
+
+        actions = ["update", "maps"] if action == "all" else [action]
+        for current_action in actions:
+            step_started = time.perf_counter()
+            if current_action == "update" and monthly_backfill_enabled():
+                backup_message = backup_incrementals_for_backfill()
+                print(backup_message, flush=True)
+                log_file.write(f"=== {backup_message} ===\n")
+                windows = monthly_backfill_windows()
+                log_file.write(
+                    "=== monthly backfill enabled: "
+                    f"months_init={env('RAINMAPPER_MONTHS_INIT', '-48')}, "
+                    f"months_end={env('RAINMAPPER_MONTHS_END', '0')}, "
+                    f"months_interval={env('RAINMAPPER_MONTHS_INTERVAL', '3')}, "
+                    f"pause={backfill_pause_seconds()}s, windows={len(windows)} ===\n"
+                )
+                log_file.flush()
+                for window_index, window in enumerate(windows, start=1):
+                    if window_index > 1:
+                        pause_seconds = backfill_pause_seconds()
+                        wait_label = f"Waiting monthly backfill pause ({pause_seconds}s)"
+                        with RUN_LOCK:
+                            RUN_STATE.update({"current_step": wait_label, **clear_progress()})
+                        log_file.write(f"=== {wait_label} before window {window_index}/{len(windows)} ===\n")
+                        log_file.flush()
+                        if pause_seconds:
+                            time.sleep(pause_seconds)
+                    step_label = (
+                        f"update backfill {window_index}/{len(windows)} "
+                        f"months {window['months_init']}..{window['months_end']}"
+                    )
+                    command = command_for(
+                        "update",
+                        only_source=only_source,
+                        days_init=window["days_init"],
+                        days_end=window["days_end"],
+                        nototals=True,
+                    )
+                    exit_code, _ = execute_command_step("update", command, step_label)
+                    if exit_code not in {0, 2}:
+                        break
+                step_duration = format_seconds_duration(time.perf_counter() - step_started)
+                log_file.write(f"=== step update monthly backfill total duration {step_duration} ===\n")
+                log_file.flush()
+            else:
+                command = command_for(current_action, only_source=only_source if current_action == "update" else None)
+                exit_code, _ = execute_command_step(current_action, command, current_action)
             if exit_code not in {0, 2}:
                 break
             if current_action == "maps":

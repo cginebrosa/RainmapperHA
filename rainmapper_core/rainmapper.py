@@ -19,6 +19,7 @@ import pytz
 import os
 import math
 import re
+import csv
 import json
 import sys
 import time as time_module
@@ -74,6 +75,7 @@ from rainmapper_core.config.const import   _codi_estacio,\
                     _max_attempts,\
                     _wunderground_full_log,\
                     _wunderground_daily_api,\
+                    _backfill_station_filter,\
                     _last_number_rains,\
                     _create_daily_stats,\
                     _create_monthly_stats,\
@@ -188,6 +190,13 @@ parser.add_argument('--wunderground_daily_api',
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_wunderground_daily_api,
                     help='Use Wunderground daily JSON API before HTML fallback (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=True')
+parser.add_argument('--backfill_station_filter',
+                    dest='_backfill_station_filter',
+                    nargs='?',
+                    const=_backfill_station_filter,
+                    type=str,
+                    default=_backfill_station_filter,
+                    help='Optional administrative station filter, for example "wunderground::IORDIN1,IMERAN22"')
 parser.add_argument('--meteoclimatic_pattern',
                     dest='_meteoclimatic_pattern',
                     nargs='?',
@@ -212,6 +221,7 @@ _max_threads = args._max_threads
 _max_attempts = args._max_attempts
 _wunderground_full_log = args._wunderground_full_log
 _wunderground_daily_api = args._wunderground_daily_api
+_backfill_station_filter = args._backfill_station_filter
 _meteoclimatic_pattern = args._meteoclimatic_pattern
 _create_googlemaps_files = args._create_googlemaps_files
 _print_totals = args._print_totals
@@ -228,6 +238,45 @@ def parse_meteoclimatic_patterns(pattern_text):
         if pattern.strip()
     ]
     return patterns or [_meteoclimatic_pattern]
+
+
+def parse_backfill_station_filter(filter_text):
+    filters = {}
+    raw_filter = str(filter_text or "").strip()
+    if not raw_filter:
+        return filters
+    for segment in raw_filter.split(";"):
+        segment = segment.strip()
+        if not segment:
+            continue
+        if "::" not in segment:
+            print(f'Ignoring invalid backfill station filter segment "{segment}". Use source::id1,id2.')
+            continue
+        source, ids_text = segment.split("::", 1)
+        source = source.strip().lower()
+        if not source:
+            print(f'Ignoring invalid backfill station filter segment "{segment}". Missing source.')
+            continue
+        try:
+            parsed_rows = list(csv.reader([ids_text], skipinitialspace=True))
+            parsed_ids = parsed_rows[0] if parsed_rows else []
+        except csv.Error:
+            parsed_ids = ids_text.split(",")
+        station_ids = {
+            station_id.strip().strip("'\"").upper()
+            for station_id in parsed_ids
+            if station_id.strip().strip("'\"")
+        }
+        if station_ids:
+            filters.setdefault(source, set()).update(station_ids)
+    return filters
+
+
+BACKFILL_STATION_FILTERS = parse_backfill_station_filter(_backfill_station_filter)
+
+
+def backfill_station_ids_for(source_name):
+    return BACKFILL_STATION_FILTERS.get(str(source_name or "").strip().lower(), set())
 
 #print(_create_meteocat)
 #print(_days_init)
@@ -2178,6 +2227,29 @@ def create_wunderground(timings=None):
     max_threads = _max_threads
     results = []
     station_urls = [url.strip() for url in URLS if url.strip() and not url.strip().startswith('#')]
+    filtered_station_ids = backfill_station_ids_for("wunderground")
+    if filtered_station_ids:
+        station_urls_by_id = {
+            station_id_from_url(url).upper(): url
+            for url in station_urls
+        }
+        unknown_station_ids = sorted(filtered_station_ids - set(station_urls_by_id))
+        station_urls = [
+            url
+            for url in station_urls
+            if station_id_from_url(url).upper() in filtered_station_ids
+        ]
+        print(
+            "Wunderground station filter enabled: "
+            f"{len(station_urls)} selected from {len(station_urls_by_id)} configured station(s)."
+        )
+        if unknown_station_ids:
+            print(
+                "Wunderground station filter unknown station(s): "
+                + ", ".join(unknown_station_ids)
+            )
+        if not station_urls:
+            raise ValueError("Wunderground station filter did not match any configured station.")
     total_stations = len(station_urls)
     completed_stations = 0
     progress_step = max(1, math.ceil(total_stations / 10))

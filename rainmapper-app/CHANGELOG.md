@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.197
+
+- Add administrative monthly backfill windows with incremental CSV backup and visible pause status in the Home Assistant summary.
+- Add a source/station backfill filter, currently applied to Wunderground, using `source::station1,station2` syntax for targeted station rebuilds.
+- Force totals output off during monthly backfill windows to avoid legacy totals failures when only one source is enabled.
+
 ## 0.2.196
 
 - Use Terrarium/Mapzen DEM per cell for MapLibre IDW altitude correction on temperature layers, with visible `IDW DEM` / `IDW sin DEM` status badges.

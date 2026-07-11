@@ -137,6 +137,12 @@ CREATE_WUNDERGROUND_VALUE="$(option create_wunderground true)"
 CREATE_AEMET_VALUE="$(option create_aemet false)"
 DAYS_INIT_VALUE="$(option days_init -7)"
 DAYS_END_VALUE="$(option days_end 0)"
+BACKFILL_MONTHS_ENABLED_VALUE="$(option backfill_months_enabled false)"
+MONTHS_INIT_VALUE="$(option months_init -48)"
+MONTHS_END_VALUE="$(option months_end 0)"
+MONTHS_INTERVAL_VALUE="$(option months_interval 3)"
+BACKFILL_PAUSE_SECONDS_VALUE="$(option backfill_pause_seconds 5)"
+BACKFILL_STATION_FILTER_VALUE="$(option backfill_station_filter '')"
 NOMAPS_VALUE="$(option nomaps false)"
 NOTOTALS_VALUE="$(option nototals false)"
 DAYS_BUCKET_VALUE="$(option days_bucket 10)"
@@ -191,6 +197,11 @@ export RAINMAPPER_CREATE_WUNDERGROUND="$CREATE_WUNDERGROUND_VALUE"
 export RAINMAPPER_CREATE_AEMET="$CREATE_AEMET_VALUE"
 export RAINMAPPER_DAYS_INIT="$DAYS_INIT_VALUE"
 export RAINMAPPER_DAYS_END="$DAYS_END_VALUE"
+export RAINMAPPER_BACKFILL_MONTHS_ENABLED="$BACKFILL_MONTHS_ENABLED_VALUE"
+export RAINMAPPER_MONTHS_INIT="$MONTHS_INIT_VALUE"
+export RAINMAPPER_MONTHS_END="$MONTHS_END_VALUE"
+export RAINMAPPER_MONTHS_INTERVAL="$MONTHS_INTERVAL_VALUE"
+export RAINMAPPER_BACKFILL_PAUSE_SECONDS="$BACKFILL_PAUSE_SECONDS_VALUE"
 export RAINMAPPER_NOMAPS="$NOMAPS_VALUE"
 export RAINMAPPER_NOTOTALS="$NOTOTALS_VALUE"
 export RAINMAPPER_DAYS_BUCKET="$DAYS_BUCKET_VALUE"
@@ -227,6 +238,7 @@ export RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_LOCAL_POWER="$MAPLIBRE_ESTI
 export RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_C_PER_100M="$MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_VALUE"
 export RAINMAPPER_PUBLISH_TO_WWW="$PUBLISH_TO_WWW_VALUE"
 export RAINMAPPER_AEMET_API_KEY="$AEMET_API_KEY_VALUE"
+export RAINMAPPER_BACKFILL_STATION_FILTER="$BACKFILL_STATION_FILTER_VALUE"
 cd /app
 
 print_startup_banner
@@ -234,15 +246,18 @@ print_startup_banner
 run_update() {
   echo "Starting Rainmapper update..."
   set +e
+  local run_days_init="${1:-$DAYS_INIT_VALUE}"
+  local run_days_end="${2:-$DAYS_END_VALUE}"
+  local run_nototals="${3:-$NOTOTALS_VALUE}"
   python -m rainmapper_core.rainmapper \
     --create_meteoclimatic "$CREATE_METEOCLIMATIC_VALUE" \
     --create_meteocat "$CREATE_METEOCAT_VALUE" \
     --create_wunderground "$CREATE_WUNDERGROUND_VALUE" \
     --create_aemet "$CREATE_AEMET_VALUE" \
-    --days_init "$DAYS_INIT_VALUE" \
-    --days_end "$DAYS_END_VALUE" \
+    --days_init "$run_days_init" \
+    --days_end "$run_days_end" \
     --nomaps "$NOMAPS_VALUE" \
-    --nototals "$NOTOTALS_VALUE" \
+    --nototals "$run_nototals" \
     --days_bucket "$DAYS_BUCKET_VALUE" \
     --meteocat_request_timeout "$METEOCAT_REQUEST_TIMEOUT_VALUE" \
     --meteocat_max_attempts "$METEOCAT_MAX_ATTEMPTS_VALUE" \
@@ -250,11 +265,101 @@ run_update() {
     --max_attempts "$MAX_ATTEMPTS_VALUE" \
     --wunderground_daily_api "$WUNDERGROUND_DAILY_API_VALUE" \
     --wunderground_full_log "$WUNDERGROUND_FULL_LOG_VALUE" \
+    --backfill_station_filter "$BACKFILL_STATION_FILTER_VALUE" \
     --meteoclimatic_pattern "$METEOCLIMATIC_PATTERN_VALUE"
   update_exit_code="$?"
   set -e
   echo "Rainmapper update finished with exit code ${update_exit_code}."
   return "$update_exit_code"
+}
+
+month_backfill_windows() {
+  python -c 'from datetime import date, timedelta
+import calendar
+import os
+
+def int_env(name, default):
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+def add_months(day, offset):
+    month_index = day.year * 12 + day.month - 1 + offset
+    return date(month_index // 12, month_index % 12 + 1, 1)
+
+def month_end(day):
+    return date(day.year, day.month, calendar.monthrange(day.year, day.month)[1])
+
+today = date.today()
+start = int_env("RAINMAPPER_MONTHS_INIT", -48)
+end = int_env("RAINMAPPER_MONTHS_END", 0)
+interval = max(1, abs(int_env("RAINMAPPER_MONTHS_INTERVAL", 3)))
+step = interval if start <= end else -interval
+current = start
+while (step > 0 and current <= end) or (step < 0 and current >= end):
+    window_end = current + step
+    if step > 0:
+        window_end = min(window_end - 1, end)
+    else:
+        window_end = max(window_end + 1, end)
+    start_date = add_months(today, current)
+    end_date = today if window_end == 0 else month_end(add_months(today, window_end))
+    days_init = (start_date - today).days
+    days_end = (end_date - today).days
+    print(f"{days_init} {days_end} {current} {window_end}")
+    current = window_end + (1 if step > 0 else -1)'
+}
+
+backup_incrementals_for_backfill() {
+  local backup_stamp
+  backup_stamp="$(date +%Y%m%d_%H%M%S)"
+  local backup_dir="/app/Data/backups/backfill_incrementals_${backup_stamp}"
+  mkdir -p "$backup_dir"
+  local found=0
+  for incremental_file in /app/Data/*_incremental.csv; do
+    if [ -f "$incremental_file" ]; then
+      cp "$incremental_file" "$backup_dir/"
+      found=1
+    fi
+  done
+  if [ "$found" -eq 1 ]; then
+    echo "Backed up incremental CSV files to ${backup_dir}."
+  else
+    echo "No incremental CSV files found to back up before monthly backfill."
+  fi
+}
+
+run_update_windows() {
+  if [ "$BACKFILL_MONTHS_ENABLED_VALUE" != "true" ]; then
+    run_update
+    return "$?"
+  fi
+
+  local final_code=0
+  local first_window=1
+  echo "Monthly backfill enabled: months_init=${MONTHS_INIT_VALUE}, months_end=${MONTHS_END_VALUE}, months_interval=${MONTHS_INTERVAL_VALUE}, pause=${BACKFILL_PAUSE_SECONDS_VALUE}s."
+  backup_incrementals_for_backfill
+  while read -r window_days_init window_days_end window_months_init window_months_end; do
+    [ -n "$window_days_init" ] || continue
+    if [ "$first_window" -eq 0 ]; then
+      echo "Waiting ${BACKFILL_PAUSE_SECONDS_VALUE}s before next monthly backfill window."
+      sleep "$BACKFILL_PAUSE_SECONDS_VALUE"
+    fi
+    first_window=0
+    echo "Running monthly backfill window months ${window_months_init}..${window_months_end} as days_init=${window_days_init}, days_end=${window_days_end}."
+    run_update "$window_days_init" "$window_days_end" true
+    window_code="$?"
+    if [ "$window_code" -eq 1 ]; then
+      return 1
+    fi
+    if [ "$window_code" -eq 2 ] && [ "$final_code" -eq 0 ]; then
+      final_code=2
+    fi
+  done <<EOF
+$(month_backfill_windows)
+EOF
+  return "$final_code"
 }
 
 run_maps() {
@@ -289,7 +394,7 @@ case "$MODE" in
     python -m rainmapper_core.rainmapper --help
     ;;
   update|once)
-    run_update
+    run_update_windows
     ;;
   maps)
     run_maps
@@ -300,7 +405,7 @@ case "$MODE" in
     ;;
   all)
     update_exit_code=0
-    run_update || update_exit_code="$?"
+    run_update_windows || update_exit_code="$?"
     update_exit_code="${update_exit_code:-0}"
     if [ "$update_exit_code" -eq 1 ]; then
       exit 1

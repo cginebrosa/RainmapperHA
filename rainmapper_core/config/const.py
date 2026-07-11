@@ -60,4 +60,5 @@ _max_threads = 3                        # Recommended Wunderground threads after
 _max_attempts = 3                       # Number of attempts to scrap url from Wunderground
 _wunderground_full_log = False          # Imprimir log detallado de estaciones Wunderground
 _wunderground_daily_api = _bool_env('RAINMAPPER_WUNDERGROUND_DAILY_API', True)  # Use Wunderground daily JSON first; HTML remains fallback
+_backfill_station_filter = os.environ.get('RAINMAPPER_BACKFILL_STATION_FILTER', '')  # Optional source::station filter for administrative backfills
 #_codi_provincia = '' ## NOT IMPLEMENTED

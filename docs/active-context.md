@@ -17,12 +17,12 @@ corresponda.
 
 - Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA preparado: `0.2.196`.
-- Version HA del repo: `0.2.196`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.196`
+- Ultimo release HA preparado: `0.2.197`.
+- Version HA del repo: `0.2.197`.
+- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.197`
   y `latest`, digest multi-arch
-  `sha256:98ff4f9399cf0ef9f8b3bf8b513b92c9977ac6f520fbbc634af6a39374ba4284`.
-- Estado HA: `0.2.196` pendiente de instalacion/validacion por el usuario.
+  `sha256:7a6592f2cf8afc930e874a576b8036c4230b6866400b5127cd497335d1abbc30`.
+- Estado HA: `0.2.197` pendiente de instalacion/validacion por el usuario.
 - Estado GitHub/GHCR: repo GitHub abierto/publico por decision explicita del
   usuario; no cerrarlo. GHCR remoto limpiado tras validar `0.2.195`: conserva
   `0.2.195/latest`, rollback `0.2.194` y auxiliares multi-arch/attestation de
@@ -42,13 +42,14 @@ de rendimiento de `run_all` queda como seguimiento puntual:
 - Comparacion visual en `Parametros`: perfil, evidencia v0 y valores emergentes.
 - Separacion clara de origenes: perfil/literatura, Campo, GIS/DEM.
 - Estado de modelo desactualizado y reconstruccion manual desde UI.
-- Validar en HA que `0.2.196` conserva la mejora Wunderground con API diaria
-  primaria y cache de metadata, sin romper incrementales, y que MapLibre IDW
-  mantiene la correccion DEM/valores puntuales del popup largo.
+- Validar en HA que `0.2.197` conserva la mejora Wunderground con API diaria
+  primaria y cache de metadata, sin romper incrementales, mantiene MapLibre IDW
+  con correccion DEM/valores puntuales del popup largo y permite backfill mensual
+  con backup de incrementales y filtro `source::station`.
 
 El resto de visores esta estable salvo que una tarea lo toque explicitamente.
 
-MapLibre IDW queda preparado para validar en HA `0.2.196`: la correccion por
+MapLibre IDW queda preparado para validar en HA `0.2.197`: la correccion por
 altitud usa DEM Terrarium/Mapzen por celda solo en metricas de temperatura, con
 fallback a IDW normal y badge discreto en cabecera (`IDW DEM` verde o
 `IDW sin DEM` rojo).
