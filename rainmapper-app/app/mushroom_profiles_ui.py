@@ -5165,7 +5165,7 @@ def render_observation_exif_import_form(
     return f"""
     <div id="import-observation-exif" class="modal-layer">
       <a class="modal-backdrop" href="#" aria-label="{html.escape(ui_label("ui.cancel"), quote=True)}"></a>
-      <form class="modal-card modal-card-wide observation-form" method="post" action="" enctype="multipart/form-data">
+      <form class="modal-card modal-card-wide observation-form observation-batch-import" method="post" action="" enctype="multipart/form-data">
         <input type="hidden" name="profile_action" value="import_observation_exif_images">
         {observation_context_inputs(filters, selected_species_id=selected_species_id)}
         <header class="modal-head">
@@ -5175,55 +5175,79 @@ def render_observation_exif_import_form(
           </div>
           <a class="button-link" href="#">{html.escape(ui_label("ui.cancel"))}</a>
         </header>
-        <div class="profile-grid four">
-          <div class="admin-field"><label>{html.escape(ui_label("observer.name"))}</label><input name="observer_name"></div>
-          <div class="admin-field"><label>{html.escape(ui_label("observer.expertise"))}</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", "unknown")}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("source_quality"))}</label><input name="source_quality" type="number" min="0" max="1" step="0.05" value="0.9" required></div>
-          <div class="admin-field"><label>{html.escape(ui_label("flush_abundance"))}</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", "normal")}</select></div>
-        </div>
-        <div class="profile-grid three">
-          <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation_status" required>{catalog_select_options(catalogs, "observation_validation_statuses", "draft")}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, selected_species_id)}</select></div>
-          <div class="admin-field"><label>{html.escape(ui_label("calibration_use"))}</label><select name="calibration_use" required>{catalog_select_options(catalogs, "observation_calibration_uses", "review")}</select></div>
-        </div>
-        <div class="profile-grid full">
-          <div class="admin-field wide"><label>{html.escape(ui_label("ui.micro_area"))}</label><select name="micro_area_id">{known_site_select_options()}</select><span class="meta"><a href="{html.escape(known_sites_url, quote=True)}">{html.escape(ui_label("ui.manage_known_sites"))}</a></span></div>
-        </div>
-        <div class="profile-grid two">
-          <div class="admin-field wide"><label>{html.escape(ui_label("ui.exif_images"))}</label><input name="exif_images" type="file" accept="image/jpeg,image/heic,image/heif" multiple webkitdirectory directory required></div>
-          <div class="admin-field wide"><label>{html.escape(ui_label("source.notes"))}</label><input name="source_notes"></div>
-        </div>
-        <div class="profile-grid full">
-          <div class="admin-field wide">
-            <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
-            <div class="month-toggle-grid host-toggle-grid">{observed_host_toggles(catalogs, [])}</div>
-            <span class="meta">{html.escape(ui_label("ui.observed_hosts_help"))}</span>
+        <div class="observation-form-main">
+          <div class="observation-form-left">
+            <section class="observation-field-group observation-record-group">
+              <h3><span class="observation-section-icon">✓</span>{html.escape(ui_label("ui.observation_group_record"))}</h3>
+              <div class="observation-group-grid record">
+                <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, selected_species_id)}</select></div>
+                <div class="admin-field"><label>{html.escape(ui_label("ui.flush_short"))}</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", "normal")}</select></div>
+                <div class="admin-field compact"><label>{html.escape(ui_label("source_quality"))}</label><input name="source_quality" type="number" min="0" max="1" step="0.05" value="0.9" required></div>
+              </div>
+            </section>
+            <section class="observation-field-group observation-location-group">
+              <h3><span class="observation-section-icon">⌖</span>{html.escape(ui_label("ui.observation_group_location"))}</h3>
+              <div class="observation-group-grid batch-location">
+                <div class="admin-field"><label>{html.escape(ui_label("ui.micro_area"))}</label><select name="micro_area_id">{known_site_select_options()}</select></div>
+                <a class="observation-manage-sites-link" href="{html.escape(known_sites_url, quote=True)}">{html.escape(ui_label("ui.manage_known_sites"))} ↗</a>
+              </div>
+            </section>
+            <section class="observation-field-group observation-validation-group">
+              <h3><span class="observation-section-icon">✓</span>{html.escape(ui_label("ui.observation_group_validation"))}</h3>
+              <div class="observation-group-grid validation">
+                <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation_status" required>{catalog_select_options(catalogs, "observation_validation_statuses", "draft")}</select></div>
+                <div class="admin-field"><label>{html.escape(ui_label("calibration_use"))}</label><select name="calibration_use" required>{catalog_select_options(catalogs, "observation_calibration_uses", "review")}</select></div>
+                <div class="admin-field"><label>{html.escape(ui_label("calibration_exclusion_reason"))}</label><select name="calibration_exclusion_reason">{catalog_select_options(catalogs, "observation_exclusion_reasons", "", ui_label("ui.none"))}</select></div>
+              </div>
+            </section>
+            <section class="observation-field-group observation-source-group">
+              <h3><span class="observation-section-icon">●</span>{html.escape(ui_label("ui.observation_group_source"))}</h3>
+              <div class="observation-group-grid batch-source">
+                <div class="admin-field"><label>{html.escape(ui_label("observer.name"))}</label><input name="observer_name"></div>
+                <div class="admin-field"><label>{html.escape(ui_label("ui.observer_expertise_short"))}</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", "unknown")}</select></div>
+                <div class="admin-field source-notes"><label>{html.escape(ui_label("source.notes"))}</label><input name="source_notes"></div>
+              </div>
+            </section>
           </div>
+          <section class="observation-evidence-panel">
+            <h3><span class="observation-section-icon">⌘</span>Evidencia de campo</h3>
+            <div class="profile-grid full observation-hosts-grid">
+              <div class="admin-field wide">
+                <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
+                <div class="month-toggle-grid host-toggle-grid">{observed_host_toggles(catalogs, [])}</div>
+              </div>
+            </div>
+            <div class="profile-grid two observation-context-grid">
+              <div class="admin-field wide catalog-toggle-field">
+                <span class="field-label">{html.escape(ui_label("site_context.observed_forest_type_ids"))}</span>
+                <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "forest_types", "observed_forest_type_ids", [])}</div>
+              </div>
+              <div class="admin-field wide catalog-toggle-field">
+                <span class="field-label">{html.escape(ui_label("site_context.observed_soil_tendency_ids"))}</span>
+                <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "soil_types", "observed_soil_tendency_ids", [])}</div>
+              </div>
+              <div class="admin-field wide catalog-toggle-field">
+                <span class="field-label">{html.escape(ui_label("site_context.observed_habitat_feature_ids"))}</span>
+                <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "habitat_features", "observed_habitat_feature_ids", [])}</div>
+              </div>
+              <div class="admin-field wide catalog-toggle-field">
+                <span class="field-label">{html.escape(ui_label("site_context.observed_aspect_ids"))}</span>
+                <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "aspects", "observed_aspect_ids", [])}</div>
+              </div>
+            </div>
+          </section>
         </div>
-        <div class="profile-grid two observation-context-grid">
-          <div class="admin-field wide catalog-toggle-field">
-            <span class="field-label">{html.escape(ui_label("site_context.observed_forest_type_ids"))}</span>
-            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "forest_types", "observed_forest_type_ids", [])}</div>
+        <div class="observation-form-footer">
+          <div class="catalog-alert observation-exif-update">
+            <div class="observation-exif-heading">
+              <strong class="observation-exif-title">{html.escape(ui_label("ui.exif_filled_fields"))}</strong>
+              <span class="observation-exif-help">{html.escape(ui_label("ui.exif_filled_fields_help"))}</span>
+            </div>
+            <div class="admin-field wide exif-edit-upload"><label>{html.escape(ui_label("ui.exif_images"))}</label><input name="exif_images" type="file" accept="image/jpeg,image/heic,image/heif" multiple webkitdirectory directory required></div>
           </div>
-          <div class="admin-field wide catalog-toggle-field">
-            <span class="field-label">{html.escape(ui_label("site_context.observed_soil_tendency_ids"))}</span>
-            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "soil_types", "observed_soil_tendency_ids", [])}</div>
+          <div class="profile-action-bar">
+            <button class="primary profile-primary-action">{html.escape(ui_label("ui.import_exif_images"))}</button>
           </div>
-          <div class="admin-field wide catalog-toggle-field">
-            <span class="field-label">{html.escape(ui_label("site_context.observed_habitat_feature_ids"))}</span>
-            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "habitat_features", "observed_habitat_feature_ids", [])}</div>
-          </div>
-          <div class="admin-field wide catalog-toggle-field">
-            <span class="field-label">{html.escape(ui_label("site_context.observed_aspect_ids"))}</span>
-            <div class="catalog-toggle-grid">{observation_catalog_toggles(catalogs, "aspects", "observed_aspect_ids", [])}</div>
-          </div>
-        </div>
-        <div class="catalog-alert">
-          <strong>{html.escape(ui_label("ui.exif_filled_fields"))}</strong><br>
-          {html.escape(ui_label("ui.exif_filled_fields_help"))}
-        </div>
-        <div class="profile-action-bar">
-          <button class="primary profile-primary-action">{html.escape(ui_label("ui.import_exif_images"))}</button>
         </div>
       </form>
     </div>

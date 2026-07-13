@@ -934,8 +934,15 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "source_quality": ["0.8"],
                 "validation_status": ["draft"],
                 "calibration_use": ["review"],
+                "calibration_exclusion_reason": ["other"],
                 "observer_name": ["Carlos"],
                 "observer_expertise": ["experienced"],
+                "source_notes": ["Shared batch source note"],
+                "observed_host_ids": ["host_pinus_sylvestris"],
+                "observed_forest_type_ids": ["forest_holm_oak"],
+                "observed_soil_tendency_ids": ["soil_calcareous"],
+                "observed_habitat_feature_ids": ["feature_open_warm_woodland"],
+                "observed_aspect_ids": ["aspect_S"],
             },
             files={"exif_images": [{"filename": "IMG_4144.jpeg", "content": b"fake-jpeg"}]},
         )
@@ -951,8 +958,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(619.9, observation["altitude"]["meters"])
         self.assertEqual("photo_exif", observation["source"]["type"])
         self.assertEqual("IMG_4144.jpeg", observation["source"]["label"])
+        self.assertEqual("Shared batch source note", observation["source"]["notes"])
         self.assertEqual("Carlos", observation["observer"]["name"])
         self.assertEqual("experienced", observation["observer"]["expertise"])
+        self.assertEqual("other", observation["calibration_exclusion_reason"])
+        self.assertEqual(["host_pinus_sylvestris"], observation["site_context"]["observed_host_ids"])
+        self.assertEqual(["forest_holm_oak"], observation["site_context"]["observed_forest_type_ids"])
+        self.assertEqual(["soil_calcareous"], observation["site_context"]["observed_soil_tendency_ids"])
+        self.assertEqual(
+            ["feature_open_warm_woodland"], observation["site_context"]["observed_habitat_feature_ids"]
+        )
+        self.assertEqual(["aspect_S"], observation["site_context"]["observed_aspect_ids"])
         self.assertEqual(1, len(observation["media"]))
         media = observation["media"][0]
         self.assertEqual("photo", media["kind"])
@@ -1099,6 +1115,169 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(observation_id, unchanged["observation_id"])
         self.assertEqual("boletus_aereus", unchanged["species_id"])
         self.assertNotIn("media", unchanged)
+
+    def test_mushroom_observation_load_image_does_not_apply_exif(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+        original_extractor = self.web_server.extract_photo_exif_observation_fields
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+            self.web_server.extract_photo_exif_observation_fields = original_extractor
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
+        self.web_server.extract_photo_exif_observation_fields = mock.Mock(
+            side_effect=AssertionError("image-only import must not read EXIF")
+        )
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_aereus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.0"],
+                "location_lon": ["2.0"],
+                "altitude_m": ["500"],
+                "altitude_source": ["manual"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "source_type": ["personal_observation"],
+                "source_label": ["field notes"],
+            }
+        )
+        observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
+        observation_id = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0][
+            "observation_id"
+        ]
+
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["update_observation"],
+                "observation_id": [observation_id],
+                "observation_species_id": ["boletus_aereus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.0"],
+                "location_lon": ["2.0"],
+                "altitude_m": ["500"],
+                "altitude_source": ["manual"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "source_type": ["personal_observation"],
+                "source_label": ["field notes"],
+                "observation_image_import_mode": ["image_only"],
+                "media_replacement_action": ["keep"],
+            },
+            files={"observation_exif_images": [{"filename": "IMG_3043.jpeg", "content": b"fake-jpeg"}]},
+        )
+
+        observation = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]
+        self.assertEqual("2026-06-29", observation["observed_at"])
+        self.assertEqual("41.0, 2.0", observation["location"]["input"])
+        self.assertEqual(41.0, observation["location"]["lat"])
+        self.assertEqual(2.0, observation["location"]["lon"])
+        self.assertEqual("manual_decimal", observation["location"]["source"])
+        self.assertEqual(500, observation["altitude"]["meters"])
+        self.assertEqual("manual", observation["altitude"]["source"])
+        self.assertEqual("personal_observation", observation["source"]["type"])
+        self.assertEqual("field notes", observation["source"]["label"])
+        self.assertEqual("IMG_3043.jpeg", observation["media"][0]["original_filename"])
+        self.web_server.extract_photo_exif_observation_fields.assert_not_called()
+
+    def test_mushroom_observation_load_exif_does_not_attach_image(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+        original_extractor = self.web_server.extract_photo_exif_observation_fields
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+            self.web_server.extract_photo_exif_observation_fields = original_extractor
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
+
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["create_observation"],
+                "observation_species_id": ["boletus_aereus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.0"],
+                "location_lon": ["2.0"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "source_type": ["personal_observation"],
+            }
+        )
+        observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
+        observation_id = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0][
+            "observation_id"
+        ]
+        self.web_server.extract_photo_exif_observation_fields = mock.Mock(
+            return_value={
+                "filename": "IMG_3043.jpeg",
+                "observed_at": "2025-04-01",
+                "lat": 42.369172,
+                "lon": 1.321158,
+                "altitude_m": 1384.0,
+            }
+        )
+
+        handler.handle_mushroom_profiles_post(
+            {
+                "profile_action": ["update_observation"],
+                "observation_id": [observation_id],
+                "observation_species_id": ["boletus_aereus"],
+                "observed_at": ["2026-06-29"],
+                "location_lat": ["41.0"],
+                "location_lon": ["2.0"],
+                "flush_abundance": ["normal"],
+                "source_quality": ["0.7"],
+                "validation_status": ["valid"],
+                "calibration_use": ["include"],
+                "source_type": ["personal_observation"],
+                "observation_image_import_mode": ["exif_only"],
+            },
+            files={"observation_exif_images": [{"filename": "IMG_3043.jpeg", "content": b"fake-jpeg"}]},
+        )
+
+        observation = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]
+        self.assertEqual("2025-04-01", observation["observed_at"])
+        self.assertEqual(42.369172, observation["location"]["lat"])
+        self.assertEqual(1.321158, observation["location"]["lon"])
+        self.assertEqual("photo_exif", observation["location"]["source"])
+        self.assertEqual(1384.0, observation["altitude"]["meters"])
+        self.assertEqual("photo_exif", observation["altitude"]["source"])
+        self.assertEqual("photo_exif", observation["source"]["type"])
+        self.assertEqual("IMG_3043.jpeg", observation["source"]["label"])
+        self.assertNotIn("media", observation)
 
     def test_mushroom_observations_create_reports_missing_coordinates(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -1395,6 +1574,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("sort=abundance", html)
         self.assertIn("import-observation-exif", html)
         self.assertIn('name="exif_images"', html)
+        batch_start = html.index('<div id="import-observation-exif"')
+        batch_end = html.index("</form>", batch_start)
+        batch_html = html[batch_start:batch_end]
+        self.assertIn("observation-form observation-batch-import", batch_html)
+        self.assertIn('name="calibration_exclusion_reason"', batch_html)
+        self.assertIn('name="source_notes"', batch_html)
+        self.assertIn('class="observation-evidence-panel"', batch_html)
+        self.assertIn('class="observation-form-footer"', batch_html)
+        self.assertNotIn('name="observed_at"', batch_html)
+        self.assertNotIn('name="location_lat"', batch_html)
+        self.assertNotIn('name="altitude_m"', batch_html)
+        self.assertNotIn('name="source_type"', batch_html)
+        self.assertNotIn('name="source_label"', batch_html)
         new_observation_html = html[html.index('id="new-observation"') : html.index('id="import-observation-exif"')]
         self.assertIn('name="observation_exif_images"', new_observation_html)
         self.assertIn('enctype="multipart/form-data"', new_observation_html)
@@ -1404,7 +1596,14 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("updateObservationExifPreview(event.target)", page)
         self.assertIn("URL.createObjectURL(file)", page)
         self.assertIn('id="observation-exif-preview-modal"', page)
-        self.assertIn("applyObservationExifPreview()", page)
+        self.assertIn('data-observation-exif-action="image_only"', page)
+        self.assertIn('data-observation-exif-action="exif_only"', page)
+        self.assertIn('data-observation-exif-action="image_and_exif"', page)
+        self.assertIn("applyObservationExifPreview(exifPreviewAction.dataset.observationExifAction)", page)
+        self.assertIn(self.web_server.mushroom_profiles_ui.ui_label("ui.image_preview_title"), page)
+        self.assertIn(self.web_server.mushroom_profiles_ui.ui_label("ui.load_image_and_exif"), page)
+        self.assertIn("grid-template-columns: 122px minmax(0, 1fr)", page)
+        self.assertIn("min-height: 122px", page)
         self.assertIn("closeObservationExifPreview({ clearInput: true })", page)
         self.assertIn("captured_at_display", page)
         self.assertNotIn("rainmapperMaplibreAuth", page)

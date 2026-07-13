@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.200
+
+- Add persistent mushroom areas and micro-areas with polygon editing, GIS/DEM review and observation assignment workflows.
+- Expand observation image management with separate image-only, EXIF-only and combined imports, plus a consistent multi-image EXIF creation form.
+- Refine observation editing, detail alignment, backup retention and shared maintenance action styles across species, observations, parameters, GIS mappings, known sites and reference catalogs.
+
 ## 0.2.199
 
 - Fix MapLibre viewer asset cache busting so Home Assistant loads the current `app.js` after add-on upgrades.

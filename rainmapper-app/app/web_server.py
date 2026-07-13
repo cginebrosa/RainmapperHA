@@ -4861,8 +4861,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items: stretch;
       display: grid;
       gap: 10px;
-      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-columns: 122px minmax(0, 1fr);
       margin: 0 0 10px;
+      min-height: 122px;
+    }}
+    .observation-detail-summary > div:first-child {{
+      min-height: 122px;
     }}
     .observation-detail-photo-strip {{
       margin: 0;
@@ -5384,6 +5388,22 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-group-grid.source {{
       grid-template-columns:repeat(4,minmax(0,1fr));
+    }}
+    .observation-batch-import .observation-group-grid.record {{
+      grid-template-columns:minmax(190px,1.5fr) minmax(120px,.8fr) minmax(120px,.7fr);
+    }}
+    .observation-batch-import .batch-location {{
+      grid-template-columns:1fr;
+    }}
+    .observation-batch-import .batch-location .observation-manage-sites-link {{
+      grid-column:auto;
+      grid-row:auto;
+    }}
+    .observation-batch-import .batch-source {{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }}
+    .observation-batch-import .batch-source .source-notes {{
+      grid-column:1/-1;
     }}
     .observation-evidence-panel {{
       align-content:start;
@@ -6077,8 +6097,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     <section class="observation-exif-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="observation-exif-preview-title">
       <header class="modal-head">
         <div>
-          <h2 id="observation-exif-preview-title">Vista previa EXIF</h2>
-          <p>Revisa la imagen, la fecha, las coordenadas y la altitud antes de aplicar los datos al formulario.</p>
+          <h2 id="observation-exif-preview-title">{html.escape(mushroom_profiles_ui.ui_label("ui.image_preview_title"))}</h2>
+          <p>{html.escape(mushroom_profiles_ui.ui_label("ui.image_preview_help"))}</p>
         </div>
         <button class="secondary observation-exif-preview-close" type="button" data-observation-exif-preview-cancel aria-label="Cancelar">×</button>
       </header>
@@ -6091,9 +6111,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         </div>
         <div class="observation-exif-preview-map" hidden><div data-observation-exif-map></div></div>
       </div>
-      <div class="modal-actions">
+      <div class="modal-actions maintenance-action-bar observation-exif-preview-actions">
         <button class="secondary" type="button" data-observation-exif-preview-cancel>Cancelar</button>
-        <button class="primary" type="button" data-observation-exif-preview-accept disabled>Aplicar datos EXIF</button>
+        <button class="secondary" type="button" data-observation-exif-action="image_only" title="{html.escape(mushroom_profiles_ui.ui_label("ui.load_image_help"), quote=True)}" disabled>{html.escape(mushroom_profiles_ui.ui_label("ui.load_image"))}</button>
+        <button class="secondary" type="button" data-observation-exif-action="exif_only" title="{html.escape(mushroom_profiles_ui.ui_label("ui.load_exif_data_help"), quote=True)}" disabled>{html.escape(mushroom_profiles_ui.ui_label("ui.load_exif_data"))}</button>
+        <button class="primary profile-primary-action" type="button" data-observation-exif-action="image_and_exif" title="{html.escape(mushroom_profiles_ui.ui_label("ui.load_image_and_exif_help"), quote=True)}" disabled>{html.escape(mushroom_profiles_ui.ui_label("ui.load_image_and_exif"))}</button>
       </div>
     </section>
   </div>
@@ -6489,7 +6511,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       payload: null,
       selectedIndex: 0,
       objectUrls: [],
-      map: null
+      map: null,
+      pendingMode: "image_and_exif"
     }};
     function formatExifPreviewNumber(value, suffix) {{
       if (value === null || value === undefined || value === "") {{
@@ -6587,23 +6610,29 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         payload: null,
         selectedIndex: 0,
         objectUrls: [],
-        map: null
+        map: null,
+        pendingMode: "image_and_exif"
       }};
     }}
-    function applyObservationExifPreview() {{
+    function applyObservationExifPreview(mode) {{
       var preview = selectedObservationExifPreview();
       var form = observationExifPreviewState.form;
-      if (!preview || !preview.ok || preview.is_existing || !form) {{
+      mode = mode || "image_and_exif";
+      if (!preview || preview.is_existing || !form || (mode !== "image_only" && !preview.ok)) {{
         return;
       }}
+      observationExifPreviewState.pendingMode = mode;
       var existing=observationExifPreviewState.payload&&observationExifPreviewState.payload.existing_preview;
-      if(existing){{openObservationImageReplaceModal(existing);return;}}
-      applySelectedObservationExifPreview("keep");
+      if(mode !== "exif_only" && existing){{openObservationImageReplaceModal(existing);return;}}
+      applySelectedObservationExifPreview("keep", mode);
     }}
-    function applySelectedObservationExifPreview(replacementAction) {{
+    function applySelectedObservationExifPreview(replacementAction, mode) {{
       var preview=selectedObservationExifPreview(),form=observationExifPreviewState.form;if(!preview||!form)return;
+      mode=mode||observationExifPreviewState.pendingMode||"image_and_exif";
+      var importMode=form.querySelector("[name='observation_image_import_mode']");if(!importMode){{importMode=document.createElement("input");importMode.type="hidden";importMode.name="observation_image_import_mode";form.appendChild(importMode);}}importMode.value=mode;
       var replacement=form.querySelector("[name='media_replacement_action']");if(!replacement){{replacement=document.createElement("input");replacement.type="hidden";replacement.name="media_replacement_action";form.appendChild(replacement);}}replacement.value=replacementAction||"keep";
       var field;
+      if(mode !== "image_only"){{
       field = form.querySelector("[name='observed_at']");
       if (field && preview.observed_at) {{
         field.value = preview.observed_at;
@@ -6640,6 +6669,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (field && preview.filename) {{
         field.value = preview.filename;
       }}
+      }}
+      if(mode === "exif_only" && observationExifPreviewState.input){{
+        observationExifPreviewState.input.value="";
+      }}
       closeObservationExifPreview({{ clearInput: false }});
     }}
     function openObservationImageReplaceModal(existing) {{
@@ -6662,8 +6695,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       var status = modal.querySelector(".observation-exif-preview-status");
       var grid = modal.querySelector(".observation-exif-preview-grid");
-      var acceptButton = modal.querySelector("[data-observation-exif-preview-accept]");
-      if (!grid || !status || !acceptButton) {{
+      var actionButtons = Array.prototype.slice.call(modal.querySelectorAll("[data-observation-exif-action]"));
+      if (!grid || !status || !actionButtons.length) {{
         return;
       }}
       var input = observationExifPreviewState.input;
@@ -6671,7 +6704,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       var previews = payload && Array.isArray(payload.previews) ? payload.previews.slice() : [];
       if(payload&&payload.existing_preview)previews.unshift(payload.existing_preview);
       observationExifPreviewState.payload=payload||{{}};observationExifPreviewState.payload.previews=previews;
-      status.textContent = previews.length ? "Vista previa EXIF de " + previews.length + " imagen(es)." : "No se pudo leer EXIF de las imagenes seleccionadas.";
+      status.textContent = previews.length ? "Vista previa de " + previews.length + " imagen(es)." : "No se pudo leer la imagen seleccionada.";
       grid.innerHTML = "";
       clearObservationExifPreviewObjectUrls();
       previews.forEach(function(preview, index) {{
@@ -6711,7 +6744,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
           }});
           card.classList.add("selected");
           observationExifPreviewState.selectedIndex = index;
-          acceptButton.disabled = !preview.ok||Boolean(preview.is_existing);
+          actionButtons.forEach(function(button){{var mode=button.dataset.observationExifAction;button.disabled=Boolean(preview.is_existing)||(mode!=="image_only"&&!preview.ok);}});
           renderObservationExifPreviewData(preview, modal);
           setObservationExifPreviewMap(preview, modal);
         }});
@@ -6725,7 +6758,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (selectedCard) {{
         selectedCard.click();
       }} else {{
-        acceptButton.disabled = true;
+        actionButtons.forEach(function(button){{button.disabled=true;}});
         renderObservationExifPreviewData(null, modal);
         setObservationExifPreviewMap(null, modal);
       }}
@@ -6746,16 +6779,14 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       observationExifPreviewState.selectedIndex = 0;
       var status = modal.querySelector(".observation-exif-preview-status");
       var grid = modal.querySelector(".observation-exif-preview-grid");
-      var acceptButton = modal.querySelector("[data-observation-exif-preview-accept]");
+      var actionButtons = Array.prototype.slice.call(modal.querySelectorAll("[data-observation-exif-action]"));
       if (status) {{
         status.textContent = "Leyendo EXIF...";
       }}
       if (grid) {{
         grid.innerHTML = "";
       }}
-      if (acceptButton) {{
-        acceptButton.disabled = true;
-      }}
+      actionButtons.forEach(function(button){{button.disabled=true;}});
       modal.hidden = false;
       var formData = new FormData();
       var observationIdField = observationExifPreviewState.form && observationExifPreviewState.form.querySelector("[name='observation_id']");
@@ -7101,17 +7132,17 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if(event.target.closest("[data-observation-draft-map-close]")){{event.preventDefault();closeObservationDraftMap();return;}}
       if(event.target.closest("[data-observation-draft-map-assign]")){{event.preventDefault();assignObservationDraftSite();return;}}
       if(event.target.closest("[data-image-replace-cancel]")){{event.preventDefault();document.getElementById("observation-image-replace-modal").hidden=true;return;}}
-      var replaceAction=event.target.closest("[data-image-replace-action]");if(replaceAction&&!replaceAction.disabled){{event.preventDefault();document.getElementById("observation-image-replace-modal").hidden=true;applySelectedObservationExifPreview(replaceAction.dataset.imageReplaceAction);return;}}
+      var replaceAction=event.target.closest("[data-image-replace-action]");if(replaceAction&&!replaceAction.disabled){{event.preventDefault();document.getElementById("observation-image-replace-modal").hidden=true;applySelectedObservationExifPreview(replaceAction.dataset.imageReplaceAction,observationExifPreviewState.pendingMode);return;}}
       var exifPreviewCancel = event.target.closest("[data-observation-exif-preview-cancel]");
       if (exifPreviewCancel) {{
         event.preventDefault();
         closeObservationExifPreview({{ clearInput: true }});
         return;
       }}
-      var exifPreviewAccept = event.target.closest("[data-observation-exif-preview-accept]");
-      if (exifPreviewAccept) {{
+      var exifPreviewAction = event.target.closest("[data-observation-exif-action]");
+      if (exifPreviewAction && !exifPreviewAction.disabled) {{
         event.preventDefault();
-        applyObservationExifPreview();
+        applyObservationExifPreview(exifPreviewAction.dataset.observationExifAction);
         return;
       }}
       var observationModalClose = event.target.closest(".observation-form .modal-head a[href='#'], .modal-layer > .modal-backdrop[href='#']");
@@ -13545,6 +13576,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     if isinstance(item, dict) and item.get("filename") and item.get("content")
                 ]
                 if uploaded_exif:
+                    image_import_mode = catalog_form_string(form, "observation_image_import_mode") or "image_and_exif"
+                    if image_import_mode not in {"image_only", "exif_only", "image_and_exif"}:
+                        image_import_mode = "image_and_exif"
+                    apply_exif_data = image_import_mode in {"exif_only", "image_and_exif"}
+                    attach_image = image_import_mode in {"image_only", "image_and_exif"}
                     imported: list[dict[str, object]] = []
                     skipped: list[str] = []
                     working_rows = list(existing_rows)
@@ -13555,20 +13591,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             skipped.append(f"{filename}: invalid upload payload")
                             continue
                         try:
-                            fields = extract_photo_exif_observation_fields(filename, content)
-                            exif_form = observation_form_with_exif_fields(form, fields)
-                            observation = observation_payload_from_form(exif_form, working_rows)
+                            fields = extract_photo_exif_observation_fields(filename, content) if apply_exif_data else {}
+                            import_form = observation_form_with_exif_fields(form, fields) if apply_exif_data else form
+                            observation = observation_payload_from_form(import_form, working_rows)
                         except ValueError as exc:
                             skipped.append(f"{filename}: {exc}")
                             continue
-                        append_observation_media(
-                            observation,
-                            save_observation_image_media(
-                                str(observation.get("observation_id", "")),
-                                item,
-                                observation.get("observed_at"),
-                            ),
-                        )
+                        if attach_image:
+                            append_observation_media(
+                                observation,
+                                save_observation_image_media(
+                                    str(observation.get("observation_id", "")),
+                                    item,
+                                    observation.get("observed_at"),
+                                ),
+                            )
                         imported.append(observation)
                         working_rows.append(observation)
                     observation_species_id = catalog_form_string(form, "observation_species_id") or species_id
@@ -13684,6 +13721,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if len(uploaded_exif) > 1:
                     set_mushroom_profiles_flash("Observation was not saved: only one image is allowed per observation.")
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
+                image_import_mode = catalog_form_string(form, "observation_image_import_mode") or "image_and_exif"
+                if image_import_mode not in {"image_only", "exif_only", "image_and_exif"}:
+                    image_import_mode = "image_and_exif"
+                apply_exif_data = image_import_mode in {"exif_only", "image_and_exif"}
+                attach_image = image_import_mode in {"image_only", "image_and_exif"}
                 exif_uploads: list[tuple[dict[str, object], dict[str, object]]] = []
                 skipped: list[str] = []
                 for item in uploaded_exif:
@@ -13692,12 +13734,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     if not isinstance(content, bytes):
                         skipped.append(f"{filename}: invalid upload payload")
                         continue
+                    if not apply_exif_data:
+                        exif_uploads.append(({}, item))
+                        continue
                     try:
                         exif_uploads.append((extract_photo_exif_observation_fields(filename, content), item))
                     except ValueError as exc:
                         skipped.append(f"{filename}: {exc}")
                 try:
-                    updated_form = observation_form_with_exif_fields(form, exif_uploads[0][0]) if exif_uploads else form
+                    updated_form = observation_form_with_exif_fields(form, exif_uploads[0][0]) if exif_uploads and apply_exif_data else form
                     updated = observation_payload_from_form(updated_form, observations, existing)
                 except ValueError as exc:
                     set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
@@ -13705,7 +13750,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if uploaded_exif and not exif_uploads:
                     set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]))
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
-                if exif_uploads:
+                if exif_uploads and attach_image:
                     replacement_action = catalog_form_string(form, "media_replacement_action")
                     existing_media = updated.get("media") if isinstance(updated.get("media"), list) else []
                     if existing_media and replacement_action not in {"unlink", "delete"}:
@@ -13738,7 +13783,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 ]
                 created_from_extra_photos: list[dict[str, object]] = []
                 working_rows = list(updated_rows)
-                for fields, item in exif_uploads[1:]:
+                for fields, item in exif_uploads[1:] if apply_exif_data else []:
                     try:
                         extra_form = observation_form_with_exif_fields(form, fields)
                         extra = observation_payload_from_form(extra_form, working_rows)
@@ -13762,7 +13807,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     metadata["updated_by"] = "rainmapper_ui"
                 result = store.replace("observations", observations_payload)
                 if result.ok:
-                    if exif_uploads and catalog_form_string(form, "media_replacement_action") == "delete":
+                    if exif_uploads and attach_image and catalog_form_string(form, "media_replacement_action") == "delete":
                         for old_path in old_media_paths:
                             old_file = observation_media_file_path(old_path)
                             if old_file is not None and old_file.exists():
@@ -13772,7 +13817,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     imported_text = ""
                     if uploaded_exif:
-                        imported_text = f" Applied EXIF from {len(exif_uploads)} image(s)."
+                        if image_import_mode == "image_only":
+                            imported_text = f" Attached {len(exif_uploads)} image(s) without applying EXIF."
+                        elif image_import_mode == "exif_only":
+                            imported_text = f" Applied EXIF from {len(exif_uploads)} image(s) without attaching media."
+                        else:
+                            imported_text = f" Attached and applied EXIF from {len(exif_uploads)} image(s)."
                     if created_from_extra_photos:
                         imported_text += f" Created {len(created_from_extra_photos)} extra observation(s)."
                     if skipped:
