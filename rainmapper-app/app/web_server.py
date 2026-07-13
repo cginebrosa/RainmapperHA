@@ -5087,8 +5087,31 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-height: 30px;
       padding: 0 8px;
     }}
+    .observation-form-left input,
+    .observation-form-left select {{
+      box-sizing:border-box;
+      font-family:inherit;
+      font-size:11px;
+      font-weight:500;
+      height:30px;
+      line-height:1.2;
+      min-height:30px;
+    }}
+    .observation-form-left input[type=date],
+    .observation-form-left input[type=number] {{
+      font-variant-numeric:tabular-nums;
+    }}
+    .observation-form-left input[type=date]::-webkit-date-and-time-value {{
+      margin:0;
+      min-height:0;
+      text-align:left;
+    }}
+    .observation-form-left input[type=number]::-webkit-textfield-decoration-container {{
+      align-items:center;
+    }}
     .observation-form .admin-field label,
     .observation-form .catalog-toggle-field .field-label {{
+      font-size: 10px;
       margin-bottom: 3px;
     }}
     .observation-field-groups {{
@@ -5221,7 +5244,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       place-items: center;
     }}
     .observation-group-grid.record {{
-      grid-template-columns: minmax(150px, 1.55fr) minmax(120px, 1.05fr) minmax(105px, .95fr) minmax(82px, .75fr);
+      grid-template-columns: minmax(170px, 1.65fr) 112px minmax(100px, .85fr) minmax(108px, .75fr);
+    }}
+    .observation-group-grid.record label {{
+      white-space: nowrap;
     }}
     .observation-group-grid.location {{
       grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -5334,39 +5360,44 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       padding:0;
     }}
     .observation-form-footer .observation-exif-update {{
-      display:grid;
-      gap:2px;
-      grid-template-columns:minmax(0,1fr);
+      display:contents;
+    }}
+    .observation-form-footer .observation-exif-heading {{
+      align-items:center;
+      display:flex;
+      gap:8px;
+      grid-column:1/-1;
       line-height:1.15;
+      min-width:0;
+      white-space:nowrap;
     }}
     .observation-form-footer .observation-exif-title {{
       align-items:center;
       display:flex;
-      font-size:11px;
+      flex:0 0 auto;
+      font-size:12px;
       gap:6px;
     }}
     .observation-form-footer .observation-exif-title::before {{
       color:#20bfff;
       content:'▧';
-      font-size:16px;
+      font-size:17px;
       line-height:1;
     }}
     .observation-form-footer .observation-exif-help {{
       color:var(--muted);
-      font-size:9px;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
+      font-size:10px;
+      line-height:1.2;
     }}
     .observation-form-footer .catalog-alert .admin-field {{ margin-top:2px; }}
     .observation-form-footer .catalog-alert .admin-field label {{
-      font-size:9px;
-      margin-bottom:2px;
+      font-size:11px;
+      margin-bottom:3px;
     }}
     .observation-form-footer .catalog-alert input[type=file] {{
-      font-size:9px;
-      min-height:26px;
-      padding:2px 5px;
+      font-size:11px;
+      min-height:32px;
+      padding:3px 6px;
     }}
     .observation-form-footer > .profile-action-bar {{
       border:0;
@@ -5396,6 +5427,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     @media (max-width: 1200px) {{
       .observation-form-main {{ grid-template-columns:1fr; }}
       .observation-form-footer {{ grid-template-columns:1fr; }}
+      .observation-form-footer .observation-exif-heading {{ white-space:normal; }}
       .observation-form-footer > .profile-action-bar {{ justify-content:flex-end; }}
     }}
     .table-sort-link {{

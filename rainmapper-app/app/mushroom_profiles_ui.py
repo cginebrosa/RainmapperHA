@@ -4968,8 +4968,10 @@ def render_observation_form_modal(
     if action == "update_observation" or allow_exif_images:
         exif_edit_fields = f"""
         <div class="catalog-alert observation-exif-update">
-          <strong class="observation-exif-title">{html.escape(ui_label("ui.update_from_exif_images"))}</strong>
-          <span class="observation-exif-help">{html.escape(ui_label("ui.update_from_exif_images_help"))}</span>
+          <div class="observation-exif-heading">
+            <strong class="observation-exif-title">{html.escape(ui_label("ui.update_from_exif_images"))}</strong>
+            <span class="observation-exif-help">{html.escape(ui_label("ui.update_from_exif_images_help"))}</span>
+          </div>
           <div class="admin-field wide exif-edit-upload">
             <label>{html.escape(ui_label("ui.exif_images"))}</label>
             <input name="observation_exif_images" type="file" accept="image/jpeg,image/heic,image/heif">
@@ -4998,8 +5000,8 @@ def render_observation_form_modal(
             <h3><span class="observation-section-icon">✓</span>{html.escape(ui_label("ui.observation_group_record"))}</h3>
             <div class="observation-group-grid record">
               <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, current_species_id)}</select></div>
-              <div class="admin-field compact"><label>{html.escape(ui_label("observed_at"))}</label><input name="observed_at" type="date" value="{html.escape(str(row.get("observed_at", "")), quote=True)}" onchange="this.blur()" required></div>
-              <div class="admin-field"><label>{html.escape(ui_label("flush_abundance"))}</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", str(row.get("flush_abundance", "") or "normal"))}</select></div>
+              <div class="admin-field compact observation-record-date"><label>{html.escape(ui_label("ui.date_short"))}</label><input name="observed_at" type="date" value="{html.escape(str(row.get("observed_at", "")), quote=True)}" onchange="this.blur()" required></div>
+              <div class="admin-field observation-record-flush"><label>{html.escape(ui_label("ui.flush_short"))}</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", str(row.get("flush_abundance", "") or "normal"))}</select></div>
               <div class="admin-field compact"><label>{html.escape(ui_label("source_quality"))}</label><input name="source_quality" type="number" min="0" max="1" step="0.05" value="{html.escape(str(row.get("source_quality", 0.75)), quote=True)}" required></div>
             </div>
           </section>
@@ -5029,7 +5031,7 @@ def render_observation_form_modal(
             <h3><span class="observation-section-icon">●</span>{html.escape(ui_label("ui.observation_group_source"))}</h3>
             <div class="observation-group-grid source">
               <div class="admin-field"><label>{html.escape(ui_label("observer.name"))}</label><input name="observer_name" value="{html.escape(str(observer.get("name", "") if isinstance(observer, dict) else ""), quote=True)}"></div>
-              <div class="admin-field"><label>{html.escape(ui_label("observer.expertise"))}</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", str(observer.get("expertise", "") if isinstance(observer, dict) else "") or "unknown")}</select></div>
+              <div class="admin-field"><label>{html.escape(ui_label("ui.observer_expertise_short"))}</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", str(observer.get("expertise", "") if isinstance(observer, dict) else "") or "unknown")}</select></div>
               <div class="admin-field"><label>{html.escape(ui_label("source.type"))}</label><select name="source_type">{catalog_select_options(catalogs, "observation_source_types", str(source.get("type", "") if isinstance(source, dict) else "") or "personal_observation")}</select></div>
               <div class="admin-field"><label>{html.escape(ui_label("source.label"))}</label><input name="source_label" value="{html.escape(str(source.get("label", "") if isinstance(source, dict) else ""), quote=True)}"></div>
               <div class="admin-field source-url"><label>{html.escape(ui_label("source.url"))}</label><input name="source_url" type="url" value="{html.escape(str(source.get("url", "") if isinstance(source, dict) else ""), quote=True)}"></div>
@@ -5042,7 +5044,6 @@ def render_observation_form_modal(
           <div class="admin-field wide">
             <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
             <div class="month-toggle-grid host-toggle-grid">{observed_host_toggles(catalogs, site_context.get("observed_host_ids") if isinstance(site_context, dict) else [])}</div>
-            <span class="meta">{html.escape(ui_label("ui.observed_hosts_help"))}</span>
           </div>
         </div>
         <div class="profile-grid two observation-context-grid">

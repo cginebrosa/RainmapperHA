@@ -514,6 +514,16 @@
     "es": "Fecha",
     "ca": "Data"
   },
+  "ui.flush_short": {
+    "en": "Flush",
+    "es": "Florada",
+    "ca": "Florada"
+  },
+  "ui.observer_expertise_short": {
+    "en": "Experience",
+    "es": "Experiencia",
+    "ca": "Experiencia"
+  },
   "ui.result": {
     "en": "Result",
     "es": "Resultado",

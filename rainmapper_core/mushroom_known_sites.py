@@ -11,11 +11,30 @@ from pathlib import Path
 from typing import Any
 
 from rainmapper_core import mushroom_paths
-from rainmapper_core.mushroom_store import write_json_atomic
+from rainmapper_core.mushroom_store import AUTOMATIC_BACKUPS_PER_FILE, write_json_atomic
 
 
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 FILE_NAME = "mushroom_known_sites.json"
+
+
+def prune_automatic_backups(
+    target: Path,
+    *,
+    keep_latest: int = AUTOMATIC_BACKUPS_PER_FILE,
+) -> None:
+    """Keep the shared automatic-backup limit while preserving manual keeps."""
+    backup_dir = target.parent / "backups"
+    if not backup_dir.exists() or keep_latest < 0:
+        return
+    backups = [
+        path
+        for path in backup_dir.glob(f"{target.stem}.*{target.suffix}")
+        if ".keep" not in path.stem
+    ]
+    backups.sort(key=lambda path: path.name)
+    for obsolete in backups[:-keep_latest]:
+        obsolete.unlink(missing_ok=True)
 
 
 def default_payload() -> dict[str, Any]:
@@ -297,6 +316,7 @@ def save_payload(payload: dict[str, Any]) -> Path | None:
             backup_path = backup_dir / f"{target.stem}.{stamp}-{counter}{target.suffix}"
             counter += 1
         shutil.copy2(target, backup_path)
+        prune_automatic_backups(target)
     candidate = copy.deepcopy(payload)
     metadata = candidate.setdefault("metadata", {})
     if isinstance(metadata, dict):

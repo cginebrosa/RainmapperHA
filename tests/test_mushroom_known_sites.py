@@ -63,6 +63,28 @@ class MushroomKnownSitesTests(unittest.TestCase):
             ),
         )
 
+    def test_save_prunes_automatic_backups_but_preserves_keep_backups(self) -> None:
+        payload = mushroom_known_sites.load_payload()
+        target = mushroom_known_sites.persistent_path()
+        backup_dir = target.parent / "backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        for index in range(25):
+            (backup_dir / f"mushroom_known_sites.20260101T0000{index:02d}Z.json").write_text(
+                "{}", encoding="utf-8"
+            )
+        keep_path = backup_dir / "mushroom_known_sites.20260101T999999Z.keep.json"
+        keep_path.write_text("{}", encoding="utf-8")
+
+        mushroom_known_sites.save_payload(payload)
+
+        automatic_backups = [
+            path
+            for path in backup_dir.glob("mushroom_known_sites.*.json")
+            if ".keep" not in path.stem
+        ]
+        self.assertEqual(20, len(automatic_backups))
+        self.assertTrue(keep_path.exists())
+
     def test_polygon_geometry_is_accepted_for_areas_and_micro_areas(self) -> None:
         payload = mushroom_known_sites.default_payload()
         polygon = {
