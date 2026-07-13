@@ -1675,6 +1675,75 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-color: rgba(255, 209, 102, 0.55);
       color: #ffd166;
     }}
+    .reference-catalog-screen {{
+      font-size:11px;
+    }}
+    .reference-catalog-screen .catalog-toolbar {{
+      gap:6px;
+    }}
+    .reference-catalog-screen .catalog-toolbar .button-link,
+    .reference-catalog-screen .catalog-toolbar input {{
+      font-size:11px;
+      min-height:34px;
+    }}
+    .reference-catalog-screen .profile-metrics.catalog-metrics .profile-metric .label {{
+      font-size:10px;
+    }}
+    .reference-catalog-screen .profile-metrics.catalog-metrics .profile-metric .value {{
+      font-size:11px;
+    }}
+    .reference-catalog-screen .catalog-chip-row {{
+      gap:6px;
+      grid-template-columns:repeat(auto-fit,minmax(155px,1fr));
+      margin-bottom:10px;
+    }}
+    .reference-catalog-screen .catalog-chip-row .catalog-chip {{
+      gap:2px;
+      min-height:48px;
+      padding:7px 8px;
+    }}
+    .reference-catalog-screen .catalog-chip-row .catalog-chip strong {{
+      font-size:11px;
+      line-height:1.15;
+    }}
+    .reference-catalog-screen .catalog-chip-row .catalog-chip span {{
+      font-size:10px;
+      line-height:1.15;
+    }}
+    .reference-catalog-screen .catalog-table th,
+    .reference-catalog-screen .catalog-table td {{
+      font-size:11px;
+      line-height:1.25;
+      padding:8px 9px;
+    }}
+    .reference-catalog-screen .catalog-detail {{
+      font-size:11px;
+    }}
+    .reference-catalog-screen .catalog-detail h2,
+    .reference-catalog-screen > h2 {{
+      font-size:15px;
+      line-height:1.2;
+    }}
+    .reference-catalog-screen .catalog-detail p,
+    .reference-catalog-screen .catalog-detail summary {{
+      font-size:10px;
+      line-height:1.3;
+    }}
+    .reference-catalog-screen .catalog-entry-form .admin-field label,
+    .reference-catalog-screen .catalog-json-editor .label {{
+      font-size:10px;
+    }}
+    .reference-catalog-screen .catalog-entry-form input,
+    .reference-catalog-screen .catalog-entry-form select,
+    .reference-catalog-screen .catalog-entry-form textarea {{
+      font-family:inherit;
+      font-size:11px;
+    }}
+    .reference-catalog-screen .catalog-reference-check,
+    .reference-catalog-screen .catalog-alert {{
+      font-size:10px;
+      line-height:1.3;
+    }}
     .profile-layout {{
       align-items: start;
       display: grid;
@@ -2576,6 +2645,32 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       justify-content: flex-end;
       margin-top: 12px;
       padding: 12px 0 0;
+    }}
+    .profile-section-screen > form > .profile-action-bar,
+    .observations-main-actions,
+    .catalog-entry-actions {{
+      gap:6px;
+    }}
+    .profile-section-screen > form > .profile-action-bar > button,
+    .profile-section-screen > form > .profile-action-bar > .button-link,
+    .observations-main-actions > button,
+    .observations-main-actions > .button-link,
+    .catalog-entry-actions > button,
+    .catalog-entry-actions > .button-link {{
+      align-items:center;
+      border-radius:6px;
+      box-sizing:border-box;
+      display:inline-flex;
+      font-size:10px;
+      justify-content:center;
+      line-height:1.2;
+      min-height:32px;
+      padding:6px 10px;
+      white-space:nowrap;
+    }}
+    .profile-section-screen > form > .profile-action-bar .profile-primary-action,
+    .observations-main-actions .primary-link {{
+      min-width:170px;
     }}
     .profile-primary-action {{
       min-width: 210px;
@@ -4602,8 +4697,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 8px;
     }}
     .gis-mapping-save-button {{
-      min-height: 34px;
-      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 10px;
+      min-height: 32px;
+      padding: 6px 10px;
       white-space: nowrap;
     }}
     .gis-mapping-detail-head h2 {{
@@ -5526,6 +5623,30 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: rgba(40, 18, 22, .44);
       border-color: rgba(255, 107, 107, .55);
       color: var(--danger);
+    }}
+    .maintenance-action-bar {{
+      align-items:center;
+      gap:6px;
+    }}
+    .maintenance-action-bar > button,
+    .maintenance-action-bar > .button-link {{
+      align-items:center;
+      border-radius:6px;
+      box-sizing:border-box;
+      display:inline-flex;
+      font-size:10px;
+      font-weight:700;
+      height:32px;
+      justify-content:center;
+      line-height:1.2;
+      margin:0;
+      min-height:32px;
+      padding:6px 10px;
+      white-space:nowrap;
+    }}
+    .maintenance-action-bar > .primary-link,
+    .maintenance-action-bar > .profile-primary-action {{
+      min-width:170px;
     }}
     .modal-layer {{
       align-items: center;
@@ -11728,6 +11849,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 "</details>"
             )
         body = f"""
+        <div class="reference-catalog-screen">
         <h1>App settings</h1>
         <p>Open the Rainmapper configuration page in Home Assistant.</p>
         {primary_link}
@@ -11892,6 +12014,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         {render_new_catalog_entry_form(catalogs, selected_group)}
         <h2 id="catalog-full-json">JSON maintenance</h2>
         {render_catalog_full_json_panel(full_payload, mode)}
+        </div>
         """
         self.send_bytes(
             200,

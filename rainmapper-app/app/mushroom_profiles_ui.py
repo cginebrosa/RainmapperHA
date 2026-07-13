@@ -4118,7 +4118,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
             {json_panel}
           </div>
         </div>
-        <div class="profile-action-bar">
+        <div class="profile-action-bar maintenance-action-bar">
           <a class="button-link primary-link" href="#new-species-modal">{html.escape(ui_label("ui.new_species"))}</a>
           <button class="secondary" name="profile_action" value="backup_profiles_keep" type="submit" formnovalidate onclick="return confirm('Create a manual keep backup of the full species profiles file now?')">{html.escape(ui_label("ui.backup"))}</button>
           {save_button}
@@ -4424,7 +4424,7 @@ def render_parameters_section(
           {parameter_panel("phenology", phenology_panel)}
           {parameter_panel("climate", climate_panel) if not v0_mode else ""}
         </div>
-        <div class="profile-action-bar">
+        <div class="profile-action-bar maintenance-action-bar">
           <a class="button-link secondary-link" href="{html.escape(species_href, quote=True)}">{html.escape(ui_label("ui.back_to_species_editor"))}</a>
           <button class="secondary" type="reset">{html.escape(ui_label("ui.reset_visible_changes"))}</button>
           <button class="primary profile-primary-action">{html.escape(ui_label("ui.save_parameter_changes"))}</button>
@@ -4513,7 +4513,7 @@ def render_calibration_section(
             </div>
           </article>
         </div>
-        <div class="profile-action-bar">
+        <div class="profile-action-bar maintenance-action-bar">
           <button class="primary profile-primary-action">{html.escape(ui_label("ui.save_calibration"))}</button>
         </div>
       </form>
@@ -5827,7 +5827,7 @@ def render_observations_section(
           {render_observation_detail(filtered_rows, catalogs, species_labels, selected_observation_id=selected_observation_id, selected_species_id=selected_species_id, filters=filters, media_reference_counts=media_reference_counts)}
         </aside>
       </div>
-      <div class="profile-action-bar observations-main-actions">
+      <div class="profile-action-bar observations-main-actions maintenance-action-bar">
         <a class="button-link primary-link" href="#new-observation">{html.escape(ui_label("ui.new_observation"))}</a>
         <a class="button-link" href="#import-observation-exif">{html.escape(ui_label("ui.import_exif_images"))}</a>
         <a class="button-link" href="{html.escape(calibration_href, quote=True)}">{html.escape(ui_label("ui.open_calibration"))}</a>

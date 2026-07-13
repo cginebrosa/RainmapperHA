@@ -1410,7 +1410,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("rainmapperMaplibreAuth", page)
         self.assertNotIn("X-Rainmapper-Device", page)
         self.assertIn('name="observed_host_ids"', html)
-        self.assertIn('class="profile-action-bar observations-main-actions"', html)
+        self.assertIn('class="profile-action-bar observations-main-actions maintenance-action-bar"', html)
         self.assertIn('<details id="gis-reconstruction-lab"', html)
         self.assertLess(html.index('href="#new-observation"'), html.index('id="archived-observations"'))
         self.assertLess(html.index('href="#new-observation"'), html.index('id="gis-reconstruction-lab"'))
