@@ -4621,7 +4621,7 @@ def observation_select_url(
         value = observation_filter_value(filters, filter_key)
         if value:
             params[filter_key] = value
-    return "?" + urlencode(params) + "#observation-detail"
+    return "?" + urlencode(params)
 
 
 def observation_duplicate_url(

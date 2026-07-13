@@ -1618,7 +1618,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('class="observation-map-link" href="#observation-map-obs-20260629-0001"', html)
         self.assertIn('id="observation-map-obs-20260629-0001"', html)
         self.assertIn('data-modal-history-close', html)
-        self.assertIn('?section=observations&amp;obs_id=obs_20260629_0001&amp;id=boletus_pinophilus&amp;date_from=2026-06-29&amp;result=abundant#observation-detail', html)
+        self.assertIn('data-observation-href="?section=observations&amp;obs_id=obs_20260629_0001&amp;id=boletus_pinophilus&amp;date_from=2026-06-29&amp;result=abundant"', html)
         self.assertIn('class="observation-site-map"', html)
         self.assertIn('class="observation-map-control observation-layer-toggle"', html)
         self.assertIn('class="observation-map-control observation-terrain-toggle"', html)
@@ -1860,7 +1860,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('data-observation-map-target=', html)
         self.assertIn("Microáreas visibles", html)
         self.assertIn(">Open</a>", html)
-        self.assertIn("?section=observations&amp;obs_id=obs_1&amp;id=boletus_aereus#observation-detail", html)
+        self.assertIn('href="?section=observations&amp;obs_id=obs_1&amp;id=boletus_aereus">Open</a>', html)
         self.assertNotIn("Ejemplos", html)
 
         soils_html = self.web_server.mushroom_profiles_ui.render_local_evidence_section(

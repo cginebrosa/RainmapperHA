@@ -3374,7 +3374,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-width: 0;
     }}
     .observations-table-shell {{
-      max-height: 460px;
+      max-height: 560px;
       overflow: auto;
     }}
     .observations-table-shell thead th {{
@@ -5165,11 +5165,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 12px;
     }}
     .modal-card.observation-form {{
-      gap: 10px;
+      gap: 12px;
       max-height: calc(100vh - 36px);
-      max-width: min(1480px, calc(100vw - 48px));
-      padding: 14px;
-      width: min(1480px, calc(100vw - 48px));
+      max-width: min(1660px, calc(100vw - 48px));
+      padding: 16px;
+      width: min(1660px, calc(100vw - 48px));
     }}
     .observation-form .modal-head {{
       padding-bottom: 10px;
@@ -5192,11 +5192,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-form-left select {{
       box-sizing:border-box;
       font-family:inherit;
-      font-size:11px;
+      font-size:12px;
       font-weight:500;
-      height:30px;
+      height:32px;
       line-height:1.2;
-      min-height:30px;
+      min-height:32px;
     }}
     .observation-form-left input[type=date],
     .observation-form-left input[type=number] {{
@@ -5212,7 +5212,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-form .admin-field label,
     .observation-form .catalog-toggle-field .field-label {{
-      font-size: 10px;
+      font-size: 11px;
       margin-bottom: 3px;
     }}
     .observation-field-groups {{
@@ -5332,7 +5332,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items: center;
       display: flex;
       gap: 8px;
-      font-size: 13px;
+      font-size: 14px;
       margin: 0 0 3px;
     }}
     .observation-section-icon {{
@@ -5433,7 +5433,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-evidence-panel .admin-field > label,
     .observation-evidence-panel .catalog-toggle-field .field-label {{
-      font-size:10px;
+      font-size:11px;
       margin-bottom:4px;
     }}
     .observation-evidence-panel .host-toggle-grid,
@@ -5441,19 +5441,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-evidence-panel .month-toggle .host-chip,
     .observation-evidence-panel .catalog-chip {{
       border-radius:5px;
-      font-size:9px;
+      font-size:10px;
       line-height:1.1;
       max-width:190px;
-      min-height:22px;
+      min-height:24px;
       padding:4px 6px;
     }}
     .observation-evidence-panel .meta {{
-      font-size:9px;
+      font-size:10px;
       line-height:1.15;
       margin-top:2px;
     }}
     .observation-evidence-panel textarea {{
-      font-size:10px;
+      font-size:11px;
       min-height:72px;
       padding:6px 7px;
     }}
@@ -5492,7 +5492,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items:center;
       display:flex;
       flex:0 0 auto;
-      font-size:12px;
+      font-size:13px;
       gap:6px;
     }}
     .observation-form-footer .observation-exif-title::before {{
@@ -5503,7 +5503,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-form-footer .observation-exif-help {{
       color:var(--muted);
-      font-size:10px;
+      font-size:11px;
       line-height:1.2;
     }}
     .observation-form-footer .catalog-alert .admin-field {{ margin-top:2px; }}
@@ -5512,8 +5512,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       margin-bottom:3px;
     }}
     .observation-form-footer .catalog-alert input[type=file] {{
-      font-size:11px;
-      min-height:32px;
+      font-size:12px;
+      min-height:34px;
       padding:3px 6px;
     }}
     .observation-form-footer > .profile-action-bar {{
@@ -5525,8 +5525,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-form-footer .profile-action-bar button {{
       border-radius:6px;
-      font-size:10px;
-      min-height:32px;
+      font-size:11px;
+      min-height:34px;
       min-width:0;
       padding:6px 10px;
     }}
