@@ -12,7 +12,22 @@ Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
 
-## Estado operativo actual (2026-07-11)
+## Estado operativo actual (2026-07-13)
+
+### Prioridad inmediata
+
+- [ ] Validar visualmente el modal refinado de alta/edicion de observaciones
+  contra el mockup del usuario. Revisar especialmente densidad de `Evidencia de
+  campo`, pastillas, notas, bloque EXIF y barra inferior en el viewport real.
+- [ ] Ejecutar validacion amplia antes de commit/release: validador de datos de
+  setas, suite completa relevante, JavaScript embebido, `git diff --check` y
+  smoke/build de imagen si se decide publicar.
+- [ ] Revisar el diff grande de setales/observaciones y acordar con el usuario
+  si se crea commit local o una version HA posterior a `0.2.199`.
+- [ ] Retomar despues el pipeline ML experimental documentado en
+  `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+
+### Release meteorologico estable
 
 - [x] Publicar HA `0.2.194`: Wunderground pasa a API diaria JSON como fuente primaria con fallback scraper y contador `API fallback errors`.
 - [x] Publicar/validar HA `0.2.195`: mejora Wunderground y ajustes UI; el usuario confirmo que funcionaba bien. Repo GitHub queda abierto por decision explicita.
@@ -26,13 +41,13 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 - [x] Publicar HA `0.2.199`: cache-busters MapLibre/Leaflet actualizados, `web_server.py` sirve el MapLibre protegido con `no-store` y reescribe query strings de assets a la version runtime. Commit `abe0d49`, digest `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
 - [x] Validar `0.2.199` localmente: tests unitarios relevantes, `node --check`, `sh -n`, `git diff --check`, inspeccion de imagen con `app.js?v=0.2.199` y `pointValues.rain`.
 - [x] Validar en HA `0.2.199`: el usuario confirma que funciona; MapLibre protegido carga correctamente y el popup largo muestra `Pluja` en `Valores IDW`.
-- [ ] Tras validar HA `0.2.199`, decidir si limpiar GHCR de forma conservadora. No cerrar repo GitHub salvo peticion explicita.
+- [ ] Decidir si limpiar GHCR de forma conservadora. No cerrar repo GitHub salvo peticion explicita; no es prioridad inmediata.
 - [ ] Continuar pruebas de backfill:
   - Wunderground: ventanas cortas, pausas y `backfill_station_filter` si solo hay estaciones nuevas.
   - AEMET: probar primero ventanas pequenas.
   - Meteoclimatic: no esperar historico real desde RSS.
   - Meteocat: no usar token por ahora; la clave encontrada no aplica al flujo Dades Obertes actual.
-- [ ] Continuar UI setas: corregir/validar `Parametros > Fenologia`, redisenar `Evidencia`, y preparar promocion manual de evidencia a perfil sin escritura automatica.
+- [ ] Continuar `Parametros`/`Evidencia` y promocion manual solo despues de estabilizar el flujo actual de setales y observaciones.
 
 ## Notas historicas conservadas
 
@@ -66,7 +81,58 @@ Nota de continuidad 2026-06-29: `0.2.180` queda publicada, pusheada, instalada y
 Nota historica supersedida 2026-06-27: esta nota describia `0.2.150` como version actual y un fix local pendiente. Ese estado ya no es vigente. Se conserva solo como antecedente del primer hub de catalogos; el estado operativo verificado en el cierre actual es `0.2.180` segun las notas de continuidad anteriores.
 
 ## Proximo paso recomendado
-Siguiente paso recomendado: validar visualmente el flujo nuevo de `Parametros`
+Direccion acordada 2026-07-11: priorizar un pipeline ML real para
+`boletus_aereus` sobre el refinamiento visual de `Parametros`. El modelo v0
+actual es descriptivo y no entrena ningun estimador. El contrato propuesto vive
+en `docs/mushrooms/mushroom-ml-training-plan-es.md`: agrupar observaciones por episodio,
+reconstruir series meteorologicas diarias, generar features de distribucion y
+variabilidad, entrenar un baseline binario y validar por setal/fecha sin fuga.
+El usuario ampliara observaciones; hacen falta especialmente ausencias reales.
+
+- [ ] Construir pipeline ML experimental para `boletus_aereus`
+  - Contexto: existen 13 observaciones de la especie, pero solo una ausencia; el
+    `mushroom_model_v0.json` actual resume evidencia y no es ML.
+  - Criterio de aceptacion: dataset por episodio con serie diaria auditable,
+    features meteorologicas/GIS/fenologicas versionadas, regresion logistica
+    baseline, validacion agrupada y reporte honesto de muestra/gaps/metricas.
+  - Restricciones: no fabricar negativos, no dividir observaciones del mismo setal y fecha,
+    no inventar umbrales y no presentar resultados experimentales como
+    probabilidades fiables.
+  - Plan: `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+
+- [x] Crear mantenimiento de areas y microareas conocidas
+  - Store privado: `mushroom_known_sites.json`, separado de reference catalogs.
+  - UI: `/mushrooms/known-sites`, con arbol colapsable, mapa MapLibre,
+    dibujo/edicion de poligonos, campos futuros, GIS/DEM comparativo, backups,
+    validacion, archivado/restauracion/borrado defensivo y referencias.
+  - Observaciones: selector opcional `micro_area_id`; el `area_id` se resuelve
+    desde el store. Los contadores abren el modal compartido de observaciones.
+  - Integridad: no archivar ni borrar entidades referenciadas; las propuestas
+    GIS/DEM solo modifican el borrador hasta pulsar `Guardar`.
+
+- [x] Integrar setales y coordenadas en el flujo de observaciones
+  - El mapa de observacion muestra las areas/microareas visibles y permite
+    seleccionar, crear y editar geometria sin abandonar el formulario.
+  - El boton `Mapa` usa el borrador actual, tambien en nuevas observaciones y
+    duplicados aun no guardados, y conserva la pila de retorno.
+  - Se pueden seleccionar coordenadas manualmente, recuperar altitud DEM y
+    confirmar el cambio; se usan IDs de origen catalogados existentes.
+  - El modal de observaciones resalta fila y POI seleccionados y reutiliza el
+    mismo componente para evidencia y setales.
+
+- [x] Establecer una sola imagen por observacion y flujo de sustitucion EXIF
+  - Permite desasociar, o desasociar y borrar si no existen otras referencias,
+    siempre con confirmacion irreversible.
+  - El preview compara imagen existente/nueva, datos EXIF y mapas; la nueva se
+    aplica solo tras decidir el tratamiento de la anterior.
+
+- [ ] Validar visualmente y cerrar el rediseño del formulario de observacion
+  - Estructura vigente: columna izquierda con Observacion/Ubicacion/Validacion/
+    Origen, columna derecha `Evidencia de campo`, pie compacto EXIF/acciones.
+  - Ultimo ajuste: tipografia/pastillas derechas, icono y texto EXIF, botones
+    inferiores. Pendiente confirmacion humana tras el rebuild local.
+
+Seguimiento UI anterior: validar visualmente el flujo nuevo de `Parametros`
 en tres columnas con datos reconstruidos reales, especialmente `Fenologia`, y
 despues redisenar `Evidencia` para que no parezca una tabla puramente GIS
 cuando mezcla Campo, GIS/DEM y coincidencias con perfil. El objetivo es que la

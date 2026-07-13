@@ -10,6 +10,7 @@ Documentos relacionados:
 
 - `docs/mushrooms/mushroom-local-observation-lab-es.md`
 - `docs/mushrooms/mushroom-predictor-design-es.md`
+- `docs/mushrooms/mushroom-ml-training-plan-es.md`
 - `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
 - `docs/mushrooms/mushroom-observations-schema-es.md`
 - `docs/mushrooms/mushroom-gis-mappings-reference-es.md`

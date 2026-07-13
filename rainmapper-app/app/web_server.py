@@ -19,6 +19,7 @@ import subprocess
 import sys
 import threading
 import time
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -32,8 +33,10 @@ if str(APP_DIR) not in sys.path:
 
 import mushroom_catalogs_ui
 import mushroom_gis_mappings_ui
+import mushroom_known_sites_ui
 import mushroom_profiles_ui
 from rainmapper_core import mushroom_gis_lab
+from rainmapper_core import mushroom_known_sites
 from rainmapper_core import mushroom_learned_model
 from rainmapper_core import mushroom_model_state
 from rainmapper_core import mushroom_observation_context
@@ -410,6 +413,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css">
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
   {refresh_tag}
   <title>{html.escape(title)}</title>
   <style>
@@ -3237,14 +3244,22 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: rgba(2, 13, 22, .25);
       border: 1px solid rgba(45, 58, 71, .62);
       border-radius: 8px;
-      gap: 8px;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      padding: 10px;
+      gap: 10px;
+      grid-template-columns: 220px 220px minmax(190px,1fr) minmax(170px,.8fr) minmax(170px,.85fr) minmax(220px,1.25fr);
+      padding: 7px 10px;
     }}
+    .observations-filters .admin-field{{align-items:center;display:flex;gap:6px;min-width:0}}
+    .observations-filters .admin-field label{{flex:0 0 auto;margin:0;white-space:nowrap}}
+    .observations-filters .admin-field label::after{{content:':'}}
+    .observations-filters .admin-field input,.observations-filters .admin-field select{{flex:1 1 auto;min-width:0;width:0}}
+    .observations-screen>.profile-section-banner{{padding:7px 10px}}
+    .observations-screen>.profile-section-banner .profile-title-block h2{{font-size:18px;margin-bottom:1px}}
+    .observations-screen>.profile-section-banner .profile-title-block p{{margin:1px 0}}
+    .observations-screen>.profile-section-banner .profile-hero-side{{gap:5px}}
     .observations-layout {{
       display: grid;
       gap: 12px;
-      grid-template-columns: minmax(0, 1fr) minmax(300px, .28fr);
+      grid-template-columns: minmax(0, 1fr) minmax(420px, .34fr);
     }}
     .observations-metrics .profile-metric .label {{
       align-items: center;
@@ -3310,7 +3325,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observations-table-shell td {{
       border-bottom: 1px solid rgba(45, 58, 71, .62);
       font-size: 12px;
-      padding: 8px 7px;
+      padding: 8px 5px;
       text-align: left;
       white-space: nowrap;
     }}
@@ -3318,6 +3333,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       color: var(--muted);
       font-weight: 800;
     }}
+    .observations-table-shell th:nth-child(3),.observations-table-shell td:nth-child(3){{width:92px}}
+    .observations-table-shell th:nth-child(4),.observations-table-shell td:nth-child(4){{width:50px}}
+    .observations-table-shell th:nth-child(5),.observations-table-shell td:nth-child(5){{width:92px}}
+    .observations-table-shell th:nth-child(9),.observations-table-shell td:nth-child(9){{width:78px}}
     .observation-badge {{
       background: rgba(148, 163, 184, .1);
       border: 1px solid rgba(148, 163, 184, .28);
@@ -4107,11 +4126,34 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-color: rgba(3, 169, 244, .9);
     }}
     .modal-card.evidence-map-modal {{
-      max-height: calc(100vh - 32px);
+      max-height: calc(100vh - 16px);
       max-width: min(1680px, calc(100vw - 32px));
       overflow: auto;
-      padding: 18px;
+      padding: 12px 18px 14px;
       width: min(1680px, 100%);
+    }}
+    .evidence-map-modal > .modal-header {{
+      align-items: flex-start;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      margin-bottom: 8px;
+    }}
+    .evidence-map-modal > .modal-header h2 {{
+      margin: 0 0 8px;
+    }}
+    .evidence-map-modal > .modal-header > div:first-child {{
+      align-self: start;
+      justify-self: start;
+    }}
+    .evidence-map-modal > .modal-header > .observation-map-photo-strip,
+    .evidence-map-modal > .modal-header > [data-modal-history-close] {{
+      margin-top: 20px;
+    }}
+    .evidence-map-modal > .modal-header > .observation-map-photo-strip {{
+      justify-self: center;
+    }}
+    .evidence-map-modal > .modal-header > [data-modal-history-close] {{
+      justify-self: end;
     }}
     .evidence-observation-layout {{
       display: grid;
@@ -4142,13 +4184,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       padding: 9px 10px;
     }}
     .evidence-observation-item.selected {{
-      background: rgba(3, 169, 244, .13);
-      border-color: rgba(3, 169, 244, .78);
-      box-shadow: inset 3px 0 0 rgba(3, 169, 244, .95);
+      background: rgba(34, 197, 94, .13);
+      border-color: rgba(34, 197, 94, .82);
+      box-shadow: inset 3px 0 0 rgba(34, 197, 94, .95);
     }}
     .evidence-observation-item.selected .evidence-observation-index {{
-      background: rgba(3, 169, 244, .28);
-      border-color: rgba(3, 169, 244, .95);
+      background: rgba(34, 197, 94, .25);
+      border-color: rgba(34, 197, 94, .95);
       color: #e8f7ff;
     }}
     .evidence-observation-date {{
@@ -4733,16 +4775,37 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       height: 92px;
       width: 122px;
     }}
+    .observation-detail-media-actions {{
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+      white-space: nowrap;
+      width: max-content;
+    }}
+    .observation-detail-media-actions .button-link {{
+      font-size: 9px;
+      line-height: 1;
+      min-height: 0;
+      padding: 4px 5px;
+      text-align: center;
+    }}
+    .observation-detail-media-actions .danger {{ color: #ff777d; border-color: #7d383e; }}
+    .observation-detail-media-actions .disabled {{ cursor: not-allowed; opacity: .42; pointer-events: none; }}
+    .observation-media-confirm {{ max-width: 620px; }}
+    .observation-media-confirm p {{ color: #c4cfd7; line-height: 1.5; }}
+    .observation-media-confirm .profile-action-bar form {{ margin: 0; }}
+    .observation-image-replace-preview {{ display:grid;gap:12px;grid-template-columns:180px minmax(0,1fr);margin:14px 0; }}
+    .observation-image-replace-preview img {{ border-radius:6px;height:180px;object-fit:contain;width:180px; }}
     .observation-detail-photo-placeholder {{
       border: 1px dashed rgba(45, 58, 71, .62);
       border-radius: 6px;
     }}
     .observation-detail-summary-fields {{
-      align-content: center;
+      align-content: start;
       border-bottom: 1px solid rgba(45, 58, 71, .62);
       display: grid;
       gap: 4px;
-      font-size: 13px;
+      font-size: 11px;
       min-width: 0;
       padding-bottom: 6px;
     }}
@@ -4752,15 +4815,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-detail-summary-fields span {{
       color: var(--muted);
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 800;
     }}
     .observation-detail-summary-fields strong {{
-      font-size: 13px;
+      font-size: 11px;
       overflow-wrap: anywhere;
     }}
     .observation-detail-summary-fields a {{
-      font-size: 13px;
+      font-size: 11px;
     }}
     .observation-detail-coordinate {{
       overflow-wrap: anywhere;
@@ -4772,8 +4835,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-width: 0;
     }}
     .observation-map-photo-strip .observation-photo-link {{
-      height: 82px;
-      width: 110px;
+      height: 145px;
+      width: 210px;
     }}
     .observation-photo-modal {{
       grid-template-rows: auto minmax(120px, 28vh) minmax(0, 1fr);
@@ -4880,17 +4943,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-exif-preview-content {{
       display: grid;
       gap: 10px;
-      grid-template-columns: minmax(280px, 340px) minmax(360px, 1fr) minmax(270px, 360px);
-      grid-template-rows: minmax(190px, .7fr) minmax(330px, 1.3fr);
+      grid-template-columns: minmax(560px, 1fr) minmax(270px, 360px);
+      grid-template-rows: minmax(190px, .55fr) minmax(430px, 1.45fr);
       min-height: 0;
     }}
     .observation-exif-preview-grid {{
-      align-content: start;
+      align-content: stretch;
       display: grid;
-      gap: 8px;
-      grid-row: 1 / -1;
+      gap: 10px;
+      grid-column: 1;
+      grid-template-columns: repeat(2,minmax(260px,1fr));
       min-height: 0;
-      overflow: auto;
+      overflow-x: auto;
     }}
     .observation-exif-preview-card {{
       align-items: center;
@@ -4901,9 +4965,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       cursor: pointer;
       display: grid;
       gap: 9px;
-      grid-template-columns: 72px minmax(0, 1fr);
-      min-height: 76px;
-      padding: 7px;
+      grid-template-columns: 132px minmax(0, 1fr);
+      min-height: 138px;
+      padding: 8px;
       text-align: left;
     }}
     .observation-exif-preview-card.selected {{
@@ -4915,24 +4979,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-exif-preview-card img {{
       border-radius: 5px;
-      height: 62px;
+      height: 120px;
       object-fit: cover;
-      width: 72px;
-    }}
-    .observation-exif-preview-photo {{
-      align-items: center;
-      background: rgba(0, 0, 0, .24);
-      border: 1px solid rgba(45, 58, 71, .62);
-      border-radius: 8px;
-      display: flex;
-      justify-content: center;
-      min-height: 0;
-      overflow: hidden;
-    }}
-    .observation-exif-preview-photo img {{
-      max-height: 100%;
-      max-width: 100%;
-      object-fit: contain;
+      width: 132px;
     }}
     .observation-exif-preview-data {{
       align-content: start;
@@ -4988,15 +5037,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-exif-preview-map {{
       border: 1px solid rgba(45, 58, 71, .62);
       border-radius: 8px;
-      grid-column: 2 / -1;
+      grid-column: 1 / -1;
+      min-height: 430px;
       min-height: 0;
       overflow: hidden;
     }}
-    .observation-exif-preview-map iframe {{
-      border: 0;
-      height: 100%;
-      width: 100%;
-    }}
+    .observation-exif-preview-map [data-observation-exif-map] {{ height:100%;width:100%; }}
+    .observation-draft-map-modal[hidden] {{ display: none; }}
+    .observation-draft-map-modal {{ align-items:center;background:rgba(0,0,0,.74);display:flex;inset:0;justify-content:center;padding:18px;position:fixed;z-index:1550; }}
+    .observation-draft-map-dialog {{ background:var(--card);border:1px solid var(--line);border-radius:8px;display:grid;gap:10px;height:min(860px,calc(100vh - 36px));padding:14px;width:min(1450px,calc(100vw - 36px)); }}
+    .observation-draft-map-head,.observation-draft-map-actions {{ align-items:center;display:flex;gap:10px;justify-content:space-between; }}
+    #observation-draft-map {{ border:1px solid var(--line);border-radius:6px;min-height:0;overflow:hidden; }}
+    .observation-draft-map-status {{ color:var(--muted);margin:0; }}
     .observation-notes {{
       border-top: 1px solid rgba(45, 58, 71, .62);
       display: grid;
@@ -5071,12 +5123,51 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-group-grid.record .wide {{
       grid-column: 1 / -1;
     }}
-    .observation-group-grid.location {{
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 92px;
+    .observation-date-inline {{
+      align-items: center;
+      display: grid;
+      grid-template-columns: auto 132px;
+      gap: 6px;
     }}
-    .observation-group-grid.location .location-input,
-    .observation-group-grid.location .admin-field:last-child {{
-      grid-column: 1 / -1;
+    .observation-date-inline label {{
+      margin: 0;
+      white-space: nowrap;
+    }}
+    .observation-group-grid.location {{
+      grid-template-columns: minmax(190px, 1.35fr) minmax(110px, .72fr) minmax(150px, 1fr);
+    }}
+    .observation-group-grid.location .location-lat {{
+      grid-column: 2;
+    }}
+    .observation-group-grid.location .location-lon {{
+      grid-column: 3;
+    }}
+    .observation-group-grid.location .location-micro-area {{
+      grid-column: 1;
+    }}
+    .observation-group-grid.location .location-altitude {{
+      grid-column: 2;
+    }}
+    .observation-group-grid.location .location-altitude input {{
+      max-width: 82px;
+    }}
+    .observation-group-grid.location .location-source {{
+      grid-column: 3;
+    }}
+    .observation-group-grid.location .altitude-source {{
+      grid-column: 1 / 3;
+    }}
+    .observation-field-label-row {{
+      align-items: baseline;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      min-width: 0;
+    }}
+    .observation-field-label-row a {{
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
     }}
     .observation-group-grid.validation {{
       grid-template-columns: minmax(0, 1fr);
@@ -5099,6 +5190,213 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       max-height: 156px;
       overflow: auto;
       padding-right: 2px;
+    }}
+    .observation-form-main {{
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(560px, .9fr) minmax(680px, 1.15fr);
+      min-height: 0;
+    }}
+    .observation-form-left {{
+      align-content: start;
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }}
+    .observation-field-group h3,
+    .observation-evidence-panel > h3 {{
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      font-size: 13px;
+      margin: 0 0 3px;
+    }}
+    .observation-section-icon {{
+      color: #20bfff;
+      display: inline-grid;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+      min-width: 20px;
+      place-items: center;
+    }}
+    .observation-group-grid.record {{
+      grid-template-columns: minmax(150px, 1.55fr) minmax(120px, 1.05fr) minmax(105px, .95fr) minmax(82px, .75fr);
+    }}
+    .observation-group-grid.location {{
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+    }}
+    .observation-group-grid.location .location-input {{ grid-column:1/-1;grid-row:1; }}
+    .observation-group-grid.location .location-micro-area {{ grid-column:1/5;grid-row:2; }}
+    .observation-group-grid.location .location-lat {{ grid-column:5/8;grid-row:2; }}
+    .observation-group-grid.location .location-lon {{ grid-column:8/12;grid-row:2; }}
+    .observation-copy-coordinates {{
+      align-self:end;
+      grid-column:12;
+      grid-row:2;
+      height:30px;
+      min-width:30px;
+      padding:0;
+      width:30px;
+    }}
+    .observation-manage-sites-link {{
+      color:#20bfff;
+      font-size:10px;
+      font-weight:800;
+      grid-column:1/-1;
+      grid-row:3;
+      line-height:1;
+      text-decoration:none;
+      white-space:nowrap;
+    }}
+    .observation-group-grid.location .location-altitude {{ grid-column:1/6;grid-row:4; }}
+    .observation-group-grid.location .location-source {{ grid-column:6/-1;grid-row:4; }}
+    .observation-group-grid.location .altitude-source {{ grid-column:1/-1;grid-row:5; }}
+    .observation-group-grid.location .location-altitude input {{ max-width:none;min-width:0;width:100%; }}
+    .observation-altitude-input {{ display:grid;grid-template-columns:minmax(0,1fr) 26px; }}
+    .observation-altitude-input input {{ border-radius:5px 0 0 5px; }}
+    .observation-altitude-input span {{ align-items:center;background:#16242f;border:1px solid var(--line);border-left:0;border-radius:0 5px 5px 0;color:var(--muted);display:flex;justify-content:center; }}
+    .observation-group-grid.validation {{
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }}
+    .observation-group-grid.source {{
+      grid-template-columns:repeat(4,minmax(0,1fr));
+    }}
+    .observation-evidence-panel {{
+      align-content:start;
+      background:rgba(7,28,42,.55);
+      border:1px solid rgba(45,78,99,.78);
+      border-radius:8px;
+      display:grid;
+      gap:5px;
+      min-width:0;
+      padding:9px 10px;
+    }}
+    .observation-evidence-panel .profile-grid {{
+      background:transparent;
+      border:0;
+      margin:0;
+      padding:0;
+    }}
+    .observation-evidence-panel .observation-context-grid {{
+      grid-template-columns:1.15fr 1fr .82fr;
+    }}
+    .observation-evidence-panel .observation-context-grid > .catalog-toggle-field:first-child {{
+      grid-column:1/-1;
+    }}
+    .observation-evidence-panel .catalog-toggle-grid {{
+      max-height:none;
+      overflow:visible;
+    }}
+    .observation-evidence-panel .admin-field > label,
+    .observation-evidence-panel .catalog-toggle-field .field-label {{
+      font-size:10px;
+      margin-bottom:4px;
+    }}
+    .observation-evidence-panel .host-toggle-grid,
+    .observation-evidence-panel .catalog-toggle-grid {{ gap:4px; }}
+    .observation-evidence-panel .month-toggle .host-chip,
+    .observation-evidence-panel .catalog-chip {{
+      border-radius:5px;
+      font-size:9px;
+      line-height:1.1;
+      max-width:190px;
+      min-height:22px;
+      padding:4px 6px;
+    }}
+    .observation-evidence-panel .meta {{
+      font-size:9px;
+      line-height:1.15;
+      margin-top:2px;
+    }}
+    .observation-evidence-panel textarea {{
+      font-size:10px;
+      min-height:72px;
+      padding:6px 7px;
+    }}
+    .observation-form-footer {{
+      align-items:end;
+      background:rgba(7,28,42,.48);
+      border:1px solid rgba(45,78,99,.72);
+      border-radius:8px;
+      bottom:0;
+      display:grid;
+      gap:8px;
+      grid-template-columns:minmax(0,1fr) auto;
+      padding:7px 9px;
+      position:sticky;
+      z-index:5;
+    }}
+    .observation-form-footer .catalog-alert {{
+      background:transparent;
+      border:0;
+      margin:0;
+      padding:0;
+    }}
+    .observation-form-footer .observation-exif-update {{
+      display:grid;
+      gap:2px;
+      grid-template-columns:minmax(0,1fr);
+      line-height:1.15;
+    }}
+    .observation-form-footer .observation-exif-title {{
+      align-items:center;
+      display:flex;
+      font-size:11px;
+      gap:6px;
+    }}
+    .observation-form-footer .observation-exif-title::before {{
+      color:#20bfff;
+      content:'▧';
+      font-size:16px;
+      line-height:1;
+    }}
+    .observation-form-footer .observation-exif-help {{
+      color:var(--muted);
+      font-size:9px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }}
+    .observation-form-footer .catalog-alert .admin-field {{ margin-top:2px; }}
+    .observation-form-footer .catalog-alert .admin-field label {{
+      font-size:9px;
+      margin-bottom:2px;
+    }}
+    .observation-form-footer .catalog-alert input[type=file] {{
+      font-size:9px;
+      min-height:26px;
+      padding:2px 5px;
+    }}
+    .observation-form-footer > .profile-action-bar {{
+      border:0;
+      flex-wrap:nowrap;
+      margin:0;
+      padding:0;
+      white-space:nowrap;
+    }}
+    .observation-form-footer .profile-action-bar button {{
+      border-radius:6px;
+      font-size:10px;
+      min-height:32px;
+      min-width:0;
+      padding:6px 10px;
+    }}
+    .observation-form-footer .profile-primary-action {{ min-width:170px; }}
+    .observation-form-footer .profile-action-bar button::before {{
+      color:#9bdfff;
+      display:inline-block;
+      font-size:12px;
+      margin-right:5px;
+    }}
+    .observation-form-footer .profile-primary-action::before {{ content:'▣'; }}
+    .observation-form-footer [data-observation-draft-map]::before {{ content:'◫'; }}
+    .observation-form-footer .recover-altitude-action::before {{ content:'⌁'; }}
+    .observation-form-footer .import-csv-action::before {{ content:'▦'; }}
+    @media (max-width: 1200px) {{
+      .observation-form-main {{ grid-template-columns:1fr; }}
+      .observation-form-footer {{ grid-template-columns:1fr; }}
+      .observation-form-footer > .profile-action-bar {{ justify-content:flex-end; }}
     }}
     .table-sort-link {{
       color: inherit;
@@ -5588,7 +5886,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         grid-template-columns: 1fr;
       }}
       .observation-group-grid.location .location-input,
-      .observation-group-grid.location .admin-field:last-child,
+      .observation-group-grid.location .location-lat,
+      .observation-group-grid.location .location-lon,
+      .observation-group-grid.location .location-micro-area,
+      .observation-group-grid.location .location-altitude,
+      .observation-group-grid.location .location-source,
+      .observation-group-grid.location .altitude-source,
       .observation-group-grid.source .source-url {{
         grid-column: auto;
       }}
@@ -5629,20 +5932,27 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       <div class="observation-exif-preview-status meta"></div>
       <div class="observation-exif-preview-content">
         <div class="observation-exif-preview-grid"></div>
-        <div class="observation-exif-preview-photo"><img alt="EXIF image preview"></div>
         <div class="observation-exif-preview-data">
           <h3>Datos EXIF</h3>
           <div class="observation-exif-preview-data-rows"></div>
         </div>
-        <div class="observation-exif-preview-map" hidden>
-          <iframe title="EXIF location preview map" loading="lazy"></iframe>
-        </div>
+        <div class="observation-exif-preview-map" hidden><div data-observation-exif-map></div></div>
       </div>
       <div class="modal-actions">
         <button class="secondary" type="button" data-observation-exif-preview-cancel>Cancelar</button>
         <button class="primary" type="button" data-observation-exif-preview-accept disabled>Aplicar datos EXIF</button>
       </div>
     </section>
+  </div>
+  <div id="observation-draft-map-modal" class="observation-draft-map-modal" hidden>
+    <section class="observation-draft-map-dialog" role="dialog" aria-modal="true" aria-labelledby="observation-draft-map-title">
+      <header class="observation-draft-map-head"><div><h2 id="observation-draft-map-title">Mapa de la observación</h2><p class="observation-draft-map-status">Selecciona una microárea visible.</p></div><button type="button" data-observation-draft-map-close>Cerrar</button></header>
+      <div id="observation-draft-map"></div>
+      <footer class="observation-draft-map-actions"><span data-observation-draft-site>Sin microárea seleccionada</span><div><button type="button" data-observation-draft-map-close>Cancelar</button><button class="primary" type="button" data-observation-draft-map-assign disabled>Asignar al formulario</button></div></footer>
+    </section>
+  </div>
+  <div id="observation-image-replace-modal" class="observation-exif-preview-modal" hidden>
+    <section class="modal-card observation-media-confirm" role="dialog" aria-modal="true"><h2>Sustituir imagen asociada</h2><p>La observación ya tiene una imagen. Para asociar la nueva debes desasociar la anterior. Esta operación no se puede deshacer.</p><div class="observation-image-replace-preview"><img alt="Imagen existente"><div class="observation-exif-preview-data-rows"></div></div><div class="profile-action-bar"><button type="button" data-image-replace-cancel>Cancelar</button><button type="button" class="danger" data-image-replace-action="unlink">Desasociar imagen antigua</button><button type="button" class="danger" data-image-replace-action="delete">Desasociar y borrar antigua</button></div></section>
   </div>
   <script>
     function togglePasswordVisibility(checkbox) {{
@@ -5981,12 +6291,52 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     function observationExifPreviewEndpoint() {{
       return mushroomApiBasePath() + "/api/mushrooms/observation-exif-preview";
     }}
+    function observationKnownSitesMapEndpoint() {{
+      return mushroomApiBasePath() + "/api/mushrooms/known-sites-map";
+    }}
+    var observationDraftMapState = {{ form:null, map:null, marker:null, selectedId:"", selectedName:"" }};
+    var observationDraftFullState = {{ form:null, modal:null, returnHash:"", unsaved:false }};
+    function closeObservationDraftMap() {{
+      var modal=document.getElementById("observation-draft-map-modal");if(modal)modal.hidden=true;
+      if(observationDraftMapState.map){{observationDraftMapState.map.remove();}}
+      observationDraftMapState={{form:null,map:null,marker:null,selectedId:"",selectedName:""}};
+    }}
+    async function openObservationDraftMap(form) {{
+      var latField=form&&form.querySelector("[name='location_lat']"),lonField=form&&form.querySelector("[name='location_lon']");
+      var lat=latField?Number(latField.value):NaN,lon=lonField?Number(lonField.value):NaN;
+      if(!Number.isFinite(lat)||!Number.isFinite(lon)){{window.alert("Informa unas coordenadas válidas antes de abrir el mapa.");return;}}
+      var observationIdField=form.querySelector("[name='observation_id']"),observationId=observationIdField?observationIdField.value:"",sourceIdField=form.querySelector("[name='draft_map_source_observation_id']"),mapSourceId=observationId||(sourceIdField?sourceIdField.value:"");
+      if(mapSourceId){{
+        var modalId="observation-map-"+mapSourceId.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""),fullModal=document.getElementById(modalId);
+        if(fullModal){{
+          var dataNode=fullModal.querySelector(".observation-site-map-data"),mapNode=fullModal.querySelector(".observation-site-map"),payload=JSON.parse(dataNode.textContent),microField=form.querySelector("[name='micro_area_id']"),summary=fullModal.querySelector("[data-observation-map-summary]");
+          payload.lat=lat;payload.lon=lon;payload.assigned_micro_area_id=microField?microField.value:"";if(!observationId)payload.observation_id="Nueva observación sin guardar";dataNode.textContent=JSON.stringify(payload).replace(/</g,"\\u003c");
+          if(summary){{if(!summary.dataset.originalText)summary.dataset.originalText=summary.textContent;summary.textContent=(observationId||"Nueva observación sin guardar")+" · "+lat.toFixed(6)+", "+lon.toFixed(6);}}
+          var oldMap=window.rainmapperObservationMaps&&window.rainmapperObservationMaps.get(modalId);if(oldMap){{oldMap.remove();window.rainmapperObservationMaps.delete(modalId);}}
+          mapNode.removeAttribute("data-ready");mapNode.innerHTML="";observationDraftFullState={{form:form,modal:fullModal,returnHash:"#"+(form.closest(".modal-layer")?form.closest(".modal-layer").id:""),unsaved:!observationId}};
+          window.location.hash=modalId;return;
+        }}
+      }}
+      var modal=document.getElementById("observation-draft-map-modal"),assign=modal.querySelector("[data-observation-draft-map-assign]"),label=modal.querySelector("[data-observation-draft-site]");
+      modal.hidden=false;assign.disabled=true;label.textContent="Cargando setales...";observationDraftMapState.form=form;
+      var response=await fetch(observationKnownSitesMapEndpoint(),{{credentials:"same-origin"}}),payload=await response.json();
+      var features=(payload.known_sites||[]).map(function(site){{return {{type:"Feature",properties:{{kind:site.kind,id:site.id,name:site.name,area_id:site.area_id||""}},geometry:site.geometry}};}});
+      var style={{version:8,sources:{{imagery:{{type:"raster",tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}"],tileSize:256,maxzoom:19}}}},layers:[{{id:"imagery",type:"raster",source:"imagery"}}]}};
+      var map=new maplibregl.Map({{container:"observation-draft-map",style:style,center:[lon,lat],zoom:15,maxPitch:85}});observationDraftMapState.map=map;
+      map.addControl(new maplibregl.NavigationControl(),"bottom-right");
+      map.on("load",function(){{map.addSource("draft-sites",{{type:"geojson",data:{{type:"FeatureCollection",features:features}}}});map.addLayer({{id:"draft-area-fill",type:"fill",source:"draft-sites",filter:["==",["get","kind"],"area"],paint:{{"fill-color":"#e9aa3b","fill-opacity":.08}}}});map.addLayer({{id:"draft-area-line",type:"line",source:"draft-sites",filter:["==",["get","kind"],"area"],paint:{{"line-color":"#e9aa3b","line-width":2,"line-dasharray":[3,2]}}}});map.addLayer({{id:"draft-micro-fill",type:"fill",source:"draft-sites",filter:["==",["get","kind"],"micro_area"],paint:{{"fill-color":"#16b8f4","fill-opacity":.2}}}});map.addLayer({{id:"draft-micro-line",type:"line",source:"draft-sites",filter:["==",["get","kind"],"micro_area"],paint:{{"line-color":"#16b8f4","line-width":2}}}});observationDraftMapState.marker=new maplibregl.Marker({{color:"#ef4444"}}).setLngLat([lon,lat]).addTo(map);label.textContent="Haz clic sobre una microárea para seleccionarla.";}});
+      map.on("click",function(event){{var rows=map.queryRenderedFeatures(event.point,{{layers:["draft-micro-fill"]}});if(!rows.length)return;var props=rows[0].properties||{{}};observationDraftMapState.selectedId=String(props.id||"");observationDraftMapState.selectedName=String(props.name||props.id||"");label.textContent="Microárea seleccionada: "+observationDraftMapState.selectedName;assign.disabled=!observationDraftMapState.selectedId;}});
+    }}
+    function assignObservationDraftSite() {{
+      var form=observationDraftMapState.form,id=observationDraftMapState.selectedId;if(!form||!id)return;var field=form.querySelector("[name='micro_area_id']");if(field){{field.value=id;field.dispatchEvent(new Event("change",{{bubbles:true}}));}}closeObservationDraftMap();
+    }}
     var observationExifPreviewState = {{
       input: null,
       form: null,
       payload: null,
       selectedIndex: 0,
-      objectUrls: []
+      objectUrls: [],
+      map: null
     }};
     function formatExifPreviewNumber(value, suffix) {{
       if (value === null || value === undefined || value === "") {{
@@ -6013,18 +6363,16 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       return previews[observationExifPreviewState.selectedIndex] || null;
     }}
     function setObservationExifPreviewMap(preview, modal) {{
-      var map = modal.querySelector(".observation-exif-preview-map");
-      var frame = map ? map.querySelector("iframe") : null;
-      if (!map || !frame) {{
+      var shell=modal.querySelector(".observation-exif-preview-map"),container=shell?shell.querySelector("[data-observation-exif-map]"):null;
+      if (!shell || !container) {{
         return;
       }}
-      if (preview && preview.map_src) {{
-        frame.setAttribute("src", preview.map_src);
-        map.hidden = false;
-      }} else {{
-        frame.removeAttribute("src");
-        map.hidden = true;
-      }}
+      if(observationExifPreviewState.map){{observationExifPreviewState.map.remove();observationExifPreviewState.map=null;}}
+      container.innerHTML="";var lat=preview?Number(preview.lat):NaN,lon=preview?Number(preview.lon):NaN;
+      if(!Number.isFinite(lat)||!Number.isFinite(lon)){{shell.hidden=true;return;}}
+      shell.hidden=false;var style={{version:8,sources:{{imagery:{{type:"raster",tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}"],tileSize:256,maxzoom:19,attribution:"Tiles © Esri"}}}},layers:[{{id:"imagery",type:"raster",source:"imagery"}}]}};
+      var map=new maplibregl.Map({{container:container,style:style,center:[lon,lat],zoom:15,maxPitch:85}});observationExifPreviewState.map=map;map.addControl(new maplibregl.NavigationControl({{showCompass:true}}),"bottom-right");
+      map.on("load",function(){{var sites=observationExifPreviewState.payload&&observationExifPreviewState.payload.known_sites||[],features=sites.map(function(site){{return {{type:"Feature",properties:{{kind:site.kind,id:site.id,name:site.name}},geometry:site.geometry}};}});map.addSource("exif-sites",{{type:"geojson",data:{{type:"FeatureCollection",features:features}}}});map.addLayer({{id:"exif-area-fill",type:"fill",source:"exif-sites",filter:["==",["get","kind"],"area"],paint:{{"fill-color":"#e9aa3b","fill-opacity":.08}}}});map.addLayer({{id:"exif-area-line",type:"line",source:"exif-sites",filter:["==",["get","kind"],"area"],paint:{{"line-color":"#e9aa3b","line-width":2,"line-dasharray":[3,2]}}}});map.addLayer({{id:"exif-micro-fill",type:"fill",source:"exif-sites",filter:["==",["get","kind"],"micro_area"],paint:{{"fill-color":"#16b8f4","fill-opacity":.2}}}});map.addLayer({{id:"exif-micro-line",type:"line",source:"exif-sites",filter:["==",["get","kind"],"micro_area"],paint:{{"line-color":"#16b8f4","line-width":2}}}});new maplibregl.Marker({{color:"#ef4444"}}).setLngLat([lon,lat]).addTo(map);}});
     }}
     function formatExifPreviewSize(bytes) {{
       var number = Number(bytes);
@@ -6074,10 +6422,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       var modal = document.getElementById("observation-exif-preview-modal");
       if (modal) {{
         modal.hidden = true;
-        var frame = modal.querySelector(".observation-exif-preview-map iframe");
-        if (frame) {{
-          frame.removeAttribute("src");
-        }}
+        if(observationExifPreviewState.map){{observationExifPreviewState.map.remove();}}
       }}
       if (options.clearInput && observationExifPreviewState.input) {{
         observationExifPreviewState.input.value = "";
@@ -6088,15 +6433,23 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         form: null,
         payload: null,
         selectedIndex: 0,
-        objectUrls: []
+        objectUrls: [],
+        map: null
       }};
     }}
     function applyObservationExifPreview() {{
       var preview = selectedObservationExifPreview();
       var form = observationExifPreviewState.form;
-      if (!preview || !preview.ok || !form) {{
+      if (!preview || !preview.ok || preview.is_existing || !form) {{
         return;
       }}
+      var existing=observationExifPreviewState.payload&&observationExifPreviewState.payload.existing_preview;
+      if(existing){{openObservationImageReplaceModal(existing);return;}}
+      applySelectedObservationExifPreview("keep");
+    }}
+    function applySelectedObservationExifPreview(replacementAction) {{
+      var preview=selectedObservationExifPreview(),form=observationExifPreviewState.form;if(!preview||!form)return;
+      var replacement=form.querySelector("[name='media_replacement_action']");if(!replacement){{replacement=document.createElement("input");replacement.type="hidden";replacement.name="media_replacement_action";form.appendChild(replacement);}}replacement.value=replacementAction||"keep";
       var field;
       field = form.querySelector("[name='observed_at']");
       if (field && preview.observed_at) {{
@@ -6136,6 +6489,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       closeObservationExifPreview({{ clearInput: false }});
     }}
+    function openObservationImageReplaceModal(existing) {{
+      var modal=document.getElementById("observation-image-replace-modal"),img=modal.querySelector("img"),rows=modal.querySelector(".observation-exif-preview-data-rows"),deleteButton=modal.querySelector("[data-image-replace-action='delete']");img.src=existing.image_url||"";rows.innerHTML="";
+      [["Archivo",existing.filename||"-"],["Fecha/hora",existing.captured_at_display||existing.captured_at||existing.observed_at||"-"],["Coordenadas",formatExifPreviewNumber(existing.lat,"")+", "+formatExifPreviewNumber(existing.lon,"")],["Altitud",formatExifPreviewNumber(existing.altitude_m," m")],["Tipo",existing.content_type||"-"],["Tamaño",formatExifPreviewSize(existing.size_bytes)]].forEach(function(entry){{var row=document.createElement("div");row.className="observation-exif-preview-data-row";row.innerHTML="<span></span><span></span><strong></strong>";row.children[1].textContent=entry[0];row.children[2].textContent=entry[1];rows.appendChild(row);}});
+      deleteButton.disabled=Number(existing.reference_count||0)!==1;deleteButton.title=deleteButton.disabled?"La imagen está asociada a otras observaciones":"";modal.hidden=false;
+    }}
     function clearObservationExifInputs(scope) {{
       if (!scope || !scope.querySelectorAll) {{
         return;
@@ -6151,24 +6509,25 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       var status = modal.querySelector(".observation-exif-preview-status");
       var grid = modal.querySelector(".observation-exif-preview-grid");
-      var photo = modal.querySelector(".observation-exif-preview-photo img");
       var acceptButton = modal.querySelector("[data-observation-exif-preview-accept]");
-      if (!grid || !status || !photo || !acceptButton) {{
+      if (!grid || !status || !acceptButton) {{
         return;
       }}
       var input = observationExifPreviewState.input;
       var files = input ? Array.prototype.slice.call(input.files || []) : [];
-      var previews = payload && Array.isArray(payload.previews) ? payload.previews : [];
+      var previews = payload && Array.isArray(payload.previews) ? payload.previews.slice() : [];
+      if(payload&&payload.existing_preview)previews.unshift(payload.existing_preview);
+      observationExifPreviewState.payload=payload||{{}};observationExifPreviewState.payload.previews=previews;
       status.textContent = previews.length ? "Vista previa EXIF de " + previews.length + " imagen(es)." : "No se pudo leer EXIF de las imagenes seleccionadas.";
       grid.innerHTML = "";
       clearObservationExifPreviewObjectUrls();
       previews.forEach(function(preview, index) {{
-        var file = files[index] || null;
+        var file = preview.is_existing?null:(files[Number(preview.upload_index)]||null);
         var card = document.createElement("button");
         card.type = "button";
         card.className = "observation-exif-preview-card" + (index === 0 ? " selected" : "") + (preview.ok ? "" : " error");
         var image = document.createElement("img");
-        if (file) {{
+        if (preview.is_existing&&preview.image_url){{image.src=preview.image_url;}} else if (file) {{
           var objectUrl = URL.createObjectURL(file);
           observationExifPreviewState.objectUrls.push(objectUrl);
           image.src = objectUrl;
@@ -6177,7 +6536,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         var body = document.createElement("span");
         body.className = "observation-exif-preview-body";
         var title = document.createElement("strong");
-        title.textContent = preview.filename || "photo";
+        title.textContent = (preview.is_existing?"Imagen existente · ":"Imagen nueva · ")+(preview.filename || "photo");
         body.appendChild(title);
         var lines = document.createElement("span");
         lines.className = "meta";
@@ -6199,15 +6558,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
           }});
           card.classList.add("selected");
           observationExifPreviewState.selectedIndex = index;
-          photo.src = image.src || "";
-          photo.alt = preview.filename || "EXIF image";
-          acceptButton.disabled = !preview.ok;
+          acceptButton.disabled = !preview.ok||Boolean(preview.is_existing);
           renderObservationExifPreviewData(preview, modal);
           setObservationExifPreviewMap(preview, modal);
         }});
         grid.appendChild(card);
       }});
-      observationExifPreviewState.selectedIndex = previews.findIndex(function(item) {{ return item && item.ok; }});
+      observationExifPreviewState.selectedIndex = previews.findIndex(function(item) {{ return item && item.ok&&!item.is_existing; }});
       if (observationExifPreviewState.selectedIndex < 0) {{
         observationExifPreviewState.selectedIndex = 0;
       }}
@@ -6215,7 +6572,6 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (selectedCard) {{
         selectedCard.click();
       }} else {{
-        photo.removeAttribute("src");
         acceptButton.disabled = true;
         renderObservationExifPreviewData(null, modal);
         setObservationExifPreviewMap(null, modal);
@@ -6237,7 +6593,6 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       observationExifPreviewState.selectedIndex = 0;
       var status = modal.querySelector(".observation-exif-preview-status");
       var grid = modal.querySelector(".observation-exif-preview-grid");
-      var photo = modal.querySelector(".observation-exif-preview-photo img");
       var acceptButton = modal.querySelector("[data-observation-exif-preview-accept]");
       if (status) {{
         status.textContent = "Leyendo EXIF...";
@@ -6245,14 +6600,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (grid) {{
         grid.innerHTML = "";
       }}
-      if (photo) {{
-        photo.removeAttribute("src");
-      }}
       if (acceptButton) {{
         acceptButton.disabled = true;
       }}
       modal.hidden = false;
       var formData = new FormData();
+      var observationIdField = observationExifPreviewState.form && observationExifPreviewState.form.querySelector("[name='observation_id']");
+      if (observationIdField && observationIdField.value) {{
+        formData.append("observation_id", observationIdField.value);
+      }}
       Array.prototype.slice.call(input.files).forEach(function(file) {{
         formData.append("observation_exif_images", file, file.name);
       }});
@@ -6566,6 +6922,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
     }});
     document.addEventListener("submit", function(event) {{
+      if(observationDraftFullState.unsaved&&observationDraftFullState.modal&&event.target.matches&&event.target.matches(".observation-coordinate-form")&&observationDraftFullState.modal.contains(event.target)){{
+        event.preventDefault();var draft=observationDraftFullState.form,lat=event.target.querySelector("[name='location_lat']").value,lon=event.target.querySelector("[name='location_lon']").value,altitude=event.target.querySelector("[name='altitude_m']").value;[["location_lat",lat],["location_lon",lon],["altitude_m",altitude],["location_input",lat+", "+lon],["location_source","manual_decimal"],["altitude_source","dem"],["source_type","personal_observation"],["source_label",""]].forEach(function(pair){{var field=draft.querySelector("[name='"+pair[0]+"']");if(field){{field.value=pair[1];field.dispatchEvent(new Event("change",{{bubbles:true}}));}}}});var returnHash=observationDraftFullState.returnHash;observationDraftFullState={{form:null,modal:null,returnHash:"",unsaved:false}};window.location.hash=returnHash||"";return;
+      }}
+      if(observationDraftFullState.modal&&event.target.classList&&event.target.classList.contains("observation-site-assignment")&&observationDraftFullState.modal.contains(event.target)&&!event.target.querySelector("[name='new_site_kind']").value){{
+        event.preventDefault();var selected=event.target.querySelector("[name='micro_area_id']"),target=observationDraftFullState.form.querySelector("[name='micro_area_id']");if(selected&&target){{target.value=selected.value;target.dispatchEvent(new Event("change",{{bubbles:true}}));}}var returnHash=observationDraftFullState.returnHash;observationDraftFullState={{form:null,modal:null,returnHash:"",unsaved:false}};window.location.hash=returnHash||"";return;
+      }}
       if (event.target && event.target.querySelector("input[name='profile_return_tab']")) {{
         setProfileReturnTabs();
       }}
@@ -6574,10 +6936,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       rememberSpeciesModalNavigation(event);
     }}, true);
     document.addEventListener("click", function(event) {{
+      if(observationDraftFullState.modal&&observationDraftFullState.modal.contains(event.target)){{var draftClose=event.target.closest("[data-modal-history-close],.modal-backdrop");if(draftClose){{event.preventDefault();event.stopImmediatePropagation();var returnHash=observationDraftFullState.returnHash;observationDraftFullState={{form:null,modal:null,returnHash:"",unsaved:false}};window.location.hash=returnHash||"";return;}}}}
       closeSpeciesModalWithHistory(event);
       if (event.defaultPrevented) {{
         return;
       }}
+      var copyCoordinatesButton=event.target.closest("[data-copy-observation-coordinates]");
+      if(copyCoordinatesButton){{event.preventDefault();var coordinateForm=copyCoordinatesButton.closest("form"),copyLat=coordinateForm&&coordinateForm.querySelector("[name='location_lat']"),copyLon=coordinateForm&&coordinateForm.querySelector("[name='location_lon']"),copyText=copyLat&&copyLon?copyLat.value+", "+copyLon.value:"";if(copyText&&navigator.clipboard)navigator.clipboard.writeText(copyText);return;}}
+      var draftMapButton=event.target.closest("[data-observation-draft-map]");
+      if(draftMapButton){{event.preventDefault();openObservationDraftMap(draftMapButton.closest("form"));return;}}
+      if(event.target.closest("[data-observation-draft-map-close]")){{event.preventDefault();closeObservationDraftMap();return;}}
+      if(event.target.closest("[data-observation-draft-map-assign]")){{event.preventDefault();assignObservationDraftSite();return;}}
+      if(event.target.closest("[data-image-replace-cancel]")){{event.preventDefault();document.getElementById("observation-image-replace-modal").hidden=true;return;}}
+      var replaceAction=event.target.closest("[data-image-replace-action]");if(replaceAction&&!replaceAction.disabled){{event.preventDefault();document.getElementById("observation-image-replace-modal").hidden=true;applySelectedObservationExifPreview(replaceAction.dataset.imageReplaceAction);return;}}
       var exifPreviewCancel = event.target.closest("[data-observation-exif-preview-cancel]");
       if (exifPreviewCancel) {{
         event.preventDefault();
@@ -8422,6 +8793,128 @@ def catalog_form_optional_number(form: dict[str, list[str]], name: str) -> float
     return int(number) if number.is_integer() else number
 
 
+def normalize_known_site_id(value: object) -> str:
+    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+    if not text or not text[0].isalpha():
+        raise ValueError("Name must contain at least one letter to generate an ID.")
+    return text
+
+
+def known_site_geometry_from_form(form: dict[str, list[str]]) -> dict[str, object] | None:
+    value = catalog_form_string(form, "geometry_json")
+    if not value:
+        return None
+    payload = json.loads(value)
+    if not isinstance(payload, dict):
+        raise ValueError("Geometry must be a GeoJSON object.")
+    return payload
+
+
+def known_site_location_from_form(form: dict[str, list[str]]) -> dict[str, float] | None:
+    lat = catalog_form_optional_number(form, "lat")
+    lon = catalog_form_optional_number(form, "lon")
+    if lat is None and lon is None:
+        return None
+    if lat is None or lon is None:
+        raise ValueError("Representative latitude and longitude must be provided together.")
+    return {"lat": float(lat), "lon": float(lon)}
+
+
+def known_site_area_from_form(form: dict[str, list[str]], existing: dict[str, object] | None = None) -> dict[str, object]:
+    area_id = catalog_form_string(form, "area_id")
+    row = dict(existing or mushroom_known_sites.empty_area(area_id))
+    geometry = known_site_geometry_from_form(form)
+    representative_location = known_site_location_from_form(form)
+    derived_context = dict(existing.get("derived_context", {})) if isinstance(existing, dict) and isinstance(existing.get("derived_context"), dict) else {}
+    derived_context.update(mushroom_known_sites.derive_geometry_context(geometry))
+    gis_report_json = catalog_form_string(form, "gis_report_json")
+    if gis_report_json:
+        derived_context["gis_dem"] = json.loads(gis_report_json)
+    if representative_location is None and isinstance(derived_context.get("geometry"), dict):
+        representative_location = derived_context["geometry"].get("centroid")
+    row.update(
+        {
+            "area_id": area_id,
+            "name": catalog_form_string(form, "name"),
+            "description": catalog_form_string(form, "description"),
+            "aliases": catalog_split_list(catalog_form_string(form, "aliases")),
+            "administrative_location": {
+                "municipality": catalog_form_string(form, "municipality"),
+                "county": catalog_form_string(form, "county"),
+                "province": catalog_form_string(form, "province"),
+                "country": catalog_form_string(form, "country"),
+            },
+            "representative_location": representative_location,
+            "geometry": geometry,
+            "derived_context": derived_context,
+            "notes": catalog_form_string(form, "notes"),
+        }
+    )
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+    row["metadata"] = metadata
+    return row
+
+
+def known_site_micro_area_from_form(form: dict[str, list[str]], existing: dict[str, object] | None = None) -> dict[str, object]:
+    micro_id = catalog_form_string(form, "micro_area_id")
+    row = dict(existing or mushroom_known_sites.empty_micro_area(micro_id, catalog_form_string(form, "area_id")))
+    geometry = known_site_geometry_from_form(form)
+    representative_location = known_site_location_from_form(form)
+    derived_context = dict(existing.get("derived_context", {})) if isinstance(existing, dict) and isinstance(existing.get("derived_context"), dict) else {}
+    derived_context.update(mushroom_known_sites.derive_geometry_context(geometry))
+    gis_report_json = catalog_form_string(form, "gis_report_json")
+    if gis_report_json:
+        derived_context["gis_dem"] = json.loads(gis_report_json)
+    if representative_location is None and isinstance(derived_context.get("geometry"), dict):
+        representative_location = derived_context["geometry"].get("centroid")
+    row.update(
+        {
+            "micro_area_id": micro_id,
+            "area_id": catalog_form_string(form, "area_id"),
+            "name": catalog_form_string(form, "name"),
+            "description": catalog_form_string(form, "description"),
+            "aliases": catalog_split_list(catalog_form_string(form, "aliases")),
+            "representative_location": representative_location,
+            "geometry": geometry,
+            "derived_context": derived_context,
+            "location_precision_m": catalog_form_optional_number(form, "location_precision_m"),
+            "altitude": {
+                "min_m": catalog_form_optional_number(form, "altitude_min_m"),
+                "max_m": catalog_form_optional_number(form, "altitude_max_m"),
+                "source": catalog_form_string(form, "altitude_source"),
+            },
+            "topography": {
+                "aspect_ids": catalog_split_list(catalog_form_string(form, "aspect_ids")),
+                "slope_notes": catalog_form_string(form, "slope_notes"),
+                "exposure_notes": catalog_form_string(form, "exposure_notes"),
+            },
+            "ecology": {
+                "host_ids": catalog_split_list(catalog_form_string(form, "host_ids")),
+                "forest_type_ids": catalog_split_list(catalog_form_string(form, "forest_type_ids")),
+                "soil_tendency_ids": catalog_split_list(catalog_form_string(form, "soil_tendency_ids")),
+                "habitat_feature_ids": catalog_split_list(catalog_form_string(form, "habitat_feature_ids")),
+                "notes": catalog_form_string(form, "ecology_notes"),
+            },
+            "access": {
+                "difficulty": catalog_form_string(form, "access_difficulty"),
+                "notes": catalog_form_string(form, "access_notes"),
+            },
+            "provenance": {
+                "source": catalog_form_string(form, "provenance_source") or "manual",
+                "confidence": catalog_form_string(form, "provenance_confidence"),
+                "notes": catalog_form_string(form, "provenance_notes"),
+            },
+            "notes": catalog_form_string(form, "notes"),
+        }
+    )
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+    row["metadata"] = metadata
+    return row
+
+
 def catalog_form_labels(form: dict[str, list[str]]) -> dict[str, str]:
     return {language: catalog_form_string(form, f"label_{language}") for language in ("es", "ca", "en")}
 
@@ -8560,6 +9053,29 @@ def mushroom_gis_mappings_flash() -> str:
 def set_mushroom_gis_mappings_flash(message: str) -> None:
     with RUN_LOCK:
         RUN_STATE["mushroom_gis_mappings_flash"] = message
+
+
+def mushroom_known_sites_flash() -> str:
+    with RUN_LOCK:
+        message = str(RUN_STATE.get("mushroom_known_sites_flash", ""))
+        RUN_STATE["mushroom_known_sites_flash"] = ""
+    return message
+
+
+def set_mushroom_known_sites_flash(message: str) -> None:
+    with RUN_LOCK:
+        RUN_STATE["mushroom_known_sites_flash"] = message
+
+
+def mushroom_known_sites_gis_preview() -> dict[str, object] | None:
+    with RUN_LOCK:
+        value = RUN_STATE.pop("mushroom_known_sites_gis_preview", None)
+    return value if isinstance(value, dict) else None
+
+
+def set_mushroom_known_sites_gis_preview(value: dict[str, object] | None) -> None:
+    with RUN_LOCK:
+        RUN_STATE["mushroom_known_sites_gis_preview"] = value
 
 
 def mushroom_profiles_flash() -> str:
@@ -9096,6 +9612,23 @@ def observations_return_url(
     return "?" + urlencode(params) + f"#{anchor}"
 
 
+def safe_known_sites_return_to(value: str) -> str:
+    """Keep known-site navigation inside the mushroom observation workspace."""
+    fallback = "./profiles?section=observations"
+    parsed = urlparse(str(value or ""))
+    if parsed.scheme or parsed.netloc or parsed.path not in {"./profiles", "profiles", "/mushrooms/profiles"}:
+        return fallback
+    return str(value)
+
+
+def safe_profiles_return_to(value: str) -> str:
+    """Accept only a local known-sites origin for the profiles back stack."""
+    parsed = urlparse(str(value or ""))
+    if parsed.scheme or parsed.netloc or parsed.path not in {"./known-sites", "known-sites", "/mushrooms/known-sites"}:
+        return ""
+    return str(value)
+
+
 def start_mushroom_model_rebuild_job(
     *,
     selected_observation_ids: list[str],
@@ -9375,6 +9908,16 @@ def observation_payload_from_form(
         raise ValueError("Species is required.")
     if not observed_at:
         raise ValueError("Observation date is required.")
+    micro_area_id = catalog_form_string(form, "micro_area_id")
+    if micro_area_id:
+        known_sites_payload = mushroom_known_sites.load_payload()
+        known_micro_ids = {
+            str(row.get("micro_area_id", ""))
+            for row in known_sites_payload.get("micro_areas", [])
+            if isinstance(row, dict)
+        }
+        if micro_area_id not in known_micro_ids:
+            raise ValueError(f"Known micro-area {micro_area_id} does not exist.")
     location_input, lat, lon, location_source = parse_observation_coordinates(form)
     altitude_m = catalog_form_optional_number(form, "altitude_m")
     source_type = catalog_form_string(form, "source_type")
@@ -9390,6 +9933,7 @@ def observation_payload_from_form(
     observation: dict[str, object] = {
         "observation_id": str(existing.get("observation_id", "") or next_observation_id(observations, observed_at)),
         "species_id": species_id,
+        "micro_area_id": micro_area_id or None,
         "observed_at": observed_at,
         "location": {
             "input": location_input,
@@ -9560,6 +10104,8 @@ def preview_photo_exif_uploads(files: dict[str, list[dict[str, object]]]) -> dic
         content_type = str(item.get("content_type", "") or "")
         preview: dict[str, object] = {
             "index": index,
+            "upload_index": index,
+            "is_existing": False,
             "filename": filename,
             "content_type": content_type,
             "size_bytes": len(content) if isinstance(content, bytes) else 0,
@@ -9769,6 +10315,7 @@ def photo_exif_observation_payload(
     observation: dict[str, object] = {
         "observation_id": next_observation_id(observations, observed_at),
         "species_id": species_id,
+        "micro_area_id": catalog_form_string(form, "micro_area_id") or None,
         "observed_at": observed_at,
         "location": {
             "input": f"{lat:.8f}, {lon:.8f}",
@@ -11198,6 +11745,36 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         """
         self.send_bytes(200, html_page("Users", body, auto_refresh=False), "text/html; charset=utf-8")
 
+    def render_mushroom_known_sites(self, query: dict[str, list[str]] | None = None) -> None:
+        query = query or {}
+        if (query.get("discard_gis_draft") or [""])[0] == "1":
+            set_mushroom_known_sites_gis_preview(None)
+            query.pop("discard_gis_draft", None)
+        query["return_to"] = [safe_known_sites_return_to((query.get("return_to") or [""])[0])]
+        page_title = mushroom_profiles_ui.ui_label("ui.known_sites")
+        try:
+            payload = mushroom_known_sites.load_payload()
+            store = default_store()
+            store.ensure_seeded()
+            observations_payload = store.load("observations")
+            body = mushroom_known_sites_ui.render_page(
+                payload,
+                observations_payload if isinstance(observations_payload, dict) else {},
+                query,
+                mushroom_known_sites_flash(),
+                mushroom_known_sites_gis_preview(),
+                store.load("catalogs"),
+            )
+        except Exception as exc:
+            body = (
+                '<p><a class="button-link" href="./profiles">Back</a></p>'
+                f'<h1>{html.escape(page_title)}</h1>'
+                f'<div class="catalog-alert error"><strong>Cannot load known sites</strong><br>{html.escape(str(exc))}</div>'
+            )
+            self.send_bytes(500, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+            return
+        self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+
     def render_mushroom_catalogs(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
         selected_group = (query.get("group") or [""])[0]
@@ -11251,6 +11828,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="?">Refresh</a>
           <a class="button-link" href="./profiles">Mushroom species</a>
           <a class="button-link" href="./gis-mappings">GIS mappings</a>
+          <a class="button-link" href="./known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
           <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="group" value="{html.escape(selected_group, quote=True)}">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search ID, group, label or domain">
@@ -11415,6 +11993,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
     def render_mushroom_profiles(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
+        return_to = safe_profiles_return_to((query.get("return_to") or [""])[0])
         selected_id = (query.get("id") or [""])[0]
         search = (query.get("q") or [""])[0]
         mode = (query.get("mode") or ["current"])[0]
@@ -11577,17 +12156,29 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           {render_catalog_alerts(errors, warnings, limit=12)}
         </details>
         """
+        refresh_params = {
+            "section": section,
+            "id": selected_id,
+            "q": search,
+            "view": profile_view,
+        }
+        if return_to:
+            refresh_params["return_to"] = return_to
+        refresh_url = "?" + urlencode(refresh_params)
+        back_url = return_to or "../"
         body = f"""
         <div class="catalog-toolbar">
-          <a class="button-link" href="../">Back</a>
-          <a class="button-link" href="{html.escape(mushroom_profiles_ui.profile_query_url(selected_id, search, section=section, profile_view=profile_view), quote=True)}">Refresh</a>
+          <a class="button-link" href="{html.escape(back_url, quote=True)}">Back</a>
+          <a class="button-link" href="{html.escape(refresh_url, quote=True)}">Refresh</a>
           <a class="button-link" href="./catalogs">Reference catalogs</a>
           <a class="button-link" href="./gis-mappings">GIS mappings</a>
+          <a class="button-link" href="./known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
           {view_switch}
           <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="section" value="{html.escape(section, quote=True)}">
             <input type="hidden" name="id" value="{html.escape(selected_id, quote=True)}">
             <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
+            {f'<input type="hidden" name="return_to" value="{html.escape(return_to, quote=True)}">' if return_to else ''}
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search species, ID, confidence or status">
           </form>
           <a class="button-link primary-link" href="#new-species-modal">New species</a>
@@ -11646,6 +12237,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.render_mushroom_gis_mappings(parse_qs(parsed.query))
             return
 
+        if path == "/mushrooms/known-sites":
+            self.render_mushroom_known_sites(parse_qs(parsed.query))
+            return
+
         if path == "/mushrooms/profiles":
             self.render_mushroom_profiles(parse_qs(parsed.query))
             return
@@ -11662,6 +12257,25 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.send_json(404, {"ok": False, "error": "Rebuild job was not found."})
                 return
             self.send_json(200, {"ok": True, "job": status})
+            return
+
+        if path == "/api/mushrooms/known-sites-map":
+            self.send_json(200, {"ok": True, "known_sites": mushroom_profiles_ui.all_known_site_geometries()})
+            return
+
+        if path == "/api/mushrooms/dem-altitude":
+            query = parse_qs(parsed.query)
+            try:
+                lat = float((query.get("lat") or [""])[0])
+                lon = float((query.get("lon") or [""])[0])
+            except ValueError:
+                self.send_json(400, {"status": "invalid_coordinates", "error": "Valid latitude and longitude are required."})
+                return
+            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                self.send_json(400, {"status": "invalid_coordinates", "error": "Coordinates are outside the valid range."})
+                return
+            result = mushroom_gis_lab.sample_dem(lon, lat, None)
+            self.send_json(200 if result.get("status") == "ok" else 422, result)
             return
 
         if path == "/log":
@@ -11846,8 +12460,44 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             # This preview only inspects the uploaded bytes and does not read or
             # mutate stored mushroom data, so it must work from the backend form
             # without MapLibre/admin API credentials.
-            _form, preview_files = self.read_form_and_files()
-            self.send_json(200, {"ok": True, **preview_photo_exif_uploads(preview_files)})
+            preview_form, preview_files = self.read_form_and_files()
+            preview_payload = preview_photo_exif_uploads(preview_files)
+            preview_payload["known_sites"] = mushroom_profiles_ui.all_known_site_geometries()
+            observation_id = self.form_value(preview_form, "observation_id")
+            if observation_id:
+                store = default_store()
+                store.ensure_seeded()
+                observations_payload = store.load("observations")
+                observations = observation_dicts_from_payload(observations_payload)
+                observation = find_observation_by_id(observations, observation_id)
+                media_rows = observation.get("media") if isinstance(observation, dict) and isinstance(observation.get("media"), list) else []
+                media = next((item for item in media_rows if isinstance(item, dict) and item.get("path")), None)
+                if isinstance(media, dict):
+                    media_path = str(media.get("path", ""))
+                    file_path = observation_media_file_path(media_path)
+                    existing_preview: dict[str, object] = {
+                        "ok": False,
+                        "is_existing": True,
+                        "filename": str(media.get("original_filename", "") or media.get("stored_filename", "") or media_path),
+                        "content_type": str(media.get("content_type", "") or ""),
+                        "size_bytes": media.get("size_bytes", 0),
+                        "image_url": observation_image_media_url(media_path),
+                        "media_path": media_path,
+                    }
+                    if file_path is not None and file_path.exists():
+                        try:
+                            fields = extract_photo_exif_observation_fields(existing_preview["filename"], file_path.read_bytes())
+                            existing_preview.update({"ok": True, **fields})
+                        except ValueError as exc:
+                            existing_preview["error"] = str(exc)
+                    archived_rows = observation_dicts_from_payload(load_archived_observations(store))
+                    existing_preview["reference_count"] = sum(
+                        1 for row in observations + archived_rows
+                        for item in (row.get("media") if isinstance(row.get("media"), list) else [])
+                        if isinstance(item, dict) and str(item.get("path", "")) == media_path
+                    )
+                    preview_payload["existing_preview"] = existing_preview
+            self.send_json(200, {"ok": True, **preview_payload})
             return
 
         form, files = self.read_form_and_files()
@@ -11864,6 +12514,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if parsed.path.rstrip("/") == "/mushrooms/gis-mappings":
             redirect_target = self.handle_mushroom_gis_mappings_post(form)
+            query = ("?" + parsed.query) if parsed.query else ""
+            self.redirect_to(redirect_target or query or "?")
+            return
+
+        if parsed.path.rstrip("/") == "/mushrooms/known-sites":
+            redirect_target = self.handle_mushroom_known_sites_post(form)
             query = ("?" + parsed.query) if parsed.query else ""
             self.redirect_to(redirect_target or query or "?")
             return
@@ -11948,6 +12604,221 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         else:
             message = "Unknown user management action."
         admin_message(message)
+
+    def handle_mushroom_known_sites_post(self, form: dict[str, list[str]]) -> str:
+        action = self.form_action_value(form, "known_site_action")
+        return_to_value = self.form_value(form, "return_to")
+        return_to = safe_known_sites_return_to(return_to_value) if return_to_value else ""
+        try:
+            payload = mushroom_known_sites.load_payload()
+            areas = payload.get("areas") if isinstance(payload.get("areas"), list) else []
+            micro_areas = payload.get("micro_areas") if isinstance(payload.get("micro_areas"), list) else []
+            payload["areas"] = areas
+            payload["micro_areas"] = micro_areas
+            redirect_target = ""
+
+            if action == "preview_gis_dem":
+                geometry = known_site_geometry_from_form(form)
+                if not geometry:
+                    raise ValueError("Draw and save a polygon before recovering GIS/DEM data.")
+                preview_kind = self.form_value(form, "known_site_kind")
+                preview_id = self.form_value(form, "micro_area_id") or self.form_value(form, "area_id")
+                source_rows = areas if preview_kind == "area" else micro_areas
+                source_id_key = "area_id" if preview_kind == "area" else "micro_area_id"
+                source_row = next((item for item in source_rows if isinstance(item, dict) and str(item.get(source_id_key, "")) == preview_id), None)
+                if source_row is None:
+                    raise ValueError("The selected known site was not found.")
+                base_row = (
+                    known_site_area_from_form(form, source_row)
+                    if preview_kind == "area"
+                    else known_site_micro_area_from_form(form, source_row)
+                )
+                base_row["_has_unsaved_changes"] = True
+                store = default_store()
+                store.ensure_seeded()
+                report = mushroom_gis_lab.derive_site_gis_dem(
+                    geometry,
+                    gis_payload=store.load("gis"),
+                    catalogs_payload=store.load("catalogs"),
+                )
+                set_mushroom_known_sites_gis_preview({"kind": preview_kind, "id": preview_id, "report": report, "base": base_row})
+                return mushroom_known_sites_ui.query_url(preview_kind, preview_id, return_to=return_to) + "#gis-dem-review"
+
+            if action == "apply_gis_dem":
+                preview_kind = self.form_value(form, "known_site_kind")
+                preview_id = self.form_value(form, "known_site_id")
+                report = json.loads(self.form_value(form, "gis_report_json"))
+                selected_fields = set(catalog_form_list(form, "gis_apply_field"))
+                rows = areas if preview_kind == "area" else micro_areas
+                id_key = "area_id" if preview_kind == "area" else "micro_area_id"
+                row = next((item for item in rows if isinstance(item, dict) and str(item.get(id_key, "")) == preview_id), None)
+                if row is None:
+                    raise ValueError("The selected known site was not found.")
+                base_row_json = self.form_value(form, "gis_base_row_json")
+                if base_row_json:
+                    base_row = json.loads(base_row_json)
+                    if isinstance(base_row, dict):
+                        row = base_row
+                row = json.loads(json.dumps(row))
+                row["_pending_gis_report"] = report
+                if preview_kind == "micro_area":
+                    altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
+                    topography = row.get("topography") if isinstance(row.get("topography"), dict) else {}
+                    ecology = row.get("ecology") if isinstance(row.get("ecology"), dict) else {}
+                    if "altitude_min_m" in selected_fields:
+                        altitude["min_m"] = report.get("altitude_min_m")
+                    if "altitude_max_m" in selected_fields:
+                        altitude["max_m"] = report.get("altitude_max_m")
+                    if {"altitude_min_m", "altitude_max_m"} & selected_fields:
+                        altitude["source"] = "dem_5m_polygon"
+                    if "aspect_ids" in selected_fields:
+                        topography["aspect_ids"] = report.get("dominant_aspect_ids", [])
+                    if "slope_notes" in selected_fields:
+                        topography["slope_notes"] = f"DEM: media {report.get('slope_mean_deg', '-')}°, rango {report.get('slope_min_deg', '-')}°-{report.get('slope_max_deg', '-')}°"
+                    gis = report.get("gis") if isinstance(report.get("gis"), dict) else {}
+                    for field in ("host_ids", "forest_type_ids", "soil_tendency_ids", "habitat_feature_ids"):
+                        if field in selected_fields:
+                            ecology[field] = gis.get(field, [])
+                    row.update({"altitude": altitude, "topography": topography, "ecology": ecology})
+                set_mushroom_known_sites_gis_preview({"kind": preview_kind, "id": preview_id, "report": report, "draft": row})
+                return mushroom_known_sites_ui.query_url(preview_kind, preview_id, return_to=return_to)
+
+            if action in {"create_area", "save_area"}:
+                if self.form_value(form, "save_confirmation") != "1":
+                    raise ValueError("Explicit save confirmation is required.")
+                area_id = self.form_value(form, "area_id")
+                working_form = form
+                if action == "create_area":
+                    area_id = normalize_known_site_id(area_id or self.form_value(form, "name"))
+                    working_form = dict(form)
+                    working_form["area_id"] = [area_id]
+                existing_index = next((index for index, row in enumerate(areas) if isinstance(row, dict) and str(row.get("area_id", "")) == area_id), None)
+                if action == "create_area" and existing_index is not None:
+                    raise ValueError(f"Area {area_id} already exists.")
+                if action == "save_area" and existing_index is None:
+                    raise ValueError(f"Area {area_id} was not found.")
+                existing = areas[existing_index] if existing_index is not None and isinstance(areas[existing_index], dict) else None
+                row = known_site_area_from_form(working_form, existing)
+                set_mushroom_known_sites_gis_preview(None)
+                if existing_index is None:
+                    areas.append(row)
+                else:
+                    areas[existing_index] = row
+                redirect_target = mushroom_known_sites_ui.query_url("area", area_id, return_to=return_to)
+                next_url = self.form_value(form, "next_url")
+                if next_url.startswith("?"):
+                    redirect_target = next_url
+                message = f"{'Created' if action == 'create_area' else 'Saved'} area {area_id}."
+
+            elif action in {"create_micro_area", "save_micro_area"}:
+                if self.form_value(form, "save_confirmation") != "1":
+                    raise ValueError("Explicit save confirmation is required.")
+                micro_id = self.form_value(form, "micro_area_id")
+                working_form = form
+                if action == "create_micro_area":
+                    area_id = self.form_value(form, "area_id")
+                    generated_name = normalize_known_site_id(self.form_value(form, "name"))
+                    micro_id = normalize_known_site_id(micro_id) if micro_id else f"{area_id}_{generated_name}"
+                    working_form = dict(form)
+                    working_form["micro_area_id"] = [micro_id]
+                existing_index = next((index for index, row in enumerate(micro_areas) if isinstance(row, dict) and str(row.get("micro_area_id", "")) == micro_id), None)
+                if action == "create_micro_area" and existing_index is not None:
+                    raise ValueError(f"Micro-area {micro_id} already exists.")
+                if action == "save_micro_area" and existing_index is None:
+                    raise ValueError(f"Micro-area {micro_id} was not found.")
+                existing = micro_areas[existing_index] if existing_index is not None and isinstance(micro_areas[existing_index], dict) else None
+                row = known_site_micro_area_from_form(working_form, existing)
+                set_mushroom_known_sites_gis_preview(None)
+                if existing_index is None:
+                    micro_areas.append(row)
+                else:
+                    micro_areas[existing_index] = row
+                redirect_target = mushroom_known_sites_ui.query_url("micro_area", micro_id, return_to=return_to)
+                next_url = self.form_value(form, "next_url")
+                if next_url.startswith("?"):
+                    redirect_target = next_url
+                message = f"{'Created' if action == 'create_micro_area' else 'Saved'} micro-area {micro_id}."
+
+            elif action == "toggle_area_archive":
+                area_id = self.form_value(form, "area_id")
+                row = next((item for item in areas if isinstance(item, dict) and str(item.get("area_id", "")) == area_id), None)
+                if row is None:
+                    raise ValueError(f"Area {area_id} was not found.")
+                archiving = not bool(row.get("archived"))
+                area_micro_ids = {
+                    str(item.get("micro_area_id", ""))
+                    for item in micro_areas
+                    if isinstance(item, dict) and str(item.get("area_id", "")) == area_id
+                }
+                store = default_store()
+                store.ensure_seeded()
+                counts = mushroom_known_sites.observation_reference_counts(store.load("observations"))
+                referenced = sum(counts.get(micro_id, 0) for micro_id in area_micro_ids)
+                if archiving and referenced:
+                    raise ValueError(f"Area {area_id} is used by {referenced} observation(s).")
+                if archiving and any(isinstance(item, dict) and str(item.get("area_id", "")) == area_id and not item.get("archived") for item in micro_areas):
+                    raise ValueError("Archive or move the active micro-areas before archiving this area.")
+                row["archived"] = archiving
+                redirect_target = mushroom_known_sites_ui.query_url("area", area_id, return_to=return_to)
+                message = f"{'Archived' if archiving else 'Restored'} area {area_id}."
+
+            elif action == "toggle_micro_area_archive":
+                micro_id = self.form_value(form, "micro_area_id")
+                row = next((item for item in micro_areas if isinstance(item, dict) and str(item.get("micro_area_id", "")) == micro_id), None)
+                if row is None:
+                    raise ValueError(f"Micro-area {micro_id} was not found.")
+                archiving = not bool(row.get("archived"))
+                if archiving:
+                    store = default_store()
+                    store.ensure_seeded()
+                    counts = mushroom_known_sites.observation_reference_counts(store.load("observations"))
+                    if counts.get(micro_id, 0):
+                        raise ValueError(f"Micro-area {micro_id} is used by {counts[micro_id]} observation(s).")
+                row["archived"] = archiving
+                redirect_target = mushroom_known_sites_ui.query_url("micro_area", micro_id, return_to=return_to)
+                message = f"{'Archived' if archiving else 'Restored'} micro-area {micro_id}."
+
+            elif action == "delete_micro_area":
+                micro_id = self.form_value(form, "micro_area_id")
+                row = next((item for item in micro_areas if isinstance(item, dict) and str(item.get("micro_area_id", "")) == micro_id), None)
+                if row is None:
+                    raise ValueError(f"Micro-area {micro_id} was not found.")
+                if not row.get("archived"):
+                    raise ValueError("Only archived micro-areas can be deleted permanently.")
+                store = default_store()
+                store.ensure_seeded()
+                counts = mushroom_known_sites.observation_reference_counts(store.load("observations"))
+                if counts.get(micro_id, 0):
+                    raise ValueError(f"Micro-area {micro_id} is used by {counts[micro_id]} observation(s).")
+                payload["micro_areas"] = [item for item in micro_areas if not (isinstance(item, dict) and str(item.get("micro_area_id", "")) == micro_id)]
+                redirect_target = mushroom_known_sites_ui.query_url(return_to=return_to)
+                message = f"Deleted micro-area {micro_id} permanently."
+
+            elif action == "delete_area":
+                area_id = self.form_value(form, "area_id")
+                row = next((item for item in areas if isinstance(item, dict) and str(item.get("area_id", "")) == area_id), None)
+                if row is None:
+                    raise ValueError(f"Area {area_id} was not found.")
+                if not row.get("archived"):
+                    raise ValueError("Only archived areas can be deleted permanently.")
+                children = [item for item in micro_areas if isinstance(item, dict) and str(item.get("area_id", "")) == area_id]
+                if children:
+                    raise ValueError("Delete the area's archived micro-areas before deleting the area.")
+                payload["areas"] = [item for item in areas if not (isinstance(item, dict) and str(item.get("area_id", "")) == area_id)]
+                redirect_target = mushroom_known_sites_ui.query_url(return_to=return_to)
+                message = f"Deleted area {area_id} permanently."
+            else:
+                raise ValueError("Unknown known-site maintenance action.")
+
+            backup = mushroom_known_sites.save_payload(payload)
+            suffix = f" Backup: {backup}" if backup else ""
+            set_mushroom_known_sites_flash(message + suffix)
+            return redirect_target
+        except (ValueError, json.JSONDecodeError) as exc:
+            set_mushroom_known_sites_flash(f"Known site was not saved: {exc}")
+        except Exception as exc:
+            set_mushroom_known_sites_flash(f"Known-site action failed: {exc}")
+        return mushroom_known_sites_ui.query_url(return_to=return_to)
 
     def handle_mushroom_catalogs_post(self, form: dict[str, list[str]]) -> str:
         action = self.form_action_value(form, "catalog_action")
@@ -12305,6 +13176,204 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     return_url=return_url,
                 )
                 return append_query_param(return_url, "rebuild_job", job_id)
+            if action == "update_observation_coordinates":
+                observation_id = catalog_form_string(form, "observation_id")
+                observations_payload = store.load("observations")
+                observations = observation_dicts_from_payload(observations_payload if isinstance(observations_payload, dict) else {})
+                observation = find_observation_by_id(observations, observation_id)
+                if observation is None:
+                    raise ValueError(f"Observation {observation_id} was not found.")
+                try:
+                    lat = float(catalog_form_string(form, "location_lat"))
+                    lon = float(catalog_form_string(form, "location_lon"))
+                except ValueError as exc:
+                    raise ValueError("Valid latitude and longitude are required.") from exc
+                if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    raise ValueError("Coordinates are outside the valid latitude/longitude range.")
+                dem_result = mushroom_gis_lab.sample_dem(lon, lat, None)
+                if dem_result.get("status") != "ok":
+                    raise ValueError(f"DEM altitude could not be recovered: {dem_result.get('status', 'unknown error')}.")
+                altitude_m = round(float(dem_result["elevation_m"]))
+                location = observation.get("location") if isinstance(observation.get("location"), dict) else {}
+                location.update({
+                    "input": f"{lat:.7f}, {lon:.7f}",
+                    "lat": lat,
+                    "lon": lon,
+                    "source": "manual_decimal",
+                })
+                observation["location"] = location
+                observation["altitude"] = {
+                    "meters": altitude_m,
+                    "source": "dem",
+                    "resolved_at": datetime.now(UTC).date().isoformat(),
+                }
+                source = observation.get("source") if isinstance(observation.get("source"), dict) else {}
+                source.update({"type": "personal_observation", "label": ""})
+                observation["source"] = source
+                metadata = observation.get("metadata") if isinstance(observation.get("metadata"), dict) else {}
+                metadata.update({"updated_at": datetime.now(UTC).date().isoformat(), "updated_by": "rainmapper_ui"})
+                observation["metadata"] = metadata
+                payload_metadata = observations_payload.get("metadata") if isinstance(observations_payload, dict) and isinstance(observations_payload.get("metadata"), dict) else None
+                if payload_metadata is not None:
+                    payload_metadata.update({"updated_at": datetime.now(UTC).date().isoformat(), "updated_by": "rainmapper_ui"})
+                result = store.replace("observations", observations_payload)
+                if not result.ok:
+                    raise ValueError("; ".join(message.message for message in result.errors[:3]))
+                species_id = str(observation.get("species_id", species_id))
+                mushroom_model_state.mark_species_pending({species_id})
+                set_mushroom_profiles_flash(f"Updated coordinates and DEM altitude for observation {observation_id}.")
+                return observations_return_url(
+                    form,
+                    species_id,
+                    obs_id=observation_id,
+                    anchor=mushroom_profiles_ui.observation_map_modal_id(observation_id),
+                )
+            if action == "assign_observation_site":
+                observation_id = catalog_form_string(form, "observation_id")
+                observations_payload = store.load("observations")
+                observations = observation_dicts_from_payload(observations_payload if isinstance(observations_payload, dict) else {})
+                observation = find_observation_by_id(observations, observation_id)
+                if observation is None:
+                    raise ValueError(f"Observation {observation_id} was not found.")
+                location = observation.get("location") if isinstance(observation.get("location"), dict) else {}
+                lat, lon = float(location.get("lat")), float(location.get("lon"))
+                selected_micro_id = catalog_form_string(form, "micro_area_id")
+                new_name = catalog_form_string(form, "new_site_name")
+                new_site_kind = catalog_form_string(form, "new_site_kind")
+                original_sites_payload: dict[str, object] | None = None
+                if new_site_kind == "edit_micro_area":
+                    micro_id = catalog_form_string(form, "edit_site_id")
+                    geometry_text = catalog_form_string(form, "new_site_geometry_json")
+                    if not micro_id or not geometry_text:
+                        raise ValueError("Select a micro-area and edit its polygon before saving.")
+                    geometry = json.loads(geometry_text)
+                    if not mushroom_known_sites.point_in_geometry(lon, lat, geometry):
+                        raise ValueError("The edited micro-area must contain the observation point.")
+                    sites_payload = mushroom_known_sites.load_payload()
+                    original_sites_payload = json.loads(json.dumps(sites_payload))
+                    micro_rows = sites_payload.get("micro_areas") if isinstance(sites_payload.get("micro_areas"), list) else []
+                    micro = next((row for row in micro_rows if isinstance(row, dict) and str(row.get("micro_area_id", "")) == micro_id), None)
+                    if micro is None or micro.get("archived"):
+                        raise ValueError(f"Micro-area {micro_id} was not found or is archived.")
+                    derived_context = dict(micro.get("derived_context", {})) if isinstance(micro.get("derived_context"), dict) else {}
+                    derived_context.update(mushroom_known_sites.derive_geometry_context(geometry))
+                    derived_context.pop("gis_dem", None)
+                    micro["geometry"] = geometry
+                    micro["derived_context"] = derived_context
+                    micro["representative_location"] = derived_context.get("geometry", {}).get("centroid") if isinstance(derived_context.get("geometry"), dict) else {"lat": lat, "lon": lon}
+                    metadata = micro.get("metadata") if isinstance(micro.get("metadata"), dict) else {}
+                    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+                    micro["metadata"] = metadata
+                    mushroom_known_sites.save_payload(sites_payload)
+                    selected_micro_id = micro_id
+                if new_site_kind == "edit_area":
+                    area_id = catalog_form_string(form, "new_site_area_id")
+                    geometry_text = catalog_form_string(form, "new_site_geometry_json")
+                    if not area_id or not geometry_text:
+                        raise ValueError("Select an area and edit its polygon before saving.")
+                    geometry = json.loads(geometry_text)
+                    if not mushroom_known_sites.point_in_geometry(lon, lat, geometry):
+                        raise ValueError("The edited area must contain the observation point.")
+                    sites_payload = mushroom_known_sites.load_payload()
+                    areas = sites_payload.get("areas") if isinstance(sites_payload.get("areas"), list) else []
+                    area = next((row for row in areas if isinstance(row, dict) and str(row.get("area_id", "")) == area_id), None)
+                    if area is None or area.get("archived"):
+                        raise ValueError(f"Area {area_id} was not found or is archived.")
+                    derived_context = dict(area.get("derived_context", {})) if isinstance(area.get("derived_context"), dict) else {}
+                    derived_context.update(mushroom_known_sites.derive_geometry_context(geometry))
+                    derived_context.pop("gis_dem", None)
+                    area["geometry"] = geometry
+                    area["derived_context"] = derived_context
+                    area["representative_location"] = derived_context.get("geometry", {}).get("centroid") if isinstance(derived_context.get("geometry"), dict) else {"lat": lat, "lon": lon}
+                    metadata = area.get("metadata") if isinstance(area.get("metadata"), dict) else {}
+                    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+                    area["metadata"] = metadata
+                    mushroom_known_sites.save_payload(sites_payload)
+                    species_id = str(observation.get("species_id", species_id))
+                    set_mushroom_profiles_flash(f"Updated area {area_id}. You can now create the micro-area.")
+                    return observations_return_url(
+                        form,
+                        species_id,
+                        obs_id=observation_id,
+                        anchor=mushroom_profiles_ui.observation_map_modal_id(observation_id),
+                    )
+                if new_name:
+                    geometry_text = catalog_form_string(form, "new_site_geometry_json")
+                    if not geometry_text:
+                        raise ValueError("Draw the new polygon before creating it.")
+                    geometry = json.loads(geometry_text)
+                    if not mushroom_known_sites.point_in_geometry(lon, lat, geometry):
+                        raise ValueError("The new polygon must contain the observation point.")
+                    sites_payload = mushroom_known_sites.load_payload()
+                    original_sites_payload = json.loads(json.dumps(sites_payload))
+                    areas = sites_payload.get("areas") if isinstance(sites_payload.get("areas"), list) else []
+                    derived = mushroom_known_sites.derive_geometry_context(geometry)
+                    if new_site_kind == "area":
+                        area_id = normalize_known_site_id(new_name)
+                        if any(isinstance(row, dict) and str(row.get("area_id", "")) == area_id for row in areas):
+                            raise ValueError(f"Area {area_id} already exists.")
+                        new_area = mushroom_known_sites.empty_area(area_id)
+                        new_area.update({
+                            "name": new_name,
+                            "geometry": geometry,
+                            "derived_context": derived,
+                            "representative_location": derived.get("geometry", {}).get("centroid") if isinstance(derived.get("geometry"), dict) else {"lat": lat, "lon": lon},
+                        })
+                        areas.append(new_area)
+                        sites_payload["areas"] = areas
+                        mushroom_known_sites.save_payload(sites_payload)
+                        species_id = str(observation.get("species_id", species_id))
+                        set_mushroom_profiles_flash(f"Created area {area_id}. You can now draw its micro-area from the observation map.")
+                        return observations_return_url(
+                            form,
+                            species_id,
+                            obs_id=observation_id,
+                            anchor=mushroom_profiles_ui.observation_map_modal_id(observation_id),
+                        )
+                    area_id = catalog_form_string(form, "new_site_area_id")
+                    if not area_id:
+                        raise ValueError("Select the parent area on the map.")
+                    if not any(isinstance(row, dict) and str(row.get("area_id", "")) == area_id and not row.get("archived") for row in areas):
+                        raise ValueError(f"Parent area {area_id} was not found or is archived.")
+                    micro_rows = sites_payload.get("micro_areas") if isinstance(sites_payload.get("micro_areas"), list) else []
+                    generated_id = normalize_known_site_id(new_name)
+                    selected_micro_id = f"{area_id}_{generated_id}"
+                    if any(isinstance(row, dict) and str(row.get("micro_area_id", "")) == selected_micro_id for row in micro_rows):
+                        raise ValueError(f"Micro-area {selected_micro_id} already exists.")
+                    new_micro = mushroom_known_sites.empty_micro_area(selected_micro_id, area_id)
+                    new_micro.update({
+                        "name": new_name,
+                        "geometry": geometry,
+                        "derived_context": derived,
+                        "representative_location": derived.get("geometry", {}).get("centroid") if isinstance(derived.get("geometry"), dict) else {"lat": lat, "lon": lon},
+                    })
+                    micro_rows.append(new_micro)
+                    sites_payload["micro_areas"] = micro_rows
+                    mushroom_known_sites.save_payload(sites_payload)
+                elif selected_micro_id:
+                    sites_payload = mushroom_known_sites.load_payload()
+                    if not any(isinstance(row, dict) and str(row.get("micro_area_id", "")) == selected_micro_id and not row.get("archived") for row in sites_payload.get("micro_areas", [])):
+                        raise ValueError(f"Micro-area {selected_micro_id} was not found or is archived.")
+                observation["micro_area_id"] = selected_micro_id or None
+                metadata = observations_payload.get("metadata") if isinstance(observations_payload, dict) else None
+                if isinstance(metadata, dict):
+                    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+                    metadata["updated_by"] = "rainmapper_ui"
+                result = store.replace("observations", observations_payload)
+                if not result.ok:
+                    if original_sites_payload is not None:
+                        mushroom_known_sites.save_payload(original_sites_payload)
+                    raise ValueError("; ".join(message.message for message in result.errors[:3]))
+                species_id = str(observation.get("species_id", species_id))
+                set_mushroom_profiles_flash(
+                    f"{'Created and assigned' if new_name else 'Assigned'} micro-area {selected_micro_id or 'none'} to {observation_id}."
+                )
+                return observations_return_url(
+                    form,
+                    species_id,
+                    obs_id=observation_id,
+                    anchor=mushroom_profiles_ui.observation_map_modal_id(observation_id),
+                )
             if action == "create_observation":
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):
@@ -12391,6 +13460,56 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Observation was not saved: " + error_text)
                 return observations_return_url(form, observation_species_id, anchor="new-observation")
+            if action in {"unlink_observation_media", "delete_observation_media"}:
+                observation_id = catalog_form_string(form, "observation_id")
+                media_path = catalog_form_string(form, "media_path")
+                observations_payload = store.load("observations")
+                if not isinstance(observations_payload, dict):
+                    raise ValueError("Observations payload must be an object.")
+                observations = observation_dicts_from_payload(observations_payload)
+                observation = find_observation_by_id(observations, observation_id)
+                if observation is None:
+                    raise ValueError(f"Observation {observation_id} was not found.")
+                media_rows = observation.get("media") if isinstance(observation.get("media"), list) else []
+                if not any(isinstance(item, dict) and str(item.get("path", "")) == media_path for item in media_rows):
+                    raise ValueError("The selected image is not associated with this observation.")
+                if action == "delete_observation_media":
+                    archived_payload = load_archived_observations(store)
+                    all_rows = observations + observation_dicts_from_payload(archived_payload)
+                    reference_count = sum(
+                        1
+                        for row in all_rows
+                        for item in (row.get("media") if isinstance(row.get("media"), list) else [])
+                        if isinstance(item, dict) and str(item.get("path", "")) == media_path
+                    )
+                    if reference_count != 1:
+                        raise ValueError(f"The image is still associated with {reference_count} observations and cannot be deleted.")
+                observation["media"] = [
+                    item for item in media_rows
+                    if not (isinstance(item, dict) and str(item.get("path", "")) == media_path)
+                ]
+                metadata = observations_payload.get("metadata")
+                if isinstance(metadata, dict):
+                    metadata["updated_at"] = datetime.now(UTC).date().isoformat()
+                    metadata["updated_by"] = "rainmapper_ui"
+                result = store.replace("observations", observations_payload)
+                if not result.ok:
+                    raise ValueError("; ".join(message.message for message in result.errors[:3]))
+                deleted_text = ""
+                if action == "delete_observation_media":
+                    file_path = observation_media_file_path(media_path)
+                    if file_path is None or not file_path.exists():
+                        deleted_text = " The media file was already absent."
+                    else:
+                        file_path.unlink()
+                        deleted_text = " The media file was deleted permanently."
+                mushroom_model_state.mark_species_pending([str(observation.get("species_id", species_id))])
+                set_mushroom_profiles_flash(f"Image was disassociated from {observation_id}." + deleted_text)
+                return observations_return_url(
+                    form,
+                    str(observation.get("species_id", species_id)),
+                    obs_id=observation_id,
+                )
             if action == "update_observation":
                 observation_id = catalog_form_string(form, "observation_id")
                 observations_payload = store.load("observations")
@@ -12407,6 +13526,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     for item in files.get("observation_exif_images", [])
                     if isinstance(item, dict) and item.get("filename") and item.get("content")
                 ]
+                if len(uploaded_exif) > 1:
+                    set_mushroom_profiles_flash("Observation was not saved: only one image is allowed per observation.")
+                    return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                 exif_uploads: list[tuple[dict[str, object], dict[str, object]]] = []
                 skipped: list[str] = []
                 for item in uploaded_exif:
@@ -12429,6 +13551,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]))
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                 if exif_uploads:
+                    replacement_action = catalog_form_string(form, "media_replacement_action")
+                    existing_media = updated.get("media") if isinstance(updated.get("media"), list) else []
+                    if existing_media and replacement_action not in {"unlink", "delete"}:
+                        set_mushroom_profiles_flash("Observation was not saved: confirm how the existing image must be replaced.")
+                        return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
+                    old_media_paths = [str(item.get("path", "")) for item in existing_media if isinstance(item, dict) and item.get("path")]
+                    if replacement_action == "delete":
+                        archived_rows = observation_dicts_from_payload(load_archived_observations(store))
+                        for old_path in old_media_paths:
+                            reference_count = sum(
+                                1 for source_row in observations + archived_rows
+                                for media_item in (source_row.get("media") if isinstance(source_row.get("media"), list) else [])
+                                if isinstance(media_item, dict) and str(media_item.get("path", "")) == old_path
+                            )
+                            if reference_count != 1:
+                                set_mushroom_profiles_flash(f"Observation was not saved: image {old_path} is still used by {reference_count} observations.")
+                                return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
+                    updated["media"] = []
                     append_observation_media(
                         updated,
                         save_observation_image_media(
@@ -12467,6 +13607,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     metadata["updated_by"] = "rainmapper_ui"
                 result = store.replace("observations", observations_payload)
                 if result.ok:
+                    if exif_uploads and catalog_form_string(form, "media_replacement_action") == "delete":
+                        for old_path in old_media_paths:
+                            old_file = observation_media_file_path(old_path)
+                            if old_file is not None and old_file.exists():
+                                old_file.unlink()
                     affected_species = observation_species_ids([existing, updated] + created_from_extra_photos)
                     mushroom_model_state.mark_species_pending(affected_species)
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
@@ -12765,6 +13910,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./mushrooms/catalogs">Mushroom catalogs</a>
           <a class="button-link" href="./mushrooms/profiles">Mushroom species</a>
           <a class="button-link" href="./mushrooms/gis-mappings">GIS mappings</a>
+          <a class="button-link" href="./mushrooms/known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
         </div>
         """
         head_controls = f"""

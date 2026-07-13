@@ -9,6 +9,13 @@ Ficheros relacionados:
 - `mushroom_gis_mappings.json`
 - `mushroom_observations.json`
 - `docs/mushrooms/mushroom-local-observation-lab-es.md`
+- `docs/mushrooms/mushroom-ml-training-plan-es.md`
+
+Direccion ML acordada 2026-07-11: el modelo aprendido v0 actual sigue siendo
+descriptivo y no debe confundirse con machine learning. El plan concreto de
+dataset, variables meteorologicas diarias, entrenamiento y validacion empieza
+con `boletus_aereus` y se define en
+`docs/mushrooms/mushroom-ml-training-plan-es.md`.
 
 Este documento propone una primera arquitectura funcional para el predictor de floradas de setas de Rainmapper. No define todavía un algoritmo cerrado ni un contrato definitivo de schema. Su objetivo es ordenar las decisiones antes de modificar el modelo de datos o implementar el motor predictivo.
 

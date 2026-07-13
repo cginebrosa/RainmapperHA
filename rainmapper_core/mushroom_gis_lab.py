@@ -790,6 +790,132 @@ def sample_dem(lon: float, lat: float, observed_altitude: object) -> dict[str, A
     return payload
 
 
+def _point_in_ring(lon: float, lat: float, ring: list[object]) -> bool:
+    inside = False
+    valid = [point for point in ring if isinstance(point, list) and len(point) >= 2]
+    for first, second in zip(valid, valid[1:] + valid[:1]):
+        x1, y1 = float(first[0]), float(first[1])
+        x2, y2 = float(second[0]), float(second[1])
+        if (y1 > lat) != (y2 > lat) and lon < (x2 - x1) * (lat - y1) / ((y2 - y1) or 1e-12) + x1:
+            inside = not inside
+    return inside
+
+
+def polygon_sample_grid(geometry: object, size: int = 5) -> list[tuple[float, float, int, int]]:
+    """Return a regular set of WGS84 samples inside a Polygon/MultiPolygon."""
+    if not isinstance(geometry, dict) or geometry.get("type") not in {"Polygon", "MultiPolygon"}:
+        return []
+    polygons = geometry.get("coordinates") if geometry.get("type") == "MultiPolygon" else [geometry.get("coordinates")]
+    rings = [polygon[0] for polygon in polygons if isinstance(polygon, list) and polygon and isinstance(polygon[0], list)]
+    points = [point for ring in rings for point in ring if isinstance(point, list) and len(point) >= 2]
+    if not points:
+        return []
+    min_lon, max_lon = min(float(point[0]) for point in points), max(float(point[0]) for point in points)
+    min_lat, max_lat = min(float(point[1]) for point in points), max(float(point[1]) for point in points)
+    result = []
+    for row in range(size):
+        lat = min_lat + (max_lat - min_lat) * row / max(size - 1, 1)
+        for column in range(size):
+            lon = min_lon + (max_lon - min_lon) * column / max(size - 1, 1)
+            if any(_point_in_ring(lon, lat, ring) for ring in rings):
+                result.append((lon, lat, row, column))
+    return result
+
+
+def derive_site_gis_dem(
+    geometry: object,
+    gis_payload: dict[str, Any] | None = None,
+    catalogs_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build reviewable DEM/GIS suggestions for a known-site polygon."""
+    samples = polygon_sample_grid(geometry)
+    report: dict[str, Any] = {
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "method": "polygon_grid_5x5",
+        "sample_count": len(samples),
+        "dem_source": str(dem_path()),
+        "dem_status": "missing_layer" if not dem_path().exists() else "no_data",
+        "gis": {},
+    }
+    elevations: dict[tuple[int, int], float] = {}
+    for lon, lat, row, column in samples:
+        result = sample_dem(lon, lat, None)
+        if result.get("status") == "ok":
+            elevations[(row, column)] = float(result["elevation_m"])
+    if elevations:
+        values = list(elevations.values())
+        report.update({
+            "dem_status": "ok",
+            "altitude_min_m": round(min(values), 1),
+            "altitude_max_m": round(max(values), 1),
+            "altitude_mean_m": round(sum(values) / len(values), 1),
+            "dem_sample_count": len(values),
+        })
+        lookup = {(row, column): (lon, lat) for lon, lat, row, column in samples}
+        aspects: dict[str, int] = {}
+        slopes = []
+        aspect_ids = ["aspect_N", "aspect_NE", "aspect_E", "aspect_SE", "aspect_S", "aspect_SW", "aspect_W", "aspect_NW"]
+        for (row, column), elevation in elevations.items():
+            east, west = elevations.get((row, column + 1)), elevations.get((row, column - 1))
+            north, south = elevations.get((row + 1, column)), elevations.get((row - 1, column))
+            if None in {east, west, north, south}:
+                continue
+            lon, lat = lookup[(row, column)]
+            lon_e, _ = lookup[(row, column + 1)]
+            _, lat_n = lookup[(row + 1, column)]
+            dx = abs(lon_e - lon) * 111_320 * math.cos(math.radians(lat))
+            dy = abs(lat_n - lat) * 110_540
+            if not dx or not dy:
+                continue
+            dzdx = (east - west) / (2 * dx)
+            dzdy = (north - south) / (2 * dy)
+            slope = math.degrees(math.atan(math.hypot(dzdx, dzdy)))
+            slopes.append(slope)
+            aspect_id = "aspect_flat" if slope < 2 else aspect_ids[int(((math.degrees(math.atan2(-dzdx, -dzdy)) + 360 + 22.5) % 360) // 45) % 8]
+            aspects[aspect_id] = aspects.get(aspect_id, 0) + 1
+        if slopes:
+            total = sum(aspects.values()) or 1
+            report.update({
+                "slope_min_deg": round(min(slopes), 1),
+                "slope_max_deg": round(max(slopes), 1),
+                "slope_mean_deg": round(sum(slopes) / len(slopes), 1),
+                "aspect_distribution": {key: round(count * 100 / total, 1) for key, count in sorted(aspects.items())},
+                "dominant_aspect_ids": [key for key, count in aspects.items() if count * 100 / total >= 15],
+            })
+    raw_distributions: dict[str, dict[str, int]] = {}
+    mapped_ids: dict[str, set[str]] = {field: set() for field in GIS_V0_OUTPUT_FIELDS.values()}
+    suggested_ids: dict[str, set[str]] = {field: set() for field in GIS_V0_OUTPUT_FIELDS.values()}
+    for lon, lat, _row, _column in samples[:: max(1, len(samples) // 9)]:
+        try:
+            x, y = transform_wgs84_to_utm31(lon, lat)
+        except Exception:
+            continue
+        for layer in vector_layers():
+            result = first_vector_feature(layer, x, y)
+            if result.get("status") != "ok":
+                continue
+            properties = result.get("properties") if isinstance(result.get("properties"), dict) else {}
+            label = str(properties.get("LLVA_niv2t") or properties.get("Descripcio") or properties.get("Codi") or "-")
+            distribution = raw_distributions.setdefault(layer.source_id, {})
+            distribution[label] = distribution.get(label, 0) + 1
+            mapped = apply_exact_layer_mappings(layer.source_id, result, gis_payload, catalogs_payload)
+            for source_field, target_field in GIS_V0_OUTPUT_FIELDS.items():
+                for item in mapped.get(source_field, []) if isinstance(mapped, dict) else []:
+                    mapped_ids[target_field].add(str(item))
+                for unmapped in mapped.get("unmapped_values", []) if isinstance(mapped, dict) else []:
+                    if not isinstance(unmapped, dict):
+                        continue
+                    for item in unmapped.get(f"suggested_{source_field}", []):
+                        suggested_ids[target_field].add(str(item))
+    report["gis"] = {
+        "raw_distributions": raw_distributions,
+        "accepted_exact_ids": {key: sorted(value) for key, value in mapped_ids.items()},
+        "review_suggested_ids": {key: sorted(value) for key, value in suggested_ids.items()},
+        **{key: sorted(value | suggested_ids[key]) for key, value in mapped_ids.items()},
+    }
+    return report
+
+
 def observation_location(row: dict[str, object]) -> tuple[float, float] | None:
     location = row.get("location")
     if not isinstance(location, dict):

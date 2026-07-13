@@ -2618,5 +2618,152 @@
     "en": "Read-only view. It summarizes observed conditions; it does not calculate thresholds or modify profiles.",
     "es": "Vista de solo lectura. Resume condiciones observadas; no calcula umbrales ni modifica perfiles.",
     "ca": "Vista de nomes lectura. Resumeix condicions observades; no calcula llindars ni modifica perfils."
+  },
+  "ui.known_sites": {
+    "en": "Mushroom sites", "es": "Setales", "ca": "Boletars"
+  },
+  "ui.name": {
+    "en": "Name", "es": "Nombre", "ca": "Nom"
+  },
+  "ui.create": {
+    "en": "Create", "es": "Crear", "ca": "Crear"
+  },
+  "ui.save": {
+    "en": "Save", "es": "Guardar", "ca": "Desar"
+  },
+  "ui.back": {
+    "en": "Back", "es": "Volver", "ca": "Tornar"
+  },
+  "ui.known_sites_help": {
+    "en": "Maintain private areas and micro-areas used to group observations and future predictions.", "es": "Mantiene areas y microareas privadas para agrupar observaciones y futuras predicciones.", "ca": "Manté arees i microarees privades per agrupar observacions i prediccions futures."
+  },
+  "ui.known_site_area": {
+    "en": "Area", "es": "Area", "ca": "Area"
+  },
+  "ui.known_site_micro_area": {
+    "en": "Micro-area", "es": "Microarea", "ca": "Microarea"
+  },
+  "ui.area_id": {
+    "en": "Area ID", "es": "ID de area", "ca": "ID d'area"
+  },
+  "ui.micro_area_id": {
+    "en": "Micro-area ID", "es": "ID de microarea", "ca": "ID de microarea"
+  },
+  "ui.micro_area": {
+    "en": "Known micro-area", "es": "Microarea conocida", "ca": "Microarea coneguda"
+  },
+  "ui.parent_area": {
+    "en": "Parent area", "es": "Area superior", "ca": "Area superior"
+  },
+  "ui.areas": {
+    "en": "Areas", "es": "Areas", "ca": "Arees"
+  },
+  "ui.micro_areas": {
+    "en": "Micro-areas", "es": "Microareas", "ca": "Microarees"
+  },
+  "ui.new_area": {
+    "en": "New area", "es": "Nueva area", "ca": "Area nova"
+  },
+  "ui.new_micro_area": {
+    "en": "New micro-area", "es": "Nueva microarea", "ca": "Microarea nova"
+  },
+  "ui.manage_known_sites": {
+    "en": "Manage known sites", "es": "Gestionar zonas conocidas", "ca": "Gestionar zones conegudes"
+  },
+  "ui.linked_observations": {
+    "en": "Linked observations", "es": "Observaciones vinculadas", "ca": "Observacions vinculades"
+  },
+  "ui.references": {
+    "en": "References", "es": "Referencias", "ca": "Referencies"
+  },
+  "ui.aliases": {
+    "en": "Aliases", "es": "Alias", "ca": "Alias"
+  },
+  "ui.description": {
+    "en": "Description", "es": "Descripcion", "ca": "Descripcio"
+  },
+  "ui.advanced_fields": {
+    "en": "Advanced location fields", "es": "Campos avanzados de ubicacion", "ca": "Camps avancats d'ubicacio"
+  },
+  "ui.environment_and_future_fields": {
+    "en": "Environment and future fields", "es": "Entorno y campos futuros", "ca": "Entorn i camps futurs"
+  },
+  "ui.municipality": {
+    "en": "Municipality", "es": "Municipio", "ca": "Municipi"
+  },
+  "ui.county": {
+    "en": "County", "es": "Comarca", "ca": "Comarca"
+  },
+  "ui.province": {
+    "en": "Province", "es": "Provincia", "ca": "Provincia"
+  },
+  "ui.country": {
+    "en": "Country", "es": "Pais", "ca": "Pais"
+  },
+  "ui.geometry_geojson": {
+    "en": "Geometry (GeoJSON)", "es": "Geometria (GeoJSON)", "ca": "Geometria (GeoJSON)"
+  },
+  "ui.private_notes": {
+    "en": "Private notes", "es": "Notas privadas", "ca": "Notes privades"
+  },
+  "ui.location_precision_m": {
+    "en": "Location precision (m)", "es": "Precision de ubicacion (m)", "ca": "Precisio d'ubicacio (m)"
+  },
+  "ui.altitude_min": {
+    "en": "Minimum altitude", "es": "Altitud minima", "ca": "Altitud minima"
+  },
+  "ui.altitude_max": {
+    "en": "Maximum altitude", "es": "Altitud maxima", "ca": "Altitud maxima"
+  },
+  "ui.aspect_ids": {
+    "en": "Aspect IDs", "es": "IDs de orientacion", "ca": "IDs d'orientacio"
+  },
+  "ui.slope_notes": {
+    "en": "Slope notes", "es": "Notas de pendiente", "ca": "Notes de pendent"
+  },
+  "ui.exposure_notes": {
+    "en": "Exposure notes", "es": "Notas de exposicion", "ca": "Notes d'exposicio"
+  },
+  "ui.host_ids": {
+    "en": "Host IDs", "es": "IDs de hosts", "ca": "IDs d'hosts"
+  },
+  "ui.forest_type_ids": {
+    "en": "Forest type IDs", "es": "IDs de tipos de bosque", "ca": "IDs de tipus de bosc"
+  },
+  "ui.soil_tendency_ids": {
+    "en": "Soil tendency IDs", "es": "IDs de tendencia de suelo", "ca": "IDs de tendencia de sol"
+  },
+  "ui.habitat_feature_ids": {
+    "en": "Habitat feature IDs", "es": "IDs de habitat", "ca": "IDs d'habitat"
+  },
+  "ui.ecology_notes": {
+    "en": "Ecology notes", "es": "Notas ecologicas", "ca": "Notes ecologiques"
+  },
+  "ui.access_difficulty": {
+    "en": "Access difficulty", "es": "Dificultad de acceso", "ca": "Dificultat d'acces"
+  },
+  "ui.access_notes": {
+    "en": "Access notes", "es": "Notas de acceso", "ca": "Notes d'acces"
+  },
+  "ui.provenance_source": {
+    "en": "Provenance source", "es": "Origen del dato", "ca": "Origen de la dada"
+  },
+  "ui.provenance_confidence": {
+    "en": "Provenance confidence", "es": "Confianza del origen", "ca": "Confianca de l'origen"
+  },
+  "ui.provenance_notes": {
+    "en": "Provenance notes", "es": "Notas de procedencia", "ca": "Notes de procedencia"
+  },
+  "ui.archived": {
+    "en": "Archived", "es": "Archivada", "ca": "Arxivada"
+  },
+  "ui.active": {
+    "en": "Active", "es": "Activa", "ca": "Activa"
+  },
+  "ui.no_known_sites": {
+    "en": "No known areas or micro-areas yet.", "es": "Todavia no hay areas ni microareas conocidas.", "ca": "Encara no hi ha arees ni microarees conegudes."
+  },
+  "ui.select_area_or_micro_area": {
+    "en": "Select an area or micro-area.", "es": "Selecciona un area o una microarea.", "ca": "Selecciona una area o una microarea."
   }
 }

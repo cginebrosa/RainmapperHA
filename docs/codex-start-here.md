@@ -9,10 +9,10 @@ Assistant. Descarga historicos meteorologicos, genera mapas de lluvia y mantiene
 un modulo de setas para registrar observaciones, revisar perfiles de especies y
 construir un modelo v0 descriptivo/auditable.
 
-El trabajo activo actual combina tres frentes: validar la ultima version HA,
-mantener el visor MapLibre protegido como salida operativa principal y seguir
-el modulo de setas con evidencia local/promocion manual. El rendimiento del
-backend ya quedo razonablemente acotado; Wunderground usa API diaria primaria.
+El release HA estable y MapLibre meteorologico estan validados. El trabajo
+activo se concentra en el modulo de setas: observaciones, media EXIF, setales
+jerarquicos con geometria/GIS/DEM y preparacion de un pipeline ML real. El
+modelo v0 actual sigue siendo descriptivo y auditable, no un estimador ML.
 
 ## Ruta obligatoria
 
@@ -52,6 +52,8 @@ Para tareas de setas:
 
 - Parametros UI: `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md`
 - Observaciones UI: `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`
+- Schema de observaciones: `docs/mushrooms/mushroom-observations-schema-es.md`
+- Plan de entrenamiento ML: `docs/mushrooms/mushroom-ml-training-plan-es.md`
 - Modelo v0/laboratorio: `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`
 - Predictor: `docs/mushrooms/mushroom-predictor-design-es.md`
 - Contrato perfiles v0: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
@@ -105,8 +107,14 @@ Para tareas de setas:
   `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
 - Mantener `web_server.py` en rutas/POST/orquestacion; pantallas grandes en
   `mushroom_profiles_ui.py`, `mushroom_catalogs_ui.py` o
-  `mushroom_gis_mappings_ui.py`.
+  `mushroom_gis_mappings_ui.py`; setales en `mushroom_known_sites_ui.py`.
 - Usar patrones existentes y evitar refactors grandes si no son necesarios.
+- En desarrollo local usar siempre `.venv/bin/python` (Python 3.11), igual que
+  el contenedor y HA. No usar el Python del sistema. La migracion a Python 3.14
+  se tratara como tarea separada.
+- La navegacion de la WebUI debe conservar el contexto de llamada: al cerrar o
+  volver, restaurar formulario/borrador o lista con seleccion, filtros, orden y
+  scroll. No crear versiones divergentes del mismo modal segun el origen.
 
 ## Fuente de verdad de setas
 
@@ -149,9 +157,9 @@ operacion.
 Para cambios en setas:
 
 ```bash
-python3 scripts/validate-mushroom-data.py
-python3.11 -m py_compile rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_profiles_ui.py rainmapper_core/mushroom_paths.py
-python3.11 -m unittest tests.test_mushroom_paths tests.test_mushroom_model_state tests.test_mushroom_observations tests.test_mushroom_gis_lab tests.test_mushroom_observation_context tests.test_mushroom_observation_features tests.test_mushroom_learned_model tests.test_mushroom_literature_source_apply tests.test_mushroom_data_validator tests.test_web_server_auth
+.venv/bin/python scripts/validate-mushroom-data.py
+.venv/bin/python -m py_compile rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_profiles_ui.py rainmapper-app/app/mushroom_known_sites_ui.py rainmapper_core/mushroom_paths.py rainmapper_core/mushroom_known_sites.py
+PYTHONPATH=rainmapper-app/app .venv/bin/python -m unittest tests.test_mushroom_paths tests.test_mushroom_model_state tests.test_mushroom_observations tests.test_mushroom_gis_lab tests.test_mushroom_known_sites tests.test_mushroom_observation_context tests.test_mushroom_observation_features tests.test_mushroom_learned_model tests.test_mushroom_literature_source_apply tests.test_mushroom_data_validator tests.test_web_server_auth
 git diff --check
 ```
 

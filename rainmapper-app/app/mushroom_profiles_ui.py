@@ -12,11 +12,11 @@ import html
 import json
 import os
 import re
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
-from rainmapper_core import mushroom_paths
+from rainmapper_core import mushroom_known_sites, mushroom_paths
 
 
 PROFILE_SELECT_VALUES = {
@@ -63,6 +63,91 @@ ICONS = {
 def icon(name: str) -> str:
     """Return a small inline SVG icon with inherited stroke color."""
     return ICONS.get(name, "")
+
+
+def known_site_name(micro_area_id: object) -> str:
+    micro_id = str(micro_area_id or "").strip()
+    if not micro_id:
+        return ui_label("ui.not_informed")
+    try:
+        options = dict(mushroom_known_sites.micro_area_options(mushroom_known_sites.load_payload()))
+    except Exception:
+        options = {}
+    return options.get(micro_id, micro_id)
+
+
+def known_site_geometry_context(micro_area_id: object) -> dict[str, object]:
+    """Return the saved micro-area and parent-area geometry for a map overlay."""
+    micro_id = str(micro_area_id or "").strip()
+    if not micro_id:
+        return {}
+    try:
+        payload = mushroom_known_sites.load_payload()
+    except Exception:
+        return {}
+    micro = next(
+        (row for row in payload.get("micro_areas", []) if isinstance(row, dict) and str(row.get("micro_area_id", "")) == micro_id),
+        None,
+    )
+    if not micro:
+        return {}
+    area_id = str(micro.get("area_id", ""))
+    area = next(
+        (row for row in payload.get("areas", []) if isinstance(row, dict) and str(row.get("area_id", "")) == area_id),
+        None,
+    )
+    return {
+        "micro_area": {"name": str(micro.get("name", micro_id)), "geometry": micro.get("geometry")},
+        "area": {"name": str(area.get("name", area_id)), "geometry": area.get("geometry")} if area else None,
+    }
+
+
+def all_known_site_geometries() -> list[dict[str, object]]:
+    """Return every active saved site geometry for contextual map display."""
+    try:
+        payload = mushroom_known_sites.load_payload()
+    except Exception:
+        return []
+    features = []
+    for kind, key, id_key in (("area", "areas", "area_id"), ("micro_area", "micro_areas", "micro_area_id")):
+        for row in payload.get(key, []):
+            if not isinstance(row, dict) or row.get("archived") or not isinstance(row.get("geometry"), dict):
+                continue
+            features.append({
+                "kind": kind,
+                "id": str(row.get(id_key, "")),
+                "area_id": str(row.get("area_id", row.get("area_id", ""))),
+                "name": str(row.get("name", row.get(id_key, ""))),
+                "geometry": row.get("geometry"),
+            })
+    return features
+
+
+def known_site_select_options(selected: object = "") -> str:
+    selected_id = str(selected or "").strip()
+    try:
+        options = mushroom_known_sites.micro_area_options(mushroom_known_sites.load_payload())
+    except Exception:
+        options = []
+    rendered = [f'<option value="">{html.escape(ui_label("ui.not_informed"))}</option>']
+    for micro_id, display in options:
+        chosen = " selected" if micro_id == selected_id else ""
+        rendered.append(f'<option value="{html.escape(micro_id, quote=True)}"{chosen}>{html.escape(display)}</option>')
+    if selected_id and selected_id not in {item[0] for item in options}:
+        rendered.append(f'<option value="{html.escape(selected_id, quote=True)}" selected>{html.escape(selected_id)} ({html.escape(ui_label("ui.archived"))})</option>')
+    return "".join(rendered)
+
+
+def known_area_select_options() -> str:
+    """Render active parent areas for quick micro-area creation."""
+    try:
+        rows = mushroom_known_sites.load_payload().get("areas", [])
+    except Exception:
+        rows = []
+    return "".join(
+        f'<option value="{html.escape(str(row.get("area_id", "")), quote=True)}">{html.escape(str(row.get("name", row.get("area_id", ""))))}</option>'
+        for row in rows if isinstance(row, dict) and not row.get("archived")
+    )
 
 
 def parameter_label_candidates() -> list[Path]:
@@ -1774,6 +1859,17 @@ def render_observation_raw_exif_modal(
     """
 
 
+def observation_map_controls_html() -> str:
+    return """
+    <div class="observation-map-controls">
+      <button class="observation-map-control observation-layer-toggle" type="button" aria-expanded="false" title="Mapa base"><svg aria-hidden="true" viewBox="0 0 24 24"><polygon points="12 2 22 7 12 12 2 7"></polygon><polyline points="22 12 12 17 2 12"></polyline><polyline points="22 17 12 22 2 17"></polyline></svg></button>
+      <button class="observation-map-control observation-terrain-toggle" type="button" aria-pressed="false" title="Activar relieve 3D">3D</button>
+      <button class="observation-map-control observation-north-toggle" type="button" title="Orientar al norte"><span aria-hidden="true"></span></button>
+      <div class="observation-layer-panel" hidden><button class="active" type="button" data-basemap="satellite">Satélite+</button><button type="button" data-basemap="hybrid">Híbrido</button><button type="button" data-basemap="topographic">Topográfico</button></div>
+    </div>
+    """
+
+
 def render_observation_map_modal(
     row: dict[str, object],
     selected_species_id: str = "",
@@ -1788,20 +1884,94 @@ def render_observation_map_modal(
     lat, lon = location
     modal_id = observation_map_modal_id(observation_id)
     close_href = observation_select_url(selected_species_id, search, filters, observation_id)
-    map_rows = [{"observation_id": observation_id, "location": (lat, lon)}]
     photo_html = render_observation_photo_strip(row, extra_class="observation-map-photo-strip", limit=1)
+    site_context = known_site_geometry_context(row.get("micro_area_id"))
+    map_payload = json.dumps(
+        {
+            "lat": lat,
+            "lon": lon,
+            "observation_id": observation_id,
+            "species_id": str(row.get("species_id", "") or ""),
+            "observed_at": str(row.get("observed_at", "") or ""),
+            "flush_abundance": str(row.get("flush_abundance_label", "") or row.get("flush_abundance", "") or ""),
+            "assigned_micro_area_id": str(row.get("micro_area_id", "") or ""),
+            "known_sites": all_known_site_geometries(),
+            **site_context,
+        },
+        ensure_ascii=False,
+    ).replace("<", "\\u003c")
+    external_href = google_maps_external_url(lat, lon)
     return f"""
     <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
       <div class="modal-card evidence-map-modal">
         <div class="modal-header">
           <div>
             <h2>{html.escape(ui_label("ui.evidence_map"))}</h2>
-            <p class="meta">{html.escape(observation_id)} · {html.escape(f"{lat:.6f}, {lon:.6f}")}</p>
+            <p class="meta" data-observation-map-summary>{html.escape(observation_id)} · {html.escape(f"{lat:.6f}, {lon:.6f}")}</p>
+            <div class="observation-coordinate-toolbar" data-coordinate-toolbar>
+              <button type="button" data-coordinate-start>Seleccionar coordenadas en el mapa</button>
+              <button class="primary" type="button" data-coordinate-confirm disabled>Confirmar nuevas coordenadas</button>
+              <button type="button" data-coordinate-cancel disabled>Cancelar edición de coordenadas</button>
+              <span class="meta" data-coordinate-value hidden></span>
+            </div>
           </div>
           {photo_html}
           <a class="button-link compact-button" href="{html.escape(close_href, quote=True)}" data-modal-history-close>{html.escape(ui_label("ui.close"))}</a>
         </div>
-        {render_evidence_observation_map(map_rows, modal_id)}
+        <div class="observation-site-map-shell">
+          <div class="observation-site-map" data-observation-site-map="{html.escape(modal_id, quote=True)}"></div>
+          {observation_map_controls_html()}
+          <script type="application/json" class="observation-site-map-data">{map_payload}</script>
+          <div class="observation-site-map-legend">
+            <span><i class="observation-point-key"></i>{html.escape(ui_label('ui.observation_detail'))}</span>
+            {f'<span><i class="micro-area-key"></i>{html.escape(str(site_context.get("micro_area", {}).get("name", "")))}</span>' if site_context.get('micro_area') else ''}
+            {f'<span><i class="area-key"></i>{html.escape(str(site_context.get("area", {}).get("name", "")))}</span>' if site_context.get('area') else ''}
+            <a class="button-link compact-button" href="{html.escape(external_href, quote=True)}" target="_blank" rel="noopener">{html.escape(ui_label('ui.evidence_open_google_maps'))}</a>
+          </div>
+        </div>
+        <form class="observation-coordinate-form" method="post" data-coordinate-form>
+          <input type="hidden" name="profile_action" value="update_observation_coordinates">
+          <input type="hidden" name="species_id" value="{html.escape(selected_species_id, quote=True)}">
+          <input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">
+          <input type="hidden" name="location_lat" value="">
+          <input type="hidden" name="location_lon" value="">
+          <input type="hidden" name="altitude_m" value="">
+          <div class="observation-coordinate-confirm" data-coordinate-confirm-modal hidden>
+            <section role="dialog" aria-modal="true" aria-labelledby="{html.escape(modal_id, quote=True)}-coordinate-title">
+              <h3 id="{html.escape(modal_id, quote=True)}-coordinate-title">Confirmar nuevas coordenadas</h3>
+              <p data-coordinate-confirm-text></p>
+              <p><strong>Esta acción no se puede deshacer.</strong></p>
+              <div><button type="button" data-coordinate-confirm-cancel>Cancelar</button><button class="primary" type="submit">Confirmar</button></div>
+            </section>
+          </div>
+        </form>
+        <form class="observation-site-assignment" method="post">
+          <input type="hidden" name="profile_action" value="assign_observation_site">
+          <input type="hidden" name="species_id" value="{html.escape(selected_species_id, quote=True)}">
+          <input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">
+          <input type="hidden" name="new_site_kind" value="">
+          <input type="hidden" name="new_site_area_id" value="">
+          <input type="hidden" name="edit_site_id" value="">
+          <input type="hidden" name="new_site_geometry_json" value="">
+          <input type="hidden" name="micro_area_id" value="{html.escape(str(row.get('micro_area_id', '') or ''), quote=True)}">
+          <div class="observation-site-modes" role="group" aria-label="Acción sobre setales">
+            <button class="active" type="button" data-site-mode="select">Seleccionar microárea</button>
+            <button type="button" data-site-mode="area">Nueva área</button>
+            <button type="button" data-site-mode="edit_area">Editar área</button>
+            <button type="button" data-site-mode="micro_area">Nueva microárea</button>
+            <button type="button" data-site-mode="edit_micro_area">Editar microárea</button>
+          </div>
+          <div class="observation-site-context">
+            <p data-site-proposal>Haz clic sobre una microárea para seleccionarla.</p>
+            <button class="primary" type="submit" data-site-assign hidden>Asignar a la observación</button>
+          </div>
+          <div class="observation-new-site-fields" hidden>
+            <div data-new-site-name-field><label data-new-site-name-label>Nombre</label><input name="new_site_name" required disabled></div>
+            <span class="meta" data-new-site-parent></span>
+            <button class="primary" type="submit" data-new-site-submit>Crear</button>
+            <button type="button" data-new-site-cancel>Cancelar</button>
+          </div>
+        </form>
       </div>
     </div>
     """
@@ -1836,6 +2006,15 @@ def render_evidence_observation_map(rows: list[dict[str, object]], map_id: str) 
     """
 
 
+def format_observation_date(value: object) -> str:
+    """Return an observation date in the configured human-facing format."""
+    raw = str(value or "")
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        return raw
+
+
 def render_evidence_observation_modal(
     modal_id: str,
     species_id: str,
@@ -1844,9 +2023,14 @@ def render_evidence_observation_modal(
     evidence_view: str,
     item_label: str,
     rows: list[dict[str, object]],
+    *,
+    modal_title: str = "",
+    modal_help: str | None = None,
+    close_href_override: str = "",
+    observation_return_to: str = "",
 ) -> str:
-    """Render a modal with observation rows and a zoomable local map."""
-    close_href = profile_query_url(
+    """Render the shared observation-list modal for evidence and site contexts."""
+    close_href = close_href_override or profile_query_url(
         species_id,
         search,
         section="evidence",
@@ -1856,25 +2040,43 @@ def render_evidence_observation_modal(
     list_rows = []
     for index, row in enumerate(rows, start=1):
         observation_id = str(row.get("observation_id", "") or "")
+        observed_at = str(row.get("observed_at", "") or "")
+        try:
+            display_date = datetime.strptime(observed_at, "%Y-%m-%d").strftime("%d/%m/%Y")
+        except ValueError:
+            display_date = observed_at or "-"
         location = row.get("location")
         if isinstance(location, tuple):
             coords = f"{location[0]:.6f}, {location[1]:.6f}"
             map_button = (
                 f'<button class="evidence-map-select-button" type="button" '
-                f'data-evidence-map-target="{html.escape(modal_id, quote=True)}" '
-                f'data-map-label="{html.escape(observation_id, quote=True)}" '
-                f'data-map-src="{html.escape(google_maps_embed_src(float(location[0]), float(location[1])), quote=True)}" '
-                f'data-map-external="{html.escape(google_maps_external_url(float(location[0]), float(location[1])), quote=True)}">'
+                f'data-observation-map-target="{html.escape(modal_id, quote=True)}" '
+                f'data-observation-map-id="{html.escape(observation_id, quote=True)}" '
+                f'data-observation-map-lat="{float(location[0]):.7f}" '
+                f'data-observation-map-lon="{float(location[1]):.7f}">'
                 f'{html.escape(ui_label("ui.evidence_show_on_map"))}</button>'
             )
         else:
             coords = ui_label("ui.evidence_no_coordinates")
             map_button = ""
-        open_href = observation_select_url(species_id, search, None, observation_id)
+        row_species_id = str(row.get("species_id", "") or species_id)
+        if observation_return_to:
+            open_href = "./profiles?" + urlencode(
+                {
+                    "section": "observations",
+                    "id": row_species_id,
+                    "obs_id": observation_id,
+                    "return_to": observation_return_to,
+                }
+            ) + "#observation-detail"
+        else:
+            open_href = observation_select_url(species_id, search, None, observation_id)
+        selected_class = " selected" if index == 1 else ""
+        aria_current = ' aria-current="true"' if index == 1 else ""
         list_rows.append(
-            '<li class="evidence-observation-item">'
+            f'<li class="evidence-observation-item{selected_class}" data-observation-map-row="{html.escape(observation_id, quote=True)}"{aria_current}>'
             f'<span class="evidence-observation-index">{index}</span>'
-            f'<strong class="evidence-observation-date">{html.escape(str(row.get("observed_at", "") or "-"))}</strong>'
+            f'<strong class="evidence-observation-date">{html.escape(display_date)}</strong>'
             '<span class="evidence-observation-main">'
             f'<strong>{html.escape(observation_id)}</strong>'
             f'<span class="meta">{html.escape(str(row.get("flush_abundance_label", "") or row.get("flush_abundance", "") or "-"))} · {html.escape(str(row.get("analysis_result", "") or "-"))}</span>'
@@ -1884,17 +2086,29 @@ def render_evidence_observation_modal(
             f'<a class="evidence-map-select-button" href="{html.escape(open_href, quote=True)}">{html.escape(ui_label("ui.open"))}</a>'
             "</li>"
         )
+    located_rows = [
+        {
+            "observation_id": str(row.get("observation_id", "")),
+            "species_id": str(row.get("species_id", "") or ""),
+            "observed_at": format_observation_date(row.get("observed_at")),
+            "flush_abundance": str(row.get("flush_abundance_label", "") or row.get("flush_abundance", "") or ""),
+            "lat": float(row["location"][0]),
+            "lon": float(row["location"][1]),
+        }
+        for row in rows if isinstance(row.get("location"), tuple)
+    ]
+    map_payload = json.dumps({"observations": located_rows, "known_sites": all_known_site_geometries()}, ensure_ascii=False).replace("<", "\\u003c")
     return f"""
     <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
       <div class="modal-card evidence-map-modal">
         <div class="modal-header">
           <div>
-            <h2>{html.escape(ui_label("ui.evidence_observations_modal_title"))}</h2>
+            <h2>{html.escape(modal_title or ui_label("ui.evidence_observations_modal_title"))}</h2>
             <p class="meta">{html.escape(item_label)} · {len(rows)} {html.escape(ui_label("ui.evidence_observations_short"))}</p>
           </div>
           <a class="button-link compact-button" href="{html.escape(close_href, quote=True)}">{html.escape(ui_label("ui.close"))}</a>
         </div>
-        <p class="meta">{html.escape(ui_label("ui.evidence_observations_modal_help"))}</p>
+        {f'<p class="meta">{html.escape(modal_help if modal_help is not None else ui_label("ui.evidence_observations_modal_help"))}</p>' if modal_help is not None or ui_label("ui.evidence_observations_modal_help") else ''}
         <div class="evidence-observation-layout">
           <section>
             <h3>{html.escape(ui_label("ui.evidence_observation_list"))}</h3>
@@ -1902,7 +2116,12 @@ def render_evidence_observation_modal(
           </section>
           <section>
             <h3>{html.escape(ui_label("ui.evidence_map"))}</h3>
-            {render_evidence_observation_map(rows, modal_id)}
+            <div class="observation-site-map-shell evidence-sites-map-shell">
+              <div class="observation-site-map" data-observation-site-map="{html.escape(modal_id, quote=True)}"></div>
+              {observation_map_controls_html()}
+              <script type="application/json" class="observation-site-map-data">{map_payload}</script>
+              <div class="observation-site-map-legend"><span><i class="observation-point-key"></i>Observaciones</span><span><i class="micro-area-key"></i>Microáreas visibles</span><span><i class="area-key"></i>Áreas visibles</span></div>
+            </div>
           </section>
         </div>
       </div>
@@ -3442,6 +3661,7 @@ def render_local_evidence_section(
         </section>
         """
     return f"""
+    {observation_site_map_assets()}
     <section class="card profile-section-screen evidence-screen">
       <div class="evidence-sticky-header">
         {render_selected_species_header(profile, "Evidencia local v0", profiles=profiles, search=search, section_key="evidence", profile_view=profile_view, evidence_view=evidence_view)}
@@ -4467,20 +4687,7 @@ def filtered_observation_rows(
         visible_rows = [row for row in visible_rows if str(row.get("validation_status", "")) == validation]
     if text:
         def row_text(row: dict[str, object]) -> str:
-            location = row.get("location") if isinstance(row.get("location"), dict) else {}
-            source = row.get("source") if isinstance(row.get("source"), dict) else {}
-            observer = row.get("observer") if isinstance(row.get("observer"), dict) else {}
-            parts = [
-                row.get("observation_id", ""),
-                row.get("species_id", ""),
-                row.get("flush_abundance", ""),
-                row.get("validation_status", ""),
-                observer.get("name", "") if isinstance(observer, dict) else "",
-                source.get("label", "") if isinstance(source, dict) else "",
-                source.get("type", "") if isinstance(source, dict) else "",
-                location.get("input", "") if isinstance(location, dict) else "",
-            ]
-            return " ".join(str(part) for part in parts).lower()
+            return json.dumps(row, ensure_ascii=False, default=str).lower()
 
         visible_rows = [row for row in visible_rows if text in row_text(row)]
     return visible_rows
@@ -4567,10 +4774,14 @@ def render_observation_table(
         species_id = str(row.get("species_id", ""))
         abundance = observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance"))
         validation = observation_catalog_label(catalogs, "observation_validation_statuses", row.get("validation_status"))
-        calibration_use = observation_catalog_label(catalogs, "observation_calibration_uses", row.get("calibration_use"))
+        calibration_use = {
+            "include": "Calibración",
+            "review": "Revisar",
+            "exclude": "Excluir",
+        }.get(str(row.get("calibration_use", "")), observation_catalog_label(catalogs, "observation_calibration_uses", row.get("calibration_use")))
         validation_tone = "ok" if row.get("validation_status") == "valid" else "warn" if row.get("validation_status") in {"draft", "doubtful"} else "danger"
         use_tone = "ok" if row.get("calibration_use") == "include" else "danger" if row.get("calibration_use") == "exclude" else "warn"
-        coordinates = observation_coordinates_html(row, precision=5)
+        coordinates = observation_coordinates_html(row, precision=3)
         altitude_text = "-"
         if isinstance(altitude, dict) and altitude.get("meters") is not None:
             altitude_text = f'{round(float(altitude.get("meters")))} m'
@@ -4624,6 +4835,9 @@ def render_observation_detail(
     species_labels: dict[str, str],
     *,
     selected_observation_id: str = "",
+    selected_species_id: str = "",
+    filters: dict[str, str] | None = None,
+    media_reference_counts: dict[str, int] | None = None,
 ) -> str:
     """Render the most recent observation detail panel."""
     visible_rows = sorted(rows, key=lambda row: str(row.get("observed_at", "")), reverse=True)
@@ -4644,16 +4858,36 @@ def render_observation_detail(
     altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
     site_context = row.get("site_context") if isinstance(row.get("site_context"), dict) else {}
     species_id = str(row.get("species_id", ""))
-    coords = observation_coordinates_html(row, precision=14)
+    coords = observation_coordinates_html(row, precision=3)
     altitude_text = "-"
     if isinstance(altitude, dict) and altitude.get("meters") is not None:
         altitude_text = f'{round(float(altitude.get("meters")))} m'
+    photo_media = observation_photo_media(row)
     photos_html = render_observation_photo_strip(row, extra_class="observation-detail-photo-strip", limit=1)
+    media_actions = ""
+    media_modals = ""
+    if photo_media:
+        _, media = photo_media[0]
+        media_path = str(media.get("path", "") or "")
+        media_name = str(media.get("original_filename", "") or media.get("stored_filename", "") or media_path)
+        reference_count = max(1, int((media_reference_counts or {}).get(media_path, 1)))
+        observation_id = str(row.get("observation_id", "") or "")
+        unlink_modal_id = evidence_anchor_id("observation-media-unlink", observation_id, media_path)
+        delete_modal_id = evidence_anchor_id("observation-media-delete", observation_id, media_path)
+        context_inputs = observation_context_inputs(filters, selected_species_id=selected_species_id, override_obs_id=observation_id)
+        delete_class = " disabled" if reference_count > 1 else ""
+        delete_href = "#" if reference_count > 1 else f"#{delete_modal_id}"
+        delete_title = f' title="La imagen está asociada a {reference_count} observaciones"' if reference_count > 1 else ""
+        media_actions = f'<div class="observation-detail-media-actions"><a class="button-link" href="#{html.escape(unlink_modal_id, quote=True)}">Desasociar</a><a class="button-link danger{delete_class}" href="{html.escape(delete_href, quote=True)}"{delete_title}>Desasociar y borrar</a></div>'
+        media_modals = f"""
+        <div id="{html.escape(unlink_modal_id, quote=True)}" class="modal-layer"><a class="modal-backdrop" href="#"></a><div class="modal-card observation-media-confirm"><h2>Desasociar imagen</h2><p>Vas a quitar <strong>{html.escape(media_name)}</strong> de la observación <strong>{html.escape(observation_id)}</strong>.</p><p>El fichero se conservará. Esta operación no se puede deshacer automáticamente.</p><div class="profile-action-bar"><a class="button-link" href="#">Cancelar</a><form method="post"><input type="hidden" name="profile_action" value="unlink_observation_media">{context_inputs}<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}"><input type="hidden" name="media_path" value="{html.escape(media_path, quote=True)}"><button class="danger">Confirmar desasociación</button></form></div></div></div>
+        {f'<div id="{html.escape(delete_modal_id, quote=True)}" class="modal-layer"><a class="modal-backdrop" href="#"></a><div class="modal-card observation-media-confirm"><h2>Desasociar y borrar imagen</h2><p>Vas a quitar <strong>{html.escape(media_name)}</strong> de la observación <strong>{html.escape(observation_id)}</strong> y borrar definitivamente el fichero de la carpeta media.</p><p><strong>Esta operación no se puede deshacer.</strong></p><div class="profile-action-bar"><a class="button-link" href="#">Cancelar</a><form method="post"><input type="hidden" name="profile_action" value="delete_observation_media">{context_inputs}<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}"><input type="hidden" name="media_path" value="{html.escape(media_path, quote=True)}"><button class="danger">Confirmar y borrar fichero</button></form></div></div></div>' if reference_count == 1 else ''}
+        """
     species_text = species_labels.get(species_id, species_id)
     flush_text = observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance"))
     summary_html = f"""
     <div class="observation-detail-summary">
-      {photos_html or '<div class="observation-detail-photo-placeholder"></div>'}
+      <div>{photos_html or '<div class="observation-detail-photo-placeholder"></div>'}{media_actions}</div>
       <div class="observation-detail-summary-fields">
         <div><strong>{html.escape(species_text)}</strong></div>
         <div><span>ID:</span> <strong>{html.escape(str(row.get("observation_id", "-")))}</strong></div>
@@ -4666,6 +4900,8 @@ def render_observation_detail(
     return f"""
     <h2 id="observation-detail">{html.escape(ui_label("ui.observation_detail"))}</h2>
     {summary_html}
+    {media_modals}
+    {value_row(ui_label("ui.micro_area"), known_site_name(row.get("micro_area_id")))}
     {value_row(ui_label("source_quality"), row.get("source_quality", "-"))}
     {value_row(ui_label("ui.calibration_weight"), f"{observation_weight(catalogs, row):.2f}")}
     {value_row(ui_label("site_context.observed_host_ids"), observed_host_names(catalogs, site_context))}
@@ -4703,33 +4939,40 @@ def render_observation_form_modal(
     source = row.get("source") if isinstance(row.get("source"), dict) else {}
     site_context = row.get("site_context") if isinstance(row.get("site_context"), dict) else {}
     observation_id = str(row.get("observation_id", ""))
+    draft_map_source_observation_id = str(row.get("_draft_map_source_observation_id", "") or "")
     current_species_id = str(row.get("species_id", "") or selected_species_id)
     location_input = str(location.get("input", "") if isinstance(location, dict) else "")
-    lat_value = "" if not isinstance(location, dict) or location.get("lat") is None else str(location.get("lat"))
-    lon_value = "" if not isinstance(location, dict) or location.get("lon") is None else str(location.get("lon"))
+    lat_value = "" if not isinstance(location, dict) or location.get("lat") is None else f"{float(location.get('lat')):.8f}"
+    lon_value = "" if not isinstance(location, dict) or location.get("lon") is None else f"{float(location.get('lon')):.8f}"
     location_source = str(location.get("source", "") if isinstance(location, dict) else "")
-    altitude_value = "" if not isinstance(altitude, dict) or altitude.get("meters") is None else str(altitude.get("meters"))
-    map_action = ""
-    if observation_id and observation_location(row):
-        map_action = (
-            f'<a class="button-link" href="#{html.escape(observation_map_modal_id(observation_id), quote=True)}">'
-            f'{html.escape(ui_label("ui.evidence_map"))}</a>'
-        )
+    altitude_value = "" if not isinstance(altitude, dict) or altitude.get("meters") is None else str(round(float(altitude.get("meters"))))
+    map_action = f'<button class="secondary" type="button" data-observation-draft-map>{html.escape(ui_label("ui.evidence_map"))}</button>'
     form_enctype = ' enctype="multipart/form-data"' if action == "update_observation" or allow_exif_images else ""
     context_inputs = observation_context_inputs(
         filters,
         selected_species_id=selected_species_id,
         override_obs_id=observation_id,
     )
+    return_params = {"section": "observations"}
+    if selected_species_id:
+        return_params["id"] = selected_species_id
+    for key, value in (filters or {}).items():
+        if value and key not in {"section", "id"}:
+            return_params[key] = value
+    if observation_id:
+        return_params["obs_id"] = observation_id
+    known_sites_url = "./known-sites?" + urlencode(
+        {"return_to": "./profiles?" + urlencode(return_params) + f"#{modal_id}"}
+    )
     exif_edit_fields = ""
     if action == "update_observation" or allow_exif_images:
         exif_edit_fields = f"""
-        <div class="catalog-alert">
-          <strong>{html.escape(ui_label("ui.update_from_exif_images"))}</strong><br>
-          {html.escape(ui_label("ui.update_from_exif_images_help"))}
+        <div class="catalog-alert observation-exif-update">
+          <strong class="observation-exif-title">{html.escape(ui_label("ui.update_from_exif_images"))}</strong>
+          <span class="observation-exif-help">{html.escape(ui_label("ui.update_from_exif_images_help"))}</span>
           <div class="admin-field wide exif-edit-upload">
             <label>{html.escape(ui_label("ui.exif_images"))}</label>
-            <input name="observation_exif_images" type="file" accept="image/jpeg,image/heic,image/heif" multiple webkitdirectory directory>
+            <input name="observation_exif_images" type="file" accept="image/jpeg,image/heic,image/heif">
           </div>
         </div>
         """
@@ -4740,6 +4983,7 @@ def render_observation_form_modal(
         <input type="hidden" name="profile_action" value="{html.escape(action, quote=True)}">
         {context_inputs}
         {f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">' if observation_id else ""}
+        {f'<input type="hidden" name="draft_map_source_observation_id" value="{html.escape(draft_map_source_observation_id, quote=True)}">' if draft_map_source_observation_id else ""}
         <header class="modal-head">
           <div>
             <h2>{html.escape(title)}</h2>
@@ -4748,29 +4992,33 @@ def render_observation_form_modal(
           <a class="button-link" href="#">{html.escape(ui_label("ui.cancel"))}</a>
         </header>
         {f'<div class="catalog-alert error"><strong>{html.escape(ui_label("ui.observation_not_saved"))}</strong><br>{html.escape(form_message.replace("Observation was not saved: ", ""))}</div>' if form_message else ""}
-        <div class="observation-field-groups">
+        <div class="observation-form-main">
+          <div class="observation-form-left">
           <section class="observation-field-group observation-record-group">
-            <h3>{html.escape(ui_label("ui.observation_group_record"))}</h3>
+            <h3><span class="observation-section-icon">✓</span>{html.escape(ui_label("ui.observation_group_record"))}</h3>
             <div class="observation-group-grid record">
-              <div class="admin-field wide"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, current_species_id)}</select></div>
+              <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, current_species_id)}</select></div>
               <div class="admin-field compact"><label>{html.escape(ui_label("observed_at"))}</label><input name="observed_at" type="date" value="{html.escape(str(row.get("observed_at", "")), quote=True)}" onchange="this.blur()" required></div>
               <div class="admin-field"><label>{html.escape(ui_label("flush_abundance"))}</label><select name="flush_abundance" required>{catalog_select_options(catalogs, "observation_flush_abundance", str(row.get("flush_abundance", "") or "normal"))}</select></div>
               <div class="admin-field compact"><label>{html.escape(ui_label("source_quality"))}</label><input name="source_quality" type="number" min="0" max="1" step="0.05" value="{html.escape(str(row.get("source_quality", 0.75)), quote=True)}" required></div>
             </div>
           </section>
           <section class="observation-field-group observation-location-group">
-            <h3>{html.escape(ui_label("ui.observation_group_location"))}</h3>
+            <h3><span class="observation-section-icon">⌖</span>{html.escape(ui_label("ui.observation_group_location"))}</h3>
             <div class="observation-group-grid location">
               <div class="admin-field location-input"><label>{html.escape(ui_label("location.input"))}</label><input name="location_input" value="{html.escape(location_input, quote=True)}" placeholder="41.38740, 2.16860 or Google Maps URL"></div>
-              <div class="admin-field"><label>{html.escape(ui_label("location.lat"))}</label><input name="location_lat" type="number" step="any" value="{html.escape(lat_value, quote=True)}"></div>
-              <div class="admin-field"><label>{html.escape(ui_label("location.lon"))}</label><input name="location_lon" type="number" step="any" value="{html.escape(lon_value, quote=True)}"></div>
-              <div class="admin-field compact"><label>{html.escape(ui_label("altitude.meters"))}</label><input name="altitude_m" type="number" step="1" value="{html.escape(altitude_value, quote=True)}"></div>
-              <div class="admin-field"><label>{html.escape(ui_label("catalog_group.observation_location_sources"))}</label><select name="location_source">{catalog_select_options(catalogs, "observation_location_sources", location_source, ui_label("ui.not_informed"))}</select></div>
-              <div class="admin-field"><label>{html.escape(ui_label("altitude.source"))}</label><select name="altitude_source">{catalog_select_options(catalogs, "observation_altitude_sources", str(altitude.get("source", "") if isinstance(altitude, dict) else ""), ui_label("ui.not_informed"))}</select></div>
+              <div class="admin-field location-lat"><label>{html.escape(ui_label("location.lat"))}</label><input name="location_lat" type="number" step="any" value="{html.escape(lat_value, quote=True)}"></div>
+              <div class="admin-field location-lon"><label>{html.escape(ui_label("location.lon"))}</label><input name="location_lon" type="number" step="any" value="{html.escape(lon_value, quote=True)}"></div>
+              <button class="observation-copy-coordinates" type="button" data-copy-observation-coordinates title="Copiar coordenadas" aria-label="Copiar coordenadas">⧉</button>
+              <div class="admin-field location-micro-area"><label>{html.escape(ui_label("ui.micro_area"))}</label><select name="micro_area_id">{known_site_select_options(row.get("micro_area_id"))}</select></div>
+              <a class="observation-manage-sites-link" href="{html.escape(known_sites_url, quote=True)}">{html.escape(ui_label("ui.manage_known_sites"))} ↗</a>
+              <div class="admin-field compact location-altitude"><label>{html.escape(ui_label("altitude.meters"))}</label><div class="observation-altitude-input"><input name="altitude_m" type="number" step="1" value="{html.escape(altitude_value, quote=True)}"><span>m</span></div></div>
+              <div class="admin-field location-source"><label>{html.escape(ui_label("catalog_group.observation_location_sources"))}</label><select name="location_source">{catalog_select_options(catalogs, "observation_location_sources", location_source, ui_label("ui.not_informed"))}</select></div>
+              <div class="admin-field altitude-source"><label>{html.escape(ui_label("altitude.source"))}</label><select name="altitude_source">{catalog_select_options(catalogs, "observation_altitude_sources", str(altitude.get("source", "") if isinstance(altitude, dict) else ""), ui_label("ui.not_informed"))}</select></div>
             </div>
           </section>
           <section class="observation-field-group observation-validation-group">
-            <h3>{html.escape(ui_label("ui.observation_group_validation"))}</h3>
+            <h3><span class="observation-section-icon">✓</span>{html.escape(ui_label("ui.observation_group_validation"))}</h3>
             <div class="observation-group-grid validation">
               <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation_status" required>{catalog_select_options(catalogs, "observation_validation_statuses", str(row.get("validation_status", "") or "draft"))}</select></div>
               <div class="admin-field"><label>{html.escape(ui_label("calibration_use"))}</label><select name="calibration_use" required>{catalog_select_options(catalogs, "observation_calibration_uses", str(row.get("calibration_use", "") or "review"))}</select></div>
@@ -4778,7 +5026,7 @@ def render_observation_form_modal(
             </div>
           </section>
           <section class="observation-field-group observation-source-group">
-            <h3>{html.escape(ui_label("ui.observation_group_source"))}</h3>
+            <h3><span class="observation-section-icon">●</span>{html.escape(ui_label("ui.observation_group_source"))}</h3>
             <div class="observation-group-grid source">
               <div class="admin-field"><label>{html.escape(ui_label("observer.name"))}</label><input name="observer_name" value="{html.escape(str(observer.get("name", "") if isinstance(observer, dict) else ""), quote=True)}"></div>
               <div class="admin-field"><label>{html.escape(ui_label("observer.expertise"))}</label><select name="observer_expertise">{catalog_select_options(catalogs, "observer_expertise_levels", str(observer.get("expertise", "") if isinstance(observer, dict) else "") or "unknown")}</select></div>
@@ -4787,8 +5035,10 @@ def render_observation_form_modal(
               <div class="admin-field source-url"><label>{html.escape(ui_label("source.url"))}</label><input name="source_url" type="url" value="{html.escape(str(source.get("url", "") if isinstance(source, dict) else ""), quote=True)}"></div>
             </div>
           </section>
-        </div>
-        <div class="profile-grid full">
+          </div>
+          <section class="observation-evidence-panel">
+            <h3><span class="observation-section-icon">⌘</span>Evidencia de campo</h3>
+        <div class="profile-grid full observation-hosts-grid">
           <div class="admin-field wide">
             <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
             <div class="month-toggle-grid host-toggle-grid">{observed_host_toggles(catalogs, site_context.get("observed_host_ids") if isinstance(site_context, dict) else [])}</div>
@@ -4817,12 +5067,16 @@ def render_observation_form_modal(
           {form_textarea("habitat_notes", ui_label("site_context.habitat_notes"), site_context.get("habitat_notes", "") if isinstance(site_context, dict) else "", rows=3)}
           {form_textarea("host_notes", ui_label("site_context.host_notes"), site_context.get("host_notes", "") if isinstance(site_context, dict) else "", rows=3)}
         </div>
-        {exif_edit_fields}
-        <div class="profile-action-bar">
+          </section>
+        </div>
+        <div class="observation-form-footer">
+          {exif_edit_fields}
+          <div class="profile-action-bar">
           <button class="primary profile-primary-action">{html.escape(ui_label("ui.save_observation"))}</button>
           {map_action}
-          <button class="secondary planned-action" type="button" disabled>{html.escape(ui_label("ui.recover_altitude"))}</button>
-          <button class="secondary planned-action" type="button" disabled>{html.escape(ui_label("ui.import_csv"))}</button>
+          <button class="secondary planned-action recover-altitude-action" type="button" disabled>{html.escape(ui_label("ui.recover_altitude"))}</button>
+          <button class="secondary planned-action import-csv-action" type="button" disabled>{html.escape(ui_label("ui.import_csv"))}</button>
+          </div>
         </div>
       </form>
     </div>
@@ -4855,8 +5109,12 @@ def observation_duplicate_template_row(row: dict[str, object] | None) -> dict[st
     """Return an unsaved observation template copied from an existing row."""
     template = json.loads(json.dumps(row if isinstance(row, dict) else {}))
     if isinstance(template, dict):
+        source_observation_id = str(template.get("observation_id", "") or "")
         template.pop("observation_id", None)
         template.pop("metadata", None)
+        template.pop("media", None)
+        if source_observation_id:
+            template["_draft_map_source_observation_id"] = source_observation_id
     return template if isinstance(template, dict) else {}
 
 
@@ -4894,6 +5152,15 @@ def render_observation_exif_import_form(
     filters: dict[str, str] | None = None,
 ) -> str:
     """Render the common-field template used by EXIF image batch imports."""
+    return_params = {"section": "observations"}
+    if selected_species_id:
+        return_params["id"] = selected_species_id
+    for key, value in (filters or {}).items():
+        if value and key not in {"section", "id"}:
+            return_params[key] = value
+    known_sites_url = "./known-sites?" + urlencode(
+        {"return_to": "./profiles?" + urlencode(return_params) + "#import-observation-exif"}
+    )
     return f"""
     <div id="import-observation-exif" class="modal-layer">
       <a class="modal-backdrop" href="#" aria-label="{html.escape(ui_label("ui.cancel"), quote=True)}"></a>
@@ -4917,6 +5184,9 @@ def render_observation_exif_import_form(
           <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation_status" required>{catalog_select_options(catalogs, "observation_validation_statuses", "draft")}</select></div>
           <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="observation_species_id" required>{species_select_options(profiles, selected_species_id)}</select></div>
           <div class="admin-field"><label>{html.escape(ui_label("calibration_use"))}</label><select name="calibration_use" required>{catalog_select_options(catalogs, "observation_calibration_uses", "review")}</select></div>
+        </div>
+        <div class="profile-grid full">
+          <div class="admin-field wide"><label>{html.escape(ui_label("ui.micro_area"))}</label><select name="micro_area_id">{known_site_select_options()}</select><span class="meta"><a href="{html.escape(known_sites_url, quote=True)}">{html.escape(ui_label("ui.manage_known_sites"))}</a></span></div>
         </div>
         <div class="profile-grid two">
           <div class="admin-field wide"><label>{html.escape(ui_label("ui.exif_images"))}</label><input name="exif_images" type="file" accept="image/jpeg,image/heic,image/heif" multiple webkitdirectory directory required></div>
@@ -4999,7 +5269,57 @@ def render_observation_map_modals(
             continue
         seen.add(observation_id)
         modals.append(render_observation_map_modal(row, selected_species_id, search, filters))
-    return "".join(modals)
+    return observation_site_map_assets() + "".join(modals) if modals else ""
+
+
+def observation_site_map_assets() -> str:
+    """Load the read-only MapLibre observation maps when their modal opens."""
+    return """
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css">
+    <style>
+      .observation-site-map-shell{position:relative;height:min(62vh,650px);min-height:390px;border:1px solid #344754;border-radius:6px;overflow:hidden;background:#071018}
+      .observation-site-map{position:absolute;inset:0}.observation-site-map-legend{position:absolute;left:12px;right:12px;top:12px;z-index:3;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 10px;background:#09141ddd;border:1px solid #334754;border-radius:5px}
+      .observation-site-map-shell>.maplibregl-map .maplibregl-ctrl-top-left{top:88px}
+      .observation-site-map-legend span{display:flex;align-items:center;gap:6px;font-size:12px}.observation-site-map-legend i{display:inline-block;width:12px;height:12px;border-radius:2px}.observation-site-map-legend .observation-point-key{background:#ef4444;border-radius:50%}.micro-area-key{background:#16b8f455;border:2px solid #16b8f4}.area-key{background:#e9aa3b33;border:2px dashed #e9aa3b}.observation-site-map-legend a{margin-left:auto}
+      .observation-map-controls{position:absolute;right:12px;top:64px;z-index:4;display:grid;gap:7px}.observation-map-control{display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(20,27,35,.94);border:1px solid rgba(255,255,255,.2);border-radius:7px;color:#f6fbff;font-weight:800;box-shadow:0 6px 18px #02080e55}.observation-map-control[aria-pressed="true"]{background:#078ec7;border-color:#6dd4ff}.observation-map-control svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linejoin:round}.observation-layer-toggle polygon{fill:currentColor;stroke:none}.observation-north-toggle{position:relative}.observation-north-toggle::before{content:'';position:absolute;width:25px;height:25px;border:2px solid rgba(246,251,255,.72);border-radius:50%}.observation-north-toggle span{width:13px;height:25px;background:linear-gradient(180deg,#e33d37 0 48%,#fff 52% 100%);clip-path:polygon(50% 0,76% 50%,50% 100%,24% 50%)}.observation-layer-panel{position:absolute;right:48px;top:0;display:grid;min-width:145px;padding:5px;background:rgba(15,23,31,.97);border:1px solid #405361;border-radius:6px}.observation-layer-panel[hidden]{display:none}.observation-layer-panel button{text-align:left;background:none;border:0;padding:8px 10px}.observation-layer-panel button.active{color:#26bdff;background:#163345}
+      .observation-site-map-shell .maplibregl-popup-content{min-width:180px;padding:12px 30px 12px 13px;background:#101b24;color:#f3f7fa;border:1px solid #4a6171;border-radius:5px;box-shadow:0 10px 28px #000b}.observation-site-map-shell .maplibregl-popup-content strong{display:block;color:#4fd0ff;font-size:14px;margin-bottom:4px}.observation-site-map-shell .maplibregl-popup-content span{color:#c4d0d9;font-size:12px}.observation-site-map-shell .maplibregl-popup-close-button{color:#d7e2e9;font-size:20px;padding:2px 7px}.observation-site-map-shell .maplibregl-popup-tip{border-top-color:#101b24!important;border-bottom-color:#101b24!important}
+      .map-popup-section+.map-popup-section{margin-top:9px;padding-top:9px;border-top:1px solid #344754}.map-popup-section span{display:block;line-height:1.45}
+      .observation-default-marker.selected{z-index:2}.observation-default-marker.selected svg{filter:hue-rotate(105deg) saturate(1.25) brightness(.95) drop-shadow(0 0 4px #22c55e)}
+      .observation-site-assignment{margin-top:10px;padding:10px;border:1px solid #30424f;border-radius:6px;background:#0d1720}.observation-site-modes{display:flex;gap:7px;flex-wrap:wrap}.observation-site-modes button.active{color:#fff;background:#087fae;border-color:#29c2fa}.observation-site-context{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:42px;margin-top:8px;padding-top:8px;border-top:1px solid #30424f}.observation-site-context p{margin:0;color:#b6c3cc}.observation-new-site-fields{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:9px;border-top:1px solid #30424f}.observation-new-site-fields[hidden]{display:none}.observation-new-site-fields label{display:block;margin-bottom:4px;color:#aebbc5;font-size:12px}.observation-new-site-fields input{min-width:240px}.observation-new-site-fields .meta{align-self:center;margin:0;color:#73c9eb}
+      .observation-coordinate-toolbar{display:grid;grid-template-columns:repeat(3,max-content);gap:7px;margin-top:8px}.observation-coordinate-toolbar button{font-size:12px;padding:7px 10px}.observation-coordinate-toolbar [data-coordinate-value]{grid-column:1/-1;color:#6dd4ff;font-weight:700}.observation-coordinate-confirm{position:fixed;z-index:1900;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:#000b}.observation-coordinate-confirm[hidden]{display:none}.observation-coordinate-confirm section{width:min(590px,calc(100vw - 40px));padding:20px;background:#16212a;border:1px solid #4a6171;border-radius:7px;box-shadow:0 20px 60px #000c}.observation-coordinate-confirm h3{margin:0 0 12px}.observation-coordinate-confirm section>div{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.observation-coordinate-form{margin:0}.observation-site-map.coordinate-editing .maplibregl-canvas{cursor:crosshair}.observation-coordinate-toolbar button:disabled{cursor:not-allowed;opacity:.45}
+    </style>
+    <script>
+    (()=>{
+      const initialize=()=>document.querySelectorAll('.modal-layer:target .observation-site-map:not([data-ready])').forEach(node=>{
+        node.dataset.ready='1';const data=JSON.parse(node.parentElement.querySelector('.observation-site-map-data').textContent);
+        const observations=data.observations||[{observation_id:data.observation_id,species_id:data.species_id,observed_at:data.observed_at,flush_abundance:data.flush_abundance,lat:data.lat,lon:data.lon}];const first=observations[0];if(!first)return;
+        const satelliteLayers=['imagery','sat-road-outline','sat-road','sat-place'];const hybridLayers=['hybrid-roads','hybrid-labels'];
+        const style={version:8,glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',sources:{imagery:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19,attribution:'Tiles &copy; Esri'},openmaptiles:{type:'vector',url:'https://tiles.openfreemap.org/planet'},hybridRoads:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19},hybridLabels:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19},topo:{type:'raster',tiles:['https://a.tile.opentopomap.org/{z}/{x}/{y}.png','https://b.tile.opentopomap.org/{z}/{x}/{y}.png','https://c.tile.opentopomap.org/{z}/{x}/{y}.png'],tileSize:256,maxzoom:17},terrainDem:{type:'raster-dem',tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],tileSize:256,maxzoom:15,encoding:'terrarium'}},layers:[{id:'imagery',type:'raster',source:'imagery'},{id:'sat-road-outline',type:'line',source:'openmaptiles','source-layer':'transportation',filter:['match',['get','class'],['motorway','trunk','primary','secondary','tertiary'],true,false],paint:{'line-color':'rgba(0,0,0,.75)','line-width':['interpolate',['linear'],['zoom'],6,1.4,15,8]}},{id:'sat-road',type:'line',source:'openmaptiles','source-layer':'transportation',filter:['match',['get','class'],['motorway','trunk','primary','secondary','tertiary'],true,false],paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],6,.8,15,5]}},{id:'sat-place',type:'symbol',source:'openmaptiles','source-layer':'place',layout:{'text-field':['coalesce',['get','name_en'],['get','name']],'text-font':['Noto Sans Bold'],'text-size':13},paint:{'text-color':'#fff','text-halo-color':'#000','text-halo-width':1.6}},{id:'hybrid-roads',type:'raster',source:'hybridRoads',layout:{visibility:'none'}},{id:'hybrid-labels',type:'raster',source:'hybridLabels',layout:{visibility:'none'}},{id:'topo',type:'raster',source:'topo',layout:{visibility:'none'}}]};
+        const map=new maplibregl.Map({container:node,style,center:[first.lon,first.lat],zoom:15,maxPitch:85});map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');window.rainmapperObservationMaps=window.rainmapperObservationMaps||new Map();window.rainmapperObservationMaps.set(node.dataset.observationSiteMap,map);
+        const shell=node.parentElement,toggle=shell.querySelector('.observation-layer-toggle'),panel=shell.querySelector('.observation-layer-panel'),terrain=shell.querySelector('.observation-terrain-toggle'),assignment=shell.parentElement.querySelector('.observation-site-assignment');let terrainEnabled=false,draw=null;
+        toggle.addEventListener('click',()=>{const open=panel.hidden;panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));});panel.querySelectorAll('[data-basemap]').forEach(button=>button.addEventListener('click',()=>{const value=button.dataset.basemap,isTopo=value==='topographic',isHybrid=value==='hybrid';satelliteLayers.forEach((id,index)=>map.setLayoutProperty(id,'visibility',isTopo||(isHybrid&&index>0)?'none':'visible'));hybridLayers.forEach(id=>map.setLayoutProperty(id,'visibility',isHybrid?'visible':'none'));map.setLayoutProperty('topo','visibility',isTopo?'visible':'none');panel.querySelectorAll('button').forEach(item=>item.classList.toggle('active',item===button));panel.hidden=true;}));
+        terrain.addEventListener('click',()=>{terrainEnabled=!terrainEnabled;map.setTerrain(terrainEnabled?{source:'terrainDem',exaggeration:1}:null);map.easeTo({pitch:terrainEnabled?48:0,bearing:terrainEnabled?-8:0,duration:650});terrain.textContent=terrainEnabled?'2D':'3D';terrain.setAttribute('aria-pressed',String(terrainEnabled));});shell.querySelector('.observation-north-toggle').addEventListener('click',()=>map.easeTo({bearing:0,duration:500}));
+        map.on('load',()=>{const bounds=new maplibregl.LngLatBounds();const features=(data.known_sites||[]).map(site=>({type:'Feature',properties:{kind:site.kind,id:site.id,name:site.name,area_id:site.area_id,assigned:site.id===data.assigned_micro_area_id},geometry:site.geometry}));map.addSource('known-sites',{type:'geojson',data:{type:'FeatureCollection',features}});map.addLayer({id:'known-areas-fill',type:'fill',source:'known-sites',filter:['==',['get','kind'],'area'],paint:{'fill-color':'#e9aa3b','fill-opacity':.10}});map.addLayer({id:'known-areas-line',type:'line',source:'known-sites',filter:['==',['get','kind'],'area'],paint:{'line-color':'#e9aa3b','line-width':2,'line-dasharray':[3,2]}});map.addLayer({id:'known-micro-fill',type:'fill',source:'known-sites',filter:['==',['get','kind'],'micro_area'],paint:{'fill-color':['case',['get','assigned'],'#35dcff','#16b8f4'],'fill-opacity':['case',['get','assigned'],.34,.18]}});map.addLayer({id:'known-micro-line',type:'line',source:'known-sites',filter:['==',['get','kind'],'micro_area'],paint:{'line-color':['case',['get','assigned'],'#9af1ff','#16b8f4'],'line-width':['case',['get','assigned'],4,2]}});
+          const popup=new maplibregl.Popup({offset:18});const escape=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+          const sitesAt=point=>{const rendered=map.queryRenderedFeatures(point,{layers:['known-micro-fill','known-areas-fill']});let micro=rendered.find(feature=>feature.properties.kind==='micro_area');let area=rendered.find(feature=>feature.properties.kind==='area');if(micro)micro=features.find(feature=>feature.properties.kind==='micro_area'&&feature.properties.id===micro.properties.id)||micro;if(area)area=features.find(feature=>feature.properties.kind==='area'&&feature.properties.id===area.properties.id)||area;if(micro&&!area)area=features.find(feature=>feature.properties.kind==='area'&&feature.properties.id===micro.properties.area_id);return {area,micro};};
+          let siteMode='select',selectedArea=null,coordinateEditing=false,coordinateMarker=null,coordinateCandidate=null;
+          const chooseSites=({area,micro})=>{if(!assignment)return;const proposal=assignment.querySelector('[data-site-proposal]'),assign=assignment.querySelector('[data-site-assign]');if(siteMode==='select'&&micro){assignment.querySelector('[name=micro_area_id]').value=micro.properties.id;proposal.textContent=`Microárea seleccionada: ${micro.properties.name}`;assign.hidden=false;}else if(siteMode==='micro_area'&&area&&!draw){selectedArea=area;assignment.querySelector('[name=new_site_area_id]').value=area.properties.id;assignment.querySelector('[data-new-site-parent]').textContent=`Área superior: ${area.properties.name}`;beginDraw('micro_area');}else if(siteMode==='edit_area'&&area&&!draw){selectedArea=area;beginEditArea(area);}else if(siteMode==='edit_micro_area'&&micro&&!draw){selectedArea=area;beginEditMicroArea(micro,area);}};
+          const showPopup=(lngLat,point,observation=null)=>{const sites=sitesAt(point),{area,micro}=sites;chooseSites(sites);if(siteMode!=='select'){popup.remove();return;}if(!observation&&!area&&!micro){popup.remove();return;}const parts=[];if(observation){const details=[observation.species_id,observation.observed_at,observation.flush_abundance].filter(Boolean).map(escape).join(' · ');parts.push(`<div class="map-popup-section"><strong>Observación</strong><span>${escape(observation.observation_id)}</span>${details?`<span>${details}</span>`:''}</div>`);}if(area)parts.push(`<div class="map-popup-section"><strong>Área</strong><span>${escape(area.properties.name)} · ${escape(area.properties.id)}</span></div>`);if(micro)parts.push(`<div class="map-popup-section"><strong>Microárea</strong><span>${escape(micro.properties.name)} · ${escape(micro.properties.id)}</span></div>`);popup.setLngLat(lngLat).setHTML(parts.join('')).addTo(map);};
+          const beginDraw=kind=>{if(!assignment)return;const proposal=assignment.querySelector('[data-site-proposal]');assignment.querySelector('[name=new_site_kind]').value=kind;if(!draw){draw=new MaplibreTerradrawControl.MaplibreTerradrawControl({modes:['render','polygon','select','delete-selection','delete'],open:true});map.addControl(draw,'top-left');}const instance=draw.getTerraDrawInstance();instance.clear();instance.setMode('polygon');proposal.textContent=kind==='area'?'Dibuja el límite de la nueva área.':'Dibuja la microárea dentro del área seleccionada y alrededor de la observación.';};
+          const beginEditArea=area=>{if(!assignment||!area)return;assignment.querySelector('[name=new_site_kind]').value='edit_area';assignment.querySelector('[name=new_site_area_id]').value=area.properties.id;assignment.querySelector('[data-new-site-parent]').textContent=`Área seleccionada: ${area.properties.name}`;if(!draw){draw=new MaplibreTerradrawControl.MaplibreTerradrawControl({modes:['render','polygon','select','delete-selection','delete'],open:true});map.addControl(draw,'top-left');}const instance=draw.getTerraDrawInstance();instance.clear();instance.addFeatures([{type:'Feature',geometry:area.geometry,properties:{mode:'polygon'}}]);instance.setMode('select');assignment.querySelector('[data-site-proposal]').textContent='Edita los vértices del área hasta incluir correctamente la observación.';};
+          const beginEditMicroArea=(micro,area)=>{if(!assignment||!micro)return;assignment.querySelector('[name=new_site_kind]').value='edit_micro_area';assignment.querySelector('[name=edit_site_id]').value=micro.properties.id;assignment.querySelector('[name=new_site_area_id]').value=micro.properties.area_id||'';assignment.querySelector('[data-new-site-parent]').textContent=`Microárea seleccionada: ${area?`${area.properties.name} · `:''}${micro.properties.name}`;if(!draw){draw=new MaplibreTerradrawControl.MaplibreTerradrawControl({modes:['render','polygon','select','delete-selection','delete'],open:true});map.addControl(draw,'top-left');}const instance=draw.getTerraDrawInstance();instance.clear();instance.addFeatures([{type:'Feature',geometry:micro.geometry,properties:{mode:'polygon'}}]);instance.setMode('select');assignment.querySelector('[data-site-proposal]').textContent='Edita los vértices de la microárea. Debe seguir conteniendo la observación.';};
+          const applyContextStyle=mode=>{const editing=mode==='edit_area'||mode==='edit_micro_area';map.setPaintProperty('known-areas-fill','fill-opacity',editing?.05:.10);map.setPaintProperty('known-micro-fill','fill-opacity',editing?.06:['case',['get','assigned'],.34,.18]);map.setPaintProperty('known-micro-line','line-dasharray',editing?[2,2]:[1,0]);map.setPaintProperty('known-micro-line','line-width',editing?2:['case',['get','assigned'],4,2]);};
+          if(assignment){const fields=assignment.querySelector('.observation-new-site-fields'),nameField=assignment.querySelector('[data-new-site-name-field]'),nameInput=assignment.querySelector('[name=new_site_name]'),geometryInput=assignment.querySelector('[name=new_site_geometry_json]'),proposal=assignment.querySelector('[data-site-proposal]'),assign=assignment.querySelector('[data-site-assign]'),parentLabel=assignment.querySelector('[data-new-site-parent]'),nameLabel=assignment.querySelector('[data-new-site-name-label]'),createButton=assignment.querySelector('[data-new-site-submit]');const reset=()=>{siteMode='select';selectedArea=null;fields.hidden=true;nameField.hidden=false;nameInput.disabled=true;nameInput.value='';geometryInput.value='';parentLabel.textContent='';assign.hidden=true;assignment.querySelector('[name=new_site_kind]').value='';assignment.querySelector('[name=edit_site_id]').value='';assignment.querySelectorAll('[data-site-mode]').forEach(button=>button.classList.toggle('active',button.dataset.siteMode==='select'));if(draw){map.removeControl(draw);draw=null;}applyContextStyle(siteMode);popup.remove();proposal.textContent='Haz clic sobre una microárea para seleccionarla.';};assignment.querySelectorAll('[data-site-mode]').forEach(button=>button.addEventListener('click',()=>{siteMode=button.dataset.siteMode;popup.remove();applyContextStyle(siteMode);assignment.querySelectorAll('[data-site-mode]').forEach(item=>item.classList.toggle('active',item===button));assign.hidden=true;fields.hidden=true;nameField.hidden=false;nameInput.disabled=true;geometryInput.value='';parentLabel.textContent='';assignment.querySelector('[name=edit_site_id]').value='';if(draw){map.removeControl(draw);draw=null;}if(siteMode==='select'){proposal.textContent='Haz clic sobre una microárea para seleccionarla.';return;}if(siteMode==='area'){selectedArea=null;beginDraw('area');return;}if(siteMode==='edit_area'){proposal.textContent='Haz clic sobre el área que quieres ampliar o corregir.';return;}if(siteMode==='edit_micro_area'){proposal.textContent='Haz clic sobre la microárea que quieres ampliar o corregir.';return;}const underPoint=sitesAt(map.project([first.lon,first.lat]));if(underPoint.area){selectedArea=underPoint.area;assignment.querySelector('[name=new_site_area_id]').value=selectedArea.properties.id;parentLabel.textContent=`Área superior: ${selectedArea.properties.name}`;beginDraw('micro_area');}else proposal.textContent='Haz clic sobre el área que contendrá la nueva microárea.';}));assignment.querySelector('[data-new-site-cancel]').addEventListener('click',reset);window.setInterval(()=>{if(!draw||siteMode==='select')return;const collection=draw.getFeatures(),polygons=(collection.features||[]).filter(feature=>['Polygon','MultiPolygon'].includes(feature.geometry&&feature.geometry.type));if(!polygons.length)return;geometryInput.value=JSON.stringify(polygons[polygons.length-1].geometry);fields.hidden=false;const editingArea=siteMode==='edit_area',editingMicro=siteMode==='edit_micro_area',editing=editingArea||editingMicro;nameField.hidden=editing;nameInput.disabled=editing;if(!editing)nameLabel.textContent=siteMode==='area'?'Nombre de la nueva área':'Nombre de la nueva microárea';createButton.textContent=editingArea?'Guardar cambios en el área':editingMicro?'Guardar y asignar microárea':siteMode==='area'?'Crear área':'Crear y asignar';},400);map.once('idle',()=>chooseSites(sitesAt(map.project([first.lon,first.lat]))));}
+          const markers=new Map();map.rainmapperObservationMarkers=markers;observations.forEach((item,index)=>{bounds.extend([item.lon,item.lat]);const marker=new maplibregl.Marker({color:'#ef4444'}).setLngLat([item.lon,item.lat]).addTo(map),element=marker.getElement();element.classList.add('observation-default-marker');element.classList.toggle('selected',index===0);element.title=item.observation_id;markers.set(item.observation_id,marker);element.addEventListener('click',event=>{if(coordinateEditing)return;event.stopPropagation();selectMappedObservation(node.dataset.observationSiteMap,item.observation_id);const lngLat=marker.getLngLat();showPopup(lngLat,map.project(lngLat),item);});});if(observations.length>1)map.fitBounds(bounds,{padding:70,maxZoom:16});else map.jumpTo({center:[first.lon,first.lat],zoom:15});
+          const coordinateForm=shell.parentElement.querySelector('[data-coordinate-form]'),toolbar=shell.parentElement.querySelector('[data-coordinate-toolbar]');if(coordinateForm&&toolbar){const start=toolbar.querySelector('[data-coordinate-start]'),confirm=toolbar.querySelector('[data-coordinate-confirm]'),cancel=toolbar.querySelector('[data-coordinate-cancel]'),value=toolbar.querySelector('[data-coordinate-value]'),confirmModal=coordinateForm.querySelector('[data-coordinate-confirm-modal]'),confirmText=coordinateForm.querySelector('[data-coordinate-confirm-text]');let demRequest=0;const setSiteControlsDisabled=disabled=>{if(!assignment)return;assignment.querySelectorAll('button,input').forEach(control=>control.disabled=disabled);};const clearCandidate=()=>{demRequest+=1;if(coordinateMarker){coordinateMarker.remove();coordinateMarker=null;}coordinateCandidate=null;confirm.disabled=true;value.hidden=true;value.textContent='';coordinateForm.querySelector('[name=altitude_m]').value='';};const stopCoordinateEditing=()=>{coordinateEditing=false;node.classList.remove('coordinate-editing');start.disabled=false;cancel.disabled=true;clearCandidate();setSiteControlsDisabled(false);};start.addEventListener('click',()=>{if(draw){map.removeControl(draw);draw=null;}popup.remove();coordinateEditing=true;node.classList.add('coordinate-editing');start.disabled=true;cancel.disabled=false;setSiteControlsDisabled(true);});cancel.addEventListener('click',stopCoordinateEditing);confirm.addEventListener('click',()=>{if(!coordinateCandidate||coordinateCandidate.altitude_m==null)return;coordinateForm.querySelector('[name=location_lat]').value=coordinateCandidate.lat.toFixed(7);coordinateForm.querySelector('[name=location_lon]').value=coordinateCandidate.lng.toFixed(7);coordinateForm.querySelector('[name=altitude_m]').value=String(coordinateCandidate.altitude_m);confirmText.textContent=`Confirme el cambio de coordenadas ${coordinateCandidate.lat.toFixed(7)}, ${coordinateCandidate.lng.toFixed(7)} y altitud DEM ${coordinateCandidate.altitude_m} m para la observación ${data.observation_id}.`;confirmModal.hidden=false;});confirmModal.querySelector('[data-coordinate-confirm-cancel]').addEventListener('click',()=>{confirmModal.hidden=true;});coordinateForm.rainmapperSelectCoordinate=async lngLat=>{const request=++demRequest;coordinateCandidate={lat:lngLat.lat,lng:lngLat.lng,altitude_m:null};if(!coordinateMarker)coordinateMarker=new maplibregl.Marker({color:'#168cff'}).setLngLat(lngLat).addTo(map);else coordinateMarker.setLngLat(lngLat);value.textContent=`Nuevas coordenadas: ${lngLat.lat.toFixed(7)}, ${lngLat.lng.toFixed(7)} · Consultando altitud DEM...`;value.hidden=false;confirm.disabled=true;try{const response=await fetch(`${window.location.pathname.replace(/\/mushrooms\/profiles\/?$/,'')}/api/mushrooms/dem-altitude?lat=${encodeURIComponent(lngLat.lat)}&lon=${encodeURIComponent(lngLat.lng)}`,{credentials:'same-origin'}),payload=await response.json();if(request!==demRequest)return;if(!response.ok||payload.status!=='ok')throw new Error(payload.error||payload.status||'DEM no disponible');coordinateCandidate.altitude_m=Math.round(Number(payload.elevation_m));value.textContent=`Nuevas coordenadas: ${lngLat.lat.toFixed(7)}, ${lngLat.lng.toFixed(7)} · Altitud DEM: ${coordinateCandidate.altitude_m} m`;confirm.disabled=false;}catch(error){if(request!==demRequest)return;value.textContent=`Nuevas coordenadas: ${lngLat.lat.toFixed(7)}, ${lngLat.lng.toFixed(7)} · No se pudo recuperar la altitud DEM`;}};}
+          ['known-micro-fill','known-areas-fill'].forEach(layer=>{map.on('mouseenter',layer,()=>{if(!coordinateEditing)map.getCanvas().style.cursor='pointer';});map.on('mouseleave',layer,()=>{if(!coordinateEditing)map.getCanvas().style.cursor='';});});map.on('click',event=>{if(coordinateEditing&&coordinateForm&&coordinateForm.rainmapperSelectCoordinate){popup.remove();coordinateForm.rainmapperSelectCoordinate(event.lngLat);return;}showPopup(event.lngLat,event.point);});});
+      });
+      const selectMappedObservation=(target,id)=>{const modal=document.getElementById(target),map=window.rainmapperObservationMaps&&window.rainmapperObservationMaps.get(target);if(modal){modal.querySelectorAll('[data-observation-map-row]').forEach(row=>{const selected=row.dataset.observationMapRow===id;row.classList.toggle('selected',selected);if(selected)row.setAttribute('aria-current','true');else row.removeAttribute('aria-current');});}if(map&&map.rainmapperObservationMarkers)map.rainmapperObservationMarkers.forEach((marker,markerId)=>marker.getElement().classList.toggle('selected',markerId===id));};
+      document.addEventListener('click',event=>{const button=event.target.closest('[data-observation-map-target]');if(button){const target=button.dataset.observationMapTarget,id=button.dataset.observationMapId,map=window.rainmapperObservationMaps&&window.rainmapperObservationMaps.get(target);selectMappedObservation(target,id);if(map)map.flyTo({center:[Number(button.dataset.observationMapLon),Number(button.dataset.observationMapLat)],zoom:16,duration:600});return;}const row=event.target.closest('[data-observation-map-row]');if(row&&!event.target.closest('a,button'))row.querySelector('[data-observation-map-target]')?.click();});window.addEventListener('hashchange',()=>window.setTimeout(initialize,30));window.setTimeout(initialize,30);
+    })();
+    </script>
+    """
 
 
 def render_observation_photo_modals(rows: list[dict[str, object]]) -> str:
@@ -5441,6 +5761,13 @@ def render_observations_section(
     """Render the observation workspace backed by mushroom_observations.json."""
     selected_species_id = str(profile.get("species_id", "")) if profile else ""
     rows = observations_from_payload(observations_payload)
+    archived_rows = observations_from_payload(archived_observations_payload)
+    media_reference_counts: dict[str, int] = {}
+    for media_row in rows + archived_rows:
+        for _, media in observation_photo_media(media_row):
+            media_path = str(media.get("path", "") or "")
+            if media_path:
+                media_reference_counts[media_path] = media_reference_counts.get(media_path, 0) + 1
     filtered_rows = filtered_observation_rows(rows, selected_species_id, filters)
     species_labels = profile_name_map(profiles)
     total, positive, negative, pending = observation_metrics(filtered_rows)
@@ -5478,11 +5805,11 @@ def render_observations_section(
         <input type="hidden" name="sort" value="{html.escape(sort_key, quote=True)}">
         <input type="hidden" name="dir" value="{html.escape(sort_dir, quote=True)}">
         <input type="hidden" name="obs_id" value="{html.escape(selected_observation_id, quote=True)}">
-        <div class="admin-field"><label>{html.escape(ui_label("ui.date_from"))}</label><input name="date_from" type="date" value="{html.escape(date_from, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
-        <div class="admin-field"><label>{html.escape(ui_label("ui.date_to"))}</label><input name="date_to" type="date" value="{html.escape(date_to, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
+        <div class="admin-field"><label>Desde</label><input name="date_from" type="date" value="{html.escape(date_from, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
+        <div class="admin-field"><label>Hasta</label><input name="date_to" type="date" value="{html.escape(date_to, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
         <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="obs_species" onchange="this.form.submit()">{species_filter_options}</select></div>
-        <div class="admin-field"><label>{html.escape(ui_label("ui.result"))}</label><select name="result" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_flush_abundance", result_filter, ui_label("ui.all"))}</select></div>
-        <div class="admin-field"><label>{html.escape(ui_label("validation_status"))}</label><select name="validation" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_validation_statuses", validation_filter, ui_label("ui.all"))}</select></div>
+        <div class="admin-field"><label>Florada</label><select name="result" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_flush_abundance", result_filter, ui_label("ui.all"))}</select></div>
+        <div class="admin-field"><label>Estado</label><select name="validation" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_validation_statuses", validation_filter, ui_label("ui.all"))}</select></div>
         <div class="admin-field"><label>{html.escape(ui_label("ui.search"))}</label><input name="obs_q" type="search" value="{html.escape(observation_search, quote=True)}"></div>
       </form>
       <div class="observations-layout">
@@ -5490,13 +5817,13 @@ def render_observations_section(
           <h2>{icon("metadata")} {html.escape(ui_label("ui.observation_records"))}</h2>
           <div class="observations-table-shell">
             <table>
-              <thead><tr><th>{observation_sort_header(ui_label("ui.date_short"), "observed_at", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("species_id"), "species", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.coordinates"), "coordinates", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.altitude_short"), "altitude", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("flush_abundance"), "abundance", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("observer.name"), "observer", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("source.label"), "source", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.status_short"), "validation", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.use"), "use", selected_species_id, search, filters)}</th><th></th></tr></thead>
+              <thead><tr><th>{observation_sort_header(ui_label("ui.date_short"), "observed_at", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("species_id"), "species", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.coordinates"), "coordinates", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.altitude_short"), "altitude", selected_species_id, search, filters)}</th><th>{observation_sort_header("Florada", "abundance", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("observer.name"), "observer", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("source.label"), "source", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.status_short"), "validation", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.use"), "use", selected_species_id, search, filters)}</th><th></th></tr></thead>
               <tbody>{render_observation_table(filtered_rows, catalogs, species_labels, selected_species_id=selected_species_id, search=search, filters=filters, sort_key=sort_key, sort_dir=sort_dir)}</tbody>
             </table>
           </div>
         </article>
         <aside class="profile-section-card observation-detail-shell">
-          {render_observation_detail(filtered_rows, catalogs, species_labels, selected_observation_id=selected_observation_id)}
+          {render_observation_detail(filtered_rows, catalogs, species_labels, selected_observation_id=selected_observation_id, selected_species_id=selected_species_id, filters=filters, media_reference_counts=media_reference_counts)}
         </aside>
       </div>
       <div class="profile-action-bar observations-main-actions">

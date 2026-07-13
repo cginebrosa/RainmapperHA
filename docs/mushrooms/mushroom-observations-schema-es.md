@@ -355,3 +355,15 @@ Despues `calibration_use` decide si la observacion ponderada se incluye, se excl
 - Mostrar `source_quality` como porcentaje o control 0-1.
 - Mantener campos avanzados opcionales y plegables.
 - Marcar para revision registros sin coordenadas, especie, fecha o decision de calibracion.
+# Extension de areas conocidas (2026-07-11)
+
+Cada observacion puede incluir opcionalmente:
+
+```json
+"micro_area_id": "olvan_la_pera"
+```
+
+El ID referencia una microarea activa o historica de
+`mushroom_known_sites.json`. El `area_id` padre no se duplica en la observacion;
+se resuelve desde ese store. Las observaciones antiguas sin `micro_area_id`
+siguen siendo validas.

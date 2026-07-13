@@ -26,7 +26,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 
 ## Estructura de carpetas
 - `rainmapper-app/`: paquete de Home Assistant.
-- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
+- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`, `mushroom_known_sites_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
 - `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para pruebas locales sin tocar Home Assistant.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
@@ -131,7 +131,7 @@ Hay varios entry points segun entorno:
 - Relacion: produce datos para MapLibre protegido y, si `publish_to_www=true`, para Leaflet legacy.
 
 ### WebUI HA
-- Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py`, `rainmapper-app/app/mushroom_profiles_ui.py` y `rainmapper-app/app/mushroom_gis_mappings_ui.py`.
+- Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py`, `rainmapper-app/app/mushroom_profiles_ui.py`, `rainmapper-app/app/mushroom_gis_mappings_ui.py` y `rainmapper-app/app/mushroom_known_sites_ui.py`.
 - Responsabilidad: servidor HTTP, webUI, acciones, schedule, publicacion, logs, status, enable/disable estaciones, rutas protegidas de MapLibre y pantallas server-rendered de mantenimiento de setas.
 - Dependencias: stdlib HTTP, subprocess, threading, json, pathlib.
 - Relacion: `web_server.py` orquesta rutas, POST, persistencia, validacion y publicacion; los modulos `mushroom_*_ui.py` concentran render server-side de pantallas grandes para evitar que `web_server.py` siga creciendo. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`. La ruta protegida `/protected/maplibre/index.html` se sirve con `Cache-Control: no-store` y reescribe los query strings de assets a la version runtime para evitar JS/CSS obsoletos tras updates HA.
@@ -162,7 +162,9 @@ Hay varios entry points segun entorno:
 - Responsabilidad: levantar la WebUI de Home Assistant en local usando `rainmapper-app/Dockerfile` y montando `docker-data/` como `/share/rainmapper`.
 - Puerto local: `http://127.0.0.1:8101`.
 - Relacion: permite cargar observaciones reales/historicas de setas, importar EXIF y probar flujos de mantenimiento sin escribir en la instalacion HA real. Usa `rainmapper-local/options.local-ha-ui.json` como opciones de add-on y `tmp/mushroom-lab/runtime/config-www` como `/config/www`; esa ruta de `tmp/` es runtime local, no fuente operativa del modelo v0.
-- Estado verificado 2026-07-05: `docker compose -f rainmapper-local/docker-compose.yml ps` no muestra servicios activos. Los datos locales siguen preservados en `docker-data/`.
+- Estado verificado 2026-07-13: `rainmapper-ha-ui` esta reconstruido y en
+  ejecucion en `127.0.0.1:8101`. Los datos locales siguen preservados en
+  `docker-data/`.
 
 ### Flujo de setas v0
 - Rutas principales:
@@ -187,6 +189,18 @@ Hay varios entry points segun entorno:
   en HA. Son datos persistentes ignorados por Git y deben copiarse junto con
   `mushroom_observations.json` cuando se quiera replicar el estado local en HA.
 - Relacion con perfiles: no modifica `mushroom-data/mushroom_profiles.json`. La WebUI muestra la evidencia para revision humana y futura promocion manual.
+- Areas conocidas: `rainmapper_core/mushroom_known_sites.py` mantiene el store
+  privado `mushroom_known_sites.json`; `/mushrooms/known-sites` edita la
+  jerarquia area/microarea, geometria poligonal, contexto derivado y ciclo de
+  vida. Las observaciones referencian opcionalmente `micro_area_id`; el
+  `area_id` se resuelve desde el store y no se duplica.
+- Mapas micologicos internos: observaciones, evidencia, preview EXIF y setales
+  reutilizan un nucleo MapLibre server-rendered con areas/microareas visibles,
+  seleccion, dibujo/edicion TerraDraw, terreno 3D y altitud DEM. El contexto de
+  llamada controla acciones y retorno; Google Maps queda como enlace externo.
+- Media de observaciones: el contrato UI actual admite una imagen por
+  observacion. La persistencia valida sustitucion, referencias compartidas y
+  borrado defensivo del fichero.
 - WebUI: el rebuild completo desde Observaciones arranca un job en segundo plano y expone progreso por `/api/mushrooms/rebuild-status`, con tiempos y ETA para medir coste real en HA sin congelar la pagina.
 - Diferencia con `mushroom_gis_mappings_rebuild.sh`: ese wrapper reconstruye candidatos de mappings para capas GIS, no reconstruye observaciones ni modelos por especie.
 
@@ -331,7 +345,7 @@ Validaciones existentes/recomendadas:
 ./scripts/docker-offline-functional-test.sh
 .venv/bin/python -m unittest discover -s tests
 python -m unittest tests.test_web_server_auth
-python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_catalogs_ui.py rainmapper-app/app/mushroom_profiles_ui.py rainmapper-app/app/mushroom_gis_mappings_ui.py
+python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper_core/mushroom_known_sites.py rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_catalogs_ui.py rainmapper-app/app/mushroom_profiles_ui.py rainmapper-app/app/mushroom_gis_mappings_ui.py rainmapper-app/app/mushroom_known_sites_ui.py
 node --check rainmapper_core/viewers/leaflet-viewer/app.js
 node --check rainmapper_core/viewers/maplibre-viewer/app.js
 docker compose build rainmapper

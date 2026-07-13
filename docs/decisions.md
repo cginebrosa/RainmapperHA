@@ -2280,6 +2280,10 @@ mantenimiento donde estados y acciones deben ser claros.
 
 ## 2026-07-02 - Mapa hibrido externo para revision de evidencia local
 
+### Estado
+REEMPLAZADA el 2026-07-13 para los mapas internos de observaciones, evidencia,
+EXIF y setales. Google Maps se conserva solo como enlace externo auxiliar.
+
 ### Decision
 La pestanya `Evidencia` de especies puede usar Google Maps embebido en modales
 de revision para inspeccionar observaciones concretas que alimentan un ID GIS
@@ -2425,3 +2429,110 @@ exposicion publica y complejidad de configuracion.
   existan.
 - El visor protegido no debe depender de `/config/www`; consume `PublicData`
   mediante rutas protegidas.
+
+## 2026-07-13 - Setales como jerarquia espacial propia del predictor
+
+### Estado
+VIGENTE.
+
+### Decision
+Los setales se modelan en un store propio, separado de reference catalogs, con
+dos niveles: area y microarea. Ambos niveles pueden tener geometria poligonal y
+contexto GIS/DEM propio. Las observaciones guardan solamente `micro_area_id`;
+el area superior se resuelve desde el store y no se duplica.
+
+La primera fase predictiva se limita a setales conocidos. Areas y microareas
+son entidades del predictor, no una copia de campos observados. Sus valores
+GIS/DEM mantienen procedencia y no sobrescriben observaciones de campo.
+
+### Motivo
+Una zona general como Olvan agrupa microareas ecologicamente diferentes. El
+modelo necesita poder aprender tanto contexto de area como diferencias de
+microarea, y necesita separar la prediccion en lugares conocidos de una futura
+busqueda de nuevos setales.
+
+### Consecuencias
+- `mushroom_known_sites.json` tiene ciclo de vida, backups y validacion propios.
+- No se puede archivar ni borrar un area/microarea referenciada.
+- Aplicar una propuesta GIS/DEM modifica el formulario, pero solo `Guardar`
+  persiste el cambio.
+- Descubrir nuevos setales queda fuera de la primera fase ML.
+
+## 2026-07-13 - Un unico MapLibre reutilizable para observaciones y setales
+
+### Estado
+VIGENTE. Reemplaza para estos flujos internos la decision del 2026-07-02 de
+usar un mapa Google embebido como visor principal de revision.
+
+### Decision
+El mapa interno de observaciones, evidencia, preview EXIF y mantenimiento de
+setales debe reutilizar el mismo nucleo MapLibre y variar su comportamiento
+segun el contexto de llamada. Debe conservar una pila de retorno para cerrar un
+modal o mantenimiento exactamente donde se abrio: formulario con borrador,
+fila seleccionada, filtros, orden y posicion de scroll.
+
+El mapa muestra areas/microareas visibles, permite asignarlas y, cuando el
+contexto lo autoriza, crear o editar geometria. En modo geometrico se desactivan
+popups que puedan interceptar los clics. En modo normal, un solo popup combina
+observacion, area y microarea.
+
+### Motivo
+Duplicar mapas y modales produjo comportamientos divergentes, perdida de
+contexto y mas codigo que mantener. El flujo habitual parte de una observacion
+o foto EXIF, por lo que definir/asignar el setal debe poder hacerse sin salir de
+ese trabajo.
+
+### Consecuencias
+- Satellite+ es la base inicial; se conservan Topografico, Hybrid, 3D, capas y
+  brujula.
+- El boton `Mapa` usa las coordenadas actuales del borrador, incluso antes de
+  guardar una observacion nueva o duplicada.
+- La seleccion manual de coordenadas consulta tambien altitud DEM y requiere
+  confirmacion.
+- Google Maps queda como enlace externo auxiliar, no como componente interno
+  principal de estos flujos.
+
+## 2026-07-13 - Una imagen asociada por observacion
+
+### Estado
+VIGENTE.
+
+### Decision
+Mientras no exista un caso de uso validado para multiples fotos, cada
+observacion puede tener como maximo una imagen asociada. Sustituirla exige
+comparar imagen existente y nueva, revisar sus EXIF y decidir explicitamente si
+la anterior solo se desasocia o tambien se borra.
+
+El borrado de fichero solo se ofrece cuando ninguna otra observacion lo
+referencia. Desasociar y borrar son acciones irreversibles con modal de
+confirmacion claro.
+
+### Motivo
+Varias imagenes con fechas o coordenadas distintas vuelven ambiguo que dato
+representa la observacion y complican el flujo EXIF. Tambien era facil heredar
+por error la foto de una observacion al duplicarla.
+
+### Consecuencias
+- El preview EXIF debe mostrar imagen existente y nueva como opciones
+  seleccionables, con datos/mapa de la activa.
+- `Aplicar datos EXIF` solo esta habilitado para la imagen nueva.
+- La precision original se conserva en JSON; los redondeos son solo de UI.
+
+## 2026-07-13 - Pipeline ML posterior a estabilizar observaciones y setales
+
+### Estado
+VIGENTE.
+
+### Decision
+El modelo v0 actual sigue siendo descriptivo. El primer entrenamiento ML sera
+un experimento por una especie con suficiente muestra, construido a partir de
+episodios por especie, microarea y fecha, meteorologia diaria auditable y
+validacion agrupada sin fuga. No se fabricaran negativos ni se fijaran ventanas
+o umbrales por intuicion.
+
+### Duda abierta
+DUDA.
+
+Todavia debe decidirse con datos reales si la unidad final de prediccion sera
+microarea, area o una combinacion jerarquica de ambas. La geometria y el store
+se han preparado para poder comparar esas alternativas sin redisenarlos.

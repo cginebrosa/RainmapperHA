@@ -1,181 +1,186 @@
 # Active Context
 
-Contexto operativo actual para continuar RainmapperHA sin cargar toda la
-historia antigua. Si una tarea necesita mas detalle, seguir las referencias
-indicadas.
+Contexto operativo actual para continuar RainmapperHA sin cargar el historico.
+Este documento es una ventana de trabajo: los detalles antiguos viven en
+`docs/project-archive.md`, `docs/decisions.md` y los documentos tematicos.
 
-## Regla de mantenimiento
+## Estado del repositorio
 
-Este documento debe ser una ventana operativa, no un historico acumulativo.
-Cuando entre informacion nueva, debe salir, resumirse o archivarse informacion
-que ya no guie el trabajo inmediato. Las tareas cerradas, descartadas o antiguas
-no deben quedarse indefinidamente aqui ni en `docs/todo.md`; mover su memoria
-util a `docs/project-archive.md`, `docs/decisions.md` o al documento largo que
-corresponda.
-
-## Estado real del repo
-
-- Ruta activa: `/Users/carlosginebrosa/Developer/RainmapperHA`.
+- Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.199`.
+- Ultimo release HA publicado y validado: `0.2.199`.
 - Commit release: `abe0d49 Release Home Assistant 0.2.199`.
-- Imagen HA publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.199`
-  y `latest`, digest multi-arch
-  `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
-- Plataformas verificadas: `linux/amd64`, `linux/arm64`.
-- Estado HA: `0.2.199` validada por el usuario el 2026-07-11. El MapLibre
-  protegido funciona y el popup largo muestra `Pluja` en `Valores IDW`.
-- Estado GitHub/GHCR: repo GitHub abierto/publico por decision explicita del
-  usuario; no cerrarlo. GHCR ya fue limpiado tras validar `0.2.195`, pero no
-  repetir limpiezas sin confirmar version activa/rollback y sin conservar
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.199` y `latest`.
+- Digest multi-arch: `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
+- El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
+  y el popup largo muestra `Pluja` en `Valores IDW`.
+- GitHub sigue abierto/publico por decision explicita; no cerrarlo.
+- No se ha preparado, publicado ni versionado un release nuevo para los cambios
+  locales de setas descritos abajo.
+- El worktree contiene un bloque grande de cambios locales y ficheros nuevos.
+  No revertirlos, no mezclar datos reales de `docker-data/` en Git y revisar el
+  diff completo antes de hacer commit.
+
+## Foco inmediato
+
+1. Validar visualmente el ultimo refinamiento del modal de alta/edicion de
+   observaciones contra el mockup entregado por el usuario: densidad del panel
+   `Evidencia de campo`, bloque EXIF y botones inferiores.
+2. Corregir cualquier desbordamiento o diferencia visual que detecte el usuario
+   sin volver a duplicar pantallas o flujos de mapa.
+3. Ejecutar validacion amplia de setas, revisar el diff y decidir con el usuario
+   si se hace un commit local o se prepara un nuevo release HA.
+4. Tras estabilizar la UI, retomar el pipeline ML experimental empezando por la
+   especie con mas observaciones utiles. El plan vigente esta en
+   `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+
+GHCR y backfill dejan de ser el foco inmediato. Siguen pendientes una posible
+limpieza conservadora y pruebas mensuales cortas, pero no deben interrumpir la
+estabilizacion actual de setales/observaciones salvo peticion del usuario.
+
+## Estado funcional de setales
+
+- Existe un store separado de catalogos:
+  `mushroom-data/mushroom_known_sites.json`; en runtime local la copia viva es
+  `docker-data/mushroom-data/mushroom_known_sites.json`.
+- `rainmapper_core/mushroom_known_sites.py` gestiona areas y microareas,
+  geometria, derivados, backups, referencias, archivado, restauracion y borrado.
+- La WebUI `/mushrooms/known-sites` vive en
+  `rainmapper-app/app/mushroom_known_sites_ui.py`.
+- Areas y microareas tienen poligonos propios. MapLibre muestra Satellite+ por
+  defecto, Topografico e Hybrid, terreno 3D, selector de capas y brujula.
+- La UI permite dibujar/editar poligonos, recuperar propuestas GIS/DEM y
+  compararlas antes de aplicarlas al formulario. Aplicar una propuesta no debe
+  persistir nada hasta pulsar `Guardar`.
+- Hay proteccion de cambios sin guardar al cambiar de setal, actualizar, volver
+  o navegar a otra pantalla.
+- Areas y microareas archivadas se muestran en el mismo arbol. Se pueden
+  restaurar o borrar definitivamente; no se pueden archivar ni borrar si tienen
+  observaciones vinculadas. Las areas tampoco pueden eliminarse si contienen
+  microareas que impidan la operacion.
+- El arbol permite colapsar/desplegar cada area y todas a la vez. Arbol y panel
+  de detalle tienen scroll interno para mantener visibles las acciones.
+- Los contadores de observaciones abren el modal reutilizable de observaciones,
+  conservando la pila de navegacion y el punto exacto de retorno.
+
+## Estado funcional de observaciones
+
+- Cada observacion puede referenciar opcionalmente `micro_area_id`; `area_id` se
+  resuelve desde el store y no se duplica en la observacion.
+- El mapa de una observacion reutiliza el MapLibre de setales y muestra todas
+  las areas/microareas visibles. Permite seleccionar/asignar una microarea,
+  crear o editar areas y microareas sobre la marcha y volver al formulario sin
+  perder su borrador.
+- En modo edicion geometrica se suprimen popups de areas/microareas para no
+  interceptar los clics de TerraDraw. Fuera de edicion, un unico popup combina
+  observacion, area y microarea segun lo que exista bajo el punto.
+- El mapa puede seleccionar nuevas coordenadas. Mantiene el punto actual y el
+  candidato diferenciados, consulta altitud DEM, muestra coordenadas/altitud y
+  exige confirmacion antes de actualizar la observacion.
+- La seleccion manual usa los IDs catalogados existentes para origen de
+  ubicacion/altitud; no volver a introducir IDs inventados como `manual_map`.
+- El boton `Mapa` del formulario usa las coordenadas actuales del borrador,
+  incluso al crear o duplicar una observacion aun no guardada. Al cerrar vuelve
+  al mismo formulario; desde una lista vuelve a la seleccion, orden y posicion
+  anteriores.
+- El buscador generico de observaciones serializa el registro completo y puede
+  encontrar cualquier valor presente en el JSON, ademas de labels visibles.
+- La altitud acepta enteros. Se conserva precision completa en JSON/enlaces y
+  se limita solo la presentacion de coordenadas donde corresponde.
+- Contrato actual de media: una sola imagen por observacion. La UI permite
+  desasociar o desasociar y borrar con confirmacion irreversible; solo ofrece
+  borrar si el fichero no esta referenciado por otra observacion.
+- Al sustituir una foto, el preview EXIF compara imagen existente y nueva,
+  muestra datos y mapa de la seleccion, y exige decidir si se conserva o se
+  borra el fichero anterior. La imagen nueva no se aplica mientras este
+  seleccionada la antigua.
+- El preview EXIF usa MapLibre y muestra areas/microareas visibles. Debe seguir
+  devolviendo la microarea elegida al formulario, sin guardar la observacion
+  hasta pulsar `Guardar observacion`.
+
+## Ultimo cambio visual
+
+El modal de alta/edicion se reorganizo siguiendo
+`/Users/carlosginebrosa/Downloads/ChatGPT Image 13 jul 2026, 01_33_07.png`:
+
+- izquierda: Observacion, Ubicacion, Validacion y Origen;
+- derecha: `Evidencia de campo` con hosts, bosques, suelos, habitat,
+  orientacion y notas;
+- pie: actualizacion EXIF y acciones.
+
+En la ultima iteracion se redujeron especificamente tipografia, separaciones y
+pastillas del panel derecho; el bloque EXIF paso a encabezado compacto con icono
+y ayuda en una linea; los botones inferiores se hicieron mas bajos y estrechos.
+La estructura y la logica no se cambiaron en esa iteracion. Falta validacion
+visual del usuario tras reconstruir el contenedor.
+
+## Predictor y modelo aprendido
+
+- `mushroom_model_v0.json` sigue siendo una salida descriptiva/auditable; no es
+  un estimador ML y no escribe perfiles.
+- La propuesta ML se centra primero en una especie con suficientes datos y
+  requiere episodios por setal/fecha, series meteorologicas diarias, features
+  de acumulacion y variabilidad, baseline sencillo y validacion agrupada sin
+  fuga.
+- No fabricar negativos ni inventar ventanas, umbrales o pesos. Hacen falta mas
+  observaciones, especialmente ausencias reales en setales visitados.
+- Areas y microareas son entidades predictivas propias. La primera fase
+  predecira solo sobre setales conocidos; descubrir nuevos setales queda para
+  una fase posterior.
+- La bibliografia por especie vive en
+  `docs/mushrooms/literature/prediction/` y debe informar hipotesis, no fijar
+  automaticamente parametros numericos sin evidencia.
+
+## Fuente de verdad y runtime
+
+- Datos de setas local: `docker-data/mushroom-data/`.
+- Equivalente HA: `/share/rainmapper/mushroom-data/`.
+- GIS/DEM pesado en HA: `/media/rainmapper/mushroom-GIS/`.
+- Fotos: `mushroom-data/media/observation-photos/` dentro del runtime; son datos
+  privados persistentes y no se versionan.
+- Resolver canonico: `rainmapper_core/mushroom_paths.py`.
+- UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
+- Estado al cierre: contenedor reconstruido y en ejecucion.
+- Usar siempre `.venv/bin/python` (Python 3.11), igual que contenedor y HA. No
+  usar el Python local del sistema. La migracion a Python 3.14 es una tarea
+  futura separada, no parte de estos cambios.
+
+## Validacion al cierre
+
+- `PYTHONPATH=rainmapper-app/app .venv/bin/python -m unittest
+  tests.test_web_server_auth tests.test_mushroom_known_sites`: 94 tests OK.
+- JavaScript embebido extraido del HTML: `node --check` OK.
+- Imagen local `rainmapperha:local-ha-ui` reconstruida y contenedor iniciado.
+- No se ejecuto en este ultimo refinamiento el smoke test completo, todo el
+  validador de datos ni una prueba HA real.
+
+## Riesgos y dudas
+
+- El cambio local es grande y atraviesa UI, rutas POST, stores, GIS/DEM,
+  validacion y tests. Requiere revision de diff y validacion amplia antes de
+  publicar.
+- La UI es HTML/CSS/JS server-rendered concentrada principalmente en
+  `web_server.py`; aunque las pantallas grandes estan separadas, el riesgo de
+  regresion entre modales compartidos sigue siendo alto.
+- La ultima densidad visual del formulario necesita confirmacion humana en el
+  viewport real del usuario.
+- Hay datos vivos y backups bajo `docker-data/mushroom-data/`; no borrarlos ni
+  reemplazarlos durante tests.
+- No asumir que propuestas GIS/DEM equivalen a observacion de campo: son datos
+  propios del area/microarea y deben conservar procedencia.
+- No limpiar GHCR sin conservar version activa, `latest`, rollback inmediato y
   manifests/attestations auxiliares multi-arch.
-- `rainmapper-local/options.local-ha-ui.json` mantiene un perfil local de
-  desarrollo con backfill desactivado, filtro vacio y Wunderground activo.
 
-## Foco activo
+## Archivos relevantes inmediatos
 
-1. Decidir si limpiar GHCR de forma conservadora tras validar `0.2.199`.
-2. Continuar pruebas de backfill mensual Wunderground/AEMET con ventanas
-   pequenas y pausas.
-3. Retomar UI setas: `Fenologia` en `Parametros`, redisenar `Evidencia` y
-   preparar promocion manual de evidencia a perfil.
-
-## Cambios recientes que importan
-
-### Wunderground
-
-- Wunderground usa la API diaria JSON como fuente primaria y el scraper HTML
-  solo como fallback cuando la API falla.
-- Los metadatos se leen primero desde `estacions_wunderground.csv`; solo se
-  consulta HTML si falta cache o hay fallback.
-- El resumen de fuente muestra `API fallback errors`.
-- La API puede devolver filas provisionales del dia actual que luego corrige al
-  cerrar el dia. Decision del usuario: no anadir logica complicada; aceptar ese
-  comportamiento de Wunderground.
-
-### Backfill mensual
-
-- Opciones HA/local:
-  - `backfill_months_enabled`
-  - `months_init`
-  - `months_end`
-  - `months_interval`
-  - `backfill_pause_seconds`
-  - `backfill_station_filter`
-- Cuando `backfill_months_enabled=true`, antes del primer lanzamiento se hace
-  backup de incrementales.
-- El `Current step` del summary debe mostrar tambien la pausa entre ventanas.
-- `backfill_station_filter` acepta entradas por fuente con separador seguro
-  `source::id1,id2`, por ejemplo `wunderground::ICANIL20`.
-- Wunderground en backfill mensual usa fechas locales exactas por ventana para
-  no reintroducir el desfase UTC que hacia repetir el mes anterior. El modo
-  normal por dias conserva deliberadamente la relectura historica al cruzar mes,
-  porque ayuda a refrescar ultimos dias cuando Wunderground aun no ha cerrado
-  datos.
-- Coste esperado Wunderground: una llamada API por estacion y mes consultado.
-  Usar ventanas pequenas y pausas para reconstrucciones largas.
-
-### MapLibre
-
-- La correccion por altitud del IDW usa DEM Terrarium/Mapzen por celda solo en
-  metricas de temperatura.
-- El calculo ocurre en el navegador, acotado por viewport; no carga CPU de la
-  Raspberry Pi salvo servir la pagina/datos.
-- Badge visible solo cuando IDW esta activo, la metrica es temperatura y la
-  correccion por altitud esta activada:
-  - `IDW DEM` verde si usa DEM.
-  - `IDW sin DEM` rojo si cae a fallback.
-  - Sin badge si la correccion esta desactivada o la metrica no es temperatura.
-- `maplibre_estimated_field_dem_zoom` existe en config/defaults y settings de
-  dispositivo (`8|9|10`, default `9`).
-- El popup de click largo muestra `Valores IDW` antes de la estacion con lluvia
-  mas cercana. Debe listar primero `Pluja`, luego temperatura normal,
-  temperatura corregida, humedad y viento/racha, independientemente de la
-  metrica seleccionada en el mapa. Si un punto no tiene soporte IDW, mostrar
-  `-` para ese valor.
-- `0.2.199` corrige el problema de cache observado en `0.2.198`: el HTML
-  protegido se sirve con `Cache-Control: no-store` y reescribe los query strings
-  de assets a la version runtime. Si vuelve a faltar `Pluja`, mirar primero el
-  HTML servido/cache-buster antes de tocar el calculo.
-
-### Local HA UI
-
-- `rainmapper-local/docker-compose.yml` pasa variables desde el entorno local.
-- Si las opciones HA locales no traen clave, `run.sh` puede tomar `GMAP_API_KEY`
-  y `AEMET_API_KEY` del entorno. No hay claves reales en el repo.
-- El token de Meteocat queda descartado por ahora: la clave encontrada era de
-  Meteocat, no de Dades Obertes/GENCAT que usa el flujo actual.
-
-## Validacion reciente
-
-Para `0.2.199` se verifico:
-
-- `tests.test_web_server_auth`
-- `tests.test_wunderground_daily_api`
-- `node --check` del MapLibre `app.js`
-- `sh -n` de scripts shell tocados
-- `git diff --check`
-- Imagen multi-arch `0.2.199/latest` en GHCR
-- Dentro de la imagen: `index.html` referencia `app.js?v=0.2.199` y
-  `app.js` contiene `pointValues.rain`.
-
-## Riesgos y dudas activas
-
-- `0.2.198` queda reemplazada para MapLibre porque el codigo tenia `Pluja` en
-  `app.js`, pero `index.html` seguia cargando `app.js?v=0.2.196`.
-- La URL manual
-  `https://ha.nomentero.com/protected/maplibre/index.html?v=0.2.198` dio
-  `404`. Para validar usar el boton/ruta normal del visor protegido y evitar
-  query manuales hasta confirmar como enruta HA/Cloudflared.
-- Backfill mensual largo puede generar muchas llamadas. Para Wunderground:
-  estaciones x meses. Usar `backfill_station_filter`, intervalos pequenos y
-  pausas.
-- Meteoclimatic RSS no sirve para historico real. Meteocat historico queda
-  limitado por la API publica sin token adecuado. AEMET deberia funcionar con
-  backfill por ventanas, pero probar primero rangos cortos.
-- No cerrar el repo GitHub. Si se limpia GHCR, conservar la version activa,
-  `latest`, el rollback inmediato y los auxiliares multi-arch asociados.
-
-## Archivos relevantes
-
-- `rainmapper_core/rainmapper.py`: orquestacion de fuentes, backfill mensual,
-  backup y pasos de estado.
-- `rainmapper_core/sources/wunderground/`: API diaria/fallback scraper y fechas
-  exactas de backfill.
-- `rainmapper_core/incremental_upsert.py`: contrato de upsert incremental por
-  estacion/dia.
-- `rainmapper-app/app/web_server.py`: webUI, rutas protegidas MapLibre,
-  cache-busting runtime.
-- `rainmapper-app/run.sh`: lectura de opciones HA y variables de entorno.
-- `rainmapper-app/config.yaml`: defaults empaquetados HA.
-- `rainmapper-local/options.local-ha-ui.json`: perfil versionado para la HA UI
-  local; no guardar claves reales.
-- `rainmapper-local/docker-compose.yml`: entorno local HA UI.
-- `rainmapper_core/viewers/maplibre-viewer/index.html`
-- `rainmapper_core/viewers/maplibre-viewer/app.js`
-- `tests/test_web_server_auth.py`
-- `tests/test_wunderground_daily_api.py`
-
-## Fuente de verdad de setas
-
-En local:
-
-```text
-docker-data/mushroom-data/
-```
-
-En HA:
-
-```text
-/share/rainmapper/mushroom-data/
-```
-
-Las capas GIS/DEM pesadas para reconstruccion de contexto de setas en HA deben
-vivir fuera de `/share`:
-
-```text
-/media/rainmapper/mushroom-GIS/
-```
-
-`rainmapper_core/mushroom_paths.py` centraliza rutas. Los artefactos v0
-operativos viven en `mushroom-data`, no en `mushroom-lab/working`.
+- `rainmapper-app/app/mushroom_profiles_ui.py`: observaciones, EXIF, mapas y
+  modal compartido de listas/evidencia.
+- `rainmapper-app/app/mushroom_known_sites_ui.py`: mantenimiento de setales.
+- `rainmapper-app/app/web_server.py`: estilos, JavaScript, rutas y POST.
+- `rainmapper_core/mushroom_known_sites.py`: dominio/persistencia de setales.
+- `rainmapper_core/mushroom_gis_lab.py`: propuestas GIS/DEM.
+- `mushroom-data/mushroom_known_sites.json`: plantilla/store versionado.
+- `mushroom-data/mushroom_labels.json`: labels ES/EN/CA.
+- `tests/test_mushroom_known_sites.py` y `tests/test_web_server_auth.py`.
+- `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+- `docs/mushrooms/mushroom-observations-schema-es.md`.

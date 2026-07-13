@@ -564,10 +564,32 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        self.assertEqual(
+            "?kind=area&id=olvan",
+            handler.handle_mushroom_known_sites_post(
+                {
+                    "known_site_action": ["create_area"],
+                    "name": ["Olvan"],
+                    "save_confirmation": ["1"],
+                }
+            ),
+        )
+        self.assertEqual(
+            "?kind=micro_area&id=olvan_la_pera",
+            handler.handle_mushroom_known_sites_post(
+                {
+                    "known_site_action": ["create_micro_area"],
+                    "area_id": ["olvan"],
+                    "name": ["La Pera"],
+                    "save_confirmation": ["1"],
+                }
+            ),
+        )
         redirect = handler.handle_mushroom_profiles_post(
             {
                 "profile_action": ["create_observation"],
                 "observation_species_id": ["boletus_pinophilus"],
+                "micro_area_id": ["olvan_la_pera"],
                 "observed_at": ["2026-06-29"],
                 "location_input": ["https://www.google.com/maps/@41.3874,2.1686,15z"],
                 "flush_abundance": ["abundant"],
@@ -594,6 +616,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(1, len(payload["observations"]))
         observation = payload["observations"][0]
         self.assertEqual("boletus_pinophilus", observation["species_id"])
+        self.assertEqual("olvan_la_pera", observation["micro_area_id"])
         self.assertEqual("abundant", observation["flush_abundance"])
         self.assertEqual("google_maps_url", observation["location"]["source"])
         self.assertAlmostEqual(41.3874, observation["location"]["lat"])
@@ -986,7 +1009,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertFalse(payload["previews"][1]["ok"])
         self.assertEqual("image has no GPS metadata", payload["previews"][1]["error"])
 
-    def test_mushroom_observations_update_from_exif_images_updates_and_creates_extra_rows(self) -> None:
+    def test_mushroom_observations_update_rejects_multiple_exif_images(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
         old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
@@ -1069,27 +1092,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual("?section=observations&id=amanita_caesarea&obs_id=obs_20260629_0001#observations-workspace", redirect)
+        self.assertEqual("?section=observations&id=boletus_aereus&obs_id=obs_20260629_0001#observations-workspace", redirect)
         payload = json.loads(observations_path.read_text(encoding="utf-8"))
-        self.assertEqual(2, len(payload["observations"]))
-        updated, extra = payload["observations"]
-        self.assertEqual(observation_id, updated["observation_id"])
-        self.assertEqual("amanita_caesarea", updated["species_id"])
-        self.assertEqual("2025-08-06", updated["observed_at"])
-        self.assertEqual("photo_exif", updated["location"]["source"])
-        self.assertEqual(619.9, updated["altitude"]["meters"])
-        self.assertEqual("IMG_4144.jpeg", updated["source"]["label"])
-        self.assertEqual("IMG_4144.jpeg", updated["media"][0]["original_filename"])
-        self.assertTrue((data_dir / "mushroom-data" / updated["media"][0]["path"]).exists())
-        self.assertEqual({"month": 8, "season": "summer"}, updated["derived"])
-        self.assertNotEqual(observation_id, extra["observation_id"])
-        self.assertEqual("amanita_caesarea", extra["species_id"])
-        self.assertEqual("2025-08-07", extra["observed_at"])
-        self.assertEqual(761.9, extra["altitude"]["meters"])
-        self.assertEqual("IMG_4083.jpeg", extra["source"]["label"])
-        self.assertEqual("IMG_4083.jpeg", extra["media"][0]["original_filename"])
-        self.assertTrue((data_dir / "mushroom-data" / extra["media"][0]["path"]).exists())
-        self.assertEqual({"month": 8, "season": "summer"}, extra["derived"])
+        self.assertEqual(1, len(payload["observations"]))
+        unchanged = payload["observations"][0]
+        self.assertEqual(observation_id, unchanged["observation_id"])
+        self.assertEqual("boletus_aereus", unchanged["species_id"])
+        self.assertNotIn("media", unchanged)
 
     def test_mushroom_observations_create_reports_missing_coordinates(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -1337,7 +1346,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     ],
                     "site_context": {
                         "observed_host_ids": ["host_pinus_sylvestris"],
-                        "habitat_notes": "",
+                        "habitat_notes": "Barranco umbrío muy concreto",
                         "host_notes": "",
                     },
                 },
@@ -1411,8 +1420,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('id="observation-map-obs-20260629-0001"', html)
         self.assertIn('data-modal-history-close', html)
         self.assertIn('?section=observations&amp;obs_id=obs_20260629_0001&amp;id=boletus_pinophilus&amp;date_from=2026-06-29&amp;result=abundant#observation-detail', html)
-        self.assertIn("maps.google.com/maps?", html)
-        self.assertIn('href="#observation-map-obs-20260629-0001">Map</a>', html)
+        self.assertIn('class="observation-site-map"', html)
+        self.assertIn('class="observation-map-control observation-layer-toggle"', html)
+        self.assertIn('class="observation-map-control observation-terrain-toggle"', html)
+        self.assertIn('class="observation-map-control observation-north-toggle"', html)
+        self.assertIn("www.google.com/maps/search/", html)
+        self.assertIn('data-observation-draft-map>Map</button>', html)
         self.assertIn('class="observation-photo-link" href="#observation-photo-obs-20260629-0001-', html)
         self.assertNotIn('class="observation-photo-link" href="./observation-media?path=', html)
         self.assertIn('id="observation-photo-raw-exif-obs-20260629-0001-', html)
@@ -1424,6 +1437,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("obs_20260629_0001", html)
         self.assertNotIn("obs_20260620_0001", html)
         self.assertNotIn("obs_20260628_0001", html)
+
+        nested_search_html = self.web_server.mushroom_profiles_ui.render_observations_section(
+            profile,
+            profiles,
+            catalogs,
+            observations,
+            archived_observations,
+            filters={"obs_q": "barranco umbrío"},
+        )
+        self.assertIn("obs_20260629_0001", nested_search_html)
+        self.assertNotIn("obs_20260620_0001", nested_search_html)
 
         sorted_html = self.web_server.mushroom_profiles_ui.render_observations_section(
             profile,
@@ -1633,8 +1657,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Quercus suber - Cork oak", html)
         self.assertIn("Whether this ID is already declared", html)
         self.assertIn("Evidence observations", html)
-        self.assertIn("maps.google.com/maps?", html)
-        self.assertIn("Open Google Maps", html)
+        self.assertIn('class="observation-site-map"', html)
+        self.assertIn('data-observation-map-target=', html)
+        self.assertIn("Microáreas visibles", html)
         self.assertIn(">Open</a>", html)
         self.assertIn("?section=observations&amp;obs_id=obs_1&amp;id=boletus_aereus#observation-detail", html)
         self.assertNotIn("Ejemplos", html)

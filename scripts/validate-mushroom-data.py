@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from rainmapper_core import mushroom_known_sites
 from rainmapper_core.mushroom_validation import validate_profile_semantics
 
 DEFAULT_DATA_DIR = REPO_ROOT / "mushroom-data"
@@ -32,6 +33,7 @@ PROFILE_FILE = "mushroom_profiles.json"
 CATALOG_FILE = "mushroom_reference_catalogs.json"
 GIS_FILE = "mushroom_gis_mappings.json"
 OBSERVATIONS_FILE = "mushroom_observations.json"
+KNOWN_SITES_FILE = "mushroom_known_sites.json"
 
 REQUIRED_PROFILE_ROOT_KEYS = {
     "schema_version",
@@ -1273,6 +1275,33 @@ def validate_mushroom_data(data_dir: Path = DEFAULT_DATA_DIR) -> list[Validation
         messages,
         used_ids,
     )
+    known_sites_path = data_dir / KNOWN_SITES_FILE
+    if known_sites_path.exists():
+        known_sites_payload, known_sites_messages = load_json(known_sites_path)
+        messages.extend(known_sites_messages)
+        if isinstance(known_sites_payload, dict):
+            messages.extend(
+                error("known_sites", validation_error)
+                for validation_error in mushroom_known_sites.validate_payload(known_sites_payload)
+            )
+            micro_area_ids = {
+                str(row.get("micro_area_id", ""))
+                for row in known_sites_payload.get("micro_areas", [])
+                if isinstance(row, dict)
+            }
+            observations = observations_payload.get("observations")
+            if isinstance(observations, list):
+                for index, observation in enumerate(observations):
+                    if not isinstance(observation, dict):
+                        continue
+                    micro_area_id = str(observation.get("micro_area_id", "") or "").strip()
+                    if micro_area_id and micro_area_id not in micro_area_ids:
+                        messages.append(
+                            error(
+                                f"observations[{index}].micro_area_id",
+                                f"unknown micro-area ID {micro_area_id!r}",
+                            )
+                        )
     add_unused_catalog_warnings(ids_by_catalog, used_ids, messages)
     return messages
 
