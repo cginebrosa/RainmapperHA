@@ -2536,3 +2536,32 @@ DUDA.
 Todavia debe decidirse con datos reales si la unidad final de prediccion sera
 microarea, area o una combinacion jerarquica de ambas. La geometria y el store
 se han preparado para poder comparar esas alternativas sin redisenarlos.
+
+## 2026-07-15 - Entrega de video privado compatible con Safari e ingress HA
+
+### Estado
+VIGENTE.
+
+### Decision
+La ruta privada de media de observaciones debe admitir `HEAD` y peticiones HTTP
+`Range` de un solo intervalo. Una respuesta parcial valida usa `206`,
+`Accept-Ranges: bytes`, `Content-Range` y la longitud exacta del fragmento; un
+rango invalido o no satisfacible devuelve `416`. El visor declara explicitamente
+`video/mp4`, `playsinline` y el poster JPEG.
+
+FFmpeg y ExifTool son dependencias ejecutables del sistema instaladas en
+`rainmapper-app/Dockerfile`. No se incorporan a `requirements.txt`, reservado
+para paquetes Python importables.
+
+### Motivo
+Safari, especialmente a traves del ingress de Home Assistant, necesita entrega
+parcial para iniciar y desplazar la reproduccion de MP4. El archivo normalizado
+ya tiene tamano y codec adecuados; recomprimirlo mas no resuelve el contrato
+HTTP.
+
+### Consecuencias
+- Los GET completos siguen devolviendo `200`; los parciales devuelven `206`.
+- El soporte actual no acepta rangos multiples en una misma cabecera.
+- La validacion local no sustituye la prueba real tras proxies de HA.
+- Cambiar dependencias multimedia exige revisar el Dockerfile y ambas
+  arquitecturas, no anadir nombres de binarios a `requirements.txt`.

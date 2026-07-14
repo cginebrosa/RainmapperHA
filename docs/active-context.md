@@ -15,20 +15,22 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - GitHub sigue abierto/publico por decision explicita; no cerrarlo.
-- `0.2.201` incorpora la importacion de imagen/video, normalizacion de video,
-  posters JPEG y fallback de altitud DEM. Pendiente de validacion real en HA.
+- `0.2.201` incorporo importacion de imagen/video, normalizacion de video,
+  posters JPEG y fallback de altitud DEM. `0.2.202` corrige la entrega parcial
+  de MP4 necesaria para Safari dentro del ingress de HA.
 - No mezclar datos reales de `docker-data/` en Git.
 
 ## Foco inmediato
 
-1. Validar visualmente el ultimo refinamiento del modal de alta/edicion de
-   observaciones contra el mockup entregado por el usuario: densidad del panel
-   `Evidencia de campo`, bloque EXIF y botones inferiores.
-2. Corregir cualquier desbordamiento o diferencia visual que detecte el usuario
-   sin volver a duplicar pantallas o flujos de mapa.
-3. Ejecutar validacion amplia de setas, revisar el diff y decidir con el usuario
-   si se hace un commit local o se prepara un nuevo release HA.
-4. Tras estabilizar la UI, retomar el pipeline ML experimental empezando por la
+1. Instalar/probar `0.2.202` en Home Assistant y confirmar que el MP4 asociado
+   se reproduce, permite desplazamiento temporal y mantiene poster/metadata en
+   Safari mediante ingress.
+2. Si falla, inspeccionar primero las peticiones `HEAD`/`Range` y las respuestas
+   `200`/`206`; no volver a recomprimir el video, cuyo tamano (~4,4 MB) ya fue
+   aceptado por el usuario.
+3. Confirmar en HA que la importacion de imagen/video, el fallback DEM y los
+   modales de observaciones siguen funcionando con los datos vivos existentes.
+4. Tras esa validacion, retomar el pipeline ML experimental empezando por la
    especie con mas observaciones utiles. El plan vigente esta en
    `docs/mushrooms/mushroom-ml-training-plan-es.md`.
 
@@ -108,21 +110,12 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
   `source video/mp4` con poster. Validado localmente y publicado; pendiente de
   prueba real en HA.
 
-## Ultimo cambio visual
+## Ultimo cambio publicado
 
-El modal de alta/edicion se reorganizo siguiendo
-`/Users/carlosginebrosa/Downloads/ChatGPT Image 13 jul 2026, 01_33_07.png`:
-
-- izquierda: Observacion, Ubicacion, Validacion y Origen;
-- derecha: `Evidencia de campo` con hosts, bosques, suelos, habitat,
-  orientacion y notas;
-- pie: actualizacion EXIF y acciones.
-
-En la ultima iteracion se redujeron especificamente tipografia, separaciones y
-pastillas del panel derecho; el bloque EXIF paso a encabezado compacto con icono
-y ayuda en una linea; los botones inferiores se hicieron mas bajos y estrechos.
-La estructura y la logica no se cambiaron en esa iteracion. Falta validacion
-visual del usuario tras reconstruir el contenedor.
+`0.2.202` anade soporte HTTP de rangos de bytes y `HEAD` a la ruta privada de
+media de observaciones. El visor declara una fuente `video/mp4`, `playsinline`
+y poster. La correccion se valido localmente con una respuesta real `206` y
+`Content-Range` sobre `IMG_4751.mp4`; falta la confirmacion final en HA.
 
 ## Predictor y modelo aprendido
 
@@ -151,7 +144,9 @@ visual del usuario tras reconstruir el contenedor.
   privados persistentes y no se versionan.
 - Resolver canonico: `rainmapper_core/mushroom_paths.py`.
 - UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
-- Estado al cierre: contenedor reconstruido y en ejecucion.
+- Estado al cierre: repo limpio y release remota publicada. La UI local estaba
+  disponible durante la validacion; comprobar su estado antes de asumir que el
+  contenedor sigue activo en una nueva sesion.
 - Usar siempre `.venv/bin/python` (Python 3.11), igual que contenedor y HA. No
   usar el Python local del sistema. La migracion a Python 3.14 es una tarea
   futura separada, no parte de estos cambios.
@@ -160,21 +155,21 @@ visual del usuario tras reconstruir el contenedor.
 
 - `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 229 tests OK.
 - JavaScript embebido extraido del HTML: `node --check` OK.
-- Imagen local `rainmapperha:local-ha-ui` reconstruida y contenedor iniciado.
+- Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
+  longitud y `Content-Range` correctos.
 - Validador de datos: 0 errores y 11 warnings conocidos.
-- Imagen remota verificada para amd64/arm64; FFmpeg 7.1.5, ExifTool 13.25 e
-  import de `web_server` correctos en la imagen arm64. Pendiente prueba HA real.
+- Imagen remota `0.2.202`/`latest` verificada para amd64/arm64; FFmpeg 7.1.5,
+  ExifTool 13.25 y version runtime correctos. Pendiente prueba HA real.
 
 ## Riesgos y dudas
 
-- El cambio local es grande y atraviesa UI, rutas POST, stores, GIS/DEM,
-  validacion y tests. Requiere revision de diff y validacion amplia antes de
-  publicar.
+- Safari/ingress puede imponer comportamiento adicional de proxy o cache no
+  reproducible localmente; la prueba real de `0.2.202` es el riesgo inmediato.
 - La UI es HTML/CSS/JS server-rendered concentrada principalmente en
   `web_server.py`; aunque las pantallas grandes estan separadas, el riesgo de
   regresion entre modales compartidos sigue siendo alto.
-- La ultima densidad visual del formulario necesita confirmacion humana en el
-  viewport real del usuario.
+- El contrato sigue siendo una sola imagen o video por observacion; no asumir
+  soporte de galeria ni varios adjuntos.
 - Hay datos vivos y backups bajo `docker-data/mushroom-data/`; no borrarlos ni
   reemplazarlos durante tests.
 - No asumir que propuestas GIS/DEM equivalen a observacion de campo: son datos
@@ -188,6 +183,9 @@ visual del usuario tras reconstruir el contenedor.
   modal compartido de listas/evidencia.
 - `rainmapper-app/app/mushroom_known_sites_ui.py`: mantenimiento de setales.
 - `rainmapper-app/app/web_server.py`: estilos, JavaScript, rutas y POST.
+- `tests/test_web_server_auth.py`: cobertura de `HEAD`, rangos HTTP y fuente MP4.
+- `rainmapper-app/Dockerfile`: FFmpeg y ExifTool son dependencias del sistema;
+  no deben trasladarse a `requirements.txt`.
 - `rainmapper_core/mushroom_known_sites.py`: dominio/persistencia de setales.
 - `rainmapper_core/mushroom_gis_lab.py`: propuestas GIS/DEM.
 - `mushroom-data/mushroom_known_sites.json`: plantilla/store versionado.

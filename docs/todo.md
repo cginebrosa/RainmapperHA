@@ -12,20 +12,31 @@ Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
 
-## Estado operativo actual (2026-07-13)
+## Estado operativo actual (2026-07-15)
 
 ### Prioridad inmediata
 
-- [ ] Validar visualmente el modal refinado de alta/edicion de observaciones
-  contra el mockup del usuario. Revisar especialmente densidad de `Evidencia de
-  campo`, pastillas, notas, bloque EXIF y barra inferior en el viewport real.
-- [ ] Ejecutar validacion amplia antes de commit/release: validador de datos de
-  setas, suite completa relevante, JavaScript embebido, `git diff --check` y
-  smoke/build de imagen si se decide publicar.
-- [ ] Revisar el diff grande de setales/observaciones y acordar con el usuario
-  si se crea commit local o una version HA posterior a `0.2.199`.
+- [ ] Validar `0.2.202` en HA: reproducir el MP4 asociado desde Safari/ingress,
+  comprobar pausa, seek, audio, poster y reapertura del modal.
+- [ ] Si el video no se reproduce, capturar respuesta/cabeceras de la ruta
+  privada de media y comprobar que el proxy conserva `Range`, `206`,
+  `Content-Range` y `Accept-Ranges`.
+- [ ] Confirmar en HA importacion de imagen/video, fallback de altitud DEM y
+  persistencia de asociaciones usando los datos vivos ya copiados.
 - [ ] Retomar despues el pipeline ML experimental documentado en
   `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+
+### Completado en el cierre 0.2.202
+
+- [x] Implementar `HEAD` y rangos HTTP de un solo intervalo en media privada de
+  observaciones, incluidos `206` y `416`.
+- [x] Declarar `<source type="video/mp4">`, `playsinline` y poster en el visor.
+- [x] Validar localmente un rango real sobre el MP4 asociado y ejecutar 229
+  tests, validador de datos (0 errores, 11 warnings) y `git diff --check`.
+- [x] Revisar `requirements.txt`: no requiere cambios; FFmpeg y ExifTool siguen
+  correctamente instalados como paquetes del sistema en el Dockerfile.
+- [x] Publicar HA `0.2.202` y `latest` para amd64/arm64 con digest
+  `sha256:3ee510ee50793e252bbe5a6c05f722567da758f374d865ebd96a272c259ee7ed`.
 
 ### Release meteorologico estable
 
