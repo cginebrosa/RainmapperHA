@@ -8,10 +8,10 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 - Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.202`.
-- Commit release: `7ba31e8 Release Home Assistant 0.2.202`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.202` y `latest`.
-- Digest multi-arch: `sha256:3ee510ee50793e252bbe5a6c05f722567da758f374d865ebd96a272c259ee7ed`.
+- Ultimo release HA publicado: `0.2.203`.
+- Commit release: `18fdc49 Release Home Assistant 0.2.203`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.203` y `latest`.
+- Digest multi-arch: `sha256:67881adedbc8445c9dc7af03c3bb4fcc2b81f6ee17cb35ed043fe371ddb1fc56`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - GitHub sigue abierto/publico por decision explicita; no cerrarlo.
@@ -22,12 +22,12 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 ## Foco inmediato
 
-1. Instalar/probar `0.2.202` en Home Assistant y confirmar que el MP4 asociado
-   se reproduce, permite desplazamiento temporal y mantiene poster/metadata en
-   Safari mediante ingress.
-2. Si falla, inspeccionar primero las peticiones `HEAD`/`Range` y las respuestas
-   `200`/`206`; no volver a recomprimir el video, cuyo tamano (~4,4 MB) ya fue
-   aceptado por el usuario.
+1. Instalar/probar `0.2.203` en Home Assistant y confirmar que el icono de
+   maximizar abre las fotos a pantalla fisica completa y que `Esc` devuelve al
+   mismo modal. Probar tambien el visor grande con zoom en una pestana nueva.
+2. Confirmar que el MP4 asociado se reproduce, permite desplazamiento temporal
+   y mantiene poster/metadata en Safari mediante ingress. Si falla, inspeccionar
+   primero `HEAD`/`Range` y las respuestas `200`/`206`; no recomprimir el video.
 3. Confirmar en HA que la importacion de imagen/video, el fallback DEM y los
    modales de observaciones siguen funcionando con los datos vivos existentes.
 4. Tras esa validacion, retomar el pipeline ML experimental empezando por la
@@ -112,10 +112,11 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
 
 ## Ultimo cambio publicado
 
-`0.2.202` anade soporte HTTP de rangos de bytes y `HEAD` a la ruta privada de
-media de observaciones. El visor declara una fuente `video/mp4`, `playsinline`
-y poster. La correccion se valido localmente con una respuesta real `206` y
-`Content-Range` sobre `IMG_4751.mp4`; falta la confirmacion final en HA.
+`0.2.203` anade pantalla completa real al visor de fotos, con retorno mediante
+`Esc`, y sustituye las nuevas acciones de texto por iconos superpuestos. Incluye
+un visor grande en pestana nueva con zoom, tamano real y ajuste a ventana. La
+correccion de rangos HTTP/`HEAD` para MP4 de `0.2.202` se mantiene; ambas quedan
+pendientes de confirmacion final en HA/Safari mediante ingress.
 
 ## Predictor y modelo aprendido
 
@@ -153,18 +154,21 @@ y poster. La correccion se valido localmente con una respuesta real `206` y
 
 ## Validacion al cierre
 
-- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 229 tests OK.
+- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 230 tests OK.
 - JavaScript embebido extraido del HTML: `node --check` OK.
 - Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
   longitud y `Content-Range` correctos.
 - Validador de datos: 0 errores y 11 warnings conocidos.
-- Imagen remota `0.2.202`/`latest` verificada para amd64/arm64; FFmpeg 7.1.5,
-  ExifTool 13.25 y version runtime correctos. Pendiente prueba HA real.
+- Imagen remota `0.2.203`/`latest` verificada para amd64/arm64; Python 3.11.15,
+  FFmpeg 7.1.5, ExifTool 13.25 y version runtime correctos. Tamano comprimido:
+  478,2 MB arm64 y 497,3 MB amd64. Pendiente prueba HA real.
 
 ## Riesgos y dudas
 
 - Safari/ingress puede imponer comportamiento adicional de proxy o cache no
-  reproducible localmente; la prueba real de `0.2.202` es el riesgo inmediato.
+  reproducible localmente; la prueba real de `0.2.203` es el riesgo inmediato.
+- El fullscreen generico de imagen depende de que Safari/ingress permita la API
+  Fullscreen; el visor grande en pestana nueva queda como alternativa con zoom.
 - La UI es HTML/CSS/JS server-rendered concentrada principalmente en
   `web_server.py`; aunque las pantallas grandes estan separadas, el riesgo de
   regresion entre modales compartidos sigue siendo alto.
