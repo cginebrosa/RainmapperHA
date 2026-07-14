@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.201
+
+- Accept observation images and videos through the same single and batch import workflows.
+- Normalize uploaded videos to compact MP4/H.264 at up to 480p and 30 seconds, with 100 MB per-file and 500 MB batch limits.
+- Generate video thumbnails and preserve useful capture date and GPS metadata.
+- Propose DEM altitude when imported media provides coordinates but no usable altitude, preserving its DEM provenance.
+- Refine observation list sizing, scroll stability, editor density and multi-file EXIF import layout.
+
 ## 0.2.200
 
 - Add persistent mushroom areas and micro-areas with polygon editing, GIS/DEM review and observation assignment workflows.

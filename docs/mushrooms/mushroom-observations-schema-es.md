@@ -330,6 +330,27 @@ El resto queda como notas libres:
 
 Estas notas no sustituyen las afinidades catalogadas de especie. Describen lo observado en un sitio concreto.
 
+### Imagen o video asociado
+
+Cada observacion admite como maximo un archivo multimedia asociado. `media[]`
+usa `kind: photo` para imagenes y `kind: video` para videos. Las imagenes se
+guardan bajo `media/observation-photos/`.
+
+Los videos se normalizan al importarlos: MP4 con video H.264, audio AAC,
+resolucion maxima 854x480 y los primeros 30 segundos. El original no se
+conserva. Fecha/hora, GPS y altitud util se guardan en `capture_metadata` y se
+copian tambien al contenedor MP4 cuando estan disponibles. Una altitud
+QuickTime igual a cero se considera ausente porque el iPhone la usa como
+marcador cuando no dispone de altitud. En ese caso, si hay coordenadas, la
+vista previa propone la elevacion consultada en el DEM y la identifica como
+`Origen DEM`; al aplicarla se persiste con `altitude.source: dem`. Para que la
+lista y la vista previa no dependan del soporte de miniaturas del navegador,
+se genera un poster JPEG a partir de un fotograma del video.
+
+El limite es 100 MB por archivo y 500 MB por importacion multiple. Los tres
+modos de la UI son comunes para imagen y video: asociar solo el archivo,
+actualizar solo los datos de captura o realizar ambas operaciones.
+
 ### Metadata
 
 `metadata.created_at`, `metadata.updated_at`, `metadata.created_by`, `metadata.reviewed_by` y `metadata.reviewed_at` sirven para auditoria y mantenimiento.

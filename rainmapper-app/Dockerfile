@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.200" \
+LABEL io.hass.version="0.2.201" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.200
+ENV RAINMAPPER_APP_VERSION=0.2.201
 
 WORKDIR /app
 
@@ -14,6 +14,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         gdal-bin \
+        ffmpeg \
+        libimage-exiftool-perl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

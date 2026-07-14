@@ -67,6 +67,13 @@ def mushroom_observation_photos_dir() -> Path:
     return mushroom_media_dir() / "observation-photos"
 
 
+def mushroom_observation_videos_dir() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATION_VIDEOS_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    return mushroom_media_dir() / "observation-videos"
+
+
 def mushroom_observation_images_dir() -> Path:
     """Backward-compatible alias for observation photo storage."""
     return mushroom_observation_photos_dir()

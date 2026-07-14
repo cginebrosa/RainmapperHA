@@ -1643,11 +1643,11 @@ def observation_coordinates_html(row: dict[str, object], *, precision: int = 5) 
 
 
 def observation_photo_media(row: dict[str, object]) -> list[tuple[int, dict[str, object]]]:
-    """Return photo media rows with their original media index."""
+    """Return supported photo/video media rows with their original media index."""
     media_rows = row.get("media") if isinstance(row.get("media"), list) else []
     photos: list[tuple[int, dict[str, object]]] = []
     for index, media in enumerate(media_rows):
-        if not isinstance(media, dict) or str(media.get("kind", "")) != "photo":
+        if not isinstance(media, dict) or str(media.get("kind", "")) not in {"photo", "video"}:
             continue
         if not str(media.get("url", "") or ""):
             continue
@@ -1670,11 +1670,18 @@ def render_observation_photo_strip(
         url = str(media.get("url", "") or "")
         label = str(media.get("original_filename", "") or media.get("stored_filename", "") or "photo")
         modal_href = "#" + observation_photo_modal_id(observation_id, media, index)
+        kind = str(media.get("kind", "photo") or "photo")
+        if kind == "video":
+            separator = "&" if "?" in url else "?"
+            poster_url = str(media.get("poster_url", "") or f"{url}{separator}poster=1")
+            media_html = f'<img src="{html.escape(poster_url, quote=True)}" alt="{html.escape(label, quote=True)}">'
+        else:
+            media_html = f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">'
         photo_links.append(
             '<a class="observation-photo-link" '
             f'href="{html.escape(modal_href, quote=True)}" '
             f'title="{html.escape(label, quote=True)}">'
-            f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">'
+            f'{media_html}'
             "</a>"
         )
     if not photo_links:
@@ -1721,6 +1728,22 @@ def observation_photo_exif_rows(media: dict[str, object]) -> list[tuple[str, str
         rows.append(("Tamano guardado", f"{media.get('size_bytes')} bytes"))
     if media.get("content_type"):
         rows.append(("Tipo", str(media.get("content_type"))))
+    if str(media.get("kind", "")) == "video":
+        capture_metadata = media.get("capture_metadata") if isinstance(media.get("capture_metadata"), dict) else {}
+        labels = {
+            "captured_at_display": "Fecha/hora",
+            "lat": "Latitud",
+            "lon": "Longitud",
+            "altitude_m": "Altitud",
+            "duration_seconds": "Duracion original",
+        }
+        for key, label in labels.items():
+            value = capture_metadata.get(key)
+            if value not in (None, ""):
+                suffix = " m" if key == "altitude_m" else " s" if key == "duration_seconds" else ""
+                rows.append((label, f"{value}{suffix}"))
+        rows.append(("Conversion", "MP4 H.264 · maximo 480p · primeros 30 s"))
+        return rows
     path = observation_media_file_path(str(media.get("path", "") or ""))
     if path is None or not path.exists():
         rows.append(("EXIF", "Imagen no encontrada en disco"))
@@ -1758,6 +1781,17 @@ def observation_photo_raw_exif_text(media: dict[str, object]) -> str:
     path = observation_media_file_path(str(media.get("path", "") or ""))
     if path is None or not path.exists():
         return json.dumps({"error": "image_not_found", "path": str(media.get("path", "") or "")}, indent=2, ensure_ascii=False)
+    if str(media.get("kind", "")) == "video":
+        payload = {
+            "kind": "video",
+            "stored_file": path.name,
+            "content_type": media.get("content_type"),
+            "capture_metadata": media.get("capture_metadata", {}),
+            "transcoded": media.get("transcoded", False),
+            "max_duration_seconds": media.get("max_duration_seconds"),
+            "max_resolution": media.get("max_resolution"),
+        }
+        return json.dumps(payload, indent=2, ensure_ascii=False)
     try:
         from PIL import Image
         from PIL.ExifTags import GPSTAGS, TAGS
@@ -1807,6 +1841,11 @@ def render_observation_photo_modal(
         f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>"
         for key, value in rows
     )
+    media_stage = (
+        f'<video src="{html.escape(url, quote=True)}" controls preload="metadata" playsinline></video>'
+        if str(media.get("kind", "photo") or "photo") == "video"
+        else f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">'
+    )
     return f"""
     <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
       <div class="modal-card observation-photo-modal">
@@ -1824,7 +1863,7 @@ def render_observation_photo_modal(
           <table><tbody>{exif_rows}</tbody></table>
         </div>
         <div class="observation-photo-stage">
-          <img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">
+          {media_stage}
         </div>
       </div>
     </div>
@@ -4974,7 +5013,7 @@ def render_observation_form_modal(
           </div>
           <div class="admin-field wide exif-edit-upload">
             <label>{html.escape(ui_label("ui.exif_images"))}</label>
-            <input name="observation_exif_images" type="file" accept="image/jpeg,image/heic,image/heif">
+            <input name="observation_exif_images" type="file" accept="image/jpeg,image/heic,image/heif,video/quicktime,video/mp4,video/x-m4v,video/webm,video/x-msvideo,video/3gpp,.mov,.mp4,.m4v,.webm,.avi,.3gp">
           </div>
         </div>
         """
@@ -5243,7 +5282,7 @@ def render_observation_exif_import_form(
               <strong class="observation-exif-title">{html.escape(ui_label("ui.exif_filled_fields"))}</strong>
               <span class="observation-exif-help">{html.escape(ui_label("ui.exif_filled_fields_help"))}</span>
             </div>
-            <div class="admin-field wide exif-edit-upload"><label>{html.escape(ui_label("ui.exif_images"))}</label><input name="exif_images" type="file" accept="image/jpeg,image/heic,image/heif" multiple webkitdirectory directory required></div>
+            <div class="admin-field wide exif-edit-upload"><label>{html.escape(ui_label("ui.exif_images"))}</label><input name="exif_images" type="file" accept="image/jpeg,image/heic,image/heif,video/quicktime,video/mp4,video/x-m4v,video/webm,video/x-msvideo,video/3gpp,.mov,.mp4,.m4v,.webm,.avi,.3gp" multiple webkitdirectory directory required></div>
           </div>
           <div class="profile-action-bar">
             <button class="primary profile-primary-action">{html.escape(ui_label("ui.import_exif_images"))}</button>

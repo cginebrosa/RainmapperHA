@@ -1025,6 +1025,120 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertFalse(payload["previews"][1]["ok"])
         self.assertEqual("image has no GPS metadata", payload["previews"][1]["error"])
 
+    def test_video_metadata_uses_quicktime_date_gps_and_altitude(self) -> None:
+        exiftool_payload = [
+            {
+                "CreationDate": "2025:09:26 14:38:00+02:00",
+                "CreateDate": "2026:07:13 22:35:31+00:00",
+                "GPSLatitude": 42.0232,
+                "GPSLongitude": 1.9763,
+                "GPSAltitude": 713.5,
+                "Duration": 28.4,
+            }
+        ]
+        completed = mock.Mock(stdout=json.dumps(exiftool_payload), stderr="", returncode=0)
+        with mock.patch.object(self.web_server.subprocess, "run", return_value=completed) as run:
+            fields = self.web_server.extract_photo_exif_observation_fields("IMG_4751.mov", b"quicktime-video")
+
+        self.assertEqual("video", fields["media_kind"])
+        self.assertEqual("2025-09-26", fields["observed_at"])
+        self.assertEqual(42.0232, fields["lat"])
+        self.assertEqual(1.9763, fields["lon"])
+        self.assertEqual(713.5, fields["altitude_m"])
+        self.assertEqual(28.4, fields["duration_seconds"])
+        self.assertEqual("exiftool", run.call_args.args[0][0])
+
+    def test_media_preview_proposes_dem_altitude_when_metadata_has_none(self) -> None:
+        fields = {
+            "filename": "IMG_4751.mov",
+            "media_kind": "video",
+            "observed_at": "2025-09-26",
+            "captured_at": "2025-09-26 14:38:00+02:00",
+            "lat": 42.0232,
+            "lon": 1.9763,
+            "altitude_m": None,
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_gis_lab,
+            "sample_dem",
+            return_value={"status": "ok", "elevation_m": 625.76},
+        ) as sample_dem:
+            enriched = self.web_server.enrich_media_fields_with_dem_altitude(fields)
+
+        self.assertEqual(625.8, enriched["altitude_m"])
+        self.assertEqual("dem", enriched["altitude_source"])
+        sample_dem.assert_called_once_with(1.9763, 42.0232, None)
+
+    def test_video_media_is_transcoded_to_bounded_mp4(self) -> None:
+        data_dir = Path(self.temp_dir.name) / "mushroom-data"
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir)
+
+        def restore_env() -> None:
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **_kwargs: object) -> mock.Mock:
+            commands.append(command)
+            if command[0] == "exiftool":
+                return mock.Mock(
+                    stdout=json.dumps(
+                        [{
+                            "CreateDate": "2025:09:26 14:38:00",
+                            "GPSLatitude": 42.0232,
+                            "GPSLongitude": 1.9763,
+                            "GPSAltitude": 713.5,
+                            "Duration": 82.0,
+                        }]
+                    ),
+                    stderr="",
+                    returncode=0,
+                )
+            Path(command[-1]).write_bytes(b"small-standard-mp4")
+            return mock.Mock(stdout="", stderr="", returncode=0)
+
+        with mock.patch.object(self.web_server.subprocess, "run", side_effect=fake_run):
+            media = self.web_server.save_observation_image_media(
+                "obs_20250926_0001",
+                {"filename": "IMG_4751.mov", "content": b"source-video", "content_type": "video/quicktime"},
+                "2025-09-26",
+            )
+
+        self.assertIsNotNone(media)
+        self.assertEqual("video", media["kind"])
+        self.assertEqual("video/mp4", media["content_type"])
+        self.assertEqual("IMG_4751.mp4", media["stored_filename"])
+        self.assertEqual("media/observation-videos/2025/IMG_4751.mp4", media["path"])
+        self.assertEqual(30, media["max_duration_seconds"])
+        self.assertEqual("854x480", media["max_resolution"])
+        self.assertEqual(42.0232, media["capture_metadata"]["lat"])
+        ffmpeg_command = next(command for command in commands if command[0] == "ffmpeg")
+        self.assertIn("30", ffmpeg_command)
+        self.assertIn("libx264", ffmpeg_command)
+        self.assertIn("yuv420p", ffmpeg_command)
+        self.assertIn("location=+42.023200+1.976300+713.50/", ffmpeg_command)
+        self.assertTrue((data_dir / media["path"]).exists())
+
+    def test_video_media_renders_with_generated_poster(self) -> None:
+        row = {
+            "observation_id": "obs_20250926_0001",
+            "media": [{
+                "kind": "video",
+                "url": "./observation-media?path=video.mp4",
+                "path": "media/observation-videos/2025/video.mp4",
+                "original_filename": "IMG_4751.mov",
+            }],
+        }
+        html = self.web_server.mushroom_profiles_ui.render_observation_photo_strip(row)
+        self.assertIn("<img", html)
+        self.assertIn("poster=1", html)
+        self.assertNotIn("<video", html)
+
     def test_mushroom_observations_update_rejects_multiple_exif_images(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")

@@ -8,10 +8,10 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 - Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado y validado: `0.2.199`.
-- Commit release: `abe0d49 Release Home Assistant 0.2.199`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.199` y `latest`.
-- Digest multi-arch: `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
+- Ultimo release HA publicado: `0.2.200`.
+- Commit release: `b9f949c Release Home Assistant 0.2.200`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.200` y `latest`.
+- Digest multi-arch: `sha256:f041f97c775f3c75979dce0e6d875e504543cd9c1adf69239a2b9dc1e72cd532`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - GitHub sigue abierto/publico por decision explicita; no cerrarlo.
@@ -87,7 +87,7 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
   encontrar cualquier valor presente en el JSON, ademas de labels visibles.
 - La altitud acepta enteros. Se conserva precision completa en JSON/enlaces y
   se limita solo la presentacion de coordenadas donde corresponde.
-- Contrato actual de media: una sola imagen por observacion. La UI permite
+- Contrato actual de media: una sola imagen o video por observacion. La UI permite
   desasociar o desasociar y borrar con confirmacion irreversible; solo ofrece
   borrar si el fichero no esta referenciado por otra observacion.
 - Al sustituir una foto, el preview EXIF compara imagen existente y nueva,
@@ -97,6 +97,13 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
 - El preview EXIF usa MapLibre y muestra areas/microareas visibles. Debe seguir
   devolviendo la microarea elegida al formulario, sin guardar la observacion
   hasta pulsar `Guardar observacion`.
+- Los videos MOV/MP4 y formatos habituales se leen con ExifTool y se convierten
+  con FFmpeg a MP4/H.264, maximo 480p y 30 segundos. Se conservan fecha/hora,
+  GPS y altitud util en el MP4 y en `capture_metadata`; el original no se
+  guarda. El preview y el detalle usan un poster JPEG generado desde el video.
+  Si el archivo tiene coordenadas pero no altitud util, el preview consulta el
+  DEM, muestra `Origen DEM` y aplica `altitude.source: dem`. Limites: 100 MB por
+  archivo y 500 MB por lote.
 
 ## Ultimo cambio visual
 
@@ -136,7 +143,8 @@ visual del usuario tras reconstruir el contenedor.
 - Datos de setas local: `docker-data/mushroom-data/`.
 - Equivalente HA: `/share/rainmapper/mushroom-data/`.
 - GIS/DEM pesado en HA: `/media/rainmapper/mushroom-GIS/`.
-- Fotos: `mushroom-data/media/observation-photos/` dentro del runtime; son datos
+- Fotos y videos: `mushroom-data/media/observation-photos/` y
+  `mushroom-data/media/observation-videos/` dentro del runtime; son datos
   privados persistentes y no se versionan.
 - Resolver canonico: `rainmapper_core/mushroom_paths.py`.
 - UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
@@ -147,8 +155,7 @@ visual del usuario tras reconstruir el contenedor.
 
 ## Validacion al cierre
 
-- `PYTHONPATH=rainmapper-app/app .venv/bin/python -m unittest
-  tests.test_web_server_auth tests.test_mushroom_known_sites`: 94 tests OK.
+- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 226 tests OK.
 - JavaScript embebido extraido del HTML: `node --check` OK.
 - Imagen local `rainmapperha:local-ha-ui` reconstruida y contenedor iniciado.
 - No se ejecuto en este ultimo refinamiento el smoke test completo, todo el

@@ -17,6 +17,7 @@ import signal
 import secrets
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unicodedata
@@ -85,6 +86,13 @@ AUTH_TOKEN_BYTES = 32
 PASSWORD_HASH_ITERATIONS = 260_000
 MUSHROOM_OBSERVATION_IMAGE_MAX_EDGE = 1600
 MUSHROOM_OBSERVATION_IMAGE_JPEG_QUALITY = 86
+MUSHROOM_MEDIA_FILE_MAX_BYTES = 100 * 1024 * 1024
+MUSHROOM_MEDIA_BATCH_MAX_BYTES = 500 * 1024 * 1024
+MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS = 30
+MUSHROOM_OBSERVATION_VIDEO_MAX_WIDTH = 854
+MUSHROOM_OBSERVATION_VIDEO_MAX_HEIGHT = 480
+MUSHROOM_OBSERVATION_VIDEO_CRF = 30
+MUSHROOM_VIDEO_SUFFIXES = {".mov", ".mp4", ".m4v", ".avi", ".mkv", ".webm", ".3gp"}
 DEVICE_SETTING_PERIODS = {"01d.geojson", "07d.geojson", "14d.geojson", "21d.geojson", "30d.geojson", "60d.geojson", "90d.geojson"}
 DEVICE_SETTING_MAP_STYLES = {"esri-satellite-vector", "esri-hybrid", "opentopomap", "openfreemap-liberty"}
 DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "AEMET", "Unknown"}
@@ -4852,7 +4860,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       overflow: hidden;
       width: 122px;
     }}
-    .observation-photo-link img {{
+    .observation-photo-link img,
+    .observation-photo-link video {{
       height: 100%;
       object-fit: cover;
       width: 100%;
@@ -4896,7 +4905,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-media-confirm p {{ color: #c4cfd7; line-height: 1.5; }}
     .observation-media-confirm .profile-action-bar form {{ margin: 0; }}
     .observation-image-replace-preview {{ display:grid;gap:12px;grid-template-columns:180px minmax(0,1fr);margin:14px 0; }}
-    .observation-image-replace-preview img {{ border-radius:6px;height:180px;object-fit:contain;width:180px; }}
+    .observation-image-replace-preview img,
+    .observation-image-replace-preview video {{ border-radius:6px;height:180px;object-fit:contain;width:180px; }}
     .observation-detail-photo-placeholder {{
       border: 1px dashed rgba(45, 58, 71, .62);
       border-radius: 6px;
@@ -4975,7 +4985,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-height: 0;
       overflow: hidden;
     }}
-    .observation-photo-stage img {{
+    .observation-photo-stage img,
+    .observation-photo-stage video {{
       max-height: 100%;
       max-width: 100%;
       object-fit: contain;
@@ -5078,7 +5089,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-exif-preview-card.error {{
       border-color: rgba(255, 180, 0, .42);
     }}
-    .observation-exif-preview-card img {{
+    .observation-exif-preview-card img,
+    .observation-exif-preview-card video {{
       border-radius: 5px;
       height: 120px;
       object-fit: cover;
@@ -6127,7 +6139,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     </section>
   </div>
   <div id="observation-image-replace-modal" class="observation-exif-preview-modal" hidden>
-    <section class="modal-card observation-media-confirm" role="dialog" aria-modal="true"><h2>Sustituir imagen asociada</h2><p>La observación ya tiene una imagen. Para asociar la nueva debes desasociar la anterior. Esta operación no se puede deshacer.</p><div class="observation-image-replace-preview"><img alt="Imagen existente"><div class="observation-exif-preview-data-rows"></div></div><div class="profile-action-bar"><button type="button" data-image-replace-cancel>Cancelar</button><button type="button" class="danger" data-image-replace-action="unlink">Desasociar imagen antigua</button><button type="button" class="danger" data-image-replace-action="delete">Desasociar y borrar antigua</button></div></section>
+    <section class="modal-card observation-media-confirm" role="dialog" aria-modal="true"><h2>Sustituir imagen/video asociado</h2><p>La observación ya tiene un archivo multimedia. Para asociar el nuevo debes desasociar el anterior. Esta operación no se puede deshacer.</p><div class="observation-image-replace-preview"><div data-existing-media-preview></div><div class="observation-exif-preview-data-rows"></div></div><div class="profile-action-bar"><button type="button" data-image-replace-cancel>Cancelar</button><button type="button" class="danger" data-image-replace-action="unlink">Desasociar archivo anterior</button><button type="button" class="danger" data-image-replace-action="delete">Desasociar y borrar anterior</button></div></section>
   </div>
   <script>
     function togglePasswordVisibility(checkbox) {{
@@ -6570,7 +6582,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         ["▣", "Archivo", preview.filename || "-"],
         ["◷", "Fecha/hora", preview.captured_at_display || preview.captured_at || preview.observed_at || "-"],
         ["⌖", "Coordenadas", formatExifPreviewNumber(preview.lat, "") + ", " + formatExifPreviewNumber(preview.lon, "")],
-        ["△", "Altitud", formatExifPreviewNumber(preview.altitude_m, " m")],
+        ["△", "Altitud", formatExifPreviewNumber(preview.altitude_m, " m") + (preview.altitude_source === "dem" ? " (Origen DEM)" : "")],
         ["◉", "Tipo", preview.content_type || "-"],
         ["□", "Tamaño", formatExifPreviewSize(preview.size_bytes)]
       ] : [
@@ -6659,7 +6671,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       field = form.querySelector("[name='altitude_source']");
       if (field && preview.altitude_m !== null && preview.altitude_m !== undefined) {{
-        field.value = "photo_exif";
+        field.value = preview.altitude_source === "dem" ? "dem" : "photo_exif";
       }}
       field = form.querySelector("[name='source_type']");
       if (field) {{
@@ -6676,7 +6688,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       closeObservationExifPreview({{ clearInput: false }});
     }}
     function openObservationImageReplaceModal(existing) {{
-      var modal=document.getElementById("observation-image-replace-modal"),img=modal.querySelector("img"),rows=modal.querySelector(".observation-exif-preview-data-rows"),deleteButton=modal.querySelector("[data-image-replace-action='delete']");img.src=existing.image_url||"";rows.innerHTML="";
+      var modal=document.getElementById("observation-image-replace-modal"),mediaHost=modal.querySelector("[data-existing-media-preview]"),rows=modal.querySelector(".observation-exif-preview-data-rows"),deleteButton=modal.querySelector("[data-image-replace-action='delete']");mediaHost.innerHTML="";var media=document.createElement(existing.media_kind==="video"?"video":"img");media.src=existing.media_url||existing.image_url||"";if(media.tagName==="VIDEO"){{media.controls=true;media.preload="metadata";media.playsInline=true;}}else{{media.alt="Archivo existente";}}mediaHost.appendChild(media);rows.innerHTML="";
       [["Archivo",existing.filename||"-"],["Fecha/hora",existing.captured_at_display||existing.captured_at||existing.observed_at||"-"],["Coordenadas",formatExifPreviewNumber(existing.lat,"")+", "+formatExifPreviewNumber(existing.lon,"")],["Altitud",formatExifPreviewNumber(existing.altitude_m," m")],["Tipo",existing.content_type||"-"],["Tamaño",formatExifPreviewSize(existing.size_bytes)]].forEach(function(entry){{var row=document.createElement("div");row.className="observation-exif-preview-data-row";row.innerHTML="<span></span><span></span><strong></strong>";row.children[1].textContent=entry[0];row.children[2].textContent=entry[1];rows.appendChild(row);}});
       deleteButton.disabled=Number(existing.reference_count||0)!==1;deleteButton.title=deleteButton.disabled?"La imagen está asociada a otras observaciones":"";modal.hidden=false;
     }}
@@ -6704,7 +6716,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       var previews = payload && Array.isArray(payload.previews) ? payload.previews.slice() : [];
       if(payload&&payload.existing_preview)previews.unshift(payload.existing_preview);
       observationExifPreviewState.payload=payload||{{}};observationExifPreviewState.payload.previews=previews;
-      status.textContent = previews.length ? "Vista previa de " + previews.length + " imagen(es)." : "No se pudo leer la imagen seleccionada.";
+      status.textContent = previews.length ? "Vista previa de " + previews.length + " archivo(s)." : "No se pudo leer el archivo seleccionado.";
       grid.innerHTML = "";
       clearObservationExifPreviewObjectUrls();
       previews.forEach(function(preview, index) {{
@@ -6712,17 +6724,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         var card = document.createElement("button");
         card.type = "button";
         card.className = "observation-exif-preview-card" + (index === 0 ? " selected" : "") + (preview.ok ? "" : " error");
-        var image = document.createElement("img");
-        if (preview.is_existing&&preview.image_url){{image.src=preview.image_url;}} else if (file) {{
+        var isVideo = preview.media_kind === "video" || Boolean(file && String(file.type || "").indexOf("video/") === 0);
+        var media = document.createElement("img");
+        if (isVideo && preview.poster_data_url) {{ media.src = preview.poster_data_url; }}
+        else if (isVideo && preview.poster_url) {{ media.src = preview.poster_url; }}
+        else if (preview.is_existing&&(preview.media_url||preview.image_url)){{media.src=preview.media_url||preview.image_url;}} else if (file) {{
           var objectUrl = URL.createObjectURL(file);
           observationExifPreviewState.objectUrls.push(objectUrl);
-          image.src = objectUrl;
+          media.src = objectUrl;
         }}
-        image.alt = preview.filename || "EXIF image";
+        media.alt = preview.filename || "Imagen/vídeo EXIF";
         var body = document.createElement("span");
         body.className = "observation-exif-preview-body";
         var title = document.createElement("strong");
-        title.textContent = (preview.is_existing?"Imagen existente · ":"Imagen nueva · ")+(preview.filename || "photo");
+        title.textContent = (preview.is_existing?"Archivo existente · ":"Archivo nuevo · ")+(preview.filename || "media");
         body.appendChild(title);
         var lines = document.createElement("span");
         lines.className = "meta";
@@ -6730,13 +6745,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
           lines.textContent = [
             "Fecha/hora: " + (preview.captured_at_display || preview.captured_at || preview.observed_at || "-"),
             "Coord.: " + formatExifPreviewNumber(preview.lat, "") + ", " + formatExifPreviewNumber(preview.lon, ""),
-            "Altitud: " + formatExifPreviewNumber(preview.altitude_m, " m")
+            "Altitud: " + formatExifPreviewNumber(preview.altitude_m, " m") + (preview.altitude_source === "dem" ? " (Origen DEM)" : "")
           ].join(" · ");
         }} else {{
           lines.textContent = "EXIF no valido: " + (preview.error || "sin datos");
         }}
         body.appendChild(lines);
-        card.appendChild(image);
+        card.appendChild(media);
         card.appendChild(body);
         card.addEventListener("click", function() {{
           Array.prototype.slice.call(grid.querySelectorAll(".observation-exif-preview-card")).forEach(function(item) {{
@@ -10222,8 +10237,121 @@ def exif_ref_to_int(value: object) -> int:
     return int(value or 0)
 
 
+def is_video_upload(filename: str, content_type: str = "") -> bool:
+    suffix = Path(str(filename or "")).suffix.lower()
+    mime = str(content_type or "").split(";", 1)[0].strip().lower()
+    return suffix in MUSHROOM_VIDEO_SUFFIXES or mime.startswith("video/")
+
+
+def validate_media_upload_size(filename: str, content: bytes) -> None:
+    if len(content) > MUSHROOM_MEDIA_FILE_MAX_BYTES:
+        limit_mb = MUSHROOM_MEDIA_FILE_MAX_BYTES // (1024 * 1024)
+        raise ValueError(f"{filename} exceeds the {limit_mb} MB per-file limit")
+
+
+def parse_media_capture_datetime(raw_value: object) -> datetime:
+    text = str(raw_value or "").strip()
+    if not text:
+        raise ValueError("media has no capture date metadata")
+    normalized = text.replace("Z", "+00:00")
+    for candidate in (normalized, normalized.replace(":", "-", 2)):
+        try:
+            return datetime.fromisoformat(candidate)
+        except ValueError:
+            pass
+    try:
+        return datetime.strptime(text[:19], "%Y:%m:%d %H:%M:%S")
+    except ValueError as exc:
+        raise ValueError(f"invalid media capture date {text!r}") from exc
+
+
+def extract_video_metadata_observation_fields(filename: str, content: bytes) -> dict[str, object]:
+    """Extract observation fields from QuickTime/container metadata with ExifTool."""
+    validate_media_upload_size(filename, content)
+    suffix = Path(filename).suffix.lower() if Path(filename).suffix else ".mov"
+    with tempfile.TemporaryDirectory(prefix="rainmapper-video-metadata-") as temporary_dir:
+        input_path = Path(temporary_dir) / ("source" + suffix)
+        input_path.write_bytes(content)
+        try:
+            result = subprocess.run(
+                ["exiftool", "-json", "-n", "-api", "QuickTimeUTC=1", str(input_path)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as exc:
+            raise ValueError("ExifTool is required to import video metadata") from exc
+        except subprocess.CalledProcessError as exc:
+            message = (exc.stderr or exc.stdout or "ExifTool could not read the video").strip()
+            raise ValueError(message) from exc
+    try:
+        rows = json.loads(result.stdout)
+        metadata = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], dict) else {}
+    except json.JSONDecodeError as exc:
+        raise ValueError("ExifTool returned invalid video metadata") from exc
+
+    raw_date = next(
+        (
+            metadata.get(key)
+            for key in ("DateTimeOriginal", "CreationDate", "CreateDate", "MediaCreateDate", "TrackCreateDate")
+            if metadata.get(key)
+        ),
+        None,
+    )
+    capture_datetime = parse_media_capture_datetime(raw_date)
+    lat = metadata.get("GPSLatitude")
+    lon = metadata.get("GPSLongitude")
+    altitude = metadata.get("GPSAltitude")
+    location_text = str(
+        metadata.get("GPSCoordinates")
+        or metadata.get("GPSPosition")
+        or metadata.get("LocationInformation")
+        or metadata.get("Location")
+        or ""
+    )
+    coordinates = re.findall(r"[-+]?\d+(?:\.\d+)?", location_text)
+    if lat is None or lon is None:
+        if len(coordinates) >= 2:
+            lat, lon = float(coordinates[0]), float(coordinates[1])
+    if altitude is None and len(coordinates) >= 3:
+        altitude = float(coordinates[2])
+    if lat is None or lon is None:
+        raise ValueError("video has no GPS metadata")
+    try:
+        lat_value = float(lat)
+        lon_value = float(lon)
+        altitude_value = float(altitude) if altitude not in (None, "") else None
+    except (TypeError, ValueError) as exc:
+        raise ValueError("video has invalid GPS metadata") from exc
+    # iPhone QuickTime files commonly encode an unavailable altitude as the
+    # literal third coordinate 0. Finder omits it, so do not overwrite a real
+    # observation altitude with that placeholder.
+    if altitude_value == 0.0:
+        altitude_value = None
+    captured_at = capture_datetime.isoformat(sep=" ", timespec="seconds")
+    duration = metadata.get("Duration")
+    try:
+        duration_seconds = float(duration) if duration not in (None, "") else None
+    except (TypeError, ValueError):
+        duration_seconds = None
+    return {
+        "filename": filename,
+        "media_kind": "video",
+        "observed_at": capture_datetime.date().isoformat(),
+        "captured_at": captured_at,
+        "captured_at_display": capture_datetime.strftime("%d/%m/%Y %H:%M"),
+        "lat": lat_value,
+        "lon": lon_value,
+        "altitude_m": altitude_value,
+        "duration_seconds": duration_seconds,
+    }
+
+
 def extract_photo_exif_observation_fields(filename: str, content: bytes) -> dict[str, object]:
-    """Extract observation date, coordinates and altitude from a JPEG EXIF payload."""
+    """Extract observation fields from image EXIF or video container metadata."""
+    validate_media_upload_size(filename, content)
+    if is_video_upload(filename):
+        return extract_video_metadata_observation_fields(filename, content)
     try:
         from PIL import Image
         from PIL.ExifTags import GPSTAGS, TAGS
@@ -10265,6 +10393,7 @@ def extract_photo_exif_observation_fields(filename: str, content: bytes) -> dict
 
     return {
         "filename": filename,
+        "media_kind": "photo",
         "observed_at": observed_at,
         "captured_at": captured_at,
         "captured_at_display": captured_at_display,
@@ -10272,6 +10401,49 @@ def extract_photo_exif_observation_fields(filename: str, content: bytes) -> dict
         "lon": lon,
         "altitude_m": altitude,
     }
+
+
+def enrich_media_fields_with_dem_altitude(fields: dict[str, object]) -> dict[str, object]:
+    """Propose DEM altitude when media has coordinates but no usable altitude."""
+    enriched = dict(fields)
+    if enriched.get("altitude_m") not in (None, ""):
+        enriched["altitude_source"] = "photo_exif"
+        return enriched
+    lat = enriched.get("lat")
+    lon = enriched.get("lon")
+    if lat in (None, "") or lon in (None, ""):
+        return enriched
+    try:
+        result = mushroom_gis_lab.sample_dem(float(lon), float(lat), None)
+    except (OSError, TypeError, ValueError):
+        return enriched
+    if result.get("status") != "ok" or result.get("elevation_m") in (None, ""):
+        return enriched
+    try:
+        enriched["altitude_m"] = round(float(result["elevation_m"]), 1)
+    except (TypeError, ValueError):
+        return enriched
+    enriched["altitude_source"] = "dem"
+    return enriched
+
+
+def video_poster_jpeg(filename: str, content: bytes) -> bytes:
+    """Extract a compact representative JPEG frame from one uploaded video."""
+    suffix = Path(filename).suffix.lower() or ".mov"
+    with tempfile.TemporaryDirectory(prefix="rainmapper-video-poster-") as temporary_dir:
+        input_path = Path(temporary_dir) / ("source" + suffix)
+        output_path = Path(temporary_dir) / "poster.jpg"
+        input_path.write_bytes(content)
+        command = [
+            "ffmpeg", "-nostdin", "-y", "-ss", "0.1", "-i", str(input_path),
+            "-frames:v", "1", "-vf", "scale=480:-2:force_original_aspect_ratio=decrease",
+            "-q:v", "4", str(output_path),
+        ]
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True)
+        except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+            raise ValueError("video thumbnail could not be generated") from exc
+        return output_path.read_bytes()
 
 
 def preview_photo_exif_uploads(files: dict[str, list[dict[str, object]]]) -> dict[str, object]:
@@ -10292,6 +10464,7 @@ def preview_photo_exif_uploads(files: dict[str, list[dict[str, object]]]) -> dic
             "is_existing": False,
             "filename": filename,
             "content_type": content_type,
+            "media_kind": "video" if is_video_upload(filename, content_type) else "photo",
             "size_bytes": len(content) if isinstance(content, bytes) else 0,
             "ok": False,
         }
@@ -10300,7 +10473,9 @@ def preview_photo_exif_uploads(files: dict[str, list[dict[str, object]]]) -> dic
             previews.append(preview)
             continue
         try:
-            fields = extract_photo_exif_observation_fields(filename, content)
+            fields = enrich_media_fields_with_dem_altitude(
+                extract_photo_exif_observation_fields(filename, content)
+            )
         except ValueError as exc:
             preview["error"] = str(exc)
             previews.append(preview)
@@ -10317,9 +10492,18 @@ def preview_photo_exif_uploads(files: dict[str, list[dict[str, object]]]) -> dic
                 "lat": lat,
                 "lon": lon,
                 "altitude_m": altitude,
+                "altitude_source": fields.get("altitude_source", "photo_exif" if altitude is not None else ""),
+                "duration_seconds": fields.get("duration_seconds"),
+                "media_kind": fields.get("media_kind", preview["media_kind"]),
                 "map_src": mushroom_profiles_ui.google_maps_embed_src(float(lat), float(lon)) if lat is not None and lon is not None else "",
             }
         )
+        if preview["media_kind"] == "video":
+            try:
+                poster = video_poster_jpeg(filename, content)
+                preview["poster_data_url"] = "data:image/jpeg;base64," + base64.b64encode(poster).decode("ascii")
+            except ValueError:
+                pass
         previews.append(preview)
     return {"previews": previews}
 
@@ -10346,8 +10530,11 @@ def original_image_extension(filename: str, content_type: str = "") -> str:
     return ".jpg"
 
 
-def observation_image_media_url(relative_path: str) -> str:
-    return "./observation-media?" + urlencode({"path": relative_path})
+def observation_image_media_url(relative_path: str, *, poster: bool = False) -> str:
+    query: dict[str, object] = {"path": relative_path}
+    if poster:
+        query["poster"] = "1"
+    return "./observation-media?" + urlencode(query)
 
 
 def observation_media_file_path(relative_path: str) -> Path | None:
@@ -10395,17 +10582,132 @@ def unique_media_path(target_dir: Path, filename: str, content: bytes) -> Path:
         counter += 1
 
 
+def video_iso6709_location(fields: dict[str, object]) -> str:
+    lat = fields.get("lat")
+    lon = fields.get("lon")
+    if lat is None or lon is None:
+        return ""
+    altitude = fields.get("altitude_m")
+    altitude_text = f"{float(altitude):+.2f}" if altitude not in (None, "") else ""
+    return f"{float(lat):+.6f}{float(lon):+.6f}{altitude_text}/"
+
+
+def save_observation_video_media(
+    upload: dict[str, object],
+    observed_at: object = None,
+) -> dict[str, object] | None:
+    """Transcode one video to a bounded web-safe MP4 and preserve capture metadata."""
+    filename = str(upload.get("filename", "video") or "video")
+    content = upload.get("content")
+    if not isinstance(content, bytes) or not content:
+        return None
+    validate_media_upload_size(filename, content)
+    metadata_fields: dict[str, object] = {}
+    try:
+        metadata_fields = extract_video_metadata_observation_fields(filename, content)
+    except ValueError:
+        # Loading only the video remains possible even if it has no usable
+        # date/GPS metadata. EXIF-only/both modes validate it separately.
+        metadata_fields = {"filename": filename, "media_kind": "video"}
+    suffix = Path(filename).suffix.lower() or ".mov"
+    with tempfile.TemporaryDirectory(prefix="rainmapper-video-transcode-") as temporary_dir:
+        input_path = Path(temporary_dir) / ("source" + suffix)
+        output_path = Path(temporary_dir) / "display.mp4"
+        input_path.write_bytes(content)
+        command = [
+            "ffmpeg",
+            "-nostdin",
+            "-y",
+            "-i",
+            str(input_path),
+            "-t",
+            str(MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a:0?",
+            "-map_metadata",
+            "0",
+            "-vf",
+            (
+                f"scale={MUSHROOM_OBSERVATION_VIDEO_MAX_WIDTH}:{MUSHROOM_OBSERVATION_VIDEO_MAX_HEIGHT}:"
+                "force_original_aspect_ratio=decrease:force_divisible_by=2"
+            ),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            str(MUSHROOM_OBSERVATION_VIDEO_CRF),
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "64k",
+            "-movflags",
+            "+faststart+use_metadata_tags",
+        ]
+        captured_at = str(metadata_fields.get("captured_at", "") or "").strip()
+        if captured_at:
+            command.extend(["-metadata", "creation_time=" + captured_at.replace(" ", "T")])
+        location = video_iso6709_location(metadata_fields)
+        if location:
+            command.extend(["-metadata", "location=" + location, "-metadata", "location-eng=" + location])
+        command.append(str(output_path))
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True)
+        except FileNotFoundError as exc:
+            raise ValueError("FFmpeg is required to import videos") from exc
+        except subprocess.CalledProcessError as exc:
+            message = (exc.stderr or exc.stdout or "FFmpeg could not convert the video").strip()
+            raise ValueError("video conversion failed: " + message[-600:]) from exc
+        output_content = output_path.read_bytes()
+
+    year = observation_media_year(observed_at)
+    target_dir = mushroom_paths.mushroom_observation_videos_dir() / year
+    target_dir.mkdir(parents=True, exist_ok=True)
+    stored_filename = safe_observation_media_name(filename, ".mp4")
+    stored_filename = str(Path(stored_filename).with_suffix(".mp4"))
+    target_path = unique_media_path(target_dir, stored_filename, output_content)
+    target_path.write_bytes(output_content)
+    relative_path = f"media/observation-videos/{year}/{target_path.name}"
+    capture_metadata = {
+        key: metadata_fields.get(key)
+        for key in ("observed_at", "captured_at", "captured_at_display", "lat", "lon", "altitude_m", "duration_seconds")
+        if metadata_fields.get(key) not in (None, "")
+    }
+    return {
+        "kind": "video",
+        "path": relative_path,
+        "url": observation_image_media_url(relative_path),
+        "stored_filename": target_path.name,
+        "original_filename": filename,
+        "content_type": "video/mp4",
+        "size_bytes": target_path.stat().st_size,
+        "transcoded": True,
+        "max_duration_seconds": MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS,
+        "max_resolution": f"{MUSHROOM_OBSERVATION_VIDEO_MAX_WIDTH}x{MUSHROOM_OBSERVATION_VIDEO_MAX_HEIGHT}",
+        "capture_metadata": capture_metadata,
+        "metadata_preserved": bool(capture_metadata),
+        "variant": "display",
+    }
+
+
 def save_observation_image_media(
     observation_id: str,
     upload: dict[str, object],
     observed_at: object = None,
 ) -> dict[str, object] | None:
-    """Persist one uploaded observation image and return its JSON media entry."""
+    """Persist one uploaded observation image/video and return its JSON media entry."""
     filename = str(upload.get("filename", "photo") or "photo")
     content = upload.get("content")
     if not isinstance(content, bytes) or not content:
         return None
     content_type = str(upload.get("content_type", "") or "")
+    validate_media_upload_size(filename, content)
+    if is_video_upload(filename, content_type):
+        return save_observation_video_media(upload, observed_at)
     year = observation_media_year(observed_at)
     target_dir = mushroom_paths.mushroom_observation_photos_dir() / year
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -10544,7 +10846,7 @@ def photo_exif_observation_payload(
     if altitude_m is not None:
         observation["altitude"] = {
             "meters": round(float(altitude_m), 1),
-            "source": "photo_exif",
+            "source": "dem" if fields.get("altitude_source") == "dem" else "photo_exif",
             "resolved_at": today,
         }
     return mushroom_observations.finalize_observation_payload(observation)
@@ -10567,7 +10869,7 @@ def observation_form_with_exif_fields(
     next_form["source_label"] = [str(fields.get("filename", "") or "photo")]
     if fields.get("altitude_m") is not None:
         next_form["altitude_m"] = [str(round(float(fields["altitude_m"]), 1))]
-        next_form["altitude_source"] = ["photo_exif"]
+        next_form["altitude_source"] = ["dem" if fields.get("altitude_source") == "dem" else "photo_exif"]
     return next_form
 
 
@@ -12525,8 +12827,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             stored_filename = (query.get("file") or [""])[0]
             file_path = legacy_observation_media_file_path(observation_id, stored_filename)
         if file_path is None or not file_path.exists() or not file_path.is_file():
-            self.send_bytes(404, b"Observation image not found.", "text/plain; charset=utf-8")
+            self.send_bytes(404, b"Observation media not found.", "text/plain; charset=utf-8")
             return
+        if (query.get("poster") or [""])[0] == "1" and file_path.suffix.lower() == ".mp4":
+            poster_path = file_path.with_name(file_path.stem + ".poster.jpg")
+            if not poster_path.exists():
+                try:
+                    poster_path.write_bytes(video_poster_jpeg(file_path.name, file_path.read_bytes()))
+                except ValueError:
+                    self.send_bytes(422, b"Video thumbnail could not be generated.", "text/plain; charset=utf-8")
+                    return
+            file_path = poster_path
         self.send_bytes(
             200,
             file_path.read_bytes(),
@@ -12581,6 +12892,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        try:
+            request_length = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            request_length = 0
+        if parsed.path == "/api/mushrooms/observation-exif-preview" and request_length > MUSHROOM_MEDIA_FILE_MAX_BYTES + 2 * 1024 * 1024:
+            self.send_json(413, {"ok": False, "error": "El archivo supera el limite de 100 MB."})
+            return
+        if parsed.path.rstrip("/") == "/mushrooms/profiles" and request_length > MUSHROOM_MEDIA_BATCH_MAX_BYTES + 2 * 1024 * 1024:
+            self.send_bytes(413, b"La importacion supera el limite total de 500 MB.", "text/plain; charset=utf-8")
+            return
         if parsed.path == "/auth/login":
             payload = self.read_json_payload()
             status, response = login_user(
@@ -12668,6 +12989,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         "content_type": str(media.get("content_type", "") or ""),
                         "size_bytes": media.get("size_bytes", 0),
                         "image_url": observation_image_media_url(media_path),
+                        "media_url": observation_image_media_url(media_path),
+                        "poster_url": observation_image_media_url(media_path, poster=True) if str(media.get("kind", "")) == "video" else "",
+                        "media_kind": str(media.get("kind", "photo") or "photo"),
                         "media_path": media_path,
                     }
                     if file_path is not None and file_path.exists():
@@ -13591,21 +13915,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             skipped.append(f"{filename}: invalid upload payload")
                             continue
                         try:
-                            fields = extract_photo_exif_observation_fields(filename, content) if apply_exif_data else {}
+                            fields = enrich_media_fields_with_dem_altitude(extract_photo_exif_observation_fields(filename, content)) if apply_exif_data else {}
                             import_form = observation_form_with_exif_fields(form, fields) if apply_exif_data else form
                             observation = observation_payload_from_form(import_form, working_rows)
+                            if attach_image:
+                                append_observation_media(
+                                    observation,
+                                    save_observation_image_media(
+                                        str(observation.get("observation_id", "")),
+                                        item,
+                                        observation.get("observed_at"),
+                                    ),
+                                )
                         except ValueError as exc:
                             skipped.append(f"{filename}: {exc}")
                             continue
-                        if attach_image:
-                            append_observation_media(
-                                observation,
-                                save_observation_image_media(
-                                    str(observation.get("observation_id", "")),
-                                    item,
-                                    observation.get("observed_at"),
-                                ),
-                            )
                         imported.append(observation)
                         working_rows.append(observation)
                     observation_species_id = catalog_form_string(form, "observation_species_id") or species_id
@@ -13719,7 +14043,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     if isinstance(item, dict) and item.get("filename") and item.get("content")
                 ]
                 if len(uploaded_exif) > 1:
-                    set_mushroom_profiles_flash("Observation was not saved: only one image is allowed per observation.")
+                    set_mushroom_profiles_flash("Observation was not saved: only one image/video is allowed per observation.")
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                 image_import_mode = catalog_form_string(form, "observation_image_import_mode") or "image_and_exif"
                 if image_import_mode not in {"image_only", "exif_only", "image_and_exif"}:
@@ -13738,7 +14062,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         exif_uploads.append(({}, item))
                         continue
                     try:
-                        exif_uploads.append((extract_photo_exif_observation_fields(filename, content), item))
+                        exif_uploads.append((enrich_media_fields_with_dem_altitude(extract_photo_exif_observation_fields(filename, content)), item))
                     except ValueError as exc:
                         skipped.append(f"{filename}: {exc}")
                 try:
@@ -13754,7 +14078,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     replacement_action = catalog_form_string(form, "media_replacement_action")
                     existing_media = updated.get("media") if isinstance(updated.get("media"), list) else []
                     if existing_media and replacement_action not in {"unlink", "delete"}:
-                        set_mushroom_profiles_flash("Observation was not saved: confirm how the existing image must be replaced.")
+                        set_mushroom_profiles_flash("Observation was not saved: confirm how the existing media file must be replaced.")
                         return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                     old_media_paths = [str(item.get("path", "")) for item in existing_media if isinstance(item, dict) and item.get("path")]
                     if replacement_action == "delete":
@@ -13768,15 +14092,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             if reference_count != 1:
                                 set_mushroom_profiles_flash(f"Observation was not saved: image {old_path} is still used by {reference_count} observations.")
                                 return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
-                    updated["media"] = []
-                    append_observation_media(
-                        updated,
-                        save_observation_image_media(
+                    try:
+                        new_media = save_observation_image_media(
                             str(updated.get("observation_id", observation_id)),
                             exif_uploads[0][1],
                             updated.get("observed_at"),
-                        ),
-                    )
+                        )
+                    except ValueError as exc:
+                        set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
+                        return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
+                    updated["media"] = []
+                    append_observation_media(updated, new_media)
                 updated_rows = [
                     updated if str(row.get("observation_id", "")) == observation_id else row
                     for row in observations
@@ -13853,7 +14179,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if action == "import_observation_exif_images":
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):
-                    set_mushroom_profiles_flash("EXIF images were not imported: observations payload must be an object.")
+                    set_mushroom_profiles_flash("EXIF media files were not imported: observations payload must be an object.")
                     return observations_return_url(form, species_id)
                 observations = observation_dicts_from_payload(observations_payload)
                 uploaded = [
@@ -13871,27 +14197,27 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         skipped.append(f"{filename}: invalid upload payload")
                         continue
                     try:
-                        fields = extract_photo_exif_observation_fields(filename, content)
+                        fields = enrich_media_fields_with_dem_altitude(extract_photo_exif_observation_fields(filename, content))
                         observation = photo_exif_observation_payload(form, working_rows, fields)
+                        append_observation_media(
+                            observation,
+                            save_observation_image_media(
+                                str(observation.get("observation_id", "")),
+                                item,
+                                observation.get("observed_at"),
+                            ),
+                        )
                     except ValueError as exc:
                         skipped.append(f"{filename}: {exc}")
                         continue
-                    append_observation_media(
-                        observation,
-                        save_observation_image_media(
-                            str(observation.get("observation_id", "")),
-                            item,
-                            observation.get("observed_at"),
-                        ),
-                    )
                     imported.append(observation)
                     working_rows.append(observation)
                 import_species_id = catalog_form_string(form, "observation_species_id") or species_id
                 if not uploaded:
-                    set_mushroom_profiles_flash("EXIF images were not imported: no image files were selected.")
+                    set_mushroom_profiles_flash("EXIF media files were not imported: no image/video files were selected.")
                     return observations_return_url(form, import_species_id)
                 if not imported:
-                    set_mushroom_profiles_flash("EXIF images were not imported: " + "; ".join(skipped[:3]))
+                    set_mushroom_profiles_flash("EXIF media files were not imported: " + "; ".join(skipped[:3]))
                     return observations_return_url(form, import_species_id)
                 observations_payload["observations"] = observations + imported
                 metadata = observations_payload.get("metadata")
@@ -13907,7 +14233,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     set_mushroom_profiles_flash(f"Imported {len(imported)} EXIF observations.{skipped_text}" + suffix)
                     return observations_return_url(form, imported_species_id, obs_id=str(imported[0].get("observation_id", "")))
                 error_text = "; ".join(message.message for message in result.errors[:3])
-                set_mushroom_profiles_flash("EXIF images were not imported: " + error_text)
+                set_mushroom_profiles_flash("EXIF media files were not imported: " + error_text)
                 return observations_return_url(form, imported_species_id)
             if action == "archive_observation":
                 observation_id = catalog_form_string(form, "observation_id")
