@@ -8,10 +8,10 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 - Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.201`.
-- Commit release: `334365d Release Home Assistant 0.2.201`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.201` y `latest`.
-- Digest multi-arch: `sha256:9b8cbf54400437c85ba589b201c16fcd20ea3ced73595c9394dfdc2a95340ccb`.
+- Ultimo release HA publicado: `0.2.202`.
+- Commit release: `7ba31e8 Release Home Assistant 0.2.202`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.202` y `latest`.
+- Digest multi-arch: `sha256:3ee510ee50793e252bbe5a6c05f722567da758f374d865ebd96a272c259ee7ed`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - GitHub sigue abierto/publico por decision explicita; no cerrarlo.
@@ -103,9 +103,10 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
   DEM, muestra `Origen DEM` y aplica `altitude.source: dem`. Limites: 100 MB por
   archivo y 500 MB por lote.
 - Tras probar `0.2.201` en HA se detecto que Safari dentro del ingress mostraba
-  el MP4 pero no podia reproducirlo. La correccion local sirve media con rangos
+  el MP4 pero no podia reproducirlo. `0.2.202` sirve media con rangos
   HTTP (`206`, `Content-Range`, `Accept-Ranges`), admite `HEAD` y declara un
-  `source video/mp4` con poster. Validado localmente; pendiente de release HA.
+  `source video/mp4` con poster. Validado localmente y publicado; pendiente de
+  prueba real en HA.
 
 ## Ultimo cambio visual
 
