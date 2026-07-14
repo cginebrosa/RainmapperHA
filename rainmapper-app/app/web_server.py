@@ -4984,12 +4984,65 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       justify-content: center;
       min-height: 0;
       overflow: hidden;
+      position: relative;
+    }}
+    .observation-photo-stage:fullscreen,
+    .observation-photo-stage:-webkit-full-screen {{
+      background: #000;
+      border: 0;
+      border-radius: 0;
+      height: 100vh;
+      padding: 0;
+      width: 100vw;
     }}
     .observation-photo-stage img,
     .observation-photo-stage video {{
       max-height: 100%;
       max-width: 100%;
       object-fit: contain;
+    }}
+    .observation-photo-stage-actions {{
+      align-items: center;
+      backdrop-filter: blur(6px);
+      background: rgba(8, 13, 18, .78);
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 22px;
+      display: flex;
+      gap: 2px;
+      left: 12px;
+      padding: 3px;
+      position: absolute;
+      top: 12px;
+      z-index: 2;
+    }}
+    .observation-photo-stage-actions button,
+    .observation-photo-stage-actions a {{
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 50%;
+      color: #fff;
+      cursor: pointer;
+      display: inline-flex;
+      height: 34px;
+      justify-content: center;
+      margin: 0;
+      min-height: 34px;
+      padding: 7px;
+      width: 34px;
+    }}
+    .observation-photo-stage-actions button:hover,
+    .observation-photo-stage-actions a:hover {{
+      background: rgba(255, 255, 255, .16);
+    }}
+    .observation-photo-stage-actions svg {{
+      fill: none;
+      height: 20px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
+      width: 20px;
     }}
     .observation-raw-exif-modal {{
       grid-template-rows: auto minmax(0, 1fr);
@@ -6378,6 +6431,35 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         }}, 0);
       }}
     }}
+    function openObservationPhotoFullscreen(button) {{
+      var modal = button.closest(".observation-photo-modal");
+      var stage = modal && modal.querySelector(".observation-photo-stage");
+      if (!stage) {{
+        return;
+      }}
+      var fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fullscreenElement === stage) {{
+        var exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exitFullscreen) {{
+          try {{ exitFullscreen.call(document); }} catch (error) {{}}
+        }}
+        return;
+      }}
+      var requestFullscreen = stage.requestFullscreen || stage.webkitRequestFullscreen;
+      if (!requestFullscreen) {{
+        var fallbackUrl = button.dataset.fallbackUrl;
+        if (fallbackUrl) {{
+          window.open(fallbackUrl, "_blank", "noopener");
+        }}
+        return;
+      }}
+      try {{
+        var result = requestFullscreen.call(stage);
+        if (result && typeof result.catch === "function") {{
+          result.catch(function() {{}});
+        }}
+      }} catch (error) {{}}
+    }}
     function restoreObservationScroll() {{
       var params;
       try {{
@@ -7142,6 +7224,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       var copyCoordinatesButton=event.target.closest("[data-copy-observation-coordinates]");
       if(copyCoordinatesButton){{event.preventDefault();var coordinateForm=copyCoordinatesButton.closest("form"),copyLat=coordinateForm&&coordinateForm.querySelector("[name='location_lat']"),copyLon=coordinateForm&&coordinateForm.querySelector("[name='location_lon']"),copyText=copyLat&&copyLon?copyLat.value+", "+copyLon.value:"";if(copyText&&navigator.clipboard)navigator.clipboard.writeText(copyText);return;}}
+      var photoFullscreenButton=event.target.closest("[data-observation-photo-fullscreen]");
+      if(photoFullscreenButton){{event.preventDefault();openObservationPhotoFullscreen(photoFullscreenButton);return;}}
       var draftMapButton=event.target.closest("[data-observation-draft-map]");
       if(draftMapButton){{event.preventDefault();openObservationDraftMap(draftMapButton.closest("form"));return;}}
       if(event.target.closest("[data-observation-draft-map-close]")){{event.preventDefault();closeObservationDraftMap();return;}}
@@ -10537,6 +10621,124 @@ def observation_image_media_url(relative_path: str, *, poster: bool = False) -> 
     return "./observation-media?" + urlencode(query)
 
 
+def observation_media_viewer_page(relative_path: str, filename: str) -> bytes:
+    """Return a focused image viewer with fit and zoom controls."""
+    media_url = "./observation-media?" + urlencode({"path": relative_path})
+    zoom_in_label = mushroom_profiles_ui.ui_label("ui.zoom_in")
+    zoom_out_label = mushroom_profiles_ui.ui_label("ui.zoom_out")
+    fit_label = mushroom_profiles_ui.ui_label("ui.fit_window")
+    actual_size_label = mushroom_profiles_ui.ui_label("ui.actual_size")
+    fullscreen_label = mushroom_profiles_ui.ui_label("ui.fullscreen")
+    document = f"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>{html.escape(filename)}</title>
+  <style>
+    :root {{ color-scheme: dark; }}
+    * {{ box-sizing: border-box; }}
+    html, body {{ background: #05080b; height: 100%; margin: 0; overflow: hidden; }}
+    body {{ color: #f2f6f8; display: grid; font: 14px system-ui, sans-serif; grid-template-rows: auto minmax(0, 1fr); }}
+    .toolbar {{ align-items: center; background: rgba(13, 20, 27, .96); border-bottom: 1px solid #34414c; display: flex; gap: 8px; padding: max(8px, env(safe-area-inset-top)) 12px 8px; }}
+    .filename {{ font-weight: 700; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+    button {{ background: #1d2b36; border: 1px solid #526575; border-radius: 6px; color: #fff; cursor: pointer; font: inherit; font-weight: 700; min-height: 36px; padding: 6px 11px; }}
+    button:hover {{ background: #293c4b; }}
+    .zoom-level {{ min-width: 52px; text-align: center; }}
+    .stage {{ min-height: 0; overflow: auto; overscroll-behavior: contain; }}
+    .canvas {{ align-items: center; display: flex; justify-content: center; min-height: 100%; min-width: 100%; }}
+    img {{ display: block; flex: none; height: auto; max-height: none; max-width: none; user-select: none; -webkit-user-drag: none; }}
+    @media (max-width: 640px) {{
+      .toolbar {{ flex-wrap: wrap; }}
+      .filename {{ flex-basis: 100%; }}
+      button {{ flex: 1; padding-inline: 8px; }}
+    }}
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span class="filename" title="{html.escape(filename, quote=True)}">{html.escape(filename)}</span>
+    <button type="button" data-zoom-out aria-label="{html.escape(zoom_out_label, quote=True)}">−</button>
+    <span class="zoom-level" data-zoom-level aria-live="polite">100%</span>
+    <button type="button" data-zoom-in aria-label="{html.escape(zoom_in_label, quote=True)}">+</button>
+    <button type="button" data-actual-size>{html.escape(actual_size_label)}</button>
+    <button type="button" data-fit-window>{html.escape(fit_label)}</button>
+    <button type="button" data-fullscreen>{html.escape(fullscreen_label)}</button>
+  </div>
+  <main class="stage" data-stage>
+    <div class="canvas" data-canvas>
+      <img src="{html.escape(media_url, quote=True)}" alt="{html.escape(filename, quote=True)}" draggable="false" data-image>
+    </div>
+  </main>
+  <script>
+    (function() {{
+      "use strict";
+      var stage = document.querySelector("[data-stage]");
+      var canvas = document.querySelector("[data-canvas]");
+      var image = document.querySelector("[data-image]");
+      var level = document.querySelector("[data-zoom-level]");
+      var scale = 1;
+
+      function clamp(value) {{ return Math.min(8, Math.max(0.05, value)); }}
+      function applyScale(nextScale, preserveCenter) {{
+        if (!image.naturalWidth || !image.naturalHeight) return;
+        var oldScale = scale;
+        var centerX = stage.scrollLeft + stage.clientWidth / 2;
+        var centerY = stage.scrollTop + stage.clientHeight / 2;
+        scale = clamp(nextScale);
+        var width = image.naturalWidth * scale;
+        var height = image.naturalHeight * scale;
+        image.style.width = width + "px";
+        canvas.style.width = Math.max(stage.clientWidth, width) + "px";
+        canvas.style.height = Math.max(stage.clientHeight, height) + "px";
+        level.textContent = Math.round(scale * 100) + "%";
+        if (preserveCenter) {{
+          window.requestAnimationFrame(function() {{
+            var ratio = scale / oldScale;
+            stage.scrollLeft = centerX * ratio - stage.clientWidth / 2;
+            stage.scrollTop = centerY * ratio - stage.clientHeight / 2;
+          }});
+        }} else {{
+          stage.scrollLeft = 0;
+          stage.scrollTop = 0;
+        }}
+      }}
+      function fitWindow() {{
+        if (!image.naturalWidth || !image.naturalHeight) return;
+        var fitScale = Math.min(
+          Math.max(1, stage.clientWidth - 24) / image.naturalWidth,
+          Math.max(1, stage.clientHeight - 24) / image.naturalHeight
+        );
+        applyScale(fitScale, false);
+      }}
+      document.querySelector("[data-zoom-in]").addEventListener("click", function() {{ applyScale(scale * 1.25, true); }});
+      document.querySelector("[data-zoom-out]").addEventListener("click", function() {{ applyScale(scale / 1.25, true); }});
+      document.querySelector("[data-actual-size]").addEventListener("click", function() {{ applyScale(1, false); }});
+      document.querySelector("[data-fit-window]").addEventListener("click", fitWindow);
+      document.querySelector("[data-fullscreen]").addEventListener("click", function() {{
+        var target = document.documentElement;
+        var requestFullscreen = target.requestFullscreen || target.webkitRequestFullscreen;
+        if (requestFullscreen) {{
+          try {{ requestFullscreen.call(target); }} catch (error) {{}}
+        }}
+      }});
+      image.addEventListener("load", fitWindow);
+      image.addEventListener("dblclick", function() {{ applyScale(Math.abs(scale - 1) < 0.01 ? Math.min(stage.clientWidth / image.naturalWidth, stage.clientHeight / image.naturalHeight) : 1, true); }});
+      document.addEventListener("keydown", function(event) {{
+        if (event.key === "+" || event.key === "=") applyScale(scale * 1.25, true);
+        if (event.key === "-") applyScale(scale / 1.25, true);
+        if (event.key === "0") applyScale(1, false);
+        if (event.key.toLowerCase() === "f") fitWindow();
+      }});
+      window.addEventListener("resize", fitWindow);
+      if (image.complete) fitWindow();
+    }}());
+  </script>
+</body>
+</html>"""
+    return document.encode("utf-8")
+
+
 def parse_http_byte_range(header_value: str, size: int) -> tuple[int, int]:
     """Parse one HTTP bytes range and return its inclusive start/end offsets."""
     value = str(header_value or "").strip()
@@ -12760,6 +12962,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.render_mushroom_profiles(parse_qs(parsed.query))
             return
 
+        if path == "/mushrooms/observation-media-viewer":
+            self.serve_mushroom_observation_media_viewer(parse_qs(parsed.query))
+            return
+
         if path == "/mushrooms/observation-media":
             self.serve_mushroom_observation_media(parse_qs(parsed.query))
             return
@@ -12894,6 +13100,23 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.send_bytes(206, content, content_type_for(file_path), headers=response_headers)
             return
         self.send_bytes(200, file_path.read_bytes(), content_type_for(file_path), headers=response_headers)
+
+    def serve_mushroom_observation_media_viewer(self, query: dict[str, list[str]]) -> None:
+        """Serve a standalone zoomable viewer for one stored observation image."""
+        relative_path = (query.get("path") or [""])[0]
+        file_path = observation_media_file_path(relative_path)
+        if file_path is None or not file_path.exists() or not file_path.is_file():
+            self.send_bytes(404, b"Observation image not found.", "text/plain; charset=utf-8")
+            return
+        if not content_type_for(file_path).startswith("image/"):
+            self.send_bytes(415, b"This viewer only supports images.", "text/plain; charset=utf-8")
+            return
+        self.send_bytes(
+            200,
+            observation_media_viewer_page(relative_path, file_path.name),
+            "text/html; charset=utf-8",
+            {"Cache-Control": "private, no-store, max-age=0"},
+        )
 
     def read_form(self) -> dict[str, list[str]]:
         length = int(self.headers.get("Content-Length", "0") or "0")

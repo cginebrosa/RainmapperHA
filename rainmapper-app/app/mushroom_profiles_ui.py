@@ -1853,6 +1853,26 @@ def render_observation_photo_modal(
         )
     else:
         media_stage = f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">'
+    relative_path = str(media.get("path", "") or "")
+    stage_actions = ""
+    if str(media.get("kind", "photo") or "photo") == "photo" and relative_path:
+        viewer_url = "./observation-media-viewer?" + urlencode({"path": relative_path})
+        open_large_label = ui_label("ui.open_large")
+        fullscreen_label = ui_label("ui.fullscreen")
+        stage_actions = (
+            '<div class="observation-photo-stage-actions">'
+            f'<button type="button" data-observation-photo-fullscreen '
+            f'data-fallback-url="{html.escape(viewer_url, quote=True)}" '
+            f'title="{html.escape(fullscreen_label, quote=True)}" '
+            f'aria-label="{html.escape(fullscreen_label, quote=True)}">'
+            '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg>'
+            '</button>'
+            f'<a href="{html.escape(viewer_url, quote=True)}" target="_blank" rel="noopener" '
+            f'title="{html.escape(open_large_label, quote=True)}" '
+            f'aria-label="{html.escape(open_large_label, quote=True)}">'
+            '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>'
+            '</a></div>'
+        )
     return f"""
     <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
       <div class="modal-card observation-photo-modal">
@@ -1871,6 +1891,7 @@ def render_observation_photo_modal(
         </div>
         <div class="observation-photo-stage">
           {media_stage}
+          {stage_actions}
         </div>
       </div>
     </div>

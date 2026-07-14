@@ -1162,6 +1162,38 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("<video controls", html)
         self.assertIn("poster=1", html)
         self.assertIn('<source src="./observation-media?path=video.mp4" type="video/mp4">', html)
+        self.assertNotIn("observation-media-viewer", html)
+
+    def test_photo_viewer_opens_large_view_in_new_tab(self) -> None:
+        row = {"observation_id": "obs_20250926_0001"}
+        media = {
+            "kind": "photo",
+            "url": "./observation-media?path=photo.jpeg",
+            "path": "media/observation-photos/2025/photo.jpeg",
+            "original_filename": "photo.jpeg",
+        }
+        html = self.web_server.mushroom_profiles_ui.render_observation_photo_modal(row, media, 0)
+
+        self.assertIn("./observation-media-viewer?path=media%2Fobservation-photos%2F2025%2Fphoto.jpeg", html)
+        self.assertIn('target="_blank" rel="noopener"', html)
+        self.assertIn(self.web_server.mushroom_profiles_ui.ui_label("ui.open_large"), html)
+        self.assertIn("data-observation-photo-fullscreen", html)
+        self.assertIn(self.web_server.mushroom_profiles_ui.ui_label("ui.fullscreen"), html)
+        self.assertIn('class="observation-photo-stage-actions"', html)
+        self.assertIn('<svg aria-hidden="true" viewBox="0 0 24 24">', html)
+        self.assertNotIn(">Pantalla completa</button>", html)
+
+        viewer = self.web_server.observation_media_viewer_page(media["path"], "photo.jpeg").decode("utf-8")
+        self.assertIn('data-zoom-out', viewer)
+        self.assertIn('data-zoom-in', viewer)
+        self.assertIn('data-actual-size', viewer)
+        self.assertIn('data-fit-window', viewer)
+        self.assertIn('data-fullscreen', viewer)
+        self.assertIn("applyScale(scale * 1.25, true)", viewer)
+        self.assertIn("./observation-media?path=media%2Fobservation-photos%2F2025%2Fphoto.jpeg", viewer)
+        page = self.web_server.html_page("Viewer", html, auto_refresh=False).decode("utf-8")
+        self.assertIn("stage.requestFullscreen || stage.webkitRequestFullscreen", page)
+        self.assertIn('window.open(fallbackUrl, "_blank", "noopener")', page)
 
     def test_mushroom_observations_update_rejects_multiple_exif_images(self) -> None:
         data_dir = Path(self.temp_dir.name)

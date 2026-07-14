@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.203
+
+- Añade pantalla completa real al visor de imágenes de observaciones, con retorno mediante `Esc` al mismo modal.
+- Incorpora un visor grande en una pestaña independiente con zoom, tamaño real y ajuste a ventana.
+- Sustituye las nuevas acciones de texto del encabezado por controles compactos superpuestos sobre la imagen.
+
 ## 0.2.202
 
 - Permite reproducir vídeos MP4 de observaciones en Safari a través del ingreso de Home Assistant mediante peticiones HTTP parciales y `HEAD`.

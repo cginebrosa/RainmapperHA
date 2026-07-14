@@ -2029,6 +2029,36 @@
     "es": "Cerrar",
     "ca": "Tancar"
   },
+  "ui.open_large": {
+    "en": "Open large",
+    "es": "Abrir grande",
+    "ca": "Obre en gran"
+  },
+  "ui.fullscreen": {
+    "en": "Full screen",
+    "es": "Pantalla completa",
+    "ca": "Pantalla completa"
+  },
+  "ui.zoom_in": {
+    "en": "Zoom in",
+    "es": "Ampliar",
+    "ca": "Amplia"
+  },
+  "ui.zoom_out": {
+    "en": "Zoom out",
+    "es": "Reducir",
+    "ca": "Redueix"
+  },
+  "ui.fit_window": {
+    "en": "Fit to window",
+    "es": "Ajustar a ventana",
+    "ca": "Ajusta a la finestra"
+  },
+  "ui.actual_size": {
+    "en": "Actual size",
+    "es": "Tamaño real",
+    "ca": "Mida real"
+  },
   "ui.emerging_outside_profile": {
     "en": "Outside profile",
     "es": "Fuera del perfil",
