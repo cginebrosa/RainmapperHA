@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.202
+
+- Permite reproducir vídeos MP4 de observaciones en Safari a través del ingreso de Home Assistant mediante peticiones HTTP parciales y `HEAD`.
+- Declara explícitamente la fuente MP4 y la miniatura del vídeo en el visor multimedia de observaciones.
+
 ## 0.2.201
 
 - Accept observation images and videos through the same single and batch import workflows.

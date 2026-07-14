@@ -102,6 +102,10 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
   Si el archivo tiene coordenadas pero no altitud util, el preview consulta el
   DEM, muestra `Origen DEM` y aplica `altitude.source: dem`. Limites: 100 MB por
   archivo y 500 MB por lote.
+- Tras probar `0.2.201` en HA se detecto que Safari dentro del ingress mostraba
+  el MP4 pero no podia reproducirlo. La correccion local sirve media con rangos
+  HTTP (`206`, `Content-Range`, `Accept-Ranges`), admite `HEAD` y declara un
+  `source video/mp4` con poster. Validado localmente; pendiente de release HA.
 
 ## Ultimo cambio visual
 
@@ -153,7 +157,7 @@ visual del usuario tras reconstruir el contenedor.
 
 ## Validacion al cierre
 
-- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 227 tests OK.
+- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 229 tests OK.
 - JavaScript embebido extraido del HTML: `node --check` OK.
 - Imagen local `rainmapperha:local-ha-ui` reconstruida y contenedor iniciado.
 - Validador de datos: 0 errores y 11 warnings conocidos.

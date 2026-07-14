@@ -347,6 +347,10 @@ vista previa propone la elevacion consultada en el DEM y la identifica como
 lista y la vista previa no dependan del soporte de miniaturas del navegador,
 se genera un poster JPEG a partir de un fotograma del video.
 
+El endpoint privado de media admite peticiones `HEAD` y rangos HTTP de un solo
+intervalo (`206 Partial Content`, `Content-Range` y `Accept-Ranges: bytes`) para
+que Safari pueda reproducir el MP4 dentro del ingress de Home Assistant.
+
 El limite es 100 MB por archivo y 500 MB por importacion multiple. Los tres
 modos de la UI son comunes para imagen y video: asociar solo el archivo,
 actualizar solo los datos de captura o realizar ambas operaciones.

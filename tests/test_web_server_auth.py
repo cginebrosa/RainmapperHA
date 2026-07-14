@@ -1139,6 +1139,30 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("poster=1", html)
         self.assertNotIn("<video", html)
 
+    def test_observation_media_http_ranges_support_safari_streaming(self) -> None:
+        self.assertEqual((0, 1023), self.web_server.parse_http_byte_range("bytes=0-1023", 4096))
+        self.assertEqual((2048, 4095), self.web_server.parse_http_byte_range("bytes=2048-", 4096))
+        self.assertEqual((3996, 4095), self.web_server.parse_http_byte_range("bytes=-100", 4096))
+        self.assertEqual((4000, 4095), self.web_server.parse_http_byte_range("bytes=4000-9999", 4096))
+        with self.assertRaises(ValueError):
+            self.web_server.parse_http_byte_range("bytes=4096-", 4096)
+        with self.assertRaises(ValueError):
+            self.web_server.parse_http_byte_range("bytes=0-1,4-5", 4096)
+
+    def test_video_viewer_declares_mp4_source_and_poster(self) -> None:
+        row = {"observation_id": "obs_20250926_0001"}
+        media = {
+            "kind": "video",
+            "url": "./observation-media?path=video.mp4",
+            "path": "media/observation-videos/2025/video.mp4",
+            "content_type": "video/mp4",
+            "original_filename": "IMG_4751.mov",
+        }
+        html = self.web_server.mushroom_profiles_ui.render_observation_photo_modal(row, media, 0)
+        self.assertIn("<video controls", html)
+        self.assertIn("poster=1", html)
+        self.assertIn('<source src="./observation-media?path=video.mp4" type="video/mp4">', html)
+
     def test_mushroom_observations_update_rejects_multiple_exif_images(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")

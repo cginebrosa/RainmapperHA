@@ -10537,6 +10537,32 @@ def observation_image_media_url(relative_path: str, *, poster: bool = False) -> 
     return "./observation-media?" + urlencode(query)
 
 
+def parse_http_byte_range(header_value: str, size: int) -> tuple[int, int]:
+    """Parse one HTTP bytes range and return its inclusive start/end offsets."""
+    value = str(header_value or "").strip()
+    if size <= 0 or not value.lower().startswith("bytes=") or "," in value:
+        raise ValueError("invalid byte range")
+    range_text = value[6:].strip()
+    if "-" not in range_text:
+        raise ValueError("invalid byte range")
+    start_text, end_text = (part.strip() for part in range_text.split("-", 1))
+    try:
+        if not start_text:
+            suffix_length = int(end_text)
+            if suffix_length <= 0:
+                raise ValueError("invalid suffix range")
+            start = max(0, size - suffix_length)
+            end = size - 1
+        else:
+            start = int(start_text)
+            end = int(end_text) if end_text else size - 1
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid byte range") from exc
+    if start < 0 or start >= size or end < start:
+        raise ValueError("unsatisfiable byte range")
+    return start, min(end, size - 1)
+
+
 def observation_media_file_path(relative_path: str) -> Path | None:
     """Return a safe media file path inside the configured mushroom data root."""
     path_text = str(relative_path or "").strip().lstrip("/")
@@ -12037,7 +12063,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         for header_name, header_value in (headers or {}).items():
             self.send_header(header_name, header_value)
         self.end_headers()
-        self.wfile.write(content)
+        if getattr(self, "command", "GET") != "HEAD":
+            self.wfile.write(content)
 
     def send_json(self, status: int, payload: dict) -> None:
         self.send_bytes(
@@ -12819,6 +12846,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "text/html; charset=utf-8",
         )
 
+    def do_HEAD(self) -> None:
+        """Support metadata probes used by Safari before streaming MP4 media."""
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        if path == "/mushrooms/observation-media":
+            self.serve_mushroom_observation_media(parse_qs(parsed.query))
+            return
+        self.send_bytes(404, b"", "text/plain; charset=utf-8")
+
     def serve_mushroom_observation_media(self, query: dict[str, list[str]]) -> None:
         relative_path = (query.get("path") or [""])[0]
         file_path = observation_media_file_path(relative_path)
@@ -12838,12 +12874,26 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     self.send_bytes(422, b"Video thumbnail could not be generated.", "text/plain; charset=utf-8")
                     return
             file_path = poster_path
-        self.send_bytes(
-            200,
-            file_path.read_bytes(),
-            content_type_for(file_path),
-            headers={"Cache-Control": "private, max-age=3600"},
-        )
+        size = file_path.stat().st_size
+        response_headers = {
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "private, max-age=3600",
+        }
+        range_header = self.headers.get("Range", "").strip()
+        if range_header:
+            try:
+                start, end = parse_http_byte_range(range_header, size)
+            except ValueError:
+                response_headers["Content-Range"] = f"bytes */{size}"
+                self.send_bytes(416, b"", content_type_for(file_path), headers=response_headers)
+                return
+            with file_path.open("rb") as media_file:
+                media_file.seek(start)
+                content = media_file.read(end - start + 1)
+            response_headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+            self.send_bytes(206, content, content_type_for(file_path), headers=response_headers)
+            return
+        self.send_bytes(200, file_path.read_bytes(), content_type_for(file_path), headers=response_headers)
 
     def read_form(self) -> dict[str, list[str]]:
         length = int(self.headers.get("Content-Length", "0") or "0")

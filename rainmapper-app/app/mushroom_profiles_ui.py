@@ -1841,11 +1841,18 @@ def render_observation_photo_modal(
         f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>"
         for key, value in rows
     )
-    media_stage = (
-        f'<video src="{html.escape(url, quote=True)}" controls preload="metadata" playsinline></video>'
-        if str(media.get("kind", "photo") or "photo") == "video"
-        else f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">'
-    )
+    if str(media.get("kind", "photo") or "photo") == "video":
+        separator = "&" if "?" in url else "?"
+        poster_url = str(media.get("poster_url", "") or f"{url}{separator}poster=1")
+        content_type = str(media.get("content_type", "") or "video/mp4")
+        media_stage = (
+            f'<video controls preload="metadata" playsinline '
+            f'poster="{html.escape(poster_url, quote=True)}">'
+            f'<source src="{html.escape(url, quote=True)}" type="{html.escape(content_type, quote=True)}">'
+            "</video>"
+        )
+    else:
+        media_stage = f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">'
     return f"""
     <div id="{html.escape(modal_id, quote=True)}" class="modal-layer">
       <div class="modal-card observation-photo-modal">
