@@ -8,18 +8,16 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 - Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.200`.
-- Commit release: `b9f949c Release Home Assistant 0.2.200`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.200` y `latest`.
-- Digest multi-arch: `sha256:f041f97c775f3c75979dce0e6d875e504543cd9c1adf69239a2b9dc1e72cd532`.
+- Ultimo release HA publicado: `0.2.201`.
+- Commit release: `334365d Release Home Assistant 0.2.201`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.201` y `latest`.
+- Digest multi-arch: `sha256:9b8cbf54400437c85ba589b201c16fcd20ea3ced73595c9394dfdc2a95340ccb`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - GitHub sigue abierto/publico por decision explicita; no cerrarlo.
-- No se ha preparado, publicado ni versionado un release nuevo para los cambios
-  locales de setas descritos abajo.
-- El worktree contiene un bloque grande de cambios locales y ficheros nuevos.
-  No revertirlos, no mezclar datos reales de `docker-data/` en Git y revisar el
-  diff completo antes de hacer commit.
+- `0.2.201` incorpora la importacion de imagen/video, normalizacion de video,
+  posters JPEG y fallback de altitud DEM. Pendiente de validacion real en HA.
+- No mezclar datos reales de `docker-data/` en Git.
 
 ## Foco inmediato
 
@@ -155,11 +153,12 @@ visual del usuario tras reconstruir el contenedor.
 
 ## Validacion al cierre
 
-- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 226 tests OK.
+- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 227 tests OK.
 - JavaScript embebido extraido del HTML: `node --check` OK.
 - Imagen local `rainmapperha:local-ha-ui` reconstruida y contenedor iniciado.
-- No se ejecuto en este ultimo refinamiento el smoke test completo, todo el
-  validador de datos ni una prueba HA real.
+- Validador de datos: 0 errores y 11 warnings conocidos.
+- Imagen remota verificada para amd64/arm64; FFmpeg 7.1.5, ExifTool 13.25 e
+  import de `web_server` correctos en la imagen arm64. Pendiente prueba HA real.
 
 ## Riesgos y dudas
 
