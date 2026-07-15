@@ -88,11 +88,13 @@ MUSHROOM_OBSERVATION_IMAGE_MAX_EDGE = 1600
 MUSHROOM_OBSERVATION_IMAGE_JPEG_QUALITY = 86
 MUSHROOM_MEDIA_FILE_MAX_BYTES = 100 * 1024 * 1024
 MUSHROOM_MEDIA_BATCH_MAX_BYTES = 500 * 1024 * 1024
+MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES = 2 * 1024 * 1024
 MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS = 30
 MUSHROOM_OBSERVATION_VIDEO_MAX_WIDTH = 854
 MUSHROOM_OBSERVATION_VIDEO_MAX_HEIGHT = 480
 MUSHROOM_OBSERVATION_VIDEO_CRF = 30
 MUSHROOM_VIDEO_SUFFIXES = {".mov", ".mp4", ".m4v", ".avi", ".mkv", ".webm", ".3gp"}
+MAPLIBRE_EXTERNAL_VIEWER_URL = "https://rainmap.nomentero.com/protected/maplibre/index.html"
 DEVICE_SETTING_PERIODS = {"01d.geojson", "07d.geojson", "14d.geojson", "21d.geojson", "30d.geojson", "60d.geojson", "90d.geojson"}
 DEVICE_SETTING_MAP_STYLES = {"esri-satellite-vector", "esri-hybrid", "opentopomap", "openfreemap-liberty"}
 DEVICE_SETTING_SOURCES = {"Meteocat", "Meteoclimatic", "Wunderground", "AEMET", "Unknown"}
@@ -144,6 +146,14 @@ RUN_STATE = {
 }
 MUSHROOM_REBUILD_JOBS: dict[str, dict[str, object]] = {}
 MUSHROOM_REBUILD_JOB_TTL_SECONDS = 3600
+
+
+class RequestBodyError(ValueError):
+    """A malformed or oversized HTTP request body."""
+
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 def set_current_process(process: subprocess.Popen | None) -> None:
@@ -5085,7 +5095,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       box-shadow: 0 18px 60px rgba(0, 0, 0, .46);
       display: grid;
       gap: 12px;
-      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
       height: calc(100vh - 24px);
       max-width: calc(100vw - 24px);
       padding: 14px;
@@ -5104,6 +5114,34 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       line-height: 1;
       padding: 0;
       width: 38px;
+    }}
+    .observation-upload-progress {{
+      align-items: center;
+      display: grid;
+      gap: 7px;
+      grid-template-columns: minmax(180px, 1fr) auto;
+    }}
+    .observation-upload-progress[hidden] {{ display: none; }}
+    .observation-upload-progress progress {{
+      accent-color: #03a9f4;
+      height: 10px;
+      width: 100%;
+    }}
+    .observation-upload-progress span {{ min-width: 48px; text-align: right; }}
+    .observation-save-progress-modal {{ z-index: 1700; }}
+    .observation-save-progress-dialog {{
+      display: grid;
+      gap: 12px;
+      max-width: 560px;
+      padding: 20px;
+      width: calc(100vw - 32px);
+    }}
+    .observation-save-progress-dialog h2,
+    .observation-save-progress-dialog p {{ margin: 0; }}
+    .observation-save-progress-dialog .profile-action-bar {{
+      border: 0;
+      margin: 4px 0 0;
+      padding: 0;
     }}
     .observation-exif-preview-content {{
       display: grid;
@@ -6168,6 +6206,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         <button class="secondary observation-exif-preview-close" type="button" data-observation-exif-preview-cancel aria-label="Cancelar">×</button>
       </header>
       <div class="observation-exif-preview-status meta"></div>
+      <div class="observation-upload-progress" data-observation-exif-progress hidden>
+        <progress max="100" value="0"></progress>
+        <span class="meta" data-observation-exif-progress-label></span>
+      </div>
       <div class="observation-exif-preview-content">
         <div class="observation-exif-preview-grid"></div>
         <div class="observation-exif-preview-data">
@@ -6193,6 +6235,17 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
   </div>
   <div id="observation-image-replace-modal" class="observation-exif-preview-modal" hidden>
     <section class="modal-card observation-media-confirm" role="dialog" aria-modal="true"><h2>Sustituir imagen/video asociado</h2><p>La observación ya tiene un archivo multimedia. Para asociar el nuevo debes desasociar el anterior. Esta operación no se puede deshacer.</p><div class="observation-image-replace-preview"><div data-existing-media-preview></div><div class="observation-exif-preview-data-rows"></div></div><div class="profile-action-bar"><button type="button" data-image-replace-cancel>Cancelar</button><button type="button" class="danger" data-image-replace-action="unlink">Desasociar archivo anterior</button><button type="button" class="danger" data-image-replace-action="delete">Desasociar y borrar anterior</button></div></section>
+  </div>
+  <div id="observation-save-progress-modal" class="observation-exif-preview-modal observation-save-progress-modal" hidden>
+    <section class="modal-card observation-save-progress-dialog" role="dialog" aria-modal="true" aria-labelledby="observation-save-progress-title">
+      <h2 id="observation-save-progress-title">Guardando observación</h2>
+      <p class="meta" data-observation-save-progress-status>Preparando el archivo…</p>
+      <div class="observation-upload-progress">
+        <progress max="100" value="0" data-observation-save-progress-bar></progress>
+        <span class="meta" data-observation-save-progress-label></span>
+      </div>
+      <div class="profile-action-bar"><button class="secondary" type="button" data-observation-save-cancel>Cancelar subida</button></div>
+    </section>
   </div>
   <script>
     function togglePasswordVisibility(checkbox) {{
@@ -6606,8 +6659,20 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       selectedIndex: 0,
       objectUrls: [],
       map: null,
+      request: null,
       pendingMode: "image_and_exif"
     }};
+    function setObservationUploadProgress(container, percent, label, indeterminate) {{
+      if (!container) return;
+      var progress = container.querySelector("progress");
+      var text = container.querySelector("span");
+      container.hidden = false;
+      if (progress) {{
+        if (indeterminate) progress.removeAttribute("value");
+        else progress.value = Math.max(0, Math.min(100, Number(percent) || 0));
+      }}
+      if (text) text.textContent = label || "";
+    }}
     function formatExifPreviewNumber(value, suffix) {{
       if (value === null || value === undefined || value === "") {{
         return "-";
@@ -6689,6 +6754,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     function closeObservationExifPreview(options) {{
       options = options || {{}};
+      if (observationExifPreviewState.request && observationExifPreviewState.request.readyState !== 4) {{
+        observationExifPreviewState.request.abort();
+      }}
       var modal = document.getElementById("observation-exif-preview-modal");
       if (modal) {{
         modal.hidden = true;
@@ -6705,6 +6773,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         selectedIndex: 0,
         objectUrls: [],
         map: null,
+        request: null,
         pendingMode: "image_and_exif"
       }};
     }}
@@ -6861,10 +6930,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       modal.hidden = false;
     }}
-    async function updateObservationExifPreview(input) {{
+    function updateObservationExifPreview(input) {{
       if (!input.files || !input.files.length) {{
         closeObservationExifPreview({{ clearInput: false }});
         return;
+      }}
+      if (observationExifPreviewState.request && observationExifPreviewState.request.readyState !== 4) {{
+        observationExifPreviewState.request.abort();
       }}
       var modal = document.getElementById("observation-exif-preview-modal");
       if (!modal) {{
@@ -6875,11 +6947,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       observationExifPreviewState.payload = null;
       observationExifPreviewState.selectedIndex = 0;
       var status = modal.querySelector(".observation-exif-preview-status");
+      var progressContainer = modal.querySelector("[data-observation-exif-progress]");
       var grid = modal.querySelector(".observation-exif-preview-grid");
       var actionButtons = Array.prototype.slice.call(modal.querySelectorAll("[data-observation-exif-action]"));
       if (status) {{
-        status.textContent = "Leyendo EXIF...";
+        status.textContent = "Subiendo el archivo a Rainmapper…";
       }}
+      setObservationUploadProgress(progressContainer, 0, "0 %", false);
       if (grid) {{
         grid.innerHTML = "";
       }}
@@ -6893,23 +6967,128 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       Array.prototype.slice.call(input.files).forEach(function(file) {{
         formData.append("observation_exif_images", file, file.name);
       }});
-      try {{
-        var response = await fetch(observationExifPreviewEndpoint(), {{
-          method: "POST",
-          body: formData,
-          credentials: "same-origin"
-        }});
-        var payload = await response.json();
-        if (!response.ok || !payload.ok) {{
-          throw new Error(payload.error || "preview failed");
+      var hasVideo = Array.prototype.slice.call(input.files).some(function(file) {{
+        return String(file.type || "").indexOf("video/") === 0 || /[.](mov|mp4|m4v|webm|avi|3gp)$/i.test(file.name || "");
+      }});
+      var xhr = new XMLHttpRequest();
+      observationExifPreviewState.request = xhr;
+      xhr.open("POST", observationExifPreviewEndpoint(), true);
+      xhr.withCredentials = true;
+      xhr.upload.onprogress = function(event) {{
+        if (!event.lengthComputable) {{
+          setObservationUploadProgress(progressContainer, 0, "Subiendo…", true);
+          return;
+        }}
+        var percent = Math.min(100, Math.round(event.loaded * 100 / event.total));
+        setObservationUploadProgress(progressContainer, percent, percent + " %", false);
+      }};
+      xhr.upload.onload = function() {{
+        if (status) status.textContent = hasVideo
+          ? "Leyendo metadatos y generando la vista previa del vídeo…"
+          : "Leyendo metadatos EXIF y generando la vista previa…";
+        setObservationUploadProgress(progressContainer, 100, "Procesando…", true);
+      }};
+      xhr.onload = function() {{
+        if (observationExifPreviewState.request !== xhr) return;
+        observationExifPreviewState.request = null;
+        var payload;
+        try {{ payload = JSON.parse(xhr.responseText || "{{}}"); }}
+        catch (error) {{ payload = {{}}; }}
+        if (xhr.status < 200 || xhr.status >= 300 || !payload.ok) {{
+          if (status) status.textContent = "No se pudo generar la vista previa: " + (payload.error || "respuesta no válida del servidor");
+          if (progressContainer) progressContainer.hidden = true;
+          return;
         }}
         observationExifPreviewState.payload = payload;
+        if (progressContainer) progressContainer.hidden = true;
         renderObservationExifPreview(payload);
-      }} catch (error) {{
-        if (status) {{
-          status.textContent = "No se pudo generar el preview EXIF: " + error.message;
-        }}
+      }};
+      xhr.onerror = function() {{
+        if (observationExifPreviewState.request !== xhr) return;
+        observationExifPreviewState.request = null;
+        if (status) status.textContent = "No se pudo conectar con Rainmapper durante la subida.";
+        if (progressContainer) progressContainer.hidden = true;
+      }};
+      xhr.onabort = function() {{
+        if (observationExifPreviewState.request === xhr) observationExifPreviewState.request = null;
+      }};
+      xhr.send(formData);
+    }}
+    var observationSaveRequest = null;
+    function setObservationSaveProgress(percent, statusText, label, indeterminate) {{
+      var modal = document.getElementById("observation-save-progress-modal");
+      if (!modal) return;
+      var progress = modal.querySelector("[data-observation-save-progress-bar]");
+      var status = modal.querySelector("[data-observation-save-progress-status]");
+      var progressLabel = modal.querySelector("[data-observation-save-progress-label]");
+      if (status) status.textContent = statusText || "";
+      if (progress) {{
+        if (indeterminate) progress.removeAttribute("value");
+        else progress.value = Math.max(0, Math.min(100, Number(percent) || 0));
       }}
+      if (progressLabel) progressLabel.textContent = label || "";
+    }}
+    function finishObservationSaveRequest(message) {{
+      var modal = document.getElementById("observation-save-progress-modal");
+      var cancel = modal && modal.querySelector("[data-observation-save-cancel]");
+      observationSaveRequest = null;
+      setObservationSaveProgress(0, message, "Error", false);
+      if (cancel) {{ cancel.disabled = false; cancel.textContent = "Cerrar"; }}
+    }}
+    function submitObservationWithMedia(form) {{
+      var input = form && form.querySelector("input[name='observation_exif_images']");
+      if (!input || !input.files || !input.files.length || observationSaveRequest) return false;
+      var modal = document.getElementById("observation-save-progress-modal");
+      var cancel = modal && modal.querySelector("[data-observation-save-cancel]");
+      var file = input.files[0];
+      var isVideo = String(file.type || "").indexOf("video/") === 0 || /[.](mov|mp4|m4v|webm|avi|3gp)$/i.test(file.name || "");
+      var xhr = new XMLHttpRequest();
+      observationSaveRequest = xhr;
+      modal.hidden = false;
+      if (cancel) {{ cancel.disabled = false; cancel.textContent = "Cancelar subida"; }}
+      setObservationSaveProgress(0, "Subiendo " + (file.name || "el archivo") + "…", "0 %", false);
+      xhr.open("POST", form.action || window.location.href, true);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader("X-Rainmapper-Async", "1");
+      xhr.upload.onprogress = function(event) {{
+        if (!event.lengthComputable) {{
+          setObservationSaveProgress(0, "Subiendo " + (file.name || "el archivo") + "…", "Subiendo…", true);
+          return;
+        }}
+        var percent = Math.min(100, Math.round(event.loaded * 100 / event.total));
+        setObservationSaveProgress(percent, "Subiendo " + (file.name || "el archivo") + "…", percent + " %", false);
+      }};
+      xhr.upload.onload = function() {{
+        if (cancel) {{ cancel.disabled = true; cancel.textContent = "Procesando…"; }}
+        setObservationSaveProgress(
+          100,
+          isVideo ? "Convirtiendo y guardando el vídeo…" : "Procesando y guardando la imagen…",
+          "Procesando…",
+          true
+        );
+      }};
+      xhr.onload = function() {{
+        if (observationSaveRequest !== xhr) return;
+        var payload;
+        try {{ payload = JSON.parse(xhr.responseText || "{{}}"); }}
+        catch (error) {{ payload = {{}}; }}
+        if (xhr.status < 200 || xhr.status >= 300 || !payload.ok || !payload.redirect) {{
+          finishObservationSaveRequest("No se pudo guardar la observación: " + (payload.error || "respuesta no válida del servidor"));
+          return;
+        }}
+        observationSaveRequest = null;
+        window.location.assign(new URL(payload.redirect, window.location.href).href);
+      }};
+      xhr.onerror = function() {{
+        if (observationSaveRequest === xhr) finishObservationSaveRequest("Se perdió la conexión con Rainmapper durante la subida.");
+      }};
+      xhr.onabort = function() {{
+        if (observationSaveRequest === xhr) observationSaveRequest = null;
+      }};
+      var saveFormData = new FormData(form);
+      saveFormData.append("rainmapper_async", "1");
+      xhr.send(saveFormData);
+      return true;
     }}
     function setExpandedUser(username) {{
       var cards = Array.prototype.slice.call(document.querySelectorAll(".user-card"));
@@ -7213,6 +7392,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         setProfileReturnTabs();
       }}
     }});
+    document.addEventListener("submit", function(event) {{
+      if (event.defaultPrevented || !event.target || !event.target.matches || !event.target.matches(".observation-form")) return;
+      if (submitObservationWithMedia(event.target)) {{
+        event.preventDefault();
+        rememberObservationListScroll();
+      }}
+    }});
     document.addEventListener("click", function(event) {{
       rememberSpeciesModalNavigation(event);
     }}, true);
@@ -7236,6 +7422,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (exifPreviewCancel) {{
         event.preventDefault();
         closeObservationExifPreview({{ clearInput: true }});
+        return;
+      }}
+      var observationSaveCancel = event.target.closest("[data-observation-save-cancel]");
+      if (observationSaveCancel) {{
+        event.preventDefault();
+        if (observationSaveRequest && observationSaveRequest.readyState !== 4) observationSaveRequest.abort();
+        observationSaveRequest = null;
+        var saveModal = document.getElementById("observation-save-progress-modal");
+        if (saveModal) saveModal.hidden = true;
         return;
       }}
       var exifPreviewAction = event.target.closest("[data-observation-exif-action]");
@@ -12275,11 +12470,90 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "application/json; charset=utf-8",
         )
 
+    def request_body_limit(self) -> int:
+        """Return the largest accepted body for the current endpoint."""
+        path = urlparse(self.path).path.rstrip("/")
+        if path == "/api/mushrooms/observation-exif-preview":
+            return MUSHROOM_MEDIA_FILE_MAX_BYTES + MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES
+        return MUSHROOM_MEDIA_BATCH_MAX_BYTES + MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES
+
+    def read_request_body(self, max_bytes: int | None = None) -> bytes:
+        """Read a fixed-length or HTTP chunked request body once.
+
+        Home Assistant forwards ingress requests without a size limit when
+        ``ingress_stream`` is enabled. Depending on the proxy/client pair, that
+        body can arrive with ``Transfer-Encoding: chunked`` instead of a
+        ``Content-Length`` header, which BaseHTTPRequestHandler does not decode.
+        """
+        cached = getattr(self, "_request_body", None)
+        if cached is not None:
+            return cached
+        limit = max_bytes if max_bytes is not None else self.request_body_limit()
+        transfer_encodings = [
+            item.strip().lower()
+            for item in self.headers.get("Transfer-Encoding", "").split(",")
+            if item.strip()
+        ]
+        if transfer_encodings:
+            if transfer_encodings[-1] != "chunked":
+                raise RequestBodyError(400, "Codificacion de transferencia no compatible.")
+            body = self.read_chunked_request_body(limit)
+        else:
+            length_header = self.headers.get("Content-Length", "").strip()
+            if not length_header:
+                body = b""
+            else:
+                try:
+                    length = int(length_header)
+                except ValueError as exc:
+                    raise RequestBodyError(400, "Content-Length no valido.") from exc
+                if length < 0:
+                    raise RequestBodyError(400, "Content-Length no valido.")
+                if length > limit:
+                    raise RequestBodyError(413, "La solicitud supera el limite permitido.")
+                body = self.rfile.read(length)
+                if len(body) != length:
+                    raise RequestBodyError(400, "La solicitud termino antes de recibir todos los datos.")
+        self._request_body = body
+        return body
+
+    def read_chunked_request_body(self, max_bytes: int) -> bytes:
+        """Decode one RFC 9112 chunked request body with an explicit size cap."""
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            size_line = self.rfile.readline(4097)
+            if not size_line or len(size_line) > 4096 or not size_line.endswith(b"\r\n"):
+                raise RequestBodyError(400, "Cuerpo fragmentado no valido.")
+            size_token = size_line[:-2].split(b";", 1)[0].strip()
+            try:
+                chunk_size = int(size_token, 16)
+            except ValueError as exc:
+                raise RequestBodyError(400, "Tamano de fragmento no valido.") from exc
+            if chunk_size < 0:
+                raise RequestBodyError(400, "Tamano de fragmento no valido.")
+            if chunk_size == 0:
+                while True:
+                    trailer = self.rfile.readline(4097)
+                    if not trailer or trailer == b"\r\n":
+                        break
+                    if len(trailer) > 4096 or not trailer.endswith(b"\r\n"):
+                        raise RequestBodyError(400, "Trailer HTTP no valido.")
+                break
+            total += chunk_size
+            if total > max_bytes:
+                raise RequestBodyError(413, "La solicitud supera el limite permitido.")
+            chunk = self.rfile.read(chunk_size)
+            if len(chunk) != chunk_size or self.rfile.read(2) != b"\r\n":
+                raise RequestBodyError(400, "Fragmento HTTP incompleto.")
+            chunks.append(chunk)
+        return b"".join(chunks)
+
     def read_json_payload(self) -> dict:
-        length = int(self.headers.get("Content-Length", "0") or "0")
-        if length <= 0:
+        raw_body = self.read_request_body()
+        if not raw_body:
             return {}
-        raw_payload = self.rfile.read(length).decode("utf-8", errors="replace")
+        raw_payload = raw_body.decode("utf-8", errors="replace")
         try:
             payload = json.loads(raw_payload)
         except json.JSONDecodeError:
@@ -13119,8 +13393,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         )
 
     def read_form(self) -> dict[str, list[str]]:
-        length = int(self.headers.get("Content-Length", "0") or "0")
-        payload = self.rfile.read(length).decode("utf-8", errors="replace") if length else ""
+        payload = self.read_request_body().decode("utf-8", errors="replace")
         return parse_qs(payload)
 
     def read_form_and_files(self) -> tuple[dict[str, list[str]], dict[str, list[dict[str, object]]]]:
@@ -13131,12 +13404,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         form: dict[str, list[str]] = {}
         files: dict[str, list[dict[str, object]]] = {}
+        request_body = self.read_request_body()
         environ = {
             "REQUEST_METHOD": "POST",
             "CONTENT_TYPE": content_type,
-            "CONTENT_LENGTH": self.headers.get("Content-Length", "0"),
+            "CONTENT_LENGTH": str(len(request_body)),
         }
-        field_storage = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
+        field_storage = cgi.FieldStorage(
+            fp=io.BytesIO(request_body),
+            environ=environ,
+            keep_blank_values=True,
+        )
         for key in field_storage.keys():
             values = field_storage[key]
             fields = values if isinstance(values, list) else [values]
@@ -13166,14 +13444,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         try:
-            request_length = int(self.headers.get("Content-Length", "0") or "0")
-        except ValueError:
-            request_length = 0
-        if parsed.path == "/api/mushrooms/observation-exif-preview" and request_length > MUSHROOM_MEDIA_FILE_MAX_BYTES + 2 * 1024 * 1024:
-            self.send_json(413, {"ok": False, "error": "El archivo supera el limite de 100 MB."})
-            return
-        if parsed.path.rstrip("/") == "/mushrooms/profiles" and request_length > MUSHROOM_MEDIA_BATCH_MAX_BYTES + 2 * 1024 * 1024:
-            self.send_bytes(413, b"La importacion supera el limite total de 500 MB.", "text/plain; charset=utf-8")
+            self.read_request_body()
+        except RequestBodyError as exc:
+            if parsed.path.startswith("/api/"):
+                self.send_json(exc.status, {"ok": False, "error": str(exc)})
+            else:
+                self.send_bytes(exc.status, str(exc).encode("utf-8"), "text/plain; charset=utf-8")
             return
         if parsed.path == "/auth/login":
             payload = self.read_json_payload()
@@ -13310,7 +13586,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         if parsed.path.rstrip("/") == "/mushrooms/profiles":
             redirect_target = self.handle_mushroom_profiles_post(form, files)
             query = ("?" + parsed.query) if parsed.query else ""
-            self.redirect_to(redirect_target or query or "?")
+            redirect_location = redirect_target or query or "?"
+            if (
+                self.headers.get("X-Rainmapper-Async", "").strip() == "1"
+                or self.form_value(form, "rainmapper_async") == "1"
+            ):
+                self.send_json(200, {"ok": True, "redirect": redirect_location})
+            else:
+                self.redirect_to(redirect_location)
             return
 
         action = self.form_value(form, "run_action")
@@ -14753,7 +15036,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         source_cards = source_status_cards(disabled)
         legacy_www_enabled = publish_legacy_www_enabled()
         leaflet_url = cache_busted_url("/local/rainmapper-leaflet/index.html") if legacy_www_enabled else ""
-        maplibre_url = cache_busted_url("/protected/maplibre/index.html")
+        maplibre_url = cache_busted_url(MAPLIBRE_EXTERNAL_VIEWER_URL)
         heatmap_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-heatmap/index.html") if legacy_www_enabled and PUBLIC_MAPLIBRE_HEATMAP_PATH.exists() else ""
         aemet_maplibre_url = cache_busted_url("/local/rainmapper-maplibre-aemet/index.html") if PUBLIC_MAPLIBRE_AEMET_PATH.exists() else ""
         bokeh_21d_url = cache_busted_url("/local/Plots/rain_21d.html") if legacy_www_enabled else ""

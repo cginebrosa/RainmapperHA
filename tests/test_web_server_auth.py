@@ -7,6 +7,7 @@ real Home Assistant `/share/rainmapper` files or any developer-local devices.
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import tempfile
@@ -240,12 +241,18 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         handler.send_bytes = capture_response
         previous_publish = os.environ.get("RAINMAPPER_PUBLISH_TO_WWW")
+        previous_version = os.environ.get("RAINMAPPER_APP_VERSION")
         os.environ.pop("RAINMAPPER_PUBLISH_TO_WWW", None)
+        os.environ["RAINMAPPER_APP_VERSION"] = "0.2.204"
         try:
             handler.render_index()
         finally:
             if previous_publish is not None:
                 os.environ["RAINMAPPER_PUBLISH_TO_WWW"] = previous_publish
+            if previous_version is None:
+                os.environ.pop("RAINMAPPER_APP_VERSION", None)
+            else:
+                os.environ["RAINMAPPER_APP_VERSION"] = previous_version
 
         self.assertEqual(captured["status"], 200)
         page = captured["content"]
@@ -257,6 +264,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertIn(f'name="source_update" value="{source}"', page)
         self.assertNotIn("Open Leaflet viewer", page)
         self.assertIn("Open MapLibre viewer", page)
+        self.assertIn(
+            "https://rainmap.nomentero.com/protected/maplibre/index.html?v=0.2.204",
+            page,
+        )
+        self.assertNotIn("https://ha.nomentero.com/protected/maplibre", page)
         self.assertNotIn("Open heatmap experiment", page)
         self.assertIn("Legacy public publishing", page)
         self.assertIn("Disabled", page)
@@ -1765,6 +1777,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("/api/mushrooms/observation-exif-preview", page)
         self.assertIn("updateObservationExifPreview(event.target)", page)
         self.assertIn("URL.createObjectURL(file)", page)
+        self.assertIn("new XMLHttpRequest()", page)
+        self.assertIn('id="observation-save-progress-modal"', page)
+        self.assertIn("xhr.upload.onprogress", page)
+        self.assertIn('xhr.setRequestHeader("X-Rainmapper-Async", "1")', page)
+        self.assertIn('saveFormData.append("rainmapper_async", "1")', page)
+        self.assertIn("Cancelar subida", page)
         self.assertIn('id="observation-exif-preview-modal"', page)
         self.assertIn('data-observation-exif-action="image_only"', page)
         self.assertIn('data-observation-exif-action="exif_only"', page)
@@ -4339,6 +4357,95 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn(("Cache-Control", "no-store, max-age=0"), captured["headers"])
         self.assertIn("app.js?v=9.9.9-test", html)
         self.assertIn("style.css?v=9.9.9-test", html)
+
+    def test_ingress_stream_is_enabled_for_large_media_uploads(self) -> None:
+        config = (ROOT_DIR / "rainmapper-app" / "config.yaml").read_text(encoding="utf-8")
+        self.assertIn("ingress_stream: true", config)
+
+    def test_chunked_request_body_is_decoded(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.path = "/api/mushrooms/observation-exif-preview"
+        handler.headers = {"Transfer-Encoding": "chunked"}
+        handler.rfile = io.BytesIO(b"4\r\ntest\r\n8\r\n payload\r\n0\r\n\r\n")
+
+        self.assertEqual(handler.read_request_body(), b"test payload")
+        self.assertEqual(handler.read_request_body(), b"test payload")
+
+    def test_fixed_length_form_body_keeps_existing_behavior(self) -> None:
+        body = b"profile_action=create_observation&observation_species_id=boletus_pinophilus"
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.path = "/mushrooms/profiles"
+        handler.headers = {
+            "Content-Length": str(len(body)),
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        handler.rfile = io.BytesIO(body)
+
+        self.assertEqual(handler.read_form()["profile_action"], ["create_observation"])
+        self.assertEqual(handler.read_form()["observation_species_id"], ["boletus_pinophilus"])
+
+    def test_chunked_multipart_upload_keeps_form_and_file(self) -> None:
+        boundary = "RainmapperBoundary"
+        body = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="observation_id"\r\n\r\n'
+            "obs_20260716_0001\r\n"
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="observation_exif_images"; filename="sample.mov"\r\n'
+            "Content-Type: video/quicktime\r\n\r\n"
+        ).encode("utf-8") + b"video-bytes" + f"\r\n--{boundary}--\r\n".encode("utf-8")
+        pieces = (body[:31], body[31:109], body[109:])
+        chunked = b"".join(
+            f"{len(piece):X}\r\n".encode("ascii") + piece + b"\r\n"
+            for piece in pieces
+        ) + b"0\r\n\r\n"
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.path = "/api/mushrooms/observation-exif-preview"
+        handler.headers = {
+            "Transfer-Encoding": "chunked",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        }
+        handler.rfile = io.BytesIO(chunked)
+
+        form, files = handler.read_form_and_files()
+
+        self.assertEqual(form["observation_id"], ["obs_20260716_0001"])
+        self.assertEqual(files["observation_exif_images"][0]["filename"], "sample.mov")
+        self.assertEqual(files["observation_exif_images"][0]["content"], b"video-bytes")
+        self.assertEqual(files["observation_exif_images"][0]["content_type"], "video/quicktime")
+
+    def test_chunked_request_body_rejects_invalid_and_oversized_chunks(self) -> None:
+        malformed = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        malformed.path = "/api/mushrooms/observation-exif-preview"
+        malformed.headers = {"Transfer-Encoding": "chunked"}
+        malformed.rfile = io.BytesIO(b"invalid\r\n")
+        with self.assertRaises(self.web_server.RequestBodyError) as invalid_context:
+            malformed.read_request_body()
+        self.assertEqual(invalid_context.exception.status, 400)
+
+        oversized = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        oversized.rfile = io.BytesIO(b"5\r\nabcde\r\n0\r\n\r\n")
+        with self.assertRaises(self.web_server.RequestBodyError) as oversized_context:
+            oversized.read_chunked_request_body(4)
+        self.assertEqual(oversized_context.exception.status, 413)
+
+    def test_async_observation_save_returns_redirect_as_json(self) -> None:
+        body = b"rainmapper_async=1"
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.path = "/mushrooms/profiles?section=observations"
+        handler.headers = {
+            "Content-Length": str(len(body)),
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        handler.rfile = io.BytesIO(body)
+        handler.handle_mushroom_profiles_post = lambda form, files: "?section=observations#saved"
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(status=status, payload=payload)
+
+        handler.do_POST()
+
+        self.assertEqual(captured["status"], 200)
+        self.assertEqual(captured["payload"], {"ok": True, "redirect": "?section=observations#saved"})
 
 
 if __name__ == "__main__":

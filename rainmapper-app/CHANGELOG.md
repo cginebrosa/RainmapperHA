@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.204
+
+- Permite subir imágenes y vídeos de más de 16 MB a través del ingress de Home Assistant mediante streaming y lectura compatible con cuerpos HTTP fragmentados.
+- Muestra progreso real durante la subida y un estado visible durante la lectura EXIF, la generación de vistas previas y la conversión de vídeo.
+- Permite cancelar una vista previa o una subida todavía activa sin dejar peticiones duplicadas en Safari.
+- Corrige el enlace del visor rápido MapLibre para usar `rainmap.nomentero.com`.
+
 ## 0.2.203
 
 - Añade pantalla completa real al visor de imágenes de observaciones, con retorno mediante `Esc` al mismo modal.
