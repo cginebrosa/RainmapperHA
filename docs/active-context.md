@@ -14,6 +14,9 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 - Digest multi-arch: `sha256:ceaed487b93eb5a680b882a16caa6d4062dd038c53f6d2268e59f0903897e8c8`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
+- El usuario valido `0.2.204` en HA el 2026-07-16: la carga y asociacion de un
+  video de 30,4 MB es totalmente funcional; subida/preview son casi instantaneos
+  y la conversion FFmpeg tarda aproximadamente 5-10 segundos.
 - GitHub sigue abierto/publico por decision explicita; no cerrarlo.
 - `0.2.201` incorporo importacion de imagen/video, normalizacion de video,
   posters JPEG y fallback de altitud DEM. `0.2.202` corrige la entrega parcial
@@ -22,16 +25,13 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 ## Foco inmediato
 
-1. Instalar/probar `0.2.204` en Home Assistant y subir mediante Safari el MOV de
-   30,4 MB que quedaba bloqueado por el limite de 16 MB del ingress.
-2. Confirmar que la vista previa muestra porcentaje durante la subida, estado
-   de procesamiento durante EXIF/FFmpeg y que cancelar aborta la peticion activa.
-3. Asociar y guardar el video, confirmar el progreso de subida y comprobar que
-   la reproduccion MP4, `HEAD`/rangos `206`, poster y seek siguen funcionando.
-4. Confirmar con una imagen pequena que el flujo anterior no ha regresado y que
-   el Quick viewer MapLibre abre `rainmap.nomentero.com`.
-5. Tras esa validacion, retomar el pipeline ML experimental empezando por la
-   especie con mas observaciones utiles. El plan vigente esta en
+1. Incorporar mas observaciones historicas reales de `Boletus pinophilus`, de
+   distintos anos y setales, sin inventar ausencias ni completar datos dudosos.
+2. Revisar despues la cobertura temporal/espacial resultante y retomar el
+   pipeline ML experimental con la especie que tenga mas datos utiles.
+3. Mantener como comprobaciones menores pendientes el boton de cancelar carga y
+   el Quick viewer MapLibre a `rainmap.nomentero.com`.
+4. El plan predictivo vigente esta en
    `docs/mushrooms/mushroom-ml-training-plan-es.md`.
 
 GHCR y backfill dejan de ser el foco inmediato. Siguen pendientes una posible
@@ -107,8 +107,8 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
 - Tras probar `0.2.201` en HA se detecto que Safari dentro del ingress mostraba
   el MP4 pero no podia reproducirlo. `0.2.202` sirve media con rangos
   HTTP (`206`, `Content-Range`, `Accept-Ranges`), admite `HEAD` y declara un
-  `source video/mp4` con poster. Validado localmente y publicado; pendiente de
-  prueba real en HA.
+  `source video/mp4` con poster. El flujo completo se valido finalmente en HA
+  con `0.2.204`.
 
 ## Ultimo cambio publicado
 
@@ -117,6 +117,9 @@ el bloqueo de cargas superiores a 16 MB sin cambiar los limites propios de 100
 MB por archivo y 500 MB por lote. La vista previa y el guardado muestran progreso
 real de subida y una fase visible durante EXIF/FFmpeg; cancelar aborta las cargas
 activas. Tambien corrige el Quick viewer MapLibre a `rainmap.nomentero.com`.
+El usuario confirmo en HA que el flujo es totalmente funcional y rapido: la
+conversion del video de 30,4 MB tarda unos 5-10 segundos y el resto es casi
+instantaneo.
 
 ## Predictor y modelo aprendido
 
@@ -161,12 +164,14 @@ activas. Tambien corrige el Quick viewer MapLibre a `rainmap.nomentero.com`.
 - Validador de datos: 0 errores y 11 warnings conocidos.
 - Imagen remota `0.2.204`/`latest` verificada para amd64/arm64; Python 3.11.15
   y version runtime correctos en ambas arquitecturas. Tamano comprimido:
-  478,2 MB arm64 y 497,3 MB amd64. Pendiente prueba HA real.
+  478,2 MB arm64 y 497,3 MB amd64.
+- Prueba HA real completada por el usuario: carga, preview, asociacion, guardado
+  y conversion del video de 30,4 MB totalmente funcionales; FFmpeg tarda 5-10 s.
 
 ## Riesgos y dudas
 
 - Safari/ingress puede imponer comportamiento adicional de proxy o cache no
-  reproducible localmente; la prueba real de `0.2.204` es el riesgo inmediato.
+  reproducible localmente, pero el flujo de medios de `0.2.204` ya esta validado.
 - El fullscreen generico de imagen depende de que Safari/ingress permita la API
   Fullscreen; el visor grande en pestana nueva queda como alternativa con zoom.
 - La UI es HTML/CSS/JS server-rendered concentrada principalmente en

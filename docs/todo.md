@@ -16,14 +16,12 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 
 ### Prioridad inmediata
 
-- [ ] Validar `0.2.204` en HA subiendo el MOV de 30,4 MB desde Safari: progreso
-  visible, vista previa EXIF/video y ausencia de peticiones bloqueadas en ingress.
-- [ ] Asociar y guardar el video; confirmar progreso, persistencia, poster,
-  reproduccion, pausa, seek y cabeceras `Range`/`206` a traves del ingress.
-- [ ] Confirmar con una imagen pequena que el flujo anterior sigue funcionando
-  y que cancelar una subida aborta la peticion activa sin duplicados.
-- [ ] Retomar despues el pipeline ML experimental documentado en
+- [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
+  de distintos anos y setales, conservando procedencia y calidad.
+- [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
   `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+- [ ] Comprobar cuando convenga que cancelar aborta una carga activa y que el
+  Quick viewer MapLibre abre `rainmap.nomentero.com`.
 
 ### Completado en el release 0.2.204
 
@@ -34,6 +32,8 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 - [x] Corregir el Quick viewer MapLibre a `rainmap.nomentero.com`.
 - [x] Ejecutar 236 tests y publicar/verificar `0.2.204`/`latest` para amd64 y
   arm64 con digest `sha256:ceaed487b93eb5a680b882a16caa6d4062dd038c53f6d2268e59f0903897e8c8`.
+- [x] Validar `0.2.204` en HA con un video de 30,4 MB: subida, preview,
+  asociacion y guardado totalmente funcionales; conversion FFmpeg en 5-10 s.
 
 ### Completado en el cierre 0.2.202
 

@@ -87,6 +87,9 @@ Para tareas de setas:
 - Commit release: `7ed7580 Release Home Assistant 0.2.204`.
 - `0.2.199` fue validada en HA por el usuario el 2026-07-11: MapLibre protegido
   funciona y el popup largo muestra `Pluja` en `Valores IDW`.
+- `0.2.204` fue validada en HA el 2026-07-16: el flujo completo de subida,
+  preview, asociacion y guardado de un video de 30,4 MB funciona; la conversion
+  tarda unos 5-10 segundos y el resto es casi instantaneo.
 - Repo GitHub sigue publico por decision explicita del usuario; no cerrarlo.
 - No limpiar GHCR sin confirmar version activa/rollback y sin conservar
   manifests/attestations auxiliares multi-arch.
