@@ -8,10 +8,10 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 - Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.203`.
-- Commit release: `18fdc49 Release Home Assistant 0.2.203`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.203` y `latest`.
-- Digest multi-arch: `sha256:67881adedbc8445c9dc7af03c3bb4fcc2b81f6ee17cb35ed043fe371ddb1fc56`.
+- Ultimo release HA publicado: `0.2.204`.
+- Commit release: `7ed7580 Release Home Assistant 0.2.204`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.204` y `latest`.
+- Digest multi-arch: `sha256:ceaed487b93eb5a680b882a16caa6d4062dd038c53f6d2268e59f0903897e8c8`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - GitHub sigue abierto/publico por decision explicita; no cerrarlo.
@@ -22,15 +22,15 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 ## Foco inmediato
 
-1. Instalar/probar `0.2.203` en Home Assistant y confirmar que el icono de
-   maximizar abre las fotos a pantalla fisica completa y que `Esc` devuelve al
-   mismo modal. Probar tambien el visor grande con zoom en una pestana nueva.
-2. Confirmar que el MP4 asociado se reproduce, permite desplazamiento temporal
-   y mantiene poster/metadata en Safari mediante ingress. Si falla, inspeccionar
-   primero `HEAD`/`Range` y las respuestas `200`/`206`; no recomprimir el video.
-3. Confirmar en HA que la importacion de imagen/video, el fallback DEM y los
-   modales de observaciones siguen funcionando con los datos vivos existentes.
-4. Tras esa validacion, retomar el pipeline ML experimental empezando por la
+1. Instalar/probar `0.2.204` en Home Assistant y subir mediante Safari el MOV de
+   30,4 MB que quedaba bloqueado por el limite de 16 MB del ingress.
+2. Confirmar que la vista previa muestra porcentaje durante la subida, estado
+   de procesamiento durante EXIF/FFmpeg y que cancelar aborta la peticion activa.
+3. Asociar y guardar el video, confirmar el progreso de subida y comprobar que
+   la reproduccion MP4, `HEAD`/rangos `206`, poster y seek siguen funcionando.
+4. Confirmar con una imagen pequena que el flujo anterior no ha regresado y que
+   el Quick viewer MapLibre abre `rainmap.nomentero.com`.
+5. Tras esa validacion, retomar el pipeline ML experimental empezando por la
    especie con mas observaciones utiles. El plan vigente esta en
    `docs/mushrooms/mushroom-ml-training-plan-es.md`.
 
@@ -112,11 +112,11 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
 
 ## Ultimo cambio publicado
 
-`0.2.203` anade pantalla completa real al visor de fotos, con retorno mediante
-`Esc`, y sustituye las nuevas acciones de texto por iconos superpuestos. Incluye
-un visor grande en pestana nueva con zoom, tamano real y ajuste a ventana. La
-correccion de rangos HTTP/`HEAD` para MP4 de `0.2.202` se mantiene; ambas quedan
-pendientes de confirmacion final en HA/Safari mediante ingress.
+`0.2.204` habilita `ingress_stream`, admite cuerpos HTTP fragmentados y elimina
+el bloqueo de cargas superiores a 16 MB sin cambiar los limites propios de 100
+MB por archivo y 500 MB por lote. La vista previa y el guardado muestran progreso
+real de subida y una fase visible durante EXIF/FFmpeg; cancelar aborta las cargas
+activas. Tambien corrige el Quick viewer MapLibre a `rainmap.nomentero.com`.
 
 ## Predictor y modelo aprendido
 
@@ -154,19 +154,19 @@ pendientes de confirmacion final en HA/Safari mediante ingress.
 
 ## Validacion al cierre
 
-- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 230 tests OK.
+- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 236 tests OK.
 - JavaScript embebido extraido del HTML: `node --check` OK.
 - Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
   longitud y `Content-Range` correctos.
 - Validador de datos: 0 errores y 11 warnings conocidos.
-- Imagen remota `0.2.203`/`latest` verificada para amd64/arm64; Python 3.11.15,
-  FFmpeg 7.1.5, ExifTool 13.25 y version runtime correctos. Tamano comprimido:
+- Imagen remota `0.2.204`/`latest` verificada para amd64/arm64; Python 3.11.15
+  y version runtime correctos en ambas arquitecturas. Tamano comprimido:
   478,2 MB arm64 y 497,3 MB amd64. Pendiente prueba HA real.
 
 ## Riesgos y dudas
 
 - Safari/ingress puede imponer comportamiento adicional de proxy o cache no
-  reproducible localmente; la prueba real de `0.2.203` es el riesgo inmediato.
+  reproducible localmente; la prueba real de `0.2.204` es el riesgo inmediato.
 - El fullscreen generico de imagen depende de que Safari/ingress permita la API
   Fullscreen; el visor grande en pestana nueva queda como alternativa con zoom.
 - La UI es HTML/CSS/JS server-rendered concentrada principalmente en
