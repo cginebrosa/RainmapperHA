@@ -341,6 +341,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Full catalog JSON import/export", page)
         self.assertIn('href="./profiles"', page)
         self.assertLess(page.index('href="./profiles"'), page.index("Catálogo maestro de referencia"))
+        self.assertIn('class="catalog-toolbar maintenance-top-toolbar"', page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_reference_catalogs.json").exists())
 
     def test_mushroom_gis_mappings_page_renders_toolbar_before_title(self) -> None:
@@ -378,6 +379,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("<h1>GIS mappings</h1>", page)
         self.assertIn('href="./profiles"', page)
         self.assertIn('href="./catalogs"', page)
+        self.assertIn('class="catalog-toolbar gis-mapping-toolbar maintenance-top-toolbar"', page)
         self.assertLess(page.index('href="./profiles"'), page.index("<h1>GIS mappings</h1>"))
         self.assertLess(page.index('href="./catalogs"'), page.index("<h1>GIS mappings</h1>"))
 
@@ -417,6 +419,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Boletus pinophilus", page)
         self.assertIn("Host Affinities", page)
         self.assertIn("profile-metrics", page)
+        self.assertIn('class="profile-metrics profile-metrics-compact"', page)
+        self.assertIn("grid-template-columns: repeat(7, minmax(125px, 1fr)) minmax(210px, 1.45fr)", page)
+        self.assertIn("max-width: 1500px", page)
+        self.assertIn("flex-direction: column", page)
+        self.assertIn("min-height: 40px", page)
+        self.assertIn("text-align: center", page)
         self.assertIn("profile-tab-labels", page)
         self.assertIn("profile-list-rows", page)
         self.assertIn('data-profile-species-id="boletus_pinophilus"', page)
@@ -425,6 +433,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('selectSpeciesProfile(speciesLink)', page)
         self.assertIn('window.history.pushState({ speciesId: payload.species_id }', page)
         self.assertIn("profile-list-chip-legend", page)
+        self.assertIn('<span class="profile-chip-label">Priority</span>', page)
+        self.assertIn("grid-template-columns: repeat(3, minmax(0, max-content))", page)
+        self.assertIn(".profile-editor-polished .profile-editor-head", page)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) auto", page)
+        self.assertIn(".profile-editor-polished .profile-title-block > div", page)
+        self.assertIn(".profile-editor-polished > form", page)
+        self.assertIn("padding: 10px 12px", page)
+        self.assertIn(".profile-editor-polished .profile-overview-card", page)
+        self.assertIn(".profile-editor-polished .profile-status-chip", page)
+        self.assertIn("font-size: 11px", page)
         self.assertIn('title="Overall confidence:', page)
         self.assertIn('title="Calibration priority:', page)
         self.assertIn('title="Review status:', page)
@@ -434,6 +452,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Full profiles JSON import/export", page)
         self.assertIn('href="./catalogs"', page)
         self.assertIn("New species", page)
+        self.assertIn('class="catalog-toolbar maintenance-top-toolbar"', page)
+        self.assertIn(".maintenance-top-toolbar > .button-link", page)
+        self.assertIn("height:32px", page)
         self.assertIn('name="new_species_id"', page)
         self.assertIn('name="score_habitat"', page)
         self.assertIn('step="0.01"', page)
@@ -557,6 +578,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('data-known-site-select data-known-site-kind="micro_area"', page)
         self.assertIn('data-known-site-id="bergueda_obaga" aria-current="true"', page)
         self.assertIn('data-known-sites-refresh-link', page)
+        self.assertIn('class="catalog-toolbar sites-top-toolbar maintenance-top-toolbar"', page)
         self.assertIn('class="known-site-selection-data"', page)
         self.assertIn('/api/mushrooms/known-site-detail', page)
         self.assertIn("loadSelection(href", page)
@@ -1899,10 +1921,18 @@ class AuthDeviceLimitTests(unittest.TestCase):
             archived_observations,
             filters={"date_from": "2026-06-29", "result": "abundant"},
         )
+        detail_html = self.web_server.mushroom_profiles_ui.render_observation_detail(
+            observations["observations"],
+            catalogs,
+            {"boletus_pinophilus": "Boletus pinophilus"},
+            selected_observation_id="obs_20260629_0001",
+        )
 
         filters_html = html[html.index('<form class="observations-filters"') : html.index('<div class="observations-layout">')]
-        self.assertIn('name="date_from" type="date" value="2026-06-29"', filters_html)
-        self.assertIn('name="date_to" type="date"', filters_html)
+        self.assertIn('name="date_from" type="hidden" value="2026-06-29" data-observation-date-value', filters_html)
+        self.assertIn('name="date_to" type="hidden" value="" data-observation-date-value', filters_html)
+        self.assertIn('class="observation-date-display" type="text" value="29/06/2026"', filters_html)
+        self.assertEqual(filters_html.count('data-observation-date-picker'), 2)
         self.assertNotIn("readonly", filters_html)
         self.assertNotIn("disabled", filters_html)
         self.assertIn("sort=observed_at", html)
@@ -1943,12 +1973,40 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("applyObservationExifPreview(exifPreviewAction.dataset.observationExifAction)", page)
         self.assertIn(self.web_server.mushroom_profiles_ui.ui_label("ui.image_preview_title"), page)
         self.assertIn(self.web_server.mushroom_profiles_ui.ui_label("ui.load_image_and_exif"), page)
-        self.assertIn("grid-template-columns: 122px minmax(0, 1fr)", page)
-        self.assertIn("min-height: 122px", page)
+        self.assertIn("grid-template-columns: 180px minmax(0, 1fr)", page)
+        self.assertIn("min-height: 165px", page)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) minmax(360px, .25fr)", page)
+        self.assertIn(".observations-screen{gap:8px;padding:10px 12px}", page)
+        self.assertIn(".observations-screen .profile-section-card{gap:6px;padding:8px}", page)
+        self.assertIn("max-height: 500px", page)
+        self.assertIn("min-width: 800px", page)
+        self.assertIn(".observation-row-actions .button-link.compact{margin:0;min-height:26px;padding:4px 6px}", page)
+        self.assertIn("air-datepicker@3.6.0/air-datepicker.css", page)
+        self.assertIn("air-datepicker@3.6.0/air-datepicker.js", page)
+        self.assertIn("initializeObservationDatePickers(document)", page)
+        self.assertIn('buttons: ["today", "clear"]', page)
+        self.assertIn('months: "yyyy"', page)
+        self.assertIn(".observations-filters .admin-field .observation-date-display", page)
+        self.assertIn("padding-right:34px", page)
+        self.assertNotIn(self.web_server.mushroom_profiles_ui.ui_label("source_quality"), detail_html)
+        self.assertNotIn(self.web_server.mushroom_profiles_ui.ui_label("ui.calibration_weight"), detail_html)
+        self.assertNotIn(self.web_server.mushroom_profiles_ui.ui_label("ui.micro_area"), detail_html)
+        self.assertIn(">Setal<", detail_html)
+        self.assertIn("grid-template-columns:minmax(82px,.45fr) minmax(0,1fr)", page)
+        for field_key in (
+            "site_context.observed_host_ids",
+            "site_context.observed_forest_type_ids",
+            "site_context.observed_soil_tendency_ids",
+            "site_context.observed_habitat_feature_ids",
+            "site_context.observed_aspect_ids",
+        ):
+            self.assertNotIn(self.web_server.mushroom_profiles_ui.ui_label(field_key), detail_html)
+            self.assertIn(self.web_server.mushroom_profiles_ui.compact_observation_detail_label(field_key), detail_html)
         self.assertIn("closeObservationExifPreview({ clearInput: true })", page)
         self.assertIn("captured_at_display", page)
         self.assertIn('/api/mushrooms/observation-detail?', page)
         self.assertIn('window.history.pushState({ observationId: payload.observation_id }', page)
+        self.assertIn("if (modalLayerForHash(window.location.hash))", page)
         self.assertNotIn("rainmapperMaplibreAuth", page)
         self.assertNotIn("X-Rainmapper-Device", page)
         self.assertIn('name="observed_host_ids"', html)

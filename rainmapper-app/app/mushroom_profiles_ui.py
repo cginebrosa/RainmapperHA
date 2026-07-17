@@ -4027,6 +4027,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
             value_chip(profile.get("edibility", "-"), ui_label("ui.edibility")),
             value_chip(confidence.get("overall_confidence", "-"), ui_label("ui.confidence")),
             value_chip(confidence.get("local_calibration_status", "-"), ui_label("ui.calibration")),
+            value_chip(confidence.get("calibration_priority", "-"), ui_label("ui.priority")),
             value_chip(metadata.get("review_status", "-"), ui_label("ui.review_status")),
         ]
     )
@@ -4668,6 +4669,44 @@ def observation_filter_value(filters: dict[str, str] | None, key: str) -> str:
     return str(filters.get(key, "") or "").strip()
 
 
+def observation_filter_date_display(value: str) -> str:
+    """Format an ISO observation filter date for the localized calendar input."""
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        return value
+    return parsed.strftime("%d/%m/%Y")
+
+
+def compact_observation_detail_label(key: str) -> str:
+    """Remove redundant observed wording from a detail-only field label."""
+    label = ui_label(key)
+    label = re.sub(r"^observed\s+", "", label, flags=re.IGNORECASE)
+    return re.sub(
+        r"\s+(?:observed|observado|observada|observados|observadas|observat|observats|observades)$",
+        "",
+        label,
+        flags=re.IGNORECASE,
+    )
+
+
+def render_observation_date_filter(label: str, name: str, value: str) -> str:
+    """Render one calendar-backed observation date filter."""
+    safe_name = html.escape(name, quote=True)
+    safe_label = html.escape(label)
+    display_value = observation_filter_date_display(value)
+    return f"""
+        <div class="admin-field observation-date-filter">
+          <label for="observation-{safe_name}-display">{safe_label}</label>
+          <div class="observation-date-input-shell">
+            <input name="{safe_name}" type="hidden" value="{html.escape(value, quote=True)}" data-observation-date-value>
+            <input id="observation-{safe_name}-display" class="observation-date-display" type="text" value="{html.escape(display_value, quote=True)}" placeholder="dd/mm/aaaa" inputmode="numeric" autocomplete="off" data-observation-date-picker aria-label="{safe_label}">
+            <span class="observation-date-calendar-icon" aria-hidden="true">{icon("phenology")}</span>
+          </div>
+        </div>
+    """
+
+
 def observation_context_inputs(
     filters: dict[str, str] | None,
     *,
@@ -5136,14 +5175,12 @@ def render_observation_detail(
     <h2 id="observation-detail">{html.escape(ui_label("ui.observation_detail"))}</h2>
     {summary_html}
     {media_modals}
-    {value_row(ui_label("ui.micro_area"), known_site_name(row.get("micro_area_id")))}
-    {value_row(ui_label("source_quality"), row.get("source_quality", "-"))}
-    {value_row(ui_label("ui.calibration_weight"), f"{observation_weight(catalogs, row):.2f}")}
-    {value_row(ui_label("site_context.observed_host_ids"), observed_host_names(catalogs, site_context))}
-    {value_row(ui_label("site_context.observed_forest_type_ids"), observation_catalog_names(catalogs, "forest_types", site_context.get("observed_forest_type_ids") if isinstance(site_context, dict) else []))}
-    {value_row(ui_label("site_context.observed_soil_tendency_ids"), observation_catalog_names(catalogs, "soil_types", site_context.get("observed_soil_tendency_ids") if isinstance(site_context, dict) else []))}
-    {value_row(ui_label("site_context.observed_habitat_feature_ids"), observation_catalog_names(catalogs, "habitat_features", site_context.get("observed_habitat_feature_ids") if isinstance(site_context, dict) else []))}
-    {value_row(ui_label("site_context.observed_aspect_ids"), observation_catalog_names(catalogs, "aspects", site_context.get("observed_aspect_ids") if isinstance(site_context, dict) else []))}
+    {value_row("Setal", known_site_name(row.get("micro_area_id")))}
+    {value_row(compact_observation_detail_label("site_context.observed_host_ids"), observed_host_names(catalogs, site_context))}
+    {value_row(compact_observation_detail_label("site_context.observed_forest_type_ids"), observation_catalog_names(catalogs, "forest_types", site_context.get("observed_forest_type_ids") if isinstance(site_context, dict) else []))}
+    {value_row(compact_observation_detail_label("site_context.observed_soil_tendency_ids"), observation_catalog_names(catalogs, "soil_types", site_context.get("observed_soil_tendency_ids") if isinstance(site_context, dict) else []))}
+    {value_row(compact_observation_detail_label("site_context.observed_habitat_feature_ids"), observation_catalog_names(catalogs, "habitat_features", site_context.get("observed_habitat_feature_ids") if isinstance(site_context, dict) else []))}
+    {value_row(compact_observation_detail_label("site_context.observed_aspect_ids"), observation_catalog_names(catalogs, "aspects", site_context.get("observed_aspect_ids") if isinstance(site_context, dict) else []))}
     <div class="observation-notes">
       <strong>{html.escape(ui_label("site_context.habitat_notes"))}</strong>
       <p>{html.escape(str(site_context.get("habitat_notes", "") or ui_label("ui.no_habitat_notes")) if isinstance(site_context, dict) else ui_label("ui.no_habitat_notes"))}</p>
@@ -6069,7 +6106,6 @@ def render_observations_section(
     species_labels = profile_name_map(profiles)
     total, positive, negative, pending = observation_metrics(filtered_rows)
     calibration_href = profile_query_url(selected_species_id, search, section="calibration") if selected_species_id else profile_query_url(section="calibration")
-    today_value = date.today().isoformat()
     date_from = observation_filter_value(filters, "date_from")
     date_to = observation_filter_value(filters, "date_to")
     result_filter = observation_filter_value(filters, "result")
@@ -6127,8 +6163,8 @@ def render_observations_section(
         <input type="hidden" name="sort" value="{html.escape(sort_key, quote=True)}">
         <input type="hidden" name="dir" value="{html.escape(sort_dir, quote=True)}">
         <input type="hidden" name="page_size" value="{page_size}">
-        <div class="admin-field"><label>Desde</label><input name="date_from" type="date" value="{html.escape(date_from, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
-        <div class="admin-field"><label>Hasta</label><input name="date_to" type="date" value="{html.escape(date_to, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
+        {render_observation_date_filter("Desde", "date_from", date_from)}
+        {render_observation_date_filter("Hasta", "date_to", date_to)}
         <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="obs_species" onchange="this.form.submit()">{species_filter_options}</select></div>
         <div class="admin-field"><label>Florada</label><select name="result" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_flush_abundance", result_filter, ui_label("ui.all"))}</select></div>
         <div class="admin-field"><label>Estado</label><select name="validation" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_validation_statuses", validation_filter, ui_label("ui.all"))}</select></div>

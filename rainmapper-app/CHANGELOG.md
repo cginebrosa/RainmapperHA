@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.206
+
+- Add a calendar-based observation date filter with direct month and year navigation.
+- Refine the observation workspace with a larger media preview, clearer detail labels, denser rows and actions, and more usable horizontal space.
+- Polish the species workspace with balanced health indicators, a two-row status grid, wider scientific/common names and a vertically compact editor that keeps bottom actions visible.
+- Standardize maintenance toolbars and keep observation media confirmation dialogs open while lightweight detail navigation is active.
+
 ## 0.2.205
 
 - Paginate observations on the server, show Area and Micro-area by name and update only the detail panel when selecting a row.

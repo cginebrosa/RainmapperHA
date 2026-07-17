@@ -548,7 +548,7 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
     return f"""
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css">
-    <div class="catalog-toolbar sites-top-toolbar">
+    <div class="catalog-toolbar sites-top-toolbar maintenance-top-toolbar">
       <a class="button-link" href="{_text(return_to)}">{html.escape(label('ui.back'))}</a>
       <a class="button-link" data-known-sites-refresh-link href="{query_url(kind, selected_id, search_text, return_to)}">Actualizar</a>
       <a class="button-link" href="./catalogs">Catálogos de referencia</a>

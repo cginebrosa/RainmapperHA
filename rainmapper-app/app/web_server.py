@@ -426,6 +426,12 @@ def addon_settings_links() -> list[tuple[str, str]]:
 def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str = "") -> bytes:
     refresh_tag = '<meta http-equiv="refresh" content="5">' if auto_refresh else ""
     main_class = f' class="{html.escape(page_class, quote=True)}"' if page_class else ""
+    date_picker_assets = (
+        '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/air-datepicker@3.6.0/air-datepicker.css">\n'
+        '  <script src="https://cdn.jsdelivr.net/npm/air-datepicker@3.6.0/air-datepicker.js"></script>'
+        if "data-observation-date-picker" in body
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -435,6 +441,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css">
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
+  {date_picker_assets}
   {refresh_tag}
   <title>{html.escape(title)}</title>
   <style>
@@ -463,6 +470,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     main.mushroom-wide-page {{
       max-width: 1840px;
+      padding-bottom: 24px;
+      padding-top: 14px;
     }}
     h1 {{
       margin: 0 0 8px;
@@ -1701,8 +1710,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .reference-catalog-screen .catalog-toolbar .button-link,
     .reference-catalog-screen .catalog-toolbar input {{
-      font-size:11px;
-      min-height:34px;
+      font-size:10px;
+      min-height:32px;
     }}
     .reference-catalog-screen .profile-metrics.catalog-metrics .profile-metric .label {{
       font-size:10px;
@@ -1915,6 +1924,37 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       grid-template-columns: repeat(8, minmax(96px, 1fr));
       margin: 0 0 14px;
     }}
+    .profile-metrics-compact {{
+      gap: 5px;
+      grid-template-columns: repeat(7, minmax(125px, 1fr)) minmax(210px, 1.45fr);
+      justify-content: center;
+      margin-bottom: 8px;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 1500px;
+      width: 100%;
+    }}
+    .profile-metrics-compact .profile-metric {{
+      align-items: center;
+      flex-direction: column;
+      gap: 2px;
+      justify-content: center;
+      min-height: 40px;
+      padding: 4px 8px;
+      text-align: center;
+    }}
+    .profile-metrics-compact .profile-metric .label {{
+      line-height: 1.1;
+      margin: 0;
+      overflow: visible;
+      text-overflow: clip;
+      width: 100%;
+    }}
+    .profile-metrics-compact .profile-metric .value {{
+      line-height: 1.1;
+      text-align: center;
+      width: 100%;
+    }}
     .profile-new-species {{
       margin: 0 0 14px;
     }}
@@ -1970,6 +2010,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         linear-gradient(180deg, rgba(3, 169, 244, .08), rgba(3, 169, 244, 0) 190px),
         rgba(15, 23, 42, .54);
       border-radius: 10px;
+      gap: 8px;
+      padding: 10px 12px;
+    }}
+    .profile-editor-polished > form {{
+      display: block;
+      margin: 0;
     }}
     .profile-editor-head {{
       align-items: start;
@@ -2081,6 +2127,55 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       color: var(--muted);
       font-size: 11px;
       font-weight: 700;
+    }}
+    .profile-editor-polished .profile-hero-chips {{
+      display: grid;
+      gap: 6px;
+      grid-template-columns: repeat(3, minmax(0, max-content));
+      justify-content: end;
+      width: auto;
+    }}
+    .profile-editor-polished .profile-editor-head {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }}
+    .profile-editor-polished .profile-title-block > div {{
+      flex: 1 1 auto;
+      min-width: 0;
+    }}
+    .profile-editor-polished .profile-hero-side {{
+      min-width: 0;
+    }}
+    .profile-editor-polished .profile-status-chip {{
+      font-size: 11px;
+      font-weight: 700;
+      justify-content: space-between;
+      min-height: 28px;
+      padding: 4px 7px;
+    }}
+    .profile-editor-polished .profile-hero {{
+      padding-bottom: 8px;
+    }}
+    .profile-editor-polished .profile-tabs {{
+      gap: 8px;
+    }}
+    .profile-editor-polished .profile-tab-labels label {{
+      min-height: 32px;
+      padding-bottom: 5px;
+    }}
+    .profile-editor-polished .profile-overview-grid {{
+      gap: 8px;
+    }}
+    .profile-editor-polished .profile-overview-card {{
+      gap: 4px;
+      padding: 8px 10px;
+    }}
+    .profile-editor-polished .profile-overview-card .profile-kv {{
+      padding: 4px 0;
+    }}
+    .profile-editor-polished .profile-action-bar {{
+      margin-top: 8px;
+      padding-top: 8px;
     }}
     .profile-section {{
       border-top: 1px solid var(--line);
@@ -3371,22 +3466,105 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       background: rgba(2, 13, 22, .25);
       border: 1px solid rgba(45, 58, 71, .62);
       border-radius: 8px;
-      gap: 10px;
-      grid-template-columns: 220px 220px minmax(190px,1fr) minmax(170px,.8fr) minmax(170px,.85fr) minmax(220px,1.25fr);
-      padding: 7px 10px;
+      gap: 7px;
+      grid-template-columns: 180px 180px minmax(190px,1fr) minmax(170px,.8fr) minmax(170px,.85fr) minmax(220px,1.25fr);
+      padding: 5px 8px;
     }}
     .observations-filters .admin-field{{align-items:center;display:flex;gap:6px;min-width:0}}
     .observations-filters .admin-field label{{flex:0 0 auto;margin:0;white-space:nowrap}}
     .observations-filters .admin-field label::after{{content:':'}}
     .observations-filters .admin-field input,.observations-filters .admin-field select{{flex:1 1 auto;min-width:0;width:0}}
-    .observations-screen>.profile-section-banner{{padding:7px 10px}}
+    .observations-filters .admin-field input,.observations-filters .admin-field select{{min-height:30px;padding-bottom:3px;padding-top:3px}}
+    .observations-filters .observation-date-input-shell{{flex:1 1 auto;min-width:0;position:relative;width:100%}}
+    .observations-filters .admin-field .observation-date-display{{
+      box-sizing:border-box;
+      color:var(--fg);
+      cursor:pointer;
+      display:block;
+      flex:none;
+      padding-right:34px;
+      width:100%;
+    }}
+    .observations-filters .admin-field .observation-date-display::placeholder{{color:#7f909d;opacity:1}}
+    .observation-date-calendar-icon{{
+      color:var(--accent);
+      display:grid;
+      height:32px;
+      place-items:center;
+      pointer-events:none;
+      position:absolute;
+      right:1px;
+      top:1px;
+      width:32px;
+    }}
+    .observation-date-calendar-icon svg{{
+      fill:none;
+      height:16px;
+      stroke:currentColor;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      stroke-width:1.8;
+      width:16px;
+    }}
+    .observation-date-display:focus{{border-color:var(--accent);box-shadow:0 0 0 2px rgba(3,169,244,.14);outline:0}}
+    .air-datepicker{{
+      --adp-background-color:#111c27;
+      --adp-background-color-active:#20384a;
+      --adp-background-color-hover:#1a2c3b;
+      --adp-background-color-in-range:rgba(3,169,244,.16);
+      --adp-background-color-selected-other-month-focused:#0787bd;
+      --adp-background-color-selected-other-month:#087dae;
+      --adp-border-color:#405264;
+      --adp-border-color-inline:#405264;
+      --adp-cell-background-color-in-range:#15344a;
+      --adp-color:#e8eef2;
+      --adp-color-current-date:#51cf66;
+      --adp-color-disabled:#52616d;
+      --adp-color-in-range:#e8eef2;
+      --adp-color-other-month:#647480;
+      --adp-color-secondary:#9aa8b2;
+      --adp-day-name-color:#03a9f4;
+      --adp-day-name-color-hover:#58c7fa;
+      --adp-font-family:inherit;
+      --adp-nav-arrow-color:#9aa8b2;
+      --adp-nav-color-secondary:#9aa8b2;
+      --adp-width:310px;
+      border-radius:10px;
+      box-shadow:0 18px 45px rgba(0,0,0,.48);
+      font-size:13px;
+      width:310px;
+      z-index:3000;
+    }}
+    .air-datepicker-nav{{border-bottom-color:rgba(64,82,100,.72);padding:7px}}
+    .air-datepicker-nav--action,.air-datepicker-nav--title{{border-radius:7px}}
+    .air-datepicker-nav--title{{font-weight:800;text-transform:capitalize}}
+    .air-datepicker-body--day-name{{font-size:10px;font-weight:900}}
+    .air-datepicker-cell{{border-radius:7px}}
+    .air-datepicker-cell.-selected-,
+    .air-datepicker-cell.-selected-.-current-{{background:var(--accent);color:#03131d;font-weight:900}}
+    .air-datepicker-cell.-current-{{border:1px solid var(--ok);font-weight:900}}
+    .air-datepicker-buttons{{border-top-color:rgba(64,82,100,.72);padding:6px}}
+    .air-datepicker-button{{border-radius:7px;color:var(--accent);font-weight:800}}
+    .air-datepicker-button:hover{{background:#1a2c3b;color:#58c7fa}}
     .observations-screen>.profile-section-banner .profile-title-block h2{{font-size:18px;margin-bottom:1px}}
     .observations-screen>.profile-section-banner .profile-title-block p{{margin:1px 0}}
     .observations-screen>.profile-section-banner .profile-hero-side{{gap:5px}}
+    .observations-screen{{gap:8px;padding:10px 12px}}
+    .observations-screen>.profile-section-banner{{gap:8px;padding:5px 8px}}
+    .observations-screen>.profile-section-banner .profile-title-block{{gap:8px}}
+    .observations-screen>.profile-section-banner .profile-hero-icon{{flex-basis:34px;height:34px;width:34px}}
+    .observations-screen>.profile-section-banner .profile-hero-chips{{gap:4px}}
+    .observations-screen>.profile-section-banner .profile-status-chip{{gap:3px;min-height:24px;padding:2px 6px}}
+    .observations-screen>.profile-section-banner .profile-chip-label{{padding:0}}
+    .observations-screen>.profile-section-banner .profile-header-selector{{gap:6px}}
+    .observations-screen>.profile-section-banner .profile-header-selector select{{min-height:28px}}
+    .observations-screen .observations-metrics{{gap:5px}}
+    .observations-screen .observations-metrics .profile-metric{{min-height:30px;padding:3px 6px}}
+    .observations-screen .profile-section-card{{gap:6px;padding:8px}}
     .observations-layout {{
       display: grid;
-      gap: 12px;
-      grid-template-columns: minmax(0, 1fr) minmax(420px, .34fr);
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, .25fr);
     }}
     .observations-metrics .profile-metric .label {{
       align-items: center;
@@ -3409,10 +3587,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items: center;
       display: flex;
       flex-wrap: wrap;
-      gap: 8px 16px;
+      gap: 5px 10px;
       justify-content: space-between;
-      margin-bottom: 8px;
-      min-height: 32px;
+      margin-bottom: 4px;
+      min-height: 28px;
     }}
     .observations-table-header h2 {{
       margin: 0;
@@ -3420,15 +3598,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-pagination {{
       align-items: center;
       display: flex;
-      gap: 9px;
+      gap: 6px;
       margin-left: auto;
       white-space: nowrap;
     }}
     .observation-page-size-form {{ margin: 0; }}
     .observation-page-size-form select {{
       font-size: 11px;
-      min-height: 30px;
-      padding: 4px 25px 4px 8px;
+      min-height: 26px;
+      padding: 3px 23px 3px 7px;
       width: auto;
     }}
     .observation-page-range {{
@@ -3446,10 +3624,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 7px;
       color: #b9d7e7;
       display: inline-flex;
-      height: 30px;
+      height: 26px;
       justify-content: center;
       transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
-      width: 30px;
+      width: 26px;
     }}
     .observation-page-button:hover {{
       background: rgba(3, 169, 244, .16);
@@ -3473,7 +3651,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       cursor: default;
     }}
     .observations-table-shell {{
-      max-height: 560px;
+      max-height: 500px;
       overflow: auto;
     }}
     .observations-table-shell thead th {{
@@ -3512,14 +3690,14 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observations-table-shell table {{
       border-collapse: collapse;
-      min-width: 840px;
+      min-width: 800px;
       width: 100%;
     }}
     .observations-table-shell th,
     .observations-table-shell td {{
       border-bottom: 1px solid rgba(45, 58, 71, .62);
       font-size: 12px;
-      padding: 6px 5px;
+      padding: 5px 3px;
       text-align: left;
       white-space: nowrap;
     }}
@@ -3529,10 +3707,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observations-table-shell th:nth-child(3),.observations-table-shell td:nth-child(3){{width:92px}}
     .observations-table-shell th:nth-child(4),.observations-table-shell td:nth-child(4){{width:50px}}
-    .observations-table-shell th:nth-child(5),.observations-table-shell td:nth-child(5){{width:92px}}
-    .observations-table-shell th:nth-child(6),.observations-table-shell td:nth-child(6){{width:120px}}
-    .observations-table-shell th:nth-child(7),.observations-table-shell td:nth-child(7){{width:160px}}
-    .observations-table-shell th:nth-child(9),.observations-table-shell td:nth-child(9){{width:78px}}
+    .observations-table-shell th:nth-child(5),.observations-table-shell td:nth-child(5){{width:84px}}
+    .observations-table-shell th:nth-child(6),.observations-table-shell td:nth-child(6){{width:108px}}
+    .observations-table-shell th:nth-child(7),.observations-table-shell td:nth-child(7){{width:145px}}
+    .observations-table-shell th:nth-child(8),.observations-table-shell td:nth-child(8){{width:68px}}
+    .observations-table-shell th:nth-child(9),.observations-table-shell td:nth-child(9){{width:72px}}
     .observations-table-shell td.observation-site-name {{
       max-width: 180px;
       overflow: hidden;
@@ -3546,7 +3725,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-size: 11px;
       font-weight: 800;
       line-height: 1;
-      padding: 5px 7px;
+      padding: 4px 5px;
     }}
     .observation-badge.ok {{
       border-color: rgba(76, 175, 80, .5);
@@ -4943,7 +5122,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-detail-shell {{
       align-self: start;
+      gap:6px;
+      padding:8px;
       position: relative;
+    }}
+    .observation-detail-shell .profile-kv {{
+      grid-template-columns:minmax(82px,.45fr) minmax(0,1fr);
+      padding:4px 0;
     }}
     .observation-detail-shell.loading::after {{
       animation: observation-detail-spin .7s linear infinite;
@@ -4981,21 +5166,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-detail-summary {{
       align-items: stretch;
       display: grid;
-      gap: 10px;
-      grid-template-columns: 122px minmax(0, 1fr);
-      margin: 0 0 10px;
-      min-height: 122px;
+      gap: 8px;
+      grid-template-columns: 180px minmax(0, 1fr);
+      margin: 0 0 6px;
+      min-height: 165px;
     }}
     .observation-detail-summary > div:first-child {{
-      min-height: 122px;
+      min-height: 165px;
     }}
     .observation-detail-photo-strip {{
       margin: 0;
     }}
     .observation-detail-photo-strip .observation-photo-link,
     .observation-detail-photo-placeholder {{
-      height: 92px;
-      width: 122px;
+      height: 135px;
+      width: 180px;
     }}
     .observation-detail-media-actions {{
       display: flex;
@@ -5027,10 +5212,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-content: start;
       border-bottom: 1px solid rgba(45, 58, 71, .62);
       display: grid;
-      gap: 4px;
+      gap: 2px;
       font-size: 11px;
       min-width: 0;
-      padding-bottom: 6px;
+      padding-bottom: 4px;
     }}
     .observation-detail-summary-fields div {{
       line-height: 1.15;
@@ -5776,7 +5961,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observation-row-actions {{
       align-items: center;
       display: flex;
-      gap: 6px;
+      gap: 3px;
       height: 100%;
       white-space: nowrap;
     }}
@@ -5785,9 +5970,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-row-actions button.compact {{
       font-size: 12px;
-      min-height: 28px;
-      padding: 5px 8px;
+      min-height: 26px;
+      padding: 4px 6px;
     }}
+    .observation-row-actions .button-link.compact{{margin:0;min-height:26px;padding:4px 6px}}
     .archived-observations-list {{
       display: grid;
       gap: 8px;
@@ -5797,8 +5983,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observations-main-actions {{
       border-top: 1px solid var(--line);
-      margin-top: -2px;
-      padding-top: 12px;
+      margin-top: 0;
+      padding-top: 7px;
     }}
     .gis-reconstruction-lab summary {{
       cursor: pointer;
@@ -5872,6 +6058,28 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .maintenance-action-bar > .primary-link,
     .maintenance-action-bar > .profile-primary-action {{
       min-width:170px;
+    }}
+    .maintenance-top-toolbar {{gap:6px}}
+    .maintenance-top-toolbar > .button-link,
+    .maintenance-top-toolbar .profile-view-switch .button-link {{
+      align-items:center;
+      border-radius:6px;
+      box-sizing:border-box;
+      display:inline-flex;
+      font-size:10px;
+      font-weight:700;
+      height:32px;
+      justify-content:center;
+      line-height:1.2;
+      margin:0;
+      min-height:32px;
+      padding:6px 10px;
+      white-space:nowrap;
+    }}
+    .maintenance-top-toolbar .catalog-filter input {{
+      font-size:11px;
+      height:32px;
+      min-height:32px;
     }}
     .modal-layer {{
       align-items: center;
@@ -5951,13 +6159,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       align-items: end;
       border-bottom: 1px solid var(--line);
       display: grid;
-      gap: 8px;
+      gap: 4px 8px;
       grid-template-areas:
         "title actions"
         "title tabs";
       grid-template-columns: minmax(300px, 1fr) auto;
-      margin: 0 0 14px;
-      padding: 0 0 10px;
+      margin: 0 0 8px;
+      padding: 0 0 6px;
     }}
     .mushroom-title-copy {{
       grid-area: title;
@@ -5977,11 +6185,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       justify-content: flex-end;
     }}
     .mushroom-title-tabs h1 {{
-      margin-bottom: 4px;
+      margin-bottom: 1px;
     }}
     .mushroom-title-tabs p {{
       margin: 0;
     }}
+    main.mushroom-wide-page > .maintenance-top-toolbar{{margin-bottom:8px}}
+    .mushroom-title-tabs .mushroom-section-tabs{{gap:18px}}
     .mushroom-title-status {{
       white-space: nowrap;
     }}
@@ -6150,6 +6360,12 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       .profile-hero-chips {{
         justify-content: start;
+      }}
+      .profile-editor-polished .profile-hero-chips {{
+        justify-content: start;
+      }}
+      .profile-editor-polished .profile-editor-head {{
+        grid-template-columns: 1fr;
       }}
       .profile-hero-side {{
         align-items: stretch;
@@ -7605,6 +7821,128 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         button.disabled = false;
       }}
     }}
+    function observationDateFromIso(value) {{
+      var match = /^(\\d{{4}})-(\\d{{2}})-(\\d{{2}})$/.exec((value || "").trim());
+      if (!match) return null;
+      var year = Number(match[1]);
+      var month = Number(match[2]) - 1;
+      var day = Number(match[3]);
+      var parsed = new Date(year, month, day);
+      return parsed.getFullYear() === year && parsed.getMonth() === month && parsed.getDate() === day ? parsed : null;
+    }}
+    function observationDateFromDisplay(value) {{
+      var text = (value || "").trim();
+      var localized = /^(\\d{{1,2}})[.\\/-](\\d{{1,2}})[.\\/-](\\d{{4}})$/.exec(text);
+      var iso = /^(\\d{{4}})-(\\d{{1,2}})-(\\d{{1,2}})$/.exec(text);
+      var year;
+      var month;
+      var day;
+      if (localized) {{
+        day = Number(localized[1]);
+        month = Number(localized[2]) - 1;
+        year = Number(localized[3]);
+      }} else if (iso) {{
+        year = Number(iso[1]);
+        month = Number(iso[2]) - 1;
+        day = Number(iso[3]);
+      }} else {{
+        return null;
+      }}
+      var parsed = new Date(year, month, day);
+      return parsed.getFullYear() === year && parsed.getMonth() === month && parsed.getDate() === day ? parsed : null;
+    }}
+    function observationDateToIso(value) {{
+      if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "";
+      var month = String(value.getMonth() + 1).padStart(2, "0");
+      var day = String(value.getDate()).padStart(2, "0");
+      return String(value.getFullYear()).padStart(4, "0") + "-" + month + "-" + day;
+    }}
+    function initializeObservationDatePickers(root) {{
+      var locale = {{
+        days: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
+        daysShort: ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
+        daysMin: ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"],
+        months: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
+        monthsShort: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+        today: "Hoy",
+        clear: "Limpiar",
+        dateFormat: "dd/MM/yyyy",
+        timeFormat: "HH:mm",
+        firstDay: 1
+      }};
+      (root || document).querySelectorAll("[data-observation-date-picker]").forEach(function(input) {{
+        if (input.dataset.observationDateReady === "1") return;
+        input.dataset.observationDateReady = "1";
+        var shell = input.closest(".observation-date-input-shell");
+        var hidden = shell ? shell.querySelector("[data-observation-date-value]") : null;
+        if (!hidden) return;
+        var initialDate = observationDateFromIso(hidden.value);
+        var calendar = null;
+        var submitFilter = function() {{
+          if (input.form) input.form.submit();
+        }};
+        var syncTypedValue = function(submit) {{
+          var text = input.value.trim();
+          if (!text) {{
+            var hadValue = Boolean(hidden.value);
+            hidden.value = "";
+            input.setCustomValidity("");
+            input.removeAttribute("aria-invalid");
+            if (calendar) calendar.clear({{ silent: true }});
+            if (submit && hadValue) submitFilter();
+            return;
+          }}
+          var parsed = observationDateFromDisplay(text);
+          if (!parsed) {{
+            input.setCustomValidity("Introduce una fecha válida con formato dd/mm/aaaa.");
+            input.setAttribute("aria-invalid", "true");
+            if (submit) input.reportValidity();
+            return;
+          }}
+          var nextValue = observationDateToIso(parsed);
+          var changed = hidden.value !== nextValue;
+          hidden.value = nextValue;
+          input.setCustomValidity("");
+          input.removeAttribute("aria-invalid");
+          if (calendar) calendar.selectDate(parsed, {{ silent: true }});
+          if (submit && changed) submitFilter();
+        }};
+        input.addEventListener("input", function() {{ syncTypedValue(false); }});
+        input.addEventListener("keydown", function(event) {{
+          if (event.key === "Enter") {{
+            event.preventDefault();
+            syncTypedValue(true);
+          }}
+        }});
+        if (typeof window.AirDatepicker !== "function") return;
+        calendar = new window.AirDatepicker(input, {{
+          autoClose: true,
+          buttons: ["today", "clear"],
+          dateFormat: "dd/MM/yyyy",
+          disableMobile: true,
+          firstDay: 1,
+          keyboardNav: true,
+          locale: locale,
+          multipleDates: false,
+          navTitles: {{
+            days: "MMMM <i>yyyy</i>",
+            months: "yyyy",
+            years: "yyyy1 - yyyy2"
+          }},
+          position: "bottom left",
+          selectedDates: initialDate ? [initialDate] : [],
+          startDate: initialDate || new Date(),
+          onSelect: function(payload) {{
+            var selected = Array.isArray(payload.date) ? payload.date[0] : payload.date;
+            hidden.value = selected instanceof Date ? observationDateToIso(selected) : "";
+            input.setCustomValidity("");
+            input.removeAttribute("aria-invalid");
+            submitFilter();
+          }}
+        }});
+      }});
+    }}
+    initializeObservationDatePickers(document);
     document.addEventListener("input", function(event) {{
       if (event.target && event.target.id === "users-filter") {{
         applyUsersFilter();
@@ -7749,6 +8087,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       revealSelectedCatalogRow();
     }});
     window.addEventListener("popstate", function() {{
+      if (modalLayerForHash(window.location.hash)) {{
+        return;
+      }}
       var params = new URLSearchParams(window.location.search);
       if ((params.get("section") || "species") === "species") {{
         var speciesId = params.get("id") || "";
@@ -13082,7 +13423,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_label = "Flow validated" if not errors else "Validation errors"
         status_class = "ok" if not errors else "danger"
         body = f"""
-        <div class="catalog-toolbar">
+        <div class="catalog-toolbar maintenance-top-toolbar">
           <a class="button-link" href="../">Back</a>
           <a class="button-link" href="?">Refresh</a>
           <a class="button-link" href="./profiles">Mushroom species</a>
@@ -13204,7 +13545,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_class = "ok" if not errors else "danger"
         body = f"""
         <div class="gis-mapping-page">
-        <div class="catalog-toolbar gis-mapping-toolbar">
+        <div class="catalog-toolbar gis-mapping-toolbar maintenance-top-toolbar">
           <a class="button-link" href="../">Back</a>
           <a class="button-link" href="?">Refresh</a>
           <a class="button-link" href="./profiles">Mushroom species</a>
@@ -13429,7 +13770,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         refresh_url = "?" + urlencode(refresh_params)
         back_url = return_to or "../"
         body = f"""
-        <div class="catalog-toolbar">
+        <div class="catalog-toolbar maintenance-top-toolbar">
           <a class="button-link" href="{html.escape(back_url, quote=True)}">Back</a>
           <a class="button-link" data-profile-refresh-link href="{html.escape(refresh_url, quote=True)}">Refresh</a>
           <a class="button-link" href="./catalogs">Reference catalogs</a>
