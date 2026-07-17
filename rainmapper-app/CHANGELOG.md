@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.205
+
+- Pagina las observaciones en el servidor, muestra Área y Microárea por nombre y actualiza solo el detalle al seleccionar una fila.
+- Mantiene cargada la lista de especies y sustituye únicamente el editor seleccionado, mostrando todos los nombres comunes sin repetir el ID técnico.
+- Evita recargar la pantalla de setales al cambiar de área o microárea y abre el mapa directamente sobre la geometría seleccionada, sin el salto visual previo por Olvan.
+- Conserva el refresco de cinco segundos del Control Panel sin recargar el documento y sin modificar el DOM cuando el estado no ha cambiado.
+
 ## 0.2.204
 
 - Permite subir imágenes y vídeos de más de 16 MB a través del ingress de Home Assistant mediante streaming y lectura compatible con cuerpos HTTP fragmentados.

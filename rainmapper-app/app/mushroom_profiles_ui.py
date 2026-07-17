@@ -65,15 +65,37 @@ def icon(name: str) -> str:
     return ICONS.get(name, "")
 
 
+def known_site_names_by_micro_area() -> dict[str, tuple[str, str]]:
+    """Return display names for every saved micro-area and its parent area."""
+    try:
+        payload = mushroom_known_sites.load_payload()
+    except Exception:
+        return {}
+    area_names = {
+        str(row.get("area_id", "")).strip(): str(row.get("name", "")).strip()
+        for row in payload.get("areas", [])
+        if isinstance(row, dict) and str(row.get("area_id", "")).strip()
+    }
+    names: dict[str, tuple[str, str]] = {}
+    for row in payload.get("micro_areas", []):
+        if not isinstance(row, dict):
+            continue
+        micro_id = str(row.get("micro_area_id", "")).strip()
+        if not micro_id:
+            continue
+        area_name = area_names.get(str(row.get("area_id", "")).strip(), "")
+        micro_name = str(row.get("name", "")).strip()
+        names[micro_id] = (area_name, micro_name)
+    return names
+
+
 def known_site_name(micro_area_id: object) -> str:
     micro_id = str(micro_area_id or "").strip()
-    if not micro_id:
+    names = known_site_names_by_micro_area().get(micro_id)
+    if not names:
         return ui_label("ui.not_informed")
-    try:
-        options = dict(mushroom_known_sites.micro_area_options(mushroom_known_sites.load_payload()))
-    except Exception:
-        options = {}
-    return options.get(micro_id, micro_id)
+    display_names = [name for name in names if name]
+    return " · ".join(display_names) if display_names else ui_label("ui.not_informed")
 
 
 def known_site_geometry_context(micro_area_id: object) -> dict[str, object]:
@@ -267,10 +289,25 @@ def nested_dict(payload: dict[str, object], key: str) -> dict[str, object]:
 
 def profile_common_name(profile: dict[str, object]) -> str:
     """Return the first common name as compact display text."""
-    names = profile.get("common_names")
-    if isinstance(names, list) and names:
-        return str(names[0])
-    return ""
+    names = profile_common_names(profile)
+    return names[0] if names else ""
+
+
+def profile_common_names(profile: dict[str, object]) -> list[str]:
+    """Return every distinct common name in its stored display order."""
+    value = profile.get("common_names")
+    candidates: list[object] = []
+    if isinstance(value, list):
+        candidates = value
+    elif isinstance(value, dict):
+        for localized in value.values():
+            candidates.extend(localized if isinstance(localized, list) else [localized])
+    names: list[str] = []
+    for candidate in candidates:
+        name = str(candidate or "").strip()
+        if name and name not in names:
+            names.append(name)
+    return names
 
 
 def textarea_value(values: object) -> str:
@@ -1110,7 +1147,9 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
         ).lower()
         if tokens and not all(token in searchable for token in tokens):
             continue
-        active = " active" if species_id == selected_id else ""
+        is_active = species_id == selected_id
+        active = " active" if is_active else ""
+        aria_current = ' aria-current="true"' if is_active else ""
         chip_items = (
             (confidence.get("overall_confidence", ""), ui_label("ui.overall_confidence")),
             (confidence.get("calibration_priority", ""), ui_label("ui.calibration_priority")),
@@ -1122,7 +1161,7 @@ def render_profile_list(profiles: list[dict[str, object]], selected_id: str, sea
             if value
         )
         rows.append(
-            f'<a class="profile-list-item{active}" href="{profile_query_url(species_id, search, profile_view=profile_view)}">'
+            f'<a class="profile-list-item{active}" data-profile-species-id="{html.escape(species_id, quote=True)}" href="{profile_query_url(species_id, search, profile_view=profile_view)}"{aria_current}>'
             f'<span class="profile-list-icon">{icon("mushroom")}</span>'
             '<span class="profile-list-main">'
             f"<strong>{html.escape(scientific_name or species_id)}</strong>"
@@ -1942,6 +1981,9 @@ def render_observation_map_modal(
     selected_species_id: str = "",
     search: str = "",
     filters: dict[str, str] | None = None,
+    *,
+    shared_known_sites: bool = False,
+    site_context_override: dict[str, object] | None = None,
 ) -> str:
     """Render the shared observation map modal used by observation list/detail/edit views."""
     observation_id = str(row.get("observation_id", "") or "")
@@ -1952,7 +1994,8 @@ def render_observation_map_modal(
     modal_id = observation_map_modal_id(observation_id)
     close_href = observation_select_url(selected_species_id, search, filters, observation_id)
     photo_html = render_observation_photo_strip(row, extra_class="observation-map-photo-strip", limit=1)
-    site_context = known_site_geometry_context(row.get("micro_area_id"))
+    site_context = site_context_override if site_context_override is not None else known_site_geometry_context(row.get("micro_area_id"))
+    known_sites_payload = {} if shared_known_sites else {"known_sites": all_known_site_geometries()}
     map_payload = json.dumps(
         {
             "lat": lat,
@@ -1962,7 +2005,7 @@ def render_observation_map_modal(
             "observed_at": str(row.get("observed_at", "") or ""),
             "flush_abundance": str(row.get("flush_abundance_label", "") or row.get("flush_abundance", "") or ""),
             "assigned_micro_area_id": str(row.get("micro_area_id", "") or ""),
-            "known_sites": all_known_site_geometries(),
+            **known_sites_payload,
             **site_context,
         },
         ensure_ascii=False,
@@ -4067,7 +4110,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
           <span class="profile-hero-icon">{icon("mushroom")}</span>
           <div>
             <h2>{html.escape(str(profile.get("scientific_name", species_id)))}</h2>
-            <p class="meta">{html.escape(profile_common_name(profile))} · {html.escape(species_id)}</p>
+            <p class="meta">{html.escape(", ".join(profile_common_names(profile)) or "-")}</p>
           </div>
         </div>
         <div class="profile-hero-side">
@@ -4636,7 +4679,7 @@ def observation_context_inputs(
     fields = []
     if selected_species_id:
         fields.append(f'<input type="hidden" name="return_selected_species_id" value="{html.escape(selected_species_id, quote=True)}">')
-    for key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir"):
+    for key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir", "page", "page_size"):
         value = observation_filter_value(filters, key)
         if value:
             fields.append(
@@ -4665,7 +4708,7 @@ def observation_sort_url(
         params["id"] = selected_species_id
     if search:
         params["q"] = search
-    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "obs_id"):
+    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "page_size"):
         value = observation_filter_value(filters, filter_key)
         if value:
             params[filter_key] = value
@@ -4684,7 +4727,7 @@ def observation_select_url(
         params["id"] = selected_species_id
     if search:
         params["q"] = search
-    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir"):
+    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir", "page", "page_size"):
         value = observation_filter_value(filters, filter_key)
         if value:
             params[filter_key] = value
@@ -4703,7 +4746,7 @@ def observation_duplicate_url(
         params["id"] = selected_species_id
     if search:
         params["q"] = search
-    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir", "obs_id"):
+    for filter_key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir", "page", "page_size", "obs_id"):
         value = observation_filter_value(filters, filter_key)
         if value:
             params[filter_key] = value
@@ -4791,6 +4834,148 @@ def observation_badge(text: str, tone: str = "") -> str:
     return f'<span class="observation-badge {html.escape(tone, quote=True)}">{html.escape(text)}</span>'
 
 
+OBSERVATION_PAGE_SIZES = (25, 50, 100)
+
+
+def observation_page_size(filters: dict[str, str] | None) -> int:
+    """Return a supported observation page size, defaulting to 25 rows."""
+    try:
+        value = int(observation_filter_value(filters, "page_size") or OBSERVATION_PAGE_SIZES[0])
+    except (TypeError, ValueError):
+        value = OBSERVATION_PAGE_SIZES[0]
+    return value if value in OBSERVATION_PAGE_SIZES else OBSERVATION_PAGE_SIZES[0]
+
+
+def observation_sort_value(
+    row: dict[str, object],
+    catalogs: dict[str, object],
+    species_labels: dict[str, str],
+    sort_key: str,
+    site_names: dict[str, tuple[str, str]],
+) -> object:
+    """Return the stable display sort value used by the observation list."""
+    location = row.get("location") if isinstance(row.get("location"), dict) else {}
+    altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
+    micro_id = str(row.get("micro_area_id", "") or "").strip()
+    area_name, micro_area_name = site_names.get(micro_id, ("", ""))
+    if sort_key == "species":
+        return species_labels.get(str(row.get("species_id", "")), str(row.get("species_id", ""))).casefold()
+    if sort_key == "coordinates":
+        return f"{location.get('lat', '')},{location.get('lon', '')}" if isinstance(location, dict) else ""
+    if sort_key == "altitude":
+        value = altitude.get("meters") if isinstance(altitude, dict) else None
+        return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else -99999.0
+    if sort_key == "abundance":
+        return observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance")).casefold()
+    if sort_key == "area":
+        return area_name.casefold()
+    if sort_key == "micro_area":
+        return micro_area_name.casefold()
+    if sort_key == "validation":
+        return observation_catalog_label(catalogs, "observation_validation_statuses", row.get("validation_status")).casefold()
+    if sort_key == "use":
+        return observation_catalog_label(catalogs, "observation_calibration_uses", row.get("calibration_use")).casefold()
+    return str(row.get("observed_at", ""))
+
+
+def sorted_observation_rows(
+    rows: list[dict[str, object]],
+    catalogs: dict[str, object],
+    species_labels: dict[str, str],
+    sort_key: str,
+    sort_dir: str,
+    site_names: dict[str, tuple[str, str]] | None = None,
+) -> list[dict[str, object]]:
+    """Sort observations deterministically so pagination never moves equal rows."""
+    names = site_names if site_names is not None else known_site_names_by_micro_area()
+    ordered = sorted(rows, key=lambda row: str(row.get("observation_id", "")))
+    return sorted(
+        ordered,
+        key=lambda row: observation_sort_value(row, catalogs, species_labels, sort_key, names),
+        reverse=sort_dir != "asc",
+    )
+
+
+def observation_page_url(
+    selected_species_id: str,
+    search: str,
+    filters: dict[str, str] | None,
+    page: int,
+) -> str:
+    """Return a page URL preserving the active filters and row count."""
+    params: dict[str, object] = {"section": "observations", "page": max(1, page)}
+    if selected_species_id:
+        params["id"] = selected_species_id
+    if search:
+        params["q"] = search
+    for key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir", "page_size"):
+        value = observation_filter_value(filters, key)
+        if value:
+            params[key] = value
+    return "?" + urlencode(params) + "#observations-list"
+
+
+def observation_pager_icon(name: str) -> str:
+    """Render compact inline SVG pagination controls."""
+    paths = {
+        "first": '<path d="M18 6l-6 6 6 6M11 6l-6 6 6 6M3 5v14"/>',
+        "previous": '<path d="M15 6l-6 6 6 6"/>',
+        "next": '<path d="M9 6l6 6-6 6"/>',
+        "last": '<path d="M6 6l6 6-6 6M13 6l6 6-6 6M21 5v14"/>',
+    }
+    return f'<svg aria-hidden="true" viewBox="0 0 24 24">{paths[name]}</svg>'
+
+
+def render_observation_pager(
+    total: int,
+    page: int,
+    page_size: int,
+    page_count: int,
+    selected_species_id: str,
+    search: str,
+    filters: dict[str, str] | None,
+) -> str:
+    """Render the compact observation pager in the list-card header."""
+    start = ((page - 1) * page_size) + 1 if total else 0
+    end = min(page * page_size, total)
+
+    def control(name: str, target: int, title: str, enabled: bool) -> str:
+        icon_html = observation_pager_icon(name)
+        if not enabled:
+            return f'<span class="observation-page-button disabled" aria-disabled="true" title="{html.escape(title, quote=True)}">{icon_html}</span>'
+        href = observation_page_url(selected_species_id, search, filters, target)
+        return f'<a class="observation-page-button" href="{html.escape(href, quote=True)}" title="{html.escape(title, quote=True)}" aria-label="{html.escape(title, quote=True)}">{icon_html}</a>'
+
+    hidden = ['<input type="hidden" name="section" value="observations">', '<input type="hidden" name="page" value="1">']
+    if selected_species_id:
+        hidden.append(f'<input type="hidden" name="id" value="{html.escape(selected_species_id, quote=True)}">')
+    if search:
+        hidden.append(f'<input type="hidden" name="q" value="{html.escape(search, quote=True)}">')
+    for key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir"):
+        value = observation_filter_value(filters, key)
+        if value:
+            hidden.append(f'<input type="hidden" name="{html.escape(key, quote=True)}" value="{html.escape(value, quote=True)}">')
+    size_options = "".join(
+        f'<option value="{size}"{" selected" if size == page_size else ""}>{size} filas</option>'
+        for size in OBSERVATION_PAGE_SIZES
+    )
+    return f"""
+    <div class="observation-pagination" aria-label="Paginación de observaciones">
+      <form method="get" action="" class="observation-page-size-form">
+        {''.join(hidden)}
+        <select name="page_size" aria-label="Filas por página" onchange="this.form.submit()">{size_options}</select>
+      </form>
+      <span class="observation-page-range">{start}–{end} de {total}</span>
+      <span class="observation-page-controls">
+        {control("first", 1, "Primera página", page > 1)}
+        {control("previous", page - 1, "Página anterior", page > 1)}
+        {control("next", page + 1, "Página siguiente", page < page_count)}
+        {control("last", page_count, "Última página", page < page_count)}
+      </span>
+    </div>
+    """
+
+
 def render_observation_table(
     rows: list[dict[str, object]],
     catalogs: dict[str, object],
@@ -4801,33 +4986,17 @@ def render_observation_table(
     filters: dict[str, str] | None = None,
     sort_key: str = "observed_at",
     sort_dir: str = "desc",
+    site_names: dict[str, tuple[str, str]] | None = None,
+    presorted: bool = False,
 ) -> str:
     """Render the observation list with enough columns for field calibration review."""
-    def sort_value(row: dict[str, object]) -> object:
-        location = row.get("location") if isinstance(row.get("location"), dict) else {}
-        altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
-        source = row.get("source") if isinstance(row.get("source"), dict) else {}
-        observer = row.get("observer") if isinstance(row.get("observer"), dict) else {}
-        if sort_key == "species":
-            return species_labels.get(str(row.get("species_id", "")), str(row.get("species_id", ""))).lower()
-        if sort_key == "coordinates":
-            return f"{location.get('lat', '')},{location.get('lon', '')}" if isinstance(location, dict) else ""
-        if sort_key == "altitude":
-            value = altitude.get("meters") if isinstance(altitude, dict) else None
-            return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else -99999.0
-        if sort_key == "abundance":
-            return observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance")).lower()
-        if sort_key == "observer":
-            return str(observer.get("name", "") if isinstance(observer, dict) else "").lower()
-        if sort_key == "source":
-            return str(source.get("label", source.get("type", "")) if isinstance(source, dict) else "").lower()
-        if sort_key == "validation":
-            return observation_catalog_label(catalogs, "observation_validation_statuses", row.get("validation_status")).lower()
-        if sort_key == "use":
-            return observation_catalog_label(catalogs, "observation_calibration_uses", row.get("calibration_use")).lower()
-        return str(row.get("observed_at", ""))
+    site_names = site_names if site_names is not None else known_site_names_by_micro_area()
 
-    visible_rows = sorted(rows, key=sort_value, reverse=sort_dir != "asc")
+    def row_site_names(row: dict[str, object]) -> tuple[str, str]:
+        micro_id = str(row.get("micro_area_id", "") or "").strip()
+        return site_names.get(micro_id, ("", ""))
+
+    visible_rows = rows if presorted else sorted_observation_rows(rows, catalogs, species_labels, sort_key, sort_dir, site_names)
     if not visible_rows:
         return f'<tr><td colspan="10">{html.escape(ui_label("ui.no_observations_filter"))}</td></tr>'
 
@@ -4836,8 +5005,7 @@ def render_observation_table(
     for row in visible_rows:
         location = row.get("location") if isinstance(row.get("location"), dict) else {}
         altitude = row.get("altitude") if isinstance(row.get("altitude"), dict) else {}
-        source = row.get("source") if isinstance(row.get("source"), dict) else {}
-        observer = row.get("observer") if isinstance(row.get("observer"), dict) else {}
+        area_name, micro_area_name = row_site_names(row)
         species_id = str(row.get("species_id", ""))
         abundance = observation_catalog_label(catalogs, "observation_flush_abundance", row.get("flush_abundance"))
         validation = observation_catalog_label(catalogs, "observation_validation_statuses", row.get("validation_status"))
@@ -4858,14 +5026,14 @@ def render_observation_table(
         duplicate_href = observation_duplicate_url(selected_species_id, search, filters, observation_id) if observation_id else "#duplicate-observation"
         archive_context_inputs = observation_context_inputs(filters, selected_species_id=selected_species_id, archive_open=True, override_obs_id="")
         body.append(
-            f'<tr class="observation-row{selected_class}" data-observation-select data-observation-href="{html.escape(select_href, quote=True)}" onclick="selectObservationRow(this)">'
+            f'<tr class="observation-row{selected_class}" data-observation-select data-observation-id="{html.escape(observation_id, quote=True)}" data-observation-href="{html.escape(select_href, quote=True)}" onclick="selectObservationRow(this, event)">'
             f"<td>{html.escape(str(row.get('observed_at', '-')))}</td>"
             f"<td><strong>{html.escape(species_labels.get(species_id, species_id))}</strong></td>"
             f"<td>{coordinates}</td>"
             f"<td>{html.escape(altitude_text)}</td>"
             f"<td>{html.escape(abundance)}</td>"
-            f"<td>{html.escape(str(observer.get('name', '-') or '-') if isinstance(observer, dict) else '-')}</td>"
-            f"<td>{html.escape(str(source.get('label', source.get('type', '-')) or '-') if isinstance(source, dict) else '-')}</td>"
+            f'<td class="observation-site-name" title="{html.escape(area_name, quote=True)}">{html.escape(area_name or "—")}</td>'
+            f'<td class="observation-site-name" title="{html.escape(micro_area_name, quote=True)}">{html.escape(micro_area_name or "—")}</td>'
             f"<td>{observation_badge(validation, validation_tone)}</td>"
             f"<td>{observation_badge(calibration_use, use_tone)}</td>"
             "<td class=\"observation-row-actions\">"
@@ -5355,13 +5523,49 @@ def render_observation_map_modals(
     """Render map modals for visible observations with coordinates."""
     seen: set[str] = set()
     modals = []
+    known_sites = all_known_site_geometries()
+
+    def geometry_context(micro_area_id: object) -> dict[str, object]:
+        micro_id = str(micro_area_id or "").strip()
+        micro = next(
+            (item for item in known_sites if item.get("kind") == "micro_area" and str(item.get("id", "")) == micro_id),
+            None,
+        )
+        if not micro:
+            return {}
+        area_id = str(micro.get("area_id", ""))
+        area = next(
+            (item for item in known_sites if item.get("kind") == "area" and str(item.get("id", "")) == area_id),
+            None,
+        )
+        return {
+            "micro_area": {"name": str(micro.get("name", micro_id)), "geometry": micro.get("geometry")},
+            "area": {"name": str(area.get("name", area_id)), "geometry": area.get("geometry")} if area else None,
+        }
+
     for row in rows:
         observation_id = str(row.get("observation_id", "") or "")
         if not observation_id or observation_id in seen or not observation_location(row):
             continue
         seen.add(observation_id)
-        modals.append(render_observation_map_modal(row, selected_species_id, search, filters))
-    return observation_site_map_assets() + "".join(modals) if modals else ""
+        modals.append(
+            render_observation_map_modal(
+                row,
+                selected_species_id,
+                search,
+                filters,
+                shared_known_sites=True,
+                site_context_override=geometry_context(row.get("micro_area_id")),
+            )
+        )
+    if not modals:
+        return ""
+    shared_payload = json.dumps(known_sites, ensure_ascii=False).replace("<", "\\u003c")
+    return (
+        observation_site_map_assets()
+        + f'<script type="application/json" id="observation-known-sites-data">{shared_payload}</script>'
+        + "".join(modals)
+    )
 
 
 def observation_site_map_assets() -> str:
@@ -5384,7 +5588,7 @@ def observation_site_map_assets() -> str:
     <script>
     (()=>{
       const initialize=()=>document.querySelectorAll('.modal-layer:target .observation-site-map:not([data-ready])').forEach(node=>{
-        node.dataset.ready='1';const data=JSON.parse(node.parentElement.querySelector('.observation-site-map-data').textContent);
+        node.dataset.ready='1';const data=JSON.parse(node.parentElement.querySelector('.observation-site-map-data').textContent);if(!Array.isArray(data.known_sites)){const shared=document.getElementById('observation-known-sites-data');data.known_sites=shared?JSON.parse(shared.textContent):[];}
         const observations=data.observations||[{observation_id:data.observation_id,species_id:data.species_id,observed_at:data.observed_at,flush_abundance:data.flush_abundance,lat:data.lat,lon:data.lon}];const first=observations[0];if(!first)return;
         const satelliteLayers=['imagery','sat-road-outline','sat-road','sat-place'];const hybridLayers=['hybrid-roads','hybrid-labels'];
         const style={version:8,glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',sources:{imagery:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19,attribution:'Tiles &copy; Esri'},openmaptiles:{type:'vector',url:'https://tiles.openfreemap.org/planet'},hybridRoads:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19},hybridLabels:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19},topo:{type:'raster',tiles:['https://a.tile.opentopomap.org/{z}/{x}/{y}.png','https://b.tile.opentopomap.org/{z}/{x}/{y}.png','https://c.tile.opentopomap.org/{z}/{x}/{y}.png'],tileSize:256,maxzoom:17},terrainDem:{type:'raster-dem',tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],tileSize:256,maxzoom:15,encoding:'terrarium'}},layers:[{id:'imagery',type:'raster',source:'imagery'},{id:'sat-road-outline',type:'line',source:'openmaptiles','source-layer':'transportation',filter:['match',['get','class'],['motorway','trunk','primary','secondary','tertiary'],true,false],paint:{'line-color':'rgba(0,0,0,.75)','line-width':['interpolate',['linear'],['zoom'],6,1.4,15,8]}},{id:'sat-road',type:'line',source:'openmaptiles','source-layer':'transportation',filter:['match',['get','class'],['motorway','trunk','primary','secondary','tertiary'],true,false],paint:{'line-color':'#fff','line-width':['interpolate',['linear'],['zoom'],6,.8,15,5]}},{id:'sat-place',type:'symbol',source:'openmaptiles','source-layer':'place',layout:{'text-field':['coalesce',['get','name_en'],['get','name']],'text-font':['Noto Sans Bold'],'text-size':13},paint:{'text-color':'#fff','text-halo-color':'#000','text-halo-width':1.6}},{id:'hybrid-roads',type:'raster',source:'hybridRoads',layout:{visibility:'none'}},{id:'hybrid-labels',type:'raster',source:'hybridLabels',layout:{visibility:'none'}},{id:'topo',type:'raster',source:'topo',layout:{visibility:'none'}}]};
@@ -5851,6 +6055,7 @@ def render_observations_section(
     gis_reconstruction_payload: dict[str, object] | None = None,
 ) -> str:
     """Render the observation workspace backed by mushroom_observations.json."""
+    filters = dict(filters or {})
     selected_species_id = str(profile.get("species_id", "")) if profile else ""
     rows = observations_from_payload(observations_payload)
     archived_rows = observations_from_payload(archived_observations_payload)
@@ -5873,6 +6078,31 @@ def render_observations_section(
     sort_key = observation_filter_value(filters, "sort") or "observed_at"
     sort_dir = observation_filter_value(filters, "dir") or "desc"
     selected_observation_id = observation_filter_value(filters, "obs_id")
+    site_names = known_site_names_by_micro_area()
+    ordered_rows = sorted_observation_rows(filtered_rows, catalogs, species_labels, sort_key, sort_dir, site_names)
+    page_size = observation_page_size(filters)
+    page_count = max(1, (len(ordered_rows) + page_size - 1) // page_size)
+    raw_page = observation_filter_value(filters, "page")
+    try:
+        page = max(1, int(raw_page or "1"))
+    except ValueError:
+        page = 1
+    if not raw_page and selected_observation_id:
+        selected_index = next(
+            (index for index, item in enumerate(ordered_rows) if str(item.get("observation_id", "")) == selected_observation_id),
+            -1,
+        )
+        if selected_index >= 0:
+            page = (selected_index // page_size) + 1
+    page = min(page, page_count)
+    page_start = (page - 1) * page_size
+    page_rows = ordered_rows[page_start:page_start + page_size]
+    page_ids = {str(item.get("observation_id", "")) for item in page_rows}
+    if selected_observation_id not in page_ids:
+        selected_observation_id = str(page_rows[0].get("observation_id", "")) if page_rows else ""
+    filters["page"] = str(page)
+    filters["page_size"] = str(page_size)
+    filters["obs_id"] = selected_observation_id
     species_filter = observation_filter_value(filters, "obs_species") or selected_species_id
     visible_profile = profile
     if species_filter and species_filter != "__all__":
@@ -5896,7 +6126,7 @@ def render_observations_section(
         <input type="hidden" name="q" value="{html.escape(search, quote=True)}">
         <input type="hidden" name="sort" value="{html.escape(sort_key, quote=True)}">
         <input type="hidden" name="dir" value="{html.escape(sort_dir, quote=True)}">
-        <input type="hidden" name="obs_id" value="{html.escape(selected_observation_id, quote=True)}">
+        <input type="hidden" name="page_size" value="{page_size}">
         <div class="admin-field"><label>Desde</label><input name="date_from" type="date" value="{html.escape(date_from, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
         <div class="admin-field"><label>Hasta</label><input name="date_to" type="date" value="{html.escape(date_to, quote=True)}" max="9999-12-31" placeholder="{html.escape(today_value, quote=True)}" onchange="this.blur(); this.form.submit()"></div>
         <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="obs_species" onchange="this.form.submit()">{species_filter_options}</select></div>
@@ -5905,17 +6135,20 @@ def render_observations_section(
         <div class="admin-field"><label>{html.escape(ui_label("ui.search"))}</label><input name="obs_q" type="search" value="{html.escape(observation_search, quote=True)}"></div>
       </form>
       <div class="observations-layout">
-        <article class="profile-section-card observations-table-card">
-          <h2>{icon("metadata")} {html.escape(ui_label("ui.observation_records"))}</h2>
+        <article id="observations-list" class="profile-section-card observations-table-card">
+          <div class="observations-table-header">
+            <h2>{icon("metadata")} {html.escape(ui_label("ui.observation_records"))}</h2>
+            {render_observation_pager(len(ordered_rows), page, page_size, page_count, selected_species_id, search, filters)}
+          </div>
           <div class="observations-table-shell">
             <table>
-              <thead><tr><th>{observation_sort_header(ui_label("ui.date_short"), "observed_at", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("species_id"), "species", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.coordinates"), "coordinates", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.altitude_short"), "altitude", selected_species_id, search, filters)}</th><th>{observation_sort_header("Florada", "abundance", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("observer.name"), "observer", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("source.label"), "source", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.status_short"), "validation", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.use"), "use", selected_species_id, search, filters)}</th><th></th></tr></thead>
-              <tbody>{render_observation_table(filtered_rows, catalogs, species_labels, selected_species_id=selected_species_id, search=search, filters=filters, sort_key=sort_key, sort_dir=sort_dir)}</tbody>
+              <thead><tr><th>{observation_sort_header(ui_label("ui.date_short"), "observed_at", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("species_id"), "species", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.coordinates"), "coordinates", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.altitude_short"), "altitude", selected_species_id, search, filters)}</th><th>{observation_sort_header("Florada", "abundance", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.known_site_area"), "area", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.known_site_micro_area"), "micro_area", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.status_short"), "validation", selected_species_id, search, filters)}</th><th>{observation_sort_header(ui_label("ui.use"), "use", selected_species_id, search, filters)}</th><th></th></tr></thead>
+              <tbody>{render_observation_table(page_rows, catalogs, species_labels, selected_species_id=selected_species_id, search=search, filters=filters, sort_key=sort_key, sort_dir=sort_dir, site_names=site_names, presorted=True)}</tbody>
             </table>
           </div>
         </article>
         <aside class="profile-section-card observation-detail-shell">
-          {render_observation_detail(filtered_rows, catalogs, species_labels, selected_observation_id=selected_observation_id, selected_species_id=selected_species_id, filters=filters, media_reference_counts=media_reference_counts)}
+          {render_observation_detail(page_rows, catalogs, species_labels, selected_observation_id=selected_observation_id, selected_species_id=selected_species_id, filters=filters, media_reference_counts=media_reference_counts)}
         </aside>
       </div>
       <div class="profile-action-bar observations-main-actions maintenance-action-bar">
@@ -5928,9 +6161,9 @@ def render_observations_section(
       {render_observation_create_form(profiles, catalogs, selected_species_id, form_message, filters)}
       {render_observation_exif_import_form(profiles, catalogs, selected_species_id, filters)}
       {render_observation_duplicate_form(rows, profiles, catalogs, selected_species_id, filters)}
-      {render_observation_edit_modals(filtered_rows, profiles, catalogs, selected_species_id, filters)}
-      {render_observation_map_modals(filtered_rows, selected_species_id, search, filters)}
-      {render_observation_photo_modals(filtered_rows)}
+      {render_observation_edit_modals(page_rows, profiles, catalogs, selected_species_id, filters)}
+      {render_observation_map_modals(page_rows, selected_species_id, search, filters)}
+      {render_observation_photo_modals(page_rows)}
     </section>
     """
 

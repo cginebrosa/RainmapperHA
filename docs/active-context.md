@@ -38,6 +38,29 @@ GHCR y backfill dejan de ser el foco inmediato. Siguen pendientes una posible
 limpieza conservadora y pruebas mensuales cortas, pero no deben interrumpir la
 estabilizacion actual de setales/observaciones salvo peticion del usuario.
 
+## Candidato local 0.2.205 pendiente de publicacion
+
+- La version del repo se ha preparado como `0.2.205`; falta commit/push,
+  publicacion multi-arch y verificacion remota.
+- La lista de observaciones usa paginacion de servidor (25/50/100 filas),
+  muestra Area y Microarea por nombre y carga solo el panel de detalle al
+  seleccionar una fila. Ya no reconstruye toda la pantalla.
+- La lista de especies se carga completa al entrar y, al cambiar de especie,
+  sustituye de forma asincrona solo el editor derecho. Conserva busqueda,
+  vista V0/Enriched, pestana activa e historial del navegador. La cabecera del
+  editor muestra el nombre cientifico y todos los nombres comunes, sin repetir
+  el `species_id` tecnico.
+- La pantalla de setales conserva el arbol cargado y, al cambiar de area o
+  microarea, sustituye solo el editor y el mapa mediante
+  `/api/mushrooms/known-site-detail`. Destruye el MapLibre anterior, cancela
+  peticiones obsoletas, conserva el scroll/plegado del arbol y mantiene la
+  proteccion de cambios sin guardar. El mapa nace ya encuadrado en la geometria
+  o ubicacion seleccionada y no hace el salto visual previo por Olvan.
+- El Control Panel conserva el refresco de cinco segundos, pero ya no usa una
+  recarga completa del documento. Consulta `/api/control-panel-fragment`,
+  compara una firma del HTML y solo actualiza la region viva cuando cambia;
+  conserva pestana y scroll y no toca el DOM mientras el estado sea identico.
+
 ## Estado funcional de setales
 
 - Existe un store separado de catalogos:
@@ -54,6 +77,8 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
   persistir nada hasta pulsar `Guardar`.
 - Hay proteccion de cambios sin guardar al cambiar de setal, actualizar, volver
   o navegar a otra pantalla.
+- Cambiar de area o microarea ya no recarga el documento completo: el arbol se
+  mantiene estable y solo se regeneran el editor y el mapa seleccionados.
 - Areas y microareas archivadas se muestran en el mismo arbol. Se pueden
   restaurar o borrar definitivamente; no se pueden archivar ni borrar si tienen
   observaciones vinculadas. Las areas tampoco pueden eliminarse si contienen
@@ -85,6 +110,9 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
   anteriores.
 - El buscador generico de observaciones serializa el registro completo y puede
   encontrar cualquier valor presente en el JSON, ademas de labels visibles.
+- La tabla principal pagina en servidor y la seleccion de una observacion
+  actualiza solo el panel derecho. Las columnas Area y Microarea muestran
+  nombres legibles, nunca IDs internos.
 - La altitud acepta enteros. Se conserva precision completa en JSON/enlaces y
   se limita solo la presentacion de coordenadas donde corresponde.
 - Contrato actual de media: una sola imagen o video por observacion. La UI permite
@@ -148,16 +176,18 @@ instantaneo.
   privados persistentes y no se versionan.
 - Resolver canonico: `rainmapper_core/mushroom_paths.py`.
 - UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
-- Estado al cierre: repo limpio y release remota publicada. La UI local estaba
-  disponible durante la validacion; comprobar su estado antes de asumir que el
-  contenedor sigue activo en una nueva sesion.
+- La release remota publicada sigue siendo `0.2.204`; el candidato UI local es
+  `0.2.205` y esta pendiente de publicacion. La UI local estaba disponible durante la
+  validacion; comprobar su estado antes de asumir que el contenedor sigue activo
+  en una nueva sesion.
 - Usar siempre `.venv/bin/python` (Python 3.11), igual que contenedor y HA. No
   usar el Python local del sistema. La migracion a Python 3.14 es una tarea
   futura separada, no parte de estos cambios.
 
 ## Validacion al cierre
 
-- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 236 tests OK.
+- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 244 tests OK con los
+  cambios locales de paginacion/navegacion asincrona.
 - JavaScript embebido extraido del HTML: `node --check` OK.
 - Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
   longitud y `Content-Range` correctos.

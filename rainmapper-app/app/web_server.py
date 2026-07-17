@@ -1949,7 +1949,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .profile-editor {{
       display: grid;
       gap: 12px;
+      position: relative;
     }}
+    .profile-editor.loading::after {{
+      animation: profile-editor-spin .7s linear infinite;
+      border: 2px solid rgba(148, 163, 184, .3);
+      border-radius: 50%;
+      border-top-color: var(--accent);
+      content: "";
+      height: 24px;
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      width: 24px;
+    }}
+    @keyframes profile-editor-spin {{ to {{ transform: rotate(360deg); }} }}
     .profile-editor-polished {{
       background:
         radial-gradient(circle at 8% 0%, rgba(3, 169, 244, .18), transparent 32%),
@@ -3391,6 +3405,73 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observations-table-card {{
       min-width: 0;
     }}
+    .observations-table-header {{
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      min-height: 32px;
+    }}
+    .observations-table-header h2 {{
+      margin: 0;
+    }}
+    .observation-pagination {{
+      align-items: center;
+      display: flex;
+      gap: 9px;
+      margin-left: auto;
+      white-space: nowrap;
+    }}
+    .observation-page-size-form {{ margin: 0; }}
+    .observation-page-size-form select {{
+      font-size: 11px;
+      min-height: 30px;
+      padding: 4px 25px 4px 8px;
+      width: auto;
+    }}
+    .observation-page-range {{
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      min-width: 78px;
+      text-align: center;
+    }}
+    .observation-page-controls {{ display: inline-flex; gap: 4px; }}
+    .observation-page-button {{
+      align-items: center;
+      background: rgba(18, 31, 42, .88);
+      border: 1px solid rgba(71, 94, 110, .8);
+      border-radius: 7px;
+      color: #b9d7e7;
+      display: inline-flex;
+      height: 30px;
+      justify-content: center;
+      transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+      width: 30px;
+    }}
+    .observation-page-button:hover {{
+      background: rgba(3, 169, 244, .16);
+      border-color: rgba(56, 189, 248, .72);
+      color: #70d8ff;
+      transform: translateY(-1px);
+    }}
+    .observation-page-button svg {{
+      fill: none;
+      height: 17px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
+      width: 17px;
+    }}
+    .observation-page-button.disabled {{
+      background: rgba(18, 31, 42, .36);
+      border-color: rgba(71, 94, 110, .32);
+      color: rgba(148, 163, 184, .32);
+      cursor: default;
+    }}
     .observations-table-shell {{
       max-height: 560px;
       overflow: auto;
@@ -3438,7 +3519,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observations-table-shell td {{
       border-bottom: 1px solid rgba(45, 58, 71, .62);
       font-size: 12px;
-      padding: 8px 5px;
+      padding: 6px 5px;
       text-align: left;
       white-space: nowrap;
     }}
@@ -3449,7 +3530,14 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .observations-table-shell th:nth-child(3),.observations-table-shell td:nth-child(3){{width:92px}}
     .observations-table-shell th:nth-child(4),.observations-table-shell td:nth-child(4){{width:50px}}
     .observations-table-shell th:nth-child(5),.observations-table-shell td:nth-child(5){{width:92px}}
+    .observations-table-shell th:nth-child(6),.observations-table-shell td:nth-child(6){{width:120px}}
+    .observations-table-shell th:nth-child(7),.observations-table-shell td:nth-child(7){{width:160px}}
     .observations-table-shell th:nth-child(9),.observations-table-shell td:nth-child(9){{width:78px}}
+    .observations-table-shell td.observation-site-name {{
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
     .observation-badge {{
       background: rgba(148, 163, 184, .1);
       border: 1px solid rgba(148, 163, 184, .28);
@@ -4855,7 +4943,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-detail-shell {{
       align-self: start;
+      position: relative;
     }}
+    .observation-detail-shell.loading::after {{
+      animation: observation-detail-spin .7s linear infinite;
+      border: 2px solid rgba(148, 163, 184, .3);
+      border-radius: 50%;
+      border-top-color: var(--accent);
+      content: "";
+      height: 20px;
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      width: 20px;
+    }}
+    @keyframes observation-detail-spin {{ to {{ transform: rotate(360deg); }} }}
     .observation-photo-strip {{
       display: flex;
       flex-wrap: wrap;
@@ -6310,20 +6412,70 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         selectedRow.setAttribute("aria-current", "true");
       }}
     }}
-    function selectObservationRow(row) {{
+    var observationDetailController = null;
+    function observationDetailEndpoint(href) {{
+      var selectedUrl = new URL(href, window.location.href);
+      return mushroomApiBasePath() + "/api/mushrooms/observation-detail?" + selectedUrl.searchParams.toString();
+    }}
+    async function selectObservationRow(row, event, options) {{
+      options = options || {{}};
       if (!row) {{
         return;
       }}
-      if (row.classList && row.classList.contains("selected")) {{
+      if (event && event.target && event.target.closest("a,button,form,input,select,textarea,label")) {{
+        return;
+      }}
+      if (row.classList && row.classList.contains("selected") && !options.force) {{
         return;
       }}
       var href = row.getAttribute("data-observation-href");
       if (!href) {{
         return;
       }}
-      rememberObservationListScroll();
-      rememberSelectedDetailScroll({{ url: href }});
-      window.location.href = href;
+      var detail = document.querySelector("#observations-workspace .observation-detail-shell");
+      if (!detail || typeof window.fetch !== "function") {{
+        window.location.href = href;
+        return;
+      }}
+      document.querySelectorAll("#observations-workspace tr.observation-row.selected").forEach(function(item) {{
+        item.classList.remove("selected");
+        item.removeAttribute("aria-current");
+      }});
+      row.classList.add("selected");
+      row.setAttribute("aria-current", "true");
+      if (observationDetailController) {{
+        observationDetailController.abort();
+      }}
+      var requestController = typeof AbortController === "function" ? new AbortController() : null;
+      observationDetailController = requestController;
+      detail.classList.add("loading");
+      detail.setAttribute("aria-busy", "true");
+      try {{
+        var response = await fetch(observationDetailEndpoint(href), {{
+          credentials: "same-origin",
+          headers: {{ "Accept": "application/json" }},
+          signal: requestController ? requestController.signal : undefined
+        }});
+        var payload = await response.json();
+        if (!response.ok || !payload.ok || !payload.html) {{
+          throw new Error(payload.error || "No se pudo cargar la observación.");
+        }}
+        detail.innerHTML = payload.html;
+        if (options.history !== false) {{
+          var selectedUrl = new URL(href, window.location.href);
+          window.history.pushState({{ observationId: payload.observation_id }}, "", selectedUrl.pathname + selectedUrl.search);
+        }}
+      }} catch (error) {{
+        if (error && error.name === "AbortError") {{
+          return;
+        }}
+        window.location.href = href;
+      }} finally {{
+        if (observationDetailController === requestController) {{
+          detail.classList.remove("loading");
+          detail.removeAttribute("aria-busy");
+        }}
+      }}
     }}
     const speciesModalHistoryKey = "rainmapperSpeciesMaintenanceModalHistory";
     const speciesModalScrollRestoreKey = "rainmapperSpeciesMaintenanceScrollRestore";
@@ -7279,6 +7431,91 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       return (url.search || "?") + url.hash;
     }}
+    var speciesProfileController = null;
+    function speciesProfileDetailEndpoint(href) {{
+      var selectedUrl = new URL(href, window.location.href);
+      return mushroomApiBasePath() + "/api/mushrooms/profile-detail?" + selectedUrl.searchParams.toString();
+    }}
+    async function selectSpeciesProfile(link, options) {{
+      options = options || {{}};
+      if (!link) {{
+        return;
+      }}
+      var href = options.href || link.getAttribute("href");
+      if (!href || (link.classList.contains("active") && !options.force)) {{
+        return;
+      }}
+      var editor = document.querySelector(".profile-layout .profile-editor");
+      if (!editor || typeof window.fetch !== "function") {{
+        window.location.href = href;
+        return;
+      }}
+      document.querySelectorAll(".profile-list-item.active").forEach(function(item) {{
+        item.classList.remove("active");
+        item.removeAttribute("aria-current");
+      }});
+      link.classList.add("active");
+      link.setAttribute("aria-current", "true");
+      if (speciesProfileController) {{
+        speciesProfileController.abort();
+      }}
+      var requestController = typeof AbortController === "function" ? new AbortController() : null;
+      speciesProfileController = requestController;
+      editor.classList.add("loading");
+      editor.setAttribute("aria-busy", "true");
+      try {{
+        var response = await fetch(speciesProfileDetailEndpoint(href), {{
+          credentials: "same-origin",
+          headers: {{ "Accept": "application/json" }},
+          signal: requestController ? requestController.signal : undefined
+        }});
+        var payload = await response.json();
+        if (!response.ok || !payload.ok || !payload.editor_html) {{
+          throw new Error(payload.error || "No se pudo cargar la especie.");
+        }}
+        editor.outerHTML = payload.editor_html;
+        var tabsRow = document.querySelector(".mushroom-tabs-row");
+        if (tabsRow && payload.section_tabs_html) {{
+          tabsRow.innerHTML = payload.section_tabs_html;
+        }}
+        var viewSwitch = document.querySelector(".profile-view-switch");
+        if (viewSwitch && payload.view_switch_html) {{
+          viewSwitch.outerHTML = payload.view_switch_html;
+        }}
+        var refreshLink = document.querySelector("[data-profile-refresh-link]");
+        if (refreshLink && payload.refresh_url) {{
+          refreshLink.setAttribute("href", payload.refresh_url);
+        }}
+        var searchSpecies = document.querySelector(".catalog-toolbar .catalog-filter input[name='id']");
+        if (searchSpecies) {{
+          searchSpecies.value = payload.species_id;
+        }}
+        var rebuildSpecies = document.querySelector(".mushroom-model-stale-form input[name='species_id']");
+        if (rebuildSpecies) {{
+          rebuildSpecies.value = payload.species_id;
+        }}
+        if (options.history !== false) {{
+          var selectedUrl = new URL(href, window.location.href);
+          window.history.pushState({{ speciesId: payload.species_id }}, "", selectedUrl.pathname + selectedUrl.search + selectedUrl.hash);
+        }}
+        restoreProfileTab();
+        restoreEcologyTab();
+        setProfileReturnTabs();
+      }} catch (error) {{
+        if (error && error.name === "AbortError") {{
+          return;
+        }}
+        window.location.href = href;
+      }} finally {{
+        if (speciesProfileController === requestController) {{
+          var currentEditor = document.querySelector(".profile-layout .profile-editor");
+          if (currentEditor) {{
+            currentEditor.classList.remove("loading");
+            currentEditor.removeAttribute("aria-busy");
+          }}
+        }}
+      }}
+    }}
     function applyUsersFilter() {{
       var input = document.getElementById("users-filter");
       var list = document.getElementById("users-list");
@@ -7450,6 +7687,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       var speciesLink = event.target.closest(".profile-list-item[href]");
       if (speciesLink) {{
         speciesLink.href = speciesUrlWithActiveProfileState(speciesLink.href);
+        if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {{
+          event.preventDefault();
+          selectSpeciesProfile(speciesLink);
+          return;
+        }}
       }}
       var dateInput = event.target.closest(".observations-filters input[type='date'], .observation-form input[type='date']");
       if (dateInput && typeof dateInput.showPicker === "function") {{
@@ -7505,6 +7747,33 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       revealActiveProfileListItem();
       fitCatalogTableToViewport();
       revealSelectedCatalogRow();
+    }});
+    window.addEventListener("popstate", function() {{
+      var params = new URLSearchParams(window.location.search);
+      if ((params.get("section") || "species") === "species") {{
+        var speciesId = params.get("id") || "";
+        var speciesRows = Array.prototype.slice.call(document.querySelectorAll(".profile-list-item[data-profile-species-id]"));
+        var speciesRow = speciesRows.find(function(item) {{
+          return item.getAttribute("data-profile-species-id") === speciesId;
+        }});
+        if (speciesRow) {{
+          selectSpeciesProfile(speciesRow, {{ force: true, history: false, href: currentRelativeUrl() }});
+        }}
+        return;
+      }}
+      var workspace = document.getElementById("observations-workspace");
+      if (!workspace) {{
+        return;
+      }}
+      var observationId = params.get("obs_id") || "";
+      var rows = Array.prototype.slice.call(workspace.querySelectorAll("tr[data-observation-id]"));
+      var row = rows.find(function(item) {{ return item.getAttribute("data-observation-id") === observationId; }});
+      if (!row && !observationId) {{
+        row = rows[0];
+      }}
+      if (row) {{
+        selectObservationRow(row, null, {{ force: true, history: false }});
+      }}
     }});
     document.addEventListener("DOMContentLoaded", function() {{
       applyUsersFilter();
@@ -10075,7 +10344,7 @@ def observations_return_url(
     params = {"section": "observations"}
     if selected_species_id:
         params["id"] = selected_species_id
-    for key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir"):
+    for key in ("date_from", "date_to", "result", "validation", "obs_q", "obs_species", "sort", "dir", "page", "page_size"):
         value = catalog_form_string(form, f"return_{key}")
         if value:
             params[key] = value
@@ -13091,6 +13360,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 "archive_open": (query.get("archive_open") or [""])[0],
                 "sort": (query.get("sort") or ["observed_at"])[0],
                 "dir": (query.get("dir") or ["desc"])[0],
+                "page": (query.get("page") or [""])[0],
+                "page_size": (query.get("page_size") or ["25"])[0],
             }
             main_content = mushroom_profiles_ui.render_observations_section(
                 selected,
@@ -13160,7 +13431,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         body = f"""
         <div class="catalog-toolbar">
           <a class="button-link" href="{html.escape(back_url, quote=True)}">Back</a>
-          <a class="button-link" href="{html.escape(refresh_url, quote=True)}">Refresh</a>
+          <a class="button-link" data-profile-refresh-link href="{html.escape(refresh_url, quote=True)}">Refresh</a>
           <a class="button-link" href="./catalogs">Reference catalogs</a>
           <a class="button-link" href="./gis-mappings">GIS mappings</a>
           <a class="button-link" href="./known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
@@ -13204,9 +13475,141 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "text/html; charset=utf-8",
         )
 
+    def serve_mushroom_observation_detail(self, query: dict[str, list[str]]) -> None:
+        """Return one lightweight observation detail fragment for row selection."""
+        observation_id = (query.get("obs_id") or [""])[0].strip()
+        if not observation_id:
+            self.send_json(400, {"ok": False, "error": "Observation ID is required."})
+            return
+        try:
+            store = default_store()
+            profiles_payload = store.load("profiles")
+            catalogs_payload = store.load("catalogs")
+            observations_payload = store.load("observations")
+            archived_observations_payload = load_archived_observations(store)
+        except Exception as exc:
+            self.send_json(500, {"ok": False, "error": f"Cannot load observation data: {exc}"})
+            return
+        profiles = profiles_payload.get("species_profiles", []) if isinstance(profiles_payload, dict) else []
+        profiles = [item for item in profiles if isinstance(item, dict)] if isinstance(profiles, list) else []
+        catalogs = catalogs_payload.get("catalogs", {}) if isinstance(catalogs_payload, dict) else {}
+        catalogs = catalogs if isinstance(catalogs, dict) else {}
+        rows = observation_dicts_from_payload(observations_payload if isinstance(observations_payload, dict) else {})
+        row = next((item for item in rows if str(item.get("observation_id", "")) == observation_id), None)
+        if row is None:
+            self.send_json(404, {"ok": False, "error": "Observation was not found."})
+            return
+        archived_rows = observation_dicts_from_payload(
+            archived_observations_payload if isinstance(archived_observations_payload, dict) else {}
+        )
+        media_reference_counts: dict[str, int] = {}
+        for media_row in rows + archived_rows:
+            for _, media in mushroom_profiles_ui.observation_photo_media(media_row):
+                media_path = str(media.get("path", "") or "")
+                if media_path:
+                    media_reference_counts[media_path] = media_reference_counts.get(media_path, 0) + 1
+        filters = {
+            key: (query.get(key) or [""])[0]
+            for key in (
+                "date_from", "date_to", "result", "validation", "obs_q", "obs_species",
+                "sort", "dir", "page", "page_size", "obs_id",
+            )
+        }
+        selected_species_id = (query.get("id") or [""])[0]
+        detail_html = mushroom_profiles_ui.render_observation_detail(
+            [row],
+            catalogs,
+            mushroom_profiles_ui.profile_name_map(profiles),
+            selected_observation_id=observation_id,
+            selected_species_id=selected_species_id,
+            filters=filters,
+            media_reference_counts=media_reference_counts,
+        )
+        self.send_json(200, {"ok": True, "observation_id": observation_id, "html": detail_html})
+
+    def serve_mushroom_profile_detail(self, query: dict[str, list[str]]) -> None:
+        """Return the selected species editor without rebuilding the maintenance page."""
+        species_id = (query.get("id") or [""])[0].strip()
+        if not species_id:
+            self.send_json(400, {"ok": False, "error": "Species ID is required."})
+            return
+        search = (query.get("q") or [""])[0]
+        profile_view = mushroom_profiles_ui.normalize_profile_view((query.get("view") or ["v0"])[0])
+        try:
+            store = default_store()
+            profiles_payload = store.load("profiles")
+            catalogs_payload = store.load("catalogs")
+        except Exception as exc:
+            self.send_json(500, {"ok": False, "error": f"Cannot load species data: {exc}"})
+            return
+        profiles = profiles_payload.get("species_profiles", []) if isinstance(profiles_payload, dict) else []
+        profiles = [item for item in profiles if isinstance(item, dict)] if isinstance(profiles, list) else []
+        profile = next((item for item in profiles if str(item.get("species_id", "")) == species_id), None)
+        if profile is None:
+            self.send_json(404, {"ok": False, "error": "Species profile was not found."})
+            return
+        catalogs = catalogs_payload.get("catalogs", {}) if isinstance(catalogs_payload, dict) else {}
+        catalogs = catalogs if isinstance(catalogs, dict) else {}
+        self.send_json(
+            200,
+            {
+                "ok": True,
+                "species_id": species_id,
+                "editor_html": mushroom_profiles_ui.render_profile_editor(profile, catalogs, profile_view, search),
+                "section_tabs_html": mushroom_profiles_ui.render_section_tabs(
+                    "species", species_id, search, profile_view
+                ),
+                "view_switch_html": mushroom_profiles_ui.render_profile_view_switch(
+                    species_id, search, "species", profile_view
+                ),
+                "refresh_url": profile_query_url(
+                    species_id, search, section="species", profile_view=profile_view
+                ),
+            },
+        )
+
+    def serve_mushroom_known_site_detail(self, query: dict[str, list[str]]) -> None:
+        """Return one known-site editor and map without rebuilding the full page."""
+        kind = (query.get("kind") or [""])[0].strip()
+        selected_id = (query.get("id") or [""])[0].strip()
+        if kind not in {"area", "micro_area"} or not selected_id:
+            self.send_json(400, {"ok": False, "error": "A valid known-site kind and ID are required."})
+            return
+        if (query.get("discard_gis_draft") or [""])[0] == "1":
+            set_mushroom_known_sites_gis_preview(None)
+            query.pop("discard_gis_draft", None)
+        search = (query.get("q") or [""])[0]
+        return_to = safe_known_sites_return_to((query.get("return_to") or [""])[0])
+        query["return_to"] = [return_to]
+        try:
+            payload = mushroom_known_sites.load_payload()
+            fragment = mushroom_known_sites_ui.render_selection_fragment(
+                payload,
+                query,
+                mushroom_known_sites_gis_preview(),
+            )
+        except Exception as exc:
+            self.send_json(500, {"ok": False, "error": f"Cannot load known site: {exc}"})
+            return
+        if not fragment.get("selected"):
+            self.send_json(404, {"ok": False, "error": "Known site was not found."})
+            return
+        self.send_json(
+            200,
+            {
+                "ok": True,
+                **fragment,
+                "refresh_url": mushroom_known_sites_ui.query_url(kind, selected_id, search, return_to),
+            },
+        )
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
+
+        if path == "/api/control-panel-fragment":
+            self.serve_control_panel_fragment()
+            return
 
         if path == "/":
             self.render_index()
@@ -13242,6 +13645,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/mushrooms/observation-media":
             self.serve_mushroom_observation_media(parse_qs(parsed.query))
+            return
+
+        if path == "/api/mushrooms/observation-detail":
+            self.serve_mushroom_observation_detail(parse_qs(parsed.query))
+            return
+
+        if path == "/api/mushrooms/profile-detail":
+            self.serve_mushroom_profile_detail(parse_qs(parsed.query))
+            return
+
+        if path == "/api/mushrooms/known-site-detail":
+            self.serve_mushroom_known_site_detail(parse_qs(parsed.query))
             return
 
         if path == "/api/mushrooms/rebuild-status":
@@ -14967,7 +15382,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return profile_message_url(species_id)
         return profile_query_url(species_id) if species_id else "?"
 
-    def render_index(self) -> None:
+    def render_control_panel_body(self) -> str:
+        """Render the live Control Panel region shared by page and polling API."""
         with RUN_LOCK:
             running = RUN_STATE["running"]
             action = RUN_STATE["action"] or "-"
@@ -15170,7 +15586,62 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             f"{station_controls}"
             "</div></div></section>"
         )
-        self.send_bytes(200, html_page("Rainmapper", body), "text/html; charset=utf-8")
+        return body
+
+    def render_index(self) -> None:
+        control_body = self.render_control_panel_body()
+        control_signature = hashlib.sha256(control_body.encode("utf-8")).hexdigest()
+        body = f"""
+        <div id="rainmapper-control-panel-live" data-control-signature="{control_signature}">{control_body}</div>
+        <script>
+        (() => {{
+          const livePanel=document.getElementById('rainmapper-control-panel-live');
+          if(!livePanel)return;
+          let refreshTimer=null;
+          const fragmentUrl=new URL('api/control-panel-fragment',window.location.href);
+          const activeTab=()=>document.querySelector('.control-tabs .control-tab.active')?.dataset.controlTab||'summary';
+          const scheduleRefresh=()=>{{window.clearTimeout(refreshTimer);refreshTimer=window.setTimeout(refreshControlPanel,5000);}};
+          const refreshControlPanel=async()=>{{
+            if(document.hidden){{scheduleRefresh();return;}}
+            try{{
+              const response=await fetch(fragmentUrl,{{headers:{{Accept:'application/json'}},cache:'no-store'}});
+              if(!response.ok)throw new Error(`HTTP ${{response.status}}`);
+              const payload=await response.json();
+              if(!payload.ok||typeof payload.html!=='string')throw new Error(payload.error||'Invalid Control Panel response');
+              if(livePanel.dataset.controlSignature!==payload.signature){{
+                const tab=activeTab();const scrollX=window.scrollX,scrollY=window.scrollY;
+                livePanel.innerHTML=payload.html;livePanel.dataset.controlSignature=payload.signature;setControlTab(tab);
+                window.requestAnimationFrame(()=>window.scrollTo(scrollX,scrollY));
+              }}
+            }}catch(error){{console.warn('Cannot refresh Rainmapper Control Panel',error);}}
+            finally{{scheduleRefresh();}}
+          }};
+          document.addEventListener('visibilitychange',()=>{{if(!document.hidden){{window.clearTimeout(refreshTimer);refreshControlPanel();}}}});
+          scheduleRefresh();
+        }})();
+        </script>
+        """
+        self.send_bytes(
+            200,
+            html_page("Rainmapper", body, auto_refresh=False),
+            "text/html; charset=utf-8",
+        )
+
+    def serve_control_panel_fragment(self) -> None:
+        """Return the current Control Panel state without reloading the document."""
+        try:
+            body = self.render_control_panel_body()
+        except Exception as exc:
+            self.send_json(500, {"ok": False, "error": f"Cannot refresh Control Panel: {exc}"})
+            return
+        self.send_json(
+            200,
+            {
+                "ok": True,
+                "html": body,
+                "signature": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+            },
+        )
 
     def render_log(self) -> None:
         body = (

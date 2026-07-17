@@ -163,7 +163,7 @@ def _micro_form(row: dict[str, object], payload: dict[str, object], *, create: b
     """
 
 
-def _known_sites_map_assets(geometry_json: str, parent_geometry_json: str, has_selection: bool) -> str:
+def _known_sites_map_assets() -> str:
     """Return the scoped layout and polygon editor used by known-site maintenance."""
     return f"""
     <style>
@@ -174,6 +174,7 @@ def _known_sites_map_assets(geometry_json: str, parent_geometry_json: str, has_s
       .sites-map-column{{display:flex;flex-direction:column;gap:10px}}.sites-map-card header,.sites-derived-card header{{display:flex;justify-content:space-between;align-items:center;padding:10px 12px}}.sites-map-card header button{{font-size:11px}}.sites-map-wrap{{height:390px;margin:0 10px;position:relative;border:1px solid #344754;border-radius:5px;overflow:hidden;background:#071018}}#known-site-map{{position:absolute;inset:0}}.sites-map-empty{{position:absolute;inset:0;display:grid;place-items:center;background:#0a141dcc;color:#90a0ac;z-index:3}}.sites-map-empty[hidden]{{display:none}}.site-map-controls{{display:grid;gap:7px;position:absolute;right:10px;top:10px;z-index:5}}.site-map-control{{display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(20,27,35,.94);border:1px solid rgba(255,255,255,.2);border-radius:7px;color:#f6fbff;box-shadow:0 6px 18px #02080e55;font-weight:800}}.site-map-control[aria-pressed="true"]{{background:#078ec7;border-color:#6dd4ff}}.site-map-control svg{{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linejoin:round}}.site-layer-toggle polygon{{fill:currentColor;stroke:none}}.site-north-toggle{{position:relative}}.site-north-toggle::before{{content:'';position:absolute;width:25px;height:25px;border:2px solid rgba(246,251,255,.72);border-radius:50%}}.site-north-toggle span{{width:13px;height:25px;background:linear-gradient(180deg,#e33d37 0 48%,#fff 52% 100%);clip-path:polygon(50% 0,76% 50%,50% 100%,24% 50%)}}.site-layer-panel{{position:absolute;right:56px;top:0;display:grid;min-width:145px;padding:5px;background:rgba(15,23,31,.97);border:1px solid #405361;border-radius:6px;box-shadow:0 10px 25px #0008}}.site-layer-panel[hidden]{{display:none}}.site-layer-panel button{{text-align:left;background:none;border:0;padding:8px 10px}}.site-layer-panel button.active{{color:#26bdff;background:#163345}}.geometry-actions{{display:flex;gap:7px;flex-wrap:wrap;padding:11px 12px 5px}}.geometry-actions button{{font-size:12px}}.geometry-actions .danger{{color:#ff646b;border-color:#71343a}}.geometry-status{{margin:5px 12px 12px;color:#8fa0ad;font-size:11px}}.sites-derived-card{{padding-bottom:10px}}.sites-derived-card>div{{display:grid;grid-template-columns:1fr 1.2fr;gap:8px;padding:3px 12px;font-size:12px}}.sites-derived-card span{{color:#91a2af}}.sites-derived-card strong{{font-weight:500}}.maplibregl-ctrl-attrib{{font-size:9px}}
       .gis-review-modal{{max-width:940px;max-height:min(82vh,760px)}}.gis-review-modal form{{display:flex;flex-direction:column;min-height:0}}.gis-review-table{{width:100%;border-collapse:collapse;font-size:13px}}.gis-review-table th,.gis-review-table td{{padding:6px 9px;border-bottom:1px solid #2b3c48;text-align:left;vertical-align:middle}}.gis-review-table td small{{display:block;color:#8093a1;margin-top:2px}}.gis-review-table .gis-discrepancy{{background:#442b161f}}.gis-review-table .gis-discrepancy td:first-child strong::after{{content:' Discrepancia';color:#f0a23c;font-size:10px;margin-left:7px}}.gis-review-choice{{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:12px}}.gis-review-choice input{{appearance:none;width:17px;height:17px;min-width:17px;margin:0;border:1px solid #718391;border-radius:3px;background:#0b1319}}.gis-review-choice input:checked{{border-color:#18b9f4;background:#078ec7;box-shadow:inset 0 0 0 3px #0b1319}}.gis-review-actions{{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap;padding-top:10px}}.gis-review-actions button{{padding:7px 10px;font-size:12px}}
       .unsaved-site-modal-layer:not([hidden]){{display:flex}}.unsaved-site-modal{{max-width:560px}}
+      .sites-editor-panel.loading,.sites-map-column.loading{{position:relative;pointer-events:none;opacity:.72}}.sites-editor-panel.loading::after,.sites-map-column.loading::after{{content:'';position:absolute;z-index:20;left:50%;top:50%;width:28px;height:28px;margin:-14px;border:3px solid #405462;border-top-color:#1fc0ff;border-radius:50%;animation:known-site-loading .7s linear infinite}}@keyframes known-site-loading{{to{{transform:rotate(360deg)}}}}
       @media(max-width:1250px){{.sites-workspace{{grid-template-columns:270px 1fr;height:auto}}.sites-tree-panel,.sites-editor-panel{{height:650px}}.sites-map-column{{grid-column:1/-1}}.sites-map-wrap{{height:430px}}}}@media(max-width:760px){{.sites-metrics,.sites-workspace{{grid-template-columns:1fr}}.sites-tree-panel{{height:430px}}.sites-editor-panel{{height:650px}}.sites-map-column{{grid-column:auto}}.sites-map-wrap{{height:360px}}}}
     </style>
     <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
@@ -194,12 +195,29 @@ def _known_sites_map_assets(geometry_json: str, parent_geometry_json: str, has_s
       treeGroups.forEach(group=>{{const forceOpen=group.dataset.selected==='true';setAreaExpanded(group,forceOpen||!collapsed.includes(group.dataset.areaId),false);const toggle=group.querySelector('[data-site-area-toggle]');if(toggle)toggle.addEventListener('click',()=>setAreaExpanded(group,toggle.getAttribute('aria-expanded')!=='true'));}});
       document.querySelector('[data-expand-all-areas]')?.addEventListener('click',()=>{{collapsed=[];treeGroups.forEach(group=>setAreaExpanded(group,true,false));sessionStorage.setItem(storageKey,'[]');}});
       document.querySelector('[data-collapse-all-areas]')?.addEventListener('click',()=>{{collapsed=treeGroups.map(group=>group.dataset.areaId).filter(Boolean);treeGroups.forEach(group=>setAreaExpanded(group,false,false));sessionStorage.setItem(storageKey,JSON.stringify(collapsed));}});
-      const selected = {str(has_selection).lower()};
+      const state={{map:null,syncTimer:null,request:null,dirty:false,allowUnload:false,editorForm:null,pendingNavigation:''}};
+      const unsavedModal=document.getElementById('unsaved-site-changes');
+      const cleanupSelection=()=>{{
+        if(state.syncTimer){{window.clearInterval(state.syncTimer);state.syncTimer=null;}}
+        if(state.map){{try{{state.map.remove();}}catch(error){{console.warn('Cannot release known-site map',error);}}state.map=null;}}
+      }};
+      const initializeSelection=()=>{{
+      cleanupSelection();
+      const selectionData=document.querySelector('.known-site-selection-data');
+      let config={{selected:false,geometry:null,parent_geometry:null,location:null}};
+      try{{if(selectionData)config=JSON.parse(selectionData.textContent||'{{}}');}}catch(error){{console.warn('Cannot read known-site selection',error);}}
+      const editorForm=document.querySelector('.sites-editor-body .catalog-entry-form');
+      state.editorForm=editorForm;state.dirty=Boolean(editorForm&&editorForm.dataset.initialDirty==='true');state.allowUnload=false;
+      if(editorForm){{editorForm.addEventListener('input',()=>state.dirty=true);editorForm.addEventListener('change',()=>state.dirty=true);editorForm.addEventListener('submit',()=>state.allowUnload=true);}}
+      document.querySelectorAll('.sites-tabs button').forEach(button=>button.addEventListener('click',()=>{{document.querySelectorAll('.sites-tabs button').forEach(item=>item.classList.remove('active'));button.classList.add('active');const form=state.editorForm,details=form&&form.querySelector('details');if(button.dataset.siteTab==='geometry')document.querySelector('.sites-map-card')?.scrollIntoView({{behavior:'smooth',block:'center'}});else if(button.dataset.siteTab==='environment'){{if(details)details.open=true;details&&details.scrollIntoView({{behavior:'smooth',block:'start'}});}}else if(button.dataset.siteTab==='notes'){{if(details)details.open=true;const notes=form&&form.querySelector('[name=notes]');notes&&notes.focus();}}else if(details)details.open=false;}}));
+      const selected = Boolean(config.selected);
       const mapNode = document.getElementById('known-site-map');
       if (!selected || !mapNode || !window.maplibregl) return;
       const geometryField = document.getElementById('known-site-geometry');
-      let initialGeometry = {geometry_json};
-      const parentGeometry = {parent_geometry_json};
+      let initialGeometry = config.geometry || null;
+      const parentGeometry = config.parent_geometry || null;
+      const viewGeometry=initialGeometry||parentGeometry;
+      const viewCoordinates=viewGeometry?(viewGeometry.type==='Polygon'?viewGeometry.coordinates:viewGeometry.coordinates.flat()).flat():[];
       const satelliteLayerIds=['satellite','satellite-boundary','satellite-road-outline','satellite-road','satellite-minor-road','satellite-road-label','satellite-place-label'];
       const hybridLayerIds=['hybrid-roads','hybrid-labels'];
       const style = {{version:8,glyphs:'https://tiles.openfreemap.org/fonts/{{fontstack}}/{{range}}.pbf',sources:{{
@@ -221,7 +239,11 @@ def _known_sites_map_assets(geometry_json: str, parent_geometry_json: str, has_s
         {{id:'hybrid-labels',type:'raster',source:'hybridLabels',layout:{{visibility:'none'}}}},
         {{id:'topo',type:'raster',source:'topo',layout:{{visibility:'none'}}}}
       ]}};
-      const map = new maplibregl.Map({{container:mapNode,style,center:[1.9,42.05],zoom:11,maxPitch:85}});
+      const mapOptions={{container:mapNode,style,center:[1.7,41.8],zoom:8,maxPitch:85}};
+      if(viewCoordinates.length){{const initialBounds=new maplibregl.LngLatBounds();viewCoordinates.forEach(point=>initialBounds.extend(point));mapOptions.bounds=initialBounds;mapOptions.fitBoundsOptions={{padding:55,maxZoom:16,duration:0}};}}
+      else if(config.location&&Number.isFinite(Number(config.location.lon))&&Number.isFinite(Number(config.location.lat))){{mapOptions.center=[Number(config.location.lon),Number(config.location.lat)];mapOptions.zoom=14;}}
+      const map = new maplibregl.Map(mapOptions);
+      state.map=map;
       map.addControl(new maplibregl.NavigationControl({{showCompass:false}}),'bottom-right');
       map.addControl(new maplibregl.ScaleControl({{maxWidth:100,unit:'metric'}}));
       let draw = null;
@@ -253,11 +275,9 @@ def _known_sites_map_assets(geometry_json: str, parent_geometry_json: str, has_s
         if (initialGeometry) {{
           const feature={{type:'Feature',geometry:initialGeometry,properties:{{mode:initialGeometry.type==='MultiPolygon'?'polygon':'polygon'}}}};
           try {{ draw.getTerraDrawInstance().addFeatures([feature]); }} catch(error) {{ console.warn('Cannot load saved site geometry',error); }}
-          const coords=(initialGeometry.type==='Polygon'?initialGeometry.coordinates:initialGeometry.coordinates.flat()).flat();
-          if(coords.length){{const bounds=new maplibregl.LngLatBounds();coords.forEach(p=>bounds.extend(p));map.fitBounds(bounds,{{padding:55,maxZoom:16}});}}
           updateDerived(initialGeometry);
         }}
-        window.setInterval(sync,700);
+        state.syncTimer=window.setInterval(sync,700);
       }});
       const layerToggle=document.getElementById('site-layer-toggle'),layerPanel=document.getElementById('site-layer-panel');
       layerToggle.addEventListener('click',()=>{{const open=layerPanel.hidden;layerPanel.hidden=!open;layerToggle.setAttribute('aria-expanded',String(open));}});
@@ -270,17 +290,42 @@ def _known_sites_map_assets(geometry_json: str, parent_geometry_json: str, has_s
       document.getElementById('site-recover-gis').addEventListener('click',()=>{{sync();if(!geometryField.value){{document.getElementById('site-geometry-status').textContent='Dibuja un polígono antes de recuperar GIS/DEM.';return;}}const form=geometryField.closest('form');form.querySelector('[name=known_site_action]').value='preview_gis_dem';form.requestSubmit();}});
       document.getElementById('site-map-fullscreen').addEventListener('click',()=>mapNode.parentElement.requestFullscreen&&mapNode.parentElement.requestFullscreen());
       geometryField.closest('form').addEventListener('submit',sync);
-      document.querySelectorAll('.sites-tabs button').forEach(button=>button.addEventListener('click',()=>{{document.querySelectorAll('.sites-tabs button').forEach(item=>item.classList.remove('active'));button.classList.add('active');const form=geometryField.closest('form'),details=form.querySelector('details');if(button.dataset.siteTab==='geometry')document.querySelector('.sites-map-card').scrollIntoView({{behavior:'smooth',block:'center'}});else if(button.dataset.siteTab==='environment'){{if(details)details.open=true;details&&details.scrollIntoView({{behavior:'smooth',block:'start'}});}}else if(button.dataset.siteTab==='notes'){{if(details)details.open=true;const notes=form.querySelector('[name=notes]');notes&&notes.focus();}}else if(details)details.open=false;}}));
+      }};
       document.querySelectorAll('[data-gis-select]').forEach(button=>button.addEventListener('click',()=>{{document.querySelectorAll('#gis-dem-review [name=gis_apply_field]').forEach(input=>{{input.checked=button.dataset.gisSelect==='all'||(button.dataset.gisSelect==='empty'&&input.dataset.currentEmpty==='true');}});}}));
-      const editorForm=document.querySelector('.sites-editor-body .catalog-entry-form');const unsavedModal=document.getElementById('unsaved-site-changes');let pendingNavigation='',allowUnload=false;let dirty=Boolean(editorForm&&editorForm.dataset.initialDirty==='true');
-      if(editorForm){{editorForm.addEventListener('input',()=>dirty=true);editorForm.addEventListener('change',()=>dirty=true);editorForm.addEventListener('submit',()=>allowUnload=true);}}
-      document.querySelector('#gis-dem-review form')?.addEventListener('submit',()=>allowUnload=true);
-      document.querySelector('[data-gis-cancel]')?.addEventListener('click',()=>allowUnload=true);
-      document.addEventListener('click',event=>{{const link=event.target.closest('a[href]');if(!link||link.hasAttribute('data-gis-cancel')||!dirty||!editorForm)return;const href=link.getAttribute('href')||'';if(!href||href.startsWith('#'))return;event.preventDefault();pendingNavigation=href;unsavedModal.hidden=false;}},true);
-      unsavedModal?.querySelector('[data-unsaved-discard]').addEventListener('click',()=>{{if(pendingNavigation){{allowUnload=true;const separator=pendingNavigation.includes('?')?'&':'?';window.location.href=pendingNavigation+separator+'discard_gis_draft=1';}}}});
-      unsavedModal?.querySelector('[data-unsaved-save]').addEventListener('click',()=>{{if(!editorForm)return;let next=editorForm.querySelector('[name=next_url]');if(!next){{next=document.createElement('input');next.type='hidden';next.name='next_url';editorForm.appendChild(next);}}next.value=pendingNavigation;editorForm.requestSubmit(editorForm.querySelector('[data-save-site]'));}});
-      unsavedModal?.querySelectorAll('[data-unsaved-cancel]').forEach(button=>button.addEventListener('click',()=>{{unsavedModal.hidden=true;pendingNavigation='';}}));
-      window.addEventListener('beforeunload',event=>{{if(!dirty||allowUnload)return;event.preventDefault();event.returnValue='';}});
+      document.querySelector('#gis-dem-review form')?.addEventListener('submit',()=>state.allowUnload=true);
+      document.querySelector('[data-gis-cancel]')?.addEventListener('click',()=>state.allowUnload=true);
+      const apiBasePath=()=>window.location.pathname.replace(/\/mushrooms\/known-sites\/?$/,'');
+      const setSelectedTreeRow=link=>{{document.querySelectorAll('.site-tree-row.selected-row').forEach(row=>row.classList.remove('selected-row'));document.querySelectorAll('[data-known-site-select][aria-current=true]').forEach(item=>item.removeAttribute('aria-current'));if(!link)return;link.setAttribute('aria-current','true');link.closest('.site-tree-row')?.classList.add('selected-row');const group=link.closest('[data-site-area-group]');if(group)setAreaExpanded(group,true);}};
+      const loadSelection=async(href,options={{}})=>{{
+        const target=new URL(href,window.location.href);const cleanTarget=new URL(options.historyHref||target.href,window.location.href);
+        if(state.request)state.request.abort();state.request=new AbortController();
+        const link=options.link||document.querySelector(`[data-known-site-select][data-known-site-kind="${{CSS.escape(target.searchParams.get('kind')||'')}}"][data-known-site-id="${{CSS.escape(target.searchParams.get('id')||'')}}"]`);
+        setSelectedTreeRow(link);document.querySelector('.sites-editor-panel')?.classList.add('loading');document.querySelector('.sites-map-column')?.classList.add('loading');
+        const apiUrl=new URL(`${{apiBasePath()}}/api/mushrooms/known-site-detail`,window.location.origin);apiUrl.search=target.search;
+        try{{
+          const response=await fetch(apiUrl,{{headers:{{Accept:'application/json'}},signal:state.request.signal}});if(!response.ok)throw new Error(`HTTP ${{response.status}}`);const payload=await response.json();if(!payload.ok)throw new Error(payload.error||'Invalid known-site response');
+          cleanupSelection();const editor=document.querySelector('.sites-editor-panel'),mapColumn=document.querySelector('.sites-map-column');if(!editor||!mapColumn)throw new Error('Known-site panels not found');
+          editor.outerHTML=payload.editor_html;mapColumn.outerHTML=payload.map_html;const refresh=document.querySelector('[data-known-sites-refresh-link]');if(refresh)refresh.href=payload.refresh_url||cleanTarget.href;
+          if(options.history!==false)history.pushState({{knownSite:true}},'',cleanTarget.href);initializeSelection();
+        }}catch(error){{if(error.name==='AbortError')return;console.warn('Cannot load known site without navigation',error);state.allowUnload=true;window.location.href=cleanTarget.href;}}
+      }};
+      const prepareObservationModal=link=>{{
+        const modal=document.querySelector(link.getAttribute('href')||'');if(!modal)return;
+        const closeHref=window.location.search||'?';const modalHash=link.getAttribute('href')||'';
+        const close=modal.querySelector('.modal-header a.button-link');if(close)close.href=closeHref;
+        modal.querySelectorAll('.evidence-observation-list a[href]').forEach(open=>{{const url=new URL(open.href,window.location.href);url.searchParams.set('return_to',`./known-sites${{window.location.search}}${{modalHash}}`);open.href=url.href;}});
+      }};
+      document.addEventListener('click',event=>{{
+        const link=event.target.closest('a[href]');if(!link||link.hasAttribute('data-gis-cancel'))return;const href=link.getAttribute('href')||'';if(!href)return;if(link.classList.contains('site-count')){{prepareObservationModal(link);return;}}if(href.startsWith('#'))return;
+        const selectionLink=link.closest('[data-known-site-select]');if(selectionLink&&event.button===0&&!event.metaKey&&!event.ctrlKey&&!event.shiftKey&&!event.altKey){{event.preventDefault();if(state.dirty&&state.editorForm){{state.pendingNavigation=href;unsavedModal.hidden=false;}}else loadSelection(href,{{link:selectionLink}});return;}}
+        if(!state.dirty||!state.editorForm)return;event.preventDefault();state.pendingNavigation=href;unsavedModal.hidden=false;
+      }},true);
+      unsavedModal?.querySelector('[data-unsaved-discard]').addEventListener('click',()=>{{if(!state.pendingNavigation)return;const href=state.pendingNavigation;const requestHref=new URL(href,window.location.href);requestHref.searchParams.set('discard_gis_draft','1');unsavedModal.hidden=true;state.pendingNavigation='';state.dirty=false;loadSelection(requestHref.href,{{historyHref:href}});}});
+      unsavedModal?.querySelector('[data-unsaved-save]').addEventListener('click',()=>{{const editorForm=state.editorForm;if(!editorForm)return;let next=editorForm.querySelector('[name=next_url]');if(!next){{next=document.createElement('input');next.type='hidden';next.name='next_url';editorForm.appendChild(next);}}next.value=state.pendingNavigation;editorForm.requestSubmit(editorForm.querySelector('[data-save-site]'));}});
+      unsavedModal?.querySelectorAll('[data-unsaved-cancel]').forEach(button=>button.addEventListener('click',()=>{{unsavedModal.hidden=true;state.pendingNavigation='';}}));
+      window.addEventListener('beforeunload',event=>{{if(!state.dirty||state.allowUnload)return;event.preventDefault();event.returnValue='';}});
+      window.addEventListener('popstate',()=>{{if(!window.location.pathname.endsWith('/mushrooms/known-sites'))return;loadSelection(window.location.href,{{history:false}});}});
+      initializeSelection();
     }})();
     </script>
     """
@@ -362,14 +407,88 @@ def _site_observations_modal(modal_id: str, title: str, rows: list[dict[str, obj
         modal_title="Observaciones del setal",
         modal_help="Observaciones asociadas a esta área o microárea.",
         close_href_override=close_href,
-        observation_return_to=close_href + f"#{modal_id}",
+        observation_return_to="./known-sites" + close_href + f"#{modal_id}",
     )
+
+
+def render_selection_fragment(
+    payload: dict[str, object],
+    query: dict[str, list[str]],
+    gis_preview: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Render only the editor and map columns for one selected known site."""
+    kind = (query.get("kind") or ["micro_area"])[0]
+    selected_id = (query.get("id") or [""])[0]
+    return_to = (query.get("return_to") or ["./profiles?section=observations"])[0]
+    areas = [row for row in payload.get("areas", []) if isinstance(row, dict)] if isinstance(payload.get("areas"), list) else []
+    micro_areas = [row for row in payload.get("micro_areas", []) if isinstance(row, dict)] if isinstance(payload.get("micro_areas"), list) else []
+    area_names = {str(row.get("area_id", "")): str(row.get("name", "")) for row in areas}
+    selected_area = next((row for row in areas if str(row.get("area_id", "")) == selected_id), None) if kind == "area" else None
+    selected_micro = next((row for row in micro_areas if str(row.get("micro_area_id", "")) == selected_id), None) if kind == "micro_area" else None
+    if isinstance(gis_preview, dict) and gis_preview.get("kind") == kind and gis_preview.get("id") == selected_id and isinstance(gis_preview.get("draft") or gis_preview.get("base"), dict):
+        preview_row = gis_preview.get("draft") or gis_preview.get("base")
+        if kind == "area":
+            selected_area = preview_row
+        else:
+            selected_micro = preview_row
+    detail = _area_form(selected_area, return_to=return_to, geometry_id="known-site-geometry") if selected_area else _micro_form(selected_micro, payload, return_to=return_to, geometry_id="known-site-geometry") if selected_micro else f'<div class="catalog-empty-detail">{html.escape(label("ui.select_area_or_micro_area"))}</div>'
+    selected_row = selected_area or selected_micro
+    selected_name = str(selected_row.get("name", "")) if selected_row else ""
+    parent_name = area_names.get(str(selected_micro.get("area_id", "")), "") if selected_micro else ""
+    breadcrumb = f'{html.escape(parent_name)} <span>/</span> <strong>{html.escape(selected_name)}</strong>' if parent_name else f'<strong>{html.escape(selected_name)}</strong>'
+    geometry = selected_row.get("geometry") if isinstance(selected_row, dict) and isinstance(selected_row.get("geometry"), dict) else None
+    parent_area = next((row for row in areas if selected_micro and str(row.get("area_id", "")) == str(selected_micro.get("area_id", ""))), None)
+    parent_geometry = parent_area.get("geometry") if isinstance(parent_area, dict) and isinstance(parent_area.get("geometry"), dict) else None
+    location = selected_row.get("representative_location") if isinstance(selected_row, dict) and isinstance(selected_row.get("representative_location"), dict) else None
+    archive_action = ""
+    if selected_area:
+        action_class = "warning" if selected_area.get("archived") else "danger"
+        archive_action = f'<form method="post"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="known_site_action" value="toggle_area_archive"><input type="hidden" name="area_id" value="{_text(selected_id)}"><button class="secondary {action_class}">{html.escape(label("ui.restore") if selected_area.get("archived") else label("ui.archive"))}</button></form>'
+        if selected_area.get("archived"):
+            archive_action += f'<form method="post" onsubmit="return confirm(\'Esta acción borrará definitivamente el área {html.escape(selected_id, quote=True)}. ¿Continuar?\')"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="known_site_action" value="delete_area"><input type="hidden" name="area_id" value="{_text(selected_id)}"><button class="danger">Borrar definitivamente</button></form>'
+    elif selected_micro:
+        action_class = "warning" if selected_micro.get("archived") else "danger"
+        archive_action = f'<form method="post"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="known_site_action" value="toggle_micro_area_archive"><input type="hidden" name="micro_area_id" value="{_text(selected_id)}"><button class="secondary {action_class}">{html.escape(label("ui.restore") if selected_micro.get("archived") else label("ui.archive"))}</button></form>'
+        if selected_micro.get("archived"):
+            archive_action += f'<form method="post" onsubmit="return confirm(\'Esta acción borrará definitivamente la microárea {html.escape(selected_id, quote=True)}. ¿Continuar?\')"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="known_site_action" value="delete_micro_area"><input type="hidden" name="micro_area_id" value="{_text(selected_id)}"><button class="danger">Borrar definitivamente</button></form>'
+    editor_html = f"""
+      <main class="sites-editor-panel">
+        <header class="sites-editor-head"><div>{breadcrumb or html.escape(label('ui.select_area_or_micro_area'))}</div>{f'<span class="site-kind">{"Área" if selected_area else "Microárea"}</span><span class="site-status{" archived" if selected_row.get("archived") else ""}">{html.escape(label("ui.archived") if selected_row.get("archived") else label("ui.active"))}</span>' if selected_row else ''}</header>
+        <div class="sites-tabs"><button type="button" class="active" data-site-tab="general">General</button><button type="button" data-site-tab="geometry">Geometría</button><button type="button" data-site-tab="environment">Entorno</button><button type="button" data-site-tab="notes">Notas y acceso</button></div>
+        <div class="sites-editor-body">{detail}</div>
+        <div class="sites-archive">{archive_action}</div>
+      </main>
+    """
+    selection_data = json.dumps(
+        {"selected": bool(selected_row), "geometry": geometry, "parent_geometry": parent_geometry, "location": location},
+        ensure_ascii=False,
+    ).replace("<", "\\u003c")
+    map_html = f"""
+      <aside class="sites-map-column">
+        <script type="application/json" class="known-site-selection-data">{selection_data}</script>
+        <section class="sites-map-card">
+          <header><strong>Mapa / geometría</strong><button type="button" id="site-map-fullscreen" title="Amplía el mapa para dibujar o revisar el polígono con más espacio">Ver en mapa completo</button></header>
+          <div class="sites-map-wrap"><div id="known-site-map"></div><div class="sites-map-empty" {'hidden' if selected_row else ''}>Selecciona un área o microárea</div><div class="site-map-controls"><button class="site-map-control site-layer-toggle" id="site-layer-toggle" type="button" aria-expanded="false" aria-controls="site-layer-panel" title="Mapa base"><svg aria-hidden="true" viewBox="0 0 24 24"><polygon points="12 2 22 7 12 12 2 7"></polygon><polyline points="22 12 12 17 2 12"></polyline><polyline points="22 17 12 22 2 17"></polyline></svg></button><button class="site-map-control" id="site-terrain-toggle" type="button" aria-pressed="false" title="Activar relieve 3D">3D</button><button class="site-map-control site-north-toggle" id="site-north-toggle" type="button" title="Orientar al norte"><span aria-hidden="true"></span></button><div class="site-layer-panel" id="site-layer-panel" hidden><button class="active" type="button" data-basemap="satellite">Satélite+</button><button type="button" data-basemap="hybrid">Híbrido</button><button type="button" data-basemap="topographic">Topográfico</button></div></div></div>
+          <div class="geometry-actions"><button type="button" class="primary" id="site-draw-polygon" title="Dibuja el límite del área o microárea sobre el mapa">Dibujar polígono</button><button type="button" id="site-edit-polygon" title="Permite mover los vértices del polígono actual">Editar vértices</button><button type="button" id="site-use-centroid" title="Rellena latitud y longitud con el punto central calculado del polígono">Rellenar ubicación central</button><button type="button" id="site-recover-gis" title="Propone altitud, pendiente, orientación y entorno a partir del polígono"{' disabled' if not selected_row else ''}>Recuperar GIS/DEM</button></div>
+          <p class="geometry-status" id="site-geometry-status">{'Geometría guardada. Puedes editar sus vértices.' if geometry else 'Sin geometría. Dibuja el límite del setal en el mapa.'}</p>
+        </section>
+        <section class="sites-derived-card"><header><strong>Datos derivados de la geometría</strong></header><div><span>Centroide</span><strong id="site-centroid">-</strong><span>Superficie aproximada</span><strong id="site-area">-</strong></div></section>
+      </aside>
+    """
+    return {
+        "kind": kind,
+        "selected_id": selected_id,
+        "selected": bool(selected_row),
+        "editor_html": editor_html,
+        "map_html": map_html,
+    }
 
 
 def render_page(payload: dict[str, object], observations_payload: dict[str, object], query: dict[str, list[str]], flash: str = "", gis_preview: dict[str, object] | None = None, catalogs_payload: dict[str, object] | None = None) -> str:
     kind = (query.get("kind") or ["micro_area"])[0]
     selected_id = (query.get("id") or [""])[0]
-    search = (query.get("q") or [""])[0].strip().casefold()
+    search_text = (query.get("q") or [""])[0]
+    search = search_text.strip().casefold()
     return_to = (query.get("return_to") or ["./profiles?section=observations"])[0]
     areas = [row for row in payload.get("areas", []) if isinstance(row, dict)] if isinstance(payload.get("areas"), list) else []
     micro_areas = [row for row in payload.get("micro_areas", []) if isinstance(row, dict)] if isinstance(payload.get("micro_areas"), list) else []
@@ -398,7 +517,8 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
             area_children_id = f"site-area-children-{area_index}"
             status_class = " archived" if area.get("archived") else ""
             group_selected = kind == "area" and selected_id == area_id or kind == "micro_area" and any(str(child.get("micro_area_id", "")) == selected_id for child in children)
-            rows_html.append(f'<section class="site-area-group" data-site-area-group data-area-id="{_text(area_id)}" data-selected="{str(group_selected).lower()}"><div class="site-tree-row area{selected_class}"><button class="site-tree-toggle" type="button" data-site-area-toggle aria-expanded="true" aria-controls="{area_children_id}" title="Plegar o desplegar microáreas"><span aria-hidden="true">▾</span></button><a class="site-tree-area-link" href="{query_url("area", area_id, return_to=return_to)}"><strong>{html.escape(str(area.get("name", area_id)))}</strong></a><span class="site-status{status_class}">{html.escape(status_text)}</span><a class="site-count" href="#{_text(area_modal_id)}" title="Ver observaciones">{len(area_observations)}</a></div><div class="site-area-children" id="{area_children_id}">')
+            aria_current = ' aria-current="true"' if selected_class else ""
+            rows_html.append(f'<section class="site-area-group" data-site-area-group data-area-id="{_text(area_id)}" data-selected="{str(group_selected).lower()}"><div class="site-tree-row area{selected_class}"><button class="site-tree-toggle" type="button" data-site-area-toggle aria-expanded="true" aria-controls="{area_children_id}" title="Plegar o desplegar microáreas"><span aria-hidden="true">▾</span></button><a class="site-tree-area-link" data-known-site-select data-known-site-kind="area" data-known-site-id="{_text(area_id)}"{aria_current} href="{query_url("area", area_id, search_text, return_to)}"><strong>{html.escape(str(area.get("name", area_id)))}</strong></a><span class="site-status{status_class}">{html.escape(status_text)}</span><a class="site-count" href="#{_text(area_modal_id)}" title="Ver observaciones">{len(area_observations)}</a></div><div class="site-area-children" id="{area_children_id}">')
             if area_observations:
                 observation_modals.append(_site_observations_modal(area_modal_id, str(area.get("name", area_id)), area_observations, current_url, abundance_labels))
             for micro in sorted(children, key=lambda row: str(row.get("name", "")).casefold()):
@@ -410,47 +530,27 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
                 micro_observations = [row for row in observation_rows if str(row.get("micro_area_id", "")) == micro_id]
                 micro_modal_id = f"site-observations-micro-{micro_id}"
                 status_class = " archived" if micro.get("archived") else ""
-                rows_html.append(f'<div class="site-tree-row micro{selected_class}"><a class="site-tree-main" href="{query_url("micro_area", micro_id, return_to=return_to)}"><span class="site-tree-icon">↳</span><strong>{html.escape(str(micro.get("name", micro_id)))}</strong></a><span class="site-status{status_class}">{html.escape(status_text)}</span><a class="site-count" href="#{_text(micro_modal_id)}" title="Ver observaciones">{len(micro_observations)}</a></div>')
+                aria_current = ' aria-current="true"' if selected_class else ""
+                rows_html.append(f'<div class="site-tree-row micro{selected_class}"><a class="site-tree-main" data-known-site-select data-known-site-kind="micro_area" data-known-site-id="{_text(micro_id)}"{aria_current} href="{query_url("micro_area", micro_id, search_text, return_to)}"><span class="site-tree-icon">↳</span><strong>{html.escape(str(micro.get("name", micro_id)))}</strong></a><span class="site-status{status_class}">{html.escape(status_text)}</span><a class="site-count" href="#{_text(micro_modal_id)}" title="Ver observaciones">{len(micro_observations)}</a></div>')
                 if micro_observations:
                     observation_modals.append(_site_observations_modal(micro_modal_id, f"{area_names.get(area_id, area_id)} · {micro.get('name', micro_id)}", micro_observations, current_url, abundance_labels))
             rows_html.append('</div></section>')
 
-    selected_area = next((row for row in areas if str(row.get("area_id", "")) == selected_id), None) if kind == "area" else None
-    selected_micro = next((row for row in micro_areas if str(row.get("micro_area_id", "")) == selected_id), None) if kind == "micro_area" else None
-    if isinstance(gis_preview, dict) and gis_preview.get("kind") == kind and gis_preview.get("id") == selected_id and isinstance(gis_preview.get("draft") or gis_preview.get("base"), dict):
-        preview_row = gis_preview.get("draft") or gis_preview.get("base")
-        if kind == "area":
-            selected_area = preview_row
-        else:
-            selected_micro = preview_row
-    detail = _area_form(selected_area, return_to=return_to, geometry_id="known-site-geometry") if selected_area else _micro_form(selected_micro, payload, return_to=return_to, geometry_id="known-site-geometry") if selected_micro else f'<div class="catalog-empty-detail">{html.escape(label("ui.select_area_or_micro_area"))}</div>'
-    selected_row = selected_area or selected_micro
-    selected_name = str(selected_row.get("name", "")) if selected_row else ""
-    parent_name = area_names.get(str(selected_micro.get("area_id", "")), "") if selected_micro else ""
-    breadcrumb = f'{html.escape(parent_name)} <span>/</span> <strong>{html.escape(selected_name)}</strong>' if parent_name else f'<strong>{html.escape(selected_name)}</strong>'
-    geometry = selected_row.get("geometry") if isinstance(selected_row, dict) and isinstance(selected_row.get("geometry"), dict) else None
-    geometry_json = json.dumps(geometry, ensure_ascii=False).replace("<", "\\u003c") if geometry else "null"
-    parent_area = next((row for row in areas if selected_micro and str(row.get("area_id", "")) == str(selected_micro.get("area_id", ""))), None)
-    parent_geometry = parent_area.get("geometry") if isinstance(parent_area, dict) and isinstance(parent_area.get("geometry"), dict) else None
-    parent_geometry_json = json.dumps(parent_geometry, ensure_ascii=False).replace("<", "\\u003c") if parent_geometry else "null"
-    archive_action = ""
-    if selected_area:
-        action_class = "warning" if selected_area.get("archived") else "danger"
-        archive_action = f'<form method="post"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="known_site_action" value="toggle_area_archive"><input type="hidden" name="area_id" value="{_text(selected_id)}"><button class="secondary {action_class}">{html.escape(label("ui.restore") if selected_area.get("archived") else label("ui.archive"))}</button></form>'
-        if selected_area.get("archived"):
-            archive_action += f'<form method="post" onsubmit="return confirm(\'Esta acción borrará definitivamente el área {html.escape(selected_id, quote=True)}. ¿Continuar?\')"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="known_site_action" value="delete_area"><input type="hidden" name="area_id" value="{_text(selected_id)}"><button class="danger">Borrar definitivamente</button></form>'
-    elif selected_micro:
-        action_class = "warning" if selected_micro.get("archived") else "danger"
-        archive_action = f'<form method="post"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="known_site_action" value="toggle_micro_area_archive"><input type="hidden" name="micro_area_id" value="{_text(selected_id)}"><button class="secondary {action_class}">{html.escape(label("ui.restore") if selected_micro.get("archived") else label("ui.archive"))}</button></form>'
-        if selected_micro.get("archived"):
-            archive_action += f'<form method="post" onsubmit="return confirm(\'Esta acción borrará definitivamente la microárea {html.escape(selected_id, quote=True)}. ¿Continuar?\')"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="known_site_action" value="delete_micro_area"><input type="hidden" name="micro_area_id" value="{_text(selected_id)}"><button class="danger">Borrar definitivamente</button></form>'
+    selection_fragment = render_selection_fragment(payload, query, gis_preview)
+    editor_html = str(selection_fragment["editor_html"])
+    map_html = str(selection_fragment["map_html"])
+    selected_row = None
+    if selection_fragment["selected"]:
+        selected_rows = areas if kind == "area" else micro_areas
+        id_field = "area_id" if kind == "area" else "micro_area_id"
+        selected_row = next((row for row in selected_rows if str(row.get(id_field, "")) == selected_id), None)
 
     return f"""
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css">
     <div class="catalog-toolbar sites-top-toolbar">
       <a class="button-link" href="{_text(return_to)}">{html.escape(label('ui.back'))}</a>
-      <a class="button-link" href="{query_url(kind, selected_id, (query.get('q') or [''])[0], return_to)}">Actualizar</a>
+      <a class="button-link" data-known-sites-refresh-link href="{query_url(kind, selected_id, search_text, return_to)}">Actualizar</a>
       <a class="button-link" href="./catalogs">Catálogos de referencia</a>
       <a class="button-link" href="./gis-mappings">Mapeos GIS</a>
       <a class="button-link" href="./profiles">Especies</a>
@@ -470,21 +570,8 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
         <nav class="sites-tree">{''.join(rows_html) or f'<p class="meta">{html.escape(label("ui.no_known_sites"))}</p>'}</nav>
         <footer>Mostrando {len(micro_areas)} microáreas en {len(areas)} áreas</footer>
       </aside>
-      <main class="sites-editor-panel">
-        <header class="sites-editor-head"><div>{breadcrumb or html.escape(label('ui.select_area_or_micro_area'))}</div>{f'<span class="site-kind">{"Área" if selected_area else "Microárea"}</span><span class="site-status{" archived" if selected_row.get("archived") else ""}">{html.escape(label("ui.archived") if selected_row.get("archived") else label("ui.active"))}</span>' if selected_row else ''}</header>
-        <div class="sites-tabs"><button type="button" class="active" data-site-tab="general">General</button><button type="button" data-site-tab="geometry">Geometría</button><button type="button" data-site-tab="environment">Entorno</button><button type="button" data-site-tab="notes">Notas y acceso</button></div>
-        <div class="sites-editor-body">{detail}</div>
-        <div class="sites-archive">{archive_action}</div>
-      </main>
-      <aside class="sites-map-column">
-        <section class="sites-map-card">
-          <header><strong>Mapa / geometría</strong><button type="button" id="site-map-fullscreen" title="Amplía el mapa para dibujar o revisar el polígono con más espacio">Ver en mapa completo</button></header>
-          <div class="sites-map-wrap"><div id="known-site-map"></div><div class="sites-map-empty" {'hidden' if selected_row else ''}>Selecciona un área o microárea</div><div class="site-map-controls"><button class="site-map-control site-layer-toggle" id="site-layer-toggle" type="button" aria-expanded="false" aria-controls="site-layer-panel" title="Mapa base"><svg aria-hidden="true" viewBox="0 0 24 24"><polygon points="12 2 22 7 12 12 2 7"></polygon><polyline points="22 12 12 17 2 12"></polyline><polyline points="22 17 12 22 2 17"></polyline></svg></button><button class="site-map-control" id="site-terrain-toggle" type="button" aria-pressed="false" title="Activar relieve 3D">3D</button><button class="site-map-control site-north-toggle" id="site-north-toggle" type="button" title="Orientar al norte"><span aria-hidden="true"></span></button><div class="site-layer-panel" id="site-layer-panel" hidden><button class="active" type="button" data-basemap="satellite">Satélite+</button><button type="button" data-basemap="hybrid">Híbrido</button><button type="button" data-basemap="topographic">Topográfico</button></div></div></div>
-          <div class="geometry-actions"><button type="button" class="primary" id="site-draw-polygon" title="Dibuja el límite del área o microárea sobre el mapa">Dibujar polígono</button><button type="button" id="site-edit-polygon" title="Permite mover los vértices del polígono actual">Editar vértices</button><button type="button" id="site-use-centroid" title="Rellena latitud y longitud con el punto central calculado del polígono">Rellenar ubicación central</button><button type="button" id="site-recover-gis" title="Propone altitud, pendiente, orientación y entorno a partir del polígono"{' disabled' if not selected_row else ''}>Recuperar GIS/DEM</button></div>
-          <p class="geometry-status" id="site-geometry-status">{'Geometría guardada. Puedes editar sus vértices.' if geometry else 'Sin geometría. Dibuja el límite del setal en el mapa.'}</p>
-        </section>
-        <section class="sites-derived-card"><header><strong>Datos derivados de la geometría</strong></header><div><span>Centroide</span><strong id="site-centroid">-</strong><span>Superficie aproximada</span><strong id="site-area">-</strong></div></section>
-      </aside>
+      {editor_html}
+      {map_html}
     </div>
     <div id="new-area" class="modal-layer"><a class="modal-backdrop" href="#"></a><div class="modal-card modal-card-wide">{_area_form({}, create=True, return_to=return_to, geometry_id="new-area-geometry")}</div></div>
     <div id="new-micro-area" class="modal-layer"><a class="modal-backdrop" href="#"></a><div class="modal-card modal-card-wide">{_micro_form({}, payload, create=True, return_to=return_to, geometry_id="new-micro-geometry")}</div></div>
@@ -492,5 +579,5 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
     {_gis_review_modal(gis_preview, selected_row, return_to, current_url)}
     {mushroom_profiles_ui.observation_site_map_assets() if observation_modals else ''}
     {''.join(observation_modals)}
-    {_known_sites_map_assets(geometry_json, parent_geometry_json, bool(selected_row))}
+    {_known_sites_map_assets()}
     """

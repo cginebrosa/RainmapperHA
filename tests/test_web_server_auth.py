@@ -277,6 +277,31 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Open full log", page)
         self.assertIn("Disable all", page)
         self.assertIn("Enable all", page)
+        self.assertNotIn('http-equiv="refresh"', page)
+        self.assertIn('id="rainmapper-control-panel-live"', page)
+        self.assertIn("api/control-panel-fragment", page)
+        self.assertIn("window.setTimeout(refreshControlPanel,5000)", page)
+        self.assertIn("if(livePanel.dataset.controlSignature!==payload.signature)", page)
+
+    def test_control_panel_fragment_endpoint_returns_live_region(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.render_control_panel_body = lambda: '<section data-control-panel="summary">Updated</section>'
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(status=status, payload=payload)
+
+        handler.serve_control_panel_fragment()
+
+        self.assertEqual(captured["status"], 200)
+        self.assertEqual(
+            captured["payload"],
+            {
+                "ok": True,
+                "html": '<section data-control-panel="summary">Updated</section>',
+                "signature": self.web_server.hashlib.sha256(
+                    b'<section data-control-panel="summary">Updated</section>'
+                ).hexdigest(),
+            },
+        )
 
     def test_mushroom_catalogs_page_renders_reference_catalog_hub(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -394,6 +419,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("profile-metrics", page)
         self.assertIn("profile-tab-labels", page)
         self.assertIn("profile-list-rows", page)
+        self.assertIn('data-profile-species-id="boletus_pinophilus"', page)
+        self.assertIn('data-profile-refresh-link', page)
+        self.assertIn('/api/mushrooms/profile-detail?', page)
+        self.assertIn('selectSpeciesProfile(speciesLink)', page)
+        self.assertIn('window.history.pushState({ speciesId: payload.species_id }', page)
         self.assertIn("profile-list-chip-legend", page)
         self.assertIn('title="Overall confidence:', page)
         self.assertIn('title="Calibration priority:', page)
@@ -412,6 +442,129 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Species", page)
         self.assertIn("Observations", page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
+
+    def test_mushroom_profile_detail_endpoint_returns_editor_and_current_navigation(self) -> None:
+        store = mock.Mock()
+        store.load.side_effect = lambda name: {
+            "profiles": {
+                "species_profiles": [
+                    {
+                        "species_id": "boletus_pinophilus",
+                        "scientific_name": "Boletus pinophilus",
+                        "common_names": {"es": ["Pinícola", "Boleto de pino"], "ca": ["Cep de pi"]},
+                    },
+                    {
+                        "species_id": "boletus_aereus",
+                        "scientific_name": "Boletus aereus",
+                    },
+                ]
+            },
+            "catalogs": {"catalogs": {}},
+        }[name]
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(status=status, payload=payload)
+
+        with mock.patch.object(self.web_server, "default_store", return_value=store):
+            handler.serve_mushroom_profile_detail(
+                {"id": ["boletus_pinophilus"], "view": ["v0"], "q": ["boletus"]}
+            )
+
+        self.assertEqual(captured["status"], 200)
+        payload = captured["payload"]
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["species_id"], "boletus_pinophilus")
+        self.assertIn("Boletus pinophilus", payload["editor_html"])
+        self.assertNotIn("Boletus aereus", payload["editor_html"])
+        editor_header = payload["editor_html"].split("<form method=", 1)[0]
+        self.assertIn("Pinícola, Boleto de pino, Cep de pi", editor_header)
+        self.assertNotIn(" · boletus_pinophilus", editor_header)
+        self.assertIn("id=boletus_pinophilus", payload["section_tabs_html"])
+        self.assertIn("id=boletus_pinophilus", payload["view_switch_html"])
+        self.assertIn("id=boletus_pinophilus", payload["refresh_url"])
+        self.assertEqual([mock.call("profiles"), mock.call("catalogs")], store.load.call_args_list)
+
+    def test_mushroom_known_site_detail_endpoint_returns_only_selected_panels(self) -> None:
+        known_sites = {
+            "areas": [
+                {
+                    "area_id": "bergueda",
+                    "name": "Berguedà",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[1.8, 42.0], [1.9, 42.0], [1.8, 42.1], [1.8, 42.0]]],
+                    },
+                }
+            ],
+            "micro_areas": [
+                {
+                    "micro_area_id": "bergueda_obaga",
+                    "area_id": "bergueda",
+                    "name": "Obaga del Berguedà",
+                },
+                {
+                    "micro_area_id": "bergueda_solans",
+                    "area_id": "bergueda",
+                    "name": "Solans",
+                },
+            ],
+        }
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(status=status, payload=payload)
+
+        with mock.patch.object(self.web_server.mushroom_known_sites, "load_payload", return_value=known_sites):
+            handler.serve_mushroom_known_site_detail(
+                {
+                    "kind": ["micro_area"],
+                    "id": ["bergueda_obaga"],
+                    "q": ["bergueda"],
+                    "return_to": ["./profiles?section=observations"],
+                }
+            )
+
+        self.assertEqual(captured["status"], 200)
+        payload = captured["payload"]
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["selected_id"], "bergueda_obaga")
+        self.assertIn("Obaga del Berguedà", payload["editor_html"])
+        self.assertNotIn("Solans", payload["editor_html"])
+        self.assertIn('class="known-site-selection-data"', payload["map_html"])
+        self.assertIn('"parent_geometry":', payload["map_html"])
+        self.assertIn("kind=micro_area", payload["refresh_url"])
+        self.assertIn("id=bergueda_obaga", payload["refresh_url"])
+
+    def test_known_sites_page_selects_rows_without_full_navigation(self) -> None:
+        known_sites = {
+            "areas": [{"area_id": "bergueda", "name": "Berguedà"}],
+            "micro_areas": [
+                {
+                    "micro_area_id": "bergueda_obaga",
+                    "area_id": "bergueda",
+                    "name": "Obaga del Berguedà",
+                }
+            ],
+        }
+
+        page = self.web_server.mushroom_known_sites_ui.render_page(
+            known_sites,
+            {"observations": []},
+            {"kind": ["micro_area"], "id": ["bergueda_obaga"], "q": ["bergueda"]},
+            catalogs_payload={"catalogs": {}},
+        )
+
+        self.assertIn('data-known-site-select data-known-site-kind="area"', page)
+        self.assertIn('data-known-site-select data-known-site-kind="micro_area"', page)
+        self.assertIn('data-known-site-id="bergueda_obaga" aria-current="true"', page)
+        self.assertIn('data-known-sites-refresh-link', page)
+        self.assertIn('class="known-site-selection-data"', page)
+        self.assertIn('/api/mushrooms/known-site-detail', page)
+        self.assertIn("loadSelection(href", page)
+        self.assertIn("history.pushState", page)
+        self.assertIn("cleanupSelection()", page)
+        self.assertIn("mapOptions.bounds=initialBounds", page)
+        self.assertIn("duration:0", page)
+        self.assertNotIn("center:[1.9,42.05]", page)
 
     def test_mushroom_profiles_defaults_to_v0_view(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -1794,6 +1947,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("min-height: 122px", page)
         self.assertIn("closeObservationExifPreview({ clearInput: true })", page)
         self.assertIn("captured_at_display", page)
+        self.assertIn('/api/mushrooms/observation-detail?', page)
+        self.assertIn('window.history.pushState({ observationId: payload.observation_id }', page)
         self.assertNotIn("rainmapperMaplibreAuth", page)
         self.assertNotIn("X-Rainmapper-Device", page)
         self.assertIn('name="observed_host_ids"', html)
@@ -1801,13 +1956,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('<details id="gis-reconstruction-lab"', html)
         self.assertLess(html.index('href="#new-observation"'), html.index('id="archived-observations"'))
         self.assertLess(html.index('href="#new-observation"'), html.index('id="gis-reconstruction-lab"'))
-        self.assertIn('data-observation-select data-observation-href=', html)
-        self.assertIn('onclick="selectObservationRow(this)"', html)
+        self.assertIn('data-observation-select data-observation-id="obs_20260629_0001"', html)
+        self.assertIn('data-observation-href=', html)
+        self.assertIn('onclick="selectObservationRow(this, event)"', html)
+        self.assertIn('class="observation-pagination"', html)
+        self.assertIn('class="observation-page-range">1–1 de 1', html)
+        self.assertIn('title="Primera página"', html)
+        self.assertIn('title="Última página"', html)
         self.assertIn('class="observation-map-link" href="#observation-map-obs-20260629-0001"', html)
         self.assertIn('id="observation-map-obs-20260629-0001"', html)
         self.assertIn('data-modal-history-close', html)
-        self.assertIn('data-observation-href="?section=observations&amp;obs_id=obs_20260629_0001&amp;id=boletus_pinophilus&amp;date_from=2026-06-29&amp;result=abundant"', html)
+        self.assertIn('data-observation-href="?section=observations&amp;obs_id=obs_20260629_0001&amp;id=boletus_pinophilus&amp;date_from=2026-06-29&amp;result=abundant&amp;page=1&amp;page_size=25"', html)
         self.assertIn('class="observation-site-map"', html)
+        self.assertEqual(html.count('id="observation-known-sites-data"'), 1)
         self.assertIn('class="observation-map-control observation-layer-toggle"', html)
         self.assertIn('class="observation-map-control observation-terrain-toggle"', html)
         self.assertIn('class="observation-map-control observation-north-toggle"', html)
@@ -1862,6 +2023,160 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('class="observation-row selected"', all_species_html)
         self.assertIn("<h2>All species</h2>", all_species_html)
         self.assertIn("duplicate_from=obs_20260628_0001", all_species_html)
+
+    def test_observation_table_uses_area_names_without_exposing_site_ids(self) -> None:
+        rows = [
+            {
+                "observation_id": "obs_names_0001",
+                "species_id": "boletus_pinophilus",
+                "observed_at": "2026-07-17",
+                "flush_abundance": "normal",
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "micro_area_id": "micro_internal_id",
+                "observer": {"name": "Carlos"},
+                "source": {"label": "IMG_6908.jpeg"},
+            }
+        ]
+        known_sites = {
+            "areas": [{"area_id": "area_internal_id", "name": "Sant Joan"}],
+            "micro_areas": [
+                {
+                    "micro_area_id": "micro_internal_id",
+                    "area_id": "area_internal_id",
+                    "name": "Serrat de la Carbassa",
+                }
+            ],
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_profiles_ui.mushroom_known_sites,
+            "load_payload",
+            return_value=known_sites,
+        ):
+            table_html = self.web_server.mushroom_profiles_ui.render_observation_table(
+                rows,
+                {},
+                {"boletus_pinophilus": "Boletus pinophilus"},
+            )
+
+        self.assertIn("Sant Joan", table_html)
+        self.assertIn("Serrat de la Carbassa", table_html)
+        self.assertNotIn("area_internal_id", table_html)
+        self.assertNotIn("micro_internal_id", table_html)
+        self.assertNotIn("Carlos", table_html)
+        self.assertNotIn("IMG_6908.jpeg", table_html)
+
+    def test_observation_pager_renders_compact_svg_navigation(self) -> None:
+        pager_html = self.web_server.mushroom_profiles_ui.render_observation_pager(
+            126,
+            1,
+            25,
+            6,
+            "",
+            "",
+            {"sort": "observed_at", "dir": "desc", "page_size": "25"},
+        )
+
+        self.assertIn("1–25 de 126", pager_html)
+        self.assertEqual(pager_html.count('<svg aria-hidden="true"'), 4)
+        self.assertIn("page=2", pager_html)
+        self.assertIn("page=6", pager_html)
+        self.assertIn('title="Primera página"', pager_html)
+        self.assertIn('title="Página anterior"', pager_html)
+        self.assertIn('aria-disabled="true"', pager_html)
+
+    def test_observation_workspace_only_renders_the_requested_page_rows(self) -> None:
+        profile = {"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}
+        observations = {
+            "observations": [
+                {
+                    "observation_id": f"obs_page_{index:04d}",
+                    "species_id": "boletus_pinophilus",
+                    "observed_at": f"2026-06-{index:02d}",
+                    "flush_abundance": "normal",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                }
+                for index in range(1, 31)
+            ]
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_profiles_ui.mushroom_known_sites,
+            "load_payload",
+            return_value={"areas": [], "micro_areas": []},
+        ):
+            first_page = self.web_server.mushroom_profiles_ui.render_observations_section(
+                profile,
+                [profile],
+                {},
+                observations,
+                {"observations": []},
+                filters={"page_size": "25"},
+            )
+            second_page = self.web_server.mushroom_profiles_ui.render_observations_section(
+                profile,
+                [profile],
+                {},
+                observations,
+                {"observations": []},
+                filters={"page": "2", "page_size": "25"},
+            )
+
+        self.assertEqual(first_page.count("data-observation-select"), 25)
+        self.assertIn("1–25 de 30", first_page)
+        self.assertEqual(second_page.count("data-observation-select"), 5)
+        self.assertIn("26–30 de 30", second_page)
+
+    def test_observation_detail_endpoint_returns_only_selected_fragment(self) -> None:
+        store = mock.Mock()
+        store.load.side_effect = lambda name: {
+            "profiles": {
+                "species_profiles": [
+                    {"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}
+                ]
+            },
+            "catalogs": {"catalogs": {}},
+            "observations": {
+                "observations": [
+                    {
+                        "observation_id": "obs_detail_0001",
+                        "species_id": "boletus_pinophilus",
+                        "observed_at": "2026-07-17",
+                        "flush_abundance": "normal",
+                        "validation_status": "valid",
+                        "calibration_use": "include",
+                    },
+                    {
+                        "observation_id": "obs_detail_0002",
+                        "species_id": "boletus_pinophilus",
+                        "observed_at": "2026-07-16",
+                    },
+                ]
+            },
+        }[name]
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(status=status, payload=payload)
+
+        with (
+            mock.patch.object(self.web_server, "default_store", return_value=store),
+            mock.patch.object(self.web_server, "load_archived_observations", return_value={"observations": []}),
+            mock.patch.object(
+                self.web_server.mushroom_profiles_ui.mushroom_known_sites,
+                "load_payload",
+                return_value={"areas": [], "micro_areas": []},
+            ),
+        ):
+            handler.serve_mushroom_observation_detail(
+                {"obs_id": ["obs_detail_0001"], "id": ["boletus_pinophilus"], "page": ["1"]}
+            )
+
+        self.assertEqual(captured["status"], 200)
+        payload = captured["payload"]
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["observation_id"], "obs_detail_0001")
+        self.assertIn("obs_detail_0001", payload["html"])
+        self.assertNotIn("obs_detail_0002", payload["html"])
 
     def test_mushroom_species_page_has_generic_modal_navigation_history(self) -> None:
         page = self.web_server.html_page(
