@@ -8,10 +8,10 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 - Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.205`.
-- Commit release: `f8ba89a Release Home Assistant 0.2.205`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.205` y `latest`.
-- Digest multi-arch: `sha256:a8eb573e809a49d172c4cc16ab9b73f511df575112d24d8883c76d02620aed9b`.
+- Ultimo release HA publicado: `0.2.206`.
+- Commit release: `9d684bb Release Home Assistant 0.2.206`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.206` y `latest`.
+- Digest multi-arch: `sha256:47da2be9cdfce2698f2d4825e7b25be50aabf1dddb355693846ff5f56343ef17`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - El usuario valido `0.2.204` en HA el 2026-07-16: la carga y asociacion de un
@@ -38,7 +38,23 @@ GHCR y backfill dejan de ser el foco inmediato. Siguen pendientes una posible
 limpieza conservadora y pruebas mensuales cortas, pero no deben interrumpir la
 estabilizacion actual de setales/observaciones salvo peticion del usuario.
 
-## Release 0.2.205 pendiente de validacion en HA
+## Release 0.2.206 pendiente de validacion en HA
+
+- `0.2.206` esta publicada y verificada para amd64/arm64; falta la prueba real
+  del usuario en Home Assistant.
+- Observaciones incorpora un selector de calendario con navegacion directa por
+  mes y ano, campos de fecha compactos, filas y acciones mas densas y mas ancho
+  util para la lista.
+- El detalle de observacion amplía la miniatura, simplifica sus etiquetas y
+  reserva mas espacio para los valores. La confirmacion de desasociar medios ya
+  no se cierra por la navegacion ligera del historial.
+- Especies reorganiza los seis estados en una cuadricula 3x2, equilibra los
+  indicadores superiores, da mas ancho a nombres cientificos y comunes y
+  compacta verticalmente el editor para mantener visibles las acciones.
+- Las barras de acciones superiores de perfiles, catalogos, GIS y setales usan
+  la misma densidad visual.
+
+## Release 0.2.205 sustituida por 0.2.206
 
 - `0.2.205` esta publicada y verificada para amd64/arm64; falta la prueba real
   del usuario en Home Assistant.
@@ -55,7 +71,8 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
   `/api/mushrooms/known-site-detail`. Destruye el MapLibre anterior, cancela
   peticiones obsoletas, conserva el scroll/plegado del arbol y mantiene la
   proteccion de cambios sin guardar. El mapa nace ya encuadrado en la geometria
-  o ubicacion seleccionada y no hace el salto visual previo por Olvan.
+  o ubicacion seleccionada y no hace el salto visual previo desde la ubicacion
+  predeterminada.
 - El Control Panel conserva el refresco de cinco segundos, pero ya no usa una
   recarga completa del documento. Consulta `/api/control-panel-fragment`,
   compara una firma del HTML y solo actualiza la region viva cuando cambia;
@@ -182,7 +199,7 @@ instantaneo.
   privados persistentes y no se versionan.
 - Resolver canonico: `rainmapper_core/mushroom_paths.py`.
 - UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
-- La release remota publicada es `0.2.205` y esta pendiente de validacion real
+- La release remota publicada es `0.2.206` y esta pendiente de validacion real
   en HA. La UI local estaba disponible durante la
   validacion; comprobar su estado antes de asumir que el contenedor sigue activo
   en una nueva sesion.
@@ -198,10 +215,9 @@ instantaneo.
 - Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
   longitud y `Content-Range` correctos.
 - Validador de datos: 0 errores y 11 warnings conocidos.
-- Imagen remota `0.2.205`/`latest` verificada para amd64/arm64 con digest
-  `sha256:a8eb573e809a49d172c4cc16ab9b73f511df575112d24d8883c76d02620aed9b`;
-  Python 3.11.15, version runtime y endpoints nuevos correctos en ambas
-  arquitecturas.
+- Imagen remota `0.2.206`/`latest` verificada para amd64/arm64 con digest
+  `sha256:47da2be9cdfce2698f2d4825e7b25be50aabf1dddb355693846ff5f56343ef17`;
+  tamano comprimido 497.299.566 bytes en amd64 y 478.262.263 bytes en arm64.
 - Prueba HA real completada por el usuario: carga, preview, asociacion, guardado
   y conversion del video de 30,4 MB totalmente funcionales; FFmpeg tarda 5-10 s.
 

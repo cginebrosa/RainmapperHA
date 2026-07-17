@@ -42,12 +42,26 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 - [x] Mantener cargada la lista de especies y sustituir asincronamente solo el
   editor derecho, conservando vista, pestana, historial y nombres comunes.
 - [x] Mantener el arbol de setales al cambiar de seleccion, regenerar solo
-  editor/mapa y eliminar el salto inicial del mapa por Olvan.
+  editor/mapa y eliminar el salto inicial desde la ubicacion predeterminada.
 - [x] Sustituir el meta-refresh del Control Panel por polling cada cinco
   segundos con firma de contenido, conservando pestana y scroll.
 - [x] Ejecutar 244 tests y publicar/verificar `0.2.205`/`latest` para amd64 y
   arm64 con digest `sha256:a8eb573e809a49d172c4cc16ab9b73f511df575112d24d8883c76d02620aed9b`.
-- [ ] Validar `0.2.205` en Home Assistant.
+- [ ] Validacion de `0.2.205` sustituida por la prueba de `0.2.206`.
+
+### Publicado en el release 0.2.206
+
+- [x] Incorporar un selector de fechas con calendario y navegacion directa por
+  mes y ano, manteniendo campos compactos y fechas visibles.
+- [x] Compactar la lista y el detalle de observaciones, ampliar la miniatura y
+  simplificar etiquetas para ganar espacio util.
+- [x] Reorganizar estados e indicadores de especies, ampliar nombres y compactar
+  verticalmente el editor sin reducir tipografias.
+- [x] Homogeneizar las barras de acciones de las pantallas de mantenimiento y
+  corregir el cierre prematuro de la confirmacion para desasociar medios.
+- [x] Ejecutar 244 tests y publicar/verificar `0.2.206`/`latest` para amd64 y
+  arm64 con digest `sha256:47da2be9cdfce2698f2d4825e7b25be50aabf1dddb355693846ff5f56343ef17`.
+- [ ] Validar `0.2.206` en Home Assistant.
 
 ### Completado en el cierre 0.2.202
 
