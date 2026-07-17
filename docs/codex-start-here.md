@@ -77,14 +77,16 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA publicado: `0.2.204`.
-- Version HA del repo: `0.2.204` en `rainmapper-app/config.yaml` y
+- Ultimo release HA publicado: `0.2.205`.
+- Version HA del repo: `0.2.205` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.204` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.205` y
   `latest`, digest multi-arch
-  `sha256:ceaed487b93eb5a680b882a16caa6d4062dd038c53f6d2268e59f0903897e8c8`.
-- Commit release: `7ed7580 Release Home Assistant 0.2.204`.
+  `sha256:a8eb573e809a49d172c4cc16ab9b73f511df575112d24d8883c76d02620aed9b`.
+- Commit release: `f8ba89a Release Home Assistant 0.2.205`.
+- `0.2.205` esta pendiente de validacion real en HA; mejora la navegacion de
+  observaciones, especies y setales y elimina el flash del Control Panel.
 - `0.2.199` fue validada en HA por el usuario el 2026-07-11: MapLibre protegido
   funciona y el popup largo muestra `Pluja` en `Valores IDW`.
 - `0.2.204` fue validada en HA el 2026-07-16: el flujo completo de subida,

@@ -12,7 +12,7 @@ Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
 
-## Estado operativo actual (2026-07-16)
+## Estado operativo actual (2026-07-17)
 
 ### Prioridad inmediata
 
@@ -34,6 +34,20 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   arm64 con digest `sha256:ceaed487b93eb5a680b882a16caa6d4062dd038c53f6d2268e59f0903897e8c8`.
 - [x] Validar `0.2.204` en HA con un video de 30,4 MB: subida, preview,
   asociacion y guardado totalmente funcionales; conversion FFmpeg en 5-10 s.
+
+### Publicado en el release 0.2.205
+
+- [x] Paginar observaciones en servidor, mostrar Area/Microarea por nombre y
+  actualizar solo el panel de detalle al seleccionar una fila.
+- [x] Mantener cargada la lista de especies y sustituir asincronamente solo el
+  editor derecho, conservando vista, pestana, historial y nombres comunes.
+- [x] Mantener el arbol de setales al cambiar de seleccion, regenerar solo
+  editor/mapa y eliminar el salto inicial del mapa por Olvan.
+- [x] Sustituir el meta-refresh del Control Panel por polling cada cinco
+  segundos con firma de contenido, conservando pestana y scroll.
+- [x] Ejecutar 244 tests y publicar/verificar `0.2.205`/`latest` para amd64 y
+  arm64 con digest `sha256:a8eb573e809a49d172c4cc16ab9b73f511df575112d24d8883c76d02620aed9b`.
+- [ ] Validar `0.2.205` en Home Assistant.
 
 ### Completado en el cierre 0.2.202
 

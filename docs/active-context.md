@@ -8,10 +8,10 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 - Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.204`.
-- Commit release: `7ed7580 Release Home Assistant 0.2.204`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.204` y `latest`.
-- Digest multi-arch: `sha256:ceaed487b93eb5a680b882a16caa6d4062dd038c53f6d2268e59f0903897e8c8`.
+- Ultimo release HA publicado: `0.2.205`.
+- Commit release: `f8ba89a Release Home Assistant 0.2.205`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.205` y `latest`.
+- Digest multi-arch: `sha256:a8eb573e809a49d172c4cc16ab9b73f511df575112d24d8883c76d02620aed9b`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - El usuario valido `0.2.204` en HA el 2026-07-16: la carga y asociacion de un
@@ -38,10 +38,10 @@ GHCR y backfill dejan de ser el foco inmediato. Siguen pendientes una posible
 limpieza conservadora y pruebas mensuales cortas, pero no deben interrumpir la
 estabilizacion actual de setales/observaciones salvo peticion del usuario.
 
-## Candidato local 0.2.205 pendiente de publicacion
+## Release 0.2.205 pendiente de validacion en HA
 
-- La version del repo se ha preparado como `0.2.205`; falta commit/push,
-  publicacion multi-arch y verificacion remota.
+- `0.2.205` esta publicada y verificada para amd64/arm64; falta la prueba real
+  del usuario en Home Assistant.
 - La lista de observaciones usa paginacion de servidor (25/50/100 filas),
   muestra Area y Microarea por nombre y carga solo el panel de detalle al
   seleccionar una fila. Ya no reconstruye toda la pantalla.
@@ -140,6 +140,12 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
 
 ## Ultimo cambio publicado
 
+`0.2.205` elimina recargas completas al seleccionar observaciones, especies y
+setales; pagina observaciones en servidor y usa fragmentos ligeros para los
+paneles de detalle. El mapa de setales nace encuadrado en la seleccion y el
+Control Panel conserva su refresco de cinco segundos sin recargar el documento
+ni tocar el DOM cuando el contenido no cambia.
+
 `0.2.204` habilita `ingress_stream`, admite cuerpos HTTP fragmentados y elimina
 el bloqueo de cargas superiores a 16 MB sin cambiar los limites propios de 100
 MB por archivo y 500 MB por lote. La vista previa y el guardado muestran progreso
@@ -176,8 +182,8 @@ instantaneo.
   privados persistentes y no se versionan.
 - Resolver canonico: `rainmapper_core/mushroom_paths.py`.
 - UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
-- La release remota publicada sigue siendo `0.2.204`; el candidato UI local es
-  `0.2.205` y esta pendiente de publicacion. La UI local estaba disponible durante la
+- La release remota publicada es `0.2.205` y esta pendiente de validacion real
+  en HA. La UI local estaba disponible durante la
   validacion; comprobar su estado antes de asumir que el contenedor sigue activo
   en una nueva sesion.
 - Usar siempre `.venv/bin/python` (Python 3.11), igual que contenedor y HA. No
@@ -192,9 +198,10 @@ instantaneo.
 - Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
   longitud y `Content-Range` correctos.
 - Validador de datos: 0 errores y 11 warnings conocidos.
-- Imagen remota `0.2.204`/`latest` verificada para amd64/arm64; Python 3.11.15
-  y version runtime correctos en ambas arquitecturas. Tamano comprimido:
-  478,2 MB arm64 y 497,3 MB amd64.
+- Imagen remota `0.2.205`/`latest` verificada para amd64/arm64 con digest
+  `sha256:a8eb573e809a49d172c4cc16ab9b73f511df575112d24d8883c76d02620aed9b`;
+  Python 3.11.15, version runtime y endpoints nuevos correctos en ambas
+  arquitecturas.
 - Prueba HA real completada por el usuario: carga, preview, asociacion, guardado
   y conversion del video de 30,4 MB totalmente funcionales; FFmpeg tarda 5-10 s.
 
