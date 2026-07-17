@@ -2,28 +2,28 @@
 
 ## 0.2.205
 
-- Pagina las observaciones en el servidor, muestra Área y Microárea por nombre y actualiza solo el detalle al seleccionar una fila.
-- Mantiene cargada la lista de especies y sustituye únicamente el editor seleccionado, mostrando todos los nombres comunes sin repetir el ID técnico.
-- Evita recargar la pantalla de setales al cambiar de área o microárea y abre el mapa directamente sobre la geometría seleccionada, sin el salto visual previo por Olvan.
-- Conserva el refresco de cinco segundos del Control Panel sin recargar el documento y sin modificar el DOM cuando el estado no ha cambiado.
+- Paginate observations on the server, show Area and Micro-area by name and update only the detail panel when selecting a row.
+- Keep the species list loaded and replace only the selected editor, showing all common names without repeating the technical ID.
+- Avoid reloading the known-sites screen when changing area or micro-area and open the map directly on the selected geometry, without the previous visual map jump.
+- Keep the Control Panel five-second refresh without reloading the document or modifying the DOM when the state has not changed.
 
 ## 0.2.204
 
-- Permite subir imágenes y vídeos de más de 16 MB a través del ingress de Home Assistant mediante streaming y lectura compatible con cuerpos HTTP fragmentados.
-- Muestra progreso real durante la subida y un estado visible durante la lectura EXIF, la generación de vistas previas y la conversión de vídeo.
-- Permite cancelar una vista previa o una subida todavía activa sin dejar peticiones duplicadas en Safari.
-- Corrige el enlace del visor rápido MapLibre para usar `rainmap.nomentero.com`.
+- Allow images and videos larger than 16 MB to be uploaded through Home Assistant ingress using streaming and chunked HTTP body support.
+- Show real upload progress and a visible status while reading EXIF data, generating previews and converting video.
+- Allow an active preview or upload to be cancelled without leaving duplicate requests in Safari.
+- Fix the MapLibre quick viewer link to use `rainmap.nomentero.com`.
 
 ## 0.2.203
 
-- Añade pantalla completa real al visor de imágenes de observaciones, con retorno mediante `Esc` al mismo modal.
-- Incorpora un visor grande en una pestaña independiente con zoom, tamaño real y ajuste a ventana.
-- Sustituye las nuevas acciones de texto del encabezado por controles compactos superpuestos sobre la imagen.
+- Add true fullscreen mode to the observation image viewer, returning to the same modal with `Esc`.
+- Add a large viewer in a separate tab with zoom, actual-size and fit-to-window controls.
+- Replace the new text actions in the header with compact controls overlaid on the image.
 
 ## 0.2.202
 
-- Permite reproducir vídeos MP4 de observaciones en Safari a través del ingreso de Home Assistant mediante peticiones HTTP parciales y `HEAD`.
-- Declara explícitamente la fuente MP4 y la miniatura del vídeo en el visor multimedia de observaciones.
+- Allow observation MP4 videos to play in Safari through Home Assistant ingress using partial HTTP requests and `HEAD`.
+- Explicitly declare the MP4 source and video thumbnail in the observation media viewer.
 
 ## 0.2.201
 
