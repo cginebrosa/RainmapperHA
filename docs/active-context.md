@@ -176,12 +176,45 @@ instantaneo.
 
 - `mushroom_model_v0.json` sigue siendo una salida descriptiva/auditable; no es
   un estimador ML y no escribe perfiles.
+- El objetivo binario operativo de V0 se deriva de `flush_abundance` mediante
+  el campo tecnico, no traducible, `prediction_favorable` (`0`/`1`) de cada
+  entrada de `catalogs.observation_flush_abundance`. El catalogo actual marca
+  `normal`, `abundant`, `very_abundant` y `exceptional` como favorables, y
+  `scarce`, `very_scarce` y `absent` como desfavorables. La politica tiene
+  version `catalog_prediction_favorable_v1` y guarda el mapping y su huella.
+- `flush_abundance` sigue siendo la fuente de verdad en
+  `mushroom_observations.json`; no se migra ni se duplica ningun dato privado.
+  `prediction_target` se materializa por observacion en los artefactos
+  meteorologicos y conjuntos JSON/CSV, y la politica se guarda tambien en el
+  modelo aprendido para poder auditar y reproducir cada reconstruccion.
+- `analysis_result` (`present`/`absent`) se conserva de momento por
+  compatibilidad y significado biologico, pero no es el objetivo de
+  entrenamiento. La UI reutiliza la columna Resultado para mostrar
+  Favorable/Desfavorable y debajo conserva la florada original, sin anadir
+  columnas.
+- No hay migracion automatica del catalogo persistente de HA. Para desplegar
+  esta politica: actualizar primero el add-on, importar manualmente el
+  `mushroom_reference_catalogs.json` completo actualizado y despues ejecutar
+  `Reconstruir todas`. La reconstruccion falla explicitamente si alguna
+  entrada de florada no contiene un entero `prediction_favorable` 0/1.
+- Los botones `Reconstruir esta especie` y `Reconstruir todas` de
+  `Evidencia > Modelo aprendido` ejecutan la cadena GIS/DEM, meteorologia,
+  features v0 y modelo en un job de segundo plano. La pagina vuelve de
+  inmediato y muestra el modal compartido de fases, porcentaje, tiempos, ETA y
+  error final; ya no bloquean silenciosamente la peticion HTTP de HA.
+- El progreso de las cuatro fases es incremental: GIS/DEM informa por
+  observacion; meteorologia por bytes/fuentes leidos, observaciones y ficheros
+  de salida; features v0 por uniones, resumen y escrituras; y el modelo por
+  observaciones, especies, variables y artefactos escritos. El porcentaje total
+  es una ponderacion de estas unidades reales, no una estimacion exacta del
+  tiempo restante.
 - La propuesta ML se centra primero en una especie con suficientes datos y
   requiere episodios por setal/fecha, series meteorologicas diarias, features
   de acumulacion y variabilidad, baseline sencillo y validacion agrupada sin
   fuga.
 - No fabricar negativos ni inventar ventanas, umbrales o pesos. Hacen falta mas
-  observaciones, especialmente ausencias reales en setales visitados.
+  observaciones, especialmente visitas con resultado desfavorable y contexto
+  fiable.
 - Areas y microareas son entidades predictivas propias. La primera fase
   predecira solo sobre setales conocidos; descubrir nuevos setales queda para
   una fase posterior.
@@ -209,8 +242,9 @@ instantaneo.
 
 ## Validacion al cierre
 
-- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: 244 tests OK con los
-  cambios locales de paginacion/navegacion asincrona.
+- `.venv/bin/python -m unittest discover -s tests`: 250 tests OK con los
+  cambios locales, incluido el arranque asincrono de ambos rebuilds desde
+  `Evidencia > Modelo aprendido`.
 - JavaScript embebido extraido del HTML: `node --check` OK.
 - Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
   longitud y `Content-Range` correctos.

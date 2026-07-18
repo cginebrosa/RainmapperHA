@@ -9,6 +9,7 @@ profiles or observation records.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 from dataclasses import dataclass
@@ -37,6 +38,7 @@ CSV_FIELDS = (
     "species_id",
     "observed_at",
     "analysis_result",
+    "prediction_target",
     "flush_abundance",
     "month",
     "season",
@@ -101,6 +103,8 @@ CSV_FIELDS = (
     "observed_aspect_ids",
 )
 
+PREDICTION_TARGET_POLICY_VERSION = "catalog_prediction_favorable_v1"
+
 
 @dataclass(frozen=True)
 class DailyWeatherRecord:
@@ -140,6 +144,10 @@ def default_weather_data_dir() -> Path:
 
 def default_observations_path() -> Path:
     return mushroom_paths.mushroom_observations_path()
+
+
+def default_catalogs_path() -> Path:
+    return mushroom_paths.mushroom_reference_catalogs_path()
 
 
 def default_output_json_path() -> Path:
@@ -224,23 +232,60 @@ def normalized_record(source: str, row: dict[str, str]) -> DailyWeatherRecord | 
     )
 
 
-def load_daily_weather_stations(data_dir: Path) -> dict[tuple[str, str], WeatherStation]:
+def emit_progress(progress_callback: Any | None, percent: float, message: str) -> None:
+    """Report bounded progress without making callbacks mandatory for CLI callers."""
+    if progress_callback:
+        progress_callback(max(0, min(100, int(percent))), message)
+
+
+def load_daily_weather_stations(
+    data_dir: Path,
+    progress_callback: Any | None = None,
+) -> dict[tuple[str, str], WeatherStation]:
     records: dict[tuple[str, str], dict[date, DailyWeatherRecord]] = {}
     names: dict[tuple[str, str], str] = {}
     coordinates: dict[tuple[str, str], tuple[float, float]] = {}
-    for source, filename in DAILY_INCREMENTAL_FILES:
-        path = data_dir / filename
-        if not path.exists():
-            continue
+    source_paths = [
+        (source, data_dir / filename)
+        for source, filename in DAILY_INCREMENTAL_FILES
+        if (data_dir / filename).exists()
+    ]
+    total_bytes = sum(path.stat().st_size for _source, path in source_paths)
+    completed_bytes = 0
+    if not source_paths:
+        emit_progress(progress_callback, 100, "No hay fuentes meteorologicas disponibles.")
+    for source_index, (source, path) in enumerate(source_paths, start=1):
+        file_size = path.stat().st_size
+        rows_read = 0
+        emit_progress(
+            progress_callback,
+            (completed_bytes / total_bytes) * 100 if total_bytes else 0,
+            f"Leyendo fuente meteorologica {source_index}/{len(source_paths)}: {source}.",
+        )
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             for row in csv.DictReader(handle):
+                rows_read += 1
                 record = normalized_record(source, row)
                 if record is None:
-                    continue
-                key = (record.source, record.station_code)
-                records.setdefault(key, {})[record.day] = record
-                names[key] = record.station_name
-                coordinates[key] = (record.lat, record.lon)
+                    pass
+                else:
+                    key = (record.source, record.station_code)
+                    records.setdefault(key, {})[record.day] = record
+                    names[key] = record.station_name
+                    coordinates[key] = (record.lat, record.lon)
+                if rows_read % 5000 == 0:
+                    buffered_position = min(file_size, handle.buffer.tell())
+                    emit_progress(
+                        progress_callback,
+                        ((completed_bytes + buffered_position) / total_bytes) * 100 if total_bytes else 100,
+                        f"Leyendo {source}: {rows_read} registros.",
+                    )
+        completed_bytes += file_size
+        emit_progress(
+            progress_callback,
+            (completed_bytes / total_bytes) * 100 if total_bytes else 100,
+            f"Fuente {source} cargada: {rows_read} registros.",
+        )
     stations = {}
     for key, station_records in records.items():
         lat, lon = coordinates[key]
@@ -296,6 +341,61 @@ def observation_derived(observation: dict[str, Any]) -> dict[str, Any]:
 
 def analysis_result(flush_abundance: object) -> str:
     return "absent" if str(flush_abundance or "").strip() == "absent" else "present"
+
+
+def load_prediction_target_policy(catalogs_path: Path | None = None) -> dict[str, object]:
+    """Load and validate the operational target mapping from the reference catalog."""
+    path = catalogs_path or default_catalogs_path()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    catalogs = payload.get("catalogs") if isinstance(payload, dict) else None
+    entries = catalogs.get("observation_flush_abundance") if isinstance(catalogs, dict) else None
+    if not isinstance(entries, list) or not entries:
+        raise ValueError(f"{path}: catalogs.observation_flush_abundance must be a non-empty list")
+    mapping: dict[str, int] = {}
+    for index, entry in enumerate(entries):
+        location = f"{path}: catalogs.observation_flush_abundance[{index}]"
+        if not isinstance(entry, dict):
+            raise ValueError(f"{location} must be an object")
+        abundance_id = str(entry.get("id", "") or "").strip()
+        if not abundance_id:
+            raise ValueError(f"{location}.id must be a non-empty string")
+        if abundance_id in mapping:
+            raise ValueError(f"{location}.id duplicates {abundance_id!r}")
+        favorable = entry.get("prediction_favorable")
+        if not isinstance(favorable, int) or isinstance(favorable, bool) or favorable not in {0, 1}:
+            raise ValueError(f"{location}.prediction_favorable must be integer 0 or 1")
+        mapping[abundance_id] = favorable
+    serialized_mapping = json.dumps(mapping, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return {
+        "field": "prediction_target",
+        "version": PREDICTION_TARGET_POLICY_VERSION,
+        "source_field": "flush_abundance",
+        "catalog_field": "prediction_favorable",
+        "catalog_path": str(path),
+        "mapping": mapping,
+        "mapping_sha256": hashlib.sha256(serialized_mapping.encode("utf-8")).hexdigest(),
+        "favorable": sorted(item_id for item_id, value in mapping.items() if value == 1),
+        "unfavorable": sorted(item_id for item_id, value in mapping.items() if value == 0),
+        "unknown": "Any missing or unrecognized flush_abundance value",
+    }
+
+
+def prediction_target(flush_abundance: object, policy: dict[str, object] | None = None) -> str:
+    """Return the catalog-driven operational target for a flush abundance ID."""
+    abundance = str(flush_abundance or "").strip()
+    resolved_policy = policy or load_prediction_target_policy()
+    mapping = resolved_policy.get("mapping") if isinstance(resolved_policy, dict) else None
+    value = mapping.get(abundance) if isinstance(mapping, dict) else None
+    if value == 1:
+        return "favorable"
+    if value == 0:
+        return "unfavorable"
+    return "unknown"
+
+
+def prediction_target_policy(catalogs_path: Path | None = None) -> dict[str, object]:
+    """Compatibility wrapper returning the validated catalog-driven policy."""
+    return load_prediction_target_policy(catalogs_path)
 
 
 def station_coverage_days(station: WeatherStation, observed_day: date, days: int = 90) -> int:
@@ -424,6 +524,7 @@ def build_weather_values(station: WeatherStation, observed_day: date) -> tuple[d
 def build_observation_weather_row(
     observation: dict[str, Any],
     stations: dict[tuple[str, str], WeatherStation],
+    prediction_policy: dict[str, object] | None = None,
 ) -> dict[str, Any]:
     observed_day = parse_day(observation.get("observed_at"))
     lat, lon = observation_location(observation)
@@ -434,6 +535,7 @@ def build_observation_weather_row(
         "species_id": str(observation.get("species_id", "") or ""),
         "observed_at": str(observation.get("observed_at", "") or ""),
         "analysis_result": analysis_result(flush_abundance),
+        "prediction_target": prediction_target(flush_abundance, prediction_policy),
         "flush_abundance": flush_abundance,
         "month": derived.get("month"),
         "season": derived.get("season"),
@@ -594,24 +696,51 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
 def build_observation_weather_features(
     observations_path: Path | None = None,
     weather_data_dir: Path | None = None,
+    catalogs_path: Path | None = None,
+    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
     observations_path = observations_path or default_observations_path()
     weather_data_dir = weather_data_dir or default_weather_data_dir()
+    emit_progress(progress_callback, 1, "Cargando observaciones.")
     observations = load_observations(observations_path)
-    stations = load_daily_weather_stations(weather_data_dir)
-    rows = [json_safe_row(build_observation_weather_row(observation, stations)) for observation in observations]
+    emit_progress(progress_callback, 4, f"Cargadas {len(observations)} observaciones.")
+    stations = load_daily_weather_stations(
+        weather_data_dir,
+        progress_callback=lambda percent, message: emit_progress(
+            progress_callback,
+            5 + percent * 0.35,
+            message,
+        ),
+    )
+    emit_progress(progress_callback, 41, "Cargando politica de prediccion del catalogo.")
+    prediction_policy = load_prediction_target_policy(catalogs_path)
+    rows = []
+    observation_total = len(observations)
+    if not observations:
+        emit_progress(progress_callback, 90, "No hay observaciones meteorologicas que procesar.")
+    for index, observation in enumerate(observations, start=1):
+        rows.append(json_safe_row(build_observation_weather_row(observation, stations, prediction_policy)))
+        emit_progress(
+            progress_callback,
+            42 + (index / observation_total) * 48,
+            f"Calculando meteorologia {index}/{observation_total} observaciones.",
+        )
+    emit_progress(progress_callback, 94, "Calculando resumen meteorologico.")
     with_station = sum(1 for row in rows if row.get("weather_station_code"))
     with_gaps = sum(1 for row in rows if row.get("data_gaps"))
+    emit_progress(progress_callback, 100, "Contexto meteorologico calculado.")
     return {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "kind": "mushroom_observation_weather_features",
         "generated_at": datetime.now(UTC).isoformat(),
+        "prediction_target_policy": prediction_policy,
         "weather_method": "nearest_station_single_source_daily",
         "weather_summary_window_days": SUMMARY_WINDOW_DAYS,
         "rain_windows_days": list(RAIN_WINDOWS_DAYS),
         "input_paths": {
             "observations": str(observations_path),
             "weather_data_dir": str(weather_data_dir),
+            "reference_catalogs": str(catalogs_path or default_catalogs_path()),
         },
         "source_files": [
             {"source": source, "path": str(weather_data_dir / filename), "exists": (weather_data_dir / filename).exists()}
@@ -630,11 +759,22 @@ def build_observation_weather_features(
 def build_and_write_observation_weather_features(
     observations_path: Path | None = None,
     weather_data_dir: Path | None = None,
+    catalogs_path: Path | None = None,
     output_json_path: Path | None = None,
     output_csv_path: Path | None = None,
     report_path: Path | None = None,
+    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
-    payload = build_observation_weather_features(observations_path, weather_data_dir)
+    payload = build_observation_weather_features(
+        observations_path,
+        weather_data_dir,
+        catalogs_path,
+        progress_callback=lambda percent, message: emit_progress(
+            progress_callback,
+            percent * 0.85,
+            message,
+        ),
+    )
     output_json_path = output_json_path or default_output_json_path()
     output_csv_path = output_csv_path or default_output_csv_path()
     report_path = report_path or default_report_path()
@@ -643,7 +783,11 @@ def build_and_write_observation_weather_features(
         "csv": str(output_csv_path),
         "report": str(report_path),
     }
+    emit_progress(progress_callback, 87, "Escribiendo meteorologia JSON.")
     write_json(output_json_path, payload)
+    emit_progress(progress_callback, 91, "Escribiendo meteorologia CSV.")
     write_csv(output_csv_path, payload["rows"])
+    emit_progress(progress_callback, 97, "Escribiendo informe meteorologico.")
     write_report(report_path, payload)
+    emit_progress(progress_callback, 100, "Meteorologia guardada.")
     return payload

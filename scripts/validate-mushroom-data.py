@@ -330,6 +330,15 @@ def collect_catalog_ids(
                 messages.append(error(f"{location}.id", f"duplicate catalog ID {item_id!r}"))
             seen.add(item_id)
             ids_by_catalog[catalog_name].add(item_id)
+            if catalog_name == "observation_flush_abundance":
+                favorable = entry.get("prediction_favorable")
+                if not isinstance(favorable, int) or isinstance(favorable, bool) or favorable not in {0, 1}:
+                    messages.append(
+                        error(
+                            f"{location}.prediction_favorable",
+                            "expected integer 0 or 1",
+                        )
+                    )
 
     return ids_by_catalog
 

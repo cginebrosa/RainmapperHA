@@ -2103,7 +2103,8 @@
           "en": "Exceptional"
         },
         "sort_order": 10,
-        "calibration_score": 1.0
+        "calibration_score": 1.0,
+        "prediction_favorable": 1
       },
       {
         "id": "very_abundant",
@@ -2113,7 +2114,8 @@
           "en": "Very abundant"
         },
         "sort_order": 20,
-        "calibration_score": 0.85
+        "calibration_score": 0.85,
+        "prediction_favorable": 1
       },
       {
         "id": "abundant",
@@ -2123,7 +2125,8 @@
           "en": "Abundant"
         },
         "sort_order": 30,
-        "calibration_score": 0.7
+        "calibration_score": 0.7,
+        "prediction_favorable": 1
       },
       {
         "id": "normal",
@@ -2133,7 +2136,8 @@
           "en": "Normal"
         },
         "sort_order": 40,
-        "calibration_score": 0.5
+        "calibration_score": 0.5,
+        "prediction_favorable": 1
       },
       {
         "id": "scarce",
@@ -2143,7 +2147,8 @@
           "en": "Scarce"
         },
         "sort_order": 50,
-        "calibration_score": 0.3
+        "calibration_score": 0.3,
+        "prediction_favorable": 0
       },
       {
         "id": "very_scarce",
@@ -2153,7 +2158,8 @@
           "en": "Very scarce"
         },
         "sort_order": 60,
-        "calibration_score": 0.15
+        "calibration_score": 0.15,
+        "prediction_favorable": 0
       },
       {
         "id": "absent",
@@ -2163,7 +2169,8 @@
           "en": "Absent"
         },
         "sort_order": 70,
-        "calibration_score": 0.0
+        "calibration_score": 0.0,
+        "prediction_favorable": 0
       }
     ],
     "observation_validation_statuses": [

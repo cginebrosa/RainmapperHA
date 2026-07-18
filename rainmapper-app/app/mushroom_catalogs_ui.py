@@ -421,6 +421,27 @@ def catalog_form_select(name: str, label: str, value: object, options: list[str]
     )
 
 
+def catalog_form_binary_select(name: str, label: str, value: object) -> str:
+    """Render a required language-independent 0/1 technical selector."""
+    current = str(value) if value in {0, 1} else ""
+    options = [
+        ("", "-"),
+        ("1", ui_label("ui.yes")),
+        ("0", ui_label("ui.no")),
+    ]
+    option_html = "".join(
+        f'<option value="{raw}"{" selected" if raw == current else ""}>{html.escape(display)}</option>'
+        for raw, display in options
+    )
+    escaped_name = html.escape(name, quote=True)
+    return (
+        '<div class="admin-field compact">'
+        f'<label for="catalog-{escaped_name}">{html.escape(label)}</label>'
+        f'<select id="catalog-{escaped_name}" name="{escaped_name}" required>{option_html}</select>'
+        "</div>"
+    )
+
+
 def catalog_form_textarea(name: str, label: str, value: object) -> str:
     """Render a catalog textarea."""
     escaped_name = html.escape(name, quote=True)
@@ -561,6 +582,14 @@ def render_catalog_entry_form(row: dict[str, object], catalogs: dict[str, object
                     catalog_form_field("azimuth_min", ui_label("ui.azimuth_min"), item.get("azimuth_min", ""), field_type="number"),
                     catalog_form_field("azimuth_max", ui_label("ui.azimuth_max"), item.get("azimuth_max", ""), field_type="number"),
                 ]
+            )
+        elif group == "observation_flush_abundance":
+            fields.append(
+                catalog_form_binary_select(
+                    "prediction_favorable",
+                    ui_label("ui.prediction_favorable"),
+                    item.get("prediction_favorable"),
+                )
             )
         if "description" in item or group == "trophic_modes":
             fields.append(catalog_form_textarea("description", ui_label("ui.description"), item.get("description", "")))

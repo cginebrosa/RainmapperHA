@@ -74,6 +74,15 @@ class MushroomDataValidatorTests(unittest.TestCase):
 
         self.assertEqual([], [message.format() for message in id_errors])
 
+    def test_validator_requires_prediction_favorable_for_flush_abundance(self) -> None:
+        catalogs = copy.deepcopy(self.catalogs)
+        del catalogs["catalogs"]["observation_flush_abundance"][0]["prediction_favorable"]
+
+        messages = self.validate_temp_dataset(catalogs=catalogs)
+        errors = [message.format() for message in messages if message.severity == "ERROR"]
+
+        self.assertTrue(any("prediction_favorable" in message for message in errors))
+
     def test_validator_reports_profile_and_gis_unknown_ids_together(self) -> None:
         profiles = copy.deepcopy(self.profiles)
         gis = copy.deepcopy(self.gis)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.207
+
+- Refine and compact the observations, species, evidence, parameters and calibration workspaces, keeping their controls visible and replacing technical identifiers with localized names where appropriate.
+- Use the reference catalog to classify every flush abundance as favorable or unfavorable for prediction without changing stored observations.
+- Rebuild one species or the complete learned V0 model in the background from the existing interface, with cancellable progress feedback.
+- Report incremental progress across GIS enrichment, weather joins, feature generation and learned-model reconstruction instead of leaving an indeterminate progress bar during the later phases.
+- Improve observation browsing with clearer localized outcomes, streamlined details and stable partial updates across maintenance screens.
+
 ## 0.2.206
 
 - Add a calendar-based observation date filter with direct month and year navigation.

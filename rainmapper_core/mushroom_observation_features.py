@@ -22,6 +22,7 @@ CSV_FIELDS = (
     "species_id",
     "observed_at",
     "analysis_result",
+    "prediction_target",
     "flush_abundance",
     "month",
     "season",
@@ -90,6 +91,12 @@ CSV_FIELDS = (
     "gis_gaps",
     "feature_gaps",
 )
+
+
+def emit_progress(progress_callback: Any | None, percent: float, message: str) -> None:
+    """Report bounded progress while keeping existing callers callback-free."""
+    if progress_callback:
+        progress_callback(max(0, min(100, int(percent))), message)
 
 
 def repo_root() -> Path:
@@ -206,12 +213,25 @@ def build_joined_row(weather_row: dict[str, Any], gis_row: dict[str, Any] | None
         feature_gaps.append("missing_gis_reconstruction")
     if not context:
         feature_gaps.append("missing_gis_context_v0")
+    flush_abundance = weather_row.get("flush_abundance")
+    target = str(weather_row.get("prediction_target", "") or "").strip()
+    if target not in {"favorable", "unfavorable", "unknown"}:
+        target = "unknown"
+    if target == "unknown":
+        # Compatibility only for feature artifacts built before prediction_target
+        # was materialized from the catalog. New rebuilds always carry the target.
+        legacy_result = str(weather_row.get("analysis_result", "") or "").strip()
+        if legacy_result == "present":
+            target = "favorable"
+        elif legacy_result == "absent":
+            target = "unfavorable"
     row = {
         "observation_id": weather_row.get("observation_id"),
         "species_id": weather_row.get("species_id") or gis_row.get("species_id"),
         "observed_at": weather_row.get("observed_at"),
         "analysis_result": weather_row.get("analysis_result"),
-        "flush_abundance": weather_row.get("flush_abundance"),
+        "prediction_target": target,
+        "flush_abundance": flush_abundance,
         "month": weather_row.get("month"),
         "season": weather_row.get("season"),
         "validation_status": weather_row.get("validation_status"),
@@ -285,22 +305,50 @@ def build_joined_row(weather_row: dict[str, Any], gis_row: dict[str, Any] | None
 def build_observation_features_v0(
     weather_features_path: Path | None = None,
     gis_reconstruction_path: Path | None = None,
+    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
     weather_features_path = weather_features_path or mushroom_observation_context.default_output_json_path()
     gis_reconstruction_path = gis_reconstruction_path or mushroom_gis_lab.default_output_path()
+    emit_progress(progress_callback, 2, "Cargando features meteorologicas.")
     weather_payload = load_json_payload(weather_features_path)
+    emit_progress(progress_callback, 10, "Cargando reconstruccion GIS/DEM.")
     gis_payload = load_json_payload(gis_reconstruction_path) if gis_reconstruction_path.exists() else {}
     weather_rows = rows_by_observation_id(weather_payload)
     gis_rows = gis_results_by_observation_id(gis_payload)
-    rows = [build_joined_row(weather_row, gis_rows.get(observation_id)) for observation_id, weather_row in weather_rows.items()]
+    rows = []
+    weather_items = list(weather_rows.items())
+    weather_total = len(weather_items)
+    if not weather_items:
+        emit_progress(progress_callback, 78, "No hay observaciones que unir.")
+    for index, (observation_id, weather_row) in enumerate(weather_items, start=1):
+        rows.append(build_joined_row(weather_row, gis_rows.get(observation_id)))
+        emit_progress(
+            progress_callback,
+            15 + (index / weather_total) * 63,
+            f"Uniendo features {index}/{weather_total} observaciones.",
+        )
+    emit_progress(progress_callback, 82, "Ordenando features v0.")
     rows.sort(key=lambda row: (str(row.get("observed_at", "")), str(row.get("observation_id", ""))))
+    emit_progress(progress_callback, 87, "Calculando cobertura GIS.")
     with_gis = sum(1 for row in rows if "missing_gis_reconstruction" not in row["feature_gaps"])
+    emit_progress(progress_callback, 91, "Calculando gaps meteorologicos.")
     with_weather_gaps = sum(1 for row in rows if row["weather_gaps"])
+    emit_progress(progress_callback, 95, "Calculando gaps GIS y de features.")
     with_gis_gaps = sum(1 for row in rows if row["gis_gaps"] or row["feature_gaps"])
+    emit_progress(progress_callback, 100, "Features v0 unidas.")
     return {
-        "schema_version": "0.1",
+        "schema_version": "0.2",
         "kind": "mushroom_observation_features_v0",
         "generated_at": datetime.now(UTC).isoformat(),
+        "prediction_target_policy": (
+            weather_payload.get("prediction_target_policy")
+            if isinstance(weather_payload.get("prediction_target_policy"), dict)
+            else {
+                "version": "legacy_analysis_result_compatibility",
+                "field": "prediction_target",
+                "source_field": "analysis_result",
+            }
+        ),
         "input_paths": {
             "weather_features": str(weather_features_path),
             "gis_reconstruction": str(gis_reconstruction_path),
@@ -361,20 +409,19 @@ def report_markdown(payload: dict[str, Any]) -> str:
         if not isinstance(row, dict):
             continue
         species_id = str(row.get("species_id", "") or "unknown")
-        item = by_species.setdefault(species_id, {"rows": 0, "present": 0, "absent": 0, "weather_gaps": 0, "gis_gaps": 0})
+        item = by_species.setdefault(species_id, {"rows": 0, "favorable": 0, "unfavorable": 0, "unknown": 0, "weather_gaps": 0, "gis_gaps": 0})
         item["rows"] += 1
-        if row.get("analysis_result") == "absent":
-            item["absent"] += 1
-        else:
-            item["present"] += 1
+        target = str(row.get("prediction_target", "") or "unknown")
+        item[target if target in {"favorable", "unfavorable"} else "unknown"] += 1
         if row.get("weather_gaps"):
             item["weather_gaps"] += 1
         if row.get("gis_gaps") or row.get("feature_gaps"):
             item["gis_gaps"] += 1
     for species_id, item in sorted(by_species.items()):
         lines.append(
-            f"- {species_id}: {item['rows']} obs, {item['present']} present, "
-            f"{item['absent']} absent, weather gaps {item['weather_gaps']}, GIS gaps {item['gis_gaps']}"
+            f"- {species_id}: {item['rows']} obs, {item['favorable']} favorable, "
+            f"{item['unfavorable']} unfavorable, {item['unknown']} unknown target, "
+            f"weather gaps {item['weather_gaps']}, GIS gaps {item['gis_gaps']}"
         )
     return "\n".join(lines) + "\n"
 
@@ -390,8 +437,17 @@ def build_and_write_observation_features_v0(
     output_json_path: Path | None = None,
     output_csv_path: Path | None = None,
     report_path: Path | None = None,
+    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
-    payload = build_observation_features_v0(weather_features_path, gis_reconstruction_path)
+    payload = build_observation_features_v0(
+        weather_features_path,
+        gis_reconstruction_path,
+        progress_callback=lambda percent, message: emit_progress(
+            progress_callback,
+            percent * 0.85,
+            message,
+        ),
+    )
     output_json_path = output_json_path or default_output_json_path()
     output_csv_path = output_csv_path or default_output_csv_path()
     report_path = report_path or default_report_path()
@@ -400,7 +456,11 @@ def build_and_write_observation_features_v0(
         "csv": str(output_csv_path),
         "report": str(report_path),
     }
+    emit_progress(progress_callback, 87, "Escribiendo features JSON.")
     write_json(output_json_path, payload)
+    emit_progress(progress_callback, 91, "Escribiendo features CSV.")
     write_csv(output_csv_path, payload["rows"])
+    emit_progress(progress_callback, 97, "Escribiendo informe de features.")
     write_report(report_path, payload)
+    emit_progress(progress_callback, 100, "Features v0 guardadas.")
     return payload

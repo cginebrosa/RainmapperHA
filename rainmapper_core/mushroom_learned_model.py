@@ -50,6 +50,12 @@ NUMERIC_FEATURES = (
 )
 
 
+def emit_progress(progress_callback: Any | None, percent: float, message: str) -> None:
+    """Report bounded progress while preserving the callback-free public API."""
+    if progress_callback:
+        progress_callback(max(0, min(100, int(percent))), message)
+
+
 def repo_root() -> Path:
     return mushroom_paths.repo_root()
 
@@ -79,8 +85,24 @@ def load_latest_model(path: Path | None = None) -> dict[str, Any] | None:
         return None
 
 
+def row_prediction_target(row: dict[str, Any]) -> str:
+    """Return the stored target, deriving it for pre-0.2 feature artifacts."""
+    stored = str(row.get("prediction_target", "") or "").strip()
+    if stored in {"favorable", "unfavorable", "unknown"}:
+        return stored
+    # Compatibility only: current feature reconstruction materializes the
+    # catalog-driven target before model learning starts.
+    legacy_result = str(row.get("analysis_result", "") or "").strip()
+    if legacy_result == "present":
+        return "favorable"
+    if legacy_result == "absent":
+        return "unfavorable"
+    return "unknown"
+
+
 def is_positive(row: dict[str, Any]) -> bool:
-    return str(row.get("analysis_result", "") or "").strip() != "absent"
+    """Compatibility name for the favorable side of the binary target."""
+    return row_prediction_target(row) == "favorable"
 
 
 def is_training_row(row: dict[str, Any]) -> bool:
@@ -88,6 +110,7 @@ def is_training_row(row: dict[str, Any]) -> bool:
     return (
         str(row.get("validation_status", "") or "").strip() == "valid"
         and str(row.get("calibration_use", "") or "").strip() == "include"
+        and row_prediction_target(row) in {"favorable", "unfavorable"}
     )
 
 
@@ -194,25 +217,51 @@ def summarize_categorical(
     )
 
 
-def summarize_species(species_id: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def summarize_species(
+    species_id: str,
+    rows: list[dict[str, Any]],
+    progress_callback: Any | None = None,
+) -> dict[str, Any]:
+    emit_progress(progress_callback, 2, "Clasificando observaciones de la especie actual.")
     positive_rows = [row for row in rows if is_positive(row)]
     negative_rows = [row for row in rows if not is_positive(row)]
     weather_gap_rows = [row for row in rows if list_values(row.get("weather_gaps"))]
     gis_gap_rows = [row for row in rows if list_values(row.get("gis_gaps")) or list_values(row.get("feature_gaps"))]
-    categorical = {
-        output_key: summarize_categorical(positive_rows, negative_rows, source_key, source_tracking_key)
-        for source_key, output_key, source_tracking_key in CATEGORICAL_FEATURES
-    }
-    numeric = {
-        output_key: {
+    categorical: dict[str, Any] = {}
+    numeric: dict[str, Any] = {}
+    feature_total = len(CATEGORICAL_FEATURES) + len(NUMERIC_FEATURES)
+    feature_index = 0
+    for source_key, output_key, source_tracking_key in CATEGORICAL_FEATURES:
+        categorical[output_key] = summarize_categorical(
+            positive_rows,
+            negative_rows,
+            source_key,
+            source_tracking_key,
+        )
+        feature_index += 1
+        emit_progress(
+            progress_callback,
+            5 + (feature_index / feature_total) * 90,
+            f"Resumiendo variable {feature_index}/{feature_total} de la especie actual.",
+        )
+    for source_key, output_key in NUMERIC_FEATURES:
+        numeric[output_key] = {
             "positive": summarize_numeric(positive_rows, source_key),
             "negative": summarize_numeric(negative_rows, source_key),
         }
-        for source_key, output_key in NUMERIC_FEATURES
-    }
+        feature_index += 1
+        emit_progress(
+            progress_callback,
+            5 + (feature_index / feature_total) * 90,
+            f"Resumiendo variable {feature_index}/{feature_total} de la especie actual.",
+        )
+    emit_progress(progress_callback, 100, "Resumen de la especie actual completado.")
     return {
         "species_id": species_id,
         "observation_count": len(rows),
+        "favorable_count": len(positive_rows),
+        "unfavorable_count": len(negative_rows),
+        # Compatibility aliases for UI/readers of learned-model v0 artifacts.
         "positive_count": len(positive_rows),
         "negative_count": len(negative_rows),
         "weather_gap_count": len(weather_gap_rows),
@@ -222,39 +271,90 @@ def summarize_species(species_id: str, rows: list[dict[str, Any]]) -> dict[str, 
     }
 
 
-def build_learned_model_v0(features_path: Path | None = None, species_id_filter: str | None = None) -> dict[str, Any]:
+def build_learned_model_v0(
+    features_path: Path | None = None,
+    species_id_filter: str | None = None,
+    progress_callback: Any | None = None,
+) -> dict[str, Any]:
     features_path = features_path or mushroom_observation_features.default_output_json_path()
     selected_species_id = str(species_id_filter or "").strip()
+    emit_progress(progress_callback, 2, "Cargando features v0 para el modelo.")
     features_payload = load_json_payload(features_path)
     feature_rows = features_payload.get("rows")
     all_rows = [row for row in feature_rows if isinstance(row, dict)] if isinstance(feature_rows, list) else []
-    rows = [row for row in all_rows if is_training_row(row)]
+    emit_progress(progress_callback, 7, f"Cargadas {len(all_rows)} observaciones fuente.")
+    rows = []
+    all_total = len(all_rows)
+    if not all_rows:
+        emit_progress(progress_callback, 20, "No hay observaciones de entrenamiento.")
+    for index, row in enumerate(all_rows, start=1):
+        if is_training_row(row):
+            rows.append(row)
+        emit_progress(
+            progress_callback,
+            8 + (index / all_total) * 12,
+            f"Validando observaciones {index}/{all_total}.",
+        )
     by_species: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
+    training_total = len(rows)
+    if not rows:
+        emit_progress(progress_callback, 35, "No hay observaciones utilizables.")
+    for index, row in enumerate(rows, start=1):
         species_id = str(row.get("species_id", "") or "").strip()
         if selected_species_id and species_id != selected_species_id:
-            continue
-        if species_id:
+            pass
+        elif species_id:
             by_species.setdefault(species_id, []).append(row)
-    species_models = [
-        summarize_species(species_id, species_rows)
-        for species_id, species_rows in sorted(by_species.items())
-    ]
-    return {
-        "schema_version": "0.1",
+        emit_progress(
+            progress_callback,
+            20 + (index / training_total) * 15,
+            f"Agrupando observaciones {index}/{training_total}.",
+        )
+    species_items = sorted(by_species.items())
+    species_models = []
+    species_total = len(species_items)
+    if not species_items:
+        emit_progress(progress_callback, 92, "No hay especies que resumir.")
+    for species_index, (species_id, species_rows) in enumerate(species_items, start=1):
+        species_models.append(
+            summarize_species(
+                species_id,
+                species_rows,
+                progress_callback=lambda percent, message, index=species_index: emit_progress(
+                    progress_callback,
+                    35 + (((index - 1) + percent / 100) / species_total) * 57,
+                    f"Especie {index}/{species_total}. {message}",
+                ),
+            )
+        )
+    emit_progress(progress_callback, 96, "Calculando resumen global del modelo.")
+    payload = {
+        "schema_version": "0.2",
         "kind": "mushroom_learned_model_v0",
         "generated_at": datetime.now(UTC).isoformat(),
         "model_status": "experimental_observation_learned",
+        "prediction_target_policy": (
+            features_payload.get("prediction_target_policy")
+            if isinstance(features_payload.get("prediction_target_policy"), dict)
+            else {
+                "version": "legacy_analysis_result_compatibility",
+                "field": "prediction_target",
+                "source_field": "analysis_result",
+            }
+        ),
         "scope": {
             "species_id": selected_species_id or None,
         },
         "model_notes": [
             "This model is recalculated from observation_features_v0.json.",
+            "The binary target is favorable/unfavorable and is derived from flush_abundance.",
+            "The legacy analysis_result present/absent field is retained for compatibility, not training.",
             "It does not write mushroom_profiles.json and does not define production thresholds.",
             "Support ratios are descriptive evidence from valid observations marked include for calibration.",
         ],
         "input_paths": {"observation_features_v0": str(features_path)},
         "feature_contract": {
+            "target": "prediction_target",
             "categorical": [key for _source, key, _source_tracking in CATEGORICAL_FEATURES],
             "numeric": [key for _source, key in NUMERIC_FEATURES],
         },
@@ -263,11 +363,16 @@ def build_learned_model_v0(features_path: Path | None = None, species_id_filter:
             "source_observations": len(all_rows),
             "excluded_observations": len(all_rows) - len(rows),
             "species": len(species_models),
+            "favorable_observations": sum(1 for row in rows if is_positive(row)),
+            "unfavorable_observations": sum(1 for row in rows if not is_positive(row)),
+            # Compatibility aliases for existing readers.
             "positive_observations": sum(1 for row in rows if is_positive(row)),
             "negative_observations": sum(1 for row in rows if not is_positive(row)),
         },
         "species_models": species_models,
     }
+    emit_progress(progress_callback, 100, "Modelo aprendido calculado.")
+    return payload
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -285,8 +390,8 @@ def report_markdown(payload: dict[str, Any]) -> str:
         f"- Source observations: {summary.get('source_observations', 0)}",
         f"- Excluded observations: {summary.get('excluded_observations', 0)}",
         f"- Species: {summary.get('species', 0)}",
-        f"- Positive observations: {summary.get('positive_observations', 0)}",
-        f"- Negative observations: {summary.get('negative_observations', 0)}",
+        f"- Favorable observations: {summary.get('favorable_observations', summary.get('positive_observations', 0))}",
+        f"- Unfavorable observations: {summary.get('unfavorable_observations', summary.get('negative_observations', 0))}",
         "",
         "## Species",
         "",
@@ -296,11 +401,11 @@ def report_markdown(payload: dict[str, Any]) -> str:
         if not isinstance(model, dict):
             continue
         lines.append(
-            "- {species_id}: {positive}/{total} positive, {negative} negative, weather gaps {weather_gaps}, GIS gaps {gis_gaps}".format(
+            "- {species_id}: {favorable}/{total} favorable, {unfavorable} unfavorable, weather gaps {weather_gaps}, GIS gaps {gis_gaps}".format(
                 species_id=model.get("species_id", "-"),
-                positive=model.get("positive_count", 0),
+                favorable=model.get("favorable_count", model.get("positive_count", 0)),
                 total=model.get("observation_count", 0),
-                negative=model.get("negative_count", 0),
+                unfavorable=model.get("unfavorable_count", model.get("negative_count", 0)),
                 weather_gaps=model.get("weather_gap_count", 0),
                 gis_gaps=model.get("gis_gap_count", 0),
             )
@@ -317,16 +422,27 @@ def build_and_write_learned_model_v0(
     features_path: Path | None = None,
     output_json_path: Path | None = None,
     report_path: Path | None = None,
+    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
-    payload = build_learned_model_v0(features_path)
+    payload = build_learned_model_v0(
+        features_path,
+        progress_callback=lambda percent, message: emit_progress(
+            progress_callback,
+            percent * 0.9,
+            message,
+        ),
+    )
     output_json_path = output_json_path or default_output_json_path()
     report_path = report_path or default_report_path()
     payload["output_paths"] = {
         "json": str(output_json_path),
         "report": str(report_path),
     }
+    emit_progress(progress_callback, 92, "Escribiendo modelo JSON.")
     write_json(output_json_path, payload)
+    emit_progress(progress_callback, 97, "Escribiendo informe del modelo.")
     write_report(report_path, payload)
+    emit_progress(progress_callback, 100, "Modelo aprendido guardado.")
     return payload
 
 
@@ -335,6 +451,7 @@ def build_and_write_species_learned_model_v0(
     features_path: Path | None = None,
     output_json_path: Path | None = None,
     report_path: Path | None = None,
+    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
     """Rebuild one species model and merge it into the shared learned model file."""
     selected_species_id = species_id.strip()
@@ -342,11 +459,28 @@ def build_and_write_species_learned_model_v0(
         raise ValueError("species_id is required")
     output_json_path = output_json_path or default_output_json_path()
     report_path = report_path or default_report_path()
-    species_payload = build_learned_model_v0(features_path, species_id_filter=selected_species_id)
+    species_payload = build_learned_model_v0(
+        features_path,
+        species_id_filter=selected_species_id,
+        progress_callback=lambda percent, message: emit_progress(
+            progress_callback,
+            percent * 0.65,
+            message,
+        ),
+    )
+    emit_progress(progress_callback, 68, "Cargando modelo compartido existente.")
     existing_payload = load_latest_model(output_json_path)
     if existing_payload is None:
-        existing_payload = build_learned_model_v0(features_path)
+        existing_payload = build_learned_model_v0(
+            features_path,
+            progress_callback=lambda percent, message: emit_progress(
+                progress_callback,
+                68 + percent * 0.14,
+                f"Inicializando modelo compartido. {message}",
+            ),
+        )
 
+    emit_progress(progress_callback, 84, "Integrando la especie en el modelo compartido.")
     existing_models = existing_payload.get("species_models")
     model_by_species = {
         str(model.get("species_id", "") or ""): model
@@ -366,13 +500,19 @@ def build_and_write_species_learned_model_v0(
         {
             "observations": sum(int(model.get("observation_count", 0) or 0) for model in merged_models),
             "species": len(merged_models),
+            "favorable_observations": sum(int(model.get("favorable_count", model.get("positive_count", 0)) or 0) for model in merged_models),
+            "unfavorable_observations": sum(int(model.get("unfavorable_count", model.get("negative_count", 0)) or 0) for model in merged_models),
             "positive_observations": sum(int(model.get("positive_count", 0) or 0) for model in merged_models),
             "negative_observations": sum(int(model.get("negative_count", 0) or 0) for model in merged_models),
         }
     )
 
     merged_payload = dict(existing_payload)
+    merged_payload["schema_version"] = species_payload.get("schema_version", "0.2")
     merged_payload["generated_at"] = datetime.now(UTC).isoformat()
+    merged_payload["prediction_target_policy"] = species_payload.get("prediction_target_policy", {})
+    merged_payload["feature_contract"] = species_payload.get("feature_contract", {})
+    merged_payload["model_notes"] = species_payload.get("model_notes", [])
     merged_payload["scope"] = {"species_id": None}
     merged_payload["summary"] = summary
     merged_payload["species_models"] = merged_models
@@ -385,6 +525,9 @@ def build_and_write_species_learned_model_v0(
         "json": str(output_json_path),
         "report": str(report_path),
     }
+    emit_progress(progress_callback, 91, "Escribiendo modelo compartido JSON.")
     write_json(output_json_path, merged_payload)
+    emit_progress(progress_callback, 97, "Escribiendo informe del modelo.")
     write_report(report_path, merged_payload)
+    emit_progress(progress_callback, 100, "Modelo de la especie guardado.")
     return merged_payload

@@ -443,6 +443,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn(".profile-editor-polished .profile-overview-card", page)
         self.assertIn(".profile-editor-polished .profile-status-chip", page)
         self.assertIn("font-size: 11px", page)
+        self.assertIn(".parameters-screen > form", page)
+        self.assertIn("height: calc(100vh - 150px)", page)
+        self.assertIn(".parameters-screen .parameter-tabbed-grid", page)
         self.assertIn('title="Overall confidence:', page)
         self.assertIn('title="Calibration priority:', page)
         self.assertIn('title="Review status:', page)
@@ -463,6 +466,23 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Species", page)
         self.assertIn("Observations", page)
         self.assertTrue((data_dir / "mushroom-data" / "mushroom_profiles.json").exists())
+
+    def test_shared_species_header_shows_all_common_names_without_species_id(self) -> None:
+        header = self.web_server.mushroom_profiles_ui.render_selected_species_header(
+            {
+                "species_id": "amanita_caesarea",
+                "scientific_name": "Amanita caesarea",
+                "common_names": {
+                    "ca": ["Ou de reig"],
+                    "es": ["Oronja", "Amanita de los césares"],
+                },
+            },
+            "Calibración",
+        )
+
+        self.assertIn("Ou de reig, Oronja, Amanita de los césares", header)
+        self.assertNotIn("species_id:", header)
+        self.assertNotIn("amanita_caesarea", header)
 
     def test_mushroom_profile_detail_endpoint_returns_editor_and_current_navigation(self) -> None:
         store = mock.Mock()
@@ -2402,6 +2422,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
 
         self.assertIn("Evidencia local v0", html)
+        self.assertIn("local-evidence-screen", html)
         self.assertIn("Observed, not declared", html)
         self.assertIn("Declared, not observed", html)
         self.assertIn("Promote", html)
@@ -2415,6 +2436,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("host_quercus_suber", html)
         self.assertIn("Quercus ilex - Holm oak", html)
         self.assertIn("Quercus suber - Cork oak", html)
+        self.assertNotIn('<span class="meta">host_quercus_ilex</span>', html)
+        self.assertNotIn('<span class="meta">forest_holm_oak</span>', html)
         self.assertIn("Whether this ID is already declared", html)
         self.assertIn("Evidence observations", html)
         self.assertIn('class="observation-site-map"', html)
@@ -2568,8 +2591,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "observation_id": "obs_2",
                     "species_id": "boletus_aereus",
                     "observed_at": "2025-10-01",
-                    "analysis_result": "absent",
-                    "flush_abundance": "absent",
+                    "analysis_result": "present",
+                    "prediction_target": "unfavorable",
+                    "flush_abundance": "scarce",
                     "rain_7d_mm": 4.0,
                     "weather_source": "meteocat",
                     "weather_station_code": "X1",
@@ -2577,9 +2601,15 @@ class AuthDeviceLimitTests(unittest.TestCase):
             ],
         }
 
+        catalogs = {
+            "observation_flush_abundance": [
+                {"id": "abundant", "label": {"en": "Abundant", "es": "Abundante", "ca": "Abundant"}, "prediction_favorable": 1},
+                {"id": "scarce", "label": {"en": "Scarce", "es": "Escasa", "ca": "Escassa"}, "prediction_favorable": 0},
+            ]
+        }
         html = self.web_server.mushroom_profiles_ui.render_local_evidence_section(
             profile,
-            {},
+            catalogs,
             {"generated_at": "2026-07-02T12:00:00", "results": []},
             features_payload,
             None,
@@ -2588,8 +2618,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("Weather evidence", html)
         self.assertIn("Latest v0 features join: 2026-07-02T14:00:00", html)
-        self.assertIn("Present", html)
-        self.assertIn("Absent", html)
+        self.assertIn('<span class="evidence-status ok">Favorable</span>', html)
+        self.assertIn('<span class="evidence-status muted">Unfavorable</span>', html)
+        self.assertIn("Scarce", html)
+        self.assertNotIn("Positive / present", html)
+        self.assertNotIn("Negative / absent", html)
+        self.assertIn("Abundant", html)
         self.assertIn('<span>mm</span><em>21d</em>', html)
         self.assertIn('<span>mm</span><em>60d</em>', html)
         self.assertIn('<span>m</span><em>Alt.</em>', html)
@@ -2680,7 +2714,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Rebuild this species", html)
         self.assertIn("Rebuild all species", html)
 
-    def test_mushroom_learned_model_rebuild_post_runs_builders(self) -> None:
+    def test_mushroom_learned_model_rebuild_all_post_starts_background_job(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
         old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
@@ -2700,19 +2734,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
-        with mock.patch.object(self.web_server.mushroom_observation_context, "build_and_write_observation_weather_features") as weather_builder, \
-            mock.patch.object(self.web_server.mushroom_observation_features, "build_and_write_observation_features_v0") as features_builder, \
-            mock.patch.object(self.web_server.mushroom_learned_model, "build_and_write_learned_model_v0") as model_builder:
-            weather_builder.return_value = {"summary": {"observations": 3}}
-            features_builder.return_value = {"summary": {"observations": 3}}
-            model_builder.return_value = {
-                "summary": {
-                    "observations": 2,
-                    "excluded_observations": 1,
-                    "species": 1,
-                }
-            }
-
+        with mock.patch.object(
+            self.web_server,
+            "start_mushroom_model_rebuild_job",
+            return_value="job_123",
+        ) as start_job:
             redirect = handler.handle_mushroom_profiles_post(
                 {
                     "profile_action": ["rebuild_learned_model_v0_all"],
@@ -2722,16 +2748,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 }
             )
 
-        weather_builder.assert_called_once_with()
-        features_builder.assert_called_once_with()
-        model_builder.assert_called_once_with()
-        self.assertEqual(
-            "?id=amanita_caesarea&section=evidence&view=v0&evidence_view=learned_model#mushroom-profile-message",
+        start_job.assert_called_once()
+        call_kwargs = start_job.call_args.kwargs
+        self.assertTrue(call_kwargs["selected_observation_ids"])
+        self.assertEqual("all", call_kwargs["reconstruction_scope"])
+        self.assertNotIn("pending_species_ids", call_kwargs)
+        self.assertIn(
+            "?id=amanita_caesarea&section=evidence&view=v0&evidence_view=learned_model&rebuild_job=job_123",
             redirect,
         )
-        self.assertIn("Learned v0 model rebuilt", self.web_server.RUN_STATE["mushroom_profiles_flash"])
+        self.assertTrue(redirect.endswith("#mushroom-profile-message"))
+        self.assertIn("Global Modelo v0 rebuild started", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
-    def test_mushroom_learned_model_rebuild_selected_species_does_not_rebuild_caches(self) -> None:
+    def test_mushroom_learned_model_rebuild_selected_species_starts_background_job(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
         old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
@@ -2751,18 +2780,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
-        with mock.patch.object(self.web_server.mushroom_observation_context, "build_and_write_observation_weather_features") as weather_builder, \
-            mock.patch.object(self.web_server.mushroom_observation_features, "build_and_write_observation_features_v0") as features_builder, \
-            mock.patch.object(self.web_server.mushroom_learned_model, "build_and_write_species_learned_model_v0") as species_builder:
-            species_builder.return_value = {
-                "species_models": [
-                    {
-                        "species_id": "amanita_caesarea",
-                        "observation_count": 2,
-                    }
-                ]
-            }
-
+        with mock.patch.object(
+            self.web_server,
+            "start_mushroom_model_rebuild_job",
+            return_value="job_456",
+        ) as start_job:
             redirect = handler.handle_mushroom_profiles_post(
                 {
                     "profile_action": ["rebuild_learned_model_v0_species"],
@@ -2772,13 +2794,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 }
             )
 
-        weather_builder.assert_not_called()
-        features_builder.assert_not_called()
-        species_builder.assert_called_once_with("amanita_caesarea")
-        self.assertEqual(
-            "?id=amanita_caesarea&section=evidence&view=v0&evidence_view=learned_model#mushroom-profile-message",
+        start_job.assert_called_once()
+        call_kwargs = start_job.call_args.kwargs
+        self.assertTrue(call_kwargs["selected_observation_ids"])
+        self.assertEqual("species", call_kwargs["reconstruction_scope"])
+        self.assertEqual(["amanita_caesarea"], call_kwargs["pending_species_ids"])
+        self.assertIn(
+            "?id=amanita_caesarea&section=evidence&view=v0&evidence_view=learned_model&rebuild_job=job_456",
             redirect,
         )
+        self.assertTrue(redirect.endswith("#mushroom-profile-message"))
         self.assertIn("selected species", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
     def test_mushroom_observation_model_rebuild_post_runs_full_v0_chain(self) -> None:
@@ -2832,9 +2857,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         gis_builder.assert_called_once()
         self.assertEqual(["obs_20250930_0001"], gis_builder.call_args.args[1])
         self.assertIn("progress_callback", gis_builder.call_args.kwargs)
-        weather_builder.assert_called_once_with()
-        features_builder.assert_called_once_with()
-        model_builder.assert_called_once_with()
+        weather_builder.assert_called_once()
+        self.assertTrue(callable(weather_builder.call_args.kwargs.get("progress_callback")))
+        features_builder.assert_called_once()
+        self.assertTrue(callable(features_builder.call_args.kwargs.get("progress_callback")))
+        model_builder.assert_called_once()
+        self.assertTrue(callable(model_builder.call_args.kwargs.get("progress_callback")))
         self.assertIn("?section=observations&id=amanita_caesarea&rebuild_job=", redirect)
         self.assertTrue(redirect.endswith("#gis-reconstruction-lab"))
         job_id = redirect.split("rebuild_job=", 1)[1].split("#", 1)[0]
@@ -3762,6 +3790,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 {"id": "season_summer", "label": {"en": "Summer"}},
                 {"id": "season_autumn", "label": {"en": "Autumn"}},
             ],
+            "observation_flush_abundance": [
+                {"id": "normal", "prediction_favorable": 1},
+                {"id": "abundant", "prediction_favorable": 1},
+                {"id": "scarce", "prediction_favorable": 0},
+            ],
         }
         observations = {
             "observations": [
@@ -3896,6 +3929,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(["Pi roig"], entry["common_names"]["ca"])
         self.assertEqual(["Scots pine"], entry["common_names"]["en"])
         self.assertEqual(["Pinus sylvestris"], entry["gis_aliases"])
+
+    def test_catalog_entry_form_updates_prediction_favorable_as_binary_value(self) -> None:
+        existing = {
+            "id": "scarce",
+            "label": {"es": "Escasa", "ca": "Escassa", "en": "Scarce"},
+            "prediction_favorable": 1,
+        }
+        form = {
+            "label_es": ["Escasa"],
+            "label_ca": ["Escassa"],
+            "label_en": ["Scarce"],
+            "prediction_favorable": ["0"],
+        }
+
+        entry = self.web_server.catalog_entry_from_form(
+            "observation_flush_abundance", "scarce", existing, form
+        )
+
+        self.assertEqual(0, entry["prediction_favorable"])
 
     def test_catalog_cross_reference_checks_validate_host_parent_id(self) -> None:
         catalogs = {

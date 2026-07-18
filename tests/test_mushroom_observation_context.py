@@ -107,6 +107,25 @@ class MushroomObservationContextTests(unittest.TestCase):
             mock.patch.object(Path, "exists", fake_exists):
             self.assertEqual(mushroom_observation_context.default_observations_path(), share_path)
 
+    def test_prediction_target_uses_operational_flush_threshold(self) -> None:
+        policy = mushroom_observation_context.load_prediction_target_policy()
+        for abundance in ("normal", "abundant", "very_abundant", "exceptional"):
+            self.assertEqual(mushroom_observation_context.prediction_target(abundance, policy), "favorable")
+        for abundance in ("scarce", "very_scarce", "absent"):
+            self.assertEqual(mushroom_observation_context.prediction_target(abundance, policy), "unfavorable")
+        self.assertEqual(mushroom_observation_context.prediction_target("", policy), "unknown")
+        self.assertEqual(policy["mapping"]["scarce"], 0)
+
+    def test_prediction_target_policy_rejects_catalog_without_binary_flag(self) -> None:
+        catalogs_path = self.root / "catalogs.json"
+        catalogs_path.write_text(
+            json.dumps({"catalogs": {"observation_flush_abundance": [{"id": "normal"}]}}),
+            encoding="utf-8",
+        )
+
+        with self.assertRaisesRegex(ValueError, "prediction_favorable must be integer 0 or 1"):
+            mushroom_observation_context.load_prediction_target_policy(catalogs_path)
+
     def test_build_weather_features_uses_nearest_available_station_and_reports_gaps(self) -> None:
         self.write_observations()
         self.write_daily_file(
@@ -187,7 +206,11 @@ class MushroomObservationContextTests(unittest.TestCase):
         self.assertEqual(first["observed_soil_tendency_ids"], ["soil_siliceous"])
         self.assertEqual(first["observed_habitat_feature_ids"], ["feature_mature_forest"])
         self.assertEqual(first["observed_aspect_ids"], ["aspect_N"])
+        self.assertEqual(first["prediction_target"], "favorable")
         self.assertEqual(second["analysis_result"], "absent")
+        self.assertEqual(second["prediction_target"], "unfavorable")
+        self.assertEqual(payload["prediction_target_policy"]["version"], "catalog_prediction_favorable_v1")
+        self.assertEqual(payload["prediction_target_policy"]["mapping"]["scarce"], 0)
         self.assertIn("no_weather_station_with_90d_coverage", second["data_gaps"])
 
     def test_build_weather_features_excludes_suspect_daily_rain(self) -> None:
@@ -250,6 +273,7 @@ class MushroomObservationContextTests(unittest.TestCase):
         output_json = self.root / "out" / "features.json"
         output_csv = self.root / "out" / "features.csv"
         report = self.root / "out" / "features.md"
+        progress: list[tuple[int, str]] = []
 
         payload = mushroom_observation_context.build_and_write_observation_weather_features(
             observations_path=self.observations_path,
@@ -257,6 +281,7 @@ class MushroomObservationContextTests(unittest.TestCase):
             output_json_path=output_json,
             output_csv_path=output_csv,
             report_path=report,
+            progress_callback=lambda percent, message: progress.append((percent, message)),
         )
 
         self.assertTrue(output_json.exists())
@@ -266,6 +291,10 @@ class MushroomObservationContextTests(unittest.TestCase):
         self.assertIn("obs_1", output_csv.read_text(encoding="utf-8"))
         self.assertIn("Mushroom Observation Weather Features", report.read_text(encoding="utf-8"))
         self.assertEqual(payload["output_paths"]["report"], str(report))
+        self.assertEqual(100, progress[-1][0])
+        self.assertEqual([item[0] for item in progress], sorted(item[0] for item in progress))
+        self.assertTrue(any("observaciones" in message for _percent, message in progress))
+        self.assertTrue(any("CSV" in message for _percent, message in progress))
 
 
 if __name__ == "__main__":

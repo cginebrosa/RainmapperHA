@@ -1338,6 +1338,7 @@ def render_selected_species_header(
     )
     section_label = "" if compact else f'<span class="meta">{html.escape(section)}</span>'
     banner_class = "profile-section-banner compact" if compact else "profile-section-banner"
+    common_names = ", ".join(profile_common_names(profile)) or "-"
     return f"""
     <header class="{banner_class}">
       <div class="profile-title-block">
@@ -1345,7 +1346,7 @@ def render_selected_species_header(
         <div>
           {section_label}
           <h2>{html.escape(str(profile.get("scientific_name", species_id)))}</h2>
-          <p class="meta">species_id: {html.escape(species_id)} · {html.escape(profile_common_name(profile) or "-")}</p>
+          <p class="meta">{html.escape(common_names)}</p>
         </div>
       </div>
       <div class="profile-hero-side">
@@ -2446,7 +2447,7 @@ def render_local_evidence_group(
         )
         observations_help = ui_label("ui.evidence_observations_value_help")
         field_count, gis_count = evidence_source_counts(observed)
-        item_label = labels.get(item_id, item_id)
+        item_label = labels.get(item_id, "-")
         field_observation_ids = evidence_source_observation_ids(observed, "field")
         gis_observation_ids = evidence_source_observation_ids(observed, "gis")
         field_modal_id = ""
@@ -2486,7 +2487,7 @@ def render_local_evidence_group(
         decision_help = local_evidence_decision_help(current_decision)
         rows.append(
             "<tr>"
-            f"<td><strong>{html.escape(labels.get(item_id, item_id))}</strong><span class=\"meta\">{html.escape(item_id)}</span></td>"
+            f"<td><strong>{html.escape(item_label)}</strong></td>"
             f'<td title="{html.escape(profile_help, quote=True)}"><span class="evidence-profile-state{" declared" if declared else ""}">{html.escape(profile_state)}</span></td>'
             f'<td title="{html.escape(observations_help, quote=True)}"><div class="evidence-source-breakdown">{source_cells}</div></td>'
             f'<td><span class="evidence-status {html.escape(tone)}" title="{html.escape(status_help, quote=True)}">{html.escape(status)}</span></td>'
@@ -2708,17 +2709,40 @@ FIELD_OBSERVATION_FEATURES = (
 )
 
 
-def observation_is_training_row(row: dict[str, object]) -> bool:
+def observation_is_training_row(row: dict[str, object], catalogs: dict[str, object] | None = None) -> bool:
     return (
         str(row.get("validation_status", "") or "").strip() == "valid"
         and str(row.get("calibration_use", "") or "").strip() == "include"
+        and observation_prediction_target(row, catalogs) in {"favorable", "unfavorable"}
     )
 
 
-def observation_is_positive(row: dict[str, object]) -> bool:
-    result = str(row.get("analysis_result", "") or "").strip()
+def observation_prediction_target(
+    row: dict[str, object],
+    catalogs: dict[str, object] | None = None,
+) -> str:
+    """Return the stored target or derive it from the loaded reference catalog."""
+    target = str(row.get("prediction_target", "") or "").strip()
+    if target in {"favorable", "unfavorable"}:
+        return target
+    entries = catalogs.get("observation_flush_abundance") if isinstance(catalogs, dict) else None
     abundance = str(row.get("flush_abundance", "") or "").strip()
-    return result != "absent" and abundance != "absent"
+    if isinstance(entries, list):
+        for entry in entries:
+            if not isinstance(entry, dict) or str(entry.get("id", "") or "") != abundance:
+                continue
+            favorable = entry.get("prediction_favorable")
+            if favorable == 1:
+                return "favorable"
+            if favorable == 0:
+                return "unfavorable"
+            return "unknown"
+    return "unknown"
+
+
+def observation_is_positive(row: dict[str, object], catalogs: dict[str, object] | None = None) -> bool:
+    """Compatibility name for observations with a favorable prediction target."""
+    return observation_prediction_target(row, catalogs) == "favorable"
 
 
 def list_string_values(value: object) -> list[str]:
@@ -2730,16 +2754,18 @@ def list_string_values(value: object) -> list[str]:
 def field_evidence_model_from_observations(
     observations_payload: dict[str, object] | None,
     species_id: str,
+    catalogs: dict[str, object],
 ) -> dict[str, object] | None:
     """Build live field-source evidence directly from persisted observations."""
     rows = [
         row for row in observations_from_payload(observations_payload)
-        if str(row.get("species_id", "") or "").strip() == species_id and observation_is_training_row(row)
+        if str(row.get("species_id", "") or "").strip() == species_id
+        and observation_is_training_row(row, catalogs)
     ]
     if not rows:
         return None
-    positive_rows = [row for row in rows if observation_is_positive(row)]
-    negative_rows = [row for row in rows if not observation_is_positive(row)]
+    positive_rows = [row for row in rows if observation_is_positive(row, catalogs)]
+    negative_rows = [row for row in rows if not observation_is_positive(row, catalogs)]
     categorical: dict[str, list[dict[str, object]]] = {}
     for observed_key, output_key in FIELD_OBSERVATION_FEATURES:
         positive_by_id: dict[str, set[str]] = {}
@@ -2749,7 +2775,7 @@ def field_evidence_model_from_observations(
             observation_id = str(row.get("observation_id", "") or "").strip()
             if not observation_id:
                 continue
-            target = positive_by_id if observation_is_positive(row) else negative_by_id
+            target = positive_by_id if observation_is_positive(row, catalogs) else negative_by_id
             for item_id in list_string_values(site_context.get(observed_key)):
                 target.setdefault(item_id, set()).add(observation_id)
         item_ids = sorted(set(positive_by_id) | set(negative_by_id))
@@ -3095,16 +3121,18 @@ def learned_numeric_positive(model: dict[str, object] | None, key: str) -> dict[
 def phenology_evidence_from_observations(
     observations_payload: dict[str, object] | None,
     species_id: str,
+    catalogs: dict[str, object],
 ) -> dict[str, object] | None:
     """Build month/season evidence directly from eligible observations."""
     rows = [
         row for row in observations_from_payload(observations_payload)
-        if str(row.get("species_id", "") or "").strip() == species_id and observation_is_training_row(row)
+        if str(row.get("species_id", "") or "").strip() == species_id
+        and observation_is_training_row(row, catalogs)
     ]
     if not rows:
         return None
-    positive_rows = [row for row in rows if observation_is_positive(row)]
-    negative_rows = [row for row in rows if not observation_is_positive(row)]
+    positive_rows = [row for row in rows if observation_is_positive(row, catalogs)]
+    negative_rows = [row for row in rows if not observation_is_positive(row, catalogs)]
     month_counts: dict[int, int] = {}
     season_counts: dict[str, int] = {}
     for row in positive_rows:
@@ -3195,7 +3223,7 @@ def render_phenology_learned_comparison(
 ) -> str:
     """Render observed phenology evidence beside phenology parameters."""
     title_label = "ui.learned_emerging_values" if value_mode == "emerging" else "ui.learned_observational_evidence"
-    evidence = phenology_evidence_from_observations(observations_payload, species_id)
+    evidence = phenology_evidence_from_observations(observations_payload, species_id, catalogs)
     if not isinstance(evidence, dict):
         return f"""
         <aside class="profile-subsection parameter-focus-subsection parameter-learned-comparison parameter-aligned-column parameter-phenology-column">
@@ -3557,8 +3585,8 @@ def render_learned_model_section(
       </div>
       <div class="profile-calibration-cards evidence-summary-cards learned-model-summary">
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.total_observations_used"))}</span><span class="value">{html.escape(str(model.get("observation_count", 0) or 0))}</span></div>
-        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.positive_observations"))}</span><span class="value ok">{html.escape(str(model.get("positive_count", 0) or 0))}</span></div>
-        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.negative_observations"))}</span><span class="value">{html.escape(str(model.get("negative_count", 0) or 0))}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.positive_observations"))}</span><span class="value ok">{html.escape(str(model.get("favorable_count", model.get("positive_count", 0)) or 0))}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.negative_observations"))}</span><span class="value">{html.escape(str(model.get("unfavorable_count", model.get("negative_count", 0)) or 0))}</span></div>
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.weather_gaps"))}</span><span class="value warn">{html.escape(str(model.get("weather_gap_count", 0) or 0))}</span></div>
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.gis_gaps"))}</span><span class="value">{html.escape(str(model.get("gis_gap_count", 0) or 0))}</span></div>
       </div>
@@ -3576,7 +3604,11 @@ def render_learned_model_section(
     """
 
 
-def render_weather_evidence_section(profile: dict[str, object], features_payload: dict[str, object] | None) -> str:
+def render_weather_evidence_section(
+    profile: dict[str, object],
+    features_payload: dict[str, object] | None,
+    catalogs: dict[str, object],
+) -> str:
     """Render read-only weather evidence from joined v0 observation features."""
     species_id = str(profile.get("species_id", "") or "")
     rows = features_payload.get("rows") if isinstance(features_payload, dict) else None
@@ -3592,17 +3624,26 @@ def render_weather_evidence_section(profile: dict[str, object], features_payload
         note = ui_label("ui.weather_features_species_missing")
     else:
         note = ui_label("ui.weather_readonly_note")
-    present_rows = [row for row in species_rows if row.get("analysis_result") != "absent"]
-    absent_rows = [row for row in species_rows if row.get("analysis_result") == "absent"]
+    favorable_rows = [row for row in species_rows if observation_is_positive(row, catalogs)]
+    unfavorable_rows = [row for row in species_rows if observation_prediction_target(row, catalogs) == "unfavorable"]
     weather_gap_count = sum(1 for row in species_rows if row.get("weather_gaps"))
     gis_gap_count = sum(1 for row in species_rows if row.get("gis_gaps") or row.get("feature_gaps"))
     table_rows = []
+    abundance_labels = catalog_label_map(catalogs, "observation_flush_abundance")
     for row in sorted(species_rows, key=lambda item: (str(item.get("observed_at", "")), str(item.get("observation_id", ""))))[:80]:
-        result_tone = "muted" if row.get("analysis_result") == "absent" else "ok"
+        abundance_id = str(row.get("flush_abundance", "") or "")
+        target_id = observation_prediction_target(row, catalogs)
+        result_tone = "muted" if target_id == "unfavorable" else "ok"
+        result_label = (
+            ui_label("ui.result_favorable") if target_id == "favorable" else
+            ui_label("ui.result_unfavorable") if target_id == "unfavorable" else
+            "-"
+        )
+        abundance_label = abundance_labels.get(abundance_id, "-")
         table_rows.append(
             "<tr>"
             f"<td><strong>{html.escape(str(row.get('observed_at', '-') or '-'))}</strong><span class=\"meta\">{html.escape(str(row.get('observation_id', '-') or '-'))}</span></td>"
-            f"<td><span class=\"evidence-status {result_tone}\">{html.escape(str(row.get('analysis_result', '-') or '-'))}</span><span class=\"meta\">{html.escape(str(row.get('flush_abundance', '-') or '-'))}</span></td>"
+            f"<td><span class=\"evidence-status {result_tone}\">{html.escape(result_label)}</span><span class=\"meta\">{html.escape(abundance_label)}</span></td>"
             f"<td>{weather_cell(row, 'gis_altitude_m', 'altitude_m')}</td>"
             f"<td>{weather_cell(row, 'rain_7d_mm')}</td>"
             f"<td>{weather_cell(row, 'rain_14d_mm')}</td>"
@@ -3644,8 +3685,8 @@ def render_weather_evidence_section(profile: dict[str, object], features_payload
       <p class="meta">{html.escape(ui_label("ui.latest_features_join"))}: {html.escape(generated_at or '-')} · {html.escape(note)}</p>
       <div class="profile-calibration-cards evidence-summary-cards">
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.observations"))}</span><span class="value">{len(species_rows)}</span></div>
-        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.present_observations"))}</span><span class="value ok">{len(present_rows)}</span></div>
-        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.absent_observations"))}</span><span class="value">{len(absent_rows)}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.present_observations"))}</span><span class="value ok">{len(favorable_rows)}</span></div>
+        <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.absent_observations"))}</span><span class="value">{len(unfavorable_rows)}</span></div>
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.weather_gaps"))}</span><span class="value warn">{weather_gap_count}</span></div>
         <div class="profile-metric"><span class="label">{html.escape(ui_label("ui.gis_gaps"))}</span><span class="value">{gis_gap_count}</span></div>
       </div>
@@ -3757,7 +3798,7 @@ def render_local_evidence_section(
             {render_selected_species_header(profile, "Evidencia local v0", profiles=profiles, search=search, section_key="evidence", profile_view=profile_view, evidence_view=evidence_view)}
             {tabs_html}
           </div>
-          {render_weather_evidence_section(profile, observation_features_payload)}
+          {render_weather_evidence_section(profile, observation_features_payload, catalogs)}
         </section>
         """
     if evidence_view == "learned_model":
@@ -3772,7 +3813,7 @@ def render_local_evidence_section(
         """
     return f"""
     {observation_site_map_assets()}
-    <section class="card profile-section-screen evidence-screen">
+    <section class="card profile-section-screen evidence-screen local-evidence-screen">
       <div class="evidence-sticky-header">
         {render_selected_species_header(profile, "Evidencia local v0", profiles=profiles, search=search, section_key="evidence", profile_view=profile_view, evidence_view=evidence_view)}
         {tabs_html}
@@ -4321,7 +4362,7 @@ def render_parameters_section(
     metadata = nested_dict(profile, "metadata")
     learned_model = merge_live_field_model(
         learned_model_for_species(learned_model_payload, species_id),
-        field_evidence_model_from_observations(observations_payload, species_id),
+        field_evidence_model_from_observations(observations_payload, species_id, catalogs),
     )
     delay = phenology.get("fruiting_delay_after_rain_days") if isinstance(phenology.get("fruiting_delay_after_rain_days"), dict) else {}
     host_labels = catalog_label_map(catalogs, "host_taxa")
@@ -4653,11 +4694,14 @@ def profile_name_map(profiles: list[dict[str, object]]) -> dict[str, str]:
     return labels
 
 
-def observation_metrics(rows: list[dict[str, object]]) -> tuple[int, int, int, int]:
+def observation_metrics(
+    rows: list[dict[str, object]],
+    catalogs: dict[str, object],
+) -> tuple[int, int, int, int]:
     """Calculate high-level observation counters for the dashboard strip."""
     total = len(rows)
-    positive = sum(1 for row in rows if str(row.get("flush_abundance", "")) not in {"", "absent"})
-    negative = sum(1 for row in rows if str(row.get("flush_abundance", "")) == "absent")
+    positive = sum(1 for row in rows if observation_is_positive(row, catalogs))
+    negative = sum(1 for row in rows if observation_prediction_target(row, catalogs) == "unfavorable")
     pending = sum(1 for row in rows if str(row.get("validation_status", "")) in {"", "draft", "doubtful"})
     return total, positive, negative, pending
 
@@ -6104,7 +6148,7 @@ def render_observations_section(
                 media_reference_counts[media_path] = media_reference_counts.get(media_path, 0) + 1
     filtered_rows = filtered_observation_rows(rows, selected_species_id, filters)
     species_labels = profile_name_map(profiles)
-    total, positive, negative, pending = observation_metrics(filtered_rows)
+    total, positive, negative, pending = observation_metrics(filtered_rows, catalogs)
     calibration_href = profile_query_url(selected_species_id, search, section="calibration") if selected_species_id else profile_query_url(section="calibration")
     date_from = observation_filter_value(filters, "date_from")
     date_to = observation_filter_value(filters, "date_to")

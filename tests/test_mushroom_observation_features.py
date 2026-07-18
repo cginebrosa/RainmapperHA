@@ -19,12 +19,18 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
             json.dumps(
                 {
                     "kind": "mushroom_observation_weather_features",
+                    "prediction_target_policy": {
+                        "field": "prediction_target",
+                        "version": "catalog_prediction_favorable_v1",
+                        "mapping": {"normal": 1, "absent": 0},
+                    },
                     "rows": [
                         {
                             "observation_id": "obs_1",
                             "species_id": "boletus_test",
                             "observed_at": "2026-07-10",
                             "analysis_result": "present",
+                            "prediction_target": "favorable",
                             "flush_abundance": "normal",
                             "month": 7,
                             "season": "summer",
@@ -78,6 +84,8 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
                             "species_id": "boletus_test",
                             "observed_at": "2026-07-11",
                             "analysis_result": "absent",
+                            "prediction_target": "unfavorable",
+                            "flush_abundance": "absent",
                             "data_gaps": [],
                         },
                     ],
@@ -142,7 +150,10 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
         self.assertEqual(first["gis_altitude_m"], 705.0)
         self.assertEqual(first["weather_gaps"], ["wind_no_data_7d"])
         self.assertEqual(first["feature_gaps"], [])
+        self.assertEqual(first["prediction_target"], "favorable")
         self.assertEqual(second["analysis_result"], "absent")
+        self.assertEqual(second["prediction_target"], "unfavorable")
+        self.assertEqual(payload["prediction_target_policy"]["field"], "prediction_target")
         self.assertIn("missing_gis_reconstruction", second["feature_gaps"])
 
     def test_build_and_write_observation_features_outputs_files(self) -> None:
@@ -150,6 +161,7 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
         output_json = self.root / "out" / "features.json"
         output_csv = self.root / "out" / "features.csv"
         report = self.root / "out" / "features.md"
+        progress: list[tuple[int, str]] = []
 
         payload = mushroom_observation_features.build_and_write_observation_features_v0(
             weather_features_path=self.weather_path,
@@ -157,6 +169,7 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
             output_json_path=output_json,
             output_csv_path=output_csv,
             report_path=report,
+            progress_callback=lambda percent, message: progress.append((percent, message)),
         )
 
         self.assertTrue(output_json.exists())
@@ -166,6 +179,10 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
         self.assertIn("host_quercus_ilex", output_csv.read_text(encoding="utf-8"))
         self.assertIn("Mushroom Observation Features v0", report.read_text(encoding="utf-8"))
         self.assertEqual(payload["summary"]["with_weather_gaps"], 1)
+        self.assertEqual(100, progress[-1][0])
+        self.assertEqual([item[0] for item in progress], sorted(item[0] for item in progress))
+        self.assertTrue(any("Uniendo features" in message for _percent, message in progress))
+        self.assertTrue(any("CSV" in message for _percent, message in progress))
 
 
 if __name__ == "__main__":

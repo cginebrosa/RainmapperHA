@@ -136,13 +136,22 @@ Salida actual:
 
 - un bloque por especie;
 - numero de observaciones usadas;
-- separacion entre observaciones positivas y negativas;
-- soporte de variables categoricas: cuantas positivas/negativas contienen cada
+- separacion entre observaciones favorables y desfavorables segun el objetivo
+  operativo derivado de la florada;
+- soporte de variables categoricas: cuantas favorables/desfavorables contienen cada
   host, bosque, suelo o rasgo de habitat;
-- ratios positivo/negativo cuando hay datos suficientes;
-- rangos numericos observados en positivos y negativos: minimo, maximo y media
+- ratios favorable/desfavorable cuando hay datos suficientes;
+- rangos numericos observados en favorables y desfavorables: minimo, maximo y media
   para altitud, lluvia, temperatura y humedad;
 - gaps agregados por especie.
+
+El objetivo se materializa en los artefactos como `prediction_target`, pero la
+fuente de verdad continua siendo `flush_abundance`. La correspondencia se lee
+del entero `prediction_favorable` de
+`catalogs.observation_flush_abundance`; no esta codificada en el modelo. Cada
+reconstruccion conserva el mapping exacto y su huella para que un cambio futuro
+del catalogo no altere silenciosamente la interpretacion de un modelo ya
+generado.
 
 Lo que hace:
 
@@ -153,8 +162,8 @@ Lo que hace:
 - muestra candidatos o contradicciones potenciales, por ejemplo un host
   observado que no esta declarado o un suelo declarado que no aparece en ninguna
   observacion;
-- permite comparar positivos contra negativos cuando existan observaciones de
-  ausencia o salidas negativas suficientes;
+- permite comparar favorables contra desfavorables cuando existan suficientes
+  observaciones de florada escasa, muy escasa o inexistente;
 - sirve como base para generar candidatos revisables por especie.
 
 Lo que no hace todavia:
@@ -166,7 +175,7 @@ Lo que no hace todavia:
   rangos meteorologicos;
 - no fija pesos, umbrales ni ventanas meteorologicas por especie;
 - no debe interpretarse como evidencia fuerte si solo hay pocas observaciones o
-  si solo hay positivos y ninguna negativa.
+  si solo hay favorables y ninguna desfavorable.
 
 La pantalla `Evidencia > Modelo aprendido` es por tanto un detalle tecnico de
 auditoria. Para que sea realmente util en mantenimiento, esa informacion debe

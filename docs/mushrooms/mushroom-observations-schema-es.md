@@ -208,19 +208,24 @@ Los valores permitidos se mantienen en `catalogs.observation_flush_abundance`:
 - `very_scarce`
 - `absent`
 
-El catalogo tambien guarda el `calibration_score` numerico usado por la calibracion:
+El catalogo tambien guarda el `calibration_score` numerico usado por la
+calibracion y el entero tecnico `prediction_favorable` usado para materializar
+el objetivo binario V0. Este ultimo no se traduce y debe ser siempre `0` o `1`.
 
-| Valor | Score |
-| --- | ---: |
-| `exceptional` | 1.00 |
-| `very_abundant` | 0.85 |
-| `abundant` | 0.70 |
-| `normal` | 0.50 |
-| `scarce` | 0.30 |
-| `very_scarce` | 0.15 |
-| `absent` | 0.00 |
+| Valor | Score | `prediction_favorable` |
+| --- | ---: | ---: |
+| `exceptional` | 1.00 | 1 |
+| `very_abundant` | 0.85 | 1 |
+| `abundant` | 0.70 | 1 |
+| `normal` | 0.50 | 1 |
+| `scarce` | 0.30 | 0 |
+| `very_scarce` | 0.15 | 0 |
+| `absent` | 0.00 | 0 |
 
-Las observaciones negativas (`absent`) son muy valiosas si fecha, especie, ubicacion y calidad del origen son creibles.
+El JSON de observaciones conserva solo `flush_abundance`; no necesita
+migracion. `prediction_target` se calcula durante la reconstruccion y se guarda
+en los artefactos derivados. Las observaciones desfavorables son muy valiosas
+si fecha, especie, ubicacion y calidad del origen son creibles.
 
 ### Contexto observado de campo
 

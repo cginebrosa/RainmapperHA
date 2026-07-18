@@ -7,6 +7,52 @@ from rainmapper_core import mushroom_learned_model
 
 
 class MushroomLearnedModelTests(unittest.TestCase):
+    def test_scarce_observation_is_learned_as_unfavorable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            features_path = Path(temp_dir) / "observation_features_v0.json"
+            features_path.write_text(
+                json.dumps(
+                    {
+                        "prediction_target_policy": {
+                            "version": "catalog_prediction_favorable_v1",
+                            "mapping": {"normal": 1, "scarce": 0},
+                        },
+                        "rows": [
+                            {
+                                "observation_id": "obs_normal",
+                                "species_id": "boletus_aereus",
+                                "analysis_result": "present",
+                                "prediction_target": "favorable",
+                                "flush_abundance": "normal",
+                                "validation_status": "valid",
+                                "calibration_use": "include",
+                            },
+                            {
+                                "observation_id": "obs_scarce",
+                                "species_id": "boletus_aereus",
+                                "analysis_result": "present",
+                                "prediction_target": "unfavorable",
+                                "flush_abundance": "scarce",
+                                "validation_status": "valid",
+                                "calibration_use": "include",
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = mushroom_learned_model.build_learned_model_v0(features_path)
+            model = payload["species_models"][0]
+
+            self.assertEqual(model["favorable_count"], 1)
+            self.assertEqual(model["unfavorable_count"], 1)
+            self.assertEqual(payload["summary"]["favorable_observations"], 1)
+            self.assertEqual(payload["summary"]["unfavorable_observations"], 1)
+            self.assertEqual(payload["feature_contract"]["target"], "prediction_target")
+            self.assertEqual(payload["prediction_target_policy"]["version"], "catalog_prediction_favorable_v1")
+            self.assertEqual(payload["prediction_target_policy"]["mapping"]["scarce"], 0)
+
     def test_build_learned_model_summarizes_observation_features(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             features_path = Path(temp_dir) / "observation_features_v0.json"
@@ -100,6 +146,7 @@ class MushroomLearnedModelTests(unittest.TestCase):
             features_path = root / "features.json"
             output_json = root / "model.json"
             report = root / "model.md"
+            progress: list[tuple[int, str]] = []
             features_path.write_text(
                 json.dumps(
                     {
@@ -121,12 +168,17 @@ class MushroomLearnedModelTests(unittest.TestCase):
                 features_path=features_path,
                 output_json_path=output_json,
                 report_path=report,
+                progress_callback=lambda percent, message: progress.append((percent, message)),
             )
 
             self.assertTrue(output_json.exists())
             self.assertTrue(report.exists())
             self.assertEqual(payload["output_paths"]["json"], str(output_json))
             self.assertIn("Mushroom Learned Model v0", report.read_text(encoding="utf-8"))
+            self.assertEqual(100, progress[-1][0])
+            self.assertEqual([item[0] for item in progress], sorted(item[0] for item in progress))
+            self.assertTrue(any("variable" in message for _percent, message in progress))
+            self.assertTrue(any("JSON" in message for _percent, message in progress))
 
     def test_build_and_write_species_learned_model_replaces_only_selected_species(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

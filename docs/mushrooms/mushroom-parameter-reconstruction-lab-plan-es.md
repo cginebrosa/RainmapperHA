@@ -699,6 +699,7 @@ observation_id
 species_id
 observed_at
 analysis_result
+prediction_target
 flush_abundance
 validation_status
 calibration_use
@@ -737,7 +738,40 @@ analysis_result = absent   si flush_abundance == absent
 analysis_result = present  si flush_abundance != absent
 ```
 
-El extractor debe conservar siempre el valor original `flush_abundance` para no perder la intensidad observada de la florada. Los nombres exactos pueden ajustarse al implementar, pero la salida debe conservar trazabilidad suficiente para revisar cada fila.
+`analysis_result` se conserva por compatibilidad y para distinguir presencia
+biologica de ausencia, pero no es el objetivo binario operativo del modelo V0.
+El objetivo se materializa como `prediction_target` usando la politica
+versionada `catalog_prediction_favorable_v1`. La fuente de la regla no esta
+codificada en Python: es el entero `prediction_favorable` (`0` o `1`) de cada
+entrada de `catalogs.observation_flush_abundance`:
+
+```text
+prediction_target = favorable    si flush_abundance es normal, abundant,
+                                  very_abundant o exceptional
+prediction_target = unfavorable  si flush_abundance es scarce, very_scarce
+                                  o absent
+prediction_target = unknown      si falta el valor o no esta reconocido
+```
+
+La correspondencia anterior es la configuracion del catalogo actual, no una
+lista fija del extractor. La politica materializada incluye el mapping exacto,
+la ruta del catalogo y una huella SHA-256 del mapping. Si falta
+`prediction_favorable` o no es un entero 0/1, la reconstruccion se detiene con
+error para evitar entrenar silenciosamente con una clasificacion ambigua.
+
+El extractor debe conservar siempre el valor original `flush_abundance` para
+no perder la intensidad observada de la florada. El JSON original de
+observaciones no guarda `prediction_target` y no necesita migracion. El valor
+derivado se guarda por fila en
+`mushroom_observations_weather_features.{json,csv}` y
+`mushroom_observation_features_v0.{json,csv}`. El modelo aprendido guarda
+ademas la definicion y version de la politica para que cada reconstruccion sea
+auditable y reproducible.
+
+El catalogo persistente de Home Assistant no se migra automaticamente. El
+orden de despliegue es: actualizar el add-on, importar manualmente el catalogo
+completo actualizado y, solo despues, reconstruir todas las especies. No se
+modifica ningun JSON de observaciones.
 
 `observed_host_ids` procede de la observacion base y debe tratarse como evidencia manual de campo. No debe confundirse con hosts o tipos de bosque inferidos por GIS, que se generaran mas adelante en `observations_gis_features`.
 
@@ -851,14 +885,21 @@ Decisiones pendientes antes o durante la implementacion:
 
 La primera version debe separar claramente:
 
-- observaciones positivas;
-- observaciones negativas o ausencias;
+- observaciones favorables para una salida de recoleccion;
+- observaciones desfavorables, incluidas floradas escasas y ausencias;
 - observaciones dudosas;
 - observaciones archivadas;
 - observaciones excluidas de calibracion;
 - observaciones validas pero con gaps meteorologicos.
 
-Regla inicial recomendada:
+Configuracion actual del catalogo para el objetivo binario V0:
+
+- `normal` o superior se considera `favorable`;
+- `scarce`, `very_scarce` y `absent` se consideran `unfavorable`;
+- la florada original se conserva siempre y permite reconstruir el objetivo si
+  el campo `prediction_favorable` del catalogo cambia en el futuro.
+
+Regla de inclusion recomendada:
 
 - incluir en salidas diagnosticas todas las observaciones activas parseables;
 - marcar `analysis_included` y `analysis_exclusion_reason`;

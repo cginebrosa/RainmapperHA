@@ -2128,6 +2128,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-size: 11px;
       font-weight: 700;
     }}
+    .evidence-screen .profile-section-banner .profile-status-chip,
+    .calibration-screen .profile-section-banner .profile-status-chip {{
+      font-size: 11px;
+      font-weight: 700;
+    }}
     .profile-editor-polished .profile-hero-chips {{
       display: grid;
       gap: 6px;
@@ -2896,9 +2901,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .parameters-screen .profile-section-banner.compact {{
       align-items: center;
       display: grid;
-      gap: 10px;
+      gap: 8px;
       grid-template-columns: minmax(260px, .46fr) minmax(620px, .54fr);
-      padding: 8px 14px 6px;
+      padding: 6px 12px 5px;
     }}
     .parameters-screen .profile-section-banner.compact .profile-title-block h2 {{
       font-size: 19px;
@@ -2922,8 +2927,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 7px;
       font-size: 12px;
       gap: 4px;
-      min-height: 26px;
-      padding: 3px 7px;
+      min-height: 24px;
+      padding: 2px 7px;
     }}
     .parameters-screen .profile-section-banner.compact .profile-chip-label {{
       font-size: 9px;
@@ -3001,15 +3006,37 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       width: 100%;
     }}
     .parameters-screen {{
-      gap: 12px;
+      gap: 8px;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      height: calc(100vh - 150px);
+      min-height: 0;
+      overflow: hidden;
+    }}
+    .parameters-screen > form {{
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      min-height: 0;
+      overflow: hidden;
+    }}
+    .parameters-screen .parameter-tabbed-grid {{
+      min-height: 0;
+      overflow: auto;
+      padding-right: 3px;
+    }}
+    .parameters-screen > form > .profile-action-bar {{
+      margin-top: 6px;
+      padding-top: 8px;
+    }}
+    .parameters-screen > .meta {{
+      margin: 0;
     }}
     .parameters-screen .profile-section-card {{
-      gap: 8px;
-      padding: 10px;
+      gap: 6px;
+      padding: 8px;
     }}
     .parameters-screen .profile-subsection {{
-      gap: 7px;
-      padding: 9px;
+      gap: 5px;
+      padding: 7px;
     }}
     .parameter-section-tabs {{
       align-items: center;
@@ -3027,7 +3054,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       font-size: 13px;
       font-weight: 800;
       margin: 0 3px -1px 0;
-      padding: 9px 14px 10px;
+      padding: 7px 12px 8px;
       position: relative;
       text-decoration: none;
     }}
@@ -3107,8 +3134,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border: 1px solid rgba(45, 58, 71, .58);
       border-radius: 8px;
       display: grid;
-      gap: 6px;
-      padding: 8px;
+      gap: 4px;
+      padding: 6px;
     }}
     .parameter-profile-section h4,
     .parameter-learned-row h4,
@@ -4033,6 +4060,72 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-color: rgba(3, 169, 244, .85);
       color: var(--accent);
     }}
+    .local-evidence-screen {{
+      gap: 8px;
+    }}
+    .local-evidence-screen .evidence-sticky-header {{
+      gap: 6px;
+      padding-bottom: 6px;
+    }}
+    .local-evidence-screen .evidence-sticky-header .profile-section-banner {{
+      gap: 8px;
+      padding: 6px 10px;
+    }}
+    .local-evidence-screen .profile-title-block {{
+      gap: 8px;
+    }}
+    .local-evidence-screen .profile-title-block h2 {{
+      margin: 0 0 1px;
+    }}
+    .local-evidence-screen .profile-hero-icon {{
+      flex-basis: 34px;
+      height: 34px;
+      width: 34px;
+    }}
+    .local-evidence-screen .profile-hero-side {{
+      gap: 4px;
+    }}
+    .local-evidence-screen .profile-hero-chips {{
+      gap: 4px;
+    }}
+    .local-evidence-screen .profile-status-chip {{
+      gap: 3px;
+      min-height: 24px;
+      padding: 2px 6px;
+    }}
+    .local-evidence-screen .profile-header-selector select {{
+      min-height: 26px;
+    }}
+    .local-evidence-screen .evidence-view-tabs {{
+      gap: 4px;
+      padding-bottom: 4px;
+    }}
+    .local-evidence-screen .evidence-view-tabs .mushroom-title-tab {{
+      min-height: 30px;
+      padding: 0 10px;
+    }}
+    .local-evidence-screen .evidence-summary-cards {{
+      gap: 5px;
+    }}
+    .local-evidence-screen .evidence-summary-cards .profile-metric {{
+      min-height: 30px;
+      padding: 3px 6px;
+    }}
+    .local-evidence-screen .evidence-sticky-header > .meta {{
+      line-height: 1.2;
+      margin-bottom: 0;
+      margin-top: 0;
+    }}
+    .local-evidence-screen .evidence-grid {{
+      gap: 8px;
+    }}
+    .local-evidence-screen .evidence-group {{
+      gap: 5px;
+      padding: 8px;
+    }}
+    .local-evidence-screen .evidence-group h3 {{
+      margin-bottom: 4px;
+    }}
     .evidence-group {{
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
@@ -4133,7 +4226,37 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       width: 128px;
     }}
     .local-evidence-table table {{
-      min-width: 820px;
+      min-width: 0;
+    }}
+    .local-evidence-table th,
+    .local-evidence-table td {{
+      box-sizing: border-box;
+      line-height: 1.15;
+      padding: 4px;
+    }}
+    .local-evidence-table th:nth-child(1),
+    .local-evidence-table td:nth-child(1) {{
+      width: 27%;
+    }}
+    .local-evidence-table th:nth-child(2),
+    .local-evidence-table td:nth-child(2) {{
+      width: 11%;
+    }}
+    .local-evidence-table th:nth-child(3),
+    .local-evidence-table td:nth-child(3) {{
+      width: 15%;
+    }}
+    .local-evidence-table th:nth-child(4),
+    .local-evidence-table td:nth-child(4) {{
+      width: 15%;
+    }}
+    .local-evidence-table th:nth-child(5),
+    .local-evidence-table td:nth-child(5) {{
+      width: 11%;
+    }}
+    .local-evidence-table th:nth-child(6),
+    .local-evidence-table td:nth-child(6) {{
+      width: 21%;
     }}
     .local-evidence-table td:first-child strong,
     .local-evidence-table td:first-child span {{
@@ -4148,6 +4271,24 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       text-align: center;
       white-space: normal;
       width: 100%;
+    }}
+    .local-evidence-table .evidence-profile-state,
+    .local-evidence-table .evidence-source-chip,
+    .local-evidence-table .evidence-status,
+    .local-evidence-table .evidence-decision {{
+      padding: 3px 4px;
+    }}
+    .local-evidence-table .evidence-action-form {{
+      flex-wrap: nowrap;
+      justify-content: center;
+    }}
+    .local-evidence-table .evidence-action-button {{
+      flex: 1 1 0;
+      font-size: 10px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      padding: 4px;
+      white-space: normal;
     }}
     .evidence-profile-state {{
       border: 1px solid rgba(148, 163, 184, .26);
@@ -6390,6 +6531,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .parameters-screen .profile-section-banner.compact .profile-hero-chips {{
         flex-wrap: wrap;
         justify-content: flex-start;
+      }}
+      .parameters-screen {{
+        height: auto;
+        overflow: visible;
+      }}
+      .parameters-screen > form {{
+        display: block;
+        overflow: visible;
+      }}
+      .parameters-screen .parameter-tabbed-grid {{
+        overflow: visible;
+        padding-right: 0;
       }}
     }}
     @media (max-width: 1080px) {{
@@ -9823,6 +9976,8 @@ def empty_catalog_entry(group: str, item_id: str) -> dict[str, object]:
         return {"id": item_id, "label": label}
     if group == "habitat_features":
         return {"id": item_id, "label": label}
+    if group == "observation_flush_abundance":
+        return {"id": item_id, "label": label, "prediction_favorable": 0}
     return {"id": item_id, "label": label}
 
 
@@ -10045,6 +10200,11 @@ def catalog_entry_from_form(group: str, item_id: str, existing: dict[str, object
     elif group == "aspects":
         entry["azimuth_min"] = catalog_form_optional_number(form, "azimuth_min")
         entry["azimuth_max"] = catalog_form_optional_number(form, "azimuth_max")
+    elif group == "observation_flush_abundance":
+        favorable = catalog_form_string(form, "prediction_favorable")
+        if favorable not in {"0", "1"}:
+            raise ValueError("prediction_favorable must be 0 or 1")
+        entry["prediction_favorable"] = int(favorable)
     if "description" in entry or group == "trophic_modes":
         entry["description"] = catalog_form_string(form, "description")
     if "notes" in entry:
@@ -10762,6 +10922,10 @@ def start_mushroom_model_rebuild_job(
                 scope_label = "visible filtered"
             elif reconstruction_scope == "pending":
                 scope_label = "pending-species"
+            elif reconstruction_scope == "species":
+                scope_label = "selected-species"
+            elif reconstruction_scope == "all":
+                scope_label = "all eligible"
             else:
                 scope_label = "selected"
             pending_species = sorted({str(species_id) for species_id in (pending_species_ids or []) if str(species_id or "").strip()})
@@ -10805,7 +10969,18 @@ def start_mushroom_model_rebuild_job(
                 message="Reconstruyendo contexto meteorologico.",
                 reset_phase_timer=True,
             )
-            weather_payload = mushroom_observation_context.build_and_write_observation_weather_features()
+
+            def weather_progress(percent: int, message: str) -> None:
+                set_mushroom_rebuild_progress(
+                    job_id,
+                    phase_percent=percent,
+                    overall_percent=42 + int(percent * 0.18),
+                    message=message,
+                )
+
+            weather_payload = mushroom_observation_context.build_and_write_observation_weather_features(
+                progress_callback=weather_progress,
+            )
             weather_count = (
                 int(weather_payload.get("summary", {}).get("observations", 0) or 0)
                 if isinstance(weather_payload, dict) else 0
@@ -10826,7 +11001,18 @@ def start_mushroom_model_rebuild_job(
                 message="Uniendo features meteorologicas y GIS/DEM.",
                 reset_phase_timer=True,
             )
-            features_payload = mushroom_observation_features.build_and_write_observation_features_v0()
+
+            def features_progress(percent: int, message: str) -> None:
+                set_mushroom_rebuild_progress(
+                    job_id,
+                    phase_percent=percent,
+                    overall_percent=62 + int(percent * 0.16),
+                    message=message,
+                )
+
+            features_payload = mushroom_observation_features.build_and_write_observation_features_v0(
+                progress_callback=features_progress,
+            )
             feature_count = (
                 int(features_payload.get("summary", {}).get("observations", 0) or 0)
                 if isinstance(features_payload, dict) else 0
@@ -10849,10 +11035,41 @@ def start_mushroom_model_rebuild_job(
             )
             if pending_species:
                 learned_payload = None
-                for pending_species_id in pending_species:
-                    learned_payload = mushroom_learned_model.build_and_write_species_learned_model_v0(pending_species_id)
+                pending_total = len(pending_species)
+                for pending_index, pending_species_id in enumerate(pending_species, start=1):
+                    def species_model_progress(
+                        percent: int,
+                        progress_message: str,
+                        *,
+                        index: int = pending_index,
+                    ) -> None:
+                        aggregate_percent = int((((index - 1) + percent / 100) / pending_total) * 100)
+                        set_mushroom_rebuild_progress(
+                            job_id,
+                            phase_percent=aggregate_percent,
+                            overall_percent=80 + int(aggregate_percent * 0.2),
+                            message=(
+                                f"Especie {index}/{pending_total}. "
+                                f"{progress_message}"
+                            ),
+                        )
+
+                    learned_payload = mushroom_learned_model.build_and_write_species_learned_model_v0(
+                        pending_species_id,
+                        progress_callback=species_model_progress,
+                    )
             else:
-                learned_payload = mushroom_learned_model.build_and_write_learned_model_v0()
+                def learned_model_progress(percent: int, message: str) -> None:
+                    set_mushroom_rebuild_progress(
+                        job_id,
+                        phase_percent=percent,
+                        overall_percent=80 + int(percent * 0.2),
+                        message=message,
+                    )
+
+                learned_payload = mushroom_learned_model.build_and_write_learned_model_v0(
+                    progress_callback=learned_model_progress,
+                )
             model_species_count = (
                 int(learned_payload.get("summary", {}).get("species", 0) or 0)
                 if isinstance(learned_payload, dict) else 0
@@ -14792,42 +15009,58 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 return evidence_return_url(species_id, profile_view=profile_view, evidence_view=evidence_view)
             if action == "rebuild_learned_model_v0_species":
                 profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
-                learned_payload = mushroom_learned_model.build_and_write_species_learned_model_v0(species_id)
-                selected_model = None
-                models = learned_payload.get("species_models")
-                if isinstance(models, list):
-                    selected_model = next(
-                        (
-                            model
-                            for model in models
-                            if isinstance(model, dict) and str(model.get("species_id", "") or "") == species_id
-                        ),
-                        None,
-                    )
-                selected_count = selected_model.get("observation_count", 0) if isinstance(selected_model, dict) else 0
-                set_mushroom_profiles_flash(
-                    "Learned v0 model rebuilt for selected species: "
-                    f"{species_id} with {selected_count} used observation(s). "
-                    "Weather and observation feature caches were not rebuilt."
+                observations_payload = store.load("observations")
+                observations = observation_dicts_from_payload(
+                    observations_payload if isinstance(observations_payload, dict) else {}
                 )
-                mushroom_model_state.clear_species_pending([species_id])
-                return evidence_return_url(species_id, profile_view=profile_view, evidence_view="learned_model")
+                selected_observation_ids = eligible_observation_ids_for_species(observations, [species_id])
+                return_url = evidence_return_url(
+                    species_id,
+                    profile_view=profile_view,
+                    evidence_view="learned_model",
+                )
+                if not selected_observation_ids:
+                    set_mushroom_profiles_flash(
+                        "Modelo v0 was not rebuilt: the selected species has no eligible observations with coordinates."
+                    )
+                    return return_url
+                set_mushroom_profiles_flash(
+                    f"Modelo v0 rebuild started for the selected species ({len(selected_observation_ids)} observation(s))."
+                )
+                job_id = start_mushroom_model_rebuild_job(
+                    selected_observation_ids=selected_observation_ids,
+                    reconstruction_scope="species",
+                    return_url=return_url,
+                    pending_species_ids=[species_id],
+                )
+                return append_query_param(return_url, "rebuild_job", job_id)
             if action in {"rebuild_learned_model_v0", "rebuild_learned_model_v0_all"}:
                 profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
-                mushroom_observation_context.build_and_write_observation_weather_features()
-                features_payload = mushroom_observation_features.build_and_write_observation_features_v0()
-                learned_payload = mushroom_learned_model.build_and_write_learned_model_v0()
-                features_summary = features_payload.get("summary") if isinstance(features_payload.get("summary"), dict) else {}
-                learned_summary = learned_payload.get("summary") if isinstance(learned_payload.get("summary"), dict) else {}
-                set_mushroom_profiles_flash(
-                    "Learned v0 model rebuilt: "
-                    f"{learned_summary.get('observations', 0)} used observation(s), "
-                    f"{learned_summary.get('excluded_observations', 0)} excluded, "
-                    f"{learned_summary.get('species', 0)} species. "
-                    f"Joined features: {features_summary.get('observations', 0)} observation(s)."
+                observations_payload = store.load("observations")
+                observations = observation_dicts_from_payload(
+                    observations_payload if isinstance(observations_payload, dict) else {}
                 )
-                mushroom_model_state.clear_all_pending(full_rebuild=True)
-                return evidence_return_url(species_id, profile_view=profile_view, evidence_view="learned_model")
+                eligible_species = eligible_model_species_ids(observations)
+                selected_observation_ids = eligible_observation_ids_for_species(observations, eligible_species)
+                return_url = evidence_return_url(
+                    species_id,
+                    profile_view=profile_view,
+                    evidence_view="learned_model",
+                )
+                if not selected_observation_ids:
+                    set_mushroom_profiles_flash(
+                        "Modelo v0 was not rebuilt: no eligible observations with coordinates were found."
+                    )
+                    return return_url
+                set_mushroom_profiles_flash(
+                    f"Global Modelo v0 rebuild started for {len(selected_observation_ids)} observation(s)."
+                )
+                job_id = start_mushroom_model_rebuild_job(
+                    selected_observation_ids=selected_observation_ids,
+                    reconstruction_scope="all",
+                    return_url=return_url,
+                )
+                return append_query_param(return_url, "rebuild_job", job_id)
             if action == "rebuild_pending_model_v0":
                 profile_view = mushroom_profiles_ui.normalize_profile_view(catalog_form_string(form, "view"))
                 state = mushroom_model_state.load_state()

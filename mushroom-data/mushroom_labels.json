@@ -525,14 +525,14 @@
     "ca": "Total observacions"
   },
   "ui.positive_present": {
-    "en": "Positive / present",
-    "es": "Positiva / presente",
-    "ca": "Positiva / present"
+    "en": "Favorable",
+    "es": "Favorable",
+    "ca": "Favorable"
   },
   "ui.negative_absent": {
-    "en": "Negative / absent",
-    "es": "Negativa / ausente",
-    "ca": "Negativa / absent"
+    "en": "Unfavorable",
+    "es": "Desfavorable",
+    "ca": "Desfavorable"
   },
   "ui.pending_validation": {
     "en": "Pending validation",
@@ -568,6 +568,26 @@
     "en": "Result",
     "es": "Resultado",
     "ca": "Resultat"
+  },
+  "ui.result_present": {
+    "en": "Present",
+    "es": "Presente",
+    "ca": "Present"
+  },
+  "ui.result_absent": {
+    "en": "Absent",
+    "es": "Ausente",
+    "ca": "Absent"
+  },
+  "ui.result_favorable": {
+    "en": "Favorable",
+    "es": "Favorable",
+    "ca": "Favorable"
+  },
+  "ui.result_unfavorable": {
+    "en": "Unfavorable",
+    "es": "Desfavorable",
+    "ca": "Desfavorable"
   },
   "ui.search": {
     "en": "Search",
@@ -1090,14 +1110,14 @@
     "ca": "Observacions minimes"
   },
   "ui.minimum_positive_observations": {
-    "en": "Minimum positive",
-    "es": "Positivas minimas",
-    "ca": "Positives minimes"
+    "en": "Minimum favorable",
+    "es": "Favorables minimas",
+    "ca": "Favorables minimes"
   },
   "ui.minimum_negative_observations": {
-    "en": "Minimum negative",
-    "es": "Negativas minimas",
-    "ca": "Negatives minimes"
+    "en": "Minimum unfavorable",
+    "es": "Desfavorables minimas",
+    "ca": "Desfavorables minimes"
   },
   "ui.minimum_observations_for_calibration": {
     "en": "Min observations calibration",
@@ -1405,14 +1425,14 @@
     "ca": "Observacions usades"
   },
   "ui.positive_observations": {
-    "en": "Positive observations",
-    "es": "Observaciones positivas",
-    "ca": "Observacions positives"
+    "en": "Favorable observations",
+    "es": "Observaciones favorables",
+    "ca": "Observacions favorables"
   },
   "ui.negative_observations": {
-    "en": "Negative observations",
-    "es": "Observaciones negativas",
-    "ca": "Observacions negatives"
+    "en": "Unfavorable observations",
+    "es": "Observaciones desfavorables",
+    "ca": "Observacions desfavorables"
   },
   "ui.key_data_gaps": {
     "en": "Key data gaps",
@@ -1448,6 +1468,11 @@
     "en": "No",
     "es": "No",
     "ca": "No"
+  },
+  "ui.prediction_favorable": {
+    "en": "Favorable for prediction",
+    "es": "Favorable para prediccion",
+    "ca": "Favorable per a la prediccio"
   },
   "ui.accepted": {
     "en": "Accepted",
@@ -2015,9 +2040,9 @@
     "ca": "Sol observat"
   },
   "ui.absent_observations": {
-    "en": "Absent",
-    "es": "Ausencias",
-    "ca": "Absencies"
+    "en": "Unfavorable",
+    "es": "Desfavorables",
+    "ca": "Desfavorables"
   },
   "ui.change_species": {
     "en": "Change species",
@@ -2405,9 +2430,9 @@
     "ca": "Model experimental recalculat des de features d'observacions aprovades/locals. No modifica perfils."
   },
   "ui.learned_negative_short": {
-    "en": "Neg.",
-    "es": "Neg.",
-    "ca": "Neg."
+    "en": "Unfav.",
+    "es": "Desfav.",
+    "ca": "Desfav."
   },
   "ui.learned_no_categorical_features": {
     "en": "No categorical variables have been learned for this species.",
@@ -2435,9 +2460,9 @@
     "ca": "Comparacio de nomes lectura amb l'evidencia apresa. No modifica perfils."
   },
   "ui.learned_positive_short": {
-    "en": "Pos.",
-    "es": "Pos.",
-    "ca": "Pos."
+    "en": "Fav.",
+    "es": "Fav.",
+    "ca": "Fav."
   },
   "ui.learned_ratio_delta": {
     "en": "Difference",
@@ -2485,9 +2510,9 @@
     "ca": "Origens"
   },
   "ui.present_observations": {
-    "en": "Present",
-    "es": "Presentes",
-    "ca": "Presents"
+    "en": "Favorable",
+    "es": "Favorables",
+    "ca": "Favorables"
   },
   "ui.profile_overlap": {
     "en": "Profile overlap",
@@ -2520,9 +2545,9 @@
     "ca": "Reconstruir totes"
   },
   "ui.rebuild_all_learned_model_help": {
-    "en": "Runs the full global chain: weather reconstruction, v0 feature join and learned model rebuild for every species. Profiles are not modified.",
-    "es": "Ejecuta la cadena global completa: reconstruccion meteorologica, union de features v0 y reconstruccion del modelo aprendido para todas las especies. No modifica perfiles.",
-    "ca": "Executa la cadena global completa: reconstruccio meteorologica, unio de features v0 i reconstruccio del model apres per a totes les especies. No modifica perfils."
+    "en": "Runs the full global chain in the background: GIS/DEM, weather reconstruction, v0 feature join and learned model rebuild for every species. Progress is shown on screen. Profiles are not modified.",
+    "es": "Ejecuta en segundo plano la cadena global completa: GIS/DEM, reconstruccion meteorologica, union de features v0 y reconstruccion del modelo aprendido para todas las especies. Muestra el progreso en pantalla. No modifica perfiles.",
+    "ca": "Executa en segon pla la cadena global completa: GIS/DEM, reconstruccio meteorologica, unio de features v0 i reconstruccio del model apres per a totes les especies. Mostra el progres en pantalla. No modifica perfils."
   },
   "ui.rebuild_learned_model": {
     "en": "Rebuild v0 model",
@@ -2635,9 +2660,9 @@
     "ca": "Reconstruir aquesta especie"
   },
   "ui.rebuild_selected_learned_model_help": {
-    "en": "Rebuilds only the selected species model from the existing v0 observation features. Weather and feature caches are not rebuilt.",
-    "es": "Reconstruye solo el modelo de la especie seleccionada desde las features v0 existentes. No reconstruye caches meteorologicas ni de features.",
-    "ca": "Reconstrueix nomes el model de l'especie seleccionada des de les features v0 existents. No reconstrueix caches meteorologiques ni de features."
+    "en": "Runs the reconstruction chain in the background for the selected species: GIS/DEM, weather, v0 features and learned model. Progress is shown on screen. Profiles are not modified.",
+    "es": "Ejecuta en segundo plano la cadena de reconstruccion para la especie seleccionada: GIS/DEM, meteorologia, features v0 y modelo aprendido. Muestra el progreso en pantalla. No modifica perfiles.",
+    "ca": "Executa en segon pla la cadena de reconstruccio per a l'especie seleccionada: GIS/DEM, meteorologia, features v0 i model apres. Mostra el progres en pantalla. No modifica perfils."
   },
   "ui.source_field": {
     "en": "Field",
