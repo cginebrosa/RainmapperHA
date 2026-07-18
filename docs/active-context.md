@@ -8,10 +8,10 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 - Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.206`.
-- Commit release: `9d684bb Release Home Assistant 0.2.206`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.206` y `latest`.
-- Digest multi-arch: `sha256:47da2be9cdfce2698f2d4825e7b25be50aabf1dddb355693846ff5f56343ef17`.
+- Ultimo release HA publicado: `0.2.207`.
+- Commit release: `bbf43aa Release Home Assistant 0.2.207`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.207` y `latest`.
+- Digest multi-arch: `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - El usuario valido `0.2.204` en HA el 2026-07-16: la carga y asociacion de un
@@ -25,20 +25,36 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 ## Foco inmediato
 
-1. Incorporar mas observaciones historicas reales de `Boletus pinophilus`, de
+1. Validar `0.2.207` en Home Assistant, especialmente los rebuilds de una
+   especie y de todas con progreso visible durante las cuatro fases.
+2. Incorporar mas observaciones historicas reales de `Boletus pinophilus`, de
    distintos anos y setales, sin inventar ausencias ni completar datos dudosos.
-2. Revisar despues la cobertura temporal/espacial resultante y retomar el
+3. Revisar despues la cobertura temporal/espacial resultante y retomar el
    pipeline ML experimental con la especie que tenga mas datos utiles.
-3. Mantener como comprobaciones menores pendientes el boton de cancelar carga y
+4. Mantener como comprobaciones menores pendientes el boton de cancelar carga y
    el Quick viewer MapLibre a `rainmap.nomentero.com`.
-4. El plan predictivo vigente esta en
+5. El plan predictivo vigente esta en
    `docs/mushrooms/mushroom-ml-training-plan-es.md`.
 
 GHCR y backfill dejan de ser el foco inmediato. Siguen pendientes una posible
 limpieza conservadora y pruebas mensuales cortas, pero no deben interrumpir la
 estabilizacion actual de setales/observaciones salvo peticion del usuario.
 
-## Release 0.2.206 pendiente de validacion en HA
+## Release 0.2.207 pendiente de validacion en HA
+
+- `0.2.207` esta publicada y verificada para amd64/arm64; falta la prueba real
+  del usuario en Home Assistant.
+- El objetivo binario V0 favorable/desfavorable se deriva del campo
+  `prediction_favorable` del catalogo `observation_flush_abundance`; no altera
+  ni migra las observaciones guardadas.
+- Los botones de reconstruccion de una especie y de todas lanzan el pipeline en
+  background y muestran progreso cancelable de GIS/DEM, meteorologia, features
+  y modelo aprendido.
+- Las pantallas de especies, observaciones, evidencia, parametros y calibracion
+  estan mas compactas, mantienen visibles controles y acciones y sustituyen IDs
+  tecnicos por nombres localizados cuando corresponde.
+
+## Release 0.2.206 sustituida por 0.2.207
 
 - `0.2.206` esta publicada y verificada para amd64/arm64; falta la prueba real
   del usuario en Home Assistant.
@@ -232,7 +248,7 @@ instantaneo.
   privados persistentes y no se versionan.
 - Resolver canonico: `rainmapper_core/mushroom_paths.py`.
 - UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
-- La release remota publicada es `0.2.206` y esta pendiente de validacion real
+- La release remota publicada es `0.2.207` y esta pendiente de validacion real
   en HA. La UI local estaba disponible durante la
   validacion; comprobar su estado antes de asumir que el contenedor sigue activo
   en una nueva sesion.
@@ -249,9 +265,9 @@ instantaneo.
 - Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
   longitud y `Content-Range` correctos.
 - Validador de datos: 0 errores y 11 warnings conocidos.
-- Imagen remota `0.2.206`/`latest` verificada para amd64/arm64 con digest
-  `sha256:47da2be9cdfce2698f2d4825e7b25be50aabf1dddb355693846ff5f56343ef17`;
-  tamano comprimido 497.299.566 bytes en amd64 y 478.262.263 bytes en arm64.
+- Imagen remota `0.2.207`/`latest` verificada para amd64/arm64 con digest
+  `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`;
+  tamano comprimido 497.304.040 bytes en amd64 y 478.268.512 bytes en arm64.
 - Prueba HA real completada por el usuario: carga, preview, asociacion, guardado
   y conversion del video de 30,4 MB totalmente funcionales; FFmpeg tarda 5-10 s.
 

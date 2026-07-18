@@ -2,7 +2,7 @@
 
 Nota operativa: ejecutar tareas, tests y commits solo desde `/Users/carlosginebrosa/Developer/RainmapperHA`. No usar la copia antigua de iCloud/Mobile Documents.
 
-Regla critica de release HA: cuando se prepare una version para que el usuario la pruebe en Home Assistant, el objetivo es desbloquear la prueba en HA cuanto antes sin dejar el repo incoherente. Orden operativo actual: revisar diff, ejecutar validacion local relevante, hacer bump de version/cache-busters, commit/push, publicar y verificar la imagen `ghcr.io/cginebrosa/rainmapperha:<version>`, y avisar al usuario inmediatamente. No retrasar la prueba por hashes en documentacion o cierre de continuidad; la documentacion viva se actualiza despues del release o en cierre de sesion.
+Regla critica de release HA: cuando se prepare una version para que el usuario la pruebe en Home Assistant, el objetivo es desbloquear la prueba en HA cuanto antes sin dejar el repo incoherente. Orden operativo actual: revisar diff, ejecutar validacion local relevante, hacer bump de version/cache-busters, publicar y verificar la imagen `ghcr.io/cginebrosa/rainmapperha:<version>`, hacer commit/push inmediatamente y avisar al usuario. No retrasar la prueba por hashes en documentacion o cierre de continuidad; la documentacion viva se actualiza despues del release o en cierre de sesion.
 
 Regla operativa de permisos: si el usuario pide explicitamente subir a Git o publicar una version HA, revisar primero estado/diff y validaciones necesarias; despues usar directamente permisos elevados para `git commit`, `git push`, build/push GHCR o comandos de red necesarios, evitando el intento normal que falla por sandbox.
 
@@ -12,10 +12,12 @@ Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
 
-## Estado operativo actual (2026-07-17)
+## Estado operativo actual (2026-07-18)
 
 ### Prioridad inmediata
 
+- [ ] Validar `0.2.207` en Home Assistant: reconstruccion de una especie y de
+  todas, progreso de las cuatro fases y resultado favorable/desfavorable.
 - [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
   de distintos anos y setales, conservando procedencia y calidad.
 - [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
@@ -61,7 +63,21 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   corregir el cierre prematuro de la confirmacion para desasociar medios.
 - [x] Ejecutar 244 tests y publicar/verificar `0.2.206`/`latest` para amd64 y
   arm64 con digest `sha256:47da2be9cdfce2698f2d4825e7b25be50aabf1dddb355693846ff5f56343ef17`.
-- [ ] Validar `0.2.206` en Home Assistant.
+- [ ] Validacion de `0.2.206` sustituida por la prueba de `0.2.207`.
+
+### Publicado en el release 0.2.207
+
+- [x] Derivar el objetivo V0 favorable/desfavorable desde
+  `prediction_favorable` en el catalogo de abundancia, sin migrar observaciones.
+- [x] Hacer operativos los rebuilds de una especie y de todas mediante el job
+  en background y el modal de progreso cancelable.
+- [x] Informar progreso incremental en GIS/DEM, meteorologia, generacion de
+  features y reconstruccion del modelo aprendido.
+- [x] Compactar y localizar las pantallas de observaciones, especies, evidencia,
+  parametros y calibracion, evitando IDs tecnicos en la interfaz funcional.
+- [x] Ejecutar 250 tests y publicar/verificar `0.2.207`/`latest` para amd64 y
+  arm64 con digest `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
+- [ ] Validar `0.2.207` en Home Assistant.
 
 ### Completado en el cierre 0.2.202
 
