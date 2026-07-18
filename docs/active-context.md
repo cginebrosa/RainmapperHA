@@ -12,6 +12,13 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 - Commit release: `bbf43aa Release Home Assistant 0.2.207`.
 - Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.207` y `latest`.
 - Digest multi-arch: `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
+- Commit de documentacion de la release: `882a877 Document Home Assistant
+  0.2.207 release`.
+- El usuario ejecuto `Reconstruir todas` con `0.2.207` en HA el 2026-07-18. El
+  job completo termino correctamente en 4 min 44 s, por lo que quedan validados
+  el arranque en background y la ejecucion de las cuatro fases en la Raspberry.
+  Falta comprobar de forma explicita los recuentos finales
+  favorable/desfavorable de la politica nueva.
 - El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
   y el popup largo muestra `Pluja` en `Valores IDW`.
 - El usuario valido `0.2.204` en HA el 2026-07-16: la carga y asociacion de un
@@ -25,25 +32,55 @@ Este documento es una ventana de trabajo: los detalles antiguos viven en
 
 ## Foco inmediato
 
-1. Validar `0.2.207` en Home Assistant, especialmente los rebuilds de una
-   especie y de todas con progreso visible durante las cuatro fases.
+1. Comprobar en HA que el resultado reconstruido por `0.2.207` clasifica como
+   desfavorables `scarce`, `very_scarce` y `absent`, y como favorables
+   `normal`, `abundant`, `very_abundant` y `exceptional`, siempre gobernado por
+   `prediction_favorable` del catalogo.
 2. Incorporar mas observaciones historicas reales de `Boletus pinophilus`, de
    distintos anos y setales, sin inventar ausencias ni completar datos dudosos.
 3. Revisar despues la cobertura temporal/espacial resultante y retomar el
    pipeline ML experimental con la especie que tenga mas datos utiles.
-4. Mantener como comprobaciones menores pendientes el boton de cancelar carga y
+4. Mantener el worker externo como diseno diferido. Si se retoma, medir primero
+   las fases en HA/M1/M5 y extraer un pipeline comun; no empezar por Docker ni
+   Tailscale.
+5. Mantener como comprobaciones menores pendientes el boton de cancelar carga y
    el Quick viewer MapLibre a `rainmap.nomentero.com`.
-5. El plan predictivo vigente esta en
+6. El plan predictivo vigente esta en
    `docs/mushrooms/mushroom-ml-training-plan-es.md`.
 
 GHCR y backfill dejan de ser el foco inmediato. Siguen pendientes una posible
 limpieza conservadora y pruebas mensuales cortas, pero no deben interrumpir la
 estabilizacion actual de setales/observaciones salvo peticion del usuario.
 
-## Release 0.2.207 pendiente de validacion en HA
+## Diseno diferido: reconstruccion V0 en un Mac
 
-- `0.2.207` esta publicada y verificada para amd64/arm64; falta la prueba real
-  del usuario en Home Assistant.
+- Se ha acordado conservar una propuesta para ejecutar la reconstruccion V0
+  completa en un Mac mediante un worker Docker privado, manteniendo HA como
+  fuente de verdad y como fallback.
+- Medidas comunicadas por el usuario: aproximadamente 40 s en un MacBook Pro M1
+  Pro frente a 4 min 44 s en HA/Raspberry Pi. Falta medir el M5 y los tiempos
+  reales de cada fase.
+- El worker ejecutaria GIS/DEM, meteorologia, features y modelo con el mismo
+  pipeline de `rainmapper_core`; no se mantendran dos reconstructores.
+- La imagen del worker seria distinta de la imagen HA, incluiria localmente los
+  5,9 GB de `mushroom-GIS-HA` y se moveria de forma privada con
+  `docker save`/`docker load`, sin GHCR ni publicacion en Internet.
+- La comunicacion seria iniciada por el worker. Si se usa Tailscale, se
+  configurara siempre la URL Tailscale fija de HA, tanto dentro como fuera de
+  la LAN; la IP del Mac no forma parte de su identidad.
+- No hay implementacion iniciada. El diseno, seguridad, consistencia, fases y
+  preguntas abiertas estan en
+  `docs/mushrooms/mushroom-v0-external-worker-design-es.md`.
+- Al retomarlo, medir primero HA/M1/M5 y extraer la coordinacion actual a un
+  pipeline comun antes de crear Docker, API o UI del worker.
+
+## Release 0.2.207: validacion funcional parcial en HA
+
+- `0.2.207` esta publicada/verificada para amd64/arm64 y fue ejecutada realmente
+  en Home Assistant.
+- `Reconstruir todas` completo las cuatro fases en 4 min 44 s. Esta diferencia
+  frente a los aproximadamente 40 s del M1 Pro motiva el diseno diferido del
+  worker externo.
 - El objetivo binario V0 favorable/desfavorable se deriva del campo
   `prediction_favorable` del catalogo `observation_flush_abundance`; no altera
   ni migra las observaciones guardadas.
@@ -53,46 +90,6 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
 - Las pantallas de especies, observaciones, evidencia, parametros y calibracion
   estan mas compactas, mantienen visibles controles y acciones y sustituyen IDs
   tecnicos por nombres localizados cuando corresponde.
-
-## Release 0.2.206 sustituida por 0.2.207
-
-- `0.2.206` esta publicada y verificada para amd64/arm64; falta la prueba real
-  del usuario en Home Assistant.
-- Observaciones incorpora un selector de calendario con navegacion directa por
-  mes y ano, campos de fecha compactos, filas y acciones mas densas y mas ancho
-  util para la lista.
-- El detalle de observacion amplía la miniatura, simplifica sus etiquetas y
-  reserva mas espacio para los valores. La confirmacion de desasociar medios ya
-  no se cierra por la navegacion ligera del historial.
-- Especies reorganiza los seis estados en una cuadricula 3x2, equilibra los
-  indicadores superiores, da mas ancho a nombres cientificos y comunes y
-  compacta verticalmente el editor para mantener visibles las acciones.
-- Las barras de acciones superiores de perfiles, catalogos, GIS y setales usan
-  la misma densidad visual.
-
-## Release 0.2.205 sustituida por 0.2.206
-
-- `0.2.205` esta publicada y verificada para amd64/arm64; falta la prueba real
-  del usuario en Home Assistant.
-- La lista de observaciones usa paginacion de servidor (25/50/100 filas),
-  muestra Area y Microarea por nombre y carga solo el panel de detalle al
-  seleccionar una fila. Ya no reconstruye toda la pantalla.
-- La lista de especies se carga completa al entrar y, al cambiar de especie,
-  sustituye de forma asincrona solo el editor derecho. Conserva busqueda,
-  vista V0/Enriched, pestana activa e historial del navegador. La cabecera del
-  editor muestra el nombre cientifico y todos los nombres comunes, sin repetir
-  el `species_id` tecnico.
-- La pantalla de setales conserva el arbol cargado y, al cambiar de area o
-  microarea, sustituye solo el editor y el mapa mediante
-  `/api/mushrooms/known-site-detail`. Destruye el MapLibre anterior, cancela
-  peticiones obsoletas, conserva el scroll/plegado del arbol y mantiene la
-  proteccion de cambios sin guardar. El mapa nace ya encuadrado en la geometria
-  o ubicacion seleccionada y no hace el salto visual previo desde la ubicacion
-  predeterminada.
-- El Control Panel conserva el refresco de cinco segundos, pero ya no usa una
-  recarga completa del documento. Consulta `/api/control-panel-fragment`,
-  compara una firma del HTML y solo actualiza la region viva cuando cambia;
-  conserva pestana y scroll y no toca el DOM mientras el estado sea identico.
 
 ## Estado funcional de setales
 
@@ -171,23 +168,6 @@ estabilizacion actual de setales/observaciones salvo peticion del usuario.
   `source video/mp4` con poster. El flujo completo se valido finalmente en HA
   con `0.2.204`.
 
-## Ultimo cambio publicado
-
-`0.2.205` elimina recargas completas al seleccionar observaciones, especies y
-setales; pagina observaciones en servidor y usa fragmentos ligeros para los
-paneles de detalle. El mapa de setales nace encuadrado en la seleccion y el
-Control Panel conserva su refresco de cinco segundos sin recargar el documento
-ni tocar el DOM cuando el contenido no cambia.
-
-`0.2.204` habilita `ingress_stream`, admite cuerpos HTTP fragmentados y elimina
-el bloqueo de cargas superiores a 16 MB sin cambiar los limites propios de 100
-MB por archivo y 500 MB por lote. La vista previa y el guardado muestran progreso
-real de subida y una fase visible durante EXIF/FFmpeg; cancelar aborta las cargas
-activas. Tambien corrige el Quick viewer MapLibre a `rainmap.nomentero.com`.
-El usuario confirmo en HA que el flujo es totalmente funcional y rapido: la
-conversion del video de 30,4 MB tarda unos 5-10 segundos y el resto es casi
-instantaneo.
-
 ## Predictor y modelo aprendido
 
 - `mushroom_model_v0.json` sigue siendo una salida descriptiva/auditable; no es
@@ -248,10 +228,10 @@ instantaneo.
   privados persistentes y no se versionan.
 - Resolver canonico: `rainmapper_core/mushroom_paths.py`.
 - UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
-- La release remota publicada es `0.2.207` y esta pendiente de validacion real
-  en HA. La UI local estaba disponible durante la
-  validacion; comprobar su estado antes de asumir que el contenedor sigue activo
-  en una nueva sesion.
+- La release remota publicada es `0.2.207`. La reconstruccion completa ya se
+  ejecuto en HA; queda validar explicitamente la distribucion final del objetivo
+  favorable/desfavorable. Comprobar el estado de la UI local antes de asumir que
+  el contenedor sigue activo en una nueva sesion.
 - Usar siempre `.venv/bin/python` (Python 3.11), igual que contenedor y HA. No
   usar el Python local del sistema. La migracion a Python 3.14 es una tarea
   futura separada, no parte de estos cambios.
@@ -268,11 +248,22 @@ instantaneo.
 - Imagen remota `0.2.207`/`latest` verificada para amd64/arm64 con digest
   `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`;
   tamano comprimido 497.304.040 bytes en amd64 y 478.268.512 bytes en arm64.
+- Prueba HA de `0.2.207`: `Reconstruir todas` completo GIS/DEM, meteorologia,
+  features y modelo aprendido en 4 min 44 s.
 - Prueba HA real completada por el usuario: carga, preview, asociacion, guardado
   y conversion del video de 30,4 MB totalmente funcionales; FFmpeg tarda 5-10 s.
 
 ## Riesgos y dudas
 
+- No se ha confirmado todavia en HA que la reconstruccion nueva agrupe todas
+  las abundancias exactamente segun `prediction_favorable`; revisar recuentos y
+  al menos un caso `scarce`/`very_scarce` antes de dar la politica por validada.
+- El worker externo es solo un diseno. Sus riesgos principales son consistencia
+  del snapshot, promocion atomica, autenticacion, ruta Docker-Tailscale,
+  licencias del GIS/DEM y tamano real de la imagen/TAR.
+- No crear una segunda copia del reconstructor. La primera fase futura debe
+  extraer la coordinacion de `web_server.py` a `rainmapper_core` y conservar la
+  ejecucion HA como fallback.
 - Safari/ingress puede imponer comportamiento adicional de proxy o cache no
   reproducible localmente, pero el flujo de medios de `0.2.204` ya esta validado.
 - El fullscreen generico de imagen depende de que Safari/ingress permita la API
@@ -291,17 +282,19 @@ instantaneo.
 
 ## Archivos relevantes inmediatos
 
-- `rainmapper-app/app/mushroom_profiles_ui.py`: observaciones, EXIF, mapas y
-  modal compartido de listas/evidencia.
-- `rainmapper-app/app/mushroom_known_sites_ui.py`: mantenimiento de setales.
-- `rainmapper-app/app/web_server.py`: estilos, JavaScript, rutas y POST.
-- `tests/test_web_server_auth.py`: cobertura de `HEAD`, rangos HTTP y fuente MP4.
-- `rainmapper-app/Dockerfile`: FFmpeg y ExifTool son dependencias del sistema;
-  no deben trasladarse a `requirements.txt`.
-- `rainmapper_core/mushroom_known_sites.py`: dominio/persistencia de setales.
-- `rainmapper_core/mushroom_gis_lab.py`: propuestas GIS/DEM.
-- `mushroom-data/mushroom_known_sites.json`: plantilla/store versionado.
-- `mushroom-data/mushroom_labels.json`: labels ES/EN/CA.
-- `tests/test_mushroom_known_sites.py` y `tests/test_web_server_auth.py`.
+- `rainmapper-app/app/web_server.py`: job/background actual, progreso y
+  coordinacion de las cuatro fases; origen del futuro pipeline comun.
+- `rainmapper_core/mushroom_gis_lab.py`: fase GIS/DEM y resolver
+  `RAINMAPPER_MUSHROOM_GIS_ROOT`.
+- `rainmapper_core/mushroom_observation_context.py`: fase meteorologica.
+- `rainmapper_core/mushroom_observation_features.py`: union de features V0.
+- `rainmapper_core/mushroom_learned_model.py`: modelo aprendido V0.
+- `rainmapper_core/mushroom_paths.py`: rutas canonicas de inputs y artefactos.
+- `mushroom-data/mushroom_reference_catalogs.json`: politica versionada de
+  `prediction_favorable`; no confundir con la copia viva privada de HA.
+- `tests/test_web_server_auth.py` y tests V0: reconstruccion, progreso y politica
+  derivada.
 - `docs/mushrooms/mushroom-ml-training-plan-es.md`.
 - `docs/mushrooms/mushroom-observations-schema-es.md`.
+- `docs/mushrooms/mushroom-v0-external-worker-design-es.md`: diseno diferido,
+  riesgos, fases y criterios de aceptacion del worker.

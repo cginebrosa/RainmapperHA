@@ -2,6 +2,76 @@
 
 Nota de auditoria 2026-07-11: este fichero es un log cronologico/historico. Las entradas antiguas se conservan para trazabilidad y pueden describir fases intermedias ya sustituidas por decisiones posteriores. Estado real verificado contra el repo en este cierre: rama `inicial`; ultimo release HA `abe0d49 Release Home Assistant 0.2.199`; version HA `0.2.199`, validada por el usuario en Home Assistant; imagen `ghcr.io/cginebrosa/rainmapperha:0.2.199` y `latest` publicada/verificada con digest multi-arch `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`. MapLibre protegido funciona y el popup largo muestra `Pluja` en `Valores IDW`. El repo GitHub queda abierto/publico por decision explicita del usuario; no cerrarlo. Una futura limpieza GHCR debe ser conservadora y mantener la version activa, `latest`, el rollback inmediato y los auxiliares multi-arch asociados. `rainmapper-local/options.local-ha-ui.json` es el perfil versionado para desarrollo local, con backfill desactivado y sin claves reales. Datos vivos, artefactos v0, estado del modelo y fotos reducidas de observaciones viven bajo `mushroom-data/` (`docker-data/mushroom-data/` en local, `/share/rainmapper/mushroom-data/` en HA), con fotos en `mushroom-data/media/observation-photos/<year>/`; capas GIS/DEM pesadas en HA viven bajo `/media/rainmapper/mushroom-GIS/`; `tmp/mushroom-lab/` queda solo para pruebas locales explicitas/QGIS. La evidencia GIS/meteo por observacion y el modelo aprendido v0 no modifican perfiles automaticamente. Directiva vigente: toda UI de setas debe seguir siendo multiidioma, humana y coherente; texto visible nuevo en `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
 
+## 2026-07-18 - Objetivo V0 gobernado por el catalogo de abundancia
+
+Estado: VIGENTE
+
+Decision:
+
+- Las observaciones guardan `flush_abundance`; no guardan un segundo objetivo
+  manual ni requieren migracion.
+- Cada entrada de `catalogs.observation_flush_abundance` define el entero
+  tecnico `prediction_favorable` (`0`/`1`). El pipeline deriva de ahi el
+  objetivo favorable/desfavorable y lo materializa en artefactos reconstruibles.
+- `analysis_result` (`present`/`absent`) conserva su significado biologico y de
+  compatibilidad, pero no es el objetivo de entrenamiento V0.
+- La politica, mapping y huella del catalogo se incluyen en los artefactos y el
+  modelo para auditar cada reconstruccion.
+- Una reconstruccion debe fallar de forma explicita si falta el campo o no es
+  un entero 0/1; no se permite un fallback hardcoded silencioso.
+
+Motivo:
+
+- La utilidad predictiva buscada es decidir si una salida merece la visita, no
+  solo si hubo algun ejemplar.
+- Mantener la regla en el catalogo permite cambiar la politica sin duplicar
+  datos derivados en las observaciones ni usar textos traducibles como claves.
+
+Consecuencias:
+
+- El catalogo persistente de HA debe actualizarse antes de reconstruir con una
+  politica nueva.
+- La UI puede mostrar Favorable/Desfavorable junto a la abundancia original sin
+  anadir otra columna ni alterar el JSON fuente.
+- Falta verificar explicitamente en HA los recuentos finales de todas las
+  abundancias tras la reconstruccion `0.2.207`.
+
+## 2026-07-18 - Disenar un worker V0 externo y privado para Mac
+
+Estado: VIGENTE
+
+Decision:
+
+- Conservar la reconstruccion V0 local de HA y disenar un destino externo
+  seleccionable para Mac.
+- HA y el worker deben llamar a un unico pipeline compartido en
+  `rainmapper_core`; no se aceptan dos reconstructores independientes.
+- El worker ejecutara las cuatro fases completas, incluido GIS/DEM, en una
+  imagen separada de HA que contendra `mushroom-GIS-HA` como capa estable.
+- La imagen se construira y transferira de forma privada con Docker; no se
+  publicara en GHCR ni en Internet.
+- HA seguira siendo fuente de verdad. El worker iniciara las conexiones,
+  descargara snapshots de datos vivos, subira progreso/resultados y HA los
+  validara antes de una promocion atomica.
+- Si se usa Tailscale, el worker utilizara siempre una URL Tailscale fija de HA
+  dentro y fuera de la LAN. La identidad del worker sera un ID estable, no una
+  direccion IP.
+
+Motivo:
+
+- La reconstruccion completa medida por el usuario tarda aproximadamente 40 s
+  en un M1 Pro y 4 min 44 s en HA/Raspberry Pi.
+- M1 y M5 deben poder reutilizar la misma imagen privada sin duplicar GIS/DEM ni
+  mantener codigo distinto.
+
+Consecuencias:
+
+- No hay codigo de worker implementado todavia ni cambia el release HA actual.
+- Antes de Docker/Tailscale se mediran las fases y se extraera la coordinacion
+  actual a un pipeline comun verificable.
+- El diseno completo y sus preguntas abiertas quedan en
+  `docs/mushrooms/mushroom-v0-external-worker-design-es.md`.
+
 ## 2026-07-11 - Cache-busting runtime del MapLibre protegido
 
 Estado: VIGENTE

@@ -56,6 +56,8 @@ Para tareas de setas:
 - Plan de entrenamiento ML: `docs/mushrooms/mushroom-ml-training-plan-es.md`
 - Modelo v0/laboratorio: `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`
 - Predictor: `docs/mushrooms/mushroom-predictor-design-es.md`
+- Worker V0 externo en Mac (diseno diferido):
+  `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
 - Contrato perfiles v0: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
 - Fuente Marc Estevez: `docs/mushrooms/mushroom-literature-source-apply-es.md`
 - GIS: `docs/mushrooms/gis-layer-inventory-es.md`
@@ -85,10 +87,10 @@ Para tareas de setas:
   `latest`, digest multi-arch
   `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
 - Commit release: `bbf43aa Release Home Assistant 0.2.207`.
-- `0.2.207` esta pendiente de validacion real en HA; compacta y localiza las
-  pantallas de especies, observaciones, evidencia, parametros y calibracion,
-  incorpora el objetivo favorable/desfavorable gobernado por catalogo y hace
-  operativos los rebuilds V0 en background con progreso incremental completo.
+- `0.2.207` fue ejecutada realmente en HA el 2026-07-18: `Reconstruir todas`
+  completo las cuatro fases en 4 min 44 s. Queda comprobar explicitamente que
+  los recuentos favorable/desfavorable coinciden con `prediction_favorable` del
+  catalogo para todas las abundancias.
 - `0.2.199` fue validada en HA por el usuario el 2026-07-11: MapLibre protegido
   funciona y el popup largo muestra `Pluja` en `Valores IDW`.
 - `0.2.204` fue validada en HA el 2026-07-16: el flujo completo de subida,

@@ -16,14 +16,38 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 
 ### Prioridad inmediata
 
-- [ ] Validar `0.2.207` en Home Assistant: reconstruccion de una especie y de
-  todas, progreso de las cuatro fases y resultado favorable/desfavorable.
+- [ ] Validar en HA los recuentos de `0.2.207`: `scarce`, `very_scarce` y
+  `absent` deben resultar desfavorables; `normal` y abundancias superiores,
+  favorables, siempre segun `prediction_favorable` del catalogo.
 - [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
   de distintos anos y setales, conservando procedencia y calidad.
 - [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
   `docs/mushrooms/mushroom-ml-training-plan-es.md`.
 - [ ] Comprobar cuando convenga que cancelar aborta una carga activa y que el
   Quick viewer MapLibre abre `rainmap.nomentero.com`.
+
+### Diseno diferido: worker V0 externo en Mac
+
+No es prioridad inmediata. Antes de tocar esta linea, leer
+`docs/mushrooms/mushroom-v0-external-worker-design-es.md`.
+
+- [x] Documentar arquitectura acordada, datos, imagen Docker privada,
+  protocolo outbound, Tailscale, seguridad, consistencia, fases y criterios de
+  aceptacion.
+- [ ] Medir las cuatro fases de reconstruccion en HA, M1 y M5, y el tamano de
+  inputs/outputs vivos.
+- [ ] Extraer de `web_server.py` un pipeline comun en `rainmapper_core` sin
+  cambiar el comportamiento de la reconstruccion HA.
+- [ ] Validar con un CLI local que el mismo snapshot produce resultados
+  equivalentes mediante el pipeline comun.
+- [ ] Crear una imagen worker independiente y privada con la capa estable de
+  `mushroom-GIS-HA`; probar `docker save`/`docker load` entre M1 y M5 sin GHCR.
+- [ ] Implementar protocolo outbound de workers, snapshot/checksums, progreso,
+  cancelacion, validacion y promocion atomica en HA.
+- [ ] Configurar la comunicacion con una URL Tailscale fija de HA y tokens/ACL
+  por worker; conservar siempre la ejecucion local HA como fallback.
+- [ ] Anadir a la UI la seleccion explicita HA/M1/M5 y probar fallos de red,
+  worker offline, inputs modificados y resultados incompatibles.
 
 ### Completado en el release 0.2.204
 
@@ -77,7 +101,10 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   parametros y calibracion, evitando IDs tecnicos en la interfaz funcional.
 - [x] Ejecutar 250 tests y publicar/verificar `0.2.207`/`latest` para amd64 y
   arm64 con digest `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
-- [ ] Validar `0.2.207` en Home Assistant.
+- [x] Ejecutar `Reconstruir todas` en HA: las cuatro fases completan en 4 min
+  44 s y el job/progreso en background quedan funcionalmente comprobados.
+- [ ] Comprobar explicitamente los recuentos y casos de
+  favorable/desfavorable producidos por el catalogo actualizado.
 
 ### Completado en el cierre 0.2.202
 
