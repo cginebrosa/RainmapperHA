@@ -3552,6 +3552,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('href="./workers">Refresh</a>', page)
         self.assertNotIn("../../api/mushrooms/workers/status", page)
         self.assertIn("window.setTimeout(refresh,2000)", page)
+        self.assertIn("data-refresh-signature=", page)
+        self.assertIn("replaceRegion(cards,payload.worker_cards_html,payload.worker_cards_signature)", page)
+        self.assertIn("document.addEventListener('pointerdown'", page)
+        self.assertIn("requestController?.abort()", page)
+        self.assertNotIn("cards.innerHTML=payload.worker_cards_html", page)
         self.assertIn('id="worker-status-cards"', page)
         self.assertIn('id="worker-recent-jobs"', page)
         self.assertIn('value="create_worker_pairing"', page)
@@ -3587,6 +3592,32 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(payload["stale_after_seconds"], 5)
         self.assertIn("Disconnected", payload["worker_cards_html"])
         self.assertNotIn("Test assignment", payload["worker_cards_html"])
+        self.assertEqual(payload["worker_last_checks"], {"worker_12345678": "2026-07-19 21:04:31"})
+        self.assertEqual(len(payload["worker_cards_signature"]), 64)
+        self.assertEqual(len(payload["worker_choices_signature"]), 64)
+        self.assertEqual(len(payload["recent_jobs_signature"]), 64)
+
+    def test_worker_card_refresh_signature_ignores_heartbeat_time_only(self) -> None:
+        worker = {
+            "configured": True,
+            "reachable": True,
+            "checked_at": "2026-07-20T18:00:00+02:00",
+            "payload": {
+                "worker_id": "worker_12345678",
+                "display_name": "M1 personal",
+                "status": "idle",
+                "job_api": "candidate_rebuild_v0",
+            },
+        }
+        later = {**worker, "checked_at": "2026-07-20T18:00:02+02:00"}
+        busy = {**later, "payload": {**later["payload"], "status": "busy"}}
+
+        initial_signature = self.web_server.mushroom_workers_ui.worker_cards_refresh_signature([worker])
+        later_signature = self.web_server.mushroom_workers_ui.worker_cards_refresh_signature([later])
+        busy_signature = self.web_server.mushroom_workers_ui.worker_cards_refresh_signature([busy])
+
+        self.assertEqual(initial_signature, later_signature)
+        self.assertNotEqual(initial_signature, busy_signature)
 
     def test_workers_page_disables_empty_pending_scope_but_keeps_species_selectable(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
@@ -3890,9 +3921,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.web_server.mushroom_worker_transport,
             "prepare_coordinator_bundle",
             side_effect=bundle_metadata,
-        ):
+        ) as prepare_bundle:
             self.web_server.register_mushroom_worker_heartbeat(heartbeat)
             status, response = self.web_server.create_mushroom_worker_snapshot_transport_probe(
+                "worker_12345678"
+            )
+            duplicate_status, duplicate = self.web_server.create_mushroom_worker_snapshot_transport_probe(
                 "worker_12345678"
             )
             claim_status, claimed = self.web_server.claim_mushroom_worker_job(
@@ -3917,6 +3951,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
             )
 
         self.assertEqual(status, 201)
+        self.assertEqual(duplicate_status, 409)
+        self.assertIn("already active", duplicate["error"])
+        self.assertEqual(prepare_bundle.call_count, 1)
         self.assertEqual(response["job"]["job_type"], "worker_snapshot_transport_probe")
         self.assertEqual(claim_status, 200)
         self.assertEqual(claimed["job"]["input_bundle"]["endpoint"], "/api/mushrooms/workers/jobs/input")
@@ -3927,6 +3964,55 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(start_status, 200)
         self.assertEqual(progress_status, 200)
         self.assertEqual(progressed["job"]["overall_percent"], 55)
+
+    def test_snapshot_transport_start_returns_before_background_preparation(self) -> None:
+        callbacks: list[object] = []
+
+        class DeferredThread:
+            def __init__(self, *, target: object, **_kwargs: object) -> None:
+                self.target = target
+
+            def start(self) -> None:
+                callbacks.append(self.target)
+
+        created = {
+            "job": {
+                "target_display_name": "M1 personal",
+            }
+        }
+        try:
+            with mock.patch.object(
+                self.web_server.threading,
+                "Thread",
+                side_effect=lambda **kwargs: DeferredThread(**kwargs),
+            ), mock.patch.object(
+                self.web_server,
+                "create_mushroom_worker_snapshot_transport_probe",
+                return_value=(201, created),
+            ) as create_probe:
+                status, response = self.web_server.start_mushroom_worker_snapshot_transport_probe(
+                    "worker_12345678"
+                )
+                busy_status, busy = self.web_server.start_mushroom_worker_snapshot_transport_probe(
+                    "worker_12345678"
+                )
+                self.assertEqual(status, 202)
+                self.assertTrue(response["preparing"])
+                self.assertEqual(busy_status, 409)
+                self.assertIn("already being prepared", busy["error"])
+                self.assertEqual(len(callbacks), 1)
+                callbacks[0]()  # type: ignore[operator]
+                create_probe.assert_called_once_with(
+                    "worker_12345678",
+                    _preparation_lock_acquired=True,
+                )
+        finally:
+            if self.web_server.MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.locked():
+                self.web_server.MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertIn("M1 personal", message)
+        self.assertFalse(is_error)
 
     def test_candidate_rebuild_upload_is_claim_bound_and_finished_from_trusted_verification(self) -> None:
         registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
@@ -4382,9 +4468,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 },
             ), mock.patch.object(
                 self.web_server,
-                "create_mushroom_worker_candidate_rebuild",
-                return_value=(201, {"job": {"target_display_name": "M1 personal"}}),
-            ) as create:
+                "start_mushroom_worker_candidate_rebuild",
+                return_value=(202, {"ok": True, "preparing": True}),
+            ) as start:
                 redirect = handler.handle_mushroom_workers_post(
                     {
                         "worker_action": ["start_rebuild"],
@@ -4395,14 +4481,14 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 )
 
                 self.assertEqual("./workers", redirect)
-                create.assert_called_once_with(
+                start.assert_called_once_with(
                     "worker_12345678",
                     promotion_eligible=True,
                     reconstruction_scope=scope,
                     species_id=species_id,
                 )
                 message, is_error = self.web_server.mushroom_workers_flash()
-                self.assertIn("M1 personal", message)
+                self.assertEqual(message, "")
                 self.assertFalse(is_error)
 
     def test_pending_model_species_uses_current_eligible_observations(self) -> None:

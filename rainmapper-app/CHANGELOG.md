@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.210
+
+- Keep the `Workers and jobs` interface responsive by preserving interactive
+  DOM nodes across heartbeat refreshes and aborting polling during navigation.
+- Prepare immutable worker inputs in the background, reject concurrent bundle
+  preparations and disable submitted controls immediately.
+- Cache GIS/DEM hashes using private filesystem identities so unchanged
+  semi-static datasets are not rehashed for every external worker job.
+
 ## 0.2.209
 
 - Fix the `Workers and jobs` manual and automatic refresh paths under Home

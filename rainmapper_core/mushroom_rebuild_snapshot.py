@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
 import shutil
+import tempfile
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -15,6 +18,8 @@ from rainmapper_core import mushroom_gis_lab, mushroom_observation_context
 
 SCHEMA_VERSION = "0.1"
 MANIFEST_NAME = "input_manifest.json"
+GIS_HASH_CACHE_SCHEMA_VERSION = "0.1"
+GIS_HASH_CACHE_KIND = "rainmapper_gis_hash_cache"
 REQUIRED_INPUT_KEYS = {
     "observations",
     "reference_catalogs",
@@ -64,6 +69,105 @@ def _stable_file_record(path: Path, *, logical_path: str, role: str) -> dict[str
         "size_bytes": after.st_size,
         "sha256": digest,
     }
+
+
+def _gis_cache_identity(path: Path, *, logical_path: str) -> dict[str, object]:
+    stat = path.stat()
+    return {
+        "path": logical_path,
+        "size_bytes": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+        "ctime_ns": stat.st_ctime_ns,
+        "device": stat.st_dev,
+        "inode": stat.st_ino,
+    }
+
+
+def _load_gis_hash_cache(path: Path | None) -> dict[str, dict[str, object]]:
+    if path is None or not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if (
+        not isinstance(payload, dict)
+        or payload.get("schema_version") != GIS_HASH_CACHE_SCHEMA_VERSION
+        or payload.get("kind") != GIS_HASH_CACHE_KIND
+        or not isinstance(payload.get("files"), list)
+    ):
+        return {}
+    return {
+        str(row.get("path", "")): dict(row)
+        for row in payload["files"]
+        if isinstance(row, dict) and str(row.get("path", ""))
+    }
+
+
+def _write_gis_hash_cache(path: Path, records: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": GIS_HASH_CACHE_SCHEMA_VERSION,
+        "kind": GIS_HASH_CACHE_KIND,
+        "files": records,
+    }
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+def gis_file_records(
+    gis_root: Path,
+    *,
+    hash_cache_path: Path | None = None,
+) -> list[dict[str, object]]:
+    """Hash GIS files once and reuse digests while their filesystem identity is unchanged."""
+    root = gis_root.resolve()
+    cached = _load_gis_hash_cache(hash_cache_path)
+    records: list[dict[str, object]] = []
+    cache_records: list[dict[str, object]] = []
+    for path in gis_dataset_files(root):
+        logical_path = path.relative_to(root).as_posix()
+        identity = _gis_cache_identity(path, logical_path=logical_path)
+        cached_record = cached.get(logical_path, {})
+        cached_digest = str(cached_record.get("sha256", ""))
+        if (
+            all(cached_record.get(key) == value for key, value in identity.items())
+            and re.fullmatch(r"[0-9a-f]{64}", cached_digest)
+        ):
+            record = {
+                "role": "gis",
+                "path": logical_path,
+                "size_bytes": identity["size_bytes"],
+                "sha256": cached_digest,
+            }
+        else:
+            record = _stable_file_record(
+                path,
+                logical_path=logical_path,
+                role="gis",
+            )
+            stable_identity = _gis_cache_identity(path, logical_path=logical_path)
+            if stable_identity != identity:
+                raise RuntimeError(f"input changed while hashing: {path}")
+            identity = stable_identity
+        records.append(record)
+        cache_records.append({**identity, "sha256": record["sha256"]})
+    if hash_cache_path is not None:
+        _write_gis_hash_cache(hash_cache_path, cache_records)
+    return records
 
 
 def _fingerprint(records: list[dict[str, object]]) -> str:
@@ -127,6 +231,7 @@ def create_snapshot(
     gis_mappings_path: Path,
     weather_data_dir: Path,
     gis_root: Path,
+    gis_hash_cache_path: Path | None = None,
 ) -> dict[str, Any]:
     target = snapshot_dir.resolve()
     if target.exists():
@@ -176,14 +281,10 @@ def create_snapshot(
             )
 
         resolved_gis_root = gis_root.resolve()
-        gis_records = [
-            _stable_file_record(
-                path,
-                logical_path=path.relative_to(resolved_gis_root).as_posix(),
-                role="gis",
-            )
-            for path in gis_dataset_files(resolved_gis_root)
-        ]
+        gis_records = gis_file_records(
+            resolved_gis_root,
+            hash_cache_path=gis_hash_cache_path,
+        )
         gis_fingerprint = _fingerprint(gis_records)
         snapshot_fingerprint = _fingerprint(
             [*snapshot_files, {"role": "dataset:mushroom_gis_v0", "path": gis_fingerprint}]

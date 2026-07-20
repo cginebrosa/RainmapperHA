@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from rainmapper_core import mushroom_rebuild_comparison, mushroom_rebuild_snapshot
 
@@ -141,6 +142,67 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
         self.assertEqual(shallow["status"], "valid")
         self.assertEqual(shallow["gis_validation"], "shallow")
         self.assertEqual(deep["status"], "invalid")
+
+    def test_gis_hash_cache_reuses_unchanged_semi_static_files(self) -> None:
+        cache_path = self.root / "private" / ".gis-hash-cache.json"
+        original_sha256_file = mushroom_rebuild_snapshot.sha256_file
+        hashed_gis_paths: list[Path] = []
+
+        def tracked_sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
+            resolved = path.resolve()
+            if self.gis.resolve() in resolved.parents:
+                hashed_gis_paths.append(resolved)
+            return original_sha256_file(path, chunk_size)
+
+        with mock.patch.object(
+            mushroom_rebuild_snapshot,
+            "sha256_file",
+            side_effect=tracked_sha256_file,
+        ):
+            first = self.root / "snapshot-cached-first"
+            mushroom_rebuild_snapshot.create_snapshot(
+                first,
+                observations_path=self.observations,
+                reference_catalogs_path=self.catalogs,
+                gis_mappings_path=self.mappings,
+                weather_data_dir=self.weather,
+                gis_root=self.gis,
+                gis_hash_cache_path=cache_path,
+            )
+            first_hash_count = len(hashed_gis_paths)
+            second = self.root / "snapshot-cached-second"
+            mushroom_rebuild_snapshot.create_snapshot(
+                second,
+                observations_path=self.observations,
+                reference_catalogs_path=self.catalogs,
+                gis_mappings_path=self.mappings,
+                weather_data_dir=self.weather,
+                gis_root=self.gis,
+                gis_hash_cache_path=cache_path,
+            )
+            self.assertEqual(len(hashed_gis_paths), first_hash_count)
+            changed_gis_path = hashed_gis_paths[0]
+            original_content = changed_gis_path.read_bytes()
+            changed_gis_path.write_bytes(
+                bytes([original_content[0] ^ 1]) + original_content[1:]
+            )
+            third = self.root / "snapshot-cached-after-gis-change"
+            mushroom_rebuild_snapshot.create_snapshot(
+                third,
+                observations_path=self.observations,
+                reference_catalogs_path=self.catalogs,
+                gis_mappings_path=self.mappings,
+                weather_data_dir=self.weather,
+                gis_root=self.gis,
+                gis_hash_cache_path=cache_path,
+            )
+
+        self.assertGreater(first_hash_count, 0)
+        self.assertEqual(len(hashed_gis_paths), first_hash_count + 1)
+        self.assertTrue(cache_path.is_file())
+        cache_payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        self.assertNotIn(str(self.gis.resolve()), cache_path.read_text(encoding="utf-8"))
+        self.assertEqual(cache_payload["kind"], "rainmapper_gis_hash_cache")
 
     def test_live_inputs_match_frozen_manifest(self) -> None:
         snapshot = self.create_snapshot()

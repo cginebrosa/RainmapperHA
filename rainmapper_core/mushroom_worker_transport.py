@@ -106,6 +106,7 @@ def prepare_coordinator_bundle(
             gis_mappings_path=gis_mappings_path,
             weather_data_dir=weather_data_dir,
             gis_root=gis_root,
+            gis_hash_cache_path=root / ".gis-hash-cache.json",
         )
         job_spec = mushroom_rebuild_contracts.create_job_spec(
             snapshot_dir,

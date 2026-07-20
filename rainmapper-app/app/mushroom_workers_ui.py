@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import html
+import json
 from typing import Any
 
 from mushroom_profiles_ui import ui_label
@@ -12,6 +14,30 @@ def _text(value: object) -> str:
 
 def _label(key: str) -> str:
     return ui_label(key)
+
+
+def refresh_signature(value: object) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def worker_cards_refresh_signature(
+    worker_statuses: list[dict[str, object]],
+    *,
+    default_executor: str = "home_assistant",
+) -> str:
+    stable_statuses = [
+        {key: value for key, value in worker_status.items() if key != "checked_at"}
+        for worker_status in worker_statuses
+    ]
+    return refresh_signature(
+        {"default_executor": default_executor, "worker_statuses": stable_statuses}
+    )
+
+
+def format_worker_checked_at(value: object) -> str:
+    checked_at = str(value or "-")
+    return checked_at[:19].replace("T", " ") if "T" in checked_at else checked_at
 
 
 def _worker_card(
@@ -54,9 +80,7 @@ def _worker_card(
         size_bytes = int(dataset_cache.get("size_bytes", 0) or 0)
         size_gib = size_bytes / (1024**3)
         cache_detail = f'{file_count} {_label("ui.worker_cache_files")} · {size_gib:.2f} GiB'
-    checked_at = str(worker_status.get("checked_at", "-") or "-")
-    if "T" in checked_at:
-        checked_at = checked_at[:19].replace("T", " ")
+    checked_at = format_worker_checked_at(worker_status.get("checked_at", "-"))
     error = str(worker_status.get("error", "") or "")
     pairing_detail = ""
     if "paired" in payload:
@@ -112,14 +136,14 @@ def _worker_card(
             f'{_text(_label("ui.worker_pairing_revoke"))}</button></form>'
         )
     return f"""
-        <article class="worker-card">
+        <article class="worker-card" data-worker-id="{_text(worker_id)}">
           <header><div><span class="worker-kicker">rainmapper-worker</span><h2>{_text(display_name)}{f' <span class="worker-default-badge">{_text(_label("ui.worker_default_badge"))}</span>' if is_default else ''}</h2><span class="worker-host-line">{_text(host_name)} · {_text(architecture)}</span></div><span class="worker-state {status_class}">{_text(status_text)}</span></header>
           <dl>
             <div><dt>{_text(_label('ui.worker_id'))}</dt><dd><code>{_text(worker_id)}</code></dd></div>
             <div><dt>{_text(_label('ui.worker_version'))}</dt><dd>{_text(payload.get('worker_version', '-'))}</dd></div>
             <div><dt>{_text(_label('ui.worker_capabilities'))}</dt><dd>{_text(', '.join(str(item) for item in capabilities) or '-')}</dd></div>
             <div><dt>{_text(_label('ui.worker_dataset_cache'))}</dt><dd>{_text(cache_status)}{f'<small>{_text(cache_detail)}</small>' if cache_detail else ''}</dd></div>
-            <div><dt>{_text(_label('ui.worker_last_check'))}</dt><dd>{_text(checked_at)}</dd></div>
+            <div><dt>{_text(_label('ui.worker_last_check'))}</dt><dd data-worker-last-check>{_text(checked_at)}</dd></div>
             {pairing_detail}
           </dl>
           {f'<details class="worker-error"><summary>{_text(_label("ui.worker_technical_detail"))}</summary><code>{_text(error)}</code></details>' if error else ''}
@@ -393,6 +417,12 @@ def render_page(
         worker_statuses,
         operational_enabled=operational_enabled,
     )
+    worker_cards_signature = worker_cards_refresh_signature(
+        worker_statuses,
+        default_executor=default_executor,
+    )
+    worker_choices_signature = refresh_signature(worker_choices)
+    recent_jobs_signature = refresh_signature(recent_jobs)
     pairing_action = ""
     pairing_security = ""
     if pairing_required:
@@ -489,7 +519,7 @@ def render_page(
         </dl>
         <p class="worker-local-note">{_text(_label('ui.worker_ha_fallback_help'))}</p>
       </article>
-      <div id="worker-status-cards" class="worker-status-cards">{worker_cards}</div>
+      <div id="worker-status-cards" class="worker-status-cards" data-refresh-signature="{worker_cards_signature}">{worker_cards}</div>
     </div>
     <section id="new-worker-rebuild" class="workers-panel">
       <div class="worker-panel-head"><h2>{_text(_label('ui.worker_new_rebuild'))}</h2><div class="worker-metrics"><span>{_text(_label('ui.worker_eligible_observations'))}: <strong>{eligible_observation_count}</strong></span><span>{_text(_label('ui.worker_pending_species'))}: <strong>{pending_species_count}</strong></span></div></div>
@@ -498,7 +528,7 @@ def render_page(
         <div class="worker-form-section"><div class="worker-form-heading"><strong>1 · {_text(_label('ui.execute_on'))}</strong><small>{_text(_label('ui.worker_destination_help'))}</small></div>
           <div class="worker-destination-grid">
             <label class="worker-choice"><input type="radio" name="executor" value="home_assistant"{" checked" if selected_executor == "home_assistant" else ""}><span class="worker-choice-surface"><span class="worker-choice-icon">HA</span><span class="worker-choice-copy"><strong>{_text(_label('ui.home_assistant'))}{f' <span class="worker-default-badge">{_text(_label("ui.worker_default_badge"))}</span>' if default_executor == 'home_assistant' else ''}</strong><small>{_text(_label('ui.worker_ha_fallback_help'))}</small></span><span class="worker-choice-mark">✓</span></span></label>
-            <div id="worker-destination-choices" class="worker-destination-choices">{worker_choices}</div>
+            <div id="worker-destination-choices" class="worker-destination-choices" data-refresh-signature="{worker_choices_signature}">{worker_choices}</div>
           </div>
         </div>
         <div class="worker-form-section"><div class="worker-form-heading"><strong>2 · {_text(_label('ui.rebuild_scope'))}</strong><small>{_text(_label('ui.worker_scope_help'))}</small></div>
@@ -512,7 +542,7 @@ def render_page(
         <div class="worker-submit-row"><button class="primary" type="submit"{" disabled" if not selected_executor else ""}>{_text(_label('ui.start_rebuild'))}</button></div>
       </form>
     </section>
-    <section class="workers-panel"><h2>{_text(_label('ui.worker_recent_jobs'))}</h2><div id="worker-recent-jobs">{recent_jobs}</div></section>
+    <section class="workers-panel"><h2>{_text(_label('ui.worker_recent_jobs'))}</h2><div id="worker-recent-jobs" data-refresh-signature="{recent_jobs_signature}">{recent_jobs}</div></section>
     <script>
     (()=>{{const form=document.querySelector('.worker-rebuild-form');if(!form)return;const select=form.querySelector('select[name="species_id"]');const field=form.querySelector('.worker-species-field');const submit=form.querySelector('button[type="submit"]');const sync=()=>{{const executor=form.querySelector('input[name="executor"]:checked');const scopes=Array.from(form.querySelectorAll('input[name="scope"]'));scopes.forEach(item=>{{item.disabled=item.dataset.baseDisabled==='1';}});const scope=form.querySelector('input[name="scope"]:checked');const show=Boolean(executor&&scope&&scope.value==="species");select.disabled=!show;field.hidden=!show;submit.disabled=!executor||executor.disabled||(show&&!select.value);}};form.addEventListener('change',sync);sync();}})();
     (()=>{{
@@ -522,23 +552,49 @@ def render_page(
       if(!cards||!destinations||!jobs)return;
       const appBasePath=window.location.pathname.replace(/\\/mushrooms\\/workers\\/?$/,'');
       const statusUrl=`${{appBasePath}}/api/mushrooms/workers/status`;
-      let timer=0;
-      const schedule=()=>{{window.clearTimeout(timer);timer=window.setTimeout(refresh,2000);}};
+      let timer=0,requestController=null,interactionUntil=0,leaving=false;
+      const schedule=()=>{{if(leaving)return;window.clearTimeout(timer);timer=window.setTimeout(refresh,2000);}};
+      const postponeRefresh=()=>{{interactionUntil=Math.max(interactionUntil,Date.now()+4000);}};
+      const stopRefresh=()=>{{leaving=true;window.clearTimeout(timer);requestController?.abort();}};
+      const replaceRegion=(region,htmlValue,signature)=>{{
+        if(typeof htmlValue!=='string'||typeof signature!=='string'||region.dataset.refreshSignature===signature)return false;
+        region.innerHTML=htmlValue;region.dataset.refreshSignature=signature;return true;
+      }};
+      document.addEventListener('pointerdown',event=>{{if(event.target.closest('a,button,input,select,textarea'))postponeRefresh();}},true);
+      document.addEventListener('keydown',event=>{{if((event.key==='Enter'||event.key===' ')&&event.target.closest('a,button,input,select,textarea'))postponeRefresh();}},true);
+      document.addEventListener('submit',event=>{{
+        stopRefresh();
+        const submitter=event.submitter;
+        if(submitter){{submitter.disabled=true;submitter.setAttribute('aria-busy','true');}}
+      }},true);
+      document.addEventListener('click',event=>{{
+        const link=event.target.closest('a[href]');if(!link||event.defaultPrevented)return;
+        const target=new URL(link.href,window.location.href);
+        const localAnchor=target.origin===window.location.origin&&target.pathname===window.location.pathname&&target.search===window.location.search&&Boolean(target.hash);
+        if(!localAnchor)stopRefresh();
+      }},true);
       const refresh=async()=>{{
-        if(document.hidden){{schedule();return;}}
+        if(document.hidden||leaving){{schedule();return;}}
         try{{
-          const response=await fetch(statusUrl,{{cache:'no-store',headers:{{Accept:'application/json'}}}});
+          requestController=new AbortController();
+          const response=await fetch(statusUrl,{{cache:'no-store',headers:{{Accept:'application/json'}},signal:requestController.signal}});
           if(!response.ok)return;
           const payload=await response.json();
           if(!payload.ok)return;
+          document.querySelectorAll('[data-worker-id]').forEach(card=>{{
+            const checked=payload.worker_last_checks?.[card.dataset.workerId];
+            const node=card.querySelector('[data-worker-last-check]');
+            if(node&&typeof checked==='string'&&node.textContent!==checked)node.textContent=checked;
+          }});
+          if(Date.now()<interactionUntil)return;
           const selected=document.querySelector('input[name="executor"]:checked')?.value||'';
-          cards.innerHTML=payload.worker_cards_html;
-          destinations.innerHTML=payload.worker_choices_html;
-          jobs.innerHTML=payload.recent_jobs_html;
+          replaceRegion(cards,payload.worker_cards_html,payload.worker_cards_signature);
+          const destinationsChanged=replaceRegion(destinations,payload.worker_choices_html,payload.worker_choices_signature);
+          replaceRegion(jobs,payload.recent_jobs_html,payload.recent_jobs_signature);
           const restored=Array.from(document.querySelectorAll('input[name="executor"]')).find(item=>item.value===selected);
           if(restored&&!restored.disabled)restored.checked=true;
-          document.querySelector('.worker-rebuild-form')?.dispatchEvent(new Event('change',{{bubbles:true}}));
-        }}catch(error){{void error;}}finally{{schedule();}}
+          if(destinationsChanged)document.querySelector('.worker-rebuild-form')?.dispatchEvent(new Event('change',{{bubbles:true}}));
+        }}catch(error){{if(error.name!=='AbortError')void error;}}finally{{requestController=null;schedule();}}
       }};
       document.addEventListener('visibilitychange',()=>{{if(!document.hidden)refresh();}});
       schedule();

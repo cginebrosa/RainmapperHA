@@ -2841,6 +2841,9 @@
   "ui.worker_transport_button": {
     "en": "Test input delivery", "es": "Probar envio de entradas", "ca": "Provar enviament d'entrades"
   },
+  "ui.worker_bundle_preparing": {
+    "en": "Preparing immutable worker inputs in the background. This page can remain open.", "es": "Preparando las entradas inmutables del worker en segundo plano. Puedes mantener esta pagina abierta.", "ca": "Preparant les entrades immutables del worker en segon pla. Pots mantenir aquesta pagina oberta."
+  },
   "ui.worker_transport_queued": {
     "en": "Immutable input delivery test queued for {worker}.", "es": "Prueba de envio de entradas inmutables encolada para {worker}.", "ca": "Prova d'enviament d'entrades immutables encuada per a {worker}."
   },

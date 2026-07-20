@@ -150,6 +150,7 @@ PUBLIC_MAP_NAMES = {
 
 RUN_LOCK = threading.Lock()
 MUSHROOM_WORKER_PROMOTION_LOCK = threading.Lock()
+MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK = threading.Lock()
 SHUTDOWN_EVENT = threading.Event()
 CURRENT_PROCESS_LOCK = threading.Lock()
 CURRENT_PROCESS: subprocess.Popen | None = None
@@ -10680,7 +10681,11 @@ def create_mushroom_worker_claim_probe(worker_id: str) -> tuple[int, dict[str, o
     return 201, {"ok": True, "job": job}
 
 
-def create_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int, dict[str, object]]:
+def create_mushroom_worker_snapshot_transport_probe(
+    worker_id: str,
+    *,
+    _preparation_lock_acquired: bool = False,
+) -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
         return 404, {"ok": False, "error": "Worker API is not enabled."}
     worker = next(
@@ -10700,36 +10705,96 @@ def create_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int
         return 409, {"ok": False, "error": "The selected worker cannot transport input snapshots."}
     display_name = str(payload.get("display_name", worker_id))
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
+    acquired_here = not _preparation_lock_acquired
+    if acquired_here and not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
+        return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
     try:
-        input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
-            mushroom_worker_input_bundles_path(),
-            job_id=job_id,
-            observations_path=mushroom_paths.mushroom_observations_path(),
-            reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
-            gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
-            weather_data_dir=mushroom_paths.weather_data_dir(),
-            gis_root=mushroom_gis_lab.gis_root(),
-        )
         try:
             with RUN_LOCK:
-                job = mushroom_worker_jobs.create_snapshot_transport_probe(
-                    mushroom_worker_jobs_path(),
-                    worker_id=worker_id,
-                    worker_display_name=display_name,
-                    input_bundle=input_bundle,
-                    job_id=job_id,
+                active_probe = next(
+                    (
+                        row
+                        for row in mushroom_worker_jobs.load_queue(
+                            mushroom_worker_jobs_path()
+                        )["jobs"]
+                        if row.get("job_type")
+                        == mushroom_worker_jobs.JOB_TYPE_SNAPSHOT_TRANSPORT
+                        and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+                    ),
+                    None,
                 )
-        except BaseException:
-            mushroom_worker_transport.discard_unqueued_bundle(
+            if active_probe is not None:
+                raise mushroom_worker_jobs.DuplicateActiveWorkError(
+                    "An external worker input transport test is already active: "
+                    f"{active_probe.get('job_id', '')}."
+                )
+            input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
                 mushroom_worker_input_bundles_path(),
-                job_id,
+                job_id=job_id,
+                observations_path=mushroom_paths.mushroom_observations_path(),
+                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                weather_data_dir=mushroom_paths.weather_data_dir(),
+                gis_root=mushroom_gis_lab.gis_root(),
             )
-            raise
+            try:
+                with RUN_LOCK:
+                    job = mushroom_worker_jobs.create_snapshot_transport_probe(
+                        mushroom_worker_jobs_path(),
+                        worker_id=worker_id,
+                        worker_display_name=display_name,
+                        input_bundle=input_bundle,
+                        job_id=job_id,
+                    )
+            except BaseException:
+                mushroom_worker_transport.discard_unqueued_bundle(
+                    mushroom_worker_input_bundles_path(),
+                    job_id,
+                )
+                raise
+        finally:
+            if acquired_here:
+                MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
     except mushroom_worker_jobs.DuplicateActiveWorkError as exc:
         return 409, {"ok": False, "error": str(exc)}
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         return 400, {"ok": False, "error": str(exc)}
     return 201, {"ok": True, "job": job}
+
+
+def start_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int, dict[str, object]]:
+    if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
+        return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
+    set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.worker_bundle_preparing"))
+
+    def prepare() -> None:
+        try:
+            status, response = create_mushroom_worker_snapshot_transport_probe(
+                worker_id,
+                _preparation_lock_acquired=True,
+            )
+            if status == 201:
+                job = response.get("job")
+                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_transport_queued").replace("{worker}", target)
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue worker input transport test.")),
+                    error=True,
+                )
+        except BaseException as exc:
+            set_mushroom_workers_flash(f"Cannot prepare worker inputs: {exc}", error=True)
+        finally:
+            MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+
+    threading.Thread(
+        target=prepare,
+        daemon=True,
+        name="rainmapper-worker-input-preparation",
+    ).start()
+    return 202, {"ok": True, "preparing": True}
 
 
 def create_mushroom_worker_candidate_rebuild(
@@ -10738,6 +10803,7 @@ def create_mushroom_worker_candidate_rebuild(
     promotion_eligible: bool = False,
     reconstruction_scope: str = "all",
     species_id: str = "",
+    _preparation_lock_acquired: bool = False,
 ) -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
         return 404, {"ok": False, "error": "Worker API is not enabled."}
@@ -10804,43 +10870,98 @@ def create_mushroom_worker_candidate_rebuild(
             return 400, {"ok": False, "error": "External rebuild scope is invalid."}
         if not selected_observation_ids:
             return 409, {"ok": False, "error": "The selected external rebuild has no eligible observations."}
-        input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
-            mushroom_worker_input_bundles_path(),
-            job_id=job_id,
-            observations_path=mushroom_paths.mushroom_observations_path(),
-            reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
-            gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
-            weather_data_dir=mushroom_paths.weather_data_dir(),
-            gis_root=mushroom_gis_lab.gis_root(),
-            reconstruction_scope=scope,
-            selected_observation_ids=selected_observation_ids,
-            pending_species_ids=scope_species_ids,
-        )
+        acquired_here = not _preparation_lock_acquired
+        if acquired_here and not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
+            return 409, {
+                "ok": False,
+                "error": "Another external worker input bundle is already being prepared.",
+            }
         try:
-            with RUN_LOCK:
-                job = mushroom_worker_jobs.create_candidate_rebuild(
-                    mushroom_worker_jobs_path(),
-                    worker_id=worker_id,
-                    worker_display_name=display_name,
-                    input_bundle=input_bundle,
-                    job_id=job_id,
-                    reconstruction_scope=scope,
-                    scope_label=scope_label,
-                    scope_key=scope_key,
-                    scope_species_ids=scope_species_ids,
-                    promotion_eligible=promotion_eligible,
-                )
-        except BaseException:
-            mushroom_worker_transport.discard_unqueued_bundle(
+            input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
                 mushroom_worker_input_bundles_path(),
-                job_id,
+                job_id=job_id,
+                observations_path=mushroom_paths.mushroom_observations_path(),
+                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                weather_data_dir=mushroom_paths.weather_data_dir(),
+                gis_root=mushroom_gis_lab.gis_root(),
+                reconstruction_scope=scope,
+                selected_observation_ids=selected_observation_ids,
+                pending_species_ids=scope_species_ids,
             )
-            raise
+            try:
+                with RUN_LOCK:
+                    job = mushroom_worker_jobs.create_candidate_rebuild(
+                        mushroom_worker_jobs_path(),
+                        worker_id=worker_id,
+                        worker_display_name=display_name,
+                        input_bundle=input_bundle,
+                        job_id=job_id,
+                        reconstruction_scope=scope,
+                        scope_label=scope_label,
+                        scope_key=scope_key,
+                        scope_species_ids=scope_species_ids,
+                        promotion_eligible=promotion_eligible,
+                    )
+            except BaseException:
+                mushroom_worker_transport.discard_unqueued_bundle(
+                    mushroom_worker_input_bundles_path(),
+                    job_id,
+                )
+                raise
+        finally:
+            if acquired_here:
+                MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
     except mushroom_worker_jobs.DuplicateActiveWorkError as exc:
         return 409, {"ok": False, "error": str(exc)}
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         return 400, {"ok": False, "error": str(exc)}
     return 201, {"ok": True, "job": job}
+
+
+def start_mushroom_worker_candidate_rebuild(
+    worker_id: str,
+    *,
+    promotion_eligible: bool = False,
+    reconstruction_scope: str = "all",
+    species_id: str = "",
+) -> tuple[int, dict[str, object]]:
+    if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
+        return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
+    set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.worker_bundle_preparing"))
+
+    def prepare() -> None:
+        try:
+            status, response = create_mushroom_worker_candidate_rebuild(
+                worker_id,
+                promotion_eligible=promotion_eligible,
+                reconstruction_scope=reconstruction_scope,
+                species_id=species_id,
+                _preparation_lock_acquired=True,
+            )
+            if status == 201:
+                job = response.get("job")
+                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
+                label_key = "ui.worker_operational_queued" if promotion_eligible else "ui.worker_candidate_queued"
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label(label_key).replace("{worker}", target)
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue candidate rebuild.")),
+                    error=True,
+                )
+        except BaseException as exc:
+            set_mushroom_workers_flash(f"Cannot prepare worker inputs: {exc}", error=True)
+        finally:
+            MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+
+    threading.Thread(
+        target=prepare,
+        daemon=True,
+        name="rainmapper-worker-candidate-preparation",
+    ).start()
+    return 202, {"ok": True, "preparing": True}
 
 
 def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, object]]:
@@ -11354,23 +11475,43 @@ def mushroom_workers_status_refresh_payload() -> dict[str, object]:
     default_executor = mushroom_worker_registry.load_registry(
         mushroom_worker_registry_path()
     )["default_executor"]
+    worker_cards_html = mushroom_workers_ui.render_worker_cards(
+        worker_statuses,
+        default_executor=default_executor,
+    )
+    worker_choices_html = mushroom_workers_ui.render_worker_choices(
+        worker_statuses,
+        operational_enabled=operational_enabled,
+        default_executor=default_executor,
+    )
+    recent_jobs_html = mushroom_workers_ui.render_recent_jobs(
+        jobs,
+        worker_statuses,
+        operational_enabled=operational_enabled,
+    )
+    worker_last_checks = {}
+    for worker_status in worker_statuses:
+        payload = worker_status.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        worker_id = str(payload.get("worker_id", ""))
+        if worker_id:
+            worker_last_checks[worker_id] = mushroom_workers_ui.format_worker_checked_at(
+                worker_status.get("checked_at", "-")
+            )
     return {
         "ok": True,
         "stale_after_seconds": MUSHROOM_WORKER_STALE_SECONDS,
-        "worker_cards_html": mushroom_workers_ui.render_worker_cards(
+        "worker_cards_html": worker_cards_html,
+        "worker_cards_signature": mushroom_workers_ui.worker_cards_refresh_signature(
             worker_statuses,
             default_executor=default_executor,
         ),
-        "worker_choices_html": mushroom_workers_ui.render_worker_choices(
-            worker_statuses,
-            operational_enabled=operational_enabled,
-            default_executor=default_executor,
-        ),
-        "recent_jobs_html": mushroom_workers_ui.render_recent_jobs(
-            jobs,
-            worker_statuses,
-            operational_enabled=operational_enabled,
-        ),
+        "worker_choices_html": worker_choices_html,
+        "worker_choices_signature": mushroom_workers_ui.refresh_signature(worker_choices_html),
+        "recent_jobs_html": recent_jobs_html,
+        "recent_jobs_signature": mushroom_workers_ui.refresh_signature(recent_jobs_html),
+        "worker_last_checks": worker_last_checks,
     }
 
 
@@ -16250,32 +16391,20 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 set_mushroom_workers_flash(str(response.get("error", "Cannot queue worker test.")), error=True)
             return "./workers"
         if action == "probe_worker_snapshot_transport":
-            status, response = create_mushroom_worker_snapshot_transport_probe(
+            status, response = start_mushroom_worker_snapshot_transport_probe(
                 self.form_value(form, "worker_id")
             )
-            if status == 201:
-                job = response.get("job")
-                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
-                set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_transport_queued").replace("{worker}", target)
-                )
-            else:
+            if status != 202:
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot queue worker input transport test.")),
                     error=True,
                 )
             return "./workers"
         if action == "run_worker_candidate_rebuild":
-            status, response = create_mushroom_worker_candidate_rebuild(
+            status, response = start_mushroom_worker_candidate_rebuild(
                 self.form_value(form, "worker_id")
             )
-            if status == 201:
-                job = response.get("job")
-                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
-                set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_candidate_queued").replace("{worker}", target)
-                )
-            else:
+            if status != 202:
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot queue candidate rebuild.")),
                     error=True,
@@ -16313,19 +16442,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 )
                 return "./workers"
             scope = self.form_value(form, "scope") or "all"
-            status, response = create_mushroom_worker_candidate_rebuild(
+            status, response = start_mushroom_worker_candidate_rebuild(
                 executor.removeprefix("worker:"),
                 promotion_eligible=True,
                 reconstruction_scope=scope,
                 species_id=self.form_value(form, "species_id"),
             )
-            if status == 201:
-                job = response.get("job")
-                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
-                set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_operational_queued").replace("{worker}", target)
-                )
-            else:
+            if status != 202:
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot queue external rebuild.")),
                     error=True,
