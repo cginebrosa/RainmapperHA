@@ -8,17 +8,17 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA instalada y probada: `0.2.211`; release publicada pendiente de
-  instalar: `0.2.212` (`Release Home Assistant 0.2.212`).
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.212` y `latest`, digest
-  `sha256:9c7f70518ddd368ed42a67819df226a27e1726e7958e7b5309e02e810b326c8e`.
+- Release HA publicada para instalar/probar: `0.2.213`. La ultima instalada y
+  probada sigue siendo `0.2.212` (`03a75b3 Release Home Assistant 0.2.212`).
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.213` y `latest`, digest
+  `sha256:d1380a800131986b6efefbbb3ad234b252086f4e802de90aed42f905ac9dc4dd`.
 - Manifests verificados: `linux/amd64`
-  `sha256:4437ec483a5864987a746af184aee53ca51c85997aa3025c99284d41f7a64da0`
+  `sha256:fd03ce40b4662d60145a87c191d8ddd47cefcd7bade94fd22f4aaf7545c8dfc3`
   y `linux/arm64`
-  `sha256:867cf3d1507bb4d85a3dd1f2b0d3f1637f7b469f99fee707526ea1771a4b5e73`.
+  `sha256:127570331aa8f705079c66552e66047bea4fd9c8d7ea0b2e4020c1724d1a1dda`.
 - El repositorio GitHub sigue publico por decision explicita del usuario.
 - El usuario autorizo expresamente el 2026-07-20 el bump, publicacion y
-  commit/push de `0.2.211` para cerrar cuanto antes la fase de workers.
+  commit/push de `0.2.213` para cerrar cuanto antes la fase de workers.
 
 El codigo de release esta versionado. Antes de continuar, ejecutar
 `git status --short`; no limpiar, revertir ni sobrescribir cualquier cambio
@@ -59,11 +59,12 @@ el candidato como modelo vivo, retiro la accion y conservo la copia anterior.
 
 Siguiente orden:
 
-1. Instalar `0.2.212` y validar que la promocion se ejecuta en segundo plano,
-   muestra barra de progreso persistente y no permite clics duplicados ni relaja
-   freshness.
-2. Probar despues un alcance parcial de una especie, cancelacion y
-   corte/reconexion sin revocar la credencial.
+1. Publicar solo con autorizacion expresa las mejoras locales: descarte con
+   modal de candidatos terminales no promocionados, limpieza segura en HA y
+   worker, y pantalla compacta HA + dos workers con trabajos ordenables.
+2. Validar el descarte con un candidato terminal no promocionado; despues
+   probar corte/reconexion sin revocar la credencial. La reconstruccion parcial
+   y la cancelacion de `Amanita caesarea` ya se probaron en HA real.
 3. Completar pruebas de freshness/cache y seguridad del endpoint.
 4. Verificar otra vez el fallback HA y medir las fases en HA y M1 sobre el mismo
    snapshot/dataset.
@@ -148,11 +149,11 @@ de HA real:
 Resultados comprobados el 2026-07-20 tras consolidar el diff y sus correcciones
 posteriores:
 
-- `.venv/bin/python -m unittest discover -s tests`: **376 tests OK**.
+- `.venv/bin/python -m unittest discover -s tests`: **386 tests OK**.
 - `.venv/bin/python scripts/validate-mushroom-data.py`: **0 errores y 11
   warnings conocidos**.
 - `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: **OK**, incluidos los
-  376 tests, sintaxis Python/JavaScript/shell, versiones y fixtures.
+  386 tests, sintaxis Python/JavaScript/shell, versiones y fixtures.
 - Las imagenes locales HA/worker se inspeccionaron sin montar volumenes: no
   contienen `docker-data`, GIS/DEM, credenciales ni configuracion persistente
   del worker. HA contiene solo los assets `mushroom-data` ya versionados.
@@ -234,11 +235,11 @@ terminal de los trabajos se publica en `0.2.211`.
    volumenes: incluye coordinador/UI/core, no contiene datos privados ni
    GIS/DEM y la reconstruccion local HA sigue disponible en `legacy` por
    defecto.
-4. Bump y GHCR de `0.2.212` completados con autorizacion expresa. `0.2.212` y
+4. Bump y GHCR de `0.2.213` completados con autorizacion expresa. `0.2.213` y
    `latest` comparten el digest multi-arch verificado
-   `sha256:9c7f70518ddd368ed42a67819df226a27e1726e7958e7b5309e02e810b326c8e`;
-   import check arm64: `image_import_ok 0.2.212 False False True`. Queda instalar
-   y validar la barra contra HA real.
+   `sha256:d1380a800131986b6efefbbb3ad234b252086f4e802de90aed42f905ac9dc4dd`;
+   import check arm64: `image_import_ok 0.2.213 False False True`. Queda instalar
+   y validar el descarte y la UI compacta contra HA real.
 
 ### P2 — Prueba M1 ↔ HA real
 
@@ -251,8 +252,24 @@ terminal de los trabajos se publica en `0.2.211`.
   y una especie contra HA real.
 - Probar cancelacion cooperativa/forzada, worker apagado, corte/reconexion,
   duplicados/solapes, stale result y cache presente/ausente.
-- `0.2.212` publica la promocion en segundo plano con fases, porcentaje y barra
-  mediante el polling existente. Falta instalarla y validarla en HA.
+- `0.2.212` ejecuta la promocion en segundo plano con fases, porcentaje y barra
+  mediante el polling existente; ya se valido en HA real.
+- `0.2.213`: `Descartar` aparece solo en candidatos terminales no
+  promocionados y abre un modal. HA elimina resultado y snapshot privados; una
+  orden/acuse idempotente por heartbeat elimina el directorio del job en el
+  worker. Una promocion activa bloquea el descarte; una interrumpida solo se
+  puede borrar si no hay recibo, backup ni staging de recuperacion. El modelo
+  vivo, sus dos rollback y la cache GIS/DEM quedan fuera del borrado. Para la
+  prueba integral hay que instalar HA y reiniciar el launcher del worker, que
+  reconstruye su imagen.
+- La misma version compacta `Workers y trabajos`: HA y dos workers caben
+  en tres columnas, las pruebas/gestion quedan plegadas, el encabezado pierde
+  textos redundantes y el acceso azul que solo hacia scroll. La tabla permite
+  ordenar por cualquier columna, muestra los jobs HA como `HA local` y compara
+  fechas de HA/worker por instante UTC para evitar ordenes falsos por offset.
+- Observaciones deja de mostrar el desplegable heredado de ultima reconstruccion
+  GIS: no estaba ligado a un job concreto y podia prometer una revision vacia o
+  distinta del trabajo reciente. La ejecucion y el historial quedan en Workers.
 - Verificar que HA reconstruye localmente aunque no haya worker.
 - Medir tiempos por fase HA/M1 con el mismo snapshot y dataset.
 

@@ -325,6 +325,8 @@ def create_candidate_rebuild(
         "promotion_percent": 0,
         "promotion_error": "",
         "promotion_result": {},
+        "discard_status": "",
+        "discard_requested_at": "",
         "input_bundle": {
             **input_bundle,
             "endpoint": "/api/mushrooms/workers/jobs/input",
@@ -374,6 +376,96 @@ def begin_candidate_promotion(path: Path, *, job_id: str) -> dict[str, Any]:
 def get_job(path: Path, *, job_id: str) -> dict[str, Any]:
     queue = load_queue(path)
     return dict(_find_job(queue, job_id))
+
+
+def validate_candidate_discard(
+    job: dict[str, Any],
+    *,
+    allow_interrupted_promotion: bool = False,
+) -> None:
+    if job.get("job_type") != JOB_TYPE_CANDIDATE_REBUILD:
+        raise ValueError("Only candidate rebuilds can be discarded.")
+    if str(job.get("status", "")) not in TERMINAL_STATUSES:
+        raise ValueError("A candidate can only be discarded after the job has finished.")
+    promotion_status = str(job.get("promotion_status", "") or "")
+    if promotion_status == "promoted":
+        raise ValueError("A candidate already promoted to the live model cannot be discarded.")
+    if promotion_status == "promoting" and not allow_interrupted_promotion:
+        raise ValueError("A candidate cannot be discarded while promotion is running.")
+
+
+def request_candidate_discard(
+    path: Path,
+    *,
+    job_id: str,
+    requested_at: str | None = None,
+    allow_interrupted_promotion: bool = False,
+) -> dict[str, Any]:
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    validate_candidate_discard(
+        job,
+        allow_interrupted_promotion=allow_interrupted_promotion,
+    )
+    if job.get("discard_status") == "requested":
+        return dict(job)
+    job.update(
+        {
+            "discard_status": "requested",
+            "discard_requested_at": requested_at or utc_now(),
+            "promotion_eligible": False,
+            "promotion_status": "discarding",
+            "promotion_percent": 0,
+            "phase": "Discarding candidate",
+            "message": "Coordinator artifacts removed; waiting for worker cleanup acknowledgement.",
+        }
+    )
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def pending_candidate_discards(path: Path, *, worker_id: str) -> list[str]:
+    target_worker_id = _validate_worker_id(worker_id)
+    return [
+        str(job.get("job_id", ""))
+        for job in load_queue(path)["jobs"]
+        if job.get("job_type") == JOB_TYPE_CANDIDATE_REBUILD
+        and job.get("target_worker_id") == target_worker_id
+        and job.get("discard_status") == "requested"
+        and JOB_ID_PATTERN.fullmatch(str(job.get("job_id", "")))
+    ]
+
+
+def acknowledge_candidate_discards(
+    path: Path,
+    *,
+    worker_id: str,
+    job_ids: list[str] | tuple[str, ...],
+) -> list[str]:
+    target_worker_id = _validate_worker_id(worker_id)
+    acknowledged = {
+        str(job_id or "").strip()
+        for job_id in job_ids
+        if JOB_ID_PATTERN.fullmatch(str(job_id or "").strip())
+    }
+    if not acknowledged:
+        return []
+    queue = load_queue(path)
+    removed = [
+        str(job.get("job_id", ""))
+        for job in queue["jobs"]
+        if job.get("target_worker_id") == target_worker_id
+        and job.get("discard_status") == "requested"
+        and str(job.get("job_id", "")) in acknowledged
+    ]
+    if not removed:
+        return []
+    removed_set = set(removed)
+    queue["jobs"] = [
+        job for job in queue["jobs"] if str(job.get("job_id", "")) not in removed_set
+    ]
+    _write_atomic(path, queue)
+    return removed
 
 
 def update_candidate_promotion_progress(

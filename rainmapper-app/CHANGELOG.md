@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.213
+
+- Allow operators to discard terminal, unpromoted worker candidates through a
+  confirmation dialog while preserving the live model, rollback copies and
+  shared GIS/DEM cache.
+- Coordinate authenticated, idempotent cleanup of private candidate inputs,
+  results and worker job files without permitting active or uncertain
+  promotions to be deleted.
+- Compact `Workers and jobs` for Home Assistant plus two external workers,
+  collapse technical controls and remove redundant header content.
+- Make every recent-job column sortable, order mixed HA/worker timestamps by
+  their actual instant and label local rebuilds without exposing random IDs.
+- Remove the legacy GIS review panel from Observations because it was not tied
+  to an identifiable recent job and could present an empty or stale result.
+
 ## 0.2.212
 
 - Run verified worker-candidate promotion in the background so Home Assistant

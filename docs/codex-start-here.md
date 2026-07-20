@@ -89,22 +89,27 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA instalado y probado: `0.2.211`; release publicada pendiente
-  de instalar: `0.2.212`.
-- Version HA del repo: `0.2.212` en `rainmapper-app/config.yaml` y
+- Ultimo release HA publicado para instalar/probar: `0.2.213`; ultimo instalado
+  y probado: `0.2.212`.
+- Version HA del repo: `0.2.213` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.212` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.213` y
   `latest`, digest multi-arch
-  `sha256:9c7f70518ddd368ed42a67819df226a27e1726e7958e7b5309e02e810b326c8e`.
-- Commit release: `Release Home Assistant 0.2.212`.
+  `sha256:d1380a800131986b6efefbbb3ad234b252086f4e802de90aed42f905ac9dc4dd`.
+- Ultimo commit instalado: `03a75b3 Release Home Assistant 0.2.212`.
 - `0.2.211` se valido en HA real con M1 emparejado por LAN: reposo estable,
   asignacion, transporte de entradas y reconstruccion candidata completa
   privada completados. Un candidato quedo verificado al 100 % en 55 s sin
   promocion automatica; despues un job operacional completo termino en 49 s y
   fue promocionado manualmente con exito al modelo vivo. `0.2.212` incorpora la
-  promocion en segundo plano con progreso visible y bloqueo de clics duplicados;
-  queda instalarla y validarla en HA real.
+  promocion en segundo plano con progreso visible y bloqueo de clics duplicados,
+  ya validada en HA real. `0.2.213`, publicada y pendiente de instalar,
+  incorpora el descarte con confirmacion de candidatos terminales no promocionados y
+  limpiar sus copias privadas tanto en HA como en el worker. Esa revision
+  tambien compacta la pantalla HA + dos workers, ordena todas las columnas con
+  fechas normalizadas y retira de Observaciones el panel GIS heredado que no
+  correspondia a un job identificable.
 - `0.2.207` fue ejecutada realmente en HA el 2026-07-18: `Reconstruir todas`
   completo las cuatro fases en 4 min 44 s. En local ya se verificaron 126
   features (66 favorables/60 desfavorables), sin discrepancias con

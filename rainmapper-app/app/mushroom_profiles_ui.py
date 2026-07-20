@@ -6187,7 +6187,6 @@ def render_observations_section(
         <a class="button-link" href="{html.escape(calibration_href, quote=True)}">{html.escape(ui_label("ui.open_calibration"))}</a>
       </div>
       {render_archived_observations_panel(archived_observations_payload, species_labels, selected_species_id, filters)}
-      {render_observation_gis_lab(filtered_rows, species_labels, selected_species_id, search, filters, gis_reconstruction_payload)}
       {render_observation_create_form(profiles, catalogs, selected_species_id, form_message, filters)}
       {render_observation_exif_import_form(profiles, catalogs, selected_species_id, filters)}
       {render_observation_duplicate_form(rows, profiles, catalogs, selected_species_id, filters)}

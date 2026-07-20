@@ -2103,12 +2103,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("X-Rainmapper-Device", page)
         self.assertIn('name="observed_host_ids"', html)
         self.assertIn('class="profile-action-bar observations-main-actions maintenance-action-bar"', html)
-        self.assertIn('<details id="gis-reconstruction-lab"', html)
-        self.assertIn('./workers?scope=species&amp;species_id=boletus_pinophilus', html)
+        self.assertNotIn('<details id="gis-reconstruction-lab"', html)
+        self.assertNotIn(self.web_server.mushroom_profiles_ui.ui_label("ui.rebuild_managed_in_workers"), html)
         self.assertNotIn('name="profile_action" value="rebuild_observation_model_v0"', html)
         self.assertNotIn('name="gis_reconstruction_scope"', html)
         self.assertLess(html.index('href="#new-observation"'), html.index('id="archived-observations"'))
-        self.assertLess(html.index('href="#new-observation"'), html.index('id="gis-reconstruction-lab"'))
         self.assertIn('data-observation-select data-observation-id="obs_20260629_0001"', html)
         self.assertIn('data-observation-href=', html)
         self.assertIn('onclick="selectObservationRow(this, event)"', html)
@@ -3566,7 +3565,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Generate pairing code", page)
         self.assertIn('class="worker-toolbar-actions"', page)
         self.assertLess(page.index('class="worker-toolbar-actions"'), page.index("<h1>Workers and jobs</h1>"))
-        self.assertIn('class="button-link primary-link" href="#new-worker-rebuild"', page)
+        self.assertNotIn('href="#new-worker-rebuild"', page)
+        self.assertNotIn('class="workers-head-meta"', page)
+        self.assertIn('.workers-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))', page)
+        self.assertIn('.worker-destination-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))', page)
+        self.assertIn('class="worker-tools"', page)
+        self.assertIn("applyJobSort()", page)
         self.assertNotIn('class="workers-panel worker-pairing-panel"', page)
         self.assertNotIn('class="workers-panel worker-default-panel"', page)
         self.assertIn("Paired", page)
@@ -4479,10 +4483,60 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(jobs[0]["date_time"], "20/07/2026 00:20:57")
         self.assertEqual(jobs[0]["elapsed"], "47s")
+        self.assertEqual(jobs[0]["elapsed_seconds"], 47)
+        self.assertGreater(jobs[0]["sort_timestamp"], 0)
         rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(jobs)
         self.assertIn("Date and time", rendered)
         self.assertIn("20/07/2026 00:20:57", rendered)
         self.assertIn("47s", rendered)
+        self.assertIn('data-sortable-worker-jobs', rendered)
+        self.assertEqual(rendered.count('data-worker-sort-column='), 10)
+        self.assertIn('data-worker-sort-column="1" data-worker-sort-type="time"', rendered)
+        self.assertIn('aria-sort="descending"', rendered)
+
+    def test_workers_recent_jobs_sort_mixed_timezones_by_instant(self) -> None:
+        local_started = "2026-07-20T21:08:09+02:00"
+        local_timestamp = self.web_server.datetime.fromisoformat(local_started).timestamp()
+        local_job = {
+            "job_id": "Ercotzq4lmji",
+            "status": "complete",
+            "scope": "species",
+            "phase": "Model learned v0",
+            "overall_percent": 100,
+            "started_at": local_started,
+            "started_at_ts": local_timestamp,
+            "finished_at": "2026-07-20T21:10:39+02:00",
+            "finished_at_ts": local_timestamp + 150,
+        }
+        external_job = {
+            "job_id": "worker_job_newer",
+            "job_type": "worker_candidate_rebuild",
+            "target_display_name": "M1 Personal",
+            "status": "cancelled",
+            "scope": "species: amanita_caesarea",
+            "phase": "Cancelled",
+            "overall_percent": 75,
+            "created_at": "2026-07-20T19:10:51+00:00",
+            "started_at": "2026-07-20T19:10:51+00:00",
+            "finished_at": "2026-07-20T19:11:50+00:00",
+        }
+        with mock.patch.object(
+            self.web_server, "cleanup_mushroom_rebuild_jobs"
+        ), mock.patch.dict(
+            self.web_server.MUSHROOM_REBUILD_JOBS,
+            {"Ercotzq4lmji": local_job},
+            clear=True,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "recent_jobs",
+            return_value=[external_job],
+        ):
+            jobs = self.web_server.mushroom_workers_recent_jobs()
+
+        self.assertEqual([job["job_id"] for job in jobs], ["worker_job_newer", "Ercotzq4lmji"])
+        rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(jobs)
+        self.assertIn(">Local HA</strong>", rendered)
+        self.assertNotIn(">Ercotzq4lmji</strong>", rendered)
 
     def test_worker_promotion_runs_in_background_and_persists_progress(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "worker-promotion-jobs.json"
@@ -4607,6 +4661,130 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("58%", rendered)
         self.assertIn("Promoting", rendered)
         self.assertNotIn('value="promote_worker_candidate"', rendered)
+
+    def test_workers_page_discards_terminal_unpromoted_candidate_through_modal(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            profiles=[],
+            eligible_observation_count=0,
+            pending_species_count=0,
+            jobs=[{
+                "job_id": "worker_job_discard123",
+                "job_type": "worker_candidate_rebuild",
+                "worker_display_name": "M1 personal",
+                "status": "complete",
+                "scope": "Amanita caesarea",
+                "phase": "Candidate result verified",
+                "overall_percent": 100,
+                "promotion_eligible": True,
+                "promotion_status": "",
+                "elapsed": "49s",
+            }],
+            pipeline="shared",
+            operational_enabled=True,
+        )
+
+        self.assertIn("Discard worker candidate?", page)
+        self.assertIn("Amanita caesarea", page)
+        self.assertIn("data-discard-worker-candidate", page)
+        self.assertIn('name="worker_action" value="discard_worker_candidate"', page)
+        self.assertIn("showModal", page)
+
+        interrupted = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [{
+                "job_id": "worker_job_interrupted",
+                "job_type": "worker_candidate_rebuild",
+                "worker_display_name": "M1 personal",
+                "status": "complete",
+                "scope": "Amanita caesarea",
+                "promotion_status": "promoting",
+                "promotion_active": False,
+                "overall_percent": 100,
+            }],
+            operational_enabled=True,
+        )
+        self.assertIn("Promotion interrupted", interrupted)
+        self.assertIn("data-discard-worker-candidate", interrupted)
+
+    def test_discard_candidate_removes_coordinator_files_then_worker_ack_removes_job(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "discard-worker-jobs.json"
+        registry_path = Path(self.temp_dir.name) / "discard-workers.json"
+        job_id = "worker_job_discard123"
+        created = self.web_server.mushroom_worker_jobs.create_candidate_rebuild(
+            jobs_path,
+            worker_id="worker_aaaaaaaa",
+            worker_display_name="M1 personal",
+            input_bundle={
+                "job_id": job_id,
+                "job_spec_id": "sha256:" + "a" * 64,
+                "snapshot_id": "sha256:" + "b" * 64,
+                "input_file_count": 7,
+                "input_size_bytes": 1234,
+            },
+            job_id=job_id,
+            promotion_eligible=True,
+        )
+        claimed = self.web_server.mushroom_worker_jobs.claim_next(
+            jobs_path,
+            worker_id="worker_aaaaaaaa",
+            claim_token="claim-secret",
+        )
+        self.web_server.mushroom_worker_jobs.start_job(
+            jobs_path,
+            job_id=created["job_id"],
+            worker_id="worker_aaaaaaaa",
+            claim_token=str(claimed["claim_token"]),
+        )
+        self.web_server.mushroom_worker_jobs.finish_job(
+            jobs_path,
+            job_id=created["job_id"],
+            worker_id="worker_aaaaaaaa",
+            claim_token=str(claimed["claim_token"]),
+            status="failed",
+            error="expected test failure",
+        )
+        heartbeat = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "worker_id": "worker_aaaaaaaa",
+            "display_name": "M1 personal",
+            "host_name": "macbook-m1-test",
+            "architecture": "arm64",
+            "platform": "Darwin",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "candidate_rebuild_v0",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid"},
+        }
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"},
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_results, "discard_candidate", return_value={"candidate": True}
+        ) as discard_result, mock.patch.object(
+            self.web_server.mushroom_worker_transport, "discard_coordinator_bundle", return_value=True
+        ) as discard_bundle:
+            status, response = self.web_server.discard_mushroom_worker_candidate(job_id)
+            heartbeat_status, cleanup = self.web_server.register_mushroom_worker_heartbeat(heartbeat)
+            ack_status, acknowledged = self.web_server.register_mushroom_worker_heartbeat(
+                {**heartbeat, "discarded_job_ids": [job_id]}
+            )
+
+        self.assertEqual(status, 202)
+        self.assertTrue(response["discarding"])
+        self.assertEqual(heartbeat_status, 200)
+        self.assertEqual(cleanup["discard_job_ids"], [job_id])
+        self.assertEqual(ack_status, 200)
+        self.assertEqual(acknowledged["discard_job_ids"], [])
+        discard_result.assert_called_once()
+        discard_bundle.assert_called_once()
+        with self.assertRaisesRegex(ValueError, "not found"):
+            self.web_server.mushroom_worker_jobs.get_job(jobs_path, job_id=job_id)
 
     def test_workers_page_shows_persistent_probe_job_without_rebuild_modal_link(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(

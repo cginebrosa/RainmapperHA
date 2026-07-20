@@ -6,6 +6,75 @@ from rainmapper_core import mushroom_worker_jobs
 
 
 class MushroomWorkerJobsTests(unittest.TestCase):
+    def test_discard_candidate_waits_for_the_assigned_worker_acknowledgement(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            job_id = "worker_job_discard123"
+            created = mushroom_worker_jobs.create_candidate_rebuild(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle={
+                    "job_id": job_id,
+                    "job_spec_id": "sha256:" + "a" * 64,
+                    "snapshot_id": "sha256:" + "b" * 64,
+                    "input_file_count": 7,
+                    "input_size_bytes": 1234,
+                },
+                job_id=job_id,
+                promotion_eligible=True,
+            )
+            with self.assertRaisesRegex(ValueError, "after the job has finished"):
+                mushroom_worker_jobs.request_candidate_discard(path, job_id=job_id)
+            mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=job_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            mushroom_worker_jobs.finish_job(
+                path,
+                job_id=job_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+                status="failed",
+                error="expected test failure",
+            )
+
+            discarded = mushroom_worker_jobs.request_candidate_discard(path, job_id=job_id)
+
+            self.assertEqual(discarded["discard_status"], "requested")
+            self.assertEqual(
+                mushroom_worker_jobs.pending_candidate_discards(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                ),
+                [job_id],
+            )
+            self.assertEqual(
+                mushroom_worker_jobs.acknowledge_candidate_discards(
+                    path,
+                    worker_id="worker_bbbbbbbb",
+                    job_ids=[job_id],
+                ),
+                [],
+            )
+            self.assertEqual(
+                mushroom_worker_jobs.acknowledge_candidate_discards(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    job_ids=[job_id],
+                ),
+                [job_id],
+            )
+            with self.assertRaisesRegex(ValueError, "not found"):
+                mushroom_worker_jobs.get_job(path, job_id=created["job_id"])
+
     def test_candidate_rebuild_rejects_overlapping_active_scope_but_allows_disjoint_species(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"

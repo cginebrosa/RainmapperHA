@@ -133,16 +133,42 @@ def load_coordinator_bundle(bundle_root: Path, job_id: str) -> dict[str, Any]:
     return _bundle_metadata(job_spec, manifest)
 
 
-def discard_unqueued_bundle(bundle_root: Path, job_id: str) -> None:
-    """Roll back only a bundle created for a job that was not queued."""
+def discard_coordinator_bundle(bundle_root: Path, job_id: str) -> bool:
+    """Remove one identity-checked immutable coordinator bundle."""
     root = bundle_root.resolve()
     bundle = root / validate_job_id(job_id)
     if not bundle.is_dir():
-        return
+        return False
+    if bundle.is_symlink():
+        raise ValueError("Refusing to discard a symlinked worker bundle.")
     spec = mushroom_rebuild_contracts.load_job_spec(bundle / JOB_SPEC_LOGICAL_PATH)
     if spec.get("job_id") != job_id:
         raise ValueError("Refusing to discard a worker bundle with a different job identity.")
     shutil.rmtree(bundle)
+    return True
+
+
+def discard_unqueued_bundle(bundle_root: Path, job_id: str) -> None:
+    """Roll back only a bundle created for a job that was not queued."""
+    discard_coordinator_bundle(bundle_root, job_id)
+
+
+def discard_worker_job(worker_data_dir: Path, job_id: str) -> bool:
+    """Remove one completed worker job without touching the shared dataset cache."""
+    resolved_job_id = validate_job_id(job_id)
+    jobs_root = worker_data_dir.resolve() / "jobs"
+    job_dir = jobs_root / resolved_job_id
+    if not job_dir.exists():
+        return False
+    if not job_dir.is_dir():
+        raise ValueError("Worker job path is not a directory.")
+    if job_dir.is_symlink():
+        raise ValueError("Refusing to discard a symlinked worker job.")
+    spec = mushroom_rebuild_contracts.load_job_spec(job_dir / JOB_SPEC_LOGICAL_PATH)
+    if spec.get("job_id") != resolved_job_id:
+        raise ValueError("Refusing to discard a worker job with a different identity.")
+    shutil.rmtree(job_dir)
+    return True
 
 
 def allowed_bundle_paths(bundle_root: Path, job_id: str) -> dict[str, Path]:

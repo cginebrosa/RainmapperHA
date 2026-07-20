@@ -27,6 +27,17 @@ class MushroomWorkerRegistryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Worker ID"):
             mushroom_worker_registry.normalize_heartbeat({**self.heartbeat(), "worker_id": "short"})
 
+    def test_normalize_accepts_bounded_discard_acknowledgements(self) -> None:
+        job_id = "worker_job_discard123"
+        heartbeat = mushroom_worker_registry.normalize_heartbeat(
+            {**self.heartbeat(), "discarded_job_ids": [job_id, job_id]}
+        )
+        self.assertEqual(heartbeat["discarded_job_ids"], [job_id])
+        with self.assertRaisesRegex(ValueError, "acknowledgement"):
+            mushroom_worker_registry.normalize_heartbeat(
+                {**self.heartbeat(), "discarded_job_ids": ["../private"]}
+            )
+
     def test_remember_worker_does_not_rewrite_unchanged_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "workers.json"

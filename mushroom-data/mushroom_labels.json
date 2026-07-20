@@ -2820,6 +2820,9 @@
   "ui.worker_technical_detail": {
     "en": "Technical detail", "es": "Detalle tecnico", "ca": "Detall tecnic"
   },
+  "ui.worker_tools": {
+    "en": "Tests and management", "es": "Pruebas y gestion", "ca": "Proves i gestio"
+  },
   "ui.worker_job_api_pending": {
     "en": "Job API pending", "es": "API de trabajos pendiente", "ca": "API de treballs pendent"
   },
@@ -2883,8 +2886,26 @@
   "ui.worker_promoting": {
     "en": "Promoting", "es": "Promocionando", "ca": "Promocionant"
   },
+  "ui.worker_promotion_interrupted": {
+    "en": "Promotion interrupted", "es": "Promocion interrumpida", "ca": "Promocio interrompuda"
+  },
   "ui.worker_promotion_progress": {
     "en": "Promotion progress", "es": "Progreso de promocion", "ca": "Progres de promocio"
+  },
+  "ui.worker_discard_candidate": {
+    "en": "Discard", "es": "Descartar", "ca": "Descartar"
+  },
+  "ui.worker_discard_candidate_title": {
+    "en": "Discard worker candidate?", "es": "Descartar candidato del worker?", "ca": "Descartar candidat del worker?"
+  },
+  "ui.worker_discard_candidate_confirm": {
+    "en": "This permanently deletes the private candidate, its immutable input snapshot and the worker job copy. The live model, rollback copies and shared GIS/DEM cache are not changed. This action cannot be undone.", "es": "Esto borra permanentemente el candidato privado, su snapshot inmutable de entradas y la copia del trabajo en el worker. No modifica el modelo vivo, las copias de recuperacion ni la cache GIS/DEM compartida. Esta accion no se puede deshacer.", "ca": "Aixo esborra permanentment el candidat privat, el seu snapshot immutable d'entrades i la copia del treball al worker. No modifica el model viu, les copies de recuperacio ni la cache GIS/DEM compartida. Aquesta accio no es pot desfer."
+  },
+  "ui.worker_candidate_discard_started": {
+    "en": "Candidate removed from Home Assistant; waiting for the worker to confirm local cleanup.", "es": "Candidato eliminado de Home Assistant; esperando que el worker confirme la limpieza local.", "ca": "Candidat eliminat de Home Assistant; esperant que el worker confirmi la neteja local."
+  },
+  "ui.worker_candidate_discarding": {
+    "en": "Discarding", "es": "Descartando", "ca": "Descartant"
   },
   "ui.worker_fallback": {
     "en": "Operational fallback", "es": "Fallback operativo", "ca": "Fallback operatiu"
@@ -2978,6 +2999,9 @@
   },
   "ui.worker_job": {
     "en": "Job", "es": "Trabajo", "ca": "Treball"
+  },
+  "ui.worker_local_job": {
+    "en": "Local HA", "es": "HA local", "ca": "HA local"
   },
   "ui.worker_date_time": {
     "en": "Date and time", "es": "Fecha y hora", "ca": "Data i hora"

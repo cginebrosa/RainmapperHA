@@ -264,6 +264,39 @@ class MushroomWorkerTransportTests(unittest.TestCase):
                 logical_path="private.dat",
             )
 
+    def test_discard_removes_job_copies_but_preserves_shared_dataset_cache(self) -> None:
+        worker_job = self.worker_data / "jobs" / self.job_id
+        worker_job.mkdir(parents=True)
+        (worker_job / "job_spec.json").write_bytes(
+            (self.bundle_root / self.job_id / "job_spec.json").read_bytes()
+        )
+        (worker_job / "candidate").mkdir()
+        (worker_job / "candidate" / "result.json").write_text("{}", encoding="utf-8")
+        dataset_before = mushroom_worker_dataset_cache.verify_version(
+            self.worker_data,
+            deep=True,
+        )
+
+        self.assertTrue(
+            mushroom_worker_transport.discard_coordinator_bundle(
+                self.bundle_root,
+                self.job_id,
+            )
+        )
+        self.assertTrue(
+            mushroom_worker_transport.discard_worker_job(
+                self.worker_data,
+                self.job_id,
+            )
+        )
+
+        self.assertFalse((self.bundle_root / self.job_id).exists())
+        self.assertFalse(worker_job.exists())
+        self.assertEqual(
+            mushroom_worker_dataset_cache.verify_version(self.worker_data, deep=True)["fingerprint"],
+            dataset_before["fingerprint"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

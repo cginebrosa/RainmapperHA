@@ -140,6 +140,41 @@ class MushroomWorkerResultsTests(unittest.TestCase):
         self.assertEqual(stored["result_manifest_id"], self.manifest["result_manifest_id"])
         self.assertFalse((result_root / f".{self.job_id}.staging").exists())
 
+    def test_discard_candidate_removes_only_unpromoted_private_results(self) -> None:
+        result_root = self.root / "discard-results"
+        self._finalize_candidate(result_root)
+
+        removed = mushroom_worker_results.discard_candidate(
+            result_root,
+            self.live,
+            job_id=self.job_id,
+        )
+
+        self.assertEqual(removed, {"candidate": True, "staging": False})
+        self.assertFalse((result_root / self.job_id).exists())
+        self.assertTrue(self.live.is_dir())
+
+    def test_discard_candidate_rejects_promoted_or_recovery_artifacts(self) -> None:
+        result_root = self.root / "protected-discard-results"
+        self._finalize_candidate(result_root)
+        receipt = result_root / self.job_id / mushroom_worker_results.PROMOTION_RECEIPT_NAME
+        receipt.write_text('{"status":"promoted"}', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "promoted candidate receipt"):
+            mushroom_worker_results.discard_candidate(
+                result_root,
+                self.live,
+                job_id=self.job_id,
+            )
+        receipt.unlink()
+        recovery = self.live / ".worker-promotion-staging" / self.job_id
+        recovery.mkdir(parents=True)
+        with self.assertRaisesRegex(ValueError, "recovery artifacts"):
+            mushroom_worker_results.discard_candidate(
+                result_root,
+                self.live,
+                job_id=self.job_id,
+            )
+
     def test_coordinator_rejects_tampered_or_undeclared_candidate_file(self) -> None:
         result_root = self.root / "results"
         mushroom_worker_results.receive_result_file(

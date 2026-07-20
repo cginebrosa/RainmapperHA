@@ -1795,7 +1795,26 @@ atomicamente el modelo vivo y conservando la copia anterior. Como la promocion
 revalida freshness de forma sincrona, incluidos los hashes GIS, el navegador
 parecia inmovil hasta terminar. `0.2.212` la ejecuta en segundo plano, persiste
 fase/porcentaje, muestra una barra mediante polling y bloquea reintentos mientras
-`promotion_status=promoting`; queda instalarla y probarla en HA real.
+`promotion_status=promoting`; ya quedo instalada y probada en HA real.
+
+Validacion posterior: `0.2.212` se instalo y la barra de promocion funciono en
+HA real. Despues se completo un candidato parcial de `Amanita caesarea`. La
+mejora local siguiente incorpora `Descartar` con modal para candidatos
+terminales no promocionados: elimina en HA el snapshot y resultado privados,
+mantiene un tombstone persistente y ordena al worker por heartbeat autenticado
+e idempotente borrar su directorio de job; la fila desaparece al recibir el
+acuse. El dataset GIS/DEM compartido, el modelo vivo y los backups de promocion
+no entran en el borrado. Una promocion activa no puede descartarse. Si Rainmapper
+se reinicio durante ella, se permite solo cuando no existe hilo activo ni
+recibo, backup o staging de recuperacion; ante cualquier duda se conserva todo y
+se exige recuperacion manual. La misma revision compacta la pantalla para que HA
+y dos workers ocupen una fila, pliega pruebas y gestion, elimina textos y el
+ancla superior redundantes, muestra los jobs internos como `HA local` y permite
+ordenar por todas las columnas. La ordenacion inicial convierte los offsets de
+HA y workers a un instante comun. Tambien se retira de Observaciones el panel
+GIS heredado, porque no estaba asociado a un job concreto y podia quedar vacio.
+Esta mejora tiene 386 tests, esta publicada en `0.2.213` y permanece pendiente
+de instalar y probar integralmente en HA/worker.
 
 ## 16. Criterios de aceptacion
 
@@ -1858,10 +1877,10 @@ fase/porcentaje, muestra una barra mediante polling y bloquea reintentos mientra
 Los seis bloques locales previos a la red real estan completados. El orden
 recomendado desde este punto es:
 
-1. instalar `0.2.212` y validar en HA real la mejora de progreso de promocion en
-   segundo plano ya publicada;
-2. probar reconstruccion parcial, desconexion/reconexion, cancelacion, cache y
-   freshness contra el M1 ya emparejado por LAN;
+1. instalar `0.2.213` y validar en HA real el descarte seguro y la pantalla
+   compacta/ordenable;
+2. reiniciar el launcher del worker para incorporar el acuse de limpieza y
+   probar descarte, desconexion/reconexion, cache y freshness contra el M1;
 3. comprobar de nuevo la reconstruccion HA de fallback;
 4. decidir el endurecimiento Tailscale/TLS/ACL del listener privado `8100` sin
    publicarlo en el router;
@@ -1872,9 +1891,10 @@ recomendado desde este punto es:
 7. anadir `build_ml_dataset`, entrenamiento y evaluacion sobre la
    infraestructura ya probada.
 
-La `0.2.211` esta instalada y la primera reconstruccion completa operacional y
-su promocion manual M1 ↔ HA real ya terminaron correctamente. La mejora de
-progreso descrita arriba esta publicada en `0.2.212` y pendiente de instalar.
+La `0.2.212` esta instalada; la primera reconstruccion completa operacional y
+su promocion manual M1 ↔ HA real ya terminaron correctamente, igual que una
+reconstruccion parcial y una cancelacion. `0.2.213` esta publicada y pendiente
+de instalar/probar.
 
 No hace falta reabrir la extraccion del pipeline ni duplicar el reconstructor:
 el riesgo principal siguiente esta en la topologia y seguridad de red real, no

@@ -13,6 +13,7 @@ from typing import Any
 
 SCHEMA_VERSION = "0.1"
 WORKER_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{8,80}$")
+JOB_ID_PATTERN = re.compile(r"^worker_job_[a-zA-Z0-9_-]{8,80}$")
 HOME_ASSISTANT_EXECUTOR = "home_assistant"
 STATIC_FIELDS = (
     "worker_id",
@@ -53,6 +54,13 @@ def normalize_heartbeat(payload: object) -> dict[str, Any]:
     dataset_cache = payload.get("dataset_cache")
     if not isinstance(dataset_cache, dict):
         raise ValueError("Worker dataset cache summary is invalid.")
+    discarded_job_ids = payload.get("discarded_job_ids", [])
+    if (
+        not isinstance(discarded_job_ids, list)
+        or len(discarded_job_ids) > 50
+        or not all(isinstance(value, str) and JOB_ID_PATTERN.fullmatch(value) for value in discarded_job_ids)
+    ):
+        raise ValueError("Worker discarded job acknowledgement is invalid.")
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "rainmapper_worker_heartbeat",
@@ -66,6 +74,7 @@ def normalize_heartbeat(payload: object) -> dict[str, Any]:
         "job_api": str(payload.get("job_api", "not_implemented") or "not_implemented").strip()[:80],
         "capabilities": [str(value).strip() for value in capabilities],
         "dataset_cache": dict(dataset_cache),
+        "discarded_job_ids": list(dict.fromkeys(discarded_job_ids)),
     }
 
 

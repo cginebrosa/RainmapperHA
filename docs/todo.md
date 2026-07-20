@@ -310,7 +310,28 @@ flujo funcional contra `0.2.207` porque no contiene el coordinador.
   `sha256:9c7f70518ddd368ed42a67819df226a27e1726e7958e7b5309e02e810b326c8e`;
   manifests amd64/arm64 e import check
   `image_import_ok 0.2.212 False False True` verificados; 378 tests y smoke test
-  OK. Falta instalarla y comprobar la barra en HA real.
+  OK. Instalada y comprobada la barra en HA real.
+- [x] Implementar localmente descarte confirmado de candidatos terminales no
+  promocionados. El modal explica el alcance destructivo; HA borra snapshot y
+  resultado privados y mantiene un tombstone hasta que el worker elimina y
+  acusa su directorio de job por heartbeat. No toca modelo vivo, rollback ni
+  cache GIS/DEM; bloquea promociones activas y conserva cualquier artefacto de
+  recuperacion dudoso. Suite completa: 386 tests; validador: 0 errores/11
+  warnings conocidos. Publicado en `0.2.213`; falta reiniciar/reconstruir el
+  worker y probarlo con un candidato terminal no promocionado.
+- [x] Compactar localmente `Workers y trabajos` para HA + dos workers: tres
+  tarjetas y tres destinos por fila en escritorio, herramientas tecnicas
+  plegadas, titulo/subtitulo en una linea y retirada del acceso azul que solo
+  desplazaba al formulario y de los textos redundantes de cabecera. La tabla
+  ordena por cualquiera de sus columnas, usa instantes UTC al mezclar fechas y
+  muestra `HA local` en lugar del ID aleatorio. Se retira tambien de
+  Observaciones el desplegable GIS heredado, porque no identificaba un job y
+  podia quedar vacio. Publicado en `0.2.213`, pendiente de instalar/probar.
+- [x] Publicar con autorizacion expresa `0.2.213` y `latest`: digest multi-arch
+  `sha256:d1380a800131986b6efefbbb3ad234b252086f4e802de90aed42f905ac9dc4dd`,
+  manifests amd64/arm64 e import check
+  `image_import_ok 0.2.213 False False True` verificados; smoke con 386 tests y
+  validador 0 errores/11 warnings. Pendiente de instalar y probar en HA real.
 - [ ] Medir las fases en HA con el pipeline/instrumentacion compartidos y
   comparar con M1 usando exactamente el mismo snapshot/dataset.
 - [ ] Incorporar jobs separados `build_ml_dataset`, `train_ml_model` y

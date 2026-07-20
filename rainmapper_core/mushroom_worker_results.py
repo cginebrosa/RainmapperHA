@@ -562,8 +562,46 @@ def discard_candidate_staging(result_root: Path, job_id: str) -> bool:
         return False
     if not staging.is_dir():
         raise ValueError("Candidate result staging path is not a directory.")
+    if staging.is_symlink():
+        raise ValueError("Refusing to discard symlinked candidate staging.")
     shutil.rmtree(staging)
     return True
+
+
+def discard_candidate(
+    result_root: Path,
+    live_artifact_root: Path,
+    *,
+    job_id: str,
+) -> dict[str, bool]:
+    """Remove an unpromoted candidate while preserving live and rollback artifacts."""
+    resolved_job_id = mushroom_worker_transport.validate_job_id(job_id)
+    live_root = live_artifact_root.resolve()
+    promotion_staging = live_root / ".worker-promotion-staging" / resolved_job_id
+    promotion_backup = live_root / ".worker-promotion-backups" / resolved_job_id
+    if promotion_staging.exists() or promotion_backup.exists():
+        raise ValueError(
+            "Candidate promotion recovery artifacts still exist; refusing to discard it automatically."
+        )
+    candidate = _job_dir(result_root, resolved_job_id)
+    removed_candidate = False
+    if candidate.exists():
+        if not candidate.is_dir():
+            raise ValueError("Candidate result path is not a directory.")
+        if candidate.is_symlink():
+            raise ValueError("Refusing to discard a symlinked candidate result.")
+        if (candidate / PROMOTION_RECEIPT_NAME).exists():
+            raise ValueError("A promoted candidate receipt exists; the candidate cannot be discarded.")
+        verification = load_final_candidate(result_root, resolved_job_id)
+        if verification.get("job_id") != resolved_job_id:
+            raise ValueError("Refusing to discard a candidate with a different job identity.")
+        shutil.rmtree(candidate)
+        removed_candidate = True
+    removed_staging = discard_candidate_staging(result_root, resolved_job_id)
+    return {
+        "candidate": removed_candidate,
+        "staging": removed_staging,
+    }
 
 
 def prune_promotion_backups(

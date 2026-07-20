@@ -145,10 +145,15 @@ def worker_status(
     }
 
 
-def heartbeat_payload(status: dict[str, Any]) -> dict[str, Any]:
+def heartbeat_payload(
+    status: dict[str, Any],
+    *,
+    discarded_job_ids: list[str] | tuple[str, ...] = (),
+) -> dict[str, Any]:
     return {
         **status,
         "kind": "rainmapper_worker_heartbeat",
+        "discarded_job_ids": list(discarded_job_ids),
     }
 
 
@@ -315,6 +320,7 @@ def serve(
     )
     runtime_lock = threading.Lock()
     runtime_state = {"status": "idle", "active_job_id": ""}
+    discarded_job_ids_pending: set[str] = set()
     server = ThreadingHTTPServer(
         (host, port),
         _handler_class(worker_data_dir.resolve(), resolved_version, identity, runtime_state, runtime_lock),
@@ -736,9 +742,30 @@ def serve(
                         identity=identity,
                         runtime_status=runtime_status,
                     )
-                    send_heartbeat(ha_url, heartbeat_payload(status), token=token)
                     with runtime_lock:
                         worker_has_job = bool(runtime_state.get("active_job_id"))
+                        active_job_id = str(runtime_state.get("active_job_id", "") or "")
+                    sent_discarded_ids = sorted(discarded_job_ids_pending)
+                    heartbeat_response = send_heartbeat(
+                        ha_url,
+                        heartbeat_payload(status, discarded_job_ids=sent_discarded_ids),
+                        token=token,
+                    )
+                    discarded_job_ids_pending.difference_update(sent_discarded_ids)
+                    discard_job_ids = heartbeat_response.get("discard_job_ids", [])
+                    if not isinstance(discard_job_ids, list) or len(discard_job_ids) > 50:
+                        raise ValueError("HA worker cleanup request is invalid.")
+                    for discard_job_id in discard_job_ids:
+                        resolved_discard_job_id = mushroom_worker_transport.validate_job_id(
+                            discard_job_id
+                        )
+                        if worker_has_job and resolved_discard_job_id == active_job_id:
+                            continue
+                        mushroom_worker_transport.discard_worker_job(
+                            worker_data_dir.resolve(),
+                            resolved_discard_job_id,
+                        )
+                        discarded_job_ids_pending.add(resolved_discard_job_id)
                     if not worker_has_job and (active_job_thread is None or not active_job_thread.is_alive()):
                         claimed_job = claim_job(ha_url, identity["worker_id"], token=token)
                     else:

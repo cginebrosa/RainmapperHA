@@ -151,6 +151,7 @@ PUBLIC_MAP_NAMES = {
 RUN_LOCK = threading.Lock()
 MUSHROOM_WORKER_PROMOTION_LOCK = threading.Lock()
 MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK = threading.Lock()
+MUSHROOM_WORKER_PROMOTION_THREADS: dict[str, threading.Thread] = {}
 SHUTDOWN_EVENT = threading.Event()
 CURRENT_PROCESS_LOCK = threading.Lock()
 CURRENT_PROCESS: subprocess.Popen | None = None
@@ -10596,6 +10597,14 @@ def register_mushroom_worker_heartbeat(
     seen_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
     worker_id = str(heartbeat["worker_id"])
     with RUN_LOCK:
+        mushroom_worker_jobs.acknowledge_candidate_discards(
+            mushroom_worker_jobs_path(),
+            worker_id=worker_id,
+            job_ids=[
+                str(job_id)
+                for job_id in heartbeat.get("discarded_job_ids", [])
+            ],
+        )
         MUSHROOM_WORKER_HEARTBEATS[worker_id] = {
             "payload": heartbeat,
             "last_seen_ts": seen_ts,
@@ -10605,6 +10614,10 @@ def register_mushroom_worker_heartbeat(
         "ok": True,
         "worker_id": worker_id,
         "heartbeat_interval_seconds": 2,
+        "discard_job_ids": mushroom_worker_jobs.pending_candidate_discards(
+            mushroom_worker_jobs_path(),
+            worker_id=worker_id,
+        ),
     }
 
 
@@ -11061,6 +11074,9 @@ def _run_mushroom_worker_candidate_promotion(job_id: str) -> None:
         except ValueError:
             pass
         set_mushroom_workers_flash(str(exc), error=True)
+    finally:
+        with RUN_LOCK:
+            MUSHROOM_WORKER_PROMOTION_THREADS.pop(job_id, None)
 
 
 def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, object]]:
@@ -11072,18 +11088,20 @@ def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, objec
                 mushroom_worker_jobs_path(),
                 job_id=job_id,
             )
+            promotion_thread = threading.Thread(
+                target=_run_mushroom_worker_candidate_promotion,
+                args=(job_id,),
+                daemon=True,
+                name=f"rainmapper-worker-promotion-{job_id[-12:]}",
+            )
+            MUSHROOM_WORKER_PROMOTION_THREADS[job_id] = promotion_thread
+            promotion_thread.start()
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     set_mushroom_workers_flash(
         mushroom_profiles_ui.ui_label("ui.worker_promotion_started"),
         clear_when_idle=True,
     )
-    threading.Thread(
-        target=_run_mushroom_worker_candidate_promotion,
-        args=(job_id,),
-        daemon=True,
-        name=f"rainmapper-worker-promotion-{job_id[-12:]}",
-    ).start()
     return 202, {"ok": True, "job": job, "promoting": True}
 
 
@@ -11430,6 +11448,42 @@ def cancel_mushroom_worker_job(job_id: str, *, force: bool = False) -> tuple[int
     return 200, {"ok": True, "job": job}
 
 
+def discard_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, object]]:
+    try:
+        with RUN_LOCK:
+            current_job = mushroom_worker_jobs.get_job(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+            )
+            promotion_thread = MUSHROOM_WORKER_PROMOTION_THREADS.get(job_id)
+            promotion_active = bool(promotion_thread and promotion_thread.is_alive())
+            allow_interrupted_promotion = (
+                str(current_job.get("promotion_status", "") or "") == "promoting"
+                and not promotion_active
+            )
+            mushroom_worker_jobs.validate_candidate_discard(
+                current_job,
+                allow_interrupted_promotion=allow_interrupted_promotion,
+            )
+            mushroom_worker_results.discard_candidate(
+                mushroom_worker_candidate_results_path(),
+                mushroom_paths.mushroom_data_dir(),
+                job_id=job_id,
+            )
+            mushroom_worker_transport.discard_coordinator_bundle(
+                mushroom_worker_input_bundles_path(),
+                job_id,
+            )
+            job = mushroom_worker_jobs.request_candidate_discard(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                allow_interrupted_promotion=allow_interrupted_promotion,
+            )
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 202, {"ok": True, "job": job, "discarding": True}
+
+
 def reassign_mushroom_worker_job(job_id: str, worker_id: str) -> tuple[int, dict[str, object]]:
     target = next(
         (
@@ -11490,14 +11544,22 @@ def format_worker_job_datetime(value: object) -> str:
 
 
 def worker_job_elapsed(job: dict[str, object], *, now: datetime | None = None) -> str:
+    return compact_duration(worker_job_elapsed_seconds(job, now=now))
+
+
+def worker_job_elapsed_seconds(
+    job: dict[str, object],
+    *,
+    now: datetime | None = None,
+) -> float:
     started = parse_worker_job_datetime(job.get("started_at") or job.get("created_at"))
     if started is None:
-        return "-"
+        return 0
     finished = parse_worker_job_datetime(job.get("finished_at"))
     current = finished or now or datetime.now(UTC)
     if current.tzinfo is None:
         current = current.replace(tzinfo=UTC)
-    return compact_duration((current.astimezone(UTC) - started.astimezone(UTC)).total_seconds())
+    return max(0, (current.astimezone(UTC) - started.astimezone(UTC)).total_seconds())
 
 
 def mushroom_workers_recent_jobs(*, limit: int = 10) -> list[dict[str, object]]:
@@ -11505,21 +11567,27 @@ def mushroom_workers_recent_jobs(*, limit: int = 10) -> list[dict[str, object]]:
     with RUN_LOCK:
         rebuild_jobs = [mushroom_rebuild_job_payload(dict(job)) for job in MUSHROOM_REBUILD_JOBS.values()]
         external_jobs = mushroom_worker_jobs.recent_jobs(mushroom_worker_jobs_path(), limit=limit)
+        promotion_active_by_job = {
+            job_id: thread.is_alive()
+            for job_id, thread in MUSHROOM_WORKER_PROMOTION_THREADS.items()
+        }
     jobs: list[dict[str, object]] = []
     for job in rebuild_jobs:
         started_at = job.get("started_at", "")
+        started = parse_worker_job_datetime(started_at)
         jobs.append(
             {
                 **job,
                 "created_at": started_at,
                 "date_time": format_worker_job_datetime(started_at),
-                "sort_at": started_at,
+                "sort_timestamp": started.timestamp() if started is not None else 0,
                 "opens_rebuild_modal": True,
             }
         )
     for job in external_jobs:
         public_job = {key: value for key, value in job.items() if key != "claim_token"}
         created_at = job.get("created_at", "")
+        created = parse_worker_job_datetime(created_at)
         jobs.append(
             {
                 **public_job,
@@ -11527,11 +11595,19 @@ def mushroom_workers_recent_jobs(*, limit: int = 10) -> list[dict[str, object]]:
                 "worker_display_name": job.get("target_display_name", ""),
                 "date_time": format_worker_job_datetime(created_at),
                 "elapsed": worker_job_elapsed(job),
-                "sort_at": created_at,
+                "elapsed_seconds": worker_job_elapsed_seconds(job),
+                "sort_timestamp": created.timestamp() if created is not None else 0,
                 "opens_rebuild_modal": False,
+                "promotion_active": bool(
+                    promotion_active_by_job.get(str(job.get("job_id", "")), False)
+                ),
             }
         )
-    return sorted(jobs, key=lambda job: str(job.get("sort_at", "")), reverse=True)[:limit]
+    return sorted(
+        jobs,
+        key=lambda job: float(job.get("sort_timestamp", 0) or 0),
+        reverse=True,
+    )[:limit]
 
 
 def mushroom_worker_activity_active(jobs: list[dict[str, object]]) -> bool:
@@ -11539,7 +11615,11 @@ def mushroom_worker_activity_active(jobs: list[dict[str, object]]) -> bool:
         return True
     return any(
         str(job.get("status", "")) in mushroom_worker_jobs.ACTIVE_STATUSES
-        or str(job.get("promotion_status", "")) == "promoting"
+        or (
+            str(job.get("promotion_status", "")) == "promoting"
+            and bool(job.get("promotion_active", True))
+        )
+        or str(job.get("discard_status", "")) == "requested"
         for job in jobs
     )
 
@@ -11733,6 +11813,7 @@ def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
             and not bool(job.get("_promotion_started", False))
         ),
         "elapsed": compact_duration(total_elapsed),
+        "elapsed_seconds": max(0, total_elapsed),
         "phase_elapsed": compact_duration(phase_elapsed),
         "eta": compact_duration(total_eta) if total_eta is not None else "",
         "phase_eta": compact_duration(phase_eta) if phase_eta is not None else "",
@@ -15489,7 +15570,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 search,
                 observation_form_message,
                 observation_filters,
-                mushroom_gis_lab.load_latest_reconstruction(),
             )
         elif section == "evidence":
             evidence_view = (query.get("evidence_view") or ["hosts_forests"])[0]
@@ -16525,6 +16605,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if status != 202:
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot promote worker candidate.")),
+                    error=True,
+                )
+            return "./workers"
+        if action == "discard_worker_candidate":
+            status, response = discard_mushroom_worker_candidate(
+                self.form_value(form, "job_id")
+            )
+            if status == 202:
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_candidate_discard_started"),
+                    clear_when_idle=True,
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot discard worker candidate.")),
                     error=True,
                 )
             return "./workers"
