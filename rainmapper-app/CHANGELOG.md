@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.209
+
+- Fix the `Workers and jobs` manual and automatic refresh paths under Home
+  Assistant Ingress.
+- Keep the Control Panel publication summary limited to the latest run instead
+  of accumulating protected MapLibre publication messages across schedules.
+
 ## 0.2.208
 
 - Add the private external-worker coordinator, pairing, multi-worker registry,

@@ -461,7 +461,7 @@ def render_page(
     </style>
     <div class="catalog-toolbar maintenance-top-toolbar">
       <a class="button-link" href="../">{_text(_label('ui.back'))}</a>
-      <a class="button-link" href="?">{_text(_label('ui.worker_refresh'))}</a>
+      <a class="button-link" href="./workers">{_text(_label('ui.worker_refresh'))}</a>
       <a class="button-link" href="./profiles">{_text(_label('ui.species'))}</a>
       <a class="button-link" href="./catalogs">{_text(_label('ui.worker_reference_catalogs'))}</a>
       <a class="button-link" href="./gis-mappings">{_text(_label('ui.worker_gis_mappings'))}</a>
@@ -520,7 +520,8 @@ def render_page(
       const destinations=document.getElementById('worker-destination-choices');
       const jobs=document.getElementById('worker-recent-jobs');
       if(!cards||!destinations||!jobs)return;
-      const statusUrl=new URL('../../api/mushrooms/workers/status',window.location.href);
+      const appBasePath=window.location.pathname.replace(/\\/mushrooms\\/workers\\/?$/,'');
+      const statusUrl=`${{appBasePath}}/api/mushrooms/workers/status`;
       let timer=0;
       const schedule=()=>{{window.clearTimeout(timer);timer=window.setTimeout(refresh,2000);}};
       const refresh=async()=>{{

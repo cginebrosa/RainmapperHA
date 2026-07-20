@@ -134,6 +134,38 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertEqual(self.web_server.RUN_STATE["progress_total"], "")
             self.assertEqual(self.web_server.RUN_STATE["progress_percent"], "")
 
+    def test_last_publish_summary_replaces_older_runs(self) -> None:
+        with self.web_server.RUN_LOCK:
+            self.web_server.RUN_STATE["last_publish_message"] = "Older scheduled publication."
+
+        self.web_server.record_last_publish(
+            "2026-07-20T20:00:00+02:00",
+            "Published protected MapLibre data.",
+        )
+
+        with self.web_server.RUN_LOCK:
+            self.assertEqual(
+                self.web_server.RUN_STATE["last_publish_message"],
+                "Published protected MapLibre data.",
+            )
+            self.assertEqual(
+                self.web_server.RUN_STATE["last_published_at"],
+                "2026-07-20T20:00:00+02:00",
+            )
+
+    def test_last_publish_summary_combines_only_the_same_run(self) -> None:
+        self.web_server.record_last_publish(
+            "2026-07-20T20:00:00+02:00",
+            "Published protected MapLibre data.",
+            same_run_publish_message="Published legacy maps.",
+        )
+
+        with self.web_server.RUN_LOCK:
+            self.assertEqual(
+                self.web_server.RUN_STATE["last_publish_message"],
+                "Published legacy maps. Published protected MapLibre data.",
+            )
+
     def test_non_aemet_source_cards_show_source_specific_timing_breakdowns(self) -> None:
         meteocat_html = self.web_server.source_status_card(
             "Meteocat",
@@ -3515,7 +3547,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('class="worker-scope-grid"', page)
         self.assertIn('class="worker-species-field" hidden', page)
         self.assertIn('input[type="radio"]{position:absolute!important;width:1px!important', page)
-        self.assertIn("../../api/mushrooms/workers/status", page)
+        self.assertIn("window.location.pathname.replace(/\\/mushrooms\\/workers\\/?$/,'')", page)
+        self.assertIn("${appBasePath}/api/mushrooms/workers/status", page)
+        self.assertIn('href="./workers">Refresh</a>', page)
+        self.assertNotIn("../../api/mushrooms/workers/status", page)
         self.assertIn("window.setTimeout(refresh,2000)", page)
         self.assertIn('id="worker-status-cards"', page)
         self.assertIn('id="worker-recent-jobs"', page)

@@ -9051,6 +9051,18 @@ def station_group_card(title: str, group_name: str, station_ids: list[str], disa
     """
 
 
+def record_last_publish(
+    published_at: str,
+    message: str,
+    *,
+    same_run_publish_message: str = "",
+) -> None:
+    """Store one publication summary without retaining messages from older runs."""
+    with RUN_LOCK:
+        RUN_STATE["last_published_at"] = published_at
+        RUN_STATE["last_publish_message"] = f"{same_run_publish_message} {message}".strip()
+
+
 def publish_maps(log_file) -> tuple[bool, str]:
     started = time.perf_counter()
     if not publish_legacy_www_enabled():
@@ -9083,14 +9095,12 @@ def publish_maps(log_file) -> tuple[bool, str]:
     log_file.write(f"=== {message} ===\n")
     log_file.write(f"=== publish Plots duration {format_seconds_duration(elapsed)} ===\n")
     log_file.flush()
-    with RUN_LOCK:
-        RUN_STATE["last_published_at"] = published_at
-        RUN_STATE["last_publish_message"] = message
+    record_last_publish(published_at, message)
     print(message, flush=True)
     return True, message
 
 
-def publish_mobile_viewer(log_file) -> tuple[bool, str]:
+def publish_mobile_viewer(log_file, *, same_run_publish_message: str = "") -> tuple[bool, str]:
     started = time.perf_counter()
     PUBLIC_DATA_PATH.mkdir(parents=True, exist_ok=True)
     geojson_started = time.perf_counter()
@@ -9192,10 +9202,11 @@ def publish_mobile_viewer(log_file) -> tuple[bool, str]:
     log_file.write(f"=== {message} ===\n")
     log_file.write(f"=== mobile viewers publish total duration {format_seconds_duration(time.perf_counter() - started)} ===\n")
     log_file.flush()
-    with RUN_LOCK:
-        previous_message = RUN_STATE["last_publish_message"]
-        RUN_STATE["last_published_at"] = published_at
-        RUN_STATE["last_publish_message"] = f"{previous_message} {message}".strip()
+    record_last_publish(
+        published_at,
+        message,
+        same_run_publish_message=same_run_publish_message,
+    )
     print(message, flush=True)
     return True, message
 
@@ -9461,11 +9472,17 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
             if current_action == "maps":
                 publish_started = time.perf_counter()
                 publish_ok, publish_message = publish_maps(log_file)
+                same_run_publish_message = (
+                    publish_message if publish_ok and publish_legacy_www_enabled() else ""
+                )
                 if not publish_ok:
                     print(publish_message, flush=True)
                     log_file.write(f"=== {publish_message} ===\n")
                     log_file.flush()
-                publish_ok, publish_message = publish_mobile_viewer(log_file)
+                publish_ok, publish_message = publish_mobile_viewer(
+                    log_file,
+                    same_run_publish_message=same_run_publish_message,
+                )
                 if not publish_ok:
                     print(publish_message, flush=True)
                     log_file.write(f"=== {publish_message} ===\n")
