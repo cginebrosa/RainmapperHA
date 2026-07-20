@@ -50,8 +50,17 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   `sha256:68990c43959f31a9364b18aed2c053ef2487385d283251ba6c72302a166552ab`;
   import check correcto con conexiones/rebuilds `False`; commit `e2f117d`
   pusheado a `origin/inicial`. No se creo una imagen HA de desarrollo.
-- [ ] Instalar `0.2.208` en HA y confirmar arranque normal, opciones externas
+- [x] Instalar `0.2.208` en HA y confirmar arranque normal, opciones externas
   apagadas y reconstruccion HA local disponible antes de conectar el M1.
+- [x] Publicar `8100` solo en LAN, activar conexiones externas, emparejar M1 y
+  completar la prueba inocua de asignacion contra HA real en 13 s.
+- [x] Publicar, con autorizacion expresa, la correccion `0.2.209` del refresco
+  de Workers bajo Ingress y del resumen acumulativo de publicaciones
+  programadas. `0.2.209/latest` comparten digest
+  `sha256:cccf90938697f310476e5962f7165e0a3833a5ddc589d517670c70adbccec77b`;
+  commit `4861dbb`; import check arm64 correcto con ambos flags en `False`.
+- [ ] Instalar `0.2.209` y confirmar refresco manual/automatico antes de la
+  prueba de envio de entradas.
 - [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
   de distintos anos y setales, conservando procedencia y calidad.
 - [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
@@ -262,9 +271,10 @@ flujo funcional contra `0.2.207` porque no contiene el coordinador.
 - [x] Publicar la version HA normal `0.2.208` con coordinador, pairing, UI,
   transporte y fallback HA, desactivada por defecto. Imagen multi-arch y
   commit/push verificados.
-- [ ] Instalar `0.2.208` en HA y verificar primero el fallback local con el
-  coordinador y las reconstrucciones externas apagados.
-- [ ] Despues, probar la ruta operativa M1 ↔ HA real por LAN/Tailscale:
+- [x] Instalar `0.2.208` en HA, verificar el fallback local, publicar `8100`
+  solo en LAN, emparejar M1 y completar la prueba de asignacion en 13 s.
+- [ ] Instalar la correccion `0.2.209` y despues probar la ruta operativa
+  M1 ↔ HA real por LAN/Tailscale:
   reconstruccion completa/parcial, desconexion/reconexion, cancelacion,
   seguridad del endpoint, cache, freshness y confirmacion visual de promocion.
 - [ ] Medir las fases en HA con el pipeline/instrumentacion compartidos y

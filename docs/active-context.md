@@ -8,50 +8,47 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Commit de release presente en `inicial` y `origin/inicial`: `e2f117d`
-  (`Release Home Assistant 0.2.208`).
-- Release HA instalada/validada: `0.2.207`.
-- Release HA publicada y pendiente de instalar: `0.2.208`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.208` y `latest`, digest
-  `sha256:68990c43959f31a9364b18aed2c053ef2487385d283251ba6c72302a166552ab`.
+- Commit de release presente en `inicial` y `origin/inicial`: `4861dbb`
+  (`Release Home Assistant 0.2.209`).
+- Release HA instalada y validada: `0.2.208`; release publicada pendiente de
+  instalar: `0.2.209`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.209` y `latest`, digest
+  `sha256:cccf90938697f310476e5962f7165e0a3833a5ddc589d517670c70adbccec77b`.
 - Manifests verificados: `linux/amd64`
-  `sha256:82cb3d9584862b8e5bcd85fb8acc6fcd3923e5cb8cf9de633c7017560d660410`
+  `sha256:69113a86c717749c89a1004c431f841503015bf61c01f86886af36f3a3729adf`
   y `linux/arm64`
-  `sha256:0be801513e0a0a397a8363731ea868d4ee5c8bb85c57640205fbc605fffbb724`.
+  `sha256:de643e730e6374192e8cd14891fb6e4e00908f4e58fcdb57e119c780dd7b9b01`.
 - El repositorio GitHub sigue publico por decision explicita del usuario.
 - El usuario autorizo expresamente el 2026-07-20 el bump, publicacion y
-  commit/push de `0.2.208`. La instalacion en HA todavia no se ha realizado.
+  commit/push de `0.2.209` para cerrar cuanto antes la fase de workers.
 
-El worktree esta deliberadamente sucio con todo el prototipo local del worker
-externo. No limpiar, revertir ni sobrescribir esos cambios. Antes de continuar,
-ejecutar `git status --short` y revisar el diff existente como trabajo valioso
-del usuario.
+El codigo de release esta versionado. Antes de continuar, ejecutar
+`git status --short`; no limpiar, revertir ni sobrescribir cualquier cambio
+local nuevo que aparezca.
 
 ## Correccion clave: no existe una imagen HA de desarrollo
 
 No hay, ni se quiere crear, una imagen de desarrollo/sideload de Home Assistant.
 Introducirla complicaria innecesariamente el despliegue y la continuidad.
 
-La `0.2.207` instalada en HA sabe reconstruir localmente, pero no contiene el
-coordinador nuevo: no tiene pairing de workers, heartbeats, cola/claims,
-transporte de snapshots/datasets/resultados, pagina `Workers y trabajos` ni
-promocion de candidatos externos. Por tanto, es imposible hacer una prueba
-funcional M1 ↔ HA real con `0.2.207`.
+No se creo ni se debe crear una imagen HA de desarrollo. `0.2.208` introdujo el
+coordinador normal y `0.2.209` corrige su refresco bajo Ingress sin cambiar los
+flags seguros ni el fallback HA.
 
-Orden viable a partir de este cierre:
+La `0.2.208` arranco con ambos interruptores apagados. Despues se publico
+`8100` solo en la LAN, se activo `Enable external worker connections`, se
+emparejo M1 y la prueba inocua de asignacion termino correctamente en 13 s.
+`Allow external rebuilds and promotion` permanece apagado. Siguiente orden:
 
-1. Instalar la version normal `0.2.208` ya publicada en HA y confirmar que
-   arranca con los dos interruptores externos apagados.
-2. Publicar privadamente `8100` mediante LAN/Tailscale y activar primero solo
-   las conexiones externas.
-3. Emparejar el worker M1 con HA real y ejecutar las
-   pruebas end-to-end completas, parciales, cancelacion, desconexion,
-   freshness, cache y promocion.
-4. Medir entonces las fases en HA con la instrumentacion compartida y comparar
-   HA/M1 sobre el mismo snapshot/dataset.
+1. Instalar `0.2.209` y verificar el refresco automatico/manual de Workers.
+2. Probar envio de entradas y corte/reconexion sin revocar la credencial.
+3. Activar reconstrucciones externas y validar primero un candidato privado de
+   una especie, sin promocion automatica.
+4. Probar despues alcances, cancelacion, freshness, cache y promocion manual.
+5. Medir las fases en HA y M1 sobre el mismo snapshot/dataset.
 
-La topologia Tailscale puede estudiarse antes del release, pero no se puede
-validar el flujo funcional contra HA real hasta que HA contenga el coordinador.
+La conexion actual usa HTTP en la LAN privada. No publicar `8100` en el router;
+Tailscale/TLS/ACL queda como endurecimiento posterior.
 
 ## Estado del worker externo local
 
@@ -119,14 +116,16 @@ de HA real:
   ocurre solo tras una promocion correcta.
 - Los equivalentes de `external_worker_connections_enabled=true` y
   `external_worker_rebuilds_enabled=true` estan solo en el Compose local. La
-  `0.2.208` ya incorpora la ruta en HA, pero ambas opciones siguen desactivadas
-  por defecto y aun no se ha instalado.
+  `0.2.208` ya incorpora la ruta en HA. En la instalacion real solo esta activa
+  la primera opcion para las pruebas inocuas; la opcion operacional sigue
+  desactivada.
 
 ## Validacion local de cierre
 
-Resultados comprobados el 2026-07-20 tras consolidar el diff:
+Resultados comprobados el 2026-07-20 tras consolidar el diff y sus correcciones
+posteriores:
 
-- `.venv/bin/python -m unittest discover -s tests`: **369 tests OK**.
+- `.venv/bin/python -m unittest discover -s tests`: **371 tests OK**.
 - `.venv/bin/python scripts/validate-mushroom-data.py`: **0 errores y 11
   warnings conocidos**.
 - `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: **OK**, incluidos los
@@ -179,8 +178,8 @@ confundirlo con la validacion local ya cerrada.
 
 ### P0 — Consolidar el prototipo antes de publicar nada
 
-Estado: consolidacion completada, validada y versionada en `e2f117d`; publicada
-en la release HA `0.2.208` y pendiente de instalar.
+Estado: consolidacion completada, publicada en `0.2.208`, instalada y probada
+contra M1 real; la correccion de interfaz se publica en `0.2.209`.
 
 1. La API permanece apagada por defecto, la autenticacion es fail-closed y el
    modo operacional exige simultaneamente API y autenticacion. HA expone dos
@@ -210,13 +209,16 @@ en la release HA `0.2.208` y pendiente de instalar.
    volumenes: incluye coordinador/UI/core, no contiene datos privados ni
    GIS/DEM y la reconstruccion local HA sigue disponible en `legacy` por
    defecto.
-4. Bump, GHCR y commit/push completados con autorizacion expresa. `0.2.208` y
-   `latest` comparten el digest multi-arch verificado
-   `sha256:68990c43959f31a9364b18aed2c053ef2487385d283251ba6c72302a166552ab`.
+4. Bump, GHCR y commit/push de `0.2.209` completados con autorizacion expresa.
+   `0.2.209` y `latest` comparten el digest multi-arch verificado
+   `sha256:cccf90938697f310476e5962f7165e0a3833a5ddc589d517670c70adbccec77b`;
+   import check arm64: `image_import_ok 0.2.209 False False`.
 
-### P2 — Prueba M1 ↔ HA real tras instalar esa version
+### P2 — Prueba M1 ↔ HA real
 
-- Emparejar M1 con una URL privada de HA y verificar identidad/ACL.
+- M1 ya esta emparejado por LAN con HA real y la prueba de asignacion termino
+  correctamente en 13 s.
+- Instalar `0.2.209` y comprobar primero ambos refrescos de la UI.
 - Probar todas, pendientes y una especie.
 - Probar cancelacion cooperativa/forzada, worker apagado, corte/reconexion,
   duplicados/solapes, stale result, cache presente/ausente y promocion manual.
