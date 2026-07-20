@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.207"
+version: "0.2.208"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -14,8 +14,10 @@ ingress_port: 8099
 ingress_stream: true
 ports:
   8099/tcp: 8099
+  8100/tcp: null
 ports_description:
   8099/tcp: Rainmapper protected web server for MapLibre and Cloudflared
+  8100/tcp: Private Rainmapper external worker coordinator
 panel_icon: mdi:weather-pouring
 panel_title: Rainmapper
 map:
@@ -81,6 +83,8 @@ options:
   wunderground_daily_api: true
   wunderground_full_log: false
   publish_to_www: false
+  external_worker_connections_enabled: false
+  external_worker_rebuilds_enabled: false
   gmap_api_key: ""
   aemet_api_key: ""
 schema:
@@ -138,5 +142,7 @@ schema:
   wunderground_daily_api: bool
   wunderground_full_log: bool
   publish_to_www: bool
+  external_worker_connections_enabled: bool
+  external_worker_rebuilds_enabled: bool
   gmap_api_key: password
   aemet_api_key: password

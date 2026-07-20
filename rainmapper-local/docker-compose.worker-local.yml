@@ -1,0 +1,51 @@
+name: rainmapper-worker-local
+
+services:
+  rainmapper-worker:
+    build:
+      context: ..
+      dockerfile: rainmapper-worker/Dockerfile
+      args:
+        RAINMAPPER_WORKER_VERSION: local
+    image: rainmapper-worker:local
+    pull_policy: never
+    container_name: rainmapper-worker
+    environment:
+      RAINMAPPER_WORKER_DISPLAY_NAME: ${RAINMAPPER_WORKER_DISPLAY_NAME:-}
+      RAINMAPPER_WORKER_HOST_NAME: ${RAINMAPPER_WORKER_HOST_NAME:-}
+      RAINMAPPER_WORKER_HEARTBEAT_INTERVAL: "2"
+    command:
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8098"
+      - --worker-data-dir
+      - /var/lib/rainmapper-worker
+    ports:
+      - "127.0.0.1:8110:8098"
+    volumes:
+      - rainmapper-worker-data:/var/lib/rainmapper-worker
+    networks:
+      - rainmapper-local-compute
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8098/health', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: "no"
+
+volumes:
+  rainmapper-worker-data:
+    external: true
+    name: rainmapper-worker-data
+
+networks:
+  rainmapper-local-compute:
+    external: true
+    name: rainmapper-local-compute

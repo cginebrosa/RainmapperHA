@@ -11,6 +11,8 @@ import io
 import json
 import os
 import tempfile
+import threading
+import time
 import unittest
 from datetime import date, datetime
 from pathlib import Path
@@ -607,6 +609,44 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("mapOptions.bounds=initialBounds", page)
         self.assertIn("duration:0", page)
         self.assertNotIn("center:[1.9,42.05]", page)
+
+    def test_outdated_model_notice_opens_workers_without_starting_rebuild(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured: dict[str, object] = {}
+        handler.send_bytes = lambda status, content, content_type: captured.update(
+            status=status,
+            content=content.decode("utf-8"),
+            content_type=content_type,
+        )
+
+        with mock.patch.object(
+            self.web_server,
+            "pending_model_species_ids",
+            return_value=["boletus_pinophilus"],
+        ):
+            handler.render_mushroom_profiles({"id": ["boletus_pinophilus"]})
+
+        page = str(captured["content"])
+        self.assertEqual(captured["status"], 200)
+        self.assertIn('./workers?scope=pending&amp;source=outdated', page)
+        self.assertNotIn('name="profile_action" value="rebuild_pending_model_v0"', page)
 
     def test_mushroom_profiles_defaults_to_v0_view(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -2032,6 +2072,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('name="observed_host_ids"', html)
         self.assertIn('class="profile-action-bar observations-main-actions maintenance-action-bar"', html)
         self.assertIn('<details id="gis-reconstruction-lab"', html)
+        self.assertIn('./workers?scope=species&amp;species_id=boletus_pinophilus', html)
+        self.assertNotIn('name="profile_action" value="rebuild_observation_model_v0"', html)
+        self.assertNotIn('name="gis_reconstruction_scope"', html)
         self.assertLess(html.index('href="#new-observation"'), html.index('id="archived-observations"'))
         self.assertLess(html.index('href="#new-observation"'), html.index('id="gis-reconstruction-lab"'))
         self.assertIn('data-observation-select data-observation-id="obs_20260629_0001"', html)
@@ -2709,8 +2752,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("rain_14d_mm", html)
         self.assertIn("25 mm", html)
         self.assertIn("2026-07-02T15:00:00", html)
-        self.assertIn('name="profile_action" value="rebuild_learned_model_v0_species"', html)
-        self.assertIn('name="profile_action" value="rebuild_learned_model_v0_all"', html)
+        self.assertIn('./workers?scope=species&amp;species_id=boletus_aereus', html)
+        self.assertIn('./workers?scope=all', html)
+        self.assertNotIn('name="profile_action" value="rebuild_learned_model_v0_species"', html)
+        self.assertNotIn('name="profile_action" value="rebuild_learned_model_v0_all"', html)
         self.assertIn("Rebuild this species", html)
         self.assertIn("Rebuild all species", html)
 
@@ -2873,6 +2918,201 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("elapsed", status)
         self.assertIn("Modelo v0 rebuilt", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
+    def test_shared_mushroom_rebuild_pipeline_is_opt_in_and_reports_completion(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+
+        class ImmediateThread:
+            def __init__(self, target, name=None, daemon=None):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        environment = {
+            "RAINMAPPER_MUSHROOM_REBUILD_PIPELINE": "shared",
+            "RAINMAPPER_MUSHROOM_DEFAULTS_DIR": str(ROOT_DIR / "mushroom-data"),
+            "RAINMAPPER_MUSHROOM_DATA_DIR": str(data_dir / "mushroom-data"),
+            "RAINMAPPER_SHARE_ROOT": str(data_dir),
+            "RAINMAPPER_MUSHROOM_GIS_ROOT": str(data_dir / "mushroom-GIS"),
+        }
+        with mock.patch.dict(os.environ, environment, clear=False):
+            self.web_server.default_store().ensure_seeded()
+            with mock.patch.object(
+                self.web_server.mushroom_rebuild_pipeline,
+                "run_rebuild",
+                return_value={
+                    "summary": {
+                        "gis_observations": 1,
+                        "weather_observations": 8,
+                        "feature_observations": 8,
+                        "model_species": 1,
+                    },
+                    "phase_durations_seconds": {"gis_dem": 1.25},
+                    "duration_seconds": 1.5,
+                },
+            ) as shared_builder, mock.patch.object(
+                self.web_server.mushroom_rebuild_pipeline,
+                "promote_qgis_points",
+            ), mock.patch.object(
+                self.web_server.mushroom_rebuild_pipeline,
+                "promote_rebuild_outputs",
+                return_value={"status": "promoted", "artifact_count": 9},
+            ), mock.patch.object(
+                self.web_server.mushroom_gis_lab,
+                "reconstruct_observations",
+            ) as legacy_gis_builder, mock.patch.object(
+                self.web_server.mushroom_model_state,
+                "clear_all_pending",
+            ) as clear_pending, mock.patch.object(
+                self.web_server.threading,
+                "Thread",
+                ImmediateThread,
+            ):
+                job_id = self.web_server.start_mushroom_model_rebuild_job(
+                    selected_observation_ids=["obs_20250930_0001"],
+                    reconstruction_scope="all",
+                    return_url="?section=observations",
+                )
+
+        shared_builder.assert_called_once()
+        call_args = shared_builder.call_args
+        self.assertEqual(
+            call_args.args[0].observations,
+            data_dir / "mushroom-data/mushroom_observations.json",
+        )
+        self.assertEqual(
+            call_args.args[1].root.parent.parent,
+            (data_dir / "mushroom-data").resolve(),
+        )
+        self.assertEqual(
+            call_args.kwargs["selected_observation_ids"],
+            ["obs_20250930_0001"],
+        )
+        self.assertFalse(legacy_gis_builder.called)
+        clear_pending.assert_called_once_with(full_rebuild=True)
+        status = self.web_server.get_mushroom_rebuild_job_status(job_id)
+        self.assertIsNotNone(status)
+        self.assertEqual(status["status"], "complete")
+        self.assertEqual(status["result"]["pipeline"], "shared")
+        self.assertEqual(status["result"]["phase_durations_seconds"], {"gis_dem": 1.25})
+        self.assertEqual(status["result"]["duration_seconds"], 1.5)
+
+    def test_shared_rebuild_failure_keeps_accepted_artifacts_and_pending_state(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+
+        class ImmediateThread:
+            def __init__(self, target, name=None, daemon=None):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        environment = {
+            "RAINMAPPER_MUSHROOM_REBUILD_PIPELINE": "shared",
+            "RAINMAPPER_MUSHROOM_DEFAULTS_DIR": str(ROOT_DIR / "mushroom-data"),
+            "RAINMAPPER_MUSHROOM_DATA_DIR": str(data_dir / "mushroom-data"),
+            "RAINMAPPER_SHARE_ROOT": str(data_dir),
+            "RAINMAPPER_MUSHROOM_GIS_ROOT": str(data_dir / "mushroom-GIS"),
+        }
+        with mock.patch.dict(os.environ, environment, clear=False):
+            self.web_server.default_store().ensure_seeded()
+            accepted_model = data_dir / "mushroom-data/mushroom_model_v0.json"
+            accepted_model.write_text("accepted", encoding="utf-8")
+
+            for phase in ("GIS/DEM", "Meteorologia", "Features v0", "Modelo aprendido v0"):
+                def fail_in_phase(_inputs, outputs, **_kwargs):
+                    outputs.model_json.parent.mkdir(parents=True, exist_ok=True)
+                    outputs.model_json.write_text("partial", encoding="utf-8")
+                    raise RuntimeError(f"injected {phase} failure")
+
+                with self.subTest(phase=phase), mock.patch.object(
+                    self.web_server.mushroom_rebuild_pipeline,
+                    "run_rebuild",
+                    side_effect=fail_in_phase,
+                ), mock.patch.object(
+                    self.web_server.mushroom_rebuild_pipeline,
+                    "promote_rebuild_outputs",
+                ) as promote, mock.patch.object(
+                    self.web_server.mushroom_model_state,
+                    "clear_all_pending",
+                ) as clear_pending, mock.patch.object(
+                    self.web_server.threading,
+                    "Thread",
+                    ImmediateThread,
+                ):
+                    job_id = self.web_server.start_mushroom_model_rebuild_job(
+                        selected_observation_ids=["obs_20250930_0001"],
+                        reconstruction_scope="all",
+                        return_url="?section=observations",
+                    )
+
+                status = self.web_server.get_mushroom_rebuild_job_status(job_id)
+                self.assertEqual(status["status"], "failed")
+                self.assertIn(phase, status["error"])
+                self.assertEqual(accepted_model.read_text(encoding="utf-8"), "accepted")
+                self.assertFalse(promote.called)
+                self.assertFalse(clear_pending.called)
+                staging = data_dir / "mushroom-data/.rebuild-staging"
+                self.assertFalse(any(staging.iterdir()) if staging.exists() else False)
+
+    def test_shared_rebuild_can_be_cancelled_without_promotion(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        started = threading.Event()
+        environment = {
+            "RAINMAPPER_MUSHROOM_REBUILD_PIPELINE": "shared",
+            "RAINMAPPER_MUSHROOM_DEFAULTS_DIR": str(ROOT_DIR / "mushroom-data"),
+            "RAINMAPPER_MUSHROOM_DATA_DIR": str(data_dir / "mushroom-data"),
+            "RAINMAPPER_SHARE_ROOT": str(data_dir),
+            "RAINMAPPER_MUSHROOM_GIS_ROOT": str(data_dir / "mushroom-GIS"),
+        }
+
+        def wait_for_cancel(_inputs, outputs, *, cancel_event, **_kwargs):
+            outputs.model_json.parent.mkdir(parents=True, exist_ok=True)
+            outputs.model_json.write_text("partial", encoding="utf-8")
+            started.set()
+            while not cancel_event.is_set():
+                time.sleep(0.001)
+            raise self.web_server.mushroom_rebuild_pipeline.RebuildCancelled()
+
+        with mock.patch.dict(os.environ, environment, clear=False):
+            self.web_server.default_store().ensure_seeded()
+            accepted_model = data_dir / "mushroom-data/mushroom_model_v0.json"
+            accepted_model.write_text("accepted", encoding="utf-8")
+            with mock.patch.object(
+                self.web_server.mushroom_rebuild_pipeline,
+                "run_rebuild",
+                side_effect=wait_for_cancel,
+            ), mock.patch.object(
+                self.web_server.mushroom_rebuild_pipeline,
+                "promote_rebuild_outputs",
+            ) as promote, mock.patch.object(
+                self.web_server.mushroom_model_state,
+                "clear_all_pending",
+            ) as clear_pending:
+                job_id = self.web_server.start_mushroom_model_rebuild_job(
+                    selected_observation_ids=["obs_20250930_0001"],
+                    reconstruction_scope="all",
+                    return_url="?section=observations",
+                )
+                self.assertTrue(started.wait(timeout=2))
+                response_status, response = self.web_server.request_mushroom_rebuild_cancel(job_id)
+                self.assertEqual(response_status, 202)
+                self.assertTrue(response["ok"])
+                deadline = time.monotonic() + 2
+                while time.monotonic() < deadline:
+                    status = self.web_server.get_mushroom_rebuild_job_status(job_id)
+                    if status and status["status"] == "cancelled":
+                        break
+                    time.sleep(0.01)
+
+        self.assertEqual(status["status"], "cancelled")
+        self.assertTrue(status["cancel_requested"])
+        self.assertEqual(accepted_model.read_text(encoding="utf-8"), "accepted")
+        self.assertFalse(promote.called)
+        self.assertFalse(clear_pending.called)
+        staging = data_dir / "mushroom-data/.rebuild-staging"
+        self.assertFalse(any(staging.iterdir()) if staging.exists() else False)
+
     def test_mushroom_rebuild_progress_close_refreshes_completed_screen(self) -> None:
         html = self.web_server.render_mushroom_rebuild_progress_modal(
             "job_123",
@@ -2881,10 +3121,1254 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn('data-refresh-url="?section=observations&amp;id=amanita_caesarea#gis-reconstruction-lab"', html)
         self.assertIn('terminalStatus === "complete"', html)
+        self.assertIn('job.status === "cancelled"', html)
+        self.assertIn('id="mushroom-rebuild-progress-cancel"', html)
+        self.assertIn("/api/mushrooms/rebuild-cancel", html)
         self.assertIn("window.location.href = refreshUrl", html)
-        self.assertIn('window.location.pathname.replace(new RegExp("/mushrooms/profiles/?$"), "")', html)
+        self.assertIn('window.location.pathname.replace(new RegExp("/mushrooms/(profiles|workers)/?$"), "")', html)
         self.assertIn('${statusUrl}?job_id=${encodeURIComponent(jobId)}', html)
         self.assertNotIn('fetch(`/api/mushrooms/rebuild-status', html)
+
+    def test_worker_heartbeat_registers_named_physical_worker(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        payload = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "worker_id": "worker_12345678",
+            "display_name": "M1 personal",
+            "host_name": "macbook-m1-test",
+            "architecture": "arm64",
+            "platform": "Darwin",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "not_implemented",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid", "file_count": 10, "size_bytes": 6306367027},
+        }
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"}), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ):
+            status, response = self.web_server.register_mushroom_worker_heartbeat(payload, now=100)
+            workers = self.web_server.registered_mushroom_worker_statuses(now=105)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["worker_id"], "worker_12345678")
+        self.assertEqual(response["heartbeat_interval_seconds"], 2)
+        self.assertEqual(len(workers), 1)
+        self.assertTrue(workers[0]["reachable"])
+        self.assertEqual(workers[0]["payload"]["display_name"], "M1 personal")
+        self.assertEqual(workers[0]["payload"]["host_name"], "macbook-m1-test")
+        self.assertTrue(registry_path.exists())
+
+    def test_worker_heartbeat_api_is_disabled_unless_explicitly_enabled(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "false"}), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ):
+            status, response = self.web_server.register_mushroom_worker_heartbeat({})
+
+        self.assertEqual(status, 404)
+        self.assertFalse(response["ok"])
+        self.assertFalse(registry_path.exists())
+
+    def test_worker_operational_mode_requires_api_and_auth(self) -> None:
+        combinations = (
+            ("false", "false", False),
+            ("false", "true", False),
+            ("true", "false", False),
+            ("true", "true", True),
+        )
+        for api_enabled, auth_required, expected in combinations:
+            with self.subTest(api_enabled=api_enabled, auth_required=auth_required), mock.patch.dict(
+                os.environ,
+                {
+                    "RAINMAPPER_WORKER_API_ENABLED": api_enabled,
+                    "RAINMAPPER_WORKER_AUTH_REQUIRED": auth_required,
+                    "RAINMAPPER_WORKER_OPERATIONAL_ENABLED": "true",
+                },
+            ):
+                self.assertEqual(expected, self.web_server.mushroom_worker_operational_enabled())
+
+    def test_worker_pairing_is_one_time_and_authenticates_heartbeats(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        credentials_path = Path(self.temp_dir.name) / "mushroom_worker_credentials.json"
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        heartbeat = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "worker_id": "worker_12345678",
+            "display_name": "M1 personal",
+            "host_name": "MacBook Pro",
+            "architecture": "arm64",
+            "platform": "Linux",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "lifecycle_probe_v0",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid"},
+        }
+        with self.web_server.RUN_LOCK:
+            self.web_server.MUSHROOM_WORKER_PAIRINGS.clear()
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "true"},
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_credentials_path", return_value=credentials_path
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ):
+            pairing = self.web_server.create_mushroom_worker_pairing(
+                now=1000,
+                pairing_code="ABCD-2345",
+            )
+            pair_status, paired = self.web_server.pair_mushroom_worker(
+                {
+                    "pairing_code": pairing["pairing_code"],
+                    "worker_id": heartbeat["worker_id"],
+                    "display_name": heartbeat["display_name"],
+                    "host_name": heartbeat["host_name"],
+                },
+                now=1001,
+            )
+            reused_status, _reused = self.web_server.pair_mushroom_worker(
+                {
+                    "pairing_code": pairing["pairing_code"],
+                    "worker_id": heartbeat["worker_id"],
+                    "display_name": heartbeat["display_name"],
+                    "host_name": heartbeat["host_name"],
+                },
+                now=1002,
+            )
+            missing_status, _missing = self.web_server.register_mushroom_worker_heartbeat(heartbeat)
+            wrong_status, _wrong = self.web_server.register_mushroom_worker_heartbeat(
+                heartbeat,
+                auth_token="wrong-token",
+            )
+            accepted_status, accepted = self.web_server.register_mushroom_worker_heartbeat(
+                heartbeat,
+                auth_token=str(paired["token"]),
+            )
+            self.web_server.mushroom_worker_registry.set_default_executor(
+                registry_path,
+                "worker:worker_12345678",
+            )
+            create_status, _created = self.web_server.create_mushroom_worker_claim_probe(
+                str(heartbeat["worker_id"])
+            )
+            unauthenticated_claim_status, _unauthenticated_claim = self.web_server.claim_mushroom_worker_job(
+                {"worker_id": heartbeat["worker_id"]}
+            )
+            claim_status, claimed = self.web_server.claim_mushroom_worker_job(
+                {"worker_id": heartbeat["worker_id"]},
+                auth_token=str(paired["token"]),
+            )
+            revoke_status, revoked = self.web_server.revoke_mushroom_worker_credential(
+                str(heartbeat["worker_id"])
+            )
+            after_revoke_status, _after_revoke = self.web_server.register_mushroom_worker_heartbeat(
+                heartbeat,
+                auth_token=str(paired["token"]),
+            )
+            workers_after_revoke = self.web_server.registered_mushroom_worker_statuses()
+
+        stored_credentials = credentials_path.read_text(encoding="utf-8")
+        self.assertEqual(pair_status, 200)
+        self.assertEqual(reused_status, 401)
+        self.assertEqual(missing_status, 401)
+        self.assertEqual(wrong_status, 401)
+        self.assertEqual(accepted_status, 200)
+        self.assertTrue(accepted["ok"])
+        self.assertEqual(create_status, 201)
+        self.assertEqual(unauthenticated_claim_status, 401)
+        self.assertEqual(claim_status, 200)
+        self.assertEqual(claimed["job"]["status"], "claimed")
+        self.assertEqual(revoke_status, 200)
+        self.assertTrue(revoked["revoked"])
+        self.assertTrue(revoked["unregistered"])
+        self.assertEqual(after_revoke_status, 401)
+        self.assertNotIn(str(paired["token"]), stored_credentials)
+        self.assertEqual(workers_after_revoke, [])
+        registry = self.web_server.mushroom_worker_registry.load_registry(registry_path)
+        self.assertEqual(registry["workers"], [])
+        self.assertEqual(registry["default_executor"], "home_assistant")
+
+    def test_expired_worker_pairing_code_is_rejected(self) -> None:
+        credentials_path = Path(self.temp_dir.name) / "mushroom_worker_credentials.json"
+        with self.web_server.RUN_LOCK:
+            self.web_server.MUSHROOM_WORKER_PAIRINGS.clear()
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "true"},
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_credentials_path", return_value=credentials_path
+        ):
+            pairing = self.web_server.create_mushroom_worker_pairing(now=1000, pairing_code="ABCD-2345")
+            status, response = self.web_server.pair_mushroom_worker(
+                {
+                    "pairing_code": pairing["pairing_code"],
+                    "worker_id": "worker_12345678",
+                    "display_name": "M1 personal",
+                    "host_name": "MacBook Pro",
+                },
+                now=1601,
+            )
+
+        self.assertEqual(status, 401)
+        self.assertIn("expired", response["error"])
+        self.assertFalse(credentials_path.exists())
+
+    def test_new_worker_pairing_code_invalidates_previous_code(self) -> None:
+        credentials_path = Path(self.temp_dir.name) / "mushroom_worker_credentials.json"
+        with self.web_server.RUN_LOCK:
+            self.web_server.MUSHROOM_WORKER_PAIRINGS.clear()
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "true"},
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_credentials_path", return_value=credentials_path
+        ):
+            self.web_server.create_mushroom_worker_pairing(now=1000, pairing_code="ABCD-2345")
+            self.web_server.create_mushroom_worker_pairing(now=1001, pairing_code="WXYZ-6789")
+            status, _response = self.web_server.pair_mushroom_worker(
+                {
+                    "pairing_code": "ABCD-2345",
+                    "worker_id": "worker_12345678",
+                    "display_name": "M1 personal",
+                    "host_name": "MacBook Pro",
+                },
+                now=1002,
+            )
+
+        self.assertEqual(status, 401)
+        self.assertFalse(credentials_path.exists())
+
+    def test_worker_coordinator_ping_identifies_enabled_local_api(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.server = mock.Mock(rainmapper_listener_role="worker")
+        handler.path = "/api/mushrooms/workers/ping"
+        handler.headers = {}
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(status=status, payload=payload)
+
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "true"}):
+            handler.do_GET()
+
+        self.assertEqual(captured["status"], 200)
+        self.assertEqual(captured["payload"]["kind"], "rainmapper_worker_coordinator")
+        self.assertTrue(captured["payload"]["auth_required"])
+
+    def test_worker_protocol_is_available_only_on_the_dedicated_listener(self) -> None:
+        web_handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        web_handler.server = mock.Mock(rainmapper_listener_role="web")
+        web_handler.path = "/api/mushrooms/workers/heartbeat"
+        web_handler.headers = {}
+        web_response: dict[str, object] = {}
+        web_handler.send_json = lambda status, payload: web_response.update(status=status, payload=payload)
+
+        worker_handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        worker_handler.server = mock.Mock(rainmapper_listener_role="worker")
+        worker_handler.path = "/mushrooms/workers"
+        worker_handler.headers = {}
+        worker_response: dict[str, object] = {}
+        worker_handler.send_json = lambda status, payload: worker_response.update(status=status, payload=payload)
+
+        web_handler.do_POST()
+        worker_handler.do_GET()
+
+        self.assertEqual(web_response["status"], 404)
+        self.assertEqual(worker_response["status"], 404)
+
+    def test_worker_web_controls_require_ingress_or_explicit_local_lab_trust(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.headers = {"X-Remote-User-Id": "admin-user-id"}
+        handler.client_address = ("192.0.2.10", 12345)
+
+        self.assertFalse(handler.trusted_worker_control_request())
+
+        handler.client_address = (self.web_server.HOME_ASSISTANT_INGRESS_PROXY_IP, 12345)
+        self.assertTrue(handler.trusted_worker_control_request())
+
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_WORKER_WEB_CONTROL_TRUST_LOCAL": "true"},
+        ):
+            handler.headers = {}
+            handler.client_address = ("192.0.2.10", 12345)
+            self.assertTrue(handler.trusted_worker_control_request())
+
+    def test_workers_post_generates_visible_one_time_pairing_code(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(
+            self.web_server,
+            "create_mushroom_worker_pairing",
+            return_value={"pairing_code": "ABCD-2345", "expires_in_seconds": 600},
+        ):
+            redirect = handler.handle_mushroom_workers_post(
+                {"worker_action": ["create_worker_pairing"]}
+            )
+
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertEqual(redirect, "./workers")
+        self.assertIn("ABCD-2345", message)
+        self.assertIn("10", message)
+        self.assertFalse(is_error)
+
+    def test_worker_registry_supports_multiple_workers_and_stale_status(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        base = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "architecture": "arm64",
+            "platform": "Darwin",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "not_implemented",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid"},
+        }
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"}), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ):
+            self.web_server.register_mushroom_worker_heartbeat(
+                {**base, "worker_id": "worker_bbbbbbbb", "display_name": "Worker B", "host_name": "Mac-B"},
+                now=100,
+            )
+            self.web_server.register_mushroom_worker_heartbeat(
+                {**base, "worker_id": "worker_aaaaaaaa", "display_name": "Worker A", "host_name": "Mac-A"},
+                now=110,
+            )
+            workers = self.web_server.registered_mushroom_worker_statuses(now=114)
+
+        self.assertEqual([worker["payload"]["display_name"] for worker in workers], ["Worker A", "Worker B"])
+        self.assertTrue(workers[0]["reachable"])
+        self.assertFalse(workers[1]["reachable"])
+        self.assertEqual(workers[1]["payload"]["status"], "disconnected")
+
+    def test_worker_is_marked_disconnected_after_five_seconds_without_heartbeat(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        payload = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "worker_id": "worker_12345678",
+            "display_name": "Worker",
+            "host_name": "Mac",
+            "architecture": "arm64",
+            "platform": "Linux",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "claim_probe_v0",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid"},
+        }
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"}), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ):
+            self.web_server.register_mushroom_worker_heartbeat(payload, now=100)
+            before_timeout = self.web_server.registered_mushroom_worker_statuses(now=104.9)
+            after_timeout = self.web_server.registered_mushroom_worker_statuses(now=105.1)
+
+        self.assertTrue(before_timeout[0]["reachable"])
+        self.assertFalse(after_timeout[0]["reachable"])
+
+    def test_workers_page_disables_external_execution_until_job_api_exists(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[{
+                "configured": True,
+                "reachable": True,
+                "checked_at": "2026-07-19T12:00:00",
+                "payload": {
+                    "kind": "rainmapper_worker_status",
+                    "worker_id": "worker_12345678",
+                    "display_name": "M1 personal",
+                    "host_name": "macbook-m1-test",
+                    "architecture": "arm64",
+                    "status": "idle",
+                    "paired": True,
+                    "job_api": "candidate_rebuild_v0",
+                    "worker_version": "local",
+                    "capabilities": ["rebuild_v0"],
+                    "dataset_cache": {"status": "valid", "file_count": 10, "size_bytes": 6306367027},
+                },
+            }],
+            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
+            eligible_observation_count=126,
+            pending_species_count=3,
+            jobs=[],
+            pipeline="shared",
+            pairing_required=True,
+        )
+
+        self.assertIn("Workers and jobs", page)
+        self.assertIn("5.87 GiB", page)
+        self.assertIn('value="worker:worker_12345678" disabled', page)
+        self.assertIn("M1 personal", page)
+        self.assertIn("macbook-m1-test", page)
+        self.assertIn('value="home_assistant" checked', page)
+        self.assertIn("Local worker tests available", page)
+        self.assertIn('name="worker_action" value="probe_worker_claim"', page)
+        self.assertIn('name="worker_action" value="probe_worker_snapshot_transport"', page)
+        self.assertIn("Test input delivery", page)
+        self.assertIn('name="worker_action" value="run_worker_candidate_rebuild"', page)
+        self.assertIn("Run candidate rebuild", page)
+        self.assertIn('class="worker-scope-grid"', page)
+        self.assertIn('class="worker-species-field" hidden', page)
+        self.assertIn('input[type="radio"]{position:absolute!important;width:1px!important', page)
+        self.assertIn("../../api/mushrooms/workers/status", page)
+        self.assertIn("window.setTimeout(refresh,2000)", page)
+        self.assertIn('id="worker-status-cards"', page)
+        self.assertIn('id="worker-recent-jobs"', page)
+        self.assertIn('value="create_worker_pairing"', page)
+        self.assertIn("Generate pairing code", page)
+        self.assertIn('class="worker-toolbar-actions"', page)
+        self.assertLess(page.index('class="worker-toolbar-actions"'), page.index("<h1>Workers and jobs</h1>"))
+        self.assertIn('class="button-link primary-link" href="#new-worker-rebuild"', page)
+        self.assertNotIn('class="workers-panel worker-pairing-panel"', page)
+        self.assertNotIn('class="workers-panel worker-default-panel"', page)
+        self.assertIn("Paired", page)
+        self.assertIn('value="revoke_worker_pairing"', page)
+
+    def test_worker_status_refresh_payload_renders_disconnected_state(self) -> None:
+        worker = {
+            "configured": True,
+            "reachable": False,
+            "checked_at": "2026-07-19T21:04:31+02:00",
+            "payload": {
+                "worker_id": "worker_12345678",
+                "display_name": "M1 personal",
+                "host_name": "Mac",
+                "status": "disconnected",
+                "job_api": "claim_probe_v0",
+                "capabilities": ["rebuild_v0"],
+                "dataset_cache": {"status": "valid"},
+            },
+        }
+        with mock.patch.object(self.web_server, "registered_mushroom_worker_statuses", return_value=[worker]), mock.patch.object(
+            self.web_server, "mushroom_workers_recent_jobs", return_value=[]
+        ):
+            payload = self.web_server.mushroom_workers_status_refresh_payload()
+
+        self.assertEqual(payload["stale_after_seconds"], 5)
+        self.assertIn("Disconnected", payload["worker_cards_html"])
+        self.assertNotIn("Test assignment", payload["worker_cards_html"])
+
+    def test_workers_page_disables_empty_pending_scope_but_keeps_species_selectable(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
+            eligible_observation_count=125,
+            pending_species_count=0,
+            jobs=[],
+            pipeline="legacy",
+        )
+
+        self.assertIn('name="scope" value="pending" disabled', page)
+        self.assertIn('name="scope" value="species"><span>', page)
+        self.assertIn('id="worker-species-id" name="species_id" disabled', page)
+        self.assertIn('field.hidden=!show', page)
+
+    def test_workers_page_preselects_species_for_home_assistant(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
+            eligible_observation_count=125,
+            pending_species_count=2,
+            jobs=[],
+            pipeline="shared",
+            selected_scope="species",
+            selected_species_id="boletus_pinophilus",
+        )
+
+        self.assertIn('name="scope" value="species" checked', page)
+        self.assertIn('class="worker-species-field"><label', page)
+        self.assertIn('name="species_id"><option value="boletus_pinophilus" selected', page)
+        self.assertIn('value="home_assistant" checked', page)
+
+    def test_workers_page_uses_operational_default_worker_for_partial_rebuild(self) -> None:
+        worker = {
+            "configured": True,
+            "reachable": True,
+            "checked_at": "2026-07-20T12:00:00",
+            "payload": {
+                "worker_id": "worker_12345678",
+                "display_name": "M1 personal",
+                "host_name": "macbook-m1-test",
+                "architecture": "arm64",
+                "status": "idle",
+                "paired": True,
+                "job_api": "candidate_rebuild_v0",
+                "worker_version": "local",
+                "capabilities": ["rebuild_v0"],
+                "dataset_cache": {"status": "valid"},
+            },
+        }
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[worker],
+            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
+            eligible_observation_count=125,
+            pending_species_count=2,
+            jobs=[],
+            pipeline="shared",
+            operational_enabled=True,
+            default_executor="worker:worker_12345678",
+        )
+
+        self.assertIn('name="executor" value="worker:worker_12345678" checked', page)
+        self.assertNotIn('value="home_assistant" checked', page)
+        self.assertIn("Default rebuild executor", page)
+        self.assertIn("Default", page)
+        self.assertNotIn('class="catalog-alert error worker-default-issue"', page)
+
+        species_page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[worker],
+            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
+            eligible_observation_count=125,
+            pending_species_count=2,
+            jobs=[],
+            pipeline="shared",
+            operational_enabled=True,
+            default_executor="worker:worker_12345678",
+            selected_scope="species",
+            selected_species_id="boletus_pinophilus",
+        )
+
+        self.assertIn('name="scope" value="species" checked', species_page)
+        self.assertNotIn("does not yet support this rebuild scope", species_page)
+        self.assertIn('name="executor" value="worker:worker_12345678" checked', species_page)
+        self.assertNotIn('value="home_assistant" checked', species_page)
+        self.assertIn('name="species_id"><option value="boletus_pinophilus" selected', species_page)
+        self.assertNotIn('class="primary" type="submit" disabled', species_page)
+
+    def test_workers_page_does_not_fall_back_silently_when_default_worker_is_offline(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[{
+                "configured": True,
+                "reachable": False,
+                "payload": {
+                    "worker_id": "worker_12345678",
+                    "display_name": "M1 personal",
+                    "status": "disconnected",
+                    "paired": True,
+                    "job_api": "candidate_rebuild_v0",
+                },
+            }],
+            profiles=[],
+            eligible_observation_count=125,
+            pending_species_count=2,
+            jobs=[],
+            pipeline="shared",
+            operational_enabled=True,
+            default_executor="worker:worker_12345678",
+        )
+
+        self.assertIn("default worker M1 personal is disconnected", page)
+        self.assertNotIn('value="home_assistant" checked', page)
+        self.assertIn('class="primary" type="submit" disabled', page)
+
+    def test_workers_page_renders_multiple_named_workers_and_destinations(self) -> None:
+        worker_statuses = []
+        for worker_id, display_name, host_name in (
+            ("worker_aaaaaaaa", "M1 personal", "macbook-m1"),
+            ("worker_bbbbbbbb", "Mac del trabajo", "macbook-work"),
+        ):
+            worker_statuses.append(
+                {
+                    "configured": True,
+                    "reachable": True,
+                    "checked_at": "2026-07-19T12:00:00",
+                    "payload": {
+                        "worker_id": worker_id,
+                        "display_name": display_name,
+                        "host_name": host_name,
+                        "architecture": "arm64",
+                        "status": "idle",
+                        "job_api": "not_implemented",
+                        "worker_version": "local",
+                        "capabilities": ["rebuild_v0"],
+                        "dataset_cache": {"status": "valid"},
+                    },
+                }
+            )
+
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=worker_statuses,
+            profiles=[],
+            eligible_observation_count=0,
+            pending_species_count=0,
+            jobs=[],
+            pipeline="legacy",
+        )
+
+        self.assertIn("M1 personal", page)
+        self.assertIn("Mac del trabajo", page)
+        self.assertIn('value="worker:worker_aaaaaaaa" disabled', page)
+        self.assertIn('value="worker:worker_bbbbbbbb" disabled', page)
+
+    def test_workers_post_reuses_home_assistant_rebuild_action(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured: dict[str, object] = {}
+
+        def handle_profiles(form: dict[str, list[str]]) -> str:
+            captured.update(form)
+            self.web_server.set_mushroom_profiles_flash("Global Modelo v0 rebuild started for 126 observation(s).")
+            return "?section=evidence&rebuild_job=job_123"
+
+        handler.handle_mushroom_profiles_post = handle_profiles
+        redirect = handler.handle_mushroom_workers_post(
+            {"worker_action": ["start_rebuild"], "executor": ["home_assistant"], "scope": ["all"]}
+        )
+
+        self.assertEqual(captured["profile_action"], ["rebuild_learned_model_v0_all"])
+        self.assertEqual(redirect, "./workers?rebuild_job=job_123")
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertIn("rebuild started", message)
+        self.assertFalse(is_error)
+
+    def test_workers_post_persists_registered_default_executor(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        worker = {
+            "configured": True,
+            "reachable": False,
+            "payload": {
+                "worker_id": "worker_12345678",
+                "display_name": "M1 personal",
+            },
+        }
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(
+            self.web_server,
+            "mushroom_worker_registry_path",
+            return_value=registry_path,
+        ), mock.patch.object(
+            self.web_server,
+            "registered_mushroom_worker_statuses",
+            return_value=[worker],
+        ):
+            redirect = handler.handle_mushroom_workers_post({
+                "worker_action": ["set_default_executor"],
+                "default_executor": ["worker:worker_12345678"],
+            })
+
+        self.assertEqual(redirect, "./workers")
+        self.assertEqual(
+            self.web_server.mushroom_worker_registry.load_registry(registry_path)["default_executor"],
+            "worker:worker_12345678",
+        )
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertIn("M1 personal", message)
+        self.assertFalse(is_error)
+
+    def test_workers_post_rejects_missing_executor_without_silent_ha_fallback(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post = mock.Mock()
+
+        redirect = handler.handle_mushroom_workers_post({
+            "worker_action": ["start_rebuild"],
+            "scope": ["all"],
+        })
+
+        self.assertEqual(redirect, "./workers")
+        handler.handle_mushroom_profiles_post.assert_not_called()
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertIn("Choose Home Assistant or another available compatible destination", message)
+        self.assertTrue(is_error)
+
+    def test_worker_probe_is_queued_for_exact_live_worker_and_claimed_once(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        heartbeat = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "worker_id": "worker_12345678",
+            "display_name": "M1 personal",
+            "host_name": "macbook-m1-test",
+            "architecture": "arm64",
+            "platform": "Linux",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "claim_probe_v0",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid"},
+        }
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"}), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ), mock.patch.object(self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path):
+            self.web_server.register_mushroom_worker_heartbeat(heartbeat)
+            redirect = handler.handle_mushroom_workers_post(
+                {"worker_action": ["probe_worker_claim"], "worker_id": ["worker_12345678"]}
+            )
+            wrong_status, wrong = self.web_server.claim_mushroom_worker_job({"worker_id": "worker_abcdefgh"})
+            claim_status, claimed = self.web_server.claim_mushroom_worker_job({"worker_id": "worker_12345678"})
+            second_status, second = self.web_server.claim_mushroom_worker_job({"worker_id": "worker_12345678"})
+
+        self.assertEqual(redirect, "./workers")
+        self.assertEqual(wrong_status, 200)
+        self.assertIsNone(wrong["job"])
+        self.assertEqual(claim_status, 200)
+        self.assertEqual(claimed["job"]["status"], "claimed")
+        self.assertEqual(second_status, 200)
+        self.assertIsNone(second["job"])
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertIn("M1 personal", message)
+        self.assertFalse(is_error)
+
+    def test_snapshot_transport_probe_is_queued_with_immutable_bundle_contract(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        bundle_root = Path(self.temp_dir.name) / "bundles"
+        heartbeat = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "worker_id": "worker_12345678",
+            "display_name": "M1 personal",
+            "host_name": "macbook-m1-test",
+            "architecture": "arm64",
+            "platform": "Linux",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "snapshot_transport_v0",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid"},
+        }
+
+        def bundle_metadata(_root: Path, **kwargs: object) -> dict[str, object]:
+            job_id = str(kwargs["job_id"])
+            return {
+                "schema_version": "0.1",
+                "kind": "rainmapper_worker_input_bundle",
+                "job_id": job_id,
+                "job_spec_id": "sha256:" + "a" * 64,
+                "snapshot_id": "sha256:" + "b" * 64,
+                "input_file_count": 7,
+                "input_size_bytes": 12345,
+            }
+
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"}), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_input_bundles_path", return_value=bundle_root
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_transport,
+            "prepare_coordinator_bundle",
+            side_effect=bundle_metadata,
+        ):
+            self.web_server.register_mushroom_worker_heartbeat(heartbeat)
+            status, response = self.web_server.create_mushroom_worker_snapshot_transport_probe(
+                "worker_12345678"
+            )
+            claim_status, claimed = self.web_server.claim_mushroom_worker_job(
+                {"worker_id": "worker_12345678"}
+            )
+            start_status, _started = self.web_server.start_claimed_mushroom_worker_job(
+                {
+                    "job_id": claimed["job"]["job_id"],
+                    "worker_id": "worker_12345678",
+                    "claim_token": claimed["job"]["claim_token"],
+                }
+            )
+            progress_status, progressed = self.web_server.progress_mushroom_worker_job(
+                {
+                    "job_id": claimed["job"]["job_id"],
+                    "worker_id": "worker_12345678",
+                    "claim_token": claimed["job"]["claim_token"],
+                    "phase": "Downloading immutable inputs",
+                    "message": "Verified input file 3/7.",
+                    "overall_percent": 55,
+                }
+            )
+
+        self.assertEqual(status, 201)
+        self.assertEqual(response["job"]["job_type"], "worker_snapshot_transport_probe")
+        self.assertEqual(claim_status, 200)
+        self.assertEqual(claimed["job"]["input_bundle"]["endpoint"], "/api/mushrooms/workers/jobs/input")
+        self.assertEqual(
+            claimed["job"]["input_bundle"]["dataset_endpoint"],
+            "/api/mushrooms/workers/jobs/dataset",
+        )
+        self.assertEqual(start_status, 200)
+        self.assertEqual(progress_status, 200)
+        self.assertEqual(progressed["job"]["overall_percent"], 55)
+
+    def test_candidate_rebuild_upload_is_claim_bound_and_finished_from_trusted_verification(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        bundle_root = Path(self.temp_dir.name) / "bundles"
+        result_root = Path(self.temp_dir.name) / "results"
+        heartbeat = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "worker_id": "worker_12345678",
+            "display_name": "M1 personal",
+            "host_name": "macbook-m1-test",
+            "architecture": "arm64",
+            "platform": "Linux",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "candidate_rebuild_v0",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid"},
+        }
+
+        def bundle_metadata(_root: Path, **kwargs: object) -> dict[str, object]:
+            job_id = str(kwargs["job_id"])
+            return {
+                "schema_version": "0.1",
+                "kind": "rainmapper_worker_input_bundle",
+                "job_id": job_id,
+                "job_spec_id": "sha256:" + "a" * 64,
+                "snapshot_id": "sha256:" + "b" * 64,
+                "input_file_count": 7,
+                "input_size_bytes": 12345,
+            }
+
+        candidate = {
+            "status": "verified",
+            "result_manifest_id": "sha256:" + "d" * 64,
+            "verified_artifacts": 9,
+            "comparison_status": "equivalent",
+        }
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"}), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_input_bundles_path", return_value=bundle_root
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_candidate_results_path", return_value=result_root
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_transport,
+            "prepare_coordinator_bundle",
+            side_effect=bundle_metadata,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_results,
+            "receive_result_file",
+            return_value={"status": "artifact_received"},
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_results,
+            "finalize_candidate_result",
+            return_value=candidate,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_results,
+            "load_final_candidate",
+            return_value=candidate,
+        ), mock.patch.object(
+            self.web_server.mushroom_rebuild_contracts,
+            "load_job_spec",
+            return_value={"dataset_requirements": [{"fingerprint": "sha256:" + "c" * 64}]},
+        ):
+            self.web_server.register_mushroom_worker_heartbeat(heartbeat)
+            create_status, created = self.web_server.create_mushroom_worker_candidate_rebuild(
+                "worker_12345678"
+            )
+            claim_status, claimed = self.web_server.claim_mushroom_worker_job(
+                {"worker_id": "worker_12345678"}
+            )
+            claim_token = claimed["job"]["claim_token"]
+            job_id = created["job"]["job_id"]
+            start_status, _started = self.web_server.start_claimed_mushroom_worker_job(
+                {"job_id": job_id, "worker_id": "worker_12345678", "claim_token": claim_token}
+            )
+            rejected_status, _rejected = self.web_server.receive_mushroom_worker_result_file(
+                job_id=job_id,
+                logical_path="result_manifest.json",
+                content=b"{}",
+                worker_id="worker_12345678",
+                claim_token="wrong-claim",
+                auth_token="",
+            )
+            upload_status, _uploaded = self.web_server.receive_mushroom_worker_result_file(
+                job_id=job_id,
+                logical_path="result_manifest.json",
+                content=b"{}",
+                worker_id="worker_12345678",
+                claim_token=claim_token,
+                auth_token="",
+            )
+            complete_status, completed = self.web_server.complete_mushroom_worker_candidate_result(
+                {"job_id": job_id, "worker_id": "worker_12345678", "claim_token": claim_token},
+                auth_token="",
+            )
+            finish_status, finished = self.web_server.finish_mushroom_worker_job(
+                {
+                    "job_id": job_id,
+                    "worker_id": "worker_12345678",
+                    "claim_token": claim_token,
+                    "status": "complete",
+                    "result": {"comparison_status": "different"},
+                },
+                auth_token="",
+            )
+
+        self.assertEqual(create_status, 201)
+        self.assertEqual(claim_status, 200)
+        self.assertEqual(start_status, 200)
+        self.assertEqual(rejected_status, 409)
+        self.assertEqual(upload_status, 200)
+        self.assertEqual(complete_status, 200)
+        self.assertEqual(completed["verification"]["comparison_status"], "equivalent")
+        self.assertEqual(finish_status, 200)
+        self.assertEqual(finished["job"]["phase"], "Candidate result verified")
+        self.assertEqual(finished["job"]["result"]["comparison_status"], "equivalent")
+
+    def test_worker_dataset_download_is_authenticated_and_claim_bound(self) -> None:
+        dataset_file = Path(self.temp_dir.name) / "dataset.dat"
+        dataset_file.write_bytes(b"dataset")
+        metadata = {
+            "dataset_id": "mushroom_gis_v0",
+            "dataset_fingerprint": "sha256:" + "a" * 64,
+            "dataset_file_count": 1,
+            "dataset_size_bytes": 7,
+        }
+        job = {"input_bundle": dict(metadata)}
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "true"},
+        ), mock.patch.object(
+            self.web_server,
+            "authenticate_mushroom_worker",
+            side_effect=lambda worker_id, token: worker_id == "worker_12345678" and token == "secret",
+        ), mock.patch.object(
+            self.web_server,
+            "mushroom_worker_jobs_path",
+            return_value=Path(self.temp_dir.name) / "jobs.json",
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "authorize_input_download",
+            return_value=job,
+        ) as authorize, mock.patch.object(
+            self.web_server.mushroom_worker_transport,
+            "load_coordinator_bundle",
+            return_value=metadata,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_transport,
+            "resolve_coordinator_dataset_file",
+            return_value=dataset_file,
+        ):
+            rejected_status, _rejected = self.web_server.resolve_mushroom_worker_dataset_download(
+                job_id="worker_job_dataset123",
+                dataset_id="mushroom_gis_v0",
+                fingerprint=metadata["dataset_fingerprint"],
+                logical_path="dataset.dat",
+                worker_id="worker_12345678",
+                claim_token="claim",
+                auth_token="wrong",
+            )
+            accepted_status, accepted = self.web_server.resolve_mushroom_worker_dataset_download(
+                job_id="worker_job_dataset123",
+                dataset_id="mushroom_gis_v0",
+                fingerprint=metadata["dataset_fingerprint"],
+                logical_path="dataset.dat",
+                worker_id="worker_12345678",
+                claim_token="claim",
+                auth_token="secret",
+            )
+
+        self.assertEqual(rejected_status, 401)
+        self.assertEqual(accepted_status, 200)
+        self.assertEqual(accepted, dataset_file)
+        authorize.assert_called_once_with(
+            mock.ANY,
+            job_id="worker_job_dataset123",
+            worker_id="worker_12345678",
+            claim_token="claim",
+        )
+
+    def test_worker_probe_lifecycle_reassigns_only_before_start_and_cancels_cooperatively(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        heartbeat = {
+            "schema_version": "0.1",
+            "kind": "rainmapper_worker_heartbeat",
+            "host_name": "Mac",
+            "architecture": "arm64",
+            "platform": "Linux",
+            "worker_version": "local",
+            "status": "idle",
+            "job_api": "lifecycle_probe_v0",
+            "capabilities": ["rebuild_v0"],
+            "dataset_cache": {"status": "valid"},
+        }
+        with mock.patch.dict(os.environ, {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"}), mock.patch.object(
+            self.web_server, "mushroom_worker_registry_path", return_value=registry_path
+        ), mock.patch.object(self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path):
+            self.web_server.register_mushroom_worker_heartbeat(
+                {**heartbeat, "worker_id": "worker_aaaaaaaa", "display_name": "Worker A"}
+            )
+            self.web_server.register_mushroom_worker_heartbeat(
+                {**heartbeat, "worker_id": "worker_bbbbbbbb", "display_name": "Worker B"}
+            )
+            create_status, created = self.web_server.create_mushroom_worker_claim_probe("worker_aaaaaaaa")
+            duplicate_status, duplicate = self.web_server.create_mushroom_worker_claim_probe("worker_bbbbbbbb")
+            claim_a_status, claimed_a = self.web_server.claim_mushroom_worker_job(
+                {"worker_id": "worker_aaaaaaaa"}
+            )
+            reassign_status, reassigned = self.web_server.reassign_mushroom_worker_job(
+                str(created["job"]["job_id"]), "worker_bbbbbbbb"
+            )
+            old_start_status, _old_start = self.web_server.start_claimed_mushroom_worker_job(
+                {
+                    "job_id": created["job"]["job_id"],
+                    "worker_id": "worker_aaaaaaaa",
+                    "claim_token": claimed_a["job"]["claim_token"],
+                }
+            )
+            claim_b_status, claimed_b = self.web_server.claim_mushroom_worker_job(
+                {"worker_id": "worker_bbbbbbbb"}
+            )
+            start_status, started = self.web_server.start_claimed_mushroom_worker_job(
+                {
+                    "job_id": created["job"]["job_id"],
+                    "worker_id": "worker_bbbbbbbb",
+                    "claim_token": claimed_b["job"]["claim_token"],
+                }
+            )
+            late_reassign_status, _late_reassign = self.web_server.reassign_mushroom_worker_job(
+                str(created["job"]["job_id"]), "worker_aaaaaaaa"
+            )
+            cancel_status, cancelled = self.web_server.cancel_mushroom_worker_job(
+                str(created["job"]["job_id"])
+            )
+            force_status, forced = self.web_server.cancel_mushroom_worker_job(
+                str(created["job"]["job_id"]), force=True
+            )
+            control_status, control = self.web_server.control_mushroom_worker_job(
+                {
+                    "job_id": created["job"]["job_id"],
+                    "worker_id": "worker_bbbbbbbb",
+                    "claim_token": claimed_b["job"]["claim_token"],
+                }
+            )
+            finish_status, finished = self.web_server.finish_mushroom_worker_job(
+                {
+                    "job_id": created["job"]["job_id"],
+                    "worker_id": "worker_bbbbbbbb",
+                    "claim_token": claimed_b["job"]["claim_token"],
+                    "status": "cancelled",
+                }
+            )
+
+        self.assertEqual(create_status, 201)
+        self.assertEqual(duplicate_status, 409)
+        self.assertIn("already active", duplicate["error"])
+        self.assertEqual(claim_a_status, 200)
+        self.assertEqual(reassign_status, 200)
+        self.assertEqual(reassigned["job"]["target_worker_id"], "worker_bbbbbbbb")
+        self.assertEqual(old_start_status, 409)
+        self.assertEqual(claim_b_status, 200)
+        self.assertEqual(start_status, 200)
+        self.assertEqual(started["job"]["status"], "running")
+        self.assertEqual(late_reassign_status, 409)
+        self.assertEqual(cancel_status, 200)
+        self.assertEqual(cancelled["job"]["status"], "cancel_requested")
+        self.assertEqual(force_status, 200)
+        self.assertEqual(forced["job"]["cancel_mode"], "force")
+        self.assertEqual(control_status, 200)
+        self.assertTrue(control["cancel_requested"])
+        self.assertTrue(control["force_cancel_requested"])
+        self.assertEqual(finish_status, 200)
+        self.assertEqual(finished["job"]["status"], "cancelled")
+
+    def test_workers_page_offers_cancel_and_safe_reassignment_for_unstarted_probe(self) -> None:
+        workers = [
+            {
+                "configured": True,
+                "reachable": True,
+                "payload": {
+                    "worker_id": worker_id,
+                    "display_name": display_name,
+                    "host_name": display_name,
+                    "job_api": "lifecycle_probe_v0",
+                    "status": "idle",
+                    "dataset_cache": {"status": "valid"},
+                },
+            }
+            for worker_id, display_name in (
+                ("worker_aaaaaaaa", "Worker A"),
+                ("worker_bbbbbbbb", "Worker B"),
+            )
+        ]
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=workers,
+            profiles=[],
+            eligible_observation_count=0,
+            pending_species_count=0,
+            jobs=[{
+                "job_id": "worker_job_12345678",
+                "job_type": "worker_claim_probe",
+                "target_worker_id": "worker_aaaaaaaa",
+                "worker_display_name": "Worker A",
+                "status": "claimed",
+                "started_at": "",
+            }],
+            pipeline="shared",
+        )
+
+        self.assertIn('value="cancel_worker_job"', page)
+        self.assertIn('value="reassign_worker_job"', page)
+        self.assertIn('<option value="worker_bbbbbbbb">Worker B</option>', page)
+        self.assertNotIn('<option value="worker_aaaaaaaa">Worker A</option>', page)
+
+        running_jobs = self.web_server.mushroom_workers_ui.render_recent_jobs([{
+            "job_id": "worker_job_abcdefgh",
+            "job_type": "worker_claim_probe",
+            "target_worker_id": "worker_aaaaaaaa",
+            "worker_display_name": "Worker A",
+            "status": "running",
+            "started_at": "2026-07-19T12:00:00+00:00",
+        }], workers)
+        self.assertIn('value="force_cancel_worker_job"', running_jobs)
+        self.assertIn("Force cancellation", running_jobs)
+
+    def test_workers_recent_jobs_show_local_date_time_and_duration(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "worker-jobs.json"
+        with mock.patch.object(self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path):
+            self.web_server.mushroom_worker_jobs.create_claim_probe(
+                jobs_path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id="worker_job_datetime",
+                created_at="2026-07-19T22:20:57+00:00",
+            )
+            claimed = self.web_server.mushroom_worker_jobs.claim_next(
+                jobs_path,
+                worker_id="worker_aaaaaaaa",
+                claimed_at="2026-07-19T22:20:57+00:00",
+                claim_token="claim-token",
+            )
+            self.web_server.mushroom_worker_jobs.start_job(
+                jobs_path,
+                job_id="worker_job_datetime",
+                worker_id="worker_aaaaaaaa",
+                claim_token=str(claimed["claim_token"]),
+                started_at="2026-07-19T22:20:58+00:00",
+            )
+            self.web_server.mushroom_worker_jobs.finish_job(
+                jobs_path,
+                job_id="worker_job_datetime",
+                worker_id="worker_aaaaaaaa",
+                claim_token=str(claimed["claim_token"]),
+                status="complete",
+                finished_at="2026-07-19T22:21:45+00:00",
+            )
+            with mock.patch.object(
+                self.web_server,
+                "get_timezone",
+                return_value=self.web_server.ZoneInfo("Europe/Madrid"),
+            ):
+                jobs = self.web_server.mushroom_workers_recent_jobs()
+
+        self.assertEqual(jobs[0]["date_time"], "20/07/2026 00:20:57")
+        self.assertEqual(jobs[0]["elapsed"], "47s")
+        rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(jobs)
+        self.assertIn("Date and time", rendered)
+        self.assertIn("20/07/2026 00:20:57", rendered)
+        self.assertIn("47s", rendered)
+
+    def test_workers_page_shows_persistent_probe_job_without_rebuild_modal_link(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            profiles=[],
+            eligible_observation_count=0,
+            pending_species_count=0,
+            jobs=[{
+                "job_id": "worker_job_12345678",
+                "job_type": "worker_claim_probe",
+                "worker_display_name": "M1 personal",
+                "status": "claimed",
+                "scope": "transport test",
+                "phase": "Claimed by worker",
+                "overall_percent": 100,
+                "elapsed": "-",
+                "opens_rebuild_modal": False,
+            }],
+            pipeline="shared",
+        )
+
+        self.assertIn("Assignment test", page)
+        self.assertIn("M1 personal", page)
+        self.assertIn("Claimed", page)
+        self.assertNotIn("?rebuild_job=worker_job_12345678", page)
+
+    def test_workers_post_rejects_external_worker_before_job_api(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.handle_mushroom_profiles_post = mock.Mock()
+
+        redirect = handler.handle_mushroom_workers_post(
+            {"worker_action": ["start_rebuild"], "executor": ["worker:worker_12345678"], "scope": ["all"]}
+        )
+
+        self.assertEqual(redirect, "./workers")
+        self.assertFalse(handler.handle_mushroom_profiles_post.called)
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertIn("cannot receive rebuild jobs yet", message)
+        self.assertTrue(is_error)
+
+    def test_workers_post_maps_pending_and_species_scopes_to_existing_actions(self) -> None:
+        for scope, expected_action in (
+            ("pending", "rebuild_pending_model_v0"),
+            ("species", "rebuild_learned_model_v0_species"),
+        ):
+            with self.subTest(scope=scope):
+                handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+                captured: dict[str, object] = {}
+
+                def handle_profiles(form: dict[str, list[str]]) -> str:
+                    captured.update(form)
+                    self.web_server.set_mushroom_profiles_flash("Rebuild request processed.")
+                    return "?rebuild_job=job_scope"
+
+                handler.handle_mushroom_profiles_post = handle_profiles
+                redirect = handler.handle_mushroom_workers_post(
+                    {
+                        "worker_action": ["start_rebuild"],
+                        "executor": ["home_assistant"],
+                        "scope": [scope],
+                        "species_id": ["boletus_pinophilus"],
+                    }
+                )
+
+                self.assertEqual(captured["profile_action"], [expected_action])
+                self.assertEqual(captured["species_id"], ["boletus_pinophilus"])
+                self.assertEqual(redirect, "./workers?rebuild_job=job_scope")
+                self.web_server.mushroom_workers_flash()
+
+    def test_workers_post_sends_partial_scope_to_operational_external_worker(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        for scope, species_id in (("pending", ""), ("species", "boletus_pinophilus")):
+            with self.subTest(scope=scope), mock.patch.dict(
+                os.environ,
+                {
+                    "RAINMAPPER_WORKER_API_ENABLED": "true",
+                    "RAINMAPPER_WORKER_OPERATIONAL_ENABLED": "true",
+                },
+            ), mock.patch.object(
+                self.web_server,
+                "create_mushroom_worker_candidate_rebuild",
+                return_value=(201, {"job": {"target_display_name": "M1 personal"}}),
+            ) as create:
+                redirect = handler.handle_mushroom_workers_post(
+                    {
+                        "worker_action": ["start_rebuild"],
+                        "executor": ["worker:worker_12345678"],
+                        "scope": [scope],
+                        "species_id": [species_id],
+                    }
+                )
+
+                self.assertEqual("./workers", redirect)
+                create.assert_called_once_with(
+                    "worker_12345678",
+                    promotion_eligible=True,
+                    reconstruction_scope=scope,
+                    species_id=species_id,
+                )
+                message, is_error = self.web_server.mushroom_workers_flash()
+                self.assertIn("M1 personal", message)
+                self.assertFalse(is_error)
 
     def test_pending_model_species_uses_current_eligible_observations(self) -> None:
         observations = [
@@ -4795,6 +6279,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(handler.read_request_body(), b"test payload")
         self.assertEqual(handler.read_request_body(), b"test payload")
+
+    def test_worker_protocol_json_has_a_small_independent_body_limit(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.path = "/api/mushrooms/workers/jobs/claim"
+        self.assertEqual(handler.request_body_limit(), 64 * 1024)
+
+        handler.path = "/api/mushrooms/workers/jobs/result-file"
+        self.assertEqual(
+            handler.request_body_limit(),
+            self.web_server.mushroom_worker_results.MAX_RESULT_FILE_BYTES,
+        )
 
     def test_fixed_length_form_body_keeps_existing_behavior(self) -> None:
         body = b"profile_action=create_observation&observation_species_id=boletus_pinophilus"

@@ -1,0 +1,67 @@
+FROM python:3.11-slim
+
+ARG RAINMAPPER_WORKER_VERSION=local
+
+LABEL org.opencontainers.image.title="Rainmapper Worker" \
+      org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
+      org.opencontainers.image.version="${RAINMAPPER_WORKER_VERSION}"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    RAINMAPPER_WORKER_VERSION=${RAINMAPPER_WORKER_VERSION}
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gdal-bin \
+        gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 rainmapper-worker \
+    && useradd --uid 10001 --gid 10001 --create-home --home-dir /home/rainmapper-worker rainmapper-worker \
+    && mkdir -p /var/lib/rainmapper-worker \
+    && chown rainmapper-worker:rainmapper-worker /var/lib/rainmapper-worker
+
+COPY rainmapper_core/__init__.py \
+     rainmapper_core/mushroom_gis_lab.py \
+     rainmapper_core/mushroom_learned_model.py \
+     rainmapper_core/mushroom_observation_context.py \
+     rainmapper_core/mushroom_observation_features.py \
+     rainmapper_core/mushroom_observations.py \
+     rainmapper_core/mushroom_paths.py \
+     rainmapper_core/mushroom_rebuild_contracts.py \
+     rainmapper_core/mushroom_rebuild_comparison.py \
+     rainmapper_core/mushroom_rebuild_pipeline.py \
+     rainmapper_core/mushroom_rebuild_snapshot.py \
+     rainmapper_core/mushroom_worker_dataset_cache.py \
+     rainmapper_core/mushroom_worker_config.py \
+     rainmapper_core/mushroom_worker_service.py \
+     rainmapper_core/mushroom_worker_transport.py \
+     rainmapper_core/mushroom_worker_results.py \
+     /app/rainmapper_core/
+COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
+COPY scripts/manage-mushroom-worker-datasets.py /app/scripts/manage-mushroom-worker-datasets.py
+COPY scripts/manage-mushroom-worker-config.py /app/scripts/manage-mushroom-worker-config.py
+COPY scripts/run-mushroom-worker-service.py /app/scripts/run-mushroom-worker-service.py
+COPY rainmapper-worker/entrypoint.sh /usr/local/bin/rainmapper-worker
+
+RUN chmod 0755 /usr/local/bin/rainmapper-worker \
+    && python -m py_compile \
+        /app/rainmapper_core/mushroom_rebuild_contracts.py \
+        /app/rainmapper_core/mushroom_rebuild_comparison.py \
+        /app/rainmapper_core/mushroom_rebuild_pipeline.py \
+        /app/rainmapper_core/mushroom_worker_dataset_cache.py \
+        /app/rainmapper_core/mushroom_worker_config.py \
+        /app/rainmapper_core/mushroom_worker_service.py \
+        /app/rainmapper_core/mushroom_worker_transport.py \
+        /app/rainmapper_core/mushroom_worker_results.py \
+        /app/scripts/manage-mushroom-worker-datasets.py \
+        /app/scripts/manage-mushroom-worker-config.py \
+        /app/scripts/run-mushroom-worker-service.py \
+        /app/scripts/run-mushroom-rebuild-job.py
+
+VOLUME ["/var/lib/rainmapper-worker"]
+
+ENTRYPOINT ["/usr/local/bin/rainmapper-worker"]
+CMD ["--help"]

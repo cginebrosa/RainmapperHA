@@ -234,7 +234,9 @@ https://rainmap.nomentero.com/protected/maplibre/index.html
 
 No pongas `/protected/maplibre/index.html` en el campo `service` de Cloudflared: el `service` debe ser solo host y puerto. La ruta `/local/rainmapper-maplibre/index.html` queda temporalmente como fallback mientras se valida Cloudflared, pero no debe ser la ruta externa definitiva. Si existe una regla externa de Cloudflare que redirige `/` a `/local/rainmapper-maplibre/index.html`, conviene desactivarla o sustituirla por la ruta protegida cuando la validacion termine.
 
-La app publica el puerto `8099/tcp` para que Cloudflared pueda acceder al servidor Rainmapper. Esto no abre ningun puerto del router por si solo, pero hace que el servidor sea accesible desde la red local donde corre Home Assistant.
+La app publica el puerto web `8099/tcp` para que Cloudflared pueda acceder al servidor Rainmapper. Esto no abre ningun puerto del router por si solo, pero hace que el servidor sea accesible desde la red local donde corre Home Assistant. El protocolo del worker no se sirve en ese puerto.
+
+La API de workers usa un listener distinto, `8100/tcp`, y queda sin publicar por defecto. Para conectar un worker externo hay que asignar expresamente un puerto host a `8100/tcp` en la seccion `Network` de la app y limitarlo a la red privada/LAN o Tailscale correspondiente. No debe apuntarse Cloudflared ni un navegador a ese puerto.
 
 La autenticacion ligera se aplica al servidor HA (`web_server.py`). El visor local usado por `local_maps.sh` o `local_all.sh` sigue siendo estatico para pruebas en el Mac y lee datos desde `docker-data/PublicData`.
 
@@ -282,6 +284,8 @@ Para uso diario:
 mode: serve
 timezone: Europe/Madrid
 schedule_enabled: true
+external_worker_connections_enabled: false
+external_worker_rebuilds_enabled: false
 schedule_time: "23:50"
 schedule_days: all
 scheduled_action: all
@@ -361,6 +365,13 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `mode`: `help`, `update`, `maps`, `all` o `serve`.
 - `timezone`: zona horaria usada por schedule y marcas de tiempo, por defecto `Europe/Madrid`.
 - `schedule_enabled`: activa o desactiva el schedule interno.
+- `external_worker_connections_enabled`: `Enable external worker connections`.
+  Arranca la API privada autenticada en `8100`; no publica por si sola el
+  puerto en el host.
+- `external_worker_rebuilds_enabled`: `Allow external rebuilds and promotion`.
+  Permite que los workers emparejados ejecuten reconstrucciones y devuelvan
+  candidatos promocionables. Mantenerla desactivada si solo se quiere preparar
+  o diagnosticar la conectividad.
 - `schedule_time`: una o varias horas `HH:MM`.
 - `schedule_days`: `all` o lista de dias.
 - `scheduled_action`: `update`, `maps` o `all`.

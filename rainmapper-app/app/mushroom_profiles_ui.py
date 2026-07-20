@@ -3567,20 +3567,8 @@ def render_learned_model_section(
           <p class="meta">{html.escape(ui_label("ui.learned_model_note"))} · {html.escape(generated_at or '-')}</p>
         </div>
         <div class="learned-model-actions">
-          <form method="post" action="{html.escape(profile_query_url(species_id, search, section='evidence', profile_view=profile_view, evidence_view='learned_model'), quote=True)}" onsubmit="return confirm('{html.escape(ui_label("ui.rebuild_selected_learned_model_help"), quote=True)}')">
-            <input type="hidden" name="profile_action" value="rebuild_learned_model_v0_species">
-            <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-            <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
-            <input type="hidden" name="evidence_view" value="learned_model">
-            <button class="secondary" type="submit" title="{html.escape(ui_label("ui.rebuild_selected_learned_model_help"), quote=True)}">{html.escape(ui_label("ui.rebuild_selected_learned_model"))}</button>
-          </form>
-          <form method="post" action="{html.escape(profile_query_url(species_id, search, section='evidence', profile_view=profile_view, evidence_view='learned_model'), quote=True)}" onsubmit="return confirm('{html.escape(ui_label("ui.rebuild_all_learned_model_help"), quote=True)}')">
-            <input type="hidden" name="profile_action" value="rebuild_learned_model_v0_all">
-            <input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">
-            <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
-            <input type="hidden" name="evidence_view" value="learned_model">
-            <button class="secondary" type="submit" title="{html.escape(ui_label("ui.rebuild_all_learned_model_help"), quote=True)}">{html.escape(ui_label("ui.rebuild_all_learned_model"))}</button>
-          </form>
+          <a class="button-link secondary" href="./workers?scope=species&amp;species_id={html.escape(species_id, quote=True)}">{html.escape(ui_label("ui.rebuild_selected_learned_model"))}</a>
+          <a class="button-link secondary" href="./workers?scope=all">{html.escape(ui_label("ui.rebuild_all_learned_model"))}</a>
         </div>
       </div>
       <div class="profile-calibration-cards evidence-summary-cards learned-model-summary">
@@ -6065,57 +6053,19 @@ def render_observation_gis_lab(
     filters: dict[str, str] | None,
     result: dict[str, object] | None = None,
 ) -> str:
-    """Render the local GIS reconstruction lab for explicitly selected observations."""
-    candidate_rows = sorted(
-        [row for row in filtered_rows if observation_has_coordinates(row)],
-        key=lambda row: str(row.get("observation_id", "") or ""),
-    )
-    selected_ids = set()
-    if isinstance(result, dict):
-        raw_ids = result.get("selected_observation_ids")
-        if isinstance(raw_ids, list):
-            selected_ids = {str(item) for item in raw_ids}
-    chips = []
-    visible_hidden_inputs = []
-    for row in candidate_rows:
-        observation_id = str(row.get("observation_id", "") or "")
-        if not observation_id:
-            continue
-        visible_hidden_inputs.append(
-            f'<input type="hidden" name="gis_visible_observation_ids" value="{html.escape(observation_id, quote=True)}">'
-        )
-        species_id = str(row.get("species_id", "") or "")
-        checked = " checked" if observation_id in selected_ids else ""
-        label = f"{row.get('observed_at', '-')} · {species_labels.get(species_id, species_id)} · {row.get('flush_abundance', '-')}"
-        chips.append(
-            '<label class="catalog-toggle gis-observation-toggle">'
-            f'<input type="checkbox" name="gis_observation_ids" value="{html.escape(observation_id, quote=True)}"{checked}>'
-            f'<span class="catalog-chip" title="{html.escape(observation_id, quote=True)}">{html.escape(label)}</span>'
-            '</label>'
-        )
-    picker = (
-        '<div class="catalog-toggle-grid gis-observation-grid">' + "".join(chips) + "</div>"
-        if chips
-        else f'<p class="meta">{html.escape(ui_label("ui.rebuild_observation_model_v0_none"))}</p>'
-    )
+    """Render the latest GIS result read-only; rebuilds live in Workers and jobs."""
+    del filtered_rows, search, filters
+    scope = "species" if selected_species_id else "all"
+    workers_href = f"./workers?scope={scope}"
+    if selected_species_id:
+        workers_href += f"&species_id={selected_species_id}"
+    workers_href = html.escape(workers_href, quote=True)
     return f"""
     <details id="gis-reconstruction-lab" class="profile-section-card gis-reconstruction-lab">
-      <summary><strong>{icon("topography")} {html.escape(ui_label("ui.rebuild_observation_model_v0_lab"))}</strong></summary>
+      <summary><strong>{icon("topography")} {html.escape(ui_label("ui.gis_last_reconstruction_observations"))}</strong></summary>
       <div class="collapsible-section-body">
-        <p class="meta">{html.escape(ui_label("ui.rebuild_observation_model_v0_lab_help"))}</p>
-        <form method="post" action="#gis-reconstruction-lab" class="gis-lab-form">
-          <input type="hidden" name="profile_action" value="rebuild_observation_model_v0">
-          {observation_context_inputs(filters, selected_species_id=selected_species_id)}
-          {"".join(visible_hidden_inputs)}
-          <div class="admin-field catalog-toggle-field">
-            <span class="field-label">{html.escape(ui_label("ui.rebuild_observation_model_v0_observations"))}</span>
-            {picker}
-          </div>
-          <div class="profile-action-bar inline">
-            <button class="primary profile-primary-action" name="gis_reconstruction_scope" value="selected" {"disabled" if not chips else ""}>{html.escape(ui_label("ui.rebuild_observation_model_v0_selected"))}</button>
-            <button class="button-link" name="gis_reconstruction_scope" value="visible" {"disabled" if not chips else ""}>{html.escape(ui_label("ui.rebuild_observation_model_v0_visible"))} ({len(chips)})</button>
-          </div>
-        </form>
+        <p class="meta">{html.escape(ui_label("ui.rebuild_managed_in_workers"))}</p>
+        <div class="profile-action-bar inline"><a class="button-link" href="{workers_href}">{html.escape(ui_label("ui.open_workers_jobs"))}</a></div>
         <div class="gis-lab-results">
           {render_gis_result_summary(result, species_labels, selected_species_id)}
         </div>

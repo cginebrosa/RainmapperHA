@@ -147,6 +147,39 @@ observaciones -> reconstruccion -> dataset -> entrenamiento -> modelo
 punto/fecha actual -> mismas features -> modelo guardado -> prediccion
 ```
 
+### Computo externo y separacion de jobs
+
+Home Assistant seguira siendo la fuente de verdad de observaciones, setales,
+catalogos, historicos y modelos operativos aceptados. Los calculos pesados
+podran ejecutarse en un worker Docker privado, inicialmente en el Mac M1,
+mediante la plataforma descrita en
+`mushroom-v0-external-worker-design-es.md`.
+
+El flujo remoto no sera un unico job monolitico:
+
+1. `build_ml_dataset` genera contexto diario, episodios, features y un
+   `dataset_id` inmutable a partir de un `snapshot_id` de HA;
+2. `train_ml_model` reutiliza ese dataset con algoritmo, variables,
+   particiones, hiperparametros y semilla declarados;
+3. `evaluate_ml_model` compara candidatos o ejecuta backtesting sin modificar
+   el modelo activo.
+
+De este modo varios entrenamientos no repiten GIS/DEM, meteorologia ni
+transferencia de datos vivos. El worker solo sube paquetes de resultados; no
+escribe directamente en `/share`. HA valida hashes, schemas y compatibilidad y
+registra el resultado como candidato. Ningun entrenamiento promociona un modelo
+automaticamente.
+
+Si los datos vivos cambian durante un entrenamiento, el run puede conservarse
+como experimento reproducible ligado al snapshot y dataset originales, marcado
+como no vigente. Activar un modelo requerira una accion humana explicita,
+reversible y compatible con el contrato de features del runtime.
+
+La reconstruccion V0 conservara siempre ejecucion local en HA. El entrenamiento
+ML experimental no necesita fallback en la Raspberry: si el M1 no esta
+disponible, puede permanecer en cola sin afectar a la aplicacion ni al modelo
+activo.
+
 ## Variables consideradas
 
 La lista de esta seccion es un catalogo de variables candidatas, no el conjunto

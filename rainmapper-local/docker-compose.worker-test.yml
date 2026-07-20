@@ -1,0 +1,33 @@
+services:
+  rainmapper-worker:
+    build:
+      context: ..
+      dockerfile: rainmapper-worker/Dockerfile
+      args:
+        RAINMAPPER_WORKER_VERSION: local
+    image: rainmapper-worker:local
+    pull_policy: never
+    container_name: rainmapper-worker
+    command:
+      - run
+      - --snapshot-dir
+      - /work/snapshot
+      - --job-spec
+      - /work/job/job_spec.json
+      - --output-dir
+      - /var/lib/rainmapper-worker/runs/dataset-cache-test/output
+      - --gis-root
+      - /var/lib/rainmapper-worker/datasets/mushroom_gis_v0/current
+      - --worker-data-dir
+      - /var/lib/rainmapper-worker
+      - --quiet
+    volumes:
+      - rainmapper-worker-data:/var/lib/rainmapper-worker
+      - ${RAINMAPPER_WORKER_TEST_SNAPSHOT:?Set RAINMAPPER_WORKER_TEST_SNAPSHOT}:/work/snapshot:ro
+      - ${RAINMAPPER_WORKER_TEST_JOB_SPEC:?Set RAINMAPPER_WORKER_TEST_JOB_SPEC}:/work/job/job_spec.json:ro
+    network_mode: none
+    restart: "no"
+
+volumes:
+  rainmapper-worker-data:
+    name: rainmapper-worker-data

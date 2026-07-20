@@ -55,7 +55,9 @@ def host_visible_path(path: Path) -> str:
     return str(Path(configured_root) / relative)
 
 
-def gis_root() -> Path:
+def gis_root(configured_root: Path | None = None) -> Path:
+    if configured_root is not None:
+        return configured_root
     configured = os.environ.get("RAINMAPPER_MUSHROOM_GIS_ROOT", "").strip()
     if configured:
         return Path(configured)
@@ -68,17 +70,17 @@ def gis_root() -> Path:
     return repo_root() / "mushroom-GIS"
 
 
-def dem_path() -> Path:
+def dem_path(gis_root_path: Path | None = None) -> Path:
     return (
-        gis_root()
+        gis_root(gis_root_path)
         / "model-elevacions-terreny-topografic-catalunya-5m-2009-2018"
         / "extracted"
         / "model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif"
     )
 
 
-def vector_layers() -> tuple[VectorLayer, ...]:
-    root = gis_root()
+def vector_layers(gis_root_path: Path | None = None) -> tuple[VectorLayer, ...]:
+    root = gis_root(gis_root_path)
     return (
         VectorLayer(
             source_id="mvc50",
@@ -759,8 +761,13 @@ def build_gis_context_v0(reconstruction: dict[str, Any]) -> dict[str, Any]:
     return context
 
 
-def sample_dem(lon: float, lat: float, observed_altitude: object) -> dict[str, Any]:
-    path = dem_path()
+def sample_dem(
+    lon: float,
+    lat: float,
+    observed_altitude: object,
+    gis_root_path: Path | None = None,
+) -> dict[str, Any]:
+    path = dem_path(gis_root_path)
     if not path.exists():
         return {"status": "missing_layer", "source": str(path)}
     result = run_command(["gdallocationinfo", "-wgs84", "-valonly", str(path), str(lon), str(lat)], timeout=30)
@@ -932,6 +939,7 @@ def reconstruct_observation(
     row: dict[str, object],
     gis_payload: dict[str, Any] | None = None,
     catalogs_payload: dict[str, Any] | None = None,
+    gis_root_path: Path | None = None,
 ) -> dict[str, Any]:
     observation_id = str(row.get("observation_id", "") or "")
     location = observation_location(row)
@@ -963,7 +971,7 @@ def reconstruct_observation(
         base["gaps"].append("coordinate_transform_error")
         base["error"] = str(exc)
         return base
-    for layer in vector_layers():
+    for layer in vector_layers(gis_root_path):
         layer_result = first_vector_feature(layer, x, y)
         layer_result["mapped"] = apply_exact_layer_mappings(
             layer.source_id,
@@ -972,7 +980,7 @@ def reconstruct_observation(
             catalogs_payload,
         )
         base["layers"][layer.source_id] = layer_result
-    base["layers"]["dem_5m"] = sample_dem(lon, lat, row.get("altitude"))
+    base["layers"]["dem_5m"] = sample_dem(lon, lat, row.get("altitude"), gis_root_path)
     gaps = [
         source_id
         for source_id, layer_result in base["layers"].items()
@@ -991,6 +999,8 @@ def reconstruct_observations(
     gis_payload: dict[str, Any] | None = None,
     catalogs_payload: dict[str, Any] | None = None,
     progress_callback: Any | None = None,
+    gis_root_path: Path | None = None,
+    qgis_points_path: Path | None = None,
 ) -> dict[str, Any]:
     selected_ids = [item for item in observation_ids if item]
     selected_set = set(selected_ids)
@@ -998,11 +1008,18 @@ def reconstruct_observations(
     results = []
     total = len(rows)
     for index, row in enumerate(rows, start=1):
-        results.append(reconstruct_observation(row, gis_payload=gis_payload, catalogs_payload=catalogs_payload))
+        results.append(
+            reconstruct_observation(
+                row,
+                gis_payload=gis_payload,
+                catalogs_payload=catalogs_payload,
+                gis_root_path=gis_root_path,
+            )
+        )
         if progress_callback:
             progress_callback(index, total)
     unmapped_candidates = collect_unmapped_candidates(results)
-    qgis_points_path = write_qgis_points(rows)
+    written_qgis_points_path = write_qgis_points(rows, qgis_points_path)
     payload: dict[str, Any] = {
         "schema_version": "0.1",
         "kind": "mushroom_observation_gis_reconstruction",
@@ -1010,8 +1027,8 @@ def reconstruct_observations(
         "selected_observation_ids": selected_ids,
         "result_count": len(results),
         "coordinate_policy": "Coordinates are read locally but not written to this review payload.",
-        "qgis_points_path": str(qgis_points_path),
-        "qgis_points_host_path": host_visible_path(qgis_points_path),
+        "qgis_points_path": str(written_qgis_points_path),
+        "qgis_points_host_path": host_visible_path(written_qgis_points_path),
         "qgis_points_note": "Local-only GeoJSON with selected observation coordinates for visual GIS review.",
         "mapping_policy": "Raw GIS values are preserved. Exact mappings are applied from mushroom_gis_mappings.json and only emit IDs present in mushroom_reference_catalogs.json.",
         "unmapped_candidates": unmapped_candidates,

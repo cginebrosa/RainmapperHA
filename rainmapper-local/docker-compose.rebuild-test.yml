@@ -1,0 +1,18 @@
+services:
+  rainmapper-ha-rebuild-test:
+    build:
+      context: ..
+      dockerfile: rainmapper-app/Dockerfile
+    image: rainmapperha:local-ha-rebuild-test
+    environment:
+      RAINMAPPER_APP_VERSION: local-ha-rebuild-test
+      RAINMAPPER_MUSHROOM_REBUILD_PIPELINE: shared
+    ports:
+      - "127.0.0.1:8102:8099"
+    volumes:
+      - ${RAINMAPPER_REBUILD_TEST_RUNTIME:?Set RAINMAPPER_REBUILD_TEST_RUNTIME}/share:/share/rainmapper
+      - ../mushroom-GIS:/app/mushroom-GIS:ro
+      - ${RAINMAPPER_REBUILD_TEST_RUNTIME:?Set RAINMAPPER_REBUILD_TEST_RUNTIME}/tmp:/app/tmp
+      - ${RAINMAPPER_REBUILD_TEST_RUNTIME:?Set RAINMAPPER_REBUILD_TEST_RUNTIME}/config-www:/config/www
+      - ./options.rebuild-test.json:/data/options.json:ro
+    restart: "no"

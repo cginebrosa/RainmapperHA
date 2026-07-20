@@ -1,300 +1,301 @@
 # Active Context
 
-Contexto operativo actual para continuar RainmapperHA sin cargar el historico.
-Este documento es una ventana de trabajo: los detalles antiguos viven en
-`docs/project-archive.md`, `docs/decisions.md` y los documentos tematicos.
+Ventana operativa para continuar RainmapperHA sin depender de conversaciones
+anteriores. Este documento describe el estado actual, no el historial completo.
 
-## Estado del repositorio
+## Repositorio y release estable
 
-- Ruta unica de trabajo: `/Users/carlosginebrosa/Developer/RainmapperHA`.
+- Workspace unico:
+  `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Ultimo release HA publicado: `0.2.207`.
-- Commit release: `bbf43aa Release Home Assistant 0.2.207`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.207` y `latest`.
-- Digest multi-arch: `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
-- Commit de documentacion de la release: `882a877 Document Home Assistant
-  0.2.207 release`.
-- El usuario ejecuto `Reconstruir todas` con `0.2.207` en HA el 2026-07-18. El
-  job completo termino correctamente en 4 min 44 s, por lo que quedan validados
-  el arranque en background y la ejecucion de las cuatro fases en la Raspberry.
-  Falta comprobar de forma explicita los recuentos finales
-  favorable/desfavorable de la politica nueva.
-- El usuario valido `0.2.199` en HA el 2026-07-11: MapLibre protegido funciona
-  y el popup largo muestra `Pluja` en `Valores IDW`.
-- El usuario valido `0.2.204` en HA el 2026-07-16: la carga y asociacion de un
-  video de 30,4 MB es totalmente funcional; subida/preview son casi instantaneos
-  y la conversion FFmpeg tarda aproximadamente 5-10 segundos.
-- GitHub sigue abierto/publico por decision explicita; no cerrarlo.
-- `0.2.201` incorporo importacion de imagen/video, normalizacion de video,
-  posters JPEG y fallback de altitud DEM. `0.2.202` corrige la entrega parcial
-  de MP4 necesaria para Safari dentro del ingress de HA.
-- No mezclar datos reales de `docker-data/` en Git.
+- `HEAD` y `origin/inicial`: `7480012` (`Close Rainmapper session after HA
+  0.2.207 validation`).
+- Release HA instalado/publicado: `0.2.207`.
+- Commit del release: `bbf43aa Release Home Assistant 0.2.207`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.207` y `latest`, digest
+  `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
+- GHCR conserva 10 entradas: release actual `0.2.207/latest`, rollback
+  `0.2.206` y sus auxiliares multi-arch/attestation.
+- El repositorio GitHub sigue publico por decision explicita del usuario.
+- No se ha hecho commit, bump, release ni publicacion durante el desarrollo
+  local del worker. No hacerlo sin peticion expresa.
 
-## Foco inmediato
+El worktree esta deliberadamente sucio con todo el prototipo local del worker
+externo. No limpiar, revertir ni sobrescribir esos cambios. Antes de continuar,
+ejecutar `git status --short` y revisar el diff existente como trabajo valioso
+del usuario.
 
-1. Comprobar en HA que el resultado reconstruido por `0.2.207` clasifica como
-   desfavorables `scarce`, `very_scarce` y `absent`, y como favorables
-   `normal`, `abundant`, `very_abundant` y `exceptional`, siempre gobernado por
-   `prediction_favorable` del catalogo.
-2. Incorporar mas observaciones historicas reales de `Boletus pinophilus`, de
-   distintos anos y setales, sin inventar ausencias ni completar datos dudosos.
-3. Revisar despues la cobertura temporal/espacial resultante y retomar el
-   pipeline ML experimental con la especie que tenga mas datos utiles.
-4. Mantener el worker externo como diseno diferido. Si se retoma, medir primero
-   las fases en HA/M1/M5 y extraer un pipeline comun; no empezar por Docker ni
-   Tailscale.
-5. Mantener como comprobaciones menores pendientes el boton de cancelar carga y
-   el Quick viewer MapLibre a `rainmap.nomentero.com`.
-6. El plan predictivo vigente esta en
-   `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+## Correccion clave: no existe una imagen HA de desarrollo
 
-GHCR y backfill dejan de ser el foco inmediato. Siguen pendientes una posible
-limpieza conservadora y pruebas mensuales cortas, pero no deben interrumpir la
-estabilizacion actual de setales/observaciones salvo peticion del usuario.
+No hay, ni se quiere crear, una imagen de desarrollo/sideload de Home Assistant.
+Introducirla complicaria innecesariamente el despliegue y la continuidad.
 
-## Diseno diferido: reconstruccion V0 en un Mac
+La `0.2.207` instalada en HA sabe reconstruir localmente, pero no contiene el
+coordinador nuevo: no tiene pairing de workers, heartbeats, cola/claims,
+transporte de snapshots/datasets/resultados, pagina `Workers y trabajos` ni
+promocion de candidatos externos. Por tanto, es imposible hacer una prueba
+funcional M1 ↔ HA real con `0.2.207`.
 
-- Se ha acordado conservar una propuesta para ejecutar la reconstruccion V0
-  completa en un Mac mediante un worker Docker privado, manteniendo HA como
-  fuente de verdad y como fallback.
-- Medidas comunicadas por el usuario: aproximadamente 40 s en un MacBook Pro M1
-  Pro frente a 4 min 44 s en HA/Raspberry Pi. Falta medir el M5 y los tiempos
-  reales de cada fase.
-- El worker ejecutaria GIS/DEM, meteorologia, features y modelo con el mismo
-  pipeline de `rainmapper_core`; no se mantendran dos reconstructores.
-- La imagen del worker seria distinta de la imagen HA, incluiria localmente los
-  5,9 GB de `mushroom-GIS-HA` y se moveria de forma privada con
-  `docker save`/`docker load`, sin GHCR ni publicacion en Internet.
-- La comunicacion seria iniciada por el worker. Si se usa Tailscale, se
-  configurara siempre la URL Tailscale fija de HA, tanto dentro como fuera de
-  la LAN; la IP del Mac no forma parte de su identidad.
-- No hay implementacion iniciada. El diseno, seguridad, consistencia, fases y
-  preguntas abiertas estan en
-  `docs/mushrooms/mushroom-v0-external-worker-design-es.md`.
-- Al retomarlo, medir primero HA/M1/M5 y extraer la coordinacion actual a un
-  pipeline comun antes de crear Docker, API o UI del worker.
+Orden viable a partir de este cierre:
 
-## Release 0.2.207: validacion funcional parcial en HA
+1. Revisar y consolidar el gran diff local; mantener el fallback HA y todos los
+   flags externos seguros por defecto.
+2. Definir el alcance/configuracion de una version HA normal que incorpore el
+   coordinador, la UI y los tres alcances del worker.
+3. Solo con autorizacion expresa del usuario: hacer bump, validar, publicar,
+   commit/push e instalar esa nueva version normal en HA.
+4. Emparejar el worker M1 con HA real mediante LAN/Tailscale y ejecutar las
+   pruebas end-to-end completas, parciales, cancelacion, desconexion,
+   freshness, cache y promocion.
+5. Medir entonces las fases en HA con la instrumentacion compartida y comparar
+   HA/M1 sobre el mismo snapshot/dataset.
 
-- `0.2.207` esta publicada/verificada para amd64/arm64 y fue ejecutada realmente
-  en Home Assistant.
-- `Reconstruir todas` completo las cuatro fases en 4 min 44 s. Esta diferencia
-  frente a los aproximadamente 40 s del M1 Pro motiva el diseno diferido del
-  worker externo.
-- El objetivo binario V0 favorable/desfavorable se deriva del campo
-  `prediction_favorable` del catalogo `observation_flush_abundance`; no altera
-  ni migra las observaciones guardadas.
-- Los botones de reconstruccion de una especie y de todas lanzan el pipeline en
-  background y muestran progreso cancelable de GIS/DEM, meteorologia, features
-  y modelo aprendido.
-- Las pantallas de especies, observaciones, evidencia, parametros y calibracion
-  estan mas compactas, mantienen visibles controles y acciones y sustituyen IDs
-  tecnicos por nombres localizados cuando corresponde.
+La topologia Tailscale puede estudiarse antes del release, pero no se puede
+validar el flujo funcional contra HA real hasta que HA contenga el coordinador.
 
-## Estado funcional de setales
+## Estado del worker externo local
 
-- Existe un store separado de catalogos:
-  `mushroom-data/mushroom_known_sites.json`; en runtime local la copia viva es
-  `docker-data/mushroom-data/mushroom_known_sites.json`.
-- `rainmapper_core/mushroom_known_sites.py` gestiona areas y microareas,
-  geometria, derivados, backups, referencias, archivado, restauracion y borrado.
-- La WebUI `/mushrooms/known-sites` vive en
-  `rainmapper-app/app/mushroom_known_sites_ui.py`.
-- Areas y microareas tienen poligonos propios. MapLibre muestra Satellite+ por
-  defecto, Topografico e Hybrid, terreno 3D, selector de capas y brujula.
-- La UI permite dibujar/editar poligonos, recuperar propuestas GIS/DEM y
-  compararlas antes de aplicarlas al formulario. Aplicar una propuesta no debe
-  persistir nada hasta pulsar `Guardar`.
-- Hay proteccion de cambios sin guardar al cambiar de setal, actualizar, volver
-  o navegar a otra pantalla.
-- Cambiar de area o microarea ya no recarga el documento completo: el arbol se
-  mantiene estable y solo se regeneran el editor y el mapa seleccionados.
-- Areas y microareas archivadas se muestran en el mismo arbol. Se pueden
-  restaurar o borrar definitivamente; no se pueden archivar ni borrar si tienen
-  observaciones vinculadas. Las areas tampoco pueden eliminarse si contienen
-  microareas que impidan la operacion.
-- El arbol permite colapsar/desplegar cada area y todas a la vez. Arbol y panel
-  de detalle tienen scroll interno para mantener visibles las acciones.
-- Los contadores de observaciones abren el modal reutilizable de observaciones,
-  conservando la pila de navegacion y el punto exacto de retorno.
+El prototipo funciona enteramente en el laboratorio Docker local y no depende
+de HA real:
 
-## Estado funcional de observaciones
+- UI Rainmapper local: `http://127.0.0.1:8101`.
+- Coordinador local, solo en la red Docker: `http://rainmapper-ha-ui:8100`.
+- Health local del worker: `http://127.0.0.1:8110/health`.
+- Inicio/parada: `./mushroom_worker_start.sh` y
+  `./mushroom_worker_stop.sh`.
+- Imagen generica privada: `rainmapper-worker`; servicio/contenedor
+  `rainmapper-worker`; volumen persistente `rainmapper-worker-data`.
+- El launcher admite `--help`, nombre, URL del coordinador, pairing y modo no
+  interactivo; recupera la configuracion no secreta y la identidad desde el
+  volumen. El token permanente se guarda separado bajo `secrets/`.
+- El worker es headless: la interfaz humana y la autoridad permanecen en
+  Rainmapper.
+- La comunicacion es outbound desde el worker. Rainmapper conserva la fuente de
+  verdad de datos vivos, jobs y artefactos aceptados.
+- Pairing temporal de un solo uso, Bearer permanente por worker, registro
+  multi-worker, heartbeat, deteccion desconectado, revocacion y ejecutor
+  predeterminado estan implementados localmente.
+- La cola persistente implementa lease/claim, inicio, progreso, finalizacion,
+  cancelacion cooperativa y forzada, y reasignacion solo antes del inicio.
+- Un `work_key` impide ejecuciones activas solapadas. Especies disjuntas pueden
+  ejecutarse en paralelo; los alcances completos o con especies comunes se
+  bloquean.
+- La pagina `Workers y trabajos` centraliza los lanzamientos y conserva HA como
+  fallback. No existe fallback silencioso si el ejecutor predeterminado esta
+  desconectado o no es compatible.
+- Alcances externos locales operativos: todas las especies elegibles,
+  pendientes y una especie.
+- El aviso `Modelo V0 desactualizado` y las antiguas acciones de Observaciones
+  navegan a `Workers y trabajos` con el alcance preseleccionado; ya no lanzan un
+  rebuild directamente.
 
-- Cada observacion puede referenciar opcionalmente `micro_area_id`; `area_id` se
-  resuelve desde el store y no se duplica en la observacion.
-- El mapa de una observacion reutiliza el MapLibre de setales y muestra todas
-  las areas/microareas visibles. Permite seleccionar/asignar una microarea,
-  crear o editar areas y microareas sobre la marcha y volver al formulario sin
-  perder su borrador.
-- En modo edicion geometrica se suprimen popups de areas/microareas para no
-  interceptar los clics de TerraDraw. Fuera de edicion, un unico popup combina
-  observacion, area y microarea segun lo que exista bajo el punto.
-- El mapa puede seleccionar nuevas coordenadas. Mantiene el punto actual y el
-  candidato diferenciados, consulta altitud DEM, muestra coordenadas/altitud y
-  exige confirmacion antes de actualizar la observacion.
-- La seleccion manual usa los IDs catalogados existentes para origen de
-  ubicacion/altitud; no volver a introducir IDs inventados como `manual_map`.
-- El boton `Mapa` del formulario usa las coordenadas actuales del borrador,
-  incluso al crear o duplicar una observacion aun no guardada. Al cerrar vuelve
-  al mismo formulario; desde una lista vuelve a la seleccion, orden y posicion
-  anteriores.
-- El buscador generico de observaciones serializa el registro completo y puede
-  encontrar cualquier valor presente en el JSON, ademas de labels visibles.
-- La tabla principal pagina en servidor y la seleccion de una observacion
-  actualiza solo el panel derecho. Las columnas Area y Microarea muestran
-  nombres legibles, nunca IDs internos.
-- La altitud acepta enteros. Se conserva precision completa en JSON/enlaces y
-  se limita solo la presentacion de coordenadas donde corresponde.
-- Contrato actual de media: una sola imagen o video por observacion. La UI permite
-  desasociar o desasociar y borrar con confirmacion irreversible; solo ofrece
-  borrar si el fichero no esta referenciado por otra observacion.
-- Al sustituir una foto, el preview EXIF compara imagen existente y nueva,
-  muestra datos y mapa de la seleccion, y exige decidir si se conserva o se
-  borra el fichero anterior. La imagen nueva no se aplica mientras este
-  seleccionada la antigua.
-- El preview EXIF usa MapLibre y muestra areas/microareas visibles. Debe seguir
-  devolviendo la microarea elegida al formulario, sin guardar la observacion
-  hasta pulsar `Guardar observacion`.
-- Los videos MOV/MP4 y formatos habituales se leen con ExifTool y se convierten
-  con FFmpeg a MP4/H.264, maximo 480p y 30 segundos. Se conservan fecha/hora,
-  GPS y altitud util en el MP4 y en `capture_metadata`; el original no se
-  guarda. El preview y el detalle usan un poster JPEG generado desde el video.
-  Si el archivo tiene coordenadas pero no altitud util, el preview consulta el
-  DEM, muestra `Origen DEM` y aplica `altitude.source: dem`. Limites: 100 MB por
-  archivo y 500 MB por lote.
-- Tras probar `0.2.201` en HA se detecto que Safari dentro del ingress mostraba
-  el MP4 pero no podia reproducirlo. `0.2.202` sirve media con rangos
-  HTTP (`206`, `Content-Range`, `Accept-Ranges`), admite `HEAD` y declara un
-  `source video/mp4` con poster. El flujo completo se valido finalmente en HA
-  con `0.2.204`.
+### Pipeline, datasets y promocion
 
-## Predictor y modelo aprendido
+- HA y worker usan el pipeline unico
+  `rainmapper_core/mushroom_rebuild_pipeline.py`; la ruta HA estable continua
+  en `legacy` salvo flag opt-in.
+- Contratos versionados locales: `InputManifest 0.1`, `JobSpec 0.1` y
+  `ResultManifest 0.1`.
+- El snapshot vivo se congela en Rainmapper. El worker descarga solo paths
+  declarados, valida tamaños/SHA-256 y nunca monta directamente `docker-data`.
+- La imagen no contiene GIS/DEM. El dataset semiestatico se sincroniza desde
+  Rainmapper a staging solo si falta o cambia el fingerprint, se valida y se
+  activa atomicamente en el volumen persistente.
+- Cache actual probada: `mushroom_gis_v0`, 10 ficheros,
+  6.306.367.027 bytes. Primera carga a volumen vacio y reutilizacion posterior
+  con cero bytes transferidos verificadas.
+- El worker genera nueve artefactos candidatos privados, sube manifest y bytes,
+  y Rainmapper vuelve a validar contrato, hashes, tamaños y contadores.
+- La promocion siempre es explicita. Una promocion completa o parcial instala
+  atomica y conjuntamente los nueve artefactos; la parcial mezcla solo las
+  observaciones/especies declaradas con el ultimo modelo vivo.
+- Antes de instalar los artefactos, HA elimina referencias auxiliares del
+  worker y rebasa las rutas de metadatos a las rutas autoritativas del
+  coordinador. Los datos privados existentes no se reescribieron durante la
+  auditoria.
+- Las promociones se serializan para que trabajos disjuntos no pierdan cambios.
+- Se conservan como maximo dos copias recuperables de los nueve artefactos
+  derivados anteriores (aproximadamente 2 MB por copia, sin GIS/DEM). La poda
+  ocurre solo tras una promocion correcta.
+- Los equivalentes de `external_worker_connections_enabled=true` y
+  `external_worker_rebuilds_enabled=true` estan solo en el Compose local. La
+  release HA `0.2.207` no incorpora ni habilita esta ruta.
 
-- `mushroom_model_v0.json` sigue siendo una salida descriptiva/auditable; no es
-  un estimador ML y no escribe perfiles.
-- El objetivo binario operativo de V0 se deriva de `flush_abundance` mediante
-  el campo tecnico, no traducible, `prediction_favorable` (`0`/`1`) de cada
-  entrada de `catalogs.observation_flush_abundance`. El catalogo actual marca
-  `normal`, `abundant`, `very_abundant` y `exceptional` como favorables, y
-  `scarce`, `very_scarce` y `absent` como desfavorables. La politica tiene
-  version `catalog_prediction_favorable_v1` y guarda el mapping y su huella.
-- `flush_abundance` sigue siendo la fuente de verdad en
-  `mushroom_observations.json`; no se migra ni se duplica ningun dato privado.
-  `prediction_target` se materializa por observacion en los artefactos
-  meteorologicos y conjuntos JSON/CSV, y la politica se guarda tambien en el
-  modelo aprendido para poder auditar y reproducir cada reconstruccion.
-- `analysis_result` (`present`/`absent`) se conserva de momento por
-  compatibilidad y significado biologico, pero no es el objetivo de
-  entrenamiento. La UI reutiliza la columna Resultado para mostrar
-  Favorable/Desfavorable y debajo conserva la florada original, sin anadir
-  columnas.
-- No hay migracion automatica del catalogo persistente de HA. Para desplegar
-  esta politica: actualizar primero el add-on, importar manualmente el
-  `mushroom_reference_catalogs.json` completo actualizado y despues ejecutar
-  `Reconstruir todas`. La reconstruccion falla explicitamente si alguna
-  entrada de florada no contiene un entero `prediction_favorable` 0/1.
-- Los botones `Reconstruir esta especie` y `Reconstruir todas` de
-  `Evidencia > Modelo aprendido` ejecutan la cadena GIS/DEM, meteorologia,
-  features v0 y modelo en un job de segundo plano. La pagina vuelve de
-  inmediato y muestra el modal compartido de fases, porcentaje, tiempos, ETA y
-  error final; ya no bloquean silenciosamente la peticion HTTP de HA.
-- El progreso de las cuatro fases es incremental: GIS/DEM informa por
-  observacion; meteorologia por bytes/fuentes leidos, observaciones y ficheros
-  de salida; features v0 por uniones, resumen y escrituras; y el modelo por
-  observaciones, especies, variables y artefactos escritos. El porcentaje total
-  es una ponderacion de estas unidades reales, no una estimacion exacta del
-  tiempo restante.
-- La propuesta ML se centra primero en una especie con suficientes datos y
-  requiere episodios por setal/fecha, series meteorologicas diarias, features
-  de acumulacion y variabilidad, baseline sencillo y validacion agrupada sin
-  fuga.
-- No fabricar negativos ni inventar ventanas, umbrales o pesos. Hacen falta mas
-  observaciones, especialmente visitas con resultado desfavorable y contexto
-  fiable.
-- Areas y microareas son entidades predictivas propias. La primera fase
-  predecira solo sobre setales conocidos; descubrir nuevos setales queda para
-  una fase posterior.
-- La bibliografia por especie vive en
-  `docs/mushrooms/literature/prediction/` y debe informar hipotesis, no fijar
-  automaticamente parametros numericos sin evidencia.
+## Validacion local de cierre
 
-## Fuente de verdad y runtime
+Resultados comprobados el 2026-07-20 tras consolidar el diff:
 
-- Datos de setas local: `docker-data/mushroom-data/`.
-- Equivalente HA: `/share/rainmapper/mushroom-data/`.
-- GIS/DEM pesado en HA: `/media/rainmapper/mushroom-GIS/`.
-- Fotos y videos: `mushroom-data/media/observation-photos/` y
-  `mushroom-data/media/observation-videos/` dentro del runtime; son datos
-  privados persistentes y no se versionan.
-- Resolver canonico: `rainmapper_core/mushroom_paths.py`.
-- UI local: `http://127.0.0.1:8101`, servicio Compose `rainmapper-ha-ui`.
-- La release remota publicada es `0.2.207`. La reconstruccion completa ya se
-  ejecuto en HA; queda validar explicitamente la distribucion final del objetivo
-  favorable/desfavorable. Comprobar el estado de la UI local antes de asumir que
-  el contenedor sigue activo en una nueva sesion.
-- Usar siempre `.venv/bin/python` (Python 3.11), igual que contenedor y HA. No
-  usar el Python local del sistema. La migracion a Python 3.14 es una tarea
-  futura separada, no parte de estos cambios.
+- `.venv/bin/python -m unittest discover -s tests`: **369 tests OK**.
+- `.venv/bin/python scripts/validate-mushroom-data.py`: **0 errores y 11
+  warnings conocidos**.
+- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: **OK**, incluidos los
+  369 tests, sintaxis Python/JavaScript/shell, versiones y fixtures.
+- Las imagenes locales HA/worker se inspeccionaron sin montar volumenes: no
+  contienen `docker-data`, GIS/DEM, credenciales ni configuracion persistente
+  del worker. HA contiene solo los assets `mushroom-data` ya versionados.
+- Reconstruccion externa completa local, transferencia GIS a volumen vacio,
+  reutilizacion de cache, corte/reconexion, cancelacion, corrupcion/freshness,
+  retorno de 9/9 artefactos y promocion manual atomica: verificadas.
+- Alcance `una especie` para `cantharellus_lutescens`: completado y
+  promocionado.
+- Alcance `pendientes` para la misma unica observacion: completado y
+  promocionado.
+- Los hashes de las otras 13 especies permanecieron exactamente iguales.
+- Segundo job `pendientes`: cancelado cooperativamente en Meteorologia al 55 %,
+  sin promocion.
+- La retencion elimino la tercera copia y mantuvo las dos mas recientes.
+- La web y el protocolo quedaron separados: `8099` rechaza las rutas del
+  worker, `8100` solo acepta el protocolo cerrado y exige Bearer. Una sonda
+  manual desde el contenedor worker existente alcanzo `8100` dentro de la red
+  Docker; ese puerto no se publico en el Mac.
+- El proceso worker que llevaba horas activo no se reinicio para no reclamar ni
+  alterar jobs conservados. Sigue usando en memoria la URL antigua `:8099` y
+  registra 404; el proximo arranque mediante `mushroom_worker_start.sh` migrara
+  la URL local persistida a `:8100` antes de conectarse.
+- No quedan rebuilds candidatos activos. La cola local conserva tres probes de
+  transporte antiguos en `claimed`; no son reconstrucciones ni modifican el
+  modelo. No borrarlos sin revisar/autorizar.
 
-## Validacion al cierre
+Los contenedores locales se reconstruyeron con el codigo actual y quedaron
+encendidos al cerrar, pero la proxima sesion debe comprobar su estado real en
+vez de asumirlo.
 
-- `.venv/bin/python -m unittest discover -s tests`: 250 tests OK con los
-  cambios locales, incluido el arranque asincrono de ambos rebuilds desde
-  `Evidencia > Modelo aprendido`.
-- JavaScript embebido extraido del HTML: `node --check` OK.
-- Ruta de media local comprobada con `HEAD` y rango `bytes=0-1023`: `200`/`206`,
-  longitud y `Content-Range` correctos.
-- Validador de datos: 0 errores y 11 warnings conocidos.
-- Imagen remota `0.2.207`/`latest` verificada para amd64/arm64 con digest
-  `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`;
-  tamano comprimido 497.304.040 bytes en amd64 y 478.268.512 bytes en arm64.
-- Prueba HA de `0.2.207`: `Reconstruir todas` completo GIS/DEM, meteorologia,
-  features y modelo aprendido en 4 min 44 s.
-- Prueba HA real completada por el usuario: carga, preview, asociacion, guardado
-  y conversion del video de 30,4 MB totalmente funcionales; FFmpeg tarda 5-10 s.
+### Objetivo `prediction_favorable`
 
-## Riesgos y dudas
+La derivacion se verifico explicitamente en los datos locales actuales:
 
-- No se ha confirmado todavia en HA que la reconstruccion nueva agrupe todas
-  las abundancias exactamente segun `prediction_favorable`; revisar recuentos y
-  al menos un caso `scarce`/`very_scarce` antes de dar la politica por validada.
-- El worker externo es solo un diseno. Sus riesgos principales son consistencia
-  del snapshot, promocion atomica, autenticacion, ruta Docker-Tailscale,
-  licencias del GIS/DEM y tamano real de la imagen/TAR.
-- No crear una segunda copia del reconstructor. La primera fase futura debe
-  extraer la coordinacion de `web_server.py` a `rainmapper_core` y conservar la
-  ejecucion HA como fallback.
-- Safari/ingress puede imponer comportamiento adicional de proxy o cache no
-  reproducible localmente, pero el flujo de medios de `0.2.204` ya esta validado.
-- El fullscreen generico de imagen depende de que Safari/ingress permita la API
-  Fullscreen; el visor grande en pestana nueva queda como alternativa con zoom.
-- La UI es HTML/CSS/JS server-rendered concentrada principalmente en
-  `web_server.py`; aunque las pantallas grandes estan separadas, el riesgo de
-  regresion entre modales compartidos sigue siendo alto.
-- El contrato sigue siendo una sola imagen o video por observacion; no asumir
-  soporte de galeria ni varios adjuntos.
-- Hay datos vivos y backups bajo `docker-data/mushroom-data/`; no borrarlos ni
-  reemplazarlos durante tests.
-- No asumir que propuestas GIS/DEM equivalen a observacion de campo: son datos
-  propios del area/microarea y deben conservar procedencia.
-- No limpiar GHCR sin conservar version activa, `latest`, rollback inmediato y
-  manifests/attestations auxiliares multi-arch.
+- features: 126 filas = 66 favorables + 60 desfavorables;
+- 0 discrepancias respecto a `prediction_favorable` del catalogo;
+- 0 valores sin politica conocida;
+- modelo entrenable: 125 filas = 65 favorables + 60 desfavorables.
 
-## Archivos relevantes inmediatos
+La diferencia es `obs_20241109_0005` (`cantharellus_lutescens`): es favorable
+pero sigue en borrador y se excluye del entrenamiento. Sigue pendiente, si se
+considera necesario, comprobar visual/operativamente estos recuentos en HA; no
+confundirlo con la validacion local ya cerrada.
 
-- `rainmapper-app/app/web_server.py`: job/background actual, progreso y
-  coordinacion de las cuatro fases; origen del futuro pipeline comun.
-- `rainmapper_core/mushroom_gis_lab.py`: fase GIS/DEM y resolver
-  `RAINMAPPER_MUSHROOM_GIS_ROOT`.
-- `rainmapper_core/mushroom_observation_context.py`: fase meteorologica.
-- `rainmapper_core/mushroom_observation_features.py`: union de features V0.
-- `rainmapper_core/mushroom_learned_model.py`: modelo aprendido V0.
-- `rainmapper_core/mushroom_paths.py`: rutas canonicas de inputs y artefactos.
-- `mushroom-data/mushroom_reference_catalogs.json`: politica versionada de
-  `prediction_favorable`; no confundir con la copia viva privada de HA.
-- `tests/test_web_server_auth.py` y tests V0: reconstruccion, progreso y politica
-  derivada.
-- `docs/mushrooms/mushroom-ml-training-plan-es.md`.
-- `docs/mushrooms/mushroom-observations-schema-es.md`.
-- `docs/mushrooms/mushroom-v0-external-worker-design-es.md`: diseno diferido,
-  riesgos, fases y criterios de aceptacion del worker.
+## Prioridades siguientes
+
+### P0 — Consolidar el prototipo antes de publicar nada
+
+Estado: consolidacion local completada y validada, aun sin commit ni release.
+
+1. La API permanece apagada por defecto, la autenticacion es fail-closed y el
+   modo operacional exige simultaneamente API y autenticacion. HA expone dos
+   opciones separadas: `Enable external worker connections` y
+   `Allow external rebuilds and promotion`, ambas desactivadas por defecto.
+2. Se confinan los paths de snapshots/GIS, se verifica la huella del manifest,
+   se acota el JSON del protocolo y se evita conservar paths privados del
+   worker tras una promocion.
+3. El empaquetado fuente excluye `docker-data` y `mushroom-GIS`; la imagen HA
+   incluye el coordinador pero no lo habilita. La comprobacion final de la
+   imagen construida corresponde a P1, antes de publicar.
+4. Preparar un checkpoint/commit solo cuando el usuario lo pida. No mezclar un
+   release apresurado con el cierre documental.
+
+### P1 — Preparar una version HA normal para la prueba real
+
+1. Topologia interna definida: web/Ingress permanece en `8099`; el protocolo
+   del worker usa un listener dedicado `8100`, no publicado por defecto en HA,
+   con rutas cerradas y autenticacion obligatoria. Los controles humanos del
+   worker en `8099` solo aceptan Ingress autenticado de HA.
+2. Elegir y validar como primera exposicion privada el puerto host de `8100`
+   mediante LAN/Tailscale y su ACL/TLS. Comparar Tailscale del host frente a
+   sidecar Docker. El sidecar favorece
+   portabilidad, pero no elude politicas del Mac ni debe ser requisito para la
+   primera prueba si LAN/Tailscale del host basta.
+3. Imagen HA local construida con el Dockerfile normal e inspeccionada sin
+   volumenes: incluye coordinador/UI/core, no contiene datos privados ni
+   GIS/DEM y la reconstruccion local HA sigue disponible en `legacy` por
+   defecto.
+4. Pedir autorizacion expresa antes de bump/release/GHCR/commit/push e
+   instalacion.
+
+### P2 — Prueba M1 ↔ HA real tras instalar esa version
+
+- Emparejar M1 con una URL privada de HA y verificar identidad/ACL.
+- Probar todas, pendientes y una especie.
+- Probar cancelacion cooperativa/forzada, worker apagado, corte/reconexion,
+  duplicados/solapes, stale result, cache presente/ausente y promocion manual.
+- Verificar que HA reconstruye localmente aunque no haya worker.
+- Medir tiempos por fase HA/M1 con el mismo snapshot y dataset.
+
+### P3 — Portabilidad y ML posteriores
+
+- Repetir `docker load` y bootstrap en otro daemon/host sin reutilizar capas ni
+  volumen; probar tambien una actualizacion real del dataset semiestatico.
+- Solo despues incorporar jobs separados `build_ml_dataset`, `train_ml_model`
+  y `evaluate_ml_model`, sin promocion automatica.
+- M5 y AWS quedan diferidos.
+
+## Riesgos y dudas abiertas
+
+- El prototipo es grande y el worktree no esta versionado; una limpieza o
+  revert accidental perderia trabajo.
+- La equivalencia local no sustituye una prueba en HA/Raspberry ni una prueba
+  de red real.
+- Falta elegir y validar en HA real la publicacion privada de `8100`, su
+  ACL/TLS y la topologia Tailscale inicial; el protocolo ya no comparte el
+  listener web `8099`.
+- No se ha demostrado aun portabilidad en un daemon/host realmente limpio.
+- La auditoria local no encontro secretos ni datos GIS/vivos incorporados al
+  contexto de imagen. Antes de publicar sigue siendo obligatorio inspeccionar
+  la imagen HA construida y su configuracion efectiva.
+- `docker save/load` mueve la imagen, no el volumen persistente; un host nuevo
+  debe reconstruir cache/configuracion mediante bootstrap y sincronizacion.
+- Los datasets GIS/DEM requieren revisar licencias/atribucion antes de cualquier
+  redistribucion fuera del entorno privado.
+- El modelo V0 sigue siendo descriptivo/auditable, no un modelo ML predictivo.
+
+## Archivos relevantes
+
+Diseno y continuidad:
+
+- `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
+- `docs/mushrooms/mushroom-ml-training-plan-es.md`
+- `docs/decisions.md`
+- `docs/todo.md`
+
+UI/coordinador:
+
+- `rainmapper-app/app/web_server.py`
+- `rainmapper-app/app/mushroom_workers_ui.py`
+- `rainmapper-app/app/mushroom_profiles_ui.py`
+- `rainmapper-app/app/mushroom_known_sites_ui.py`
+
+Worker y despliegue local:
+
+- `rainmapper-worker/`
+- `mushroom_worker_start.sh`
+- `mushroom_worker_stop.sh`
+- `mushroom_lab_start.sh`
+- `rainmapper-local/docker-compose.yml`
+- `rainmapper-local/docker-compose.worker-local.yml`
+
+Core compartido:
+
+- `rainmapper_core/mushroom_rebuild_pipeline.py`
+- `rainmapper_core/mushroom_rebuild_contracts.py`
+- `rainmapper_core/mushroom_rebuild_snapshot.py`
+- `rainmapper_core/mushroom_rebuild_comparison.py`
+- `rainmapper_core/mushroom_worker_*.py`
+
+Pruebas:
+
+- `tests/test_mushroom_rebuild_*.py`
+- `tests/test_mushroom_worker_*.py`
+- `tests/test_web_server_auth.py`
+
+## Reglas innegociables de continuidad
+
+- Trabajar exclusivamente en el workspace indicado.
+- Usar siempre `.venv/bin/python` (Python 3.11), nunca el Python del sistema.
+- No revertir ni sobrescribir cambios locales existentes.
+- No borrar, sustituir ni versionar datos privados de
+  `docker-data/mushroom-data` ni GIS/DEM.
+- No hacer bump, release, limpieza GHCR ni cambios destructivos sin peticion
+  expresa.
+- No crear una imagen HA de desarrollo como atajo.
+- Mantener siempre la reconstruccion local de HA como fallback.
+- Todo texto visible nuevo de setas debe existir en
+  `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`.

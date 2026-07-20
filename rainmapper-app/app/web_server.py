@@ -36,6 +36,7 @@ import mushroom_catalogs_ui
 import mushroom_gis_mappings_ui
 import mushroom_known_sites_ui
 import mushroom_profiles_ui
+import mushroom_workers_ui
 from rainmapper_core import mushroom_gis_lab
 from rainmapper_core import mushroom_known_sites
 from rainmapper_core import mushroom_learned_model
@@ -44,6 +45,13 @@ from rainmapper_core import mushroom_observation_context
 from rainmapper_core import mushroom_observation_features
 from rainmapper_core import mushroom_observations
 from rainmapper_core import mushroom_paths
+from rainmapper_core import mushroom_rebuild_pipeline
+from rainmapper_core import mushroom_rebuild_contracts
+from rainmapper_core import mushroom_worker_auth
+from rainmapper_core import mushroom_worker_jobs
+from rainmapper_core import mushroom_worker_registry
+from rainmapper_core import mushroom_worker_transport
+from rainmapper_core import mushroom_worker_results
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
 from rainmapper_core.mushroom_validation import (
     empty_species_profile,
@@ -89,6 +97,24 @@ MUSHROOM_OBSERVATION_IMAGE_JPEG_QUALITY = 86
 MUSHROOM_MEDIA_FILE_MAX_BYTES = 100 * 1024 * 1024
 MUSHROOM_MEDIA_BATCH_MAX_BYTES = 500 * 1024 * 1024
 MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES = 2 * 1024 * 1024
+MUSHROOM_WORKER_JSON_MAX_BYTES = 64 * 1024
+MUSHROOM_WORKER_PROTOCOL_GET_PATHS = {
+    "/api/mushrooms/workers/ping",
+    "/api/mushrooms/workers/jobs/input",
+    "/api/mushrooms/workers/jobs/dataset",
+}
+MUSHROOM_WORKER_PROTOCOL_POST_PATHS = {
+    "/api/mushrooms/workers/pair",
+    "/api/mushrooms/workers/heartbeat",
+    "/api/mushrooms/workers/jobs/claim",
+    "/api/mushrooms/workers/jobs/start",
+    "/api/mushrooms/workers/jobs/progress",
+    "/api/mushrooms/workers/jobs/control",
+    "/api/mushrooms/workers/jobs/finish",
+    "/api/mushrooms/workers/jobs/result-file",
+    "/api/mushrooms/workers/jobs/result-complete",
+}
+HOME_ASSISTANT_INGRESS_PROXY_IP = "172.30.32.2"
 MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS = 30
 MUSHROOM_OBSERVATION_VIDEO_MAX_WIDTH = 854
 MUSHROOM_OBSERVATION_VIDEO_MAX_HEIGHT = 480
@@ -123,6 +149,7 @@ PUBLIC_MAP_NAMES = {
 }
 
 RUN_LOCK = threading.Lock()
+MUSHROOM_WORKER_PROMOTION_LOCK = threading.Lock()
 SHUTDOWN_EVENT = threading.Event()
 CURRENT_PROCESS_LOCK = threading.Lock()
 CURRENT_PROCESS: subprocess.Popen | None = None
@@ -143,9 +170,15 @@ RUN_STATE = {
     "last_publish_message": "Not published yet.",
     "users_flash": "",
     "mushroom_profiles_flash": "",
+    "mushroom_workers_flash": "",
+    "mushroom_workers_flash_error": False,
 }
 MUSHROOM_REBUILD_JOBS: dict[str, dict[str, object]] = {}
 MUSHROOM_REBUILD_JOB_TTL_SECONDS = 3600
+MUSHROOM_WORKER_HEARTBEATS: dict[str, dict[str, object]] = {}
+MUSHROOM_WORKER_STALE_SECONDS = 5
+MUSHROOM_WORKER_PAIRINGS: dict[str, dict[str, object]] = {}
+MUSHROOM_WORKER_PAIRING_TTL_SECONDS = 600
 
 
 class RequestBodyError(ValueError):
@@ -6354,6 +6387,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       min-height: 32px;
       padding: 5px 10px;
       text-align: center;
+      text-decoration: none;
       white-space: nowrap;
     }}
     .mushroom-model-stale-button span {{
@@ -7858,10 +7892,6 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         var searchSpecies = document.querySelector(".catalog-toolbar .catalog-filter input[name='id']");
         if (searchSpecies) {{
           searchSpecies.value = payload.species_id;
-        }}
-        var rebuildSpecies = document.querySelector(".mushroom-model-stale-form input[name='species_id']");
-        if (rebuildSpecies) {{
-          rebuildSpecies.value = payload.species_id;
         }}
         if (options.history !== false) {{
           var selectedUrl = new URL(href, window.location.href);
@@ -10338,6 +10368,890 @@ def set_mushroom_profiles_flash(message: str) -> None:
         RUN_STATE["mushroom_profiles_flash"] = message
 
 
+def mushroom_workers_flash() -> tuple[str, bool]:
+    with RUN_LOCK:
+        message = str(RUN_STATE.get("mushroom_workers_flash", ""))
+        is_error = bool(RUN_STATE.get("mushroom_workers_flash_error", False))
+        RUN_STATE["mushroom_workers_flash"] = ""
+        RUN_STATE["mushroom_workers_flash_error"] = False
+    return message, is_error
+
+
+def set_mushroom_workers_flash(message: str, *, error: bool = False) -> None:
+    with RUN_LOCK:
+        RUN_STATE["mushroom_workers_flash"] = message
+        RUN_STATE["mushroom_workers_flash_error"] = error
+
+
+def mushroom_worker_api_enabled() -> bool:
+    return env("RAINMAPPER_WORKER_API_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def mushroom_worker_auth_required() -> bool:
+    return env("RAINMAPPER_WORKER_AUTH_REQUIRED", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def mushroom_worker_operational_enabled() -> bool:
+    requested = env("RAINMAPPER_WORKER_OPERATIONAL_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    return requested and mushroom_worker_api_enabled() and mushroom_worker_auth_required()
+
+
+def mushroom_worker_registry_path() -> Path:
+    return mushroom_paths.mushroom_data_file("mushroom_workers.json")
+
+
+def mushroom_worker_jobs_path() -> Path:
+    return mushroom_paths.mushroom_data_file("mushroom_worker_jobs.json")
+
+
+def mushroom_worker_credentials_path() -> Path:
+    return mushroom_paths.mushroom_data_file("mushroom_worker_credentials.json")
+
+
+def mushroom_worker_input_bundles_path() -> Path:
+    return mushroom_paths.mushroom_data_dir() / ".worker-input-bundles"
+
+
+def mushroom_worker_candidate_results_path() -> Path:
+    return mushroom_paths.mushroom_data_dir() / ".worker-candidate-results"
+
+
+def authenticate_mushroom_worker(worker_id: str, token: str) -> bool:
+    if not mushroom_worker_auth_required():
+        return True
+    try:
+        return mushroom_worker_auth.authenticate(
+            mushroom_worker_credentials_path(),
+            worker_id=worker_id,
+            token=token,
+        )
+    except ValueError:
+        return False
+
+
+def create_mushroom_worker_pairing(
+    *,
+    now: float | None = None,
+    pairing_code: str | None = None,
+) -> dict[str, object]:
+    if not mushroom_worker_api_enabled():
+        raise ValueError("Worker API is not enabled.")
+    if not mushroom_worker_auth_required():
+        raise ValueError("Worker pairing requires worker authentication to be enabled.")
+    current_ts = time.time() if now is None else now
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    code = str(pairing_code or "").strip().upper()
+    if not code:
+        raw = "".join(secrets.choice(alphabet) for _ in range(8))
+        code = f"{raw[:4]}-{raw[4:]}"
+    if not re.fullmatch(r"[A-Z2-9]{4}-[A-Z2-9]{4}", code):
+        raise ValueError("Pairing code format is invalid.")
+    code_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
+    with RUN_LOCK:
+        MUSHROOM_WORKER_PAIRINGS.clear()
+        MUSHROOM_WORKER_PAIRINGS[code_hash] = {
+            "created_ts": current_ts,
+            "expires_ts": current_ts + MUSHROOM_WORKER_PAIRING_TTL_SECONDS,
+        }
+    return {
+        "pairing_code": code,
+        "expires_in_seconds": MUSHROOM_WORKER_PAIRING_TTL_SECONDS,
+    }
+
+
+def pair_mushroom_worker(
+    payload: object,
+    *,
+    now: float | None = None,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not mushroom_worker_auth_required():
+        return 409, {"ok": False, "error": "Worker pairing requires authentication to be enabled."}
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker pairing payload must be an object."}
+    worker_id = str(payload.get("worker_id", "") or "").strip()
+    display_name = str(payload.get("display_name", "") or "").strip()
+    host_name = str(payload.get("host_name", "") or "").strip()
+    if not mushroom_worker_registry.WORKER_ID_PATTERN.fullmatch(worker_id):
+        return 400, {"ok": False, "error": "Worker ID is invalid."}
+    if not display_name or len(display_name) > 80 or not host_name or len(host_name) > 255:
+        return 400, {"ok": False, "error": "Worker identity is invalid."}
+    code = str(payload.get("pairing_code", "") or "").strip().upper()
+    code_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
+    current_ts = time.time() if now is None else now
+    with RUN_LOCK:
+        pairing = MUSHROOM_WORKER_PAIRINGS.get(code_hash)
+        if pairing is None or float(pairing.get("expires_ts", 0) or 0) <= current_ts:
+            MUSHROOM_WORKER_PAIRINGS.pop(code_hash, None)
+            return 401, {"ok": False, "error": "Pairing code is invalid or expired."}
+        try:
+            token = mushroom_worker_auth.issue_credential(
+                mushroom_worker_credentials_path(),
+                worker_id=worker_id,
+            )
+        except ValueError as exc:
+            return 400, {"ok": False, "error": str(exc)}
+        MUSHROOM_WORKER_PAIRINGS.clear()
+    return 200, {
+        "ok": True,
+        "worker_id": worker_id,
+        "display_name": display_name,
+        "token": token,
+        "token_type": "Bearer",
+    }
+
+
+def revoke_mushroom_worker_credential(worker_id: str) -> tuple[int, dict[str, object]]:
+    resolved_worker_id = str(worker_id or "").strip()
+    if not mushroom_worker_registry.WORKER_ID_PATTERN.fullmatch(resolved_worker_id):
+        return 400, {"ok": False, "error": "Worker ID is invalid."}
+    with RUN_LOCK:
+        try:
+            revoked = mushroom_worker_auth.revoke_credential(
+                mushroom_worker_credentials_path(),
+                worker_id=resolved_worker_id,
+            )
+        except ValueError as exc:
+            return 400, {"ok": False, "error": str(exc)}
+        if revoked:
+            try:
+                unregistered = mushroom_worker_registry.forget_worker(
+                    mushroom_worker_registry_path(),
+                    resolved_worker_id,
+                )
+            except ValueError as exc:
+                return 400, {"ok": False, "error": str(exc)}
+            MUSHROOM_WORKER_HEARTBEATS.pop(resolved_worker_id, None)
+    if not revoked:
+        return 404, {"ok": False, "error": "Worker credential was not found."}
+    return 200, {
+        "ok": True,
+        "worker_id": resolved_worker_id,
+        "revoked": True,
+        "unregistered": unregistered,
+    }
+
+
+def register_mushroom_worker_heartbeat(
+    payload: object,
+    *,
+    auth_token: str = "",
+    now: float | None = None,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    try:
+        heartbeat = mushroom_worker_registry.normalize_heartbeat(payload)
+        if not authenticate_mushroom_worker(str(heartbeat["worker_id"]), auth_token):
+            return 401, {"ok": False, "error": "Worker authentication failed."}
+        mushroom_worker_registry.remember_worker(mushroom_worker_registry_path(), heartbeat)
+    except ValueError as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    seen_ts = time.time() if now is None else now
+    seen_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
+    worker_id = str(heartbeat["worker_id"])
+    with RUN_LOCK:
+        MUSHROOM_WORKER_HEARTBEATS[worker_id] = {
+            "payload": heartbeat,
+            "last_seen_ts": seen_ts,
+            "last_seen_at": seen_at,
+        }
+    return 200, {
+        "ok": True,
+        "worker_id": worker_id,
+        "heartbeat_interval_seconds": 2,
+    }
+
+
+def registered_mushroom_worker_statuses(*, now: float | None = None) -> list[dict[str, object]]:
+    current_ts = time.time() if now is None else now
+    registry = mushroom_worker_registry.load_registry(mushroom_worker_registry_path())
+    auth_required = mushroom_worker_auth_required()
+    credential_rows = (
+        mushroom_worker_auth.load_credentials(mushroom_worker_credentials_path())["workers"]
+        if auth_required
+        else []
+    )
+    paired_worker_ids = {str(row.get("worker_id", "")) for row in credential_rows}
+    known_workers = {
+        str(row.get("worker_id", "")): dict(row)
+        for row in registry.get("workers", [])
+        if isinstance(row, dict) and str(row.get("worker_id", ""))
+    }
+    with RUN_LOCK:
+        live_workers = {worker_id: dict(value) for worker_id, value in MUSHROOM_WORKER_HEARTBEATS.items()}
+    if auth_required:
+        known_workers = {
+            worker_id: value
+            for worker_id, value in known_workers.items()
+            if worker_id in paired_worker_ids
+        }
+        live_workers = {
+            worker_id: value
+            for worker_id, value in live_workers.items()
+            if worker_id in paired_worker_ids
+        }
+    worker_ids = sorted(
+        set(known_workers) | set(live_workers),
+        key=lambda worker_id: (
+            str(
+                (live_workers.get(worker_id, {}).get("payload") or known_workers.get(worker_id, {})).get(
+                    "display_name", worker_id
+                )
+            ).casefold(),
+            worker_id,
+        ),
+    )
+    statuses: list[dict[str, object]] = []
+    for worker_id in worker_ids:
+        live = live_workers.get(worker_id, {})
+        live_payload = live.get("payload")
+        payload = dict(live_payload) if isinstance(live_payload, dict) else dict(known_workers.get(worker_id, {}))
+        last_seen_ts = float(live.get("last_seen_ts", 0) or 0)
+        reachable = bool(last_seen_ts and current_ts - last_seen_ts <= MUSHROOM_WORKER_STALE_SECONDS)
+        if not reachable:
+            payload["status"] = "disconnected"
+            payload["job_api"] = payload.get("job_api", "not_implemented")
+            payload.setdefault("dataset_cache", {})
+        payload["paired"] = worker_id in paired_worker_ids
+        statuses.append(
+            {
+                "configured": True,
+                "reachable": reachable,
+                "checked_at": str(live.get("last_seen_at", "") or "-"),
+                "payload": payload,
+                "error": "",
+            }
+        )
+    return statuses
+
+
+def create_mushroom_worker_claim_probe(worker_id: str) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    worker = next(
+        (
+            row
+            for row in registered_mushroom_worker_statuses()
+            if row.get("reachable")
+            and isinstance(row.get("payload"), dict)
+            and str(row["payload"].get("worker_id", "")) == worker_id
+        ),
+        None,
+    )
+    if worker is None:
+        return 409, {"ok": False, "error": "The selected worker is not connected."}
+    payload = worker["payload"]
+    display_name = str(payload.get("display_name", worker_id))
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.create_claim_probe(
+                mushroom_worker_jobs_path(),
+                worker_id=worker_id,
+                worker_display_name=display_name,
+            )
+    except mushroom_worker_jobs.DuplicateActiveWorkError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    except ValueError as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    return 201, {"ok": True, "job": job}
+
+
+def create_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    worker = next(
+        (
+            row
+            for row in registered_mushroom_worker_statuses()
+            if row.get("reachable")
+            and isinstance(row.get("payload"), dict)
+            and str(row["payload"].get("worker_id", "")) == worker_id
+        ),
+        None,
+    )
+    if worker is None:
+        return 409, {"ok": False, "error": "The selected worker is not connected."}
+    payload = worker["payload"]
+    if payload.get("job_api") not in {"snapshot_transport_v0", "candidate_rebuild_v0"}:
+        return 409, {"ok": False, "error": "The selected worker cannot transport input snapshots."}
+    display_name = str(payload.get("display_name", worker_id))
+    job_id = f"worker_job_{secrets.token_urlsafe(12)}"
+    try:
+        input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
+            mushroom_worker_input_bundles_path(),
+            job_id=job_id,
+            observations_path=mushroom_paths.mushroom_observations_path(),
+            reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+            gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+            weather_data_dir=mushroom_paths.weather_data_dir(),
+            gis_root=mushroom_gis_lab.gis_root(),
+        )
+        try:
+            with RUN_LOCK:
+                job = mushroom_worker_jobs.create_snapshot_transport_probe(
+                    mushroom_worker_jobs_path(),
+                    worker_id=worker_id,
+                    worker_display_name=display_name,
+                    input_bundle=input_bundle,
+                    job_id=job_id,
+                )
+        except BaseException:
+            mushroom_worker_transport.discard_unqueued_bundle(
+                mushroom_worker_input_bundles_path(),
+                job_id,
+            )
+            raise
+    except mushroom_worker_jobs.DuplicateActiveWorkError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    return 201, {"ok": True, "job": job}
+
+
+def create_mushroom_worker_candidate_rebuild(
+    worker_id: str,
+    *,
+    promotion_eligible: bool = False,
+    reconstruction_scope: str = "all",
+    species_id: str = "",
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    worker = next(
+        (
+            row
+            for row in registered_mushroom_worker_statuses()
+            if row.get("reachable")
+            and isinstance(row.get("payload"), dict)
+            and str(row["payload"].get("worker_id", "")) == worker_id
+        ),
+        None,
+    )
+    if worker is None:
+        return 409, {"ok": False, "error": "The selected worker is not connected."}
+    payload = worker["payload"]
+    if payload.get("job_api") != "candidate_rebuild_v0":
+        return 409, {"ok": False, "error": "The selected worker cannot run candidate rebuilds."}
+    display_name = str(payload.get("display_name", worker_id))
+    job_id = f"worker_job_{secrets.token_urlsafe(12)}"
+    try:
+        store = default_store()
+        store.ensure_seeded()
+        observations_payload = store.load("observations")
+        observations = observation_dicts_from_payload(
+            observations_payload if isinstance(observations_payload, dict) else {}
+        )
+        scope = str(reconstruction_scope or "all").strip().lower()
+        eligible_species = eligible_model_species_ids(observations)
+        if scope == "all":
+            scope_species_ids: list[str] = []
+            selected_observation_ids = eligible_observation_ids_for_species(
+                observations,
+                eligible_species,
+            )
+            scope_label = "all eligible (candidate)"
+            scope_key = "all"
+        elif scope == "species":
+            selected_species = str(species_id or "").strip()
+            if selected_species not in eligible_species:
+                return 400, {"ok": False, "error": "Select an eligible species for the external rebuild."}
+            scope_species_ids = [selected_species]
+            selected_observation_ids = eligible_observation_ids_for_species(
+                observations,
+                scope_species_ids,
+            )
+            scope_label = f"species: {selected_species}"
+            scope_key = f"species:{selected_species}"
+        elif scope == "pending":
+            scope_species_ids = pending_model_species_ids(
+                mushroom_model_state.load_state(),
+                observations,
+                learned_model_payload=mushroom_learned_model.load_latest_model(),
+            )
+            if not scope_species_ids:
+                return 409, {"ok": False, "error": "There are no pending species to rebuild."}
+            selected_observation_ids = eligible_observation_ids_for_species(
+                observations,
+                scope_species_ids,
+            )
+            scope_label = f"pending species ({len(scope_species_ids)})"
+            scope_key = "pending:" + ",".join(scope_species_ids)
+        else:
+            return 400, {"ok": False, "error": "External rebuild scope is invalid."}
+        if not selected_observation_ids:
+            return 409, {"ok": False, "error": "The selected external rebuild has no eligible observations."}
+        input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
+            mushroom_worker_input_bundles_path(),
+            job_id=job_id,
+            observations_path=mushroom_paths.mushroom_observations_path(),
+            reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+            gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+            weather_data_dir=mushroom_paths.weather_data_dir(),
+            gis_root=mushroom_gis_lab.gis_root(),
+            reconstruction_scope=scope,
+            selected_observation_ids=selected_observation_ids,
+            pending_species_ids=scope_species_ids,
+        )
+        try:
+            with RUN_LOCK:
+                job = mushroom_worker_jobs.create_candidate_rebuild(
+                    mushroom_worker_jobs_path(),
+                    worker_id=worker_id,
+                    worker_display_name=display_name,
+                    input_bundle=input_bundle,
+                    job_id=job_id,
+                    reconstruction_scope=scope,
+                    scope_label=scope_label,
+                    scope_key=scope_key,
+                    scope_species_ids=scope_species_ids,
+                    promotion_eligible=promotion_eligible,
+                )
+        except BaseException:
+            mushroom_worker_transport.discard_unqueued_bundle(
+                mushroom_worker_input_bundles_path(),
+                job_id,
+            )
+            raise
+    except mushroom_worker_jobs.DuplicateActiveWorkError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    return 201, {"ok": True, "job": job}
+
+
+def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_operational_enabled():
+        return 404, {"ok": False, "error": "External worker promotion is not enabled."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.begin_candidate_promotion(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+            )
+        with MUSHROOM_WORKER_PROMOTION_LOCK:
+            promotion = mushroom_worker_results.promote_verified_candidate(
+                mushroom_worker_candidate_results_path(),
+                mushroom_worker_input_bundles_path(),
+                mushroom_paths.mushroom_data_dir(),
+                job_id=job_id,
+                observations_path=mushroom_paths.mushroom_observations_path(),
+                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                weather_data_dir=mushroom_paths.weather_data_dir(),
+                gis_root=mushroom_gis_lab.gis_root(),
+            )
+            state_warning = ""
+            try:
+                if str(job.get("reconstruction_scope", "all")) == "all":
+                    mushroom_model_state.clear_all_pending(full_rebuild=True)
+                else:
+                    mushroom_model_state.clear_species_pending(
+                        [
+                            str(species_id)
+                            for species_id in job.get("scope_species_ids", [])
+                            if str(species_id or "").strip()
+                        ]
+                    )
+            except Exception as exc:
+                state_warning = f" Model state could not be cleared: {exc}"
+        with RUN_LOCK:
+            promoted_job = mushroom_worker_jobs.finish_candidate_promotion(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                promoted=True,
+                result={**promotion, "state_warning": state_warning},
+            )
+        return 200, {"ok": True, "job": promoted_job, "promotion": promotion, "warning": state_warning}
+    except (FileExistsError, FileNotFoundError, KeyError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        try:
+            with RUN_LOCK:
+                failed_job = mushroom_worker_jobs.finish_candidate_promotion(
+                    mushroom_worker_jobs_path(),
+                    job_id=job_id,
+                    promoted=False,
+                    error=str(exc),
+                )
+        except ValueError:
+            failed_job = {}
+        return 409, {"ok": False, "error": str(exc), "job": failed_job}
+
+
+def claim_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker claim payload must be an object."}
+    worker_id = str(payload.get("worker_id", ""))
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.claim_next(
+                mushroom_worker_jobs_path(),
+                worker_id=worker_id,
+            )
+    except ValueError as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "job": job}
+
+
+def start_claimed_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker job payload must be an object."}
+    worker_id = str(payload.get("worker_id", ""))
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.start_job(
+                mushroom_worker_jobs_path(),
+                job_id=str(payload.get("job_id", "")),
+                worker_id=worker_id,
+                claim_token=str(payload.get("claim_token", "")),
+            )
+    except ValueError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "job": job}
+
+
+def control_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker job payload must be an object."}
+    worker_id = str(payload.get("worker_id", ""))
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.poll_job(
+                mushroom_worker_jobs_path(),
+                job_id=str(payload.get("job_id", "")),
+                worker_id=worker_id,
+                claim_token=str(payload.get("claim_token", "")),
+            )
+    except ValueError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {
+        "ok": True,
+        "job": job,
+        "cancel_requested": job.get("status") == "cancel_requested",
+        "force_cancel_requested": (
+            job.get("status") == "cancel_requested" and job.get("cancel_mode") == "force"
+        ),
+    }
+
+
+def progress_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker job payload must be an object."}
+    worker_id = str(payload.get("worker_id", ""))
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.update_progress(
+                mushroom_worker_jobs_path(),
+                job_id=str(payload.get("job_id", "")),
+                worker_id=worker_id,
+                claim_token=str(payload.get("claim_token", "")),
+                phase=str(payload.get("phase", "")),
+                message=str(payload.get("message", "")),
+                overall_percent=int(payload.get("overall_percent", 0)),
+            )
+    except (TypeError, ValueError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "job": job}
+
+
+def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker job payload must be an object."}
+    worker_id = str(payload.get("worker_id", ""))
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+            current_job = next(
+                (
+                    row
+                    for row in queue["jobs"]
+                    if str(row.get("job_id", "")) == str(payload.get("job_id", ""))
+                ),
+                None,
+            )
+            if current_job is None:
+                raise ValueError("Worker job was not found.")
+            trusted_result = payload.get("result") if isinstance(payload.get("result"), dict) else None
+            if (
+                current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD
+                and str(payload.get("status", "")) == "complete"
+            ):
+                candidate = mushroom_worker_results.load_final_candidate(
+                    mushroom_worker_candidate_results_path(),
+                    str(payload.get("job_id", "")),
+                )
+                input_bundle = current_job.get("input_bundle")
+                input_bundle = input_bundle if isinstance(input_bundle, dict) else {}
+                job_spec = mushroom_rebuild_contracts.load_job_spec(
+                    mushroom_worker_input_bundles_path()
+                    / str(payload.get("job_id", ""))
+                    / mushroom_worker_transport.JOB_SPEC_LOGICAL_PATH
+                )
+                requirements = job_spec.get("dataset_requirements")
+                requirement = requirements[0] if isinstance(requirements, list) and requirements else {}
+                trusted_result = {
+                    "verification_status": "verified",
+                    "snapshot_id": input_bundle.get("snapshot_id"),
+                    "job_spec_id": input_bundle.get("job_spec_id"),
+                    "input_file_count": input_bundle.get("input_file_count"),
+                    "input_size_bytes": input_bundle.get("input_size_bytes"),
+                    "dataset_fingerprint": (
+                        requirement.get("fingerprint") if isinstance(requirement, dict) else None
+                    ),
+                    "result_manifest_id": candidate.get("result_manifest_id"),
+                    "verified_artifacts": candidate.get("verified_artifacts"),
+                    "comparison_status": candidate.get("comparison_status"),
+                }
+            job = mushroom_worker_jobs.finish_job(
+                mushroom_worker_jobs_path(),
+                job_id=str(payload.get("job_id", "")),
+                worker_id=worker_id,
+                claim_token=str(payload.get("claim_token", "")),
+                status=str(payload.get("status", "")),
+                error=str(payload.get("error", "")),
+                result=trusted_result,
+            )
+            if (
+                current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD
+                and str(payload.get("status", "")) in {"cancelled", "failed"}
+            ):
+                mushroom_worker_results.discard_candidate_staging(
+                    mushroom_worker_candidate_results_path(),
+                    str(payload.get("job_id", "")),
+                )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "job": job}
+
+
+def receive_mushroom_worker_result_file(
+    *,
+    job_id: str,
+    logical_path: str,
+    content: bytes,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            mushroom_worker_jobs.authorize_result_upload(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        result = mushroom_worker_results.receive_result_file(
+            mushroom_worker_candidate_results_path(),
+            mushroom_worker_input_bundles_path(),
+            job_id=job_id,
+            logical_path=logical_path,
+            content=content,
+        )
+    except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "result": result}
+
+
+def complete_mushroom_worker_candidate_result(
+    payload: object,
+    *,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker result payload must be an object."}
+    worker_id = str(payload.get("worker_id", ""))
+    job_id = str(payload.get("job_id", ""))
+    claim_token = str(payload.get("claim_token", ""))
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            mushroom_worker_jobs.authorize_result_upload(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        verification = mushroom_worker_results.finalize_candidate_result(
+            mushroom_worker_candidate_results_path(),
+            mushroom_worker_input_bundles_path(),
+            mushroom_paths.mushroom_data_dir(),
+            job_id=job_id,
+        )
+    except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "verification": verification}
+
+
+def resolve_mushroom_worker_input_download(
+    *,
+    job_id: str,
+    logical_path: str,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+) -> tuple[int, Path | dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.authorize_input_download(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        metadata = mushroom_worker_transport.load_coordinator_bundle(
+            mushroom_worker_input_bundles_path(),
+            job_id,
+        )
+        input_bundle = job.get("input_bundle")
+        if not isinstance(input_bundle, dict):
+            raise ValueError("Worker job input bundle contract is missing.")
+        for key in (
+            "job_spec_id",
+            "snapshot_id",
+            "input_file_count",
+            "input_size_bytes",
+            "dataset_id",
+            "dataset_fingerprint",
+            "dataset_file_count",
+            "dataset_size_bytes",
+        ):
+            if key not in input_bundle:
+                continue
+            if metadata.get(key) != input_bundle.get(key):
+                raise ValueError("Worker job input bundle no longer matches its immutable files.")
+        path = mushroom_worker_transport.resolve_coordinator_file(
+            mushroom_worker_input_bundles_path(),
+            job_id,
+            logical_path,
+        )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, path
+
+
+def resolve_mushroom_worker_dataset_download(
+    *,
+    job_id: str,
+    dataset_id: str,
+    fingerprint: str,
+    logical_path: str,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+) -> tuple[int, Path | dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.authorize_input_download(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        metadata = mushroom_worker_transport.load_coordinator_bundle(
+            mushroom_worker_input_bundles_path(),
+            job_id,
+        )
+        input_bundle = job.get("input_bundle")
+        if not isinstance(input_bundle, dict):
+            raise ValueError("Worker job input bundle contract is missing.")
+        for key in ("dataset_id", "dataset_fingerprint", "dataset_file_count", "dataset_size_bytes"):
+            if key in input_bundle and metadata.get(key) != input_bundle.get(key):
+                raise ValueError("Worker job dataset no longer matches its immutable manifest.")
+        if dataset_id != metadata.get("dataset_id") or fingerprint != metadata.get("dataset_fingerprint"):
+            raise ValueError("Requested worker dataset does not match the assigned job.")
+        path = mushroom_worker_transport.resolve_coordinator_dataset_file(
+            mushroom_worker_input_bundles_path(),
+            mushroom_gis_lab.gis_root(),
+            job_id=job_id,
+            dataset_id=dataset_id,
+            fingerprint=fingerprint,
+            logical_path=logical_path,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, path
+
+
+def cancel_mushroom_worker_job(job_id: str, *, force: bool = False) -> tuple[int, dict[str, object]]:
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.request_cancel(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                force=force,
+            )
+    except ValueError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "job": job}
+
+
+def reassign_mushroom_worker_job(job_id: str, worker_id: str) -> tuple[int, dict[str, object]]:
+    target = next(
+        (
+            row
+            for row in registered_mushroom_worker_statuses()
+            if isinstance(row.get("payload"), dict)
+            and str(row["payload"].get("worker_id", "")) == worker_id
+        ),
+        None,
+    )
+    if target is None:
+        return 409, {"ok": False, "error": "The selected worker is not registered."}
+    payload = target["payload"]
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.reassign_job(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                worker_display_name=str(payload.get("display_name", worker_id)),
+            )
+    except ValueError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "job": job}
+
+
 def compact_duration(seconds: float | int | None) -> str:
     if seconds is None:
         return ""
@@ -10349,6 +11263,98 @@ def compact_duration(seconds: float | int | None) -> str:
     if minutes:
         return f"{minutes}m {sec}s"
     return f"{sec}s"
+
+
+def parse_worker_job_datetime(value: object) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def format_worker_job_datetime(value: object) -> str:
+    parsed = parse_worker_job_datetime(value)
+    if parsed is None:
+        return "-"
+    return parsed.astimezone(get_timezone()).strftime("%d/%m/%Y %H:%M:%S")
+
+
+def worker_job_elapsed(job: dict[str, object], *, now: datetime | None = None) -> str:
+    started = parse_worker_job_datetime(job.get("started_at") or job.get("created_at"))
+    if started is None:
+        return "-"
+    finished = parse_worker_job_datetime(job.get("finished_at"))
+    current = finished or now or datetime.now(UTC)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=UTC)
+    return compact_duration((current.astimezone(UTC) - started.astimezone(UTC)).total_seconds())
+
+
+def mushroom_workers_recent_jobs(*, limit: int = 10) -> list[dict[str, object]]:
+    cleanup_mushroom_rebuild_jobs()
+    with RUN_LOCK:
+        rebuild_jobs = [mushroom_rebuild_job_payload(dict(job)) for job in MUSHROOM_REBUILD_JOBS.values()]
+        external_jobs = mushroom_worker_jobs.recent_jobs(mushroom_worker_jobs_path(), limit=limit)
+    jobs: list[dict[str, object]] = []
+    for job in rebuild_jobs:
+        started_at = job.get("started_at", "")
+        jobs.append(
+            {
+                **job,
+                "created_at": started_at,
+                "date_time": format_worker_job_datetime(started_at),
+                "sort_at": started_at,
+                "opens_rebuild_modal": True,
+            }
+        )
+    for job in external_jobs:
+        public_job = {key: value for key, value in job.items() if key != "claim_token"}
+        created_at = job.get("created_at", "")
+        jobs.append(
+            {
+                **public_job,
+                "executor": "worker",
+                "worker_display_name": job.get("target_display_name", ""),
+                "date_time": format_worker_job_datetime(created_at),
+                "elapsed": worker_job_elapsed(job),
+                "sort_at": created_at,
+                "opens_rebuild_modal": False,
+            }
+        )
+    return sorted(jobs, key=lambda job: str(job.get("sort_at", "")), reverse=True)[:limit]
+
+
+def mushroom_workers_status_refresh_payload() -> dict[str, object]:
+    worker_statuses = registered_mushroom_worker_statuses()
+    jobs = mushroom_workers_recent_jobs()
+    operational_enabled = mushroom_worker_operational_enabled()
+    default_executor = mushroom_worker_registry.load_registry(
+        mushroom_worker_registry_path()
+    )["default_executor"]
+    return {
+        "ok": True,
+        "stale_after_seconds": MUSHROOM_WORKER_STALE_SECONDS,
+        "worker_cards_html": mushroom_workers_ui.render_worker_cards(
+            worker_statuses,
+            default_executor=default_executor,
+        ),
+        "worker_choices_html": mushroom_workers_ui.render_worker_choices(
+            worker_statuses,
+            operational_enabled=operational_enabled,
+            default_executor=default_executor,
+        ),
+        "recent_jobs_html": mushroom_workers_ui.render_recent_jobs(
+            jobs,
+            worker_statuses,
+            operational_enabled=operational_enabled,
+        ),
+    }
 
 
 def append_query_param(url: str, key: str, value: str) -> str:
@@ -10459,6 +11465,9 @@ def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
 
     return {
         "job_id": job.get("job_id", ""),
+        "job_type": "rebuild_v0",
+        "executor": "home_assistant",
+        "worker_display_name": "Home Assistant",
         "status": job.get("status", "unknown"),
         "phase": job.get("phase", ""),
         "phase_index": job.get("phase_index", 0),
@@ -10468,6 +11477,14 @@ def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
         "message": job.get("message", ""),
         "error": job.get("error", ""),
         "result": job.get("result", {}),
+        "scope": job.get("scope", ""),
+        "pipeline": job.get("pipeline", "legacy"),
+        "cancel_requested": bool(job.get("cancel_requested", False)),
+        "can_cancel": (
+            job.get("pipeline") == "shared"
+            and job.get("status") == "running"
+            and not bool(job.get("_promotion_started", False))
+        ),
         "elapsed": compact_duration(total_elapsed),
         "phase_elapsed": compact_duration(phase_elapsed),
         "eta": compact_duration(total_eta) if total_eta is not None else "",
@@ -10516,7 +11533,7 @@ def set_mushroom_rebuild_progress(
             job["result"] = result
         if reset_phase_timer:
             job["phase_started_at_ts"] = now
-        if status in {"complete", "failed"}:
+        if status in {"complete", "failed", "cancelled"}:
             job["finished_at_ts"] = now
             job["finished_at"] = datetime.now(get_timezone()).isoformat(timespec="seconds")
 
@@ -10528,6 +11545,26 @@ def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
         if not job:
             return None
         return mushroom_rebuild_job_payload(dict(job))
+
+
+def request_mushroom_rebuild_cancel(job_id: str) -> tuple[int, dict[str, object]]:
+    with RUN_LOCK:
+        job = MUSHROOM_REBUILD_JOBS.get(job_id)
+        if not job:
+            return 404, {"ok": False, "error": "Rebuild job was not found."}
+        if job.get("pipeline") != "shared":
+            return 409, {"ok": False, "error": "Legacy rebuild jobs cannot be cancelled safely."}
+        if job.get("status") != "running":
+            return 409, {"ok": False, "error": "Rebuild job is no longer running."}
+        if job.get("_promotion_started"):
+            return 409, {"ok": False, "error": "Rebuild results are already being promoted."}
+        cancel_event = job.get("_cancel_event")
+        if not isinstance(cancel_event, threading.Event):
+            return 500, {"ok": False, "error": "Rebuild cancellation event is unavailable."}
+        cancel_event.set()
+        job["cancel_requested"] = True
+        job["message"] = "Cancellation requested. Waiting for a safe stopping point."
+        return 202, {"ok": True, "job": mushroom_rebuild_job_payload(dict(job))}
 
 
 def render_mushroom_profiles_flash(message: str) -> str:
@@ -10570,6 +11607,7 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
     calculating = html.escape(label("ui.rebuild_progress_calculating"))
     refresh_screen = html.escape(label("ui.rebuild_progress_refresh_screen"))
     close_label = html.escape(label("ui.close"))
+    cancel_label = html.escape(label("ui.cancel"))
     return f"""
     <div id="mushroom-rebuild-progress-modal" class="mushroom-progress-backdrop" data-job-id="{safe_job_id}" data-refresh-url="{safe_refresh_url}">
       <section class="mushroom-progress-dialog" role="dialog" aria-modal="true" aria-labelledby="mushroom-rebuild-progress-title">
@@ -10601,6 +11639,7 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
         </div>
         <p id="mushroom-rebuild-progress-error" class="catalog-alert error" hidden></p>
         <footer class="mushroom-progress-actions">
+          <button id="mushroom-rebuild-progress-cancel" class="button-link" type="button" hidden>{cancel_label}</button>
           <a id="mushroom-rebuild-progress-refresh" class="button-link" href="{safe_refresh_url}" hidden>{refresh_screen}</a>
           <button id="mushroom-rebuild-progress-close" class="button-link" type="button" hidden>{close_label}</button>
         </footer>
@@ -10613,6 +11652,7 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
       const jobId = modal.dataset.jobId;
       const refreshUrl = modal.dataset.refreshUrl || "";
       const closeButton = document.getElementById("mushroom-rebuild-progress-close");
+      const cancelButton = document.getElementById("mushroom-rebuild-progress-cancel");
       const refreshLink = document.getElementById("mushroom-rebuild-progress-refresh");
       let terminalStatus = "";
       const fields = {{
@@ -10635,14 +11675,19 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
         if (node) node.value = pct;
         setText(label, `${{pct}}%`);
       }};
-      const appBasePath = window.location.pathname.replace(new RegExp("/mushrooms/profiles/?$"), "");
+      const appBasePath = window.location.pathname.replace(new RegExp("/mushrooms/(profiles|workers)/?$"), "");
       const statusUrl = `${{appBasePath}}/api/mushrooms/rebuild-status`;
+      const cancelUrl = `${{appBasePath}}/api/mushrooms/rebuild-cancel`;
       async function poll() {{
         try {{
           const response = await fetch(`${{statusUrl}}?job_id=${{encodeURIComponent(jobId)}}`, {{cache: "no-store"}});
           const payload = await response.json();
           if (!payload.ok) throw new Error(payload.error || "Cannot read rebuild status.");
           const job = payload.job || {{}};
+          if (cancelButton) {{
+            cancelButton.hidden = !job.can_cancel;
+            cancelButton.disabled = Boolean(job.cancel_requested);
+          }}
           setText(fields.status, job.status || "running");
           setText(fields.message, job.message || "");
           setProgress(fields.total, fields.totalLabel, job.overall_percent);
@@ -10658,8 +11703,9 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
             fields.error.hidden = false;
             fields.error.textContent = job.error;
           }}
-          if (job.status === "complete" || job.status === "failed") {{
+          if (job.status === "complete" || job.status === "failed" || job.status === "cancelled") {{
             terminalStatus = job.status;
+            if (cancelButton) cancelButton.hidden = true;
             closeButton.hidden = false;
             refreshLink.hidden = false;
             return;
@@ -10678,6 +11724,23 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
           return;
         }}
         modal.remove();
+      }});
+      cancelButton.addEventListener("click", async () => {{
+        cancelButton.disabled = true;
+        try {{
+          const response = await fetch(cancelUrl, {{
+            method: "POST",
+            headers: {{"Content-Type": "application/json"}},
+            body: JSON.stringify({{job_id: jobId}}),
+          }});
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) throw new Error(payload.error || "Cannot cancel rebuild.");
+          setText(fields.message, "Cancellation requested. Waiting for a safe stopping point.");
+        }} catch (error) {{
+          fields.error.hidden = false;
+          fields.error.textContent = error.message || String(error);
+          cancelButton.disabled = false;
+        }}
       }});
       poll();
     }})();
@@ -10888,6 +11951,12 @@ def start_mushroom_model_rebuild_job(
     job_id = secrets.token_urlsafe(12)
     now = time.time()
     phase_count = 4
+    pipeline_mode = (
+        "shared"
+        if env("RAINMAPPER_MUSHROOM_REBUILD_PIPELINE", "legacy").strip().lower() == "shared"
+        else "legacy"
+    )
+    cancel_event = threading.Event()
     with RUN_LOCK:
         MUSHROOM_REBUILD_JOBS[job_id] = {
             "job_id": job_id,
@@ -10906,9 +11975,15 @@ def start_mushroom_model_rebuild_job(
             "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
             "finished_at": "",
             "return_url": return_url,
+            "scope": reconstruction_scope,
+            "pipeline": pipeline_mode,
+            "cancel_requested": False,
+            "_promotion_started": False,
+            "_cancel_event": cancel_event,
         }
 
     def run_job() -> None:
+        shared_staging_root: Path | None = None
         try:
             store = default_store()
             observations_payload = store.load("observations")
@@ -10929,6 +12004,108 @@ def start_mushroom_model_rebuild_job(
             else:
                 scope_label = "selected"
             pending_species = sorted({str(species_id) for species_id in (pending_species_ids or []) if str(species_id or "").strip()})
+
+            if pipeline_mode == "shared":
+                inputs = mushroom_rebuild_pipeline.RebuildInputPaths(
+                    observations=mushroom_paths.mushroom_observations_path(),
+                    reference_catalogs=mushroom_paths.mushroom_reference_catalogs_path(),
+                    gis_mappings=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                    weather_data_dir=mushroom_paths.weather_data_dir(),
+                    gis_root=mushroom_gis_lab.gis_root(),
+                )
+                final_outputs = mushroom_rebuild_pipeline.RebuildOutputPaths(
+                    root=mushroom_paths.mushroom_data_dir(),
+                    gis_reconstruction=mushroom_paths.mushroom_gis_reconstruction_path(),
+                    qgis_points=mushroom_gis_lab.default_qgis_points_path(),
+                    weather_json=mushroom_paths.mushroom_weather_features_json_path(),
+                    weather_csv=mushroom_paths.mushroom_weather_features_csv_path(),
+                    weather_report=mushroom_paths.mushroom_weather_report_path(),
+                    features_json=mushroom_paths.mushroom_observation_features_json_path(),
+                    features_csv=mushroom_paths.mushroom_observation_features_csv_path(),
+                    features_report=mushroom_paths.mushroom_observation_features_report_path(),
+                    model_json=mushroom_paths.mushroom_learned_model_json_path(),
+                    model_report=mushroom_paths.mushroom_learned_model_report_path(),
+                )
+                shared_staging_root = final_outputs.root / ".rebuild-staging" / job_id
+                outputs = mushroom_rebuild_pipeline.RebuildOutputPaths.under(shared_staging_root)
+                if pending_species:
+                    mushroom_rebuild_pipeline.seed_partial_model_outputs(outputs, final_outputs)
+                current_phase_index = 0
+
+                def shared_progress(event: dict[str, object]) -> None:
+                    nonlocal current_phase_index
+                    phase_index = int(event.get("phase_index", 0) or 0)
+                    reset_phase_timer = phase_index != current_phase_index
+                    current_phase_index = phase_index
+                    set_mushroom_rebuild_progress(
+                        job_id,
+                        phase=str(event.get("phase", "")),
+                        phase_index=phase_index,
+                        phase_count=int(event.get("phase_count", phase_count) or phase_count),
+                        phase_percent=int(event.get("phase_percent", 0) or 0),
+                        overall_percent=int(event.get("overall_percent", 0) or 0),
+                        message=str(event.get("message", "")),
+                        reset_phase_timer=reset_phase_timer,
+                    )
+
+                shared_result = mushroom_rebuild_pipeline.run_rebuild(
+                    inputs,
+                    outputs,
+                    selected_observation_ids=selected_observation_ids,
+                    pending_species_ids=pending_species,
+                    progress_callback=shared_progress,
+                    cancel_event=cancel_event,
+                )
+                with RUN_LOCK:
+                    job = MUSHROOM_REBUILD_JOBS.get(job_id)
+                    if cancel_event.is_set():
+                        raise mushroom_rebuild_pipeline.RebuildCancelled("mushroom rebuild cancelled")
+                    if job is not None:
+                        job["_promotion_started"] = True
+                mushroom_rebuild_pipeline.promote_qgis_points(
+                    outputs.qgis_points,
+                    final_outputs.qgis_points,
+                    job_id,
+                )
+                promotion = mushroom_rebuild_pipeline.promote_rebuild_outputs(
+                    outputs,
+                    final_outputs,
+                )
+                summary = shared_result.get("summary", {})
+                result_count = int(summary.get("gis_observations", 0) or 0)
+                weather_count = int(summary.get("weather_observations", 0) or 0)
+                feature_count = int(summary.get("feature_observations", 0) or 0)
+                model_species_count = int(summary.get("model_species", 0) or 0)
+                message = (
+                    "Modelo v0 rebuilt: "
+                    f"GIS/DEM {result_count} {scope_label} observation(s), "
+                    f"weather {weather_count}, features {feature_count}, "
+                    f"species models {model_species_count}."
+                )
+                if pending_species:
+                    mushroom_model_state.clear_species_pending(pending_species)
+                else:
+                    mushroom_model_state.clear_all_pending(full_rebuild=True)
+                set_mushroom_profiles_flash(message)
+                set_mushroom_rebuild_progress(
+                    job_id,
+                    status="complete",
+                    phase_percent=100,
+                    overall_percent=100,
+                    message=message,
+                    result={
+                        "pipeline": "shared",
+                        "gis_observations": result_count,
+                        "weather_observations": weather_count,
+                        "feature_observations": feature_count,
+                        "model_species": model_species_count,
+                        "phase_durations_seconds": shared_result.get("phase_durations_seconds", {}),
+                        "duration_seconds": shared_result.get("duration_seconds"),
+                        "promotion": promotion,
+                        "return_url": return_url,
+                    },
+                )
+                return
 
             set_mushroom_rebuild_progress(
                 job_id,
@@ -11098,10 +12275,22 @@ def start_mushroom_model_rebuild_job(
                     "return_url": return_url,
                 },
             )
+        except mushroom_rebuild_pipeline.RebuildCancelled:
+            message = "Modelo v0 rebuild cancelled. Previous accepted artifacts were preserved."
+            set_mushroom_profiles_flash(message)
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="cancelled",
+                error="",
+                message=message,
+            )
         except Exception as exc:
             error = f"Modelo v0 rebuild failed: {exc}"
             set_mushroom_profiles_flash(error)
             set_mushroom_rebuild_progress(job_id, status="failed", error=error, message=error)
+        finally:
+            if shared_staging_root is not None:
+                shutil.rmtree(shared_staging_root, ignore_errors=True)
 
     thread = threading.Thread(target=run_job, name=f"mushroom-rebuild-{job_id}", daemon=True)
     thread.start()
@@ -13274,6 +14463,42 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         pass
 
+    def listener_role(self) -> str:
+        return str(getattr(getattr(self, "server", None), "rainmapper_listener_role", "web"))
+
+    def allow_listener_path(self, method: str, path: str) -> bool:
+        normalized = path.rstrip("/") or "/"
+        worker_protocol_path = (
+            normalized in MUSHROOM_WORKER_PROTOCOL_GET_PATHS
+            or normalized in MUSHROOM_WORKER_PROTOCOL_POST_PATHS
+        )
+        if self.listener_role() == "worker":
+            allowed = (
+                method == "GET" and normalized in MUSHROOM_WORKER_PROTOCOL_GET_PATHS
+            ) or (
+                method == "POST" and normalized in MUSHROOM_WORKER_PROTOCOL_POST_PATHS
+            )
+        else:
+            allowed = not worker_protocol_path
+        if allowed:
+            return True
+        self.send_json(404, {"ok": False, "error": "Not found."})
+        return False
+
+    def trusted_worker_control_request(self) -> bool:
+        if bool_env("RAINMAPPER_WORKER_WEB_CONTROL_TRUST_LOCAL"):
+            return True
+        client_address = getattr(self, "client_address", ("", 0))
+        client_ip = str(client_address[0]) if client_address else ""
+        ingress_user_id = self.headers.get("X-Remote-User-Id", "").strip()
+        return client_ip == HOME_ASSISTANT_INGRESS_PROXY_IP and bool(ingress_user_id)
+
+    def require_trusted_worker_control(self) -> bool:
+        if self.trusted_worker_control_request():
+            return True
+        self.send_json(403, {"ok": False, "error": "Worker controls require Home Assistant Ingress."})
+        return False
+
     def send_bytes(
         self,
         status: int,
@@ -13297,9 +14522,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "application/json; charset=utf-8",
         )
 
+    def send_file_path(self, status: int, path: Path) -> None:
+        size = path.stat().st_size
+        self.send_response(status)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(size))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        if getattr(self, "command", "GET") != "HEAD":
+            with path.open("rb") as source:
+                shutil.copyfileobj(source, self.wfile, length=1024 * 1024)
+
     def request_body_limit(self) -> int:
         """Return the largest accepted body for the current endpoint."""
         path = urlparse(self.path).path.rstrip("/")
+        if path == "/api/mushrooms/workers/jobs/result-file":
+            return mushroom_worker_results.MAX_RESULT_FILE_BYTES
+        if path.startswith("/api/mushrooms/workers/"):
+            return MUSHROOM_WORKER_JSON_MAX_BYTES
         if path == "/api/mushrooms/observation-exif-preview":
             return MUSHROOM_MEDIA_FILE_MAX_BYTES + MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES
         return MUSHROOM_MEDIA_BATCH_MAX_BYTES + MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES
@@ -13592,6 +14832,75 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return
         self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
 
+    def render_mushroom_workers(self, query: dict[str, list[str]] | None = None) -> None:
+        query = query or {}
+        page_title = mushroom_profiles_ui.ui_label("ui.workers_jobs")
+        try:
+            store = default_store()
+            store.ensure_seeded()
+            profiles_payload = store.load("profiles")
+            observations_payload = store.load("observations")
+            profiles = profiles_payload.get("species_profiles", []) if isinstance(profiles_payload, dict) else []
+            profiles = [row for row in profiles if isinstance(row, dict)] if isinstance(profiles, list) else []
+            observations = observation_dicts_from_payload(
+                observations_payload if isinstance(observations_payload, dict) else {}
+            )
+            eligible_species = eligible_model_species_ids(observations)
+            eligible_observations = eligible_observation_ids_for_species(observations, eligible_species)
+            pending_species = pending_model_species_ids(
+                mushroom_model_state.load_state(),
+                observations,
+                learned_model_payload=mushroom_learned_model.load_latest_model(),
+            )
+            jobs = mushroom_workers_recent_jobs()
+            worker_registry = mushroom_worker_registry.load_registry(
+                mushroom_worker_registry_path()
+            )
+            default_executor = str(
+                worker_registry.get("default_executor", "home_assistant")
+            )
+            selected_scope = (query.get("scope") or ["all"])[0]
+            if selected_scope not in {"all", "pending", "species"}:
+                selected_scope = "all"
+            selected_species_id = (query.get("species_id") or [""])[0]
+            profile_ids = {
+                str(row.get("species_id", "") or "") for row in profiles
+            }
+            if selected_species_id not in profile_ids:
+                selected_species_id = ""
+            flash, flash_error = mushroom_workers_flash()
+            pipeline = (
+                "shared"
+                if env("RAINMAPPER_MUSHROOM_REBUILD_PIPELINE", "legacy").strip().lower() == "shared"
+                else "legacy"
+            )
+            body = mushroom_workers_ui.render_page(
+                worker_statuses=registered_mushroom_worker_statuses(),
+                profiles=profiles,
+                eligible_observation_count=len(eligible_observations),
+                pending_species_count=len(pending_species),
+                jobs=jobs,
+                pipeline=pipeline,
+                operational_enabled=mushroom_worker_operational_enabled(),
+                default_executor=default_executor,
+                selected_scope=selected_scope,
+                selected_species_id=selected_species_id,
+                pairing_required=mushroom_worker_auth_required(),
+                flash=flash,
+                flash_error=flash_error,
+            )
+            rebuild_job_id = (query.get("rebuild_job") or [""])[0]
+            body += render_mushroom_rebuild_progress_modal(rebuild_job_id, "./workers")
+        except Exception as exc:
+            body = (
+                '<p><a class="button-link" href="../">Back</a></p>'
+                f'<h1>{html.escape(page_title)}</h1>'
+                f'<div class="catalog-alert error"><strong>Cannot load workers and jobs</strong><br>{html.escape(str(exc))}</div>'
+            )
+            self.send_bytes(500, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+            return
+        self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+
     def render_mushroom_catalogs(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
         selected_group = (query.get("group") or [""])[0]
@@ -13646,6 +14955,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./profiles">Mushroom species</a>
           <a class="button-link" href="./gis-mappings">GIS mappings</a>
           <a class="button-link" href="./known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
+          <a class="button-link" href="./workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
           <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="group" value="{html.escape(selected_group, quote=True)}">
             <input name="q" type="search" value="{html.escape(search, quote=True)}" placeholder="Search ID, group, label or domain">
@@ -13767,6 +15077,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="?">Refresh</a>
           <a class="button-link" href="./profiles">Mushroom species</a>
           <a class="button-link" href="./catalogs">Reference catalogs</a>
+          <a class="button-link" href="./workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
           <form class="catalog-filter gis-mapping-search" method="get" action="">
             <input type="hidden" name="source" value="{html.escape(selected_source, quote=True)}">
             <input type="hidden" name="field" value="{html.escape(selected_field, quote=True)}">
@@ -13880,16 +15191,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             pending_count = len(pending_species)
             species_count_label = mushroom_profiles_ui.ui_label("ui.species").lower()
             pending_rebuild_button = f"""
-          <form class="mushroom-model-stale-form" method="post" action="">
-            <input type="hidden" name="profile_action" value="rebuild_pending_model_v0">
-            <input type="hidden" name="species_id" value="{html.escape(selected_id, quote=True)}">
-            <input type="hidden" name="section" value="{html.escape(section, quote=True)}">
-            <input type="hidden" name="view" value="{html.escape(profile_view, quote=True)}">
-            <button class="mushroom-model-stale-button" type="submit" title="{html.escape(mushroom_profiles_ui.ui_label("ui.rebuild_pending_model_v0_help"), quote=True)}">
+          <div class="mushroom-model-stale-form">
+            <a class="mushroom-model-stale-button" href="./workers?scope=pending&amp;source=outdated" title="{html.escape(mushroom_profiles_ui.ui_label("ui.model_outdated_workers_help"), quote=True)}">
               {html.escape(mushroom_profiles_ui.ui_label("ui.model_v0_outdated"))}
-              <span>{pending_count} {html.escape(species_count_label)} · {html.escape(mushroom_profiles_ui.ui_label("ui.rebuild_pending_model_v0"))}</span>
-            </button>
-          </form>
+              <span>{pending_count} {html.escape(species_count_label)} · {html.escape(mushroom_profiles_ui.ui_label("ui.manage_in_workers"))}</span>
+            </a>
+          </div>
             """
         if section == "parameters":
             parameter_view = (query.get("parameter_view") or ["habitat"])[0]
@@ -13993,6 +15300,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./catalogs">Reference catalogs</a>
           <a class="button-link" href="./gis-mappings">GIS mappings</a>
           <a class="button-link" href="./known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
+          <a class="button-link" href="./workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
           {view_switch}
           <form class="catalog-filter" method="get" action="">
             <input type="hidden" name="section" value="{html.escape(section, quote=True)}">
@@ -14164,6 +15472,86 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
+        if not self.allow_listener_path("GET", path):
+            return
+
+        if path == "/api/mushrooms/workers/ping":
+            if not mushroom_worker_api_enabled():
+                self.send_json(404, {"ok": False, "error": "Worker API is not enabled."})
+                return
+            worker_token, _device_id = self.auth_credentials()
+            worker_id = self.headers.get("X-Rainmapper-Worker", "").strip()
+            auth_required = mushroom_worker_auth_required()
+            authenticated = bool(
+                worker_id and worker_token and authenticate_mushroom_worker(worker_id, worker_token)
+            )
+            if auth_required and (worker_id or worker_token) and not authenticated:
+                self.send_json(401, {"ok": False, "error": "Worker authentication failed."})
+                return
+            self.send_json(
+                200,
+                {
+                    "ok": True,
+                    "schema_version": "0.1",
+                    "kind": "rainmapper_worker_coordinator",
+                    "service": "rainmapper-ha-ui",
+                    "auth_required": auth_required,
+                    "authenticated": authenticated,
+                    "pairing_endpoint": "/api/mushrooms/workers/pair",
+                },
+            )
+            return
+
+        if path == "/api/mushrooms/workers/status":
+            if not self.require_trusted_worker_control():
+                return
+            if not mushroom_worker_api_enabled():
+                self.send_json(404, {"ok": False, "error": "Worker API is not enabled."})
+                return
+            try:
+                self.send_json(200, mushroom_workers_status_refresh_payload())
+            except Exception as exc:
+                self.send_json(500, {"ok": False, "error": str(exc)})
+            return
+
+        if path == "/api/mushrooms/workers/jobs/input":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = resolve_mushroom_worker_input_download(
+                job_id=(parse_qs(parsed.query).get("job_id") or [""])[0],
+                logical_path=(parse_qs(parsed.query).get("file") or [""])[0],
+                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                auth_token=worker_token,
+            )
+            if status != 200 or not isinstance(response, Path):
+                self.send_json(status, response if isinstance(response, dict) else {"ok": False})
+                return
+            try:
+                self.send_file_path(200, response)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+
+        if path == "/api/mushrooms/workers/jobs/dataset":
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            status, response = resolve_mushroom_worker_dataset_download(
+                job_id=(query.get("job_id") or [""])[0],
+                dataset_id=(query.get("dataset_id") or [""])[0],
+                fingerprint=(query.get("fingerprint") or [""])[0],
+                logical_path=(query.get("file") or [""])[0],
+                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                auth_token=worker_token,
+            )
+            if status != 200 or not isinstance(response, Path):
+                self.send_json(status, response if isinstance(response, dict) else {"ok": False})
+                return
+            try:
+                self.send_file_path(200, response)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
 
         if path == "/api/control-panel-fragment":
             self.serve_control_panel_fragment()
@@ -14191,6 +15579,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/mushrooms/known-sites":
             self.render_mushroom_known_sites(parse_qs(parsed.query))
+            return
+
+        if path == "/mushrooms/workers":
+            if not self.require_trusted_worker_control():
+                return
+            self.render_mushroom_workers(parse_qs(parsed.query))
             return
 
         if path == "/mushrooms/profiles":
@@ -14303,6 +15697,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         """Support metadata probes used by Safari before streaming MP4 media."""
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
+        if not self.allow_listener_path("HEAD", path):
+            return
         if path == "/mushrooms/observation-media":
             self.serve_mushroom_observation_media(parse_qs(parsed.query))
             return
@@ -14416,6 +15812,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        if not self.allow_listener_path("POST", path):
+            return
         try:
             self.read_request_body()
         except RequestBodyError as exc:
@@ -14423,6 +15822,76 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.send_json(exc.status, {"ok": False, "error": str(exc)})
             else:
                 self.send_bytes(exc.status, str(exc).encode("utf-8"), "text/plain; charset=utf-8")
+            return
+        if path == "/api/mushrooms/workers/jobs/result-file":
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            status, response = receive_mushroom_worker_result_file(
+                job_id=(query.get("job_id") or [""])[0],
+                logical_path=(query.get("file") or [""])[0],
+                content=self.read_request_body(),
+                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/result-complete":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = complete_mushroom_worker_candidate_result(
+                self.read_json_payload(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/heartbeat":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = register_mushroom_worker_heartbeat(
+                self.read_json_payload(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/pair":
+            status, response = pair_mushroom_worker(self.read_json_payload())
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/claim":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = claim_mushroom_worker_job(self.read_json_payload(), auth_token=worker_token)
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/start":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = start_claimed_mushroom_worker_job(
+                self.read_json_payload(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/progress":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = progress_mushroom_worker_job(
+                self.read_json_payload(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/control":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = control_mushroom_worker_job(
+                self.read_json_payload(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/finish":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = finish_mushroom_worker_job(
+                self.read_json_payload(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
             return
         if parsed.path == "/auth/login":
             payload = self.read_json_payload()
@@ -14477,6 +15946,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if not self.require_admin_api():
                 return
             self.send_mushroom_validation()
+            return
+
+        if parsed.path == "/api/mushrooms/rebuild-cancel":
+            payload = self.read_json_payload()
+            status, response = request_mushroom_rebuild_cancel(str(payload.get("job_id", "")))
+            self.send_json(status, response)
             return
 
         if parsed.path == "/api/mushrooms/import":
@@ -14554,6 +16029,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             redirect_target = self.handle_mushroom_known_sites_post(form)
             query = ("?" + parsed.query) if parsed.query else ""
             self.redirect_to(redirect_target or query or "?")
+            return
+
+        if parsed.path.rstrip("/") == "/mushrooms/workers":
+            if not self.require_trusted_worker_control():
+                return
+            self.redirect_to(self.handle_mushroom_workers_post(form))
             return
 
         if parsed.path.rstrip("/") == "/mushrooms/profiles":
@@ -14643,6 +16124,221 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         else:
             message = "Unknown user management action."
         admin_message(message)
+
+    def handle_mushroom_workers_post(self, form: dict[str, list[str]]) -> str:
+        action = self.form_action_value(form, "worker_action")
+        if action == "create_worker_pairing":
+            try:
+                pairing = create_mushroom_worker_pairing()
+                message = mushroom_profiles_ui.ui_label("ui.worker_pairing_code_flash")
+                message = message.replace("{code}", str(pairing["pairing_code"]))
+                message = message.replace("{minutes}", str(int(pairing["expires_in_seconds"]) // 60))
+                set_mushroom_workers_flash(message)
+            except ValueError as exc:
+                set_mushroom_workers_flash(str(exc), error=True)
+            return "./workers"
+        if action == "revoke_worker_pairing":
+            status, response = revoke_mushroom_worker_credential(self.form_value(form, "worker_id"))
+            if status == 200:
+                set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.worker_pairing_revoked_flash"))
+            else:
+                set_mushroom_workers_flash(str(response.get("error", "Cannot revoke worker.")), error=True)
+            return "./workers"
+        if action == "set_default_executor":
+            try:
+                default_executor = mushroom_worker_registry.normalize_executor(
+                    self.form_value(form, "default_executor")
+                )
+                if default_executor.startswith("worker:"):
+                    worker_id = default_executor.removeprefix("worker:")
+                    registered_ids = {
+                        str(row.get("payload", {}).get("worker_id", ""))
+                        for row in registered_mushroom_worker_statuses()
+                        if isinstance(row.get("payload"), dict)
+                    }
+                    if worker_id not in registered_ids:
+                        raise ValueError("The selected default worker is not registered.")
+                with RUN_LOCK:
+                    mushroom_worker_registry.set_default_executor(
+                        mushroom_worker_registry_path(),
+                        default_executor,
+                    )
+                display_name = mushroom_profiles_ui.ui_label("ui.home_assistant")
+                if default_executor.startswith("worker:"):
+                    worker_id = default_executor.removeprefix("worker:")
+                    display_name = next(
+                        (
+                            str(row["payload"].get("display_name", worker_id))
+                            for row in registered_mushroom_worker_statuses()
+                            if isinstance(row.get("payload"), dict)
+                            and str(row["payload"].get("worker_id", "")) == worker_id
+                        ),
+                        worker_id,
+                    )
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_default_saved").replace(
+                        "{executor}", display_name
+                    )
+                )
+            except ValueError as exc:
+                set_mushroom_workers_flash(str(exc), error=True)
+            return "./workers"
+        if action == "cancel_worker_job":
+            status, response = cancel_mushroom_worker_job(self.form_value(form, "job_id"))
+            if status == 200:
+                job = response.get("job")
+                job_status = str(job.get("status", "")) if isinstance(job, dict) else ""
+                label_key = "ui.worker_cancel_requested_flash" if job_status == "cancel_requested" else "ui.worker_cancelled_flash"
+                set_mushroom_workers_flash(mushroom_profiles_ui.ui_label(label_key))
+            else:
+                set_mushroom_workers_flash(str(response.get("error", "Cannot cancel worker job.")), error=True)
+            return "./workers"
+        if action == "force_cancel_worker_job":
+            status, response = cancel_mushroom_worker_job(self.form_value(form, "job_id"), force=True)
+            if status == 200:
+                job = response.get("job")
+                job_status = str(job.get("status", "")) if isinstance(job, dict) else ""
+                label_key = (
+                    "ui.worker_force_cancel_requested_flash"
+                    if job_status == "cancel_requested"
+                    else "ui.worker_cancelled_flash"
+                )
+                set_mushroom_workers_flash(mushroom_profiles_ui.ui_label(label_key))
+            else:
+                set_mushroom_workers_flash(str(response.get("error", "Cannot force-cancel worker job.")), error=True)
+            return "./workers"
+        if action == "reassign_worker_job":
+            status, response = reassign_mushroom_worker_job(
+                self.form_value(form, "job_id"),
+                self.form_value(form, "new_worker_id"),
+            )
+            if status == 200:
+                job = response.get("job")
+                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_reassigned_flash").replace("{worker}", target)
+                )
+            else:
+                set_mushroom_workers_flash(str(response.get("error", "Cannot reassign worker job.")), error=True)
+            return "./workers"
+        if action == "probe_worker_claim":
+            status, response = create_mushroom_worker_claim_probe(self.form_value(form, "worker_id"))
+            if status == 201:
+                job = response.get("job")
+                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_probe_queued").replace("{worker}", target)
+                )
+            else:
+                set_mushroom_workers_flash(str(response.get("error", "Cannot queue worker test.")), error=True)
+            return "./workers"
+        if action == "probe_worker_snapshot_transport":
+            status, response = create_mushroom_worker_snapshot_transport_probe(
+                self.form_value(form, "worker_id")
+            )
+            if status == 201:
+                job = response.get("job")
+                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_transport_queued").replace("{worker}", target)
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue worker input transport test.")),
+                    error=True,
+                )
+            return "./workers"
+        if action == "run_worker_candidate_rebuild":
+            status, response = create_mushroom_worker_candidate_rebuild(
+                self.form_value(form, "worker_id")
+            )
+            if status == 201:
+                job = response.get("job")
+                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_candidate_queued").replace("{worker}", target)
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue candidate rebuild.")),
+                    error=True,
+                )
+            return "./workers"
+        if action == "promote_worker_candidate":
+            status, response = promote_mushroom_worker_candidate(
+                self.form_value(form, "job_id")
+            )
+            if status == 200:
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_promotion_complete")
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot promote worker candidate.")),
+                    error=True,
+                )
+            return "./workers"
+        if action != "start_rebuild":
+            set_mushroom_workers_flash("Unknown worker action.", error=True)
+            return "./workers"
+        executor = self.form_value(form, "executor")
+        if not executor:
+            set_mushroom_workers_flash(
+                mushroom_profiles_ui.ui_label("ui.worker_choose_available"),
+                error=True,
+            )
+            return "./workers"
+        if executor != "home_assistant":
+            if not executor.startswith("worker:") or not mushroom_worker_operational_enabled():
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_job_api_pending_help"),
+                    error=True,
+                )
+                return "./workers"
+            scope = self.form_value(form, "scope") or "all"
+            status, response = create_mushroom_worker_candidate_rebuild(
+                executor.removeprefix("worker:"),
+                promotion_eligible=True,
+                reconstruction_scope=scope,
+                species_id=self.form_value(form, "species_id"),
+            )
+            if status == 201:
+                job = response.get("job")
+                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_operational_queued").replace("{worker}", target)
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue external rebuild.")),
+                    error=True,
+                )
+            return "./workers"
+        scope = self.form_value(form, "scope") or "all"
+        action_by_scope = {
+            "all": "rebuild_learned_model_v0_all",
+            "pending": "rebuild_pending_model_v0",
+            "species": "rebuild_learned_model_v0_species",
+        }
+        profile_action = action_by_scope.get(scope)
+        species_id = self.form_value(form, "species_id")
+        if not profile_action or (scope == "species" and not species_id):
+            set_mushroom_workers_flash("Select a valid rebuild scope and species.", error=True)
+            return "./workers"
+        profile_form = {
+            "profile_action": [profile_action],
+            "species_id": [species_id],
+            "section": ["parameters"],
+            "view": ["v0"],
+            "evidence_view": ["learned_model"],
+        }
+        profile_redirect = self.handle_mushroom_profiles_post(profile_form)
+        profile_message = mushroom_profiles_flash()
+        parsed_redirect = urlparse(profile_redirect)
+        job_id = (parse_qs(parsed_redirect.query).get("rebuild_job") or [""])[0]
+        is_error = " was not " in profile_message or " failed" in profile_message.lower()
+        set_mushroom_workers_flash(profile_message or "Rebuild request processed.", error=is_error)
+        return append_query_param("./workers", "rebuild_job", job_id) if job_id else "./workers"
 
     def handle_mushroom_known_sites_post(self, form: dict[str, list[str]]) -> str:
         action = self.form_action_value(form, "known_site_action")
@@ -15988,6 +17684,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./mushrooms/profiles">Mushroom species</a>
           <a class="button-link" href="./mushrooms/gis-mappings">GIS mappings</a>
           <a class="button-link" href="./mushrooms/known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
+          <a class="button-link" href="./mushrooms/workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
         </div>
         """
         head_controls = f"""
@@ -16324,7 +18021,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Serve Rainmapper generated HTML maps.")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8099)
+    parser.add_argument("--worker-host", default="0.0.0.0")
+    parser.add_argument("--worker-port", type=int, default=8100)
     args = parser.parse_args()
+
+    if mushroom_worker_api_enabled() and args.worker_host == args.host and args.worker_port == args.port:
+        parser.error("the worker coordinator must use a dedicated listener")
 
     preserve_public_maplibre_data_for_transition()
     try:
@@ -16338,12 +18040,29 @@ def main() -> None:
     scheduler.start()
 
     server = ThreadingHTTPServer((args.host, args.port), RainmapperHandler)
+    setattr(server, "rainmapper_listener_role", "web")
+    worker_server: ThreadingHTTPServer | None = None
+    worker_thread: threading.Thread | None = None
+    if mushroom_worker_api_enabled():
+        worker_server = ThreadingHTTPServer((args.worker_host, args.worker_port), RainmapperHandler)
+        setattr(worker_server, "rainmapper_listener_role", "worker")
+        worker_thread = threading.Thread(
+            target=worker_server.serve_forever,
+            daemon=True,
+            name="rainmapper-worker-coordinator",
+        )
+        worker_thread.start()
     shutdown_requested = False
+
+    def shutdown_servers() -> None:
+        server.shutdown()
+        if worker_server is not None:
+            worker_server.shutdown()
 
     def shutdown_after_action_finishes() -> None:
         while action_is_running():
             time.sleep(1)
-        server.shutdown()
+        shutdown_servers()
 
     def handle_shutdown(signum: int, _frame: object) -> None:
         nonlocal shutdown_requested
@@ -16351,7 +18070,7 @@ def main() -> None:
         if shutdown_requested:
             print(f"Received {signal_name} again; forcing Rainmapper subprocess termination.", flush=True)
             terminate_current_process()
-            threading.Thread(target=server.shutdown, daemon=True).start()
+            threading.Thread(target=shutdown_servers, daemon=True).start()
             return
 
         shutdown_requested = True
@@ -16362,17 +18081,29 @@ def main() -> None:
             threading.Thread(target=shutdown_after_action_finishes, daemon=True).start()
             return
 
-        threading.Thread(target=server.shutdown, daemon=True).start()
+        threading.Thread(target=shutdown_servers, daemon=True).start()
 
     signal.signal(signal.SIGTERM, handle_shutdown)
     signal.signal(signal.SIGINT, handle_shutdown)
 
     print(f"Rainmapper server listening on {args.host}:{args.port}")
+    if worker_server is not None:
+        print(
+            f"Rainmapper worker coordinator listening on {args.worker_host}:{args.worker_port} "
+            f"(operational={mushroom_worker_operational_enabled()})"
+        )
+    else:
+        print("Rainmapper worker coordinator disabled")
     print(f"Schedule enabled: {bool_env('RAINMAPPER_SCHEDULE_ENABLED')}")
     print(f"Next schedule: {next_schedule_text()}")
     try:
         server.serve_forever()
     finally:
+        if worker_server is not None:
+            worker_server.shutdown()
+            worker_server.server_close()
+        if worker_thread is not None:
+            worker_thread.join(timeout=5)
         server.server_close()
         print("Rainmapper server stopped cleanly.", flush=True)
         sys.exit(0)

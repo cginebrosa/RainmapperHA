@@ -40,11 +40,24 @@ services:
       RAINMAPPER_APP_VERSION: local-ha-ui
       RAINMAPPER_LOCAL_REPO_ROOT: ${RAINMAPPER_LOCAL_REPO_ROOT:-}
       AEMET_API_KEY: ${AEMET_API_KEY:-}
+      RAINMAPPER_WORKER_API_ENABLED: "true"
+      RAINMAPPER_WORKER_AUTH_REQUIRED: "true"
+      RAINMAPPER_WORKER_OPERATIONAL_ENABLED: "true"
+      RAINMAPPER_WORKER_WEB_CONTROL_TRUST_LOCAL: "true"
     ports:
       - "127.0.0.1:8101:8099"
+    expose:
+      - "8100"
     volumes:
       - ../docker-data:/share/rainmapper
       - ../mushroom-GIS:/app/mushroom-GIS:ro
       - ../tmp:/app/tmp
       - ./options.local-ha-ui.json:/data/options.json:ro
       - ../tmp/mushroom-lab/runtime/config-www:/config/www
+    networks:
+      - rainmapper-local-compute
+
+networks:
+  rainmapper-local-compute:
+    external: true
+    name: rainmapper-local-compute

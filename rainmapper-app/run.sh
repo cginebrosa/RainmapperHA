@@ -80,6 +80,8 @@ PY
   print_blue "Mushroom UI language: ${UI_LANGUAGE_VALUE}"
   print_blue "Last rains history: ${LAST_RAINS_HISTORY_VALUE}"
   print_blue "Legacy public viewers: ${PUBLISH_TO_WWW_VALUE}"
+  print_blue "External worker connections: ${EXTERNAL_WORKER_CONNECTIONS_ENABLED_VALUE}"
+  print_blue "External rebuilds and promotion: ${EXTERNAL_WORKER_REBUILDS_ENABLED_VALUE}"
   print_blue "MapLibre hover zoom: ${MAPLIBRE_HOVER_ZOOM_VALUE}"
   print_blue "MapLibre heatmap defaults: ${MAPLIBRE_HEATMAP_WEIGHT_CURVE_VALUE}, opacity ${MAPLIBRE_HEATMAP_OPACITY_VALUE}%, radius ${MAPLIBRE_HEATMAP_RADIUS_VALUE}%, intensity ${MAPLIBRE_HEATMAP_INTENSITY_VALUE}%"
   print_blue "Meteocat request timeout: ${METEOCAT_REQUEST_TIMEOUT_VALUE}s"
@@ -178,6 +180,8 @@ MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_BALANCED_POWER_VALUE="$(option maplibre_estim
 MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_LOCAL_POWER_VALUE="$(option maplibre_estimated_field_smoothing_local_power 3)"
 MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_VALUE="$(option maplibre_estimated_field_temperature_lapse_rate_c_per_100m 0.65)"
 PUBLISH_TO_WWW_VALUE="$(option publish_to_www false)"
+EXTERNAL_WORKER_CONNECTIONS_ENABLED_VALUE="$(option external_worker_connections_enabled "${RAINMAPPER_WORKER_API_ENABLED:-false}")"
+EXTERNAL_WORKER_REBUILDS_ENABLED_VALUE="$(option external_worker_rebuilds_enabled "${RAINMAPPER_WORKER_OPERATIONAL_ENABLED:-false}")"
 GMAP_API_KEY_VALUE="$(option gmap_api_key "${GMAP_API_KEY:-}")"
 AEMET_API_KEY_VALUE="$(option aemet_api_key "${AEMET_API_KEY:-}")"
 
@@ -237,6 +241,9 @@ export RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_BALANCED_POWER="$MAPLIBRE_E
 export RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_LOCAL_POWER="$MAPLIBRE_ESTIMATED_FIELD_SMOOTHING_LOCAL_POWER_VALUE"
 export RAINMAPPER_MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_C_PER_100M="$MAPLIBRE_ESTIMATED_FIELD_TEMPERATURE_LAPSE_RATE_VALUE"
 export RAINMAPPER_PUBLISH_TO_WWW="$PUBLISH_TO_WWW_VALUE"
+export RAINMAPPER_WORKER_API_ENABLED="$EXTERNAL_WORKER_CONNECTIONS_ENABLED_VALUE"
+export RAINMAPPER_WORKER_AUTH_REQUIRED="true"
+export RAINMAPPER_WORKER_OPERATIONAL_ENABLED="$EXTERNAL_WORKER_REBUILDS_ENABLED_VALUE"
 export RAINMAPPER_AEMET_API_KEY="$AEMET_API_KEY_VALUE"
 export RAINMAPPER_BACKFILL_STATION_FILTER="$BACKFILL_STATION_FILTER_VALUE"
 cd /app
@@ -414,7 +421,7 @@ case "$MODE" in
     ;;
   serve)
     echo "Starting Rainmapper map server..."
-    exec python web_server.py --host 0.0.0.0 --port 8099
+    exec python web_server.py --host 0.0.0.0 --port 8099 --worker-host 0.0.0.0 --worker-port 8100
     ;;
   all)
     update_exit_code=0

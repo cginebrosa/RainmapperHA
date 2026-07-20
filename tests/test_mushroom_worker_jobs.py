@@ -1,0 +1,444 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from rainmapper_core import mushroom_worker_jobs
+
+
+class MushroomWorkerJobsTests(unittest.TestCase):
+    def test_candidate_rebuild_rejects_overlapping_active_scope_but_allows_disjoint_species(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+
+            def bundle(job_id: str) -> dict[str, object]:
+                return {
+                    "job_id": job_id,
+                    "job_spec_id": "sha256:" + "a" * 64,
+                    "snapshot_id": "sha256:" + "b" * 64,
+                    "input_file_count": 7,
+                    "input_size_bytes": 1234,
+                }
+
+            mushroom_worker_jobs.create_candidate_rebuild(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle=bundle("worker_job_species_a"),
+                job_id="worker_job_species_a",
+                reconstruction_scope="species",
+                scope_key="species:species_a",
+                scope_species_ids=["species_a"],
+            )
+            mushroom_worker_jobs.create_candidate_rebuild(
+                path,
+                worker_id="worker_bbbbbbbb",
+                worker_display_name="Worker B",
+                input_bundle=bundle("worker_job_species_b"),
+                job_id="worker_job_species_b",
+                reconstruction_scope="species",
+                scope_key="species:species_b",
+                scope_species_ids=["species_b"],
+            )
+            with self.assertRaises(mushroom_worker_jobs.DuplicateActiveWorkError):
+                mushroom_worker_jobs.create_candidate_rebuild(
+                    path,
+                    worker_id="worker_bbbbbbbb",
+                    worker_display_name="Worker B",
+                    input_bundle=bundle("worker_job_pending_ab"),
+                    job_id="worker_job_pending_ab",
+                    reconstruction_scope="pending",
+                    scope_key="pending:species_a,species_b",
+                    scope_species_ids=["species_a", "species_b"],
+                )
+    def test_candidate_rebuild_requires_claim_and_trusted_result_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            input_bundle = {
+                "schema_version": "0.1",
+                "kind": "rainmapper_worker_input_bundle",
+                "job_id": "worker_job_candidate123",
+                "job_spec_id": "sha256:" + "a" * 64,
+                "snapshot_id": "sha256:" + "b" * 64,
+                "input_file_count": 7,
+                "input_size_bytes": 1234,
+            }
+            created = mushroom_worker_jobs.create_candidate_rebuild(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle=input_bundle,
+                job_id="worker_job_candidate123",
+                promotion_eligible=True,
+            )
+            claimed = mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=created["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            authorized = mushroom_worker_jobs.authorize_result_upload(
+                path,
+                job_id=created["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            finished = mushroom_worker_jobs.finish_job(
+                path,
+                job_id=created["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+                status="complete",
+                result={
+                    "verification_status": "verified",
+                    "snapshot_id": input_bundle["snapshot_id"],
+                    "job_spec_id": input_bundle["job_spec_id"],
+                    "input_file_count": 7,
+                    "input_size_bytes": 1234,
+                    "dataset_fingerprint": "sha256:" + "c" * 64,
+                    "result_manifest_id": "sha256:" + "d" * 64,
+                    "verified_artifacts": 9,
+                    "comparison_status": "equivalent",
+                },
+            )
+            promoting = mushroom_worker_jobs.begin_candidate_promotion(
+                path,
+                job_id=created["job_id"],
+            )
+            promoted = mushroom_worker_jobs.finish_candidate_promotion(
+                path,
+                job_id=created["job_id"],
+                promoted=True,
+                result={"artifact_count": 9},
+            )
+
+        self.assertEqual(claimed["job_type"], "worker_candidate_rebuild")
+        self.assertEqual(authorized["status"], "running")
+        self.assertEqual(finished["phase"], "Candidate result verified")
+        self.assertEqual(finished["result"]["comparison_status"], "equivalent")
+        self.assertEqual(promoting["promotion_status"], "promoting")
+        self.assertEqual(promoted["promotion_status"], "promoted")
+        self.assertEqual(promoted["promotion_result"]["artifact_count"], 9)
+
+    def test_snapshot_transport_job_requires_exact_claim_for_input_download(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            input_bundle = {
+                "schema_version": "0.1",
+                "kind": "rainmapper_worker_input_bundle",
+                "job_id": "worker_job_transport123",
+                "job_spec_id": "sha256:" + "a" * 64,
+                "snapshot_id": "sha256:" + "b" * 64,
+                "input_file_count": 4,
+                "input_size_bytes": 1234,
+            }
+            created = mushroom_worker_jobs.create_snapshot_transport_probe(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle=input_bundle,
+                job_id="worker_job_transport123",
+            )
+            claimed = mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+
+            authorized = mushroom_worker_jobs.authorize_input_download(
+                path,
+                job_id=created["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            with self.assertRaisesRegex(ValueError, "no longer valid"):
+                mushroom_worker_jobs.authorize_input_download(
+                    path,
+                    job_id=created["job_id"],
+                    worker_id="worker_aaaaaaaa",
+                    claim_token="wrong-secret",
+                )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=created["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            completed = mushroom_worker_jobs.finish_job(
+                path,
+                job_id=created["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+                status="complete",
+                result={
+                    "verification_status": "verified",
+                    "snapshot_id": input_bundle["snapshot_id"],
+                    "job_spec_id": input_bundle["job_spec_id"],
+                    "input_file_count": input_bundle["input_file_count"],
+                    "input_size_bytes": input_bundle["input_size_bytes"],
+                    "dataset_cache_status": "reused",
+                    "dataset_transferred_size_bytes": 0,
+                },
+            )
+
+        self.assertEqual(claimed["input_bundle"]["endpoint"], "/api/mushrooms/workers/jobs/input")
+        self.assertEqual(
+            claimed["input_bundle"]["dataset_endpoint"],
+            "/api/mushrooms/workers/jobs/dataset",
+        )
+        self.assertEqual(authorized["job_type"], "worker_snapshot_transport_probe")
+        self.assertEqual(completed["result"]["dataset_cache_status"], "reused")
+        self.assertEqual(completed["result"]["dataset_transferred_size_bytes"], 0)
+
+    def test_equivalent_active_work_is_globally_unique_but_distinct_work_can_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            first = mushroom_worker_jobs.create_claim_probe(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id="worker_job_aaaaaaaa",
+                work_key="rebuild:v0:snapshot-a:all",
+            )
+            with self.assertRaisesRegex(
+                mushroom_worker_jobs.DuplicateActiveWorkError,
+                "already active",
+            ):
+                mushroom_worker_jobs.create_claim_probe(
+                    path,
+                    worker_id="worker_bbbbbbbb",
+                    worker_display_name="Worker B",
+                    job_id="worker_job_bbbbbbbb",
+                    work_key="rebuild:v0:snapshot-a:all",
+                )
+            distinct = mushroom_worker_jobs.create_claim_probe(
+                path,
+                worker_id="worker_bbbbbbbb",
+                worker_display_name="Worker B",
+                job_id="worker_job_cccccccc",
+                work_key="rebuild:v0:snapshot-a:species:amanita_caesarea",
+            )
+            mushroom_worker_jobs.request_cancel(path, job_id=first["job_id"])
+            replacement = mushroom_worker_jobs.create_claim_probe(
+                path,
+                worker_id="worker_bbbbbbbb",
+                worker_display_name="Worker B",
+                job_id="worker_job_dddddddd",
+                work_key="rebuild:v0:snapshot-a:all",
+            )
+
+        self.assertEqual(distinct["status"], "queued")
+        self.assertEqual(replacement["status"], "queued")
+
+    def test_probe_is_persisted_and_only_target_worker_claims_it_once(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            created = mushroom_worker_jobs.create_claim_probe(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id="worker_job_12345678",
+                created_at="2026-07-19T12:00:00+00:00",
+            )
+
+            self.assertEqual(created["status"], "queued")
+            self.assertIsNone(mushroom_worker_jobs.claim_next(path, worker_id="worker_bbbbbbbb"))
+            claimed = mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claimed_at="2026-07-19T12:00:05+00:00",
+                claim_token="claim-token-a",
+            )
+            self.assertIsNotNone(claimed)
+            self.assertEqual(claimed["job_id"], "worker_job_12345678")
+            self.assertEqual(claimed["status"], "claimed")
+            self.assertIsNone(
+                mushroom_worker_jobs.claim_next(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    claimed_at="2026-07-19T12:00:06+00:00",
+                )
+            )
+
+            recent = mushroom_worker_jobs.recent_jobs(path)
+
+        self.assertEqual(len(recent), 1)
+        self.assertEqual(recent[0]["target_display_name"], "Worker A")
+        self.assertEqual(recent[0]["overall_percent"], 5)
+
+    def test_claim_can_be_reassigned_before_start_and_old_claim_is_revoked(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            mushroom_worker_jobs.create_claim_probe(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id="worker_job_12345678",
+            )
+            mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claimed_at="2026-07-19T12:00:00+00:00",
+                claim_token="old-claim-token",
+            )
+            reassigned = mushroom_worker_jobs.reassign_job(
+                path,
+                job_id="worker_job_12345678",
+                worker_id="worker_bbbbbbbb",
+                worker_display_name="Worker B",
+                reassigned_at="2026-07-19T12:00:01+00:00",
+            )
+
+            with self.assertRaisesRegex(ValueError, "different worker|no longer valid"):
+                mushroom_worker_jobs.start_job(
+                    path,
+                    job_id="worker_job_12345678",
+                    worker_id="worker_aaaaaaaa",
+                    claim_token="old-claim-token",
+                    started_at="2026-07-19T12:00:02+00:00",
+                )
+            claimed_by_b = mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_bbbbbbbb",
+                claimed_at="2026-07-19T12:00:03+00:00",
+                claim_token="new-claim-token",
+            )
+
+        self.assertEqual(reassigned["status"], "queued")
+        self.assertEqual(reassigned["assignment_revision"], 2)
+        self.assertEqual(claimed_by_b["target_display_name"], "Worker B")
+
+    def test_queued_or_claimed_job_cancels_immediately(self) -> None:
+        for claim_first in (False, True):
+            with self.subTest(claim_first=claim_first), tempfile.TemporaryDirectory() as temporary:
+                path = Path(temporary) / "worker_jobs.json"
+                mushroom_worker_jobs.create_claim_probe(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    worker_display_name="Worker A",
+                    job_id="worker_job_12345678",
+                )
+                if claim_first:
+                    mushroom_worker_jobs.claim_next(
+                        path,
+                        worker_id="worker_aaaaaaaa",
+                        claim_token="claim-token",
+                    )
+                cancelled = mushroom_worker_jobs.request_cancel(
+                    path,
+                    job_id="worker_job_12345678",
+                    requested_at="2026-07-19T12:00:05+00:00",
+                )
+
+            self.assertEqual(cancelled["status"], "cancelled")
+            self.assertEqual(cancelled["claim_token"], "")
+
+    def test_running_job_cooperatively_cancels_and_cannot_be_reassigned(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            mushroom_worker_jobs.create_claim_probe(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id="worker_job_12345678",
+            )
+            mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claimed_at="2026-07-19T12:00:00+00:00",
+                claim_token="claim-token",
+            )
+            started = mushroom_worker_jobs.start_job(
+                path,
+                job_id="worker_job_12345678",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-token",
+                started_at="2026-07-19T12:00:01+00:00",
+            )
+            requested = mushroom_worker_jobs.request_cancel(
+                path,
+                job_id="worker_job_12345678",
+                requested_at="2026-07-19T12:00:02+00:00",
+            )
+            forced = mushroom_worker_jobs.request_cancel(
+                path,
+                job_id="worker_job_12345678",
+                requested_at="2026-07-19T12:00:03+00:00",
+                force=True,
+            )
+            control = mushroom_worker_jobs.poll_job(
+                path,
+                job_id="worker_job_12345678",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-token",
+                checked_at="2026-07-19T12:00:03+00:00",
+            )
+            with self.assertRaisesRegex(ValueError, "not started"):
+                mushroom_worker_jobs.reassign_job(
+                    path,
+                    job_id="worker_job_12345678",
+                    worker_id="worker_bbbbbbbb",
+                    worker_display_name="Worker B",
+                )
+            cancelled = mushroom_worker_jobs.finish_job(
+                path,
+                job_id="worker_job_12345678",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-token",
+                status="cancelled",
+                finished_at="2026-07-19T12:00:04+00:00",
+            )
+
+        self.assertEqual(started["status"], "running")
+        self.assertEqual(requested["status"], "cancel_requested")
+        self.assertEqual(requested["cancel_mode"], "cooperative")
+        self.assertEqual(forced["cancel_mode"], "force")
+        self.assertEqual(control["status"], "cancel_requested")
+        self.assertEqual(control["cancel_mode"], "force")
+        self.assertEqual(cancelled["status"], "cancelled")
+
+    def test_expired_unstarted_claim_returns_to_same_worker_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            mushroom_worker_jobs.create_claim_probe(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id="worker_job_12345678",
+            )
+            mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claimed_at="2026-07-19T12:00:00+00:00",
+                lease_seconds=5,
+                claim_token="old-token",
+            )
+            reclaimed = mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claimed_at="2026-07-19T12:00:06+00:00",
+                lease_seconds=5,
+                claim_token="new-token",
+            )
+
+        self.assertEqual(reclaimed["claim_token"], "new-token")
+        self.assertEqual(reclaimed["assignment_revision"], 2)
+
+    def test_invalid_worker_id_does_not_create_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            with self.assertRaisesRegex(ValueError, "Worker ID"):
+                mushroom_worker_jobs.create_claim_probe(
+                    path,
+                    worker_id="short",
+                    worker_display_name="Worker",
+                )
+            self.assertFalse(path.exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

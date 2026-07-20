@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.208
+
+- Add the private external-worker coordinator, pairing, multi-worker registry,
+  persistent job control and the `Workers and jobs` Home Assistant interface.
+- Support full, pending-only and single-species candidate rebuilds on an
+  external worker while preserving the existing Home Assistant rebuild as the
+  default fallback.
+- Transfer immutable snapshots and versioned GIS/DEM datasets through bounded,
+  authenticated routes; validate returned manifests and artifacts before any
+  explicit atomic promotion.
+- Separate the protected web/Ingress listener on port 8099 from the worker
+  protocol on port 8100, which remains unpublished and disabled by default.
+- Add independent `Enable external worker connections` and
+  `Allow external rebuilds and promotion` Home Assistant options, both disabled
+  by default.
+
 ## 0.2.207
 
 - Refine and compact the observations, species, evidence, parameters and calibration workspaces, keeping their controls visible and replacing technical identifiers with localized names where appropriate.

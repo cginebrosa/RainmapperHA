@@ -554,6 +554,7 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
       <a class="button-link" href="./catalogs">Catálogos de referencia</a>
       <a class="button-link" href="./gis-mappings">Mapeos GIS</a>
       <a class="button-link" href="./profiles">Especies</a>
+      <a class="button-link" href="./workers">{html.escape(label('ui.workers_jobs'))}</a>
     </div>
     <div class="sites-page-head"><div><h1>{html.escape(label('ui.known_sites'))}</h1><p>{html.escape(label('ui.known_sites_help'))}</p></div></div>
     {f'<div class="catalog-alert">{html.escape(flash)}</div>' if flash else ''}

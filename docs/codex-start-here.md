@@ -56,7 +56,17 @@ Para tareas de setas:
 - Plan de entrenamiento ML: `docs/mushrooms/mushroom-ml-training-plan-es.md`
 - Modelo v0/laboratorio: `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`
 - Predictor: `docs/mushrooms/mushroom-predictor-design-es.md`
-- Worker V0 externo en Mac (diseno diferido):
+- Plataforma privada de computo externo para reconstruccion/ML (imagen, cache
+  GIS, UI multi-worker, ciclo inocuo autenticado por pairing con
+  cancelacion/reasignacion/exclusion de duplicados, configuracion portable y
+  entrega autenticada de JobSpec/snapshot vivo, ejecucion candidata, progreso y
+  retorno/validacion de ResultManifest probados localmente; descarga GIS real a
+  volumen vacio, reutilizacion con cero bytes, cancelacion, corte de red,
+  freshness y promocion manual atomica probados en el laboratorio local. El
+  selector operativo esta habilitado solo en el Compose local para todas las
+  especies, pendientes y una especie; HA real/Tailscale siguen pendientes y
+  requieren primero una version HA normal con el coordinador. No existe ni se
+  debe crear una imagen HA de desarrollo como atajo):
   `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
 - Contrato perfiles v0: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
 - Fuente Marc Estevez: `docs/mushrooms/mushroom-literature-source-apply-es.md`
@@ -88,9 +98,11 @@ Para tareas de setas:
   `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
 - Commit release: `bbf43aa Release Home Assistant 0.2.207`.
 - `0.2.207` fue ejecutada realmente en HA el 2026-07-18: `Reconstruir todas`
-  completo las cuatro fases en 4 min 44 s. Queda comprobar explicitamente que
-  los recuentos favorable/desfavorable coinciden con `prediction_favorable` del
-  catalogo para todas las abundancias.
+  completo las cuatro fases en 4 min 44 s. En local ya se verificaron 126
+  features (66 favorables/60 desfavorables), sin discrepancias con
+  `prediction_favorable`, y 125 filas entrenables (65/60) porque una observacion
+  favorable sigue en borrador. Queda, si se considera necesario, comprobarlo
+  tambien visual/operativamente en HA.
 - `0.2.199` fue validada en HA por el usuario el 2026-07-11: MapLibre protegido
   funciona y el popup largo muestra `Pluja` en `Valores IDW`.
 - `0.2.204` fue validada en HA el 2026-07-16: el flujo completo de subida,
@@ -116,7 +128,8 @@ Para tareas de setas:
   `mushroom-data/mushroom_labels.json` con `en`, `es` y `ca`.
 - Mantener `web_server.py` en rutas/POST/orquestacion; pantallas grandes en
   `mushroom_profiles_ui.py`, `mushroom_catalogs_ui.py` o
-  `mushroom_gis_mappings_ui.py`; setales en `mushroom_known_sites_ui.py`.
+  `mushroom_gis_mappings_ui.py`; setales en `mushroom_known_sites_ui.py` y la
+  plataforma de computo en `mushroom_workers_ui.py`.
 - Usar patrones existentes y evitar refactors grandes si no son necesarios.
 - En desarrollo local usar siempre `.venv/bin/python` (Python 3.11), igual que
   el contenedor y HA. No usar el Python del sistema. La migracion a Python 3.14
@@ -124,6 +137,9 @@ Para tareas de setas:
 - La navegacion de la WebUI debe conservar el contexto de llamada: al cerrar o
   volver, restaurar formulario/borrador o lista con seleccion, filtros, orden y
   scroll. No crear versiones divergentes del mismo modal segun el origen.
+- La release HA `0.2.207` no contiene el coordinador externo. Una prueba M1 ↔
+  HA real exige primero preparar, autorizar, publicar e instalar una version HA
+  normal con ese codigo. No crear una imagen de desarrollo/sideload.
 
 ## Fuente de verdad de setas
 

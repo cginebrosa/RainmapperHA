@@ -1,0 +1,10 @@
+configuration:
+  external_worker_connections_enabled:
+    name: Enable external worker connections
+    description: Allow paired Rainmapper workers to connect to the dedicated private coordinator port.
+  external_worker_rebuilds_enabled:
+    name: Allow external rebuilds and promotion
+    description: Allow connected workers to run real rebuilds and make verified candidates eligible for explicit promotion.
+network:
+  8099/TCP: Rainmapper web server for Ingress, MapLibre, and existing protected web access
+  8100/TCP: Private Rainmapper external worker coordinator

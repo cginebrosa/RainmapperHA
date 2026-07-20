@@ -1,0 +1,278 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from rainmapper_core import mushroom_rebuild_comparison, mushroom_rebuild_snapshot
+
+
+class MushroomRebuildSnapshotTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.root = Path(self.temp_dir.name)
+        self.source = self.root / "source"
+        self.source.mkdir()
+        self.weather = self.source / "Data"
+        self.weather.mkdir()
+        self.gis = self.source / "mushroom-GIS"
+        mvc = self.gis / "MVC50mil" / "extracted"
+        mvc.mkdir(parents=True)
+        for extension in ("shp", "dbf", "shx"):
+            (mvc / f"MVC50mil_novembre2019.{extension}").write_text(extension, encoding="utf-8")
+        geology = self.gis / "geologia-territorial-50000-geologic-v3r0-202412" / "extracted"
+        geology.mkdir(parents=True)
+        (geology / "geologia-territorial-50000-geologic-v3r0-202412.gpkg").write_text(
+            "geology",
+            encoding="utf-8",
+        )
+        dem = self.gis / "model-elevacions-terreny-topografic-catalunya-5m-2009-2018" / "extracted"
+        dem.mkdir(parents=True)
+        (dem / "model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif").write_text(
+            "dem",
+            encoding="utf-8",
+        )
+        self.observations = self.source / "mushroom_observations.json"
+        self.catalogs = self.source / "mushroom_reference_catalogs.json"
+        self.mappings = self.source / "mushroom_gis_mappings.json"
+        for path in (self.observations, self.catalogs, self.mappings):
+            path.write_text("{}", encoding="utf-8")
+        (self.weather / "Meteocat_incremental.csv").write_text("header\n", encoding="utf-8")
+
+    def create_snapshot(self) -> Path:
+        snapshot = self.root / "snapshot"
+        mushroom_rebuild_snapshot.create_snapshot(
+            snapshot,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+        )
+        return snapshot
+
+    def test_create_and_verify_snapshot(self) -> None:
+        snapshot = self.create_snapshot()
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+
+        result = mushroom_rebuild_snapshot.verify_snapshot(snapshot)
+
+        self.assertEqual(result["status"], "valid")
+        self.assertTrue(str(manifest["snapshot_id"]).startswith("sha256:"))
+        self.assertEqual(len(manifest["files"]), 7)
+        self.assertEqual((snapshot / manifest["inputs"]["observations"]).read_text(), "{}")
+        missing_weather = [row for row in manifest["files"] if row.get("exists") is False]
+        self.assertEqual(len(missing_weather), 3)
+
+    def test_verify_detects_changed_snapshot_file(self) -> None:
+        snapshot = self.create_snapshot()
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+        (snapshot / manifest["inputs"]["observations"]).write_text("changed", encoding="utf-8")
+
+        result = mushroom_rebuild_snapshot.verify_snapshot(snapshot)
+
+        self.assertEqual(result["status"], "invalid")
+        self.assertTrue(any("snapshot" in error for error in result["errors"]))
+
+    def test_snapshot_paths_cannot_escape_the_snapshot_or_gis_roots(self) -> None:
+        snapshot = self.create_snapshot()
+        manifest_path = snapshot / mushroom_rebuild_snapshot.MANIFEST_NAME
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["files"][0]["path"] = "../outside.json"
+        manifest["inputs"]["observations"] = "../outside.json"
+        manifest["datasets"][0]["files"][0]["path"] = "../outside.dat"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = mushroom_rebuild_snapshot.verify_snapshot(snapshot)
+
+        self.assertEqual(result["status"], "invalid")
+        self.assertTrue(any("unsafe snapshot file path" in error for error in result["errors"]))
+        self.assertTrue(any("unsafe GIS file path" in error for error in result["errors"]))
+        with self.assertRaisesRegex(ValueError, "unsafe snapshot input observations path"):
+            mushroom_rebuild_snapshot.resolved_input_paths(snapshot, manifest)
+
+    def test_verify_detects_manifest_identity_tampering(self) -> None:
+        snapshot = self.create_snapshot()
+        manifest_path = snapshot / mushroom_rebuild_snapshot.MANIFEST_NAME
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["snapshot_id"] = "sha256:" + "0" * 64
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = mushroom_rebuild_snapshot.verify_snapshot(snapshot)
+
+        self.assertEqual(result["status"], "invalid")
+        self.assertIn("snapshot manifest fingerprint mismatch", result["errors"])
+
+    def test_invalid_manifest_records_are_reported_without_reading_outside_roots(self) -> None:
+        snapshot = self.create_snapshot()
+        manifest_path = snapshot / mushroom_rebuild_snapshot.MANIFEST_NAME
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["files"].append("invalid")
+        manifest["datasets"][0]["files"][0]["path"] = "../outside.dat"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        snapshot_result = mushroom_rebuild_snapshot.verify_snapshot(snapshot)
+        live_result = mushroom_rebuild_snapshot.verify_live_inputs(
+            manifest,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+        )
+
+        self.assertEqual(snapshot_result["status"], "invalid")
+        self.assertIn("invalid snapshot file record", snapshot_result["errors"])
+        self.assertEqual(live_result["status"], "stale")
+        self.assertTrue(any("unsafe live GIS file path" in error for error in live_result["errors"]))
+
+    def test_shallow_gis_validation_checks_sizes_without_rehashing(self) -> None:
+        snapshot = self.create_snapshot()
+        gis_file = mushroom_rebuild_snapshot.gis_dataset_files(self.gis)[0]
+        original = gis_file.read_bytes()
+        gis_file.write_bytes(b"x" * len(original))
+
+        shallow = mushroom_rebuild_snapshot.verify_snapshot(
+            snapshot,
+            verify_gis_file_hashes=False,
+        )
+        deep = mushroom_rebuild_snapshot.verify_snapshot(snapshot)
+
+        self.assertEqual(shallow["status"], "valid")
+        self.assertEqual(shallow["gis_validation"], "shallow")
+        self.assertEqual(deep["status"], "invalid")
+
+    def test_live_inputs_match_frozen_manifest(self) -> None:
+        snapshot = self.create_snapshot()
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+
+        result = mushroom_rebuild_snapshot.verify_live_inputs(
+            manifest,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+        )
+
+        self.assertEqual(result["status"], "valid")
+        self.assertEqual(result["current_snapshot_id"], manifest["snapshot_id"])
+
+    def test_live_inputs_detect_change_after_snapshot(self) -> None:
+        snapshot = self.create_snapshot()
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+        self.observations.write_text('{"changed": true}', encoding="utf-8")
+
+        result = mushroom_rebuild_snapshot.verify_live_inputs(
+            manifest,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+        )
+
+        self.assertEqual(result["status"], "stale")
+        self.assertTrue(any("observations" in error for error in result["errors"]))
+
+    def test_materialize_ha_test_runtime_uses_only_snapshot_inputs(self) -> None:
+        snapshot = self.create_snapshot()
+        runtime = self.root / "ha-runtime"
+
+        result = mushroom_rebuild_snapshot.materialize_ha_test_runtime(snapshot, runtime)
+
+        self.assertEqual(result["status"], "materialized")
+        self.assertTrue((runtime / ".rainmapper-rebuild-test-runtime.json").is_file())
+        self.assertEqual(
+            (runtime / "share/mushroom-data/mushroom_observations.json").read_text(),
+            "{}",
+        )
+        self.assertEqual(
+            (runtime / "share/Data/Meteocat_incremental.csv").read_text(),
+            "header\n",
+        )
+        self.assertFalse((runtime / "share/Data/Aemet_incremental.csv").exists())
+        self.assertTrue((runtime / "share/rebuild_test_input_manifest.json").is_file())
+
+
+class MushroomRebuildComparisonTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.root = Path(self.temp_dir.name)
+        self.reference = self.root / "reference"
+        self.candidate = self.root / "candidate"
+        for directory in (self.reference, self.candidate):
+            (directory / "reports").mkdir(parents=True)
+        self.write_artifacts()
+
+    def write_artifacts(self) -> None:
+        gis_reference = {
+            "generated_at": "old",
+            "qgis_points_path": "/old/qgis.geojson",
+            "qgis_points_host_path": "/host/old/qgis.geojson",
+            "results": [{"layers": {"dem_5m": {"status": "no_value", "raw": "", "source": "/old/dem"}}}],
+        }
+        gis_candidate = {
+            "generated_at": "new",
+            "qgis_points_path": "/new/qgis.geojson",
+            "qgis_points_host_path": "/host/new/qgis.geojson",
+            "results": [
+                {
+                    "layers": {
+                        "dem_5m": {
+                            "status": "no_data",
+                            "elevation_m": -9999.0,
+                            "source": "/new/dem",
+                        }
+                    }
+                }
+            ],
+        }
+        for name in mushroom_rebuild_comparison.JSON_ARTIFACTS:
+            if name == "mushroom_gis_observation_reconstruction.json":
+                left, right = gis_reference, gis_candidate
+            else:
+                left = {
+                    "generated_at": "old",
+                    "input_paths": {"input": "/old"},
+                    "output_paths": {"output": "/old"},
+                    "prediction_target_policy": {"catalog_path": "/old", "version": "v1"},
+                    "rows": [{"value": 1}],
+                }
+                right = {
+                    "generated_at": "new",
+                    "input_paths": {"input": "/new"},
+                    "output_paths": {"output": "/new"},
+                    "prediction_target_policy": {"catalog_path": "/new", "version": "v1"},
+                    "rows": [{"value": 1}],
+                }
+            (self.reference / name).write_text(json.dumps(left), encoding="utf-8")
+            (self.candidate / name).write_text(json.dumps(right), encoding="utf-8")
+        for name in mushroom_rebuild_comparison.CSV_ARTIFACTS:
+            (self.reference / name).write_text("same\n", encoding="utf-8")
+            (self.candidate / name).write_text("same\n", encoding="utf-8")
+        for name in mushroom_rebuild_comparison.REPORT_ARTIFACTS:
+            (self.reference / name).write_text("# Report\n\n- Generated at: old\n- Count: 1\n", encoding="utf-8")
+            (self.candidate / name).write_text("# Report\n\n- Generated at: new\n- Count: 1\n", encoding="utf-8")
+
+    def test_comparison_normalizes_only_expected_metadata(self) -> None:
+        result = mushroom_rebuild_comparison.compare_artifact_dirs(self.reference, self.candidate)
+
+        self.assertEqual(result["status"], "equivalent")
+
+    def test_comparison_detects_domain_difference(self) -> None:
+        path = self.candidate / "mushroom_model_v0.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["rows"][0]["value"] = 2
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+        result = mushroom_rebuild_comparison.compare_artifact_dirs(self.reference, self.candidate)
+
+        self.assertEqual(result["status"], "different")
+        model = next(item for item in result["artifacts"] if item["path"] == path.name)
+        self.assertEqual(model["difference_paths"], ["/rows/0/value"])
+
+
+if __name__ == "__main__":
+    unittest.main()

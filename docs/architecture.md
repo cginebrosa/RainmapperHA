@@ -26,9 +26,11 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 
 ## Estructura de carpetas
 - `rainmapper-app/`: paquete de Home Assistant.
-- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`, `mushroom_known_sites_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
+- `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`, `mushroom_known_sites_ui.py`, `mushroom_workers_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
-- `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para pruebas locales sin tocar Home Assistant.
+- `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para pruebas locales sin tocar Home Assistant y comparte la red privada de computo local.
+- `rainmapper-worker/`: imagen/servicio headless y ligero del worker externo; no contiene GIS/DEM ni WebUI.
+- `rainmapper-local/docker-compose.worker-local.yml`: despliegue generico local del worker con el volumen persistente `rainmapper-worker-data`.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh`, `aemet-backfill-30-days.py`, `reconstruct-mushroom-gis-mappings.py`, `reconstruct-mushroom-observation-context.py`, `build-mushroom-observation-features-v0.py`, `build-mushroom-learned-model-v0.py`, `build-mushroom-profile-v0-candidate.py`, `audit-mushroom-profile-v0-source.py` y `validate-mushroom-data.py`.
@@ -57,6 +59,13 @@ Hay varios entry points segun entorno:
 - Mapas Bokeh: `python -m rainmapper_core.bokeh_maps` como entrypoint canonico; implementacion en `rainmapper_core/bokeh_maps.py`.
 - GeoJSON: `rainmapper_core/geojson.py` como entrypoint canonico ejecutable con `python -m rainmapper_core.geojson`.
 - WebUI HA: `rainmapper-app/app/web_server.py`.
+- UI de computo: `rainmapper-app/app/mushroom_workers_ui.py`.
+- Worker externo local: `./mushroom_worker_start.sh` y
+  `./mushroom_worker_stop.sh`; servicio Python en
+  `scripts/run-mushroom-worker-service.py`.
+- Pipeline compartido de reconstruccion: CLI
+  `scripts/run-mushroom-rebuild-pipeline.py` sobre
+  `rainmapper_core/mushroom_rebuild_pipeline.py`.
 - Flujo setas v0: wrappers raiz `mushroom_gis_mappings_rebuild.sh`, `mushroom_observation_context_rebuild.sh`, `mushroom_observation_features_v0_build.sh` y `mushroom_learned_model_v0_build.sh`.
 - Leaflet: `rainmapper_core/viewers/leaflet-viewer/index.html` y `app.js`, desde la ruta canonica.
 - MapLibre: `rainmapper_core/viewers/maplibre-viewer/index.html` y `app.js`, desde la ruta canonica.
@@ -131,7 +140,7 @@ Hay varios entry points segun entorno:
 - Relacion: produce datos para MapLibre protegido y, si `publish_to_www=true`, para Leaflet legacy.
 
 ### WebUI HA
-- Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py`, `rainmapper-app/app/mushroom_profiles_ui.py`, `rainmapper-app/app/mushroom_gis_mappings_ui.py` y `rainmapper-app/app/mushroom_known_sites_ui.py`.
+- Rutas: `rainmapper-app/app/web_server.py`, `rainmapper-app/app/mushroom_catalogs_ui.py`, `rainmapper-app/app/mushroom_profiles_ui.py`, `rainmapper-app/app/mushroom_gis_mappings_ui.py`, `rainmapper-app/app/mushroom_known_sites_ui.py` y `rainmapper-app/app/mushroom_workers_ui.py`.
 - Responsabilidad: servidor HTTP, webUI, acciones, schedule, publicacion, logs, status, enable/disable estaciones, rutas protegidas de MapLibre y pantallas server-rendered de mantenimiento de setas.
 - Dependencias: stdlib HTTP, subprocess, threading, json, pathlib.
 - Relacion: `web_server.py` orquesta rutas, POST, persistencia, validacion y publicacion; los modulos `mushroom_*_ui.py` concentran render server-side de pantallas grandes para evitar que `web_server.py` siga creciendo. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`. La ruta protegida `/protected/maplibre/index.html` se sirve con `Cache-Control: no-store` y reescribe los query strings de assets a la version runtime para evitar JS/CSS obsoletos tras updates HA.
@@ -165,6 +174,37 @@ Hay varios entry points segun entorno:
 - Estado verificado 2026-07-13: `rainmapper-ha-ui` esta reconstruido y en
   ejecucion en `127.0.0.1:8101`. Los datos locales siguen preservados en
   `docker-data/`.
+
+### Coordinador y worker externo de setas
+
+- Alcance actual: prototipo operativo solo en el laboratorio local. La release
+  HA `0.2.207` no contiene este coordinador; una prueba M1 ↔ HA real requiere
+  primero una version HA normal nueva. No existe imagen HA de desarrollo.
+- Coordinador: `web_server.py` conserva autoridad sobre pairing, registro,
+  heartbeats, jobs/claims, snapshots, datasets, candidatos y promocion;
+  `mushroom_workers_ui.py` renderiza la pagina humana `Workers y trabajos`.
+- Servicio remoto: `rainmapper-worker/` y
+  `rainmapper_core/mushroom_worker_service.py`; inicia conexiones outbound y no
+  necesita acceso directo a Docker ni a las rutas vivas de HA.
+- Estado: identidad/configuracion/token, cache GIS, inputs y resultados viven
+  en el volumen `rainmapper-worker-data`; la imagen sigue siendo portable y no
+  incorpora datos pesados ni secretos.
+- Contratos: `InputManifest 0.1`, `JobSpec 0.1` y `ResultManifest 0.1`; todos
+  los paths, tamanos y hashes se validan en ambos extremos.
+- Pipeline: HA y worker llaman a
+  `rainmapper_core/mushroom_rebuild_pipeline.py`. Los alcances son completo,
+  pendientes y una especie.
+- Publicacion: el worker solo produce candidatos. Rainmapper valida freshness y
+  promociona manual y atomicamente nueve artefactos; los alcances parciales se
+  mezclan con el ultimo modelo vivo y las promociones se serializan.
+- Datos semiestaticos: HA/Rainmapper es la fuente autoritativa de GIS/DEM. El
+  worker los descarga a staging solo si falta/cambia su fingerprint y activa
+  la version validada en el volumen; las ejecuciones siguientes reutilizan la
+  cache.
+- Seguridad operacional: pairing de un uso, Bearer por worker, lease/token por
+  claim, bloqueo de trabajos solapados, cancelacion cooperativa/forzada y
+  rechazo de resultados stale. La reconstruccion local HA permanece como
+  fallback independiente.
 
 ### Flujo de setas v0
 - Rutas principales:
@@ -201,7 +241,10 @@ Hay varios entry points segun entorno:
 - Media de observaciones: el contrato UI actual admite una imagen por
   observacion. La persistencia valida sustitucion, referencias compartidas y
   borrado defensivo del fichero.
-- WebUI: el rebuild completo desde Observaciones arranca un job en segundo plano y expone progreso por `/api/mushrooms/rebuild-status`, con tiempos y ETA para medir coste real en HA sin congelar la pagina.
+- WebUI: `Workers y trabajos` es la entrada unica visible para reconstruir. El
+  aviso de modelo desactualizado y las antiguas acciones de Observaciones
+  navegan alli con el alcance preseleccionado; HA conserva su launcher local y
+  el laboratorio puede seleccionar un worker compatible.
 - Diferencia con `mushroom_gis_mappings_rebuild.sh`: ese wrapper reconstruye candidatos de mappings para capas GIS, no reconstruye observaciones ni modelos por especie.
 
 ### Runner local solo mapas
@@ -344,8 +387,8 @@ Validaciones existentes/recomendadas:
 ./scripts/smoke-test.sh
 ./scripts/docker-offline-functional-test.sh
 .venv/bin/python -m unittest discover -s tests
-python -m unittest tests.test_web_server_auth
-python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper_core/mushroom_known_sites.py rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_catalogs_ui.py rainmapper-app/app/mushroom_profiles_ui.py rainmapper-app/app/mushroom_gis_mappings_ui.py rainmapper-app/app/mushroom_known_sites_ui.py
+.venv/bin/python -m unittest tests.test_web_server_auth
+.venv/bin/python -m py_compile rainmapper_core/rainmapper.py rainmapper_core/bokeh_maps.py rainmapper_core/geojson.py rainmapper_core/mushroom_known_sites.py rainmapper-app/app/web_server.py rainmapper-app/app/mushroom_catalogs_ui.py rainmapper-app/app/mushroom_profiles_ui.py rainmapper-app/app/mushroom_gis_mappings_ui.py rainmapper-app/app/mushroom_known_sites_ui.py rainmapper-app/app/mushroom_workers_ui.py
 node --check rainmapper_core/viewers/leaflet-viewer/app.js
 node --check rainmapper_core/viewers/maplibre-viewer/app.js
 docker compose build rainmapper

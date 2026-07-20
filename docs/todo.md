@@ -12,13 +12,42 @@ Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
 
-## Estado operativo actual (2026-07-18)
+## Estado operativo actual (2026-07-20)
 
 ### Prioridad inmediata
 
-- [ ] Validar en HA los recuentos de `0.2.207`: `scarce`, `very_scarce` y
-  `absent` deben resultar desfavorables; `normal` y abundancias superiores,
-  favorables, siempre segun `prediction_favorable` del catalogo.
+- [x] Validar localmente los recuentos derivados de `prediction_favorable`: 126
+  features = 66 favorables/60 desfavorables, 0 discrepancias y 0 politicas
+  desconocidas; el modelo usa 125 = 65/60 porque una observacion favorable esta
+  en borrador. Queda como comprobacion opcional repetir la inspeccion en HA.
+- [x] Revisar y consolidar el diff local completo del worker externo antes de
+  versionarlo: autenticacion fail-closed, modo operacional condicionado a
+  API+auth, paths de snapshots/GIS confinados, huella del manifest revalidada,
+  JSON del protocolo acotado, paths privados rebasados en promocion y exclusion
+  de `docker-data`/GIS comprobada en el empaquetado fuente. El coordinador se
+  empaqueta sin habilitarse en HA y el pipeline HA sigue en `legacy` por
+  defecto. Suite: 369 tests; validador: 0 errores/11 warnings conocidos.
+- [x] Definir el alcance de una version HA normal que incorpore el coordinador
+  y la UI: web/Ingress en `8099`, protocolo privado dedicado en `8100` sin
+  publicacion host por defecto, autenticacion obligatoria y dos opciones HA
+  separadas (`Enable external worker connections` y
+  `Allow external rebuilds and promotion`), ambas apagadas por defecto. Los
+  controles humanos del worker en la web exigen Ingress autenticado; el
+  laboratorio permite explicitamente el acceso local. `--clear-token` elimina
+  ahora la credencial sin necesitar que el coordinador responda. La separacion
+  se valido con una sonda desde el contenedor worker real y el puerto `8100` no
+  se publico en el Mac. El proceso worker antiguo no se reinicio para conservar
+  sus jobs; sigue apuntando en memoria a `:8099` hasta que el launcher aplique
+  la migracion preparada en su proximo arranque.
+- [x] Inspeccionar el empaquetado local construido con el Dockerfile HA normal:
+  contiene coordinador/UI/core y solo los assets `mushroom-data` ya
+  versionados; no contiene `docker-data`, GIS/DEM, credenciales ni configuracion
+  persistente del worker. La imagen worker tampoco contiene datasets. El
+  fallback HA permanece en `legacy` por defecto. Smoke test completo: 369
+  tests; validador: 0 errores/11 warnings conocidos.
+- [ ] Pedir autorizacion expresa antes de bump, build/push GHCR, commit/push e
+  instalacion de la version HA normal. La `0.2.207` no puede coordinar workers
+  y no existe ni se creara una imagen HA de desarrollo.
 - [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
   de distintos anos y setales, conservando procedencia y calidad.
 - [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
@@ -26,28 +55,218 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 - [ ] Comprobar cuando convenga que cancelar aborta una carga activa y que el
   Quick viewer MapLibre abre `rainmap.nomentero.com`.
 
-### Diseno diferido: worker V0 externo en Mac
+### Plataforma de computo externo HA + M1
 
-No es prioridad inmediata. Antes de tocar esta linea, leer
-`docs/mushrooms/mushroom-v0-external-worker-design-es.md`.
+El prototipo local esta completo y esta linea vuelve a ser prioridad. Antes de
+tocarla, leer `docs/mushrooms/mushroom-v0-external-worker-design-es.md`.
 
-- [x] Documentar arquitectura acordada, datos, imagen Docker privada,
-  protocolo outbound, Tailscale, seguridad, consistencia, fases y criterios de
-  aceptacion.
-- [ ] Medir las cuatro fases de reconstruccion en HA, M1 y M5, y el tamano de
-  inputs/outputs vivos.
-- [ ] Extraer de `web_server.py` un pipeline comun en `rainmapper_core` sin
-  cambiar el comportamiento de la reconstruccion HA.
-- [ ] Validar con un CLI local que el mismo snapshot produce resultados
-  equivalentes mediante el pipeline comun.
-- [ ] Crear una imagen worker independiente y privada con la capa estable de
-  `mushroom-GIS-HA`; probar `docker save`/`docker load` entre M1 y M5 sin GHCR.
-- [ ] Implementar protocolo outbound de workers, snapshot/checksums, progreso,
-  cancelacion, validacion y promocion atomica en HA.
-- [ ] Configurar la comunicacion con una URL Tailscale fija de HA y tokens/ACL
-  por worker; conservar siempre la ejecucion local HA como fallback.
-- [ ] Anadir a la UI la seleccion explicita HA/M1/M5 y probar fallos de red,
-  worker offline, inputs modificados y resultados incompatibles.
+Orden obligatorio: revisar/consolidar local; preparar una version HA normal;
+pedir autorizacion expresa; publicar/instalar; y solo despues probar M1 ↔ HA
+real. La topologia Tailscale puede estudiarse antes, pero no puede validarse el
+flujo funcional contra `0.2.207` porque no contiene el coordinador.
+
+- [x] Documentar arquitectura general para reconstruccion, dataset,
+  entrenamiento y evaluacion ML; protocolo outbound, Docker privado,
+  Tailscale, seguridad, consistencia, fases y criterios de aceptacion.
+- [x] Fijar HA + M1 como primera topologia. M5 y una posible VM en AWS quedan
+  como destinos futuros, no como requisitos iniciales.
+- [ ] Medir las cuatro fases de reconstruccion en HA y M1, el tamano de
+  inputs/outputs vivos y el coste separado de dataset/baseline ML. Primer run
+  M1 aislado del 2026-07-19: GIS/DEM 97,857 s, meteo 14,342 s, features 0,022 s,
+  modelo 0,021 s y total 112,244 s; output 1,9 MB. Repeticion desde snapshot:
+  102,407 s, 14,286 s, 0,021 s, 0,013 s y total 116,728 s. Faltan fases HA y
+  costes ML. Las fases HA compartidas se mediran despues de instalar la version
+  normal que incorpore el coordinador/pipeline; no mediante una imagen de
+  desarrollo.
+- [x] Extraer de `web_server.py` un pipeline comun en `rainmapper_core` sin
+  cambiar el comportamiento de la reconstruccion HA y haciendo explicitas las
+  rutas de entrada/salida. Existe ya el prototipo local
+  `mushroom_rebuild_pipeline.py`, el CLI aislado y el adaptador opt-in
+  `RAINMAPPER_MUSHROOM_REBUILD_PIPELINE=shared`. La imagen HA local aislada
+  completo el job compartido en unos 41,7 s con 9/9 artefactos equivalentes;
+  fallos en las cuatro fases, rollback de promocion y cancelacion estan
+  cubiertos. El release HA sigue en `legacy`; decidir el cambio de default y su
+  release es una tarea posterior y explicita.
+- [x] Probar publicacion transaccional, fallos y cancelacion del adaptador HA
+  compartido. Los nueve artefactos se generan en staging y se promocionan como
+  unidad con rollback; un fallo real al entrar en Meteorologia despues de
+  GIS/DEM y una cancelacion real al 1 % de GIS/DEM conservaron 9/9 artefactos y
+  limpiaron temporales. Suite completa: 264 tests.
+- [x] Definir contratos versionados `JobSpec`, `InputManifest` y
+  `ResultManifest`; validar con un CLI local que el mismo snapshot produce
+  resultados equivalentes. `InputManifest 0.1`, snapshot privado y comparador
+  normalizado ya probados: 7 archivos vivos/meteo copiados, 10 GIS externos
+  fijados por hash y 9/9 artefactos equivalentes contra HA `0.2.207`.
+  `JobSpec 0.1` fija snapshot, GIS, alcance y salidas; `ResultManifest 0.1`
+  verifica hashes, tamanos y contadores derivados. Run real contractual:
+  114,671 s, 125/126/126/14 y 9/9 validos. Cambios controlados de spec y
+  artefacto fueron rechazados. Suite completa: 269 tests.
+- [x] Crear un arnes HA local que no pueda montar `docker-data` por defecto:
+  Compose/servicio/puerto propios, runtime obligatorio bajo `/private/tmp`, GIS
+  read-only, schedule y descargas desactivados. Validado con HTTP 200,
+  Python 3.11.15/aarch64 y reconstruccion compartida completa.
+- [x] Crear una imagen worker ligera y privada, sin GIS/DEM, y ejecutarla en el
+  M1 sin GHCR: `rainmapper-worker:local-contract-test`, arm64, 151.477.088
+  bytes, sin red, datos ni WebUI. Run contractual completo en 42,130 s,
+  125/126/126/14 y 9/9 equivalente; usuario no-root y volumen persistente
+  conservado/verificado desde un segundo contenedor.
+- [x] Probar roundtrip local `docker save`/`docker load`: TAR privado de
+  151.497.216 bytes, SHA-256
+  `69a266478efdcdb45cb4e19afa928c5a10e917bb81a6745e9806bea4545829c2`;
+  etiqueta restaurada con el mismo image ID/arquitectura/tamano y arranque
+  `--pull never` contra `rainmapper-worker-data`, 9/9 valido. Falta repetir en
+  daemon limpio u otro host porque la etiqueta original conservo las capas.
+  Metricas: TAR 151,5 MB, `docker image inspect` 151,5 MB y almacenamiento local
+  mostrado por `docker images` 616 MB. Suite completa actual: 272 tests.
+- [x] Crear la base interactiva portable del worker: pedir/validar URL de HA,
+  nombre y pairing, persistir identidad/configuracion y arrancar el Compose
+  generico sin exigir edicion manual de `.env`. `mushroom_worker_start.sh`
+  incluye `--help`, prompts autoexplicativos y modo no interactivo. Queda
+  probarla en otro host y, si se elige, integrar Tailscale. Si se adopta
+  Tailscale dentro de Docker, incluir en el mismo instalador su alta
+  interactiva, volumen de estado y prueba de conectividad con HA.
+- [x] Anadir control manual local del servicio headless mediante
+  `mushroom_worker_start.sh`/`mushroom_worker_stop.sh`. El worker queda accesible
+  solo en `127.0.0.1:8110`, informa `idle` y cache GIS valida, corre como UID
+  10001 y se detiene con codigo 0 conservando `rainmapper-worker-data`. El
+  endpoint es diagnostico JSON; no es UI ni implementa aun la API de jobs.
+  Suite completa: 281 tests.
+- [x] Anadir la primera pantalla local `Workers y trabajos` y una red Docker
+  privada compartida. La UI detecta el health real, muestra HA/worker, cache,
+  alcances e historial de jobs, permite reconstruir mediante el launcher HA
+  existente y deshabilita honestamente el destino externo mientras anuncie
+  `job_api: not_implemented`. Se probaron conectado/desconectado con HTTP 200;
+  quedan ambos contenedores encendidos y exactamente dos imagenes. Suite
+  Tras corregir el solapamiento de los radios, destino y alcance usan tarjetas
+  seleccionables y el selector de especie solo aparece para ese alcance. Suite
+  completa de esa iteracion: 289 tests.
+- [x] Implementar identidad y registro local multi-worker: `worker_id`, nombre
+  visible y maquina fisica persistidos en `rainmapper-worker-data`; heartbeat
+  saliente a un registro de HA/UI habilitado solo en el Compose local; tarjetas
+  y destinos generados desde una coleccion. El M1 se registro con el nombre
+  fisico detectado; su ID opaco se conservo tras recrear el contenedor y no se
+  versiona. El script admite `--name` para renombrarlo sin `.env`.
+  No interviene Tailscale ni HA real. Suite completa: 296 tests.
+- [x] Implementar la primera cola/claim local no destructiva. La UI encola un
+  `worker_claim_probe` persistente para un `worker_id` exacto; el worker lo
+  reclama outbound despues del heartbeat y la tabla muestra tipo, destino y
+  `En cola`/`Reclamado`. Otro worker no puede reclamarlo, no se entrega dos
+  veces y un job en cola sobrevivio al apagado/recreacion del contenedor. No
+  ejecuta reconstruccion ni modifica el modelo. API solo local y aun sin
+  autenticacion. Suite completa: 301 tests.
+- [x] Hacer portable la seleccion del coordinador. El Compose ya no fija
+  `RAINMAPPER_HA_URL`; el arranque ofrece `--help`, parametros de nombre/URL,
+  token seguro y modo no interactivo, recupera configuracion del volumen y
+  valida `/api/mushrooms/workers/ping` antes de guardarla. Si falta o no es
+  accesible, guia para reintentar/cambiar/cancelar; un destino invalido no
+  sustituye al valido. Primer arranque, reutilizacion sin parametros y claim
+  posterior probados. El launcher del laboratorio imprime separadamente URL de
+  UI y URL interna del worker. Suite completa: 306 tests.
+- [x] Refrescar automaticamente disponibilidad e historial del worker. La UI
+  consulta un endpoint ligero cada 2 s y reemplaza solo tarjetas, destinos y
+  trabajos, conservando el formulario. Heartbeat cada 2 s, caducidad a 5 s y
+  comprobacion inmediata al volver a la pestana. Parada real detectada en 3,25
+  s; sin escrituras de metadata para heartbeats sin cambios. Suite: 308 tests.
+- [x] Completar el ciclo persistente del probe: lease/token, inicio, `busy`,
+  control, finalizacion, cancelacion cooperativa y forzada mediante subproceso,
+  reasignacion solo antes de empezar y exclusion global de trabajo equivalente
+  por `work_key`. Pruebas reales: duplicado rechazado, cancelacion normal,
+  cancelacion forzada y finalizacion; sin modificar datos/modelo. Suite: 317.
+- [x] Autenticar el protocolo local mediante pairing. La UI genera un unico
+  codigo temporal activo de 10 minutos/uso unico; el launcher lo recibe por
+  stdin o prompt oculto, persiste el token solo en el volumen y HA almacena
+  unicamente SHA-256. Heartbeat y todas las rutas de jobs rechazan sin token; la
+  UI muestra estado y permite revocar. Pairing, ciclo autenticado y reinicio sin
+  nuevo codigo probados realmente. Suite: 325 tests.
+- [x] Entregar localmente `JobSpec 0.1` y snapshot vivo por HTTP autenticado.
+  `Probar envio de entradas` congela un bundle privado, el worker lo reclama
+  outbound, exige Bearer + identidad + claim, descarga solo paths declarados,
+  valida limites/tamanos/SHA-256 y activa atomicamente sus inputs persistentes.
+  Prueba real: 7 ficheros y 111.031.244 bytes, cache GIS exacta reutilizada,
+  estado final `Input bundle verified`, sin pipeline ni artefactos/modelo
+  modificados. UI y worker quedan encendidos. Suite: 329 tests.
+- [x] Crear la base local del volumen persistente versionado para datasets
+  pesados: manifest, sincronizacion inicial desde fuente read-only, staging,
+  hashes durante copia, activacion atomica y conservacion segura de la version
+  anterior. `mushroom_gis_v0` sincronizo 10 ficheros/6.306.367.027 bytes,
+  supero verificacion profunda y despues se reutilizo sin recopia. Un rebuild
+  sin montar GIS del host termino en 42,033 s, 125/126/126/14 y 9/9
+  equivalente. Fallos sinteticos preservan `current` y limpian staging. Suite
+  completa: 278 tests.
+- [x] Conectar la cache GIS al transporte HA. El coordinador sirve solo los
+  paths declarados bajo Bearer/worker/claim; el worker compara el contrato,
+  comprueba espacio, descarga directamente a staging, valida tamano/SHA-256 y
+  activa atomicamente solo si falta o cambia la huella. Tests sinteticos cubren
+  primera carga, reutilizacion sin GET, actualizacion, fallo preservando
+  `current` y espacio insuficiente. Prueba real del 2026-07-20: cache existente
+  de 10 ficheros/6.306.367.027 bytes reutilizada con
+  `dataset_transferred_size_bytes: 0`. En esa iteracion aun no se habia hecho
+  una transferencia real de 6,3 GB a un volumen nuevo; la prueba posterior se
+  documenta en los puntos siguientes. Suite historica: 340 tests.
+- [ ] Repetir portabilidad en un daemon limpio u otro host y comprobar alli que
+  reemplazar la imagen conserva el volumen. En el M1 ya se ha probado un
+  volumen completamente vacio: sincronizo 10 ficheros/6.306.367.027 bytes,
+  supero verificacion profunda y el segundo job reutilizo la cache con cero
+  bytes. El volumen aislado se conserva y su contenedor temporal esta detenido.
+- [x] Completar el protocolo outbound sobre el snapshot ya entregado y
+  verificado: `worker_candidate_rebuild` ejecuta el pipeline compartido en un
+  area candidata privada y cancelable, publica progreso, sube por canal
+  autenticado `ResultManifest` y nueve artefactos, y Rainmapper verifica
+  contrato/rutas/tamanos/SHA-256/contadores antes de compararlos. Prueba real
+  local del 2026-07-20: 7 inputs/111.031.244 bytes, cache GIS persistente
+  reutilizada, 9/9 artefactos verificados y `equivalent`; las nueve huellas del
+  modelo vivo no cambiaron. Ese primer candidato quedo privado (~2,0 MB), sin
+  promocion automatica, y en esa iteracion el selector externo seguia
+  deshabilitado. La tabla de
+  trabajos muestra fecha/hora local y duracion calculada. Suite: 335 tests;
+  validador: 0 errores/11 warnings conocidos.
+- [ ] Comparar Tailscale del host con sidecar dentro de Docker usando la URL
+  fija de HA, tokens/ACL e identidad propia por despliegue; no asumir que un
+  contenedor evita las politicas de un Mac de trabajo.
+- [x] Habilitar solo en el laboratorio local el destino externo operativo para
+  una reconstruccion completa, despues de probar descarga GIS real a volumen
+  vacio, cancelacion cooperativa/forzada, corte y recuperacion de red, rechazo
+  de corrupcion/freshness y promocion atomica con rollback. El job operativo
+  local termino en 49 s, fue 9/9 equivalente, mantuvo intacto el modelo hasta
+  la promocion y conservo copia de los nueve artefactos anteriores. El flag
+  `RAINMAPPER_WORKER_OPERATIONAL_ENABLED` solo esta activo en el Compose local;
+  default y release HA permanecen deshabilitados. Las copias de promocion se
+  limitan automaticamente a las dos mas recientes y no contienen GIS/DEM.
+  Suite: 348 tests; validador: 0 errores/11 warnings conocidos.
+- [x] Centralizar todos los lanzamientos visibles de reconstruccion en
+  `Workers y trabajos`. El aviso `Modelo V0 desactualizado`, las acciones de
+  modelo aprendido y el antiguo laboratorio GIS de Observaciones ya abren esa
+  pagina con `pendientes`, `todas` o `una especie` preseleccionados y no arrancan
+  trabajos por su cuenta. El ejecutor predeterminado se guarda en el registro
+  privado como HA o `worker:<id>` exacto; si esta apagado/incompatible no hay
+  fallback silencioso. `Una especie` sigue operativa en HA. La
+  cabecera usa la misma barra superior compacta de acciones que el resto de
+  pantallas. Revocar un worker elimina su credencial, heartbeat, registro,
+  tarjeta y selector; si era el predeterminado se restablece HA. Suite: 356
+  tests.
+- [x] Implementar y validar en el worker externo local los alcances
+  `pendientes` y `una especie`. El JobSpec transporta los IDs exactos de
+  observacion/especie; la promocion mezcla solo esas filas/modelos con las
+  nueve salidas vigentes antes de sustituirlas atomicamente. Las claves de
+  trabajo impiden alcances activos solapados, pero permiten especies disjuntas
+  en workers distintos. Pruebas reales: `una especie` y `pendientes` con una
+  observacion se completaron y promocionaron; las otras 13 especies conservaron
+  exactamente sus hashes. Un segundo job `pendientes` se cancelo durante
+  Meteorologia al 55 % sin promocion. El estado pendiente se limpio solo tras
+  la promocion correcta; la retencion podo la tercera copia y mantuvo dos.
+  Suite: 359 tests; validador: 0 errores/11 warnings conocidos.
+- [ ] Con autorizacion expresa, publicar e instalar primero una version HA
+  normal que contenga coordinador, pairing, UI, transporte y fallback HA. No
+  habilitar por defecto una ruta insegura ni inventar una imagen de desarrollo.
+- [ ] Despues, probar la ruta operativa M1 ↔ HA real por LAN/Tailscale:
+  reconstruccion completa/parcial, desconexion/reconexion, cancelacion,
+  seguridad del endpoint, cache, freshness y confirmacion visual de promocion.
+- [ ] Medir las fases en HA con el pipeline/instrumentacion compartidos y
+  comparar con M1 usando exactamente el mismo snapshot/dataset.
+- [ ] Incorporar jobs separados `build_ml_dataset`, `train_ml_model` y
+  `evaluate_ml_model`, reutilizando `dataset_id` y sin promocion automatica.
+- [ ] Cuando exista necesidad real, evaluar M5 o AWS repitiendo pruebas de
+  arquitectura, red, privacidad, rendimiento y coste.
 
 ### Completado en el release 0.2.204
 
@@ -132,7 +351,7 @@ No es prioridad inmediata. Antes de tocar esta linea, leer
 - [x] Publicar HA `0.2.199`: cache-busters MapLibre/Leaflet actualizados, `web_server.py` sirve el MapLibre protegido con `no-store` y reescribe query strings de assets a la version runtime. Commit `abe0d49`, digest `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
 - [x] Validar `0.2.199` localmente: tests unitarios relevantes, `node --check`, `sh -n`, `git diff --check`, inspeccion de imagen con `app.js?v=0.2.199` y `pointValues.rain`.
 - [x] Validar en HA `0.2.199`: el usuario confirma que funciona; MapLibre protegido carga correctamente y el popup largo muestra `Pluja` en `Valores IDW`.
-- [ ] Decidir si limpiar GHCR de forma conservadora. No cerrar repo GitHub salvo peticion explicita; no es prioridad inmediata.
+- [x] Limpiar GHCR de forma conservadora el 2026-07-18: eliminar las 60 entradas de `0.2.194`-`0.2.205`, conservar `0.2.207/latest`, rollback `0.2.206` y sus auxiliares multi-arch, y verificar los tres tags tras el borrado. El repo GitHub sigue publico.
 - [ ] Continuar pruebas de backfill:
   - Wunderground: ventanas cortas, pausas y `backfill_station_filter` si solo hay estaciones nuevas.
   - AEMET: probar primero ventanas pequenas.
