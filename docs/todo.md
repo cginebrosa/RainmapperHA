@@ -70,9 +70,18 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   `sha256:a64644929735eef53ce254a99f303161c050f876459819a4455ce6bcd299bd23`;
   commit `6521245`; import check arm64
   `image_import_ok 0.2.210 False False True`; 374 tests y smoke test OK.
-- [ ] Instalar `0.2.210` y comprobar de forma controlada reposo, una
-  asignacion, una preparacion de entradas con respuesta inmediata y una
-  segunda preparacion posterior que reutilice la cache.
+- [x] Instalar `0.2.210` y comprobar la preparacion en segundo plano y la
+  finalizacion correcta de asignacion/envio. Se detecto que los mensajes flash
+  de preparacion o conflicto quedaban visibles despues de terminar el trabajo.
+- [x] Publicar, con autorizacion expresa, `0.2.211`: los avisos de actividad se
+  refrescan con la cola y desaparecen al quedar inactiva, sin ocultar errores
+  reales. `0.2.211/latest` comparten digest
+  `sha256:0c7ed3477c904ba872f2ccc94109caf0e82a438675e9631e0784a57a488fc86b`;
+  commit `74f1313`; import check arm64
+  `image_import_ok 0.2.211 False False True`; 376 tests y smoke test OK.
+- [ ] Instalar `0.2.211` y comprobar reposo, asignacion, envio de entradas y
+  conflicto por trabajo activo; cada aviso transitorio debe desaparecer al
+  terminar, mientras un error real debe permanecer visible.
 - [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
   de distintos anos y setales, conservando procedencia y calidad.
 - [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
@@ -285,7 +294,7 @@ flujo funcional contra `0.2.207` porque no contiene el coordinador.
   commit/push verificados.
 - [x] Instalar `0.2.208` en HA, verificar el fallback local, publicar `8100`
   solo en LAN, emparejar M1 y completar la prueba de asignacion en 13 s.
-- [ ] Instalar la correccion `0.2.210` y despues probar la ruta operativa
+- [ ] Instalar la correccion `0.2.211` y despues probar la ruta operativa
   M1 ↔ HA real por LAN/Tailscale:
   reconstruccion completa/parcial, desconexion/reconexion, cancelacion,
   seguridad del endpoint, cache, freshness y confirmacion visual de promocion.

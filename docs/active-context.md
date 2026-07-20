@@ -8,19 +8,19 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Commit de release presente en `inicial` y `origin/inicial`: `6521245`
-  (`Release Home Assistant 0.2.210`).
-- Release HA instalada y usada para aislar el problema: `0.2.209`; release
-  publicada pendiente de instalar: `0.2.210`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.210` y `latest`, digest
-  `sha256:a64644929735eef53ce254a99f303161c050f876459819a4455ce6bcd299bd23`.
+- Commit de release presente en `inicial` y `origin/inicial`: `74f1313`
+  (`Release Home Assistant 0.2.211`).
+- Release HA instalada y probada: `0.2.210`; release publicada pendiente de
+  instalar: `0.2.211`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.211` y `latest`, digest
+  `sha256:0c7ed3477c904ba872f2ccc94109caf0e82a438675e9631e0784a57a488fc86b`.
 - Manifests verificados: `linux/amd64`
-  `sha256:af74419a980cb581bbd80328c06a05d9d01751d9292ce803cd82d00a083c3009`
+  `sha256:abbb664f0a5209bb73b0f391d42a31dd72d9aa2d8c42c7b6f35d073aa6575874`
   y `linux/arm64`
-  `sha256:8c0aeb44d84bef4356dbe655493dbbeedbeebf0b897ef5b982205fb4cd6c55f4`.
+  `sha256:e1f76a97e37a981c9a431c6e17bf7e7b76286615228a25210527ff3bd8565930`.
 - El repositorio GitHub sigue publico por decision explicita del usuario.
 - El usuario autorizo expresamente el 2026-07-20 el bump, publicacion y
-  commit/push de `0.2.210` para cerrar cuanto antes la fase de workers.
+  commit/push de `0.2.211` para cerrar cuanto antes la fase de workers.
 
 El codigo de release esta versionado. Antes de continuar, ejecutar
 `git status --short`; no limpiar, revertir ni sobrescribir cualquier cambio
@@ -34,7 +34,9 @@ Introducirla complicaria innecesariamente el despliegue y la continuidad.
 No se creo ni se debe crear una imagen HA de desarrollo. `0.2.208` introdujo el
 coordinador normal, `0.2.209` corrigio su refresco bajo Ingress y `0.2.210`
 controla la interaccion de Workers y la preparacion costosa de entradas sin
-cambiar los flags seguros ni el fallback HA.
+cambiar los flags seguros ni el fallback HA. `0.2.211` integra los avisos de
+actividad en el polling: los mensajes de preparacion, cola y conflicto se
+retiran al finalizar el trabajo, mientras los errores reales permanecen.
 
 La `0.2.208` arranco con ambos interruptores apagados. Despues se publico
 `8100` solo en la LAN, se activo `Enable external worker connections`, se
@@ -51,14 +53,17 @@ privada de hashes GIS validada por metadatos del fichero.
 
 `Allow external rebuilds and promotion` permanece apagado. Siguiente orden:
 
-1. Instalar `0.2.210`; con worker encendido y la pagina abierta, confirmar que
+1. Instalar `0.2.211`; con worker encendido y la pagina abierta, confirmar que
    el reposo sigue estable.
-2. Ejecutar una sola prueba de asignacion.
+2. Ejecutar una sola prueba de asignacion y confirmar que su aviso desaparece
+   al quedar completada.
 3. Ejecutar una sola prueba de envio de entradas: la UI debe responder de
    inmediato indicando preparacion; la primera pasada puede usar un nucleo y
-   debe volver a la normalidad al terminar. Repetirla solo despues para
-   confirmar que reutiliza la cache de hashes.
-4. Probar corte/reconexion sin revocar la credencial.
+   debe volver a la normalidad al terminar; el aviso tambien debe retirarse.
+   Repetirla solo despues para confirmar que reutiliza la cache de hashes.
+4. Intentar un segundo job durante uno activo y comprobar que el conflicto
+   desaparece cuando termina el primero. Probar despues corte/reconexion sin
+   revocar la credencial.
 5. Activar reconstrucciones externas y validar primero un candidato privado de
    una especie, sin promocion automatica.
 6. Probar despues alcances, cancelacion, freshness, cache y promocion manual.
@@ -142,11 +147,11 @@ de HA real:
 Resultados comprobados el 2026-07-20 tras consolidar el diff y sus correcciones
 posteriores:
 
-- `.venv/bin/python -m unittest discover -s tests`: **374 tests OK**.
+- `.venv/bin/python -m unittest discover -s tests`: **376 tests OK**.
 - `.venv/bin/python scripts/validate-mushroom-data.py`: **0 errores y 11
   warnings conocidos**.
 - `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: **OK**, incluidos los
-  374 tests, sintaxis Python/JavaScript/shell, versiones y fixtures.
+  376 tests, sintaxis Python/JavaScript/shell, versiones y fixtures.
 - Las imagenes locales HA/worker se inspeccionaron sin montar volumenes: no
   contienen `docker-data`, GIS/DEM, credenciales ni configuracion persistente
   del worker. HA contiene solo los assets `mushroom-data` ya versionados.
@@ -197,7 +202,8 @@ confundirlo con la validacion local ya cerrada.
 
 Estado: consolidacion completada, publicada en `0.2.208`, instalada y probada
 contra M1 real; el refresco se publico en `0.2.209` y el control de interaccion
-y preparacion pesada en `0.2.210`.
+y preparacion pesada en `0.2.210`. La sincronizacion de avisos con el estado
+terminal de los trabajos se publica en `0.2.211`.
 
 1. La API permanece apagada por defecto, la autenticacion es fail-closed y el
    modo operacional exige simultaneamente API y autenticacion. HA expone dos
@@ -227,18 +233,18 @@ y preparacion pesada en `0.2.210`.
    volumenes: incluye coordinador/UI/core, no contiene datos privados ni
    GIS/DEM y la reconstruccion local HA sigue disponible en `legacy` por
    defecto.
-4. Bump, GHCR y commit/push de `0.2.210` completados con autorizacion expresa.
-   `0.2.210` y `latest` comparten el digest multi-arch verificado
-   `sha256:a64644929735eef53ce254a99f303161c050f876459819a4455ce6bcd299bd23`;
-   import check arm64: `image_import_ok 0.2.210 False False True`.
+4. Bump, GHCR y commit/push de `0.2.211` completados con autorizacion expresa.
+   `0.2.211` y `latest` comparten el digest multi-arch verificado
+   `sha256:0c7ed3477c904ba872f2ccc94109caf0e82a438675e9631e0784a57a488fc86b`;
+   import check arm64: `image_import_ok 0.2.211 False False True`.
 
 ### P2 — Prueba M1 ↔ HA real
 
 - M1 ya esta emparejado por LAN con HA real y la prueba de asignacion termino
   correctamente en 13 s.
-- Instalar `0.2.210` y comprobar primero el reposo, una asignacion y una sola
-  preparacion de entradas; repetir esta ultima solo tras completarse para
-  verificar la cache.
+- Instalar `0.2.211` y comprobar primero el reposo, una asignacion, una sola
+  preparacion de entradas y la retirada automatica de sus avisos; repetir la
+  preparacion solo tras completarse para verificar la cache.
 - Probar todas, pendientes y una especie.
 - Probar cancelacion cooperativa/forzada, worker apagado, corte/reconexion,
   duplicados/solapes, stale result, cache presente/ausente y promocion manual.
