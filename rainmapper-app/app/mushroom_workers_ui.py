@@ -21,6 +21,16 @@ def refresh_signature(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def render_worker_flash(
+    message: str = "",
+    *,
+    error: bool = False,
+) -> str:
+    if not message:
+        return ""
+    return f'<div class="catalog-alert{" error" if error else ""}">{_text(message)}</div>'
+
+
 def worker_cards_refresh_signature(
     worker_statuses: list[dict[str, object]],
     *,
@@ -342,6 +352,7 @@ def render_page(
     pairing_required: bool = False,
     flash: str = "",
     flash_error: bool = False,
+    flash_clear_when_idle: bool = False,
 ) -> str:
     if selected_scope not in {"all", "pending", "species"}:
         selected_scope = "all"
@@ -508,7 +519,7 @@ def render_page(
       </div>
     </div>
     <div class="workers-head"><div><h1>{_text(_label('ui.workers_jobs'))}</h1><p>{_text(_label('ui.workers_jobs_help'))}</p></div><div class="workers-head-meta"><span class="meta">{_text(_label('ui.worker_default_executor'))}: <strong>{_text(next((str(row.get('payload', {}).get('display_name', '')) for row in worker_statuses if isinstance(row.get('payload'), dict) and f"worker:{row.get('payload', {}).get('worker_id', '')}" == default_executor), _label('ui.home_assistant')))}</strong></span>{pairing_security}</div></div>
-    {f'<div class="catalog-alert{" error" if flash_error else ""}">{_text(flash)}</div>' if flash else ''}
+    <div id="worker-flash-region" data-clear-when-idle="{'1' if flash_clear_when_idle else '0'}">{render_worker_flash(flash, error=flash_error)}</div>
     {f'<div class="catalog-alert error worker-default-issue"><strong>{_text(_label("ui.worker_default_attention"))}</strong><br>{_text(default_issue)}<br>{_text(_label("ui.worker_choose_available"))}</div>' if default_issue else ''}
     <div class="workers-grid">
       <article class="worker-card">
@@ -549,7 +560,8 @@ def render_page(
       const cards=document.getElementById('worker-status-cards');
       const destinations=document.getElementById('worker-destination-choices');
       const jobs=document.getElementById('worker-recent-jobs');
-      if(!cards||!destinations||!jobs)return;
+      const flashRegion=document.getElementById('worker-flash-region');
+      if(!cards||!destinations||!jobs||!flashRegion)return;
       const appBasePath=window.location.pathname.replace(/\\/mushrooms\\/workers\\/?$/,'');
       const statusUrl=`${{appBasePath}}/api/mushrooms/workers/status`;
       let timer=0,requestController=null,interactionUntil=0,leaving=false;
@@ -581,6 +593,14 @@ def render_page(
           if(!response.ok)return;
           const payload=await response.json();
           if(!payload.ok)return;
+          if(payload.flash_update===true&&typeof payload.flash_html==='string'){{
+            flashRegion.innerHTML=payload.flash_html;
+            flashRegion.dataset.clearWhenIdle=payload.flash_clear_when_idle===true?'1':'0';
+          }}
+          if(payload.worker_activity_active===false&&flashRegion.dataset.clearWhenIdle==='1'){{
+            flashRegion.replaceChildren();
+            flashRegion.dataset.clearWhenIdle='0';
+          }}
           document.querySelectorAll('[data-worker-id]').forEach(card=>{{
             const checked=payload.worker_last_checks?.[card.dataset.workerId];
             const node=card.querySelector('[data-worker-last-check]');

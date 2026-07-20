@@ -173,6 +173,7 @@ RUN_STATE = {
     "mushroom_profiles_flash": "",
     "mushroom_workers_flash": "",
     "mushroom_workers_flash_error": False,
+    "mushroom_workers_flash_clear_when_idle": False,
 }
 MUSHROOM_REBUILD_JOBS: dict[str, dict[str, object]] = {}
 MUSHROOM_REBUILD_JOB_TTL_SECONDS = 3600
@@ -10386,19 +10387,39 @@ def set_mushroom_profiles_flash(message: str) -> None:
         RUN_STATE["mushroom_profiles_flash"] = message
 
 
-def mushroom_workers_flash() -> tuple[str, bool]:
+def mushroom_workers_flash_details() -> tuple[str, bool, bool]:
     with RUN_LOCK:
         message = str(RUN_STATE.get("mushroom_workers_flash", ""))
         is_error = bool(RUN_STATE.get("mushroom_workers_flash_error", False))
+        clear_when_idle = bool(
+            RUN_STATE.get("mushroom_workers_flash_clear_when_idle", False)
+        )
         RUN_STATE["mushroom_workers_flash"] = ""
         RUN_STATE["mushroom_workers_flash_error"] = False
+        RUN_STATE["mushroom_workers_flash_clear_when_idle"] = False
+    return message, is_error, clear_when_idle
+
+
+def mushroom_workers_flash() -> tuple[str, bool]:
+    message, is_error, _clear_when_idle = mushroom_workers_flash_details()
     return message, is_error
 
 
-def set_mushroom_workers_flash(message: str, *, error: bool = False) -> None:
+def set_mushroom_workers_flash(
+    message: str,
+    *,
+    error: bool = False,
+    clear_when_idle: bool = False,
+) -> None:
     with RUN_LOCK:
         RUN_STATE["mushroom_workers_flash"] = message
         RUN_STATE["mushroom_workers_flash_error"] = error
+        RUN_STATE["mushroom_workers_flash_clear_when_idle"] = clear_when_idle
+
+
+def mushroom_worker_error_tracks_activity(response: dict[str, object]) -> bool:
+    error = str(response.get("error", "") or "").casefold()
+    return "already active" in error or "already being prepared" in error
 
 
 def mushroom_worker_api_enabled() -> bool:
@@ -10765,7 +10786,10 @@ def create_mushroom_worker_snapshot_transport_probe(
 def start_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
-    set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.worker_bundle_preparing"))
+    set_mushroom_workers_flash(
+        mushroom_profiles_ui.ui_label("ui.worker_bundle_preparing"),
+        clear_when_idle=True,
+    )
 
     def prepare() -> None:
         try:
@@ -10777,12 +10801,14 @@ def start_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int,
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_transport_queued").replace("{worker}", target)
+                    mushroom_profiles_ui.ui_label("ui.worker_transport_queued").replace("{worker}", target),
+                    clear_when_idle=True,
                 )
             else:
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot queue worker input transport test.")),
                     error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
         except BaseException as exc:
             set_mushroom_workers_flash(f"Cannot prepare worker inputs: {exc}", error=True)
@@ -10928,7 +10954,10 @@ def start_mushroom_worker_candidate_rebuild(
 ) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
-    set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.worker_bundle_preparing"))
+    set_mushroom_workers_flash(
+        mushroom_profiles_ui.ui_label("ui.worker_bundle_preparing"),
+        clear_when_idle=True,
+    )
 
     def prepare() -> None:
         try:
@@ -10944,12 +10973,14 @@ def start_mushroom_worker_candidate_rebuild(
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
                 label_key = "ui.worker_operational_queued" if promotion_eligible else "ui.worker_candidate_queued"
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label(label_key).replace("{worker}", target)
+                    mushroom_profiles_ui.ui_label(label_key).replace("{worker}", target),
+                    clear_when_idle=True,
                 )
             else:
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot queue candidate rebuild.")),
                     error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
         except BaseException as exc:
             set_mushroom_workers_flash(f"Cannot prepare worker inputs: {exc}", error=True)
@@ -11468,6 +11499,15 @@ def mushroom_workers_recent_jobs(*, limit: int = 10) -> list[dict[str, object]]:
     return sorted(jobs, key=lambda job: str(job.get("sort_at", "")), reverse=True)[:limit]
 
 
+def mushroom_worker_activity_active(jobs: list[dict[str, object]]) -> bool:
+    if MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.locked():
+        return True
+    return any(
+        str(job.get("status", "")) in mushroom_worker_jobs.ACTIVE_STATUSES
+        for job in jobs
+    )
+
+
 def mushroom_workers_status_refresh_payload() -> dict[str, object]:
     worker_statuses = registered_mushroom_worker_statuses()
     jobs = mushroom_workers_recent_jobs()
@@ -11489,6 +11529,12 @@ def mushroom_workers_status_refresh_payload() -> dict[str, object]:
         worker_statuses,
         operational_enabled=operational_enabled,
     )
+    activity_active = mushroom_worker_activity_active(jobs)
+    flash, flash_error, flash_clear_when_idle = mushroom_workers_flash_details()
+    if flash_clear_when_idle and not activity_active:
+        flash = ""
+        flash_error = False
+        flash_clear_when_idle = False
     worker_last_checks = {}
     for worker_status in worker_statuses:
         payload = worker_status.get("payload")
@@ -11512,6 +11558,13 @@ def mushroom_workers_status_refresh_payload() -> dict[str, object]:
         "recent_jobs_html": recent_jobs_html,
         "recent_jobs_signature": mushroom_workers_ui.refresh_signature(recent_jobs_html),
         "worker_last_checks": worker_last_checks,
+        "worker_activity_active": activity_active,
+        "flash_update": bool(flash),
+        "flash_html": mushroom_workers_ui.render_worker_flash(
+            flash,
+            error=flash_error,
+        ),
+        "flash_clear_when_idle": flash_clear_when_idle,
     }
 
 
@@ -15026,7 +15079,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             }
             if selected_species_id not in profile_ids:
                 selected_species_id = ""
-            flash, flash_error = mushroom_workers_flash()
+            flash, flash_error, flash_clear_when_idle = mushroom_workers_flash_details()
+            if flash_clear_when_idle and not mushroom_worker_activity_active(jobs):
+                flash = ""
+                flash_error = False
+                flash_clear_when_idle = False
             pipeline = (
                 "shared"
                 if env("RAINMAPPER_MUSHROOM_REBUILD_PIPELINE", "legacy").strip().lower() == "shared"
@@ -15046,6 +15103,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 pairing_required=mushroom_worker_auth_required(),
                 flash=flash,
                 flash_error=flash_error,
+                flash_clear_when_idle=flash_clear_when_idle,
             )
             rebuild_job_id = (query.get("rebuild_job") or [""])[0]
             body += render_mushroom_rebuild_progress_modal(rebuild_job_id, "./workers")
@@ -16347,7 +16405,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 job = response.get("job")
                 job_status = str(job.get("status", "")) if isinstance(job, dict) else ""
                 label_key = "ui.worker_cancel_requested_flash" if job_status == "cancel_requested" else "ui.worker_cancelled_flash"
-                set_mushroom_workers_flash(mushroom_profiles_ui.ui_label(label_key))
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label(label_key),
+                    clear_when_idle=job_status == "cancel_requested",
+                )
             else:
                 set_mushroom_workers_flash(str(response.get("error", "Cannot cancel worker job.")), error=True)
             return "./workers"
@@ -16361,7 +16422,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     if job_status == "cancel_requested"
                     else "ui.worker_cancelled_flash"
                 )
-                set_mushroom_workers_flash(mushroom_profiles_ui.ui_label(label_key))
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label(label_key),
+                    clear_when_idle=job_status == "cancel_requested",
+                )
             else:
                 set_mushroom_workers_flash(str(response.get("error", "Cannot force-cancel worker job.")), error=True)
             return "./workers"
@@ -16374,7 +16438,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_reassigned_flash").replace("{worker}", target)
+                    mushroom_profiles_ui.ui_label("ui.worker_reassigned_flash").replace("{worker}", target),
+                    clear_when_idle=True,
                 )
             else:
                 set_mushroom_workers_flash(str(response.get("error", "Cannot reassign worker job.")), error=True)
@@ -16385,10 +16450,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_probe_queued").replace("{worker}", target)
+                    mushroom_profiles_ui.ui_label("ui.worker_probe_queued").replace("{worker}", target),
+                    clear_when_idle=True,
                 )
             else:
-                set_mushroom_workers_flash(str(response.get("error", "Cannot queue worker test.")), error=True)
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue worker test.")),
+                    error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
+                )
             return "./workers"
         if action == "probe_worker_snapshot_transport":
             status, response = start_mushroom_worker_snapshot_transport_probe(
@@ -16398,6 +16468,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot queue worker input transport test.")),
                     error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
         if action == "run_worker_candidate_rebuild":
@@ -16408,6 +16479,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot queue candidate rebuild.")),
                     error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
         if action == "promote_worker_candidate":
@@ -16452,6 +16524,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot queue external rebuild.")),
                     error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
         scope = self.form_value(form, "scope") or "all"
@@ -16477,7 +16550,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         parsed_redirect = urlparse(profile_redirect)
         job_id = (parse_qs(parsed_redirect.query).get("rebuild_job") or [""])[0]
         is_error = " was not " in profile_message or " failed" in profile_message.lower()
-        set_mushroom_workers_flash(profile_message or "Rebuild request processed.", error=is_error)
+        set_mushroom_workers_flash(
+            profile_message or "Rebuild request processed.",
+            error=is_error,
+            clear_when_idle=bool(job_id) and not is_error,
+        )
         return append_query_param("./workers", "rebuild_job", job_id) if job_id else "./workers"
 
     def handle_mushroom_known_sites_post(self, form: dict[str, list[str]]) -> str:

@@ -3554,6 +3554,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("window.setTimeout(refresh,2000)", page)
         self.assertIn("data-refresh-signature=", page)
         self.assertIn("replaceRegion(cards,payload.worker_cards_html,payload.worker_cards_signature)", page)
+        self.assertIn('id="worker-flash-region"', page)
+        self.assertIn("payload.worker_activity_active===false", page)
+        self.assertIn("flashRegion.replaceChildren()", page)
         self.assertIn("document.addEventListener('pointerdown'", page)
         self.assertIn("requestController?.abort()", page)
         self.assertNotIn("cards.innerHTML=payload.worker_cards_html", page)
@@ -3596,6 +3599,98 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(len(payload["worker_cards_signature"]), 64)
         self.assertEqual(len(payload["worker_choices_signature"]), 64)
         self.assertEqual(len(payload["recent_jobs_signature"]), 64)
+        self.assertFalse(payload["worker_activity_active"])
+        self.assertFalse(payload["flash_update"])
+
+    def test_worker_activity_flash_updates_while_active_and_clears_when_idle(self) -> None:
+        active_job = {
+            "job_id": "worker_job_active",
+            "status": "running",
+            "created_at": "2026-07-20T19:00:00+02:00",
+        }
+        terminal_job = {**active_job, "status": "complete"}
+        self.web_server.set_mushroom_workers_flash(
+            "Worker job queued.",
+            clear_when_idle=True,
+        )
+        with mock.patch.object(
+            self.web_server,
+            "registered_mushroom_worker_statuses",
+            return_value=[],
+        ), mock.patch.object(
+            self.web_server,
+            "mushroom_workers_recent_jobs",
+            return_value=[active_job],
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_registry,
+            "load_registry",
+            return_value={"default_executor": "home_assistant", "workers": []},
+        ):
+            active_payload = self.web_server.mushroom_workers_status_refresh_payload()
+
+        self.assertTrue(active_payload["worker_activity_active"])
+        self.assertTrue(active_payload["flash_update"])
+        self.assertTrue(active_payload["flash_clear_when_idle"])
+        self.assertIn("Worker job queued.", active_payload["flash_html"])
+
+        self.web_server.set_mushroom_workers_flash(
+            "Stale worker job message.",
+            clear_when_idle=True,
+        )
+        with mock.patch.object(
+            self.web_server,
+            "registered_mushroom_worker_statuses",
+            return_value=[],
+        ), mock.patch.object(
+            self.web_server,
+            "mushroom_workers_recent_jobs",
+            return_value=[terminal_job],
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_registry,
+            "load_registry",
+            return_value={"default_executor": "home_assistant", "workers": []},
+        ):
+            idle_payload = self.web_server.mushroom_workers_status_refresh_payload()
+
+        self.assertFalse(idle_payload["worker_activity_active"])
+        self.assertFalse(idle_payload["flash_update"])
+        self.assertEqual("", idle_payload["flash_html"])
+
+    def test_non_activity_worker_error_remains_available_when_idle(self) -> None:
+        self.assertTrue(
+            self.web_server.mushroom_worker_error_tracks_activity(
+                {"error": "Equivalent worker job is already active: worker_job_x."}
+            )
+        )
+        self.assertFalse(
+            self.web_server.mushroom_worker_error_tracks_activity(
+                {"error": "The selected worker is not connected."}
+            )
+        )
+        self.web_server.set_mushroom_workers_flash(
+            "Worker preparation failed.",
+            error=True,
+        )
+        with mock.patch.object(
+            self.web_server,
+            "registered_mushroom_worker_statuses",
+            return_value=[],
+        ), mock.patch.object(
+            self.web_server,
+            "mushroom_workers_recent_jobs",
+            return_value=[],
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_registry,
+            "load_registry",
+            return_value={"default_executor": "home_assistant", "workers": []},
+        ):
+            payload = self.web_server.mushroom_workers_status_refresh_payload()
+
+        self.assertFalse(payload["worker_activity_active"])
+        self.assertTrue(payload["flash_update"])
+        self.assertFalse(payload["flash_clear_when_idle"])
+        self.assertIn('catalog-alert error', payload["flash_html"])
+        self.assertIn("Worker preparation failed.", payload["flash_html"])
 
     def test_worker_card_refresh_signature_ignores_heartbeat_time_only(self) -> None:
         worker = {

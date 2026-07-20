@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.211
+
+- Refresh worker activity notices together with live job state so preparation,
+  queue and conflict messages disappear when the associated work finishes.
+- Keep real preparation, connectivity and configuration errors visible after
+  the worker queue becomes idle.
+
 ## 0.2.210
 
 - Keep the `Workers and jobs` interface responsive by preserving interactive
