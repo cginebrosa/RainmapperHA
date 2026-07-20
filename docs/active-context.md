@@ -8,19 +8,19 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Commit de release presente en `inicial` y `origin/inicial`: `4861dbb`
-  (`Release Home Assistant 0.2.209`).
-- Release HA instalada y validada: `0.2.208`; release publicada pendiente de
-  instalar: `0.2.209`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.209` y `latest`, digest
-  `sha256:cccf90938697f310476e5962f7165e0a3833a5ddc589d517670c70adbccec77b`.
+- Commit de release presente en `inicial` y `origin/inicial`: `6521245`
+  (`Release Home Assistant 0.2.210`).
+- Release HA instalada y usada para aislar el problema: `0.2.209`; release
+  publicada pendiente de instalar: `0.2.210`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.210` y `latest`, digest
+  `sha256:a64644929735eef53ce254a99f303161c050f876459819a4455ce6bcd299bd23`.
 - Manifests verificados: `linux/amd64`
-  `sha256:69113a86c717749c89a1004c431f841503015bf61c01f86886af36f3a3729adf`
+  `sha256:af74419a980cb581bbd80328c06a05d9d01751d9292ce803cd82d00a083c3009`
   y `linux/arm64`
-  `sha256:de643e730e6374192e8cd14891fb6e4e00908f4e58fcdb57e119c780dd7b9b01`.
+  `sha256:8c0aeb44d84bef4356dbe655493dbbeedbeebf0b897ef5b982205fb4cd6c55f4`.
 - El repositorio GitHub sigue publico por decision explicita del usuario.
 - El usuario autorizo expresamente el 2026-07-20 el bump, publicacion y
-  commit/push de `0.2.209` para cerrar cuanto antes la fase de workers.
+  commit/push de `0.2.210` para cerrar cuanto antes la fase de workers.
 
 El codigo de release esta versionado. Antes de continuar, ejecutar
 `git status --short`; no limpiar, revertir ni sobrescribir cualquier cambio
@@ -32,20 +32,37 @@ No hay, ni se quiere crear, una imagen de desarrollo/sideload de Home Assistant.
 Introducirla complicaria innecesariamente el despliegue y la continuidad.
 
 No se creo ni se debe crear una imagen HA de desarrollo. `0.2.208` introdujo el
-coordinador normal y `0.2.209` corrige su refresco bajo Ingress sin cambiar los
-flags seguros ni el fallback HA.
+coordinador normal, `0.2.209` corrigio su refresco bajo Ingress y `0.2.210`
+controla la interaccion de Workers y la preparacion costosa de entradas sin
+cambiar los flags seguros ni el fallback HA.
 
 La `0.2.208` arranco con ambos interruptores apagados. Despues se publico
 `8100` solo en la LAN, se activo `Enable external worker connections`, se
 emparejo M1 y la prueba inocua de asignacion termino correctamente en 13 s.
+En `0.2.209` se comprobo que Rainmapper, el worker y la pagina en reposo son
+estables, al igual que una asignacion. Una sola prueba de envio de entradas
+consume aproximadamente un nucleo mientras calcula los hashes de 5,87 GiB,
+termina correctamente y devuelve la CPU a la normalidad. Los clics repetidos
+antes de ver respuesta iniciaban varias preparaciones sincronas concurrentes,
+agotaban la CPU de HA y provocaban timeouts de watchdog y salidas 137 de otros
+add-ons. `0.2.210` prepara el bundle en segundo plano, impide duplicados con un
+lock no bloqueante, desactiva inmediatamente el boton y reutiliza una cache
+privada de hashes GIS validada por metadatos del fichero.
+
 `Allow external rebuilds and promotion` permanece apagado. Siguiente orden:
 
-1. Instalar `0.2.209` y verificar el refresco automatico/manual de Workers.
-2. Probar envio de entradas y corte/reconexion sin revocar la credencial.
-3. Activar reconstrucciones externas y validar primero un candidato privado de
+1. Instalar `0.2.210`; con worker encendido y la pagina abierta, confirmar que
+   el reposo sigue estable.
+2. Ejecutar una sola prueba de asignacion.
+3. Ejecutar una sola prueba de envio de entradas: la UI debe responder de
+   inmediato indicando preparacion; la primera pasada puede usar un nucleo y
+   debe volver a la normalidad al terminar. Repetirla solo despues para
+   confirmar que reutiliza la cache de hashes.
+4. Probar corte/reconexion sin revocar la credencial.
+5. Activar reconstrucciones externas y validar primero un candidato privado de
    una especie, sin promocion automatica.
-4. Probar despues alcances, cancelacion, freshness, cache y promocion manual.
-5. Medir las fases en HA y M1 sobre el mismo snapshot/dataset.
+6. Probar despues alcances, cancelacion, freshness, cache y promocion manual.
+7. Medir las fases en HA y M1 sobre el mismo snapshot/dataset.
 
 La conexion actual usa HTTP en la LAN privada. No publicar `8100` en el router;
 Tailscale/TLS/ACL queda como endurecimiento posterior.
@@ -125,11 +142,11 @@ de HA real:
 Resultados comprobados el 2026-07-20 tras consolidar el diff y sus correcciones
 posteriores:
 
-- `.venv/bin/python -m unittest discover -s tests`: **371 tests OK**.
+- `.venv/bin/python -m unittest discover -s tests`: **374 tests OK**.
 - `.venv/bin/python scripts/validate-mushroom-data.py`: **0 errores y 11
   warnings conocidos**.
 - `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: **OK**, incluidos los
-  369 tests, sintaxis Python/JavaScript/shell, versiones y fixtures.
+  374 tests, sintaxis Python/JavaScript/shell, versiones y fixtures.
 - Las imagenes locales HA/worker se inspeccionaron sin montar volumenes: no
   contienen `docker-data`, GIS/DEM, credenciales ni configuracion persistente
   del worker. HA contiene solo los assets `mushroom-data` ya versionados.
@@ -179,7 +196,8 @@ confundirlo con la validacion local ya cerrada.
 ### P0 — Consolidar el prototipo antes de publicar nada
 
 Estado: consolidacion completada, publicada en `0.2.208`, instalada y probada
-contra M1 real; la correccion de interfaz se publica en `0.2.209`.
+contra M1 real; el refresco se publico en `0.2.209` y el control de interaccion
+y preparacion pesada en `0.2.210`.
 
 1. La API permanece apagada por defecto, la autenticacion es fail-closed y el
    modo operacional exige simultaneamente API y autenticacion. HA expone dos
@@ -209,16 +227,18 @@ contra M1 real; la correccion de interfaz se publica en `0.2.209`.
    volumenes: incluye coordinador/UI/core, no contiene datos privados ni
    GIS/DEM y la reconstruccion local HA sigue disponible en `legacy` por
    defecto.
-4. Bump, GHCR y commit/push de `0.2.209` completados con autorizacion expresa.
-   `0.2.209` y `latest` comparten el digest multi-arch verificado
-   `sha256:cccf90938697f310476e5962f7165e0a3833a5ddc589d517670c70adbccec77b`;
-   import check arm64: `image_import_ok 0.2.209 False False`.
+4. Bump, GHCR y commit/push de `0.2.210` completados con autorizacion expresa.
+   `0.2.210` y `latest` comparten el digest multi-arch verificado
+   `sha256:a64644929735eef53ce254a99f303161c050f876459819a4455ce6bcd299bd23`;
+   import check arm64: `image_import_ok 0.2.210 False False True`.
 
 ### P2 — Prueba M1 ↔ HA real
 
 - M1 ya esta emparejado por LAN con HA real y la prueba de asignacion termino
   correctamente en 13 s.
-- Instalar `0.2.209` y comprobar primero ambos refrescos de la UI.
+- Instalar `0.2.210` y comprobar primero el reposo, una asignacion y una sola
+  preparacion de entradas; repetir esta ultima solo tras completarse para
+  verificar la cache.
 - Probar todas, pendientes y una especie.
 - Probar cancelacion cooperativa/forzada, worker apagado, corte/reconexion,
   duplicados/solapes, stale result, cache presente/ausente y promocion manual.

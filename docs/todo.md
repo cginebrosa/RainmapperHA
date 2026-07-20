@@ -59,8 +59,20 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   programadas. `0.2.209/latest` comparten digest
   `sha256:cccf90938697f310476e5962f7165e0a3833a5ddc589d517670c70adbccec77b`;
   commit `4861dbb`; import check arm64 correcto con ambos flags en `False`.
-- [ ] Instalar `0.2.209` y confirmar refresco manual/automatico antes de la
-  prueba de envio de entradas.
+- [x] Instalar `0.2.209` y aislar el comportamiento contra HA real: reposo,
+  pagina Workers y asignacion estables; una prueba de entradas termina y
+  devuelve la CPU a la normalidad, pero los clics repetidos lanzaban hashes
+  concurrentes sobre 5,87 GiB y podian provocar watchdogs y salidas 137.
+- [x] Publicar, con autorizacion expresa, `0.2.210`: preparacion de entradas en
+  segundo plano, exclusion inmediata de duplicados, boton protegido, polling
+  estable y cache privada de hashes GIS con invalidacion por fichero.
+  `0.2.210/latest` comparten digest
+  `sha256:a64644929735eef53ce254a99f303161c050f876459819a4455ce6bcd299bd23`;
+  commit `6521245`; import check arm64
+  `image_import_ok 0.2.210 False False True`; 374 tests y smoke test OK.
+- [ ] Instalar `0.2.210` y comprobar de forma controlada reposo, una
+  asignacion, una preparacion de entradas con respuesta inmediata y una
+  segunda preparacion posterior que reutilice la cache.
 - [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
   de distintos anos y setales, conservando procedencia y calidad.
 - [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
@@ -273,7 +285,7 @@ flujo funcional contra `0.2.207` porque no contiene el coordinador.
   commit/push verificados.
 - [x] Instalar `0.2.208` en HA, verificar el fallback local, publicar `8100`
   solo en LAN, emparejar M1 y completar la prueba de asignacion en 13 s.
-- [ ] Instalar la correccion `0.2.209` y despues probar la ruta operativa
+- [ ] Instalar la correccion `0.2.210` y despues probar la ruta operativa
   M1 ↔ HA real por LAN/Tailscale:
   reconstruccion completa/parcial, desconexion/reconexion, cancelacion,
   seguridad del endpoint, cache, freshness y confirmacion visual de promocion.
