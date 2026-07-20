@@ -8129,10 +8129,33 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }});
     }}
     initializeObservationDatePickers(document);
+    var observationSearchSubmitTimer = null;
+    function submitObservationSearch(input) {{
+      if (!input || !input.isConnected) return;
+      var observationFilters = input.closest(".observations-filters");
+      if (!observationFilters) return;
+      if (typeof observationFilters.requestSubmit === "function") observationFilters.requestSubmit();
+      else observationFilters.submit();
+    }}
     document.addEventListener("input", function(event) {{
       if (event.target && event.target.id === "users-filter") {{
         applyUsersFilter();
       }}
+      if (event.target && event.target.matches && event.target.matches(".observations-filters [data-observation-search]")) {{
+        if (event.isComposing) return;
+        var observationSearchInput = event.target;
+        window.clearTimeout(observationSearchSubmitTimer);
+        observationSearchSubmitTimer = window.setTimeout(function() {{
+          submitObservationSearch(observationSearchInput);
+        }}, 450);
+      }}
+    }});
+    document.addEventListener("keydown", function(event) {{
+      if (!event.target || !event.target.matches || !event.target.matches(".observations-filters [data-observation-search]")) return;
+      if (event.key !== "Enter" || event.isComposing) return;
+      event.preventDefault();
+      window.clearTimeout(observationSearchSubmitTimer);
+      submitObservationSearch(event.target);
     }});
     document.addEventListener("change", function(event) {{
       if (event.target && event.target.name === "profile_tab") {{

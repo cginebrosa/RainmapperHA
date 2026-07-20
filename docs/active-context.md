@@ -8,17 +8,17 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada para instalar/probar: `0.2.213`. La ultima instalada y
-  probada sigue siendo `0.2.212` (`03a75b3 Release Home Assistant 0.2.212`).
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.213` y `latest`, digest
-  `sha256:d1380a800131986b6efefbbb3ad234b252086f4e802de90aed42f905ac9dc4dd`.
+- Release HA publicada para instalar/probar: `0.2.214`. La ultima instalada es
+  `0.2.213` (`145cc03 Release Home Assistant 0.2.213`).
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.214` y `latest`, digest
+  `sha256:a13a4bb1a1de0bc901fe198ee01ea25a6fe7fb594b1721321de7df0173cb698a`.
 - Manifests verificados: `linux/amd64`
-  `sha256:fd03ce40b4662d60145a87c191d8ddd47cefcd7bade94fd22f4aaf7545c8dfc3`
+  `sha256:cb03ce65b1d926f96063f2ab2754e4cd299e8c76c5bb365a2d463bcf55b469bc`
   y `linux/arm64`
-  `sha256:127570331aa8f705079c66552e66047bea4fd9c8d7ea0b2e4020c1724d1a1dda`.
+  `sha256:bf465baef107f537d110463664871ce8e57e6a2bea22f5dbe5601413844180dc`.
 - El repositorio GitHub sigue publico por decision explicita del usuario.
 - El usuario autorizo expresamente el 2026-07-20 el bump, publicacion y
-  commit/push de `0.2.213` para cerrar cuanto antes la fase de workers.
+  commit/push de `0.2.214` tras validar localmente la busqueda corregida.
 
 El codigo de release esta versionado. Antes de continuar, ejecutar
 `git status --short`; no limpiar, revertir ni sobrescribir cualquier cambio
@@ -235,11 +235,11 @@ terminal de los trabajos se publica en `0.2.211`.
    volumenes: incluye coordinador/UI/core, no contiene datos privados ni
    GIS/DEM y la reconstruccion local HA sigue disponible en `legacy` por
    defecto.
-4. Bump y GHCR de `0.2.213` completados con autorizacion expresa. `0.2.213` y
+4. Bump y GHCR de `0.2.214` completados con autorizacion expresa. `0.2.214` y
    `latest` comparten el digest multi-arch verificado
-   `sha256:d1380a800131986b6efefbbb3ad234b252086f4e802de90aed42f905ac9dc4dd`;
-   import check arm64: `image_import_ok 0.2.213 False False True`. Queda instalar
-   y validar el descarte y la UI compacta contra HA real.
+   `sha256:a13a4bb1a1de0bc901fe198ee01ea25a6fe7fb594b1721321de7df0173cb698a`;
+   import check arm64: `image_import_ok 0.2.214 False False True True`. Queda
+   instalar y validar la busqueda global y el descarte contra HA real.
 
 ### P2 — Prueba M1 ↔ HA real
 
@@ -270,6 +270,11 @@ terminal de los trabajos se publica en `0.2.211`.
 - Observaciones deja de mostrar el desplegable heredado de ultima reconstruccion
   GIS: no estaba ligado a un job concreto y podia prometer una revision vacia o
   distinta del trabajo reciente. La ejecucion y el historial quedan en Workers.
+- `0.2.214` corrige la busqueda de Observaciones bajo paginacion: Enter envia
+  inmediatamente, la escritura se envia con debounce, se vuelve a pagina 1 y
+  se buscan todos los campos persistidos y los nombres visibles resueltos de
+  especie, area, microarea y catalogos antes de paginar. El usuario la valido
+  localmente; falta instalarla en HA.
 - Verificar que HA reconstruye localmente aunque no haya worker.
 - Medir tiempos por fase HA/M1 con el mismo snapshot y dataset.
 

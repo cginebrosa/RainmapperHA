@@ -89,27 +89,30 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA publicado para instalar/probar: `0.2.213`; ultimo instalado
-  y probado: `0.2.212`.
-- Version HA del repo: `0.2.213` en `rainmapper-app/config.yaml` y
+- Ultimo release HA publicado para instalar/probar: `0.2.214`; ultimo instalado:
+  `0.2.213`.
+- Version HA del repo: `0.2.214` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.213` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.214` y
   `latest`, digest multi-arch
-  `sha256:d1380a800131986b6efefbbb3ad234b252086f4e802de90aed42f905ac9dc4dd`.
-- Ultimo commit instalado: `03a75b3 Release Home Assistant 0.2.212`.
+  `sha256:a13a4bb1a1de0bc901fe198ee01ea25a6fe7fb594b1721321de7df0173cb698a`.
+- Ultimo commit instalado: `145cc03 Release Home Assistant 0.2.213`.
 - `0.2.211` se valido en HA real con M1 emparejado por LAN: reposo estable,
   asignacion, transporte de entradas y reconstruccion candidata completa
   privada completados. Un candidato quedo verificado al 100 % en 55 s sin
   promocion automatica; despues un job operacional completo termino en 49 s y
   fue promocionado manualmente con exito al modelo vivo. `0.2.212` incorpora la
   promocion en segundo plano con progreso visible y bloqueo de clics duplicados,
-  ya validada en HA real. `0.2.213`, publicada y pendiente de instalar,
-  incorpora el descarte con confirmacion de candidatos terminales no promocionados y
-  limpiar sus copias privadas tanto en HA como en el worker. Esa revision
+  ya validada en HA real. `0.2.213` incorpora el descarte con confirmacion de
+  candidatos terminales no promocionados y la limpieza de sus copias privadas
+  tanto en HA como en el worker. Esa revision
   tambien compacta la pantalla HA + dos workers, ordena todas las columnas con
   fechas normalizadas y retira de Observaciones el panel GIS heredado que no
-  correspondia a un job identificable.
+  correspondia a un job identificable. `0.2.214`, publicada y pendiente de
+  instalar, corrige la busqueda de cualquier campo de Observaciones sobre el
+  conjunto completo antes de paginar; Enter y el debounce envian el filtro y
+  reinician la lista en pagina 1.
 - `0.2.207` fue ejecutada realmente en HA el 2026-07-18: `Reconstruir todas`
   completo las cuatro fases en 4 min 44 s. En local ya se verificaron 126
   features (66 favorables/60 desfavorables), sin discrepancias con

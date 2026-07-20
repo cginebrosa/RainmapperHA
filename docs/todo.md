@@ -326,12 +326,25 @@ flujo funcional contra `0.2.207` porque no contiene el coordinador.
   ordena por cualquiera de sus columnas, usa instantes UTC al mezclar fechas y
   muestra `HA local` en lugar del ID aleatorio. Se retira tambien de
   Observaciones el desplegable GIS heredado, porque no identificaba un job y
-  podia quedar vacio. Publicado en `0.2.213`, pendiente de instalar/probar.
+  podia quedar vacio. Publicado e instalado en `0.2.213`; la revision visual en
+  HA detecto despues la regresion independiente de busqueda corregida en
+  `0.2.214`.
 - [x] Publicar con autorizacion expresa `0.2.213` y `latest`: digest multi-arch
   `sha256:d1380a800131986b6efefbbb3ad234b252086f4e802de90aed42f905ac9dc4dd`,
   manifests amd64/arm64 e import check
   `image_import_ok 0.2.213 False False True` verificados; smoke con 386 tests y
-  validador 0 errores/11 warnings. Pendiente de instalar y probar en HA real.
+  validador 0 errores/11 warnings. Instalada en HA; la prueba integral de
+  descarte con el worker sigue pendiente.
+- [x] Corregir la busqueda global de Observaciones con paginacion. Enter envia
+  el formulario inmediatamente, la escritura aplica un debounce de 450 ms, la
+  pagina vuelve a 1 y el servidor busca todos los campos persistidos mas los
+  nombres visibles resueltos antes de paginar. Validada localmente por el
+  usuario. Publicada con autorizacion expresa en `0.2.214` y `latest`: digest
+  multi-arch
+  `sha256:a13a4bb1a1de0bc901fe198ee01ea25a6fe7fb594b1721321de7df0173cb698a`,
+  manifests amd64/arm64 e import check
+  `image_import_ok 0.2.214 False False True True`; smoke con 387 tests y
+  validador 0 errores/11 warnings. Pendiente de instalar/probar en HA real.
 - [ ] Medir las fases en HA con el pipeline/instrumentacion compartidos y
   comparar con M1 usando exactamente el mismo snapshot/dataset.
 - [ ] Incorporar jobs separados `build_ml_dataset`, `train_ml_model` y

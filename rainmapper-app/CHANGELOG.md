@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.214
+
+- Restore immediate observation searches when pressing Enter and submit them
+  automatically after a short typing delay.
+- Search every persisted observation field and resolved display values such as
+  species, area, micro-area and catalog labels across the complete active
+  dataset before pagination.
+- Reset observation searches to the first result page so matches cannot remain
+  hidden by a stale page selection.
+
 ## 0.2.213
 
 - Allow operators to discard terminal, unpromoted worker candidates through a

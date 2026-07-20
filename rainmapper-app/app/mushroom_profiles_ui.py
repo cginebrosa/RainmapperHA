@@ -4843,6 +4843,10 @@ def filtered_observation_rows(
     rows: list[dict[str, object]],
     selected_species_id: str,
     filters: dict[str, str] | None,
+    *,
+    catalogs: dict[str, object] | None = None,
+    species_labels: dict[str, str] | None = None,
+    site_names: dict[str, tuple[str, str]] | None = None,
 ) -> list[dict[str, object]]:
     """Apply the visible observation filters used by the maintenance screen."""
     species_filter = observation_filter_value(filters, "obs_species")
@@ -4850,7 +4854,7 @@ def filtered_observation_rows(
     date_to = observation_filter_value(filters, "date_to")
     result = observation_filter_value(filters, "result")
     validation = observation_filter_value(filters, "validation")
-    text = observation_filter_value(filters, "obs_q").lower()
+    text = observation_filter_value(filters, "obs_q").casefold()
     visible_rows = rows
     if species_filter == "__all__":
         pass
@@ -4867,8 +4871,23 @@ def filtered_observation_rows(
     if validation:
         visible_rows = [row for row in visible_rows if str(row.get("validation_status", "")) == validation]
     if text:
+        labels = species_labels or {}
+        names = site_names or {}
+        catalog_payload = catalogs or {}
+
         def row_text(row: dict[str, object]) -> str:
-            return json.dumps(row, ensure_ascii=False, default=str).lower()
+            species_id = str(row.get("species_id", ""))
+            micro_id = str(row.get("micro_area_id", "") or "").strip()
+            area_name, micro_name = names.get(micro_id, ("", ""))
+            display_values = (
+                labels.get(species_id, species_id),
+                area_name,
+                micro_name,
+                observation_catalog_label(catalog_payload, "observation_flush_abundance", row.get("flush_abundance")),
+                observation_catalog_label(catalog_payload, "observation_validation_statuses", row.get("validation_status")),
+                observation_catalog_label(catalog_payload, "observation_calibration_uses", row.get("calibration_use")),
+            )
+            return (json.dumps(row, ensure_ascii=False, default=str) + " " + " ".join(display_values)).casefold()
 
         visible_rows = [row for row in visible_rows if text in row_text(row)]
     return visible_rows
@@ -6096,8 +6115,16 @@ def render_observations_section(
             media_path = str(media.get("path", "") or "")
             if media_path:
                 media_reference_counts[media_path] = media_reference_counts.get(media_path, 0) + 1
-    filtered_rows = filtered_observation_rows(rows, selected_species_id, filters)
     species_labels = profile_name_map(profiles)
+    site_names = known_site_names_by_micro_area()
+    filtered_rows = filtered_observation_rows(
+        rows,
+        selected_species_id,
+        filters,
+        catalogs=catalogs,
+        species_labels=species_labels,
+        site_names=site_names,
+    )
     total, positive, negative, pending = observation_metrics(filtered_rows, catalogs)
     calibration_href = profile_query_url(selected_species_id, search, section="calibration") if selected_species_id else profile_query_url(section="calibration")
     date_from = observation_filter_value(filters, "date_from")
@@ -6108,7 +6135,6 @@ def render_observations_section(
     sort_key = observation_filter_value(filters, "sort") or "observed_at"
     sort_dir = observation_filter_value(filters, "dir") or "desc"
     selected_observation_id = observation_filter_value(filters, "obs_id")
-    site_names = known_site_names_by_micro_area()
     ordered_rows = sorted_observation_rows(filtered_rows, catalogs, species_labels, sort_key, sort_dir, site_names)
     page_size = observation_page_size(filters)
     page_count = max(1, (len(ordered_rows) + page_size - 1) // page_size)
@@ -6153,6 +6179,7 @@ def render_observations_section(
       </div>
       <form class="observations-filters" method="get" action="">
         <input type="hidden" name="section" value="observations">
+        <input type="hidden" name="page" value="1">
         <input type="hidden" name="q" value="{html.escape(search, quote=True)}">
         <input type="hidden" name="sort" value="{html.escape(sort_key, quote=True)}">
         <input type="hidden" name="dir" value="{html.escape(sort_dir, quote=True)}">
@@ -6162,7 +6189,7 @@ def render_observations_section(
         <div class="admin-field"><label>{html.escape(ui_label("species_id"))}</label><select name="obs_species" onchange="this.form.submit()">{species_filter_options}</select></div>
         <div class="admin-field"><label>Florada</label><select name="result" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_flush_abundance", result_filter, ui_label("ui.all"))}</select></div>
         <div class="admin-field"><label>Estado</label><select name="validation" onchange="this.form.submit()">{catalog_select_options(catalogs, "observation_validation_statuses", validation_filter, ui_label("ui.all"))}</select></div>
-        <div class="admin-field"><label>{html.escape(ui_label("ui.search"))}</label><input name="obs_q" type="search" value="{html.escape(observation_search, quote=True)}"></div>
+        <div class="admin-field"><label>{html.escape(ui_label("ui.search"))}</label><input name="obs_q" type="search" value="{html.escape(observation_search, quote=True)}" data-observation-search autocomplete="off"></div>
       </form>
       <div class="observations-layout">
         <article id="observations-list" class="profile-section-card observations-table-card">

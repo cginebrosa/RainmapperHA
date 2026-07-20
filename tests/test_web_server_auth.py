@@ -2021,6 +2021,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
 
         filters_html = html[html.index('<form class="observations-filters"') : html.index('<div class="observations-layout">')]
+        self.assertIn('name="page" value="1"', filters_html)
+        self.assertIn('name="obs_q" type="search"', filters_html)
+        self.assertIn('data-observation-search autocomplete="off"', filters_html)
         self.assertIn('name="date_from" type="hidden" value="2026-06-29" data-observation-date-value', filters_html)
         self.assertIn('name="date_to" type="hidden" value="" data-observation-date-value', filters_html)
         self.assertIn('class="observation-date-display" type="text" value="29/06/2026"', filters_html)
@@ -2063,6 +2066,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('data-observation-exif-action="exif_only"', page)
         self.assertIn('data-observation-exif-action="image_and_exif"', page)
         self.assertIn("applyObservationExifPreview(exifPreviewAction.dataset.observationExifAction)", page)
+        self.assertIn('event.target.matches(".observations-filters [data-observation-search]")', page)
+        self.assertIn("submitObservationSearch(event.target)", page)
+        self.assertIn("observationFilters.requestSubmit()", page)
         self.assertIn(self.web_server.mushroom_profiles_ui.ui_label("ui.image_preview_title"), page)
         self.assertIn(self.web_server.mushroom_profiles_ui.ui_label("ui.load_image_and_exif"), page)
         self.assertIn("grid-template-columns: 180px minmax(0, 1fr)", page)
@@ -2278,6 +2284,59 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("1–25 de 30", first_page)
         self.assertEqual(second_page.count("data-observation-select"), 5)
         self.assertIn("26–30 de 30", second_page)
+
+    def test_observation_search_filters_all_rows_before_pagination(self) -> None:
+        profile = {"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}
+        observations = {
+            "observations": [
+                {
+                    "observation_id": f"obs_search_{index:04d}",
+                    "species_id": "boletus_pinophilus",
+                    "observed_at": f"2026-06-{index:02d}",
+                    "flush_abundance": "normal",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "micro_area_id": "micro_target_0001" if index == 30 else "micro_other_0001",
+                    "source_notes": "unrelated",
+                }
+                for index in range(1, 31)
+            ]
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_profiles_ui.mushroom_known_sites,
+            "load_payload",
+            return_value={
+                "areas": [
+                    {"area_id": "area_target_0001", "name": "Guils"},
+                    {"area_id": "area_other_0001", "name": "Ordino"},
+                ],
+                "micro_areas": [
+                    {
+                        "micro_area_id": "micro_target_0001",
+                        "area_id": "area_target_0001",
+                        "name": "La Socarrada",
+                    },
+                    {
+                        "micro_area_id": "micro_other_0001",
+                        "area_id": "area_other_0001",
+                        "name": "Cota 2100",
+                    },
+                ],
+            },
+        ):
+            filtered = self.web_server.mushroom_profiles_ui.render_observations_section(
+                profile,
+                [profile],
+                {},
+                observations,
+                {"observations": []},
+                filters={"obs_q": "guils", "page": "2", "page_size": "25"},
+            )
+
+        self.assertEqual(filtered.count("data-observation-select"), 1)
+        self.assertIn("obs_search_0030", filtered)
+        self.assertNotIn("obs_search_0001", filtered)
+        self.assertIn("1–1 de 1", filtered)
 
     def test_observation_detail_endpoint_returns_only_selected_fragment(self) -> None:
         store = mock.Mock()

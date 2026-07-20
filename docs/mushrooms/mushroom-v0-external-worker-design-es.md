@@ -1813,8 +1813,12 @@ ancla superior redundantes, muestra los jobs internos como `HA local` y permite
 ordenar por todas las columnas. La ordenacion inicial convierte los offsets de
 HA y workers a un instante comun. Tambien se retira de Observaciones el panel
 GIS heredado, porque no estaba asociado a un job concreto y podia quedar vacio.
-Esta mejora tiene 386 tests, esta publicada en `0.2.213` y permanece pendiente
-de instalar y probar integralmente en HA/worker.
+Esta mejora tiene 386 tests y esta publicada e instalada en `0.2.213`; permanece
+pendiente probar integralmente el descarte con HA/worker. La `0.2.214` corrige
+la busqueda de Observaciones sobre el conjunto completo antes de paginar:
+busca todos los campos persistidos y los nombres visibles resueltos, envia con
+Enter o debounce y vuelve a la pagina 1. El usuario la valido localmente; la
+imagen HA esta publicada y pendiente de instalar.
 
 ## 16. Criterios de aceptacion
 
@@ -1877,8 +1881,8 @@ de instalar y probar integralmente en HA/worker.
 Los seis bloques locales previos a la red real estan completados. El orden
 recomendado desde este punto es:
 
-1. instalar `0.2.213` y validar en HA real el descarte seguro y la pantalla
-   compacta/ordenable;
+1. instalar `0.2.214` y validar en HA real la busqueda global, el descarte
+   seguro y la pantalla compacta/ordenable;
 2. reiniciar el launcher del worker para incorporar el acuse de limpieza y
    probar descarte, desconexion/reconexion, cache y freshness contra el M1;
 3. comprobar de nuevo la reconstruccion HA de fallback;
@@ -1891,10 +1895,10 @@ recomendado desde este punto es:
 7. anadir `build_ml_dataset`, entrenamiento y evaluacion sobre la
    infraestructura ya probada.
 
-La `0.2.212` esta instalada; la primera reconstruccion completa operacional y
+La `0.2.213` esta instalada; la primera reconstruccion completa operacional y
 su promocion manual M1 ↔ HA real ya terminaron correctamente, igual que una
-reconstruccion parcial y una cancelacion. `0.2.213` esta publicada y pendiente
-de instalar/probar.
+reconstruccion parcial y una cancelacion. `0.2.214` esta publicada y pendiente
+de instalar/probar en HA.
 
 No hace falta reabrir la extraccion del pipeline ni duplicar el reconstructor:
 el riesgo principal siguiente esta en la topologia y seguridad de red real, no
