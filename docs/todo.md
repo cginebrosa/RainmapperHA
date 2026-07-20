@@ -45,9 +45,13 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   persistente del worker. La imagen worker tampoco contiene datasets. El
   fallback HA permanece en `legacy` por defecto. Smoke test completo: 369
   tests; validador: 0 errores/11 warnings conocidos.
-- [ ] Pedir autorizacion expresa antes de bump, build/push GHCR, commit/push e
-  instalacion de la version HA normal. La `0.2.207` no puede coordinar workers
-  y no existe ni se creara una imagen HA de desarrollo.
+- [x] Publicar con autorizacion expresa la version HA normal `0.2.208`:
+  `0.2.208/latest` verificadas para amd64/arm64 con digest
+  `sha256:68990c43959f31a9364b18aed2c053ef2487385d283251ba6c72302a166552ab`;
+  import check correcto con conexiones/rebuilds `False`; commit `e2f117d`
+  pusheado a `origin/inicial`. No se creo una imagen HA de desarrollo.
+- [ ] Instalar `0.2.208` en HA y confirmar arranque normal, opciones externas
+  apagadas y reconstruccion HA local disponible antes de conectar el M1.
 - [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
   de distintos anos y setales, conservando procedencia y calidad.
 - [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
@@ -255,9 +259,11 @@ flujo funcional contra `0.2.207` porque no contiene el coordinador.
   Meteorologia al 55 % sin promocion. El estado pendiente se limpio solo tras
   la promocion correcta; la retencion podo la tercera copia y mantuvo dos.
   Suite: 359 tests; validador: 0 errores/11 warnings conocidos.
-- [ ] Con autorizacion expresa, publicar e instalar primero una version HA
-  normal que contenga coordinador, pairing, UI, transporte y fallback HA. No
-  habilitar por defecto una ruta insegura ni inventar una imagen de desarrollo.
+- [x] Publicar la version HA normal `0.2.208` con coordinador, pairing, UI,
+  transporte y fallback HA, desactivada por defecto. Imagen multi-arch y
+  commit/push verificados.
+- [ ] Instalar `0.2.208` en HA y verificar primero el fallback local con el
+  coordinador y las reconstrucciones externas apagados.
 - [ ] Despues, probar la ruta operativa M1 ↔ HA real por LAN/Tailscale:
   reconstruccion completa/parcial, desconexion/reconexion, cancelacion,
   seguridad del endpoint, cache, freshness y confirmacion visual de promocion.

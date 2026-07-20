@@ -8,17 +8,19 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- `HEAD` y `origin/inicial`: `7480012` (`Close Rainmapper session after HA
-  0.2.207 validation`).
-- Release HA instalado/publicado: `0.2.207`.
-- Commit del release: `bbf43aa Release Home Assistant 0.2.207`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.207` y `latest`, digest
-  `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
-- GHCR conserva 10 entradas: release actual `0.2.207/latest`, rollback
-  `0.2.206` y sus auxiliares multi-arch/attestation.
+- Commit de release presente en `inicial` y `origin/inicial`: `e2f117d`
+  (`Release Home Assistant 0.2.208`).
+- Release HA instalada/validada: `0.2.207`.
+- Release HA publicada y pendiente de instalar: `0.2.208`.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.208` y `latest`, digest
+  `sha256:68990c43959f31a9364b18aed2c053ef2487385d283251ba6c72302a166552ab`.
+- Manifests verificados: `linux/amd64`
+  `sha256:82cb3d9584862b8e5bcd85fb8acc6fcd3923e5cb8cf9de633c7017560d660410`
+  y `linux/arm64`
+  `sha256:0be801513e0a0a397a8363731ea868d4ee5c8bb85c57640205fbc605fffbb724`.
 - El repositorio GitHub sigue publico por decision explicita del usuario.
-- No se ha hecho commit, bump, release ni publicacion durante el desarrollo
-  local del worker. No hacerlo sin peticion expresa.
+- El usuario autorizo expresamente el 2026-07-20 el bump, publicacion y
+  commit/push de `0.2.208`. La instalacion en HA todavia no se ha realizado.
 
 El worktree esta deliberadamente sucio con todo el prototipo local del worker
 externo. No limpiar, revertir ni sobrescribir esos cambios. Antes de continuar,
@@ -38,16 +40,14 @@ funcional M1 ↔ HA real con `0.2.207`.
 
 Orden viable a partir de este cierre:
 
-1. Revisar y consolidar el gran diff local; mantener el fallback HA y todos los
-   flags externos seguros por defecto.
-2. Definir el alcance/configuracion de una version HA normal que incorpore el
-   coordinador, la UI y los tres alcances del worker.
-3. Solo con autorizacion expresa del usuario: hacer bump, validar, publicar,
-   commit/push e instalar esa nueva version normal en HA.
-4. Emparejar el worker M1 con HA real mediante LAN/Tailscale y ejecutar las
+1. Instalar la version normal `0.2.208` ya publicada en HA y confirmar que
+   arranca con los dos interruptores externos apagados.
+2. Publicar privadamente `8100` mediante LAN/Tailscale y activar primero solo
+   las conexiones externas.
+3. Emparejar el worker M1 con HA real y ejecutar las
    pruebas end-to-end completas, parciales, cancelacion, desconexion,
    freshness, cache y promocion.
-5. Medir entonces las fases en HA con la instrumentacion compartida y comparar
+4. Medir entonces las fases en HA con la instrumentacion compartida y comparar
    HA/M1 sobre el mismo snapshot/dataset.
 
 La topologia Tailscale puede estudiarse antes del release, pero no se puede
@@ -119,7 +119,8 @@ de HA real:
   ocurre solo tras una promocion correcta.
 - Los equivalentes de `external_worker_connections_enabled=true` y
   `external_worker_rebuilds_enabled=true` estan solo en el Compose local. La
-  release HA `0.2.207` no incorpora ni habilita esta ruta.
+  `0.2.208` ya incorpora la ruta en HA, pero ambas opciones siguen desactivadas
+  por defecto y aun no se ha instalado.
 
 ## Validacion local de cierre
 
@@ -178,7 +179,8 @@ confundirlo con la validacion local ya cerrada.
 
 ### P0 — Consolidar el prototipo antes de publicar nada
 
-Estado: consolidacion local completada y validada, aun sin commit ni release.
+Estado: consolidacion completada, validada y versionada en `e2f117d`; publicada
+en la release HA `0.2.208` y pendiente de instalar.
 
 1. La API permanece apagada por defecto, la autenticacion es fail-closed y el
    modo operacional exige simultaneamente API y autenticacion. HA expone dos
@@ -208,8 +210,9 @@ Estado: consolidacion local completada y validada, aun sin commit ni release.
    volumenes: incluye coordinador/UI/core, no contiene datos privados ni
    GIS/DEM y la reconstruccion local HA sigue disponible en `legacy` por
    defecto.
-4. Pedir autorizacion expresa antes de bump/release/GHCR/commit/push e
-   instalacion.
+4. Bump, GHCR y commit/push completados con autorizacion expresa. `0.2.208` y
+   `latest` comparten el digest multi-arch verificado
+   `sha256:68990c43959f31a9364b18aed2c053ef2487385d283251ba6c72302a166552ab`.
 
 ### P2 — Prueba M1 ↔ HA real tras instalar esa version
 
@@ -230,8 +233,8 @@ Estado: consolidacion local completada y validada, aun sin commit ni release.
 
 ## Riesgos y dudas abiertas
 
-- El prototipo es grande y el worktree no esta versionado; una limpieza o
-  revert accidental perderia trabajo.
+- El prototipo grande ya esta versionado en `e2f117d`; los datos persistentes y
+  GIS/DEM siguen fuera de Git y no deben limpiarse.
 - La equivalencia local no sustituye una prueba en HA/Raspberry ni una prueba
   de red real.
 - Falta elegir y validar en HA real la publicacion privada de `8100`, su

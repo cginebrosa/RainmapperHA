@@ -1831,30 +1831,28 @@ la red privada elegida.
 Los seis bloques locales previos a la red real estan completados. El orden
 recomendado desde este punto es:
 
-1. pedir autorizacion expresa para preparar/publicar la version HA normal; el
-   empaquetado local ya se inspecciono sin volumenes y no contiene datos
-   privados/GIS ni credenciales, mientras el fallback sigue en `legacy`;
-2. preparar una version HA normal que incluya coordinador, pairing, UI, cola,
-   transporte, los tres alcances y reconstruccion HA de fallback;
-3. publicarla, verificarla e instalarla; no existe ni se creara una imagen HA
-   de desarrollo/sideload;
-4. asignar privadamente el listener `8100` por LAN/Tailscale con su ACL/TLS,
+1. instalar en HA la version normal `0.2.208`, ya publicada y verificada para
+   amd64/arm64 con el coordinador apagado por defecto; no existe ni se creara
+   una imagen HA de desarrollo/sideload;
+2. confirmar que HA arranca normalmente y conserva su reconstruccion local de
+   fallback antes de activar conexiones externas;
+3. asignar privadamente el listener `8100` por LAN/Tailscale con su ACL/TLS,
    comparando host y sidecar sin convertir esa eleccion en requisito
    artificial;
-5. emparejar M1 con HA real y probar reconstruccion
+4. emparejar M1 con HA real y probar reconstruccion
    completa/parcial, desconexion/reconexion, cancelacion, cache, freshness,
    validacion y promocion manual;
-6. medir entonces las fases HA de manera compatible con los tiempos obtenidos
+5. medir entonces las fases HA de manera compatible con los tiempos obtenidos
    en M1, usando exactamente el mismo snapshot y dataset;
-7. repetir `docker load`/bootstrap en un daemon limpio u otro host y probar una
+6. repetir `docker load`/bootstrap en un daemon limpio u otro host y probar una
    actualizacion real del dataset semiestatico;
-8. anadir `build_ml_dataset`, entrenamiento y evaluacion sobre la
+7. anadir `build_ml_dataset`, entrenamiento y evaluacion sobre la
    infraestructura ya probada.
 
-La `0.2.207` instalada no contiene el coordinador nuevo. Por tanto, una prueba
-funcional M1 ↔ HA real antes del paso 3/4 seria circular e imposible. La
-topologia de red puede estudiarse antes, pero el recorrido end-to-end necesita
-primero una version normal de HA con este codigo.
+La `0.2.207` instalada no contiene el coordinador nuevo; la `0.2.208` normal ya
+esta publicada en GHCR y GitHub, pero todavia debe instalarse. La prueba
+funcional M1 ↔ HA real empieza solo despues de confirmar ese arranque y el
+fallback.
 
 No hace falta reabrir la extraccion del pipeline ni duplicar el reconstructor:
 el riesgo principal siguiente esta en la topologia y seguridad de red real, no

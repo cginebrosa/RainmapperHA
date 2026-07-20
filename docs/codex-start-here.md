@@ -89,14 +89,14 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA publicado: `0.2.207`.
-- Version HA del repo: `0.2.207` en `rainmapper-app/config.yaml` y
+- Ultimo release HA publicado: `0.2.208`, pendiente de instalar en HA.
+- Version HA del repo: `0.2.208` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.207` y
+- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.208` y
   `latest`, digest multi-arch
-  `sha256:a2047d39c8534c9d8e1a0066a5ff903e49733a0a98015fdb731081bf26af6781`.
-- Commit release: `bbf43aa Release Home Assistant 0.2.207`.
+  `sha256:68990c43959f31a9364b18aed2c053ef2487385d283251ba6c72302a166552ab`.
+- Commit release: `e2f117d Release Home Assistant 0.2.208`.
 - `0.2.207` fue ejecutada realmente en HA el 2026-07-18: `Reconstruir todas`
   completo las cuatro fases en 4 min 44 s. En local ya se verificaron 126
   features (66 favorables/60 desfavorables), sin discrepancias con
@@ -137,9 +137,9 @@ Para tareas de setas:
 - La navegacion de la WebUI debe conservar el contexto de llamada: al cerrar o
   volver, restaurar formulario/borrador o lista con seleccion, filtros, orden y
   scroll. No crear versiones divergentes del mismo modal segun el origen.
-- La release HA `0.2.207` no contiene el coordinador externo. Una prueba M1 ↔
-  HA real exige primero preparar, autorizar, publicar e instalar una version HA
-  normal con ese codigo. No crear una imagen de desarrollo/sideload.
+- La release instalada `0.2.207` no contiene el coordinador externo. La
+  `0.2.208` normal ya esta publicada con ese codigo y debe instalarse antes de
+  probar M1 ↔ HA real. No crear una imagen de desarrollo/sideload.
 
 ## Fuente de verdad de setas
 

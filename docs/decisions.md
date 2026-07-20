@@ -3,13 +3,46 @@
 Nota de auditoria 2026-07-20: este fichero es un log cronologico/historico. Las
 entradas antiguas se conservan para trazabilidad y pueden describir fases ya
 reemplazadas; prevalece siempre la decision vigente mas reciente. Estado de
-cierre: rama `inicial`, `HEAD`/`origin` `7480012`, release HA estable `0.2.207`
-y worktree deliberadamente sucio con el prototipo local del worker, todavia sin
-commit ni release. El repo GitHub continua publico. Datos vivos/privados bajo
+cierre: rama `inicial`, release HA instalada `0.2.207` y release normal
+`0.2.208` publicada/pusheada en `e2f117d`, pendiente de instalar. El repo GitHub
+continua publico. Datos vivos/privados bajo
 `docker-data/mushroom-data` en local y `/share/rainmapper/mushroom-data` en HA,
 y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
+
+## 2026-07-20 - Publicacion HA 0.2.208 con coordinador externo
+
+Estado: PUBLICADA, PENDIENTE DE INSTALAR EN HA
+
+Decision y resultado:
+
+- El usuario autorizo expresamente el paso de release. Se publico la imagen HA
+  normal `ghcr.io/cginebrosa/rainmapperha:0.2.208` y `latest`, sin crear una
+  imagen de desarrollo/sideload.
+- Ambos tags apuntan al digest multi-arch
+  `sha256:68990c43959f31a9364b18aed2c053ef2487385d283251ba6c72302a166552ab`,
+  con manifests `linux/amd64`
+  `sha256:82cb3d9584862b8e5bcd85fb8acc6fcd3923e5cb8cf9de633c7017560d660410`
+  y `linux/arm64`
+  `sha256:0be801513e0a0a397a8363731ea868d4ee5c8bb85c57640205fbc605fffbb724`.
+- La importacion remota arm64 cargo coordinador/UI/core y confirmo version
+  `0.2.208`, conexiones externas `False` y reconstrucciones externas `False`.
+- Commit `e2f117d Release Home Assistant 0.2.208` pusheado a
+  `origin/inicial`.
+
+Validacion previa:
+
+- `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: OK, 369 tests.
+- Tests focalizados de empaquetado/configuracion/auth: 167 OK.
+- Validador micologico: 0 errores/11 warnings conocidos.
+- Sin secretos, datos privados, GIS/DEM ni ficheros grandes en el contenido
+  versionado o en las imagenes.
+
+Pendiente:
+
+- Instalar `0.2.208` en HA, comprobar arranque/fallback con ambos interruptores
+  apagados y solo despues configurar privadamente `8100` y emparejar el M1.
 
 ## 2026-07-20 - Listener privado y dos interruptores para workers externos
 
