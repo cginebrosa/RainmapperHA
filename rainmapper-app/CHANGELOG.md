@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.212
+
+- Run verified worker-candidate promotion in the background so Home Assistant
+  Ingress remains responsive during freshness and GIS/DEM hash validation.
+- Persist promotion phases and percentage and show a live progress bar in
+  `Workers and jobs` while preventing duplicate promotion submissions.
+- Preserve fail-closed freshness checks, atomic installation, rollback copies
+  and the Home Assistant reconstruction fallback.
+
 ## 0.2.211
 
 - Refresh worker activity notices together with live job state so preparation,

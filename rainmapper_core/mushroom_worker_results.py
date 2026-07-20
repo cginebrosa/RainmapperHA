@@ -614,25 +614,41 @@ def promote_verified_candidate(
     gis_mappings_path: Path,
     weather_data_dir: Path,
     gis_root: Path,
+    progress_callback: Callable[[int, str, str], None] | None = None,
 ) -> dict[str, Any]:
     """Freshness-check and atomically promote a verified external candidate."""
+    def report(percent: int, phase: str, message: str = "") -> None:
+        if progress_callback is not None:
+            progress_callback(percent, phase, message)
+
+    report(2, "Loading verified candidate", "Loading the private verified result.")
     candidate = _job_dir(result_root, job_id)
     receipt_path = candidate / PROMOTION_RECEIPT_NAME
     if receipt_path.is_file():
         receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
         if not isinstance(receipt, dict) or receipt.get("status") != "promoted":
             raise ValueError("Stored candidate promotion receipt is invalid.")
+        report(99, "Promotion receipt already exists", "Reusing the completed promotion receipt.")
         return {**receipt, "status": "reused"}
     load_final_candidate(result_root, job_id)
     job_dir = input_bundle_root.resolve() / mushroom_worker_transport.validate_job_id(job_id)
     job_spec = _load_job_spec(input_bundle_root, job_id)
     manifest = _load_result_manifest(candidate / mushroom_rebuild_contracts.RESULT_MANIFEST_NAME)
+    report(8, "Revalidating candidate artifacts", "Checking the result manifest and candidate hashes.")
     verification = mushroom_rebuild_contracts.verify_result_manifest(manifest, job_spec, candidate)
     if verification.get("status") != "valid":
         raise ValueError(f"Candidate changed after verification: {verification.get('errors', [])}")
     input_manifest = mushroom_rebuild_snapshot.load_manifest(
         job_dir / mushroom_worker_transport.SNAPSHOT_PREFIX
     )
+
+    def report_freshness(completed: int, total: int, logical_path: str) -> None:
+        ratio = completed / max(1, total)
+        percent = 12 + round(ratio * 60)
+        detail = f"Checking {logical_path}." if logical_path else "Checking authoritative inputs."
+        report(percent, f"Validating live inputs ({completed}/{total})", detail)
+
+    report(12, "Validating live inputs", "Checking that authoritative inputs have not changed.")
     freshness = mushroom_rebuild_snapshot.verify_live_inputs(
         input_manifest,
         observations_path=observations_path,
@@ -640,6 +656,7 @@ def promote_verified_candidate(
         gis_mappings_path=gis_mappings_path,
         weather_data_dir=weather_data_dir,
         gis_root=gis_root,
+        progress_callback=report_freshness,
     )
     if freshness.get("status") != "valid":
         raise ValueError(f"Candidate inputs are stale: {freshness.get('errors', [])}")
@@ -654,6 +671,7 @@ def promote_verified_candidate(
     promoted = False
     partial_merge: dict[str, int] | None = None
     try:
+        report(76, "Preparing atomic promotion", "Preparing the complete artifact set in staging.")
         scope = job_spec.get("scope") if isinstance(job_spec.get("scope"), dict) else {}
         reconstruction_scope = str(scope.get("reconstruction_scope", "all"))
         if reconstruction_scope in {"species", "pending"}:
@@ -677,6 +695,7 @@ def promote_verified_candidate(
             weather_data_dir=weather_data_dir,
             gis_root=gis_root,
         )
+        report(90, "Installing verified artifacts", "Replacing the live artifact set atomically.")
         promotion = mushroom_rebuild_pipeline.promote_rebuild_outputs(staged_outputs, final_outputs)
         promoted = True
         rollback = staging / ".rollback"
@@ -685,6 +704,7 @@ def promote_verified_candidate(
             rollback.replace(backup)
         else:
             backup.mkdir()
+        report(96, "Preserving rollback copy", "Retaining the previous live artifact set.")
         receipt = {
             "schema_version": SCHEMA_VERSION,
             "kind": "rainmapper_worker_candidate_promotion",
@@ -705,6 +725,7 @@ def promote_verified_candidate(
             current_job_id=job_id,
         )
         receipt["pruned_backup_count"] = len(removed_backups)
+        report(99, "Writing promotion receipt", "Recording the completed promotion.")
         temporary = candidate / f".{PROMOTION_RECEIPT_NAME}.{uuid.uuid4().hex}.tmp"
         try:
             with temporary.open("x", encoding="utf-8") as handle:

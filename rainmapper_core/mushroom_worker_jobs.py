@@ -322,6 +322,7 @@ def create_candidate_rebuild(
         "assignment_revision": 1,
         "promotion_eligible": bool(promotion_eligible),
         "promotion_status": "",
+        "promotion_percent": 0,
         "promotion_error": "",
         "promotion_result": {},
         "input_bundle": {
@@ -360,9 +361,39 @@ def begin_candidate_promotion(path: Path, *, job_id: str) -> dict[str, Any]:
     job.update(
         {
             "promotion_status": "promoting",
+            "promotion_percent": 1,
             "promotion_error": "",
             "phase": "Validating candidate freshness",
             "message": "Validating current inputs before manual promotion.",
+        }
+    )
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def get_job(path: Path, *, job_id: str) -> dict[str, Any]:
+    queue = load_queue(path)
+    return dict(_find_job(queue, job_id))
+
+
+def update_candidate_promotion_progress(
+    path: Path,
+    *,
+    job_id: str,
+    percent: int,
+    phase: str,
+    message: str = "",
+) -> dict[str, Any]:
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    if job.get("promotion_status") != "promoting":
+        raise ValueError("Candidate promotion is not running.")
+    checked_percent = max(1, min(99, int(percent)))
+    job.update(
+        {
+            "promotion_percent": checked_percent,
+            "phase": str(phase or "Promoting candidate")[:160],
+            "message": str(message or "")[:500],
         }
     )
     _write_atomic(path, queue)
@@ -387,6 +418,7 @@ def finish_candidate_promotion(
         job.update(
             {
                 "promotion_status": "promoted",
+                "promotion_percent": 100,
                 "promotion_error": "",
                 "promotion_result": dict(result or {}),
                 "phase": "Promoted to live model",
@@ -397,6 +429,7 @@ def finish_candidate_promotion(
         job.update(
             {
                 "promotion_status": "failed",
+                "promotion_percent": 0,
                 "promotion_error": str(error or "Candidate promotion failed.")[:1000],
                 "phase": "Promotion rejected",
                 "message": "The live model was preserved.",

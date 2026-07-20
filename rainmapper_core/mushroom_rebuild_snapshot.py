@@ -11,7 +11,7 @@ import tempfile
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Callable
 
 from rainmapper_core import mushroom_gis_lab, mushroom_observation_context
 
@@ -459,6 +459,7 @@ def verify_live_inputs(
     gis_mappings_path: Path,
     weather_data_dir: Path,
     gis_root: Path,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> dict[str, Any]:
     """Verify that current authoritative inputs still match a frozen manifest."""
     errors: list[str] = []
@@ -471,7 +472,20 @@ def verify_live_inputs(
     files = input_manifest.get("files")
     if not isinstance(files, list):
         return {"status": "invalid", "errors": ["input manifest files must be a list"]}
-    for raw_record in files:
+    progress_datasets = input_manifest.get("datasets")
+    progress_gis_files = (
+        progress_datasets[0].get("files", [])
+        if isinstance(progress_datasets, list)
+        and len(progress_datasets) == 1
+        and isinstance(progress_datasets[0], dict)
+        and isinstance(progress_datasets[0].get("files"), list)
+        else []
+    )
+    progress_total = max(1, len(files) + len(progress_gis_files))
+    for index, raw_record in enumerate(files):
+        if progress_callback is not None:
+            logical_name = str(raw_record.get("path", "")) if isinstance(raw_record, dict) else ""
+            progress_callback(index, progress_total, logical_name)
         if not isinstance(raw_record, dict):
             errors.append("invalid live input file record")
             continue
@@ -506,7 +520,11 @@ def verify_live_inputs(
     else:
         dataset = datasets[0]
     current_gis_records: list[dict[str, object]] = []
-    for raw_record in dataset.get("files", []):
+    fixed_file_count = len(files)
+    for index, raw_record in enumerate(dataset.get("files", [])):
+        if progress_callback is not None:
+            logical_name = str(raw_record.get("path", "")) if isinstance(raw_record, dict) else ""
+            progress_callback(fixed_file_count + index, progress_total, logical_name)
         if not isinstance(raw_record, dict):
             errors.append("invalid live GIS file record")
             continue
@@ -531,6 +549,8 @@ def verify_live_inputs(
     current_snapshot_fingerprint = f"sha256:{_fingerprint([*current_records, {'role': 'dataset:mushroom_gis_v0', 'path': current_gis_fingerprint.removeprefix('sha256:')}])}"
     if current_snapshot_fingerprint != input_manifest.get("snapshot_id"):
         errors.append("live input snapshot fingerprint mismatch")
+    if progress_callback is not None:
+        progress_callback(progress_total, progress_total, "")
     return {
         "status": "valid" if not errors else "stale",
         "snapshot_id": input_manifest.get("snapshot_id"),

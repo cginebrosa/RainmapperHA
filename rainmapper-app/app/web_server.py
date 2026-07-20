@@ -10995,16 +10995,19 @@ def start_mushroom_worker_candidate_rebuild(
     return 202, {"ok": True, "preparing": True}
 
 
-def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, object]]:
-    if not mushroom_worker_operational_enabled():
-        return 404, {"ok": False, "error": "External worker promotion is not enabled."}
+def _run_mushroom_worker_candidate_promotion(job_id: str) -> None:
     try:
-        with RUN_LOCK:
-            job = mushroom_worker_jobs.begin_candidate_promotion(
-                mushroom_worker_jobs_path(),
-                job_id=job_id,
-            )
         with MUSHROOM_WORKER_PROMOTION_LOCK:
+            def report_progress(percent: int, phase: str, message: str) -> None:
+                with RUN_LOCK:
+                    mushroom_worker_jobs.update_candidate_promotion_progress(
+                        mushroom_worker_jobs_path(),
+                        job_id=job_id,
+                        percent=percent,
+                        phase=phase,
+                        message=message,
+                    )
+
             promotion = mushroom_worker_results.promote_verified_candidate(
                 mushroom_worker_candidate_results_path(),
                 mushroom_worker_input_bundles_path(),
@@ -11015,16 +11018,22 @@ def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, objec
                 gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
                 weather_data_dir=mushroom_paths.weather_data_dir(),
                 gis_root=mushroom_gis_lab.gis_root(),
+                progress_callback=report_progress,
             )
+            with RUN_LOCK:
+                current_job = mushroom_worker_jobs.get_job(
+                    mushroom_worker_jobs_path(),
+                    job_id=job_id,
+                )
             state_warning = ""
             try:
-                if str(job.get("reconstruction_scope", "all")) == "all":
+                if str(current_job.get("reconstruction_scope", "all")) == "all":
                     mushroom_model_state.clear_all_pending(full_rebuild=True)
                 else:
                     mushroom_model_state.clear_species_pending(
                         [
                             str(species_id)
-                            for species_id in job.get("scope_species_ids", [])
+                            for species_id in current_job.get("scope_species_ids", [])
                             if str(species_id or "").strip()
                         ]
                     )
@@ -11037,19 +11046,45 @@ def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, objec
                 promoted=True,
                 result={**promotion, "state_warning": state_warning},
             )
-        return 200, {"ok": True, "job": promoted_job, "promotion": promotion, "warning": state_warning}
-    except (FileExistsError, FileNotFoundError, KeyError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        set_mushroom_workers_flash(
+            mushroom_profiles_ui.ui_label("ui.worker_promotion_complete") + state_warning
+        )
+    except Exception as exc:
         try:
             with RUN_LOCK:
-                failed_job = mushroom_worker_jobs.finish_candidate_promotion(
+                mushroom_worker_jobs.finish_candidate_promotion(
                     mushroom_worker_jobs_path(),
                     job_id=job_id,
                     promoted=False,
                     error=str(exc),
                 )
         except ValueError:
-            failed_job = {}
-        return 409, {"ok": False, "error": str(exc), "job": failed_job}
+            pass
+        set_mushroom_workers_flash(str(exc), error=True)
+
+
+def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_operational_enabled():
+        return 404, {"ok": False, "error": "External worker promotion is not enabled."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.begin_candidate_promotion(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+            )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    set_mushroom_workers_flash(
+        mushroom_profiles_ui.ui_label("ui.worker_promotion_started"),
+        clear_when_idle=True,
+    )
+    threading.Thread(
+        target=_run_mushroom_worker_candidate_promotion,
+        args=(job_id,),
+        daemon=True,
+        name=f"rainmapper-worker-promotion-{job_id[-12:]}",
+    ).start()
+    return 202, {"ok": True, "job": job, "promoting": True}
 
 
 def claim_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
@@ -11504,6 +11539,7 @@ def mushroom_worker_activity_active(jobs: list[dict[str, object]]) -> bool:
         return True
     return any(
         str(job.get("status", "")) in mushroom_worker_jobs.ACTIVE_STATUSES
+        or str(job.get("promotion_status", "")) == "promoting"
         for job in jobs
     )
 
@@ -16486,11 +16522,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             status, response = promote_mushroom_worker_candidate(
                 self.form_value(form, "job_id")
             )
-            if status == 200:
-                set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_promotion_complete")
-                )
-            else:
+            if status != 202:
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot promote worker candidate.")),
                     error=True,

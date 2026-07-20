@@ -1749,6 +1749,22 @@ validador: 0 errores y 11 warnings conocidos.
 - Reutilizar un mismo `dataset_id` en varios runs sin repetir reconstruccion.
 - Guardar candidatos y metricas sin promocion automatica.
 
+Cuando se incorporen varios algoritmos predictivos, sus resultados no deben
+gestionarse mediante las dos copias de emergencia de la promocion V0. Se
+creara un registro versionado de modelos independiente. Cada entrada debe
+identificar algoritmo y parametros, version de codigo y contratos, snapshot y
+`dataset_id`, particiones/semillas, artefactos, metricas globales y por especie
+y estado de ciclo de vida (`candidate`, `active`, `archived` o `rejected`).
+
+La comparacion se hara sobre el mismo conjunto de validacion, con separacion
+espacial y temporal cuando corresponda. La UI podra resumir el resultado, pero
+no reducira la decision a un score unico opaco: mostrara capacidad predictiva,
+calibracion, cobertura/estabilidad y coste de calculo. Promocionar equivaldra a
+seleccionar humanamente una version como activa; volver a una version conocida
+sera otra seleccion trazable y no una restauracion manual de backups. Este
+registro queda diferido hasta la fase ML y no modifica el cierre actual del
+worker V0.
+
 ### Fase 7. Prueba integral
 
 - Ejecutar la misma reconstruccion en HA y M1 con un snapshot congelado.
@@ -1769,6 +1785,17 @@ manual y conservacion del fallback. La suite completa queda en 348 tests y el
 validador de datos en 0 errores/11 warnings conocidos. La fase integral no se
 considera cerrada para produccion hasta repetir el recorrido contra HA real por
 la red privada elegida.
+
+Primer corte contra HA real por LAN, 2026-07-20: `0.2.211` mantuvo estable el
+reposo, completo asignacion y transporte de entradas y retiro correctamente los
+avisos transitorios. Un candidato completo privado termino en 55 s. Tras activar
+el modo operacional, otro candidato completo termino verificado en 49 s y su
+promocion manual quedo registrada como `Promoted to live model`, sustituyendo
+atomicamente el modelo vivo y conservando la copia anterior. Como la promocion
+revalida freshness de forma sincrona, incluidos los hashes GIS, el navegador
+parecia inmovil hasta terminar. `0.2.212` la ejecuta en segundo plano, persiste
+fase/porcentaje, muestra una barra mediante polling y bloquea reintentos mientras
+`promotion_status=promoting`; queda instalarla y probarla en HA real.
 
 ## 16. Criterios de aceptacion
 
@@ -1831,17 +1858,13 @@ la red privada elegida.
 Los seis bloques locales previos a la red real estan completados. El orden
 recomendado desde este punto es:
 
-1. instalar en HA la version normal `0.2.208`, ya publicada y verificada para
-   amd64/arm64 con el coordinador apagado por defecto; no existe ni se creara
-   una imagen HA de desarrollo/sideload;
-2. confirmar que HA arranca normalmente y conserva su reconstruccion local de
-   fallback antes de activar conexiones externas;
-3. asignar privadamente el listener `8100` por LAN/Tailscale con su ACL/TLS,
-   comparando host y sidecar sin convertir esa eleccion en requisito
-   artificial;
-4. emparejar M1 con HA real y probar reconstruccion
-   completa/parcial, desconexion/reconexion, cancelacion, cache, freshness,
-   validacion y promocion manual;
+1. instalar `0.2.212` y validar en HA real la mejora de progreso de promocion en
+   segundo plano ya publicada;
+2. probar reconstruccion parcial, desconexion/reconexion, cancelacion, cache y
+   freshness contra el M1 ya emparejado por LAN;
+3. comprobar de nuevo la reconstruccion HA de fallback;
+4. decidir el endurecimiento Tailscale/TLS/ACL del listener privado `8100` sin
+   publicarlo en el router;
 5. medir entonces las fases HA de manera compatible con los tiempos obtenidos
    en M1, usando exactamente el mismo snapshot y dataset;
 6. repetir `docker load`/bootstrap en un daemon limpio u otro host y probar una
@@ -1849,10 +1872,9 @@ recomendado desde este punto es:
 7. anadir `build_ml_dataset`, entrenamiento y evaluacion sobre la
    infraestructura ya probada.
 
-La `0.2.207` instalada no contiene el coordinador nuevo; la `0.2.208` normal ya
-esta publicada en GHCR y GitHub, pero todavia debe instalarse. La prueba
-funcional M1 ↔ HA real empieza solo despues de confirmar ese arranque y el
-fallback.
+La `0.2.211` esta instalada y la primera reconstruccion completa operacional y
+su promocion manual M1 ↔ HA real ya terminaron correctamente. La mejora de
+progreso descrita arriba esta publicada en `0.2.212` y pendiente de instalar.
 
 No hace falta reabrir la extraccion del pipeline ni duplicar el reconstructor:
 el riesgo principal siguiente esta en la topologia y seguridad de red real, no

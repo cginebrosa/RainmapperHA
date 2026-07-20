@@ -79,9 +79,9 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   `sha256:0c7ed3477c904ba872f2ccc94109caf0e82a438675e9631e0784a57a488fc86b`;
   commit `74f1313`; import check arm64
   `image_import_ok 0.2.211 False False True`; 376 tests y smoke test OK.
-- [ ] Instalar `0.2.211` y comprobar reposo, asignacion, envio de entradas y
-  conflicto por trabajo activo; cada aviso transitorio debe desaparecer al
-  terminar, mientras un error real debe permanecer visible.
+- [x] Instalar `0.2.211` y comprobar reposo, asignacion, envio de entradas y
+  conflicto por trabajo activo; los avisos transitorios desaparecen al terminar
+  y los errores reales permanecen visibles.
 - [ ] Incorporar mas observaciones historicas reales de `Boletus pinophilus`
   de distintos anos y setales, conservando procedencia y calidad.
 - [ ] Revisar cobertura temporal/espacial y retomar el pipeline ML documentado en
@@ -294,14 +294,35 @@ flujo funcional contra `0.2.207` porque no contiene el coordinador.
   commit/push verificados.
 - [x] Instalar `0.2.208` en HA, verificar el fallback local, publicar `8100`
   solo en LAN, emparejar M1 y completar la prueba de asignacion en 13 s.
-- [ ] Instalar la correccion `0.2.211` y despues probar la ruta operativa
-  M1 ↔ HA real por LAN/Tailscale:
-  reconstruccion completa/parcial, desconexion/reconexion, cancelacion,
-  seguridad del endpoint, cache, freshness y confirmacion visual de promocion.
+- [ ] Completar la ruta operativa M1 ↔ HA real por LAN/Tailscale. `0.2.211` ya
+  esta instalada y se validaron reposo, asignacion, transporte de entradas,
+  avisos, un candidato privado completo de 55 s y un job operacional completo
+  de 49 s. Este ultimo fue verificado y promocionado manualmente con exito al
+  modelo vivo, conservando la copia anterior. Faltan reconstruccion parcial,
+  desconexion/reconexion, cancelacion, seguridad del endpoint, cache y
+  freshness.
+- [x] Implementar localmente progreso visible de promocion. El POST devuelve
+  inmediatamente, la tarea continua en segundo plano, persiste fases/porcentaje
+  y el polling muestra una barra en trabajos recientes; el estado `promoting`
+  bloquea clics duplicados. Mantiene la revalidacion fail-closed de hashes GIS,
+  la promocion atomica y el rollback.
+- [x] Publicar con autorizacion expresa `0.2.212` y `latest`, digest multi-arch
+  `sha256:9c7f70518ddd368ed42a67819df226a27e1726e7958e7b5309e02e810b326c8e`;
+  manifests amd64/arm64 e import check
+  `image_import_ok 0.2.212 False False True` verificados; 378 tests y smoke test
+  OK. Falta instalarla y comprobar la barra en HA real.
 - [ ] Medir las fases en HA con el pipeline/instrumentacion compartidos y
   comparar con M1 usando exactamente el mismo snapshot/dataset.
 - [ ] Incorporar jobs separados `build_ml_dataset`, `train_ml_model` y
   `evaluate_ml_model`, reutilizando `dataset_id` y sin promocion automatica.
+- [ ] Disenar, cuando existan varios algoritmos predictivos, un registro de
+  modelos separado de los backups de promocion. Debe conservar algoritmo,
+  parametros, codigo/contratos, snapshot y `dataset_id`, artefactos, metricas
+  globales y por especie y estado (`candidate`, `active`, `archived` o
+  `rejected`). La comparacion debe usar la misma validacion espacial/temporal y
+  varias metricas, no un score opaco unico; activar o recuperar una version
+  sera una seleccion humana explicita sin reutilizar como catalogo las dos
+  copias de emergencia actuales.
 - [ ] Cuando exista necesidad real, evaluar M5 o AWS repitiendo pruebas de
   arquitectura, red, privacidad, rendimiento y coste.
 

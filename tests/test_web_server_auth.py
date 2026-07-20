@@ -4484,6 +4484,130 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("20/07/2026 00:20:57", rendered)
         self.assertIn("47s", rendered)
 
+    def test_worker_promotion_runs_in_background_and_persists_progress(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "worker-promotion-jobs.json"
+        input_bundle = {
+            "job_id": "worker_job_promote123",
+            "job_spec_id": "sha256:" + "a" * 64,
+            "snapshot_id": "sha256:" + "b" * 64,
+            "input_file_count": 7,
+            "input_size_bytes": 1234,
+        }
+        created = self.web_server.mushroom_worker_jobs.create_candidate_rebuild(
+            jobs_path,
+            worker_id="worker_aaaaaaaa",
+            worker_display_name="M1 personal",
+            input_bundle=input_bundle,
+            job_id="worker_job_promote123",
+            promotion_eligible=True,
+        )
+        claimed = self.web_server.mushroom_worker_jobs.claim_next(
+            jobs_path,
+            worker_id="worker_aaaaaaaa",
+            claim_token="claim-secret",
+        )
+        self.web_server.mushroom_worker_jobs.start_job(
+            jobs_path,
+            job_id=created["job_id"],
+            worker_id="worker_aaaaaaaa",
+            claim_token=str(claimed["claim_token"]),
+        )
+        self.web_server.mushroom_worker_jobs.finish_job(
+            jobs_path,
+            job_id=created["job_id"],
+            worker_id="worker_aaaaaaaa",
+            claim_token=str(claimed["claim_token"]),
+            status="complete",
+            result={
+                "verification_status": "verified",
+                "snapshot_id": input_bundle["snapshot_id"],
+                "job_spec_id": input_bundle["job_spec_id"],
+                "input_file_count": 7,
+                "input_size_bytes": 1234,
+                "dataset_fingerprint": "sha256:" + "c" * 64,
+                "result_manifest_id": "sha256:" + "d" * 64,
+                "verified_artifacts": 9,
+                "comparison_status": "equivalent",
+            },
+        )
+
+        def promote(*_args, **kwargs):
+            kwargs["progress_callback"](
+                58,
+                "Validating live inputs (9/17)",
+                "Checking authoritative GIS inputs.",
+            )
+            return {"artifact_count": 9}
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "RAINMAPPER_WORKER_API_ENABLED": "true",
+                "RAINMAPPER_WORKER_AUTH_REQUIRED": "true",
+                "RAINMAPPER_WORKER_OPERATIONAL_ENABLED": "true",
+            },
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ), mock.patch.object(
+            self.web_server.threading, "Thread"
+        ) as thread_class, mock.patch.object(
+            self.web_server.mushroom_worker_results,
+            "promote_verified_candidate",
+            side_effect=promote,
+        ), mock.patch.object(
+            self.web_server.mushroom_model_state,
+            "clear_all_pending",
+        ):
+            status, response = self.web_server.promote_mushroom_worker_candidate(
+                created["job_id"]
+            )
+            duplicate_status, duplicate = self.web_server.promote_mushroom_worker_candidate(
+                created["job_id"]
+            )
+            promoting = self.web_server.mushroom_worker_jobs.get_job(
+                jobs_path,
+                job_id=created["job_id"],
+            )
+            target = thread_class.call_args.kwargs["target"]
+            args = thread_class.call_args.kwargs["args"]
+            target(*args)
+
+        promoted = self.web_server.mushroom_worker_jobs.get_job(
+            jobs_path,
+            job_id=created["job_id"],
+        )
+        self.assertEqual(status, 202)
+        self.assertTrue(response["promoting"])
+        self.assertEqual(duplicate_status, 409)
+        self.assertIn("already running", duplicate["error"])
+        self.assertEqual(promoting["promotion_status"], "promoting")
+        self.assertEqual(promoted["promotion_status"], "promoted")
+        self.assertEqual(promoted["promotion_percent"], 100)
+        thread_class.return_value.start.assert_called_once_with()
+
+    def test_workers_page_shows_promotion_progress_and_hides_duplicate_action(self) -> None:
+        rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [{
+                "job_id": "worker_job_promoting",
+                "job_type": "worker_candidate_rebuild",
+                "worker_display_name": "M1 personal",
+                "status": "complete",
+                "scope": "all eligible (candidate)",
+                "phase": "Validating live inputs (9/17)",
+                "overall_percent": 100,
+                "promotion_eligible": True,
+                "promotion_status": "promoting",
+                "promotion_percent": 58,
+                "elapsed": "49s",
+            }],
+            operational_enabled=True,
+        )
+
+        self.assertIn('value="58"', rendered)
+        self.assertIn("58%", rendered)
+        self.assertIn("Promoting", rendered)
+        self.assertNotIn('value="promote_worker_candidate"', rendered)
+
     def test_workers_page_shows_persistent_probe_job_without_rebuild_modal_link(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],

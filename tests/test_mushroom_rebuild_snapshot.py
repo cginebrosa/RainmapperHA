@@ -207,6 +207,7 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
     def test_live_inputs_match_frozen_manifest(self) -> None:
         snapshot = self.create_snapshot()
         manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+        progress: list[tuple[int, int, str]] = []
 
         result = mushroom_rebuild_snapshot.verify_live_inputs(
             manifest,
@@ -215,10 +216,16 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
             gis_mappings_path=self.mappings,
             weather_data_dir=self.weather,
             gis_root=self.gis,
+            progress_callback=lambda completed, total, path: progress.append(
+                (completed, total, path)
+            ),
         )
 
         self.assertEqual(result["status"], "valid")
         self.assertEqual(result["current_snapshot_id"], manifest["snapshot_id"])
+        self.assertTrue(progress)
+        self.assertEqual(progress[-1][0], progress[-1][1])
+        self.assertGreater(progress[-1][1], 1)
 
     def test_live_inputs_detect_change_after_snapshot(self) -> None:
         snapshot = self.create_snapshot()

@@ -248,6 +248,19 @@ def render_recent_jobs(
             "complete": _label("ui.worker_status_complete"),
             "failed": _label("ui.worker_status_failed"),
         }.get(status, status)
+        promotion_status = str(job.get("promotion_status", "") or "")
+        display_status = status
+        if promotion_status == "promoting":
+            display_status = "running"
+            status_text = _label("ui.worker_promoting")
+        promotion_percent = max(0, min(100, int(job.get("promotion_percent", 0) or 0)))
+        progress_html = (
+            '<div class="worker-promotion-progress">'
+            f'<progress max="100" value="{promotion_percent}" aria-label="{_text(_label("ui.worker_promotion_progress"))}"></progress>'
+            f'<span>{promotion_percent}%</span></div>'
+            if promotion_status == "promoting"
+            else f'{_text(job.get("overall_percent", 0))}%'
+        )
         destination = str(job.get("worker_display_name", "") or "-")
         job_reference = (
             f'<a href="?rebuild_job={_text(job_id)}"><code>{_text(job_id[:12])}</code></a>'
@@ -286,7 +299,7 @@ def render_recent_jobs(
                 and job_type == "worker_candidate_rebuild"
                 and status == "complete"
                 and job.get("promotion_eligible")
-                and job.get("promotion_status") != "promoted"
+                and promotion_status not in {"promoting", "promoted"}
             ):
                 action_parts.append(
                     '<form class="worker-job-action" method="post" action="">'
@@ -295,6 +308,10 @@ def render_recent_jobs(
                     f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_confirm"))}" '
                     'onclick="return confirm(this.dataset.confirm)">'
                     f'{_text(_label("ui.worker_promote_candidate"))}</button></form>'
+                )
+            elif promotion_status == "promoting":
+                action_parts.append(
+                    f'<span class="meta">{_text(_label("ui.worker_promoting"))}</span>'
                 )
             if status in {"queued", "claimed"} and not job.get("started_at"):
                 alternatives = [(worker_id, name) for worker_id, name in workers if worker_id != job.get("target_worker_id")]
@@ -317,10 +334,10 @@ def render_recent_jobs(
             f'<td><time datetime="{_text(job.get("created_at", ""))}">{_text(job.get("date_time", "-"))}</time></td>'
             f'<td title="{_text(job_type_text)}">{_text(job_type_text)}</td>'
             f'<td title="{_text(destination)}">{_text(destination)}</td>'
-            f'<td><span class="job-status {_text(status)}">{_text(status_text)}</span></td>'
+            f'<td><span class="job-status {_text(display_status)}">{_text(status_text)}</span></td>'
             f'<td title="{_text(job.get("scope", "-"))}">{_text(job.get("scope", "-"))}</td>'
             f'<td title="{_text(job.get("phase", "-"))}">{_text(job.get("phase", "-"))}</td>'
-            f'<td>{_text(job.get("overall_percent", 0))}%</td>'
+            f'<td>{progress_html}</td>'
             f'<td>{_text(job.get("elapsed", "-"))}</td>'
             f'<td class="worker-job-actions">{actions}</td>'
             "</tr>"
@@ -497,6 +514,7 @@ def render_page(
       .workers-table-wrap code{{font-size:11px}}.workers-table-wrap time{{font-variant-numeric:tabular-nums}}
       .job-status.complete,.job-status.claimed{{color:var(--ok)}}.job-status.queued,.job-status.running{{color:var(--accent)}}.job-status.failed,.job-status.cancelled,.job-status.cancel_requested{{color:var(--danger)}}
       .worker-job-actions{{white-space:normal!important;overflow:visible!important}}.worker-job-action{{display:inline-flex;gap:4px;align-items:center;margin:0 4px 2px 0}}.worker-job-action:last-child{{margin-right:0}}.worker-job-action select{{min-width:90px;max-width:120px;padding:4px;font-size:11px}}.worker-job-action button{{padding:4px 6px;font-size:11px;white-space:nowrap}}
+      .worker-promotion-progress{{display:flex;align-items:center;gap:5px;min-width:68px}}.worker-promotion-progress progress{{width:46px;height:8px;accent-color:var(--accent)}}.worker-promotion-progress span{{font-variant-numeric:tabular-nums}}
       @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}}}
       @media(max-width:850px){{.workers-grid,.worker-destination-grid{{grid-template-columns:1fr}}.worker-scope-grid{{grid-template-columns:1fr}}.worker-panel-head,.workers-head{{display:block}}.worker-metrics,.workers-head-meta{{justify-content:flex-start;margin-top:8px;text-align:left}}.worker-toolbar-actions{{align-items:stretch;flex-direction:column}}.worker-default-form{{align-items:stretch;flex-direction:column}}.worker-default-form select{{width:100%;max-width:none}}.worker-note{{grid-template-columns:1fr}}}}
     </style>

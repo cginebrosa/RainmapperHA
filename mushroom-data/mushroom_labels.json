@@ -2877,6 +2877,15 @@
   "ui.worker_promotion_complete": {
     "en": "Verified worker candidate promoted atomically to the live local model.", "es": "Candidato verificado del worker promocionado atomicamente al modelo local vivo.", "ca": "Candidat verificat del worker promocionat atomicament al model local viu."
   },
+  "ui.worker_promotion_started": {
+    "en": "Promotion started in the background. Progress is shown in recent jobs.", "es": "Promocion iniciada en segundo plano. El progreso se muestra en trabajos recientes.", "ca": "Promocio iniciada en segon pla. El progres es mostra als treballs recents."
+  },
+  "ui.worker_promoting": {
+    "en": "Promoting", "es": "Promocionando", "ca": "Promocionant"
+  },
+  "ui.worker_promotion_progress": {
+    "en": "Promotion progress", "es": "Progreso de promocion", "ca": "Progres de promocio"
+  },
   "ui.worker_fallback": {
     "en": "Operational fallback", "es": "Fallback operativo", "ca": "Fallback operatiu"
   },

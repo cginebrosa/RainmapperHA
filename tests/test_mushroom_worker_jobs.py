@@ -109,6 +109,13 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 path,
                 job_id=created["job_id"],
             )
+            progressing = mushroom_worker_jobs.update_candidate_promotion_progress(
+                path,
+                job_id=created["job_id"],
+                percent=64,
+                phase="Validating live inputs (8/12)",
+                message="Checking GIS freshness.",
+            )
             promoted = mushroom_worker_jobs.finish_candidate_promotion(
                 path,
                 job_id=created["job_id"],
@@ -121,7 +128,10 @@ class MushroomWorkerJobsTests(unittest.TestCase):
         self.assertEqual(finished["phase"], "Candidate result verified")
         self.assertEqual(finished["result"]["comparison_status"], "equivalent")
         self.assertEqual(promoting["promotion_status"], "promoting")
+        self.assertEqual(progressing["promotion_percent"], 64)
+        self.assertEqual(progressing["phase"], "Validating live inputs (8/12)")
         self.assertEqual(promoted["promotion_status"], "promoted")
+        self.assertEqual(promoted["promotion_percent"], 100)
         self.assertEqual(promoted["promotion_result"]["artifact_count"], 9)
 
     def test_snapshot_transport_job_requires_exact_claim_for_input_download(self) -> None:

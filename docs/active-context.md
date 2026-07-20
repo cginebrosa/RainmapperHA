@@ -8,16 +8,14 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Commit de release presente en `inicial` y `origin/inicial`: `74f1313`
-  (`Release Home Assistant 0.2.211`).
-- Release HA instalada y probada: `0.2.210`; release publicada pendiente de
-  instalar: `0.2.211`.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.211` y `latest`, digest
-  `sha256:0c7ed3477c904ba872f2ccc94109caf0e82a438675e9631e0784a57a488fc86b`.
+- Release HA instalada y probada: `0.2.211`; release publicada pendiente de
+  instalar: `0.2.212` (`Release Home Assistant 0.2.212`).
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.212` y `latest`, digest
+  `sha256:9c7f70518ddd368ed42a67819df226a27e1726e7958e7b5309e02e810b326c8e`.
 - Manifests verificados: `linux/amd64`
-  `sha256:abbb664f0a5209bb73b0f391d42a31dd72d9aa2d8c42c7b6f35d073aa6575874`
+  `sha256:4437ec483a5864987a746af184aee53ca51c85997aa3025c99284d41f7a64da0`
   y `linux/arm64`
-  `sha256:e1f76a97e37a981c9a431c6e17bf7e7b76286615228a25210527ff3bd8565930`.
+  `sha256:867cf3d1507bb4d85a3dd1f2b0d3f1637f7b469f99fee707526ea1771a4b5e73`.
 - El repositorio GitHub sigue publico por decision explicita del usuario.
 - El usuario autorizo expresamente el 2026-07-20 el bump, publicacion y
   commit/push de `0.2.211` para cerrar cuanto antes la fase de workers.
@@ -51,23 +49,24 @@ add-ons. `0.2.210` prepara el bundle en segundo plano, impide duplicados con un
 lock no bloqueante, desactiva inmediatamente el boton y reutiliza una cache
 privada de hashes GIS validada por metadatos del fichero.
 
-`Allow external rebuilds and promotion` permanece apagado. Siguiente orden:
+`0.2.211` ya se instalo y se valido con el worker M1 por LAN. El reposo, la
+asignacion, el envio de entradas y la retirada automatica de avisos quedaron
+estables. Una reconstruccion candidata privada de todas las especies elegibles
+termino verificada al 100 % en 55 s (`Candidate result verified`) sin tocar el
+modelo vivo. Despues se activo `Allow external rebuilds and promotion`: un job
+operacional completo termino en 49 s y su promocion manual instalo correctamente
+el candidato como modelo vivo, retiro la accion y conservo la copia anterior.
 
-1. Instalar `0.2.211`; con worker encendido y la pagina abierta, confirmar que
-   el reposo sigue estable.
-2. Ejecutar una sola prueba de asignacion y confirmar que su aviso desaparece
-   al quedar completada.
-3. Ejecutar una sola prueba de envio de entradas: la UI debe responder de
-   inmediato indicando preparacion; la primera pasada puede usar un nucleo y
-   debe volver a la normalidad al terminar; el aviso tambien debe retirarse.
-   Repetirla solo despues para confirmar que reutiliza la cache de hashes.
-4. Intentar un segundo job durante uno activo y comprobar que el conflicto
-   desaparece cuando termina el primero. Probar despues corte/reconexion sin
-   revocar la credencial.
-5. Activar reconstrucciones externas y validar primero un candidato privado de
-   una especie, sin promocion automatica.
-6. Probar despues alcances, cancelacion, freshness, cache y promocion manual.
-7. Medir las fases en HA y M1 sobre el mismo snapshot/dataset.
+Siguiente orden:
+
+1. Instalar `0.2.212` y validar que la promocion se ejecuta en segundo plano,
+   muestra barra de progreso persistente y no permite clics duplicados ni relaja
+   freshness.
+2. Probar despues un alcance parcial de una especie, cancelacion y
+   corte/reconexion sin revocar la credencial.
+3. Completar pruebas de freshness/cache y seguridad del endpoint.
+4. Verificar otra vez el fallback HA y medir las fases en HA y M1 sobre el mismo
+   snapshot/dataset.
 
 La conexion actual usa HTTP en la LAN privada. No publicar `8100` en el router;
 Tailscale/TLS/ACL queda como endurecimiento posterior.
@@ -136,11 +135,13 @@ de HA real:
 - Se conservan como maximo dos copias recuperables de los nueve artefactos
   derivados anteriores (aproximadamente 2 MB por copia, sin GIS/DEM). La poda
   ocurre solo tras una promocion correcta.
-- Los equivalentes de `external_worker_connections_enabled=true` y
-  `external_worker_rebuilds_enabled=true` estan solo en el Compose local. La
-  `0.2.208` ya incorpora la ruta en HA. En la instalacion real solo esta activa
-  la primera opcion para las pruebas inocuas; la opcion operacional sigue
-  desactivada.
+- Estas copias son rollback operativo, no un catalogo historico de modelos.
+  Para la futura fase ML queda documentado un registro versionado independiente
+  con algoritmo, parametros, snapshot/dataset, metricas comparables y seleccion
+  explicita del modelo activo.
+- La opcion de conexiones externas esta activa en la instalacion real para M1;
+  la opcion operacional de reconstruccion y promocion sigue desactivada hasta
+  el siguiente ensayo controlado.
 
 ## Validacion local de cierre
 
@@ -233,21 +234,25 @@ terminal de los trabajos se publica en `0.2.211`.
    volumenes: incluye coordinador/UI/core, no contiene datos privados ni
    GIS/DEM y la reconstruccion local HA sigue disponible en `legacy` por
    defecto.
-4. Bump, GHCR y commit/push de `0.2.211` completados con autorizacion expresa.
-   `0.2.211` y `latest` comparten el digest multi-arch verificado
-   `sha256:0c7ed3477c904ba872f2ccc94109caf0e82a438675e9631e0784a57a488fc86b`;
-   import check arm64: `image_import_ok 0.2.211 False False True`.
+4. Bump y GHCR de `0.2.212` completados con autorizacion expresa. `0.2.212` y
+   `latest` comparten el digest multi-arch verificado
+   `sha256:9c7f70518ddd368ed42a67819df226a27e1726e7958e7b5309e02e810b326c8e`;
+   import check arm64: `image_import_ok 0.2.212 False False True`. Queda instalar
+   y validar la barra contra HA real.
 
 ### P2 — Prueba M1 ↔ HA real
 
 - M1 ya esta emparejado por LAN con HA real y la prueba de asignacion termino
   correctamente en 13 s.
-- Instalar `0.2.211` y comprobar primero el reposo, una asignacion, una sola
-  preparacion de entradas y la retirada automatica de sus avisos; repetir la
-  preparacion solo tras completarse para verificar la cache.
-- Probar todas, pendientes y una especie.
+- `0.2.211` esta instalada; reposo, asignacion, preparacion de entradas y
+  retirada automatica de avisos quedaron comprobados.
+- La reconstruccion completa operacional en M1 termino en 49 s, fue verificada
+  y se promociono manualmente al modelo vivo con exito. Falta probar pendientes
+  y una especie contra HA real.
 - Probar cancelacion cooperativa/forzada, worker apagado, corte/reconexion,
-  duplicados/solapes, stale result, cache presente/ausente y promocion manual.
+  duplicados/solapes, stale result y cache presente/ausente.
+- `0.2.212` publica la promocion en segundo plano con fases, porcentaje y barra
+  mediante el polling existente. Falta instalarla y validarla en HA.
 - Verificar que HA reconstruye localmente aunque no haya worker.
 - Medir tiempos por fase HA/M1 con el mismo snapshot y dataset.
 
