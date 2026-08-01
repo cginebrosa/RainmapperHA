@@ -11,6 +11,54 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-02 - Analisis de viabilidad ML: 8 especies, corte 2018+, Meteocat
+
+Estado: VIGENTE
+
+Decision:
+
+- Dataset disponible al 2026-08-02: 772 observaciones (126 `include` + 646
+  `review` pendientes de revision). Con corte 2018+ y fuente weather Meteocat,
+  8 especies alcanzan el umbral minimo de ≥20 observaciones para un primer
+  modelo con sentido.
+- Especies viables (observaciones ≥20 desde 2018): Boletus edulis 152, Boletus
+  aereus 151, Boletus pinophilus 100, Lactarius deliciosus 93, Amanita caesarea
+  77, Hygrophorus marzuolus 66, Cantharellus cibarius s.l. 28, Morchella elata
+  complex 22.
+- Las 9 especies restantes tienen entre 2 y 7 observaciones y no entran en
+  el modelo v1.
+- Corte 2018+: Meteocat (XEMA) proporciona datos desde 2016-12-20. Las
+  observaciones anteriores a 2018 son pocas (≤19 por especie) y no justifican
+  el coste de revision para el modelo predictivo v1.
+- Fuente weather confirmada para el modelo: Meteocat es la unica fuente con
+  historico util para el periodo 2017-2022. Wunderground y Meteoclimatic tienen
+  cobertura mas limitada hacia atras.
+- Umbral empirico de observaciones: 22 (Morchella elata complex) se considera
+  limite con incertidumbre alta; 66+ (Hygrophorus marzuolus) es un punto de
+  partida comodo. Se usa ≥20 como criterio de entrada al modelo v1.
+- El framing "primera especie: boletus_aereus" del plan ML original estaba
+  escrito con 13 observaciones. Con el dataset actual, B. edulis lidera (152
+  obs) y B. aereus queda en segundo lugar (151 obs). Ambas son candidatas
+  igualmente validas para el primer modelo.
+
+Motivo:
+
+- La campana de importacion masiva de fotos de campo (646 observaciones)
+  amplio el dataset de forma significativa en agosto 2026.
+- Sin datos meteorologicos historicos, una observacion antigua no aporta al
+  modelo predictivo aunque este bien documentada; la revision manual no
+  justifica ese coste para el modelo v1.
+
+Consecuencias:
+
+- `docs/mushrooms/mushroom-ml-training-plan-es.md` actualizado: alcance
+  multi-especie, tabla de 8 especies viables, corte 2018+, Meteocat confirmado
+  como fuente weather, umbral empirico documentado.
+- Las 646 observaciones importadas estan en estado `review` y deben revisarse
+  antes de usarlas en calibracion o entrenamiento.
+- Las observaciones pre-2018 siguen siendo validas como contexto y para futura
+  expansion de cobertura weather, pero no entran en el modelo v1.
+
 ## 2026-07-20 - Publicacion HA 0.2.208 con coordinador externo
 
 Estado: PUBLICADA, PENDIENTE DE INSTALAR EN HA

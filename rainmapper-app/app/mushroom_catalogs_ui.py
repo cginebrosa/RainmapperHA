@@ -591,6 +591,14 @@ def render_catalog_entry_form(row: dict[str, object], catalogs: dict[str, object
                     item.get("prediction_favorable"),
                 )
             )
+            fields.append(
+                catalog_form_field(
+                    "calibration_score",
+                    ui_label("ui.calibration_score"),
+                    "" if item.get("calibration_score") is None else item.get("calibration_score"),
+                    field_type="number",
+                )
+            )
         if "description" in item or group == "trophic_modes":
             fields.append(catalog_form_textarea("description", ui_label("ui.description"), item.get("description", "")))
         if "notes" in item:

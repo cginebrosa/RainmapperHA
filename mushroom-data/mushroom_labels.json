@@ -1474,6 +1474,11 @@
     "es": "Favorable para prediccion",
     "ca": "Favorable per a la prediccio"
   },
+  "ui.calibration_score": {
+    "en": "Calibration score",
+    "es": "Peso de calibracion",
+    "ca": "Pes de calibracio"
+  },
   "ui.accepted": {
     "en": "Accepted",
     "es": "Aceptadas",

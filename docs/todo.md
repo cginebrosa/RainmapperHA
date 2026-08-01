@@ -483,23 +483,27 @@ Nota de continuidad 2026-06-29: `0.2.180` queda publicada, pusheada, instalada y
 Nota historica supersedida 2026-06-27: esta nota describia `0.2.150` como version actual y un fix local pendiente. Ese estado ya no es vigente. Se conserva solo como antecedente del primer hub de catalogos; el estado operativo verificado en el cierre actual es `0.2.180` segun las notas de continuidad anteriores.
 
 ## Proximo paso recomendado
-Direccion acordada 2026-07-11: priorizar un pipeline ML real para
-`boletus_aereus` sobre el refinamiento visual de `Parametros`. El modelo v0
-actual es descriptivo y no entrena ningun estimador. El contrato propuesto vive
-en `docs/mushrooms/mushroom-ml-training-plan-es.md`: agrupar observaciones por episodio,
-reconstruir series meteorologicas diarias, generar features de distribucion y
-variabilidad, entrenar un baseline binario y validar por setal/fecha sin fuga.
-El usuario ampliara observaciones; hacen falta especialmente ausencias reales.
+Direccion acordada 2026-07-11 (actualizada 2026-08-02): priorizar un pipeline
+ML real sobre el refinamiento visual de `Parametros`. El modelo v0 actual es
+descriptivo y no entrena ningun estimador. El contrato propuesto vive en
+`docs/mushrooms/mushroom-ml-training-plan-es.md`.
 
-- [ ] Construir pipeline ML experimental para `boletus_aereus`
-  - Contexto: existen 13 observaciones de la especie, pero solo una ausencia; el
-    `mushroom_model_v0.json` actual resume evidencia y no es ML.
+Analisis de viabilidad ML 2026-08-02: 8 especies viables con ≥20 observaciones
+desde 2018 (corte por inicio de datos Meteocat). B. edulis lidera con 152 obs,
+B. aereus segundo con 151. Hacen falta especialmente no detecciones reales con
+esfuerzo conocido; no fabricar ausencias.
+
+- [ ] Construir pipeline ML experimental empezando por B. edulis / B. aereus
+  - Contexto: 152/151 observaciones desde 2018 respectivamente; dataset
+    completo en `docker-data/mushroom-data/` (646 obs en estado `review`
+    pendientes de revision antes de usarlas en entrenamiento).
+  - Fuente weather: Meteocat (XEMA), datos desde 2016-12-20.
   - Criterio de aceptacion: dataset por episodio con serie diaria auditable,
     features meteorologicas/GIS/fenologicas versionadas, regresion logistica
     baseline, validacion agrupada y reporte honesto de muestra/gaps/metricas.
-  - Restricciones: no fabricar negativos, no dividir observaciones del mismo setal y fecha,
-    no inventar umbrales y no presentar resultados experimentales como
-    probabilidades fiables.
+  - Restricciones: no fabricar negativos, no dividir observaciones del mismo
+    setal y fecha, no inventar umbrales y no presentar resultados
+    experimentales como probabilidades fiables.
   - Plan: `docs/mushrooms/mushroom-ml-training-plan-es.md`.
 
 - [x] Crear mantenimiento de areas y microareas conocidas

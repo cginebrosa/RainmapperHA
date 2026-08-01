@@ -3,6 +3,173 @@
 Ventana operativa para continuar RainmapperHA sin depender de conversaciones
 anteriores. Este documento describe el estado actual, no el historial completo.
 
+## Importación masiva de observaciones + fixes de datos (2026-08-01/02, en curso)
+
+### Estado actual (2026-08-02)
+
+Importación completada y saneada en Docker local. Pendiente revisión manual en la UI antes de subir a HA.
+
+- `review_table.json` en `/Users/carlosginebrosa/Desktop/Fotos Bolets/candidates/`
+- 818 archivos de entrada → **772 observaciones totales** en `docker-data/mushroom-data/mushroom_observations.json`
+  (126 existentes `include` + 646 nuevas `review`)
+  Nota: se eliminaron 33 duplicados y 167 MOV observations respecto al merged inicial.
+- Media procesada: 757 ficheros referenciados (fotos + vídeos) en `docker-data/mushroom-data/media/`
+- Docker local activo: `http://127.0.0.1:8101`
+
+### Desglose de las 818 entradas originales
+- 646 observaciones importadas con `calibration_use: "review"`
+- 154 MOVs Live Photo companion detectados y omitidos automáticamente (mismo stem que un HEIC)
+- 44 omitidas sin perfil en Rainmapper (18 especies sin definir)
+- 3 omitidas no identificadas
+- 33 eliminadas por ser duplicados de observaciones `include` existentes
+
+### Fixes aplicados en esta sesión (2026-08-01/02)
+
+**flush_abundance "pending" (nuevo valor de catálogo)**
+- Las 646 obs importadas tenían `flush_abundance: null`, bloqueando TODOS los saves con 646 errores de validación.
+- Solución: añadido `"pending"` al catálogo `observation_flush_abundance` (`calibration_score: 0.0`, `prediction_favorable: 0`, `sort_order: 0`).
+- Las 646 obs parcheadas con `flush_abundance: "pending"`.
+- Añadido campo `calibration_score` al formulario de edición del catálogo (era editable solo via JSON raw).
+- Validación cruzada nueva: `flush_abundance: "pending"` + `calibration_use: "include"` → ERROR bloqueante.
+- Ficheros modificados: `mushroom_reference_catalogs.json`, `mushroom_catalogs_ui.py`, `web_server.py` (handler + template), `validate-mushroom-data.py`.
+
+**Conversión de JPEGs falsos**
+- 421 de 645 ficheros `.jpg` contenían bytes HEIC raw (PIL falló durante el import, se guardó raw y se renombró).
+- Convertidos a JPEG real con `sips` (macOS nativo). 0 fallos.
+- Ningún fichero HEIC queda ni por extensión ni por contenido.
+
+**Borrado de media al eliminar observación**
+- `delete_archived_observation` no eliminaba los ficheros de media huérfanos.
+- Corregido: al borrar definitivamente una obs archivada, se hace reference counting entre activas + resto de archivadas, y se borran los ficheros con reference_count == 0.
+- Patrón idéntico al ya existente en `delete_observation_media`.
+
+**Bug de cambio de especie (causa raíz identificada)**
+- El usuario no podía cambiar la especie de una observación importada: el `store.replace` fallaba por los 646 errores de `flush_abundance`. Resuelto al parchear el catálogo.
+- UX pendiente de verificar: `observations_return_url` usa `return_selected_species_id` (especie antigua) con prioridad sobre la nueva, lo que puede hacer parecer que el cambio no se guardó aunque sí lo hiciera.
+
+### Scripts en `scripts/observations-mass-import/`
+- `README.md` — proceso completo documentado (pasos 1-11)
+- `01_assign_areas.py` — point-in-polygon área/micro-área ✓
+- `02_assign_evidence.py` — evidencia desde obs más cercana ✓
+- `03_map_species.py` — mapeo species→species_id con aliases y reglas contextuales ✓
+- `04_generate_observations.py` — genera + media + fusiona con obs existentes ✓
+  (detecta y omite MOVs Live Photo companion automáticamente)
+- `media_utils.py` — procesado PIL/ffmpeg de imágenes y vídeos, extraído de web_server.py ✓
+
+### Reglas de mapeo de especies (en 03_map_species.py)
+- USER_NAME_ALIASES: Tricholoma sp.→terreum, Morchella sp.→elata_complex, Russula sp.→virescens
+- CONTEXT_RULES: Boletus sp. + Amanita caesarea→aereus, + Lactarius→edulis, + Tricholoma terreum→edulis
+- Boletus sp. standalone: <1000m→aereus, ≥1000m otoño→edulis, ≥1000m otra época→pinophilus
+
+### Decisiones tomadas
+- calibration_use: "review" para todas las importadas
+- validation_status: del campo confidence (valid/draft/doubtful)
+- Especies sin perfil (18 especies): ignorar, no importar
+- Fotos con micro_area_id "pending" (5): importar con micro_area_id null
+- Fotos sin área conocida (188): importar con micro_area_id null y site_context vacío
+- MOVs Live Photo companion: omitir siempre, conservar solo el HEIC
+- source.label conserva el nombre original (.HEIC) como dato de trazabilidad, no es una ruta
+
+### Próximo paso inmediato
+Revisar las 646 observaciones `review` en Docker local (`http://127.0.0.1:8101`):
+- Confirmar especie correcta, pasar a `calibration_use: "include"` las válidas
+- Completar evidencias de campo para las que no tenían obs cercanas
+- Cuando esté limpio, subir a HA:
+  - `docker-data/mushroom-data/mushroom_observations.json` → `/share/rainmapper/mushroom-data/`
+  - `docker-data/mushroom-data/media/` → `/share/rainmapper/mushroom-data/media/`
+
+## Análisis de viabilidad ML (2026-08-02, actualizado con análisis profundo)
+
+### Cobertura meteorológica por fuente
+| Fuente | Rango disponible |
+|---|---|
+| Meteocat | dic 2016 → hoy (fuente principal histórica) |
+| Wunderground | ago 2023 → hoy |
+| Meteoclimatic | sep 2023 → hoy |
+| AEMET | jun 2026 → hoy (solo reciente) |
+
+Observaciones sin cobertura meteo: 19 (años 2012–2013). Decisión: mantenerlas como referencia de campo, no invertir en backfill histórico para 19 obs.
+
+### Documentación actualizada (2026-08-02)
+Los cuatro documentos ML se actualizaron en la misma sesión:
+- `docs/mushrooms/mushroom-ml-training-plan-es.md` — tabla de 8 especies, corte 2018+, Meteocat, scope multi-especie, umbral empírico ≥20
+- `docs/decisions.md` — entrada nueva `2026-08-02` con la decisión de viabilidad ML
+- `docs/mushrooms/mushroom-predictor-design-es.md` — sección 12 actualizada con base empírica
+- `docs/todo.md` — framing "primera especie B. aereus" corregido
+
+### Unidad de análisis correcta: episodio (area_id + fecha)
+El conteo de observaciones es engañoso. La unidad real de entrenamiento ML es el
+episodio = (area_id + fecha). Varias fotos del mismo setal el mismo día = 1 episodio.
+Además, `scarce` y `very_scarce` son `prediction_favorable=0` según el catálogo
+`observation_flush_abundance`, es decir, son negativos (visitas sin florada útil).
+
+### Episodios confirmados (área + fecha, clasificación del catálogo)
+
+| Especie | Eps totales | +confirm | -confirm | Ratio | Pend ep | Sin_area obs |
+|---|---|---|---|---|---|---|
+| B. aereus | 43 | **15** | **10** | 1.5:1 | 18 | 43 |
+| A. caesarea | 31 | **7** | **11** | 0.6:1 | 13 | 7 |
+| B. pinophilus | 31 | **6** | **10** | 0.6:1 | 15 | 18 |
+| L. deliciosus | 31 | **10** | **4** | 2.5:1 | 17 | 27 |
+| H. marzuolus | 27 | **10** | **0** | sin neg | 17 | 7 |
+| B. edulis | 35 | 1 | 1 | — | 33 | 58 |
+| Cantharellus | 8 | 0 | 3 | sin pos | 5 | 13 |
+| Morchella | 6 | 2 | 3 | 0.7:1 | 1 | 3 |
+
+### Diagnóstico por especie (modelo de setales conocidos, predicción por area_id)
+
+**B. aereus** — la más madura: 25 eps confirmados (15+/10-). En olvan: 7+/7- en
+5 años y 18 episodios — perfectamente equilibrado. 11 áreas distintas.
+
+**A. caesarea** — segunda: 18 eps confirmados (7+/11-, más neg que pos). olvan
+tiene 5+/9- en 7 años y 25 episodios. Muy útil para aprender cuándo NO sale.
+
+**B. pinophilus** — buena ratio (6+/10-). guils: 1+/4-, rubio: 2+/1-, la_masella:
+1+/2-. Destaca que hay más negativos que positivos, información valiosa.
+
+**L. deliciosus** — 14 confirmados (10+/4-). Caveat: ermita_ascensio tiene 7 eps
+pero todos de 2018 (un solo año); diversidad temporal baja.
+
+**H. marzuolus** — 10+/0- confirmados. Sin ningún episodio negativo, el modelo no
+puede aprender el umbral de activación. Requiere salidas intencionadas en
+condiciones malas.
+
+**B. edulis** — prácticamente vacío (1+/1-): 151 de 153 obs son del import masivo
+pendiente de review. Potencialmente la especie más rica tras la revisión.
+
+**Cantharellus** — 0+/3-: todos los confirmados son negativos (scarce/very_scarce).
+Inverso al problema habitual.
+
+**Morchella** — 5 eps en bacanella (2+/3-), balance razonable pero solo 1 área útil.
+
+### Problemas transversales que bloquean el avance
+
+1. **646 obs en estado `review`** — bloquean el conteo real de episodios confirmados.
+   Hasta que el usuario las revise, B. edulis, H. marzuolus y la mayoría de pendientes
+   son incógnitas. Este review es la tarea más prioritaria para el ML.
+
+2. **Sin_area**: entre el 8% y el 45% de obs por especie no tienen `micro_area_id`
+   asignada → no son episodizables. Se pueden mapear retroactivamente a un área por
+   cercanía geográfica de coordenadas GPS.
+
+3. **Falta de negativos reales** en H. marzuolus y Cantharellus: requiere salidas
+   intencionadas en condiciones climáticas desfavorables, con registro explícito de
+   no-detección con esfuerzo conocido.
+
+### Ranking operativo
+
+- **Hoy, con datos confirmados**: B. aereus (olvan) y A. caesarea (olvan) son las
+  únicas parejas especie/área con señal bidireccional suficiente para un primer experimento.
+- **Tras el review de las 646**: B. edulis y H. marzuolus mejorarán sustancialmente.
+- **Tras salidas negativas intencionadas**: H. marzuolus pasaría a ser modelable.
+
+## CLAUDE.md creado (2026-08-01)
+
+Se creo `CLAUDE.md` en la raiz del repositorio. Claude Code lo carga automaticamente
+en cada sesion. Contiene estructura del proyecto, entrypoints, comandos de validacion,
+flujo de release, reglas operativas y referencia del modulo de setas. Mantenerlo
+actualizado al introducir cambios estructurales relevantes.
+
 ## Repositorio y release estable
 
 - Workspace unico:

@@ -2171,6 +2171,17 @@
         "sort_order": 70,
         "calibration_score": 0.0,
         "prediction_favorable": 0
+      },
+      {
+        "id": "pending",
+        "label": {
+          "es": "Pendiente",
+          "ca": "Pendent",
+          "en": "Pending"
+        },
+        "sort_order": 0,
+        "calibration_score": 0.0,
+        "prediction_favorable": 0
       }
     ],
     "observation_validation_statuses": [

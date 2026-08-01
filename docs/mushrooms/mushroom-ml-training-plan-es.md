@@ -15,17 +15,44 @@ cuantifican especificamente.
 
 ## Alcance inicial
 
-- Primera especie: `boletus_aereus`, por ser la que tiene mas observaciones.
-- Primer objetivo: clasificacion binaria de fructificacion visible:
-  `not_detected_with_known_search=0`, `detected=1`.
-- Evolucion posterior: abundancia ordinal desde `absent` hasta `exceptional`.
-- Las primeras salidas seran experimentales y no se presentaran como predictor
-  fiable mientras la validacion y el numero de negativos sean insuficientes.
+Dataset al 2026-08-02 (tras importacion masiva de fotos de campo):
 
-Al definir este plan hay 13 observaciones de `boletus_aereus` y solo una
-ausencia. El usuario ampliara la muestra. Las visitas negativas reales son
-especialmente importantes: no deben fabricarse ausencias desde fechas o lugares
-que no se visitaron.
+- 772 observaciones totales: 126 `include` + 646 `review` pendientes de
+  revision manual de especie y evidencia.
+- Corte 2018+: Meteocat (XEMA, datos desde 2016-12-20) es la unica fuente
+  weather con historico util para el periodo 2017-2022. Las observaciones
+  anteriores a 2018 son escasas (≤19 por especie) y no justifican el coste
+  de revision para el modelo v1.
+- 8 especies alcanzan el umbral minimo de ≥20 observaciones desde 2018:
+
+  | Especie                     | Observaciones desde 2018 |
+  |-----------------------------|--------------------------|
+  | Boletus edulis               | 152                      |
+  | Boletus aereus               | 151                      |
+  | Boletus pinophilus           | 100                      |
+  | Lactarius deliciosus         |  93                      |
+  | Amanita caesarea             |  77                      |
+  | Hygrophorus marzuolus        |  66                      |
+  | Cantharellus cibarius s.l.   |  28                      |
+  | Morchella elata complex      |  22                      |
+
+- Las 9 especies restantes tienen entre 2 y 7 observaciones y no entran en
+  el modelo v1; podran incorporarse cuando el dataset crezca.
+- Umbral empirico: 22 observaciones (Morchella elata complex) es el limite
+  con incertidumbre alta; 66+ es comodo; ≥20 se usa como criterio de entrada
+  al primer modelo.
+
+Primer objetivo: clasificacion binaria de fructificacion visible:
+`not_detected_with_known_search=0`, `detected=1`.
+Evolucion posterior: abundancia ordinal desde `absent` hasta `exceptional`.
+
+Las primeras salidas seran experimentales y no se presentaran como predictor
+fiable mientras la validacion y el numero de negativos sean insuficientes.
+
+Las visitas negativas reales son especialmente importantes: no deben
+fabricarse ausencias desde fechas o lugares que no se visitaron. Con el
+dataset actual predominan las observaciones positivas; hay que priorizar el
+registro de no detecciones con esfuerzo conocido.
 
 El objetivo no es predecir presencia biologica o micelio. Una visita sin
 carpoforos visibles es una no deteccion condicionada por el esfuerzo de busqueda,
@@ -357,15 +384,19 @@ negativos suficientes, sin particion valida o con cobertura meteorologica pobre.
 
 ## Criterio del primer hito
 
-El primer hito no es publicar un mapa predictivo. Es conseguir para
-`boletus_aereus` un proceso reproducible que:
+El primer hito no es publicar un mapa predictivo. Es conseguir, empezando
+por las especies con mas observaciones (B. edulis / B. aereus, 152/151 obs),
+un proceso reproducible que:
 
 1. permita asignar manualmente cada observacion a un setal conocido;
 2. agrupe observaciones por especie, setal y fecha;
-3. reconstruya y conserve meteorologia diaria;
+3. reconstruya y conserve meteorologia diaria desde Meteocat (corte 2018+);
 4. genere siempre el mismo contrato de features para entrenamiento y prediccion;
 5. entrene un baseline binario sin fuga entre episodios;
 6. publique metricas honestas y explique por que el resultado es o no usable.
+
+Una vez validado el proceso con una especie, el mismo pipeline se aplica al
+resto de las 8 especies viables sin cambiar el contrato de features.
 
 ## Store de areas conocidas
 

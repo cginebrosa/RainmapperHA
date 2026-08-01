@@ -10050,7 +10050,7 @@ def empty_catalog_entry(group: str, item_id: str) -> dict[str, object]:
     if group == "habitat_features":
         return {"id": item_id, "label": label}
     if group == "observation_flush_abundance":
-        return {"id": item_id, "label": label, "prediction_favorable": 0}
+        return {"id": item_id, "label": label, "prediction_favorable": 0, "calibration_score": None}
     return {"id": item_id, "label": label}
 
 
@@ -10278,6 +10278,7 @@ def catalog_entry_from_form(group: str, item_id: str, existing: dict[str, object
         if favorable not in {"0", "1"}:
             raise ValueError("prediction_favorable must be 0 or 1")
         entry["prediction_favorable"] = int(favorable)
+        entry["calibration_score"] = catalog_form_optional_number(form, "calibration_score")
     if "description" in entry or group == "trophic_modes":
         entry["description"] = catalog_form_string(form, "description")
     if "notes" in entry:
@@ -13538,6 +13539,9 @@ def save_observation_image_media(
         stored_filename = safe_observation_media_name(filename, extension)
         output_content = content
         persisted_content_type = content_type.split(";", 1)[0].strip() or content_type_for(target_path)
+
+    if resized:
+        stored_filename = str(Path(stored_filename).with_suffix(".jpg"))
 
     target_path = unique_media_path(target_dir, stored_filename, output_content)
     target_path.write_bytes(output_content)
@@ -17913,9 +17917,30 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 archived_payload["observations"] = remaining
                 write_archived_observations(store, archived_payload)
+                deleted_media: list[str] = []
                 if source := find_observation_by_id(archived, observation_id):
                     mushroom_model_state.mark_species_pending([str(source.get("species_id", species_id))])
-                set_mushroom_profiles_flash(f"Deleted archived observation {observation_id} permanently.")
+                    active_rows = observation_dicts_from_payload(store.load("observations"))
+                    all_remaining = active_rows + remaining
+                    for media_item in (source.get("media") if isinstance(source.get("media"), list) else []):
+                        if not isinstance(media_item, dict):
+                            continue
+                        media_path = str(media_item.get("path", ""))
+                        if not media_path:
+                            continue
+                        reference_count = sum(
+                            1
+                            for row in all_remaining
+                            for item in (row.get("media") if isinstance(row.get("media"), list) else [])
+                            if isinstance(item, dict) and str(item.get("path", "")) == media_path
+                        )
+                        if reference_count == 0:
+                            file_path = observation_media_file_path(media_path)
+                            if file_path is not None and file_path.exists():
+                                file_path.unlink()
+                                deleted_media.append(file_path.name)
+                media_suffix = f" Deleted media: {', '.join(deleted_media)}." if deleted_media else ""
+                set_mushroom_profiles_flash(f"Deleted archived observation {observation_id} permanently." + media_suffix)
                 return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
             if action == "save_profile_json":
                 entry = json.loads(self.form_value(form, "profile_json"))

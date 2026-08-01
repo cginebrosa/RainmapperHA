@@ -31,6 +31,13 @@ pwd
 git status --short
 ```
 
+## CLAUDE.md
+
+Existe `CLAUDE.md` en la raiz del repositorio. Claude Code lo carga automaticamente
+al arrancar cada sesion. Contiene las reglas operativas criticas, estructura del
+proyecto, comandos de validacion y flujo de release. No es necesario leerlo
+manualmente; esta disponible como referencia rapida durante el trabajo.
+
 ## Lectura minima al arrancar
 
 Leer siempre:

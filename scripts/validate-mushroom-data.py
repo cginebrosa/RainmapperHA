@@ -1154,6 +1154,13 @@ def validate_observations(
             messages,
             used_ids,
         )
+        if observation.get("flush_abundance") == "pending" and observation.get("calibration_use") == "include":
+            messages.append(
+                error(
+                    f"{location}.calibration_use",
+                    "calibration_use cannot be 'include' when flush_abundance is 'pending'",
+                )
+            )
         if observation.get("calibration_exclusion_reason"):
             validate_id(
                 observation.get("calibration_exclusion_reason"),

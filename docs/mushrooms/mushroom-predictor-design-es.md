@@ -807,7 +807,7 @@ Regla importante: estas observaciones externas deben quedar separadas conceptual
 - Definir el primer algoritmo de scoring explicable.
 - Definir qué features meteorológicas de los acumulados/incrementales actuales usa el predictor.
 - Definir cómo se guardarán resultados/debug de predicción para poder auditar el modelo.
-- Definir el mínimo de observaciones necesario antes de llamar a un resultado "calibrado".
+- Definir el mínimo de observaciones necesario antes de llamar a un resultado "calibrado". Base empírica disponible (2026-08-02): 22 observaciones (Morchella elata complex) es el límite con incertidumbre alta; 66+ (Hygrophorus marzuolus) es un punto de partida cómodo. Se recomienda ≥20 como criterio de entrada al modelo v1.
 - Decidir si el output será una clase ordinal, un score 0-1 o una probabilidad calibrada.
 
 ## 13. Recomendación inmediata
