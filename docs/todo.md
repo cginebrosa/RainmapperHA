@@ -12,9 +12,25 @@ Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
 
-## Estado operativo actual (2026-07-20)
+## Estado operativo actual (2026-08-03)
 
 ### Prioridad inmediata
+
+- [ ] Revisar observaciones `review` en Docker local (`http://127.0.0.1:8101`):
+  confirmar especie, rellenar `flush_abundance`, pasar a `calibration_use=include`
+  las validas. 191 observaciones pendientes; paso mas impactante para mejorar modelos.
+- [ ] Release HA con cambios acumulados desde 0.2.214: UI Predictor,
+  worker ml_train_v0, fixes predictor, clipboard evidencia, filtro fechas,
+  modal borrado, fix archivado, fix duplicacion con media.
+  Subir a HA tras release: `mushroom_labels.json`, `mushroom_reference_catalogs.json`,
+  `mushroom_observations.json` (cuando esten revisadas) y media.
+- [ ] Probar job ml_train_v0 end-to-end en Docker local: crear job desde UI,
+  worker lo recoge, entrena, sube resultado, promover en HA.
+- [ ] Retrain modelos despues de revisar observaciones `review` (mas datos → mejores modelos).
+- [ ] Subir datos a HA: `mushroom_observations.json`, media, `ml_models/*.joblib`
+  (generados por el worker tras el release).
+
+### Historial completado (hasta 2026-07-20)
 
 - [x] Validar localmente los recuentos derivados de `prediction_favorable`: 126
   features = 66 favorables/60 desfavorables, 0 discrepancias y 0 politicas

@@ -20,6 +20,9 @@ MERGED_*.csv
 !/mushroom-GIS/README.md
 /mushroom-GIS-HA/
 
+# Trained ML model binaries (scikit-learn joblib artifacts). JSON reports are versioned.
+/mushroom-data/ml_models/
+
 # Local literature source files supplied manually by the user. Commit derived
 # notes and normalized summaries, not large scanned/source PDFs.
 /docs/mushrooms/literature/Marc_EstevezSpecies.pdf

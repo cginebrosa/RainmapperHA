@@ -17,8 +17,10 @@ Las coordenadas de observaciones y fotos van siempre en **decimal WGS84** (ej: `
 
 ## Lectura obligatoria al arrancar sesión
 
-1. `docs/codex-start-here.md` — reglas operativas y mapa de documentación
-2. `docs/active-context.md` — estado actual, prioridades y releases
+**REGLA ESTRICTA:** Lee `docs/active-context.md` al inicio de CADA sesión, ANTES de responder a cualquier pregunta o ejecutar cualquier acción. Este fichero contiene el estado real del proyecto: versión HA instalada, pruebas completadas, prioridad inmediata y bloqueos activos. Sin leerlo, cualquier respuesta sobre el estado del proyecto será incorrecta. Esta regla no tiene excepciones.
+
+1. `docs/active-context.md` — **leer primero, siempre** — estado actual, versión instalada, prioridades
+2. `docs/codex-start-here.md` — reglas operativas y mapa de documentación
 
 Consultar después según tarea:
 - Arquitectura/entrypoints: `docs/architecture.md`

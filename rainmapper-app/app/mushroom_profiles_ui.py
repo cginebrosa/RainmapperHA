@@ -5362,7 +5362,7 @@ def render_observation_form_modal(
           </section>
           </div>
           <section class="observation-evidence-panel">
-            <h3><span class="observation-section-icon">⌘</span>Evidencia de campo</h3>
+            <h3><span class="observation-section-icon">⌘</span>Evidencia de campo<span class="evidence-clipboard-actions"><button type="button" class="secondary compact" data-copy-field-evidence>{html.escape(ui_label("ui.copy_field_evidence"))}</button><button type="button" class="secondary compact" data-paste-field-evidence hidden>{html.escape(ui_label("ui.paste_field_evidence"))}</button></span></h3>
         <div class="profile-grid full observation-hosts-grid">
           <div class="admin-field wide">
             <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
@@ -5436,6 +5436,11 @@ def observation_duplicate_template_row(row: dict[str, object] | None) -> dict[st
         source_observation_id = str(template.get("observation_id", "") or "")
         template.pop("observation_id", None)
         template.pop("metadata", None)
+        # Media is not a form field and cannot be pre-populated in the UI template.
+        # It is copied server-side in create_observation using draft_map_source_observation_id
+        # (2026-08-02: changed from silently dropping media to copying it on save, to support
+        # the case where one photo contains multiple species and needs to be shared across
+        # the duplicate observations).
         template.pop("media", None)
         if source_observation_id:
             template["_draft_map_source_observation_id"] = source_observation_id
@@ -5533,7 +5538,7 @@ def render_observation_exif_import_form(
             </section>
           </div>
           <section class="observation-evidence-panel">
-            <h3><span class="observation-section-icon">⌘</span>Evidencia de campo</h3>
+            <h3><span class="observation-section-icon">⌘</span>Evidencia de campo<span class="evidence-clipboard-actions"><button type="button" class="secondary compact" data-copy-field-evidence>{html.escape(ui_label("ui.copy_field_evidence"))}</button><button type="button" class="secondary compact" data-paste-field-evidence hidden>{html.escape(ui_label("ui.paste_field_evidence"))}</button></span></h3>
             <div class="profile-grid full observation-hosts-grid">
               <div class="admin-field wide">
                 <label>{html.escape(ui_label("site_context.observed_host_ids"))}</label>
@@ -5672,6 +5677,7 @@ def observation_site_map_assets() -> str:
       .observation-default-marker.selected{z-index:2}.observation-default-marker.selected svg{filter:hue-rotate(105deg) saturate(1.25) brightness(.95) drop-shadow(0 0 4px #22c55e)}
       .observation-site-assignment{margin-top:10px;padding:10px;border:1px solid #30424f;border-radius:6px;background:#0d1720}.observation-site-modes{display:flex;gap:7px;flex-wrap:wrap}.observation-site-modes button.active{color:#fff;background:#087fae;border-color:#29c2fa}.observation-site-context{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:42px;margin-top:8px;padding-top:8px;border-top:1px solid #30424f}.observation-site-context p{margin:0;color:#b6c3cc}.observation-new-site-fields{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:9px;border-top:1px solid #30424f}.observation-new-site-fields[hidden]{display:none}.observation-new-site-fields label{display:block;margin-bottom:4px;color:#aebbc5;font-size:12px}.observation-new-site-fields input{min-width:240px}.observation-new-site-fields .meta{align-self:center;margin:0;color:#73c9eb}
       .observation-coordinate-toolbar{display:grid;grid-template-columns:repeat(3,max-content);gap:7px;margin-top:8px}.observation-coordinate-toolbar button{font-size:12px;padding:7px 10px}.observation-coordinate-toolbar [data-coordinate-value]{grid-column:1/-1;color:#6dd4ff;font-weight:700}.observation-coordinate-confirm{position:fixed;z-index:1900;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:#000b}.observation-coordinate-confirm[hidden]{display:none}.observation-coordinate-confirm section{width:min(590px,calc(100vw - 40px));padding:20px;background:#16212a;border:1px solid #4a6171;border-radius:7px;box-shadow:0 20px 60px #000c}.observation-coordinate-confirm h3{margin:0 0 12px}.observation-coordinate-confirm section>div{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.observation-coordinate-form{margin:0}.observation-site-map.coordinate-editing .maplibregl-canvas{cursor:crosshair}.observation-coordinate-toolbar button:disabled{cursor:not-allowed;opacity:.45}
+      .observation-evidence-panel h3{display:flex;align-items:center;gap:10px}.evidence-clipboard-actions{margin-left:auto;display:flex;gap:6px}.evidence-clipboard-actions button{font-size:12px;padding:5px 10px}
     </style>
     <script>
     (()=>{
@@ -5701,6 +5707,7 @@ def observation_site_map_assets() -> str:
       });
       const selectMappedObservation=(target,id)=>{const modal=document.getElementById(target),map=window.rainmapperObservationMaps&&window.rainmapperObservationMaps.get(target);if(modal){modal.querySelectorAll('[data-observation-map-row]').forEach(row=>{const selected=row.dataset.observationMapRow===id;row.classList.toggle('selected',selected);if(selected)row.setAttribute('aria-current','true');else row.removeAttribute('aria-current');});}if(map&&map.rainmapperObservationMarkers)map.rainmapperObservationMarkers.forEach((marker,markerId)=>marker.getElement().classList.toggle('selected',markerId===id));};
       document.addEventListener('click',event=>{const button=event.target.closest('[data-observation-map-target]');if(button){const target=button.dataset.observationMapTarget,id=button.dataset.observationMapId,map=window.rainmapperObservationMaps&&window.rainmapperObservationMaps.get(target);selectMappedObservation(target,id);if(map)map.flyTo({center:[Number(button.dataset.observationMapLon),Number(button.dataset.observationMapLat)],zoom:16,duration:600});return;}const row=event.target.closest('[data-observation-map-row]');if(row&&!event.target.closest('a,button'))row.querySelector('[data-observation-map-target]')?.click();});window.addEventListener('hashchange',()=>window.setTimeout(initialize,30));window.setTimeout(initialize,30);
+      const EVIDENCE_CLIPBOARD_KEY='rainmapper_field_evidence_clipboard';const EVIDENCE_CHECKBOX_NAMES=['observed_host_ids','observed_forest_type_ids','observed_soil_tendency_ids','observed_habitat_feature_ids','observed_aspect_ids'];const EVIDENCE_TEXT_NAMES=['habitat_notes','host_notes'];const updatePasteButtonVisibility=()=>{const hasCopied=!!localStorage.getItem(EVIDENCE_CLIPBOARD_KEY);document.querySelectorAll('[data-paste-field-evidence]').forEach(btn=>btn.hidden=!hasCopied);};updatePasteButtonVisibility();document.addEventListener('click',event=>{const copyBtn=event.target.closest('[data-copy-field-evidence]');if(copyBtn){const form=copyBtn.closest('form');if(!form)return;const data={};EVIDENCE_CHECKBOX_NAMES.forEach(name=>{data[name]=Array.from(form.querySelectorAll(`input[name="${name}"]:checked`)).map(el=>el.value);});EVIDENCE_TEXT_NAMES.forEach(name=>{const el=form.querySelector(`textarea[name="${name}"],input[name="${name}"]`);data[name]=el?el.value:'';});localStorage.setItem(EVIDENCE_CLIPBOARD_KEY,JSON.stringify(data));updatePasteButtonVisibility();const orig=copyBtn.textContent;copyBtn.textContent='✓';setTimeout(()=>copyBtn.textContent=orig,1400);return;}const pasteBtn=event.target.closest('[data-paste-field-evidence]');if(pasteBtn){const raw=localStorage.getItem(EVIDENCE_CLIPBOARD_KEY);if(!raw)return;let data;try{data=JSON.parse(raw);}catch(e){return;}const form=pasteBtn.closest('form');if(!form)return;EVIDENCE_CHECKBOX_NAMES.forEach(name=>{const values=new Set(data[name]||[]);form.querySelectorAll(`input[name="${name}"]`).forEach(el=>{el.checked=values.has(el.value);});});EVIDENCE_TEXT_NAMES.forEach(name=>{const el=form.querySelector(`textarea[name="${name}"],input[name="${name}"]`);if(el)el.value=data[name]||'';});return;}});
     })();
     </script>
     """
@@ -5747,6 +5754,7 @@ def render_archived_observations_panel(
         observation_id = str(row.get("observation_id", ""))
         species_id = str(row.get("species_id", ""))
         context_inputs = observation_context_inputs(filters, selected_species_id=selected_species_id, archive_open=True)
+        delete_modal_id = f"delete-archived-obs-{observation_id}"
         rows.append(
             '<div class="archived-species-row">'
             f'<div><strong>{html.escape(observation_id)}</strong><br><span class="meta">{html.escape(str(row.get("observed_at", "-")))} · {html.escape(species_labels.get(species_id, species_id))}</span></div>'
@@ -5758,14 +5766,26 @@ def render_archived_observations_panel(
             f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">'
             f'<button class="secondary" type="submit">{html.escape(ui_label("ui.restore"))}</button>'
             '</form>'
-            '<form method="post" action="" onsubmit="return confirm(\'Delete this archived observation permanently?\') && confirm(\'This action cannot be undone. The archived copy will be removed permanently.\')">'
+            f'<a class="button-link danger" href="#{html.escape(delete_modal_id, quote=True)}">{html.escape(ui_label("ui.delete_permanently"))}</a>'
+            f'<div id="{html.escape(delete_modal_id, quote=True)}" class="modal-layer">'
+            f'<a class="modal-backdrop" href="#" aria-label="{html.escape(ui_label("ui.cancel"), quote=True)}"></a>'
+            '<section class="modal-card">'
+            f'<h2>{html.escape(ui_label("ui.delete_permanently_observation_title"))}</h2>'
+            f'<p>{html.escape(ui_label("ui.delete_permanently_observation_body"))}</p>'
+            f'<p><strong>{html.escape(observation_id)}</strong></p>'
+            '<form method="post" action="">'
             '<input type="hidden" name="profile_action" value="delete_archived_observation">'
             f'{context_inputs}'
             f'<input type="hidden" name="species_id" value="{html.escape(species_id, quote=True)}">'
             f'<input type="hidden" name="observation_id" value="{html.escape(observation_id, quote=True)}">'
             f'<input type="hidden" name="delete_confirm_id" value="{html.escape(observation_id, quote=True)}">'
+            '<div class="modal-actions">'
+            f'<a class="button-link" href="#">{html.escape(ui_label("ui.cancel"))}</a>'
             f'<button class="danger" type="submit">{html.escape(ui_label("ui.delete_permanently"))}</button>'
+            '</div>'
             '</form>'
+            '</section>'
+            '</div>'
             '</div></div>'
         )
     return f'<details id="archived-observations" class="profile-section-card"{open_attr}><summary><strong>{html.escape(ui_label("ui.archived_observations"))}</strong></summary><div class="archived-observations-list">' + "".join(rows) + '</div></details>'

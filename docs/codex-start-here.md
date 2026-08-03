@@ -60,7 +60,11 @@ Para tareas de setas:
 - Parametros UI: `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md`
 - Observaciones UI: `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`
 - Schema de observaciones: `docs/mushrooms/mushroom-observations-schema-es.md`
-- Plan de entrenamiento ML: `docs/mushrooms/mushroom-ml-training-plan-es.md`
+- Plan de entrenamiento ML y estado actual del dataset (elegibilidad, episodios
+  por especie, bloqueos activos, politica prediction_target):
+  `docs/mushrooms/mushroom-ml-training-plan-es.md`
+  — leer cuando se pregunte por estado del dataset, numero de episodios,
+  cuantas especies son entrenables, o criterios de is_training_row.
 - Modelo v0/laboratorio: `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`
 - Predictor: `docs/mushrooms/mushroom-predictor-design-es.md`
 - Plataforma privada de computo externo para reconstruccion/ML (imagen, cache

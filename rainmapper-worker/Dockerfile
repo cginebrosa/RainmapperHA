@@ -23,6 +23,8 @@ RUN apt-get update \
     && mkdir -p /var/lib/rainmapper-worker \
     && chown rainmapper-worker:rainmapper-worker /var/lib/rainmapper-worker
 
+RUN pip install --no-cache-dir numpy==2.4.6 pandas==2.2.2 scikit-learn==1.9.0
+
 COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_gis_lab.py \
      rainmapper_core/mushroom_learned_model.py \
@@ -39,8 +41,10 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_worker_service.py \
      rainmapper_core/mushroom_worker_transport.py \
      rainmapper_core/mushroom_worker_results.py \
+     rainmapper_core/mushroom_ml_trainer.py \
      /app/rainmapper_core/
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
+COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py
 COPY scripts/manage-mushroom-worker-datasets.py /app/scripts/manage-mushroom-worker-datasets.py
 COPY scripts/manage-mushroom-worker-config.py /app/scripts/manage-mushroom-worker-config.py
 COPY scripts/run-mushroom-worker-service.py /app/scripts/run-mushroom-worker-service.py
@@ -59,7 +63,9 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/scripts/manage-mushroom-worker-datasets.py \
         /app/scripts/manage-mushroom-worker-config.py \
         /app/scripts/run-mushroom-worker-service.py \
-        /app/scripts/run-mushroom-rebuild-job.py
+        /app/scripts/run-mushroom-rebuild-job.py \
+        /app/scripts/run-mushroom-ml-train-job.py \
+        /app/rainmapper_core/mushroom_ml_trainer.py
 
 VOLUME ["/var/lib/rainmapper-worker"]
 

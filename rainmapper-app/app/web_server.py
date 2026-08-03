@@ -35,6 +35,7 @@ if str(APP_DIR) not in sys.path:
 import mushroom_catalogs_ui
 import mushroom_gis_mappings_ui
 import mushroom_known_sites_ui
+import mushroom_predictor_ui
 import mushroom_profiles_ui
 import mushroom_workers_ui
 from rainmapper_core import mushroom_gis_lab
@@ -113,6 +114,8 @@ MUSHROOM_WORKER_PROTOCOL_POST_PATHS = {
     "/api/mushrooms/workers/jobs/finish",
     "/api/mushrooms/workers/jobs/result-file",
     "/api/mushrooms/workers/jobs/result-complete",
+    "/api/mushrooms/workers/jobs/ml-result-file",
+    "/api/mushrooms/workers/jobs/ml-result-complete",
 }
 HOME_ASSISTANT_INGRESS_PROXY_IP = "172.30.32.2"
 MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS = 30
@@ -8064,18 +8067,19 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         if (!hidden) return;
         var initialDate = observationDateFromIso(hidden.value);
         var calendar = null;
+        var lastSubmittedValue = hidden.value;
         var submitFilter = function() {{
+          lastSubmittedValue = hidden.value;
           if (input.form) input.form.submit();
         }};
         var syncTypedValue = function(submit) {{
           var text = input.value.trim();
           if (!text) {{
-            var hadValue = Boolean(hidden.value);
             hidden.value = "";
             input.setCustomValidity("");
             input.removeAttribute("aria-invalid");
             if (calendar) calendar.clear({{ silent: true }});
-            if (submit && hadValue) submitFilter();
+            if (submit && lastSubmittedValue !== "") submitFilter();
             return;
           }}
           var parsed = observationDateFromDisplay(text);
@@ -8086,18 +8090,30 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
             return;
           }}
           var nextValue = observationDateToIso(parsed);
-          var changed = hidden.value !== nextValue;
           hidden.value = nextValue;
           input.setCustomValidity("");
           input.removeAttribute("aria-invalid");
           if (calendar) calendar.selectDate(parsed, {{ silent: true }});
-          if (submit && changed) submitFilter();
+          if (submit && hidden.value !== lastSubmittedValue) submitFilter();
         }};
-        input.addEventListener("input", function() {{ syncTypedValue(false); }});
+        input.addEventListener("input", function() {{
+          var val = input.value;
+          if (/^\\d{{2}}$/.test(val)) {{ input.value = val + '/'; }}
+          else if (/^\\d{{2}}\\/\\d{{2}}$/.test(val)) {{ input.value = val + '/'; }}
+          input.setCustomValidity("");
+          input.removeAttribute("aria-invalid");
+          if (/^\\d{{2}}\\/\\d{{2}}\\/\\d{{4}}$/.test(input.value)) {{ syncTypedValue(false); }}
+          else if (!input.value.trim()) {{ hidden.value = ""; if (calendar) calendar.clear({{ silent: true }}); }}
+        }});
+        input.addEventListener("blur", function() {{
+          var complete = /^\\d{{2}}\\/\\d{{2}}\\/\\d{{4}}$/.test(input.value.trim());
+          if (complete || !input.value.trim()) {{ syncTypedValue(true); }}
+        }});
         input.addEventListener("keydown", function(event) {{
           if (event.key === "Enter") {{
             event.preventDefault();
-            syncTypedValue(true);
+            var complete = /^\\d{{2}}\\/\\d{{2}}\\/\\d{{4}}$/.test(input.value.trim());
+            if (complete || !input.value.trim()) {{ syncTypedValue(true); }}
           }}
         }});
         if (typeof window.AirDatepicker !== "function") return;
@@ -10982,6 +10998,131 @@ def create_mushroom_worker_candidate_rebuild(
     return 201, {"ok": True, "job": job}
 
 
+def create_mushroom_ml_train_job(
+    worker_id: str,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    worker = next(
+        (
+            row
+            for row in registered_mushroom_worker_statuses()
+            if row.get("reachable")
+            and isinstance(row.get("payload"), dict)
+            and str(row["payload"].get("worker_id", "")) == worker_id
+        ),
+        None,
+    )
+    if worker is None:
+        return 409, {"ok": False, "error": "The selected worker is not connected."}
+    display_name = str((worker.get("payload") or {}).get("display_name", worker_id))
+    job_id = f"worker_job_{secrets.token_urlsafe(12)}"
+    try:
+        store = default_store()
+        store.ensure_seeded()
+        features_path = mushroom_paths.mushroom_observation_features_json_path()
+        known_sites_path = mushroom_paths.mushroom_known_sites_path()
+        if not features_path.exists():
+            return 409, {"ok": False, "error": "Features artifact not found. Run a candidate rebuild first."}
+        features_content = features_path.read_bytes()
+        features_digest = f"sha256:{hashlib.sha256(features_content).hexdigest()}"
+        features_payload = json.loads(features_content.decode("utf-8"))
+        rows = features_payload.get("rows") if isinstance(features_payload, dict) else []
+        if not isinstance(rows, list):
+            rows = []
+        from collections import Counter
+        counts = Counter(
+            r.get("species_id")
+            for r in rows
+            if isinstance(r, dict)
+            and r.get("validation_status") == "valid"
+            and r.get("calibration_use") == "include"
+            and r.get("prediction_target") in ("favorable", "unfavorable")
+            and r.get("micro_area_id") is not None
+        )
+        eligible_species_ids = [sp for sp, cnt in counts.most_common() if cnt >= 10]
+        job_spec_content = json.dumps(
+            {
+                "schema_version": "0.1",
+                "kind": "mushroom_ml_train_v0_spec",
+                "job_id": job_id,
+                "species_ids": eligible_species_ids,
+                "min_rows": 10,
+                "cv_folds": 3,
+            },
+            indent=2,
+            ensure_ascii=False,
+        ).encode("utf-8")
+        job_spec_digest = f"sha256:{hashlib.sha256(job_spec_content).hexdigest()}"
+        bundle_dir = mushroom_worker_input_bundles_path() / job_id
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+        (bundle_dir / "job_spec.json").write_bytes(job_spec_content)
+        (bundle_dir / "features.json").write_bytes(features_content)
+        known_sites_content = known_sites_path.read_bytes() if known_sites_path.exists() else b"{}"
+        (bundle_dir / "known_sites.json").write_bytes(known_sites_content)
+        input_bundle = {
+            "job_id": job_id,
+            "features_digest": features_digest,
+            "job_spec_id": job_spec_digest,
+        }
+        try:
+            with RUN_LOCK:
+                job = mushroom_worker_jobs.create_ml_train_job(
+                    mushroom_worker_jobs_path(),
+                    worker_id=worker_id,
+                    worker_display_name=display_name,
+                    input_bundle=input_bundle,
+                    job_id=job_id,
+                    species_ids=eligible_species_ids,
+                )
+        except BaseException:
+            import shutil as _shutil
+            _shutil.rmtree(bundle_dir, ignore_errors=True)
+            raise
+    except mushroom_worker_jobs.DuplicateActiveWorkError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    except (FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    return 201, {"ok": True, "job": job}
+
+
+def start_mushroom_ml_train_job(worker_id: str) -> tuple[int, dict[str, object]]:
+    if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
+        return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
+    set_mushroom_workers_flash(
+        mushroom_profiles_ui.ui_label("ui.worker_bundle_preparing"),
+        clear_when_idle=True,
+    )
+
+    def prepare() -> None:
+        try:
+            status, response = create_mushroom_ml_train_job(worker_id)
+            if status == 201:
+                job = response.get("job")
+                target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_ml_train_queued").replace("{worker}", target),
+                    clear_when_idle=True,
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue ML training job.")),
+                    error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
+                )
+        except BaseException as exc:
+            set_mushroom_workers_flash(f"Cannot prepare ML training inputs: {exc}", error=True)
+        finally:
+            MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+
+    threading.Thread(
+        target=prepare,
+        daemon=True,
+        name="rainmapper-worker-ml-train-preparation",
+    ).start()
+    return 202, {"ok": True, "preparing": True}
+
+
 def start_mushroom_worker_candidate_rebuild(
     worker_id: str,
     *,
@@ -11361,6 +11502,144 @@ def complete_mushroom_worker_candidate_result(
     return 200, {"ok": True, "verification": verification}
 
 
+def receive_mushroom_ml_train_result_file(
+    *,
+    job_id: str,
+    logical_path: str,
+    content: bytes,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            mushroom_worker_jobs.authorize_ml_train_result_upload(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        result = mushroom_worker_results.receive_ml_train_result_file(
+            mushroom_worker_candidate_results_path(),
+            job_id=job_id,
+            logical_path=logical_path,
+            content=content,
+        )
+    except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "result": result}
+
+
+def complete_mushroom_ml_train_result(
+    payload: object,
+    *,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker result payload must be an object."}
+    worker_id = str(payload.get("worker_id", ""))
+    job_id = str(payload.get("job_id", ""))
+    claim_token = str(payload.get("claim_token", ""))
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            mushroom_worker_jobs.authorize_ml_train_result_upload(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        verification = mushroom_worker_results.finalize_ml_train_result(
+            mushroom_worker_candidate_results_path(),
+            job_id=job_id,
+        )
+    except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "verification": verification}
+
+
+def _run_mushroom_worker_ml_train_promotion(job_id: str) -> None:
+    try:
+        with MUSHROOM_WORKER_PROMOTION_LOCK:
+            def report_progress(percent: int, phase: str, message: str) -> None:
+                with RUN_LOCK:
+                    mushroom_worker_jobs.update_candidate_promotion_progress(
+                        mushroom_worker_jobs_path(),
+                        job_id=job_id,
+                        percent=percent,
+                        phase=phase,
+                        message=message,
+                    )
+
+            report_progress(5, "Promoting ML models", "Copying trained models to live directory.")
+            promotion = mushroom_worker_results.promote_ml_train_candidate(
+                mushroom_worker_candidate_results_path(),
+                mushroom_paths.mushroom_ml_models_dir(),
+                job_id=job_id,
+            )
+            report_progress(99, "ML models promoted", "Trained models are now live.")
+        with RUN_LOCK:
+            mushroom_worker_jobs.finish_candidate_promotion(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                promoted=True,
+                result=promotion,
+            )
+        set_mushroom_workers_flash(
+            mushroom_profiles_ui.ui_label("ui.worker_ml_train_promoted")
+        )
+    except Exception as exc:
+        try:
+            with RUN_LOCK:
+                mushroom_worker_jobs.finish_candidate_promotion(
+                    mushroom_worker_jobs_path(),
+                    job_id=job_id,
+                    promoted=False,
+                    error=str(exc),
+                )
+        except ValueError:
+            pass
+        set_mushroom_workers_flash(str(exc), error=True)
+    finally:
+        with RUN_LOCK:
+            MUSHROOM_WORKER_PROMOTION_THREADS.pop(job_id, None)
+
+
+def promote_mushroom_ml_train_candidate_job(job_id: str) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_operational_enabled():
+        return 404, {"ok": False, "error": "External worker promotion is not enabled."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.begin_candidate_promotion(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+            )
+            if job.get("job_type") != mushroom_worker_jobs.JOB_TYPE_ML_TRAIN:
+                raise ValueError("Only ML training jobs can be promoted via this endpoint.")
+            promotion_thread = threading.Thread(
+                target=_run_mushroom_worker_ml_train_promotion,
+                args=(job_id,),
+                daemon=True,
+                name=f"rainmapper-worker-ml-promotion-{job_id[-12:]}",
+            )
+            MUSHROOM_WORKER_PROMOTION_THREADS[job_id] = promotion_thread
+            promotion_thread.start()
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    set_mushroom_workers_flash(
+        mushroom_profiles_ui.ui_label("ui.worker_ml_train_promoting"),
+        clear_when_idle=True,
+    )
+    return 202, {"ok": True, "job": job, "promoting": True}
+
+
 def resolve_mushroom_worker_input_download(
     *,
     job_id: str,
@@ -11381,6 +11660,14 @@ def resolve_mushroom_worker_input_download(
                 worker_id=worker_id,
                 claim_token=claim_token,
             )
+        if job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_TRAIN:
+            safe_path = mushroom_worker_transport.safe_relative_path(logical_path)
+            if safe_path.as_posix() not in {"job_spec.json", "features.json", "known_sites.json"}:
+                raise ValueError("Requested ML training input path is not allowed.")
+            bundle_path = mushroom_worker_input_bundles_path() / job_id / safe_path
+            if not bundle_path.is_file():
+                raise FileNotFoundError("ML training input file not found.")
+            return 200, bundle_path
         metadata = mushroom_worker_transport.load_coordinator_bundle(
             mushroom_worker_input_bundles_path(),
             job_id,
@@ -14893,6 +15180,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         if path == "/api/mushrooms/workers/jobs/result-file":
             return mushroom_worker_results.MAX_RESULT_FILE_BYTES
+        if path == "/api/mushrooms/workers/jobs/ml-result-file":
+            return mushroom_worker_results.MAX_ML_TRAIN_MODEL_BYTES
         if path.startswith("/api/mushrooms/workers/"):
             return MUSHROOM_WORKER_JSON_MAX_BYTES
         if path == "/api/mushrooms/observation-exif-preview":
@@ -15182,6 +15471,29 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 '<p><a class="button-link" href="./profiles">Back</a></p>'
                 f'<h1>{html.escape(page_title)}</h1>'
                 f'<div class="catalog-alert error"><strong>Cannot load known sites</strong><br>{html.escape(str(exc))}</div>'
+            )
+            self.send_bytes(500, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+            return
+        self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+
+    def render_mushroom_predictor(self, query: dict[str, list[str]] | None = None) -> None:
+        query = query or {}
+        page_title = mushroom_profiles_ui.ui_label("ui.predictor_title")
+        try:
+            store = default_store()
+            store.ensure_seeded()
+            profiles_payload = store.load("profiles")
+            known_sites_payload = mushroom_known_sites.load_payload()
+            body = mushroom_predictor_ui.render_page(
+                query,
+                profiles_payload if isinstance(profiles_payload, dict) else {},
+                known_sites_payload if isinstance(known_sites_payload, dict) else {},
+            )
+        except Exception as exc:
+            body = (
+                '<p><a class="button-link" href="./profiles">Back</a></p>'
+                f'<h1>{html.escape(page_title)}</h1>'
+                f'<div class="catalog-alert error"><strong>Cannot load predictor</strong><br>{html.escape(str(exc))}</div>'
             )
             self.send_bytes(500, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
             return
@@ -15940,6 +16252,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.render_mushroom_known_sites(parse_qs(parsed.query))
             return
 
+        if path == "/mushrooms/predictor":
+            self.render_mushroom_predictor(parse_qs(parsed.query))
+            return
+
         if path == "/mushrooms/workers":
             if not self.require_trusted_worker_control():
                 return
@@ -16198,6 +16514,27 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         if path == "/api/mushrooms/workers/jobs/result-complete":
             worker_token, _device_id = self.auth_credentials()
             status, response = complete_mushroom_worker_candidate_result(
+                self.read_json_payload(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/ml-result-file":
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            status, response = receive_mushroom_ml_train_result_file(
+                job_id=(query.get("job_id") or [""])[0],
+                logical_path=(query.get("file") or [""])[0],
+                content=self.read_request_body(),
+                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/ml-result-complete":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = complete_mushroom_ml_train_result(
                 self.read_json_payload(),
                 auth_token=worker_token,
             )
@@ -16647,6 +16984,32 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             else:
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot discard worker candidate.")),
+                    error=True,
+                )
+            return "./workers"
+        if action == "run_worker_ml_train":
+            worker_id = self.form_value(form, "worker_id")
+            if not mushroom_worker_operational_enabled():
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_job_api_pending_help"),
+                    error=True,
+                )
+                return "./workers"
+            status, response = start_mushroom_ml_train_job(worker_id)
+            if status != 202:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue ML training job.")),
+                    error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
+                )
+            return "./workers"
+        if action == "promote_ml_train_candidate":
+            status, response = promote_mushroom_ml_train_candidate_job(
+                self.form_value(form, "job_id")
+            )
+            if status != 202:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot promote ML training candidate.")),
                     error=True,
                 )
             return "./workers"
@@ -17572,6 +17935,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 except ValueError as exc:
                     set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
                     return observations_return_url(form, catalog_form_string(form, "observation_species_id"), anchor="new-observation")
+                # When duplicating, copy media references from the source observation so that
+                # a single photo shared across multiple species stays associated with all of them.
+                # Media files are not deleted until all references drop to zero (reference counting).
+                draft_source_id = catalog_form_string(form, "draft_map_source_observation_id")
+                if draft_source_id and not observation.get("media"):
+                    source_row = next((r for r in existing_rows if str(r.get("observation_id", "")) == draft_source_id), None)
+                    if source_row is not None:
+                        source_media = source_row.get("media")
+                        if isinstance(source_media, list):
+                            observation["media"] = [item for item in source_media if isinstance(item, dict)]
                 observations.append(observation)
                 observations_payload["observations"] = observations
                 metadata = observations_payload.get("metadata")
@@ -17872,10 +18245,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     mushroom_model_state.mark_species_pending([str(source.get("species_id", species_id))])
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Archived observation {observation_id}." + suffix)
-                    return observations_return_url(form, str(source.get("species_id", species_id)), anchor="archived-observations", archive_open=True, obs_id="")
+                    remaining = [row for row in observations if str(row.get("observation_id", "")) != observation_id]
+                    archived_index = next((i for i, row in enumerate(observations) if str(row.get("observation_id", "")) == observation_id), None)
+                    next_obs_id = ""
+                    if archived_index is not None and remaining:
+                        next_obs_id = str(remaining[min(archived_index, len(remaining) - 1)].get("observation_id", ""))
+                    return observations_return_url(form, str(source.get("species_id", species_id)), obs_id=next_obs_id, archive_open=False)
                 error_text = "; ".join(message.message for message in result.errors[:3])
                 set_mushroom_profiles_flash("Observation was not archived: " + error_text)
-                return observations_return_url(form, species_id, archive_open=True, obs_id="")
+                return observations_return_url(form, species_id, obs_id="", archive_open=False)
             if action == "restore_observation":
                 observation_id = catalog_form_string(form, "observation_id")
                 observations_payload = store.load("observations")
@@ -18077,6 +18455,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./mushrooms/gis-mappings">GIS mappings</a>
           <a class="button-link" href="./mushrooms/known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
           <a class="button-link" href="./mushrooms/workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
+          <a class="button-link" href="./mushrooms/predictor">{html.escape(mushroom_profiles_ui.ui_label('ui.predictor'))}</a>
         </div>
         """
         head_controls = f"""

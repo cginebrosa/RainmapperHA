@@ -384,6 +384,7 @@ def serve(
                     "worker_claim_probe",
                     "worker_snapshot_transport_probe",
                     "worker_candidate_rebuild",
+                    "worker_ml_train_v0",
                 }:
                     raise ValueError("Worker received an unsupported job type.")
                 job_update(
@@ -614,6 +615,154 @@ def serve(
                                 "service": "rainmapper-worker",
                                 "job_id": job_id,
                                 "comparison_status": verification.get("comparison_status", ""),
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
+                    return
+                if job_type == "worker_ml_train_v0":
+                    def ml_publish_progress(event: dict[str, Any], *, pipeline: bool = False) -> None:
+                        control = job_update(
+                            "control",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                            },
+                        )
+                        if control.get("cancel_requested"):
+                            raise InterruptedError("Worker ML training job was cancelled.")
+                        raw_percent = int(event.get("overall_percent", 10) or 10)
+                        percent = 20 + int(raw_percent * 0.7) if pipeline else max(10, min(99, raw_percent))
+                        job_update(
+                            "progress",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                                "phase": event.get("phase", "ML training"),
+                                "message": event.get("message", ""),
+                                "overall_percent": percent,
+                            },
+                        )
+
+                    def ml_input_progress(event: dict[str, Any]) -> None:
+                        mapped = dict(event)
+                        mapped["overall_percent"] = 5 + int(
+                            max(0, int(event.get("overall_percent", 5) or 5) - 5) * 0.1
+                        )
+                        ml_publish_progress(mapped)
+
+                    input_result = with_transport_retry(
+                        lambda: mushroom_worker_transport.download_ml_train_inputs(
+                            ha_url,
+                            job,
+                            worker_data_dir.resolve(),
+                            worker_id=identity["worker_id"],
+                            claim_token=claim_token,
+                            token=token,
+                            progress_callback=ml_input_progress,
+                        )
+                    )
+                    worker_job_dir = Path(str(input_result["input_dir"])).resolve()
+                    ml_candidate_dir = worker_job_dir / "ml_candidate"
+                    ml_candidate_dir.mkdir(parents=True, exist_ok=True)
+                    progress_path = worker_job_dir / "ml-progress.jsonl"
+                    stdout_path = worker_job_dir / "ml.stdout.log"
+                    stderr_path = worker_job_dir / "ml.stderr.log"
+                    candidate_runtime_files = [progress_path, stdout_path, stderr_path]
+                    command = [
+                        sys.executable,
+                        "/app/scripts/run-mushroom-ml-train-job.py",
+                        "--job-spec", str(worker_job_dir / "job_spec.json"),
+                        "--features", str(worker_job_dir / "features.json"),
+                        "--known-sites", str(worker_job_dir / "known_sites.json"),
+                        "--output-dir", str(ml_candidate_dir),
+                        "--progress-jsonl", str(progress_path),
+                        "--quiet",
+                    ]
+                    with stdout_path.open("xb") as stdout_handle, stderr_path.open("xb") as stderr_handle:
+                        compute_process = subprocess.Popen(
+                            command,
+                            stdin=subprocess.DEVNULL,
+                            stdout=stdout_handle,
+                            stderr=stderr_handle,
+                        )
+                    published_lines = 0
+                    while not stop_event.is_set():
+                        control = job_update(
+                            "control",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                            },
+                        )
+                        if control.get("cancel_requested"):
+                            if compute_process.poll() is None:
+                                if control.get("force_cancel_requested"):
+                                    compute_process.kill()
+                                else:
+                                    compute_process.terminate()
+                                    try:
+                                        compute_process.wait(timeout=2.0)
+                                    except subprocess.TimeoutExpired:
+                                        compute_process.kill()
+                                compute_process.wait(timeout=2.0)
+                            raise InterruptedError("Worker ML training job was cancelled.")
+                        if progress_path.is_file():
+                            lines = progress_path.read_text(encoding="utf-8").splitlines()
+                            for line in lines[published_lines:]:
+                                event = json.loads(line)
+                                if isinstance(event, dict):
+                                    ml_publish_progress(event, pipeline=True)
+                            published_lines = len(lines)
+                        return_code = compute_process.poll()
+                        if return_code is not None:
+                            if return_code != 0:
+                                detail = stderr_path.read_text(encoding="utf-8", errors="replace")[-2000:]
+                                raise RuntimeError(
+                                    f"ML training process exited with status {return_code}: {detail}"
+                                )
+                            break
+                        stop_event.wait(0.5)
+
+                    def ml_upload_progress(event: dict[str, Any]) -> None:
+                        ml_publish_progress(event)
+
+                    verification = with_transport_retry(
+                        lambda: mushroom_worker_results.upload_ml_train_result(
+                            ha_url,
+                            job,
+                            worker_job_dir,
+                            worker_id=identity["worker_id"],
+                            claim_token=claim_token,
+                            token=token,
+                            progress_callback=ml_upload_progress,
+                        )
+                    )
+                    job_update(
+                        "finish",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                            "status": "complete",
+                            "result": {
+                                "verification_status": "verified",
+                                "result_manifest_id": verification.get("result_manifest_id"),
+                                "trained_species_count": verification.get("trained_species_count"),
+                            },
+                        },
+                    )
+                    print(
+                        json.dumps(
+                            {
+                                "status": "ml_train_result_verified",
+                                "service": "rainmapper-worker",
+                                "job_id": job_id,
+                                "trained_species_count": verification.get("trained_species_count", 0),
                             },
                             ensure_ascii=False,
                         ),

@@ -1,5 +1,26 @@
 # Changelog
 
+## Pending (next release)
+
+- Add ML model training job type `ml_train_v0` for the external worker: the
+  worker trains scikit-learn models from the current features artifact, uploads
+  a manifest and `.joblib` files, and the operator promotes them manually from
+  `Workers and jobs`.
+- Add `Predictor` screen with four views: this week's ranking by area, per-species
+  week detail, single-date query, and history with clickable correct/FN/FP filter
+  cards.
+- Add evidence clipboard to observations: copy and paste the five evidence groups
+  and two notes across observations from the same field trip via `localStorage`.
+- Add date filter with auto-slash insertion and submit-on-blur in observations.
+- Replace native `confirm()` for permanent observation deletion with a centred
+  CSS modal.
+- Fix observation archiving to not expand the archived list and to auto-select
+  the next observation.
+- Fix observation duplication to inherit media references from the original.
+- Fix predictor history view to use the correct `observed_at` key and `actual`
+  key for FN/FP counts, and show a binary favorable/unfavorable label in the
+  Real column.
+
 ## 0.2.214
 
 - Restore immediate observation searches when pressing Enter and submit them

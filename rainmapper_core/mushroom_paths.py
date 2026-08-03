@@ -174,3 +174,24 @@ def mushroom_learned_model_report_path() -> Path:
     if configured:
         return Path(configured)
     return mushroom_data_report_file("mushroom_model_v0.md")
+
+
+def mushroom_known_sites_path() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_KNOWN_SITES_PATH", "").strip()
+    if configured:
+        return Path(configured)
+    return mushroom_data_file("mushroom_known_sites.json")
+
+
+def mushroom_ml_models_dir() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_MODELS_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    return mushroom_data_dir() / "ml_models"
+
+
+def mushroom_ml_report_json_path() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_REPORT_PATH", "").strip()
+    if configured:
+        return Path(configured)
+    return mushroom_data_file("mushroom_ml_v0_report.json")

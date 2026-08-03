@@ -297,5 +297,69 @@ class MushroomObservationContextTests(unittest.TestCase):
         self.assertTrue(any("CSV" in message for _percent, message in progress))
 
 
+    def test_build_weather_features_nullifies_consecutive_duplicate_rain(self) -> None:
+        self.write_observations()
+        # Day 10 (obs day): real data
+        # Day 9: real rain 8.0mm
+        # Day 8: exact duplicate of day 9 → artifact, should be nullified
+        # Day 7: different value → real
+        self.write_daily_file(
+            "Wunderground_incremental.csv",
+            [
+                {
+                    "Codi Estació": "ST_NEAR",
+                    "Estació": "Near station",
+                    "Latitud": "42.01",
+                    "Longitud": "2.01",
+                    "Data Local": "20260710",
+                    "Total": "3.0",
+                },
+                {
+                    "Codi Estació": "ST_NEAR",
+                    "Estació": "Near station",
+                    "Latitud": "42.01",
+                    "Longitud": "2.01",
+                    "Data Local": "20260709",
+                    "Total": "8.0",
+                },
+                {
+                    "Codi Estació": "ST_NEAR",
+                    "Estació": "Near station",
+                    "Latitud": "42.01",
+                    "Longitud": "2.01",
+                    "Data Local": "20260708",
+                    "Total": "8.0",
+                },
+                {
+                    "Codi Estació": "ST_NEAR",
+                    "Estació": "Near station",
+                    "Latitud": "42.01",
+                    "Longitud": "2.01",
+                    "Data Local": "20260707",
+                    "Total": "2.0",
+                },
+            ],
+        )
+
+        payload = mushroom_observation_context.build_observation_weather_features(
+            observations_path=self.observations_path,
+            weather_data_dir=self.data_dir,
+        )
+        first = payload["rows"][0]
+
+        # rain_7d should be 3.0 + 8.0 + 2.0 = 13.0 (day 8 nullified, day 7 kept)
+        self.assertEqual(first["rain_7d_mm"], 13.0)
+        # gap reported for the duplicate day (day 9 repeats day 8 → day 9 is the artifact)
+        self.assertTrue(
+            any("rain_suspect_consecutive_20260709" in g for g in first["data_gaps"]),
+            f"Expected consecutive gap in {first['data_gaps']}",
+        )
+        # coverage reduced: 3 valid rain days out of 7
+        self.assertTrue(
+            any("rain_7d_coverage_3/7" in g for g in first["data_gaps"]),
+            f"Expected coverage gap in {first['data_gaps']}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

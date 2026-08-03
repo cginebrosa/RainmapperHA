@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.214" \
+LABEL io.hass.version="0.2.215" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.214
+ENV RAINMAPPER_APP_VERSION=0.2.215
 
 WORKDIR /app
 
@@ -32,6 +32,7 @@ COPY rainmapper-app/app/mushroom_catalogs_ui.py /app/mushroom_catalogs_ui.py
 COPY rainmapper-app/app/mushroom_gis_mappings_ui.py /app/mushroom_gis_mappings_ui.py
 COPY rainmapper-app/app/mushroom_known_sites_ui.py /app/mushroom_known_sites_ui.py
 COPY rainmapper-app/app/mushroom_profiles_ui.py /app/mushroom_profiles_ui.py
+COPY rainmapper-app/app/mushroom_predictor_ui.py /app/mushroom_predictor_ui.py
 COPY rainmapper-app/app/mushroom_workers_ui.py /app/mushroom_workers_ui.py
 COPY rainmapper-app/run.sh /run.sh
 RUN chmod +x /run.sh

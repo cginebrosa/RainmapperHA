@@ -3,6 +3,177 @@
 Ventana operativa para continuar RainmapperHA sin depender de conversaciones
 anteriores. Este documento describe el estado actual, no el historial completo.
 
+## TL;DR — Estado del proyecto (leer esto primero)
+
+**Release HA:**
+- Instalada en HA real: `0.2.214` (corrección búsqueda Observaciones, compacta Workers, descarte con modal)
+- No hay versión pendiente de instalar. El rollback inmediato es `0.2.213`.
+- No hay versión de desarrollo/sideload.
+
+**Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
+- Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
+- Pendiente en HA real: prueba de descarte con candidato terminal no promocionado, corte/reconexión sin revocar credencial, freshness/cache.
+- Decisión pendiente: incluir Tailscale dentro de la imagen del worker (M5 no tiene Tailscale por ser el del trabajo).
+- Portabilidad en daemon limpio: pendiente, no bloquea work actual.
+
+**Observaciones / ML (estado 2026-08-03):**
+- **587 obs** en Docker local: 423 válidas, 158 draft, 6 doubtful.
+- De las 423 válidas: 232 `calibration_use=include` (aptas), 191 `review` (florada pendiente de rellenar).
+- Fases 1–4 del predictor ML completadas (features, trainer, predictor engine, UI Predictor).
+- Modelos entrenados a nivel **área** (no micro_area): B. aereus (37 ep, 59% backtest), A. caesarea (35 ep), B. pinophilus (22 ep, 36% backtest). L. deliciosus no llega al mínimo de 20 episodios.
+- Worker job `ml_train_v0` implementado (ver sección "Worker ml_train_v0" más abajo).
+- Bloqueos: 158 obs en draft, 191 con florada sin rellenar, 65 válidas sin micro_area_id.
+
+**Prioridad inmediata:**
+1. **Revisar observaciones `review`** en Docker local (`http://127.0.0.1:8101`) — es el paso más
+   impactante para mejorar los modelos ML.
+2. **Release HA** con cambios acumulados desde 0.2.214 (UI Predictor, worker ml_train_v0, fixes predictor).
+3. Worker: probar descarte con candidato terminal en HA real.
+4. Decidir si meter Tailscale dentro de la imagen del worker.
+
+## Cambios pendientes de release (acumulados en Docker local, no en HA)
+
+Desde `0.2.214` se han añadido en Docker local las siguientes mejoras, sin bump ni publicación:
+
+- **Clipboard de evidencia de campo** (`mushroom_profiles_ui.py`): botones "Copiar evidencia"
+  y "Pegar evidencia" en la sección de evidencia del formulario de observación. Copia/pega
+  los 5 grupos de checkboxes + 2 notas vía `localStorage`. Útil para propagar evidencia
+  entre observaciones de la misma salida.
+- **Filtro de fecha con auto-slash y submit en blur** (`web_server.py`): en la pantalla de
+  Observaciones, los campos "Desde"/"Hasta" ahora auto-insertan `/` al escribir día y mes,
+  y aplican el filtro al salir del campo (blur) o pulsar Enter. Requieren exactamente
+  `dd/mm/yyyy` para evitar submits prematuros al editar dígitos intermedios.
+- **Modal CSS para "Borrar definitivamente"** (`mushroom_profiles_ui.py`): reemplaza el
+  `confirm()` nativo del navegador (que aparecía en posición aleatoria) por un modal
+  centrado consistente con el resto de la UI.
+- **Fix archivado de observaciones** (`web_server.py`): al archivar, no abre el desplegable
+  de archivadas y selecciona automáticamente la siguiente observación en la lista.
+- **Fix duplicación con media** (`web_server.py`): al duplicar una observación, la nueva
+  hereda las referencias de media de la original (útil cuando una foto muestra varias especies).
+- **UI Predictor** (`mushroom_predictor_ui.py`, nuevo): pantalla "Predictor" con 4 vistas
+  (Esta semana, Por especie, Consultar fecha, Historial). Filtros clicables en tarjetas de
+  estadísticas. Caché lazy por especie. Ver sección "ML Predictor — estado" más abajo.
+- **Worker job ml_train_v0**: entrena modelos ML desde el worker externo con promoción manual.
+  Ver sección "Worker ml_train_v0" más abajo.
+- **Fixes predictor** (esta sesión): `sys.exit()` → `raise ImportError` al faltar joblib,
+  numpy 1.25.2 → 2.4.6 (compatibilidad joblib), scikit-learn 1.9.0 añadido a requirements.txt,
+  key `observed_at` en historial (antes usaba `date`), FN/FP con key `actual` (antes `actual_label`),
+  columna "Real" binaria favorable/no favorable (no etiqueta de 3 vías).
+
+**Para el release:** smoke test + bump de versión en los 3 sitios + build-push-ha-image.sh.
+Subir también a HA: `mushroom_labels.json`, `mushroom_reference_catalogs.json`,
+`mushroom_observations.json` (cuando estén revisadas), y media. Los `.joblib` se generan
+desde el worker después del release.
+
+## ML Predictor — estado (2026-08-03, fases 1-3 completadas)
+
+El motor ML completo está implementado y funcional en Docker local. Falta la Fase 4 (UI).
+
+### Fases completadas
+
+**Fase 1 (pipeline features) — DONE:**
+- `mushroom_observation_context.py`: ventana 30d, 8 features derivadas, series diarias en JSON.
+- `mushroom_observation_features.py`: eliminados rain_60d/rain_90d, añadidas 8 derivadas.
+- Rebuild completo: 587 rows, 554 con estación, 8 features derivadas correctamente calculadas.
+
+**Control de calidad de lluvia — DONE (2026-08-03):**
+- `mushroom_observation_context.py`: nueva función `_consecutive_duplicate_rain_dates()`.
+- Detecta días con exactamente el mismo valor de lluvia > 0 en días calendario consecutivos.
+  Patrón conocido de estaciones Wunderground cuando el sensor deja de reportar y el sistema
+  copia el último valor conocido. Puede afectar cadenas de cualquier longitud (2, 3, N días).
+- Comportamiento: mantiene el primer día de la cadena, nullifica los siguientes.
+  Se reportan como gap `rain_suspect_consecutive_YYYYMMDD` en `data_gaps`.
+- Aplicado en los tres sitios de uso de lluvia: acumulados de ventana (`build_weather_values`),
+  features derivadas (`build_derived_features`: dry_spell, days_since_significant_rain,
+  rainy_days_14d) y serie diaria raw (`build_daily_series`).
+- Un único punto de cálculo: `dup_dates` se computa una vez antes de llamar a las tres funciones.
+  Al estar en `mushroom_observation_context.py`, aplica automáticamente tanto al rebuild de
+  features de entrenamiento como al predictor en tiempo real — sin inconsistencia modelo/predicción.
+- Solo lluvia (> 0). Temperatura y humedad no se filtran — pueden repetir legítimamente.
+- Tests: `test_build_weather_features_nullifies_consecutive_duplicate_rain` añadido. Suite: **392 tests OK**.
+
+**Control de calidad de lluvia en MapLibre / Tomap — DONE (2026-08-03):**
+- Los mismos dos filtros aplicados también en `rainmapper_core/tomap.py` — el pipeline que
+  genera los CSV Tomap que consume el visor MapLibre.
+- Nueva función `_apply_rain_quality_filters(df)` en `tomap.py`: mismo comportamiento que
+  en el pipeline ML (outlier > 300mm + duplicados consecutivos), aplicado sobre DataFrame pandas.
+- Llamada en dos puntos: `create_grouped()` (totales de período 1d/7d/30d/90d) y
+  `create_last_rains()` (historial diario en popups de estación), ambos antes de agregar.
+- Constante `DAILY_RAIN_SANITY_LIMIT_MM = 300.0` definida en `tomap.py` (igual que en
+  `mushroom_observation_context.py` — si se cambia, actualizar los dos sitios).
+- Los datos brutos de los CSV incrementales no se modifican — el filtro se aplica solo en memoria.
+
+**Fase 2 (trainer) — DONE:**
+- `rainmapper_core/mushroom_ml_trainer.py` — entrena LR + RF por especie, guarda joblib + JSON report.
+- scikit-learn 1.9.0 instalado en `.venv` (via `.venv/bin/python3.11 -m pip install scikit-learn`).
+- Modelos entrenados y guardados en `docker-data/mushroom-data/ml_models/` (gitignored).
+- Reporte en `docker-data/mushroom-data/mushroom_ml_v0_report.json`.
+- **Unidad de episodio: `(species, area, date)`** — no micro_area. Las estaciones meteorológicas
+  sirven áreas enteras; entrenar a nivel micro_area con features compartidas generaba ruido puro
+  (mismas X, etiquetas contradictorias el mismo día dentro de la misma área).
+- 3 especies entrenadas: B. aereus (37 ep), A. caesarea (35 ep), B. pinophilus (22 ep).
+  L. deliciosus skipped: solo 16 episodios (mínimo=20).
+- Agregación: episodio favorable si ALGUNA micro_area del área tuvo obs favorable ese día.
+  altitude del episodio = media de altitudes de las micro_areas observadas.
+
+Resultados trainer B. aereus (37 area episodes: 24+/13-, split 25 train / 12 test):
+- LR CV-AUC: 0.367, holdout: 0.778
+- RF CV-AUC: 0.500, holdout: 0.815
+- RF top features: humidity_min_7d_pct (6.5%), thermal_amplitude_mean_7d (5.2%), temp_mean_14d (4.9%)
+
+Resultados trainer B. pinophilus (22 area episodes: 11+/11-, split 15 train / 7 test):
+- LR CV-AUC: 1.0, holdout: 0.4  ← señal de overfitting por dataset pequeño
+- RF CV-AUC: 1.0, holdout: 0.5
+- Diagnóstico: insuficientes datos para generalizar. Necesita más observaciones revisadas.
+
+**Fase 3 (predictor engine) — DONE:**
+- `rainmapper_core/mushroom_ml_predictor.py` — predictor completo con 4 modos de consulta.
+- Usa mismas funciones de features que el training (`mushroom_observation_context`).
+- Restricción ecológica: `rank_areas(only_observed=True)` por defecto — solo áreas donde
+  la especie tiene observaciones válidas+include, evitando predicciones ecológicamente
+  imposibles (ej: B. aereus a 2200m en Salteguet/La Feixa).
+- Modos CLI: `predict(area, date)`, `rank_areas(date)`, `week_window(area, start)`, `backtest()`.
+
+Backtest B. aereus (37 episodios a nivel área):
+- **59% accuracy (22/37)**. Distribución: 14 falsos negativos, 1 falso positivo.
+  El modelo es conservador — cuando duda, dice "desfavorable".
+- Mejor área: **Olvan 68% (13/19 episodios)**. Tiene más observaciones de entrenamiento.
+- Áreas con mal rendimiento: selva_del_camp, coll_de_la_batalla, espunyola — todas con 1-2
+  episodios de entrenamiento; el modelo no aprendió su patrón específico.
+
+Backtest B. pinophilus (22 episodios a nivel área):
+- **36% accuracy (8/22)**. Overfitting claro: CV-AUC 1.0 vs holdout 0.4-0.5.
+- Mejora vs. versión anterior a micro_area (24% → 36%): scarce=0 eliminó falsos positivos
+  de Guils (micro_areas con florada mínima que contaminaban el entrenamiento).
+- No fiable todavía — necesita más observaciones revisadas.
+
+**Decisiones de diseño consolidadas:**
+- `scarce.prediction_favorable = 0` — solo floradas de consistencia real predicen favorable
+  (normal/abundant/very_abundant/exceptional). 4-5 setas no justifican salida al monte.
+- Nivel de agregación: **área** (no micro_area). Razón: las estaciones meteorológicas sirven
+  áreas enteras; micro_area generaba ruido por construcción.
+- No forecast necesario: el modelo aprende el lag entre condiciones y florada; los 30 días
+  anteriores a cualquier fecha futura próxima ya están en los históricos.
+- 40 features numéricas: rain 5 ventanas + temp 12 + humidity 12 + 8 derivadas + altitude + month.
+- LR + RF ensemble (media de probabilidades). RF generaliza mejor en todos los casos.
+- Thresholds de label (no producción): ≥0.60 favorable, ≤0.40 unfavorable, resto uncertain.
+
+**Rutas en mushroom_paths.py:**
+- `mushroom_known_sites_path()` — `mushroom_known_sites.json`
+- `mushroom_ml_models_dir()` — `mushroom-data/ml_models/` (gitignored, binarios joblib)
+- `mushroom_ml_report_json_path()` — `mushroom-data/mushroom_ml_v0_report.json`
+
+**Fase 4 (UI Predictor) — DONE:**
+- `mushroom_predictor_ui.py` nuevo: pantalla "Predictor" con 4 vistas.
+- "Esta semana": ranking semanal de condiciones por área (tabla con badge favorable/unfavorable/uncertain).
+- "Por especie": semana de detalle para especie+área seleccionadas.
+- "Consultar fecha": predicción puntual fecha+área.
+- "Historial": backtesting visual con tarjetas de estadísticas clicables (filtran por correct/FN/FP).
+- Caché lazy por especie en `web_server.py`. Modelos joblib cargados bajo demanda.
+- Bugs corregidos en esta sesión: `sys.exit()` → `raise ImportError` al faltar joblib,
+  numpy 1.25.2 → 2.4.6, scikit-learn 1.9.0 añadido a requirements.txt,
+  key `observed_at` en historial, key `actual` para FN/FP, columna "Real" binaria.
+
 ## Importación masiva de observaciones + fixes de datos (2026-08-01/02, en curso)
 
 ### Estado actual (2026-08-02)
@@ -78,7 +249,100 @@ Revisar las 646 observaciones `review` en Docker local (`http://127.0.0.1:8101`)
   - `docker-data/mushroom-data/mushroom_observations.json` → `/share/rainmapper/mushroom-data/`
   - `docker-data/mushroom-data/media/` → `/share/rainmapper/mushroom-data/media/`
 
-## Análisis de viabilidad ML (2026-08-02, actualizado con análisis profundo)
+## Dataset ML — estado actual (2026-08-03)
+
+Episodios a nivel **área** (valid + include + micro_area_id asignada, agregados por `(species, area, date)`).
+Tabla completa con criterios y política en `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+
+| Especie                    | Ep. fav | Ep. desf | Total (área) | Entrenado |
+|----------------------------|---------|----------|--------------|-----------|
+| Boletus aereus             | 24      | 13       | 37           | ✅ 59% backtest |
+| Amanita caesarea           | 17      | 18       | 35           | ✅ (backtest pendiente) |
+| Boletus pinophilus         | 11      | 11       | 22           | ✅ 36% backtest (overfitting) |
+| Lactarius deliciosus       | —       | —        | 16           | ❌ < 20 ep mínimo |
+
+Nota: los conteos a nivel área son menores que a nivel micro_area porque micro_areas del mismo
+área en la misma fecha se fusionan en un único episodio.
+
+Bloqueos activos: 158 obs en draft, 191 válidas con florada sin rellenar (`calibration_use=review`),
+65 válidas sin `micro_area_id`.
+
+## Worker ml_train_v0 — implementación (2026-08-03)
+
+Nuevo tipo de job `"worker_ml_train_v0"` para el worker externo. Paralelo a `rebuild_v0`
+(que genera el artefacto de features), pensado para chaining futuro vía `triggered_by_job_id`.
+
+### Diseño del job
+
+- **Separación de responsabilidades**: `rebuild_v0` reconstruye features, `ml_train_v0` entrena
+  modelos. Dos jobs independientes; en el futuro el coordinador puede encadenarlos automáticamente.
+- **`triggered_by_job_id`**: campo vacío = trigger manual desde la UI. No vacío = disparado
+  automáticamente por un rebuild (hook para chaining futuro, aún no implementado en coordinador).
+- **work_key**: `"ml_train:v0:{features_digest}"` — deduplicación por artefacto de features.
+  Dos requests sobre el mismo features.json no crean dos jobs concurrentes.
+- **promotion_eligible**: siempre `True`. La promoción es manual (botón "Promote models" en UI).
+
+### Bundle de inputs
+
+3 ficheros planos escritos por el coordinador en `input_bundles/{job_id}/`:
+- `job_spec.json` — job_id, species_ids, min_rows=10, cv_folds=3
+- `features.json` — copia de `mushroom_observation_features_v0.json` en vivo
+- `known_sites.json` — copia de `mushroom_known_sites.json`
+
+Sin estructura de snapshot GIS ni validación de fingerprints (no aplica para training).
+
+### Resultados del worker
+
+Staging en `worker_data/{job_id}/ml_candidate/`:
+- `ml_train_result.json` — manifest con schema_version "0.1", kind "mushroom_ml_v0_result",
+  trained_species, artifacts (path/size_bytes/sha256)
+- `ml_models/{species_id}.joblib` — un fichero por especie entrenada
+
+Endpoints separados de los de rebuild (evitan confusión):
+- `POST /api/mushrooms/workers/jobs/ml-result-file` — sube manifest o artefacto
+- `POST /api/mushrooms/workers/jobs/ml-result-complete` — finaliza y verifica
+
+### Promoción
+
+Sin freshness check (no aplica: no hay snapshot de inputs). Copia los `.joblib` atómicamente
+a `mushroom_paths.mushroom_ml_models_dir()`. Escribe `promotion_receipt.json`.
+No actualiza `mushroom_model_v0_state.json` (tarea de rebuild, no de training).
+
+### Subprocess del worker
+
+Script `scripts/run-mushroom-ml-train-job.py` lanzado como subprocess dentro del container:
+- Lee `job_spec.json`, `features.json`, `known_sites.json` del dir de inputs
+- Llama a `mushroom_ml_trainer.run()` con progress callback
+- Construye manifest con sha256 de cada `.joblib`
+- Escribe `ml_candidate/ml_train_result.json`
+- Stdout final: `{"status": "ml_train_complete", "trained_species_count": N, ...}`
+
+### Imagen worker
+
+`rainmapper-worker/Dockerfile` ahora instala:
+```
+numpy==2.4.6 pandas==2.2.2 scikit-learn==1.9.0
+```
+Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-train-job.py`.
+
+### Ficheros modificados
+
+| Fichero | Cambios |
+|---------|---------|
+| `rainmapper_core/mushroom_worker_jobs.py` | `JOB_TYPE_ML_TRAIN`, `create_ml_train_job()`, `authorize_ml_train_result_upload()`, ext. `begin_candidate_promotion()` + `_normalized_result()` |
+| `rainmapper_core/mushroom_worker_results.py` | `receive_ml_train_result_file()`, `finalize_ml_train_result()`, `promote_ml_train_candidate()`, `upload_ml_train_result()` |
+| `rainmapper_core/mushroom_worker_transport.py` | `download_ml_train_inputs()` |
+| `rainmapper_core/mushroom_worker_service.py` | Rama ml_train en `run_claimed_job()` |
+| `rainmapper-app/app/web_server.py` | `create_mushroom_ml_train_job()`, `receive_mushroom_ml_train_result_file()`, `complete_mushroom_ml_train_result()`, `promote_mushroom_ml_train_candidate_job()`, endpoints POST |
+| `rainmapper-app/app/mushroom_workers_ui.py` | `_render_ml_train_panel()`, botón promote ml_train |
+| `mushroom-data/mushroom_labels.json` | 9 labels nuevos `ui.worker_ml_train*` (en/es/ca) |
+| `rainmapper-worker/Dockerfile` | numpy + pandas + scikit-learn; copia ml_trainer + run script |
+| `scripts/run-mushroom-ml-train-job.py` | CLI nuevo (subprocess del worker) |
+
+### Pendiente
+
+- Probar job ml_train_v0 end-to-end: crear job desde UI, worker lo recoge, entrena, sube, promover en HA.
+- Implementar chaining automático rebuild → ml_train en el coordinador (campo `triggered_by_job_id`).
 
 ### Cobertura meteorológica por fuente
 | Fuente | Rango disponible |
@@ -90,78 +354,34 @@ Revisar las 646 observaciones `review` en Docker local (`http://127.0.0.1:8101`)
 
 Observaciones sin cobertura meteo: 19 (años 2012–2013). Decisión: mantenerlas como referencia de campo, no invertir en backfill histórico para 19 obs.
 
-### Documentación actualizada (2026-08-02)
-Los cuatro documentos ML se actualizaron en la misma sesión:
-- `docs/mushrooms/mushroom-ml-training-plan-es.md` — tabla de 8 especies, corte 2018+, Meteocat, scope multi-especie, umbral empírico ≥20
-- `docs/decisions.md` — entrada nueva `2026-08-02` con la decisión de viabilidad ML
-- `docs/mushrooms/mushroom-predictor-design-es.md` — sección 12 actualizada con base empírica
-- `docs/todo.md` — framing "primera especie B. aereus" corregido
+## Setales conocidos (2026-08-03)
 
-### Unidad de análisis correcta: episodio (area_id + fecha)
-El conteo de observaciones es engañoso. La unidad real de entrenamiento ML es el
-episodio = (area_id + fecha). Varias fotos del mismo setal el mismo día = 1 episodio.
-Además, `scarce` y `very_scarce` son `prediction_favorable=0` según el catálogo
-`observation_flush_abundance`, es decir, son negativos (visitas sin florada útil).
+22 áreas, 46 micro_areas en `docker-data/mushroom-data/mushroom_known_sites.json`.
 
-### Episodios confirmados (área + fecha, clasificación del catálogo)
-
-| Especie | Eps totales | +confirm | -confirm | Ratio | Pend ep | Sin_area obs |
-|---|---|---|---|---|---|---|
-| B. aereus | 43 | **15** | **10** | 1.5:1 | 18 | 43 |
-| A. caesarea | 31 | **7** | **11** | 0.6:1 | 13 | 7 |
-| B. pinophilus | 31 | **6** | **10** | 0.6:1 | 15 | 18 |
-| L. deliciosus | 31 | **10** | **4** | 2.5:1 | 17 | 27 |
-| H. marzuolus | 27 | **10** | **0** | sin neg | 17 | 7 |
-| B. edulis | 35 | 1 | 1 | — | 33 | 58 |
-| Cantharellus | 8 | 0 | 3 | sin pos | 5 | 13 |
-| Morchella | 6 | 2 | 3 | 0.7:1 | 1 | 3 |
-
-### Diagnóstico por especie (modelo de setales conocidos, predicción por area_id)
-
-**B. aereus** — la más madura: 25 eps confirmados (15+/10-). En olvan: 7+/7- en
-5 años y 18 episodios — perfectamente equilibrado. 11 áreas distintas.
-
-**A. caesarea** — segunda: 18 eps confirmados (7+/11-, más neg que pos). olvan
-tiene 5+/9- en 7 años y 25 episodios. Muy útil para aprender cuándo NO sale.
-
-**B. pinophilus** — buena ratio (6+/10-). guils: 1+/4-, rubio: 2+/1-, la_masella:
-1+/2-. Destaca que hay más negativos que positivos, información valiosa.
-
-**L. deliciosus** — 14 confirmados (10+/4-). Caveat: ermita_ascensio tiene 7 eps
-pero todos de 2018 (un solo año); diversidad temporal baja.
-
-**H. marzuolus** — 10+/0- confirmados. Sin ningún episodio negativo, el modelo no
-puede aprender el umbral de activación. Requiere salidas intencionadas en
-condiciones malas.
-
-**B. edulis** — prácticamente vacío (1+/1-): 151 de 153 obs son del import masivo
-pendiente de review. Potencialmente la especie más rica tras la revisión.
-
-**Cantharellus** — 0+/3-: todos los confirmados son negativos (scarce/very_scarce).
-Inverso al problema habitual.
-
-**Morchella** — 5 eps en bacanella (2+/3-), balance razonable pero solo 1 área útil.
-
-### Problemas transversales que bloquean el avance
-
-1. **646 obs en estado `review`** — bloquean el conteo real de episodios confirmados.
-   Hasta que el usuario las revise, B. edulis, H. marzuolus y la mayoría de pendientes
-   son incógnitas. Este review es la tarea más prioritaria para el ML.
-
-2. **Sin_area**: entre el 8% y el 45% de obs por especie no tienen `micro_area_id`
-   asignada → no son episodizables. Se pueden mapear retroactivamente a un área por
-   cercanía geográfica de coordenadas GPS.
-
-3. **Falta de negativos reales** en H. marzuolus y Cantharellus: requiere salidas
-   intencionadas en condiciones climáticas desfavorables, con registro explícito de
-   no-detección con esfuerzo conocido.
-
-### Ranking operativo
-
-- **Hoy, con datos confirmados**: B. aereus (olvan) y A. caesarea (olvan) son las
-  únicas parejas especie/área con señal bidireccional suficiente para un primer experimento.
-- **Tras el review de las 646**: B. edulis y H. marzuolus mejorarán sustancialmente.
-- **Tras salidas negativas intencionadas**: H. marzuolus pasaría a ser modelable.
+| Área (`area_id`)              | Micro_areas                                                                   |
+|-------------------------------|-------------------------------------------------------------------------------|
+| bacanella                     | bacanella                                                                     |
+| breda                         | arriba                                                                        |
+| coll_de_la_batalla            | principal                                                                     |
+| el_perello                    | lo_burgar                                                                     |
+| els_ports                     | la_mola                                                                       |
+| ermita_ascensio               | obaga_de_la_castellana                                                        |
+| espunyola                     | muntanya                                                                      |
+| guils                         | el_comu · estacio · la_feixa · la_socarrada · plantacion_pinitos              |
+| la_gavarra                    | paradell                                                                      |
+| la_masella                    | estacion · km11 · km9                                                         |
+| llambilles                    | abajo · arriba · medio                                                        |
+| olvan                         | bosquecillo · cercado_vacas · la_pera · mas_ballaro · romeros · serra_ramons  |
+| ordino                        | cota_2100                                                                     |
+| prats_de_llucanes             | bosc_davant_prats_llucanes                                                    |
+| rectoria_de_la_selva          | rectoria                                                                      |
+| rubio                         | plantacion                                                                    |
+| salteguet                     | entrada · salteguet_fondo                                                     |
+| sant_jaume_de_boixadera       | pla_de_boixadera                                                              |
+| sant_joan                     | baga_de_sant_andreu · coll_de_leix · cota_1400 · obaga_de_la_culla · recta_1700 · serrat_de_la_carbassa |
+| santa_maria_de_merles         | la_tor_nova · casa_escrigues · la_coromina                                    |
+| selva_del_camp                | casa_perros · mas_de_sant_josep · mas_de_la_cabrera                           |
+| vallcebre                     | agustinet · petitons                                                          |
 
 ## CLAUDE.md creado (2026-08-01)
 
@@ -175,8 +395,8 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada para instalar/probar: `0.2.214`. La ultima instalada es
-  `0.2.213` (`145cc03 Release Home Assistant 0.2.213`).
+- Release HA instalada y validada: `0.2.214` (`524bf2c Release Home Assistant 0.2.214`).
+  Búsqueda global de Observaciones validada en HA real. Workers (M1 y M5) probados y funcionales.
 - Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.214` y `latest`, digest
   `sha256:a13a4bb1a1de0bc901fe198ee01ea25a6fe7fb594b1721321de7df0173cb698a`.
 - Manifests verificados: `linux/amd64`
@@ -311,12 +531,32 @@ de HA real:
   la opcion operacional de reconstruccion y promocion sigue desactivada hasta
   el siguiente ensayo controlado.
 
+## Consolidacion por episodio en el modelo V0 (2026-08-02)
+
+Implementada la politica de consolidacion de observaciones en episodios dentro
+de `mushroom_learned_model.py`:
+
+- Clave de episodio: `(species_id, micro_area_id, date)`.
+- `prediction_target`: favorable si alguna obs del episodio es favorable.
+- Variables categoricas (hosts, bosques, suelos, habitat, aspecto): union de valores
+  con trazabilidad de fuente; no hay limite de hosts, el modelo V0 es descriptivo.
+- Variables numericas: observacion de mejor `source_quality` del episodio.
+- `episode_observation_ids`: lista de IDs para trazabilidad.
+- Obs sin `micro_area_id`: excluidas del entrenamiento (`excluded_no_area` en summary).
+
+`micro_area_id` ahora fluye desde la observacion hasta el artefacto de features v0:
+añadido a `CSV_FIELDS` y `build_observation_weather_row` en
+`mushroom_observation_context.py`, y a `CSV_FIELDS` y `build_joined_row` en
+`mushroom_observation_features.py`.
+
+4 tests nuevos en `test_mushroom_learned_model.py`. Suite completa: **391 tests OK**.
+
 ## Validacion local de cierre
 
 Resultados comprobados el 2026-07-20 tras consolidar el diff y sus correcciones
 posteriores:
 
-- `.venv/bin/python -m unittest discover -s tests`: **386 tests OK**.
+- `.venv/bin/python -m unittest discover -s tests`: **386 tests OK** (391 tras consolidacion episodios 2026-08-02).
 - `.venv/bin/python scripts/validate-mushroom-data.py`: **0 errores y 11
   warnings conocidos**.
 - `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`: **OK**, incluidos los
@@ -405,8 +645,8 @@ terminal de los trabajos se publica en `0.2.211`.
 4. Bump y GHCR de `0.2.214` completados con autorizacion expresa. `0.2.214` y
    `latest` comparten el digest multi-arch verificado
    `sha256:a13a4bb1a1de0bc901fe198ee01ea25a6fe7fb594b1721321de7df0173cb698a`;
-   import check arm64: `image_import_ok 0.2.214 False False True True`. Queda
-   instalar y validar la busqueda global y el descarte contra HA real.
+   import check arm64: `image_import_ok 0.2.214 False False True True`. Instalada
+   en HA real y búsqueda global de Observaciones validada (2026-08-02).
 
 ### P2 — Prueba M1 ↔ HA real
 
@@ -440,8 +680,9 @@ terminal de los trabajos se publica en `0.2.211`.
 - `0.2.214` corrige la busqueda de Observaciones bajo paginacion: Enter envia
   inmediatamente, la escritura se envia con debounce, se vuelve a pagina 1 y
   se buscan todos los campos persistidos y los nombres visibles resueltos de
-  especie, area, microarea y catalogos antes de paginar. El usuario la valido
-  localmente; falta instalarla en HA.
+  especie, area, microarea y catalogos antes de paginar. Instalada en HA real
+  y búsqueda global validada (2026-08-02). M1 y M5 probados y funcionales;
+  M5 aproximadamente 1.5x más rápido que M1 en red local.
 - Verificar que HA reconstruye localmente aunque no haya worker.
 - Medir tiempos por fase HA/M1 con el mismo snapshot y dataset.
 

@@ -11,6 +11,68 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-03 - Worker job ml_train_v0: dos jobs separados, no chaining automatico
+
+Estado: VIGENTE
+
+Decision:
+
+- `rebuild_v0` genera el artefacto de features (`mushroom_observation_features_v0.json`).
+  `ml_train_v0` entrena modelos scikit-learn a partir de ese artefacto. Son dos jobs
+  independientes, no un job monolitico.
+- El campo `triggered_by_job_id` (cadena vacia = trigger manual) es el gancho para
+  chaining futuro en el coordinador. No implementado aun; trigger es siempre manual.
+- `work_key = "ml_train:v0:{features_digest}"`: si el usuario lanza dos jobs sobre
+  el mismo features.json, el segundo es rechazado como duplicado activo.
+- `promotion_eligible = True` siempre para ml_train. La promocion es manual desde la
+  UI "Workers y trabajos" (boton "Promote models").
+- Sin freshness check durante la promocion de ml_train: el freshness check verifica
+  que inputs de reconstruccion (observaciones, GIS, weather) no han cambiado desde
+  el snapshot; no aplica a training, que solo usa el artefacto de features ya generado.
+- El bundle de inputs son 3 ficheros planos escritos por el coordinador:
+  `job_spec.json`, `features.json`, `known_sites.json`. Sin estructura de snapshot GIS.
+- La imagen worker instala `numpy==2.4.6 pandas==2.2.2 scikit-learn==1.9.0`.
+- Staging usa prefijo `ml.{job_id}` para evitar colision con directorios de resultado
+  de rebuild que usan solo `{job_id}`.
+- Endpoints separados para evitar confusion: `/api/mushrooms/workers/jobs/ml-result-file`
+  y `/api/mushrooms/workers/jobs/ml-result-complete`.
+
+Motivo:
+
+- Separar reconstruccion y entrenamiento permite reutilizar el mismo artefacto de
+  features para multiples runs de training sin repetir GIS/DEM ni meteorologia.
+- El chaining automatico requiere logica de coordinador no implementada; la separacion
+  permite entregar el primer training sin esa complejidad.
+
+Consecuencias:
+
+- `mushroom_worker_jobs.py`, `mushroom_worker_results.py`, `mushroom_worker_transport.py`,
+  `mushroom_worker_service.py`, `web_server.py`, `mushroom_workers_ui.py` y
+  `rainmapper-worker/Dockerfile` modificados.
+- Nuevo script `scripts/run-mushroom-ml-train-job.py` (subprocess del worker).
+- 9 labels nuevos en `mushroom_labels.json` (`ui.worker_ml_train*`).
+
+## 2026-08-03 - UI Predictor completada (Fase 4)
+
+Estado: VIGENTE
+
+Decision:
+
+- Pantalla "Predictor" en `mushroom_predictor_ui.py` con 4 vistas:
+  "Esta semana", "Por especie", "Consultar fecha", "Historial".
+- Historial con tarjetas de estadisticas clicables que filtran por correct/FN/FP.
+- Cache lazy por especie en `web_server.py`; modelos joblib cargados bajo demanda.
+- Al faltar joblib (modelos no entrenados), `raise ImportError` en lugar de
+  `sys.exit()` para no matar el servidor.
+
+Bugs corregidos durante implementacion:
+
+- numpy 1.25.2 → 2.4.6 para compatibilidad con joblib generado por scikit-learn 1.9.0.
+- scikit-learn 1.9.0 anadido a `requirements.txt`.
+- Historial usaba key `date`; corregido a `observed_at`.
+- Estadisticas FN/FP usaban key `actual_label`; corregido a `actual`.
+- Columna "Real" mostraba etiqueta de 3 vias; corregida a binaria favorable/no favorable.
+
 ## 2026-08-02 - Analisis de viabilidad ML: 8 especies, corte 2018+, Meteocat
 
 Estado: VIGENTE

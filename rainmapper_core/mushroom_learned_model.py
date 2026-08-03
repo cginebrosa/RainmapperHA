@@ -258,6 +258,7 @@ def summarize_species(
     emit_progress(progress_callback, 100, "Resumen de la especie actual completado.")
     return {
         "species_id": species_id,
+        "episode_count": len(rows),
         "observation_count": len(rows),
         "favorable_count": len(positive_rows),
         "unfavorable_count": len(negative_rows),
@@ -269,6 +270,78 @@ def summarize_species(
         "categorical_features": categorical,
         "numeric_features": numeric,
     }
+
+
+def _episode_key(row: dict[str, Any]) -> tuple[str, str, str] | None:
+    """Return (species_id, micro_area_id, date) or None if not episodizable."""
+    species_id = str(row.get("species_id", "") or "").strip()
+    micro_area_id = str(row.get("micro_area_id", "") or "").strip()
+    observed_at = str(row.get("observed_at", "") or "").strip()
+    date = observed_at[:10] if len(observed_at) >= 10 else ""
+    if not species_id or not micro_area_id or not date:
+        return None
+    return (species_id, micro_area_id, date)
+
+
+def consolidate_to_episodes(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    """Consolidate training rows to one episode per (species_id, micro_area_id, date).
+
+    Returns (episode_rows, excluded_count) where excluded_count is the number of
+    rows dropped because they lack micro_area_id and cannot form an episode.
+
+    Consolidation policy:
+    - prediction_target: favorable if any row in the episode is favorable.
+    - categorical features: union of all values across rows.
+    - numeric/weather features: taken from the row with best source_quality,
+      falling back to the first row.
+    - episode_observation_ids: list of all observation_ids in the episode.
+    """
+    excluded = 0
+    by_episode: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        key = _episode_key(row)
+        if key is None:
+            excluded += 1
+        else:
+            by_episode.setdefault(key, []).append(row)
+
+    _QUALITY_ORDER = {"high": 0, "medium": 1, "low": 2, "": 3}
+
+    def best_row(episode_rows: list[dict[str, Any]]) -> dict[str, Any]:
+        return min(
+            episode_rows,
+            key=lambda r: _QUALITY_ORDER.get(str(r.get("source_quality", "") or ""), 3),
+        )
+
+    def union_categorical(episode_rows: list[dict[str, Any]], key: str, source_key: str) -> tuple[list[str], dict[str, list[str]]]:
+        values: list[str] = []
+        sources: dict[str, list[str]] = {}
+        for row in episode_rows:
+            for item_id in list_values(row.get(key)):
+                if item_id not in values:
+                    values.append(item_id)
+                for src in source_values(row, source_key, item_id):
+                    sources.setdefault(item_id, [])
+                    if src not in sources[item_id]:
+                        sources[item_id].append(src)
+        return values, sources
+
+    episodes: list[dict[str, Any]] = []
+    for (species_id, micro_area_id, date), episode_rows in sorted(by_episode.items()):
+        has_favorable = any(row_prediction_target(r) == "favorable" for r in episode_rows)
+        representative = best_row(episode_rows)
+        episode: dict[str, Any] = dict(representative)
+        episode["prediction_target"] = "favorable" if has_favorable else "unfavorable"
+        episode["episode_observation_ids"] = sorted(
+            str(r.get("observation_id", "") or "") for r in episode_rows
+        )
+        for cat_key, _output_key, src_key in CATEGORICAL_FEATURES:
+            union_vals, union_srcs = union_categorical(episode_rows, cat_key, src_key)
+            episode[cat_key] = union_vals
+            episode[src_key] = union_srcs
+        episodes.append(episode)
+
+    return episodes, excluded
 
 
 def build_learned_model_v0(
@@ -295,11 +368,14 @@ def build_learned_model_v0(
             8 + (index / all_total) * 12,
             f"Validando observaciones {index}/{all_total}.",
         )
+    emit_progress(progress_callback, 21, "Consolidando episodios por microárea y fecha.")
+    episodes, excluded_no_area = consolidate_to_episodes(rows)
+    emit_progress(progress_callback, 28, f"{len(episodes)} episodios, {excluded_no_area} obs sin área excluidas.")
     by_species: dict[str, list[dict[str, Any]]] = {}
-    training_total = len(rows)
-    if not rows:
-        emit_progress(progress_callback, 35, "No hay observaciones utilizables.")
-    for index, row in enumerate(rows, start=1):
+    training_total = len(episodes)
+    if not episodes:
+        emit_progress(progress_callback, 35, "No hay episodios utilizables.")
+    for index, row in enumerate(episodes, start=1):
         species_id = str(row.get("species_id", "") or "").strip()
         if selected_species_id and species_id != selected_species_id:
             pass
@@ -307,8 +383,8 @@ def build_learned_model_v0(
             by_species.setdefault(species_id, []).append(row)
         emit_progress(
             progress_callback,
-            20 + (index / training_total) * 15,
-            f"Agrupando observaciones {index}/{training_total}.",
+            28 + (index / max(training_total, 1)) * 7,
+            f"Agrupando episodios {index}/{training_total}.",
         )
     species_items = sorted(by_species.items())
     species_models = []
@@ -359,15 +435,17 @@ def build_learned_model_v0(
             "numeric": [key for _source, key in NUMERIC_FEATURES],
         },
         "summary": {
+            "episodes": len(episodes),
             "observations": len(rows),
             "source_observations": len(all_rows),
             "excluded_observations": len(all_rows) - len(rows),
+            "excluded_no_area": excluded_no_area,
             "species": len(species_models),
-            "favorable_observations": sum(1 for row in rows if is_positive(row)),
-            "unfavorable_observations": sum(1 for row in rows if not is_positive(row)),
+            "favorable_observations": sum(1 for row in episodes if is_positive(row)),
+            "unfavorable_observations": sum(1 for row in episodes if not is_positive(row)),
             # Compatibility aliases for existing readers.
-            "positive_observations": sum(1 for row in rows if is_positive(row)),
-            "negative_observations": sum(1 for row in rows if not is_positive(row)),
+            "positive_observations": sum(1 for row in episodes if is_positive(row)),
+            "negative_observations": sum(1 for row in episodes if not is_positive(row)),
         },
         "species_models": species_models,
     }
@@ -386,12 +464,14 @@ def report_markdown(payload: dict[str, Any]) -> str:
         "# Mushroom Learned Model v0",
         "",
         f"- Generated at: {payload.get('generated_at', '-')}",
-        f"- Observations: {summary.get('observations', 0)}",
+        f"- Episodes: {summary.get('episodes', summary.get('observations', 0))}",
+        f"- Training observations: {summary.get('observations', 0)}",
         f"- Source observations: {summary.get('source_observations', 0)}",
         f"- Excluded observations: {summary.get('excluded_observations', 0)}",
+        f"- Excluded (no area): {summary.get('excluded_no_area', 0)}",
         f"- Species: {summary.get('species', 0)}",
-        f"- Favorable observations: {summary.get('favorable_observations', summary.get('positive_observations', 0))}",
-        f"- Unfavorable observations: {summary.get('unfavorable_observations', summary.get('negative_observations', 0))}",
+        f"- Favorable episodes: {summary.get('favorable_observations', summary.get('positive_observations', 0))}",
+        f"- Unfavorable episodes: {summary.get('unfavorable_observations', summary.get('negative_observations', 0))}",
         "",
         "## Species",
         "",

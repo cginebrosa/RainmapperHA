@@ -889,3 +889,271 @@ def upload_candidate_result(
     if not isinstance(verification, dict) or verification.get("status") not in {"verified", "reused"}:
         raise ValueError("Rainmapper did not verify the uploaded candidate result.")
     return dict(verification)
+
+
+# ── ML training result handling ────────────────────────────────────────────
+
+ML_TRAIN_RESULT_NAME = "ml_train_result.json"
+MAX_ML_TRAIN_MODEL_BYTES = 256 * 1024 * 1024
+MAX_ML_TRAIN_BUNDLE_BYTES = 1024 * 1024 * 1024
+
+
+def _ml_train_staging_dir(result_root: Path, job_id: str) -> Path:
+    return result_root.resolve() / f".ml.{mushroom_worker_transport.validate_job_id(job_id)}.staging"
+
+
+def _ml_train_job_dir(result_root: Path, job_id: str) -> Path:
+    return result_root.resolve() / f"ml.{mushroom_worker_transport.validate_job_id(job_id)}"
+
+
+def receive_ml_train_result_file(
+    result_root: Path,
+    *,
+    job_id: str,
+    logical_path: str,
+    content: bytes,
+) -> dict[str, Any]:
+    """Persist one idempotent ML training result file in coordinator-side staging."""
+    safe_path = mushroom_worker_transport.safe_relative_path(logical_path).as_posix()
+    final = _ml_train_job_dir(result_root, job_id)
+    if final.exists():
+        raise ValueError("ML training result has already been finalized.")
+    staging = _ml_train_staging_dir(result_root, job_id)
+    staging.mkdir(parents=True, exist_ok=True)
+    manifest_path = staging / ML_TRAIN_RESULT_NAME
+
+    if safe_path == ML_TRAIN_RESULT_NAME:
+        if len(content) > mushroom_worker_transport.MAX_JSON_BYTES:
+            raise ValueError("ML training result manifest exceeds the safety limit.")
+        try:
+            manifest = json.loads(content.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("ML training result manifest is not valid JSON.") from exc
+        if not isinstance(manifest, dict):
+            raise ValueError("ML training result manifest must contain a JSON object.")
+        if manifest.get("schema_version") != "0.1":
+            raise ValueError("ML training result manifest schema_version is invalid.")
+        artifacts = manifest.get("artifacts")
+        if not isinstance(artifacts, list):
+            raise ValueError("ML training result manifest artifacts must be a list.")
+        total_size = sum(int(row.get("size_bytes", 0)) for row in artifacts if isinstance(row, dict))
+        if total_size > MAX_ML_TRAIN_BUNDLE_BYTES:
+            raise ValueError("ML training result bundle exceeds the coordinator safety limit.")
+        digest = hashlib.sha256(content).hexdigest()
+        _write_exact(manifest_path, content, expected_size=len(content), expected_sha256=digest)
+        return {
+            "status": "manifest_received",
+            "result_manifest_id": f"sha256:{digest}",
+            "expected_artifacts": len(artifacts),
+            "expected_size_bytes": total_size,
+        }
+
+    if not manifest_path.is_file():
+        raise ValueError("ML training result manifest must be uploaded first.")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else []
+    if not isinstance(artifacts, list):
+        raise ValueError("ML training result manifest artifacts are missing.")
+    if not safe_path.startswith("ml_models/") or not safe_path.endswith(".joblib"):
+        raise ValueError("ML training result artifact path is not allowed.")
+    matches = [
+        row for row in artifacts
+        if isinstance(row, dict) and row.get("path") == safe_path
+    ]
+    if len(matches) != 1:
+        raise ValueError("ML training result artifact is not declared exactly once in manifest.")
+    record = matches[0]
+    _write_exact(
+        staging / safe_path,
+        content,
+        expected_size=int(record["size_bytes"]),
+        expected_sha256=str(record["sha256"]),
+    )
+    return {"status": "artifact_received", "path": safe_path, "size_bytes": len(content)}
+
+
+def finalize_ml_train_result(result_root: Path, *, job_id: str) -> dict[str, Any]:
+    """Verify staging completeness and move to final dir."""
+    final = _ml_train_job_dir(result_root, job_id)
+    verification_path = final / VERIFICATION_NAME
+    if final.is_dir():
+        payload = json.loads(verification_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("Stored ML training verification is invalid.")
+        return {**payload, "status": "reused"}
+    staging = _ml_train_staging_dir(result_root, job_id)
+    manifest_path = staging / ML_TRAIN_RESULT_NAME
+    if not manifest_path.is_file():
+        raise ValueError("ML training result manifest is missing.")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("ML training result manifest is invalid.")
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("ML training result manifest artifacts are missing.")
+    trained_species = manifest.get("trained_species")
+    if not isinstance(trained_species, list):
+        raise ValueError("ML training result trained_species is invalid.")
+    for row in artifacts:
+        if not isinstance(row, dict):
+            raise ValueError("ML training result manifest artifact entry is invalid.")
+        artifact_path = staging / str(row.get("path", ""))
+        if not artifact_path.is_file():
+            raise ValueError(f"ML training result artifact is missing: {row.get('path', '')}")
+        actual_size = artifact_path.stat().st_size
+        actual_sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        if actual_size != int(row.get("size_bytes", -1)):
+            raise ValueError(f"ML training artifact size mismatch: {row.get('path', '')}")
+        if actual_sha256 != str(row.get("sha256", "")):
+            raise ValueError(f"ML training artifact hash mismatch: {row.get('path', '')}")
+    manifest_content = manifest_path.read_bytes()
+    manifest_id = f"sha256:{hashlib.sha256(manifest_content).hexdigest()}"
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "rainmapper_worker_ml_train_verification",
+        "status": "verified",
+        "job_id": job_id,
+        "result_manifest_id": manifest_id,
+        "verified_artifacts": len(artifacts),
+        "trained_species": trained_species,
+        "trained_species_count": len(trained_species),
+    }
+    (staging / VERIFICATION_NAME).write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    staging.replace(final)
+    return report
+
+
+def promote_ml_train_candidate(
+    result_root: Path,
+    ml_models_dir: Path,
+    *,
+    job_id: str,
+) -> dict[str, Any]:
+    """Copy verified .joblib files from candidate to the live ml_models directory."""
+    final = _ml_train_job_dir(result_root, job_id)
+    receipt_path = final / PROMOTION_RECEIPT_NAME
+    if receipt_path.is_file():
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        if not isinstance(receipt, dict) or receipt.get("status") != "promoted":
+            raise ValueError("Stored ML training promotion receipt is invalid.")
+        return {**receipt, "status": "reused"}
+    verification_path = final / VERIFICATION_NAME
+    if not verification_path.is_file():
+        raise ValueError("ML training candidate has not been finalized.")
+    verification = json.loads(verification_path.read_text(encoding="utf-8"))
+    if not isinstance(verification, dict) or verification.get("status") != "verified":
+        raise ValueError("ML training candidate is not verified.")
+    manifest_path = final / ML_TRAIN_RESULT_NAME
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else []
+    if not isinstance(artifacts, list):
+        raise ValueError("ML training result manifest artifacts are missing.")
+    ml_models_dir = ml_models_dir.resolve()
+    ml_models_dir.mkdir(parents=True, exist_ok=True)
+    promoted_files: list[str] = []
+    for row in artifacts:
+        if not isinstance(row, dict):
+            continue
+        rel_path = str(row.get("path", ""))
+        source = final / rel_path
+        if not source.is_file():
+            raise FileNotFoundError(f"ML training artifact missing during promotion: {rel_path}")
+        filename = source.name
+        destination = ml_models_dir / filename
+        temporary = ml_models_dir / f".{filename}.{uuid.uuid4().hex}.tmp"
+        try:
+            shutil.copy2(source, temporary)
+            os.replace(temporary, destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+        promoted_files.append(filename)
+    receipt = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "rainmapper_worker_ml_train_promotion",
+        "status": "promoted",
+        "job_id": job_id,
+        "result_manifest_id": verification.get("result_manifest_id"),
+        "promoted_files": promoted_files,
+        "trained_species": verification.get("trained_species", []),
+        "trained_species_count": len(verification.get("trained_species", [])),
+    }
+    temporary_receipt = final / f".{PROMOTION_RECEIPT_NAME}.{uuid.uuid4().hex}.tmp"
+    try:
+        with temporary_receipt.open("x", encoding="utf-8") as handle:
+            json.dump(receipt, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary_receipt.replace(receipt_path)
+    finally:
+        temporary_receipt.unlink(missing_ok=True)
+    return receipt
+
+
+def upload_ml_train_result(
+    ha_url: str,
+    job: dict[str, Any],
+    worker_job_dir: Path,
+    *,
+    worker_id: str,
+    claim_token: str,
+    token: str,
+    timeout: float = 30.0,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    job_id = mushroom_worker_transport.validate_job_id(str(job.get("job_id", "")))
+    endpoint = str(job.get("result_endpoint", "") or "")
+    complete_endpoint = str(job.get("result_complete_endpoint", "") or "")
+    if endpoint != "/api/mushrooms/workers/jobs/ml-result-file":
+        raise ValueError("Worker ML training result endpoint is invalid.")
+    if complete_endpoint != "/api/mushrooms/workers/jobs/ml-result-complete":
+        raise ValueError("Worker ML training completion endpoint is invalid.")
+    output_dir = worker_job_dir.resolve() / "ml_candidate"
+    manifest_path = output_dir / ML_TRAIN_RESULT_NAME
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"ML training result manifest not found: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("ML training result manifest is not a JSON object.")
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("ML training result manifest artifacts are missing.")
+    headers = mushroom_worker_transport.request_headers(worker_id, claim_token, token)
+    headers["Content-Type"] = "application/octet-stream"
+    files = [ML_TRAIN_RESULT_NAME] + [str(row["path"]) for row in artifacts if isinstance(row, dict)]
+    for index, logical_path in enumerate(files, start=1):
+        content = (output_dir / logical_path).read_bytes()
+        query = urlencode({"job_id": job_id, "file": logical_path})
+        _post_bytes(
+            ha_url.rstrip("/") + endpoint + "?" + query,
+            content,
+            headers=headers,
+            timeout=timeout,
+        )
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "phase": "Uploading ML training result",
+                    "message": f"Uploaded result file {index}/{len(files)}.",
+                    "overall_percent": 90 + int((index / len(files)) * 8),
+                }
+            )
+    complete_headers = dict(headers)
+    complete_headers["Content-Type"] = "application/json"
+    payload = json.dumps(
+        {"job_id": job_id, "worker_id": worker_id, "claim_token": claim_token},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    completed = _post_bytes(
+        ha_url.rstrip("/") + complete_endpoint,
+        payload,
+        headers=complete_headers,
+        timeout=timeout,
+    )
+    verification = completed.get("verification")
+    if not isinstance(verification, dict) or verification.get("status") not in {"verified", "reused"}:
+        raise ValueError("Rainmapper did not verify the uploaded ML training result.")
+    return dict(verification)

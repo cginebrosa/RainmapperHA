@@ -33,6 +33,7 @@ class MushroomRebuildPipelineTests(unittest.TestCase):
                         {
                             "observation_id": "obs_1",
                             "species_id": "boletus_test",
+                            "micro_area_id": "test_area",
                             "observed_at": "2026-07-10",
                             "location": {"lat": 42.0, "lon": 2.0},
                             "altitude": {"meters": 700},

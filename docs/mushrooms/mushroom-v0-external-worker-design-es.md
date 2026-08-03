@@ -1,10 +1,10 @@
 # Plataforma privada de computo externo para reconstruccion y ML
 
-Estado: **reconstruccion externa completa y parcial con promocion manual validadas en el laboratorio local; HA real/Tailscale pendientes**
+Estado: **reconstruccion externa completa y parcial con promocion manual validadas en HA real (M1+M5); ml_train_v0 implementado, pendiente de probar end-to-end**
 
 Fecha inicial: 2026-07-18
 
-Revision: 2026-07-20
+Revision: 2026-08-03
 
 Este documento define una plataforma privada para ejecutar fuera de Home
 Assistant los calculos pesados del dominio de setas. El primer caso de uso sera
@@ -166,7 +166,9 @@ busquedas de hiperparametros pueden justificar la misma estrategia.
                                   │
                   pipelines compartidos de rainmapper_core
                     │             │              │
-              rebuild V0     dataset ML     train/evaluate
+              rebuild V0     ml_train_v0    (jobs futuros:
+           [implementado]   [implementado]   dataset ML,
+                                             evaluate ML)
 ```
 
 El navegador solo ordena el trabajo y consulta su estado. Cerrar la pestana o

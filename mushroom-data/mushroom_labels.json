@@ -659,6 +659,26 @@
     "es": "Borrar definitivamente",
     "ca": "Esborrar definitivament"
   },
+  "ui.delete_permanently_observation_title": {
+    "en": "Delete archived observation permanently",
+    "es": "Borrar observacion archivada definitivamente",
+    "ca": "Esborrar observacio arxivada definitivament"
+  },
+  "ui.delete_permanently_observation_body": {
+    "en": "This action cannot be undone. The archived copy will be removed permanently.",
+    "es": "Esta accion no se puede deshacer. La copia archivada se eliminara permanentemente.",
+    "ca": "Aquesta accio no es pot desfer. La copia arxivada s'eliminara permanentment."
+  },
+  "ui.copy_field_evidence": {
+    "en": "Copy evidence",
+    "es": "Copiar evidencia",
+    "ca": "Copiar evidencia"
+  },
+  "ui.paste_field_evidence": {
+    "en": "Paste evidence",
+    "es": "Pegar evidencia",
+    "ca": "Enganxar evidencia"
+  },
   "ui.open_calibration": {
     "en": "Open calibration",
     "es": "Abrir calibracion",
@@ -1556,8 +1576,8 @@
   },
   "ui.active": {
     "en": "Active",
-    "es": "Activo",
-    "ca": "Actiu"
+    "es": "Activa",
+    "ca": "Activa"
   },
   "ui.group": {
     "en": "Group",
@@ -2730,510 +2750,1033 @@
     "ca": "Vista de nomes lectura. Resumeix condicions observades; no calcula llindars ni modifica perfils."
   },
   "ui.workers_jobs": {
-    "en": "Workers and jobs", "es": "Workers y trabajos", "ca": "Workers i treballs"
+    "en": "Workers and jobs",
+    "es": "Workers y trabajos",
+    "ca": "Workers i treballs"
+  },
+  "ui.predictor_title": {
+    "en": "Fruiting Predictor",
+    "es": "Predictor de Floradas",
+    "ca": "Predictor de Florades"
+  },
+  "ui.predictor_tab_recommender": {
+    "en": "This week",
+    "es": "Esta semana",
+    "ca": "Aquesta setmana"
+  },
+  "ui.predictor_tab_week": {
+    "en": "By species",
+    "es": "Por especie",
+    "ca": "Per espècie"
+  },
+  "ui.predictor_tab_query": {
+    "en": "Query date",
+    "es": "Consultar fecha",
+    "ca": "Consultar data"
+  },
+  "ui.predictor_tab_history": {
+    "en": "History",
+    "es": "Historial",
+    "ca": "Historial"
+  },
+  "ui.predictor_no_models": {
+    "en": "No trained models yet",
+    "es": "No hay modelos entrenados aún",
+    "ca": "No hi ha models entrenats encara"
+  },
+  "ui.predictor_no_models_help": {
+    "en": "Train a model from the Workers section.",
+    "es": "Entrena un modelo desde la sección Workers.",
+    "ca": "Entrena un model des de la secció Workers."
+  },
+  "ui.predictor_best_bet": {
+    "en": "Best bet",
+    "es": "Mejor apuesta",
+    "ca": "Millor aposta"
+  },
+  "ui.predictor_favorable": {
+    "en": "Favorable",
+    "es": "Favorable",
+    "ca": "Favorable"
+  },
+  "ui.predictor_uncertain": {
+    "en": "Uncertain",
+    "es": "Incierto",
+    "ca": "Incert"
+  },
+  "ui.predictor_unfavorable": {
+    "en": "Unlikely",
+    "es": "Poco probable",
+    "ca": "Poc probable"
+  },
+  "ui.predictor_hint_favorable": {
+    "en": "Good conditions for fruiting",
+    "es": "Buenas condiciones para floradas",
+    "ca": "Bones condicions per a florades"
+  },
+  "ui.predictor_hint_uncertain": {
+    "en": "Conditions may support fruiting",
+    "es": "Las condiciones pueden favorecer floradas",
+    "ca": "Les condicions poden afavorir florades"
+  },
+  "ui.predictor_hint_unfavorable": {
+    "en": "Conditions not favorable for fruiting",
+    "es": "Condiciones no favorables para floradas",
+    "ca": "Condicions no favorables per a florades"
+  },
+  "ui.predictor_probability": {
+    "en": "Probability",
+    "es": "Probabilidad",
+    "ca": "Probabilitat"
+  },
+  "ui.predictor_all_areas": {
+    "en": "All areas",
+    "es": "Todas las áreas",
+    "ca": "Totes les àrees"
+  },
+  "ui.predictor_all_areas_option": {
+    "en": "— All areas —",
+    "es": "— Todas las áreas —",
+    "ca": "— Totes les àrees —"
+  },
+  "ui.predictor_query_submit": {
+    "en": "Predict",
+    "es": "Predecir",
+    "ca": "Predir"
+  },
+  "ui.predictor_coverage": {
+    "en": "Coverage",
+    "es": "Cobertura",
+    "ca": "Cobertura"
+  },
+  "ui.predictor_weather_factors": {
+    "en": "Weather factors",
+    "es": "Factores meteorológicos",
+    "ca": "Factors meteorològics"
+  },
+  "ui.predictor_no_data": {
+    "en": "No data available for this query.",
+    "es": "No hay datos disponibles para esta consulta.",
+    "ca": "No hi ha dades disponibles per a aquesta consulta."
+  },
+  "ui.predictor_no_history": {
+    "en": "No historical episodes found.",
+    "es": "No se encontraron episodios históricos.",
+    "ca": "No s'han trobat episodis històrics."
+  },
+  "ui.predictor_stat_episodes": {
+    "en": "Episodes",
+    "es": "Episodios",
+    "ca": "Episodis"
+  },
+  "ui.predictor_stat_accuracy": {
+    "en": "Accuracy",
+    "es": "Acierto",
+    "ca": "Encert"
+  },
+  "ui.predictor_stat_fn": {
+    "en": "Missed",
+    "es": "No detectados",
+    "ca": "No detectats"
+  },
+  "ui.predictor_stat_fp": {
+    "en": "False alarms",
+    "es": "Falsas alarmas",
+    "ca": "Falses alarmes"
+  },
+  "ui.predictor_actual": {
+    "en": "Actual",
+    "es": "Real",
+    "ca": "Real"
+  },
+  "ui.predictor_predicted": {
+    "en": "Predicted",
+    "es": "Predicho",
+    "ca": "Predit"
+  },
+  "ui.predictor": {
+    "en": "Predictor",
+    "es": "Predictor",
+    "ca": "Predictor"
   },
   "ui.workers_jobs_help": {
-    "en": "Check available compute engines and start or monitor model rebuilds.", "es": "Comprueba los motores de calculo disponibles e inicia o supervisa reconstrucciones del modelo.", "ca": "Comprova els motors de calcul disponibles i inicia o supervisa reconstruccions del model."
+    "en": "Check available compute engines and start or monitor model rebuilds.",
+    "es": "Comprueba los motores de calculo disponibles e inicia o supervisa reconstrucciones del modelo.",
+    "ca": "Comprova els motors de calcul disponibles i inicia o supervisa reconstruccions del model."
   },
   "ui.home_assistant": {
-    "en": "Home Assistant", "es": "Home Assistant", "ca": "Home Assistant"
+    "en": "Home Assistant",
+    "es": "Home Assistant",
+    "ca": "Home Assistant"
   },
   "ui.worker_external": {
-    "en": "External worker", "es": "Worker externo", "ca": "Worker extern"
+    "en": "External worker",
+    "es": "Worker externo",
+    "ca": "Worker extern"
   },
   "ui.worker_available": {
-    "en": "Available", "es": "Disponible", "ca": "Disponible"
+    "en": "Available",
+    "es": "Disponible",
+    "ca": "Disponible"
   },
   "ui.worker_idle": {
-    "en": "Idle", "es": "En espera", "ca": "En espera"
+    "en": "Idle",
+    "es": "En espera",
+    "ca": "En espera"
   },
   "ui.worker_busy": {
-    "en": "Busy", "es": "Ocupado", "ca": "Ocupat"
+    "en": "Busy",
+    "es": "Ocupado",
+    "ca": "Ocupat"
   },
   "ui.worker_needs_dataset": {
-    "en": "Needs GIS dataset", "es": "Necesita dataset GIS", "ca": "Necessita dataset GIS"
+    "en": "Needs GIS dataset",
+    "es": "Necesita dataset GIS",
+    "ca": "Necessita dataset GIS"
   },
   "ui.worker_authentication": {
-    "en": "Authentication", "es": "Autenticacion", "ca": "Autenticacio"
+    "en": "Authentication",
+    "es": "Autenticacion",
+    "ca": "Autenticacio"
   },
   "ui.worker_paired": {
-    "en": "Paired", "es": "Emparejado", "ca": "Emparellat"
+    "en": "Paired",
+    "es": "Emparejado",
+    "ca": "Emparellat"
   },
   "ui.worker_not_paired": {
-    "en": "Not paired", "es": "No emparejado", "ca": "No emparellat"
+    "en": "Not paired",
+    "es": "No emparejado",
+    "ca": "No emparellat"
   },
   "ui.worker_pairing_title": {
-    "en": "Pair a worker", "es": "Emparejar un worker", "ca": "Emparellar un worker"
+    "en": "Pair a worker",
+    "es": "Emparejar un worker",
+    "ca": "Emparellar un worker"
   },
   "ui.worker_pairing_help": {
-    "en": "Generate a temporary one-time code, then enter it when starting the worker.", "es": "Genera un codigo temporal de un solo uso e introducelo al arrancar el worker.", "ca": "Genera un codi temporal d'un sol us i introdueix-lo en arrencar el worker."
+    "en": "Generate a temporary one-time code, then enter it when starting the worker.",
+    "es": "Genera un codigo temporal de un solo uso e introducelo al arrancar el worker.",
+    "ca": "Genera un codi temporal d'un sol us i introdueix-lo en arrencar el worker."
   },
   "ui.worker_pairing_button": {
-    "en": "Generate pairing code", "es": "Generar codigo de emparejamiento", "ca": "Generar codi d'emparellament"
+    "en": "Generate pairing code",
+    "es": "Generar codigo de emparejamiento",
+    "ca": "Generar codi d'emparellament"
   },
   "ui.worker_pairing_security": {
-    "en": "The code expires after 10 minutes. The permanent credential is stored only in the worker volume.", "es": "El codigo caduca a los 10 minutos. La credencial permanente solo se guarda en el volumen del worker.", "ca": "El codi caduca als 10 minuts. La credencial permanent nomes es desa al volum del worker."
+    "en": "The code expires after 10 minutes. The permanent credential is stored only in the worker volume.",
+    "es": "El codigo caduca a los 10 minutos. La credencial permanente solo se guarda en el volumen del worker.",
+    "ca": "El codi caduca als 10 minuts. La credencial permanent nomes es desa al volum del worker."
   },
   "ui.worker_pairing_code_flash": {
-    "en": "Pairing code: {code}. It expires in {minutes} minutes and can be used once.", "es": "Codigo de emparejamiento: {code}. Caduca en {minutes} minutos y solo puede usarse una vez.", "ca": "Codi d'emparellament: {code}. Caduca en {minutes} minuts i nomes es pot usar una vegada."
+    "en": "Pairing code: {code}. It expires in {minutes} minutes and can be used once.",
+    "es": "Codigo de emparejamiento: {code}. Caduca en {minutes} minutos y solo puede usarse una vez.",
+    "ca": "Codi d'emparellament: {code}. Caduca en {minutes} minuts i nomes es pot usar una vegada."
   },
   "ui.worker_pairing_revoke": {
-    "en": "Revoke worker credential", "es": "Revocar credencial del worker", "ca": "Revocar credencial del worker"
+    "en": "Revoke worker credential",
+    "es": "Revocar credencial del worker",
+    "ca": "Revocar credencial del worker"
   },
   "ui.worker_pairing_revoke_confirm": {
-    "en": "Revoke this credential? The worker will need to be paired again.", "es": "Revocar esta credencial? El worker tendra que volver a emparejarse.", "ca": "Revocar aquesta credencial? Caldra tornar a emparellar el worker."
+    "en": "Revoke this credential? The worker will need to be paired again.",
+    "es": "Revocar esta credencial? El worker tendra que volver a emparejarse.",
+    "ca": "Revocar aquesta credencial? Caldra tornar a emparellar el worker."
   },
   "ui.worker_pairing_revoked_flash": {
-    "en": "Worker revoked and removed. Pair it again before starting it.", "es": "Worker revocado y eliminado de la lista. Vuelve a emparejarlo antes de arrancarlo.", "ca": "Worker revocat i eliminat de la llista. Torna a emparellar-lo abans d'arrencar-lo."
+    "en": "Worker revoked and removed. Pair it again before starting it.",
+    "es": "Worker revocado y eliminado de la lista. Vuelve a emparejarlo antes de arrancarlo.",
+    "ca": "Worker revocat i eliminat de la llista. Torna a emparellar-lo abans d'arrencar-lo."
   },
   "ui.worker_disconnected": {
-    "en": "Disconnected", "es": "Desconectado", "ca": "Desconnectat"
+    "en": "Disconnected",
+    "es": "Desconectado",
+    "ca": "Desconnectat"
   },
   "ui.worker_not_configured": {
-    "en": "Not configured", "es": "No configurado", "ca": "No configurat"
+    "en": "Not configured",
+    "es": "No configurado",
+    "ca": "No configurat"
   },
   "ui.worker_version": {
-    "en": "Version", "es": "Version", "ca": "Versio"
+    "en": "Version",
+    "es": "Version",
+    "ca": "Versio"
   },
   "ui.worker_id": {
-    "en": "Worker ID", "es": "ID del worker", "ca": "ID del worker"
+    "en": "Worker ID",
+    "es": "ID del worker",
+    "ca": "ID del worker"
   },
   "ui.worker_host": {
-    "en": "Physical host", "es": "Maquina fisica", "ca": "Maquina fisica"
+    "en": "Physical host",
+    "es": "Maquina fisica",
+    "ca": "Maquina fisica"
   },
   "ui.worker_architecture": {
-    "en": "Architecture", "es": "Arquitectura", "ca": "Arquitectura"
+    "en": "Architecture",
+    "es": "Arquitectura",
+    "ca": "Arquitectura"
   },
   "ui.worker_no_registered": {
-    "en": "No external workers have registered yet.", "es": "Todavia no se ha registrado ningun worker externo.", "ca": "Encara no s'ha registrat cap worker extern."
+    "en": "No external workers have registered yet.",
+    "es": "Todavia no se ha registrado ningun worker externo.",
+    "ca": "Encara no s'ha registrat cap worker extern."
   },
   "ui.worker_capabilities": {
-    "en": "Capabilities", "es": "Capacidades", "ca": "Capacitats"
+    "en": "Capabilities",
+    "es": "Capacidades",
+    "ca": "Capacitats"
   },
   "ui.worker_dataset_cache": {
-    "en": "Dataset cache", "es": "Cache de datasets", "ca": "Cache de datasets"
+    "en": "Dataset cache",
+    "es": "Cache de datasets",
+    "ca": "Cache de datasets"
   },
   "ui.worker_cache_valid": {
-    "en": "Valid", "es": "Valida", "ca": "Valida"
+    "en": "Valid",
+    "es": "Valida",
+    "ca": "Valida"
   },
   "ui.worker_cache_files": {
-    "en": "files", "es": "ficheros", "ca": "fitxers"
+    "en": "files",
+    "es": "ficheros",
+    "ca": "fitxers"
   },
   "ui.worker_last_check": {
-    "en": "Last check", "es": "Ultima comprobacion", "ca": "Ultima comprovacio"
+    "en": "Last check",
+    "es": "Ultima comprobacion",
+    "ca": "Ultima comprovacio"
   },
   "ui.worker_technical_detail": {
-    "en": "Technical detail", "es": "Detalle tecnico", "ca": "Detall tecnic"
+    "en": "Technical detail",
+    "es": "Detalle tecnico",
+    "ca": "Detall tecnic"
   },
   "ui.worker_tools": {
-    "en": "Tests and management", "es": "Pruebas y gestion", "ca": "Proves i gestio"
+    "en": "Tests and management",
+    "es": "Pruebas y gestion",
+    "ca": "Proves i gestio"
   },
   "ui.worker_job_api_pending": {
-    "en": "Job API pending", "es": "API de trabajos pendiente", "ca": "API de treballs pendent"
+    "en": "Job API pending",
+    "es": "API de trabajos pendiente",
+    "ca": "API de treballs pendent"
   },
   "ui.worker_job_api_pending_help": {
-    "en": "The worker can report its status, but it cannot receive rebuild jobs yet.", "es": "El worker informa de su estado, pero todavia no puede recibir trabajos de reconstruccion.", "ca": "El worker informa del seu estat, pero encara no pot rebre treballs de reconstruccio."
+    "en": "The worker can report its status, but it cannot receive rebuild jobs yet.",
+    "es": "El worker informa de su estado, pero todavia no puede recibir trabajos de reconstruccion.",
+    "ca": "El worker informa del seu estat, pero encara no pot rebre treballs de reconstruccio."
   },
   "ui.worker_probe_available": {
-    "en": "Local worker tests available", "es": "Pruebas locales del worker disponibles", "ca": "Proves locals del worker disponibles"
+    "en": "Local worker tests available",
+    "es": "Pruebas locales del worker disponibles",
+    "ca": "Proves locals del worker disponibles"
   },
   "ui.worker_probe_help": {
-    "en": "Assignment and input tests are harmless. A candidate rebuild writes only private results and never promotes the live model.", "es": "Las pruebas de asignacion y entradas son inocuas. La reconstruccion candidata solo escribe resultados privados y nunca promociona el modelo vivo.", "ca": "Les proves d'assignacio i entrades son innòcues. La reconstruccio candidata nomes escriu resultats privats i mai promociona el model viu."
+    "en": "Assignment and input tests are harmless. A candidate rebuild writes only private results and never promotes the live model.",
+    "es": "Las pruebas de asignacion y entradas son inocuas. La reconstruccion candidata solo escribe resultados privados y nunca promociona el modelo vivo.",
+    "ca": "Les proves d'assignacio i entrades son innòcues. La reconstruccio candidata nomes escriu resultats privats i mai promociona el model viu."
   },
   "ui.worker_probe_button": {
-    "en": "Test assignment", "es": "Probar asignacion", "ca": "Provar assignacio"
+    "en": "Test assignment",
+    "es": "Probar asignacion",
+    "ca": "Provar assignacio"
   },
   "ui.worker_probe_queued": {
-    "en": "Assignment test queued for {worker}.", "es": "Prueba de asignacion encolada para {worker}.", "ca": "Prova d'assignacio encuada per a {worker}."
+    "en": "Assignment test queued for {worker}.",
+    "es": "Prueba de asignacion encolada para {worker}.",
+    "ca": "Prova d'assignacio encuada per a {worker}."
   },
   "ui.worker_transport_button": {
-    "en": "Test input delivery", "es": "Probar envio de entradas", "ca": "Provar enviament d'entrades"
+    "en": "Test input delivery",
+    "es": "Probar envio de entradas",
+    "ca": "Provar enviament d'entrades"
   },
   "ui.worker_bundle_preparing": {
-    "en": "Preparing immutable worker inputs in the background. This page can remain open.", "es": "Preparando las entradas inmutables del worker en segundo plano. Puedes mantener esta pagina abierta.", "ca": "Preparant les entrades immutables del worker en segon pla. Pots mantenir aquesta pagina oberta."
+    "en": "Preparing immutable worker inputs in the background. This page can remain open.",
+    "es": "Preparando las entradas inmutables del worker en segundo plano. Puedes mantener esta pagina abierta.",
+    "ca": "Preparant les entrades immutables del worker en segon pla. Pots mantenir aquesta pagina oberta."
   },
   "ui.worker_transport_queued": {
-    "en": "Immutable input delivery test queued for {worker}.", "es": "Prueba de envio de entradas inmutables encolada para {worker}.", "ca": "Prova d'enviament d'entrades immutables encuada per a {worker}."
+    "en": "Immutable input delivery test queued for {worker}.",
+    "es": "Prueba de envio de entradas inmutables encolada para {worker}.",
+    "ca": "Prova d'enviament d'entrades immutables encuada per a {worker}."
   },
   "ui.worker_transport_probe": {
-    "en": "Input delivery test", "es": "Prueba de envio de entradas", "ca": "Prova d'enviament d'entrades"
+    "en": "Input delivery test",
+    "es": "Prueba de envio de entradas",
+    "ca": "Prova d'enviament d'entrades"
   },
   "ui.worker_candidate_button": {
-    "en": "Run candidate rebuild", "es": "Probar reconstruccion candidata", "ca": "Provar reconstruccio candidata"
+    "en": "Run candidate rebuild",
+    "es": "Probar reconstruccion candidata",
+    "ca": "Provar reconstruccio candidata"
   },
   "ui.worker_candidate_queued": {
-    "en": "Candidate rebuild queued for {worker}; live model promotion is disabled.", "es": "Reconstruccion candidata encolada para {worker}; la promocion al modelo vivo esta deshabilitada.", "ca": "Reconstruccio candidata encuada per a {worker}; la promocio al model viu esta deshabilitada."
+    "en": "Candidate rebuild queued for {worker}; live model promotion is disabled.",
+    "es": "Reconstruccion candidata encolada para {worker}; la promocion al modelo vivo esta deshabilitada.",
+    "ca": "Reconstruccio candidata encuada per a {worker}; la promocio al model viu esta deshabilitada."
   },
   "ui.worker_candidate_rebuild": {
-    "en": "Candidate rebuild", "es": "Reconstruccion candidata", "ca": "Reconstruccio candidata"
+    "en": "Candidate rebuild",
+    "es": "Reconstruccion candidata",
+    "ca": "Reconstruccio candidata"
   },
   "ui.worker_operational_local_ready": {
-    "en": "Local operational test ready", "es": "Prueba operativa local disponible", "ca": "Prova operativa local disponible"
+    "en": "Local operational test ready",
+    "es": "Prueba operativa local disponible",
+    "ca": "Prova operativa local disponible"
   },
   "ui.worker_operational_queued": {
-    "en": "Operational candidate queued for {worker}; manual promotion will be required.", "es": "Candidato operativo encolado para {worker}; requerira promocion manual.", "ca": "Candidat operatiu encuat per a {worker}; requerira promocio manual."
+    "en": "Operational candidate queued for {worker}; manual promotion will be required.",
+    "es": "Candidato operativo encolado para {worker}; requerira promocion manual.",
+    "ca": "Candidat operatiu encuat per a {worker}; requerira promocio manual."
   },
   "ui.worker_external_all_only": {
-    "en": "The first external operational test only supports rebuilding all eligible species.", "es": "La primera prueba operativa externa solo admite reconstruir todas las especies elegibles.", "ca": "La primera prova operativa externa nomes admet reconstruir totes les especies elegibles."
+    "en": "The first external operational test only supports rebuilding all eligible species.",
+    "es": "La primera prueba operativa externa solo admite reconstruir todas las especies elegibles.",
+    "ca": "La primera prova operativa externa nomes admet reconstruir totes les especies elegibles."
   },
   "ui.worker_promote_candidate": {
-    "en": "Promote", "es": "Promocionar", "ca": "Promocionar"
+    "en": "Promote",
+    "es": "Promocionar",
+    "ca": "Promocionar"
   },
   "ui.worker_promote_confirm": {
-    "en": "Promote this verified candidate to the live local model? Freshness will be checked and rollback preserved.", "es": "Promocionar este candidato verificado al modelo local vivo? Se comprobara la frescura y se conservara rollback.", "ca": "Promocionar aquest candidat verificat al model local viu? Es comprovara la frescor i es conservara rollback."
+    "en": "Promote this verified candidate to the live local model? Freshness will be checked and rollback preserved.",
+    "es": "Promocionar este candidato verificado al modelo local vivo? Se comprobara la frescura y se conservara rollback.",
+    "ca": "Promocionar aquest candidat verificat al model local viu? Es comprovara la frescor i es conservara rollback."
   },
   "ui.worker_promotion_complete": {
-    "en": "Verified worker candidate promoted atomically to the live local model.", "es": "Candidato verificado del worker promocionado atomicamente al modelo local vivo.", "ca": "Candidat verificat del worker promocionat atomicament al model local viu."
+    "en": "Verified worker candidate promoted atomically to the live local model.",
+    "es": "Candidato verificado del worker promocionado atomicamente al modelo local vivo.",
+    "ca": "Candidat verificat del worker promocionat atomicament al model local viu."
   },
   "ui.worker_promotion_started": {
-    "en": "Promotion started in the background. Progress is shown in recent jobs.", "es": "Promocion iniciada en segundo plano. El progreso se muestra en trabajos recientes.", "ca": "Promocio iniciada en segon pla. El progres es mostra als treballs recents."
+    "en": "Promotion started in the background. Progress is shown in recent jobs.",
+    "es": "Promocion iniciada en segundo plano. El progreso se muestra en trabajos recientes.",
+    "ca": "Promocio iniciada en segon pla. El progres es mostra als treballs recents."
   },
   "ui.worker_promoting": {
-    "en": "Promoting", "es": "Promocionando", "ca": "Promocionant"
+    "en": "Promoting",
+    "es": "Promocionando",
+    "ca": "Promocionant"
   },
   "ui.worker_promotion_interrupted": {
-    "en": "Promotion interrupted", "es": "Promocion interrumpida", "ca": "Promocio interrompuda"
+    "en": "Promotion interrupted",
+    "es": "Promocion interrumpida",
+    "ca": "Promocio interrompuda"
   },
   "ui.worker_promotion_progress": {
-    "en": "Promotion progress", "es": "Progreso de promocion", "ca": "Progres de promocio"
+    "en": "Promotion progress",
+    "es": "Progreso de promocion",
+    "ca": "Progres de promocio"
   },
   "ui.worker_discard_candidate": {
-    "en": "Discard", "es": "Descartar", "ca": "Descartar"
+    "en": "Discard",
+    "es": "Descartar",
+    "ca": "Descartar"
   },
   "ui.worker_discard_candidate_title": {
-    "en": "Discard worker candidate?", "es": "Descartar candidato del worker?", "ca": "Descartar candidat del worker?"
+    "en": "Discard worker candidate?",
+    "es": "Descartar candidato del worker?",
+    "ca": "Descartar candidat del worker?"
   },
   "ui.worker_discard_candidate_confirm": {
-    "en": "This permanently deletes the private candidate, its immutable input snapshot and the worker job copy. The live model, rollback copies and shared GIS/DEM cache are not changed. This action cannot be undone.", "es": "Esto borra permanentemente el candidato privado, su snapshot inmutable de entradas y la copia del trabajo en el worker. No modifica el modelo vivo, las copias de recuperacion ni la cache GIS/DEM compartida. Esta accion no se puede deshacer.", "ca": "Aixo esborra permanentment el candidat privat, el seu snapshot immutable d'entrades i la copia del treball al worker. No modifica el model viu, les copies de recuperacio ni la cache GIS/DEM compartida. Aquesta accio no es pot desfer."
+    "en": "This permanently deletes the private candidate, its immutable input snapshot and the worker job copy. The live model, rollback copies and shared GIS/DEM cache are not changed. This action cannot be undone.",
+    "es": "Esto borra permanentemente el candidato privado, su snapshot inmutable de entradas y la copia del trabajo en el worker. No modifica el modelo vivo, las copias de recuperacion ni la cache GIS/DEM compartida. Esta accion no se puede deshacer.",
+    "ca": "Aixo esborra permanentment el candidat privat, el seu snapshot immutable d'entrades i la copia del treball al worker. No modifica el model viu, les copies de recuperacio ni la cache GIS/DEM compartida. Aquesta accio no es pot desfer."
   },
   "ui.worker_candidate_discard_started": {
-    "en": "Candidate removed from Home Assistant; waiting for the worker to confirm local cleanup.", "es": "Candidato eliminado de Home Assistant; esperando que el worker confirme la limpieza local.", "ca": "Candidat eliminat de Home Assistant; esperant que el worker confirmi la neteja local."
+    "en": "Candidate removed from Home Assistant; waiting for the worker to confirm local cleanup.",
+    "es": "Candidato eliminado de Home Assistant; esperando que el worker confirme la limpieza local.",
+    "ca": "Candidat eliminat de Home Assistant; esperant que el worker confirmi la neteja local."
   },
   "ui.worker_candidate_discarding": {
-    "en": "Discarding", "es": "Descartando", "ca": "Descartant"
+    "en": "Discarding",
+    "es": "Descartando",
+    "ca": "Descartant"
   },
   "ui.worker_fallback": {
-    "en": "Operational fallback", "es": "Fallback operativo", "ca": "Fallback operatiu"
+    "en": "Operational fallback",
+    "es": "Fallback operativo",
+    "ca": "Fallback operatiu"
   },
   "ui.worker_ha_fallback_help": {
-    "en": "Always available and independent from the external worker.", "es": "Siempre disponible e independiente del worker externo.", "ca": "Sempre disponible i independent del worker extern."
+    "en": "Always available and independent from the external worker.",
+    "es": "Siempre disponible e independiente del worker externo.",
+    "ca": "Sempre disponible i independent del worker extern."
   },
   "ui.worker_role": {
-    "en": "Role", "es": "Funcion", "ca": "Funcio"
+    "en": "Role",
+    "es": "Funcion",
+    "ca": "Funcio"
   },
   "ui.worker_reference_catalogs": {
-    "en": "Reference catalogs", "es": "Catalogos de referencia", "ca": "Catalegs de referencia"
+    "en": "Reference catalogs",
+    "es": "Catalogos de referencia",
+    "ca": "Catalegs de referencia"
   },
   "ui.worker_gis_mappings": {
-    "en": "GIS mappings", "es": "Mapeos GIS", "ca": "Mapatges GIS"
+    "en": "GIS mappings",
+    "es": "Mapeos GIS",
+    "ca": "Mapatges GIS"
   },
   "ui.worker_default_badge": {
-    "en": "Default", "es": "Predeterminado", "ca": "Predeterminat"
+    "en": "Default",
+    "es": "Predeterminado",
+    "ca": "Predeterminat"
   },
   "ui.worker_default_executor": {
-    "en": "Default rebuild executor", "es": "Ejecutor predeterminado de reconstrucciones", "ca": "Executor predeterminat de reconstruccions"
+    "en": "Default rebuild executor",
+    "es": "Ejecutor predeterminado de reconstrucciones",
+    "ca": "Executor predeterminat de reconstruccions"
   },
   "ui.worker_default_executor_help": {
-    "en": "Preselects Home Assistant or one exact worker. It never falls back silently.", "es": "Preselecciona Home Assistant o un worker concreto. Nunca cambia silenciosamente al fallback.", "ca": "Preselecciona Home Assistant o un worker concret. Mai canvia silenciosament al fallback."
+    "en": "Preselects Home Assistant or one exact worker. It never falls back silently.",
+    "es": "Preselecciona Home Assistant o un worker concreto. Nunca cambia silenciosamente al fallback.",
+    "ca": "Preselecciona Home Assistant o un worker concret. Mai canvia silenciosament al fallback."
   },
   "ui.worker_default_save": {
-    "en": "Save default", "es": "Guardar predeterminado", "ca": "Desar predeterminat"
+    "en": "Save default",
+    "es": "Guardar predeterminado",
+    "ca": "Desar predeterminat"
   },
   "ui.worker_default_saved": {
-    "en": "Default rebuild executor saved: {executor}.", "es": "Ejecutor predeterminado guardado: {executor}.", "ca": "Executor predeterminat desat: {executor}."
+    "en": "Default rebuild executor saved: {executor}.",
+    "es": "Ejecutor predeterminado guardado: {executor}.",
+    "ca": "Executor predeterminat desat: {executor}."
   },
   "ui.worker_default_attention": {
-    "en": "Default executor unavailable", "es": "Ejecutor predeterminado no disponible", "ca": "Executor predeterminat no disponible"
+    "en": "Default executor unavailable",
+    "es": "Ejecutor predeterminado no disponible",
+    "ca": "Executor predeterminat no disponible"
   },
   "ui.worker_default_unavailable": {
-    "en": "The default worker {worker} is disconnected, unpaired or cannot receive operational jobs.", "es": "El worker predeterminado {worker} esta desconectado, no emparejado o no puede recibir trabajos operativos.", "ca": "El worker predeterminat {worker} esta desconnectat, no aparellat o no pot rebre treballs operatius."
+    "en": "The default worker {worker} is disconnected, unpaired or cannot receive operational jobs.",
+    "es": "El worker predeterminado {worker} esta desconectado, no emparejado o no puede recibir trabajos operativos.",
+    "ca": "El worker predeterminat {worker} esta desconnectat, no aparellat o no pot rebre treballs operatius."
   },
   "ui.worker_default_scope_incompatible": {
-    "en": "The default worker {worker} does not yet support this rebuild scope.", "es": "El worker predeterminado {worker} todavia no admite este alcance de reconstruccion.", "ca": "El worker predeterminat {worker} encara no admet aquest abast de reconstruccio."
+    "en": "The default worker {worker} does not yet support this rebuild scope.",
+    "es": "El worker predeterminado {worker} todavia no admite este alcance de reconstruccion.",
+    "ca": "El worker predeterminat {worker} encara no admet aquest abast de reconstruccio."
   },
   "ui.worker_choose_available": {
-    "en": "Choose Home Assistant or another available compatible destination; no fallback was selected automatically.", "es": "Elige Home Assistant u otro destino compatible disponible; no se ha seleccionado ningun fallback automaticamente.", "ca": "Tria Home Assistant o un altre desti compatible disponible; no s'ha seleccionat cap fallback automaticament."
+    "en": "Choose Home Assistant or another available compatible destination; no fallback was selected automatically.",
+    "es": "Elige Home Assistant u otro destino compatible disponible; no se ha seleccionado ningun fallback automaticamente.",
+    "ca": "Tria Home Assistant o un altre desti compatible disponible; no s'ha seleccionat cap fallback automaticament."
   },
   "ui.model_outdated_workers_help": {
-    "en": "Open Workers and jobs with Pending species selected. This status does not start a rebuild by itself.", "es": "Abre Workers y trabajos con Especies pendientes seleccionado. Este aviso no inicia por si solo una reconstruccion.", "ca": "Obre Workers i treballs amb Especies pendents seleccionat. Aquest avis no inicia per si sol una reconstruccio."
+    "en": "Open Workers and jobs with Pending species selected. This status does not start a rebuild by itself.",
+    "es": "Abre Workers y trabajos con Especies pendientes seleccionado. Este aviso no inicia por si solo una reconstruccion.",
+    "ca": "Obre Workers i treballs amb Especies pendents seleccionat. Aquest avis no inicia per si sol una reconstruccio."
   },
   "ui.manage_in_workers": {
-    "en": "Manage in Workers and jobs", "es": "Gestionar en Workers y trabajos", "ca": "Gestionar a Workers i treballs"
+    "en": "Manage in Workers and jobs",
+    "es": "Gestionar en Workers y trabajos",
+    "ca": "Gestionar a Workers i treballs"
   },
   "ui.rebuild_managed_in_workers": {
-    "en": "Rebuild execution is now centralized in Workers and jobs. The latest GIS result remains available here for review.", "es": "La ejecucion de reconstrucciones se gestiona ahora en Workers y trabajos. El ultimo resultado GIS sigue disponible aqui para revision.", "ca": "L'execucio de reconstruccions es gestiona ara a Workers i treballs. L'ultim resultat GIS continua disponible aqui per revisar-lo."
+    "en": "Rebuild execution is now centralized in Workers and jobs. The latest GIS result remains available here for review.",
+    "es": "La ejecucion de reconstrucciones se gestiona ahora en Workers y trabajos. El ultimo resultado GIS sigue disponible aqui para revision.",
+    "ca": "L'execucio de reconstruccions es gestiona ara a Workers i treballs. L'ultim resultat GIS continua disponible aqui per revisar-lo."
   },
   "ui.open_workers_jobs": {
-    "en": "Open Workers and jobs", "es": "Abrir Workers y trabajos", "ca": "Obrir Workers i treballs"
+    "en": "Open Workers and jobs",
+    "es": "Abrir Workers y trabajos",
+    "ca": "Obrir Workers i treballs"
   },
   "ui.worker_new_rebuild": {
-    "en": "New rebuild", "es": "Nueva reconstruccion", "ca": "Nova reconstruccio"
+    "en": "New rebuild",
+    "es": "Nueva reconstruccion",
+    "ca": "Nova reconstruccio"
   },
   "ui.worker_eligible_observations": {
-    "en": "Eligible observations", "es": "Observaciones elegibles", "ca": "Observacions elegibles"
+    "en": "Eligible observations",
+    "es": "Observaciones elegibles",
+    "ca": "Observacions elegibles"
   },
   "ui.worker_pending_species": {
-    "en": "Pending species", "es": "Especies pendientes", "ca": "Especies pendents"
+    "en": "Pending species",
+    "es": "Especies pendientes",
+    "ca": "Especies pendents"
   },
   "ui.execute_on": {
-    "en": "Execute on", "es": "Ejecutar en", "ca": "Executar a"
+    "en": "Execute on",
+    "es": "Ejecutar en",
+    "ca": "Executar a"
   },
   "ui.worker_destination_help": {
-    "en": "Choose where the calculation will run.", "es": "Elige donde se realizara el calculo.", "ca": "Tria on es fara el calcul."
+    "en": "Choose where the calculation will run.",
+    "es": "Elige donde se realizara el calculo.",
+    "ca": "Tria on es fara el calcul."
   },
   "ui.rebuild_scope": {
-    "en": "Rebuild scope", "es": "Alcance de reconstruccion", "ca": "Abast de reconstruccio"
+    "en": "Rebuild scope",
+    "es": "Alcance de reconstruccion",
+    "ca": "Abast de reconstruccio"
   },
   "ui.rebuild_scope_all": {
-    "en": "All eligible species", "es": "Todas las especies elegibles", "ca": "Totes les especies elegibles"
+    "en": "All eligible species",
+    "es": "Todas las especies elegibles",
+    "ca": "Totes les especies elegibles"
   },
   "ui.rebuild_scope_pending": {
-    "en": "Pending species", "es": "Especies pendientes", "ca": "Especies pendents"
+    "en": "Pending species",
+    "es": "Especies pendientes",
+    "ca": "Especies pendents"
   },
   "ui.rebuild_scope_species": {
-    "en": "One species", "es": "Una especie", "ca": "Una especie"
+    "en": "One species",
+    "es": "Una especie",
+    "ca": "Una especie"
   },
   "ui.worker_scope_help": {
-    "en": "Choose which model data should be rebuilt.", "es": "Elige que datos del modelo deben reconstruirse.", "ca": "Tria quines dades del model s'han de reconstruir."
+    "en": "Choose which model data should be rebuilt.",
+    "es": "Elige que datos del modelo deben reconstruirse.",
+    "ca": "Tria quines dades del model s'han de reconstruir."
   },
   "ui.start_rebuild": {
-    "en": "Start rebuild", "es": "Iniciar reconstruccion", "ca": "Iniciar reconstruccio"
+    "en": "Start rebuild",
+    "es": "Iniciar reconstruccion",
+    "ca": "Iniciar reconstruccio"
   },
   "ui.worker_recent_jobs": {
-    "en": "Recent jobs", "es": "Trabajos recientes", "ca": "Treballs recents"
+    "en": "Recent jobs",
+    "es": "Trabajos recientes",
+    "ca": "Treballs recents"
   },
   "ui.worker_job": {
-    "en": "Job", "es": "Trabajo", "ca": "Treball"
+    "en": "Job",
+    "es": "Trabajo",
+    "ca": "Treball"
   },
   "ui.worker_local_job": {
-    "en": "Local HA", "es": "HA local", "ca": "HA local"
+    "en": "Local HA",
+    "es": "HA local",
+    "ca": "HA local"
   },
   "ui.worker_date_time": {
-    "en": "Date and time", "es": "Fecha y hora", "ca": "Data i hora"
+    "en": "Date and time",
+    "es": "Fecha y hora",
+    "ca": "Data i hora"
   },
   "ui.worker_job_type": {
-    "en": "Type", "es": "Tipo", "ca": "Tipus"
+    "en": "Type",
+    "es": "Tipo",
+    "ca": "Tipus"
   },
   "ui.worker_destination": {
-    "en": "Destination", "es": "Destino", "ca": "Desti"
+    "en": "Destination",
+    "es": "Destino",
+    "ca": "Desti"
   },
   "ui.worker_claim_probe": {
-    "en": "Assignment test", "es": "Prueba de asignacion", "ca": "Prova d'assignacio"
+    "en": "Assignment test",
+    "es": "Prueba de asignacion",
+    "ca": "Prova d'assignacio"
   },
   "ui.worker_rebuild_job": {
-    "en": "Model rebuild", "es": "Reconstruccion del modelo", "ca": "Reconstruccio del model"
+    "en": "Model rebuild",
+    "es": "Reconstruccion del modelo",
+    "ca": "Reconstruccio del model"
   },
   "ui.worker_status_queued": {
-    "en": "Queued", "es": "En cola", "ca": "En cua"
+    "en": "Queued",
+    "es": "En cola",
+    "ca": "En cua"
   },
   "ui.worker_status_claimed": {
-    "en": "Claimed", "es": "Reclamado", "ca": "Reclamat"
+    "en": "Claimed",
+    "es": "Reclamado",
+    "ca": "Reclamat"
   },
   "ui.worker_status_running": {
-    "en": "Running", "es": "En ejecucion", "ca": "En execucio"
+    "en": "Running",
+    "es": "En ejecucion",
+    "ca": "En execucio"
   },
   "ui.worker_status_cancel_requested": {
-    "en": "Cancellation requested", "es": "Cancelacion solicitada", "ca": "Cancel·lacio sol·licitada"
+    "en": "Cancellation requested",
+    "es": "Cancelacion solicitada",
+    "ca": "Cancel·lacio sol·licitada"
   },
   "ui.worker_status_force_cancel_requested": {
-    "en": "Force cancellation requested", "es": "Cancelacion forzada solicitada", "ca": "Cancel·lacio forcada sol·licitada"
+    "en": "Force cancellation requested",
+    "es": "Cancelacion forzada solicitada",
+    "ca": "Cancel·lacio forcada sol·licitada"
   },
   "ui.worker_status_cancelled": {
-    "en": "Cancelled", "es": "Cancelado", "ca": "Cancel·lat"
+    "en": "Cancelled",
+    "es": "Cancelado",
+    "ca": "Cancel·lat"
   },
   "ui.worker_status_complete": {
-    "en": "Complete", "es": "Completado", "ca": "Completat"
+    "en": "Complete",
+    "es": "Completado",
+    "ca": "Completat"
   },
   "ui.worker_status_failed": {
-    "en": "Failed", "es": "Fallido", "ca": "Fallat"
+    "en": "Failed",
+    "es": "Fallido",
+    "ca": "Fallat"
   },
   "ui.worker_actions": {
-    "en": "Actions", "es": "Acciones", "ca": "Accions"
+    "en": "Actions",
+    "es": "Acciones",
+    "ca": "Accions"
   },
   "ui.worker_cancel_job": {
-    "en": "Cancel", "es": "Cancelar", "ca": "Cancel·lar"
+    "en": "Cancel",
+    "es": "Cancelar",
+    "ca": "Cancel·lar"
   },
   "ui.worker_force_cancel_job": {
-    "en": "Force cancellation", "es": "Forzar cancelacion", "ca": "Forcar cancel·lacio"
+    "en": "Force cancellation",
+    "es": "Forzar cancelacion",
+    "ca": "Forcar cancel·lacio"
   },
   "ui.worker_reassign_job": {
-    "en": "Reassign", "es": "Reasignar", "ca": "Reassignar"
+    "en": "Reassign",
+    "es": "Reasignar",
+    "ca": "Reassignar"
   },
   "ui.worker_cancel_requested_flash": {
-    "en": "Cancellation requested. The worker will stop at the next safe point.", "es": "Cancelacion solicitada. El worker se detendra en el siguiente punto seguro.", "ca": "Cancel·lacio sol·licitada. El worker s'aturara en el seguent punt segur."
+    "en": "Cancellation requested. The worker will stop at the next safe point.",
+    "es": "Cancelacion solicitada. El worker se detendra en el siguiente punto seguro.",
+    "ca": "Cancel·lacio sol·licitada. El worker s'aturara en el seguent punt segur."
   },
   "ui.worker_force_cancel_requested_flash": {
-    "en": "Force cancellation requested. The worker supervisor will terminate the compute process.", "es": "Cancelacion forzada solicitada. El supervisor del worker terminara el proceso de calculo.", "ca": "Cancel·lacio forcada sol·licitada. El supervisor del worker finalitzara el proces de calcul."
+    "en": "Force cancellation requested. The worker supervisor will terminate the compute process.",
+    "es": "Cancelacion forzada solicitada. El supervisor del worker terminara el proceso de calculo.",
+    "ca": "Cancel·lacio forcada sol·licitada. El supervisor del worker finalitzara el proces de calcul."
   },
   "ui.worker_cancelled_flash": {
-    "en": "The job was cancelled before it started.", "es": "El trabajo se ha cancelado antes de empezar.", "ca": "El treball s'ha cancel·lat abans de comencar."
+    "en": "The job was cancelled before it started.",
+    "es": "El trabajo se ha cancelado antes de empezar.",
+    "ca": "El treball s'ha cancel·lat abans de comencar."
   },
   "ui.worker_reassigned_flash": {
-    "en": "Job reassigned to {worker}.", "es": "Trabajo reasignado a {worker}.", "ca": "Treball reassignat a {worker}."
+    "en": "Job reassigned to {worker}.",
+    "es": "Trabajo reasignado a {worker}.",
+    "ca": "Treball reassignat a {worker}."
   },
   "ui.worker_phase": {
-    "en": "Phase", "es": "Fase", "ca": "Fase"
+    "en": "Phase",
+    "es": "Fase",
+    "ca": "Fase"
   },
   "ui.worker_progress": {
-    "en": "Progress", "es": "Progreso", "ca": "Progres"
+    "en": "Progress",
+    "es": "Progreso",
+    "ca": "Progres"
   },
   "ui.worker_duration": {
-    "en": "Duration", "es": "Duracion", "ca": "Durada"
+    "en": "Duration",
+    "es": "Duracion",
+    "ca": "Durada"
   },
   "ui.worker_species": {
-    "en": "Species", "es": "Especie", "ca": "Especie"
+    "en": "Species",
+    "es": "Especie",
+    "ca": "Especie"
   },
   "ui.worker_no_recent_jobs": {
-    "en": "There are no rebuild jobs in this session.", "es": "No hay trabajos de reconstruccion en esta sesion.", "ca": "No hi ha treballs de reconstruccio en aquesta sessio."
+    "en": "There are no rebuild jobs in this session.",
+    "es": "No hay trabajos de reconstruccion en esta sesion.",
+    "ca": "No hi ha treballs de reconstruccio en aquesta sessio."
   },
   "ui.worker_refresh": {
-    "en": "Refresh", "es": "Actualizar", "ca": "Actualitzar"
+    "en": "Refresh",
+    "es": "Actualizar",
+    "ca": "Actualitzar"
   },
   "ui.known_sites": {
-    "en": "Mushroom sites", "es": "Setales", "ca": "Boletars"
+    "en": "Mushroom sites",
+    "es": "Setales",
+    "ca": "Boletars"
   },
   "ui.name": {
-    "en": "Name", "es": "Nombre", "ca": "Nom"
+    "en": "Name",
+    "es": "Nombre",
+    "ca": "Nom"
   },
   "ui.create": {
-    "en": "Create", "es": "Crear", "ca": "Crear"
+    "en": "Create",
+    "es": "Crear",
+    "ca": "Crear"
   },
   "ui.save": {
-    "en": "Save", "es": "Guardar", "ca": "Desar"
+    "en": "Save",
+    "es": "Guardar",
+    "ca": "Desar"
   },
   "ui.back": {
-    "en": "Back", "es": "Volver", "ca": "Tornar"
+    "en": "Back",
+    "es": "Volver",
+    "ca": "Tornar"
   },
   "ui.known_sites_help": {
-    "en": "Maintain private areas and micro-areas used to group observations and future predictions.", "es": "Mantiene areas y microareas privadas para agrupar observaciones y futuras predicciones.", "ca": "Manté arees i microarees privades per agrupar observacions i prediccions futures."
+    "en": "Maintain private areas and micro-areas used to group observations and future predictions.",
+    "es": "Mantiene areas y microareas privadas para agrupar observaciones y futuras predicciones.",
+    "ca": "Manté arees i microarees privades per agrupar observacions i prediccions futures."
   },
   "ui.known_site_area": {
-    "en": "Area", "es": "Area", "ca": "Area"
+    "en": "Area",
+    "es": "Area",
+    "ca": "Area"
   },
   "ui.known_site_micro_area": {
-    "en": "Micro-area", "es": "Microarea", "ca": "Microarea"
+    "en": "Micro-area",
+    "es": "Microarea",
+    "ca": "Microarea"
   },
   "ui.area_id": {
-    "en": "Area ID", "es": "ID de area", "ca": "ID d'area"
+    "en": "Area ID",
+    "es": "ID de area",
+    "ca": "ID d'area"
   },
   "ui.micro_area_id": {
-    "en": "Micro-area ID", "es": "ID de microarea", "ca": "ID de microarea"
+    "en": "Micro-area ID",
+    "es": "ID de microarea",
+    "ca": "ID de microarea"
   },
   "ui.micro_area": {
-    "en": "Known micro-area", "es": "Microarea conocida", "ca": "Microarea coneguda"
+    "en": "Known micro-area",
+    "es": "Microarea conocida",
+    "ca": "Microarea coneguda"
   },
   "ui.parent_area": {
-    "en": "Parent area", "es": "Area superior", "ca": "Area superior"
+    "en": "Parent area",
+    "es": "Area superior",
+    "ca": "Area superior"
   },
   "ui.areas": {
-    "en": "Areas", "es": "Areas", "ca": "Arees"
+    "en": "Areas",
+    "es": "Areas",
+    "ca": "Arees"
   },
   "ui.micro_areas": {
-    "en": "Micro-areas", "es": "Microareas", "ca": "Microarees"
+    "en": "Micro-areas",
+    "es": "Microareas",
+    "ca": "Microarees"
   },
   "ui.new_area": {
-    "en": "New area", "es": "Nueva area", "ca": "Area nova"
+    "en": "New area",
+    "es": "Nueva area",
+    "ca": "Area nova"
   },
   "ui.new_micro_area": {
-    "en": "New micro-area", "es": "Nueva microarea", "ca": "Microarea nova"
+    "en": "New micro-area",
+    "es": "Nueva microarea",
+    "ca": "Microarea nova"
   },
   "ui.manage_known_sites": {
-    "en": "Manage known sites", "es": "Gestionar zonas conocidas", "ca": "Gestionar zones conegudes"
+    "en": "Manage known sites",
+    "es": "Gestionar zonas conocidas",
+    "ca": "Gestionar zones conegudes"
   },
   "ui.linked_observations": {
-    "en": "Linked observations", "es": "Observaciones vinculadas", "ca": "Observacions vinculades"
+    "en": "Linked observations",
+    "es": "Observaciones vinculadas",
+    "ca": "Observacions vinculades"
   },
   "ui.references": {
-    "en": "References", "es": "Referencias", "ca": "Referencies"
+    "en": "References",
+    "es": "Referencias",
+    "ca": "Referencies"
   },
   "ui.aliases": {
-    "en": "Aliases", "es": "Alias", "ca": "Alias"
-  },
-  "ui.description": {
-    "en": "Description", "es": "Descripcion", "ca": "Descripcio"
+    "en": "Aliases",
+    "es": "Alias",
+    "ca": "Alias"
   },
   "ui.advanced_fields": {
-    "en": "Advanced location fields", "es": "Campos avanzados de ubicacion", "ca": "Camps avancats d'ubicacio"
+    "en": "Advanced location fields",
+    "es": "Campos avanzados de ubicacion",
+    "ca": "Camps avancats d'ubicacio"
   },
   "ui.environment_and_future_fields": {
-    "en": "Environment and future fields", "es": "Entorno y campos futuros", "ca": "Entorn i camps futurs"
+    "en": "Environment and future fields",
+    "es": "Entorno y campos futuros",
+    "ca": "Entorn i camps futurs"
   },
   "ui.municipality": {
-    "en": "Municipality", "es": "Municipio", "ca": "Municipi"
+    "en": "Municipality",
+    "es": "Municipio",
+    "ca": "Municipi"
   },
   "ui.county": {
-    "en": "County", "es": "Comarca", "ca": "Comarca"
+    "en": "County",
+    "es": "Comarca",
+    "ca": "Comarca"
   },
   "ui.province": {
-    "en": "Province", "es": "Provincia", "ca": "Provincia"
+    "en": "Province",
+    "es": "Provincia",
+    "ca": "Provincia"
   },
   "ui.country": {
-    "en": "Country", "es": "Pais", "ca": "Pais"
+    "en": "Country",
+    "es": "Pais",
+    "ca": "Pais"
   },
   "ui.geometry_geojson": {
-    "en": "Geometry (GeoJSON)", "es": "Geometria (GeoJSON)", "ca": "Geometria (GeoJSON)"
+    "en": "Geometry (GeoJSON)",
+    "es": "Geometria (GeoJSON)",
+    "ca": "Geometria (GeoJSON)"
   },
   "ui.private_notes": {
-    "en": "Private notes", "es": "Notas privadas", "ca": "Notes privades"
+    "en": "Private notes",
+    "es": "Notas privadas",
+    "ca": "Notes privades"
   },
   "ui.location_precision_m": {
-    "en": "Location precision (m)", "es": "Precision de ubicacion (m)", "ca": "Precisio d'ubicacio (m)"
+    "en": "Location precision (m)",
+    "es": "Precision de ubicacion (m)",
+    "ca": "Precisio d'ubicacio (m)"
   },
   "ui.altitude_min": {
-    "en": "Minimum altitude", "es": "Altitud minima", "ca": "Altitud minima"
+    "en": "Minimum altitude",
+    "es": "Altitud minima",
+    "ca": "Altitud minima"
   },
   "ui.altitude_max": {
-    "en": "Maximum altitude", "es": "Altitud maxima", "ca": "Altitud maxima"
+    "en": "Maximum altitude",
+    "es": "Altitud maxima",
+    "ca": "Altitud maxima"
   },
   "ui.aspect_ids": {
-    "en": "Aspect IDs", "es": "IDs de orientacion", "ca": "IDs d'orientacio"
+    "en": "Aspect IDs",
+    "es": "IDs de orientacion",
+    "ca": "IDs d'orientacio"
   },
   "ui.slope_notes": {
-    "en": "Slope notes", "es": "Notas de pendiente", "ca": "Notes de pendent"
+    "en": "Slope notes",
+    "es": "Notas de pendiente",
+    "ca": "Notes de pendent"
   },
   "ui.exposure_notes": {
-    "en": "Exposure notes", "es": "Notas de exposicion", "ca": "Notes d'exposicio"
+    "en": "Exposure notes",
+    "es": "Notas de exposicion",
+    "ca": "Notes d'exposicio"
   },
   "ui.host_ids": {
-    "en": "Host IDs", "es": "IDs de hosts", "ca": "IDs d'hosts"
+    "en": "Host IDs",
+    "es": "IDs de hosts",
+    "ca": "IDs d'hosts"
   },
   "ui.forest_type_ids": {
-    "en": "Forest type IDs", "es": "IDs de tipos de bosque", "ca": "IDs de tipus de bosc"
+    "en": "Forest type IDs",
+    "es": "IDs de tipos de bosque",
+    "ca": "IDs de tipus de bosc"
   },
   "ui.soil_tendency_ids": {
-    "en": "Soil tendency IDs", "es": "IDs de tendencia de suelo", "ca": "IDs de tendencia de sol"
+    "en": "Soil tendency IDs",
+    "es": "IDs de tendencia de suelo",
+    "ca": "IDs de tendencia de sol"
   },
   "ui.habitat_feature_ids": {
-    "en": "Habitat feature IDs", "es": "IDs de habitat", "ca": "IDs d'habitat"
+    "en": "Habitat feature IDs",
+    "es": "IDs de habitat",
+    "ca": "IDs d'habitat"
   },
   "ui.ecology_notes": {
-    "en": "Ecology notes", "es": "Notas ecologicas", "ca": "Notes ecologiques"
+    "en": "Ecology notes",
+    "es": "Notas ecologicas",
+    "ca": "Notes ecologiques"
   },
   "ui.access_difficulty": {
-    "en": "Access difficulty", "es": "Dificultad de acceso", "ca": "Dificultat d'acces"
+    "en": "Access difficulty",
+    "es": "Dificultad de acceso",
+    "ca": "Dificultat d'acces"
   },
   "ui.access_notes": {
-    "en": "Access notes", "es": "Notas de acceso", "ca": "Notes d'acces"
+    "en": "Access notes",
+    "es": "Notas de acceso",
+    "ca": "Notes d'acces"
   },
   "ui.provenance_source": {
-    "en": "Provenance source", "es": "Origen del dato", "ca": "Origen de la dada"
+    "en": "Provenance source",
+    "es": "Origen del dato",
+    "ca": "Origen de la dada"
   },
   "ui.provenance_confidence": {
-    "en": "Provenance confidence", "es": "Confianza del origen", "ca": "Confianca de l'origen"
+    "en": "Provenance confidence",
+    "es": "Confianza del origen",
+    "ca": "Confianca de l'origen"
   },
   "ui.provenance_notes": {
-    "en": "Provenance notes", "es": "Notas de procedencia", "ca": "Notes de procedencia"
+    "en": "Provenance notes",
+    "es": "Notas de procedencia",
+    "ca": "Notes de procedencia"
   },
   "ui.archived": {
-    "en": "Archived", "es": "Archivada", "ca": "Arxivada"
-  },
-  "ui.active": {
-    "en": "Active", "es": "Activa", "ca": "Activa"
+    "en": "Archived",
+    "es": "Archivada",
+    "ca": "Arxivada"
   },
   "ui.no_known_sites": {
-    "en": "No known areas or micro-areas yet.", "es": "Todavia no hay areas ni microareas conocidas.", "ca": "Encara no hi ha arees ni microarees conegudes."
+    "en": "No known areas or micro-areas yet.",
+    "es": "Todavia no hay areas ni microareas conocidas.",
+    "ca": "Encara no hi ha arees ni microarees conegudes."
   },
   "ui.select_area_or_micro_area": {
-    "en": "Select an area or micro-area.", "es": "Selecciona un area o una microarea.", "ca": "Selecciona una area o una microarea."
+    "en": "Select an area or micro-area.",
+    "es": "Selecciona un area o una microarea.",
+    "ca": "Selecciona una area o una microarea."
+  },
+  "ui.predictor_actual_unfavorable": {
+    "en": "Not favorable",
+    "es": "No favorable",
+    "ca": "No favorable"
+  },
+  "ui.worker_ml_train": {
+    "en": "Train ML models",
+    "es": "Entrenar modelos ML",
+    "ca": "Entrenar models ML"
+  },
+  "ui.worker_ml_train_help": {
+    "en": "Train species prediction models from the current features artifact",
+    "es": "Entrena modelos de prediccion de especies a partir del artefacto de features actual",
+    "ca": "Entrena models de prediccio d'especies a partir de l'artefacte de features actual"
+  },
+  "ui.worker_ml_train_start": {
+    "en": "Queue ML training",
+    "es": "Encolar entrenamiento ML",
+    "ca": "Encuar entrenament ML"
+  },
+  "ui.worker_ml_train_queued": {
+    "en": "ML training job queued for {worker}.",
+    "es": "Trabajo de entrenamiento ML encolado para {worker}.",
+    "ca": "Treball d'entrenament ML encuat per a {worker}."
+  },
+  "ui.worker_ml_train_promoted": {
+    "en": "Trained ML models promoted to live directory.",
+    "es": "Modelos ML entrenados promocionados al directorio activo.",
+    "ca": "Models ML entrenats promocionats al directori actiu."
+  },
+  "ui.worker_ml_train_promoting": {
+    "en": "ML model promotion started in the background.",
+    "es": "Promocion de modelos ML iniciada en segundo plano.",
+    "ca": "Promocio de models ML iniciada en segon pla."
+  },
+  "ui.worker_ml_train_promote": {
+    "en": "Promote models",
+    "es": "Promocionar modelos",
+    "ca": "Promocionar models"
+  },
+  "ui.worker_ml_train_promote_confirm": {
+    "en": "Promote trained ML models to the live ml_models directory?",
+    "es": "Promocionar los modelos ML entrenados al directorio ml_models activo?",
+    "ca": "Promocionar els models ML entrenats al directori ml_models actiu?"
+  },
+  "ui.worker_ml_train_job_type": {
+    "en": "ML training v0",
+    "es": "Entrenamiento ML v0",
+    "ca": "Entrenament ML v0"
   }
 }

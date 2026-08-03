@@ -705,6 +705,65 @@ docker-data/Plots       -> /share/rainmapper/Plots
 docker-data/stations.txt -> /share/rainmapper/stations.txt
 ```
 
+## Modulo de setas
+
+### Datos persistentes
+
+El modulo de setas guarda sus datos fuera de la imagen, en:
+
+```text
+/share/rainmapper/mushroom-data/
+```
+
+Ficheros que debes copiar al instalar o actualizar (no se generan automaticamente):
+
+```text
+mushroom_profiles.json
+mushroom_reference_catalogs.json
+mushroom_observations.json
+mushroom_labels.json
+mushroom_known_sites.json
+mushroom_gis_mappings.json
+ml_models/                   <- directorio con los .joblib entrenados
+```
+
+Las capas GIS/DEM deben ir en `/media/rainmapper/mushroom-GIS/` (no en `/share`;
+ese directorio puede ser grande y inflaria los backups de HA).
+
+### Pantalla Predictor
+
+La pantalla `Predictor` muestra predicciones de fructificacion basadas en los
+modelos ML entrenados (`ml_models/*.joblib`). Tiene cuatro vistas:
+
+- **Esta semana**: ranking semanal de condiciones por area para cada especie con
+  modelo entrenado. Badge favorable/unfavorable/uncertain por dia.
+- **Por especie**: detalle de la semana para especie+area seleccionadas.
+- **Consultar fecha**: prediccion puntual para una especie, area y fecha concretas.
+- **Historial**: backtesting: predicciones pasadas comparadas con observaciones
+  reales. Las tarjetas de estadisticas (aciertos/falsos negativos/falsos positivos)
+  son clicables y filtran el historial.
+
+Los modelos se cargan bajo demanda; si no hay `.joblib` para una especie, esa
+especie no aparece en el selector.
+
+### Entrenamiento ML con worker externo
+
+El tipo de job `ml_train_v0` permite entrenar modelos desde el worker externo:
+
+1. Activar `Enable external worker connections` y `Allow external rebuilds and
+   promotion` en las opciones de la app.
+2. Conectar y emparejar un worker desde la pantalla `Workers y trabajos`.
+3. Asegurarse de haber ejecutado antes una reconstruccion completa para que
+   exista el artefacto de features.
+4. En `Workers y trabajos`, usar el panel "Train ML models" para encolar el job
+   en el worker.
+5. El worker entrena un modelo LR+RF por especie con suficientes episodios.
+6. Cuando el job termina, aparece el boton "Promote models". Hacer clic para
+   copiar los `.joblib` al directorio de modelos activos.
+
+El entrenamiento no se lanza automaticamente al terminar una reconstruccion;
+siempre requiere una accion manual explicita.
+
 ## Desarrollo
 
 En este repositorio hay dos zonas de trabajo:

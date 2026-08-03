@@ -45,6 +45,8 @@ INCREMENTAL_COLUMNS = [
     *WIND_COLUMNS,
 ]
 
+DAILY_RAIN_SANITY_LIMIT_MM = 300.0  # matches mushroom_observation_context value
+
 TOMAP_PERIODS = [
     (90, '07_Tomap_Last_three_months', '90 days'),
     (60, '06_Tomap_Last_two_months', '60 days'),
@@ -54,6 +56,46 @@ TOMAP_PERIODS = [
     (7, '02_Tomap_Last_week', '7 days'),
     (0, '01_Tomap_Last_day', '1 day'),
 ]
+
+
+def _apply_rain_quality_filters(df: pd.DataFrame) -> pd.DataFrame:
+    """Nullify daily rain totals that are clearly erroneous before aggregation.
+
+    Two filters applied per station sorted by date:
+    1. Outlier: Total > 300 mm/day is physically implausible for a single day.
+    2. Consecutive duplicate: identical non-zero rain on adjacent calendar days
+       is a Wunderground sensor carry-forward artifact. Keep the first, nullify the rest.
+    """
+    if df.empty:
+        return df
+    df = df.copy()
+    df['Total'] = pd.to_numeric(df['Total'], errors='coerce')
+
+    # 1. Outlier filter
+    df.loc[df['Total'] > DAILY_RAIN_SANITY_LIMIT_MM, 'Total'] = pd.NA
+
+    # 2. Consecutive duplicate filter — per station, sorted by date
+    dates = pd.to_datetime(df['Data Local'], format='%Y%m%d', errors='coerce')
+    df_sorted = df.assign(_date=dates).sort_values(['Codi Estació', '_date'])
+
+    for _, grp in df_sorted.groupby('Codi Estació', sort=False):
+        original_total = grp['Total'].values.copy()
+        indices = grp.index.tolist()
+        grp_dates = grp['_date'].values
+        for i in range(1, len(grp)):
+            val = original_total[i]
+            prev_val = original_total[i - 1]
+            cur_date = grp_dates[i]
+            prev_date = grp_dates[i - 1]
+            if (
+                pd.notna(val) and val > 0
+                and pd.notna(prev_val) and val == prev_val
+                and pd.notna(cur_date) and pd.notna(prev_date)
+                and (cur_date - prev_date) == pd.Timedelta(days=1)
+            ):
+                df.at[indices[i], 'Total'] = pd.NA
+
+    return df
 
 
 def create_empty_incremental():
@@ -236,6 +278,7 @@ def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
     df_to_group = ensure_incremental_columns(df_to_group_param)
     if df_to_group.empty:
         return df_to_group.head(0)
+    df_to_group = _apply_rain_quality_filters(df_to_group)
 
     for column in [
         'max_temp_celsius',
@@ -350,6 +393,7 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
         'Hora Local': 'first',
     }).reset_index()
     result_step1['Total'] = grouped['Total'].sum(min_count=1).round(1).to_numpy()
+    result_step1 = _apply_rain_quality_filters(result_step1)
 
     result_step1 = filter_results(result_step1, minimum_rain_tomap)
     result_step2 = (

@@ -590,3 +590,58 @@ def download_input_bundle(
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+
+
+def download_ml_train_inputs(
+    ha_url: str,
+    job: dict[str, Any],
+    worker_data_dir: Path,
+    *,
+    worker_id: str,
+    claim_token: str,
+    token: str,
+    timeout: float = 60.0,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Download the three input files for a ml_train_v0 job (job_spec, features, known_sites)."""
+    job_id = validate_job_id(str(job.get("job_id", "")))
+    endpoint = str((job.get("input_bundle") or {}).get("endpoint", "") or "")
+    if endpoint != "/api/mushrooms/workers/jobs/input":
+        raise ValueError("Worker ML training input endpoint is invalid.")
+    destination = worker_data_dir / job_id
+    if destination.is_dir():
+        return {"status": "reused", "input_dir": str(destination)}
+    staging = worker_data_dir / f".ml.{job_id}.staging"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True, exist_ok=True)
+    try:
+        headers = request_headers(worker_id, claim_token, token)
+        logical_paths = ["job_spec.json", "features.json", "known_sites.json"]
+        total_bytes = 0
+        for idx, logical_path in enumerate(logical_paths):
+            query = urlencode({"job_id": job_id, "file": logical_path})
+            url = ha_url.rstrip("/") + endpoint + "?" + query
+            dest_path = staging / logical_path
+            size, _ = _download_file(
+                url,
+                dest_path,
+                headers=headers,
+                expected_size=None,
+                expected_sha256=None,
+                max_bytes=MAX_INPUT_FILE_BYTES,
+                timeout=timeout,
+            )
+            total_bytes += size
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "phase": "Downloading ML training inputs",
+                        "message": f"Downloaded {logical_path} ({idx + 1}/{len(logical_paths)}).",
+                        "overall_percent": 5 + int((idx + 1) / len(logical_paths) * 10),
+                    }
+                )
+        staging.replace(destination)
+        return {"status": "verified", "input_dir": str(destination), "input_size_bytes": total_bytes}
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise

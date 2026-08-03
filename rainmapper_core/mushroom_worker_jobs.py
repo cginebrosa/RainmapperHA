@@ -23,6 +23,7 @@ JOB_ID_PATTERN = re.compile(r"^worker_job_[a-zA-Z0-9_-]{8,80}$")
 JOB_TYPE_CLAIM_PROBE = "worker_claim_probe"
 JOB_TYPE_SNAPSHOT_TRANSPORT = "worker_snapshot_transport_probe"
 JOB_TYPE_CANDIDATE_REBUILD = "worker_candidate_rebuild"
+JOB_TYPE_ML_TRAIN = "worker_ml_train_v0"
 MAX_JOBS = 50
 DEFAULT_LEASE_SECONDS = 10
 TERMINAL_STATUSES = {"complete", "cancelled", "failed"}
@@ -341,20 +342,114 @@ def create_candidate_rebuild(
     return dict(job)
 
 
+def create_ml_train_job(
+    path: Path,
+    *,
+    worker_id: str,
+    worker_display_name: str,
+    input_bundle: dict[str, Any],
+    job_id: str,
+    species_ids: list[str] | tuple[str, ...] | None = None,
+    triggered_by_job_id: str = "",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    target_worker_id = _validate_worker_id(worker_id)
+    display_name = str(worker_display_name or "").strip()[:80]
+    if not display_name:
+        raise ValueError("Worker display name is required.")
+    if not JOB_ID_PATTERN.fullmatch(str(job_id or "")):
+        raise ValueError("Worker job ID is invalid.")
+    if not isinstance(input_bundle, dict) or input_bundle.get("job_id") != job_id:
+        raise ValueError("Worker input bundle contract is invalid.")
+    features_digest = str(input_bundle.get("features_digest", "") or "")
+    job_spec_id = str(input_bundle.get("job_spec_id", "") or "")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", features_digest):
+        raise ValueError("Worker input features digest is invalid.")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", job_spec_id):
+        raise ValueError("Worker job spec ID is invalid.")
+    resolved_species_ids = sorted(
+        {str(sp).strip() for sp in (species_ids or []) if str(sp or "").strip()}
+    )
+    work_key = f"ml_train:v0:{features_digest}"
+    triggered_by = str(triggered_by_job_id or "").strip()
+    if triggered_by and not JOB_ID_PATTERN.fullmatch(triggered_by):
+        raise ValueError("Triggered-by job ID is invalid.")
+    queue = load_queue(path)
+    duplicate = next(
+        (
+            row
+            for row in queue["jobs"]
+            if row.get("status") in ACTIVE_STATUSES
+            and row.get("job_type") == JOB_TYPE_ML_TRAIN
+            and row.get("work_key") == work_key
+        ),
+        None,
+    )
+    if duplicate is not None:
+        raise DuplicateActiveWorkError(
+            f"Equivalent ML training job is already active: {duplicate.get('job_id', '')}."
+        )
+    timestamp = created_at or utc_now()
+    scope_label = (
+        f"species: {len(resolved_species_ids)}" if resolved_species_ids else "all eligible"
+    )
+    job = {
+        "job_id": job_id,
+        "job_type": JOB_TYPE_ML_TRAIN,
+        "work_key": work_key,
+        "target_worker_id": target_worker_id,
+        "target_display_name": display_name,
+        "status": "queued",
+        "phase": "Waiting for worker",
+        "message": "ML training job queued.",
+        "scope": scope_label,
+        "scope_species_ids": resolved_species_ids,
+        "triggered_by_job_id": triggered_by,
+        "overall_percent": 0,
+        "created_at": timestamp,
+        "claimed_at": "",
+        "started_at": "",
+        "finished_at": "",
+        "cancel_requested_at": "",
+        "cancel_mode": "",
+        "reassigned_at": "",
+        "lease_expires_at": "",
+        "claim_token": "",
+        "assignment_revision": 1,
+        "promotion_eligible": True,
+        "promotion_status": "",
+        "promotion_percent": 0,
+        "promotion_error": "",
+        "promotion_result": {},
+        "discard_status": "",
+        "discard_requested_at": "",
+        "input_bundle": {
+            **input_bundle,
+            "endpoint": "/api/mushrooms/workers/jobs/input",
+        },
+        "result_endpoint": "/api/mushrooms/workers/jobs/ml-result-file",
+        "result_complete_endpoint": "/api/mushrooms/workers/jobs/ml-result-complete",
+    }
+    queue["jobs"].append(job)
+    queue["jobs"] = queue["jobs"][-MAX_JOBS:]
+    _write_atomic(path, queue)
+    return dict(job)
+
+
 def begin_candidate_promotion(path: Path, *, job_id: str) -> dict[str, Any]:
     queue = load_queue(path)
     job = _find_job(queue, job_id)
-    if job.get("job_type") != JOB_TYPE_CANDIDATE_REBUILD:
-        raise ValueError("Only candidate rebuilds can be promoted.")
+    if job.get("job_type") not in {JOB_TYPE_CANDIDATE_REBUILD, JOB_TYPE_ML_TRAIN}:
+        raise ValueError("Only candidate rebuilds and ML training jobs can be promoted.")
     result_payload = job.get("result")
     if (
         job.get("status") != "complete"
         or not isinstance(result_payload, dict)
         or result_payload.get("verification_status") != "verified"
     ):
-        raise ValueError("Candidate rebuild is not complete and verified.")
+        raise ValueError("Candidate is not complete and verified.")
     if not job.get("promotion_eligible"):
-        raise ValueError("Candidate rebuild was not created for operational promotion.")
+        raise ValueError("Candidate was not created for operational promotion.")
     promotion_status = str(job.get("promotion_status", "") or "")
     if promotion_status == "promoted":
         return dict(job)
@@ -550,9 +645,26 @@ def _validate_claim(job: dict[str, Any], *, worker_id: str, claim_token: str) ->
 def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(result, dict):
         return {}
-    if job.get("job_type") not in {JOB_TYPE_SNAPSHOT_TRANSPORT, JOB_TYPE_CANDIDATE_REBUILD}:
+    job_type = job.get("job_type")
+    if job_type not in {JOB_TYPE_SNAPSHOT_TRANSPORT, JOB_TYPE_CANDIDATE_REBUILD, JOB_TYPE_ML_TRAIN}:
         return {}
-    normalized: dict[str, Any] = {}
+    if job_type == JOB_TYPE_ML_TRAIN:
+        normalized: dict[str, Any] = {}
+        status = str(result.get("verification_status", "") or "")[:40]
+        if status:
+            normalized["verification_status"] = status
+        trained_species_count = result.get("trained_species_count")
+        if trained_species_count is not None:
+            if not isinstance(trained_species_count, int) or isinstance(trained_species_count, bool) or trained_species_count < 0:
+                raise ValueError("Worker ML result trained_species_count is invalid.")
+            normalized["trained_species_count"] = trained_species_count
+        result_manifest_id = str(result.get("result_manifest_id", "") or "")
+        if result_manifest_id:
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", result_manifest_id):
+                raise ValueError("Worker ML result result_manifest_id is invalid.")
+            normalized["result_manifest_id"] = result_manifest_id
+        return normalized
+    normalized = {}
     status = str(result.get("verification_status", "") or "")[:40]
     if status:
         normalized["verification_status"] = status
@@ -583,7 +695,7 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
         ):
             raise ValueError("Worker result dataset transferred size is invalid.")
         normalized["dataset_transferred_size_bytes"] = dataset_transferred_size
-    if job.get("job_type") == JOB_TYPE_CANDIDATE_REBUILD:
+    if job_type == JOB_TYPE_CANDIDATE_REBUILD:
         for key in ("result_manifest_id",):
             value = str(result.get(key, "") or "")
             if value and not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
@@ -852,6 +964,23 @@ def authorize_result_upload(
         raise ValueError("Worker job cannot upload candidate results.")
     if job.get("status") != "running":
         raise ValueError("Worker candidate result is not accepted in the current job state.")
+    return dict(job)
+
+
+def authorize_ml_train_result_upload(
+    path: Path,
+    *,
+    job_id: str,
+    worker_id: str,
+    claim_token: str,
+) -> dict[str, Any]:
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    _validate_claim(job, worker_id=worker_id, claim_token=claim_token)
+    if job.get("job_type") != JOB_TYPE_ML_TRAIN:
+        raise ValueError("Worker job cannot upload ML training results.")
+    if job.get("status") != "running":
+        raise ValueError("Worker ML result is not accepted in the current job state.")
     return dict(job)
 
 

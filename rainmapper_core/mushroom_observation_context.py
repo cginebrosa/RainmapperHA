@@ -20,10 +20,11 @@ from typing import Any
 from rainmapper_core import mushroom_observations, mushroom_paths
 
 
-RAIN_WINDOWS_DAYS = (1, 7, 14, 21, 30, 60, 90)
+RAIN_WINDOWS_DAYS = (1, 7, 14, 21, 30)
 TEMPERATURE_WINDOWS_DAYS = (7, 14, 21, 30)
 HUMIDITY_WINDOWS_DAYS = (7, 14, 21, 30)
 SUMMARY_WINDOW_DAYS = 7
+DAILY_SERIES_DAYS = 30
 # Data-quality guard only. Values above this are kept out of experimental
 # weather sums and reported as gaps; this is not a mushroom predictor threshold.
 DAILY_RAIN_SANITY_LIMIT_MM = 300.0
@@ -45,6 +46,7 @@ CSV_FIELDS = (
     "validation_status",
     "calibration_use",
     "source_quality",
+    "micro_area_id",
     "latitude",
     "longitude",
     "altitude_m",
@@ -60,8 +62,6 @@ CSV_FIELDS = (
     "rain_14d_mm",
     "rain_21d_mm",
     "rain_30d_mm",
-    "rain_60d_mm",
-    "rain_90d_mm",
     "temp_min_7d_c",
     "temp_max_7d_c",
     "temp_mean_7d_c",
@@ -95,6 +95,14 @@ CSV_FIELDS = (
     "wind_avg_kmh",
     "wind_gust_kmh",
     "wind_direction_deg",
+    "dry_spell_days",
+    "days_since_significant_rain",
+    "rainy_days_14d",
+    "thermal_amplitude_mean_7d",
+    "thermal_amplitude_mean_14d",
+    "thermal_trend",
+    "heat_stress_days",
+    "high_humidity_days_14d",
     "data_gaps",
     "observed_host_ids",
     "observed_forest_type_ids",
@@ -104,6 +112,16 @@ CSV_FIELDS = (
 )
 
 PREDICTION_TARGET_POLICY_VERSION = "catalog_prediction_favorable_v1"
+
+JSON_EXTRA_FIELDS = (
+    "daily_rain_mm",
+    "daily_temp_min_c",
+    "daily_temp_max_c",
+    "daily_temp_mean_c",
+    "daily_humidity_min_pct",
+    "daily_humidity_max_pct",
+    "daily_humidity_mean_pct",
+)
 
 
 @dataclass(frozen=True)
@@ -460,15 +478,177 @@ def usable_rain_value(record: DailyWeatherRecord, gaps: list[str]) -> float | No
     return value
 
 
-def build_weather_values(station: WeatherStation, observed_day: date) -> tuple[dict[str, Any], list[str]]:
+def _consecutive_duplicate_rain_dates(sorted_records: list[DailyWeatherRecord]) -> set[date]:
+    """Return dates that repeat the previous calendar day's rain value (value > 0, exact match).
+
+    Wunderground stations sometimes carry forward the last known value when the sensor
+    stops reporting. Two or more consecutive days with exactly the same non-zero rain reading
+    are almost certainly an artifact, not real weather. Keep the first occurrence; nullify the rest.
+    Only applied to truly adjacent calendar days — a gap in the series resets the check.
+    """
+    duplicate_dates: set[date] = set()
+    for i in range(1, len(sorted_records)):
+        prev = sorted_records[i - 1]
+        curr = sorted_records[i]
+        if (
+            curr.day == prev.day + timedelta(days=1)
+            and prev.rain_mm is not None
+            and curr.rain_mm is not None
+            and curr.rain_mm > 0
+            and curr.rain_mm == prev.rain_mm
+        ):
+            duplicate_dates.add(curr.day)
+    return duplicate_dates
+
+
+def build_derived_features(
+    station: WeatherStation,
+    observed_day: date,
+    duplicate_dates: set | None = None,
+) -> dict[str, Any]:
+    """Compute 8 derived scalar features from the 30-day daily series."""
+    recs = station.records_by_day
+    dup = duplicate_dates or set()
+
+    def rain_of(d: date) -> float | None:
+        """Effective rain for a day: None if missing or a consecutive duplicate artifact."""
+        if d in dup or d not in recs:
+            return None
+        return recs[d].rain_mm
+
+    derived: dict[str, Any] = {
+        "dry_spell_days": None,
+        "days_since_significant_rain": None,
+        "rainy_days_14d": None,
+        "thermal_amplitude_mean_7d": None,
+        "thermal_amplitude_mean_14d": None,
+        "thermal_trend": None,
+        "heat_stress_days": None,
+        "high_humidity_days_14d": None,
+    }
+
+    # dry_spell_days: consecutive days without rain immediately before observed_day
+    dry_spell = 0
+    for delta in range(1, DAILY_SERIES_DAYS + 1):
+        check_day = observed_day - timedelta(days=delta)
+        v = rain_of(check_day)
+        if v is None:
+            break
+        if v > 0:
+            break
+        dry_spell += 1
+    derived["dry_spell_days"] = dry_spell
+
+    # days_since_significant_rain: days since last rain >= 5mm
+    for delta in range(1, DAILY_SERIES_DAYS + 1):
+        check_day = observed_day - timedelta(days=delta)
+        v = rain_of(check_day)
+        if v is not None and v >= 5.0:
+            derived["days_since_significant_rain"] = delta
+            break
+
+    # rainy_days_14d: count of days with rain > 2mm in last 14 days
+    window_14d = date_window(observed_day, 14)
+    rain_14d = [v for d in window_14d if (v := rain_of(d)) is not None]
+    if rain_14d:
+        derived["rainy_days_14d"] = sum(1 for v in rain_14d if v > 2.0)
+
+    # thermal_amplitude_mean_7d and _14d
+    for amp_days in (7, 14):
+        window = date_window(observed_day, amp_days)
+        amplitudes = [
+            recs[d].temp_max_c - recs[d].temp_min_c
+            for d in window
+            if d in recs and recs[d].temp_max_c is not None and recs[d].temp_min_c is not None
+        ]
+        derived[f"thermal_amplitude_mean_{amp_days}d"] = round_or_none(mean(amplitudes), 2) if amplitudes else None
+
+    # thermal_trend: temp_mean_7d minus temp_mean of days 8-30
+    def day_tmean(d: date) -> float | None:
+        rec = recs.get(d)
+        if rec and rec.temp_max_c is not None and rec.temp_min_c is not None:
+            return (rec.temp_max_c + rec.temp_min_c) / 2.0
+        return None
+
+    recent_temps = [t for d in date_window(observed_day, 7) if (t := day_tmean(d)) is not None]
+    older_temps = [
+        t
+        for delta in range(8, DAILY_SERIES_DAYS + 1)
+        if (t := day_tmean(observed_day - timedelta(days=delta))) is not None
+    ]
+    if recent_temps and older_temps:
+        derived["thermal_trend"] = round_or_none(mean(recent_temps) - mean(older_temps), 2)
+
+    # heat_stress_days: consecutive days with temp_max > 28°C immediately before observed_day
+    heat_days = 0
+    for delta in range(1, DAILY_SERIES_DAYS + 1):
+        check_day = observed_day - timedelta(days=delta)
+        if check_day not in recs or recs[check_day].temp_max_c is None:
+            break
+        if recs[check_day].temp_max_c > 28.0:
+            heat_days += 1
+        else:
+            break
+    derived["heat_stress_days"] = heat_days
+
+    # high_humidity_days_14d: days with humidity_mean > 80% in last 14 days
+    hum_14d = [
+        (recs[d].humidity_min_pct + recs[d].humidity_max_pct) / 2.0
+        for d in window_14d
+        if d in recs and recs[d].humidity_min_pct is not None and recs[d].humidity_max_pct is not None
+    ]
+    if hum_14d:
+        derived["high_humidity_days_14d"] = sum(1 for v in hum_14d if v > 80.0)
+
+    return derived
+
+
+def build_daily_series(
+    station: WeatherStation,
+    observed_day: date,
+    duplicate_dates: set | None = None,
+) -> dict[str, list]:
+    """Build daily series arrays for the last DAILY_SERIES_DAYS days (oldest first)."""
+    dup = duplicate_dates or set()
+    days = sorted(date_window(observed_day, DAILY_SERIES_DAYS))
+    recs = station.records_by_day
+    daily: dict[str, list] = {k: [] for k in JSON_EXTRA_FIELDS}
+    for d in days:
+        rec = recs.get(d)
+        daily["daily_rain_mm"].append(rec.rain_mm if (rec and d not in dup) else None)
+        daily["daily_temp_min_c"].append(rec.temp_min_c if rec else None)
+        daily["daily_temp_max_c"].append(rec.temp_max_c if rec else None)
+        if rec and rec.temp_min_c is not None and rec.temp_max_c is not None:
+            daily["daily_temp_mean_c"].append(round((rec.temp_min_c + rec.temp_max_c) / 2.0, 2))
+        else:
+            daily["daily_temp_mean_c"].append(None)
+        daily["daily_humidity_min_pct"].append(rec.humidity_min_pct if rec else None)
+        daily["daily_humidity_max_pct"].append(rec.humidity_max_pct if rec else None)
+        if rec and rec.humidity_min_pct is not None and rec.humidity_max_pct is not None:
+            daily["daily_humidity_mean_pct"].append(round((rec.humidity_min_pct + rec.humidity_max_pct) / 2.0, 2))
+        else:
+            daily["daily_humidity_mean_pct"].append(None)
+    return daily
+
+
+def build_weather_values(
+    station: WeatherStation,
+    observed_day: date,
+    duplicate_dates: set | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    dup = duplicate_dates or set()
     values: dict[str, Any] = {}
     gaps: list[str] = []
+    if dup:
+        for d in sorted(dup):
+            gaps.append(f"rain_suspect_consecutive_{d.strftime('%Y%m%d')}")
     for days in RAIN_WINDOWS_DAYS:
         records = records_for_window(station, observed_day, days)
         rain_values = [
             rain_value
             for record in records
-            if (rain_value := usable_rain_value(record, gaps)) is not None
+            if record.day not in dup
+            and (rain_value := usable_rain_value(record, gaps)) is not None
         ]
         values[f"rain_{days}d_mm"] = round_or_none(sum(rain_values), 2) if rain_values else None
         if len(rain_values) < days:
@@ -542,6 +722,7 @@ def build_observation_weather_row(
         "validation_status": str(observation.get("validation_status", "") or ""),
         "calibration_use": str(observation.get("calibration_use", "") or ""),
         "source_quality": observation.get("source_quality"),
+        "micro_area_id": str(observation.get("micro_area_id", "") or "") or None,
         "latitude": lat,
         "longitude": lon,
         "altitude_m": observation_altitude(observation),
@@ -559,6 +740,17 @@ def build_observation_weather_row(
         "observed_aspect_ids": observed_site_context_ids(observation, "observed_aspect_ids"),
     }
     gaps: list[str] = []
+    for key in (
+        "dry_spell_days",
+        "days_since_significant_rain",
+        "rainy_days_14d",
+        "thermal_amplitude_mean_7d",
+        "thermal_amplitude_mean_14d",
+        "thermal_trend",
+        "heat_stress_days",
+        "high_humidity_days_14d",
+    ):
+        row[key] = None
     for days in RAIN_WINDOWS_DAYS:
         row[f"rain_{days}d_mm"] = None
     for days in TEMPERATURE_WINDOWS_DAYS:
@@ -596,8 +788,14 @@ def build_observation_weather_row(
         row["data_gaps"] = gaps
         return row
 
-    weather_values, weather_gaps = build_weather_values(station, observed_day)
+    all_records_30d = records_for_window(station, observed_day, DAILY_SERIES_DAYS)
+    dup_dates = _consecutive_duplicate_rain_dates(all_records_30d)
+    weather_values, weather_gaps = build_weather_values(station, observed_day, dup_dates)
+    derived_values = build_derived_features(station, observed_day, dup_dates)
+    daily_series = build_daily_series(station, observed_day, dup_dates)
     row.update(weather_values)
+    row.update(derived_values)
+    row.update(daily_series)
     row.update(
         {
             "weather_source": station.source,
@@ -622,7 +820,11 @@ def load_observations(path: Path) -> list[dict[str, Any]]:
 
 
 def json_safe_row(row: dict[str, Any]) -> dict[str, Any]:
-    return {key: row.get(key) for key in CSV_FIELDS}
+    result = {key: row.get(key) for key in CSV_FIELDS}
+    for key in JSON_EXTRA_FIELDS:
+        if key in row:
+            result[key] = row[key]
+    return result
 
 
 def csv_value(value: object) -> str:

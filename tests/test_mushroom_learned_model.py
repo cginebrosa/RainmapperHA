@@ -21,6 +21,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_normal",
                                 "species_id": "boletus_aereus",
+                                "micro_area_id": "area_a",
+                                "observed_at": "2023-10-15T10:00:00",
                                 "analysis_result": "present",
                                 "prediction_target": "favorable",
                                 "flush_abundance": "normal",
@@ -30,6 +32,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_scarce",
                                 "species_id": "boletus_aereus",
+                                "micro_area_id": "area_b",
+                                "observed_at": "2023-10-16T10:00:00",
                                 "analysis_result": "present",
                                 "prediction_target": "unfavorable",
                                 "flush_abundance": "scarce",
@@ -63,6 +67,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_1",
                                 "species_id": "boletus_aereus",
+                                "micro_area_id": "area_a",
+                                "observed_at": "2023-10-15T10:00:00",
                                 "analysis_result": "present",
                                 "validation_status": "valid",
                                 "calibration_use": "include",
@@ -77,6 +83,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_2",
                                 "species_id": "boletus_aereus",
+                                "micro_area_id": "area_b",
+                                "observed_at": "2023-10-16T10:00:00",
                                 "analysis_result": "absent",
                                 "validation_status": "valid",
                                 "calibration_use": "include",
@@ -91,6 +99,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_3",
                                 "species_id": "boletus_aereus",
+                                "micro_area_id": "area_c",
+                                "observed_at": "2023-10-17T10:00:00",
                                 "analysis_result": "present",
                                 "validation_status": "valid",
                                 "calibration_use": "include",
@@ -102,6 +112,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_4",
                                 "species_id": "boletus_aereus",
+                                "micro_area_id": "area_d",
+                                "observed_at": "2023-10-18T10:00:00",
                                 "analysis_result": "present",
                                 "validation_status": "draft",
                                 "calibration_use": "include",
@@ -120,6 +132,7 @@ class MushroomLearnedModelTests(unittest.TestCase):
             altitude = model["numeric_features"]["altitude_m"]
             rain = model["numeric_features"]["rain_14d_mm"]
 
+            self.assertEqual(payload["summary"]["episodes"], 3)
             self.assertEqual(payload["summary"]["observations"], 3)
             self.assertEqual(payload["summary"]["source_observations"], 4)
             self.assertEqual(payload["summary"]["excluded_observations"], 1)
@@ -154,6 +167,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_1",
                                 "species_id": "x",
+                                "micro_area_id": "area_a",
+                                "observed_at": "2023-10-15T10:00:00",
                                 "analysis_result": "present",
                                 "validation_status": "valid",
                                 "calibration_use": "include",
@@ -193,6 +208,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_1",
                                 "species_id": "amanita_caesarea",
+                                "micro_area_id": "area_a",
+                                "observed_at": "2023-10-15T10:00:00",
                                 "analysis_result": "present",
                                 "validation_status": "valid",
                                 "calibration_use": "include",
@@ -201,6 +218,8 @@ class MushroomLearnedModelTests(unittest.TestCase):
                             {
                                 "observation_id": "obs_2",
                                 "species_id": "boletus_aereus",
+                                "micro_area_id": "area_b",
+                                "observed_at": "2023-10-15T10:00:00",
                                 "analysis_result": "present",
                                 "validation_status": "valid",
                                 "calibration_use": "include",
@@ -239,6 +258,149 @@ class MushroomLearnedModelTests(unittest.TestCase):
             self.assertEqual(amanita_hosts, {"host_castanea_sativa"})
             self.assertEqual(boletus_hosts, {"host_quercus_suber"})
             self.assertEqual(payload["last_species_rebuild"]["species_id"], "amanita_caesarea")
+
+    def test_episode_consolidation_same_day_same_area(self) -> None:
+        """Two obs same day/area/species → 1 episode; favorable wins."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            features_path = Path(temp_dir) / "features.json"
+            features_path.write_text(
+                json.dumps({
+                    "rows": [
+                        {
+                            "observation_id": "obs_a",
+                            "species_id": "boletus_aereus",
+                            "micro_area_id": "olvan_north",
+                            "observed_at": "2023-10-15T10:00:00",
+                            "prediction_target": "unfavorable",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                            "host_ids": ["host_quercus_ilex"],
+                            "host_sources": {"host_quercus_ilex": ["field"]},
+                        },
+                        {
+                            "observation_id": "obs_b",
+                            "species_id": "boletus_aereus",
+                            "micro_area_id": "olvan_north",
+                            "observed_at": "2023-10-15T16:00:00",
+                            "prediction_target": "favorable",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                            "host_ids": ["host_quercus_suber"],
+                            "host_sources": {"host_quercus_suber": ["gis"]},
+                        },
+                    ]
+                }),
+                encoding="utf-8",
+            )
+            payload = mushroom_learned_model.build_learned_model_v0(features_path)
+            model = payload["species_models"][0]
+            self.assertEqual(payload["summary"]["episodes"], 1)
+            self.assertEqual(payload["summary"]["favorable_observations"], 1)
+            self.assertEqual(payload["summary"]["unfavorable_observations"], 0)
+            self.assertEqual(model["episode_count"], 1)
+            self.assertEqual(model["favorable_count"], 1)
+            hosts = {item["id"] for item in model["categorical_features"]["hosts"]}
+            self.assertIn("host_quercus_ilex", hosts)
+            self.assertIn("host_quercus_suber", hosts)
+
+    def test_episode_consolidation_different_days_are_separate_episodes(self) -> None:
+        """Same area/species but different days → 2 independent episodes."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            features_path = Path(temp_dir) / "features.json"
+            features_path.write_text(
+                json.dumps({
+                    "rows": [
+                        {
+                            "observation_id": "obs_a",
+                            "species_id": "boletus_aereus",
+                            "micro_area_id": "olvan_north",
+                            "observed_at": "2023-10-15T10:00:00",
+                            "prediction_target": "favorable",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                        },
+                        {
+                            "observation_id": "obs_b",
+                            "species_id": "boletus_aereus",
+                            "micro_area_id": "olvan_north",
+                            "observed_at": "2023-10-22T10:00:00",
+                            "prediction_target": "unfavorable",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                        },
+                    ]
+                }),
+                encoding="utf-8",
+            )
+            payload = mushroom_learned_model.build_learned_model_v0(features_path)
+            self.assertEqual(payload["summary"]["episodes"], 2)
+            self.assertEqual(payload["summary"]["favorable_observations"], 1)
+            self.assertEqual(payload["summary"]["unfavorable_observations"], 1)
+
+    def test_episode_consolidation_no_area_excluded(self) -> None:
+        """Obs without micro_area_id are excluded from training."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            features_path = Path(temp_dir) / "features.json"
+            features_path.write_text(
+                json.dumps({
+                    "rows": [
+                        {
+                            "observation_id": "obs_with_area",
+                            "species_id": "boletus_aereus",
+                            "micro_area_id": "olvan_north",
+                            "observed_at": "2023-10-15T10:00:00",
+                            "prediction_target": "favorable",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                        },
+                        {
+                            "observation_id": "obs_no_area",
+                            "species_id": "boletus_aereus",
+                            "micro_area_id": None,
+                            "observed_at": "2023-10-16T10:00:00",
+                            "prediction_target": "favorable",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                        },
+                    ]
+                }),
+                encoding="utf-8",
+            )
+            payload = mushroom_learned_model.build_learned_model_v0(features_path)
+            self.assertEqual(payload["summary"]["episodes"], 1)
+            self.assertEqual(payload["summary"]["excluded_no_area"], 1)
+
+    def test_episode_consolidation_different_areas_same_day_are_separate(self) -> None:
+        """Same species/day but different micro_area_id → 2 episodes."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            features_path = Path(temp_dir) / "features.json"
+            features_path.write_text(
+                json.dumps({
+                    "rows": [
+                        {
+                            "observation_id": "obs_north",
+                            "species_id": "boletus_aereus",
+                            "micro_area_id": "olvan_north",
+                            "observed_at": "2023-10-15T10:00:00",
+                            "prediction_target": "favorable",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                        },
+                        {
+                            "observation_id": "obs_south",
+                            "species_id": "boletus_aereus",
+                            "micro_area_id": "olvan_south",
+                            "observed_at": "2023-10-15T10:00:00",
+                            "prediction_target": "unfavorable",
+                            "validation_status": "valid",
+                            "calibration_use": "include",
+                        },
+                    ]
+                }),
+                encoding="utf-8",
+            )
+            payload = mushroom_learned_model.build_learned_model_v0(features_path)
+            self.assertEqual(payload["summary"]["episodes"], 2)
 
 
 if __name__ == "__main__":

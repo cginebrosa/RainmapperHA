@@ -42,6 +42,32 @@ Dataset al 2026-08-02 (tras importacion masiva de fotos de campo):
   con incertidumbre alta; 66+ es comodo; ≥20 se usa como criterio de entrada
   al primer modelo.
 
+### Estado tras revision (2026-08-03)
+
+Tras la primera pasada de revision manual de las 646 observaciones importadas:
+
+- **587 observaciones** en el store (reduccion respecto a 772 por archivado/fusiones).
+- **423 validas** (`validation_status=valid`): la observacion de especie, fecha y
+  lugar esta confirmada.
+- **191 validas con `calibration_use=review`**: validacion de especie confirmada pero
+  florada pendiente de rellenar por el usuario (`flush_abundance=pending`).
+  Estas observaciones proceden de la identificacion automatica desde fotografias;
+  el usuario todavia no ha registrado cuantos ejemplares encontro. **No cuentan
+  como ausencias**: quedan excluidas del entrenamiento automaticamente por
+  `calibration_use != include`, no por su `flush_abundance`.
+- **232 validas con `calibration_use=include`**: especie y florada confirmadas,
+  aptas para entrenamiento si tienen `micro_area_id` asignada.
+- **158 draft**: observaciones pendientes de revision completa; no entran en ningun
+  calculo.
+
+Bloqueos activos para ampliar el dataset de entrenamiento:
+
+1. **Rellenar florada en las 191 obs con `calibration_use=review`**: son visitas reales
+   con especie confirmada; en cuanto el usuario registre la florada observada y pase
+   `calibration_use` a `include`, entraran al entrenamiento.
+2. **Asignar `micro_area_id` a 65 obs validas** que aun no tienen setal asignado.
+3. **Revisar las 158 obs en draft**: confirmar especie y florada para que pasen a valid.
+
 Primer objetivo: clasificacion binaria de fructificacion visible:
 `not_detected_with_known_search=0`, `detected=1`.
 Evolucion posterior: abundancia ordinal desde `absent` hasta `exceptional`.
@@ -71,10 +97,102 @@ independientes, tengan o no fotografia asociada.
 El dataset generara un `episode_id` interno y reproducible desde esos campos. No
 es necesario pedir al usuario un identificador de salida.
 
+**Implementado (2026-08-02):** `mushroom_learned_model.py` consolida las filas de
+entrenamiento en episodios antes de construir el modelo V0, mediante
+`consolidate_to_episodes`. La clave de episodio es `(species_id, micro_area_id, date)`.
+Politica de consolidacion:
+- `prediction_target`: favorable si alguna observacion del episodio es favorable.
+- Variables categoricas (hosts, bosques, suelos, habitat, aspecto): union de todos los
+  valores del episodio con trazabilidad de fuente (`field`/`gis`).
+- Variables numericas meteorologicas: se toma la observacion de mejor `source_quality`,
+  pues todas comparten meteorologia del mismo dia.
+- `episode_observation_ids`: lista de IDs de observacion originales, para trazabilidad.
+
+Observaciones sin `micro_area_id` quedan excluidas del entrenamiento: sin area
+no hay clave de episodio. El campo `excluded_no_area` del artefacto registra cuantas.
+`micro_area_id` ahora fluye desde la observacion hasta el artefacto de features v0
+a traves de `mushroom_observation_context.py` y `mushroom_observation_features.py`.
+
 Una no deteccion debe conservar, cuando sea posible, zona o recorrido, duracion o
 nivel de esfuerzo, habitat inspeccionado y calidad del observador. Las no
 detecciones casuales o sin esfuerzo conocido no deben tener el mismo valor de
 entrenamiento que una busqueda dirigida en habitat compatible.
+
+## Elegibilidad para entrenamiento
+
+Una observacion (fila de features v0) entra al entrenamiento si cumple las cuatro
+condiciones de `is_training_row` en `mushroom_learned_model.py`:
+
+```python
+validation_status == "valid"
+and calibration_use == "include"
+and prediction_target in {"favorable", "unfavorable"}
+and micro_area_id is not None   # requerido para clave de episodio
+```
+
+### prediction_target y la politica del catalogo
+
+`prediction_target` no se guarda directamente en la observacion: se deriva en el
+momento de construir el artefacto de features, a partir de `flush_abundance` y
+del campo `prediction_favorable` del catalogo `observation_flush_abundance`.
+
+El codigo que materializa esta derivacion es `prediction_target()` en
+`mushroom_observation_context.py`. Cada artefacto generado conserva el mapping
+exacto y su SHA-256 para que un cambio futuro del catalogo no altere
+silenciosamente la interpretacion de un modelo ya generado.
+
+Mapeo vigente del catalogo (campo `prediction_favorable`):
+
+| flush_abundance | prediction_favorable | prediction_target |
+|-----------------|----------------------|-------------------|
+| exceptional     | 1                    | favorable         |
+| very_abundant   | 1                    | favorable         |
+| abundant        | 1                    | favorable         |
+| normal          | 1                    | favorable         |
+| scarce          | 1                    | favorable         |
+| very_scarce     | 0                    | unfavorable       |
+| absent          | 0                    | unfavorable       |
+| pending         | 0 (en catalogo)      | **excluida via calibration_use** |
+
+**Sobre `pending`:** aunque el catalogo define `pending.prediction_favorable=0`,
+estas observaciones nunca llegan al filtro de `prediction_target` porque el
+flujo de trabajo las mantiene en `calibration_use=review`. `pending` significa
+"el usuario no ha registrado todavia cuantos ejemplares encontro", no "ausencia
+confirmada". En cuanto el usuario rellena la florada, `calibration_use` pasa a
+`include` y la observacion entra al entrenamiento con el target correcto.
+
+### Estado del dataset de entrenamiento (2026-08-03)
+
+Episodios disponibles por especie tras aplicar los cuatro criterios:
+
+| Especie                     | Ep. favorable | Ep. desfavorable | Total ep. |
+|-----------------------------|---------------|------------------|-----------|
+| Boletus aereus              | 31            | 21               | **52**    |
+| Amanita caesarea            | 23            | 24               | **47**    |
+| Boletus pinophilus          | 15            | 24               | **39**    |
+| Lactarius deliciosus        | 15            |  5               | **20**    |
+| Hygrophorus marzuolus       | 15            |  2               | **17**    |
+| Morchella elata complex     |  4            | 13               | **17**    |
+| Boletus edulis              |  5            |  9               | **14**    |
+| Cantharellus cibarius s.l.  |  3            |  5               |  **8**    |
+| Hygrophorus latitabundus    |  4            |  1               |  **5**    |
+| Resto de especies           |  —            |  —               |  ≤2 c/u   |
+
+Interpretacion:
+
+- **≥20 episodios con ambas clases representadas:** B. aereus, A. caesarea,
+  B. pinophilus. Son las unicas especies para las que tiene sentido intentar un
+  baseline binario ahora.
+- **10-19 episodios:** L. deliciosus, H. marzuolus, M. elata complex, B. edulis.
+  Soporte minimo; los resultados seran ruidosos pero el pipeline puede ejecutarse
+  para validar el proceso.
+- **<10 episodios:** no entrenar todavia; incorporar cuando crezca el dataset.
+- **Desequilibrio de clases:** H. marzuolus (15 fav / 2 desf) y L. deliciosus
+  (15 fav / 5 desf) tienen muy pocos negativos; un baseline mayoritario ya da
+  precision alta sin aprender nada.
+
+Este estado se actualiza manualmente al revisar el dataset. Para regenerarlo
+ejecutar el analisis de elegibilidad descrito arriba con los cuatro criterios.
 
 ## Zonas y setales conocidos
 
@@ -176,26 +294,39 @@ punto/fecha actual -> mismas features -> modelo guardado -> prediccion
 
 ### Computo externo y separacion de jobs
 
-Home Assistant seguira siendo la fuente de verdad de observaciones, setales,
+Home Assistant sigue siendo la fuente de verdad de observaciones, setales,
 catalogos, historicos y modelos operativos aceptados. Los calculos pesados
-podran ejecutarse en un worker Docker privado, inicialmente en el Mac M1,
-mediante la plataforma descrita en
-`mushroom-v0-external-worker-design-es.md`.
+se ejecutan en un worker Docker privado, inicialmente en el Mac M1, mediante la
+plataforma descrita en `mushroom-v0-external-worker-design-es.md`.
 
-El flujo remoto no sera un unico job monolitico:
+**Implementacion actual (2026-08-03):**
 
-1. `build_ml_dataset` genera contexto diario, episodios, features y un
-   `dataset_id` inmutable a partir de un `snapshot_id` de HA;
-2. `train_ml_model` reutiliza ese dataset con algoritmo, variables,
-   particiones, hiperparametros y semilla declarados;
-3. `evaluate_ml_model` compara candidatos o ejecuta backtesting sin modificar
-   el modelo activo.
+- `rebuild_v0` (tipo de job `worker_candidate_rebuild`): genera el artefacto de
+  features `mushroom_observation_features_v0.json` ejecutando las cuatro fases
+  (GIS/DEM, meteorologia, features, modelo V0 descriptivo). Existia antes del
+  entrenamiento ML.
+- `ml_train_v0` (tipo de job `worker_ml_train_v0`): toma el artefacto de features
+  generado por un rebuild, entrena un estimador LR+RF por especie y devuelve
+  los `.joblib` como paquete de resultados. El operador los promociona manualmente.
+  Script: `scripts/run-mushroom-ml-train-job.py`.
+  Imagen worker: instala `numpy==2.4.6 pandas==2.2.2 scikit-learn==1.9.0`.
 
-De este modo varios entrenamientos no repiten GIS/DEM, meteorologia ni
-transferencia de datos vivos. El worker solo sube paquetes de resultados; no
-escribe directamente en `/share`. HA valida hashes, schemas y compatibilidad y
-registra el resultado como candidato. Ningun entrenamiento promociona un modelo
-automaticamente.
+**Separacion de jobs (diseno):** varios entrenamientos sobre el mismo artefacto de
+features no repiten GIS/DEM ni meteorologia. El campo `triggered_by_job_id` esta
+reservado para chaining automatico futuro (rebuild → train); de momento el trigger
+es siempre manual. El `work_key` `"ml_train:v0:{features_digest}"` impide duplicar
+un job activo sobre el mismo artefacto.
+
+**Jobs futuros no implementados todavia:**
+
+- `build_ml_dataset`: generara un `dataset_id` inmutable con particiones declaradas,
+  separando la preparacion del dataset del entrenamiento.
+- `evaluate_ml_model`: backtesting y comparacion de candidatos sin modificar el
+  modelo activo.
+
+El worker solo sube paquetes de resultados; no escribe directamente en `/share`.
+HA valida hashes y schemas antes de aceptar el paquete. Ningun entrenamiento
+promociona un modelo automaticamente.
 
 Si los datos vivos cambian durante un entrenamiento, el run puede conservarse
 como experimento reproducible ligado al snapshot y dataset originales, marcado
@@ -232,6 +363,20 @@ Primer subconjunto orientativo, limitado a unas 8-10 variables:
 - altitud;
 - mes circular, representado por seno y coseno.
 
+**Sobre hosts y variables categoricas en el modelo V0 actual:** el modelo V0 no
+tiene limite de hosts ni aplica seleccion de variables. Para cada host calcula
+`positive_support`, `negative_support` y `ratio_delta` de forma independiente.
+Cuantos mas hosts distintos, mas filas en la tabla descriptiva, pero no hay
+penalizacion ni problema de dimensionalidad porque el V0 no es un estimador
+estadistico. El unico riesgo es interpretativo: un host con soporte 1/0 tiene
+`ratio_delta=+1.0` que no significa nada — hay que mirar siempre el soporte.
+
+Para el modelo ML real (segunda fase) si habra que tomar decisiones: agrupar hosts
+raros en una categoria "other", usar codificacion one-hot o embeddings, y aplicar
+seleccion de features para evitar sobreajuste con muestras pequeñas. Con el dataset
+actual esto es prematuro; conviene esperar a tener el conjunto confirmado tras
+revisar las 646 observaciones en estado `review`.
+
 La cobertura/calidad meteorologica se conserva para aceptar, rechazar o ponderar
 episodios y para interpretar resultados. No tiene que entrar como predictor del
 fenomeno biologico en el primer modelo.
@@ -245,43 +390,58 @@ test final, porque produciria resultados optimistas por sobreajuste.
 
 ### Serie meteorologica diaria
 
-Conservar la serie diaria original, inicialmente hasta 60-90 dias previos, con
-fuente, estacion, distancia, cobertura, gaps y valores sospechosos.
+**Ventana acordada (2026-08-03): 30 dias de datos diarios.** El ciclo completo
+de inicio-maximo-fin de una florada dura aproximadamente 2 semanas; datos de
+hace 60-90 dias pertenecen a un ciclo distinto y anaden ruido. Los acumulados
+largos (60/90 d) quedan fuera del artefacto de entrenamiento ML.
 
-Lluvia:
+Datos diarios almacenados (30 dias previos a cada episodio):
+- lluvia diaria (mm);
+- temperatura minima, maxima y media diaria (grados C);
+- humedad minima, maxima y media diaria (%).
 
-- lluvia diaria reciente;
-- acumulados 3/7/14/21/30/60/90 dias;
-- maximo diario y numero de dias con lluvia;
-- dias desde la ultima lluvia;
-- racha seca reciente y maxima;
-- concentracion de lluvia en los 1/3/5 dias mas lluviosos;
-- variabilidad diaria y distribucion temporal.
+Acumulados comprimidos conservados (ventanas cortas utiles como features directas):
+- acumulados 7/14/21/30 dias de lluvia, temperatura y humedad.
 
-Temperatura:
+Los acumulados de 60/90 dias del artefacto v0 actual se eliminan del contrato
+de features v1 ML.
 
-- minima, maxima y media diaria;
-- medias, minimos y maximos en 3/7/14/21/30 dias;
-- amplitud termica diaria;
-- variabilidad entre dias;
-- mayor subida y bajada entre dias consecutivos;
-- tendencia reciente.
+**Features derivadas acordadas (2026-08-03)** — calculadas durante el rebuild
+a partir de la serie diaria antes de descartar el detalle diario:
 
-Humedad, cuando haya cobertura suficiente:
+De lluvia:
+- `dry_spell_days`: dias consecutivos sin lluvia inmediatamente antes del episodio;
+- `days_since_significant_rain`: dias desde el ultimo evento mayor o igual a 5 mm;
+- `rainy_days_14d`: numero de dias con lluvia mayor a 2 mm en los ultimos 14 dias
+  (captura si la lluvia fue distribuida o concentrada en un aguacero puntual).
 
-- media, minima y maxima;
-- medias y variabilidad en 7/14/21/30 dias;
-- secuencias diarias y gaps.
+De temperatura:
+- `thermal_amplitude_mean_7d`: media de (temp_max menos temp_min) por dia en los
+  ultimos 7 dias;
+- `thermal_amplitude_mean_14d`: idem para 14 dias;
+- `thermal_trend`: temp_mean_7d menos media de temp_mean de los dias 8-30
+  (negativo = enfriando, positivo = calentando);
+- `heat_stress_days`: dias consecutivos con temperatura maxima mayor a 28 grados C
+  inmediatamente antes del episodio.
 
-La humedad relativa y un futuro balance hidrico son variables candidatas, no
-predictores demostrados especificamente para `boletus_aereus`. Pueden representar
-conservacion de agua o secado, pero deben justificar su permanencia mediante
-validacion local.
+De humedad:
+- `high_humidity_days_14d`: dias con humedad media mayor a 80% en los ultimos 14 dias.
 
-No se fijaran umbrales de lluvia, temperatura o cambio brusco por intuicion. Si
-se prueban variables basadas en umbral, el valor debe aprenderse dentro del
-entrenamiento o declararse como umbral experimental y validarse sin fuga de
-datos.
+**Razon de estas features:** el modelo puede aprender patrones que las sumas
+acumuladas no expresan directamente, como la presencia de sequia reciente, si
+esta enfriando, o si la lluvia fue en un dia o repartida. El umbral exacto
+(28 grados, 5 mm, 2 mm, 80%) no debe tratarse como verdad calibrada: son
+puntos de partida razonables que el modelo puede confirmar o ignorar.
+
+**El modelo no sabe de antemano que ventana meteorologica importa para cada
+especie.** Por eso se le proporcionan ventanas multiples (7/14/21/30 dias) y
+features derivadas: el modelo descubrira cuales tienen poder predictivo real
+para cada especie sin que se pre-impongan hipotesis sobre los tiempos de
+respuesta del micelio.
+
+No se fijaran umbrales por intuicion. Si se usan variables basadas en umbral,
+el valor debe aprenderse dentro del entrenamiento o declararse como umbral
+experimental y validarse sin fuga de datos.
 
 ### Contexto espacial y ecologico
 
@@ -356,10 +516,21 @@ Cada build debe registrar:
 
 ## Entrenamiento y validacion
 
-El primer baseline sera una regresion logistica regularizada. Se podra comparar
-con un arbol pequeno u otro modelo tabular explicable cuando haya muestra
-suficiente. No usar redes neuronales ni modelos temporales complejos con la
-muestra actual.
+**Eleccion de algoritmo (2026-08-03):** el objetivo no es solo clasificar sino
+descubrir que features y que ventanas temporales importan para cada especie.
+Por eso se usan dos modelos complementarios:
+
+1. **Regresion logistica regularizada (L1/L2):** baseline interpretable.
+   Los coeficientes muestran directamente que variables empuja hacia favorable
+   o desfavorable. Util para detectar si el modelo aprende algo con sentido.
+2. **Random forest o gradient boosting:** captura relaciones no lineales
+   (por ejemplo, "necesita lluvia Y temperatura baja, no solo una de las dos")
+   y produce importancia de features que revela que ventanas y derivadas usa
+   el modelo. Preferible cuando el numero de features supera ~20.
+
+Con ~50 features (30 dias diarios + acumulados + derivadas) y 50-60 episodios
+por especie, ambos modelos necesitan regularizacion agresiva. No usar redes
+neuronales ni modelos temporales complejos con la muestra actual.
 
 La separacion de validacion se hara por `episode_id`, fecha o `micro_area_id`,
 nunca por observacion aleatoria. Observaciones correlacionadas del mismo setal y

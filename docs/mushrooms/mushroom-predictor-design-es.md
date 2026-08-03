@@ -1,6 +1,15 @@
 # Diseño del predictor de floradas de setas
 
-Versión del documento: borrador 0.1
+Versión del documento: borrador 0.1 (motor y UI implementados; ver estado por fase abajo)
+
+**Estado de implementacion (2026-08-03):**
+- Fase 1 (features pipeline): DONE — `mushroom_observation_features.py`, ventana 30d, 40 features.
+- Fase 2 (trainer): DONE — `mushroom_ml_trainer.py`, LR+RF, joblib por especie.
+- Fase 3 (predictor engine): DONE — `mushroom_ml_predictor.py`, 4 modos de consulta.
+- Fase 4 (UI): DONE — `mushroom_predictor_ui.py`, 4 vistas (semana, especie, fecha, historial).
+- Worker job `ml_train_v0`: DONE — entrenamiento via worker externo con promocion manual.
+- Backtest B. aereus: 59% accuracy (22/37 episodios). B. pinophilus: 36% (overfitting, pocos datos).
+- Pendiente: revisar 191 obs en estado `review` para ampliar el dataset de entrenamiento.
 
 Ficheros relacionados:
 
@@ -135,15 +144,20 @@ Entrada actual:
 Salida actual:
 
 - un bloque por especie;
-- numero de observaciones usadas;
-- separacion entre observaciones favorables y desfavorables segun el objetivo
+- numero de episodios usados (unidad `species_id + micro_area_id + fecha`), no
+  observaciones brutas; varias fotos de la misma salida cuentan como un episodio;
+- separacion entre episodios favorables y desfavorables segun el objetivo
   operativo derivado de la florada;
-- soporte de variables categoricas: cuantas favorables/desfavorables contienen cada
-  host, bosque, suelo o rasgo de habitat;
-- ratios favorable/desfavorable cuando hay datos suficientes;
+- soporte de variables categoricas: cuantos episodios favorables/desfavorables
+  contienen cada host, bosque, suelo o rasgo de habitat; los hosts de distintas
+  observaciones del mismo episodio se unen antes de contar;
+- ratios favorable/desfavorable cuando hay datos suficientes; un ratio calculado
+  sobre soporte 1 no es interpretable — hay que revisar siempre el soporte;
 - rangos numericos observados en favorables y desfavorables: minimo, maximo y media
   para altitud, lluvia, temperatura y humedad;
-- gaps agregados por especie.
+- gaps agregados por especie;
+- `excluded_no_area`: observaciones excluidas por no tener `micro_area_id`
+  asignada; sin area no hay clave de episodio.
 
 El objetivo se materializa en los artefactos como `prediction_target`, pero la
 fuente de verdad continua siendo `flush_abundance`. La correspondencia se lee
@@ -800,15 +814,102 @@ Riesgos y decisiones pendientes:
 
 Regla importante: estas observaciones externas deben quedar separadas conceptualmente de observaciones validadas. Sirven para acelerar captura, no para modificar parametros sin revision humana.
 
-## 12. Decisiones pendientes
+## 12. Capacidades de consulta acordadas para el predictor (2026-08-03)
+
+Este apartado documenta las consultas que el predictor debe ser capaz de
+responder una vez que el modelo ML este entrenado. La UI necesitara una
+pantalla nueva ("Predictor") separada de Observaciones.
+
+### 12.1 Consultas principales
+
+**Consulta por micro_area y fecha:**
+```text
+especie + micro_area_id + fecha -> probabilidad de florada favorable
+```
+Caso de uso principal. El modelo calcula las mismas features que se usaron en
+entrenamiento (meteorologia desde historicos + GIS del setal) y devuelve la
+prediccion con su probabilidad.
+
+**Ranking de micro_areas para una fecha:**
+```text
+especie + fecha -> lista de micro_areas ordenadas por probabilidad
+```
+El usuario no elige setal: el predictor calcula la prediccion para todas las
+micro_areas donde esa especie tiene historico y devuelve un ranking. Util para
+decidir donde ir sin un setal concreto en mente.
+
+**Prediccion a nivel de area:**
+```text
+especie + area_id + fecha -> prediccion agregada del area
+```
+Un area contiene varias micro_areas cercanas. La prediccion de area se deriva
+agregando las predicciones de sus micro_areas (media, maximo o mayoria segun
+se decida). Dado que las micro_areas de un area estan muy proximas y comparten
+meteorologia, la agregacion es suficiente: no hace falta entrenar un modelo
+separado a nivel de area.
+
+**Ventana temporal (proxima semana):**
+```text
+especie + micro_area_id + ventana [fecha_inicio, fecha_fin]
+  -> prediccion por dia de la ventana
+```
+Para responder "cual es el mejor dia de la semana que viene", el predictor
+ejecuta la consulta por micro_area para cada dia de la ventana y devuelve
+una vista de calendario.
+
+**No se necesita forecast meteorologico.** El modelo aprende el tiempo que
+tarda en salir una florada desde que se dan las condiciones: el efecto
+meteorologico relevante ya ha ocurrido dias o semanas antes de la florada.
+Para predecir si pasado manana es buen dia, el modelo usa los 30 dias
+anteriores a esa fecha, de los cuales 28 ya han pasado y estan en los
+historicos. El modelo nunca necesita saber que va a pasar meteorologicamente
+en el futuro: aprende patrones del pasado reciente que anticipan la florada.
+
+### 12.2 Validacion retrospectiva (backtesting)
+
+El usuario conoce las visitas reales y sus resultados. El predictor puede
+ejecutarse sobre fechas y setales del pasado donde existen observaciones con
+`prediction_target` conocido y comparar la prediccion con lo que realmente
+ocurrio. Esto permite:
+
+- estimar precision/recall reales en condiciones de uso (no solo en validacion
+  de entrenamiento);
+- detectar setales o periodos donde el modelo falla sistematicamente;
+- ganar o perder confianza en el modelo antes de usarlo para planificar salidas.
+
+La vista de backtesting muestra para cada episodio historico: la prediccion
+que habria dado el modelo, el resultado real, y si acerto o no.
+
+### 12.3 Lo que el modelo aprende (principio de diseno)
+
+El modelo no recibe reglas del tipo "los boletus necesitan lluvia 21 dias antes".
+Recibe series meteorologicas de 30 dias (lluvia, temperatura, humedad diarios),
+acumulados de ventanas multiples (7/14/21/30 d) y features derivadas que
+compactan patrones clave (sequia consecutiva, tendencia termica, lluvia
+distribuida vs puntual). A partir de ahi aprende por si solo que ventanas y
+que combinaciones de variables predicen mejor para cada especie en los setales
+conocidos.
+
+### 12.4 Limitaciones iniciales del predictor
+
+- Solo funciona para micro_areas con historico de observaciones.
+- Las predicciones para fechas futuras requieren forecast meteorologico
+  (no disponible aun; trabajo futuro).
+- Las metricas de confianza del modelo deben mostrarse siempre junto a la
+  prediccion; no presentar resultados sin el contexto de cuantos episodios
+  entrenaron el modelo y que precision tiene en validacion.
+- Prediccion de setales nuevos (sin historico propio) es fase 2 y requiere
+  que el modelo generalice desde variables GIS, lo que necesita mas datos.
+
+## 12.5 Decisiones pendientes
 
 - Elegir fuentes GIS reales y su granularidad.
-- Decidir si `mushroom_gis_mappings.json` seguirá siendo sólo fichero o tendrá mantenimiento visual.
+- Decidir si `mushroom_gis_mappings.json` seguira siendo solo fichero o tendra mantenimiento visual.
 - Definir el primer algoritmo de scoring explicable.
-- Definir qué features meteorológicas de los acumulados/incrementales actuales usa el predictor.
-- Definir cómo se guardarán resultados/debug de predicción para poder auditar el modelo.
-- Definir el mínimo de observaciones necesario antes de llamar a un resultado "calibrado". Base empírica disponible (2026-08-02): 22 observaciones (Morchella elata complex) es el límite con incertidumbre alta; 66+ (Hygrophorus marzuolus) es un punto de partida cómodo. Se recomienda ≥20 como criterio de entrada al modelo v1.
-- Decidir si el output será una clase ordinal, un score 0-1 o una probabilidad calibrada.
+- Definir como se guardaran resultados/debug de prediccion para poder auditar el modelo.
+- Definir el minimo de observaciones necesario antes de llamar a un resultado "calibrado". Base empirica disponible (2026-08-02): 22 observaciones (Morchella elata complex) es el limite con incertidumbre alta; 66+ (Hygrophorus marzuolus) es un punto de partida comodo. Se recomienda mayor o igual a 20 como criterio de entrada al modelo v1.
+- Decidir si el output sera una clase ordinal, un score 0-1 o una probabilidad calibrada.
+- Definir el diseno de la pantalla "Predictor" en la WebUI.
 
 ## 13. Recomendación inmediata
 
