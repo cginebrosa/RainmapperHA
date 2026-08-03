@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.217
+
+- Fix `ml_train_v0` jobs not showing the Promote action in Workers and jobs:
+  the job-type set controlling the actions column excluded `worker_ml_train_v0`.
+- Fix completed `ml_train_v0` jobs showing "Assignment test completed" as the
+  phase instead of "ML training completed".
+
 ## 0.2.216
 
 - Fix HTTP 409 error when the external worker downloads `ml_train_v0` input

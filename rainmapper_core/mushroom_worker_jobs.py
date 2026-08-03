@@ -913,7 +913,11 @@ def finish_job(
         else (
             "Input bundle verified"
             if job.get("job_type") == JOB_TYPE_SNAPSHOT_TRANSPORT
-            else "Assignment test completed"
+            else (
+                "ML training completed"
+                if job.get("job_type") == JOB_TYPE_ML_TRAIN
+                else "Assignment test completed"
+            )
         )
     )
     phase = {"complete": complete_phase, "cancelled": "Cancelled", "failed": "Failed"}[status]

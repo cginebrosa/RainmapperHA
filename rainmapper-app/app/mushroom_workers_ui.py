@@ -288,6 +288,7 @@ def render_recent_jobs(
             "worker_claim_probe",
             "worker_snapshot_transport_probe",
             "worker_candidate_rebuild",
+            "worker_ml_train_v0",
         }:
             action_parts = []
             if status in {"queued", "claimed", "running"}:
