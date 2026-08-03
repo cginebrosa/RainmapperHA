@@ -1,6 +1,13 @@
 # Changelog
 
-## Pending (next release)
+## 0.2.216
+
+- Fix HTTP 409 error when the external worker downloads `ml_train_v0` input
+  files: `authorize_input_download` was missing `JOB_TYPE_ML_TRAIN` in its
+  allowed job-type set, causing the worker to fail immediately after claiming
+  the job.
+
+## 0.2.215
 
 - Add ML model training job type `ml_train_v0` for the external worker: the
   worker trains scikit-learn models from the current features artifact, uploads
