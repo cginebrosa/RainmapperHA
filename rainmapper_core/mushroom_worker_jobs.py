@@ -943,7 +943,7 @@ def authorize_input_download(
     queue = load_queue(path)
     job = _find_job(queue, job_id)
     _validate_claim(job, worker_id=worker_id, claim_token=claim_token)
-    if job.get("job_type") not in {JOB_TYPE_SNAPSHOT_TRANSPORT, JOB_TYPE_CANDIDATE_REBUILD}:
+    if job.get("job_type") not in {JOB_TYPE_SNAPSHOT_TRANSPORT, JOB_TYPE_CANDIDATE_REBUILD, JOB_TYPE_ML_TRAIN}:
         raise ValueError("Worker job does not have an input bundle.")
     if job.get("status") not in {"claimed", "running", "cancel_requested"}:
         raise ValueError("Worker input bundle is not available in the current job state.")
