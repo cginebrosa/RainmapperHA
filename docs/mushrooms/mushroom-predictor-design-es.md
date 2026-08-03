@@ -2,7 +2,7 @@
 
 Versión del documento: borrador 0.1 (motor y UI implementados; ver estado por fase abajo)
 
-**Estado de implementacion (2026-08-03):**
+**Estado de implementacion (2026-08-04):**
 - Fase 1 (features pipeline): DONE — `mushroom_observation_features.py`, ventana 30d, 40 features.
 - Fase 2 (trainer): DONE — `mushroom_ml_trainer.py`, LR+RF, joblib por especie.
 - Fase 3 (predictor engine): DONE — `mushroom_ml_predictor.py`, 4 modos de consulta.
@@ -10,6 +10,7 @@ Versión del documento: borrador 0.1 (motor y UI implementados; ver estado por f
 - Worker job `ml_train_v0`: DONE — entrenamiento via worker externo con promocion manual.
 - Backtest B. aereus: 59% accuracy (22/37 episodios). B. pinophilus: 36% (overfitting, pocos datos).
 - Pendiente: revisar 191 obs en estado `review` para ampliar el dataset de entrenamiento.
+- Planificado: review mode + multi-algoritmo — ver seccion "Proximos pasos: review mode y multi-algoritmo" al final.
 
 Ficheros relacionados:
 
@@ -936,3 +937,67 @@ Cuando exista ese laboratorio, diseñar el primer motor explicable:
 7. Sólo entonces decidir nuevos campos estructurales en `mushroom_profiles.json`.
 
 Esto permite avanzar sin sobrecargar el mantenimiento manual de especies y evita que el schema crezca antes de saber qué variables aportan señal real en nuestro territorio.
+
+---
+
+## Proximos pasos: review mode y multi-algoritmo
+
+Planificado 2026-08-04. Las dos features se implementan en orden: A primero (independiente del schema), luego B (requiere cambios de schema que A usa).
+
+### Feature A: Review mode en el Predictor
+
+Antes de promover un modelo candidato, el operador puede previsualizar como se comportaria ese modelo en la pantalla Predictor — mismas 4 vistas pero cargando el candidato en vez del live.
+
+**Cambios de ficheros:**
+
+| Fichero | Cambio |
+|---------|--------|
+| `mushroom_predictor_ui.py` | `_get_predictor()` acepta `models_dir: Path` opcional; cache keyed por `(species_id, str(models_dir))`; banner de review mode con job_id y boton de promover |
+| `web_server.py` | Handler de `/mushrooms/predictor` lee `?review_job_id=...`, valida que el candidato existe y esta verificado, pasa `candidate_models_dir` a la UI; enlace "Ver en Predictor" desde Workers |
+| `mushroom_workers_ui.py` | Enlace "Ver en Predictor" en tabla de jobs ML completados no promovidos |
+| `mushroom_labels.json` | Labels: `ui.predictor_review_mode_banner`, `ui.predictor_review_mode_promote`, `ui.predictor_review_mode_exit` (en/es/ca) |
+
+**Sin cambios de schema.** El `.joblib` del candidato tiene el mismo formato que el live.
+
+**Riesgo principal:** cache de predictores a nivel de modulo — sin incluir `models_dir` en la key puede contaminar la cache del modelo live. Facil de evitar con la key correcta.
+
+**Tamano:** pequeno (~150-200 lineas netas).
+
+### Feature B: Multiples algoritmos por job
+
+El job `ml_train_v0` pasara de entrenar LR+RF hardcodeados a entrenar N algoritmos configurables (LR, RF, GradientBoosting, opcionalmente SVM), calcular metricas de CV por algoritmo, y guardar el mejor como `selected_algorithm`. La UI de review mostrara una tabla comparativa de metricas antes de promover.
+
+**Cambios de ficheros:**
+
+| Fichero | Cambio |
+|---------|--------|
+| `mushroom_ml_trainer.py` | `ALGORITHMS` dict configurable; bundle `.joblib` pasa a `schema_version: "0.2"`, `algorithms: {id: clf}`, `selected_algorithm: str` (mejor CV-AUC) |
+| `mushroom_ml_predictor.py` | Leer bundle v0.2; usar `selected_algorithm` para elegir clasificadores; compatibilidad backwards con bundle v0.1 |
+| `mushroom_worker_results.py` | Anadir `algorithm_metrics: {species_id: {algo_id: {cv_auc_mean, holdout_auc, accuracy, f1}}}` al manifest del candidato |
+| `mushroom_predictor_ui.py` | Seccion extra en review mode con tabla comparativa de metricas por algoritmo y especie |
+| `web_server.py` | `job_spec.json` incluye campo opcional `algorithms: list[str]` |
+| `run-mushroom-ml-train-job.py` | Leer campo `algorithms` del job_spec |
+| `mushroom_labels.json` | Labels tabla comparativa |
+| `tests/test_web_server_auth.py` | Tests review mode + promote desde Predictor |
+
+**Cambios de schema:**
+- Bundle `.joblib`: `schema_version: "0.2"`, `algorithms: {id: clf}` (en vez de `lr`/`rf` directos), `selected_algorithm: str | None`.
+- Report JSON: `schema_version: "0.2"`, `species_results[i].models` pasa a `{algo_id: metrics}`.
+- Manifest candidato: campo aditivo `algorithm_metrics`.
+- `job_spec.json`: campo opcional `algorithms: list[str]`.
+
+**Breaking change:** modelos live entrenados con el trainer antiguo son incompatibles con el predictor nuevo. Hay que forzar re-entrenamiento tras el deploy. El predictor detecta la ausencia de `schema_version` y degrada a leer `lr`/`rf` directos (bundle v0.1).
+
+**Riesgos:**
+- GradientBoosting es mas lento; con datasets pequenos no es problema, pero hay que ajustar el progress callback para N algoritmos.
+- SVM con CV puede fallar en folds con una sola clase (datasets muy pequenos). El try/except existente en `cross_val_score` lo cubre.
+- Si se promueve un candidato con `selected_algorithm="gb"` y despues se re-entrena con `selected_algorithm="rf"`, el operador no se da cuenta sin el review mode activo — esto hace que A sea mas importante cuando B esta implementado.
+
+**Tamano:** medio-grande (~300-400 lineas netas + tests).
+
+### Orden de implementacion
+
+1. Implementar y testear Feature A en local (sin cambios de schema).
+2. Implementar Feature B en trainer/predictor (schema v0.2, sin UI aun).
+3. Integrar tabla comparativa en el review mode de A.
+4. Release conjunto en un unico bump de version para evitar que haya modelos live en schema v0.1 cuando llega B.
