@@ -379,7 +379,7 @@ def create_ml_train_job(
         (
             row
             for row in queue["jobs"]
-            if row.get("status") in ACTIVE_STATUSES
+            if row.get("status") in {"queued", "claimed", "running"}
             and row.get("job_type") == JOB_TYPE_ML_TRAIN
             and row.get("work_key") == work_key
         ),
@@ -883,6 +883,33 @@ def poll_job(
         timestamp = checked_at or utc_now()
         job["lease_expires_at"] = _lease_expires(timestamp, lease_seconds)
         _write_atomic(path, queue)
+    return dict(job)
+
+
+def abandon_stuck_job(
+    path: Path,
+    *,
+    job_id: str,
+    abandoned_at: str | None = None,
+) -> dict[str, Any]:
+    """Forcefully mark a cancel_requested job as cancelled when the worker is unreachable."""
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    if job.get("status") != "cancel_requested":
+        raise ValueError("Only cancel_requested jobs can be abandoned.")
+    timestamp = abandoned_at or utc_now()
+    job.update(
+        {
+            "status": "cancelled",
+            "phase": "Abandoned",
+            "message": "Job abandoned by operator (worker unreachable).",
+            "overall_percent": int(job.get("overall_percent", 0) or 0),
+            "finished_at": timestamp,
+            "lease_expires_at": "",
+            "error": "Abandoned by operator: worker did not acknowledge cancellation.",
+        }
+    )
+    _write_atomic(path, queue)
     return dict(job)
 
 

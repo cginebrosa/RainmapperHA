@@ -16909,6 +16909,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             else:
                 set_mushroom_workers_flash(str(response.get("error", "Cannot force-cancel worker job.")), error=True)
             return "./workers"
+        if action == "abandon_worker_job":
+            job_id = self.form_value(form, "job_id")
+            try:
+                with RUN_LOCK:
+                    mushroom_worker_jobs.abandon_stuck_job(
+                        mushroom_worker_jobs_path(),
+                        job_id=job_id,
+                    )
+                set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.worker_abandoned_flash"))
+            except (ValueError, FileNotFoundError) as exc:
+                set_mushroom_workers_flash(str(exc), error=True)
+            return "./workers"
         if action == "reassign_worker_job":
             status, response = reassign_mushroom_worker_job(
                 self.form_value(form, "job_id"),

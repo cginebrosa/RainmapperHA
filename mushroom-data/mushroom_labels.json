@@ -3778,5 +3778,20 @@
     "en": "ML training v0",
     "es": "Entrenamiento ML v0",
     "ca": "Entrenament ML v0"
+  },
+  "ui.worker_abandon_job": {
+    "en": "Abandon job",
+    "es": "Abandonar trabajo",
+    "ca": "Abandonar treball"
+  },
+  "ui.worker_abandon_confirm": {
+    "en": "This job will be permanently marked as cancelled. The worker will not be notified. Continue?",
+    "es": "Este trabajo se marcará como cancelado permanentemente. El worker no será notificado. ¿Continuar?",
+    "ca": "Aquest treball es marcarà com a cancel·lat permanentment. El worker no serà notificat. Continuar?"
+  },
+  "ui.worker_abandoned_flash": {
+    "en": "Job abandoned.",
+    "es": "Trabajo abandonado.",
+    "ca": "Treball abandonat."
   }
 }

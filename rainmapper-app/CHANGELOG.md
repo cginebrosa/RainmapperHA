@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.218
+
+- Fix stuck jobs blocking new ml_train_v0 enqueuing: `cancel_requested` jobs
+  no longer count as active for work-key deduplication.
+- Add "Abandon job" button for force-cancelled jobs whose worker is unreachable,
+  allowing the operator to permanently mark them as cancelled.
+- Fix ml_train worker selector not pre-selecting the default worker, which could
+  cause jobs to be routed to a non-default (potentially disconnected) worker.
+
 ## 0.2.217
 
 - Fix `ml_train_v0` jobs not showing the Promote action in Workers and jobs:

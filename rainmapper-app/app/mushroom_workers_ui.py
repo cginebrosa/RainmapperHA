@@ -311,6 +311,14 @@ def render_recent_jobs(
                 action_parts.append(
                     f'<span class="meta">{_text(_label("ui.worker_status_force_cancel_requested"))}</span>'
                 )
+                action_parts.append(
+                    '<form class="worker-job-action danger" method="post" action="">'
+                    '<input type="hidden" name="worker_action" value="abandon_worker_job">'
+                    f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
+                    f'<button type="submit" data-confirm="{_text(_label("ui.worker_abandon_confirm"))}" '
+                    'onclick="return confirm(this.dataset.confirm)">'
+                    f'{_text(_label("ui.worker_abandon_job"))}</button></form>'
+                )
             if (
                 operational_enabled
                 and job_type == "worker_candidate_rebuild"
@@ -408,6 +416,7 @@ def _render_ml_train_panel(
     worker_statuses: list[dict[str, object]],
     *,
     operational_enabled: bool = False,
+    default_executor: str = "",
 ) -> str:
     available_workers = [
         row
@@ -419,8 +428,9 @@ def _render_ml_train_panel(
     ]
     if not available_workers:
         return ""
+    default_worker_id = default_executor.removeprefix("worker:") if default_executor.startswith("worker:") else ""
     worker_options = "".join(
-        f'<option value="{_text(str(row["payload"].get("worker_id", "")))}">'
+        f'<option value="{_text(str(row["payload"].get("worker_id", "")))}"{" selected" if str(row["payload"].get("worker_id", "")) == default_worker_id else ""}>'
         f'{_text(str(row["payload"].get("display_name", "") or row["payload"].get("worker_id", "")))}'
         f'</option>'
         for row in available_workers
@@ -652,7 +662,7 @@ def render_page(
         <div class="worker-submit-row"><button class="primary" type="submit"{" disabled" if not selected_executor else ""}>{_text(_label('ui.start_rebuild'))}</button></div>
       </form>
     </section>
-    {_render_ml_train_panel(worker_statuses, operational_enabled=operational_enabled)}
+    {_render_ml_train_panel(worker_statuses, operational_enabled=operational_enabled, default_executor=default_executor)}
     <section class="workers-panel"><h2>{_text(_label('ui.worker_recent_jobs'))}</h2><div id="worker-recent-jobs" data-refresh-signature="{recent_jobs_signature}">{recent_jobs}</div></section>
     <dialog id="worker-discard-candidate-dialog" class="worker-discard-dialog">
       <form method="post" action="">
