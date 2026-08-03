@@ -788,6 +788,7 @@ def render_page(
   <p style="font-size:3rem">🤖</p>
   <h2>{html.escape(_lbl("ui.predictor_no_models"))}</h2>
   <p>{html.escape(_lbl("ui.predictor_no_models_help"))}</p>
+  <a class="button-link secondary-link" href="?" style="margin-top:1rem">{html.escape(_lbl("ui.back"))}</a>
 </div>
 """
 

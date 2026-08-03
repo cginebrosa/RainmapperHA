@@ -99,14 +99,14 @@ def main() -> None:
     emit_progress(95, f"Building result manifest ({len(trained_species)} models trained)...")
     artifacts = []
     for species_id in trained_species:
-        model_file = models_dir / f"{species_id}.joblib"
+        model_file = models_dir / f"mushroom_ml_v0_{species_id}.joblib"
         if not model_file.is_file():
             print(f"WARNING: Expected model file not found: {model_file}", file=sys.stderr)
             continue
         size_bytes = model_file.stat().st_size
         sha256 = _sha256_file(model_file)
         artifacts.append({
-            "path": f"ml_models/{species_id}.joblib",
+            "path": f"ml_models/mushroom_ml_v0_{species_id}.joblib",
             "size_bytes": size_bytes,
             "sha256": sha256,
         })

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.220
+
+- Fix Predictor showing no back button when there are no trained models yet.
+
+## 0.2.219
+
+- Fix ML training result manifest using wrong filename (`{species_id}.joblib`
+  instead of `mushroom_ml_v0_{species_id}.joblib`), causing promoted models to
+  be empty and the Predictor to show no trained species.
+
 ## 0.2.218
 
 - Fix stuck jobs blocking new ml_train_v0 enqueuing: `cancel_requested` jobs
