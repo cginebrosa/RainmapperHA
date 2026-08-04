@@ -2999,11 +2999,15 @@ if _create_googlemaps_files:
 
 print('')
 try:
+    import time as _time
     from pathlib import Path as _Path
     from rainmapper_core import mushroom_observation_context as _moc
+    _parquet_t0 = _time.time()
     _parquet_path = _moc.generate_weather_daily_parquet(_Path(_DATA_PATH))
+    _parquet_elapsed = _time.time() - _parquet_t0
     if _parquet_path:
-        print(f'weather_daily.parquet generated: {_parquet_path}')
+        _parquet_size_mb = _parquet_path.stat().st_size / (1024 * 1024)
+        print(f'weather_daily.parquet generated: {_parquet_path} ({_parquet_size_mb:.1f} MB, {_parquet_elapsed:.1f}s)')
 except Exception as _parquet_exc:
     print(f'Warning: could not generate weather_daily.parquet: {_parquet_exc}')
 

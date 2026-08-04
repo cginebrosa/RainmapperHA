@@ -357,57 +357,95 @@ def load_daily_weather_parquet(
 
     emit_progress(progress_callback, 5, "Leyendo weather_daily.parquet...")
     df = pd.read_parquet(parquet_path)
-    emit_progress(progress_callback, 40, f"Parquet cargado: {len(df)} registros.")
+    emit_progress(progress_callback, 30, f"Parquet cargado: {len(df)} registros.")
 
-    records: dict[tuple[str, str], dict[date, DailyWeatherRecord]] = {}
-    names: dict[tuple[str, str], str] = {}
-    coordinates: dict[tuple[str, str], tuple[float, float]] = {}
+    # Vectorized filtering — drop rows missing required fields before any Python loop
+    df = df.copy()
+    df["source"] = df["source"].fillna("").str.strip()
+    df["station_code"] = df["station_code"].fillna("").str.strip()
+    df = df[(df["source"] != "") & (df["station_code"] != "")]
+    df = df.dropna(subset=["lat", "lon"])
 
-    for row in df.itertuples(index=False):
-        source = str(getattr(row, "source", "") or "").strip()
-        station_code = str(getattr(row, "station_code", "") or "").strip()
-        if not source or not station_code:
+    # Vectorized date parsing — avoids 600k+ per-row strptime calls
+    raw_dates = df["local_date"].astype(str)
+    days_dt = pd.to_datetime(raw_dates, format="%Y%m%d", errors="coerce")
+    needs_fallback = days_dt.isna()
+    if needs_fallback.any():
+        days_dt = days_dt.copy()
+        days_dt.loc[needs_fallback] = pd.to_datetime(
+            raw_dates.loc[needs_fallback], format="%Y-%m-%d", errors="coerce"
+        )
+    df["_day"] = days_dt
+    df = df.dropna(subset=["_day"])
+
+    # Ensure float columns are numeric (parquet may carry object dtype on re-read)
+    for col in ["lat", "lon", "rain_mm", "max_temp_celsius", "min_temp_celsius",
+                "max_humidity_percent", "min_humidity_percent", "wind_avg_kmh", "wind_gust_kmh"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    emit_progress(progress_callback, 60, "Construyendo indice de estaciones...")
+
+    def _col_list(grp: Any, name: str) -> list:
+        return grp[name].tolist() if name in grp.columns else [None] * len(grp)
+
+    def _f(v: Any) -> float | None:
+        if v is None:
+            return None
+        try:
+            f = float(v)
+            return None if math.isnan(f) else f
+        except (TypeError, ValueError):
+            return None
+
+    stations: dict[tuple[str, str], WeatherStation] = {}
+    for (source, station_code), grp in df.groupby(["source", "station_code"], sort=False):
+        lat_s = grp["lat"].iloc[0]
+        lon_s = grp["lon"].iloc[0]
+        if pd.isna(lat_s) or pd.isna(lon_s):
             continue
-        lat = _nan_to_none(getattr(row, "lat", None))
-        lon = _nan_to_none(getattr(row, "lon", None))
-        if lat is None or lon is None:
-            continue
-        day = parse_day(getattr(row, "local_date", None))
-        if day is None:
-            continue
-        key = (source, station_code)
-        record = DailyWeatherRecord(
+        lat_f = float(lat_s)
+        lon_f = float(lon_s)
+
+        # Convert whole columns to Python lists once per station (C-level, fast)
+        day_dates = grp["_day"].dt.date.tolist()
+        names     = grp["station_name"].fillna("").str.strip().tolist()
+        rain      = _col_list(grp, "rain_mm")
+        t_max     = _col_list(grp, "max_temp_celsius")
+        t_min     = _col_list(grp, "min_temp_celsius")
+        h_max     = _col_list(grp, "max_humidity_percent")
+        h_min     = _col_list(grp, "min_humidity_percent")
+        w_avg     = _col_list(grp, "wind_avg_kmh")
+        w_gst     = _col_list(grp, "wind_gust_kmh")
+
+        records_by_day = {
+            day_dates[i]: DailyWeatherRecord(
+                source=source,
+                station_code=station_code,
+                station_name=names[i],
+                day=day_dates[i],
+                lat=lat_f,
+                lon=lon_f,
+                rain_mm=_f(rain[i]),
+                temp_max_c=_f(t_max[i]),
+                temp_min_c=_f(t_min[i]),
+                humidity_max_pct=_f(h_max[i]),
+                humidity_min_pct=_f(h_min[i]),
+                wind_avg_kmh=_f(w_avg[i]),
+                wind_gust_kmh=_f(w_gst[i]),
+                wind_direction_deg=None,
+            )
+            for i in range(len(grp))
+        }
+        stations[(source, station_code)] = WeatherStation(
             source=source,
             station_code=station_code,
-            station_name=str(getattr(row, "station_name", "") or "").strip(),
-            day=day,
-            lat=lat,
-            lon=lon,
-            rain_mm=_nan_to_none(getattr(row, "rain_mm", None)),
-            temp_max_c=_nan_to_none(getattr(row, "max_temp_celsius", None)),
-            temp_min_c=_nan_to_none(getattr(row, "min_temp_celsius", None)),
-            humidity_max_pct=_nan_to_none(getattr(row, "max_humidity_percent", None)),
-            humidity_min_pct=_nan_to_none(getattr(row, "min_humidity_percent", None)),
-            wind_avg_kmh=_nan_to_none(getattr(row, "wind_avg_kmh", None)),
-            wind_gust_kmh=_nan_to_none(getattr(row, "wind_gust_kmh", None)),
-            wind_direction_deg=None,
+            station_name=names[0] if names else "",
+            lat=lat_f,
+            lon=lon_f,
+            records_by_day=records_by_day,
         )
-        records.setdefault(key, {})[day] = record
-        names[key] = record.station_name
-        coordinates[key] = (lat, lon)
 
-    emit_progress(progress_callback, 90, "Construyendo indice de estaciones...")
-    stations = {}
-    for key, station_records in records.items():
-        lat, lon = coordinates[key]
-        stations[key] = WeatherStation(
-            source=key[0],
-            station_code=key[1],
-            station_name=names.get(key, ""),
-            lat=lat,
-            lon=lon,
-            records_by_day=station_records,
-        )
     emit_progress(progress_callback, 100, f"Estaciones cargadas desde Parquet: {len(stations)}.")
     return stations
 
