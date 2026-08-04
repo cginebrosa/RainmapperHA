@@ -819,7 +819,7 @@ def render_page(
 {_CSS}
 </style>
 <div class="pred-page">
-  <div class="pred-back"><a href="../../">← {html.escape(_lbl("ui.back_to_panel"))}</a></div>
+  <div class="pred-back"><a href="../">← {html.escape(_lbl("ui.back_to_panel"))}</a></div>
   <h1>🍄 {html.escape(_lbl("ui.predictor_title"))}</h1>
   {tabs}
   {content}

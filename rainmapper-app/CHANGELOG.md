@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.224
+
+- Fix "← Control panel" back link on the Predictor page returning 404: the
+  link used `../../` but under HA Ingress one level up (`../`) is correct,
+  consistent with all other mushroom screens.
+
 ## 0.2.223
 
 - Add "← Control panel" back link on the Predictor page so it is possible to
