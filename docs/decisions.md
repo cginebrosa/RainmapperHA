@@ -3006,6 +3006,72 @@ por error la foto de una observacion al duplicarla.
 - `Aplicar datos EXIF` solo esta habilitado para la imagen nueva.
 - La precision original se conserva en JSON; los redondeos son solo de UI.
 
+## 2026-08-04 - Artefacto weather_daily.parquet como fuente canónica de datos meteorológicos para el predictor
+
+### Estado
+PENDIENTE DE IMPLEMENTAR.
+
+### Decisión
+El runner generará al final de cada actualización un único fichero
+`weather_daily.parquet` combinando las cuatro fuentes meteorológicas
+(Meteocat/XEMA, Meteoclimatic, Wunderground, AEMET). Este fichero sustituye
+la lectura directa de los CSV incrementales en el predictor y en la generación
+de artefactos de features ML.
+
+Columnas del Parquet:
+- `Codi Estació`, `source`, `Data Local`
+- `Latitud`, `Longitud`, `Altitud`
+- `Total` (precipitación mm)
+- `max_temp_celsius`, `min_temp_celsius`
+- `max_humidity_percent`, `min_humidity_percent`
+- `wind_avg_kmh`, `wind_gust_kmh`
+
+Los CSV incrementales siguen siendo la fuente de verdad histórica y no se
+eliminan. El Parquet es un artefacto de lectura generado a partir de ellos.
+
+### Motivo
+Los cuatro CSV incrementales suman ~116 MB. `load_daily_weather_stations()`
+los carga enteros en memoria para cada predicción aunque solo se necesite una
+fracción de los datos. Con 7+ especies entrenadas, esto multiplicaba la carga
+por el número de instancias de `MushroomMLPredictor` activas, causando OOM en
+la RPi.
+
+Parquet resuelve dos problemas a la vez:
+1. **Tamaño**: compresión columnar reduce ~116 MB de CSV a ~15-20 MB.
+2. **Fuente única**: un solo fichero consolidado elimina la necesidad de leer
+   y mergear 4 CSV en cada acceso.
+
+El caché compartido a nivel de módulo (`_shared_weather_stations`) sigue
+siendo válido para evitar releer el Parquet en cada petición al predictor.
+
+### Detalles de implementación a tener en cuenta
+- **AEMET usa coma decimal** en `Latitud`/`Longitud` en su CSV
+  (`"40,95806"`). La normalización ocurre en el runner al generar el Parquet;
+  los consumidores reciben floats limpios y no necesitan saber esto.
+- **Meteocat no tiene** `wind_min_kmh` ni `wind_max_kmh`. Esas columnas
+  quedan como `NaN` para las filas de Meteocat; no se añaden al Parquet
+  (no están en la lista de columnas seleccionadas).
+- El Parquet se regenera entero en cada run — no hay append incremental.
+  Es correcto: Parquet no está diseñado para append row a row.
+- La columna `source` (`meteocat`, `meteoclimatic`, `wunderground`, `aemet`)
+  permite filtrar por fuente sin joins adicionales.
+
+### Ficheros afectados
+- `rainmapper_core/rainmapper.py` — añadir paso de generación de Parquet al
+  final del runner
+- `rainmapper_core/mushroom_observation_context.py` — nueva función
+  `load_daily_weather_parquet(data_dir)` que lee el Parquet; modificar
+  `load_daily_weather_stations()` para usarla como fuente si el Parquet existe
+- `rainmapper_core/mushroom_ml_predictor.py` — el caché compartido
+  `_shared_weather_stations` sigue igual, solo cambia de dónde carga los datos
+
+### Consecuencias
+- Primera apertura del Predictor: carga ~15-20 MB en lugar de ~116 MB.
+- La generación de artefactos de features también se beneficia.
+- Si el Parquet no existe (primera instalación o datos corruptos), fallback
+  a los CSV para no romper el sistema.
+- El worker de ML no se ve afectado: recibe las features ya calculadas.
+
 ## 2026-07-13 - Pipeline ML posterior a estabilizar observaciones y setales
 
 ### Estado

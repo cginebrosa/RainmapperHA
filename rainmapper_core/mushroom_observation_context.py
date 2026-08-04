@@ -17,6 +17,8 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from rainmapper_core import mushroom_observations, mushroom_paths
 
 
@@ -256,7 +258,161 @@ def emit_progress(progress_callback: Any | None, percent: float, message: str) -
         progress_callback(max(0, min(100, int(percent))), message)
 
 
-def load_daily_weather_stations(
+def _nan_to_none(v: Any) -> float | None:
+    if v is None:
+        return None
+    try:
+        f = float(v)
+        return None if math.isnan(f) else f
+    except (TypeError, ValueError):
+        return None
+
+
+_PARQUET_FILENAME = "weather_daily.parquet"
+
+_PARQUET_COL_MAP = {
+    "Codi Estació": "station_code",
+    "Estació": "station_name",
+    "Data Local": "local_date",
+    "Latitud": "lat",
+    "Longitud": "lon",
+    "Altitud": "altitude",
+    "Total": "rain_mm",
+    "max_temp_celsius": "max_temp_celsius",
+    "min_temp_celsius": "min_temp_celsius",
+    "max_humidity_percent": "max_humidity_percent",
+    "min_humidity_percent": "min_humidity_percent",
+    "wind_avg_kmh": "wind_avg_kmh",
+    "wind_gust_kmh": "wind_gust_kmh",
+}
+
+_PARQUET_FLOAT_COLS = (
+    "lat", "lon", "altitude", "rain_mm",
+    "max_temp_celsius", "min_temp_celsius",
+    "max_humidity_percent", "min_humidity_percent",
+    "wind_avg_kmh", "wind_gust_kmh",
+)
+
+
+def generate_weather_daily_parquet(
+    data_dir: Path,
+    progress_callback: Any | None = None,
+) -> Path | None:
+    """Read all incremental CSV sources and write a combined weather_daily.parquet.
+
+    The Parquet is a read-optimised artefact (~15-20 MB vs ~116 MB of raw CSVs).
+    It is regenerated from scratch on every runner call; the CSVs remain the
+    source of truth. Returns the output path on success, None if no sources exist.
+    """
+    source_paths = [
+        (source, data_dir / filename)
+        for source, filename in DAILY_INCREMENTAL_FILES
+        if (data_dir / filename).exists()
+    ]
+    if not source_paths:
+        emit_progress(progress_callback, 100, "No hay fuentes meteorologicas disponibles.")
+        return None
+
+    dfs = []
+    n = len(source_paths)
+    for i, (source, path) in enumerate(source_paths, start=1):
+        emit_progress(
+            progress_callback,
+            int((i - 1) / n * 80),
+            f"Leyendo {source} para Parquet ({i}/{n})...",
+        )
+        df = pd.read_csv(path, encoding="utf-8-sig", low_memory=False, dtype=str)
+        available = {col: new for col, new in _PARQUET_COL_MAP.items() if col in df.columns}
+        df = df[list(available.keys())].copy()
+        df.rename(columns=available, inplace=True)
+        for col in _PARQUET_FLOAT_COLS:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda v: parse_float(v) if pd.notna(v) else None)
+        df["source"] = source
+        dfs.append(df)
+
+    emit_progress(progress_callback, 85, "Combinando fuentes y escribiendo Parquet...")
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        combined = pd.concat(dfs, ignore_index=True)
+    combined = combined.dropna(subset=["station_code", "local_date"])
+    output_path = data_dir / _PARQUET_FILENAME
+    combined.to_parquet(output_path, index=False)
+    emit_progress(
+        progress_callback, 100,
+        f"{_PARQUET_FILENAME} generado: {len(combined)} filas, {output_path.stat().st_size // 1024} KB.",
+    )
+    return output_path
+
+
+def load_daily_weather_parquet(
+    data_dir: Path,
+    progress_callback: Any | None = None,
+) -> dict[tuple[str, str], WeatherStation]:
+    """Load weather stations from weather_daily.parquet if available, else from CSVs."""
+    parquet_path = data_dir / _PARQUET_FILENAME
+    if not parquet_path.exists():
+        return _load_daily_weather_from_csv(data_dir, progress_callback)
+
+    emit_progress(progress_callback, 5, "Leyendo weather_daily.parquet...")
+    df = pd.read_parquet(parquet_path)
+    emit_progress(progress_callback, 40, f"Parquet cargado: {len(df)} registros.")
+
+    records: dict[tuple[str, str], dict[date, DailyWeatherRecord]] = {}
+    names: dict[tuple[str, str], str] = {}
+    coordinates: dict[tuple[str, str], tuple[float, float]] = {}
+
+    for row in df.itertuples(index=False):
+        source = str(getattr(row, "source", "") or "").strip()
+        station_code = str(getattr(row, "station_code", "") or "").strip()
+        if not source or not station_code:
+            continue
+        lat = _nan_to_none(getattr(row, "lat", None))
+        lon = _nan_to_none(getattr(row, "lon", None))
+        if lat is None or lon is None:
+            continue
+        day = parse_day(getattr(row, "local_date", None))
+        if day is None:
+            continue
+        key = (source, station_code)
+        record = DailyWeatherRecord(
+            source=source,
+            station_code=station_code,
+            station_name=str(getattr(row, "station_name", "") or "").strip(),
+            day=day,
+            lat=lat,
+            lon=lon,
+            rain_mm=_nan_to_none(getattr(row, "rain_mm", None)),
+            temp_max_c=_nan_to_none(getattr(row, "max_temp_celsius", None)),
+            temp_min_c=_nan_to_none(getattr(row, "min_temp_celsius", None)),
+            humidity_max_pct=_nan_to_none(getattr(row, "max_humidity_percent", None)),
+            humidity_min_pct=_nan_to_none(getattr(row, "min_humidity_percent", None)),
+            wind_avg_kmh=_nan_to_none(getattr(row, "wind_avg_kmh", None)),
+            wind_gust_kmh=_nan_to_none(getattr(row, "wind_gust_kmh", None)),
+            wind_direction_deg=None,
+        )
+        records.setdefault(key, {})[day] = record
+        names[key] = record.station_name
+        coordinates[key] = (lat, lon)
+
+    emit_progress(progress_callback, 90, "Construyendo indice de estaciones...")
+    stations = {}
+    for key, station_records in records.items():
+        lat, lon = coordinates[key]
+        stations[key] = WeatherStation(
+            source=key[0],
+            station_code=key[1],
+            station_name=names.get(key, ""),
+            lat=lat,
+            lon=lon,
+            records_by_day=station_records,
+        )
+    emit_progress(progress_callback, 100, f"Estaciones cargadas desde Parquet: {len(stations)}.")
+    return stations
+
+
+def _load_daily_weather_from_csv(
     data_dir: Path,
     progress_callback: Any | None = None,
 ) -> dict[tuple[str, str], WeatherStation]:
@@ -906,7 +1062,7 @@ def build_observation_weather_features(
     emit_progress(progress_callback, 1, "Cargando observaciones.")
     observations = load_observations(observations_path)
     emit_progress(progress_callback, 4, f"Cargadas {len(observations)} observaciones.")
-    stations = load_daily_weather_stations(
+    stations = load_daily_weather_parquet(
         weather_data_dir,
         progress_callback=lambda percent, message: emit_progress(
             progress_callback,

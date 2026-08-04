@@ -15,5 +15,5 @@
   "create_meteoclimatic": false,
   "create_meteocat": false,
   "create_wunderground": true,
-  "create_aemet": false
+  "create_aemet": true
 }

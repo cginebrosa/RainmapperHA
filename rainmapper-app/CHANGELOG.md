@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.221
+
+- Fix Predictor page timing out (blank page) after promoting trained models: all
+  `MushroomMLPredictor` instances now share a single module-level weather stations
+  cache instead of each loading the full incremental CSV files (~110 MB) independently.
+  With 7+ trained species the previous behaviour caused the RPi to read 770+ MB of CSV
+  data synchronously on every first Predictor page load, triggering OOM and an HA
+  ingress timeout.
+
 ## 0.2.220
 
 - Fix Predictor showing no back button when there are no trained models yet.

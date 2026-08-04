@@ -2998,6 +2998,15 @@ if _create_googlemaps_files:
     print('Inline Tomap generation is disabled; Tomap rebuild is handled by rainmapper_core.tomap.')
 
 print('')
+try:
+    from pathlib import Path as _Path
+    from rainmapper_core import mushroom_observation_context as _moc
+    _parquet_path = _moc.generate_weather_daily_parquet(_Path(_DATA_PATH))
+    if _parquet_path:
+        print(f'weather_daily.parquet generated: {_parquet_path}')
+except Exception as _parquet_exc:
+    print(f'Warning: could not generate weather_daily.parquet: {_parquet_exc}')
+
 exit_code = source_exit_code()
 if exit_code == 2:
     print('Rainmapper finished with degraded source status.')

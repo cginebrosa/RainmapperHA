@@ -7,7 +7,7 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 
 **Release HA:**
 - Instalada en HA real: `0.2.214` (corrección búsqueda Observaciones, compacta Workers, descarte con modal)
-- No hay versión pendiente de instalar. El rollback inmediato es `0.2.213`.
+- **Pendiente de instalar: `0.2.221`** — fix OOM Predictor (weather_daily.parquet + caché compartido). El rollback inmediato es `0.2.214`.
 - No hay versión de desarrollo/sideload.
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
@@ -25,11 +25,12 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Bloqueos: 158 obs en draft, 191 con florada sin rellenar, 65 válidas sin micro_area_id.
 
 **Prioridad inmediata:**
-1. **Revisar observaciones `review`** en Docker local (`http://127.0.0.1:8101`) — es el paso más
+1. **Instalar 0.2.221 en HA real** y verificar que el Predictor no provoca OOM en la RPi.
+2. **Revisar observaciones `review`** en Docker local (`http://127.0.0.1:8101`) — es el paso más
    impactante para mejorar los modelos ML.
-2. **Release HA** con cambios acumulados desde 0.2.214 (UI Predictor, worker ml_train_v0, fixes predictor).
-3. Worker: probar descarte con candidato terminal en HA real.
-4. Decidir si meter Tailscale dentro de la imagen del worker.
+3. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
+4. Worker: probar descarte con candidato terminal en HA real.
+5. Decidir si meter Tailscale dentro de la imagen del worker.
 
 ## Cambios pendientes de release (acumulados en Docker local, no en HA)
 
@@ -765,3 +766,40 @@ Pruebas:
 - Mantener siempre la reconstruccion local de HA como fallback.
 - Todo texto visible nuevo de setas debe existir en
   `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`.
+
+## Planificació: verificació i comparació de models candidats (pendent)
+
+### Context
+Ara mateix la promoció d'un model candidat és un acte de fe: no hi ha manera de
+comparar el candidat amb el model viu abans de decidir. El botó "Promote" existeix
+però no mostra res que justifiqui la decisió.
+
+### Objectiu
+Quan el worker acaba un `ml_train_v0` i el resultat és terminal (llestos per promocionar),
+la UI hauria de permetre:
+1. **Verificar** el candidat: veure les mètriques del nou model (accuracy, AUC, backtest)
+   sense haver de promocionar-lo.
+2. **Comparar** el candidat amb el model viu actual: quines espècies milloren, quines
+   empitjoren, diferència de backtest per espècie.
+3. **Decidir** amb informació: promocionar tot, promocionar algunes espècies, o descartar.
+
+### Peces necessàries
+- `ml_train_result.json` (ja existeix al staging del worker) porta `trained_species`
+  i sha256/mida dels `.joblib`. No porta mètriques de backtest.
+- `mushroom_ml_v0_report.json` (generat pel trainer, ja existeix) porta accuracy,
+  AUC i backtest per espècie. Caldria incloure'l com a artefacte al bundle de resultats.
+- El model viu té el seu propi report si ha estat entrenat des del worker (staging anterior).
+  Si no, no hi ha report del model viu i la comparació seria parcial.
+
+### Decisions de disseny a prendre
+- Incloure `mushroom_ml_v0_report.json` al bundle de resultats del worker (al costat dels `.joblib`).
+- Afegir endpoint GET per llegir el report del candidat (sense promocionar).
+- Afegir endpoint GET per llegir el report del model viu (si existeix).
+- UI "Workers y trabajos": quan un job `ml_train_v0` és terminal i no promocionat,
+  mostrar botó "Veure mètriques" que obri un panel de comparació.
+- Promoció parcial per espècie (opcional, més complexa): permet promocionar
+  B. aereus (que millora) però no B. pinophilus (que empitjora). Valorar si val la pena.
+
+### Prioritat
+Pendent. No bloqueja res actual. Fer-ho abans del proper cicle de re-entrenament
+quan hi hagi prou observacions revisades per justificar una nova versió del model.

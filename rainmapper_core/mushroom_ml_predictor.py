@@ -89,6 +89,33 @@ def _label(prob: float | None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Module-level weather stations cache (shared across all predictor instances)
+# ---------------------------------------------------------------------------
+
+_shared_weather_stations: dict[tuple[str, str], Any] | None = None
+_shared_weather_data_dir: Path | None = None
+
+
+def _get_shared_weather_stations(
+    weather_data_dir: Path,
+) -> dict[tuple[str, str], Any]:
+    """Load and cache weather stations once for all predictor instances."""
+    global _shared_weather_stations, _shared_weather_data_dir
+    if _shared_weather_stations is not None and _shared_weather_data_dir == weather_data_dir:
+        return _shared_weather_stations
+    _shared_weather_stations = ctx.load_daily_weather_parquet(weather_data_dir)
+    _shared_weather_data_dir = weather_data_dir
+    return _shared_weather_stations
+
+
+def invalidate_weather_stations_cache() -> None:
+    """Invalidate the shared weather stations cache (call after data update)."""
+    global _shared_weather_stations, _shared_weather_data_dir
+    _shared_weather_stations = None
+    _shared_weather_data_dir = None
+
+
+# ---------------------------------------------------------------------------
 # Predictor
 # ---------------------------------------------------------------------------
 
@@ -163,7 +190,7 @@ class MushroomMLPredictor:
         if not self._weather_data_dir.exists():
             self._weather_stations = {}
             return
-        self._weather_stations = ctx.load_daily_weather_stations(self._weather_data_dir)
+        self._weather_stations = _get_shared_weather_stations(self._weather_data_dir)
 
     def _ensure_micro_area_profiles(self) -> None:
         if self._micro_area_profiles is not None:
