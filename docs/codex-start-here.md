@@ -47,6 +47,7 @@ Leer siempre:
 
 Leer despues segun tarea:
 
+- Release HA (bump, CHANGELOG, build, push): `docs/release-flow.md`
 - Arquitectura/rutas/entrypoints: `docs/architecture.md`
 - Pendientes y prioridades largas: `docs/todo.md`
 - Decisiones cronologicas: `docs/decisions.md`
@@ -215,9 +216,9 @@ PYTHONPATH=rainmapper-app/app .venv/bin/python -m unittest tests.test_mushroom_p
 git diff --check
 ```
 
-Para release HA: revisar diff, ejecutar validacion local relevante, hacer bump
-de version/cache-busters, commit/push, publicar y verificar la imagen GHCR, y
-avisar al usuario en cuanto HA pueda probarla. No retrasar una prueba en HA por
+Para release HA: seguir `docs/release-flow.md` paso a paso. Incluye bump de
+version en tres sitios, actualizacion de CHANGELOG.md, cache-busters, build
+multi-arch, commit y aviso al usuario. No retrasar una prueba en HA por
 documentacion de cierre o hashes documentales.
 
 Para MapLibre protegido: no fiarse solo de que `app.js` contenga un cambio. El

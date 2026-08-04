@@ -184,19 +184,10 @@ siempre que se toque `web_server.py` o cualquier módulo `*_ui.py`.
 
 ## Flujo de release HA
 
-**Solo con autorización explícita del usuario. Ir directamente con permisos elevados.**
+**Solo con autorización explícita del usuario. Ver pasos completos en `docs/release-flow.md`.**
 
-1. `git status --short` + revisar diff completo
-2. Smoke test: `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh`
-3. Bump de versión en **tres sitios** (el smoke test los verifica y falla si no coinciden):
-   - `rainmapper-app/config.yaml` → campo `version:`
-   - `rainmapper-app/Dockerfile` → `LABEL io.hass.version=`
-   - `rainmapper-app/Dockerfile` → `ENV RAINMAPPER_APP_VERSION=`
-4. Actualizar cache-busters de Leaflet/MapLibre en los `index.html` si han cambiado JS/CSS
-5. `./scripts/build-push-ha-image.sh` — construye multi-arch (amd64+arm64) y publica a GHCR
-6. Verificar digest: `docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:<version>`
-7. `git add` (ficheros específicos) + `git commit` + `git push`
-8. Avisar al usuario para que instale y pruebe en HA
+Resumen: smoke test → bump versión (3 sitios) → actualizar `CHANGELOG.md` →
+cache-busters → smoke test → `build-push-ha-image.sh` → commit/push → avisar usuario.
 
 No retrasar la prueba en HA por documentación de cierre o hashes documentales.
 La documentación de continuidad se actualiza después del release o al cerrar sesión.

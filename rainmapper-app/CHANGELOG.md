@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.223
+
+- Add "← Control panel" back link on the Predictor page so it is possible to
+  return to the main panel without navigating away in HA.
+
+## 0.2.222
+
+- Speed up Predictor initial load (first cold start after add-on restart):
+  `load_daily_weather_parquet` now uses vectorised pandas operations instead of
+  a row-by-row Python loop over 620k records. Date parsing, string filtering and
+  float conversion are applied to whole columns before grouping by station,
+  reducing load time from ~30 s to ~3–6 s on the RPi.
+- Add timing and file size to the `weather_daily.parquet generated` log line.
+
 ## 0.2.221
 
 - Fix Predictor page timing out (blank page) after promoting trained models: all
