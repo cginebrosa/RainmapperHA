@@ -3519,6 +3519,11 @@
     "es": "Volver",
     "ca": "Tornar"
   },
+  "ui.back_to_panel": {
+    "en": "Control panel",
+    "es": "Panel de control",
+    "ca": "Panell de control"
+  },
   "ui.known_sites_help": {
     "en": "Maintain private areas and micro-areas used to group observations and future predictions.",
     "es": "Mantiene areas y microareas privadas para agrupar observaciones y futuras predicciones.",

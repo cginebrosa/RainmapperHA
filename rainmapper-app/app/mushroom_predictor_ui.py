@@ -819,6 +819,7 @@ def render_page(
 {_CSS}
 </style>
 <div class="pred-page">
+  <div class="pred-back"><a href="../../">← {html.escape(_lbl("ui.back_to_panel"))}</a></div>
   <h1>🍄 {html.escape(_lbl("ui.predictor_title"))}</h1>
   {tabs}
   {content}
@@ -833,6 +834,9 @@ def render_page(
 _CSS = """
 .pred-page { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
 .pred-page h1 { margin-bottom: 0.5rem; }
+.pred-back { margin-bottom: 0.75rem; }
+.pred-back a { color: #9aa8b2; font-size: 0.85rem; text-decoration: none; }
+.pred-back a:hover { color: #e8eef2; }
 
 /* Tabs */
 .pred-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
