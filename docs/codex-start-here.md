@@ -101,15 +101,12 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA publicado para instalar/probar: `0.2.214`; ultimo instalado:
-  `0.2.213`.
-- Version HA del repo: `0.2.214` en `rainmapper-app/config.yaml` y
+- Ultimo release HA publicado: `0.2.225` (2026-08-06). Pendiente de instalar en HA real
+  (instalada actualmente: `0.2.221`).
+- Version HA del repo: `0.2.225` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada/verificada: `ghcr.io/cginebrosa/rainmapperha:0.2.214` y
-  `latest`, digest multi-arch
-  `sha256:a13a4bb1a1de0bc901fe198ee01ea25a6fe7fb594b1721321de7df0173cb698a`.
-- Ultimo commit instalado: `145cc03 Release Home Assistant 0.2.213`.
+- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.225` y `latest`.
 - `0.2.211` se valido en HA real con M1 emparejado por LAN: reposo estable,
   asignacion, transporte de entradas y reconstruccion candidata completa
   privada completados. Un candidato quedo verificado al 100 % en 55 s sin

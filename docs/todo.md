@@ -12,22 +12,28 @@ Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
 
-## Estado operativo actual (2026-08-03)
+## Estado operativo actual (2026-08-06)
 
 ### Prioridad inmediata
 
+- [ ] Instalar 0.2.225 en HA real (publicada en GHCR, pendiente de instalar).
+  Subir a HA tras instalar: `mushroom_labels.json`, `mushroom_reference_catalogs.json`.
 - [ ] Revisar observaciones `review` en Docker local (`http://127.0.0.1:8101`):
   confirmar especie, rellenar `flush_abundance`, pasar a `calibration_use=include`
-  las validas. 191 observaciones pendientes; paso mas impactante para mejorar modelos.
-- [ ] Release HA con cambios acumulados desde 0.2.214: UI Predictor,
-  worker ml_train_v0, fixes predictor, clipboard evidencia, filtro fechas,
-  modal borrado, fix archivado, fix duplicacion con media.
-  Subir a HA tras release: `mushroom_labels.json`, `mushroom_reference_catalogs.json`,
-  `mushroom_observations.json` (cuando esten revisadas) y media.
-- [ ] Probar job ml_train_v0 end-to-end en Docker local: crear job desde UI,
-  worker lo recoge, entrena, sube resultado, promover en HA.
-- [ ] Retrain modelos despues de revisar observaciones `review` (mas datos → mejores modelos).
+  las validas. Paso mas impactante para mejorar modelos.
+- [ ] Retrain modelos despues de revisar observaciones (mas datos → mejores modelos).
 - [ ] Subir datos a HA: `mushroom_observations.json`, media, `ml_models/*.joblib`
+
+### Tests ML pendientes
+
+- [ ] `tests/test_mushroom_ml_trainer.py` — cubrir al menos:
+  - Split temporal 70/30: que el test set contiene los episodios mas recientes
+  - Calculo de holdout accuracy: threshold correcto (≥0.60 favorable, ≤0.40 unfavorable)
+  - Backtest stats en el report JSON: claves `total_episodes`, `holdout_test_accuracy`, `by_area`
+- [ ] `tests/test_mushroom_ml_predictor.py` — cubrir al menos:
+  - Invalidacion de cache por mtime: si el parquet cambia, se recarga
+  - `predict()` devuelve las claves esperadas (`label`, `probability`, `features_used`)
+  Nota: no requiere sklearn; se puede mockear el modelo joblib o usar un fixture minimal.
   (generados por el worker tras el release).
 
 ### Historial completado (hasta 2026-07-20)
