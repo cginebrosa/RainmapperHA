@@ -2884,6 +2884,11 @@
     "es": "Falsas alarmas",
     "ca": "Falses alarmes"
   },
+  "ui.predictor_reliability": {
+    "en": "Model reliability",
+    "es": "Fiabilidad del modelo",
+    "ca": "Fiabilitat del model"
+  },
   "ui.predictor_actual": {
     "en": "Actual",
     "es": "Real",

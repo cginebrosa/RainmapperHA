@@ -3009,7 +3009,7 @@ por error la foto de una observacion al duplicarla.
 ## 2026-08-04 - Artefacto weather_daily.parquet como fuente canónica de datos meteorológicos para el predictor
 
 ### Estado
-PENDIENTE DE IMPLEMENTAR.
+IMPLEMENTADO (0.2.221). Caché con invalidación por mtime añadida en 0.2.22x.
 
 ### Decisión
 El runner generará al final de cada actualización un único fichero
@@ -3071,6 +3071,11 @@ siendo válido para evitar releer el Parquet en cada petición al predictor.
 - Si el Parquet no existe (primera instalación o datos corruptos), fallback
   a los CSV para no romper el sistema.
 - El worker de ML no se ve afectado: recibe las features ya calculadas.
+- **Caché con invalidación por mtime** (añadido 2026-08-06): `_get_shared_weather_stations()`
+  compara el `st_mtime` del parquet en cada petición al predictor. Si el runner
+  ha regenerado el fichero desde la última carga, la caché se invalida
+  automáticamente y se recarga. Sin este mecanismo, un proceso HA sin reiniciar
+  durante semanas podría mostrar datos meteorológicos obsoletos en el predictor.
 
 ## 2026-07-13 - Pipeline ML posterior a estabilizar observaciones y setales
 

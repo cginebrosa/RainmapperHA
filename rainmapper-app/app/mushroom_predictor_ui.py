@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,10 @@ import mushroom_profiles_ui
 # Module-level predictor cache — lazy-loaded, survives across requests
 _predictor_cache: dict[str, MushroomMLPredictor] = {}
 
+# ML report cache — loaded once per process, reset if file changes
+_ml_report_cache: dict[str, Any] | None = None
+_ml_report_mtime: float | None = None
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -30,6 +35,56 @@ def _get_predictor(species_id: str) -> MushroomMLPredictor:
     if species_id not in _predictor_cache:
         _predictor_cache[species_id] = MushroomMLPredictor(species_id)
     return _predictor_cache[species_id]
+
+
+def _rel_badge(ep_n: int, acc: float | None = None) -> str:
+    if ep_n >= 10:
+        square = "🟩"
+    elif ep_n >= 4:
+        square = "🟨"
+    elif ep_n > 0:
+        square = "🟥"
+    else:
+        return '<span class="pred-rel-badge pred-rel-none">—</span>'
+    ep_label = _lbl("ui.predictor_stat_episodes").lower()
+    return f'<span class="pred-rel-badge">{ep_n} {html.escape(ep_label)} {square}</span>'
+
+
+def _rel_legend_html() -> str:
+    ep_label = _lbl("ui.predictor_stat_episodes").lower()
+    return (
+        f'<p class="pred-hint-legend">'
+        f'🟩 ≥10 {html.escape(ep_label)} &nbsp;'
+        f'🟨 4–9 {html.escape(ep_label)} &nbsp;'
+        f'🟥 1–3 {html.escape(ep_label)}'
+        f'</p>'
+    )
+
+
+def _load_ml_report() -> dict[str, Any] | None:
+    global _ml_report_cache, _ml_report_mtime  # noqa: PLW0603
+    try:
+        p = mushroom_paths.mushroom_ml_report_json_path()
+        if not p.exists():
+            return None
+        mtime = p.stat().st_mtime
+        if _ml_report_cache is None or mtime != _ml_report_mtime:
+            _ml_report_cache = json.loads(p.read_text(encoding="utf-8"))
+            _ml_report_mtime = mtime
+        return _ml_report_cache
+    except Exception:
+        return None
+
+
+def _get_species_backtest_stats(species_id: str) -> dict[str, Any] | None:
+    report = _load_ml_report()
+    if not isinstance(report, dict):
+        return None
+    for entry in report.get("species_results", []):
+        if isinstance(entry, dict) and entry.get("species_id") == species_id:
+            stats = entry.get("backtest_stats")
+            return stats if isinstance(stats, dict) and "total_episodes" in stats else None
+    return None
 
 
 def trained_species_ids() -> list[str]:
@@ -291,6 +346,25 @@ def _render_week(
 """
 
     sp_name = _species_name(species, profiles_payload)
+    bt = _get_species_backtest_stats(species)
+    by_area_bt = bt.get("by_area", {}) if bt else {}
+
+    # Species-level reliability strip
+    if bt and "total_episodes" in bt:
+        total_ep = bt["total_episodes"]
+        n_test = bt.get("n_test", 0)
+        holdout = bt.get("holdout_test_accuracy")
+        holdout_str = f"{round(holdout * 100)}%" if holdout is not None else "—"
+        reliability_html = (
+            f'<div class="pred-reliability-strip">'
+            f'<span class="pred-rel-label">{html.escape(_lbl("ui.predictor_reliability"))}</span>'
+            f'<span class="pred-rel-episodes">{total_ep} {html.escape(_lbl("ui.predictor_stat_episodes")).lower()}</span>'
+            f'<span class="pred-rel-sep">·</span>'
+            f'<span class="pred-rel-acc">{html.escape(holdout_str)} holdout ({n_test} ep)</span>'
+            f'</div>'
+        )
+    else:
+        reliability_html = ""
 
     # Day header
     day_headers = ""
@@ -303,7 +377,11 @@ def _render_week(
     rows_html = ""
     for area_id in sorted(area_ids):
         area_n = _area_name(area_id, known_sites_payload)
-        row_cells = f'<td class="pred-area-cell">{html.escape(area_n)}</td>'
+        area_bt = by_area_bt.get(area_id, {})
+        ep_n = area_bt.get("episodes", 0) if area_bt else 0
+        area_acc = area_bt.get("backtest_accuracy") if area_bt else None
+        rel_cell = f'<td class="pred-rel-cell">{_rel_badge(ep_n)}</td>'
+        row_cells = f'<td class="pred-area-cell">{html.escape(area_n)}</td>{rel_cell}'
         for d in days:
             try:
                 predictor = _get_predictor(species)
@@ -323,11 +401,13 @@ def _render_week(
 <section class="pred-section">
   <div class="pred-chips">{chips}</div>
   <h2>{html.escape(sp_name)}</h2>
+  {reliability_html}
   <div class="pred-table-scroll">
     <table class="pred-week-table">
       <thead>
         <tr>
           <th>{html.escape(_lbl("ui.known_site_area"))}</th>
+          <th class="pred-rel-header">{html.escape(_lbl("ui.predictor_reliability"))}</th>
           {day_headers}
         </tr>
       </thead>
@@ -336,11 +416,14 @@ def _render_week(
       </tbody>
     </table>
   </div>
-  <p class="pred-hint-legend">
-    🟢 {html.escape(_lbl("ui.predictor_favorable"))} &nbsp;
-    🟡 {html.escape(_lbl("ui.predictor_uncertain"))} &nbsp;
-    🔴 {html.escape(_lbl("ui.predictor_unfavorable"))}
-  </p>
+  <div class="pred-legends-row">
+    {_rel_legend_html()}
+    <p class="pred-hint-legend pred-hint-legend-right">
+      🟢 {html.escape(_lbl("ui.predictor_favorable"))} &nbsp;
+      🟡 {html.escape(_lbl("ui.predictor_uncertain"))} &nbsp;
+      🔴 {html.escape(_lbl("ui.predictor_unfavorable"))}
+    </p>
+  </div>
 </section>
 """
 
@@ -514,22 +597,56 @@ def _render_query_all_areas(
         return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_no_data"))}</div>'
 
     sp_name = _species_name(species, profiles_payload)
+    bt = _get_species_backtest_stats(species)
+    by_area_bt = bt.get("by_area", {}) if bt else {}
+
+    # Species-level reliability strip
+    if bt and "total_episodes" in bt:
+        total_ep = bt["total_episodes"]
+        n_test = bt.get("n_test", 0)
+        holdout = bt.get("holdout_test_accuracy")
+        holdout_str = f"{round(holdout * 100)}%" if holdout is not None else "—"
+        reliability_html = (
+            f'<div class="pred-reliability-strip">'
+            f'<span class="pred-rel-label">{html.escape(_lbl("ui.predictor_reliability"))}</span>'
+            f'<span class="pred-rel-episodes">{total_ep} {html.escape(_lbl("ui.predictor_stat_episodes")).lower()}</span>'
+            f'<span class="pred-rel-sep">·</span>'
+            f'<span class="pred-rel-acc">{html.escape(holdout_str)} holdout ({n_test} ep)</span>'
+            f'</div>'
+        )
+    else:
+        reliability_html = ""
+
     rows_html = ""
     for r in results:
         area_n = _area_name(r.area_id, known_sites_payload)
         href = _url("query", species, r.area_id, target_date)
+        area_bt = by_area_bt.get(r.area_id, {})
+        ep_n = area_bt.get("episodes", 0) if area_bt else 0
+        area_acc = area_bt.get("backtest_accuracy") if area_bt else None
+        rel_badge = _rel_badge(ep_n)
         rows_html += f"""
 <a class="pred-rank-row {_status_cls(r.label)}" href="{html.escape(href)}">
   <span class="pred-rank-dot">{_status_dot(r.label)}</span>
   <span class="pred-rank-area">{html.escape(area_n)}</span>
   <span class="pred-rank-prob">{_pct(r.ensemble_probability)}</span>
+  {rel_badge}
 </a>
 """
 
     return f"""
 <div class="pred-rank-list pred-rank-compact">
   <h3>{html.escape(sp_name)} — {html.escape(target_date.strftime("%-d %b %Y"))}</h3>
+  {reliability_html}
   {rows_html}
+</div>
+<div class="pred-legends-row">
+  <p class="pred-hint-legend">
+    🟢 {html.escape(_lbl("ui.predictor_favorable"))} &nbsp;
+    🟡 {html.escape(_lbl("ui.predictor_uncertain"))} &nbsp;
+    🔴 {html.escape(_lbl("ui.predictor_unfavorable"))}
+  </p>
+  {_rel_legend_html()}
 </div>
 """
 
@@ -936,8 +1053,28 @@ _CSS = """
 .pred-rank-area { color: #9aa8b2; }
 .pred-rank-prob { text-align: right; font-weight: 600; }
 .pred-rank-compact .pred-rank-row {
-  grid-template-columns: 1.5rem 1fr 4rem;
+  grid-template-columns: 1.5rem 1fr 4rem 6rem;
 }
+
+/* Reliability strip and per-area badge */
+.pred-reliability-strip {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.82rem; color: #7a8a96; margin-bottom: 0.5rem;
+  padding: 0.35rem 0.6rem; background: #131b22; border-radius: 6px;
+  border-left: 3px solid #2d4a5a;
+}
+.pred-rel-label { color: #5a7080; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.pred-rel-sep { color: #3a4a55; }
+.pred-rel-acc { font-weight: 600; color: #a0b8c0; }
+.pred-rel-badge {
+  font-size: 0.75rem; color: #6a8898; text-align: right; white-space: nowrap;
+}
+.pred-rel-none { color: #3a4a55; }
+.pred-rel-cell { font-size: 0.75rem; color: #6a8898; white-space: nowrap; padding: 0.3rem 0.5rem; }
+.pred-rel-header { font-size: 0.75rem; color: #5a7080; font-weight: normal; white-space: nowrap; }
+.pred-legends-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem; }
+.pred-legends-row .pred-hint-legend { margin: 0; }
+.pred-hint-legend-right { text-align: right; }
 
 /* Species chips */
 .pred-chips { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; flex-wrap: wrap; }

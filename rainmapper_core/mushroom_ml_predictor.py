@@ -94,25 +94,42 @@ def _label(prob: float | None) -> str:
 
 _shared_weather_stations: dict[tuple[str, str], Any] | None = None
 _shared_weather_data_dir: Path | None = None
+_shared_weather_parquet_mtime: float | None = None
+
+_PARQUET_FILENAME = "weather_daily.parquet"
 
 
 def _get_shared_weather_stations(
     weather_data_dir: Path,
 ) -> dict[tuple[str, str], Any]:
-    """Load and cache weather stations once for all predictor instances."""
-    global _shared_weather_stations, _shared_weather_data_dir
-    if _shared_weather_stations is not None and _shared_weather_data_dir == weather_data_dir:
-        return _shared_weather_stations
+    """Load and cache weather stations; reload automatically if parquet has changed."""
+    global _shared_weather_stations, _shared_weather_data_dir, _shared_weather_parquet_mtime
+    parquet_path = weather_data_dir / _PARQUET_FILENAME
+    current_mtime: float | None = None
+    try:
+        current_mtime = parquet_path.stat().st_mtime if parquet_path.exists() else None
+    except OSError:
+        pass
+    cache_valid = (
+        _shared_weather_stations is not None
+        and _shared_weather_data_dir == weather_data_dir
+        and current_mtime is not None
+        and current_mtime == _shared_weather_parquet_mtime
+    )
+    if cache_valid:
+        return _shared_weather_stations  # type: ignore[return-value]
     _shared_weather_stations = ctx.load_daily_weather_parquet(weather_data_dir)
     _shared_weather_data_dir = weather_data_dir
+    _shared_weather_parquet_mtime = current_mtime
     return _shared_weather_stations
 
 
 def invalidate_weather_stations_cache() -> None:
     """Invalidate the shared weather stations cache (call after data update)."""
-    global _shared_weather_stations, _shared_weather_data_dir
+    global _shared_weather_stations, _shared_weather_data_dir, _shared_weather_parquet_mtime
     _shared_weather_stations = None
     _shared_weather_data_dir = None
+    _shared_weather_parquet_mtime = None
 
 
 # ---------------------------------------------------------------------------

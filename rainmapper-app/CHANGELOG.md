@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.225
+
+- Show model reliability statistics in the Predictor: species-level holdout
+  accuracy and per-area episode count with colour badges (🟩 ≥10 / 🟨 4–9 /
+  🟥 1–3) on both the "Por especie" and "Consultar fecha" tabs.
+- Compute backtest statistics during ML training (stored in
+  `mushroom_ml_v0_report.json`): holdout test accuracy (honest 30% newest
+  episodes the model never saw), per-area episode count, false-negative and
+  false-positive counts. These are read by the Predictor UI without any live
+  computation.
+- Fix Predictor showing stale weather data after the runner regenerates
+  `weather_daily.parquet` without an add-on restart: the shared parquet cache
+  now checks `st_mtime` on every Predictor request and reloads automatically
+  when the file has changed.
+
 ## 0.2.224
 
 - Fix "← Control panel" back link on the Predictor page returning 404: the

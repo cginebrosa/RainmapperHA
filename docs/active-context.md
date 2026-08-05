@@ -6,9 +6,10 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Instalada en HA real: `0.2.214` (corrección búsqueda Observaciones, compacta Workers, descarte con modal)
-- **Pendiente de instalar: `0.2.221`** — fix OOM Predictor (weather_daily.parquet + caché compartido). El rollback inmediato es `0.2.214`.
+- Instalada en HA real: `0.2.221` (fix OOM Predictor: weather_daily.parquet + caché compartido). El rollback inmediato es `0.2.214`.
+- **`0.2.225` publicada en GHCR (2026-08-06), pendiente de instalar en HA.**
 - No hay versión de desarrollo/sideload.
+- Predictor verificado en HA: carga inicial ~2s con parquet (antes 30s con CSV).
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
@@ -16,53 +17,25 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Decisión pendiente: incluir Tailscale dentro de la imagen del worker (M5 no tiene Tailscale por ser el del trabajo).
 - Portabilidad en daemon limpio: pendiente, no bloquea work actual.
 
-**Observaciones / ML (estado 2026-08-03):**
-- **587 obs** en Docker local: 423 válidas, 158 draft, 6 doubtful.
-- De las 423 válidas: 232 `calibration_use=include` (aptas), 191 `review` (florada pendiente de rellenar).
-- Fases 1–4 del predictor ML completadas (features, trainer, predictor engine, UI Predictor).
-- Modelos entrenados a nivel **área** (no micro_area): B. aereus (37 ep, 59% backtest), A. caesarea (35 ep), B. pinophilus (22 ep, 36% backtest). L. deliciosus no llega al mínimo de 20 episodios.
+**Observaciones / ML (estado 2026-08-05):**
+- **587 obs** en HA y Docker local (sincronizados): 423 válidas, 158 draft, 6 doubtful.
+- De las 587: 232 `calibration_use=include` (aptas para ML), 355 `review` (pendientes de revisar).
+- `mushroom_reference_catalogs.json` subido a HA (`/share/rainmapper/mushroom-data/`) — necesario para que el valor `pending` de flush_abundance se muestre correctamente.
+- Fases 1–4 del predictor ML completadas (features, trainer, predictor engine, UI Predictor con estadísticas de fiabilidad).
+- Modelos entrenados a nivel **área** (no micro_area): B. aereus (37 ep, 42% holdout), A. caesarea (35 ep, 27% holdout), B. pinophilus (22 ep, 71% holdout). L. deliciosus no llega al mínimo de 20 episodios.
 - Worker job `ml_train_v0` implementado (ver sección "Worker ml_train_v0" más abajo).
 - Bloqueos: 158 obs en draft, 191 con florada sin rellenar, 65 válidas sin micro_area_id.
 
 **Prioridad inmediata:**
-1. **Instalar 0.2.221 en HA real** y verificar que el Predictor no provoca OOM en la RPi.
-2. **Revisar observaciones `review`** en Docker local (`http://127.0.0.1:8101`) — es el paso más
-   impactante para mejorar los modelos ML.
+1. **Revisar observaciones `review`** — 355 pendientes en HA y docker-data. Es el paso más
+   impactante para mejorar los modelos ML. La evidencia observada NO se revisará manualmente:
+   se implementará herencia desde micro_area (ver sección "atributos ecológicos" al final).
+2. **Instalar 0.2.225 en HA** — incluye UI de fiabilidad del predictor y fix caché parquet.
 3. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
 4. Worker: probar descarte con candidato terminal en HA real.
 5. Decidir si meter Tailscale dentro de la imagen del worker.
 
-## Cambios pendientes de release (acumulados en Docker local, no en HA)
-
-Desde `0.2.214` se han añadido en Docker local las siguientes mejoras, sin bump ni publicación:
-
-- **Clipboard de evidencia de campo** (`mushroom_profiles_ui.py`): botones "Copiar evidencia"
-  y "Pegar evidencia" en la sección de evidencia del formulario de observación. Copia/pega
-  los 5 grupos de checkboxes + 2 notas vía `localStorage`. Útil para propagar evidencia
-  entre observaciones de la misma salida.
-- **Filtro de fecha con auto-slash y submit en blur** (`web_server.py`): en la pantalla de
-  Observaciones, los campos "Desde"/"Hasta" ahora auto-insertan `/` al escribir día y mes,
-  y aplican el filtro al salir del campo (blur) o pulsar Enter. Requieren exactamente
-  `dd/mm/yyyy` para evitar submits prematuros al editar dígitos intermedios.
-- **Modal CSS para "Borrar definitivamente"** (`mushroom_profiles_ui.py`): reemplaza el
-  `confirm()` nativo del navegador (que aparecía en posición aleatoria) por un modal
-  centrado consistente con el resto de la UI.
-- **Fix archivado de observaciones** (`web_server.py`): al archivar, no abre el desplegable
-  de archivadas y selecciona automáticamente la siguiente observación en la lista.
-- **Fix duplicación con media** (`web_server.py`): al duplicar una observación, la nueva
-  hereda las referencias de media de la original (útil cuando una foto muestra varias especies).
-- **UI Predictor** (`mushroom_predictor_ui.py`, nuevo): pantalla "Predictor" con 4 vistas
-  (Esta semana, Por especie, Consultar fecha, Historial). Filtros clicables en tarjetas de
-  estadísticas. Caché lazy por especie. Ver sección "ML Predictor — estado" más abajo.
-- **Worker job ml_train_v0**: entrena modelos ML desde el worker externo con promoción manual.
-  Ver sección "Worker ml_train_v0" más abajo.
-- **Fixes predictor** (esta sesión): `sys.exit()` → `raise ImportError` al faltar joblib,
-  numpy 1.25.2 → 2.4.6 (compatibilidad joblib), scikit-learn 1.9.0 añadido a requirements.txt,
-  key `observed_at` en historial (antes usaba `date`), FN/FP con key `actual` (antes `actual_label`),
-  columna "Real" binaria favorable/no favorable (no etiqueta de 3 vías).
-
-**Para el release:** smoke test + bump de versión en los 3 sitios + build-push-ha-image.sh.
-Subir también a HA: `mushroom_labels.json`, `mushroom_reference_catalogs.json`,
+**Subir también a HA tras el release:** `mushroom_labels.json`, `mushroom_reference_catalogs.json`,
 `mushroom_observations.json` (cuando estén revisadas), y media. Los `.joblib` se generan
 desde el worker después del release.
 
@@ -171,9 +144,15 @@ Backtest B. pinophilus (22 episodios a nivel área):
 - "Consultar fecha": predicción puntual fecha+área.
 - "Historial": backtesting visual con tarjetas de estadísticas clicables (filtran por correct/FN/FP).
 - Caché lazy por especie en `web_server.py`. Modelos joblib cargados bajo demanda.
-- Bugs corregidos en esta sesión: `sys.exit()` → `raise ImportError` al faltar joblib,
-  numpy 1.25.2 → 2.4.6, scikit-learn 1.9.0 añadido a requirements.txt,
-  key `observed_at` en historial, key `actual` para FN/FP, columna "Real" binaria.
+- **Estadísticas de fiabilidad (0.2.225):** strip con holdout accuracy por especie, badges de
+  episodios por área (🟩 ≥10 / 🟨 4–9 / 🟥 1–3) en "Por especie" y "Consultar fecha".
+  Dos leyendas: predicción (círculos 🟢🟡🔴) y fiabilidad (cuadrados 🟩🟨🟥).
+- **Backtest durante entrenamiento (0.2.225):** `mushroom_ml_trainer.py` calcula holdout
+  accuracy (split temporal 70/30) y stats por área al entrenar, guardadas en
+  `mushroom_ml_v0_report.json`. La UI lee el reporte; no hay cómputo live en cada petición.
+- **Fix caché parquet (0.2.225):** `_get_shared_weather_stations()` invalida la caché
+  automáticamente si el mtime del parquet ha cambiado — evita datos obsoletos si el runner
+  regenera el fichero sin reiniciar el add-on.
 
 ## Importación masiva de observaciones + fixes de datos (2026-08-01/02, en curso)
 
@@ -803,3 +782,53 @@ la UI hauria de permetre:
 ### Prioritat
 Pendent. No bloqueja res actual. Fer-ho abans del proper cicle de re-entrenament
 quan hi hagi prou observacions revisades per justificar una nova versió del model.
+
+## Planificación: atributos ecológicos en micro_area + herencia en observaciones (pendiente)
+
+### Análisis realizado (2026-08-04)
+
+Se analizaron las 232 observaciones `calibration_use=include` con `micro_area_id` asignada.
+Los atributos categóricos (`observed_host_ids`, `observed_forest_type_ids`,
+`observed_soil_tendency_ids`, `observed_habitat_feature_ids`, `observed_aspect_ids`)
+están bien rellenos: 226/232 tienen hosts, 211-216 tienen el resto.
+
+**Hallazgo clave:** en la mayoría de micro_areas los valores son idénticos en todas las
+observaciones — por ejemplo `olvan_la_pera` tiene `host_quercus_ilex` en 25/25 obs y
+`forest_holm_oak` en 25/25. Es decir, ya son de facto atributos del lugar, no de la visita.
+Excepción: `la_masella_km11` (4 obs sin ningún dato — importación masiva sin evidencia).
+
+### Diseño acordado
+
+Patrón **"defaults from reference + override per observation"**:
+
+1. **`mushroom_known_sites.json`** añade atributos ecológicos por micro_area:
+   `default_host_ids`, `default_forest_type_ids`, `default_soil_tendency_ids`,
+   `default_habitat_feature_ids`, `default_aspect_ids`.
+   Se derivan de las observaciones existentes: valor presente en >50% de obs `include`.
+
+2. **Al crear una observación o asignar micro_area**, los atributos se copian automáticamente
+   desde la micro_area como valores por defecto. El usuario puede sobrescribirlos si ese día
+   observó algo diferente.
+
+3. **Flag de sobreescritura**: cuando el usuario edita manualmente un atributo, queda marcado
+   (`site_context_overridden: true` o a nivel de campo) para distinguir "heredado de micro_area"
+   de "observado específicamente ese día".
+
+4. **Para el modelo ML**: el trainer puede elegir qué usar:
+   - Atributos de la micro_area (más estables, menos ruido por varianza inter-observación)
+   - Atributos de la observación (más específicos, capturan variaciones del día)
+   Esta decisión se toma cuando se implemente el uso de variables categóricas en el modelo.
+
+### Pasos de implementación (en orden)
+
+1. **Paso 0 (ya hecho):** análisis confirma que los datos son derivables de obs existentes.
+2. **Paso 1:** añadir campos `default_*` a `mushroom_known_sites.json` derivándolos de las
+   232 obs include actuales (script de derivación automática).
+3. **Paso 2:** UI: al asignar micro_area a una observación, pre-rellenar los atributos
+   desde `mushroom_known_sites.json` si están vacíos en la observación.
+4. **Paso 3:** flag de sobreescritura en la observación.
+5. **Paso 4 (futuro):** usar variables categóricas en el modelo ML, decidiendo fuente.
+
+### Prerequisito
+Terminar de revisar las 191 observaciones `review` antes de derivar los defaults,
+para que la base de derivación sea completa y representativa.

@@ -80,6 +80,10 @@ MIN_ROWS_DEFAULT = 20
 CV_FOLDS_DEFAULT = 5
 TRAIN_RATIO = 0.70  # fraction of rows used for training (temporal split)
 
+# Label thresholds — must stay in sync with mushroom_ml_predictor.py
+_LABEL_FAVORABLE_THRESHOLD = 0.60
+_LABEL_UNFAVORABLE_THRESHOLD = 0.40
+
 
 def _require_sklearn() -> None:
     try:
@@ -340,6 +344,88 @@ def train_species(
     train_dates = sorted(rows[i].get("observed_at", "") for i in train_idx if rows[i].get("observed_at"))
     test_dates = sorted(rows[i].get("observed_at", "") for i in test_idx if rows[i].get("observed_at"))
 
+    _cb(93, f"{species_id}: calculando backtest sobre todos los episodios")
+    backtest_stats: dict[str, Any] = {}
+    try:
+        # Holdout test accuracy (honest — model never saw these during training)
+        holdout_test_accuracy: float | None = None
+        if len(X_test) > 0:
+            lr_test_probs = lr.predict_proba(X_test)[:, 1]
+            rf_test_probs = rf.predict_proba(X_test)[:, 1]
+            ens_test_probs = (lr_test_probs + rf_test_probs) / 2.0
+            correct_test = sum(
+                1 for i, yi in enumerate(y_test)
+                if (
+                    (ens_test_probs[i] >= _LABEL_FAVORABLE_THRESHOLD and int(yi) == 1)
+                    or (ens_test_probs[i] <= _LABEL_UNFAVORABLE_THRESHOLD and int(yi) == 0)
+                )
+            )
+            holdout_test_accuracy = _safe_round(correct_test / len(y_test))
+
+        X_all_imp = imputer.transform(X_raw)
+        X_all_scaled = scaler.transform(X_all_imp)
+        lr_probs_all = lr.predict_proba(X_all_scaled)[:, 1]
+        rf_probs_all = rf.predict_proba(X_all_scaled)[:, 1]
+        ensemble_probs_all = (lr_probs_all + rf_probs_all) / 2.0
+
+        total_bt = 0
+        correct_bt = 0
+        fn_bt = 0
+        fp_bt = 0
+        by_area_bt: dict[str, dict[str, int]] = {}
+
+        for i, ep in enumerate(rows):
+            prob = float(ensemble_probs_all[i])
+            if prob >= _LABEL_FAVORABLE_THRESHOLD:
+                pred_label = "favorable"
+            elif prob <= _LABEL_UNFAVORABLE_THRESHOLD:
+                pred_label = "unfavorable"
+            else:
+                pred_label = "uncertain"
+            actual = "favorable" if int(y[i]) == 1 else "unfavorable"
+            is_correct = pred_label == actual
+            is_fn = actual == "favorable" and pred_label != "favorable"
+            is_fp = actual == "unfavorable" and pred_label == "favorable"
+
+            total_bt += 1
+            if is_correct:
+                correct_bt += 1
+            if is_fn:
+                fn_bt += 1
+            if is_fp:
+                fp_bt += 1
+
+            area_id = str(ep.get("area_id") or "")
+            if area_id:
+                a = by_area_bt.setdefault(area_id, {"episodes": 0, "correct": 0, "fn": 0, "fp": 0})
+                a["episodes"] += 1
+                if is_correct:
+                    a["correct"] += 1
+                if is_fn:
+                    a["fn"] += 1
+                if is_fp:
+                    a["fp"] += 1
+
+        by_area_stats = {
+            area: {
+                "episodes": d["episodes"],
+                "backtest_accuracy": _safe_round(d["correct"] / d["episodes"]) if d["episodes"] else None,
+                "false_negatives": d["fn"],
+                "false_positives": d["fp"],
+            }
+            for area, d in sorted(by_area_bt.items())
+        }
+        backtest_stats = {
+            "total_episodes": total_bt,
+            "n_test": len(test_idx),
+            "holdout_test_accuracy": holdout_test_accuracy,
+            "favorable_ratio": _safe_round(n_favorable / total_bt) if total_bt else None,
+            "date_range": date_range,
+            "by_area": by_area_stats,
+        }
+    except Exception as _exc_bt:
+        backtest_stats = {"error": str(_exc_bt)}
+
     _cb(100, f"{species_id}: listo")
 
     return {
@@ -378,6 +464,7 @@ def train_species(
             },
         },
         "joblib_path": str(joblib_path),
+        "backtest_stats": backtest_stats,
     }
 
 
