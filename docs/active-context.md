@@ -374,9 +374,13 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA instalada y validada: `0.2.214` (`524bf2c Release Home Assistant 0.2.214`).
-  Búsqueda global de Observaciones validada en HA real. Workers (M1 y M5) probados y funcionales.
-- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.214` y `latest`, digest
+- Release HA actual en GHCR: `0.2.225` (2026-08-06). Instalada en HA real: `0.2.221`.
+  Workers (M1 y M5) probados y funcionales.
+
+### Histórico: última release validada antes de ML (0.2.214)
+- Release instalada y validada en ese momento: `0.2.214` (`524bf2c`).
+  Búsqueda global de Observaciones validada en HA real.
+- Imagen: `ghcr.io/cginebrosa/rainmapperha:0.2.214`, digest
   `sha256:a13a4bb1a1de0bc901fe198ee01ea25a6fe7fb594b1721321de7df0173cb698a`.
 - Manifests verificados: `linux/amd64`
   `sha256:cb03ce65b1d926f96063f2ab2754e4cd299e8c76c5bb365a2d463bcf55b469bc`

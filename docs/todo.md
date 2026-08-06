@@ -24,9 +24,6 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 - [ ] Retrain modelos despues de revisar observaciones (mas datos → mejores modelos).
 - [ ] Subir datos a HA: `mushroom_observations.json`, media, `ml_models/*.joblib`
 
-- [ ] Tests ML — pendiente añadir test de `predict()` con mock de joblib:
-  que devuelva `label`, `probability` y `features_used` con las claves correctas.
-  Los tests de split, backtest stats y cache mtime ya estan en la suite (414 tests).
 
 ### Historial completado (hasta 2026-07-20)
 
