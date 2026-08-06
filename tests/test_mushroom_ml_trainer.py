@@ -72,9 +72,13 @@ class BuildXyTests(unittest.TestCase):
 
 
 class LabelThresholdConsistencyTests(unittest.TestCase):
-    def test_thresholds_in_valid_range(self) -> None:
-        self.assertGreater(_LABEL_FAVORABLE_THRESHOLD, 0.5)
-        self.assertLess(_LABEL_UNFAVORABLE_THRESHOLD, 0.5)
+    def test_favorable_threshold_exact_value(self) -> None:
+        self.assertEqual(_LABEL_FAVORABLE_THRESHOLD, 0.60)
+
+    def test_unfavorable_threshold_exact_value(self) -> None:
+        self.assertEqual(_LABEL_UNFAVORABLE_THRESHOLD, 0.40)
+
+    def test_thresholds_ordered(self) -> None:
         self.assertLess(_LABEL_UNFAVORABLE_THRESHOLD, _LABEL_FAVORABLE_THRESHOLD)
 
 

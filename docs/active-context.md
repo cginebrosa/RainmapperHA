@@ -17,9 +17,10 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Decisión pendiente: incluir Tailscale dentro de la imagen del worker (M5 no tiene Tailscale por ser el del trabajo).
 - Portabilidad en daemon limpio: pendiente, no bloquea work actual.
 
-**Observaciones / ML (estado 2026-08-05):**
-- **587 obs** en HA y Docker local (sincronizados): 423 válidas, 158 draft, 6 doubtful.
-- De las 587: 232 `calibration_use=include` (aptas para ML), 355 `review` (pendientes de revisar).
+**Observaciones / ML (estado 2026-08-06):**
+- **772 obs** en Docker local (importación masiva 2026-08-01/02): 126 `include` existentes + 646 nuevas `review`.
+  HA aún tiene la versión previa (~587 obs); pendiente de sincronizar cuando se revisen las `review`.
+- De las 772: 126 `calibration_use=include` (aptas para ML), 646 `review` (pendientes de revisar).
 - `mushroom_reference_catalogs.json` subido a HA (`/share/rainmapper/mushroom-data/`) — necesario para que el valor `pending` de flush_abundance se muestre correctamente.
 - Fases 1–4 del predictor ML completadas (features, trainer, predictor engine, UI Predictor con estadísticas de fiabilidad).
 - Modelos entrenados a nivel **área** (no micro_area): B. aereus (37 ep, 42% holdout), A. caesarea (35 ep, 27% holdout), B. pinophilus (22 ep, 71% holdout). L. deliciosus no llega al mínimo de 20 episodios.
@@ -27,7 +28,7 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Bloqueos: 158 obs en draft, 191 con florada sin rellenar, 65 válidas sin micro_area_id.
 
 **Prioridad inmediata:**
-1. **Revisar observaciones `review`** — 355 pendientes en HA y docker-data. Es el paso más
+1. **Revisar observaciones `review`** — 646 pendientes en Docker local. Es el paso más
    impactante para mejorar los modelos ML. La evidencia observada NO se revisará manualmente:
    se implementará herencia desde micro_area (ver sección "atributos ecológicos" al final).
 2. **Instalar 0.2.225 en HA** — incluye UI de fiabilidad del predictor y fix caché parquet.
@@ -39,9 +40,7 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 `mushroom_observations.json` (cuando estén revisadas), y media. Los `.joblib` se generan
 desde el worker después del release.
 
-## ML Predictor — estado (2026-08-03, fases 1-3 completadas)
-
-El motor ML completo está implementado y funcional en Docker local. Falta la Fase 4 (UI).
+## ML Predictor — estado (2026-08-06, fases 1-4 completadas)
 
 ### Fases completadas
 
