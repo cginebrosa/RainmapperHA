@@ -1,5 +1,9 @@
 # RainmapperHA — Guía para Claude Code
 
+## Documentos referenciados son obligatorios
+
+**REGLA ESTRICTA:** Cuando el CLAUDE.md o cualquier instrucción activa diga "ver `fichero.md`", "seguir `fichero.md`", "leer `fichero.md`" o similar, leer ese fichero **antes de actuar**. No asumir que recuerdas el contenido de sesiones anteriores. No saltarte la lectura porque el paso parece obvio. Si no has leído el fichero referenciado, no has seguido la instrucción. Saltarse esta regla equivale a ignorar directamente el CLAUDE.md y puede tener consecuencias irreversibles (releases incorrectos, datos corruptos, pasos omitidos). Esta regla no tiene excepciones.
+
 ## Preguntas vs. órdenes
 
 **REGLA ESTRICTA:** Cuando el usuario hace una pregunta, responde SOLO con texto. NO ejecutes ninguna herramienta, NO toques ningún fichero, NO ejecutes ningún comando. Espera la confirmación explícita del usuario antes de hacer cualquier acción. Esta regla no tiene excepciones.
