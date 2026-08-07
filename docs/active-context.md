@@ -6,13 +6,12 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Instalada en HA real: `0.2.221` (parquet meteorológico + caché compartida;
-  el OOM del Predictor **no está resuelto completamente**). El rollback inmediato es `0.2.214`.
-- **`0.2.225` publicada en GHCR (2026-08-06), pendiente de instalar en HA.**
+- Instalada en HA real: `0.2.221`. El rollback inmediato es `0.2.214`.
+- **`0.2.226` publicada en GHCR (2026-08-07), pendiente de instalar en HA.**
+  Incluye el fix P0 de memoria del Predictor y el fix N/A del popup de lluvia.
 - No hay versión de desarrollo/sideload.
-- Predictor verificado en HA: carga inicial ~2s con parquet (antes 30s con CSV),
-  pero abrirlo puede dejar la RPi4 bajo presión extrema de memoria y colgar HA/el host.
-  **No abrir Predictor remotamente hasta corregir el acceso meteorológico.**
+- Predictor: con 0.2.226 el pico de memoria baja de ~358 MiB a ~40 MiB.
+  **Instalar 0.2.226 antes de abrir Predictor remotamente.**
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
@@ -108,8 +107,8 @@ una con suficientes días de cobertura para la ventana solicitada.
 - El worker y el pipeline de entrenamiento no se ven afectados
 - `weather_daily.parquet` sigue siendo la fuente canónica
 
-**Pendiente antes de implementar:** subir a HA el fix N/A del popup del mapa
-(versión 0.2.225 ya tiene todo lo demás; este fix irá en 0.2.226).
+**Implementado en 0.2.226 (2026-08-07).** Pendiente: instalar en HA y verificar
+que el Predictor ya no colapsa la RPi4.
 
 ### Fases completadas
 

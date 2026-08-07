@@ -101,13 +101,12 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA publicado: `0.2.225` (2026-08-06). Pendiente de instalar en HA real
+- Ultimo release HA publicado: `0.2.226` (2026-08-07). Pendiente de instalar en HA real
   (instalada actualmente: `0.2.221`).
-- **P0 Predictor/RPi4:** 0.2.221 y 0.2.225 siguen materializando 622k filas
-  meteorologicas y pueden provocar un pico cercano a 1 GB. No abrir Predictor
-  remotamente hasta implementar y validar chunks de 120 dias filtrados por las
-  estaciones necesarias, manteniendo las features en 30 dias. Diseno completo
-  en `docs/mushrooms/mushroom-predictor-design-es.md`, seccion 0.
+- **P0 Predictor/RPi4 RESUELTO en 0.2.226:** el predictor filtra el parquet a las
+  ~100 estaciones más cercanas a las micro-áreas del modelo (antes: 1.932 estaciones,
+  ~358 MiB; ahora: ~40 MiB, reducción del 89%). Instalar 0.2.226 antes de abrir
+  Predictor remotamente.
 - Version HA del repo: `0.2.225` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
