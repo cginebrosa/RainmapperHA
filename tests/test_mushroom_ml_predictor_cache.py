@@ -38,7 +38,7 @@ class ParquetCacheMtimeTests(unittest.TestCase):
             parquet.write_bytes(b"fake")
             with patch.object(predictor_mod.ctx, "load_daily_weather_parquet", return_value=self._fake_load()) as mock_load:
                 result = predictor_mod._get_shared_weather_stations(Path(d))
-                mock_load.assert_called_once_with(Path(d))
+                mock_load.assert_called_once_with(Path(d), station_filter=None)
                 self.assertEqual(result, self._fake_load())
 
     def test_cache_not_reloaded_when_mtime_unchanged(self) -> None:

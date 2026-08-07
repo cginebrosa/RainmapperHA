@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.226
+
+- Fix P0 memory issue: the Predictor no longer materialises all 1,932 weather
+  stations (~358 MiB) on startup. It now loads a lightweight station coordinate
+  catalog (~100 KB) and filters the daily parquet to the top-5 nearest stations
+  within 15 km of each model micro-area (~100 stations, ~40 MiB, 89% reduction).
+  The runner generates `weather_stations_catalog.parquet` alongside the existing
+  `weather_daily.parquet`.
+- Fix rain values showing "undefined" or "null" in the MapLibre popup for days
+  where the quality filter nullified consecutive duplicate readings (Wunderground
+  sensor carry-forward artefact): these now display as "N/A".
+
 ## 0.2.225
 
 - Show model reliability statistics in the Predictor: species-level holdout

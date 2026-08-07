@@ -11,6 +11,46 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-07 - P0 Predictor/RPi4: filtro espacial top-5 estaciones a ≤15 km por micro-área
+
+Estado: IMPLEMENTADO (pendiente de release HA)
+
+Decision:
+
+- Filtrar `weather_daily.parquet` a las ~100 estaciones relevantes (top-5 a ≤15 km
+  de cada micro-área del modelo) antes de materializar objetos `DailyWeatherRecord`.
+- No usar LRU, chunks por fechas ni particionado del parquet en esta fase.
+- La caché `_shared_weather_stations` con invalidación por mtime (ya en 0.2.225) se
+  mantiene; ahora guardará ~100 estaciones en lugar de 1.932.
+- Nuevo artefacto `weather_stations_catalog.parquet`: una fila por estación con
+  coordenadas y metadatos (~100 KB), generado por el runner junto al parquet diario.
+- `select_station()` ampliada para intentar hasta 5 candidatas en orden de distancia
+  cuando la más cercana no tiene cobertura suficiente.
+
+Mediciones (docker-data, 2026-08-06):
+
+| Variante | Estaciones | Filas | Estimación RAM |
+|---|---|---|---|
+| Actual | 1.932 | 625.434 | ~358 MiB |
+| Top-5 ≤15 km / micro-área | 100 | 70.490 | ~40 MiB |
+
+Las 46 micro-áreas del modelo quedan cubiertas. Reducción esperada: 89%.
+
+Motivo:
+
+- La materialización completa del histórico provoca un pico cercano a 1 GB en RPi4,
+  causando pérdida de conectividad y necesidad de corte físico de alimentación.
+- El filtro espacial es el mínimo cambio efectivo: elimina el 89% de los objetos sin
+  afectar al modelo, al worker ni al pipeline de entrenamiento.
+
+Alternativas descartadas para esta fase:
+- Chunks por ventana de 120 días: sin filtro espacial, los últimos 120 días siguen
+  conteniendo 1.765 estaciones (124.938 filas). Beneficio menor del 80%.
+- LRU de ventanas: útil como segunda optimización, no como primera.
+- Particionar el parquet por estación: mejora I/O futuro, no resuelve el pico inmediato.
+
+Ver diseño detallado en `docs/mushrooms/mushroom-predictor-design-es.md`, sección 0.4.
+
 ## 2026-08-03 - Worker job ml_train_v0: dos jobs separados, no chaining automatico
 
 Estado: VIGENTE
@@ -3009,7 +3049,10 @@ por error la foto de una observacion al duplicarla.
 ## 2026-08-04 - Artefacto weather_daily.parquet como fuente canónica de datos meteorológicos para el predictor
 
 ### Estado
-IMPLEMENTADO (0.2.221). Caché con invalidación por mtime añadida en 0.2.22x.
+IMPLEMENTADO PARCIALMENTE (0.2.221). La caché con invalidación por mtime se
+añadió en 0.2.22x, pero el OOM del Predictor no está resuelto: el parquet evita
+leer varios CSV y compartir una copia por especie, pero el histórico completo
+sigue expandiéndose a objetos Python y queda retenido en memoria.
 
 ### Decisión
 El runner generará al final de cada actualización un único fichero
@@ -3036,13 +3079,15 @@ fracción de los datos. Con 7+ especies entrenadas, esto multiplicaba la carga
 por el número de instancias de `MushroomMLPredictor` activas, causando OOM en
 la RPi.
 
-Parquet resuelve dos problemas a la vez:
+Parquet intentaba resolver dos problemas a la vez:
 1. **Tamaño**: compresión columnar reduce ~116 MB de CSV a ~15-20 MB.
 2. **Fuente única**: un solo fichero consolidado elimina la necesidad de leer
    y mergear 4 CSV en cada acceso.
 
-El caché compartido a nivel de módulo (`_shared_weather_stations`) sigue
-siendo válido para evitar releer el Parquet en cada petición al predictor.
+La caché compartida a nivel de módulo (`_shared_weather_stations`) evita una
+copia completa por especie, pero no es una solución válida para la RPi4 mientras
+retenga las 622k filas expandidas. Debe sustituirse por lecturas filtradas y una
+caché de ventanas acotada.
 
 ### Detalles de implementación a tener en cuenta
 - **AEMET usa coma decimal** en `Latitud`/`Longitud` en su CSV
@@ -3066,7 +3111,8 @@ siendo válido para evitar releer el Parquet en cada petición al predictor.
   `_shared_weather_stations` sigue igual, solo cambia de dónde carga los datos
 
 ### Consecuencias
-- Primera apertura del Predictor: carga ~15-20 MB en lugar de ~116 MB.
+- La primera apertura lee un fichero comprimido pequeño, pero eso no limita la
+  RAM: el loader expande todo el histórico a objetos Python.
 - La generación de artefactos de features también se beneficia.
 - Si el Parquet no existe (primera instalación o datos corruptos), fallback
   a los CSV para no romper el sistema.
@@ -3076,6 +3122,37 @@ siendo válido para evitar releer el Parquet en cada petición al predictor.
   ha regenerado el fichero desde la última carga, la caché se invalida
   automáticamente y se recarga. Sin este mecanismo, un proceso HA sin reiniciar
   durante semanas podría mostrar datos meteorológicos obsoletos en el predictor.
+
+### Revisión 2026-08-06: incidente P0 de memoria
+
+La afirmación anterior de que la apertura cargaba solo ~15-20 MB confundía el
+tamaño comprimido en disco con la representación expandida en memoria.
+
+Medición sobre la copia local fresca de HA:
+
+- parquet de 3,5 MiB, 622.069 filas y un row group;
+- 1.948 estaciones y 622.033 `DailyWeatherRecord` construidos;
+- `ru_maxrss` de 95.731.712 a 929.153.024 bytes: incremento aproximado de
+  795 MiB;
+- unos 247 MiB de asignaciones Python todavía trazadas después de `gc`, sin
+  incluir toda la memoria nativa ni la retenida por allocators.
+
+Además, la carga fría no está serializada bajo `ThreadingHTTPServer` y las
+instancias ya inicializadas pueden conservar referencias al histórico anterior
+después de cambiar el parquet.
+
+Decisión pendiente de implementación: separar el catálogo ligero de estaciones
+del histórico y usar chunks de caché de 120 días filtrados por las estaciones
+necesarias, manteniendo las features del modelo en 30 días. Recomendador/Por
+especie reutilizan el contexto actual; Consulta por fecha carga un contexto
+anclado solo cuando no haya cobertura; volver a las vistas actuales reactiva su
+contexto. Historial/backtest agrupa ventanas por episodio. La LRU será pequeña e
+invalidada por fingerprint. El fallback web a CSV debe fallar de forma acotada
+en lugar de cargar el histórico completo. Diseño y validación detallados en
+`docs/mushrooms/mushroom-predictor-design-es.md`, sección 0.
+
+Hasta validar el arreglo en una imagen arm64 y en RPi4, no abrir Predictor de
+forma remota ni considerar 0.2.221/0.2.225 como solución completa del OOM.
 
 ## 2026-07-13 - Pipeline ML posterior a estabilizar observaciones y setales
 

@@ -3450,7 +3450,7 @@ function recentRainHistory(properties) {
       <tr class="${hasRain ? "rainy-day" : ""}">
         <td>${record.date}</td>
         <td>${record.daysAgo}</td>
-        <td>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : record.rain}</td>
+        <td>${Number.isFinite(record.rainValue) ? record.rainValue.toFixed(1) : "N/A"}</td>
         <td>${temperatureText}</td>
         <td>${humidityText}</td>
         <td>${windText}</td>

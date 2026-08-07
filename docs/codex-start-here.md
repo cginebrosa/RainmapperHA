@@ -103,6 +103,11 @@ Para tareas de setas:
 - Rama activa: `inicial`.
 - Ultimo release HA publicado: `0.2.225` (2026-08-06). Pendiente de instalar en HA real
   (instalada actualmente: `0.2.221`).
+- **P0 Predictor/RPi4:** 0.2.221 y 0.2.225 siguen materializando 622k filas
+  meteorologicas y pueden provocar un pico cercano a 1 GB. No abrir Predictor
+  remotamente hasta implementar y validar chunks de 120 dias filtrados por las
+  estaciones necesarias, manteniendo las features en 30 dias. Diseno completo
+  en `docs/mushrooms/mushroom-predictor-design-es.md`, seccion 0.
 - Version HA del repo: `0.2.225` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
@@ -168,16 +173,19 @@ Para tareas de setas:
 
 ## Fuente de verdad de setas
 
-En la fase local actual, la fuente operativa de setas es:
-
-```text
-docker-data/mushroom-data/
-```
-
-En HA equivale a:
+Para las observaciones, la fuente operativa actual es HA real y la revisión se
+realiza allí:
 
 ```text
 /share/rainmapper/mushroom-data/
+```
+
+La ruta local es una copia fresca del estado de HA para pruebas y comprobaciones;
+no tratarla como una fuente autoritativa independiente ni sobrescribir HA desde
+ella sin una operación de sincronización explícita y verificada:
+
+```text
+docker-data/mushroom-data/
 ```
 
 Las capas GIS/DEM pesadas necesarias para reconstruir contexto de setas en HA

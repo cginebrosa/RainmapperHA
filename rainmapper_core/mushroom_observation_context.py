@@ -269,6 +269,7 @@ def _nan_to_none(v: Any) -> float | None:
 
 
 _PARQUET_FILENAME = "weather_daily.parquet"
+_CATALOG_FILENAME = "weather_stations_catalog.parquet"
 
 _PARQUET_COL_MAP = {
     "Codi Estació": "station_code",
@@ -346,9 +347,64 @@ def generate_weather_daily_parquet(
     return output_path
 
 
+def generate_stations_catalog_parquet(data_dir: Path) -> Path | None:
+    """Extract one row per station from weather_daily.parquet and write weather_stations_catalog.parquet.
+
+    The catalog contains only coordinate/metadata columns (~100 KB). It is generated
+    immediately after weather_daily.parquet so the predictor can filter the daily parquet
+    to relevant stations without loading all rows into Python objects.
+    Returns the catalog path on success, None if the daily parquet does not exist.
+    """
+    parquet_path = data_dir / _PARQUET_FILENAME
+    if not parquet_path.exists():
+        return None
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        df = pd.read_parquet(parquet_path, columns=["source", "station_code", "station_name", "lat", "lon", "altitude"])
+    df = df.drop_duplicates(subset=["source", "station_code"])
+    df = df.dropna(subset=["station_code", "lat", "lon"])
+    catalog_path = data_dir / _CATALOG_FILENAME
+    df.to_parquet(catalog_path, index=False)
+    return catalog_path
+
+
+def load_stations_catalog(data_dir: Path) -> "pd.DataFrame":
+    """Load weather_stations_catalog.parquet as a DataFrame (source, station_code, lat, lon, altitude).
+
+    Returns an empty DataFrame if the catalog does not exist (predictor will fall back to
+    loading all stations from the daily parquet).
+    """
+    catalog_path = data_dir / _CATALOG_FILENAME
+    if not catalog_path.exists():
+        return pd.DataFrame(columns=["source", "station_code", "station_name", "lat", "lon", "altitude"])
+    return pd.read_parquet(catalog_path)
+
+
+def nearest_station_codes(
+    catalog: "pd.DataFrame",
+    lat: float,
+    lon: float,
+    max_km: float = 15.0,
+    top_n: int = 5,
+) -> list[tuple[str, str]]:
+    """Return up to top_n (source, station_code) pairs within max_km of (lat, lon), sorted by distance."""
+    if catalog.empty:
+        return []
+    distances = catalog.apply(
+        lambda row: haversine_km(lat, lon, float(row["lat"]), float(row["lon"])),
+        axis=1,
+    )
+    nearby = catalog[distances <= max_km].copy()
+    nearby["_dist"] = distances[nearby.index]
+    nearby = nearby.sort_values("_dist").head(top_n)
+    return [(str(row["source"]), str(row["station_code"])) for _, row in nearby.iterrows()]
+
+
 def load_daily_weather_parquet(
     data_dir: Path,
     progress_callback: Any | None = None,
+    station_filter: set[tuple[str, str]] | None = None,
 ) -> dict[tuple[str, str], WeatherStation]:
     """Load weather stations from weather_daily.parquet if available, else from CSVs."""
     parquet_path = data_dir / _PARQUET_FILENAME
@@ -357,6 +413,11 @@ def load_daily_weather_parquet(
 
     emit_progress(progress_callback, 5, "Leyendo weather_daily.parquet...")
     df = pd.read_parquet(parquet_path)
+    if station_filter:
+        mask = pd.Series(False, index=df.index)
+        for src, code in station_filter:
+            mask |= (df["source"] == src) & (df["station_code"] == code)
+        df = df[mask]
     emit_progress(progress_callback, 30, f"Parquet cargado: {len(df)} registros.")
 
     # Vectorized filtering — drop rows missing required fields before any Python loop

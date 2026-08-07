@@ -3008,6 +3008,10 @@ try:
     if _parquet_path:
         _parquet_size_mb = _parquet_path.stat().st_size / (1024 * 1024)
         print(f'weather_daily.parquet generated: {_parquet_path} ({_parquet_size_mb:.1f} MB, {_parquet_elapsed:.1f}s)')
+        _catalog_path = _moc.generate_stations_catalog_parquet(_Path(_DATA_PATH))
+        if _catalog_path:
+            _catalog_kb = _catalog_path.stat().st_size / 1024
+            print(f'weather_stations_catalog.parquet generated: {_catalog_path} ({_catalog_kb:.0f} KB)')
 except Exception as _parquet_exc:
     print(f'Warning: could not generate weather_daily.parquet: {_parquet_exc}')
 

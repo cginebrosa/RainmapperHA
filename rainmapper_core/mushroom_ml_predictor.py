@@ -90,19 +90,80 @@ def _label(prob: float | None) -> str:
 
 # ---------------------------------------------------------------------------
 # Module-level weather stations cache (shared across all predictor instances)
+# Filtered to ~100 stations nearest to known micro-areas (P0 memory fix).
 # ---------------------------------------------------------------------------
 
 _shared_weather_stations: dict[tuple[str, str], Any] | None = None
 _shared_weather_data_dir: Path | None = None
 _shared_weather_parquet_mtime: float | None = None
 
+_shared_stations_catalog: Any | None = None   # pd.DataFrame
+_shared_catalog_data_dir: Path | None = None
+_shared_catalog_mtime: float | None = None
+
 _PARQUET_FILENAME = "weather_daily.parquet"
+_CATALOG_FILENAME = "weather_stations_catalog.parquet"
+
+_STATION_FILTER_MAX_KM = 15.0
+_STATION_FILTER_TOP_N = 5
+
+
+def _get_shared_stations_catalog(weather_data_dir: Path) -> Any:
+    """Load and cache the stations catalog; reload if the catalog file has changed."""
+    global _shared_stations_catalog, _shared_catalog_data_dir, _shared_catalog_mtime
+    catalog_path = weather_data_dir / _CATALOG_FILENAME
+    current_mtime: float | None = None
+    try:
+        current_mtime = catalog_path.stat().st_mtime if catalog_path.exists() else None
+    except OSError:
+        pass
+    cache_valid = (
+        _shared_stations_catalog is not None
+        and _shared_catalog_data_dir == weather_data_dir
+        and current_mtime is not None
+        and current_mtime == _shared_catalog_mtime
+    )
+    if cache_valid:
+        return _shared_stations_catalog
+    _shared_stations_catalog = ctx.load_stations_catalog(weather_data_dir)
+    _shared_catalog_data_dir = weather_data_dir
+    _shared_catalog_mtime = current_mtime
+    return _shared_stations_catalog
+
+
+def _compute_station_filter(
+    weather_data_dir: Path,
+    micro_area_profiles: dict[str, Any],
+) -> set[tuple[str, str]] | None:
+    """Return a set of (source, station_code) tuples covering all micro-areas.
+
+    Uses the stations catalog to find up to _STATION_FILTER_TOP_N stations within
+    _STATION_FILTER_MAX_KM for each micro-area. Returns None if the catalog is empty
+    (caller should load all stations as fallback).
+    """
+    catalog = _get_shared_stations_catalog(weather_data_dir)
+    if catalog is None or catalog.empty:
+        return None
+    codes: set[tuple[str, str]] = set()
+    for profile in micro_area_profiles.values():
+        lat = getattr(profile, "lat", None)
+        lon = getattr(profile, "lon", None)
+        if lat is None or lon is None:
+            continue
+        for pair in ctx.nearest_station_codes(catalog, lat, lon, _STATION_FILTER_MAX_KM, _STATION_FILTER_TOP_N):
+            codes.add(pair)
+    return codes if codes else None
 
 
 def _get_shared_weather_stations(
     weather_data_dir: Path,
+    station_filter: set[tuple[str, str]] | None = None,
 ) -> dict[tuple[str, str], Any]:
-    """Load and cache weather stations; reload automatically if parquet has changed."""
+    """Load and cache weather stations; reload automatically if parquet has changed.
+
+    When station_filter is provided the parquet is read only for those stations,
+    reducing memory from ~358 MiB (all 1932 stations) to ~40 MiB (top-5 per micro-area).
+    """
     global _shared_weather_stations, _shared_weather_data_dir, _shared_weather_parquet_mtime
     parquet_path = weather_data_dir / _PARQUET_FILENAME
     current_mtime: float | None = None
@@ -118,7 +179,9 @@ def _get_shared_weather_stations(
     )
     if cache_valid:
         return _shared_weather_stations  # type: ignore[return-value]
-    _shared_weather_stations = ctx.load_daily_weather_parquet(weather_data_dir)
+    _shared_weather_stations = ctx.load_daily_weather_parquet(
+        weather_data_dir, station_filter=station_filter
+    )
     _shared_weather_data_dir = weather_data_dir
     _shared_weather_parquet_mtime = current_mtime
     return _shared_weather_stations
@@ -127,9 +190,13 @@ def _get_shared_weather_stations(
 def invalidate_weather_stations_cache() -> None:
     """Invalidate the shared weather stations cache (call after data update)."""
     global _shared_weather_stations, _shared_weather_data_dir, _shared_weather_parquet_mtime
+    global _shared_stations_catalog, _shared_catalog_data_dir, _shared_catalog_mtime
     _shared_weather_stations = None
     _shared_weather_data_dir = None
     _shared_weather_parquet_mtime = None
+    _shared_stations_catalog = None
+    _shared_catalog_data_dir = None
+    _shared_catalog_mtime = None
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +274,13 @@ class MushroomMLPredictor:
         if not self._weather_data_dir.exists():
             self._weather_stations = {}
             return
-        self._weather_stations = _get_shared_weather_stations(self._weather_data_dir)
+        self._ensure_micro_area_profiles()
+        station_filter = _compute_station_filter(
+            self._weather_data_dir, self._micro_area_profiles or {}
+        )
+        self._weather_stations = _get_shared_weather_stations(
+            self._weather_data_dir, station_filter=station_filter
+        )
 
     def _ensure_micro_area_profiles(self) -> None:
         if self._micro_area_profiles is not None:

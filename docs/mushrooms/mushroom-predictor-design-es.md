@@ -9,7 +9,7 @@ Versión del documento: borrador 0.1 (motor y UI implementados; ver estado por f
 - Fase 4 (UI): DONE — `mushroom_predictor_ui.py`, 4 vistas (semana, especie, fecha, historial).
 - Worker job `ml_train_v0`: DONE — entrenamiento via worker externo con promocion manual.
 - Backtest B. aereus: 59% accuracy (22/37 episodios). B. pinophilus: 36% (overfitting, pocos datos).
-- Pendiente: revisar 191 obs en estado `review` para ampliar el dataset de entrenamiento.
+- Pendiente: revisar 254 obs en estado `review` en HA para ampliar el dataset de entrenamiento.
 - Planificado: review mode + multi-algoritmo — ver seccion "Proximos pasos: review mode y multi-algoritmo" al final.
 
 Ficheros relacionados:
@@ -26,6 +26,198 @@ descriptivo y no debe confundirse con machine learning. El plan concreto de
 dataset, variables meteorologicas diarias, entrenamiento y validacion empieza
 con `boletus_aereus` y se define en
 `docs/mushrooms/mushroom-ml-training-plan-es.md`.
+
+## 0. Incidente P0: consumo de memoria del Predictor en RPi4
+
+### 0.1 Estado y regla operativa
+
+Estado a 2026-08-06: **DIAGNOSTICADO; ARREGLO PENDIENTE; NO RESUELTO POR
+0.2.221 NI 0.2.225**.
+
+Síntoma observado en HA real: después de abrir Predictor, HA o la RPi4 pueden
+dejar de responder al cabo de un rato. Al ocurrir remotamente se pierde la
+conexión y ha sido necesario cortar y restaurar la alimentación con el enchufe
+inteligente para recuperar el host.
+
+Hasta implementar y validar el arreglo, no abrir Predictor remotamente. La
+instalación de 0.2.225 no debe presentarse como solución a este incidente: añade
+invalidación por mtime y mejoras de UI, pero conserva la materialización completa
+del histórico meteorológico.
+
+No se ha capturado todavía un log del kernel/Supervisor que confirme OOM o un
+exit 137. Por tanto, OOM queda como hipótesis principal con evidencia fuerte,
+no como confirmación forense cerrada.
+
+### 0.2 Evidencia reproducible
+
+Dataset medido en la copia local fresca de HA:
+
+- `docker-data/Data/weather_daily.parquet`: 3,5 MiB en disco;
+- 622.069 filas, 14 columnas y un solo row group;
+- `load_daily_weather_parquet()` construye 1.948 estaciones y 622.033 objetos
+  `DailyWeatherRecord`.
+
+Medición en proceso aislado con `.venv/bin/python`:
+
+- `ru_maxrss` antes de cargar: 95.731.712 bytes;
+- `ru_maxrss` después de cargar: 929.153.024 bytes;
+- incremento de pico: 833.421.312 bytes, aproximadamente 795 MiB;
+- `tracemalloc` después de `gc`: 259.303.098 bytes actuales y 499.807.486 bytes
+  de pico. Estas cifras solo cubren asignaciones trazadas por Python y no toda
+  la memoria nativa de pandas/Arrow ni memoria retenida por allocators.
+
+Los tres `.joblib` live ocupan menos de 1 MiB en total. El coste dominante no
+son los modelos, sino expandir todo el parquet a objetos Python.
+
+La medición local no reproduce exactamente el allocator ni la arquitectura de
+la RPi4, pero demuestra que el tamaño comprimido del parquet no representa su
+coste en RAM. Un pico cercano a 1 GB dentro de una RPi4 de 4 GB compartida con
+Home Assistant, Supervisor y otros add-ons es operacionalmente inaceptable.
+
+### 0.3 Causa en el diseño actual
+
+Al abrir la vista predeterminada, `_render_recommender()` recorre todas las
+especies entrenadas. La primera predicción llama a
+`_get_shared_weather_stations()`, que usa `load_daily_weather_parquet()` para:
+
+1. leer las 622k filas completas con pandas;
+2. crear columnas y copias temporales del DataFrame;
+3. convertir cada fila útil en un `DailyWeatherRecord` Python;
+4. construir diccionarios `records_by_day` por estación;
+5. conservar el diccionario completo en `_shared_weather_stations`.
+
+La UI se sirve con `auto_refresh=False` y no deja un cálculo periódico en
+segundo plano. Salir de Predictor no cancela nada porque el cálculo inicial ya
+acabó, pero tampoco libera la memoria: `_shared_weather_stations`, cada
+`MushroomMLPredictor._weather_stations` y `_predictor_cache` mantienen las
+referencias hasta que se reinicia el add-on.
+
+Riesgos secundarios detectados:
+
+- el servidor usa `ThreadingHTTPServer` y la carga fría no tiene un lock
+  single-flight; dos peticiones concurrentes pueden materializar el histórico
+  a la vez y multiplicar el pico;
+- una instancia con `_weather_stations` ya asignado no vuelve a consultar el
+  mtime. Si otra instancia carga un parquet nuevo, pueden coexistir referencias
+  al diccionario antiguo y al nuevo, además de servir datos obsoletos;
+- si falta el parquet, el fallback interactivo a los CSV vuelve a introducir
+  la ruta más cara y no debe considerarse segura para la RPi.
+
+### 0.4 Diseño de arreglo acordado (2026-08-07)
+
+Objetivo: reducir el pico de memoria del Predictor de ~358 MiB a ~40 MiB
+filtrando el parquet a las estaciones relevantes **antes** de materializar
+objetos Python.
+
+#### Diseño simplificado: filtro espacial por micro-área
+
+En lugar de chunks por ventana de fechas o LRU, el arreglo mínimo efectivo es:
+
+1. Generar un `weather_stations_catalog.parquet` ligero (~100 KB) con una fila
+   por estación: `(station_code, lat, lon, altitud, source)`.
+2. Al inicializar el predictor, calcular las top-5 estaciones a ≤15 km de cada
+   micro-área del modelo.
+3. Filtrar `weather_daily.parquet` a solo esos códigos antes de leer filas.
+
+**Mediciones reales (docker-data, 2026-08-06):**
+
+| Variante | Estaciones | Filas | Estimación RAM |
+|---|---|---|---|
+| Actual (todas) | 1.932 | 625.434 | ~358 MiB |
+| Top-5 ≤15 km / micro-área | 100 | 70.490 (11%) | ~40 MiB |
+
+Las 46 micro-áreas del modelo quedan cubiertas (4-5 estaciones cada una).
+Ninguna micro-área queda sin candidatos. Radio máximo al candidato más lejano:
+15 km.
+
+No se introduce LRU, chunking por fechas ni particionado del parquet. La caché
+`_shared_weather_stations` con invalidación por mtime ya implementada en 0.2.225
+se mantiene; ahora guarda ~100 estaciones en lugar de 1.932.
+
+#### 4 cambios concretos
+
+**1. `rainmapper_core/rainmapper.py`**
+
+Después de generar `weather_daily.parquet`, generar también
+`weather_stations_catalog.parquet`: una fila por estación, solo columnas de
+coordenadas y metadatos. ~100 KB, generado en el mismo paso del runner.
+
+**2. `rainmapper_core/mushroom_observation_context.py`**
+
+- Nueva función `load_stations_catalog(data_dir)` → lee el catálogo ligero.
+- Nueva función `nearest_station_codes(catalog, lat, lon, max_km=15, top_n=5)`
+  → devuelve hasta 5 códigos de estación dentro del radio.
+- `load_daily_weather_parquet()` acepta parámetro opcional
+  `station_filter: set[tuple] | None`; si se pasa, filtra antes de materializar filas.
+
+**3. `rainmapper_core/mushroom_ml_predictor.py`**
+
+- Nueva caché módulo-nivel `_shared_stations_catalog` con invalidación por mtime
+  del catálogo (mismo patrón que `_shared_weather_stations`).
+- Al inicializar `MushroomMLPredictor`, calcular las estaciones necesarias desde
+  el catálogo y las coordenadas de las micro-áreas del modelo.
+- Pasar el conjunto de códigos a `load_daily_weather_parquet()`.
+
+**4. `mushroom_observation_context.py` — fallback en `select_station()`**
+
+Con el filtro espacial, `select_station()` recibe solo las ~5 estaciones candidatas
+más cercanas. Ya elige la más cercana con cobertura; el fallback a la siguiente
+candidata es implícito porque todas están en el dict filtrado.
+
+#### Lo que NO cambia
+
+- El parquet diario con invalidación por mtime (ya implementado en 0.2.225).
+- El parquet completo `weather_daily.parquet` como fuente canónica.
+- El worker y el pipeline de entrenamiento (no usan el predictor en tiempo real).
+- Las features del modelo (ventana de 30 días, mismas columnas).
+
+#### Opciones consideradas y descartadas para esta fase
+
+- **Chunks de 120 días por ventana temporal:** reduce RAM en parte, pero si las
+  1.932 estaciones siguen presentes los últimos 120 días contienen 124.938 filas
+  y 1.765 estaciones. Sin el filtro espacial el beneficio es menor del 80%.
+- **LRU de ventanas:** útil como segunda optimización, no como primera; añade
+  complejidad sin ser necesaria para el objetivo de ≤50 MiB.
+- **Particionar el parquet por estación:** mejora I/O futuro pero no resuelve el
+  problema inmediato y requiere cambiar el generador y todos los lectores.
+
+### 0.5 Opciones descartadas como arreglo principal
+
+- **Comprimir más el parquet:** reduce disco e I/O, no los objetos expandidos.
+- **Vaciar la caché al salir de la página:** el servidor no sabe con fiabilidad
+  cuándo el navegador abandona la vista y no elimina el pico inicial.
+- **Cargar el parquet en un DataFrame global:** reduce objetos Python respecto
+  al diseño actual, pero sigue haciendo la RAM proporcional a todo el histórico.
+- **Añadir swap o aumentar límites:** puede retrasar el fallo y empeorar el
+  bloqueo por thrashing; no corrige el diseño.
+- **Mover la predicción al worker externo:** podría ser una evolución futura,
+  pero haría depender una consulta interactiva del worker y no elimina la
+  necesidad de un acceso meteorológico acotado.
+
+### 0.6 Validación exigida antes de reabrir Predictor remotamente
+
+1. Test unitario que demuestre que un chunk de caché de 120 días solo contiene
+   las estaciones solicitadas y que cada predicción usa las features de 30 días
+   exactamente igual que antes.
+2. Test de concurrencia: dos primeras peticiones idénticas producen una sola
+   carga física.
+3. Test de invalidación: al cambiar el parquet no quedan instancias apuntando al
+   histórico anterior ni se sirven datos obsoletos.
+4. Medición con las 622k filas actuales de tiempo, RSS máximo y memoria retenida
+   después de varias vistas consecutivas.
+5. Prueba dentro de la imagen HA arm64 y después ensayo controlado en RPi4 con
+   monitorización de memoria, sin depender solo de una prueba en Mac.
+6. Verificar que Recomendador, semana, consulta e historial producen los mismos
+   resultados que la implementación actual para fixtures congelados.
+7. Confirmar en logs que no hay OOM, exit 137 ni crecimiento acumulativo al
+   regenerar el parquet y volver a consultar.
+8. Test de navegación: actual → fecha histórica → actual reutiliza o reconstruye
+   el contexto correcto, y cambiar de especie no provoca otra carga meteorológica.
+9. Test de Historial/backtest con episodios separados por años: los resultados
+   son equivalentes sin materializar el intervalo completo entre episodios.
+
+No se ha implementado ninguno de estos cambios todavía. Esta sección es la
+propuesta de corrección y el contrato de aceptación.
 
 Este documento propone una primera arquitectura funcional para el predictor de floradas de setas de Rainmapper. No define todavía un algoritmo cerrado ni un contrato definitivo de schema. Su objetivo es ordenar las decisiones antes de modificar el modelo de datos o implementar el motor predictivo.
 

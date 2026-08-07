@@ -6,10 +6,13 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Instalada en HA real: `0.2.221` (fix OOM Predictor: weather_daily.parquet + caché compartido). El rollback inmediato es `0.2.214`.
+- Instalada en HA real: `0.2.221` (parquet meteorológico + caché compartida;
+  el OOM del Predictor **no está resuelto completamente**). El rollback inmediato es `0.2.214`.
 - **`0.2.225` publicada en GHCR (2026-08-06), pendiente de instalar en HA.**
 - No hay versión de desarrollo/sideload.
-- Predictor verificado en HA: carga inicial ~2s con parquet (antes 30s con CSV).
+- Predictor verificado en HA: carga inicial ~2s con parquet (antes 30s con CSV),
+  pero abrirlo puede dejar la RPi4 bajo presión extrema de memoria y colgar HA/el host.
+  **No abrir Predictor remotamente hasta corregir el acceso meteorológico.**
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
@@ -18,29 +21,95 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Portabilidad en daemon limpio: pendiente, no bloquea work actual.
 
 **Observaciones / ML (estado 2026-08-06):**
-- **772 obs** en Docker local (importación masiva 2026-08-01/02): 126 `include` existentes + 646 nuevas `review`.
-  HA aún tiene la versión previa (~587 obs); pendiente de sincronizar cuando se revisen las `review`.
-- De las 772: 126 `calibration_use=include` (aptas para ML), 646 `review` (pendientes de revisar).
+- La revisión se realiza en **HA real**. Docker local es una copia fresca del estado de
+  revisión de HA y se usa para pruebas y comprobaciones, no como entorno autoritativo
+  independiente.
+- Estado comprobado en la copia local fresca: **530 observaciones** = 276
+  `calibration_use=include` + **254 `review` pendientes**.
+- De las 254 pendientes: 120 `draft`, 131 `valid` y 3 `doubtful`; 233 conservan
+  `flush_abundance=pending` y 40 de las válidas no tienen `micro_area_id`.
 - `mushroom_reference_catalogs.json` subido a HA (`/share/rainmapper/mushroom-data/`) — necesario para que el valor `pending` de flush_abundance se muestre correctamente.
 - Fases 1–4 del predictor ML completadas (features, trainer, predictor engine, UI Predictor con estadísticas de fiabilidad).
 - Modelos entrenados a nivel **área** (no micro_area): B. aereus (37 ep, 42% holdout), A. caesarea (35 ep, 27% holdout), B. pinophilus (22 ep, 71% holdout). L. deliciosus no llega al mínimo de 20 episodios.
 - Worker job `ml_train_v0` implementado (ver sección "Worker ml_train_v0" más abajo).
-- Bloqueos: 158 obs en draft, 191 con florada sin rellenar, 65 válidas sin micro_area_id.
+- Bloqueos actuales de revisión: 120 obs en draft, 233 con florada pendiente y
+  40 válidas sin `micro_area_id`.
 
 **Prioridad inmediata:**
-1. **Revisar observaciones `review`** — 646 pendientes en Docker local. Es el paso más
+1. **P0 Predictor / memoria RPi4:** sustituir la materialización completa de 622k
+   filas meteorológicas por lecturas filtradas y caché acotada. No está implementado;
+   diseño y mediciones en `docs/mushrooms/mushroom-predictor-design-es.md`.
+2. **Revisar observaciones `review` en HA real** — 254 pendientes. Es el paso más
    impactante para mejorar los modelos ML. La evidencia observada NO se revisará manualmente:
    se implementará herencia desde micro_area (ver sección "atributos ecológicos" al final).
-2. **Instalar 0.2.225 en HA** — incluye UI de fiabilidad del predictor y fix caché parquet.
-3. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
-4. Worker: probar descarte con candidato terminal en HA real.
-5. Decidir si meter Tailscale dentro de la imagen del worker.
+3. **Instalar 0.2.225 en HA** — incluye UI de fiabilidad y la invalidación por
+   mtime, pero no corrige el consumo P0; evitar Predictor hasta el arreglo.
+4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
+5. Worker: probar descarte con candidato terminal en HA real.
+6. Decidir si meter Tailscale dentro de la imagen del worker.
 
-**Subir también a HA tras el release:** `mushroom_labels.json`, `mushroom_reference_catalogs.json`,
-`mushroom_observations.json` (cuando estén revisadas), y media. Los `.joblib` se generan
-desde el worker después del release.
+**Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de
+`docker-data/mushroom-data/` se refresca desde HA para pruebas y comprobaciones; no planificar
+una subida de `mushroom_observations.json` local sobre HA como paso de cierre. Los `.joblib`
+se generan desde el worker después del release.
 
 ## ML Predictor — estado (2026-08-06, fases 1-4 completadas)
+
+### Incidente P0 de memoria en RPi4 — diseño de arreglo acordado (2026-08-06)
+
+**Síntoma:** al abrir el Predictor en HA, se materializan 622k objetos
+`DailyWeatherRecord` Python (~358 MiB estimado), colapsando la RPi4.
+
+**Diagnóstico:** `_get_shared_weather_stations()` carga el parquet completo
+(1.948 estaciones × todos los días históricos) y lo convierte entero en objetos
+Python. Solo se necesitan las estaciones cercanas a las micro-áreas del modelo.
+
+**Mediciones reales (docker-data, 2026-08-06):**
+- Parquet completo: 625.434 filas, 1.932 estaciones, ~358 MiB estimado
+- Con filtro top-5 estaciones a ≤15 km por micro-área: 100 estaciones únicas,
+  70.490 filas (11% del total), ~40 MiB estimado — reducción del 89%
+- 46 micro-áreas: todas tienen entre 4 y 5 estaciones dentro del radio de 15 km
+- Radio máximo al fallback más lejano: 15 km
+
+**Plan de implementación acordado — 4 cambios:**
+
+**1. `rainmapper_core/rainmapper.py`** — al final del runner, después de generar
+`weather_daily.parquet`, generar también `weather_stations_catalog.parquet`:
+solo columnas `(station_code, lat, lon, altitud, source)`, una fila por estación
+(sin duplicados). ~100 KB, generado en el mismo paso.
+
+**2. `rainmapper_core/mushroom_observation_context.py`** — nueva función
+`load_stations_catalog(data_dir)` que lee `weather_stations_catalog.parquet`.
+Nueva función `nearest_station_codes(catalog, lat, lon, max_km=15, top_n=5)`
+que devuelve los códigos de las N estaciones más cercanas dentro del radio.
+La función existente `load_daily_weather_parquet()` acepta un parámetro
+opcional `station_codes: set[str] | None` — si se pasa, filtra el parquet
+con `filters=[('station_code', 'in', lista)]` antes de leer filas.
+
+**3. `rainmapper_core/mushroom_ml_predictor.py`** — dos cachés módulo-nivel
+con invalidación por mtime (igual que ya funciona para el parquet completo):
+- `_shared_stations_catalog` — catálogo ligero de coordenadas, siempre en memoria
+- `_shared_weather_stations` — ya existe, ahora carga solo las estaciones
+  relevantes calculadas desde el catálogo y las coordenadas del modelo activo
+
+Al inicializar `MushroomMLPredictor`, calcular las estaciones necesarias
+(top-5 a ≤15 km de cada micro-área del modelo) y pasarlas como filtro a
+`load_daily_weather_parquet()`.
+
+**4. `mushroom_observation_context.py` — fallback en `select_station()`**
+La función actual elige solo la estación más cercana con cobertura. Ampliar
+para intentar las candidatas en orden de distancia (ya cargadas) hasta encontrar
+una con suficientes días de cobertura para la ventana solicitada.
+
+**Lo que NO cambia:**
+- La caché `_shared_weather_stations` con invalidación por mtime sigue existiendo
+  (ya implementada hoy) — ahora simplemente guarda 100 estaciones en lugar de 1.932
+- El parquet diario completo no se toca — solo se filtra al leer
+- El worker y el pipeline de entrenamiento no se ven afectados
+- `weather_daily.parquet` sigue siendo la fuente canónica
+
+**Pendiente antes de implementar:** subir a HA el fix N/A del popup del mapa
+(versión 0.2.225 ya tiene todo lo demás; este fix irá en 0.2.226).
 
 ### Fases completadas
 
@@ -153,18 +222,21 @@ Backtest B. pinophilus (22 episodios a nivel área):
   automáticamente si el mtime del parquet ha cambiado — evita datos obsoletos si el runner
   regenera el fichero sin reiniciar el add-on.
 
-## Importación masiva de observaciones + fixes de datos (2026-08-01/02, en curso)
+## Importación masiva de observaciones + fixes de datos (2026-08-01/02, cerrada)
 
-### Estado actual (2026-08-02)
+### Estado histórico de la importación (2026-08-02)
 
-Importación completada y saneada en Docker local. Pendiente revisión manual en la UI antes de subir a HA.
+Importación completada y saneada originalmente en Docker local. Las cifras de esta
+sección describen el lote importado y se conservan como trazabilidad; no son el recuento
+operativo actual. La revisión posterior pasó a realizarse en HA real.
 
 - `review_table.json` en `/Users/carlosginebrosa/Desktop/Fotos Bolets/candidates/`
 - 818 archivos de entrada → **772 observaciones totales** en `docker-data/mushroom-data/mushroom_observations.json`
   (126 existentes `include` + 646 nuevas `review`)
   Nota: se eliminaron 33 duplicados y 167 MOV observations respecto al merged inicial.
 - Media procesada: 757 ficheros referenciados (fotos + vídeos) en `docker-data/mushroom-data/media/`
-- Docker local activo: `http://127.0.0.1:8101`
+- Docker local queda como copia de HA para pruebas y comprobaciones
+  (`http://127.0.0.1:8101` cuando está arrancado).
 
 ### Desglose de las 818 entradas originales
 - 646 observaciones importadas con `calibration_use: "review"`
@@ -220,15 +292,15 @@ Importación completada y saneada en Docker local. Pendiente revisión manual en
 - MOVs Live Photo companion: omitir siempre, conservar solo el HEIC
 - source.label conserva el nombre original (.HEIC) como dato de trazabilidad, no es una ruta
 
-### Próximo paso inmediato
-Revisar las 646 observaciones `review` en Docker local (`http://127.0.0.1:8101`):
-- Confirmar especie correcta, pasar a `calibration_use: "include"` las válidas
-- Completar evidencias de campo para las que no tenían obs cercanas
-- Cuando esté limpio, subir a HA:
-  - `docker-data/mushroom-data/mushroom_observations.json` → `/share/rainmapper/mushroom-data/`
-  - `docker-data/mushroom-data/media/` → `/share/rainmapper/mushroom-data/media/`
+### Estado operativo posterior (2026-08-06)
 
-## Dataset ML — estado actual (2026-08-03)
+- Revisión en curso en HA real: **254 observaciones `review` pendientes**.
+- Confirmar especie y pasar a `calibration_use: "include"` las válidas desde la UI de HA.
+- Completar las evidencias de campo necesarias en HA.
+- Refrescar Docker local desde HA cuando se necesite una copia para pruebas o
+  comprobaciones; no usar el espejo local como origen de una sobrescritura de HA.
+
+## Dataset ML — último snapshot entrenado (2026-08-03)
 
 Episodios a nivel **área** (valid + include + micro_area_id asignada, agregados por `(species, area, date)`).
 Tabla completa con criterios y política en `docs/mushrooms/mushroom-ml-training-plan-es.md`.
@@ -243,8 +315,10 @@ Tabla completa con criterios y política en `docs/mushrooms/mushroom-ml-training
 Nota: los conteos a nivel área son menores que a nivel micro_area porque micro_areas del mismo
 área en la misma fecha se fusionan en un único episodio.
 
-Bloqueos activos: 158 obs en draft, 191 válidas con florada sin rellenar (`calibration_use=review`),
-65 válidas sin `micro_area_id`.
+Los episodios de la tabla corresponden al último entrenamiento y no incorporan
+automáticamente el avance posterior de la revisión. Estado operativo comprobado en la
+copia fresca de HA: 254 `review` (120 `draft`, 131 `valid`, 3 `doubtful`), 233 con
+`flush_abundance=pending` y 40 válidas sin `micro_area_id`.
 
 ## Worker ml_train_v0 — implementación (2026-08-03)
 
@@ -825,13 +899,13 @@ Patrón **"defaults from reference + override per observation"**:
 ### Pasos de implementación (en orden)
 
 1. **Paso 0 (ya hecho):** análisis confirma que los datos son derivables de obs existentes.
-2. **Paso 1:** añadir campos `default_*` a `mushroom_known_sites.json` derivándolos de las
-   232 obs include actuales (script de derivación automática).
+2. **Paso 1:** añadir campos `default_*` a `mushroom_known_sites.json` derivándolos del
+   conjunto `include` final tras la revisión (script de derivación automática).
 3. **Paso 2:** UI: al asignar micro_area a una observación, pre-rellenar los atributos
    desde `mushroom_known_sites.json` si están vacíos en la observación.
 4. **Paso 3:** flag de sobreescritura en la observación.
 5. **Paso 4 (futuro):** usar variables categóricas en el modelo ML, decidiendo fuente.
 
 ### Prerequisito
-Terminar de revisar las 191 observaciones `review` antes de derivar los defaults,
+Terminar de revisar en HA las 254 observaciones `review` pendientes antes de derivar los defaults,
 para que la base de derivación sea completa y representativa.
