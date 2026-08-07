@@ -27,6 +27,13 @@ MERGED_*.csv
 # notes and normalized summaries, not large scanned/source PDFs.
 /docs/mushrooms/literature/Marc_EstevezSpecies.pdf
 
+# Editor and tool configs (local only)
+/.cursor/
+/.zed/
+/.codebase-memory/
+/.github/copilot-instructions.md
+/.github/instructions/
+
 # Local tests and old scripts
 /_My test files/
 /Rainmapper_old.py
