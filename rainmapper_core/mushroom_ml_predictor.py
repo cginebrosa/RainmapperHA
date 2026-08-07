@@ -22,14 +22,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from rainmapper_core import mushroom_observation_context as ctx
 from rainmapper_core import mushroom_paths
+from rainmapper_core import runtime_diagnostics
 
 
 # ---------------------------------------------------------------------------
@@ -96,10 +99,13 @@ def _label(prob: float | None) -> str:
 _shared_weather_stations: dict[tuple[str, str], Any] | None = None
 _shared_weather_data_dir: Path | None = None
 _shared_weather_parquet_mtime: float | None = None
+_shared_weather_station_filter: frozenset[tuple[str, str]] | None = None
+_weather_cache_lock = Lock()
 
 _shared_stations_catalog: Any | None = None   # pd.DataFrame
 _shared_catalog_data_dir: Path | None = None
 _shared_catalog_mtime: float | None = None
+_catalog_cache_lock = Lock()
 
 _PARQUET_FILENAME = "weather_daily.parquet"
 _CATALOG_FILENAME = "weather_stations_catalog.parquet"
@@ -111,39 +117,45 @@ _STATION_FILTER_TOP_N = 5
 def _get_shared_stations_catalog(weather_data_dir: Path) -> Any:
     """Load and cache the stations catalog; reload if the catalog file has changed."""
     global _shared_stations_catalog, _shared_catalog_data_dir, _shared_catalog_mtime
-    catalog_path = weather_data_dir / _CATALOG_FILENAME
-    current_mtime: float | None = None
-    try:
-        current_mtime = catalog_path.stat().st_mtime if catalog_path.exists() else None
-    except OSError:
-        pass
-    cache_valid = (
-        _shared_stations_catalog is not None
-        and _shared_catalog_data_dir == weather_data_dir
-        and current_mtime is not None
-        and current_mtime == _shared_catalog_mtime
-    )
-    if cache_valid:
+    with _catalog_cache_lock:
+        catalog_path = weather_data_dir / _CATALOG_FILENAME
+        current_mtime: float | None = None
+        try:
+            current_mtime = catalog_path.stat().st_mtime if catalog_path.exists() else None
+        except OSError:
+            pass
+        cache_valid = (
+            _shared_stations_catalog is not None
+            and _shared_catalog_data_dir == weather_data_dir
+            and current_mtime is not None
+            and current_mtime == _shared_catalog_mtime
+        )
+        if cache_valid:
+            return _shared_stations_catalog
+        _shared_stations_catalog = ctx.load_stations_catalog(weather_data_dir)
+        _shared_catalog_data_dir = weather_data_dir
+        try:
+            _shared_catalog_mtime = (
+                catalog_path.stat().st_mtime if catalog_path.exists() else None
+            )
+        except OSError:
+            _shared_catalog_mtime = None
         return _shared_stations_catalog
-    _shared_stations_catalog = ctx.load_stations_catalog(weather_data_dir)
-    _shared_catalog_data_dir = weather_data_dir
-    _shared_catalog_mtime = current_mtime
-    return _shared_stations_catalog
 
 
 def _compute_station_filter(
     weather_data_dir: Path,
     micro_area_profiles: dict[str, Any],
-) -> set[tuple[str, str]] | None:
+) -> set[tuple[str, str]]:
     """Return a set of (source, station_code) tuples covering all micro-areas.
 
     Uses the stations catalog to find up to _STATION_FILTER_TOP_N stations within
-    _STATION_FILTER_MAX_KM for each micro-area. Returns None if the catalog is empty
-    (caller should load all stations as fallback).
+    _STATION_FILTER_MAX_KM for each micro-area. An empty result is fail-safe:
+    the interactive Predictor must never fall back to loading every station.
     """
     catalog = _get_shared_stations_catalog(weather_data_dir)
     if catalog is None or catalog.empty:
-        return None
+        return set()
     codes: set[tuple[str, str]] = set()
     for profile in micro_area_profiles.values():
         lat = getattr(profile, "lat", None)
@@ -152,7 +164,7 @@ def _compute_station_filter(
             continue
         for pair in ctx.nearest_station_codes(catalog, lat, lon, _STATION_FILTER_MAX_KM, _STATION_FILTER_TOP_N):
             codes.add(pair)
-    return codes if codes else None
+    return codes
 
 
 def _get_shared_weather_stations(
@@ -161,42 +173,95 @@ def _get_shared_weather_stations(
 ) -> dict[tuple[str, str], Any]:
     """Load and cache weather stations; reload automatically if parquet has changed.
 
-    When station_filter is provided the parquet is read only for those stations,
-    reducing memory from ~358 MiB (all 1932 stations) to ~40 MiB (top-5 per micro-area).
+    When station_filter is provided, only the relevant row groups and stations
+    are materialized instead of the full historical dataset.
     """
     global _shared_weather_stations, _shared_weather_data_dir, _shared_weather_parquet_mtime
-    parquet_path = weather_data_dir / _PARQUET_FILENAME
-    current_mtime: float | None = None
-    try:
-        current_mtime = parquet_path.stat().st_mtime if parquet_path.exists() else None
-    except OSError:
-        pass
-    cache_valid = (
-        _shared_weather_stations is not None
-        and _shared_weather_data_dir == weather_data_dir
-        and current_mtime is not None
-        and current_mtime == _shared_weather_parquet_mtime
-    )
-    if cache_valid:
-        return _shared_weather_stations  # type: ignore[return-value]
-    _shared_weather_stations = ctx.load_daily_weather_parquet(
-        weather_data_dir, station_filter=station_filter
-    )
-    _shared_weather_data_dir = weather_data_dir
-    _shared_weather_parquet_mtime = current_mtime
-    return _shared_weather_stations
+    global _shared_weather_station_filter
+    filter_key = frozenset(station_filter) if station_filter is not None else None
+    with _weather_cache_lock:
+        parquet_path = weather_data_dir / _PARQUET_FILENAME
+        current_mtime: float | None = None
+        try:
+            current_mtime = parquet_path.stat().st_mtime if parquet_path.exists() else None
+        except OSError:
+            pass
+        cache_valid = (
+            _shared_weather_stations is not None
+            and _shared_weather_data_dir == weather_data_dir
+            and current_mtime is not None
+            and current_mtime == _shared_weather_parquet_mtime
+            and filter_key == _shared_weather_station_filter
+        )
+        if cache_valid:
+            return _shared_weather_stations  # type: ignore[return-value]
+        parquet_size_mib = (
+            round(parquet_path.stat().st_size / (1024 * 1024), 3)
+            if parquet_path.exists()
+            else None
+        )
+        monitor = runtime_diagnostics.OperationMonitor(
+            "predictor_weather_load",
+            details={
+                "filter_station_count": len(filter_key or ()),
+                "parquet_size_mib": parquet_size_mib,
+            },
+        )
+        try:
+            loaded_stations = ctx.load_daily_weather_parquet(
+                weather_data_dir, station_filter=station_filter
+            )
+        except Exception as exc:
+            monitor.finish(
+                "error",
+                {"error_type": type(exc).__name__},
+            )
+            raise
+        _shared_weather_stations = loaded_stations
+        _shared_weather_data_dir = weather_data_dir
+        _shared_weather_parquet_mtime = current_mtime
+        _shared_weather_station_filter = filter_key
+        loaded_records = sum(
+            len(station.records_by_day)
+            for station in loaded_stations.values()
+            if hasattr(station, "records_by_day")
+        )
+        monitor.finish(
+            "ok",
+            {
+                "loaded_station_count": len(loaded_stations),
+                "loaded_record_count": loaded_records,
+            },
+        )
+        if monitor.enabled:
+            runtime_diagnostics.schedule_snapshot(
+                "predictor_weather_load",
+                monitor.operation_id,
+                "retained_60s",
+                60,
+            )
+            runtime_diagnostics.schedule_snapshot(
+                "predictor_weather_load",
+                monitor.operation_id,
+                "retained_600s",
+                600,
+            )
+        return _shared_weather_stations
 
 
 def invalidate_weather_stations_cache() -> None:
     """Invalidate the shared weather stations cache (call after data update)."""
     global _shared_weather_stations, _shared_weather_data_dir, _shared_weather_parquet_mtime
+    global _shared_weather_station_filter
     global _shared_stations_catalog, _shared_catalog_data_dir, _shared_catalog_mtime
-    _shared_weather_stations = None
-    _shared_weather_data_dir = None
-    _shared_weather_parquet_mtime = None
-    _shared_stations_catalog = None
-    _shared_catalog_data_dir = None
-    _shared_catalog_mtime = None
+    with _catalog_cache_lock, _weather_cache_lock:
+        _shared_weather_stations = None
+        _shared_weather_data_dir = None
+        _shared_weather_parquet_mtime = None
+        _shared_weather_station_filter = None
+        _shared_stations_catalog = None
+        _shared_catalog_data_dir = None
+        _shared_catalog_mtime = None
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +309,8 @@ class MushroomMLPredictor:
 
         self._model_bundle: dict[str, Any] | None = None
         self._weather_stations: dict[tuple[str, str], Any] | None = None
+        self._weather_station_filter: set[tuple[str, str]] | None = None
+        self._weather_station_filter_catalog_mtime: float | None = None
         self._micro_area_profiles: dict[str, MicroAreaProfile] | None = None
         self._area_profiles: dict[str, AreaProfile] | None = None
 
@@ -269,17 +336,23 @@ class MushroomMLPredictor:
         self._model_bundle = joblib.load(path)
 
     def _ensure_weather_stations(self) -> None:
-        if self._weather_stations is not None:
-            return
         if not self._weather_data_dir.exists():
             self._weather_stations = {}
             return
         self._ensure_micro_area_profiles()
-        station_filter = _compute_station_filter(
-            self._weather_data_dir, self._micro_area_profiles or {}
-        )
+        _get_shared_stations_catalog(self._weather_data_dir)
+        catalog_mtime = _shared_catalog_mtime
+        if (
+            self._weather_station_filter is None
+            or catalog_mtime != self._weather_station_filter_catalog_mtime
+        ):
+            self._weather_station_filter = _compute_station_filter(
+                self._weather_data_dir, self._micro_area_profiles or {}
+            )
+            self._weather_station_filter_catalog_mtime = _shared_catalog_mtime
         self._weather_stations = _get_shared_weather_stations(
-            self._weather_data_dir, station_filter=station_filter
+            self._weather_data_dir,
+            station_filter=self._weather_station_filter,
         )
 
     def _ensure_micro_area_profiles(self) -> None:
@@ -394,29 +467,6 @@ class MushroomMLPredictor:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _find_nearest_station(
-        self, lat: float, lon: float
-    ) -> tuple[Any | None, float | None]:
-        """Return (WeatherStation, distance_km) for the nearest station."""
-        best_station = None
-        best_dist: float | None = None
-        for station in (self._weather_stations or {}).values():
-            d = ctx.haversine_km(lat, lon, station.lat, station.lon)
-            if best_dist is None or d < best_dist:
-                best_dist = d
-                best_station = station
-        return best_station, best_dist
-
-    def _weather_coverage_days(
-        self, station: Any, target_date: date, window: int = 30
-    ) -> int:
-        recs = station.records_by_day
-        return sum(
-            1
-            for delta in range(1, window + 1)
-            if (target_date - timedelta(days=delta)) in recs
-        )
-
     def _build_feature_row(
         self,
         target_date: date,
@@ -432,14 +482,28 @@ class MushroomMLPredictor:
         weather_row: dict[str, Any] = {}
 
         if profile.lat is not None and profile.lon is not None:
-            station, station_dist = self._find_nearest_station(profile.lat, profile.lon)
+            station, station_dist, coverage_days = ctx.select_station(
+                self._weather_stations or {},
+                profile.lat,
+                profile.lon,
+                target_date,
+            )
             if station is not None:
-                coverage_days = self._weather_coverage_days(station, target_date)
-                w_values, w_gaps = ctx.build_weather_values(station, target_date)
-                derived = ctx.build_derived_features(station, target_date)
+                records = ctx.records_for_window(
+                    station, target_date, ctx.DAILY_SERIES_DAYS
+                )
+                duplicate_dates = ctx._consecutive_duplicate_rain_dates(records)
+                w_values, w_gaps = ctx.build_weather_values(
+                    station, target_date, duplicate_dates
+                )
+                derived = ctx.build_derived_features(
+                    station, target_date, duplicate_dates
+                )
                 weather_row.update(w_values)
                 weather_row.update(derived)
                 gaps.extend(w_gaps)
+            else:
+                gaps.append("no_weather_station_with_90d_coverage")
         else:
             gaps.append("missing_area_location")
 
@@ -487,6 +551,8 @@ class MushroomMLPredictor:
         target_date: date,
     ) -> PredictionResult:
         """Predict fruiting probability for a (area, date) pair."""
+        from rainmapper_core.mushroom_ml_trainer import FEATURE_COLS  # noqa: PLC0415
+
         self._ensure_model()
         self._ensure_weather_stations()
         self._ensure_micro_area_profiles()
@@ -503,6 +569,10 @@ class MushroomMLPredictor:
 
         probs = [p for p in (lr_prob, rf_prob) if p is not None]
         ensemble_prob = round(sum(probs) / len(probs), 4) if probs else None
+        features_used = {
+            column: value if math.isfinite(value) else None
+            for column, value in zip(FEATURE_COLS, feature_values, strict=True)
+        }
 
         return PredictionResult(
             species_id=self.species_id,
@@ -516,6 +586,7 @@ class MushroomMLPredictor:
             weather_station_distance_km=round(station_dist, 2) if station_dist is not None else None,
             weather_coverage_days=coverage_days,
             feature_gaps=gaps,
+            features_used=features_used,
         )
 
     def areas_with_species_observations(self) -> list[str]:
@@ -711,7 +782,7 @@ def main() -> None:
         print(f"  RF probability       : {r.rf_probability}")
         print(f"  Label                : {r.label}")
         print(f"  Weather station      : {r.weather_station_code} ({r.weather_station_distance_km} km)")
-        print(f"  Coverage (30d)       : {r.weather_coverage_days} days")
+        print(f"  Coverage (90d)       : {r.weather_coverage_days} days")
         if r.feature_gaps:
             print(f"  Gaps                 : {', '.join(r.feature_gaps[:5])}")
         return

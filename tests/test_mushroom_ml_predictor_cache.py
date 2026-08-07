@@ -1,8 +1,9 @@
 """Tests for mushroom_ml_predictor: cache invalidation, label function, predict() contract."""
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
+from threading import Barrier, Thread
 from unittest.mock import MagicMock, patch
 
 import rainmapper_core.mushroom_ml_predictor as predictor_mod
@@ -20,6 +21,10 @@ def _reset_cache() -> None:
     predictor_mod._shared_weather_stations = None
     predictor_mod._shared_weather_data_dir = None
     predictor_mod._shared_weather_parquet_mtime = None
+    predictor_mod._shared_weather_station_filter = None
+    predictor_mod._shared_stations_catalog = None
+    predictor_mod._shared_catalog_data_dir = None
+    predictor_mod._shared_catalog_mtime = None
 
 
 class ParquetCacheMtimeTests(unittest.TestCase):
@@ -41,6 +46,49 @@ class ParquetCacheMtimeTests(unittest.TestCase):
                 mock_load.assert_called_once_with(Path(d), station_filter=None)
                 self.assertEqual(result, self._fake_load())
 
+    def test_physical_load_records_metrics_and_retention_snapshots(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            parquet = Path(d) / _PARQUET_FILENAME
+            parquet.write_bytes(b"fake")
+            monitor = MagicMock()
+            monitor.enabled = True
+            monitor.operation_id = "predictor-load-test"
+            with (
+                patch.object(
+                    predictor_mod.ctx,
+                    "load_daily_weather_parquet",
+                    return_value=self._fake_load(),
+                ),
+                patch.object(
+                    predictor_mod.runtime_diagnostics,
+                    "OperationMonitor",
+                    return_value=monitor,
+                ) as monitor_factory,
+                patch.object(
+                    predictor_mod.runtime_diagnostics,
+                    "schedule_snapshot",
+                ) as schedule_snapshot,
+            ):
+                predictor_mod._get_shared_weather_stations(
+                    Path(d),
+                    station_filter={("meteocat", "ST1")},
+                )
+
+        monitor_factory.assert_called_once()
+        self.assertEqual(
+            monitor_factory.call_args.kwargs["details"]["filter_station_count"],
+            1,
+        )
+        monitor.finish.assert_called_once_with(
+            "ok",
+            {"loaded_station_count": 1, "loaded_record_count": 0},
+        )
+        self.assertEqual(schedule_snapshot.call_count, 2)
+        self.assertEqual(
+            [call.args[2] for call in schedule_snapshot.call_args_list],
+            ["retained_60s", "retained_600s"],
+        )
+
     def test_cache_not_reloaded_when_mtime_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             parquet = Path(d) / _PARQUET_FILENAME
@@ -49,6 +97,38 @@ class ParquetCacheMtimeTests(unittest.TestCase):
                 predictor_mod._get_shared_weather_stations(Path(d))
                 predictor_mod._get_shared_weather_stations(Path(d))
                 self.assertEqual(mock_load.call_count, 1)
+
+    def test_concurrent_cold_cache_performs_one_physical_load(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            data_dir = Path(d)
+            (data_dir / _PARQUET_FILENAME).write_bytes(b"fake")
+            start = Barrier(3)
+            results: list[dict] = []
+
+            def worker() -> None:
+                start.wait()
+                results.append(
+                    predictor_mod._get_shared_weather_stations(
+                        data_dir,
+                        station_filter={("meteocat", "ST1")},
+                    )
+                )
+
+            with patch.object(
+                predictor_mod.ctx,
+                "load_daily_weather_parquet",
+                return_value=self._fake_load(),
+            ) as mock_load:
+                threads = [Thread(target=worker), Thread(target=worker)]
+                for thread in threads:
+                    thread.start()
+                start.wait()
+                for thread in threads:
+                    thread.join(timeout=2)
+
+            self.assertTrue(all(not thread.is_alive() for thread in threads))
+            self.assertEqual(mock_load.call_count, 1)
+            self.assertEqual(results, [self._fake_load(), self._fake_load()])
 
     def test_cache_reloaded_when_mtime_changes(self) -> None:
         with tempfile.TemporaryDirectory() as d:
@@ -67,6 +147,74 @@ class ParquetCacheMtimeTests(unittest.TestCase):
                 predictor_mod._get_shared_weather_stations(Path(d))
                 self.assertEqual(mock_load.call_count, 2)
 
+    def test_predictor_instance_rebinds_when_parquet_mtime_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            import os
+
+            data_dir = Path(d)
+            parquet = data_dir / _PARQUET_FILENAME
+            parquet.write_bytes(b"fake_v1")
+            (data_dir / predictor_mod._CATALOG_FILENAME).write_bytes(b"fake")
+            predictor = predictor_mod.MushroomMLPredictor(
+                "test",
+                weather_data_dir=data_dir,
+            )
+            predictor._micro_area_profiles = {
+                "ma": MagicMock(lat=42.0, lon=2.0)
+            }
+            loads = [
+                {("meteocat", "ST1"): "first"},
+                {("meteocat", "ST1"): "second"},
+            ]
+
+            with patch.object(
+                predictor_mod.ctx,
+                "load_stations_catalog",
+                return_value=MagicMock(empty=False),
+            ), patch.object(
+                predictor_mod,
+                "_compute_station_filter",
+                return_value={("meteocat", "ST1")},
+            ), patch.object(
+                predictor_mod.ctx,
+                "load_daily_weather_parquet",
+                side_effect=loads,
+            ) as weather_load:
+                predictor._ensure_weather_stations()
+                first = predictor._weather_stations
+                new_mtime = parquet.stat().st_mtime + 1.0
+                os.utime(parquet, (new_mtime, new_mtime))
+                predictor._ensure_weather_stations()
+
+            self.assertEqual(first, {("meteocat", "ST1"): "first"})
+            self.assertEqual(
+                predictor._weather_stations,
+                {("meteocat", "ST1"): "second"},
+            )
+            self.assertEqual(weather_load.call_count, 2)
+
+    def test_cache_reloaded_when_station_filter_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            parquet = Path(d) / _PARQUET_FILENAME
+            parquet.write_bytes(b"fake")
+            with patch.object(
+                predictor_mod.ctx,
+                "load_daily_weather_parquet",
+                return_value=self._fake_load(),
+            ) as mock_load:
+                predictor_mod._get_shared_weather_stations(
+                    Path(d), station_filter={("meteocat", "ST1")}
+                )
+                predictor_mod._get_shared_weather_stations(
+                    Path(d), station_filter={("meteocat", "ST2")}
+                )
+
+                self.assertEqual(mock_load.call_count, 2)
+                self.assertEqual(
+                    predictor_mod._shared_weather_station_filter,
+                    frozenset({("meteocat", "ST2")}),
+                )
+
     def test_invalidate_clears_all_cache_state(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             parquet = Path(d) / _PARQUET_FILENAME
@@ -78,6 +226,7 @@ class ParquetCacheMtimeTests(unittest.TestCase):
             self.assertIsNone(predictor_mod._shared_weather_stations)
             self.assertIsNone(predictor_mod._shared_weather_data_dir)
             self.assertIsNone(predictor_mod._shared_weather_parquet_mtime)
+            self.assertIsNone(predictor_mod._shared_weather_station_filter)
 
     def test_cache_reloaded_after_invalidate(self) -> None:
         with tempfile.TemporaryDirectory() as d:
@@ -139,6 +288,81 @@ class LabelFunctionTests(unittest.TestCase):
 
     def test_unfavorable_threshold_is_exactly_0_40(self) -> None:
         self.assertEqual(LABEL_UNFAVORABLE_THRESHOLD, 0.40)
+
+
+class PredictorFeatureParityTests(unittest.TestCase):
+    @staticmethod
+    def _record(
+        station_code: str,
+        day: date,
+        lat: float,
+        lon: float,
+        rain_mm: float,
+    ) -> predictor_mod.ctx.DailyWeatherRecord:
+        return predictor_mod.ctx.DailyWeatherRecord(
+            source="meteocat",
+            station_code=station_code,
+            station_name=station_code,
+            day=day,
+            lat=lat,
+            lon=lon,
+            rain_mm=rain_mm,
+            temp_max_c=20.0,
+            temp_min_c=10.0,
+            humidity_max_pct=90.0,
+            humidity_min_pct=60.0,
+            wind_avg_kmh=None,
+            wind_gust_kmh=None,
+            wind_direction_deg=None,
+        )
+
+    def test_feature_builder_uses_best_covered_nearby_station_and_duplicate_filter(self) -> None:
+        target_date = date(2026, 1, 10)
+        nearest_record = self._record(
+            "LOW_COVERAGE", target_date - timedelta(days=1), 42.0, 2.0, 1.0
+        )
+        covered_records = {
+            day: self._record("COVERED", day, 42.05, 2.05, 5.0)
+            for day in (target_date - timedelta(days=2), target_date - timedelta(days=1))
+        }
+        nearest = predictor_mod.ctx.WeatherStation(
+            source="meteocat",
+            station_code="LOW_COVERAGE",
+            station_name="LOW_COVERAGE",
+            lat=42.0,
+            lon=2.0,
+            records_by_day={nearest_record.day: nearest_record},
+        )
+        covered = predictor_mod.ctx.WeatherStation(
+            source="meteocat",
+            station_code="COVERED",
+            station_name="COVERED",
+            lat=42.05,
+            lon=2.05,
+            records_by_day=covered_records,
+        )
+        predictor = predictor_mod.MushroomMLPredictor("test")
+        predictor._weather_stations = {
+            (nearest.source, nearest.station_code): nearest,
+            (covered.source, covered.station_code): covered,
+        }
+        profile = predictor_mod.AreaProfile(
+            area_id="area",
+            lat=42.0,
+            lon=2.0,
+            gis_altitude_m=900.0,
+        )
+
+        values, gaps, station_code, _distance, coverage = predictor._build_feature_row(
+            target_date, profile
+        )
+
+        self.assertEqual(station_code, "COVERED")
+        self.assertEqual(coverage, 2)
+        self.assertEqual(values[FEATURE_COLS.index("rain_7d_mm")], 5.0)
+        self.assertTrue(
+            any("rain_suspect_consecutive_20260109" in gap for gap in gaps)
+        )
 
 
 class PredictContractTests(unittest.TestCase):
@@ -209,7 +433,28 @@ class PredictContractTests(unittest.TestCase):
             p._area_profiles = {}
             with patch.object(p, "_build_feature_row", return_value=([0.0] * len(FEATURE_COLS), [], "ST1", 5.0, 30)):
                 result = p.predict("area_a", date(2024, 10, 15))
-        self.assertIsInstance(result.features_used, dict)
+        self.assertEqual(list(result.features_used), FEATURE_COLS)
+        self.assertEqual(result.features_used["rain_14d_mm"], 0.0)
+        self.assertEqual(result.features_used["temp_max_7d_c"], 0.0)
+        self.assertNotIn("rain_15d_mm", result.features_used)
+
+    def test_predict_features_used_converts_nan_to_none(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            p = self._make_predictor(Path(d))
+            p._model_bundle = self._mock_bundle(0.30)
+            p._weather_stations = {}
+            p._micro_area_profiles = {}
+            p._area_profiles = {}
+            values = [0.0] * len(FEATURE_COLS)
+            values[FEATURE_COLS.index("rain_1d_mm")] = float("nan")
+            with patch.object(
+                p,
+                "_build_feature_row",
+                return_value=(values, [], "ST1", 5.0, 30),
+            ):
+                result = p.predict("area_a", date(2024, 10, 15))
+
+        self.assertIsNone(result.features_used["rain_1d_mm"])
 
 
 if __name__ == "__main__":

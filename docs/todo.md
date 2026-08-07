@@ -12,12 +12,19 @@ Regla critica del motor predictivo de setas: Codex no debe fijar umbrales, pesos
 
 Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, usable para una persona y multiidioma. Cualquier texto visible nuevo del dominio setas debe tener labels en `mushroom-data/mushroom_labels.json` para `en`, `es` y `ca`. Las pantallas tecnicas crudas solo se aceptan si el usuario lo pide explicitamente.
 
-## Estado operativo actual (2026-08-06)
+## Estado operativo actual (2026-08-07)
 
 ### Prioridad inmediata
 
-- [ ] Instalar 0.2.225 en HA real (publicada en GHCR, pendiente de instalar).
-  Subir a HA tras instalar: `mushroom_labels.json`, `mushroom_reference_catalogs.json`.
+- [x] Instalar `0.2.226` en HA real. El usuario confirma que todavía no ha usado
+  Predictor con ella.
+- [x] Publicar `0.2.227` con la corrección P0, diagnóstico automático y exclusión
+  runner/Predictor (`amd64` + `arm64`, 2026-08-07).
+- [ ] Instalar `0.2.227`; ejecutar después `all` para regenerar el
+  Parquet con row groups filtrables, reconstruir features y reentrenar/promover
+  los modelos antes de abrir Predictor. Dejar 10 minutos tras runner y Predictor,
+  descargar ambos ZIP de diagnóstico y aplicar el protocolo de
+  `docs/runtime-diagnostics.md` antes de cerrar el P0.
 - [ ] Revisar observaciones `review` en Docker local (`http://127.0.0.1:8101`):
   confirmar especie, rellenar `flush_abundance`, pasar a `calibration_use=include`
   las validas. Paso mas impactante para mejorar modelos.

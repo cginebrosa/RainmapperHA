@@ -2,21 +2,29 @@
 
 from __future__ import annotations
 
+import gc
 import html
 import json
+import math
 from datetime import date, timedelta
 from pathlib import Path
+from threading import RLock
 from typing import Any
 from urllib.parse import urlencode
 
 from rainmapper_core import mushroom_paths
-from rainmapper_core.mushroom_ml_predictor import MushroomMLPredictor
+from rainmapper_core.mushroom_ml_predictor import (
+    MushroomMLPredictor,
+    invalidate_weather_stations_cache,
+)
+from rainmapper_core.mushroom_observation_context import WeatherParquetLayoutError
 
 import mushroom_profiles_ui
 
 
 # Module-level predictor cache — lazy-loaded, survives across requests
 _predictor_cache: dict[str, MushroomMLPredictor] = {}
+_predictor_cache_lock = RLock()
 
 # ML report cache — loaded once per process, reset if file changes
 _ml_report_cache: dict[str, Any] | None = None
@@ -31,10 +39,27 @@ def _lbl(key: str) -> str:
     return mushroom_profiles_ui.ui_label(key)
 
 
+def _predictor_error_text(exc: Exception) -> str:
+    if isinstance(exc, WeatherParquetLayoutError):
+        return _lbl("ui.predictor_weather_refresh_required")
+    return str(exc)
+
+
 def _get_predictor(species_id: str) -> MushroomMLPredictor:
-    if species_id not in _predictor_cache:
-        _predictor_cache[species_id] = MushroomMLPredictor(species_id)
-    return _predictor_cache[species_id]
+    with _predictor_cache_lock:
+        if species_id not in _predictor_cache:
+            _predictor_cache[species_id] = MushroomMLPredictor(species_id)
+        return _predictor_cache[species_id]
+
+
+def release_predictor_cache() -> int:
+    """Release Predictor instances and shared weather data before a runner action."""
+    with _predictor_cache_lock:
+        released_instances = len(_predictor_cache)
+        _predictor_cache.clear()
+        invalidate_weather_stations_cache()
+    gc.collect()
+    return released_instances
 
 
 def _rel_badge(ep_n: int, acc: float | None = None) -> str:
@@ -227,7 +252,7 @@ def _render_recommender(
         except FileNotFoundError:
             pass
         except Exception as exc:
-            errors.append(f"{species_id}: {html.escape(str(exc))}")
+            errors.append(f"{species_id}: {html.escape(_predictor_error_text(exc))}")
 
     all_results.sort(key=lambda t: t[0].ensemble_probability or 0, reverse=True)
 
@@ -335,7 +360,7 @@ def _render_week(
     except FileNotFoundError:
         area_ids = []
     except Exception as exc:
-        return f'<div class="pred-error"><strong>Error:</strong> {html.escape(str(exc))}</div>'
+        return f'<div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>'
 
     if not area_ids:
         return f"""
@@ -392,6 +417,13 @@ def _render_week(
                     f'<a href="{html.escape(cell_href)}">'
                     f'{_status_dot(r.label)} {_pct(r.ensemble_probability)}'
                     f'</a></td>'
+                )
+            except WeatherParquetLayoutError as exc:
+                return (
+                    '<section class="pred-section">'
+                    f'<div class="pred-chips">{chips}</div>'
+                    f'<div class="pred-error">{html.escape(_predictor_error_text(exc))}</div>'
+                    '</section>'
                 )
             except Exception:
                 row_cells += '<td class="pred-cell">—</td>'
@@ -508,7 +540,7 @@ def _render_query_result(
     except FileNotFoundError as exc:
         return f'<div class="pred-error">{html.escape(str(exc))}</div>'
     except Exception as exc:
-        return f'<div class="pred-error"><strong>Error:</strong> {html.escape(str(exc))}</div>'
+        return f'<div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>'
 
     sp_name = _species_name(species, profiles_payload)
     area_n = _area_name(area, known_sites_payload)
@@ -591,7 +623,7 @@ def _render_query_all_areas(
     except FileNotFoundError as exc:
         return f'<div class="pred-error">{html.escape(str(exc))}</div>'
     except Exception as exc:
-        return f'<div class="pred-error"><strong>Error:</strong> {html.escape(str(exc))}</div>'
+        return f'<div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>'
 
     if not results:
         return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_no_data"))}</div>'
@@ -656,25 +688,25 @@ def _render_feature_bars(features: dict[str, Any]) -> str:
         return ""
 
     shown = [
-        ("rain_1d_mm", "Lluvia 1d", 50),
-        ("rain_7d_mm", "Lluvia 7d", 150),
-        ("rain_15d_mm", "Lluvia 15d", 250),
-        ("temp_max_c", "Tmax", 40),
-        ("temp_min_c", "Tmin", 30),
-        ("humidity_max_7d_pct", "Humedad max 7d", 100),
-        ("humidity_min_7d_pct", "Humedad min 7d", 100),
+        ("rain_1d_mm", "ui.predictor_feature_rain_1d", 50),
+        ("rain_7d_mm", "ui.predictor_feature_rain_7d", 150),
+        ("rain_14d_mm", "ui.predictor_feature_rain_14d", 250),
+        ("temp_max_7d_c", "ui.predictor_feature_temp_max_7d", 40),
+        ("temp_min_7d_c", "ui.predictor_feature_temp_min_7d", 30),
+        ("humidity_max_7d_pct", "ui.predictor_feature_humidity_max_7d", 100),
+        ("humidity_min_7d_pct", "ui.predictor_feature_humidity_min_7d", 100),
     ]
 
     bars_html = ""
-    for key, label_text, max_val in shown:
+    for key, label_key, max_val in shown:
         val = features.get(key)
-        if val is None:
+        if not isinstance(val, (int, float)) or not math.isfinite(float(val)):
             continue
-        pct = min(100, round(float(val) / max_val * 100))
+        pct = max(0, min(100, round(float(val) / max_val * 100)))
         unit = "%" if "pct" in key else ("°C" if "temp" in key else "mm")
         bars_html += f"""
 <div class="pred-feat-row">
-  <span class="pred-feat-label">{html.escape(label_text)}</span>
+  <span class="pred-feat-label">{html.escape(_lbl(label_key))}</span>
   <div class="pred-feat-bar-bg">
     <div class="pred-feat-bar" style="width:{pct}%"></div>
   </div>
@@ -754,7 +786,7 @@ def _render_history(
 <section class="pred-section">
   <h2>{html.escape(_lbl("ui.predictor_tab_history"))}</h2>
   {form_html}
-  <div class="pred-error"><strong>Error:</strong> {html.escape(str(exc))}</div>
+  <div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>
 </section>
 """
 
@@ -929,7 +961,7 @@ def render_page(
         else:
             content = _render_recommender(target_date, trained, profiles_payload, known_sites_payload)
     except Exception as exc:
-        content = f'<div class="pred-error"><strong>Error cargando predictor:</strong> {html.escape(str(exc))}</div>'
+        content = f'<div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>'
 
     return f"""
 <style>

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pandas as pd
 
@@ -270,6 +271,11 @@ def _nan_to_none(v: Any) -> float | None:
 
 _PARQUET_FILENAME = "weather_daily.parquet"
 _CATALOG_FILENAME = "weather_stations_catalog.parquet"
+_PARQUET_ROW_GROUP_SIZE = 512
+
+
+class WeatherParquetLayoutError(RuntimeError):
+    """Raised when filtered reads would scan a legacy monolithic Parquet."""
 
 _PARQUET_COL_MAP = {
     "Codi Estació": "station_code",
@@ -330,6 +336,12 @@ def generate_weather_daily_parquet(
             if col in df.columns:
                 df[col] = df[col].apply(lambda v: parse_float(v) if pd.notna(v) else None)
         df["source"] = source
+        df.sort_values(
+            ["station_code", "local_date"],
+            kind="stable",
+            ignore_index=True,
+            inplace=True,
+        )
         dfs.append(df)
 
     emit_progress(progress_callback, 85, "Combinando fuentes y escribiendo Parquet...")
@@ -339,7 +351,18 @@ def generate_weather_daily_parquet(
         combined = pd.concat(dfs, ignore_index=True)
     combined = combined.dropna(subset=["station_code", "local_date"])
     output_path = data_dir / _PARQUET_FILENAME
-    combined.to_parquet(output_path, index=False)
+    temporary_path = output_path.with_name(
+        f".{output_path.name}.{uuid4().hex}.tmp"
+    )
+    try:
+        combined.to_parquet(
+            temporary_path,
+            index=False,
+            row_group_size=_PARQUET_ROW_GROUP_SIZE,
+        )
+        temporary_path.replace(output_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
     emit_progress(
         progress_callback, 100,
         f"{_PARQUET_FILENAME} generado: {len(combined)} filas, {output_path.stat().st_size // 1024} KB.",
@@ -358,24 +381,68 @@ def generate_stations_catalog_parquet(data_dir: Path) -> Path | None:
     parquet_path = data_dir / _PARQUET_FILENAME
     if not parquet_path.exists():
         return None
-    import warnings
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", FutureWarning)
-        df = pd.read_parquet(parquet_path, columns=["source", "station_code", "station_name", "lat", "lon", "altitude"])
-    df = df.drop_duplicates(subset=["source", "station_code"])
-    df = df.dropna(subset=["station_code", "lat", "lon"])
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
+    columns = ["source", "station_code", "station_name", "lat", "lon", "altitude"]
+    rows_by_station: dict[tuple[str, str], dict[str, Any]] = {}
+    parquet_file = pq.ParquetFile(parquet_path)
+    for batch in parquet_file.iter_batches(batch_size=16_384, columns=columns):
+        values = batch.to_pydict()
+        for source, station_code, station_name, lat, lon, altitude in zip(
+            *(values[column] for column in columns)
+        ):
+            source_text = str(source or "").strip()
+            station_code_text = str(station_code or "").strip()
+            if not source_text or not station_code_text or lat is None or lon is None:
+                continue
+            try:
+                lat_value = float(lat)
+                lon_value = float(lon)
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(lat_value) or not math.isfinite(lon_value):
+                continue
+            altitude_value = _nan_to_none(altitude)
+            key = (source_text, station_code_text)
+            if key not in rows_by_station:
+                rows_by_station[key] = {
+                    "source": source_text,
+                    "station_code": station_code_text,
+                    "station_name": str(station_name or "").strip(),
+                    "lat": lat_value,
+                    "lon": lon_value,
+                    "altitude": altitude_value,
+                }
+    df = pd.DataFrame(rows_by_station.values(), columns=columns)
     catalog_path = data_dir / _CATALOG_FILENAME
-    df.to_parquet(catalog_path, index=False)
+    temporary_path = catalog_path.with_name(
+        f".{catalog_path.name}.{uuid4().hex}.tmp"
+    )
+    try:
+        df.to_parquet(temporary_path, index=False)
+        temporary_path.replace(catalog_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
     return catalog_path
 
 
 def load_stations_catalog(data_dir: Path) -> "pd.DataFrame":
     """Load weather_stations_catalog.parquet as a DataFrame (source, station_code, lat, lon, altitude).
 
-    Returns an empty DataFrame if the catalog does not exist (predictor will fall back to
-    loading all stations from the daily parquet).
+    Creates or refreshes the lightweight catalog from weather_daily.parquet when
+    necessary. Returns an empty DataFrame only when neither artifact is available.
     """
     catalog_path = data_dir / _CATALOG_FILENAME
+    parquet_path = data_dir / _PARQUET_FILENAME
+    catalog_stale = (
+        parquet_path.exists()
+        and (
+            not catalog_path.exists()
+            or parquet_path.stat().st_mtime > catalog_path.stat().st_mtime
+        )
+    )
+    if catalog_stale:
+        generate_stations_catalog_parquet(data_dir)
     if not catalog_path.exists():
         return pd.DataFrame(columns=["source", "station_code", "station_name", "lat", "lon", "altitude"])
     return pd.read_parquet(catalog_path)
@@ -406,18 +473,43 @@ def load_daily_weather_parquet(
     progress_callback: Any | None = None,
     station_filter: set[tuple[str, str]] | None = None,
 ) -> dict[tuple[str, str], WeatherStation]:
-    """Load weather stations from weather_daily.parquet if available, else from CSVs."""
+    """Load weather stations from Parquet, optionally with read-time filtering.
+
+    ``station_filter=None`` means that the caller explicitly needs every
+    station (the rebuild pipeline). An empty set means that no station is safe
+    to load and returns an empty result without reading the weather history.
+    """
     parquet_path = data_dir / _PARQUET_FILENAME
     if not parquet_path.exists():
+        if station_filter is not None:
+            return {}
         return _load_daily_weather_from_csv(data_dir, progress_callback)
 
     emit_progress(progress_callback, 5, "Leyendo weather_daily.parquet...")
-    df = pd.read_parquet(parquet_path)
-    if station_filter:
-        mask = pd.Series(False, index=df.index)
-        for src, code in station_filter:
-            mask |= (df["source"] == src) & (df["station_code"] == code)
-        df = df[mask]
+    if station_filter is not None:
+        normalized_filter = {
+            (str(source).strip(), str(station_code).strip())
+            for source, station_code in station_filter
+            if str(source).strip() and str(station_code).strip()
+        }
+        if not normalized_filter:
+            emit_progress(progress_callback, 100, "No hay estaciones meteorologicas seleccionadas.")
+            return {}
+        import pyarrow.parquet as pq  # noqa: PLC0415
+
+        metadata = pq.ParquetFile(parquet_path).metadata
+        if metadata.num_row_groups == 1 and metadata.num_rows > _PARQUET_ROW_GROUP_SIZE:
+            raise WeatherParquetLayoutError(
+                "weather_daily.parquet must be regenerated by the current runner "
+                "before using filtered Predictor reads"
+            )
+        parquet_filters = [
+            [("source", "==", source), ("station_code", "==", station_code)]
+            for source, station_code in sorted(normalized_filter)
+        ]
+        df = pd.read_parquet(parquet_path, filters=parquet_filters)
+    else:
+        df = pd.read_parquet(parquet_path)
     emit_progress(progress_callback, 30, f"Parquet cargado: {len(df)} registros.")
 
     # Vectorized filtering — drop rows missing required fields before any Python loop
@@ -681,16 +773,40 @@ def select_station(
     lon: float,
     observed_day: date,
 ) -> tuple[WeatherStation | None, float | None, int]:
+    """Choose the best-covered of the five nearest weather stations.
+
+    Coverage quality is measured over the model's existing 30-day feature
+    window, so selection does not introduce a new numeric threshold. Distance
+    breaks coverage ties. The returned coverage remains the established 90-day
+    reporting value used by observation artifacts.
+    """
     candidates = []
     for station in stations.values():
-        coverage = station_coverage_days(station, observed_day, 90)
-        if coverage <= 0:
-            continue
-        candidates.append((haversine_km(lat, lon, station.lat, station.lon), station.source, station.station_code, coverage, station))
-    if not candidates:
+        distance = haversine_km(lat, lon, station.lat, station.lon)
+        candidates.append((distance, station.source, station.station_code, station))
+    nearest_candidates = sorted(
+        candidates,
+        key=lambda item: (item[0], item[1], item[2]),
+    )[:5]
+    covered_candidates = []
+    for distance, source, station_code, station in nearest_candidates:
+        feature_coverage = station_coverage_days(
+            station,
+            observed_day,
+            DAILY_SERIES_DAYS,
+        )
+        if feature_coverage > 0:
+            covered_candidates.append(
+                (feature_coverage, distance, source, station_code, station)
+            )
+    if not covered_candidates:
         return None, None, 0
-    distance, _source, _code, coverage, station = sorted(candidates, key=lambda item: (item[0], item[1], item[2]))[0]
-    return station, distance, coverage
+    _feature_coverage, distance, _source, _code, station = sorted(
+        covered_candidates,
+        key=lambda item: (-item[0], item[1], item[2], item[3]),
+    )[0]
+    reporting_coverage = station_coverage_days(station, observed_day, 90)
+    return station, distance, reporting_coverage
 
 
 def mean(values: list[float]) -> float | None:

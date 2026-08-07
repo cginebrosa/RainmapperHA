@@ -6,12 +6,18 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Instalada en HA real: `0.2.221`. El rollback inmediato es `0.2.214`.
-- **`0.2.226` publicada en GHCR (2026-08-07), pendiente de instalar en HA.**
-  Incluye el fix P0 de memoria del Predictor y el fix N/A del popup de lluvia.
+- Instalada en HA real: `0.2.226` (confirmado por el usuario el 2026-08-07).
+  Predictor todavía no se ha abierto con esta versión.
+- Publicada y disponible para instalar: `0.2.227` (`amd64` + `arm64`, digest
+  multiarquitectura `sha256:4e42192fbe1c...`).
+- **El P0 de memoria no está cerrado en la imagen `0.2.226`:** el filtro espacial
+  se añadió, pero el Parquet existente tiene un solo row group y la lectura
+  filtrada todavía puede materializarlo completo.
 - No hay versión de desarrollo/sideload.
-- Predictor: con 0.2.226 el pico de memoria baja de ~358 MiB a ~40 MiB.
-  **Instalar 0.2.226 antes de abrir Predictor remotamente.**
+- `0.2.227` genera row groups filtrables, hace
+  bootstrap seguro del catálogo, impide la lectura interactiva del Parquet
+  monolítico, acota la caché por filtro e incluye diagnóstico automático.
+  **No abrir Predictor hasta instalar `0.2.227` y ejecutar primero el runner.**
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
@@ -35,17 +41,26 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   40 válidas sin `micro_area_id`.
 
 **Prioridad inmediata:**
-1. **P0 Predictor / memoria RPi4:** sustituir la materialización completa de 622k
-   filas meteorológicas por lecturas filtradas y caché acotada. No está implementado;
-   diseño y mediciones en `docs/mushrooms/mushroom-predictor-design-es.md`.
+1. **P0 Predictor / memoria RPi4:** instalar `0.2.227` antes del próximo schedule,
+   ejecutar `all` para regenerar Parquet/catálogo, esperar 10 minutos y descargar
+   el primer ZIP de diagnóstico. `0.2.226` sigue instalada y no debe abrirse
+   Predictor con ella.
 2. **Revisar observaciones `review` en HA real** — 254 pendientes. Es el paso más
    impactante para mejorar los modelos ML. La evidencia observada NO se revisará manualmente:
    se implementará herencia desde micro_area (ver sección "atributos ecológicos" al final).
-3. **Instalar 0.2.225 en HA** — incluye UI de fiabilidad y la invalidación por
-   mtime, pero no corrige el consumo P0; evitar Predictor hasta el arreglo.
+3. Tras el runner de `0.2.227`: reconstruir features y reentrenar/promover los
+   modelos antes de probar Predictor; seguir los ensayos B/C documentados.
 4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
 5. Worker: probar descarte con candidato terminal en HA real.
 6. Decidir si meter Tailscale dentro de la imagen del worker.
+
+El contrato de instrumentación automática, descarga y ensayo controlado en
+RPi4 está en `docs/runtime-diagnostics.md`. La implementación local ya registra
+JSONL acotado, picos del proceso y del cgroup, recuperación a 60/600 s, carga fría
+del Predictor, libera sus cachés antes del runner, impide solapamientos y añade
+un ZIP descargable desde el panel. Está publicada en `0.2.227`; sigue pendiente
+de instalación y medición real.
+Validación local completa: `smoke-test.sh`, 462 tests, PASS el 2026-08-07.
 
 **Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de
 `docker-data/mushroom-data/` se refresca desde HA para pruebas y comprobaciones; no planificar
@@ -82,8 +97,9 @@ solo columnas `(station_code, lat, lon, altitud, source)`, una fila por estació
 Nueva función `nearest_station_codes(catalog, lat, lon, max_km=15, top_n=5)`
 que devuelve los códigos de las N estaciones más cercanas dentro del radio.
 La función existente `load_daily_weather_parquet()` acepta un parámetro
-opcional `station_codes: set[str] | None` — si se pasa, filtra el parquet
-con `filters=[('station_code', 'in', lista)]` antes de leer filas.
+opcional `station_filter: set[tuple[str, str]] | None` — si se pasa, usa filtros
+DNF por `(source, station_code)` antes de materializar el DataFrame. Un filtro
+vacío o la ausencia del Parquet fallan de forma acotada, sin cargar todos los CSV.
 
 **3. `rainmapper_core/mushroom_ml_predictor.py`** — dos cachés módulo-nivel
 con invalidación por mtime (igual que ya funciona para el parquet completo):
@@ -96,19 +112,28 @@ Al inicializar `MushroomMLPredictor`, calcular las estaciones necesarias
 `load_daily_weather_parquet()`.
 
 **4. `mushroom_observation_context.py` — fallback en `select_station()`**
-La función actual elige solo la estación más cercana con cobertura. Ampliar
-para intentar las candidatas en orden de distancia (ya cargadas) hasta encontrar
-una con suficientes días de cobertura para la ventana solicitada.
+Entre las cinco estaciones más cercanas, seleccionar la que tenga mejor cobertura
+en la ventana de features ya existente de 30 días; la distancia desempata. Así se
+evita inventar un umbral nuevo y no se conserva una estación casi vacía solo por
+ser unos metros más próxima.
 
 **Lo que NO cambia:**
 - La caché `_shared_weather_stations` con invalidación por mtime sigue existiendo
   (ya implementada hoy) — ahora simplemente guarda 100 estaciones en lugar de 1.932
-- El parquet diario completo no se toca — solo se filtra al leer
-- El worker y el pipeline de entrenamiento no se ven afectados
+- El contrato del worker de entrenamiento no cambia. El próximo rebuild de
+  features y retrain debe usar la selección compartida por mejor cobertura para
+  consolidar la misma política en entrenamiento y serving.
 - `weather_daily.parquet` sigue siendo la fuente canónica
 
-**Implementado en 0.2.226 (2026-08-07).** Pendiente: instalar en HA y verificar
-que el Predictor ya no colapsa la RPi4.
+**Corrección incluida en 0.2.227 (publicada el 2026-08-07):** se confirmó
+que `pd.read_parquet(..., filters=...)` no basta con el artefacto actual porque
+sus 625.434 filas están en un único row group. El generador ahora ordena por
+fuente/estación/fecha y escribe row groups de 512 filas de forma atómica. La ruta
+interactiva rechaza un Parquet monolítico antes de leerlo y la UI solicita ejecutar
+una actualización meteorológica. El catálogo se genera en streaming si falta o
+está obsoleto. La caché incluye el filtro de estaciones y las cargas frías están
+serializadas con lock single-flight.
+Suite integral local de la release: **462 tests OK**.
 
 ### Fases completadas
 
@@ -195,7 +220,7 @@ Backtest B. pinophilus (22 episodios a nivel área):
   áreas enteras; micro_area generaba ruido por construcción.
 - No forecast necesario: el modelo aprende el lag entre condiciones y florada; los 30 días
   anteriores a cualquier fecha futura próxima ya están en los históricos.
-- 40 features numéricas: rain 5 ventanas + temp 12 + humidity 12 + 8 derivadas + altitude + month.
+- 39 features numéricas: rain 5 ventanas + temp 12 + humidity 12 + 8 derivadas + altitude + month.
 - LR + RF ensemble (media de probabilidades). RF generaliza mejor en todos los casos.
 - Thresholds de label (no producción): ≥0.60 favorable, ≤0.40 unfavorable, resto uncertain.
 
@@ -447,7 +472,10 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA actual en GHCR: `0.2.225` (2026-08-06). Instalada en HA real: `0.2.221`.
+- Release HA publicada en GHCR y version del repositorio: `0.2.227` (2026-08-07).
+  En HA real sigue instalada `0.2.226` hasta completar la actualizacion.
+  No abrir el Predictor hasta instalar `0.2.227` y dejar que el runner complete
+  una ejecucion `all` que regenere los Parquet con el nuevo layout.
   Workers (M1 y M5) probados y funcionales.
 
 ### Histórico: última release validada antes de ML (0.2.214)

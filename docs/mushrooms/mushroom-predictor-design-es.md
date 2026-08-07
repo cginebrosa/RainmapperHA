@@ -3,7 +3,7 @@
 Versión del documento: borrador 0.1 (motor y UI implementados; ver estado por fase abajo)
 
 **Estado de implementacion (2026-08-04):**
-- Fase 1 (features pipeline): DONE — `mushroom_observation_features.py`, ventana 30d, 40 features.
+- Fase 1 (features pipeline): DONE — `mushroom_observation_features.py`, ventana 30d, 39 features.
 - Fase 2 (trainer): DONE — `mushroom_ml_trainer.py`, LR+RF, joblib por especie.
 - Fase 3 (predictor engine): DONE — `mushroom_ml_predictor.py`, 4 modos de consulta.
 - Fase 4 (UI): DONE — `mushroom_predictor_ui.py`, 4 vistas (semana, especie, fecha, historial).
@@ -31,18 +31,19 @@ con `boletus_aereus` y se define en
 
 ### 0.1 Estado y regla operativa
 
-Estado a 2026-08-06: **DIAGNOSTICADO; ARREGLO PENDIENTE; NO RESUELTO POR
-0.2.221 NI 0.2.225**.
+Estado a 2026-08-07: **`0.2.226` INSTALADA PERO INSUFICIENTE; `0.2.227`
+PUBLICADA Y PENDIENTE DE INSTALACIÓN/VALIDACIÓN EN RPi4**.
 
 Síntoma observado en HA real: después de abrir Predictor, HA o la RPi4 pueden
 dejar de responder al cabo de un rato. Al ocurrir remotamente se pierde la
 conexión y ha sido necesario cortar y restaurar la alimentación con el enchufe
 inteligente para recuperar el host.
 
-Hasta implementar y validar el arreglo, no abrir Predictor remotamente. La
-instalación de 0.2.225 no debe presentarse como solución a este incidente: añade
-invalidación por mtime y mejoras de UI, pero conserva la materialización completa
-del histórico meteorológico.
+El usuario confirma que no ha abierto Predictor después de instalar `0.2.226`.
+Debe permanecer cerrado: esa versión añadió el filtro espacial, pero el artefacto
+meteorológico existente conserva un único row group y Arrow todavía puede leerlo
+completo antes de aplicar el filtro. `0.2.227` corrige el formato y falla de forma
+segura ante el artefacto antiguo; aún faltan instalación y prueba en RPi4.
 
 No se ha capturado todavía un log del kernel/Supervisor que confirme OOM o un
 exit 137. Por tanto, OOM queda como hipótesis principal con evidencia fuerte,
@@ -69,12 +70,21 @@ Medición en proceso aislado con `.venv/bin/python`:
 Los tres `.joblib` live ocupan menos de 1 MiB en total. El coste dominante no
 son los modelos, sino expandir todo el parquet a objetos Python.
 
+Medición adicional sobre la copia local de 625.434 filas (2026-08-07):
+
+- el filtro de 100 estaciones sobre el Parquet antiguo de un row group alcanzó
+  318,2 MiB de RSS máximo (baseline 98,7 MiB);
+- el mismo filtro sobre un Parquet ordenado con row groups de 512 filas cargó
+  70.490 registros/100 estaciones y alcanzó 236,1 MiB de RSS máximo;
+- por tanto, el filtro lógico era necesario pero no suficiente: el layout físico
+  del Parquet también forma parte del arreglo.
+
 La medición local no reproduce exactamente el allocator ni la arquitectura de
 la RPi4, pero demuestra que el tamaño comprimido del parquet no representa su
 coste en RAM. Un pico cercano a 1 GB dentro de una RPi4 de 4 GB compartida con
 Home Assistant, Supervisor y otros add-ons es operacionalmente inaceptable.
 
-### 0.3 Causa en el diseño actual
+### 0.3 Causa en el diseño publicado hasta 0.2.226
 
 Al abrir la vista predeterminada, `_render_recommender()` recorre todas las
 especies entrenadas. La primera predicción llama a
@@ -103,11 +113,12 @@ Riesgos secundarios detectados:
 - si falta el parquet, el fallback interactivo a los CSV vuelve a introducir
   la ruta más cara y no debe considerarse segura para la RPi.
 
-### 0.4 Diseño de arreglo acordado (2026-08-07)
+### 0.4 Arreglo local implementado (2026-08-07; no publicado)
 
-Objetivo: reducir el pico de memoria del Predictor de ~358 MiB a ~40 MiB
-filtrando el parquet a las estaciones relevantes **antes** de materializar
-objetos Python.
+Objetivo: hacer que la memoria sea proporcional a las estaciones relevantes y
+evitar cualquier fallback interactivo capaz de leer las 625k filas. La cifra de
+~40 MiB es una estimación de los objetos retenidos, no del RSS máximo total; la
+validación real debe usar RSS del proceso y una RPi4.
 
 #### Diseño simplificado: filtro espacial por micro-área
 
@@ -117,7 +128,10 @@ En lugar de chunks por ventana de fechas o LRU, el arreglo mínimo efectivo es:
    por estación: `(station_code, lat, lon, altitud, source)`.
 2. Al inicializar el predictor, calcular las top-5 estaciones a ≤15 km de cada
    micro-área del modelo.
-3. Filtrar `weather_daily.parquet` a solo esos códigos antes de leer filas.
+3. Ordenar el Parquet por fuente/estación/fecha y escribir row groups de 512
+   filas para que Arrow pueda descartar físicamente los grupos no solicitados.
+4. Filtrar `weather_daily.parquet` a solo esos códigos antes de materializar el
+   DataFrame y rechazar de forma segura el layout monolítico antiguo.
 
 **Mediciones reales (docker-data, 2026-08-06):**
 
@@ -130,17 +144,20 @@ Las 46 micro-áreas del modelo quedan cubiertas (4-5 estaciones cada una).
 Ninguna micro-área queda sin candidatos. Radio máximo al candidato más lejano:
 15 km.
 
-No se introduce LRU, chunking por fechas ni particionado del parquet. La caché
+No se introduce LRU, chunking por fechas ni particionado por directorios. Sí se
+introducen row groups pequeños dentro del mismo fichero Parquet. La caché
 `_shared_weather_stations` con invalidación por mtime ya implementada en 0.2.225
 se mantiene; ahora guarda ~100 estaciones en lugar de 1.932.
 
-#### 4 cambios concretos
+#### Cambios concretos
 
 **1. `rainmapper_core/rainmapper.py`**
 
-Después de generar `weather_daily.parquet`, generar también
+El generador ordena por `(source, station_code, local_date)`, escribe el fichero
+de forma atómica con row groups de 512 filas y después genera también
 `weather_stations_catalog.parquet`: una fila por estación, solo columnas de
-coordenadas y metadatos. ~100 KB, generado en el mismo paso del runner.
+coordenadas y metadatos. El catálogo se extrae en streaming y puede recrearse
+automáticamente si falta o está obsoleto.
 
 **2. `rainmapper_core/mushroom_observation_context.py`**
 
@@ -148,7 +165,10 @@ coordenadas y metadatos. ~100 KB, generado en el mismo paso del runner.
 - Nueva función `nearest_station_codes(catalog, lat, lon, max_km=15, top_n=5)`
   → devuelve hasta 5 códigos de estación dentro del radio.
 - `load_daily_weather_parquet()` acepta parámetro opcional
-  `station_filter: set[tuple] | None`; si se pasa, filtra antes de materializar filas.
+  `station_filter: set[tuple[str, str]] | None`; si se pasa, aplica filtros DNF
+  por fuente/código antes de materializar filas.
+- Un filtro vacío, un Parquet ausente o un Parquet monolítico grande fallan de
+  forma acotada en la ruta interactiva; nunca se cargan todos los CSV como fallback.
 
 **3. `rainmapper_core/mushroom_ml_predictor.py`**
 
@@ -157,18 +177,23 @@ coordenadas y metadatos. ~100 KB, generado en el mismo paso del runner.
 - Al inicializar `MushroomMLPredictor`, calcular las estaciones necesarias desde
   el catálogo y las coordenadas de las micro-áreas del modelo.
 - Pasar el conjunto de códigos a `load_daily_weather_parquet()`.
+- Incluir el filtro normalizado en la clave de caché y serializar las cargas
+  frías de catálogo/histórico con locks single-flight.
 
 **4. `mushroom_observation_context.py` — fallback en `select_station()`**
 
-Con el filtro espacial, `select_station()` recibe solo las ~5 estaciones candidatas
-más cercanas. Ya elige la más cercana con cobertura; el fallback a la siguiente
-candidata es implícito porque todas están en el dict filtrado.
+`select_station()` limita la decisión a las cinco estaciones más cercanas y
+elige la de mayor cobertura en la ventana de features ya definida de 30 días;
+la distancia desempata. No se inventa un umbral numérico adicional y se evita
+elegir una estación casi vacía solo por ser la más próxima.
 
 #### Lo que NO cambia
 
 - El parquet diario con invalidación por mtime (ya implementado en 0.2.225).
 - El parquet completo `weather_daily.parquet` como fuente canónica.
-- El worker y el pipeline de entrenamiento (no usan el predictor en tiempo real).
+- El contrato del worker de entrenamiento. El próximo rebuild/retrain sí debe
+  ejecutarse para que los modelos promovidos incorporen la misma selección por
+  cobertura que usa serving.
 - Las features del modelo (ventana de 30 días, mismas columnas).
 
 #### Opciones consideradas y descartadas para esta fase
@@ -178,8 +203,9 @@ candidata es implícito porque todas están en el dict filtrado.
   y 1.765 estaciones. Sin el filtro espacial el beneficio es menor del 80%.
 - **LRU de ventanas:** útil como segunda optimización, no como primera; añade
   complejidad sin ser necesaria para el objetivo de ≤50 MiB.
-- **Particionar el parquet por estación:** mejora I/O futuro pero no resuelve el
-  problema inmediato y requiere cambiar el generador y todos los lectores.
+- **Particionar por directorios/estación:** añade muchos artefactos y cambios de
+  lectores. Los row groups ordenados consiguen predicate pushdown conservando
+  un único fichero canónico.
 
 ### 0.5 Opciones descartadas como arreglo principal
 
@@ -196,28 +222,25 @@ candidata es implícito porque todas están en el dict filtrado.
 
 ### 0.6 Validación exigida antes de reabrir Predictor remotamente
 
-1. Test unitario que demuestre que un chunk de caché de 120 días solo contiene
-   las estaciones solicitadas y que cada predicción usa las features de 30 días
-   exactamente igual que antes.
-2. Test de concurrencia: dos primeras peticiones idénticas producen una sola
+1. [x] Tests de filtro físico, filtro vacío fail-safe, ausencia de Parquet sin
+   fallback CSV, row groups nuevos y rechazo previo del layout monolítico.
+2. [x] Test de concurrencia: dos primeras peticiones idénticas producen una sola
    carga física.
-3. Test de invalidación: al cambiar el parquet no quedan instancias apuntando al
-   histórico anterior ni se sirven datos obsoletos.
-4. Medición con las 622k filas actuales de tiempo, RSS máximo y memoria retenida
-   después de varias vistas consecutivas.
-5. Prueba dentro de la imagen HA arm64 y después ensayo controlado en RPi4 con
-   monitorización de memoria, sin depender solo de una prueba en Mac.
-6. Verificar que Recomendador, semana, consulta e historial producen los mismos
-   resultados que la implementación actual para fixtures congelados.
-7. Confirmar en logs que no hay OOM, exit 137 ni crecimiento acumulativo al
-   regenerar el parquet y volver a consultar.
-8. Test de navegación: actual → fecha histórica → actual reutiliza o reconstruye
-   el contexto correcto, y cambiar de especie no provoca otra carga meteorológica.
-9. Test de Historial/backtest con episodios separados por años: los resultados
-   son equivalentes sin materializar el intervalo completo entre episodios.
+3. [x] Tests de invalidación por mtime/filtro y de reenganche de una instancia
+   ya creada al nuevo histórico.
+4. [x] Test de paridad del constructor de features: selección por cobertura y
+   filtro de lluvia duplicada idénticos al pipeline compartido.
+5. [ ] PARCIAL: medición local sobre 625.434 filas realizada para una carga filtrada;
+   falta repetir varias vistas y medir memoria retenida.
+6. [ ] Prueba dentro de la imagen HA arm64 y ensayo controlado en RPi4 con
+   monitorización de memoria.
+7. [ ] Verificar Recomendador, semana, consulta e historial con fixtures/UI y
+   confirmar en logs que no hay OOM, exit 137 ni crecimiento acumulativo.
+8. [ ] Test de navegación e Historial/backtest con episodios separados por años.
 
-No se ha implementado ninguno de estos cambios todavía. Esta sección es la
-propuesta de corrección y el contrato de aceptación.
+La implementación publicada cubre el núcleo y sus regresiones unitarias. El P0 no se
+considera cerrado hasta instalar `0.2.227`, regenerar el Parquet en HA y completar los
+puntos 5–8 sin abrir previamente Predictor con `0.2.226`.
 
 Este documento propone una primera arquitectura funcional para el predictor de floradas de setas de Rainmapper. No define todavía un algoritmo cerrado ni un contrato definitivo de schema. Su objetivo es ordenar las decisiones antes de modificar el modelo de datos o implementar el motor predictivo.
 

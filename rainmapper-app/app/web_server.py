@@ -48,6 +48,7 @@ from rainmapper_core import mushroom_observations
 from rainmapper_core import mushroom_paths
 from rainmapper_core import mushroom_rebuild_pipeline
 from rainmapper_core import mushroom_rebuild_contracts
+from rainmapper_core import runtime_diagnostics
 from rainmapper_core import mushroom_worker_auth
 from rainmapper_core import mushroom_worker_jobs
 from rainmapper_core import mushroom_worker_registry
@@ -152,6 +153,7 @@ PUBLIC_MAP_NAMES = {
 }
 
 RUN_LOCK = threading.Lock()
+PREDICTOR_RUN_LOCK = threading.Lock()
 MUSHROOM_WORKER_PROMOTION_LOCK = threading.Lock()
 MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK = threading.Lock()
 MUSHROOM_WORKER_PROMOTION_THREADS: dict[str, threading.Thread] = {}
@@ -9386,28 +9388,50 @@ def run_action(action: str, source: str, only_source: str | None = None) -> bool
     if only_source and (action != "update" or only_source not in UPDATE_SOURCE_FLAGS):
         return False
 
-    with RUN_LOCK:
-        if RUN_STATE["running"]:
-            return False
-        action_label = f"{action} ({only_source} only)" if only_source else action
-        RUN_STATE.update(
+    with PREDICTOR_RUN_LOCK:
+        with RUN_LOCK:
+            if RUN_STATE["running"]:
+                return False
+            action_label = f"{action} ({only_source} only)" if only_source else action
+            RUN_STATE.update(
+                {
+                    "running": True,
+                    "action": action_label,
+                    "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+                    "finished_at": "",
+                    "duration": "",
+                    "exit_code": "",
+                    "last_message": f"Running {action_label} from {source}.",
+                    "current_step": f"Queued {action_label}",
+                    "progress_current": "",
+                    "progress_total": "",
+                    "progress_percent": "",
+                }
+            )
+        try:
+            released_instances = mushroom_predictor_ui.release_predictor_cache()
+            cache_release_error = ""
+        except Exception as exc:
+            released_instances = 0
+            cache_release_error = type(exc).__name__
+        coordination_id = runtime_diagnostics.new_operation_id("runner_coordination")
+        runtime_diagnostics.record_event(
+            "runner_coordination",
+            coordination_id,
+            "predictor_cache_released",
             {
-                "running": True,
                 "action": action_label,
-                "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
-                "finished_at": "",
-                "duration": "",
-                "exit_code": "",
-                "last_message": f"Running {action_label} from {source}.",
-                "current_step": f"Queued {action_label}",
-                "progress_current": "",
-                "progress_total": "",
-                "progress_percent": "",
-            }
+                "source": source,
+                "released_predictor_instances": released_instances,
+                "cache_release_error": cache_release_error,
+            },
         )
-
-    thread = threading.Thread(target=_run_action_thread, args=(action, source, only_source), daemon=True)
-    thread.start()
+        thread = threading.Thread(
+            target=_run_action_thread,
+            args=(action, source, only_source),
+            daemon=True,
+        )
+        thread.start()
     return True
 
 
@@ -9417,6 +9441,14 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
     final_exit_code = 0
     started = datetime.now(get_timezone())
     action_label = f"{action} ({only_source} only)" if only_source else action
+    action_monitor = runtime_diagnostics.OperationMonitor(
+        "runner_action",
+        details={
+            "action": action_label,
+            "source": source,
+            "app_version": app_version(),
+        },
+    )
     print(f"Starting Rainmapper action '{action_label}' from {source}.", flush=True)
 
     with LOG_PATH.open("w", encoding="utf-8") as log_file:
@@ -9426,6 +9458,10 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
         def execute_command_step(current_action: str, command: list[str], step_label: str) -> tuple[int, float]:
             nonlocal final_exit_code
             step_started = time.perf_counter()
+            action_monitor.mark(
+                "before_step",
+                {"action": current_action, "step": step_label},
+            )
             print(f"Running Rainmapper step '{step_label}'.", flush=True)
             with RUN_LOCK:
                 RUN_STATE.update({"current_step": f"Running {step_label}", **clear_progress()})
@@ -9458,6 +9494,15 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
             step_duration = format_seconds_duration(elapsed)
             log_file.write(f"=== step {step_label} duration {step_duration} ===\n")
             log_file.flush()
+            action_monitor.mark(
+                "after_step",
+                {
+                    "action": current_action,
+                    "step": step_label,
+                    "exit_code": exit_code,
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return exit_code, elapsed
 
         actions = ["update", "maps"] if action == "all" else [action]
@@ -9549,6 +9594,23 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
         message = f"Finished with exit code {final_exit_code}."
         current_step = "Finished with error"
     print(f"Rainmapper action '{action}' finished with exit code {final_exit_code} in {duration}.", flush=True)
+    action_monitor.finish(
+        "ok" if final_exit_code == 0 else "degraded" if final_exit_code == 2 else "error",
+        {"exit_code": final_exit_code, "duration": duration},
+    )
+    if action_monitor.enabled:
+        runtime_diagnostics.schedule_snapshot(
+            "runner_action",
+            action_monitor.operation_id,
+            "recovery_60s",
+            60,
+        )
+        runtime_diagnostics.schedule_snapshot(
+            "runner_action",
+            action_monitor.operation_id,
+            "recovery_600s",
+            600,
+        )
     with RUN_LOCK:
         RUN_STATE.update(
             {
@@ -15479,25 +15541,40 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def render_mushroom_predictor(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
         page_title = mushroom_profiles_ui.ui_label("ui.predictor_title")
-        try:
-            store = default_store()
-            store.ensure_seeded()
-            profiles_payload = store.load("profiles")
-            known_sites_payload = mushroom_known_sites.load_payload()
-            body = mushroom_predictor_ui.render_page(
-                query,
-                profiles_payload if isinstance(profiles_payload, dict) else {},
-                known_sites_payload if isinstance(known_sites_payload, dict) else {},
-            )
-        except Exception as exc:
-            body = (
-                '<p><a class="button-link" href="./profiles">Back</a></p>'
-                f'<h1>{html.escape(page_title)}</h1>'
-                f'<div class="catalog-alert error"><strong>Cannot load predictor</strong><br>{html.escape(str(exc))}</div>'
-            )
-            self.send_bytes(500, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
-            return
-        self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+        status = 200
+        with PREDICTOR_RUN_LOCK:
+            if action_is_running():
+                body = (
+                    '<p><a class="button-link" href="../">← '
+                    f'{html.escape(mushroom_profiles_ui.ui_label("ui.back_to_panel"))}</a></p>'
+                    f'<h1>{html.escape(page_title)}</h1>'
+                    '<div class="catalog-alert warning">'
+                    f'{html.escape(mushroom_profiles_ui.ui_label("ui.predictor_runner_active"))}'
+                    '</div>'
+                )
+            else:
+                try:
+                    store = default_store()
+                    store.ensure_seeded()
+                    profiles_payload = store.load("profiles")
+                    known_sites_payload = mushroom_known_sites.load_payload()
+                    body = mushroom_predictor_ui.render_page(
+                        query,
+                        profiles_payload if isinstance(profiles_payload, dict) else {},
+                        known_sites_payload if isinstance(known_sites_payload, dict) else {},
+                    )
+                except Exception as exc:
+                    status = 500
+                    body = (
+                        '<p><a class="button-link" href="./profiles">Back</a></p>'
+                        f'<h1>{html.escape(page_title)}</h1>'
+                        f'<div class="catalog-alert error"><strong>Cannot load predictor</strong><br>{html.escape(str(exc))}</div>'
+                    )
+        self.send_bytes(
+            status,
+            html_page(page_title, body, auto_refresh=False),
+            "text/html; charset=utf-8",
+        )
 
     def render_mushroom_workers(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
@@ -16317,6 +16394,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/log":
             self.render_log()
+            return
+
+        if path == "/diagnostics/download":
+            self.download_runtime_diagnostics()
             return
 
         if path == "/auth/session":
@@ -18468,6 +18549,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./mushrooms/known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
           <a class="button-link" href="./mushrooms/workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
           <a class="button-link" href="./mushrooms/predictor">{html.escape(mushroom_profiles_ui.ui_label('ui.predictor'))}</a>
+          <a class="button-link" href="./diagnostics/download">Download diagnostics</a>
         </div>
         """
         head_controls = f"""
@@ -18631,6 +18713,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             '<div class="section-header">'
             "<h2>Logs</h2>"
             '<a class="button-link" href="./log" target="_blank" rel="noopener">Open full log</a>'
+            '<a class="button-link" href="./diagnostics/download">Download diagnostics</a>'
             "</div>"
             f"<pre>{html.escape(read_log())}</pre>"
             "</section>"
@@ -18704,6 +18787,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             f"<pre>{html.escape(read_log())}</pre>"
         )
         self.send_bytes(200, html_page("Rainmapper log", body, auto_refresh=False), "text/html; charset=utf-8")
+
+    def download_runtime_diagnostics(self) -> None:
+        payload = runtime_diagnostics.export_bundle(
+            last_run_log_path=LOG_PATH,
+            app_version=app_version(),
+        )
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        self.send_bytes(
+            200,
+            payload,
+            "application/zip",
+            {
+                "Cache-Control": "no-store, max-age=0",
+                "Content-Disposition": (
+                    f'attachment; filename="rainmapper-diagnostics-{timestamp}.zip"'
+                ),
+            },
+        )
 
     def logout_current_device(self) -> None:
         _token, device_id = self.auth_credentials()

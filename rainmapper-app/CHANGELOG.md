@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.227
+
+- Make the Predictor's filtered parquet read effective on RPi4: the runner now
+  writes station-sorted row groups of 512 rows atomically, while the interactive
+  path rejects an old monolithic parquet before it can materialise the full
+  dataset. A missing or stale station catalog is rebuilt safely from parquet.
+- Keep training and prediction feature construction aligned, including duplicate
+  consecutive-rain filtering and best-coverage station selection among the five
+  nearest candidates. Cache identity now includes the station filter and cache
+  loads are single-flight.
+- Add automatic bounded runtime diagnostics for runner and Predictor memory,
+  cgroup usage, CPU, temperature, duration and OOM events. Diagnostics can be
+  downloaded as a redacted ZIP from the Control Panel.
+- Prevent runner and Predictor from overlapping. Predictor caches are released
+  before a runner starts, and Predictor displays a translated notice while an
+  update or map generation is active.
+- Populate `PredictionResult.features_used` with the 39 real model inputs and
+  correct the translated weather-factor bars to use 14-day rain and 7-day
+  temperature feature names.
+
 ## 0.2.226
 
 - Fix P0 memory issue: the Predictor no longer materialises all 1,932 weather

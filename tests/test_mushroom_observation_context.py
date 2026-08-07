@@ -399,6 +399,36 @@ class StationCatalogTests(unittest.TestCase):
         self.assertIn("ST_A", codes)
         self.assertIn("ST_B", codes)
 
+    def test_generate_weather_parquet_uses_filterable_row_groups(self) -> None:
+        import pandas as pd
+        import pyarrow.parquet as pq
+
+        rows = [
+            {
+                "Codi Estació": "ST_A" if index < 300 else "ST_B",
+                "Estació": "Alpha" if index < 300 else "Beta",
+                "Data Local": f"2026{(index % 12) + 1:02d}{(index % 28) + 1:02d}",
+                "Latitud": "42.0",
+                "Longitud": "2.0",
+                "Total": "1.0",
+            }
+            for index in range(513)
+        ]
+        pd.DataFrame(rows).to_csv(
+            self.data_dir / "Meteocat_incremental.csv",
+            index=False,
+        )
+
+        output_path = mushroom_observation_context.generate_weather_daily_parquet(
+            self.data_dir
+        )
+
+        self.assertEqual(output_path, self.data_dir / "weather_daily.parquet")
+        metadata = pq.ParquetFile(output_path).metadata
+        self.assertEqual(metadata.num_rows, 513)
+        self.assertEqual(metadata.num_row_groups, 2)
+        self.assertFalse(list(self.data_dir.glob(".weather_daily.parquet.*.tmp")))
+
     def test_generate_catalog_returns_none_when_no_parquet(self) -> None:
         result = mushroom_observation_context.generate_stations_catalog_parquet(self.data_dir)
         self.assertIsNone(result)
@@ -411,6 +441,16 @@ class StationCatalogTests(unittest.TestCase):
         self.assertIn("station_code", df.columns)
         self.assertIn("lat", df.columns)
         self.assertIn("lon", df.columns)
+
+    def test_load_catalog_bootstraps_from_existing_daily_parquet(self) -> None:
+        self._write_parquet()
+        catalog_path = self.data_dir / "weather_stations_catalog.parquet"
+        self.assertFalse(catalog_path.exists())
+
+        df = mushroom_observation_context.load_stations_catalog(self.data_dir)
+
+        self.assertTrue(catalog_path.exists())
+        self.assertEqual(set(df["station_code"]), {"ST_A", "ST_B"})
 
     def test_load_catalog_returns_empty_when_no_file(self) -> None:
         df = mushroom_observation_context.load_stations_catalog(self.data_dir)
@@ -446,12 +486,76 @@ class StationCatalogTests(unittest.TestCase):
 
     def test_station_filter_excludes_other_stations(self) -> None:
         self._write_parquet()
-        stations = mushroom_observation_context.load_daily_weather_parquet(
-            self.data_dir,
-            station_filter={("meteocat", "ST_A")},
-        )
+        original_read_parquet = mushroom_observation_context.pd.read_parquet
+        with mock.patch.object(
+            mushroom_observation_context.pd,
+            "read_parquet",
+            side_effect=original_read_parquet,
+        ) as read_parquet:
+            stations = mushroom_observation_context.load_daily_weather_parquet(
+                self.data_dir,
+                station_filter={("meteocat", "ST_A")},
+            )
         self.assertIn(("meteocat", "ST_A"), stations)
         self.assertNotIn(("wunderground", "ST_B"), stations)
+        self.assertEqual(
+            read_parquet.call_args.kwargs["filters"],
+            [[("source", "==", "meteocat"), ("station_code", "==", "ST_A")]],
+        )
+
+    def test_empty_station_filter_does_not_read_parquet(self) -> None:
+        self._write_parquet()
+        with mock.patch.object(
+            mushroom_observation_context.pd, "read_parquet"
+        ) as read_parquet:
+            stations = mushroom_observation_context.load_daily_weather_parquet(
+                self.data_dir,
+                station_filter=set(),
+            )
+        self.assertEqual(stations, {})
+        read_parquet.assert_not_called()
+
+    def test_filtered_load_rejects_legacy_monolithic_parquet(self) -> None:
+        import pandas as pd
+
+        rows = [
+            {
+                "source": "meteocat",
+                "station_code": "ST_A",
+                "station_name": "Alpha",
+                "local_date": "20260101",
+                "lat": 42.0,
+                "lon": 2.0,
+            }
+            for _index in range(513)
+        ]
+        pd.DataFrame(rows).to_parquet(
+            self.data_dir / "weather_daily.parquet",
+            index=False,
+        )
+
+        with mock.patch.object(
+            mushroom_observation_context.pd, "read_parquet"
+        ) as read_parquet, self.assertRaises(
+            mushroom_observation_context.WeatherParquetLayoutError
+        ):
+            mushroom_observation_context.load_daily_weather_parquet(
+                self.data_dir,
+                station_filter={("meteocat", "ST_A")},
+            )
+        read_parquet.assert_not_called()
+
+    def test_filtered_predictor_does_not_fall_back_to_all_csvs(self) -> None:
+        with mock.patch.object(
+            mushroom_observation_context,
+            "_load_daily_weather_from_csv",
+        ) as csv_loader:
+            stations = mushroom_observation_context.load_daily_weather_parquet(
+                self.data_dir,
+                station_filter={("meteocat", "ST_A")},
+            )
+        self.assertEqual(stations, {})
+        csv_loader.assert_not_called()
 
     def test_station_filter_none_loads_all_stations(self) -> None:
         self._write_parquet()

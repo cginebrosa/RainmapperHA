@@ -12,11 +12,27 @@
 
 # CHECK requirements.txt
 
+import atexit
+import os
+
+from rainmapper_core import runtime_diagnostics as _runtime_diagnostics
+
+_runner_diagnostics = _runtime_diagnostics.OperationMonitor(
+    "runner_update",
+    details={"app_version": os.environ.get("RAINMAPPER_APP_VERSION", "unknown")},
+)
+
+
+def _finish_runner_diagnostics_if_needed() -> None:
+    _runner_diagnostics.finish("aborted")
+
+
+atexit.register(_finish_runner_diagnostics_if_needed)
+
 import pandas as pd
 from rainmapper_core.sources.sodapy_local import Socrata
 from datetime import datetime, date, timedelta, time
 import pytz
-import os
 import math
 import re
 import csv
@@ -3002,17 +3018,38 @@ try:
     import time as _time
     from pathlib import Path as _Path
     from rainmapper_core import mushroom_observation_context as _moc
+    _runner_diagnostics.mark("before_weather_parquet")
     _parquet_t0 = _time.time()
     _parquet_path = _moc.generate_weather_daily_parquet(_Path(_DATA_PATH))
     _parquet_elapsed = _time.time() - _parquet_t0
     if _parquet_path:
+        import pyarrow.parquet as _pq
+
+        _parquet_metadata = _pq.ParquetFile(_parquet_path).metadata
         _parquet_size_mb = _parquet_path.stat().st_size / (1024 * 1024)
         print(f'weather_daily.parquet generated: {_parquet_path} ({_parquet_size_mb:.1f} MB, {_parquet_elapsed:.1f}s)')
+        _runner_diagnostics.mark(
+            "after_weather_parquet",
+            {
+                "elapsed_seconds": round(_parquet_elapsed, 3),
+                "parquet_size_mib": round(_parquet_size_mb, 3),
+                "parquet_rows": _parquet_metadata.num_rows,
+                "parquet_row_groups": _parquet_metadata.num_row_groups,
+            },
+        )
         _catalog_path = _moc.generate_stations_catalog_parquet(_Path(_DATA_PATH))
         if _catalog_path:
             _catalog_kb = _catalog_path.stat().st_size / 1024
             print(f'weather_stations_catalog.parquet generated: {_catalog_path} ({_catalog_kb:.0f} KB)')
+            _runner_diagnostics.mark(
+                "after_weather_catalog",
+                {"catalog_size_kib": round(_catalog_kb, 3)},
+            )
 except Exception as _parquet_exc:
+    _runner_diagnostics.mark(
+        "weather_parquet_error",
+        {"error_type": type(_parquet_exc).__name__},
+    )
     print(f'Warning: could not generate weather_daily.parquet: {_parquet_exc}')
 
 exit_code = source_exit_code()
@@ -3020,4 +3057,8 @@ if exit_code == 2:
     print('Rainmapper finished with degraded source status.')
 elif exit_code == 1:
     print('Rainmapper finished with no usable enabled source.')
+_runner_diagnostics.finish(
+    "ok" if exit_code == 0 else "degraded" if exit_code == 2 else "error",
+    {"exit_code": exit_code},
+)
 sys.exit(exit_code)

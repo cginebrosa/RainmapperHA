@@ -43,6 +43,195 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.web_server.USERS_JSON_PATH = data_dir / "users.json"
         self.web_server.DEVICES_PATH = data_dir / "devices.json"
 
+    def reset_run_state(self) -> None:
+        with self.web_server.RUN_LOCK:
+            self.web_server.RUN_STATE.update(
+                {
+                    "running": False,
+                    "action": "",
+                    "started_at": "",
+                    "finished_at": "",
+                    "duration": "",
+                    "exit_code": "",
+                }
+            )
+
+    def test_runner_releases_predictor_cache_before_starting(self) -> None:
+        fake_runner_thread = mock.MagicMock()
+        self.addCleanup(self.reset_run_state)
+
+        with (
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "release_predictor_cache",
+                return_value=2,
+            ) as release_cache,
+            mock.patch.object(
+                self.web_server.runtime_diagnostics,
+                "new_operation_id",
+                return_value="coordination-test",
+            ),
+            mock.patch.object(
+                self.web_server.runtime_diagnostics,
+                "record_event",
+            ) as record_event,
+            mock.patch.object(
+                self.web_server.threading,
+                "Thread",
+                return_value=fake_runner_thread,
+            ),
+        ):
+            started = self.web_server.run_action("all", "unit-test")
+
+        self.assertTrue(started)
+        release_cache.assert_called_once_with()
+        fake_runner_thread.start.assert_called_once_with()
+        details = record_event.call_args.args[3]
+        self.assertEqual(details["released_predictor_instances"], 2)
+        self.assertEqual(details["cache_release_error"], "")
+
+    def test_runner_waits_for_an_active_predictor_lock(self) -> None:
+        self.addCleanup(self.reset_run_state)
+        entered = threading.Event()
+        finished = threading.Event()
+
+        def request_runner() -> None:
+            entered.set()
+            self.web_server.run_action("all", "unit-test")
+            finished.set()
+
+        runner_request = threading.Thread(target=request_runner)
+        fake_runner_thread = mock.MagicMock()
+        with (
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "release_predictor_cache",
+                return_value=0,
+            ) as release_cache,
+            mock.patch.object(
+                self.web_server.runtime_diagnostics,
+                "record_event",
+            ),
+            mock.patch.object(
+                self.web_server.threading,
+                "Thread",
+                return_value=fake_runner_thread,
+            ),
+        ):
+            with self.web_server.PREDICTOR_RUN_LOCK:
+                runner_request.start()
+                self.assertTrue(entered.wait(timeout=1))
+                self.assertFalse(finished.wait(timeout=0.05))
+                release_cache.assert_not_called()
+            runner_request.join(timeout=1)
+
+        self.assertFalse(runner_request.is_alive())
+        self.assertTrue(finished.is_set())
+        release_cache.assert_called_once_with()
+
+    def test_predictor_shows_a_localized_notice_while_runner_is_active(self) -> None:
+        self.addCleanup(self.reset_run_state)
+        with self.web_server.RUN_LOCK:
+            self.web_server.RUN_STATE["running"] = True
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        captured: dict[str, object] = {}
+        handler.send_bytes = lambda status, content, content_type: captured.update(
+            status=status,
+            content=content,
+            content_type=content_type,
+        )
+
+        handler.render_mushroom_predictor()
+
+        self.assertEqual(captured["status"], 200)
+        content = captured["content"].decode("utf-8")
+        self.assertIn("Predictor", content)
+        self.assertIn("runner", content)
+        self.assertNotIn("Cannot load predictor", content)
+
+    def test_diagnostics_download_returns_a_named_zip(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        captured: dict[str, object] = {}
+        handler.send_bytes = (
+            lambda status, content, content_type, headers=None: captured.update(
+                status=status,
+                content=content,
+                content_type=content_type,
+                headers=headers,
+            )
+        )
+
+        with mock.patch.object(
+            self.web_server.runtime_diagnostics,
+            "export_bundle",
+            return_value=b"zip-payload",
+        ) as export_bundle:
+            handler.download_runtime_diagnostics()
+
+        self.assertEqual(captured["status"], 200)
+        self.assertEqual(captured["content"], b"zip-payload")
+        self.assertEqual(captured["content_type"], "application/zip")
+        self.assertIn(
+            "rainmapper-diagnostics-",
+            captured["headers"]["Content-Disposition"],
+        )
+        export_bundle.assert_called_once_with(
+            last_run_log_path=self.web_server.LOG_PATH,
+            app_version=self.web_server.app_version(),
+        )
+
+    def test_predictor_cache_release_clears_instances_and_weather_data(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor_ui._predictor_cache["species-a"] = mock.MagicMock()
+        predictor_ui._predictor_cache["species-b"] = mock.MagicMock()
+
+        with (
+            mock.patch.object(
+                predictor_ui,
+                "invalidate_weather_stations_cache",
+            ) as invalidate_weather,
+            mock.patch.object(predictor_ui.gc, "collect") as collect,
+        ):
+            released = predictor_ui.release_predictor_cache()
+
+        self.assertEqual(released, 2)
+        self.assertEqual(predictor_ui._predictor_cache, {})
+        invalidate_weather.assert_called_once_with()
+        collect.assert_called_once_with()
+
+    def test_predictor_feature_bars_use_real_model_features_and_labels(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        features = {
+            "rain_1d_mm": 3.0,
+            "rain_7d_mm": 21.0,
+            "rain_14d_mm": 42.0,
+            "temp_max_7d_c": 24.0,
+            "temp_min_7d_c": -2.0,
+            "humidity_max_7d_pct": 91.0,
+            "humidity_min_7d_pct": 55.0,
+            "rain_15d_mm": 999.0,
+            "temp_max_c": 999.0,
+        }
+
+        with mock.patch.object(
+            predictor_ui,
+            "_lbl",
+            side_effect=lambda key: key,
+        ):
+            rendered = predictor_ui._render_feature_bars(features)
+
+        self.assertIn("ui.predictor_feature_rain_14d", rendered)
+        self.assertIn("ui.predictor_feature_temp_max_7d", rendered)
+        self.assertIn("ui.predictor_feature_temp_min_7d", rendered)
+        self.assertIn("42.0mm", rendered)
+        self.assertIn("24.0°C", rendered)
+        self.assertIn('style="width:0%"', rendered)
+        self.assertNotIn("999.0", rendered)
+
     def seed_empty_mushroom_observations(self, data_dir: Path) -> None:
         self.web_server.default_store().ensure_seeded()
         observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"

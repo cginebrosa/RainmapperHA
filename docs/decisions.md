@@ -11,9 +11,63 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-07 - Medición automática y exclusión runner/Predictor en RPi4
+
+Estado: INCLUIDO EN `0.2.227` PUBLICADA; PENDIENTE DE VALIDACIÓN EN RPi4.
+
+Decisión:
+
+- Registrar en JSONL acotado las cargas frías del Predictor, el proceso de
+  actualización y la acción completa del runner, incluyendo memoria del proceso,
+  cgroup, host, CPU, temperatura, duración y contadores OOM.
+- Tomar muestras durante las operaciones y snapshots de memoria retenida o
+  recuperada a 60 y 600 segundos. El diagnóstico es best-effort y nunca puede
+  hacer fallar una predicción o actualización.
+- Impedir el solapamiento mediante un lock común. Antes de lanzar un runner se
+  eliminan las instancias de Predictor, su histórico meteorológico compartido y
+  se fuerza una recolección de basura. Predictor muestra un aviso multiidioma
+  mientras el runner está activo.
+- Exponer desde el panel un ZIP limitado a métricas, último log y manifiesto; no
+  exportar configuración, credenciales, observaciones, media, modelos ni datos
+  meteorológicos.
+- No cerrar el P0 por estimaciones locales. Seguir el ensayo de
+  `docs/runtime-diagnostics.md` y revisar los ZIP reales de la RPi4.
+
+Motivo: las gráficas de Home Assistant pueden omitir picos breves y obligaban a
+vigilar manualmente. La medición persistente permite comparar runner y Predictor
+por separado y comprobar tanto el pico como la recuperación posterior.
+
+## 2026-08-07 - Corrección P0: predicate pushdown exige row groups filtrables
+
+Estado: INCLUIDO EN `0.2.227` PUBLICADA; PENDIENTE DE VALIDACIÓN EN RPi4.
+
+Decision:
+
+- Conservar el filtro top-5 a ≤15 km, pero ordenar `weather_daily.parquet` por
+  `(source, station_code, local_date)` y escribir row groups de 512 filas de
+  forma atómica. El Parquet operativo existente tras instalar `0.2.226` contiene
+  las 625.434 filas en un único row group y
+  `pd.read_parquet(..., filters=...)` todavía puede leerlo completo antes de
+  filtrar.
+- Rechazar el layout monolítico en la ruta interactiva antes de materializar el
+  DataFrame. La UI muestra un mensaje multiidioma para ejecutar primero una
+  actualización meteorológica; nunca hace fallback a cargar todos los CSV.
+- Crear/refrescar el catálogo ligero en streaming si falta o está obsoleto.
+- Incluir el filtro normalizado en la clave de caché, usar locks single-flight y
+  hacer que instancias existentes vuelvan a consultar mtime antes de predecir.
+- Entre las cinco estaciones más próximas, elegir la de mayor cobertura en la
+  ventana de features ya existente de 30 días y usar distancia como desempate.
+  Esto evita añadir un umbral meteorológico nuevo.
+
+Medición local: el Parquet monolítico filtrado alcanzó 318,2 MiB de RSS máximo;
+el mismo conjunto con row groups de 512 alcanzó 236,1 MiB y materializó 70.490
+registros/100 estaciones. La prueba arm64/RPi4 sigue siendo obligatoria antes de
+cerrar el P0.
+
 ## 2026-08-07 - P0 Predictor/RPi4: filtro espacial top-5 estaciones a ≤15 km por micro-área
 
-Estado: IMPLEMENTADO (pendiente de release HA)
+Estado: REEMPLAZADA PARCIALMENTE por la corrección de row groups anterior. El
+filtro espacial se conserva, pero por sí solo no resolvía el pico de lectura.
 
 Decision:
 

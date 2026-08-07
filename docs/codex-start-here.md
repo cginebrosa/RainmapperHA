@@ -68,6 +68,7 @@ Para tareas de setas:
   cuantas especies son entrenables, o criterios de is_training_row.
 - Modelo v0/laboratorio: `docs/mushrooms/mushroom-parameter-reconstruction-lab-plan-es.md`
 - Predictor: `docs/mushrooms/mushroom-predictor-design-es.md`
+- Diagnóstico runner/Predictor y procedimiento RPi4: `docs/runtime-diagnostics.md`
 - Plataforma privada de computo externo para reconstruccion/ML (imagen, cache
   GIS, UI multi-worker, ciclo inocuo autenticado por pairing con
   cancelacion/reasignacion/exclusion de duplicados, configuracion portable y
@@ -101,16 +102,20 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Ultimo release HA publicado: `0.2.226` (2026-08-07). Pendiente de instalar en HA real
-  (instalada actualmente: `0.2.221`).
-- **P0 Predictor/RPi4 RESUELTO en 0.2.226:** el predictor filtra el parquet a las
-  ~100 estaciones más cercanas a las micro-áreas del modelo (antes: 1.932 estaciones,
-  ~358 MiB; ahora: ~40 MiB, reducción del 89%). Instalar 0.2.226 antes de abrir
-  Predictor remotamente.
-- Version HA del repo: `0.2.225` en `rainmapper-app/config.yaml` y
+- Último release HA instalado: `0.2.226` (2026-08-07). Último release publicado:
+  `0.2.227`, pendiente de instalar. El usuario confirma que todavía no ha abierto
+  Predictor con `0.2.226`.
+- **P0 Predictor/RPi4 todavía abierto hasta validar `0.2.227`:** en `0.2.226` el filtro espacial existe,
+  pero el Parquet operativo existente tiene un único row group y pandas/Arrow aún puede
+  materializar el dataset completo antes de filtrar. `0.2.227` escribe row groups
+  filtrables, crea el catálogo de forma segura,
+  falla antes de una lectura monolítica y acota las cachés. No abrir Predictor en
+  HA hasta instalar `0.2.227` y ejecutar primero el runner.
+- Version HA del repo: `0.2.227` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.225` y `latest`.
+- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.227` y `latest`
+  (`amd64` + `arm64`, digest `sha256:4e42192fbe1c...`).
 - `0.2.211` se valido en HA real con M1 emparejado por LAN: reposo estable,
   asignacion, transporte de entradas y reconstruccion candidata completa
   privada completados. Un candidato quedo verificado al 100 % en 55 s sin

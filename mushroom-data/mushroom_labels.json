@@ -2854,10 +2854,55 @@
     "es": "Factores meteorológicos",
     "ca": "Factors meteorològics"
   },
+  "ui.predictor_feature_rain_1d": {
+    "en": "Rain 1d",
+    "es": "Lluvia 1d",
+    "ca": "Pluja 1d"
+  },
+  "ui.predictor_feature_rain_7d": {
+    "en": "Rain 7d",
+    "es": "Lluvia 7d",
+    "ca": "Pluja 7d"
+  },
+  "ui.predictor_feature_rain_14d": {
+    "en": "Rain 14d",
+    "es": "Lluvia 14d",
+    "ca": "Pluja 14d"
+  },
+  "ui.predictor_feature_temp_max_7d": {
+    "en": "Max temp 7d",
+    "es": "Temp máxima 7d",
+    "ca": "Temp màxima 7d"
+  },
+  "ui.predictor_feature_temp_min_7d": {
+    "en": "Min temp 7d",
+    "es": "Temp mínima 7d",
+    "ca": "Temp mínima 7d"
+  },
+  "ui.predictor_feature_humidity_max_7d": {
+    "en": "Max humidity 7d",
+    "es": "Humedad máxima 7d",
+    "ca": "Humitat màxima 7d"
+  },
+  "ui.predictor_feature_humidity_min_7d": {
+    "en": "Min humidity 7d",
+    "es": "Humedad mínima 7d",
+    "ca": "Humitat mínima 7d"
+  },
   "ui.predictor_no_data": {
     "en": "No data available for this query.",
     "es": "No hay datos disponibles para esta consulta.",
     "ca": "No hi ha dades disponibles per a aquesta consulta."
+  },
+  "ui.predictor_weather_refresh_required": {
+    "en": "Weather data must be updated once before using Predictor. Run the Rainmapper weather update and try again.",
+    "es": "Los datos meteorológicos deben actualizarse una vez antes de usar Predictor. Ejecuta la actualización meteorológica de Rainmapper y vuelve a intentarlo.",
+    "ca": "Les dades meteorològiques s'han d'actualitzar una vegada abans d'utilitzar Predictor. Executa l'actualització meteorològica de Rainmapper i torna-ho a provar."
+  },
+  "ui.predictor_runner_active": {
+    "en": "Rainmapper is updating weather data or maps. Predictor will be available automatically when the runner finishes.",
+    "es": "Rainmapper está actualizando datos meteorológicos o mapas. Predictor volverá a estar disponible automáticamente cuando termine el runner.",
+    "ca": "Rainmapper està actualitzant dades meteorològiques o mapes. Predictor tornarà a estar disponible automàticament quan acabi el runner."
   },
   "ui.predictor_no_history": {
     "en": "No historical episodes found.",
