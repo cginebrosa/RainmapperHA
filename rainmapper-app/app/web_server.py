@@ -11645,6 +11645,10 @@ def _run_mushroom_worker_ml_train_promotion(job_id: str) -> None:
                 mushroom_worker_candidate_results_path(),
                 mushroom_paths.mushroom_ml_models_dir(),
                 job_id=job_id,
+                report_path=mushroom_paths.mushroom_ml_report_json_path(),
+            )
+            promotion["released_predictor_instances"] = (
+                mushroom_predictor_ui.release_predictor_cache()
             )
             report_progress(99, "ML models promoted", "Trained models are now live.")
         with RUN_LOCK:

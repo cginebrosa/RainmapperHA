@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.228
+
+- Include `ml_train_report.json` in external `ml_train_v0` results and validate
+  its schema, size, hash and trained-species set before accepting the candidate.
+- Promote model files first and their verified report last with atomic writes,
+  then release the Predictor cache so the newly trained models become visible.
+- Hide stale `.joblib` files from the Predictor unless the live training report
+  confirms that their species completed successfully.
+
 ## 0.2.227
 
 - Make the Predictor's filtered parquet read effective on RPi4: the runner now

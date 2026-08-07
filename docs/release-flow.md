@@ -53,10 +53,34 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
    `<version>` y `latest`. Ir directamente con permisos elevados — el flujo
    normal falla en el sandbox.
 
-8. **Verificar digest** (opcional pero recomendado para releases importantes):
+   **Supervisión obligatoria del proceso:**
+   - Ejecutar una sola instancia del script. No lanzar un segundo build porque
+     el primero tarde o deje de mostrar salida.
+   - Si la herramienta devuelve un identificador de sesión, conservarlo y
+     consultar esa misma sesión cada 20-30 segundos. Informar al usuario como
+     mínimo una vez por minuto mientras siga trabajando.
+   - Si no aparece salida nueva durante 120 segundos, comprobar el estado del
+     proceso antes de decidir que esta bloqueado. No dejar una espera abierta
+     indefinidamente.
+   - Si Buildx informa que las capas ya se han subido pero no devuelve el
+     control durante 60 segundos, ejecutar la verificación remota del paso 8
+     en una llamada separada.
+   - Solo se puede interrumpir el cliente local atascado cuando GHCR confirme
+     los tags `<version>` y `latest`, el mismo digest y los manifests
+     `linux/amd64` y `linux/arm64`. Esa interrupción no revierte una publicación
+     remota ya confirmada; documentar que el comando local fue cancelado.
+   - Si la verificación remota falla o está incompleta, no hacer commit/push ni
+     anunciar la release como publicada. Diagnosticar primero Docker, red y
+     credenciales.
+
+8. **Verificar digest y plataformas** (obligatorio):
    ```bash
    docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:<version>
+   docker buildx imagetools inspect ghcr.io/cginebrosa/rainmapperha:latest
    ```
+   Confirmar que ambos tags tienen el mismo digest y contienen manifests para
+   `linux/amd64` y `linux/arm64`. Si una consulta se queda esperando, limitarla,
+   informar al usuario y reintentar una sola vez antes de diagnosticar Docker.
 
 9. **Commit y push**
    ```bash

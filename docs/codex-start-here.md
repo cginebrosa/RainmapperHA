@@ -102,20 +102,22 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Último release HA instalado: `0.2.226` (2026-08-07). Último release publicado:
-  `0.2.227`, pendiente de instalar. El usuario confirma que todavía no ha abierto
-  Predictor con `0.2.226`.
-- **P0 Predictor/RPi4 todavía abierto hasta validar `0.2.227`:** en `0.2.226` el filtro espacial existe,
-  pero el Parquet operativo existente tiene un único row group y pandas/Arrow aún puede
-  materializar el dataset completo antes de filtrar. `0.2.227` escribe row groups
-  filtrables, crea el catálogo de forma segura,
-  falla antes de una lectura monolítica y acota las cachés. No abrir Predictor en
-  HA hasta instalar `0.2.227` y ejecutar primero el runner.
-- Version HA del repo: `0.2.227` en `rainmapper-app/config.yaml` y
+- Último release HA instalado: `0.2.227`. El runner `all` real pasó el 2026-08-08
+  y regeneró 625.529 filas en 1.222 row groups y el catálogo. Release publicada
+  y pendiente de instalar: `0.2.228`.
+- **P0 Predictor/RPi4 todavía abierto:** el Ensayo A del runner pasó sin OOM;
+  falta instalar `0.2.228`, reconstruir/reentrenar y ejecutar los ensayos B/C.
+  No abrir aún el Predictor.
+- Version HA del repo: `0.2.228` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.227` y `latest`
-  (`amd64` + `arm64`, digest `sha256:4e42192fbe1c...`).
+- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.228` y `latest`
+  (`amd64` + `arm64`, digest
+  `sha256:763f5eab1a6a47ce9d35963caf71ed6d553de0482cca7b3236f2ad1ba3990206`).
+- Corrección publicada: el resultado `ml_train_v0` usa
+  schema `0.2`, incluye/verifica/promociona `ml_train_report.json` con los
+  `.joblib` e invalida la caché. La imagen M1 ya fue recreada y el paquete ARM64
+  para M5 está preparado; smoke local: 469 tests.
 - `0.2.211` se valido en HA real con M1 emparejado por LAN: reposo estable,
   asignacion, transporte de entradas y reconstruccion candidata completa
   privada completados. Un candidato quedo verificado al 100 % en 55 s sin

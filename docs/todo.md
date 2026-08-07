@@ -20,11 +20,19 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   Predictor con ella.
 - [x] Publicar `0.2.227` con la corrección P0, diagnóstico automático y exclusión
   runner/Predictor (`amd64` + `arm64`, 2026-08-07).
-- [ ] Instalar `0.2.227`; ejecutar después `all` para regenerar el
-  Parquet con row groups filtrables, reconstruir features y reentrenar/promover
-  los modelos antes de abrir Predictor. Dejar 10 minutos tras runner y Predictor,
-  descargar ambos ZIP de diagnóstico y aplicar el protocolo de
-  `docs/runtime-diagnostics.md` antes de cerrar el P0.
+- [x] Instalar `0.2.227`, ejecutar `all`, regenerar el Parquet filtrable y el
+  catálogo, esperar 10 minutos y analizar el primer ZIP real de la RPi4. Ensayo
+  A correcto: 7:02, sin OOM, pico cgroup 1.348 MiB, mínimo `MemAvailable`
+  670 MiB y máximo 52,58 °C (2026-08-08).
+- [x] Publicar `0.2.228` con la corrección del contrato `ml_train_v0` schema
+  `0.2`, preparar las imágenes worker M1/M5 y verificar `amd64` + `arm64` en
+  GHCR. El informe ya viaja, se verifica y se promociona con los `.joblib`;
+  smoke local: 469 tests (2026-08-08).
+- [ ] Instalar `0.2.228` en HA real y cargar/arrancar la imagen preparada en el
+  worker que vaya a ejecutar los jobs.
+- [ ] Reconstruir features y reentrenar/promover los modelos antes de abrir
+  Predictor. Completar después los ensayos B/C, esperar 10 minutos y descargar
+  el segundo ZIP según `docs/runtime-diagnostics.md` antes de cerrar el P0.
 - [ ] Revisar observaciones `review` en Docker local (`http://127.0.0.1:8101`):
   confirmar especie, rellenar `flush_abundance`, pasar a `calibration_use=include`
   las validas. Paso mas impactante para mejorar modelos.

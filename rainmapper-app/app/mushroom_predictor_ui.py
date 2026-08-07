@@ -113,14 +113,23 @@ def _get_species_backtest_stats(species_id: str) -> dict[str, Any] | None:
 
 
 def trained_species_ids() -> list[str]:
-    """Return species IDs that have a trained .joblib model, sorted."""
+    """Return model IDs that are also declared trained by the live report."""
     models_dir = mushroom_paths.mushroom_ml_models_dir()
     if not models_dir.exists():
         return []
-    return sorted(
+    model_species = {
         p.stem.removeprefix("mushroom_ml_v0_")
         for p in models_dir.glob("mushroom_ml_v0_*.joblib")
-    )
+    }
+    report = _load_ml_report()
+    if not isinstance(report, dict):
+        return sorted(model_species)
+    report_species = {
+        str(row.get("species_id"))
+        for row in report.get("species_results", [])
+        if isinstance(row, dict) and row.get("species_id") and not row.get("skipped")
+    }
+    return sorted(model_species & report_species)
 
 
 def _species_name(species_id: str, profiles_payload: dict[str, Any]) -> str:

@@ -57,6 +57,7 @@ def main() -> None:
         species_ids = None
 
     models_dir = output_dir / "ml_models"
+    report_path = output_dir / "ml_train_report.json"
     models_dir.mkdir(parents=True, exist_ok=True)
 
     def emit_progress(overall_percent: int, message: str) -> None:
@@ -82,7 +83,7 @@ def main() -> None:
             features_path=features_path,
             known_sites_path=known_sites_path,
             models_dir=models_dir,
-            report_path=output_dir / "ml_train_report.json",
+            report_path=report_path,
             progress_callback=emit_progress,
         )
     except Exception as exc:
@@ -97,7 +98,14 @@ def main() -> None:
     ]
 
     emit_progress(95, f"Building result manifest ({len(trained_species)} models trained)...")
-    artifacts = []
+    if not report_path.is_file():
+        print(f"ERROR: Expected training report not found: {report_path}", file=sys.stderr)
+        sys.exit(1)
+    artifacts = [{
+        "path": "ml_train_report.json",
+        "size_bytes": report_path.stat().st_size,
+        "sha256": _sha256_file(report_path),
+    }]
     for species_id in trained_species:
         model_file = models_dir / f"mushroom_ml_v0_{species_id}.joblib"
         if not model_file.is_file():
@@ -113,7 +121,7 @@ def main() -> None:
 
     manifest_content = json.dumps(
         {
-            "schema_version": "0.1",
+            "schema_version": "0.2",
             "kind": "mushroom_ml_v0_result",
             "job_id": str(job_spec.get("job_id", "") if isinstance(job_spec, dict) else ""),
             "trained_species": trained_species,

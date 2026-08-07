@@ -90,6 +90,95 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(details["released_predictor_instances"], 2)
         self.assertEqual(details["cache_release_error"], "")
 
+    def test_ml_train_promotion_promotes_report_and_releases_predictor_cache(self) -> None:
+        result_root = Path(self.temp_dir.name) / "results"
+        models_dir = Path(self.temp_dir.name) / "ml_models"
+        report_path = Path(self.temp_dir.name) / "mushroom_ml_v0_report.json"
+        promotion = {"status": "promoted", "promoted_files": ["model.joblib"]}
+        with (
+            mock.patch.object(
+                self.web_server,
+                "mushroom_worker_candidate_results_path",
+                return_value=result_root,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_paths,
+                "mushroom_ml_models_dir",
+                return_value=models_dir,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_paths,
+                "mushroom_ml_report_json_path",
+                return_value=report_path,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_results,
+                "promote_ml_train_candidate",
+                return_value=dict(promotion),
+            ) as promote_candidate,
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "release_predictor_cache",
+                return_value=3,
+            ) as release_cache,
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "update_candidate_promotion_progress",
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "finish_candidate_promotion",
+            ) as finish_promotion,
+            mock.patch.object(self.web_server, "set_mushroom_workers_flash"),
+        ):
+            self.web_server._run_mushroom_worker_ml_train_promotion(
+                "worker_job_mltrain1234"
+            )
+
+        promote_candidate.assert_called_once_with(
+            result_root,
+            models_dir,
+            job_id="worker_job_mltrain1234",
+            report_path=report_path,
+        )
+        release_cache.assert_called_once_with()
+        promoted_result = finish_promotion.call_args.kwargs["result"]
+        self.assertEqual(promoted_result["released_predictor_instances"], 3)
+
+    def test_predictor_lists_only_models_declared_trained_by_live_report(self) -> None:
+        models_dir = Path(self.temp_dir.name) / "ml_models"
+        models_dir.mkdir()
+        for species_id in ("boletus_aereus", "stale_species"):
+            (models_dir / f"mushroom_ml_v0_{species_id}.joblib").write_bytes(b"model")
+        report_path = Path(self.temp_dir.name) / "mushroom_ml_v0_report.json"
+        report_path.write_text(
+            json.dumps(
+                {
+                    "species_results": [
+                        {"species_id": "boletus_aereus", "skipped": False},
+                        {"species_id": "stale_species", "skipped": True},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor_ui._ml_report_cache = None
+        predictor_ui._ml_report_mtime = None
+        with (
+            mock.patch.object(
+                predictor_ui.mushroom_paths,
+                "mushroom_ml_models_dir",
+                return_value=models_dir,
+            ),
+            mock.patch.object(
+                predictor_ui.mushroom_paths,
+                "mushroom_ml_report_json_path",
+                return_value=report_path,
+            ),
+        ):
+            self.assertEqual(predictor_ui.trained_species_ids(), ["boletus_aereus"])
+
     def test_runner_waits_for_an_active_predictor_lock(self) -> None:
         self.addCleanup(self.reset_run_state)
         entered = threading.Event()

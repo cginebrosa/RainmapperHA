@@ -307,7 +307,10 @@ plataforma descrita en `mushroom-v0-external-worker-design-es.md`.
   entrenamiento ML.
 - `ml_train_v0` (tipo de job `worker_ml_train_v0`): toma el artefacto de features
   generado por un rebuild, entrena un estimador LR+RF por especie y devuelve
-  los `.joblib` como paquete de resultados. El operador los promociona manualmente.
+  los `.joblib` y `ml_train_report.json` como un único paquete verificable. HA
+  comprueba schema, rutas, tamaños, hashes y coherencia de especies; la promoción
+  actualiza modelos e informe y limpia la caché del Predictor. El operador los
+  promociona manualmente.
   Script: `scripts/run-mushroom-ml-train-job.py`.
   Imagen worker: instala `numpy==2.4.6 pandas==2.2.2 scikit-learn==1.9.0`.
 

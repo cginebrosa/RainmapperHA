@@ -2,10 +2,10 @@
 
 ## Estado
 
-Especificación e implementación local completadas el 2026-08-07 para validar el
-runner y el Predictor en la RPi4 antes de cerrar el P0 de memoria. Está pendiente
-de incluirse en la siguiente release normal que autorice el usuario. No requiere
-una imagen de desarrollo ni vigilancia manual durante las ejecuciones.
+Especificación e implementación incluidas en la release `0.2.227`, publicada el
+2026-08-07 para validar el runner y el Predictor en la RPi4 antes de cerrar el P0
+de memoria. Sigue pendiente la validación en la RPi4 real. No requiere una imagen
+de desarrollo ni vigilancia manual durante las ejecuciones.
 
 ## Objetivos
 
@@ -65,6 +65,33 @@ registros y tamaño del filtro. También conserva snapshots a 60 y 600 segundos
 para observar la caché retenida. Las visitas que reutilizan la misma caché no
 duplican una supuesta carga fría.
 
+## Cadencia de muestreo y espera de recuperación
+
+La espera de 10 minutos no significa que el sistema escriba métricas de forma
+continua durante todo ese periodo. El ciclo exacto es:
+
+1. Al comenzar una operación se guarda un snapshot inicial.
+2. Mientras el runner o la carga física del Predictor siguen activos, se toma
+   una muestra cada 0,5 segundos. Estas muestras se agregan en memoria para
+   conservar máximos y mínimos; no se escribe una línea al fichero cada medio
+   segundo.
+3. Las fases relevantes escriben eventos puntuales y, al terminar la operación,
+   se detiene inmediatamente el muestreo periódico y se guarda el resumen.
+4. Después del final solo se programan dos fotografías puntuales del sistema:
+   una a los 60 segundos y otra a los 600 segundos. No existe muestreo continuo
+   entre ambas.
+
+El snapshot de 600 segundos permite comprobar si memoria, CPU y temperatura se
+han recuperado, o cuánta memoria conserva la caché del Predictor. Para que se
+escriba, el add-on debe continuar en ejecución: no reiniciarlo ni detenerlo
+durante esos 10 minutos. No es necesario mantener abierta ninguna pantalla.
+
+Una vez guardado `recovery_600s` o `retained_600s`, el registro permanece en
+`/share/rainmapper/diagnostics/runtime_metrics.jsonl` hasta su compactación
+acotada. El ZIP se puede descargar más tarde; no hay una ventana de descarga de
+solo 10 minutos. Conviene esperar unos segundos adicionales tras los 10 minutos
+antes de pulsar **Download diagnostics**.
+
 ## Exclusión runner/Predictor
 
 - Una petición del Predictor mantiene un lock durante su renderizado.
@@ -122,6 +149,41 @@ y compartir para analizarlo posteriormente.
 2. Comprobar que Predictor muestra el aviso de runner activo.
 3. Confirmar en el diagnóstico que la caché se liberó antes del proceso hijo y
    que no hubo `oom_kill`.
+
+## Resultado real — Ensayo A en RPi4 (`0.2.227`)
+
+El primer paquete real se exportó el 2026-08-08, después de una ejecución
+programada `all` iniciada a las 00:09:55 y finalizada correctamente a las
+00:16:57 (hora local). Resultado:
+
+- duración total: 421,3 s (7 min 2 s); `update`: 343,4 s y `maps`: 56,2 s;
+- exit code 0, sin reinicios, `oom=0` y `oom_kill=0`;
+- pico RSS del proceso hijo: 1.222,5 MiB; pico RSS histórico: 1.243,6 MiB;
+- máximo observado del cgroup: 1.334,0 MiB y pico del cgroup: 1.347,8 MiB;
+- mínimo `MemAvailable` del host: 670,0 MiB;
+- temperatura máxima: 52,58 °C;
+- Parquet: 625.529 filas, 1.222 row groups, 12,0 MiB y 28,2 s de generación;
+- catálogo: generado correctamente, 79,3 KiB;
+- Wunderground: 98/98 estaciones, cero fallos y cero errores de fallback;
+- AEMET, Meteoclimatic, Meteocat, Tomap, GeoJSON y publicación MapLibre
+  finalizaron correctamente.
+
+La memoria del proceso hijo se liberó al terminar `update`: el cgroup bajó de
+aproximadamente 999 MiB a 211 MiB y `MemAvailable` subió de 1.332 MiB a
+2.108 MiB. En `recovery_60s` se observaron 495 MiB de cgroup, 34,6 MiB de RSS
+del servidor y 2.123 MiB disponibles en el host; en `recovery_600s`, 510 MiB,
+49,8 MiB y 2.027 MiB respectivamente. El cgroup quedó por encima de su lectura
+inicial de 247 MiB, pero el RSS del servidor quedó muy por debajo de los
+139 MiB iniciales y la memoria disponible del host terminó por encima del valor
+inicial de 1.884 MiB. No hay indicios de fuga RSS del runner; la retención del
+cgroup es compatible con caché de páginas, aunque las ejecuciones posteriores
+permitirán comprobar que no exista crecimiento acumulativo.
+
+Conclusión del Ensayo A: el runner cabe en la RPi4 en esta ejecución, termina con
+margen amplio frente al intervalo de tres horas, regenera el layout filtrable y
+recupera la memoria del proceso hijo sin OOM ni presión térmica preocupante. No
+se cierra todavía el P0 global: faltan reconstruir/reentrenar los modelos y
+completar los ensayos B y C del Predictor.
 
 ## Criterio de cierre
 

@@ -193,6 +193,11 @@ siempre que se toque `web_server.py` o cualquier módulo `*_ui.py`.
 Resumen: smoke test → bump versión (3 sitios) → actualizar `CHANGELOG.md` →
 cache-busters → smoke test → `build-push-ha-image.sh` → commit/push → avisar usuario.
 
+Durante `build-push-ha-image.sh`, seguir obligatoriamente la supervisión descrita
+en `docs/release-flow.md`: consultar la misma sesión cada 20-30 segundos, informar
+al usuario al menos una vez por minuto, no duplicar builds y no cancelar un cliente
+local atascado hasta verificar en GHCR ambos tags, su digest y las plataformas.
+
 No retrasar la prueba en HA por documentación de cierre o hashes documentales.
 La documentación de continuidad se actualiza después del release o al cerrar sesión.
 

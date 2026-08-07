@@ -894,6 +894,8 @@ def upload_candidate_result(
 # ── ML training result handling ────────────────────────────────────────────
 
 ML_TRAIN_RESULT_NAME = "ml_train_result.json"
+ML_TRAIN_RESULT_SCHEMA_VERSION = "0.2"
+ML_TRAIN_REPORT_NAME = "ml_train_report.json"
 MAX_ML_TRAIN_MODEL_BYTES = 256 * 1024 * 1024
 MAX_ML_TRAIN_BUNDLE_BYTES = 1024 * 1024 * 1024
 
@@ -904,6 +906,102 @@ def _ml_train_staging_dir(result_root: Path, job_id: str) -> Path:
 
 def _ml_train_job_dir(result_root: Path, job_id: str) -> Path:
     return result_root.resolve() / f"ml.{mushroom_worker_transport.validate_job_id(job_id)}"
+
+
+def _validate_ml_train_report(content: bytes) -> dict[str, Any]:
+    if len(content) > mushroom_worker_transport.MAX_JSON_BYTES:
+        raise ValueError("ML training report exceeds the safety limit.")
+    try:
+        report = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("ML training report is not valid JSON.") from exc
+    if not isinstance(report, dict):
+        raise ValueError("ML training report must contain a JSON object.")
+    if report.get("schema_version") != "0.1" or report.get("kind") != "mushroom_ml_v0_report":
+        raise ValueError("ML training report contract is invalid.")
+    if not isinstance(report.get("species_results"), list):
+        raise ValueError("ML training report species_results are missing.")
+    return report
+
+
+def _validate_ml_train_manifest(
+    manifest: object,
+    *,
+    job_id: str,
+) -> list[dict[str, Any]]:
+    if not isinstance(manifest, dict):
+        raise ValueError("ML training result manifest must contain a JSON object.")
+    if manifest.get("schema_version") != ML_TRAIN_RESULT_SCHEMA_VERSION:
+        raise ValueError("ML training result manifest schema_version is invalid.")
+    if manifest.get("kind") != "mushroom_ml_v0_result":
+        raise ValueError("ML training result manifest kind is invalid.")
+    if manifest.get("job_id") != job_id:
+        raise ValueError("ML training result manifest job_id does not match the upload.")
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("ML training result manifest artifacts must be a list.")
+    normalized: list[dict[str, Any]] = []
+    seen_paths: set[str] = set()
+    report_count = 0
+    for row in artifacts:
+        if not isinstance(row, dict):
+            raise ValueError("ML training result manifest artifact entry is invalid.")
+        safe_path = mushroom_worker_transport.safe_relative_path(
+            str(row.get("path", ""))
+        ).as_posix()
+        if safe_path in seen_paths:
+            raise ValueError(f"ML training result artifact is declared more than once: {safe_path}")
+        seen_paths.add(safe_path)
+        try:
+            size_bytes = int(row.get("size_bytes", -1))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"ML training artifact size is invalid: {safe_path}") from exc
+        sha256 = str(row.get("sha256", ""))
+        if size_bytes < 0 or len(sha256) != 64 or any(ch not in "0123456789abcdef" for ch in sha256):
+            raise ValueError(f"ML training artifact metadata is invalid: {safe_path}")
+        if safe_path == ML_TRAIN_REPORT_NAME:
+            report_count += 1
+            if size_bytes > mushroom_worker_transport.MAX_JSON_BYTES:
+                raise ValueError("ML training report exceeds the safety limit.")
+        elif (
+            Path(safe_path).parent == Path("ml_models")
+            and Path(safe_path).name.startswith("mushroom_ml_v0_")
+            and safe_path.endswith(".joblib")
+        ):
+            if size_bytes > MAX_ML_TRAIN_MODEL_BYTES:
+                raise ValueError(f"ML training model exceeds the safety limit: {safe_path}")
+        else:
+            raise ValueError("ML training result artifact path is not allowed.")
+        normalized.append({**row, "path": safe_path, "size_bytes": size_bytes, "sha256": sha256})
+    if report_count != 1:
+        raise ValueError("ML training result must contain exactly one training report.")
+    trained_species = manifest.get("trained_species")
+    if not isinstance(trained_species, list):
+        raise ValueError("ML training result trained_species is invalid.")
+    normalized_species = [str(value).strip() for value in trained_species]
+    if (
+        any(
+            not value or any(not (character.isalnum() or character in "_-") for character in value)
+            for value in normalized_species
+        )
+        or len(set(normalized_species)) != len(normalized_species)
+    ):
+        raise ValueError("ML training result trained_species contains invalid values.")
+    expected_models = {
+        f"ml_models/mushroom_ml_v0_{species_id}.joblib"
+        for species_id in normalized_species
+    }
+    actual_models = {
+        str(row["path"])
+        for row in normalized
+        if str(row["path"]) != ML_TRAIN_REPORT_NAME
+    }
+    if actual_models != expected_models:
+        raise ValueError("ML training result models do not match trained_species.")
+    total_size = sum(int(row["size_bytes"]) for row in normalized)
+    if total_size > MAX_ML_TRAIN_BUNDLE_BYTES:
+        raise ValueError("ML training result bundle exceeds the coordinator safety limit.")
+    return normalized
 
 
 def receive_ml_train_result_file(
@@ -929,16 +1027,8 @@ def receive_ml_train_result_file(
             manifest = json.loads(content.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ValueError("ML training result manifest is not valid JSON.") from exc
-        if not isinstance(manifest, dict):
-            raise ValueError("ML training result manifest must contain a JSON object.")
-        if manifest.get("schema_version") != "0.1":
-            raise ValueError("ML training result manifest schema_version is invalid.")
-        artifacts = manifest.get("artifacts")
-        if not isinstance(artifacts, list):
-            raise ValueError("ML training result manifest artifacts must be a list.")
-        total_size = sum(int(row.get("size_bytes", 0)) for row in artifacts if isinstance(row, dict))
-        if total_size > MAX_ML_TRAIN_BUNDLE_BYTES:
-            raise ValueError("ML training result bundle exceeds the coordinator safety limit.")
+        artifacts = _validate_ml_train_manifest(manifest, job_id=job_id)
+        total_size = sum(int(row["size_bytes"]) for row in artifacts)
         digest = hashlib.sha256(content).hexdigest()
         _write_exact(manifest_path, content, expected_size=len(content), expected_sha256=digest)
         return {
@@ -951,11 +1041,7 @@ def receive_ml_train_result_file(
     if not manifest_path.is_file():
         raise ValueError("ML training result manifest must be uploaded first.")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else []
-    if not isinstance(artifacts, list):
-        raise ValueError("ML training result manifest artifacts are missing.")
-    if not safe_path.startswith("ml_models/") or not safe_path.endswith(".joblib"):
-        raise ValueError("ML training result artifact path is not allowed.")
+    artifacts = _validate_ml_train_manifest(manifest, job_id=job_id)
     matches = [
         row for row in artifacts
         if isinstance(row, dict) and row.get("path") == safe_path
@@ -963,6 +1049,8 @@ def receive_ml_train_result_file(
     if len(matches) != 1:
         raise ValueError("ML training result artifact is not declared exactly once in manifest.")
     record = matches[0]
+    if safe_path == ML_TRAIN_REPORT_NAME:
+        _validate_ml_train_report(content)
     _write_exact(
         staging / safe_path,
         content,
@@ -988,15 +1076,11 @@ def finalize_ml_train_result(result_root: Path, *, job_id: str) -> dict[str, Any
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict):
         raise ValueError("ML training result manifest is invalid.")
-    artifacts = manifest.get("artifacts")
-    if not isinstance(artifacts, list):
-        raise ValueError("ML training result manifest artifacts are missing.")
+    artifacts = _validate_ml_train_manifest(manifest, job_id=job_id)
     trained_species = manifest.get("trained_species")
     if not isinstance(trained_species, list):
         raise ValueError("ML training result trained_species is invalid.")
     for row in artifacts:
-        if not isinstance(row, dict):
-            raise ValueError("ML training result manifest artifact entry is invalid.")
         artifact_path = staging / str(row.get("path", ""))
         if not artifact_path.is_file():
             raise ValueError(f"ML training result artifact is missing: {row.get('path', '')}")
@@ -1006,6 +1090,14 @@ def finalize_ml_train_result(result_root: Path, *, job_id: str) -> dict[str, Any
             raise ValueError(f"ML training artifact size mismatch: {row.get('path', '')}")
         if actual_sha256 != str(row.get("sha256", "")):
             raise ValueError(f"ML training artifact hash mismatch: {row.get('path', '')}")
+    report_payload = _validate_ml_train_report((staging / ML_TRAIN_REPORT_NAME).read_bytes())
+    reported_species = {
+        str(row.get("species_id", ""))
+        for row in report_payload["species_results"]
+        if isinstance(row, dict) and not row.get("skipped") and row.get("species_id")
+    }
+    if reported_species != {str(value) for value in trained_species}:
+        raise ValueError("ML training report and result manifest disagree on trained species.")
     manifest_content = manifest_path.read_bytes()
     manifest_id = f"sha256:{hashlib.sha256(manifest_content).hexdigest()}"
     report = {
@@ -1031,8 +1123,9 @@ def promote_ml_train_candidate(
     ml_models_dir: Path,
     *,
     job_id: str,
+    report_path: Path,
 ) -> dict[str, Any]:
-    """Copy verified .joblib files from candidate to the live ml_models directory."""
+    """Copy verified models and their matching report to the live data directory."""
     final = _ml_train_job_dir(result_root, job_id)
     receipt_path = final / PROMOTION_RECEIPT_NAME
     if receipt_path.is_file():
@@ -1048,28 +1141,41 @@ def promote_ml_train_candidate(
         raise ValueError("ML training candidate is not verified.")
     manifest_path = final / ML_TRAIN_RESULT_NAME
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else []
-    if not isinstance(artifacts, list):
-        raise ValueError("ML training result manifest artifacts are missing.")
+    artifacts = _validate_ml_train_manifest(manifest, job_id=job_id)
     ml_models_dir = ml_models_dir.resolve()
     ml_models_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_path.resolve()
+    report_path.parent.mkdir(parents=True, exist_ok=True)
     promoted_files: list[str] = []
-    for row in artifacts:
-        if not isinstance(row, dict):
-            continue
+    ordered_artifacts = sorted(
+        artifacts,
+        key=lambda row: str(row["path"]) == ML_TRAIN_REPORT_NAME,
+    )
+    promotion_sources: list[tuple[Path, Path]] = []
+    for row in ordered_artifacts:
         rel_path = str(row.get("path", ""))
         source = final / rel_path
         if not source.is_file():
             raise FileNotFoundError(f"ML training artifact missing during promotion: {rel_path}")
-        filename = source.name
-        destination = ml_models_dir / filename
-        temporary = ml_models_dir / f".{filename}.{uuid.uuid4().hex}.tmp"
+        if source.stat().st_size != int(row["size_bytes"]):
+            raise ValueError(f"ML training artifact size mismatch during promotion: {rel_path}")
+        source_content = source.read_bytes()
+        if hashlib.sha256(source_content).hexdigest() != str(row["sha256"]):
+            raise ValueError(f"ML training artifact hash mismatch during promotion: {rel_path}")
+        if rel_path == ML_TRAIN_REPORT_NAME:
+            _validate_ml_train_report(source_content)
+            destination = report_path
+        else:
+            destination = ml_models_dir / source.name
+        promotion_sources.append((source, destination))
+    for source, destination in promotion_sources:
+        temporary = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.tmp"
         try:
             shutil.copy2(source, temporary)
             os.replace(temporary, destination)
         finally:
             temporary.unlink(missing_ok=True)
-        promoted_files.append(filename)
+        promoted_files.append(destination.name)
     receipt = {
         "schema_version": SCHEMA_VERSION,
         "kind": "rainmapper_worker_ml_train_promotion",

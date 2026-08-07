@@ -41,3 +41,12 @@ mcp_codebase-memo_get_architecture({ "project": "<display_name>" })
 - `search_code(pattern, project)` — Grep-like text search within indexed files
 - `manage_adr(action)` — CRUD for Architecture Decision Records
 - `ingest_traces(traces)` — Ingest runtime traces to validate HTTP edges
+
+## Supervisión de releases HA
+
+Antes de construir o publicar una imagen HA, leer y seguir `docs/release-flow.md`.
+Durante `build-push-ha-image.sh`, consultar la misma sesión cada 20-30 segundos,
+informar al usuario al menos una vez por minuto y no lanzar builds duplicados. Si
+el cliente local no termina después de subir las capas, no cancelarlo hasta
+verificar en GHCR los tags de versión y `latest`, el mismo digest y los manifests
+`linux/amd64` y `linux/arm64`.

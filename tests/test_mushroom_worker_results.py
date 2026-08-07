@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import shutil
@@ -532,6 +533,143 @@ class MushroomWorkerResultsTests(unittest.TestCase):
         self.assertEqual(0, merged_model["summary"]["favorable_observations"])
         self.assertEqual(2, merged_model["summary"]["species"])
         self.assertEqual({"selected_observations": 1, "updated_species": 1, "model_species": 2}, result)
+
+
+class MushroomMLTrainWorkerResultsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.job_id = "worker_job_mltrain1234"
+        self.result_root = self.root / "results"
+        self.candidate = self.root / "ml_candidate"
+        self.candidate.mkdir()
+        self.report_content = json.dumps(
+            {
+                "schema_version": "0.1",
+                "kind": "mushroom_ml_v0_report",
+                "species_results": [
+                    {"species_id": "boletus_aereus", "skipped": False}
+                ],
+            }
+        ).encode("utf-8")
+        self.model_content = b"test-joblib-content"
+        (self.candidate / "ml_models").mkdir()
+        (self.candidate / "ml_train_report.json").write_bytes(self.report_content)
+        (self.candidate / "ml_models" / "mushroom_ml_v0_boletus_aereus.joblib").write_bytes(
+            self.model_content
+        )
+        self.manifest = {
+            "schema_version": "0.2",
+            "kind": "mushroom_ml_v0_result",
+            "job_id": self.job_id,
+            "trained_species": ["boletus_aereus"],
+            "artifacts": [
+                self._artifact("ml_train_report.json", self.report_content),
+                self._artifact(
+                    "ml_models/mushroom_ml_v0_boletus_aereus.joblib",
+                    self.model_content,
+                ),
+            ],
+        }
+
+    @staticmethod
+    def _artifact(path: str, content: bytes) -> dict[str, object]:
+        return {
+            "path": path,
+            "size_bytes": len(content),
+            "sha256": hashlib.sha256(content).hexdigest(),
+        }
+
+    def _receive_and_finalize(self) -> dict[str, object]:
+        mushroom_worker_results.receive_ml_train_result_file(
+            self.result_root,
+            job_id=self.job_id,
+            logical_path="ml_train_result.json",
+            content=json.dumps(self.manifest).encode("utf-8"),
+        )
+        for row in self.manifest["artifacts"]:
+            logical_path = str(row["path"])
+            mushroom_worker_results.receive_ml_train_result_file(
+                self.result_root,
+                job_id=self.job_id,
+                logical_path=logical_path,
+                content=(self.candidate / logical_path).read_bytes(),
+            )
+        return mushroom_worker_results.finalize_ml_train_result(
+            self.result_root,
+            job_id=self.job_id,
+        )
+
+    def test_ml_train_report_is_verified_and_promoted_with_models(self) -> None:
+        verification = self._receive_and_finalize()
+        live_models = self.root / "live" / "ml_models"
+        live_report = self.root / "live" / "mushroom_ml_v0_report.json"
+
+        promotion = mushroom_worker_results.promote_ml_train_candidate(
+            self.result_root,
+            live_models,
+            job_id=self.job_id,
+            report_path=live_report,
+        )
+
+        self.assertEqual(verification["verified_artifacts"], 2)
+        self.assertEqual(
+            (live_models / "mushroom_ml_v0_boletus_aereus.joblib").read_bytes(),
+            self.model_content,
+        )
+        self.assertEqual(live_report.read_bytes(), self.report_content)
+        self.assertEqual(
+            promotion["promoted_files"],
+            ["mushroom_ml_v0_boletus_aereus.joblib", "mushroom_ml_v0_report.json"],
+        )
+
+    def test_ml_train_manifest_requires_exactly_one_report(self) -> None:
+        self.manifest["artifacts"] = self.manifest["artifacts"][1:]
+        with self.assertRaisesRegex(ValueError, "exactly one training report"):
+            mushroom_worker_results.receive_ml_train_result_file(
+                self.result_root,
+                job_id=self.job_id,
+                logical_path="ml_train_result.json",
+                content=json.dumps(self.manifest).encode("utf-8"),
+            )
+
+    def test_ml_train_manifest_models_must_match_trained_species(self) -> None:
+        self.manifest["trained_species"] = ["amanita_caesarea"]
+        with self.assertRaisesRegex(ValueError, "models do not match"):
+            mushroom_worker_results.receive_ml_train_result_file(
+                self.result_root,
+                job_id=self.job_id,
+                logical_path="ml_train_result.json",
+                content=json.dumps(self.manifest).encode("utf-8"),
+            )
+
+    def test_ml_train_promotion_rechecks_candidate_hashes(self) -> None:
+        self._receive_and_finalize()
+        final_model = (
+            self.result_root
+            / f"ml.{self.job_id}"
+            / "ml_models"
+            / "mushroom_ml_v0_boletus_aereus.joblib"
+        )
+        final_model.write_bytes(b"tampered")
+        live_models = self.root / "live" / "ml_models"
+        live_models.mkdir(parents=True)
+        old_model = live_models / "mushroom_ml_v0_boletus_aereus.joblib"
+        old_model.write_bytes(b"old-model")
+        live_report = self.root / "live" / "mushroom_ml_v0_report.json"
+        live_report.write_bytes(b"old-report")
+
+        with self.assertRaisesRegex(ValueError, "size mismatch during promotion"):
+            mushroom_worker_results.promote_ml_train_candidate(
+                self.result_root,
+                live_models,
+                job_id=self.job_id,
+                report_path=live_report,
+            )
+
+        self.assertEqual(old_model.read_bytes(), b"old-model")
+        self.assertEqual(live_report.read_bytes(), b"old-report")
 
 
 if __name__ == "__main__":

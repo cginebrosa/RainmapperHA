@@ -6,18 +6,21 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Instalada en HA real: `0.2.226` (confirmado por el usuario el 2026-08-07).
-  Predictor todavía no se ha abierto con esta versión.
-- Publicada y disponible para instalar: `0.2.227` (`amd64` + `arm64`, digest
-  multiarquitectura `sha256:4e42192fbe1c...`).
-- **El P0 de memoria no está cerrado en la imagen `0.2.226`:** el filtro espacial
-  se añadió, pero el Parquet existente tiene un solo row group y la lectura
-  filtrada todavía puede materializarlo completo.
+- Instalada y ejecutada en HA real: `0.2.227` (runner `all` validado el
+  2026-08-08). Predictor todavía no se ha abierto.
+- Publicada y pendiente de instalar en HA real: `0.2.228` (`amd64` + `arm64`,
+  digest multiarquitectura
+  `sha256:763f5eab1a6a47ce9d35963caf71ed6d553de0482cca7b3236f2ad1ba3990206`).
+- La imagen anterior `0.2.226` conservaba el Parquet monolítico; queda sustituida
+  operativamente por `0.2.227`.
 - No hay versión de desarrollo/sideload.
 - `0.2.227` genera row groups filtrables, hace
   bootstrap seguro del catálogo, impide la lectura interactiva del Parquet
   monolítico, acota la caché por filtro e incluye diagnóstico automático.
-  **No abrir Predictor hasta instalar `0.2.227` y ejecutar primero el runner.**
+  El runner ya regeneró 625.529 filas en 1.222 row groups y creó el catálogo.
+- `0.2.228` añade el transporte, verificación y promoción atómica de
+  `ml_train_report.json`, coherencia de especies e invalidación de caché.
+  **No abrir Predictor hasta reconstruir features y reentrenar/promover modelos.**
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
@@ -41,15 +44,17 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   40 válidas sin `micro_area_id`.
 
 **Prioridad inmediata:**
-1. **P0 Predictor / memoria RPi4:** instalar `0.2.227` antes del próximo schedule,
-   ejecutar `all` para regenerar Parquet/catálogo, esperar 10 minutos y descargar
-   el primer ZIP de diagnóstico. `0.2.226` sigue instalada y no debe abrirse
-   Predictor con ella.
+1. **P0 Predictor / memoria RPi4:** Ensayo A del runner completado con `0.2.227`:
+   7:02, pico cgroup 1.348 MiB, mínimo `MemAvailable` 670 MiB, máximo 52,58 °C,
+   sin OOM y con recuperación correcta. Resultado detallado en
+   `docs/runtime-diagnostics.md`.
 2. **Revisar observaciones `review` en HA real** — 254 pendientes. Es el paso más
    impactante para mejorar los modelos ML. La evidencia observada NO se revisará manualmente:
    se implementará herencia desde micro_area (ver sección "atributos ecológicos" al final).
-3. Tras el runner de `0.2.227`: reconstruir features y reentrenar/promover los
-   modelos antes de probar Predictor; seguir los ensayos B/C documentados.
+3. Antes del rebuild/training: instalar `0.2.228` en HA real. La imagen local
+   del worker M1 ya fue recreada y el paquete ARM64 `0.2.228` para el M5 quedó
+   preparado. Después reconstruir features, reentrenar/promover y seguir los
+   ensayos B/C del Predictor.
 4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
 5. Worker: probar descarte con candidato terminal en HA real.
 6. Decidir si meter Tailscale dentro de la imagen del worker.
@@ -58,9 +63,9 @@ El contrato de instrumentación automática, descarga y ensayo controlado en
 RPi4 está en `docs/runtime-diagnostics.md`. La implementación local ya registra
 JSONL acotado, picos del proceso y del cgroup, recuperación a 60/600 s, carga fría
 del Predictor, libera sus cachés antes del runner, impide solapamientos y añade
-un ZIP descargable desde el panel. Está publicada en `0.2.227`; sigue pendiente
-de instalación y medición real.
-Validación local completa: `smoke-test.sh`, 462 tests, PASS el 2026-08-07.
+un ZIP descargable desde el panel. El Ensayo A real del runner pasó con
+`0.2.227`; siguen pendientes el reentrenamiento y los ensayos B/C del Predictor.
+Validación local completa: `smoke-test.sh`, 469 tests, PASS el 2026-08-08.
 
 **Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de
 `docker-data/mushroom-data/` se refresca desde HA para pruebas y comprobaciones; no planificar
@@ -371,8 +376,10 @@ Sin estructura de snapshot GIS ni validación de fingerprints (no aplica para tr
 ### Resultados del worker
 
 Staging en `worker_data/{job_id}/ml_candidate/`:
-- `ml_train_result.json` — manifest con schema_version "0.1", kind "mushroom_ml_v0_result",
+- `ml_train_result.json` — manifest con schema_version "0.2", kind "mushroom_ml_v0_result",
   trained_species, artifacts (path/size_bytes/sha256)
+- `ml_train_report.json` — métricas/backtest correspondiente exactamente a los
+  modelos del candidato
 - `ml_models/{species_id}.joblib` — un fichero por especie entrenada
 
 Endpoints separados de los de rebuild (evitan confusión):
@@ -381,8 +388,11 @@ Endpoints separados de los de rebuild (evitan confusión):
 
 ### Promoción
 
-Sin freshness check (no aplica: no hay snapshot de inputs). Copia los `.joblib` atómicamente
-a `mushroom_paths.mushroom_ml_models_dir()`. Escribe `promotion_receipt.json`.
+Sin freshness check (no aplica: no hay snapshot de inputs). Revalida hashes y
+copia atómicamente por fichero los `.joblib` a
+`mushroom_paths.mushroom_ml_models_dir()` y el informe a
+`mushroom_ml_v0_report.json`; el informe se promociona después de los modelos.
+Invalida las instancias cacheadas del Predictor y escribe `promotion_receipt.json`.
 No actualiza `mushroom_model_v0_state.json` (tarea de rebuild, no de training).
 
 ### Subprocess del worker
@@ -390,7 +400,7 @@ No actualiza `mushroom_model_v0_state.json` (tarea de rebuild, no de training).
 Script `scripts/run-mushroom-ml-train-job.py` lanzado como subprocess dentro del container:
 - Lee `job_spec.json`, `features.json`, `known_sites.json` del dir de inputs
 - Llama a `mushroom_ml_trainer.run()` con progress callback
-- Construye manifest con sha256 de cada `.joblib`
+- Construye manifest con sha256 del informe y de cada `.joblib`
 - Escribe `ml_candidate/ml_train_result.json`
 - Stdout final: `{"status": "ml_train_complete", "trained_species_count": N, ...}`
 
@@ -418,6 +428,9 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 
 ### Pendiente
 
+- Instalar la app HA `0.2.228`; las imágenes worker compatibles ya están
+  preparadas para M1 y M5. El contrato de resultado `0.2` falla de forma cerrada
+  si uno de los dos lados conserva la implementación anterior.
 - Probar job ml_train_v0 end-to-end: crear job desde UI, worker lo recoge, entrena, sube, promover en HA.
 - Implementar chaining automático rebuild → ml_train en el coordinador (campo `triggered_by_job_id`).
 
@@ -472,10 +485,11 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y version del repositorio: `0.2.227` (2026-08-07).
-  En HA real sigue instalada `0.2.226` hasta completar la actualizacion.
-  No abrir el Predictor hasta instalar `0.2.227` y dejar que el runner complete
-  una ejecucion `all` que regenere los Parquet con el nuevo layout.
+- Release HA publicada en GHCR y version del repositorio: `0.2.228` (2026-08-08),
+  digest `sha256:763f5eab1a6a47ce9d35963caf71ed6d553de0482cca7b3236f2ad1ba3990206`.
+  En HA real sigue instalada `0.2.227` hasta completar la actualizacion.
+  No abrir el Predictor hasta instalar `0.2.228`, reconstruir features y
+  reentrenar/promover los modelos.
   Workers (M1 y M5) probados y funcionales.
 
 ### Histórico: última release validada antes de ML (0.2.214)
