@@ -232,6 +232,40 @@ contando sus snapshots, antes de hacer backups externos.
 7. Confirmar que ninguna entrada contiene especie, setal, coordenadas,
    resultados, credenciales ni tokens.
 
+### Resultado real de Predictor v2 en `0.2.229`
+
+El usuario instaló `0.2.229`, recorrió Recomendador, Semana, Fechas e Historial
+y exportó `rainmapper-diagnostics-20260808T020109Z.zip` a las 02:01:09 UTC
+(SHA-256
+`a4ecb8b8fc4d55639d9fab515e0387bb3f0eec14e4cdae7bc7f5b85d6e53844f`).
+El ZIP contiene 20 peticiones Predictor correctas, ninguna anomalía, ningún OOM
+y ningún snapshot u operación pendiente.
+
+- La primera petición fría tardó 36,622 s en el servidor: las cuatro cargas de
+  modelo sumaron aproximadamente 5,4 s, la ventana meteorológica 10,175 s y
+  quedaron unos 21 s de predicción y render del servidor.
+- Recomendador caliente tardó 4,947–5,187 s; Semana 6,681–13,261 s; una consulta
+  con ventana ya cargada 0,989–1,941 s; cambiar la ventana histórica
+  11,447–12,763 s; Historial caliente 3,45–6,181 s.
+- La vista normal materializó 7.728 registros de 101 estaciones en 96 días,
+  frente a los 79.931 registros de la carga anterior a la optimización. Las
+  consultas históricas sustituyeron esa ventana; Historial llegó a 59.286
+  registros y 3.402 días sin cargar el Parquet completo.
+- El proceso pasó de 138,7 MiB RSS antes de la apertura a 299,6 MiB al terminar
+  la petición fría. Tras recorrer rangos e Historial alcanzó 420,1 MiB RSS;
+  máximo del cgroup 576,3 MiB, mínimo `MemAvailable` 1.793,6 MiB y temperatura
+  máxima 51,61 °C. A 600 s permanecía estable/decreciente, alrededor de
+  395,8 MiB RSS y 523,4 MiB de cgroup.
+
+No apareció ninguna operación `predictor_client_render`. El diagnóstico mostró
+que `../../diagnostics/predictor-client`, resuelta desde
+`/api/hassio_ingress/<token>/mushrooms/predictor`, eliminaba también el segmento
+`<token>` y enviaba el POST fuera del Ingress del add-on. `0.2.231` cambia la
+referencia a `../diagnostics/predictor-client` y añade una regresión que resuelve
+la URL tanto con prefijo HA Ingress como en acceso directo. Hasta validar esa
+release, los tiempos anteriores son del servidor y no permiten separar todavía
+Ingress/red/render del navegador.
+
 ## Exclusión runner/Predictor
 
 - Una petición del Predictor mantiene un lock durante su renderizado.

@@ -8,10 +8,11 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 **Release HA:**
 - Instalada y ejecutada en HA real: `0.2.229`, confirmada por el usuario tras
   probar el Predictor y ejecutar el runner programado.
-- Publicada y pendiente de instalar en HA real: `0.2.230`, con archivado y
-  restauración transaccionales y limpieza persistente/reintentable de medios;
-  digest multiarquitectura
-  `sha256:f5032c9452a5d20ef5b8090914a9a4f817acfad9d47034cb4611a53162ae52a0`.
+- Publicada y pendiente de instalar en HA real: `0.2.231`, que conserva el
+  archivado y la limpieza segura de medios de `0.2.230` y corrige la URL de
+  Navigation Timing bajo HA Ingress. `0.2.230` quedó publicada pero no se
+  instalará ni se sobrescribirá. Digest multiarquitectura:
+  `sha256:4d385b2360806030d2780b9cdf61f314b3d963e25cda512feba95552e786a9b3`.
 - La imagen anterior `0.2.226` conservaba el Parquet monolítico; queda sustituida
   operativamente por `0.2.227`.
 - No hay versión de desarrollo/sideload.
@@ -72,7 +73,7 @@ anteriores. Este documento describe el estado actual, no el historial completo.
    con el worker actualizado y modelos/informe promovidos en HA real; confirmado
    por el usuario el 2026-08-08.
 4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
-5. Instalar `0.2.230` y comprobar el archivado/borrado/restauración de una
+5. Instalar `0.2.231` y comprobar el archivado/borrado/restauración de una
    observación con foto; la validación inicial de `0.2.229`, caja negra v2 y
    ventana temporal del Predictor ya se ejecutó en la RPi4.
 6. Después de cerrar A–C, instrumentar la apertura completa del Predictor y
@@ -469,7 +470,7 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 
 ### Pendiente
 
-- Instalar la app HA `0.2.230`; no requiere reconstruir la imagen worker ni
+- Instalar la app HA `0.2.231`; no requiere reconstruir la imagen worker ni
   reentrenar porque no cambia el contrato ni las features de entrenamiento.
 - Repetir cuando sea necesario el job ml_train_v0 end-to-end ya validado: crear
   job desde UI, worker lo recoge, entrena, sube y promover en HA.
@@ -526,8 +527,8 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y version del repositorio: `0.2.230` (2026-08-08),
-  digest `sha256:f5032c9452a5d20ef5b8090914a9a4f817acfad9d47034cb4611a53162ae52a0`.
+- Release HA publicada en GHCR y version del repositorio: `0.2.231` (2026-08-08),
+  digest `sha256:4d385b2360806030d2780b9cdf61f314b3d963e25cda512feba95552e786a9b3`.
   En HA real sigue instalada `0.2.229` hasta completar la actualización.
   Workers (M1 y M5) probados y funcionales.
 

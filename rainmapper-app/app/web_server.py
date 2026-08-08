@@ -8387,7 +8387,7 @@ window.addEventListener("load", () => {{
       encoded_body_size_bytes: navigation.encodedBodySize,
       decoded_body_size_bytes: navigation.decodedBodySize,
     }};
-    const endpoint = new URL("../../diagnostics/predictor-client", window.location.href);
+    const endpoint = new URL("../diagnostics/predictor-client", window.location.href);
     fetch(endpoint, {{
       method: "POST",
       headers: {{"Content-Type": "application/json"}},

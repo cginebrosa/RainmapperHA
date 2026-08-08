@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.2.231
+
+- Preserve the Home Assistant Ingress token when reporting Predictor browser
+  Navigation Timing, and verify URL resolution under both Ingress and direct
+  paths.
+- Include the rollback-safe observation lifecycle and persistent media cleanup
+  introduced in `0.2.230` without overwriting that published image tag.
+
 ## 0.2.230
 
 - Make observation archive and restore mutations serialized and rollback-safe,

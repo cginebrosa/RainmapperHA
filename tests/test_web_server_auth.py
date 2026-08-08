@@ -16,6 +16,7 @@ import time
 import unittest
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import urljoin
 from unittest import mock
 
 
@@ -313,7 +314,20 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(summaries[-1]["operation"], "predictor_request")
         self.assertTrue(summaries[-1]["details"]["cold_request"])
         content = captured["content"].decode("utf-8")
-        self.assertIn("../../diagnostics/predictor-client", content)
+        endpoint_marker = 'new URL("'
+        endpoint_reference = content.split(endpoint_marker, 1)[1].split('"', 1)[0]
+        self.assertEqual(endpoint_reference, "../diagnostics/predictor-client")
+        self.assertEqual(
+            urljoin(
+                "https://ha.example/api/hassio_ingress/token/mushrooms/predictor?view=week",
+                endpoint_reference,
+            ),
+            "https://ha.example/api/hassio_ingress/token/diagnostics/predictor-client",
+        )
+        self.assertEqual(
+            urljoin("https://rainmapper.example/mushrooms/predictor", endpoint_reference),
+            "https://rainmapper.example/diagnostics/predictor-client",
+        )
         self.assertIn(records[0]["operation_id"], content)
 
     def test_diagnostics_download_returns_a_named_zip(self) -> None:
