@@ -102,30 +102,30 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Último release HA instalado: `0.2.229`. Último publicado: `0.2.231`; sustituye
-  operativamente a `0.2.230`, que no llegó a instalarse.
+- Último release HA instalado: `0.2.229`. Último publicado: `0.2.232`, pendiente
+  de instalar y probar con un runner manual.
 - **P0 Predictor/RPi4 cerrado en el escenario monousuario probado:** A–C pasaron
   sin OOM. El Predictor retuvo memoria de forma estable; el runner posterior
   liberó 4 instancias antes del hijo, terminó en 6:43 con pico cgroup
   1.477,2 MiB, mínimo `MemAvailable` 780,2 MiB y recuperación correcta.
-- Pendientes separados del P0: instrumentar los ≥30 s de apertura extremo a
-  extremo y evolucionar el diagnóstico a caja negra persistente. Ambas mejoras
-  están publicadas en `0.2.229` como diagnóstico v2, todavía sin instalación ni
-  validación en HA real; procedimiento en `docs/runtime-diagnostics.md`.
+- Pendiente separado del P0: afinar los ≥30 s de apertura extremo a extremo. La
+  caja negra persistente se reforzó en `0.2.232` tras una ejecución del runner
+  interrumpida manualmente; procedimiento y evidencia en
+  `docs/runtime-diagnostics.md`.
 - Rebuild de features, entrenamiento con el worker actualizado y promoción de
   modelos más `ml_train_report.json`: completados en HA real y confirmados por
   el usuario el 2026-08-08.
-- Caja negra/petición Predictor v2 y caché temporal publicada en `0.2.229`:
+- Caja negra/petición Predictor v2 y caché temporal instalada en `0.2.229`:
   smoke completo de
   484 tests. Las vistas actuales conservan 96 días; fechas históricas sustituyen
-  la ventana e Historial carga una vez su rango. Pendiente instalación y
-  medición en HA real.
-- Version HA del repo: `0.2.231` en `rainmapper-app/config.yaml` y
+  la ventana e Historial carga una vez su rango. La medición real está
+  documentada en `docs/runtime-diagnostics.md`.
+- Version HA del repo: `0.2.232` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.231` y `latest`
+- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.232` y `latest`
   (`amd64` + `arm64`), digest
-  `sha256:4d385b2360806030d2780b9cdf61f314b3d963e25cda512feba95552e786a9b3`.
+  `sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`.
 - Corrección publicada: el resultado `ml_train_v0` usa
   schema `0.2`, incluye/verifica/promociona `ml_train_report.json` con los
   `.joblib` e invalida la caché. La imagen M1 ya fue recreada y el paquete ARM64

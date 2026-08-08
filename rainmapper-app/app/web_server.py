@@ -19209,7 +19209,10 @@ def main() -> None:
     if mushroom_worker_api_enabled() and args.worker_host == args.host and args.worker_port == args.port:
         parser.error("the worker coordinator must use a dedicated listener")
 
-    runtime_diagnostics.initialize_runtime(app_version())
+    runtime_diagnostics.initialize_runtime(
+        app_version(),
+        last_run_log_path=LOG_PATH,
+    )
     preserve_public_maplibre_data_for_transition()
     try:
         startup_store = default_store()

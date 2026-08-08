@@ -2,11 +2,10 @@
 
 ## Estado
 
-Especificación e implementación incluidas en la release `0.2.227`, publicada el
-2026-08-07 para validar el runner y el Predictor en la RPi4 antes de cerrar el P0
-de memoria. Los ensayos A, B y C reales están completados y el P0 de memoria se
-cierra para el escenario monousuario probado. No requiere una imagen de
-desarrollo ni vigilancia manual durante las ejecuciones.
+Especificación e implementación incluidas desde `0.2.227`. Los ensayos A, B y C
+cerraron el P0 de memoria para el escenario monousuario probado. `0.2.232`
+refuerza la caja negra después de un bloqueo real del host durante un runner:
+persiste heartbeats, identifica el arranque físico y acota la descarga AEMET.
 
 ## Objetivos
 
@@ -27,8 +26,9 @@ Los eventos se escriben como JSON Lines en:
 ```
 
 El historial conserva como máximo 2.000 eventos y se compacta cuando supera
-5 MiB. Cada línea es autocontenida y usa `schema_version=1.0`. La escritura de
-diagnósticos nunca debe hacer fallar una actualización o una predicción.
+5 MiB. Cada línea es autocontenida; el contrato actual usa
+`schema_version=2.1`. La escritura de diagnósticos nunca debe hacer fallar una
+actualización o una predicción.
 
 El paquete descargable contiene únicamente:
 
@@ -116,10 +116,11 @@ La espera de 10 minutos no significa que el sistema escriba métricas de forma
 continua durante todo ese periodo. El ciclo exacto es:
 
 1. Al comenzar una operación se guarda un snapshot inicial.
-2. Mientras el runner o la carga física del Predictor siguen activos, se toma
-   una muestra cada 0,5 segundos. Estas muestras se agregan en memoria para
-   conservar máximos y mínimos; no se escribe una línea al fichero cada medio
-   segundo.
+2. Mientras el runner o una operación Predictor siguen activos, se toma una
+   muestra cada 0,5 segundos. Estas muestras se agregan en memoria para conservar
+   máximos y mínimos. Desde `0.2.232`, cada 10 segundos se persiste y sincroniza
+   físicamente un `heartbeat` con la muestra actual y los extremos acumulados;
+   un corte abrupto deja como máximo aproximadamente 10 segundos sin evidencia.
 3. Las fases relevantes escriben eventos puntuales y, al terminar la operación,
    se detiene inmediatamente el muestreo periódico y se guarda el resumen.
 4. Después del final solo se programan dos fotografías puntuales del sistema:
@@ -139,9 +140,9 @@ antes de pulsar **Download diagnostics**.
 
 ## Evolución v2 publicada en `0.2.229` después de A–C
 
-La implementación posterior a `0.2.228` mantiene el JSONL v1 compatible y añade
-el contrato `schema_version: 2.0`. Está publicada en `0.2.229`, pero todavía
-requiere instalación y validación real antes de considerarla desplegada.
+La implementación posterior a `0.2.228` mantuvo el JSONL v1 compatible y añadió
+el contrato `schema_version: 2.0` en `0.2.229`. La prueba real está completada.
+`0.2.232` amplía el contrato compatible a `2.1` con heartbeat y datos del host.
 
 ### Medición correlacionada del Predictor
 
@@ -192,9 +193,10 @@ reinicios, actualizaciones y backups normales de los datos del add-on:
 - `failed_operations/`: hasta 20 colas de log fallidas, redactadas y limitadas a
   los últimos 2 MiB cada una.
 
-El muestreo de recursos continúa en memoria y no escribe cada 0,5 s. Al cerrar
-una operación solo persiste fases relevantes y un resumen. Los snapshots de 60
-y 600 s se registran en `runtime_state.json`; si el proceso reinicia antes de
+El muestreo de recursos continúa cada 0,5 s en memoria, pero `0.2.232` persiste
+un heartbeat cada 10 s con los máximos/mínimos acumulados. Al cerrar una
+operación se guardan además las fases relevantes y el resumen. Los snapshots de
+60 y 600 s se registran en `runtime_state.json`; si el proceso reinicia antes de
 capturarlos, se conservan como `snapshot_interrupted` en vez de desaparecer.
 
 El arranque genera un `boot_id`, registra inicio/parada y reconcilia cualquier
@@ -203,6 +205,11 @@ operación pendiente como `interrupted`. No atribuye OOM sin evidencia: usa
 aumentan durante la operación. Un cierre escrito justo antes de morir no se
 duplica como interrupción porque la reconciliación comprueba los resúmenes y
 fases recientes.
+
+Desde `0.2.232`, cada snapshot incorpora también el boot ID real del kernel y el
+uptime del host. Al reconciliar un `runner_action` pendiente, se archiva de forma
+redactada su `last_run.log` antes de que una ejecución posterior pueda
+sobrescribirlo.
 
 El ZIP añade resumen, anomalías, estado y logs fallidos al detalle y
 `last_run.log` existentes. El Control Panel muestra último éxito, último
@@ -265,6 +272,50 @@ referencia a `../diagnostics/predictor-client` y añade una regresión que resue
 la URL tanto con prefijo HA Ingress como en acceso directo. Hasta validar esa
 release, los tiempos anteriores son del servidor y no permiten separar todavía
 Ingress/red/render del navegador.
+
+### Incidente real de runner en `0.2.229` y refuerzo `0.2.232`
+
+El runner programado `all` del 2026-08-08 comenzó a las 05:00:04 CEST. Liberó
+cuatro instancias Predictor y entró en `runner_update`; la última línea de
+`last_run.log`, a las 05:00:15, fue el inicio de la descarga de la URL de datos
+de observaciones AEMET. Home Assistant dejó de responder y el usuario cortó
+manualmente la alimentación aproximadamente a las 05:17.
+
+Evidencia conservada:
+
+- `rainmapper-diagnostics-20260808T032011Z.zip`, SHA-256
+  `5121ba95e49bfd84ab2a3d435e8959d9b74ccf57ea606b52babee90b068dd9b2`;
+- `supervisor_2026-08-08T03-29-11.092Z.log`, SHA-256
+  `5d41153074b32fd6257cadd5893eda22b981420737f0a5728ee2ed1ec33a8bbf`.
+
+Al comenzar había 1.434 MiB de `MemAvailable`, 488 MiB de cgroup, 46,74 °C y
+contadores OOM a cero. Supervisor completó sus comprobaciones todavía a las
+05:13:40. El arranque posterior y los códigos 255 simultáneos de todos los
+add-ons corresponden al corte manual, no a una decisión automática de
+Supervisor. No existe evidencia suficiente para atribuir el bloqueo a OOM,
+temperatura, red, CPU o I/O: `0.2.229` acumulaba las muestras de 0,5 s solo en
+memoria y no llegó a consolidar el resumen antes del corte.
+
+`0.2.232` cierra ese hueco diagnóstico:
+
+- `OperationMonitor` escribe y hace `fsync` de un heartbeat cada 10 s durante
+  runner y Predictor, con muestra actual, extremos acumulados, boot ID del
+  kernel y uptime del host;
+- la secuencia completa AEMET (índice, espera y datos) tiene un deadline global
+  de 90 s, además del timeout de socket, y ajusta el timeout restante durante la
+  lectura por bloques;
+- AEMET registra inicio/fin de descarga, decodificación, parseo y normalización,
+  con tamaños, filas y tiempos pero sin URL ni credenciales;
+- al reiniciar, una acción runner pendiente archiva automáticamente el log
+  parcial redactado en `failed_operations/` antes de que otro runner lo
+  sobrescriba.
+
+Para repetir la prueba: instalar `0.2.232`, esperar a que el estado quede
+estable, lanzar manualmente `all` y no abrir Predictor. Si vuelve a dejar de
+responder, anotar la hora exacta; esperar solo mientras el sistema siga
+accesible y cortar alimentación únicamente si es imprescindible. Tras el
+arranque, descargar el ZIP antes de otra ejecución. Los heartbeats y el log
+archivado sobrevivirán aunque haya comenzado un runner posterior.
 
 ## Exclusión runner/Predictor
 
@@ -458,7 +509,9 @@ operativas y comprobación de whitespace. Esto valida los contratos y la
 integración local; no sustituye los ensayos A–C sobre la RPi4.
 
 Después de implementar localmente la caja negra v2 y la ventana meteorológica
-temporal, el mismo smoke completo pasó de nuevo el 2026-08-08 con 484 tests. La
-versión publicada es `0.2.229`, digest
-`sha256:8e8e1a0c5fe0d3121c6e9cdf06ce1a6a118e4d619ac3f29c13ca4a86f5a432da`;
-estos cambios aún no están instalados ni validados en HA real.
+temporal, el mismo smoke completo pasó de nuevo el 2026-08-08 con 484 tests y se
+validó el Predictor de `0.2.229` en la RPi4. Tras el runner interrumpido y el
+refuerzo diagnóstico, `0.2.232` pasó el smoke completo con 490 tests y se publicó
+con digest
+`sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`;
+queda pendiente instalarla y repetir el runner manual en HA real.

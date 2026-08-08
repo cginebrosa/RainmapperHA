@@ -2722,6 +2722,13 @@ def process_aemet():                                                # FOR MULTIT
                 local_timezone=os.environ.get('RAINMAPPER_TIMEZONE', 'Europe/Madrid'),
                 enrich_stations=True,
                 gmap_api_key=_GMAPS_KEY,
+                total_timeout=float(
+                    os.environ.get(
+                        'RAINMAPPER_AEMET_TOTAL_TIMEOUT_SECONDS',
+                        aemet_source.AEMET_TOTAL_TIMEOUT_SECONDS,
+                    )
+                ),
+                phase_callback=_runner_diagnostics.mark,
             )
             if isinstance(summary.get('timings'), dict):
                 source_timings = summary['timings']

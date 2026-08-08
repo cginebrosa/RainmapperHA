@@ -1,7 +1,9 @@
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest import mock
 
 import pandas as pd
 
@@ -25,6 +27,66 @@ def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1, tem
 
 
 class CreateAemetTests(unittest.TestCase):
+    def test_fetch_json_persists_phases_and_enforces_stream_deadline(self):
+        class FakeSocket:
+            def settimeout(self, value):
+                self.timeout = value
+
+        class FakeResponse:
+            def __init__(self, chunks, delay=0):
+                self.chunks = list(chunks)
+                self.delay = delay
+                self.fp = type(
+                    "FakeFp",
+                    (),
+                    {"raw": type("FakeRaw", (), {"_sock": FakeSocket()})()},
+                )()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read1(self, _size):
+                if self.delay:
+                    time.sleep(self.delay)
+                return self.chunks.pop(0)
+
+        phases = []
+        response = FakeResponse([b'[{"idema":"0002I"}]', b""])
+        with mock.patch.object(create_aemet.urllib.request, "urlopen", return_value=response):
+            result = create_aemet.fetch_json(
+                "https://example.test/data",
+                deadline=time.monotonic() + 1,
+                phase_callback=lambda phase, details: phases.append((phase, details)),
+            )
+
+        self.assertEqual(result[0]["idema"], "0002I")
+        self.assertEqual(
+            [phase for phase, _details in phases],
+            [
+                "aemet_request_start",
+                "aemet_download_complete",
+                "aemet_decode_start",
+                "aemet_decode_complete",
+                "aemet_parse_start",
+                "aemet_parse_complete",
+            ],
+        )
+
+        slow_response = FakeResponse([b"[]", b""], delay=0.03)
+        with mock.patch.object(
+            create_aemet.urllib.request,
+            "urlopen",
+            return_value=slow_response,
+        ):
+            with self.assertRaises(create_aemet.AemetTotalTimeoutError):
+                create_aemet.fetch_json(
+                    "https://example.test/slow",
+                    deadline=time.monotonic() + 0.01,
+                )
+
     def test_rate_limit_metrics_keep_last_24h_and_consecutive_runs(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             data_dir = Path(tmp_dir)
@@ -66,8 +128,14 @@ class CreateAemetTests(unittest.TestCase):
         original_fetch_json = create_aemet.fetch_json
         original_sleep = create_aemet.time.sleep
 
-        def fake_fetch_json(url, api_key=None, timeout=30, request_label="AEMET request"):
-            calls.append((url, api_key, timeout, request_label))
+        def fake_fetch_json(
+            url,
+            api_key=None,
+            timeout=30,
+            request_label="AEMET request",
+            **kwargs,
+        ):
+            calls.append((url, api_key, timeout, request_label, kwargs))
             if request_label == "observations index endpoint":
                 return {"estado": 200, "datos": "https://example.test/aemet-data"}
             return [{"idema": "0002I", "fint": "2026-06-24T08:00:00+0000", "prec": 0.0}]
@@ -93,6 +161,25 @@ class CreateAemetTests(unittest.TestCase):
         self.assertEqual(calls[1][0], "https://example.test/aemet-data")
         self.assertEqual(calls[1][1], None)
         self.assertEqual(calls[1][3], "observations data URL")
+        self.assertEqual(calls[0][4]["deadline"], calls[1][4]["deadline"])
+
+    def test_fetch_observations_enforces_total_deadline_between_requests(self):
+        original_fetch_json = create_aemet.fetch_json
+
+        def slow_index(*args, **kwargs):
+            time.sleep(0.03)
+            return {"estado": 200, "datos": "https://example.test/aemet-data"}
+
+        try:
+            create_aemet.fetch_json = slow_index
+            with self.assertRaises(create_aemet.AemetTotalTimeoutError):
+                create_aemet.fetch_observations(
+                    api_key="test-key",
+                    total_timeout=0.01,
+                    data_url_delay_seconds=0,
+                )
+        finally:
+            create_aemet.fetch_json = original_fetch_json
 
     def test_normalize_observations_keeps_hourly_utc_and_local_fields(self):
         rows = [
@@ -539,7 +626,7 @@ class CreateAemetTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             original_fetch = create_aemet.fetch_observations
-            create_aemet.fetch_observations = lambda api_key, timeout=30: rows
+            create_aemet.fetch_observations = lambda **kwargs: rows
             try:
                 summary = create_aemet.run_update(
                     data_dir=Path(tmp_dir),
@@ -601,7 +688,7 @@ class CreateAemetTests(unittest.TestCase):
             existing.to_csv(data_dir / "estacions_aemet.csv", index=False, decimal=",")
 
             original_fetch = create_aemet.fetch_observations
-            create_aemet.fetch_observations = lambda api_key, timeout=30: rows
+            create_aemet.fetch_observations = lambda **kwargs: rows
             try:
                 summary = create_aemet.run_update(
                     data_dir=data_dir,

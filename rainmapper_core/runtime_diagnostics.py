@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - Rainmapper targets Unix platforms
     fcntl = None  # type: ignore[assignment]
 
 
-SCHEMA_VERSION = "2.0"
+SCHEMA_VERSION = "2.1"
 MAX_RECORDS = 2_000
 MAX_BYTES = 5 * 1024 * 1024
 MAX_SUMMARY_RECORDS = 20_000
@@ -40,6 +40,7 @@ MAX_LOG_EXPORT_BYTES = 2 * 1024 * 1024
 DEFAULT_DIAGNOSTICS_PATH = Path(
     "/share/rainmapper/diagnostics/runtime_metrics.jsonl"
 )
+DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 10.0
 
 _FILE_LOCK = threading.Lock()
 _STATE_LOCK = threading.Lock()
@@ -119,10 +120,13 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
     try:
-        temporary_path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        with temporary_path.open("w", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+                + "\n"
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
         temporary_path.replace(path)
     finally:
         temporary_path.unlink(missing_ok=True)
@@ -229,6 +233,24 @@ def _cpu_temperature_c() -> float | None:
     return None
 
 
+def _host_boot_id() -> str | None:
+    try:
+        value = Path("/proc/sys/kernel/random/boot_id").read_text(
+            encoding="utf-8"
+        ).strip()
+    except OSError:
+        return None
+    return value or None
+
+
+def _host_uptime_seconds() -> float | None:
+    try:
+        value = Path("/proc/uptime").read_text(encoding="utf-8").split()[0]
+        return round(float(value), 3)
+    except (OSError, ValueError, IndexError):
+        return None
+
+
 def snapshot() -> dict[str, Any]:
     """Return a portable process/container/host resource snapshot."""
     process_status = _read_keyed_kib(Path("/proc/self/status"))
@@ -280,6 +302,8 @@ def snapshot() -> dict[str, Any]:
         "cpu_temperature_c": _cpu_temperature_c(),
         "cgroup_oom": cgroup_events.get("oom"),
         "cgroup_oom_kill": cgroup_events.get("oom_kill"),
+        "host_boot_id": _host_boot_id(),
+        "host_uptime_seconds": _host_uptime_seconds(),
     }
 
 
@@ -379,6 +403,7 @@ def _append_bounded_record(
                 with path.open("a", encoding="utf-8") as handle:
                     handle.write(line + "\n")
                     handle.flush()
+                    os.fsync(handle.fileno())
                 count += 1
                 count_path.write_text(str(count), encoding="utf-8")
                 if count > max_records or path.stat().st_size > max_bytes:
@@ -507,6 +532,8 @@ def _clear_pending_operation(operation_id: str, metrics_path: Path) -> None:
 def initialize_runtime(
     app_version: str,
     path: Path | None = None,
+    *,
+    last_run_log_path: Path | None = None,
 ) -> str:
     """Start a boot session and reconcile work left pending by an earlier boot."""
     global _BOOT_ID
@@ -518,6 +545,7 @@ def initialize_runtime(
     previous_boot_id = previous_state.get("boot_id")
     previous_started_at = previous_state.get("started_at")
     previous_stopped_at = previous_state.get("stopped_at")
+    previous_host_boot_id = previous_state.get("host_boot_id")
     recent_summaries = _read_recent_jsonl(summary_path(metrics_path), limit=500)
     completed_operation_ids = {
         str(record.get("operation_id"))
@@ -531,6 +559,8 @@ def initialize_runtime(
         for record in recent_metrics
     }
 
+    current_host = snapshot()
+
     def reset(state: dict[str, Any]) -> None:
         state["boot_id"] = boot_id()
         state["pending_operations"] = {}
@@ -538,6 +568,8 @@ def initialize_runtime(
         state["started_at"] = _utc_now()
         state.pop("stopped_at", None)
         state["app_version"] = app_version
+        state["host_boot_id"] = current_host.get("host_boot_id")
+        state["host_uptime_seconds"] = current_host.get("host_uptime_seconds")
 
     _update_state(metrics_path, reset)
     record_event(
@@ -587,6 +619,31 @@ def initialize_runtime(
             interrupted_boot,
             metrics_path,
         )
+    archived_interrupted_log_id: str | None = None
+    if isinstance(previous_operations, dict) and last_run_log_path is not None:
+        runner_candidates = [
+            str(operation_id)
+            for operation_id, pending in previous_operations.items()
+            if isinstance(pending, dict)
+            and pending.get("operation") == "runner_action"
+            and str(operation_id) not in completed_operation_ids
+        ]
+        if not runner_candidates:
+            runner_candidates = [
+                str(operation_id)
+                for operation_id, pending in previous_operations.items()
+                if isinstance(pending, dict)
+                and pending.get("operation") == "runner_update"
+                and str(operation_id) not in completed_operation_ids
+            ]
+        if runner_candidates and last_run_log_path.is_file():
+            archived_interrupted_log_id = runner_candidates[0]
+            _archive_failure_log(
+                archived_interrupted_log_id,
+                last_run_log_path,
+                metrics_path,
+            )
+
     if isinstance(previous_operations, dict):
         for operation_id, pending in previous_operations.items():
             if not isinstance(pending, dict):
@@ -600,6 +657,11 @@ def initialize_runtime(
                 "previous_boot_id": pending.get("boot_id"),
                 "reason": "process_restarted_before_finish",
                 "oom_attribution": "unknown",
+                "previous_host_boot_id": previous_host_boot_id,
+                "current_host_boot_id": current_host.get("host_boot_id"),
+                "interrupted_log_archived": (
+                    str(operation_id) == archived_interrupted_log_id
+                ),
             }
             record_event(
                 operation,
@@ -674,6 +736,7 @@ class OperationMonitor:
         path: Path | None = None,
         failure_log_path: Path | None = None,
         sample_interval_seconds: float = 0.5,
+        heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     ) -> None:
         self.operation = operation
         self.operation_id = operation_id or new_operation_id(operation)
@@ -687,6 +750,7 @@ class OperationMonitor:
         self._started_at = time.perf_counter()
         self._start_snapshot = snapshot()
         self._sample_interval = max(0.05, sample_interval_seconds)
+        self._heartbeat_interval = max(0.05, heartbeat_interval_seconds)
         self._stop_event = threading.Event()
         self._finished = False
         self._aggregate: dict[str, float | None] = {
@@ -743,8 +807,26 @@ class OperationMonitor:
             )
 
     def _sampling_loop(self) -> None:
+        next_heartbeat = time.monotonic() + self._heartbeat_interval
         while not self._stop_event.wait(self._sample_interval):
             self._sample(snapshot())
+            now = time.monotonic()
+            if now < next_heartbeat:
+                continue
+            record_event(
+                self.operation,
+                self.operation_id,
+                "heartbeat",
+                {
+                    "status": "running",
+                    "elapsed_seconds": round(
+                        time.perf_counter() - self._started_at, 3
+                    ),
+                    **self._aggregate,
+                },
+                self.path,
+            )
+            next_heartbeat = now + self._heartbeat_interval
 
     def mark(self, phase: str, details: dict[str, Any] | None = None) -> None:
         current = snapshot()

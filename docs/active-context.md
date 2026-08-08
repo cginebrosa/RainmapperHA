@@ -8,11 +8,11 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 **Release HA:**
 - Instalada y ejecutada en HA real: `0.2.229`, confirmada por el usuario tras
   probar el Predictor y ejecutar el runner programado.
-- Publicada y pendiente de instalar en HA real: `0.2.231`, que conserva el
-  archivado y la limpieza segura de medios de `0.2.230` y corrige la URL de
-  Navigation Timing bajo HA Ingress. `0.2.230` quedó publicada pero no se
-  instalará ni se sobrescribirá. Digest multiarquitectura:
-  `sha256:4d385b2360806030d2780b9cdf61f314b3d963e25cda512feba95552e786a9b3`.
+- Publicada y pendiente de instalar en HA real: `0.2.232`. Conserva los cambios
+  de `0.2.230`/`0.2.231` y refuerza la caja negra del runner con heartbeat
+  persistente cada 10 s, fases AEMET, timeout total de 90 s, boot ID/uptime y
+  archivado del log de una ejecución interrumpida. Digest multiarquitectura:
+  `sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`.
 - La imagen anterior `0.2.226` conservaba el Parquet monolítico; queda sustituida
   operativamente por `0.2.227`.
 - No hay versión de desarrollo/sideload.
@@ -75,9 +75,10 @@ anteriores. Este documento describe el estado actual, no el historial completo.
    con el worker actualizado y modelos/informe promovidos en HA real; confirmado
    por el usuario el 2026-08-08.
 4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
-5. Instalar `0.2.231` y comprobar el archivado/borrado/restauración de una
-   observación con foto; la validación inicial de `0.2.229`, caja negra v2 y
-   ventana temporal del Predictor ya se ejecutó en la RPi4.
+5. Instalar `0.2.232` y lanzar manualmente el runner sin abrir el Predictor. Si
+   vuelve a quedar bloqueado, reiniciar solo si resulta imprescindible y
+   descargar después el ZIP: el heartbeat, las fases y el log reconciliado
+   deberían conservar la última evidencia persistida.
 6. Después de cerrar A–C, instrumentar la apertura completa del Predictor y
    evolucionar el diagnóstico a caja negra persistente: histórico resumido,
    reconciliación tras reinicios, anomalías y backups. Especificación en
@@ -92,9 +93,9 @@ JSONL acotado, picos del proceso y del cgroup, recuperación a 60/600 s, carga f
 del Predictor, libera sus cachés antes del runner, impide solapamientos y añade
 un ZIP descargable desde el panel. Los ensayos A–C reales pasaron y cierran el
 P0 de memoria; queda pendiente instrumentar la latencia total del Predictor.
-Validación local completa de la caja negra v2 y la ventana temporal:
-`smoke-test.sh`, 484 tests, PASS el 2026-08-08. La release instalada es
-`0.2.229`; `0.2.230` incorpora la corrección del ciclo de vida de medios.
+Validación local completa de `0.2.232`: `smoke-test.sh`, 490 tests, PASS el
+2026-08-08. La release instalada en HA real sigue siendo `0.2.229` hasta la
+actualización y prueba manual.
 
 **Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de
 `docker-data/mushroom-data/` se refresca desde HA para pruebas y comprobaciones; no planificar
@@ -472,7 +473,7 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 
 ### Pendiente
 
-- Instalar la app HA `0.2.231`; no requiere reconstruir la imagen worker ni
+- Instalar la app HA `0.2.232`; no requiere reconstruir la imagen worker ni
   reentrenar porque no cambia el contrato ni las features de entrenamiento.
 - Repetir cuando sea necesario el job ml_train_v0 end-to-end ya validado: crear
   job desde UI, worker lo recoge, entrena, sube y promover en HA.
@@ -529,8 +530,8 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y version del repositorio: `0.2.231` (2026-08-08),
-  digest `sha256:4d385b2360806030d2780b9cdf61f314b3d963e25cda512feba95552e786a9b3`.
+- Release HA publicada en GHCR y version del repositorio: `0.2.232` (2026-08-08),
+  digest `sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`.
   En HA real sigue instalada `0.2.229` hasta completar la actualización.
   Workers (M1 y M5) probados y funcionales.
 

@@ -23,6 +23,8 @@ class RuntimeDiagnosticsTests(unittest.TestCase):
         self.assertIn("process_peak_rss_mib", current)
         self.assertIn("cgroup_memory_current_mib", current)
         self.assertIn("host_mem_available_mib", current)
+        self.assertIn("host_boot_id", current)
+        self.assertIn("host_uptime_seconds", current)
         self.assertIsInstance(current["cpu_user_seconds"], float)
         self.assertIsInstance(current["cpu_system_seconds"], float)
         self.assertTrue(current["timestamp"].endswith("Z"))
@@ -67,6 +69,28 @@ class RuntimeDiagnosticsTests(unittest.TestCase):
         self.assertIn("max_process_peak_rss_mib", summary)
         self.assertEqual(summaries[-1]["status"], "ok")
         self.assertNotIn(monitor.operation_id, state["pending_operations"])
+
+    def test_operation_monitor_persists_running_heartbeats(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
+            monitor = runtime_diagnostics.OperationMonitor(
+                "heartbeat_operation",
+                path=metrics_path,
+                sample_interval_seconds=0.01,
+                heartbeat_interval_seconds=0.02,
+            )
+            time.sleep(0.09)
+            monitor.finish("ok")
+            records = [
+                json.loads(line)
+                for line in metrics_path.read_text(encoding="utf-8").splitlines()
+            ]
+
+        heartbeats = [record for record in records if record["phase"] == "heartbeat"]
+        self.assertGreaterEqual(len(heartbeats), 1)
+        self.assertEqual(heartbeats[-1]["details"]["status"], "running")
+        self.assertGreater(heartbeats[-1]["details"]["elapsed_seconds"], 0)
+        self.assertIn("max_cgroup_memory_current_mib", heartbeats[-1]["details"])
 
     def test_retention_keeps_only_the_most_recent_records(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
@@ -175,6 +199,44 @@ class RuntimeDiagnosticsTests(unittest.TestCase):
         self.assertEqual(summaries[-1]["status"], "interrupted")
         self.assertEqual(state["pending_operations"], {})
         self.assertEqual(state["pending_snapshots"], {})
+
+    def test_initialize_archives_interrupted_runner_log(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            data_dir = Path(temporary_dir)
+            metrics_path = data_dir / "runtime_metrics.jsonl"
+            last_run_path = data_dir / "last_run.log"
+            last_run_path.write_text(
+                "partial runner api_key=SECRET\n",
+                encoding="utf-8",
+            )
+            monitor = runtime_diagnostics.OperationMonitor(
+                "runner_action",
+                path=metrics_path,
+                heartbeat_interval_seconds=60,
+            )
+            monitor._stop_event.set()
+            if monitor._thread is not None:
+                monitor._thread.join(timeout=1)
+
+            runtime_diagnostics.initialize_runtime(
+                "test-next-boot",
+                metrics_path,
+                last_run_log_path=last_run_path,
+            )
+            archived_path = (
+                runtime_diagnostics.failure_logs_path(metrics_path)
+                / f"{monitor.operation_id}.log"
+            )
+            archived = archived_path.read_text(encoding="utf-8")
+            summary = json.loads(
+                runtime_diagnostics.summary_path(metrics_path)
+                .read_text(encoding="utf-8")
+                .splitlines()[-1]
+            )
+
+        self.assertIn("api_key=[REDACTED]", archived)
+        self.assertNotIn("SECRET", archived)
+        self.assertTrue(summary["details"]["interrupted_log_archived"])
 
     def test_scheduled_snapshot_is_summarized_and_cleared_from_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:

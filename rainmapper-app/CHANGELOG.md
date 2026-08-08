@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.2.232
+
+- Persist runner and Predictor resource heartbeats every ten seconds with host
+  boot identity, uptime, cumulative memory peaks, temperature and OOM counters.
+- Bound the complete indexed AEMET observations download to 90 seconds and
+  record download, decode, parse and normalization phases for crash diagnosis.
+- Archive the partial runner log automatically when startup reconciles an
+  interrupted action, preserving it before the next run overwrites `last_run.log`.
+
 ## 0.2.231
 
 - Preserve the Home Assistant Ingress token when reporting Predictor browser

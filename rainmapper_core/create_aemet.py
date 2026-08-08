@@ -33,6 +33,7 @@ from rainmapper_core.wind import (
 AEMET_OBSERVATIONS_URL = "https://opendata.aemet.es/opendata/api/observacion/convencional/todas"
 AEMET_STATION_PREFIX = "AEMET:"
 AEMET_DATA_URL_DELAY_SECONDS = 1.0
+AEMET_TOTAL_TIMEOUT_SECONDS = 90.0
 AEMET_RATE_LIMIT_METRICS_FILE = "Aemet_rate_limit_metrics.json"
 LOCAL_TIMEZONE = "Europe/Madrid"
 
@@ -121,6 +122,10 @@ CSV_TEXT_COLUMNS = {
 
 class AemetRateLimitError(RuntimeError):
     """Raised when AEMET reports that the client is sending too many requests."""
+
+
+class AemetTotalTimeoutError(TimeoutError):
+    """Raised when the complete indexed AEMET download exceeds its deadline."""
 
 
 def parse_aemet_timestamp(value):
@@ -228,16 +233,70 @@ def rate_limit_status(data_dir, now=None):
     }
 
 
-def fetch_json(url, api_key=None, timeout=30, request_label="AEMET request"):
+def _aemet_phase(phase_callback, phase, details=None):
+    safe_details = details or {}
+    suffix = " ".join(f"{key}={value}" for key, value in safe_details.items())
+    print(f"AEMET phase {phase}" + (f": {suffix}" if suffix else ""), flush=True)
+    if phase_callback is not None:
+        try:
+            phase_callback(f"aemet_{phase}", safe_details)
+        except Exception:
+            pass
+
+
+def _remaining_timeout(deadline, socket_timeout, request_label):
+    if deadline is None:
+        return float(socket_timeout)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise AemetTotalTimeoutError(
+            f"AEMET total download deadline exceeded during {request_label}"
+        )
+    return max(0.001, min(float(socket_timeout), remaining))
+
+
+def fetch_json(
+    url,
+    api_key=None,
+    timeout=30,
+    request_label="AEMET request",
+    *,
+    deadline=None,
+    phase_callback=None,
+):
     """Fetch JSON from AEMET, optionally adding the OpenData API key header."""
     headers = {"Accept": "application/json"}
     if api_key:
         headers["api_key"] = api_key
     request = urllib.request.Request(url, headers=headers)
-    print(f"AEMET request attempt at {aemet_log_timestamp()}: {request_label}")
+    _aemet_phase(
+        phase_callback,
+        "request_start",
+        {"request": request_label, "at": aemet_log_timestamp()},
+    )
+    request_started = time.monotonic()
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw_payload = response.read()
+        with urllib.request.urlopen(
+            request,
+            timeout=_remaining_timeout(deadline, timeout, request_label),
+        ) as response:
+            chunks = []
+            while True:
+                remaining_timeout = _remaining_timeout(
+                    deadline, timeout, request_label
+                )
+                try:
+                    response.fp.raw._sock.settimeout(remaining_timeout)
+                except (AttributeError, OSError):
+                    pass
+                if hasattr(response, "read1"):
+                    chunk = response.read1(64 * 1024)
+                else:
+                    chunk = response.read(64 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            raw_payload = b"".join(chunks)
     except urllib.error.HTTPError as exc:
         if exc.code == 429:
             raise AemetRateLimitError(
@@ -245,14 +304,56 @@ def fetch_json(url, api_key=None, timeout=30, request_label="AEMET request"):
                 f"at {aemet_log_timestamp()}"
             ) from exc
         raise
+    _remaining_timeout(deadline, timeout, request_label)
+    _aemet_phase(
+        phase_callback,
+        "download_complete",
+        {
+            "request": request_label,
+            "bytes": len(raw_payload),
+            "elapsed_seconds": round(time.monotonic() - request_started, 3),
+        },
+    )
+    _aemet_phase(
+        phase_callback,
+        "decode_start",
+        {"request": request_label, "bytes": len(raw_payload)},
+    )
     try:
         payload = raw_payload.decode("utf-8")
     except UnicodeDecodeError:
         payload = raw_payload.decode("latin-1")
-    return json.loads(payload)
+    _remaining_timeout(deadline, timeout, request_label)
+    _aemet_phase(
+        phase_callback,
+        "decode_complete",
+        {"request": request_label, "characters": len(payload)},
+    )
+    _aemet_phase(
+        phase_callback,
+        "parse_start",
+        {"request": request_label, "characters": len(payload)},
+    )
+    parsed = json.loads(payload)
+    _remaining_timeout(deadline, timeout, request_label)
+    _aemet_phase(
+        phase_callback,
+        "parse_complete",
+        {
+            "request": request_label,
+            "records": len(parsed) if isinstance(parsed, (list, dict)) else None,
+        },
+    )
+    return parsed
 
 
-def fetch_observations(api_key, timeout=30, data_url_delay_seconds=AEMET_DATA_URL_DELAY_SECONDS):
+def fetch_observations(
+    api_key,
+    timeout=30,
+    data_url_delay_seconds=AEMET_DATA_URL_DELAY_SECONDS,
+    total_timeout=AEMET_TOTAL_TIMEOUT_SECONDS,
+    phase_callback=None,
+):
     """Fetch the global AEMET observations payload using one indexed API call.
 
     AEMET first returns a short-lived `datos` URL. The runtime path must keep
@@ -261,12 +362,16 @@ def fetch_observations(api_key, timeout=30, data_url_delay_seconds=AEMET_DATA_UR
     """
     if not api_key:
         raise ValueError("AEMET API key is required")
+    deadline = time.monotonic() + max(0.001, float(total_timeout))
     index = fetch_json(
         AEMET_OBSERVATIONS_URL,
         api_key=api_key,
         timeout=timeout,
         request_label="observations index endpoint",
+        deadline=deadline,
+        phase_callback=phase_callback,
     )
+    _remaining_timeout(deadline, timeout, "observations index endpoint")
     if int(index.get("estado", 0)) != 200 or not index.get("datos"):
         raise RuntimeError(f"AEMET did not return an observations URL: {index}")
     if data_url_delay_seconds and data_url_delay_seconds > 0:
@@ -274,8 +379,20 @@ def fetch_observations(api_key, timeout=30, data_url_delay_seconds=AEMET_DATA_UR
             "AEMET waiting "
             f"{data_url_delay_seconds:.1f}s before fetching observations data URL."
         )
+        if time.monotonic() + data_url_delay_seconds >= deadline:
+            raise AemetTotalTimeoutError(
+                "AEMET total download deadline exceeded before observations data URL"
+            )
         time.sleep(data_url_delay_seconds)
-    return fetch_json(index["datos"], timeout=timeout, request_label="observations data URL")
+    observations = fetch_json(
+        index["datos"],
+        timeout=timeout,
+        request_label="observations data URL",
+        deadline=deadline,
+        phase_callback=phase_callback,
+    )
+    _remaining_timeout(deadline, timeout, "observations data URL")
+    return observations
 
 
 def normalize_observations(rows, local_timezone=LOCAL_TIMEZONE):
@@ -781,6 +898,8 @@ def run_update(
     enrich_stations=True,
     gmap_api_key=None,
     reverse_geocoder=reverse_geocode_station,
+    total_timeout=AEMET_TOTAL_TIMEOUT_SECONDS,
+    phase_callback=None,
 ):
     """Fetch AEMET observations and update all AEMET CSV outputs.
 
@@ -793,11 +912,30 @@ def run_update(
     total_started = time.perf_counter()
     timings = {}
     phase_started = time.perf_counter()
-    observations = fetch_observations(api_key=api_key, timeout=timeout)
+    observations = fetch_observations(
+        api_key=api_key,
+        timeout=timeout,
+        total_timeout=total_timeout,
+        phase_callback=phase_callback,
+    )
     timings["fetch_seconds"] = time.perf_counter() - phase_started
+    _aemet_phase(
+        phase_callback,
+        "normalize_start",
+        {"records": len(observations)},
+    )
     phase_started = time.perf_counter()
     current_hourly = normalize_observations(observations, local_timezone=local_timezone)
     timings["normalize_seconds"] = time.perf_counter() - phase_started
+    _aemet_phase(
+        phase_callback,
+        "normalize_complete",
+        {
+            "input_records": len(observations),
+            "hourly_rows": len(current_hourly),
+            "elapsed_seconds": round(timings["normalize_seconds"], 3),
+        },
+    )
     phase_started = time.perf_counter()
     existing_hourly = read_csv_if_exists(data_dir / "Aemet_hourly_incremental.csv", HOURLY_COLUMNS)
     timings["read_hourly_seconds"] = time.perf_counter() - phase_started
