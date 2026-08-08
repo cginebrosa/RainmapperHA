@@ -3288,3 +3288,39 @@ sin poner en riesgo archivos compartidos.
 - `./scripts/smoke-test.sh` OK.
 - Cobertura nueva de media fisica, referencias compartidas, fallo/reintento de
   borrado y rollback de los dos stores.
+
+## 2026-08-08 - Acotar artefactos reconstruibles de Docker Desktop
+
+Estado: VIGENTE
+
+- `build-push-ha-image.sh` conserva localmente solo el tag HA versionado más
+  reciente y `latest`; los rollbacks se conservan en GHCR, no duplicados en el
+  Mac.
+- Tras cada publicación, la parte privada/reclamable de la caché Buildx se acota
+  a 8 GiB mediante `docker buildx prune --max-used-space`. Docker puede mostrar
+  además capas compartidas con imágenes conservadas. No se eliminan imágenes en
+  uso, contenedores ni volúmenes; el coste de una capa eliminada es solo
+  reconstruirla o descargarla de nuevo.
+- `docker-offline-functional-test.sh` elimina al terminar su imagen temporal
+  `rainmapperha:test`, salvo opt-in explícito con
+  `KEEP_DOCKER_TEST_IMAGE=1`.
+- La limpieza nunca toca `rainmapper-worker-data`, el worker activo ni
+  `rainmapperha:local-ha-ui`, porque contienen estado o sirven al laboratorio
+  local.
+
+Resultado de la limpieza inicial, 2026-08-08:
+
+- GHCR pasó de 75 a 10 entradas. Se conservaron `0.2.229`, instalada en HA como
+  rollback operativo, y `0.2.231/latest`, pendiente de instalar, junto con los
+  cuatro manifests auxiliares de cada índice. Los dos índices se verificaron con
+  plataformas `linux/amd64` y `linux/arm64`.
+- Docker local eliminó `rainmapperha:test` (imagen temporal de 13,5 GB),
+  `ghcr.io/cginebrosa/rainmapperha:0.2.230` y
+  `rainmapper-worker:0.2.225`. La primera procedía de una prueba offline cuyo
+  `trap` solo eliminaba el directorio temporal, no la imagen construida.
+- La caché Buildx pasó de 29,43 GB reclamables a 7,271 GB privados/reclamables.
+  Docker informa además 4,913 GB compartidos con las imágenes conservadas; no
+  son una segunda ocupación exclusiva de la caché.
+- Se conservaron y verificaron el worker activo y healthy, el volumen
+  `rainmapper-worker-data` de 11,11 GB, `rainmapper-worker:0.2.228-arm64/local`,
+  `rainmapperha:local-ha-ui` y `ghcr.io/cginebrosa/rainmapperha:0.2.231/latest`.

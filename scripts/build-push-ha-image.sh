@@ -12,13 +12,19 @@ cd "$ROOT_DIR"
 IMAGE_NAME="${IMAGE_NAME:-ghcr.io/cginebrosa/rainmapperha}"
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 APP_DIR="${APP_DIR:-rainmapper-app}"
-LOCAL_IMAGE_KEEP="${LOCAL_IMAGE_KEEP:-2}"
+LOCAL_IMAGE_KEEP="${LOCAL_IMAGE_KEEP:-1}"
 LOCAL_IMAGE_CLEANUP="${LOCAL_IMAGE_CLEANUP:-1}"
+LOCAL_BUILD_CACHE_CLEANUP="${LOCAL_BUILD_CACHE_CLEANUP:-1}"
+LOCAL_BUILD_CACHE_MAX_BYTES="${LOCAL_BUILD_CACHE_MAX_BYTES:-8589934592}"
 
 # The HA version is the image tag that Home Assistant will request.
 version="$(sed -n 's/^version:[[:space:]]*"\([^"]*\)".*/\1/p' "$APP_DIR/config.yaml" | head -n 1)"
 if [ -z "$version" ]; then
   printf 'Could not read version from %s/config.yaml\n' "$APP_DIR" >&2
+  exit 1
+fi
+if [ "$LOCAL_BUILD_CACHE_CLEANUP" = "1" ] && ! [[ "$LOCAL_BUILD_CACHE_MAX_BYTES" =~ ^[0-9]+$ ]]; then
+  printf 'LOCAL_BUILD_CACHE_MAX_BYTES must be a non-negative integer, got: %s\n' "$LOCAL_BUILD_CACHE_MAX_BYTES" >&2
   exit 1
 fi
 
@@ -68,4 +74,15 @@ if [ "$LOCAL_IMAGE_CLEANUP" = "1" ]; then
       docker image rm "$IMAGE_NAME:$old_tag" >/dev/null || true
     done
   fi
+fi
+
+# Buildx keeps intermediate package/download layers independently of the visible
+# images. Bound that reconstructible cache only after a successful publication,
+# so a failed build retains its evidence and useful layers for diagnosis/retry.
+# This does not remove images, containers or volumes.
+if [ "$LOCAL_BUILD_CACHE_CLEANUP" = "1" ]; then
+  printf 'Bounding local Buildx cache to %s bytes\n' "$LOCAL_BUILD_CACHE_MAX_BYTES"
+  docker buildx prune \
+    --force \
+    --max-used-space "$LOCAL_BUILD_CACHE_MAX_BYTES"
 fi

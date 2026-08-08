@@ -72,6 +72,12 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
    - Si la verificación remota falla o está incompleta, no hacer commit/push ni
      anunciar la release como publicada. Diagnosticar primero Docker, red y
      credenciales.
+   - Al terminar, el script conserva localmente solo la versión HA más reciente
+     más `latest` y acota la parte privada/reclamable de la caché reconstruible
+     de Buildx a 8 GiB. Docker puede contabilizar aparte capas compartidas con
+     imágenes conservadas; no representan una segunda ocupación exclusiva. Se
+     puede desactivar puntualmente con `LOCAL_IMAGE_CLEANUP=0` o
+     `LOCAL_BUILD_CACHE_CLEANUP=0`, pero no hacerlo como rutina.
 
 8. **Verificar digest y plataformas** (obligatorio):
    ```bash

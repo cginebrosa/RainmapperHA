@@ -27,8 +27,12 @@ else
 fi
 
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/rainmapper-docker-offline.XXXXXX")"
+KEEP_DOCKER_TEST_IMAGE="${KEEP_DOCKER_TEST_IMAGE:-0}"
 cleanup() {
   rm -rf "$TMP_ROOT"
+  if [ "$KEEP_DOCKER_TEST_IMAGE" != "1" ]; then
+    docker image rm rainmapperha:test >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
 

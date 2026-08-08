@@ -33,11 +33,13 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Rebuild de features, entrenamiento con el worker `0.2.228` y promoción de los
   modelos y `ml_train_report.json` completados y confirmados por el usuario el
   2026-08-08.
-- `0.2.229` publica la caja negra v2 y la optimización temporal del Predictor:
-  las vistas actuales
-  comparten una única ventana sustituible de 96 días; fechas históricas se
-  cargan bajo demanda e Historial carga una sola vez el rango de sus episodios.
-  Smoke completo: 484 tests. Pendiente instalar y medir en RPi4.
+- `0.2.229` publicó la caja negra v2 y la optimización temporal del Predictor:
+  las vistas actuales comparten una única ventana sustituible de 96 días;
+  fechas históricas se cargan bajo demanda e Historial carga una sola vez el
+  rango de sus episodios. Prueba real completada en RPi4: petición fría servidor
+  36,622 s, 7.728 registros meteorológicos, pico de proceso 420,1 MiB RSS, pico
+  de cgroup 576,3 MiB y cero OOM. El detalle está en
+  `docs/runtime-diagnostics.md`.
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
