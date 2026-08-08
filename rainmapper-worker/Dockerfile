@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=local
+ARG RAINMAPPER_WORKER_VERSION=1.0.0
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -23,7 +23,11 @@ RUN apt-get update \
     && mkdir -p /var/lib/rainmapper-worker \
     && chown rainmapper-worker:rainmapper-worker /var/lib/rainmapper-worker
 
-RUN pip install --no-cache-dir numpy==2.4.6 pandas==2.2.2 scikit-learn==1.9.0
+RUN pip install --no-cache-dir \
+        numpy==2.4.6 \
+        pandas==2.2.2 \
+        pyarrow==25.0.0 \
+        scikit-learn==1.9.0
 
 COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_gis_lab.py \
@@ -38,6 +42,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_rebuild_snapshot.py \
      rainmapper_core/mushroom_worker_dataset_cache.py \
      rainmapper_core/mushroom_worker_config.py \
+     rainmapper_core/mushroom_worker_registry.py \
      rainmapper_core/mushroom_worker_service.py \
      rainmapper_core/mushroom_worker_transport.py \
      rainmapper_core/mushroom_worker_results.py \
@@ -57,6 +62,7 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_rebuild_pipeline.py \
         /app/rainmapper_core/mushroom_worker_dataset_cache.py \
         /app/rainmapper_core/mushroom_worker_config.py \
+        /app/rainmapper_core/mushroom_worker_registry.py \
         /app/rainmapper_core/mushroom_worker_service.py \
         /app/rainmapper_core/mushroom_worker_transport.py \
         /app/rainmapper_core/mushroom_worker_results.py \

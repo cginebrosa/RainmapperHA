@@ -3149,6 +3149,21 @@
     "es": "Preparando las entradas inmutables del worker en segundo plano. Puedes mantener esta pagina abierta.",
     "ca": "Preparant les entrades immutables del worker en segon pla. Pots mantenir aquesta pagina oberta."
   },
+  "ui.worker_storage_maintenance_notice": {
+    "en": "Storage preflight found previous leftovers: {removed} removed, {pending} worker cleanups pending, {errors} errors.",
+    "es": "La verificacion de almacenamiento encontro restos anteriores: {removed} eliminados, {pending} limpiezas pendientes en el worker y {errors} errores.",
+    "ca": "La verificacio d'emmagatzematge ha trobat restes anteriors: {removed} eliminades, {pending} neteges pendents al worker i {errors} errors."
+  },
+  "ui.worker_storage_cleanup_failed": {
+    "en": "The promoted private result could not be removed; the next worker launch will report and retry it.",
+    "es": "No se pudo eliminar el resultado privado promocionado; el proximo lanzamiento al worker lo notificara y reintentara.",
+    "ca": "No s'ha pogut eliminar el resultat privat promocionat; el proper llancament al worker ho notificara i ho reintentara."
+  },
+  "ui.worker_candidate_discarded": {
+    "en": "Discarded",
+    "es": "Descartado",
+    "ca": "Descartat"
+  },
   "ui.worker_transport_queued": {
     "en": "Immutable input delivery test queued for {worker}.",
     "es": "Prueba de envio de entradas inmutables encolada para {worker}.",

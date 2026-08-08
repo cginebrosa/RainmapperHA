@@ -101,7 +101,16 @@ class MushroomWorkerServiceTests(unittest.TestCase):
         self.assertEqual(result["display_name"], "M1 personal")
         self.assertEqual(result["host_name"], "macbook-m1-test")
         self.assertEqual(result["job_api"], "candidate_rebuild_v0")
+        self.assertIn("weather_parquet_v1", result["capabilities"])
+        self.assertIn("terminal_job_cleanup_v1", result["capabilities"])
         self.assertEqual(result["dataset_cache"]["file_count"], 10)
+
+        heartbeat = mushroom_worker_service.heartbeat_payload(
+            result,
+            discarded_job_ids=["worker_job_discard123"],
+            cleaned_job_ids=["worker_job_cleanup123"],
+        )
+        self.assertEqual(heartbeat["cleaned_job_ids"], ["worker_job_cleanup123"])
 
     def test_status_reports_missing_dataset_without_crashing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

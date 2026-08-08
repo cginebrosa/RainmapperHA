@@ -176,6 +176,63 @@ class MushroomWorkerResultsTests(unittest.TestCase):
                 job_id=self.job_id,
             )
 
+    def test_cleanup_promoted_results_requires_receipts_and_preserves_pending(self) -> None:
+        result_root = self.root / "promoted-cleanup-results"
+        promoted_rebuild = result_root / self.job_id
+        promoted_ml_id = "worker_job_mlcleanup123"
+        promoted_ml = result_root / f"ml.{promoted_ml_id}"
+        pending_id = "worker_job_pending1234"
+        pending = result_root / pending_id
+        for path in (promoted_rebuild, promoted_ml, pending):
+            path.mkdir(parents=True)
+        (promoted_rebuild / mushroom_worker_results.PROMOTION_RECEIPT_NAME).write_text(
+            json.dumps(
+                {
+                    "kind": "rainmapper_worker_candidate_promotion",
+                    "status": "promoted",
+                    "job_id": self.job_id,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (promoted_ml / mushroom_worker_results.PROMOTION_RECEIPT_NAME).write_text(
+            json.dumps(
+                {
+                    "kind": "rainmapper_worker_ml_train_promotion",
+                    "status": "promoted",
+                    "job_id": promoted_ml_id,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        report = mushroom_worker_results.cleanup_promoted_results(
+            result_root,
+            [
+                {
+                    "job_id": self.job_id,
+                    "job_type": "worker_candidate_rebuild",
+                    "promotion_status": "promoted",
+                },
+                {
+                    "job_id": promoted_ml_id,
+                    "job_type": "worker_ml_train_v0",
+                    "promotion_status": "promoted",
+                },
+                {
+                    "job_id": pending_id,
+                    "job_type": "worker_candidate_rebuild",
+                    "promotion_status": "pending",
+                },
+            ],
+        )
+
+        self.assertCountEqual(report["discarded"], [self.job_id, promoted_ml_id])
+        self.assertEqual(report["errors"], [])
+        self.assertFalse(promoted_rebuild.exists())
+        self.assertFalse(promoted_ml.exists())
+        self.assertTrue(pending.exists())
+
     def test_coordinator_rejects_tampered_or_undeclared_candidate_file(self) -> None:
         result_root = self.root / "results"
         mushroom_worker_results.receive_result_file(

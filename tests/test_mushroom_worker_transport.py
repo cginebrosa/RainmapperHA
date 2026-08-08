@@ -1,11 +1,15 @@
 import json
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from unittest import mock
 
+import pandas as pd
+
+from rainmapper_core import mushroom_observation_context
 from rainmapper_core import mushroom_rebuild_snapshot
 from rainmapper_core import mushroom_worker_dataset_cache
 from rainmapper_core import mushroom_worker_transport
@@ -56,6 +60,19 @@ class MushroomWorkerTransportTests(unittest.TestCase):
         self.catalogs.write_text("{}", encoding="utf-8")
         self.mappings.write_text("{}", encoding="utf-8")
         (self.weather / "Meteocat_incremental.csv").write_text("date,value\n2026-07-19,1\n", encoding="utf-8")
+        pd.DataFrame(
+            [
+                {
+                    "source": "meteocat",
+                    "station_code": "X1",
+                    "station_name": "Test station",
+                    "local_date": "20260808",
+                    "lat": 42.0,
+                    "lon": 2.0,
+                    "rain_mm": 1.5,
+                }
+            ]
+        ).to_parquet(self.weather / "weather_daily.parquet", index=False)
         self.bundle_root = self.root / "coordinator-bundles"
         self.job_id = "worker_job_transport123"
         self.metadata = mushroom_worker_transport.prepare_coordinator_bundle(
@@ -129,6 +146,11 @@ class MushroomWorkerTransportTests(unittest.TestCase):
         self.assertEqual(result["snapshot_id"], self.metadata["snapshot_id"])
         self.assertEqual(result["input_file_count"], self.metadata["input_file_count"])
         self.assertTrue((self.worker_data / "jobs" / self.job_id / "job_spec.json").is_file())
+        downloaded_weather = self.worker_data / "jobs" / self.job_id / "snapshot" / "inputs" / "weather"
+        self.assertTrue((downloaded_weather / "weather_daily.parquet").is_file())
+        self.assertFalse((downloaded_weather / "Meteocat_incremental.csv").exists())
+        stations = mushroom_observation_context.load_daily_weather_parquet(downloaded_weather)
+        self.assertIn(("meteocat", "X1"), stations)
         self.assertTrue(progress)
         self.assertTrue(all(row == ("Bearer coordinator-secret", "worker_12345678", "claim-secret") for row in seen_headers))
 
@@ -296,6 +318,121 @@ class MushroomWorkerTransportTests(unittest.TestCase):
             mushroom_worker_dataset_cache.verify_version(self.worker_data, deep=True)["fingerprint"],
             dataset_before["fingerprint"],
         )
+
+    def test_discard_accepts_identity_checked_ml_job_spec(self) -> None:
+        ml_job_id = "worker_job_mlcleanup123"
+        worker_job = self.worker_data / "jobs" / ml_job_id
+        worker_job.mkdir(parents=True)
+        (worker_job / "job_spec.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "0.1",
+                    "kind": "mushroom_ml_train_v0_spec",
+                    "job_id": ml_job_id,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        removed = mushroom_worker_transport.discard_worker_job(
+            self.worker_data,
+            ml_job_id,
+        )
+
+        self.assertTrue(removed)
+        self.assertFalse(worker_job.exists())
+
+    def test_cleanup_reconciles_only_discardable_old_storage(self) -> None:
+        def prepare(job_id: str) -> None:
+            mushroom_worker_transport.prepare_coordinator_bundle(
+                self.bundle_root,
+                job_id=job_id,
+                observations_path=self.observations,
+                reference_catalogs_path=self.catalogs,
+                gis_mappings_path=self.mappings,
+                weather_data_dir=self.weather,
+                gis_root=self.gis,
+            )
+
+        retained_candidate = "worker_job_candidate123"
+        retained_active = "worker_job_running12345"
+        failed = "worker_job_failed123456"
+        promoted = "worker_job_promoted1234"
+        old_orphan = "worker_job_orphanold123"
+        recent_orphan = "worker_job_orphannew123"
+        for job_id in (
+            retained_candidate,
+            retained_active,
+            failed,
+            promoted,
+            old_orphan,
+            recent_orphan,
+        ):
+            prepare(job_id)
+
+        now = 100_000.0
+        os.utime(self.bundle_root / old_orphan, (0, 0))
+        os.utime(self.bundle_root / recent_orphan, (now, now))
+        stale_staging = self.bundle_root / (
+            ".worker_job_stale12345.staging-" + "a" * 32
+        )
+        recent_staging = self.bundle_root / (
+            ".worker_job_recent1234.staging-" + "b" * 32
+        )
+        stale_staging.mkdir()
+        recent_staging.mkdir()
+        os.utime(stale_staging, (0, 0))
+        os.utime(recent_staging, (now, now))
+        jobs = [
+            {
+                "job_id": self.job_id,
+                "job_type": "worker_snapshot_transport_probe",
+                "status": "complete",
+            },
+            {
+                "job_id": retained_candidate,
+                "job_type": "worker_candidate_rebuild",
+                "status": "complete",
+                "promotion_status": "pending",
+            },
+            {
+                "job_id": retained_active,
+                "job_type": "worker_candidate_rebuild",
+                "status": "running",
+            },
+            {
+                "job_id": failed,
+                "job_type": "worker_candidate_rebuild",
+                "status": "failed",
+            },
+            {
+                "job_id": promoted,
+                "job_type": "worker_candidate_rebuild",
+                "status": "complete",
+                "promotion_status": "promoted",
+            },
+        ]
+
+        report = mushroom_worker_transport.cleanup_coordinator_bundles(
+            self.bundle_root,
+            jobs,
+            now=now,
+            staging_grace_seconds=60,
+            orphan_grace_seconds=60,
+        )
+
+        self.assertCountEqual(
+            report["discarded_terminal"],
+            [self.job_id, failed, promoted],
+        )
+        self.assertEqual(report["discarded_orphan"], [old_orphan])
+        self.assertEqual(report["discarded_staging"], [stale_staging.name])
+        self.assertTrue((self.bundle_root / retained_candidate).is_dir())
+        self.assertTrue((self.bundle_root / retained_active).is_dir())
+        self.assertTrue((self.bundle_root / recent_orphan).is_dir())
+        self.assertTrue(recent_staging.is_dir())
+        self.assertTrue((self.bundle_root / ".gis-hash-cache.json").is_file())
+        self.assertEqual(report["errors"], [])
 
 
 if __name__ == "__main__":

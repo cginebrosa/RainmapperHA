@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import pandas as pd
+
 from rainmapper_core import mushroom_rebuild_comparison, mushroom_rebuild_snapshot
 
 
@@ -64,6 +66,64 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
         self.assertEqual((snapshot / manifest["inputs"]["observations"]).read_text(), "{}")
         missing_weather = [row for row in manifest["files"] if row.get("exists") is False]
         self.assertEqual(len(missing_weather), 3)
+
+    def test_snapshot_prefers_weather_parquet_and_live_verification_accepts_it(self) -> None:
+        pd.DataFrame(
+            [
+                {
+                    "source": "meteocat",
+                    "station_code": "X1",
+                    "station_name": "Test",
+                    "local_date": "20260808",
+                    "lat": 42.0,
+                    "lon": 2.0,
+                    "rain_mm": 1.0,
+                }
+            ]
+        ).to_parquet(self.weather / "weather_daily.parquet", index=False)
+
+        snapshot = self.create_snapshot()
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+        weather_records = [
+            row for row in manifest["files"] if str(row.get("role", "")).startswith("weather:")
+        ]
+        live = mushroom_rebuild_snapshot.verify_live_inputs(
+            manifest,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+        )
+
+        self.assertEqual(len(manifest["files"]), 4)
+        self.assertEqual(len(weather_records), 1)
+        self.assertEqual(weather_records[0]["role"], "weather:daily_parquet")
+        self.assertEqual(weather_records[0]["path"], "inputs/weather/weather_daily.parquet")
+        self.assertFalse(any(str(row.get("path", "")).endswith(".csv") for row in manifest["files"]))
+        self.assertEqual(live["status"], "valid")
+
+    def test_snapshot_uses_csv_fallback_for_worker_without_parquet_capability(self) -> None:
+        pd.DataFrame(
+            [{"source": "meteocat", "station_code": "X1", "local_date": "20260808"}]
+        ).to_parquet(self.weather / "weather_daily.parquet", index=False)
+        snapshot = self.root / "snapshot-csv-compatibility"
+
+        mushroom_rebuild_snapshot.create_snapshot(
+            snapshot,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+            prefer_weather_parquet=False,
+        )
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+
+        self.assertTrue(any(str(row.get("path", "")).endswith(".csv") for row in manifest["files"]))
+        self.assertFalse(
+            any(str(row.get("path", "")).endswith("weather_daily.parquet") for row in manifest["files"])
+        )
 
     def test_verify_detects_changed_snapshot_file(self) -> None:
         snapshot = self.create_snapshot()

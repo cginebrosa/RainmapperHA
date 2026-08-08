@@ -310,6 +310,73 @@ usados quedaron fijados mediante el fingerprint
 El snapshot completo recibio el ID
 `sha256:3c3f9e27bae0e108a8b4bf4ac10cb5a7a8934025f0d1de2d6bf237cdff210e26`.
 
+#### Evolucion del transporte meteorologico y retencion (2026-08-08)
+
+La cifra anterior describe el primer contrato probado en julio, no la politica
+actual. Los CSV incrementales siguen siendo la fuente autoritativa del runner;
+la migracion completa de descargas y upserts a Parquet continua expresamente
+fuera de alcance. Sin embargo, el runner ya genera el artefacto derivado
+`weather_daily.parquet`, que contiene la misma entrada diaria que necesita la
+reconstruccion. Por ello, el coordinador incluye preferentemente ese unico
+Parquet en los snapshots nuevos cuando el worker anuncia que puede leerlo, y
+recurre a los cuatro CSV si aun no existe o el worker es antiguo.
+
+El protocolo `InputManifest 0.1` no cambia: enumera paths, tamanos y SHA-256 y el
+worker descarga lo que declara el manifest. La imagen worker `0.2.228` y la
+aplicacion HA `0.2.232` son productos versionados por separado. La comprobacion
+directa de la imagen `0.2.228` detecto que contiene el lector en codigo pero no
+el motor `pyarrow`; por ello la siguiente imagen worker instala
+`pyarrow==25.0.0`. No cambia el protocolo ni obliga a actualizar las dos imagenes
+a la vez: HA mantiene el transporte CSV hasta que el worker anuncie la capacidad.
+
+Medicion en la instalacion HA del 8 de agosto: los cuatro CSV ocupaban entre
+113 y 116 MB por snapshot y `weather_daily.parquet`, unos 12 MB. El ahorro de
+transporte y copia privada esperado es de aproximadamente el 89 % por job.
+
+Politica de ciclo de vida:
+
+| Estado | Bundle de entrada HA | Registro del job | Otros artefactos |
+|---|---|---|---|
+| Activo | conservar | conservar | conservar |
+| Candidato completo sin decidir | conservar | conservar | conservar resultado |
+| Promocionado | eliminar | conservar | eliminar resultado privado; conservar hasta 2 backups |
+| Fallido o cancelado | eliminar | conservar | limpiar staging del resultado |
+| Prueba de transporte terminal | eliminar | conservar | no aplica |
+
+Antes de crear cualquier job externo se ejecuta una reconciliacion conservadora:
+elimina bundles terminales, resultados ya promocionados con receipt valido,
+staging abandonado y bundles sin registro que superan el periodo de gracia. No
+elimina candidatos pendientes, jobs activos, cache GIS/DEM, modelos vivos ni
+backups. Si actua o encuentra errores, el mensaje de lanzamiento muestra cuantos
+restos elimino, cuantas limpiezas del worker siguen pendientes y cuantos errores
+hubo. No se ejecuta silenciosamente ni depende de reiniciar el add-on.
+
+La cola conserva un maximo de 50 registros. Un descarte pasa a estado persistente
+`acknowledged` en lugar de borrar la fila; la UI carga los 50 y limita la altura
+a unas 10 filas con scroll y cabecera fija. Los backups de promocion continúan
+rotando a un maximo de dos.
+
+El worker elimina el directorio local de un job solo despues de recibir de HA el
+acuse de `finish`. En el heartbeat posterior envia `cleaned_job_ids`; HA registra
+`worker_cleanup_status=complete`. Como red de seguridad, HA puede devolver
+`cleanup_job_ids` para trabajos terminales antiguos. Este flujo nunca incluye la
+cache GIS/DEM compartida.
+
+#### Versionado y capacidades independientes
+
+La numeracion historica `0.2.228` del worker seguia accidentalmente la release HA
+y resultaba ambigua. La siguiente imagen abre una secuencia propia como worker
+`1.0.0`, valor predeterminado de `RAINMAPPER_WORKER_VERSION` en su Dockerfile;
+solo cambiara cuando cambie el worker. Por ejemplo, varias releases HA podran
+seguir usando exactamente worker `1.0.0`.
+
+La compatibilidad no se deduce del numero. El heartbeat de worker `1.0.0`
+anuncia `weather_parquet_v1` y `terminal_job_cleanup_v1`. Al congelar un job, HA
+solo incluye `weather_daily.parquet` si el worker destino anuncia la primera;
+si no, incluye los CSV. El manifest registra `weather_transport` y una
+reasignacion a un worker incompatible se rechaza. Esto permite convivir de forma
+segura con el worker legado mientras se actualizan los equipos.
+
 La reconstruccion desde ese snapshot produjo 125 resultados GIS, 126 filas de
 weather/features y 14 modelos de especie:
 
@@ -743,7 +810,8 @@ La misma imagen puede permanecer levantada como servicio headless mediante:
 
 El arranque usa `rainmapper-local/docker-compose.worker-local.yml`, crea o
 reutiliza explicitamente `rainmapper-worker-data`, construye
-`rainmapper-worker:local`, publica solo `127.0.0.1:8110` y espera a que
+la version independiente declarada por el Dockerfile —actualmente
+`rainmapper-worker:1.0.0`—, publica solo `127.0.0.1:8110` y espera a que
 `/health` confirme que el servicio responde. Si el volumen aun no contiene el
 dataset, el estado `needs_dataset` permite completar el arranque: el primer job
 compatible lo descargara y persistira antes de calcular. El Compose tiene un
@@ -753,8 +821,9 @@ contenedor de la UI local.
 El apagado ejecuta `docker compose stop`, nunca `down -v`: imagen, dataset,
 manifests y resultados permanecen. El servicio atiende `SIGTERM` y la prueba
 real termino como `Exited (0)`. Se comprobo ademas que el proceso Python corre
-como UID 10001 y que Docker continua mostrando solo las dos imagenes esperadas:
-`rainmapperha:local-ha-ui` y `rainmapper-worker:local`.
+como UID 10001. Desde worker `1.0.0`, la etiqueta operativa ya no es `local`:
+el launcher lee la version del Dockerfile y la exporta al Compose para que
+argumento de build, etiqueta y runtime coincidan.
 
 `http://127.0.0.1:8110/health` devuelve unicamente JSON de diagnostico con
 version, estado `idle`/`busy`/`needs_dataset`, capacidades y resumen de cache.

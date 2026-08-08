@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - Rainmapper targets Unix platforms
     fcntl = None  # type: ignore[assignment]
 
 
-SCHEMA_VERSION = "2.1"
+SCHEMA_VERSION = "2.2"
 MAX_RECORDS = 2_000
 MAX_BYTES = 5 * 1024 * 1024
 MAX_SUMMARY_RECORDS = 20_000
@@ -41,12 +41,19 @@ DEFAULT_DIAGNOSTICS_PATH = Path(
     "/share/rainmapper/diagnostics/runtime_metrics.jsonl"
 )
 DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 10.0
+PARENT_OPERATION_ENV = "RAINMAPPER_PARENT_OPERATION_ID"
 
 _FILE_LOCK = threading.Lock()
 _STATE_LOCK = threading.Lock()
 _STATUS_CACHE_LOCK = threading.Lock()
 _STATUS_CACHE_KEY: tuple[Any, ...] | None = None
 _STATUS_CACHE_VALUE: dict[str, Any] | None = None
+_HISTORY_CACHE_KEY: tuple[Any, ...] | None = None
+_HISTORY_CACHE_VALUE: list[dict[str, Any]] | None = None
+_VERSION_AVERAGES_CACHE_KEY: tuple[Any, ...] | None = None
+_VERSION_AVERAGES_CACHE_VALUE: list[dict[str, Any]] | None = None
+_EVOLUTION_CACHE_KEY: tuple[Any, ...] | None = None
+_EVOLUTION_CACHE_VALUE: list[dict[str, Any]] | None = None
 _CURRENT_OPERATION_ID: ContextVar[str | None] = ContextVar(
     "rainmapper_runtime_operation_id", default=None
 )
@@ -173,6 +180,16 @@ def new_operation_id(operation: str) -> str:
         for character in operation.strip().lower()
     ).strip("-") or "operation"
     return f"{timestamp}-{safe_operation}-{uuid4().hex[:8]}"
+
+
+def schema_at_least(value: object, minimum: tuple[int, int]) -> bool:
+    """Compare diagnostic major/minor versions without rejecting future schemas."""
+    try:
+        parts = str(value).split(".", 2)
+        current = int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        return False
+    return current >= minimum
 
 
 def _read_keyed_kib(path: Path) -> dict[str, float]:
@@ -742,7 +759,11 @@ class OperationMonitor:
         self.operation_id = operation_id or new_operation_id(operation)
         self.path = path or diagnostics_path()
         self.failure_log_path = failure_log_path
-        parent_operation_id = _CURRENT_OPERATION_ID.get()
+        parent_operation_id = (
+            _CURRENT_OPERATION_ID.get()
+            or os.environ.get(PARENT_OPERATION_ENV, "").strip()
+            or None
+        )
         operation_details = dict(details or {})
         if parent_operation_id and parent_operation_id != self.operation_id:
             operation_details.setdefault("parent_operation_id", parent_operation_id)
@@ -1088,6 +1109,360 @@ def _read_recent_jsonl(
         if isinstance(record, dict):
             records.append(record)
     return records
+
+
+def diagnostic_history(
+    path: Path | None = None,
+    *,
+    limit: int = 120,
+) -> list[dict[str, Any]]:
+    """Return comparison-ready executions built from the bounded JSONL history.
+
+    The compact summary remains authoritative. Detailed phase events and child
+    operations are attached when they are still available in the shorter
+    metrics retention window.
+    """
+    global _HISTORY_CACHE_KEY, _HISTORY_CACHE_VALUE
+    metrics_path = path or diagnostics_path()
+    history_paths = (summary_path(metrics_path), metrics_path)
+
+    def signature(source_path: Path) -> tuple[int, int]:
+        try:
+            stat = source_path.stat()
+            return stat.st_mtime_ns, stat.st_size
+        except OSError:
+            return 0, 0
+
+    cache_key = (
+        str(metrics_path),
+        int(limit),
+        *(signature(item) for item in history_paths),
+    )
+    with _STATUS_CACHE_LOCK:
+        if cache_key == _HISTORY_CACHE_KEY and _HISTORY_CACHE_VALUE is not None:
+            return [dict(item) for item in _HISTORY_CACHE_VALUE]
+    summaries = _read_recent_jsonl(
+        summary_path(metrics_path),
+        limit=2_000,
+        max_bytes=2 * 1024 * 1024,
+    )
+    metrics = _read_recent_jsonl(
+        metrics_path,
+        limit=MAX_RECORDS,
+        max_bytes=MAX_BYTES,
+    )
+    terminal_statuses = {"ok", "error", "degraded", "interrupted", "unavailable", "aborted"}
+    visible_operations = {"runner_action", "runner_update", "predictor_request"}
+
+    final_records: dict[tuple[str, str], dict[str, Any]] = {}
+    snapshots: dict[str, dict[str, dict[str, Any]]] = {}
+    child_records: dict[str, list[dict[str, Any]]] = {}
+    for record in summaries:
+        operation = str(record.get("operation", ""))
+        operation_id = str(record.get("operation_id", ""))
+        status = str(record.get("status", ""))
+        details = record.get("details") if isinstance(record.get("details"), dict) else {}
+        if status == "snapshot":
+            phase = str(details.get("phase", "snapshot"))
+            snapshots.setdefault(operation_id, {})[phase] = dict(details)
+            continue
+        if status not in terminal_statuses or not operation_id:
+            continue
+        final_records[(operation, operation_id)] = record
+        parent_id = str(details.get("parent_operation_id", ""))
+        if parent_id:
+            child_records.setdefault(parent_id, []).append(record)
+    visible_ids = {
+        operation_id
+        for (operation, operation_id) in final_records
+        if operation in visible_operations
+    }
+    for (operation, operation_id), record in final_records.items():
+        details = record.get("details") if isinstance(record.get("details"), dict) else {}
+        if (
+            operation not in visible_operations
+            and operation_id in visible_ids
+            and not details.get("parent_operation_id")
+        ):
+            child_records.setdefault(operation_id, []).append(record)
+
+    events_by_id: dict[str, list[dict[str, Any]]] = {}
+    for record in metrics:
+        operation_id = str(record.get("operation_id", ""))
+        phase = str(record.get("phase", ""))
+        if not operation_id or phase == "heartbeat":
+            continue
+        events_by_id.setdefault(operation_id, []).append(
+            {
+                "operation": record.get("operation"),
+                "phase": phase,
+                "timestamp": record.get("timestamp"),
+                "details": record.get("details") if isinstance(record.get("details"), dict) else {},
+            }
+        )
+
+    executions: list[dict[str, Any]] = []
+    for (operation, operation_id), record in final_records.items():
+        if operation not in visible_operations:
+            continue
+        details = dict(record.get("details") or {})
+        children = child_records.get(operation_id, [])
+        sources = details.get("sources") if isinstance(details.get("sources"), dict) else {}
+        child_payloads: list[dict[str, Any]] = []
+        phases = list(events_by_id.get(operation_id, []))
+        execution_snapshots = dict(snapshots.get(operation_id, {}))
+        for child in children:
+            child_details = dict(child.get("details") or {})
+            child_payloads.append(
+                {
+                    "operation": child.get("operation"),
+                    "operation_id": child.get("operation_id"),
+                    "status": child.get("status"),
+                    "timestamp": child.get("timestamp"),
+                    "details": child_details,
+                }
+            )
+            child_id = str(child.get("operation_id", ""))
+            phases.extend(events_by_id.get(child_id, []))
+            for phase, snapshot_details in snapshots.get(child_id, {}).items():
+                execution_snapshots.setdefault(phase, snapshot_details)
+            if not sources and isinstance(child_details.get("sources"), dict):
+                sources = child_details["sources"]
+        if sources:
+            source_payloads = [item for item in sources.values() if isinstance(item, dict)]
+            details["source_rows_total"] = sum(
+                int(item.get("rows") or 0) for item in source_payloads
+            )
+            details["source_stations_total"] = sum(
+                int(item.get("stations") or 0) for item in source_payloads
+            )
+        phases.sort(key=lambda item: str(item.get("timestamp") or ""))
+        executions.append(
+            {
+                "key": f"{operation}|{operation_id}",
+                "operation": operation,
+                "operation_id": operation_id,
+                "status": record.get("status"),
+                "timestamp": record.get("timestamp"),
+                "diagnostic_schema": str(record.get("schema_version", "legacy")),
+                "capabilities": {
+                    "source_phase_intervals": operation in {"runner_action", "runner_update"}
+                    and schema_at_least(record.get("schema_version"), (2, 2)),
+                },
+                "details": details,
+                "sources": sources,
+                "snapshots": execution_snapshots,
+                "children": child_payloads,
+                "phases": phases,
+            }
+        )
+
+    executions.sort(key=lambda item: str(item.get("timestamp") or ""), reverse=True)
+    result = executions[: max(1, int(limit))]
+    with _STATUS_CACHE_LOCK:
+        _HISTORY_CACHE_KEY = cache_key
+        _HISTORY_CACHE_VALUE = result
+    return [dict(item) for item in result]
+
+
+def diagnostic_version_averages(
+    path: Path | None = None,
+    *,
+    version_limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Aggregate comparable runner and Predictor summaries by recent version."""
+    global _VERSION_AVERAGES_CACHE_KEY, _VERSION_AVERAGES_CACHE_VALUE
+    metrics_path = path or diagnostics_path()
+    source_path = summary_path(metrics_path)
+    try:
+        stat = source_path.stat()
+        signature = (stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        signature = (0, 0)
+    cache_key = (str(metrics_path), int(version_limit), signature)
+    with _STATUS_CACHE_LOCK:
+        if (
+            cache_key == _VERSION_AVERAGES_CACHE_KEY
+            and _VERSION_AVERAGES_CACHE_VALUE is not None
+        ):
+            return [dict(item) for item in _VERSION_AVERAGES_CACHE_VALUE]
+
+    summaries = _read_recent_jsonl(
+        source_path,
+        limit=MAX_SUMMARY_RECORDS,
+        max_bytes=MAX_SUMMARY_BYTES,
+    )
+    operations = {"runner_action", "predictor_request"}
+    terminal_statuses = {"ok", "error", "degraded", "interrupted", "unavailable", "aborted"}
+    records: list[dict[str, Any]] = []
+    version_latest: dict[str, str] = {}
+    for record in summaries:
+        if record.get("operation") not in operations or record.get("status") not in terminal_statuses:
+            continue
+        details = record.get("details") if isinstance(record.get("details"), dict) else {}
+        version = str(details.get("app_version", "unknown")).strip() or "unknown"
+        if version == "unknown":
+            continue
+        timestamp = str(record.get("timestamp", ""))
+        records.append(record)
+        version_latest[version] = max(version_latest.get(version, ""), timestamp)
+    selected_versions = [
+        version
+        for version, _timestamp in sorted(
+            version_latest.items(), key=lambda item: item[1], reverse=True
+        )[: max(1, int(version_limit))]
+    ]
+    metric_fields = (
+        "wall_seconds",
+        "max_process_rss_mib",
+        "max_cgroup_memory_current_mib",
+        "min_host_mem_available_mib",
+        "max_cpu_temperature_c",
+        "cpu_percent_one_core",
+    )
+    aggregates: list[dict[str, Any]] = []
+    for version in selected_versions:
+        for operation in ("runner_action", "predictor_request"):
+            operation_records = [
+                record
+                for record in records
+                if record.get("operation") == operation
+                and str((record.get("details") or {}).get("app_version", "unknown")) == version
+            ]
+            workloads: dict[str, list[dict[str, Any]]] = {}
+            for record in operation_records:
+                details = record.get("details") if isinstance(record.get("details"), dict) else {}
+                if operation == "runner_action":
+                    workload = str(details.get("action", "unknown"))
+                else:
+                    temperature = "cold" if details.get("cold_request") else "warm"
+                    workload = f"{details.get('view', 'unknown')} · {temperature}"
+                workloads.setdefault(workload, []).append(record)
+            for workload, group in workloads.items():
+                averages: dict[str, float] = {}
+                minimums: dict[str, float] = {}
+                maximums: dict[str, float] = {}
+                for field in metric_fields:
+                    values = [
+                        float(record["details"][field])
+                        for record in group
+                        if isinstance(record.get("details"), dict)
+                        and isinstance(record["details"].get(field), (int, float))
+                    ]
+                    if values:
+                        averages[field] = round(sum(values) / len(values), 3)
+                        minimums[field] = round(min(values), 3)
+                        maximums[field] = round(max(values), 3)
+                aggregates.append(
+                    {
+                        "version": version,
+                        "operation": operation,
+                        "workload": workload,
+                        "sample_count": len(group),
+                        "ok_count": sum(record.get("status") == "ok" for record in group),
+                        "anomaly_count": sum(
+                            record.get("status") not in {"ok", "unavailable"}
+                            or bool((record.get("details") or {}).get("cgroup_oom_delta"))
+                            or bool((record.get("details") or {}).get("cgroup_oom_kill_delta"))
+                            for record in group
+                        ),
+                        "last_timestamp": max(str(record.get("timestamp", "")) for record in group),
+                        "averages": averages,
+                        "minimums": minimums,
+                        "maximums": maximums,
+                    }
+                )
+
+    with _STATUS_CACHE_LOCK:
+        _VERSION_AVERAGES_CACHE_KEY = cache_key
+        _VERSION_AVERAGES_CACHE_VALUE = aggregates
+    return [dict(item) for item in aggregates]
+
+
+def diagnostic_evolution_series(
+    path: Path | None = None,
+    *,
+    days: int | None = 30,
+) -> list[dict[str, Any]]:
+    """Return compact terminal summaries for the interactive evolution chart.
+
+    ``days=None`` deliberately means all summaries still present in the bounded
+    summary JSONL. Detailed phases are never included in this payload.
+    """
+    global _EVOLUTION_CACHE_KEY, _EVOLUTION_CACHE_VALUE
+    metrics_path = path or diagnostics_path()
+    source_path = summary_path(metrics_path)
+    try:
+        stat = source_path.stat()
+        signature = (stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        signature = (0, 0)
+    normalized_days = None if days is None else max(1, int(days))
+    cache_key = (str(metrics_path), normalized_days, signature)
+    with _STATUS_CACHE_LOCK:
+        if cache_key == _EVOLUTION_CACHE_KEY and _EVOLUTION_CACHE_VALUE is not None:
+            return [dict(item) for item in _EVOLUTION_CACHE_VALUE]
+
+    cutoff = datetime.now(UTC) - timedelta(days=normalized_days) if normalized_days else None
+    terminal_statuses = {"ok", "error", "degraded", "interrupted", "unavailable", "aborted"}
+    metric_fields = (
+        "wall_seconds",
+        "max_process_rss_mib",
+        "max_cgroup_memory_current_mib",
+        "min_host_mem_available_mib",
+        "max_cpu_temperature_c",
+        "cpu_percent_one_core",
+    )
+    series: list[dict[str, Any]] = []
+    for record in _read_recent_jsonl(
+        source_path,
+        limit=MAX_SUMMARY_RECORDS,
+        max_bytes=MAX_SUMMARY_BYTES,
+    ):
+        operation = str(record.get("operation", ""))
+        if operation not in {"runner_action", "predictor_request"}:
+            continue
+        if record.get("status") not in terminal_statuses:
+            continue
+        timestamp = str(record.get("timestamp", ""))
+        if cutoff:
+            try:
+                parsed = datetime.fromisoformat(
+                    f"{timestamp[:-1]}+00:00" if timestamp.endswith("Z") else timestamp
+                )
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=UTC)
+                if parsed.astimezone(UTC) < cutoff:
+                    continue
+            except ValueError:
+                continue
+        details = record.get("details") if isinstance(record.get("details"), dict) else {}
+        if operation == "runner_action":
+            workload = str(details.get("action", "unknown"))
+        else:
+            temperature = "cold" if details.get("cold_request") else "warm"
+            workload = f"{details.get('view', 'unknown')} · {temperature}"
+        metrics = {
+            field: float(details[field])
+            for field in metric_fields
+            if isinstance(details.get(field), (int, float))
+        }
+        series.append(
+            {
+                "timestamp": timestamp,
+                "operation": operation,
+                "workload": workload,
+                "version": str(details.get("app_version", "unknown")),
+                "status": record.get("status"),
+                "diagnostic_schema": str(record.get("schema_version", "legacy")),
+                "metrics": metrics,
+            }
+        )
+    series.sort(key=lambda item: str(item.get("timestamp") or ""))
+    with _STATUS_CACHE_LOCK:
+        _EVOLUTION_CACHE_KEY = cache_key
+        _EVOLUTION_CACHE_VALUE = series
+    return [dict(item) for item in series]
 
 
 def diagnostics_status(path: Path | None = None) -> dict[str, Any]:

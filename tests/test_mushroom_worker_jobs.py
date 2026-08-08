@@ -72,8 +72,77 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 ),
                 [job_id],
             )
-            with self.assertRaisesRegex(ValueError, "not found"):
-                mushroom_worker_jobs.get_job(path, job_id=created["job_id"])
+            retained = mushroom_worker_jobs.get_job(path, job_id=created["job_id"])
+            self.assertEqual(retained["discard_status"], "acknowledged")
+            self.assertEqual(retained["phase"], "Candidate discarded")
+            self.assertEqual(
+                mushroom_worker_jobs.pending_candidate_discards(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                ),
+                [],
+            )
+
+    def test_terminal_worker_cleanup_is_acknowledged_without_removing_history(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            job_id = "worker_job_cleanup123"
+            mushroom_worker_jobs.create_snapshot_transport_probe(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle={
+                    "job_id": job_id,
+                    "job_spec_id": "sha256:" + "a" * 64,
+                    "snapshot_id": "sha256:" + "b" * 64,
+                    "input_file_count": 4,
+                    "input_size_bytes": 1234,
+                },
+                job_id=job_id,
+            )
+            mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=job_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            mushroom_worker_jobs.finish_job(
+                path,
+                job_id=job_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+                status="complete",
+            )
+
+            self.assertEqual(
+                mushroom_worker_jobs.pending_worker_job_cleanups(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                ),
+                [job_id],
+            )
+            self.assertEqual(
+                mushroom_worker_jobs.acknowledge_worker_job_cleanups(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    job_ids=[job_id],
+                ),
+                [job_id],
+            )
+            retained = mushroom_worker_jobs.get_job(path, job_id=job_id)
+            self.assertEqual(retained["worker_cleanup_status"], "complete")
+            self.assertEqual(
+                mushroom_worker_jobs.pending_worker_job_cleanups(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                ),
+                [],
+            )
 
     def test_candidate_rebuild_rejects_overlapping_active_scope_but_allows_disjoint_species(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -6,6 +6,8 @@ Especificación e implementación incluidas desde `0.2.227`. Los ensayos A, B y 
 cerraron el P0 de memoria para el escenario monousuario probado. `0.2.232`
 refuerza la caja negra después de un bloqueo real del host durante un runner:
 persiste heartbeats, identifica el arranque físico y acota la descarga AEMET.
+`0.2.233` introduce el contrato diagnóstico `2.2`, con intervalos temporales
+comparables para las cuatro fuentes meteorológicas.
 
 ## Objetivos
 
@@ -26,13 +28,17 @@ Los eventos se escriben como JSON Lines en:
 ```
 
 El historial conserva como máximo 2.000 eventos y se compacta cuando supera
-5 MiB. Cada línea es autocontenida; el contrato actual usa
-`schema_version=2.1`. La escritura de diagnósticos nunca debe hacer fallar una
-actualización o una predicción.
+5 MiB. Cada línea es autocontenida. `0.2.232` escribe `schema_version=2.1` y
+`0.2.233` escribe `2.2`. La escritura de diagnósticos nunca debe hacer fallar
+una actualización o una predicción.
 
 El paquete descargable contiene únicamente:
 
 - `runtime_metrics.jsonl`;
+- `runtime_summary.jsonl`;
+- `runtime_anomalies.jsonl`;
+- `runtime_state.json`;
+- hasta 20 colas redactadas en `failed_operations/`;
 - `last_run.log`;
 - `manifest.json` con versión y fecha de exportación.
 
@@ -144,6 +150,49 @@ La implementación posterior a `0.2.228` mantuvo el JSONL v1 compatible y añadi
 el contrato `schema_version: 2.0` en `0.2.229`. La prueba real está completada.
 `0.2.232` amplía el contrato compatible a `2.1` con heartbeat y datos del host.
 
+La evolución local posterior amplía el contrato a `2.2` sin reescribir ni
+eliminar diagnósticos anteriores. La versión del esquema funciona como una
+capacidad, no como un filtro de admisión:
+
+- `2.1` y anteriores conservan métricas, estado, recursos y comparación A/B,
+  pero la UI los identifica como **limited detail**;
+- `2.2` añade `source_phase_intervals` para situar con inicio y fin reales las
+  fases de AEMET, Meteoclimatic, Meteocat y Wunderground;
+- el dashboard nunca infiere intervalos ausentes ni atribuye eventos de AEMET a
+  otra fuente para completar un histórico antiguo;
+- no hay que borrar `/share/rainmapper/diagnostics` al instalar `0.2.233`:
+  mezclar ejecuciones 2.1 y 2.2 es el comportamiento previsto y permite
+  comparar el antes y el después.
+
+### Intervalos de las fuentes en el esquema 2.2
+
+Cada medición interna de una fuente registra un evento inmediato
+`source_phase_start` y, si termina, un `source_phase_complete`. El inicio deja
+evidencia incluso si el host se interrumpe a mitad de la fase. Los intervalos
+completos se copian además en el resumen compacto de la fuente con `source`,
+`phase`, `phase_id`, `started_at`, `finished_at` y `duration_seconds`; por tanto,
+el Gantt sobrevive a la rotación del JSONL de detalle mientras sobreviva el
+resumen de la ejecución.
+
+Los timestamps nuevos usan UTC ISO 8601 con sufijo `Z` y milisegundos. Así se
+alinean rigurosamente con el inicio global de la operación aunque Home Assistant
+use `Europe/Madrid` o cambie entre horario de invierno y verano.
+
+La granularidad sigue las fases reales ya existentes en cada implementación,
+no una lista artificial idéntica para todas:
+
+- AEMET: petición/descarga, decodificación, parseo y normalización expuestas por
+  su callback, además de las fases globales de Parquet y catálogo;
+- Meteoclimatic: descarga/parseo, histórico incremental, lectura y escrituras;
+- Meteocat: metadatos, condiciones, viento, precipitación, merge, incremental y
+  escrituras;
+- Wunderground: metadatos, scraping/API/fallback, merge incremental, lectura y
+  escrituras.
+
+Las cuatro fuentes se ejecutan en paralelo cuando la configuración lo permite.
+Por eso sus intervalos conservan timestamps absolutos y luego se proyectan sobre
+un eje transcurrido común; no se reconstruye el orden sumando duraciones.
+
 ### Medición correlacionada del Predictor
 
 Cada apertura genera un `operation_id` de `predictor_request` y estas fases del
@@ -212,17 +261,148 @@ redactada su `last_run.log` antes de que una ejecución posterior pueda
 sobrescribirlo.
 
 El ZIP añade resumen, anomalías, estado y logs fallidos al detalle y
-`last_run.log` existentes. El Control Panel muestra último éxito, último
-fallo/interrupción, último OOM, máximo reciente del cgroup y operaciones
-pendientes. Su lectura está cacheada por tamaño/mtime para no releer el histórico
-en cada polling.
+`last_run.log` existentes. Su lectura de estado está cacheada por tamaño/mtime
+para no releer el histórico en cada polling.
+
+### Pestaña Diagnostics e histórico comparable
+
+Esta sección es la especificación canónica de diseño, persistencia y operación
+de la pestaña Diagnostics. No se mantiene un segundo documento de diseño para
+evitar que retención, filtros y semántica de comparación diverjan.
+
+`0.2.233` mueve **Runtime black box** fuera de Summary y crea una pestaña
+**Diagnostics**. Summary conserva únicamente el estado operativo habitual. La
+nueva pestaña ofrece:
+
+- estado vivo: último éxito, fallo/interrupción, OOM, pico reciente del cgroup y
+  operaciones pendientes;
+- selectores **Execution A · baseline** y **Execution B · candidate**,
+  inicialmente configurados con la ejecución anterior y la última del mismo
+  tipo;
+- comparación de duración, RSS, cgroup, memoria disponible del host,
+  temperatura, CPU, OOM y recuperación a 60/600 segundos;
+- deltas absolutos y porcentuales calculados como `B - A`, y porcentaje respecto
+  a A. Menos duración, memoria o temperatura es mejor; más `MemAvailable` es
+  mejor;
+- valoración textual separada: `B is better`, `A is better`, `No change` o
+  `Not assessed`. El color de la diferencia conserva la lectura rápida, pero no
+  es necesario inferir por el signo qué ejecución resulta favorable;
+- aviso cuando se comparan tipos, acciones del runner o vistas del Predictor no
+  equivalentes;
+- histórico reciente con fecha local, tipo, versión, estado y recursos;
+- Gantt de fases y detalle de las cuatro fuentes: AEMET, Meteoclimatic, Meteocat
+  y Wunderground. Cada fuente aparece plegada como una barra global y se puede
+  desplegar independientemente para ver sus subfases. A y B comparten un eje X
+  de tiempo transcurrido desde el inicio basado en la ventana más larga, con
+  marcas y rejilla; por tanto, posiciones y longitudes se pueden comparar
+  directamente;
+- tabla de medias separadas de Runner y Predictor para las cinco versiones más
+  recientes, con muestras, ejecuciones correctas, anomalías, duración, memoria,
+  temperatura y `MemAvailable`.
+
+La selección representa ejecuciones reconstruidas desde los JSONL persistentes,
+no ficheros ZIP individuales. Descargar un ZIP sigue siendo una exportación bajo
+demanda del conjunto de evidencias. Las selecciones A/B se conservan en
+`sessionStorage` y sobreviven al refresco automático del panel cada cinco
+segundos.
+
+La tabla visible enseña las 20 ejecuciones más recientes y los selectores A/B
+pueden usar hasta las 500 ejecuciones reconstruibles más recientes; siete días
+no es ya un límite de diseño. Los eventos detallados pueden rotar antes que sus
+resúmenes, en cuyo caso la comparación numérica sigue siendo válida y la UI
+indica que no conserva fases suficientes para el Gantt.
+
+La sección **Evolution** tiene dos modos:
+
+- **Timeline**, con ventanas seleccionables de 7, 30, 90 días o todo lo aún
+  retenido en `runtime_summary.jsonl`. Dibuja cada versión/carga como serie
+  separada y permite elegir duración, cgroup, RSS, `MemAvailable`, temperatura
+  o CPU.
+- **By version**, para las cinco versiones más recientes. Representa la media y
+  el rango mínimo-máximo de cada métrica, con el número de muestras en el punto.
+
+Ambos modos filtran por Runner/Predictor y por carga comparable. Runner y
+Predictor nunca se mezclan en una misma serie o media porque representan cargas
+distintas; tampoco se fusionan acciones `all`/`update`/`maps` ni vistas del
+Predictor con carga fría/caliente. Elegir «All» muestra líneas independientes,
+no una media conjunta.
+
+Los resúmenes compactos siguen bajo el límite circular de 20.000 registros/20
+MiB. Las agregaciones por versión se calculan al leer el histórico y se cachean
+por tamaño/mtime; no crean otro fichero ni añaden trabajo al runner. Las series
+temporales también son compactas: excluyen fases, snapshots, hijos y el desglose
+de fuentes. La opción «All retained» puede transferir más datos y por eso solo
+se solicita explícitamente al seleccionarla.
+
+El histórico se carga de forma diferida mediante
+`/api/diagnostics/history?period=7|30|90|all` únicamente al abrir la pestaña
+Diagnostics o cambiar la ventana temporal. El navegador reutiliza durante 60
+segundos el periodo activo. Por tanto, el polling normal de Summary cada cinco
+segundos no transporta ni vuelve a serializar el histórico.
+
+Los topes teóricos de los tres JSONL estructurados suman 35 MiB: 5 MiB de
+detalle, 20 MiB de resúmenes y 10 MiB de anomalías. Los logs fallidos tienen un
+tope separado de 20 colas de hasta 2 MiB. En funcionamiento normal ocupan mucho
+menos y son pequeños frente a los históricos meteorológicos o la carpeta de
+media. El coste de las medias se produce al abrir/refrescar Diagnostics después
+de cambiar un resumen, no durante cada heartbeat ni durante el procesamiento de
+las fuentes.
+
+### Prueba local con un ZIP descargado de HA
+
+`rainmapper-ha-ui` monta `docker-data/` como `/share/rainmapper`, por lo que se
+puede validar la interfaz con una copia de la caja negra real sin conectarse a
+HA durante la prueba:
+
+1. Descargar **Download diagnostics** en HA. Si macOS lo descomprime
+   automáticamente, puede usarse la carpeta resultante; si se vuelve a comprimir
+   con Finder, ignorar `__MACOSX/` y `.DS_Store`.
+2. Conservar aparte cualquier `docker-data/diagnostics` local existente.
+3. Copiar solamente `runtime_metrics.jsonl`, `runtime_summary.jsonl` y
+   `runtime_anomalies.jsonl` a `docker-data/diagnostics/`.
+4. No importar `runtime_state.json`: pertenece al boot real de HA y el entorno
+   local podría reconciliar falsamente operaciones o snapshots pendientes.
+5. Arrancar `./mushroom_lab_start.sh` y abrir
+   `http://127.0.0.1:8101/#tab-diagnostics`.
+6. Comprobar que cambiar A o B actualiza inmediatamente cabeceras, tabla y
+   Gantt, y que la selección sobrevive al refresco.
+7. Alternar Timeline entre 7/30/90 días y todo lo retenido; después cambiar a By
+   version y verificar media/rango para una misma carga comparable.
+8. Con un runner `2.2`, desplegar por separado las cuatro fuentes en ambos Gantt
+   y en **Source and phase detail**. Comprobar que cada subfase queda dentro de
+   la barra de su fuente y que A/B usa la misma escala.
+9. Seleccionar como A un runner `2.1` y como B uno `2.2`. Las métricas deben
+   seguir comparándose; A debe indicar **limited detail** y B **full source
+   detail**, sin fases inventadas para A.
+
+`manifest.json`, `last_run.log` y `failed_operations/` no son necesarios para
+probar esta pantalla. Siguen siendo útiles para un análisis manual de incidentes.
+
+El resumen compacto es la autoridad para comparaciones antiguas. Las fases se
+añaden mientras sigan en la retención corta de `runtime_metrics.jsonl`; cuando
+han rotado, la UI lo indica sin invalidar las métricas finales. Desde esta
+evolución, `runner_action` pasa explícitamente su ID al proceso hijo
+`runner_update`, que guarda en su resumen estado, filas, estaciones, duración y
+timings internos de todas las fuentes. De este modo una ejecución `all` puede
+agrupar la actualización hija y conservar la comparación multifuente incluso
+después de rotar los eventos detallados. Los runners anteriores continúan
+visibles, aunque pueden carecer de ese desglose.
+
+Dentro de **Source and phase detail**, los resúmenes de AEMET, Meteoclimatic,
+Meteocat y Wunderground son acordeones independientes y los eventos conservados
+de la operación forman otro bloque independiente. Estos últimos nunca se
+atribuyen a Wunderground por ser la última fuente presentada; las versiones
+antiguas pueden contener eventos granulares únicamente de AEMET. En un
+diagnóstico `2.2`, cada acordeón enseña sus intervalos retenidos; en un `2.1`,
+el bloque conserva duraciones agregadas y declara explícitamente la limitación.
 
 Los ficheros técnicos mantienen timestamps UTC con `Z` y milisegundos para poder
 correlacionar eventos. La presentación del Control Panel los convierte a la zona
 `RAINMAPPER_TIMEZONE` y al ISO local de las tarjetas Summary, con offset y
-precisión de segundos. Esta homogeneización de UI se implementó después de
-validar `0.2.232` y queda pendiente de una futura release; no justifica por sí
-sola un nuevo build.
+precisión de segundos. Como excepción deliberada, los extremos del eje de la
+gráfica usan el formato regional del navegador, más breve para lectura visual.
+Esta homogeneización de UI se implementó después de validar `0.2.232` y quedó
+incluida en `0.2.233` junto con el resto de la ampliación diagnóstica.
 
 La retención no es literalmente infinita. Descargar el ZIP o incluir `/share` en
 un backup permite sacar el histórico del dispositivo; el detalle reciente rota,
@@ -370,8 +550,8 @@ Los registros se crean solos tanto para ejecuciones manuales como programadas.
 No es necesario mantener abierta la pantalla de Home Assistant ni observar sus
 gráficas. Una vez terminada la prueba y transcurridos los 10 minutos de
 recuperación, abrir el panel de Rainmapper y pulsar **Download diagnostics** en
-las acciones rápidas o en la pestaña **Logs**. El ZIP resultante se puede guardar
-y compartir para analizarlo posteriormente.
+la pestaña **Diagnostics**. El ZIP resultante se puede guardar y compartir para
+analizarlo posteriormente.
 
 ## Procedimiento de validación en RPi4
 
@@ -550,5 +730,13 @@ con digest
 después quedó instalada y validada con el runner manual descrito arriba.
 
 El ajuste local posterior que presenta los timestamps diagnósticos en la zona
-horaria del Control Panel pasó el smoke completo con 495 tests. Permanece sin
-publicar para agruparlo con una futura release de contenido funcional.
+horaria del Control Panel pasó el smoke completo con 495 tests. La pestaña
+Diagnostics, la comparación A/B, la correlación padre/hijo, el resumen de las
+cuatro fuentes y las medias por versión elevaron la suite local a 499 tests.
+La evolución temporal/por versión, los rangos mínimo-máximo, el Gantt y la
+corrección del evento `change` de los selectores A/B elevaron después la suite
+local a 500 tests. El esquema `2.2`, la persistencia de intervalos para las
+cuatro fuentes, los acordeones del Gantt y la compatibilidad explícita con `2.1`
+elevaron después la suite a 501 tests. El conjunto final de `0.2.233`, incluido
+el transporte y ciclo de vida del worker, pasó 511 tests; la imagen quedó
+publicada y está pendiente de validación en HA real.

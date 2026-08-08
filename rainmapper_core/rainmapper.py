@@ -31,7 +31,7 @@ atexit.register(_finish_runner_diagnostics_if_needed)
 
 import pandas as pd
 from rainmapper_core.sources.sodapy_local import Socrata
-from datetime import datetime, date, timedelta, time
+from datetime import datetime, date, timedelta, time, timezone
 import pytz
 import math
 import re
@@ -356,9 +356,60 @@ def end_count(_legend=''):
     elapsed_time = timedelta(seconds=time_module.perf_counter() - start_perf)
     print(_legend+"--> Time elapsed: {}".format(elapsed_time))
 
+class SourceTimings(dict):
+    """Per-source durations plus compact wall-clock intervals for diagnostics."""
+
+    def __init__(self, source):
+        super().__init__()
+        self.source = str(source)
+        self.phase_intervals = []
+        self.sequence = 0
+
+
+def diagnostic_timestamp_utc(timespec='milliseconds'):
+    """Return an unambiguous timestamp aligned with runtime diagnostics."""
+    return datetime.now(timezone.utc).isoformat(timespec=timespec).replace('+00:00', 'Z')
+
+
+def start_timing(timings, key):
+    """Start a best-effort source phase while preserving legacy float timers."""
+    started_perf = time_module.perf_counter()
+    if not isinstance(timings, SourceTimings):
+        return started_perf
+    timings.sequence += 1
+    phase_id = f"{timings.source.lower()}-{timings.sequence}"
+    started_wall = diagnostic_timestamp_utc()
+    _runner_diagnostics.mark(
+        'source_phase_start',
+        {
+            'source': timings.source,
+            'source_phase': str(key).removesuffix('_seconds'),
+            'source_phase_id': phase_id,
+            'started_at': started_wall,
+        },
+    )
+    return started_perf, started_wall, phase_id
+
+
 def record_timing(timings, key, started_at):
-    if isinstance(timings, dict):
-        timings[key] = time_module.perf_counter() - started_at
+    if not isinstance(timings, dict):
+        return
+    started_perf = started_at[0] if isinstance(started_at, tuple) else started_at
+    elapsed = time_module.perf_counter() - started_perf
+    timings[key] = elapsed
+    if not isinstance(timings, SourceTimings) or not isinstance(started_at, tuple):
+        return
+    finished_wall = diagnostic_timestamp_utc()
+    interval = {
+        'source': timings.source,
+        'phase': str(key).removesuffix('_seconds'),
+        'phase_id': started_at[2],
+        'started_at': started_at[1],
+        'finished_at': finished_wall,
+        'duration_seconds': round(elapsed, 3),
+    }
+    timings.phase_intervals.append(interval)
+    _runner_diagnostics.mark('source_phase_complete', interval)
 
 def print_source_timings(source, timings):
     timing_parts = [
@@ -518,6 +569,7 @@ def record_source_status(
     started_at=None,
     finished_at=None,
     timings=None,
+    phase_intervals=None,
     extra=None,
 ):
     SOURCE_STATUSES[source] = {
@@ -542,9 +594,40 @@ def record_source_status(
             for key, value in timings.items()
             if value is not None
         }
+    if phase_intervals:
+        SOURCE_STATUSES[source]['phase_intervals'] = [
+            {
+                'source': str(item.get('source', source)),
+                'phase': str(item.get('phase', 'unknown')),
+                'phase_id': str(item.get('phase_id', '')),
+                'started_at': str(item.get('started_at', '')),
+                'finished_at': str(item.get('finished_at', '')),
+                'duration_seconds': round(float(item.get('duration_seconds', 0)), 3),
+            }
+            for item in phase_intervals
+            if isinstance(item, dict)
+        ]
     if isinstance(extra, dict):
         SOURCE_STATUSES[source].update(extra)
     write_source_statuses()
+    if str(status).upper() != 'PENDING':
+        _runner_diagnostics.mark(
+            'source_complete',
+            {
+                'source': source,
+                'status': status,
+                'exit_code': exit_code,
+                'rows': SOURCE_STATUSES[source]['rows'],
+                'stations': SOURCE_STATUSES[source]['stations'],
+                'enabled': SOURCE_STATUSES[source]['enabled'],
+                'stale_data_used': SOURCE_STATUSES[source]['stale_data_used'],
+                'duration_seconds': SOURCE_STATUSES[source].get('duration_seconds'),
+                'started_at': SOURCE_STATUSES[source].get('started_at'),
+                'finished_at': SOURCE_STATUSES[source].get('finished_at'),
+                'timings': SOURCE_STATUSES[source].get('timings', {}),
+                'phase_intervals': SOURCE_STATUSES[source].get('phase_intervals', []),
+            },
+        )
 
 def record_source_runtime_metric(source, duration_seconds, started_at=None, finished_at=None, timings=None):
     SOURCE_RUNTIME_METRICS[source] = {
@@ -552,10 +635,36 @@ def record_source_runtime_metric(source, duration_seconds, started_at=None, fini
         'started_at': started_at,
         'finished_at': finished_at,
         'timings': timings or {},
+        'phase_intervals': list(getattr(timings, 'phase_intervals', [])),
     }
 
 def source_runtime_metric(source):
     return SOURCE_RUNTIME_METRICS.get(source, {})
+
+def source_diagnostic_summary():
+    """Return non-sensitive per-source workload and timing data."""
+    allowed_fields = (
+        'status',
+        'exit_code',
+        'rows',
+        'stations',
+        'stale_data_used',
+        'enabled',
+        'duration_seconds',
+        'started_at',
+        'finished_at',
+        'timings',
+        'phase_intervals',
+    )
+    return {
+        source: {
+            key: payload.get(key)
+            for key in allowed_fields
+            if key in payload
+        }
+        for source, payload in SOURCE_STATUSES.items()
+        if isinstance(payload, dict)
+    }
 
 def source_extra_status(source):
     if source == 'Wunderground':
@@ -1176,7 +1285,7 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel, timings=No
     #
     try:
         # Intentar cargar el archivo CSV
-        step_start_time = time_module.perf_counter()
+        step_start_time = start_timing(timings, 'read_incremental_seconds')
         csv_old = read_incremental('Meteocat_incremental')
         record_timing(timings, 'read_incremental_seconds', step_start_time)
         #print('Meteocat incremental leido:',csv_old.info())
@@ -1186,7 +1295,7 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel, timings=No
     #
     # Upsert by station/day: fresh non-null values win, but fresh NaN values
     # keep existing non-null fields such as Meteocat temperature/humidity.
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'upsert_incremental_seconds')
     csv_incremental = upsert_incremental(csv, csv_old)
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
     csv_incremental.reset_index(drop=True, inplace=True)
@@ -1196,7 +1305,7 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel, timings=No
     #csv_incremental = filter_results(csv_incremental,_minima_lectura_meteocat)
     #
 	# Save incremental Dataframe to csv
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'write_incremental_seconds')
     csv_incremental.to_csv(_DATA_PATH+'Meteocat_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
     record_timing(timings, 'write_incremental_seconds', step_start_time)
     #print('Meteocat incremental salvado:',csv_incremental.info())
@@ -1217,7 +1326,7 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timin
     try:
         # Intentar cargar el archivo CSV
         #csv_old = pd.read_csv(_DATA_PATH+'Meteoclimatic_incremental.csv',decimal=',')
-        step_start_time = time_module.perf_counter()
+        step_start_time = start_timing(timings, 'read_incremental_seconds')
         csv_old = read_incremental('Meteoclimatic_incremental')
         record_timing(timings, 'read_incremental_seconds', step_start_time)
 
@@ -1226,28 +1335,28 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timin
         csv_old = pd.DataFrame(columns=csv.columns)
 
     observations_path = _DATA_PATH+'Meteoclimatic_observations_incremental.csv'
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'read_observations_seconds')
     if os.path.exists(observations_path):
         observations_old = read_meteoclimatic_observations(observations_path)
     else:
         observations_old = pd.DataFrame(columns=METEOCLIMATIC_OBSERVATION_COLUMNS)
     record_timing(timings, 'read_observations_seconds', step_start_time)
 
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'upsert_observations_seconds')
     observations_incremental = update_meteoclimatic_observations(csv, observations_old)
     record_timing(timings, 'upsert_observations_seconds', step_start_time)
 
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'write_observations_seconds')
     observations_incremental.to_csv(observations_path, decimal=',', index=False)
     record_timing(timings, 'write_observations_seconds', step_start_time)
 
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'build_daily_seconds')
     csv = build_meteoclimatic_daily_incremental(observations_incremental)
     record_timing(timings, 'build_daily_seconds', step_start_time)
 
     # Upsert by station/day: fresh non-null values win, but fresh NaN values
     # keep existing non-null fields from earlier successful reads.
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'upsert_incremental_seconds')
     csv_incremental = upsert_incremental(csv, csv_old)
 
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
@@ -1256,7 +1365,7 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timin
     #print(' ')
 	#
     # Refresh Station data on incremental local DB from local DB of Stations
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'station_incremental_update_seconds')
     estacions_meteoclimatic_df = pd.read_csv(_DATA_PATH+'estacions_meteoclimatic.csv',decimal=',')
 
     estacions_meteoclimatic_df.set_index(keys='Codi Estació',drop=False,inplace=True)
@@ -1270,7 +1379,7 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timin
     csv_incremental.reset_index(drop=True, inplace=True)
 
 	# Save incremental Dataframe to csv
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'write_incremental_seconds')
     csv_incremental.to_csv(_DATA_PATH+'Meteoclimatic_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
     record_timing(timings, 'write_incremental_seconds', step_start_time)
 	#
@@ -1290,7 +1399,7 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel, timing
     try:
         # Intentar cargar el archivo CSV
         #csv_old = pd.read_csv(_DATA_PATH+'Meteoclimatic_incremental.csv',decimal=',')
-        step_start_time = time_module.perf_counter()
+        step_start_time = start_timing(timings, 'read_incremental_seconds')
         csv_old = read_incremental('Wunderground_incremental')
         record_timing(timings, 'read_incremental_seconds', step_start_time)
 
@@ -1300,7 +1409,7 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel, timing
 
     # Upsert by station/day: fresh non-null values win, but fresh NaN values
     # keep existing non-null fields from earlier successful reads.
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'upsert_incremental_seconds')
     csv_incremental = upsert_incremental(csv, csv_old)
 
     csv_incremental.sort_values(by=['Codi Estació','Data Local'], ascending=[True,False],inplace=True)
@@ -1323,7 +1432,7 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel, timing
     csv_incremental.reset_index(drop=True, inplace=True)
 
 	# Save incremental Dataframe to csv
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'write_incremental_seconds')
     csv_incremental.to_csv(_DATA_PATH+'Wunderground_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
     record_timing(timings, 'write_incremental_seconds', step_start_time)
 	#
@@ -1696,7 +1805,7 @@ def create_meteoclimatic(_save_to_csv, timings=None):
     patterns = parse_meteoclimatic_patterns(_meteoclimatic_pattern)
     print("Meteoclimatic patterns:", ", ".join(patterns))
 
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'fetch_seconds')
     meteoclimatic_frames = []
     failed_patterns = []
     for pattern_index, pattern in enumerate(patterns):
@@ -1718,14 +1827,14 @@ def create_meteoclimatic(_save_to_csv, timings=None):
         raise RuntimeError("No Meteoclimatic data recovered.")
     record_timing(timings, 'fetch_seconds', step_start_time)
 
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'build_current_seconds')
     meteoclimatic_df = pd.concat(meteoclimatic_frames, ignore_index=True)
     meteoclimatic_df.drop_duplicates(subset=["Codi Estació"], keep="first", inplace=True)
     meteoclimatic_df.reset_index(drop=True, inplace=True)
     meteoclimatic_df = create_total_meteoclimatic(meteoclimatic_df, _save_to_excel = False, _save_to_csv=False)
     record_timing(timings, 'build_current_seconds', step_start_time)
 
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'normalize_dates_seconds')
     meteoclimatic_df['Data Local'] = meteoclimatic_df['Ultima Lectura']
     meteoclimatic_df['Hora Local'] = meteoclimatic_df['Ultima Lectura']
 
@@ -1738,7 +1847,7 @@ def create_meteoclimatic(_save_to_csv, timings=None):
     meteoclimatic_df['Hora Local'] = meteoclimatic_df['Data Lectura'].dt.strftime("%H:%M:%S")  # Set Time as only time from 'Ultima Lectura'
     record_timing(timings, 'normalize_dates_seconds', step_start_time)
 
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'normalize_columns_seconds')
     # Set order of columns to match Meteocat's columns order
     cols = meteoclimatic_df.columns.tolist()
     cols = cols[:1]+cols[-1:]+ cols[1:-1]
@@ -1755,12 +1864,12 @@ def create_meteoclimatic(_save_to_csv, timings=None):
     record_timing(timings, 'normalize_columns_seconds', step_start_time)
 
     # Refresh local DB of stations (to not search for elevation in googlemaps all the time)
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'station_catalog_seconds')
     refreshed_stations_df = refresh_estacions_meteoclimatic(meteoclimatic_df)
     record_timing(timings, 'station_catalog_seconds', step_start_time)
 
     # Update Altitud on meteoclimatic_df from local DB stations
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'station_update_seconds')
     refreshed_stations_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     meteoclimatic_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     meteoclimatic_df.update(refreshed_stations_df)
@@ -2299,7 +2408,7 @@ def create_wunderground(timings=None):
                 next_progress += progress_step
 
     # Usa ThreadPoolExecutor para gestionar los threads
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'scrape_seconds')
     with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix="UrlScrapping") as executor:
         futures = []
         # Crea una lista de tareas usando executor.submit()
@@ -2317,7 +2426,7 @@ def create_wunderground(timings=None):
             register_wunderground_result(future.result())
     record_timing(timings, 'scrape_seconds', step_start_time)
 
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'metrics_seconds')
     print_wunderground_summary(results)
     record_timing(timings, 'metrics_seconds', step_start_time)
 
@@ -2326,13 +2435,13 @@ def create_wunderground(timings=None):
     # Convert to Rainmapper format
 
     # Move to dataframe and remove temporary created csv file = wunderground_file_name
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'read_scrape_csv_seconds')
     scraper_df = pd.read_csv(wunderground_file_name , decimal=',')
     os.remove(wunderground_file_name)
     record_timing(timings, 'read_scrape_csv_seconds', step_start_time)
 
     #print(scraper_df)
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'normalize_seconds')
     wunderground_df = build_wunderground_dataframe(scraper_df)
 
     wunderground_df['Data Lectura'] = pd.to_datetime(wunderground_df['Data Lectura'],format='%Y-%m-%d %H:%M:%S') # 'Data Lectura' como datetime64
@@ -2348,12 +2457,12 @@ def create_wunderground(timings=None):
     record_timing(timings, 'normalize_seconds', step_start_time)
 
     # Refresh local stations DB  (to not search for elevation in googlemaps all times)
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'station_catalog_seconds')
     refreshed_stations_df = refresh_estacions_wunderground(wunderground_df)
     record_timing(timings, 'station_catalog_seconds', step_start_time)
 
     # Refresh Update Altitud/Provincia/Població on wunderground_df from local DB stations
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'station_update_seconds')
     refreshed_stations_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     wunderground_df.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     wunderground_df.update(refreshed_stations_df)
@@ -2366,7 +2475,7 @@ def create_wunderground(timings=None):
     #print(wunderground_df)
 
     # Save wunderground_df to csv
-    step_start_time = time_module.perf_counter()
+    step_start_time = start_timing(timings, 'write_current_seconds')
     wunderground_df.to_csv(_DATA_PATH+'Wunderground'+'.csv', decimal='.', index=False)
     record_timing(timings, 'write_current_seconds', step_start_time)
     return wunderground_df
@@ -2459,9 +2568,9 @@ def process_meteoclimatic():                                        # FOR MULTIT
     #################################
     ## Process Meteoclimatic data ##
     #################################
-    source_started_at = datetime.now().isoformat(timespec='seconds')
+    source_started_at = diagnostic_timestamp_utc('seconds')
     source_start_time = time_module.perf_counter()
-    source_timings = {}
+    source_timings = SourceTimings('Meteoclimatic')
     try:
         if _create_meteoclimatic:
             start_count(_legend='Start processing Meteoclimatic...')
@@ -2475,7 +2584,7 @@ def process_meteoclimatic():                                        # FOR MULTIT
             if _incremental_meteoclimatic:
                 meteoclimatic_incremental = save_incremental_meteoclimatic(meteoclimatic_df, _save_to_excel=False, timings=source_timings) 	# Saves incremental data to csv. Also to excel depending on param
             else:
-                step_start_time = time_module.perf_counter()
+                step_start_time = start_timing(source_timings, 'read_incremental_seconds')
                 meteoclimatic_incremental = read_incremental('Meteoclimatic_incremental')
                 record_timing(source_timings, 'read_incremental_seconds', step_start_time)
 
@@ -2484,7 +2593,7 @@ def process_meteoclimatic():                                        # FOR MULTIT
             #print('Meteoclimatic.dtypes')
 
             # print(meteoclimatic_df.dtypes)
-            step_start_time = time_module.perf_counter()
+            step_start_time = start_timing(source_timings, 'write_current_seconds')
             save_dataframe(meteoclimatic_df, 'Meteoclimatic', _save_to_csv=True, _save_to_excel=False,_decimal=',')
             record_timing(source_timings, 'write_current_seconds', step_start_time)
             print_source_timings('Meteoclimatic', source_timings)
@@ -2508,7 +2617,7 @@ def process_meteoclimatic():                                        # FOR MULTIT
             'Meteoclimatic',
             time_module.perf_counter() - source_start_time,
             started_at=source_started_at,
-            finished_at=datetime.now().isoformat(timespec='seconds'),
+            finished_at=diagnostic_timestamp_utc('seconds'),
             timings=source_timings,
         )
 
@@ -2664,9 +2773,9 @@ def process_wunderground():                                         # FOR MULTIT
     ###############################
     ## Process Wunderground data ##
     ###############################
-    source_started_at = datetime.now().isoformat(timespec='seconds')
+    source_started_at = diagnostic_timestamp_utc('seconds')
     source_start_time = time_module.perf_counter()
-    source_timings = {}
+    source_timings = SourceTimings('Wunderground')
     try:
         if _create_wunderground:
             start_count(_legend='Start processing Wunderground...')
@@ -2677,7 +2786,7 @@ def process_wunderground():                                         # FOR MULTIT
             if _incremental_wunderground:
                 wunderground_incremental = save_incremental_wunderground(wunderground_df, _save_to_excel=False, timings=source_timings) 	# Saves incremental data to csv. Also to excel depending on param
             else:
-                step_start_time = time_module.perf_counter()
+                step_start_time = start_timing(source_timings, 'read_incremental_seconds')
                 wunderground_incremental = read_incremental('Wunderground_incremental')
                 record_timing(source_timings, 'read_incremental_seconds', step_start_time)
             print_source_timings('Wunderground', source_timings)
@@ -2692,7 +2801,7 @@ def process_wunderground():                                         # FOR MULTIT
             'Wunderground',
             time_module.perf_counter() - source_start_time,
             started_at=source_started_at,
-            finished_at=datetime.now().isoformat(timespec='seconds'),
+            finished_at=diagnostic_timestamp_utc('seconds'),
             timings=source_timings,
         )
 
@@ -2706,9 +2815,54 @@ def process_aemet():                                                # FOR MULTIT
     """
     from rainmapper_core import create_aemet as aemet_source
 
-    source_started_at = datetime.now().isoformat(timespec='seconds')
+    source_started_at = diagnostic_timestamp_utc('seconds')
     source_start_time = time_module.perf_counter()
-    source_timings = {}
+    source_timings = SourceTimings('AEMET')
+    aemet_phase_starts = {}
+
+    def record_aemet_phase(phase, details=None):
+        phase_details = dict(details) if isinstance(details, dict) else {}
+        _runner_diagnostics.mark(phase, phase_details)
+        phase_name = str(phase).removeprefix('aemet_')
+        if phase_name.endswith('_start'):
+            # create_aemet names the network pair request_start/download_complete.
+            base_phase = 'download' if phase_name == 'request_start' else phase_name.removesuffix('_start')
+            source_timings.sequence += 1
+            phase_id = f"aemet-{source_timings.sequence}"
+            started_at = diagnostic_timestamp_utc()
+            aemet_phase_starts.setdefault(base_phase, []).append((phase_id, started_at))
+            _runner_diagnostics.mark(
+                'source_phase_start',
+                {
+                    'source': 'AEMET',
+                    'source_phase': base_phase,
+                    'source_phase_id': phase_id,
+                    'started_at': started_at,
+                },
+            )
+            return
+        if not phase_name.endswith('_complete'):
+            return
+        base_phase = phase_name.removesuffix('_complete')
+        starts = aemet_phase_starts.get(base_phase, [])
+        if not starts:
+            return
+        phase_id, started_at = starts.pop(0)
+        finished_at = diagnostic_timestamp_utc()
+        try:
+            elapsed = (datetime.fromisoformat(finished_at) - datetime.fromisoformat(started_at)).total_seconds()
+        except ValueError:
+            elapsed = float(phase_details.get('elapsed_seconds') or 0)
+        interval = {
+            'source': 'AEMET',
+            'phase': base_phase,
+            'phase_id': phase_id,
+            'started_at': started_at,
+            'finished_at': finished_at,
+            'duration_seconds': round(elapsed, 3),
+        }
+        source_timings.phase_intervals.append(interval)
+        _runner_diagnostics.mark('source_phase_complete', interval)
     try:
         if _create_aemet:
             start_count(_legend='Start processing AEMET...')
@@ -2728,10 +2882,10 @@ def process_aemet():                                                # FOR MULTIT
                         aemet_source.AEMET_TOTAL_TIMEOUT_SECONDS,
                     )
                 ),
-                phase_callback=_runner_diagnostics.mark,
+                phase_callback=record_aemet_phase,
             )
             if isinstance(summary.get('timings'), dict):
-                source_timings = summary['timings']
+                source_timings.update(summary['timings'])
                 timing_parts = [
                     f"{key}={value:.1f}s"
                     for key, value in source_timings.items()
@@ -2767,7 +2921,7 @@ def process_aemet():                                                # FOR MULTIT
             'AEMET',
             time_module.perf_counter() - source_start_time,
             started_at=source_started_at,
-            finished_at=datetime.now().isoformat(timespec='seconds'),
+            finished_at=diagnostic_timestamp_utc('seconds'),
             timings=source_timings,
         )
 
@@ -2819,9 +2973,9 @@ def process_meteocat():                                             # FOR MULTIT
     ###########################
     ## Process Meteocat data ##
     ###########################
-    source_started_at = datetime.now().isoformat(timespec='seconds')
+    source_started_at = diagnostic_timestamp_utc('seconds')
     source_start_time = time_module.perf_counter()
-    source_timings = {}
+    source_timings = SourceTimings('Meteocat')
     try:
         if _create_meteocat:
             start_count(_legend='Start processing Meteocat...')
@@ -2834,23 +2988,23 @@ def process_meteocat():                                             # FOR MULTIT
             #
 
             # Get Metadata for Stations and Variables - Only 1 reading per launch
-            step_start_time = time_module.perf_counter()
+            step_start_time = start_timing(source_timings, 'metadata_seconds')
             estacions_xema = get_estacions_xema()   # Get info data from estacions at Meteocat
             variables_xema = get_variables_xema()   # Get info data from variables at Meteocat
-            source_timings['metadata_seconds'] = time_module.perf_counter() - step_start_time
+            record_timing(source_timings, 'metadata_seconds', step_start_time)
             end_count(_legend='Processed Meteocat estacions&variables reading from Socrata')
 
             if _create_meteocat_conditions:
-                step_start_time = time_module.perf_counter()
+                step_start_time = start_timing(source_timings, 'conditions_seconds')
                 meteocat_conditions_xema=get_results_conditions_xema(pd.DataFrame, estacions_xema, variables_xema)
                 # Save current readings from meteocat_conditions_xema to csv
                 #save_dataframe(meteocat_conditions_xema, 'Meteocat_conditions_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
                 if meteocat_conditions_xema.empty:
                     meteocat_conditions_xema = read_incremental('Meteocat_incremental',_nrows=0)
-                source_timings['conditions_seconds'] = time_module.perf_counter() - step_start_time
+                record_timing(source_timings, 'conditions_seconds', step_start_time)
                 end_count(_legend='Processed Meteocat reading conditions temperature.max/min -  humidity.max&min from Socrata')
 
-                step_start_time = time_module.perf_counter()
+                step_start_time = start_timing(source_timings, 'wind_seconds')
                 # Daily wind variables are published in a separate XEMA daily
                 # dataset, not in the regular readings dataset used above.
                 meteocat_wind_xema = get_results_daily_wind_xema(estacions_xema)
@@ -2862,26 +3016,26 @@ def process_meteocat():                                             # FOR MULTIT
                         how='left',
                         indicator=False,
                     )
-                source_timings['wind_seconds'] = time_module.perf_counter() - step_start_time
+                record_timing(source_timings, 'wind_seconds', step_start_time)
                 end_count(_legend='Processed Meteocat daily wind from Socrata')
 
-            step_start_time = time_module.perf_counter()
+            step_start_time = start_timing(source_timings, 'precipitation_seconds')
             meteocat_rain_xema = get_results_rain_xema(pd.DataFrame, estacions_xema, variables_xema)
             if meteocat_rain_xema.empty:
                     meteocat_rain_xema = read_incremental('Meteocat_incremental',_nrows=0)
-            source_timings['precipitation_seconds'] = time_module.perf_counter() - step_start_time
+            record_timing(source_timings, 'precipitation_seconds', step_start_time)
 
-            step_start_time = time_module.perf_counter()
+            step_start_time = start_timing(source_timings, 'merge_seconds')
             meteocat_df = pd.merge(meteocat_rain_xema, meteocat_conditions_xema.drop_duplicates(),
                                     on=('Codi Estació','Estació','Data Lectura','Comarca','Municipi','Provincia'),
                             how='left', indicator=False)
             #save_dataframe(meteocat_merge, 'Meteocat_merged_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
             #meteocat_df = meteocat_merge
-            source_timings['merge_seconds'] = time_module.perf_counter() - step_start_time
+            record_timing(source_timings, 'merge_seconds', step_start_time)
             end_count(_legend='Processed Meteocat reading precipitation from Socrata')
             # If no records returned, initialize empty meteocat's dataframes with columns from incremental
             if meteocat_df.empty:
-                step_start_time = time_module.perf_counter()
+                step_start_time = start_timing(source_timings, 'read_incremental_seconds')
                 meteocat_incremental = read_incremental('Meteocat_incremental')
                 meteocat_df = read_incremental('Meteocat_incremental',_nrows=0)
                 record_timing(source_timings, 'read_incremental_seconds', step_start_time)
@@ -2891,13 +3045,13 @@ def process_meteocat():                                             # FOR MULTIT
                 meteocat_incremental = save_incremental_meteocat(meteocat_df, _save_to_excel=False, timings=source_timings) 			 # Saves incremental data to csv. Also to excel depending on param
                 #print('Meteocat incremental:',meteocat_incremental.info())
             else:
-                step_start_time = time_module.perf_counter()
+                step_start_time = start_timing(source_timings, 'read_incremental_seconds')
                 meteocat_incremental = read_incremental('Meteocat_incremental')
                 record_timing(source_timings, 'read_incremental_seconds', step_start_time)
             # Filter results according to settings in parameters
             #meteocat_df = filter_results(meteocat_df, _minima_lectura_meteocat)
             # Save current readings from meteocat to csv
-            step_start_time = time_module.perf_counter()
+            step_start_time = start_timing(source_timings, 'write_current_seconds')
             save_dataframe(meteocat_df, 'Meteocat', _save_to_csv=True, _save_to_excel=False,_decimal=',')
             record_timing(source_timings, 'write_current_seconds', step_start_time)
             print_source_timings('Meteocat', source_timings)
@@ -2919,7 +3073,7 @@ def process_meteocat():                                             # FOR MULTIT
             'Meteocat',
             time_module.perf_counter() - source_start_time,
             started_at=source_started_at,
-            finished_at=datetime.now().isoformat(timespec='seconds'),
+            finished_at=diagnostic_timestamp_utc('seconds'),
             timings=source_timings,
         )
 
@@ -3066,6 +3220,9 @@ elif exit_code == 1:
     print('Rainmapper finished with no usable enabled source.')
 _runner_diagnostics.finish(
     "ok" if exit_code == 0 else "degraded" if exit_code == 2 else "error",
-    {"exit_code": exit_code},
+    {
+        "exit_code": exit_code,
+        "sources": source_diagnostic_summary(),
+    },
 )
 sys.exit(exit_code)

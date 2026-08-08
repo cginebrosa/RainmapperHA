@@ -6,6 +6,12 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
+- Publicada en GHCR y pendiente de instalar/validar en HA real: `0.2.233`.
+  Añade Diagnostics con histórico, comparación A/B, evolución y Gantt; caja
+  negra `2.2` para las cuatro fuentes; transporte Parquet al worker con fallback
+  por capacidades; reconciliación visible previa a cada job y retención de 50
+  trabajos. Digest multiarquitectura:
+  `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`.
 - Publicada, instalada y validada en HA real: `0.2.232`. Conserva los cambios
   de `0.2.230`/`0.2.231` y refuerza la caja negra del runner con heartbeat
   persistente cada 10 s, fases AEMET, timeout total de 90 s, boot ID/uptime y
@@ -15,9 +21,28 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   1.445,4 MiB, mínimo `MemAvailable` 822,6 MiB, máximo 54,5 °C y cero OOM.
   Heartbeats, fases AEMET y recuperación 60/600 s validados; detalle y hash del
   ZIP en `docs/runtime-diagnostics.md`.
-- Cambio local no publicado: los timestamps UTC de la caja negra se convierten
-  al ISO local con offset usado por Summary. Por decisión del usuario no se
-  sube versión HA solo por este ajuste; se incluirá en una futura release.
+- Incluido en `0.2.233`: los timestamps UTC de la caja negra se convierten al
+  ISO local con offset usado por Summary.
+- Incluido en `0.2.233`: los snapshots del worker
+  prefieren `weather_daily.parquet` y conservan fallback CSV; HA elimina bundles
+  terminales/promocionados y reconcilia staging y huérfanos antiguos antes de
+  lanzar cada trabajo externo.
+  En la copia real esto evita retener unos 113--116 MB por reconstrucción y
+  sustituye el transporte por un Parquet de unos 12 MB (~89 % menos).
+- La app HA y el worker tienen versiones independientes. HA real continúa en
+  `0.2.232` hasta instalar `0.2.233`; el worker local M1 ya fue reconstruido y
+  está healthy como `1.0.0`. Instala `pyarrow==25.0.0` y anuncia
+  `weather_parquet_v1` y `terminal_job_cleanup_v1`. HA usa fallback CSV con
+  workers sin la capacidad Parquet.
+- `./mushroom_worker_start.sh` construye y arranca la versión declarada en el
+  Dockerfile —actualmente `rainmapper-worker:1.0.0`— y la exporta al Compose;
+  ya no etiqueta el worker operativo como `local`.
+- La retención incluida en `0.2.233` conserva 50 jobs y los
+  muestra todos en una tabla de unas 10 filas con scroll; conserva dos backups,
+  candidatos pendientes y GIS/DEM. Elimina bundles terminales, resultados ya
+  promocionados y directorios terminales del worker tras acuse. El preflight se
+  ejecuta antes de cada lanzamiento externo, no al reiniciar, y notifica en la
+  UI cualquier resto, limpieza remota pendiente o error encontrado.
 - La imagen anterior `0.2.226` conservaba el Parquet monolítico; queda sustituida
   operativamente por `0.2.227`.
 - No hay versión de desarrollo/sideload.
@@ -98,10 +123,9 @@ JSONL acotado, picos del proceso y del cgroup, recuperación a 60/600 s, carga f
 del Predictor, libera sus cachés antes del runner, impide solapamientos y añade
 un ZIP descargable desde el panel. Los ensayos A–C reales pasaron y cierran el
 P0 de memoria; queda pendiente instrumentar la latencia total del Predictor.
-Validación local de la release `0.2.232`: `smoke-test.sh`, 490 tests, PASS el
-2026-08-08. La release ya está instalada y el runner manual quedó validado en
-HA real; el ajuste visual posterior deliberadamente sin publicar pasa el smoke
-completo con 495 tests.
+Validación local de la release `0.2.233`: `smoke-test.sh`, 511 tests, PASS el
+2026-08-08. La imagen está publicada y sus manifests `amd64`/`arm64` verificados;
+queda instalarla y probar el primer runner/job externo en HA real.
 
 **Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de
 `docker-data/mushroom-data/` se refresca desde HA para pruebas y comprobaciones; no planificar
@@ -459,7 +483,7 @@ Script `scripts/run-mushroom-ml-train-job.py` lanzado como subprocess dentro del
 
 `rainmapper-worker/Dockerfile` ahora instala:
 ```
-numpy==2.4.6 pandas==2.2.2 scikit-learn==1.9.0
+numpy==2.4.6 pandas==2.2.2 pyarrow==25.0.0 scikit-learn==1.9.0
 ```
 Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-train-job.py`.
 
@@ -474,15 +498,15 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 | `rainmapper-app/app/web_server.py` | `create_mushroom_ml_train_job()`, `receive_mushroom_ml_train_result_file()`, `complete_mushroom_ml_train_result()`, `promote_mushroom_ml_train_candidate_job()`, endpoints POST |
 | `rainmapper-app/app/mushroom_workers_ui.py` | `_render_ml_train_panel()`, botón promote ml_train |
 | `mushroom-data/mushroom_labels.json` | 9 labels nuevos `ui.worker_ml_train*` (en/es/ca) |
-| `rainmapper-worker/Dockerfile` | numpy + pandas + scikit-learn; copia ml_trainer + run script |
+| `rainmapper-worker/Dockerfile` | versión worker independiente `1.0.0`; numpy + pandas + pyarrow + scikit-learn; copia ml_trainer + run script |
 | `scripts/run-mushroom-ml-train-job.py` | CLI nuevo (subprocess del worker) |
 
 ### Pendiente
 
-- Instalar la app HA `0.2.232`; no requiere reconstruir la imagen worker ni
-  reentrenar porque no cambia el contrato ni las features de entrenamiento.
-- Repetir cuando sea necesario el job ml_train_v0 end-to-end ya validado: crear
-  job desde UI, worker lo recoge, entrena, sube y promover en HA.
+- Instalar HA `0.2.233` y validar la release en la RPi4. El worker M1 `1.0.0` ya
+  está construido, arrancado y healthy.
+- Validar el primer job externo end-to-end con worker `1.0.0`: preflight visible,
+  transporte Parquet, ejecución, subida/promoción y acuse de limpieza local.
 - Implementar chaining automático rebuild → ml_train en el coordinador (campo `triggered_by_job_id`).
 
 ### Cobertura meteorológica por fuente
@@ -536,10 +560,11 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y version del repositorio: `0.2.232` (2026-08-08),
-  digest `sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`.
-  En HA real está instalada y validada `0.2.232`.
-  Workers (M1 y M5) probados y funcionales.
+- Release HA publicada en GHCR y version del repositorio: `0.2.233` (2026-08-08),
+  digest `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`.
+  En HA real sigue instalada y validada `0.2.232`; `0.2.233` está pendiente de
+  instalación. Worker M1 `1.0.0` healthy; M5 conserva su imagen anterior hasta
+  que se decida actualizarlo.
 
 ### Histórico: última release validada antes de ML (0.2.214)
 - Release instalada y validada en ese momento: `0.2.214` (`524bf2c`).

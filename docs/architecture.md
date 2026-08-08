@@ -145,6 +145,37 @@ Hay varios entry points segun entorno:
 - Dependencias: stdlib HTTP, subprocess, threading, json, pathlib.
 - Relacion: `web_server.py` orquesta rutas, POST, persistencia, validacion y publicacion; los modulos `mushroom_*_ui.py` concentran render server-side de pantallas grandes para evitar que `web_server.py` siga creciendo. En HA se mantiene `ingress_port: 8099` para la webUI y tambien se publica `8099/tcp` como puerto de app para que Cloudflared pueda apuntar a `http://<HA_IP>:8099` sin usar `/local`. La ruta protegida `/protected/maplibre/index.html` se sirve con `Cache-Control: no-store` y reescribe los query strings de assets a la version runtime para evitar JS/CSS obsoletos tras updates HA.
 
+### Observabilidad runtime y pestaña Diagnostics
+
+- Productor: `rainmapper_core/runtime_diagnostics.py`, usado por el runner, sus
+  procesos hijos y el Predictor mediante operaciones correlacionadas.
+- Persistencia: caja negra acotada bajo
+  `/share/rainmapper/diagnostics/`. `runtime_metrics.jsonl` conserva detalle de
+  vida corta; `runtime_summary.jsonl` es la autoridad compacta para evolución y
+  comparaciones antiguas; `runtime_anomalies.jsonl`, `runtime_state.json` y
+  `failed_operations/` cubren incidentes y recuperación tras reinicio.
+- Lectura: `web_server.py` expone estado mínimo dentro del fragmento normal y
+  carga el histórico solo desde `/api/diagnostics/history?period=...` al abrir
+  Diagnostics. El polling de cinco segundos no incorpora series ni fases.
+- Presentación: SVG nativo para evolución temporal/por versión, tabla A/B y
+  Gantt generado en cliente sobre un eje de tiempo transcurrido compartido por
+  A/B. Cada fuente y sus subfases forman un grupo plegable; el detalle textual
+  usa un acordeón independiente por fuente. No se añade una librería de gráficas
+  ni una base de datos de métricas.
+- Instrumentación de fuentes: `rainmapper_core/rainmapper.py` conserva las
+  duraciones agregadas y, desde el esquema diagnóstico `2.2`, registra inicio y
+  final UTC de las fases reales de AEMET, Meteoclimatic, Meteocat y
+  Wunderground. Los intervalos completos se incorporan al resumen compacto de
+  cada fuente para sobrevivir a la rotación del detalle.
+- Compatibilidad: los diagnósticos `2.1` no se migran ni se eliminan. El payload
+  declara capacidades por ejecución; la UI mantiene sus métricas y los muestra
+  como detalle limitado, mientras `2.2` habilita el Gantt multifuente completo.
+- Semántica: Runner y Predictor se separan siempre. Las cargas se subdividen por
+  acción del Runner o por vista y condición fría/caliente del Predictor. Las
+  cinco versiones más recientes exponen media, mínimo, máximo y muestras; las
+  ventanas temporales son 7/30/90 días o toda la retención compacta.
+- Especificación operativa canónica: `docs/runtime-diagnostics.md`.
+
 ### Wrapper HA
 - Ruta: `rainmapper-app/run.sh`.
 - Responsabilidad: leer opciones HA, crear persistencia, symlinks, exportar variables, arrancar modo.
@@ -191,6 +222,11 @@ Hay varios entry points segun entorno:
   incorpora datos pesados ni secretos.
 - Contratos: `InputManifest 0.1`, `JobSpec 0.1` y `ResultManifest 0.1`; todos
   los paths, tamanos y hashes se validan en ambos extremos.
+- Meteorologia transportada: los CSV incrementales permanecen como fuente de
+  verdad en HA, pero el snapshot prefiere `weather_daily.parquet`, artefacto
+  derivado que el runner ya regenera. Si falta, conserva fallback a los cuatro
+  CSV. El worker consume el directorio manifestado y no necesita un protocolo
+  distinto.
 - Pipeline: HA y worker llaman a
   `rainmapper_core/mushroom_rebuild_pipeline.py`. Los alcances son completo,
   pendientes y una especie.
@@ -201,6 +237,20 @@ Hay varios entry points segun entorno:
   worker los descarga a staging solo si falta/cambia su fingerprint y activa
   la version validada en el volumen; las ejecuciones siguientes reutilizan la
   cache.
+- Retencion: el JSON de jobs conserva estado, hashes y resultados resumidos. Los
+  bundles de entrada son temporales: se conservan solo durante ejecucion y hasta
+  decidir sobre candidatos terminados; se eliminan al fallar/cancelar, completar
+  una prueba de transporte o promocionar. Antes de cada nuevo lanzamiento, un
+  preflight reconcilia restos antiguos y muestra cantidades/errores en el aviso
+  de la UI. No depende del arranque del add-on.
+- Retencion coordinada: la cola conserva 50 tombstones y la UI los carga todos
+  en una tabla con scroll de 10 filas visibles. Los resultados promovidos se
+  eliminan con receipt validado; los dos backups mas recientes se conservan. El
+  worker borra su job tras el acuse de finalizacion y confirma la operacion por
+  heartbeat; GIS/DEM permanece como cache compartida.
+- Compatibilidad: HA y worker tienen secuencias de version independientes. La
+  compatibilidad operativa se negocia por capacidades del heartbeat, actualmente
+  `weather_parquet_v1` y `terminal_job_cleanup_v1`, no comparando versiones.
 - Seguridad operacional: pairing de un uso, Bearer por worker, lease/token por
   claim, bloqueo de trabajos solapados, cancelacion cooperativa/forzada y
   rechazo de resultados stale. La reconstruccion local HA permanece como

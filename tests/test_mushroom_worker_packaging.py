@@ -12,11 +12,13 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         dockerignore = (ROOT_DIR / ".dockerignore").read_text(encoding="utf-8")
 
         self.assertIn("FROM python:3.11-slim", dockerfile)
+        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.0", dockerfile)
         self.assertIn("gdal-bin", dockerfile)
         self.assertIn("gosu", dockerfile)
         self.assertIn("mushroom_rebuild_contracts.py", dockerfile)
         self.assertIn("mushroom_worker_dataset_cache.py", dockerfile)
         self.assertIn("mushroom_worker_config.py", dockerfile)
+        self.assertIn("mushroom_worker_registry.py", dockerfile)
         self.assertIn("mushroom_worker_service.py", dockerfile)
         self.assertIn("run-mushroom-rebuild-job.py", dockerfile)
         self.assertIn("manage-mushroom-worker-datasets.py", dockerfile)
@@ -83,7 +85,14 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         start = (ROOT_DIR / "mushroom_worker_start.sh").read_text(encoding="utf-8")
         stop = (ROOT_DIR / "mushroom_worker_stop.sh").read_text(encoding="utf-8")
 
-        self.assertIn("image: rainmapper-worker:local", compose)
+        self.assertIn(
+            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.0}",
+            compose,
+        )
+        self.assertIn(
+            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.0}",
+            compose,
+        )
         self.assertIn("name: rainmapper-worker-local", compose)
         self.assertIn("container_name: rainmapper-worker", compose)
         self.assertIn('127.0.0.1:8110:8098', compose)
@@ -97,6 +106,8 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertNotIn("docker-data", compose)
         self.assertIn("docker compose", start)
         self.assertIn('WORKER_VOLUME="rainmapper-worker-data"', start)
+        self.assertIn('WORKER_IMAGE="rainmapper-worker:${RAINMAPPER_WORKER_VERSION}"', start)
+        self.assertIn("export RAINMAPPER_WORKER_VERSION", start)
         self.assertIn('docker volume create "${WORKER_VOLUME}"', start)
         self.assertIn('WORKER_NETWORK="rainmapper-local-compute"', start)
         self.assertIn('docker network create "${WORKER_NETWORK}"', start)

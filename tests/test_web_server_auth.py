@@ -43,6 +43,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         data_dir = Path(self.temp_dir.name)
         self.web_server.USERS_JSON_PATH = data_dir / "users.json"
         self.web_server.DEVICES_PATH = data_dir / "devices.json"
+        self.real_worker_storage_reconcile = (
+            self.web_server.reconcile_mushroom_worker_storage_for_launch
+        )
+        reconcile_patcher = mock.patch.object(
+            self.web_server,
+            "reconcile_mushroom_worker_storage_for_launch",
+            return_value={"removed": 0, "pending_worker": 0, "errors": []},
+        )
+        reconcile_patcher.start()
+        self.addCleanup(reconcile_patcher.stop)
 
     def reset_run_state(self) -> None:
         with self.web_server.RUN_LOCK:
@@ -129,7 +139,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
             mock.patch.object(
                 self.web_server.mushroom_worker_jobs,
                 "finish_candidate_promotion",
+                return_value={
+                    "job_id": "worker_job_mltrain1234",
+                    "job_type": "worker_ml_train_v0",
+                    "status": "complete",
+                    "promotion_status": "promoted",
+                },
             ) as finish_promotion,
+            mock.patch.object(
+                self.web_server,
+                "discard_mushroom_worker_input_bundle",
+            ) as discard_input,
             mock.patch.object(self.web_server, "set_mushroom_workers_flash"),
         ):
             self.web_server._run_mushroom_worker_ml_train_promotion(
@@ -145,6 +165,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         release_cache.assert_called_once_with()
         promoted_result = finish_promotion.call_args.kwargs["result"]
         self.assertEqual(promoted_result["released_predictor_instances"], 3)
+        discard_input.assert_called_once_with(finish_promotion.return_value)
 
     def test_predictor_lists_only_models_declared_trained_by_live_report(self) -> None:
         models_dir = Path(self.temp_dir.name) / "ml_models"
@@ -658,8 +679,30 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(captured["status"], 200)
         page = captured["content"]
-        for label in ("Summary", "Data sources", "Viewers", "Maps", "Logs", "Errors"):
+        for label in ("Summary", "Data sources", "Viewers", "Maps", "Diagnostics", "Logs", "Errors"):
             self.assertIn(label, page)
+        self.assertIn('data-control-panel="diagnostics"', page)
+        self.assertIn('data-diagnostic-select="a"', page)
+        self.assertIn('data-diagnostic-select="b"', page)
+        self.assertIn("Execution A · baseline", page)
+        self.assertIn("Difference B − A", page)
+        self.assertIn("Assessment", page)
+        self.assertIn('quality === "better" ? "B is better" : "A is better"', page)
+        self.assertIn("Execution Gantt and sources", page)
+        self.assertIn("diagnostic-gantt-axis-track", page)
+        self.assertIn("diagnostic-gantt-group", page)
+        self.assertIn("shared A/B scale", page)
+        self.assertIn("full source detail", page)
+        self.assertIn("Legacy/limited detail", page)
+        self.assertIn("retained phase interval(s)", page)
+        self.assertIn("Retained operation phases", page)
+        self.assertIn("they do not belong to the last source listed above", page)
+        self.assertIn('data-diagnostic-chart-control="period"', page)
+        self.assertIn("A/B can select up to 500 reconstructed executions", page)
+        self.assertIn("Version averages", page)
+        self.assertIn('event.target.closest("[data-diagnostic-select]")', page)
+        self.assertNotIn("Runtime black box", page)
+        self.assertEqual(page.count("Download diagnostics"), 1)
         for action in ("Run update", "Generate maps", "Run all", "App settings", "Users", "Mushroom catalogs", "Mushroom species"):
             self.assertIn(action, page)
         for source in ("Meteoclimatic", "Meteocat", "Wunderground", "AEMET"):
@@ -682,6 +725,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('http-equiv="refresh"', page)
         self.assertIn('id="rainmapper-control-panel-live"', page)
         self.assertIn("api/control-panel-fragment", page)
+        self.assertIn("api/diagnostics/history", page)
         self.assertIn("window.setTimeout(refreshControlPanel,5000)", page)
         self.assertIn("if(livePanel.dataset.controlSignature!==payload.signature)", page)
 
@@ -704,6 +748,30 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 ).hexdigest(),
             },
         )
+
+    def test_diagnostic_history_endpoint_returns_lazy_dashboard_payload(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(status=status, payload=payload)
+        expected = {
+            "ok": True,
+            "history_limit": 500,
+            "evolution_period": "30",
+            "version_limit": 5,
+            "executions": [],
+            "evolution_series": [],
+            "version_averages": [],
+        }
+
+        with mock.patch.object(
+            self.web_server,
+            "diagnostic_dashboard_payload",
+            return_value=expected,
+        ) as payload_mock:
+            handler.serve_diagnostic_history()
+
+        self.assertEqual(captured, {"status": 200, "payload": expected})
+        payload_mock.assert_called_once_with("30")
 
     def test_diagnostic_record_timestamp_matches_local_summary_format(self) -> None:
         with mock.patch.dict(
@@ -4643,6 +4711,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(duplicate_status, 409)
         self.assertIn("already active", duplicate["error"])
         self.assertEqual(prepare_bundle.call_count, 1)
+        self.assertFalse(prepare_bundle.call_args.kwargs["prefer_weather_parquet"])
         self.assertEqual(response["job"]["job_type"], "worker_snapshot_transport_probe")
         self.assertEqual(claim_status, 200)
         self.assertEqual(claimed["job"]["input_bundle"]["endpoint"], "/api/mushrooms/workers/jobs/input")
@@ -4982,6 +5051,41 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(finish_status, 200)
         self.assertEqual(finished["job"]["status"], "cancelled")
 
+    def test_parquet_job_cannot_be_reassigned_to_worker_without_capability(self) -> None:
+        legacy_worker = {
+            "configured": True,
+            "reachable": True,
+            "payload": {
+                "worker_id": "worker_bbbbbbbb",
+                "display_name": "Legacy worker",
+                "capabilities": ["rebuild_v0"],
+            },
+        }
+        job = {
+            "job_id": "worker_job_parquet123",
+            "input_bundle": {"weather_transport": "parquet"},
+        }
+        with mock.patch.object(
+            self.web_server,
+            "registered_mushroom_worker_statuses",
+            return_value=[legacy_worker],
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "get_job",
+            return_value=job,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "reassign_job",
+        ) as reassign:
+            status, payload = self.web_server.reassign_mushroom_worker_job(
+                "worker_job_parquet123",
+                "worker_bbbbbbbb",
+            )
+
+        self.assertEqual(status, 409)
+        self.assertIn("cannot read this Parquet", payload["error"])
+        reassign.assert_not_called()
+
     def test_workers_page_offers_cancel_and_safe_reassignment_for_unstarted_probe(self) -> None:
         workers = [
             {
@@ -5083,6 +5187,100 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(rendered.count('data-worker-sort-column='), 10)
         self.assertIn('data-worker-sort-column="1" data-worker-sort-type="time"', rendered)
         self.assertIn('aria-sort="descending"', rendered)
+        self.assertIn("worker-jobs-history", rendered)
+
+    def test_worker_history_renders_all_fifty_rows_inside_scrolling_table(self) -> None:
+        jobs = [
+            {
+                "job_id": f"worker_job_history{i:08d}",
+                "job_type": "worker_claim_probe",
+                "status": "complete",
+                "worker_display_name": "Worker A",
+                "created_at": f"2026-08-08T12:{i:02d}:00+00:00",
+                "date_time": f"08/08/2026 14:{i:02d}:00",
+            }
+            for i in range(50)
+        ]
+
+        rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(jobs)
+
+        self.assertEqual(rendered.count("<tr data-job-id="), 50)
+        self.assertIn("worker-jobs-history", rendered)
+
+    def test_worker_history_keeps_all_external_rows_when_local_job_is_visible(self) -> None:
+        external_jobs = [
+            {
+                "job_id": f"worker_job_history{i:08d}",
+                "job_type": "worker_claim_probe",
+                "status": "complete",
+                "target_display_name": "Worker A",
+                "created_at": f"2026-08-08T12:{i:02d}:00+00:00",
+            }
+            for i in range(50)
+        ]
+        local_job = {
+            "job_id": "LocalVisible1",
+            "status": "running",
+            "scope": "all",
+            "phase": "Running",
+            "overall_percent": 10,
+            "started_at": "2026-08-08T13:00:00+00:00",
+        }
+        with mock.patch.object(
+            self.web_server, "cleanup_mushroom_rebuild_jobs"
+        ), mock.patch.dict(
+            self.web_server.MUSHROOM_REBUILD_JOBS,
+            {"LocalVisible1": local_job},
+            clear=True,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "recent_jobs",
+            return_value=external_jobs,
+        ):
+            jobs = self.web_server.mushroom_workers_recent_jobs()
+
+        self.assertEqual(len(jobs), 51)
+        self.assertEqual(
+            len([job for job in jobs if job.get("executor") == "worker"]),
+            50,
+        )
+
+    def test_worker_storage_preflight_reports_visible_maintenance_summary(self) -> None:
+        bundle_report = {
+            "discarded_terminal": ["worker_job_oldterminal"],
+            "discarded_orphan": ["worker_job_oldorphan1"],
+            "discarded_staging": [],
+            "errors": ["bundle warning"],
+        }
+        result_report = {
+            "discarded": ["worker_job_oldresult1"],
+            "errors": [],
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "load_queue",
+            return_value={"schema_version": "0.1", "jobs": []},
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_transport,
+            "cleanup_coordinator_bundles",
+            return_value=bundle_report,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_results,
+            "cleanup_promoted_results",
+            return_value=result_report,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "pending_worker_job_cleanups",
+            return_value=["worker_job_remotecleanup"],
+        ):
+            report = self.real_worker_storage_reconcile("worker_aaaaaaaa")
+            notice = self.web_server.mushroom_worker_maintenance_notice(report)
+
+        self.assertEqual(report["removed"], 3)
+        self.assertEqual(report["pending_worker"], 1)
+        self.assertEqual(report["errors"], ["bundle warning"])
+        self.assertIn("3", notice)
+        self.assertIn("1", notice)
 
     def test_workers_recent_jobs_sort_mixed_timezones_by_instant(self) -> None:
         local_started = "2026-07-20T21:08:09+02:00"
@@ -5201,7 +5399,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ), mock.patch.object(
             self.web_server.mushroom_model_state,
             "clear_all_pending",
-        ):
+        ), mock.patch.object(
+            self.web_server,
+            "discard_mushroom_worker_input_bundle",
+        ) as discard_input:
             status, response = self.web_server.promote_mushroom_worker_candidate(
                 created["job_id"]
             )
@@ -5227,6 +5428,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(promoting["promotion_status"], "promoting")
         self.assertEqual(promoted["promotion_status"], "promoted")
         self.assertEqual(promoted["promotion_percent"], 100)
+        discard_input.assert_called_once_with(promoted)
         thread_class.return_value.start.assert_called_once_with()
 
     def test_workers_page_shows_promotion_progress_and_hides_duplicate_action(self) -> None:
@@ -5373,8 +5575,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(acknowledged["discard_job_ids"], [])
         discard_result.assert_called_once()
         discard_bundle.assert_called_once()
-        with self.assertRaisesRegex(ValueError, "not found"):
-            self.web_server.mushroom_worker_jobs.get_job(jobs_path, job_id=job_id)
+        retained = self.web_server.mushroom_worker_jobs.get_job(jobs_path, job_id=job_id)
+        self.assertEqual(retained["discard_status"], "acknowledged")
 
     def test_workers_page_shows_persistent_probe_job_without_rebuild_modal_link(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(

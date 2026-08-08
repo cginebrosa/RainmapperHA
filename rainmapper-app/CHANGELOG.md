@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.2.233
+
+- Move runtime observability into a dedicated Diagnostics tab with retained
+  history, comparable A/B executions, regional timestamps, temporal and
+  per-version evolution, explicit metric outcomes and shared-scale Gantt views.
+- Record real download, parse, incremental and write intervals for AEMET,
+  Meteoclimatic, Meteocat and Wunderground in diagnostic schema `2.2`, while
+  preserving older `2.1` executions as limited-detail history.
+- Prefer the compact daily weather Parquet for capable external workers and
+  retain automatic CSV fallback for legacy workers; reject incompatible job
+  reassignment through explicit heartbeat capabilities.
+- Reconcile worker storage before every external launch with a visible notice,
+  retain 50 scrollable job tombstones, remove terminal/promoted private bundles
+  safely and acknowledge worker-side cleanup without touching GIS/DEM caches.
+
 ## 0.2.232
 
 - Persist runner and Predictor resource heartbeats every ten seconds with host

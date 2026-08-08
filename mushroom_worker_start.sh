@@ -5,7 +5,13 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${REPO_ROOT}/rainmapper-local/docker-compose.worker-local.yml"
-WORKER_IMAGE="rainmapper-worker:local"
+RAINMAPPER_WORKER_VERSION="$(sed -n 's/^ARG RAINMAPPER_WORKER_VERSION=\([^[:space:]]*\).*/\1/p' "${REPO_ROOT}/rainmapper-worker/Dockerfile" | head -n 1)"
+if [[ ! "${RAINMAPPER_WORKER_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf 'Error: rainmapper-worker/Dockerfile does not define a valid semantic worker version.\n' >&2
+    exit 2
+fi
+export RAINMAPPER_WORKER_VERSION
+WORKER_IMAGE="rainmapper-worker:${RAINMAPPER_WORKER_VERSION}"
 WORKER_VOLUME="rainmapper-worker-data"
 WORKER_NETWORK="rainmapper-local-compute"
 WORKER_DATA_DIR="/var/lib/rainmapper-worker"
@@ -40,6 +46,7 @@ usage() {
         '  -h, --help              Show this help and exit without using Docker.' \
         '' \
         'Behaviour:' \
+        '  * Builds and runs the independently versioned worker image.' \
         '  * Passed parameters override and persist the corresponding saved values.' \
         '  * Missing parameters are loaded from rainmapper-worker-data.' \
         '  * If Rainmapper requires authentication and no token is stored, generate' \
@@ -53,6 +60,7 @@ usage() {
         '' \
         'The laboratory UI for a browser is http://127.0.0.1:8101.' \
         'That browser URL is not the worker URL.' \
+        "Worker image: ${WORKER_IMAGE}." \
         '' \
         'Home Assistant/Tailscale example:' \
         '  ./mushroom_worker_start.sh --name "Worker M1" \' \
@@ -346,6 +354,7 @@ for attempt in {1..30}; do
         printf 'Coordinator: %s\n' "${PERSISTED_URL}"
         printf 'Status: %s\n' "${WORKER_HEALTH_URL}"
         printf 'Physical host: %s\n' "${RAINMAPPER_PHYSICAL_HOST_NAME}"
+        printf 'Worker image: %s\n' "${WORKER_IMAGE}"
         printf 'Stop it with: ./mushroom_worker_stop.sh\n'
         exit 0
     fi

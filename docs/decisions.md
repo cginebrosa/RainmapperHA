@@ -11,6 +11,65 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-08 - Esquema diagnóstico 2.2 y Gantt multifuente
+
+Estado: IMPLEMENTADO Y VALIDADO EN LOCAL; PENDIENTE DE AGRUPAR EN UNA RELEASE HA.
+
+Decisión:
+
+- Conservar todos los diagnósticos `2.1` ya existentes en HA. No borrarlos ni
+  migrarlos destructivamente: siguen siendo válidos para métricas, anomalías,
+  evolución y comparación A/B.
+- Tratar la versión del esquema como capacidades. La UI marca `2.1` como
+  **limited detail** y `2.2` como **full source detail**, sin inventar fases que
+  una ejecución antigua no registró.
+- Instrumentar las fases reales de AEMET, Meteoclimatic, Meteocat y
+  Wunderground con inicio inmediato y final, y persistir los intervalos
+  completos también en el resumen compacto de cada fuente.
+- Usar timestamps UTC inequívocos para alinear fases paralelas con la operación
+  global y evitar desplazamientos por zona horaria o DST.
+- Representar cada fuente como un grupo plegable sobre el mismo eje temporal
+  A/B. Al desplegarlo aparecen solo sus subfases; el detalle textual usa también
+  un acordeón independiente por fuente.
+- Mantener los eventos globales separados de los intervalos de las fuentes. Un
+  evento de AEMET nunca se coloca bajo Wunderground por orden de presentación.
+
+Motivo: las duraciones agregadas permiten saber qué fuente fue lenta, pero no
+distinguen descarga, parseo, incremental o escritura, ni permiten representar
+correctamente cuatro trabajos paralelos. Los intervalos reales permiten localizar
+la fase responsable sin sacrificar los históricos previos. La especificación y
+el procedimiento de validación viven en `docs/runtime-diagnostics.md`.
+
+## 2026-08-08 - Diagnostics como observabilidad histórica comparable
+
+Estado: IMPLEMENTADO Y VALIDADO EN LOCAL; PENDIENTE DE AGRUPAR EN UNA RELEASE HA.
+
+Decisión:
+
+- Sacar la caja negra de Summary y concentrar estado, evolución, comparación
+  A/B, Gantt, histórico y descarga en una pestaña Diagnostics.
+- No fijar siete días como horizonte único. La evolución temporal permite
+  7/30/90 días o toda la retención compacta; el análisis por release conserva
+  las cinco versiones más recientes disponibles.
+- Separar siempre Runner de Predictor y subdividir por carga comparable. Las
+  medias entre acciones, vistas o cargas frías/calientes no son válidas.
+- Mantener dos planos de datos: detalle corto para fases/Gantt y resumen largo
+  para series y agregados. Las comparaciones antiguas sobreviven aunque roten
+  sus fases, pero la UI no inventa un Gantt cuando falta detalle.
+- Representar por versión media y rango mínimo-máximo junto al número de
+  muestras. Una sola ejecución se muestra como muestra única, no como evidencia
+  de una tendencia.
+- Cargar el histórico de forma diferida y por periodo mediante el endpoint de
+  Diagnostics. Summary mantiene su polling ligero.
+- Usar SVG/HTML nativo, sin incorporar una dependencia de gráficas ni una base
+  de datos temporal mientras el JSONL acotado cubra el uso monousuario en RPi4.
+
+Motivo: comparar solo ejecuciones sueltas o una ventana fija de siete días no
+permite atribuir una mejora/regresión a una versión si esta se instaló antes de
+esa ventana. La separación entre detalle reciente y resúmenes compactos permite
+conservar contexto histórico con coste acotado y sin aumentar el trabajo del
+runner. La especificación completa vive en `docs/runtime-diagnostics.md`.
+
 ## 2026-08-07 - Medición automática y exclusión runner/Predictor en RPi4
 
 Estado: INCLUIDO EN `0.2.227` PUBLICADA; PENDIENTE DE VALIDACIÓN EN RPi4.
@@ -3324,3 +3383,70 @@ Resultado de la limpieza inicial, 2026-08-08:
 - Se conservaron y verificaron el worker activo y healthy, el volumen
   `rainmapper-worker-data` de 11,11 GB, `rainmapper-worker:0.2.228-arm64/local`,
   `rainmapperha:local-ha-ui` y `ghcr.io/cginebrosa/rainmapperha:0.2.231/latest`.
+## 2026-08-08 - Transporte Parquet y retencion acotada de bundles del worker
+
+Estado: IMPLEMENTADO Y PUBLICADO EN HA `0.2.233`; WORKER `1.0.0` CONSTRUIDO Y
+VALIDADO LOCALMENTE.
+
+Decision:
+
+- Los CSV incrementales meteorologicos siguen siendo la fuente autoritativa de
+  descarga y actualizacion. No se cambia ese pipeline.
+- Los snapshots de reconstruccion enviados por HA al worker prefieren el
+  artefacto derivado `weather_daily.parquet`. Solo incluyen los cuatro CSV como
+  fallback cuando el Parquet aun no existe.
+- El protocolo del worker continua siendo dirigido por manifest y no cambia su
+  esquema. La release HA y la imagen worker mantienen versiones independientes;
+  HA `0.2.232` convivio con worker `0.2.228`.
+- La imagen worker `0.2.228` contiene el lector Parquet en el codigo, pero no el
+  motor `pyarrow`. La siguiente imagen worker debe instalar `pyarrow==25.0.0`.
+  Es una dependencia de runtime, no una modificacion del protocolo.
+- El registro persistente del job es el historial. El bundle privado de entrada
+  se elimina tras una prueba de transporte terminal, un fallo/cancelacion o una
+  promocion correcta. Se conserva mientras un candidato completo siga pendiente
+  de promocion o descarte.
+- Antes de encolar cualquier trabajo externo, el coordinador reconcilia bundles
+  terminales, resultados ya promocionados, staging abandonado y bundles
+  huerfanos antiguos. No depende del reinicio del add-on. Si encuentra restos,
+  limpiezas remotas pendientes o errores, lo añade al mensaje visible del
+  lanzamiento; la reparacion nunca es silenciosa.
+- El historial conserva los 50 jobs mas recientes. Descartar o limpiar cambia
+  su estado persistente, pero no elimina la fila. La UI carga los 50 dentro de
+  una tabla con cabecera fija y altura aproximada de 10 filas.
+- Tras recibir el acuse `finish` de HA, el worker elimina su directorio privado
+  del job y confirma esa limpieza en el heartbeat siguiente. HA puede volver a
+  solicitar la limpieza de jobs terminales antiguos sin tocar la cache GIS/DEM.
+- Un resultado privado promocionado en HA se elimina despues de persistir el
+  resultado de promocion; solo se aceptan borrados con receipt coincidente. Los
+  candidatos pendientes y los dos backups de rollback se conservan.
+- Las versiones son independientes. La siguiente imagen worker inicia la serie
+  propia `1.0.0`, fijada como valor predeterminado de su Dockerfile; HA no debe
+  inferir compatibilidad por similitud numerica. El
+  heartbeat anuncia `weather_parquet_v1` y `terminal_job_cleanup_v1`; un worker
+  sin la primera capacidad recibe automaticamente el snapshot CSV compatible.
+
+Motivo:
+
+- En HA los cuatro CSV copiados por cada reconstruccion ocupaban aproximadamente
+  113--116 MB, frente a unos 12 MB del Parquet ya generado por el runner. Ademas,
+  conservar una copia por job habia acumulado unos 2,8 GB sin aportar historial
+  adicional al JSON de la cola.
+
+Consecuencias:
+
+- El transporte habitual baja alrededor de un 89 % sin migrar el almacenamiento
+  autoritativo ni el proceso incremental.
+- La compatibilidad CSV queda disponible para instalaciones y workers antiguos.
+- La limpieza posterior a fallos se recupera en el siguiente lanzamiento a un
+  worker y queda anunciada al usuario.
+
+Validacion local:
+
+- `./scripts/smoke-test.sh`: OK, 511 tests unitarios mas validadores de sintaxis,
+  empaquetado HA, GeoJSON, historicos y backups.
+- Worker M1 `rainmapper-worker:1.0.0` construido y arrancado healthy; anuncia
+  `weather_parquet_v1` y `terminal_job_cleanup_v1`. Se retiraron sus tags locales
+  legados `local` y `0.2.228-arm64` sin tocar el volumen persistente GIS/DEM.
+- HA `0.2.233` publicada para `linux/amd64` y `linux/arm64` con digest
+  `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`;
+  pendiente de instalación y validación en la RPi4.

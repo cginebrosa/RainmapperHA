@@ -333,6 +333,197 @@ class RuntimeDiagnosticsTests(unittest.TestCase):
             "parent-request-12345678",
         )
 
+    def test_subprocess_parent_environment_records_correlation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
+            with mock.patch.dict(
+                runtime_diagnostics.os.environ,
+                {runtime_diagnostics.PARENT_OPERATION_ENV: "parent-runner-12345678"},
+            ):
+                monitor = runtime_diagnostics.OperationMonitor(
+                    "runner_update",
+                    path=metrics_path,
+                )
+                monitor.finish("ok")
+            start = json.loads(
+                metrics_path.read_text(encoding="utf-8").splitlines()[0]
+            )
+
+        self.assertEqual(
+            start["details"]["parent_operation_id"],
+            "parent-runner-12345678",
+        )
+
+    def test_diagnostic_history_joins_child_sources_phases_and_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
+            parent = runtime_diagnostics.OperationMonitor(
+                "runner_action",
+                details={"action": "all", "app_version": "0.2.test"},
+                path=metrics_path,
+            )
+            with runtime_diagnostics.operation_context(parent.operation_id):
+                child = runtime_diagnostics.OperationMonitor(
+                    "runner_update",
+                    details={"app_version": "0.2.test"},
+                    path=metrics_path,
+                )
+                child.mark("source_complete", {"source": "Meteocat"})
+                child.finish(
+                    "ok",
+                    {
+                        "sources": {
+                            "Meteocat": {
+                                "status": "OK",
+                                "rows": 100,
+                                "stations": 2,
+                                "duration_seconds": 1.5,
+                                "phase_intervals": [
+                                    {
+                                        "source": "Meteocat",
+                                        "phase": "metadata",
+                                        "phase_id": "meteocat-1",
+                                        "started_at": "2026-08-08T09:00:00.000Z",
+                                        "finished_at": "2026-08-08T09:00:00.500Z",
+                                        "duration_seconds": 0.5,
+                                    }
+                                ],
+                            }
+                        }
+                    },
+                )
+            parent.finish("ok")
+            runtime_diagnostics.record_summary(
+                "runner_action",
+                parent.operation_id,
+                "snapshot",
+                {"phase": "recovery_60s", "cgroup_memory_current_mib": 321.0},
+                metrics_path,
+            )
+
+            history = runtime_diagnostics.diagnostic_history(metrics_path)
+
+        parent_execution = next(
+            item for item in history if item["operation"] == "runner_action"
+        )
+        self.assertEqual(parent_execution["sources"]["Meteocat"]["rows"], 100)
+        self.assertEqual(
+            parent_execution["snapshots"]["recovery_60s"]["cgroup_memory_current_mib"],
+            321.0,
+        )
+        self.assertIn(
+            "source_complete",
+            [item["phase"] for item in parent_execution["phases"]],
+        )
+        self.assertEqual(parent_execution["diagnostic_schema"], "2.2")
+        self.assertTrue(parent_execution["capabilities"]["source_phase_intervals"])
+        self.assertEqual(
+            parent_execution["sources"]["Meteocat"]["phase_intervals"][0]["phase"],
+            "metadata",
+        )
+
+    def test_diagnostic_history_keeps_legacy_schema_as_limited_detail(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
+            runtime_diagnostics.record_summary(
+                "runner_action",
+                "legacy-runner",
+                "ok",
+                {"app_version": "0.2.232", "action": "all", "wall_seconds": 10.0},
+                metrics_path,
+            )
+            summary_path = runtime_diagnostics.summary_path(metrics_path)
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            payload["schema_version"] = "2.1"
+            summary_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+            history = runtime_diagnostics.diagnostic_history(metrics_path)
+
+        self.assertEqual(history[0]["diagnostic_schema"], "2.1")
+        self.assertFalse(history[0]["capabilities"]["source_phase_intervals"])
+
+    def test_version_averages_keep_latest_five_versions_by_operation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
+            for index in range(1, 7):
+                runtime_diagnostics.record_summary(
+                    "runner_action",
+                    f"runner-{index}",
+                    "ok",
+                    {
+                        "app_version": f"0.2.{index}",
+                        "wall_seconds": float(index * 10),
+                        "max_cgroup_memory_current_mib": float(index * 100),
+                    },
+                    metrics_path,
+                )
+                time.sleep(0.002)
+            runtime_diagnostics.record_summary(
+                "runner_action",
+                "runner-6-second",
+                "degraded",
+                {
+                    "app_version": "0.2.6",
+                    "wall_seconds": 80.0,
+                    "max_cgroup_memory_current_mib": 800.0,
+                },
+                metrics_path,
+            )
+
+            averages = runtime_diagnostics.diagnostic_version_averages(metrics_path)
+
+        versions = {item["version"] for item in averages}
+        self.assertEqual(versions, {"0.2.2", "0.2.3", "0.2.4", "0.2.5", "0.2.6"})
+        latest = next(item for item in averages if item["version"] == "0.2.6")
+        self.assertEqual(latest["sample_count"], 2)
+        self.assertEqual(latest["ok_count"], 1)
+        self.assertEqual(latest["anomaly_count"], 1)
+        self.assertEqual(latest["averages"]["wall_seconds"], 70.0)
+        self.assertEqual(latest["minimums"]["wall_seconds"], 60.0)
+        self.assertEqual(latest["maximums"]["wall_seconds"], 80.0)
+
+    def test_diagnostic_evolution_series_is_compact_and_separates_workloads(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
+            runtime_diagnostics.record_summary(
+                "runner_action",
+                "runner-all",
+                "ok",
+                {
+                    "app_version": "0.2.test",
+                    "action": "all",
+                    "wall_seconds": 12.5,
+                    "max_cgroup_memory_current_mib": 456.0,
+                    "sources": {"Meteocat": {"rows": 100}},
+                },
+                metrics_path,
+            )
+            runtime_diagnostics.record_summary(
+                "predictor_request",
+                "predictor-week",
+                "ok",
+                {
+                    "app_version": "0.2.test",
+                    "view": "week",
+                    "cold_request": True,
+                    "wall_seconds": 3.0,
+                },
+                metrics_path,
+            )
+
+            series = runtime_diagnostics.diagnostic_evolution_series(
+                metrics_path,
+                days=None,
+            )
+
+        self.assertEqual(len(series), 2)
+        runner = next(item for item in series if item["operation"] == "runner_action")
+        predictor = next(item for item in series if item["operation"] == "predictor_request")
+        self.assertEqual(runner["workload"], "all")
+        self.assertEqual(runner["metrics"]["max_cgroup_memory_current_mib"], 456.0)
+        self.assertNotIn("sources", runner)
+        self.assertEqual(predictor["workload"], "week · cold")
+
     def test_failed_operation_archives_redacted_log(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
             data_dir = Path(temporary_dir)

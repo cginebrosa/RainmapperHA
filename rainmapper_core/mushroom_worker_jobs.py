@@ -546,21 +546,76 @@ def acknowledge_candidate_discards(
     if not acknowledged:
         return []
     queue = load_queue(path)
-    removed = [
-        str(job.get("job_id", ""))
-        for job in queue["jobs"]
-        if job.get("target_worker_id") == target_worker_id
-        and job.get("discard_status") == "requested"
-        and str(job.get("job_id", "")) in acknowledged
-    ]
-    if not removed:
+    completed: list[str] = []
+    timestamp = utc_now()
+    for job in queue["jobs"]:
+        job_id = str(job.get("job_id", ""))
+        if (
+            job.get("target_worker_id") == target_worker_id
+            and job.get("discard_status") == "requested"
+            and job_id in acknowledged
+        ):
+            job.update(
+                {
+                    "discard_status": "acknowledged",
+                    "discarded_at": timestamp,
+                    "phase": "Candidate discarded",
+                    "message": "Coordinator and worker private artifacts were removed.",
+                }
+            )
+            completed.append(job_id)
+    if not completed:
         return []
-    removed_set = set(removed)
-    queue["jobs"] = [
-        job for job in queue["jobs"] if str(job.get("job_id", "")) not in removed_set
-    ]
     _write_atomic(path, queue)
-    return removed
+    return completed
+
+
+def pending_worker_job_cleanups(path: Path, *, worker_id: str) -> list[str]:
+    """Return terminal job directories that a worker may safely remove."""
+    target_worker_id = _validate_worker_id(worker_id)
+    cleanup_job_types = {
+        JOB_TYPE_SNAPSHOT_TRANSPORT,
+        JOB_TYPE_CANDIDATE_REBUILD,
+        JOB_TYPE_ML_TRAIN,
+    }
+    return [
+        str(job.get("job_id", ""))
+        for job in load_queue(path)["jobs"]
+        if job.get("target_worker_id") == target_worker_id
+        and job.get("job_type") in cleanup_job_types
+        and job.get("status") in TERMINAL_STATUSES
+        and job.get("worker_cleanup_status") != "complete"
+        and JOB_ID_PATTERN.fullmatch(str(job.get("job_id", "")))
+    ][:MAX_JOBS]
+
+
+def acknowledge_worker_job_cleanups(
+    path: Path,
+    *,
+    worker_id: str,
+    job_ids: list[str] | tuple[str, ...],
+) -> list[str]:
+    """Persist worker-side cleanup without deleting the bounded job history."""
+    target_worker_id = _validate_worker_id(worker_id)
+    acknowledged = {
+        str(job_id or "").strip()
+        for job_id in job_ids
+        if JOB_ID_PATTERN.fullmatch(str(job_id or "").strip())
+    }
+    if not acknowledged:
+        return []
+    queue = load_queue(path)
+    completed: list[str] = []
+    timestamp = utc_now()
+    for job in queue["jobs"]:
+        job_id = str(job.get("job_id", ""))
+        if job.get("target_worker_id") == target_worker_id and job_id in acknowledged:
+            job["worker_cleanup_status"] = "complete"
+            job["worker_cleaned_at"] = timestamp
+            completed.append(job_id)
+    if completed:
+        _write_atomic(path, queue)
+    return completed
 
 
 def update_candidate_promotion_progress(

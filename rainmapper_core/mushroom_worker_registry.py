@@ -15,6 +15,8 @@ SCHEMA_VERSION = "0.1"
 WORKER_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{8,80}$")
 JOB_ID_PATTERN = re.compile(r"^worker_job_[a-zA-Z0-9_-]{8,80}$")
 HOME_ASSISTANT_EXECUTOR = "home_assistant"
+WEATHER_PARQUET_CAPABILITY = "weather_parquet_v1"
+TERMINAL_JOB_CLEANUP_CAPABILITY = "terminal_job_cleanup_v1"
 STATIC_FIELDS = (
     "worker_id",
     "display_name",
@@ -61,6 +63,13 @@ def normalize_heartbeat(payload: object) -> dict[str, Any]:
         or not all(isinstance(value, str) and JOB_ID_PATTERN.fullmatch(value) for value in discarded_job_ids)
     ):
         raise ValueError("Worker discarded job acknowledgement is invalid.")
+    cleaned_job_ids = payload.get("cleaned_job_ids", [])
+    if (
+        not isinstance(cleaned_job_ids, list)
+        or len(cleaned_job_ids) > 50
+        or not all(isinstance(value, str) and JOB_ID_PATTERN.fullmatch(value) for value in cleaned_job_ids)
+    ):
+        raise ValueError("Worker cleaned job acknowledgement is invalid.")
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "rainmapper_worker_heartbeat",
@@ -75,6 +84,7 @@ def normalize_heartbeat(payload: object) -> dict[str, Any]:
         "capabilities": [str(value).strip() for value in capabilities],
         "dataset_cache": dict(dataset_cache),
         "discarded_job_ids": list(dict.fromkeys(discarded_job_ids)),
+        "cleaned_job_ids": list(dict.fromkeys(cleaned_job_ids)),
     }
 
 

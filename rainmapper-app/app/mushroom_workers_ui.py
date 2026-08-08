@@ -264,9 +264,13 @@ def render_recent_jobs(
             else:
                 display_status = "failed"
                 status_text = _label("ui.worker_promotion_interrupted")
-        if str(job.get("discard_status", "") or "") == "requested":
+        discard_status = str(job.get("discard_status", "") or "")
+        if discard_status == "requested":
             display_status = "running"
             status_text = _label("ui.worker_candidate_discarding")
+        elif discard_status == "acknowledged":
+            display_status = "complete"
+            status_text = _label("ui.worker_candidate_discarded")
         promotion_percent = max(0, min(100, int(job.get("promotion_percent", 0) or 0)))
         progress_html = (
             '<div class="worker-promotion-progress">'
@@ -358,7 +362,7 @@ def render_recent_jobs(
                 and status in {"complete", "cancelled", "failed"}
                 and promotion_status not in {"promoted", "discarding"}
                 and (promotion_status != "promoting" or not bool(job.get("promotion_active", True)))
-                and job.get("discard_status") != "requested"
+                and discard_status not in {"requested", "acknowledged"}
             ):
                 action_parts.append(
                     '<button type="button" class="danger" data-discard-worker-candidate '
@@ -397,7 +401,7 @@ def render_recent_jobs(
     if not job_rows:
         return f'<p class="meta">{_text(_label("ui.worker_no_recent_jobs"))}</p>'
     return (
-        '<div class="workers-table-wrap"><table class="worker-jobs-table" data-sortable-worker-jobs data-sort-column="1" data-sort-direction="desc"><thead><tr>'
+        '<div class="workers-table-wrap worker-jobs-history"><table class="worker-jobs-table" data-sortable-worker-jobs data-sort-column="1" data-sort-direction="desc"><thead><tr>'
         f'<th aria-sort="none"><button class="worker-sort-button" type="button" data-worker-sort-column="0" data-worker-sort-type="text">{_text(_label("ui.worker_job"))}<span aria-hidden="true">↕</span></button></th>'
         f'<th aria-sort="descending"><button class="worker-sort-button" type="button" data-worker-sort-column="1" data-worker-sort-type="time">{_text(_label("ui.worker_date_time"))}<span aria-hidden="true">↓</span></button></th>'
         f'<th aria-sort="none"><button class="worker-sort-button" type="button" data-worker-sort-column="2" data-worker-sort-type="text">{_text(_label("ui.worker_job_type"))}<span aria-hidden="true">↕</span></button></th>'
@@ -599,6 +603,7 @@ def render_page(
       .worker-species-field{{margin-top:8px}}.worker-species-field[hidden]{{display:none}}.worker-species-field label{{display:block;margin:0 0 4px;color:var(--muted);font-size:11px}}.worker-species-field select{{width:100%;max-width:560px}}
       .worker-submit-row{{display:flex;align-items:center;justify-content:flex-end;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}}.worker-submit-row button{{min-width:155px;padding:6px 9px;font-size:11px}}
       .workers-table-wrap{{overflow:auto;margin-top:4px}}.workers-table-wrap table{{width:100%;min-width:1120px;table-layout:fixed;border-collapse:collapse;font-size:11px}}.workers-table-wrap th,.workers-table-wrap td{{padding:4px 5px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.workers-table-wrap th{{font-size:10px;font-weight:700;color:var(--muted)}}
+      .worker-jobs-history{{max-height:286px;overscroll-behavior:contain}}.worker-jobs-history thead th{{position:sticky;top:0;z-index:2;background:var(--card)}}
       .workers-table-wrap th:nth-child(1){{width:105px}}.workers-table-wrap th:nth-child(2){{width:150px}}.workers-table-wrap th:nth-child(3){{width:190px}}.workers-table-wrap th:nth-child(4){{width:105px}}.workers-table-wrap th:nth-child(5){{width:100px}}.workers-table-wrap th:nth-child(6){{width:190px}}.workers-table-wrap th:nth-child(7){{width:190px}}.workers-table-wrap th:nth-child(8){{width:75px}}.workers-table-wrap th:nth-child(9){{width:75px}}.workers-table-wrap th:nth-child(10){{width:145px}}
       .workers-table-wrap code{{font-size:10px}}.workers-table-wrap time{{font-variant-numeric:tabular-nums}}.worker-sort-button{{display:inline-flex;align-items:center;gap:3px;width:100%;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}}.worker-sort-button span{{margin-left:auto;font-size:9px}}
       .job-status.complete,.job-status.claimed{{color:var(--ok)}}.job-status.queued,.job-status.running{{color:var(--accent)}}.job-status.failed,.job-status.cancelled,.job-status.cancel_requested{{color:var(--danger)}}

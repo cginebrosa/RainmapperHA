@@ -102,8 +102,8 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Último release HA instalado: `0.2.229`. Último publicado: `0.2.232`, pendiente
-  de instalar y probar con un runner manual.
+- Último release HA instalado y validado: `0.2.232`. Último publicado: `0.2.233`,
+  pendiente de instalar y validar en la RPi4.
 - **P0 Predictor/RPi4 cerrado en el escenario monousuario probado:** A–C pasaron
   sin OOM. El Predictor retuvo memoria de forma estable; el runner posterior
   liberó 4 instancias antes del hijo, terminó en 6:43 con pico cgroup
@@ -120,12 +120,12 @@ Para tareas de setas:
   484 tests. Las vistas actuales conservan 96 días; fechas históricas sustituyen
   la ventana e Historial carga una vez su rango. La medición real está
   documentada en `docs/runtime-diagnostics.md`.
-- Version HA del repo: `0.2.232` en `rainmapper-app/config.yaml` y
+- Version HA del repo: `0.2.233` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.232` y `latest`
+- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.233` y `latest`
   (`amd64` + `arm64`), digest
-  `sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`.
+  `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`.
 - Corrección publicada: el resultado `ml_train_v0` usa
   schema `0.2`, incluye/verifica/promociona `ml_train_report.json` con los
   `.joblib` e invalida la caché. La imagen M1 ya fue recreada y el paquete ARM64

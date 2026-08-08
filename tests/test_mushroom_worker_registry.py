@@ -37,6 +37,10 @@ class MushroomWorkerRegistryTests(unittest.TestCase):
             mushroom_worker_registry.normalize_heartbeat(
                 {**self.heartbeat(), "discarded_job_ids": ["../private"]}
             )
+        cleaned = mushroom_worker_registry.normalize_heartbeat(
+            {**self.heartbeat(), "cleaned_job_ids": [job_id, job_id]}
+        )
+        self.assertEqual(cleaned["cleaned_job_ids"], [job_id])
 
     def test_remember_worker_does_not_rewrite_unchanged_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

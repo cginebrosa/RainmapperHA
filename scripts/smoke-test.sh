@@ -68,6 +68,22 @@ check_versions() {
   printf 'Home Assistant version: %s\n' "$config_version"
 }
 
+check_worker_version() {
+  local worker_version compose_version
+
+  worker_version="$(sed -n 's/^ARG RAINMAPPER_WORKER_VERSION=\([^[:space:]]*\).*/\1/p' rainmapper-worker/Dockerfile | head -n 1)"
+  if ! printf '%s\n' "$worker_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    printf 'Worker version must use its own explicit semantic version; found %s.\n' "$worker_version" >&2
+    return 1
+  fi
+  compose_version="$(sed -n 's/.*RAINMAPPER_WORKER_VERSION:-\([0-9][0-9.]*\).*/\1/p' rainmapper-local/docker-compose.worker-local.yml | head -n 1)"
+  if [ "$worker_version" != "$compose_version" ]; then
+    printf 'Worker Dockerfile and local Compose versions are not aligned: %s != %s.\n' "$worker_version" "$compose_version" >&2
+    return 1
+  fi
+  printf 'Worker version: %s\n' "$worker_version"
+}
+
 read_ha_version() {
   sed -n 's/^version:[[:space:]]*"\([^"]*\)".*/\1/p' rainmapper-app/config.yaml | head -n 1
 }
@@ -373,6 +389,7 @@ check_shell_syntax() {
 run_check "Python interpreter is available ($PYTHON_BIN)" require_command "$PYTHON_BIN"
 run_check "node is available" require_command node
 run_check "Home Assistant version metadata is aligned" check_versions
+run_check "Worker has an independent semantic version" check_worker_version
 run_check "viewer asset cache-busters match Home Assistant version" check_viewer_asset_versions
 run_check "Home Assistant app folder contains only HA-specific code" check_ha_app_contains_only_ha_specific_code
 run_check "Python files compile" check_python_syntax

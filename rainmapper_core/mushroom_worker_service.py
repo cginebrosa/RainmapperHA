@@ -25,6 +25,7 @@ from rainmapper_core import mushroom_worker_dataset_cache
 from rainmapper_core import mushroom_worker_config
 from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_worker_results
+from rainmapper_core import mushroom_worker_registry
 
 
 SCHEMA_VERSION = "0.1"
@@ -133,7 +134,11 @@ def worker_status(
         "worker_version": worker_version or os.environ.get("RAINMAPPER_WORKER_VERSION", "local"),
         "status": (runtime_status or "idle") if cache_ready else "needs_dataset",
         "job_api": "candidate_rebuild_v0",
-        "capabilities": ["rebuild_v0"],
+        "capabilities": [
+            "rebuild_v0",
+            mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
+            mushroom_worker_registry.TERMINAL_JOB_CLEANUP_CAPABILITY,
+        ],
         "dataset_cache": {
             "status": cache["status"],
             "dataset_id": cache["dataset_id"],
@@ -149,11 +154,13 @@ def heartbeat_payload(
     status: dict[str, Any],
     *,
     discarded_job_ids: list[str] | tuple[str, ...] = (),
+    cleaned_job_ids: list[str] | tuple[str, ...] = (),
 ) -> dict[str, Any]:
     return {
         **status,
         "kind": "rainmapper_worker_heartbeat",
         "discarded_job_ids": list(discarded_job_ids),
+        "cleaned_job_ids": list(cleaned_job_ids),
     }
 
 
@@ -321,6 +328,7 @@ def serve(
     runtime_lock = threading.Lock()
     runtime_state = {"status": "idle", "active_job_id": ""}
     discarded_job_ids_pending: set[str] = set()
+    cleaned_job_ids_pending: set[str] = set()
     server = ThreadingHTTPServer(
         (host, port),
         _handler_class(worker_data_dir.resolve(), resolved_version, identity, runtime_state, runtime_lock),
@@ -361,16 +369,21 @@ def serve(
             job_id = str(job.get("job_id", ""))
             claim_token = str(job.get("claim_token", ""))
             started = False
+            finish_acknowledged = False
             compute_process: subprocess.Popen[bytes] | None = None
             candidate_dir: Path | None = None
             candidate_runtime_files: list[Path] = []
 
             def job_update(action: str, payload: dict[str, Any]) -> dict[str, Any]:
-                return retry_transient(
+                nonlocal finish_acknowledged
+                result = retry_transient(
                     lambda: update_job(ha_url, action, payload, token=token),
                     retry_seconds=job_retry_seconds,
                     stop_event=stop_event,
                 )
+                if action == "finish":
+                    finish_acknowledged = True
+                return result
 
             def with_transport_retry(operation: Callable[[], _T]) -> _T:
                 return retry_transient(
@@ -876,6 +889,27 @@ def serve(
                     except subprocess.TimeoutExpired:
                         compute_process.kill()
                         compute_process.wait(timeout=1.0)
+                if finish_acknowledged:
+                    try:
+                        mushroom_worker_transport.discard_worker_job(
+                            worker_data_dir.resolve(),
+                            job_id,
+                        )
+                        with runtime_lock:
+                            cleaned_job_ids_pending.add(job_id)
+                    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+                        print(
+                            json.dumps(
+                                {
+                                    "status": "worker_job_cleanup_failed",
+                                    "service": "rainmapper-worker",
+                                    "job_id": job_id,
+                                    "error": str(exc),
+                                },
+                                ensure_ascii=False,
+                            ),
+                            flush=True,
+                        )
                 set_runtime("idle")
 
         def heartbeat_loop() -> None:
@@ -894,13 +928,21 @@ def serve(
                     with runtime_lock:
                         worker_has_job = bool(runtime_state.get("active_job_id"))
                         active_job_id = str(runtime_state.get("active_job_id", "") or "")
-                    sent_discarded_ids = sorted(discarded_job_ids_pending)
+                    with runtime_lock:
+                        sent_discarded_ids = sorted(discarded_job_ids_pending)
+                        sent_cleaned_ids = sorted(cleaned_job_ids_pending)
                     heartbeat_response = send_heartbeat(
                         ha_url,
-                        heartbeat_payload(status, discarded_job_ids=sent_discarded_ids),
+                        heartbeat_payload(
+                            status,
+                            discarded_job_ids=sent_discarded_ids,
+                            cleaned_job_ids=sent_cleaned_ids,
+                        ),
                         token=token,
                     )
-                    discarded_job_ids_pending.difference_update(sent_discarded_ids)
+                    with runtime_lock:
+                        discarded_job_ids_pending.difference_update(sent_discarded_ids)
+                        cleaned_job_ids_pending.difference_update(sent_cleaned_ids)
                     discard_job_ids = heartbeat_response.get("discard_job_ids", [])
                     if not isinstance(discard_job_ids, list) or len(discard_job_ids) > 50:
                         raise ValueError("HA worker cleanup request is invalid.")
@@ -914,7 +956,24 @@ def serve(
                             worker_data_dir.resolve(),
                             resolved_discard_job_id,
                         )
-                        discarded_job_ids_pending.add(resolved_discard_job_id)
+                        with runtime_lock:
+                            discarded_job_ids_pending.add(resolved_discard_job_id)
+                            cleaned_job_ids_pending.add(resolved_discard_job_id)
+                    cleanup_job_ids = heartbeat_response.get("cleanup_job_ids", [])
+                    if not isinstance(cleanup_job_ids, list) or len(cleanup_job_ids) > 50:
+                        raise ValueError("HA worker terminal cleanup request is invalid.")
+                    for cleanup_job_id in cleanup_job_ids:
+                        resolved_cleanup_job_id = mushroom_worker_transport.validate_job_id(
+                            cleanup_job_id
+                        )
+                        if worker_has_job and resolved_cleanup_job_id == active_job_id:
+                            continue
+                        mushroom_worker_transport.discard_worker_job(
+                            worker_data_dir.resolve(),
+                            resolved_cleanup_job_id,
+                        )
+                        with runtime_lock:
+                            cleaned_job_ids_pending.add(resolved_cleanup_job_id)
                     if not worker_has_job and (active_job_thread is None or not active_job_thread.is_alive()):
                         claimed_job = claim_job(ha_url, identity["worker_id"], token=token)
                     else:

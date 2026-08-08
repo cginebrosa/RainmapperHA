@@ -732,6 +732,131 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .control-table tr:last-child td {{
       border-bottom: 0;
     }}
+    .diagnostic-selectors {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 0 0 14px;
+    }}
+    .diagnostic-selectors label {{
+      color: var(--muted);
+      display: grid;
+      font-size: 13px;
+      font-weight: 700;
+      gap: 6px;
+    }}
+    .diagnostic-selectors select {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      font: inherit;
+      min-height: 42px;
+      padding: 0 10px;
+      width: 100%;
+    }}
+    .diagnostic-execution-heads,
+    .diagnostic-timeline-grid {{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 0 0 14px;
+    }}
+    .diagnostic-warning {{
+      background: rgba(255, 190, 80, .1);
+      border: 1px solid rgba(255, 190, 80, .45);
+      border-radius: 8px;
+      color: #ffc76b;
+      padding: 10px 12px;
+    }}
+    .diagnostic-delta-better {{ color: var(--ok); }}
+    .diagnostic-delta-worse {{ color: var(--danger); }}
+    .diagnostic-delta-neutral {{ color: var(--muted); }}
+    .diagnostic-source {{
+      border-top: 1px solid var(--line);
+      margin-top: 10px;
+      padding-top: 10px;
+    }}
+    details.diagnostic-source > summary {{ cursor: pointer; list-style-position: inside; }}
+    .diagnostic-source:first-child {{
+      border-top: 0;
+      margin-top: 0;
+      padding-top: 0;
+    }}
+    .diagnostic-source-head {{
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+    }}
+    .diagnostic-timing-list {{
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+    }}
+    .diagnostic-phase-list {{
+      border-left: 2px solid var(--line);
+      display: grid;
+      gap: 6px;
+      margin: 14px 0 0 5px;
+      padding-left: 12px;
+    }}
+    .diagnostic-operation-phases {{
+      border-top: 1px solid var(--line);
+      margin-top: 14px;
+      padding-top: 12px;
+    }}
+    .diagnostic-operation-phases h4 {{ margin: 0 0 4px; }}
+    .diagnostic-chart-controls {{
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      margin-bottom: 14px;
+    }}
+    .diagnostic-chart-controls label {{
+      color: var(--muted);
+      display: grid;
+      font-size: 12px;
+      font-weight: 700;
+      gap: 5px;
+    }}
+    .diagnostic-chart-controls label[hidden] {{ display: none; }}
+    .diagnostic-chart-controls select {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--fg);
+      min-height: 40px;
+      padding: 0 9px;
+    }}
+    .diagnostic-chart {{
+      background: rgba(0, 0, 0, .12);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 300px;
+      overflow: hidden;
+      padding: 8px;
+    }}
+    .diagnostic-chart svg {{ display: block; height: auto; width: 100%; }}
+    .diagnostic-chart-legend {{ display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }}
+    .diagnostic-chart-legend span {{ color: var(--muted); font-size: 12px; }}
+    .diagnostic-chart-legend i {{ border-radius: 50%; display: inline-block; height: 8px; margin-right: 5px; width: 8px; }}
+    .diagnostic-gantt {{ display: grid; gap: 7px; margin: 12px 0; }}
+    .diagnostic-gantt-row {{ align-items: center; display: grid; gap: 8px; grid-template-columns: minmax(90px, 28%) 1fr; }}
+    .diagnostic-gantt-label {{ color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+    .diagnostic-gantt-track {{ background: rgba(255,255,255,.05); border-radius: 5px; height: 20px; position: relative; }}
+    .diagnostic-gantt-bar {{ background: var(--accent); border-radius: 4px; height: 14px; min-width: 3px; position: absolute; top: 3px; z-index: 2; }}
+    .diagnostic-gantt-marker {{ background: #ffc76b; height: 20px; position: absolute; top: 0; width: 2px; z-index: 3; }}
+    .diagnostic-gantt-gridline {{ border-left: 1px solid rgba(255,255,255,.12); bottom: 0; position: absolute; top: 0; z-index: 1; }}
+    .diagnostic-gantt-axis-track {{ border-top: 1px solid var(--line); height: 30px; position: relative; }}
+    .diagnostic-gantt-axis-tick {{ border-left: 1px solid var(--muted); height: 6px; position: absolute; top: 0; }}
+    .diagnostic-gantt-axis-label {{ color: var(--muted); font-size: 10px; position: absolute; top: 9px; white-space: nowrap; }}
+    .diagnostic-gantt-group {{ border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: 5px 7px; }}
+    .diagnostic-gantt-group > summary {{ cursor: pointer; list-style-position: inside; }}
+    .diagnostic-gantt-summary-row {{ align-items: center; display: inline-grid; gap: 8px; grid-template-columns: minmax(90px, 28%) 1fr; margin-left: 4px; vertical-align: middle; width: calc(100% - 22px); }}
+    .diagnostic-gantt-group-children {{ display: grid; gap: 6px; margin-top: 7px; }}
+    .diagnostic-gantt-group-children .diagnostic-gantt-label {{ padding-left: 14px; }}
+    .diagnostic-schema-note {{ border-left: 3px solid #ffc76b; color: var(--muted); margin: 8px 0 12px; padding-left: 9px; }}
     .status-pill {{
       align-items: center;
       display: inline-flex;
@@ -788,9 +913,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         margin-top: 12px;
       }}
       .summary-grid,
-      .panel-grid {{
+      .panel-grid,
+      .diagnostic-selectors,
+      .diagnostic-execution-heads,
+      .diagnostic-timeline-grid {{
         grid-template-columns: 1fr;
       }}
+      .diagnostic-chart-controls {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
     }}
     form {{
       display: inline-block;
@@ -7718,6 +7847,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       try {{
         window.sessionStorage.setItem("rainmapperControlTab", activeTab);
       }} catch (error) {{}}
+      if (activeTab === "diagnostics") initializeDiagnosticComparison();
     }}
     function restoreControlTab() {{
       var tabName = "";
@@ -7730,6 +7860,394 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         }} catch (error) {{}}
       }}
       setControlTab(tabName || "summary");
+    }}
+    var diagnosticDashboardCache = null;
+    var diagnosticDashboardLoadedAt = 0;
+    var diagnosticDashboardPromise = null;
+    var diagnosticDashboardPromisePeriod = "";
+    function diagnosticEscape(value) {{
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
+    }}
+    function diagnosticDataset() {{
+      return diagnosticDashboardCache && Array.isArray(diagnosticDashboardCache.executions) ? diagnosticDashboardCache.executions : [];
+    }}
+    function diagnosticVersionDataset() {{
+      return diagnosticDashboardCache && Array.isArray(diagnosticDashboardCache.version_averages) ? diagnosticDashboardCache.version_averages : [];
+    }}
+    function diagnosticDetailLabel(item) {{
+      if (item && item.operation === "predictor_request") return "diagnostic " + String(item.diagnostic_schema || "legacy");
+      return item && item.capabilities && item.capabilities.source_phase_intervals ? "diagnostic 2.2 · full source detail" : "diagnostic " + String(item && item.diagnostic_schema || "legacy") + " · limited detail";
+    }}
+    function diagnosticEvolutionDataset() {{
+      return diagnosticDashboardCache && Array.isArray(diagnosticDashboardCache.evolution_series) ? diagnosticDashboardCache.evolution_series : [];
+    }}
+    function populateDiagnosticSelectors() {{
+      var executions = diagnosticDataset();
+      var selectA = document.querySelector('[data-diagnostic-select="a"]');
+      var selectB = document.querySelector('[data-diagnostic-select="b"]');
+      if (!selectA || !selectB) return;
+      if (!executions.length) {{
+        selectA.innerHTML = selectB.innerHTML = '<option value="">No diagnostic executions recorded</option>';
+        return;
+      }}
+      var optionHtml = executions.map(function(item) {{
+        return '<option value="' + diagnosticEscape(item.key) + '">' + diagnosticEscape(diagnosticOperationLabel(item.operation) + ' · ' + item.display_timestamp + ' · ' + item.status + ' · v' + (item.details.app_version || "unknown") + ' · ' + diagnosticDetailLabel(item)) + '</option>';
+      }}).join("");
+      selectA.innerHTML = optionHtml;
+      selectB.innerHTML = optionHtml;
+      var selectedB = executions[0].key;
+      var selectedA = (executions.find(function(item, index) {{ return index > 0 && item.operation === executions[0].operation; }}) || executions[1] || executions[0]).key;
+      try {{
+        var savedA = window.sessionStorage.getItem("rainmapperDiagnosticA");
+        var savedB = window.sessionStorage.getItem("rainmapperDiagnosticB");
+        if (savedA && executions.some(function(item) {{ return item.key === savedA; }})) selectedA = savedA;
+        if (savedB && executions.some(function(item) {{ return item.key === savedB; }})) selectedB = savedB;
+      }} catch (error) {{}}
+      selectA.value = selectedA;
+      selectB.value = selectedB;
+    }}
+    function loadDiagnosticDashboard(period, force) {{
+      period = period || "30";
+      if (diagnosticDashboardPromise) {{
+        if (diagnosticDashboardPromisePeriod === period) return diagnosticDashboardPromise;
+        return diagnosticDashboardPromise.then(function() {{ return loadDiagnosticDashboard(period, true); }});
+      }}
+      if (!force && diagnosticDashboardCache && diagnosticDashboardCache.evolution_period === period && Date.now() - diagnosticDashboardLoadedAt < 60000) return Promise.resolve(diagnosticDashboardCache);
+      var endpoint = new URL("api/diagnostics/history", window.location.href);
+      endpoint.searchParams.set("period", period);
+      diagnosticDashboardPromisePeriod = period;
+      diagnosticDashboardPromise = fetch(endpoint, {{headers:{{Accept:"application/json"}},cache:"no-store"}})
+        .then(function(response) {{ if (!response.ok) throw new Error("HTTP " + response.status); return response.json(); }})
+        .then(function(payload) {{
+          if (!payload.ok) throw new Error(payload.error || "Invalid diagnostics response");
+          diagnosticDashboardCache = payload;
+          diagnosticDashboardLoadedAt = Date.now();
+          return payload;
+        }})
+        .finally(function() {{ diagnosticDashboardPromise = null; diagnosticDashboardPromisePeriod = ""; }});
+      return diagnosticDashboardPromise;
+    }}
+    function diagnosticOperationLabel(value) {{
+      return {{runner_action:"Runner",runner_update:"Runner update",predictor_request:"Predictor"}}[value] || value || "Unknown";
+    }}
+    function diagnosticValue(execution, path) {{
+      var value = execution;
+      path.split(".").forEach(function(key) {{
+        value = value && typeof value === "object" ? value[key] : null;
+      }});
+      return typeof value === "number" && Number.isFinite(value) ? value : null;
+    }}
+    function diagnosticFormat(value, unit, digits) {{
+      if (value == null || typeof value !== "number" || !Number.isFinite(value)) return "—";
+      if (unit === "count") return String(Math.round(value));
+      return value.toFixed(digits == null ? 1 : digits) + (unit ? " " + unit : "");
+    }}
+    var diagnosticChartMetrics = {{
+      wall_seconds: {{label:"Duration",unit:"s"}},
+      max_cgroup_memory_current_mib: {{label:"Peak cgroup",unit:"MiB"}},
+      max_process_rss_mib: {{label:"Peak process RSS",unit:"MiB"}},
+      min_host_mem_available_mib: {{label:"Minimum host available",unit:"MiB"}},
+      max_cpu_temperature_c: {{label:"Maximum CPU temperature",unit:"°C"}},
+      cpu_percent_one_core: {{label:"CPU (one core)",unit:"%"}}
+    }};
+    var diagnosticChartColors = ["#24a9e8","#ffb84d","#5ed48b","#c38cff","#ff7185","#63d5d0","#d2d86b"];
+    function diagnosticChartControl(name) {{ return document.querySelector('[data-diagnostic-chart-control="' + name + '"]'); }}
+    function restoreDiagnosticChartControls() {{
+      ["mode","period","operation","workload","metric"].forEach(function(name) {{
+        var control = diagnosticChartControl(name);
+        if (!control) return;
+        try {{ var saved = window.sessionStorage.getItem("rainmapperDiagnosticChart_" + name); if (saved) control.value = saved; }} catch (error) {{}}
+      }});
+    }}
+    function populateDiagnosticChartControls(preserveWorkload) {{
+      var operationControl = diagnosticChartControl("operation");
+      var workloadControl = diagnosticChartControl("workload");
+      if (!operationControl || !workloadControl) return;
+      var operations = Array.from(new Set(diagnosticEvolutionDataset().map(function(item) {{ return item.operation; }}).concat(diagnosticVersionDataset().map(function(item) {{ return item.operation; }}))));
+      var currentOperation = operationControl.value || "runner_action";
+      operationControl.innerHTML = operations.map(function(item) {{ return '<option value="' + diagnosticEscape(item) + '">' + diagnosticEscape(diagnosticOperationLabel(item)) + '</option>'; }}).join("");
+      if (operations.indexOf(currentOperation) < 0) currentOperation = operations[0] || "runner_action";
+      operationControl.value = currentOperation;
+      var workloads = Array.from(new Set(diagnosticEvolutionDataset().filter(function(item) {{ return item.operation === currentOperation; }}).map(function(item) {{ return item.workload; }}).concat(diagnosticVersionDataset().filter(function(item) {{ return item.operation === currentOperation; }}).map(function(item) {{ return item.workload; }}))));
+      var currentWorkload = preserveWorkload ? workloadControl.value : "";
+      if (preserveWorkload && !currentWorkload) {{ try {{ currentWorkload = window.sessionStorage.getItem("rainmapperDiagnosticChart_workload") || ""; }} catch (error) {{}} }}
+      workloadControl.innerHTML = '<option value="">All (separate series)</option>' + workloads.map(function(item) {{ return '<option value="' + diagnosticEscape(item) + '">' + diagnosticEscape(item) + '</option>'; }}).join("");
+      if (workloads.indexOf(currentWorkload) >= 0) workloadControl.value = currentWorkload;
+    }}
+    function diagnosticChartSvg(series, metric, mode, renderWidth) {{
+      var width = Math.max(360, Math.min(1800, Math.round(renderWidth || 900))), height = 300, left = 64, right = 20, top = 20, bottom = 50;
+      var plotWidth = width - left - right, plotHeight = height - top - bottom;
+      var metricMeta = diagnosticChartMetrics[metric] || {{label:metric,unit:""}};
+      if (!series.length) return '<p class="meta">No comparable samples for these filters.</p>';
+      var values = [];
+      series.forEach(function(group) {{ group.points.forEach(function(point) {{ values.push(point.value); if (point.minimum != null) values.push(point.minimum); if (point.maximum != null) values.push(point.maximum); }}); }});
+      var minY = Math.min.apply(null, values), maxY = Math.max.apply(null, values);
+      if (minY === maxY) {{ minY = Math.max(0, minY - 1); maxY += 1; }}
+      var padY = (maxY - minY) * .08; minY = Math.max(0, minY - padY); maxY += padY;
+      var allX = [];
+      series.forEach(function(group) {{ group.points.forEach(function(point) {{ allX.push(point.x); }}); }});
+      var minX = Math.min.apply(null, allX), maxX = Math.max.apply(null, allX);
+      if (minX === maxX) maxX += 1;
+      var x = function(value) {{ return left + (value - minX) * plotWidth / (maxX - minX); }};
+      var y = function(value) {{ return top + (maxY - value) * plotHeight / (maxY - minY); }};
+      var svg = '<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + diagnosticEscape(metricMeta.label) + '">';
+      for (var grid = 0; grid <= 4; grid++) {{
+        var gridValue = minY + (maxY - minY) * grid / 4, gridY = y(gridValue);
+        svg += '<line x1="' + left + '" y1="' + gridY + '" x2="' + (width-right) + '" y2="' + gridY + '" stroke="rgba(255,255,255,.12)"/><text x="' + (left-8) + '" y="' + (gridY+4) + '" text-anchor="end" fill="#9ba9b4" font-size="10">' + diagnosticEscape(diagnosticFormat(gridValue, metricMeta.unit, 1)) + '</text>';
+      }}
+      series.forEach(function(group, index) {{
+        var color = diagnosticChartColors[index % diagnosticChartColors.length];
+        var ordered = group.points.slice().sort(function(a,b) {{ return a.x-b.x; }});
+        if (mode === "time" && ordered.length > 1) svg += '<polyline fill="none" stroke="' + color + '" stroke-width="2" points="' + ordered.map(function(point) {{ return x(point.x) + ',' + y(point.value); }}).join(' ') + '"/>';
+        ordered.forEach(function(point) {{
+          if (point.minimum != null && point.maximum != null) svg += '<line x1="' + x(point.x) + '" y1="' + y(point.minimum) + '" x2="' + x(point.x) + '" y2="' + y(point.maximum) + '" stroke="' + color + '" stroke-width="3" opacity=".65"/>';
+          svg += '<circle cx="' + x(point.x) + '" cy="' + y(point.value) + '" r="4" fill="' + color + '"><title>' + diagnosticEscape(point.label + ' · ' + diagnosticFormat(point.value, metricMeta.unit, 1) + (point.samples ? ' · ' + point.samples + ' samples' : '')) + '</title></circle>';
+        }});
+      }});
+      var startLabel = mode === "time" ? new Date(minX).toLocaleString() : "older version";
+      var endLabel = mode === "time" ? new Date(maxX).toLocaleString() : "newer version";
+      svg += '<line x1="' + left + '" y1="' + (height-bottom) + '" x2="' + (width-right) + '" y2="' + (height-bottom) + '" stroke="#667580"/><text x="' + left + '" y="' + (height-18) + '" fill="#9ba9b4" font-size="10">' + diagnosticEscape(startLabel) + '</text><text x="' + (width-right) + '" y="' + (height-18) + '" text-anchor="end" fill="#9ba9b4" font-size="10">' + diagnosticEscape(endLabel) + '</text></svg>';
+      return svg + '<div class="diagnostic-chart-legend">' + series.map(function(group,index) {{ return '<span><i style="background:' + diagnosticChartColors[index % diagnosticChartColors.length] + '"></i>' + diagnosticEscape(group.name) + '</span>'; }}).join('') + '</div>';
+    }}
+    function renderDiagnosticEvolution() {{
+      var target = document.getElementById("diagnostic-evolution-chart");
+      if (!target) return;
+      var mode = diagnosticChartControl("mode").value, operation = diagnosticChartControl("operation").value, workload = diagnosticChartControl("workload").value, metric = diagnosticChartControl("metric").value;
+      var periodLabel = document.getElementById("diagnostic-period-field");
+      if (periodLabel) periodLabel.hidden = mode !== "time";
+      var groups = [];
+      if (mode === "version") {{
+        var rows = diagnosticVersionDataset().filter(function(item) {{ return item.operation === operation && (!workload || item.workload === workload) && item.averages && typeof item.averages[metric] === "number"; }});
+        var versions = Array.from(new Set(rows.map(function(item) {{ return item.version; }}))).sort(function(a,b) {{
+          return Math.max.apply(null, rows.filter(function(item) {{ return item.version === a; }}).map(function(item) {{ return Date.parse(item.last_timestamp)||0; }})) - Math.max.apply(null, rows.filter(function(item) {{ return item.version === b; }}).map(function(item) {{ return Date.parse(item.last_timestamp)||0; }}));
+        }});
+        var grouped = {{}};
+        rows.forEach(function(item) {{ var key = item.workload; (grouped[key] = grouped[key] || []).push({{x:versions.indexOf(item.version),value:item.averages[metric],minimum:item.minimums && item.minimums[metric],maximum:item.maximums && item.maximums[metric],label:'v'+item.version+' · '+item.workload,samples:item.sample_count}}); }});
+        groups = Object.keys(grouped).map(function(key) {{ return {{name:key,points:grouped[key]}}; }});
+      }} else {{
+        var points = diagnosticEvolutionDataset().filter(function(item) {{ return item.operation === operation && (!workload || item.workload === workload) && item.metrics && typeof item.metrics[metric] === "number"; }});
+        var groupedTime = {{}};
+        points.forEach(function(item) {{ var key = 'v'+item.version+' · '+item.workload; (groupedTime[key] = groupedTime[key] || []).push({{x:Date.parse(item.timestamp),value:item.metrics[metric],label:item.display_timestamp+' · '+item.status}}); }});
+        groups = Object.keys(groupedTime).map(function(key) {{ return {{name:key,points:groupedTime[key]}}; }});
+      }}
+      target.innerHTML = diagnosticChartSvg(groups, metric, mode, target.clientWidth - 16);
+    }}
+    function diagnosticTimelineBounds(execution) {{
+      if (!execution) return {{start:0,finish:1,span:1}};
+      var finish = Date.parse(execution.timestamp || "") || Date.now();
+      var wallSeconds = diagnosticValue(execution, "details.wall_seconds") || 0;
+      var start = finish - wallSeconds * 1000;
+      Object.values(execution.sources || {{}}).forEach(function(source) {{
+        if (!source || typeof source !== "object") return;
+        var sourceStart = Date.parse(source.started_at || ""), sourceFinish = Date.parse(source.finished_at || "");
+        if (Number.isFinite(sourceStart)) start = Math.min(start, sourceStart);
+        if (Number.isFinite(sourceFinish)) finish = Math.max(finish, sourceFinish);
+      }});
+      (execution.phases || []).forEach(function(item) {{
+        var stamp = Date.parse(item.timestamp || "");
+        if (Number.isFinite(stamp)) {{ start = Math.min(start, stamp); finish = Math.max(finish, stamp); }}
+      }});
+      return {{start:start,finish:finish,span:Math.max(1,finish-start)}};
+    }}
+    function diagnosticElapsedLabel(milliseconds) {{
+      var totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+      var minutes = Math.floor(totalSeconds / 60), seconds = totalSeconds % 60;
+      return minutes ? minutes + "m" + (seconds ? " " + seconds + "s" : "") : totalSeconds + "s";
+    }}
+    function diagnosticGanttTicks(span) {{
+      var candidates = [10000,30000,60000,120000,300000,600000,900000,1800000,3600000];
+      var targetStep = span / 4;
+      var step = candidates.find(function(value) {{ return value >= targetStep; }}) || candidates[candidates.length-1];
+      var ticks = [];
+      for (var value = 0; value <= span; value += step) ticks.push(value);
+      if (!ticks.length || span - ticks[ticks.length-1] > step * .15) ticks.push(span);
+      return ticks;
+    }}
+    function renderDiagnosticTimeline(execution, targetId, sharedSpan) {{
+      var target = document.getElementById(targetId);
+      if (!target) return;
+      if (!execution) {{ target.innerHTML = '<p class="meta">No execution selected.</p>'; return; }}
+      var sourceNames = ["AEMET", "Meteoclimatic", "Meteocat", "Wunderground"];
+      var sources = execution.sources || {{}};
+      var bounds = diagnosticTimelineBounds(execution);
+      var startMs = bounds.start, observedSpan = bounds.span, span = Math.max(observedSpan, sharedSpan || observedSpan);
+      var sourceGroups = {{}}, globalItems = [];
+      sourceNames.forEach(function(name) {{
+        var source = sources[name];
+        sourceGroups[name] = {{source:source || null,items:[]}};
+        if (!source) return;
+        var sourceStart = Date.parse(source.started_at || ""), sourceFinish = Date.parse(source.finished_at || "");
+        if (Number.isFinite(sourceStart) && Number.isFinite(sourceFinish) && sourceFinish >= sourceStart) sourceGroups[name].parent = {{label:name,start:sourceStart,finish:sourceFinish,type:"bar"}};
+        (source.phase_intervals || []).forEach(function(interval) {{
+          var intervalStart = Date.parse(interval.started_at || ""), intervalFinish = Date.parse(interval.finished_at || "");
+          if (Number.isFinite(intervalStart) && Number.isFinite(intervalFinish) && intervalFinish >= intervalStart) sourceGroups[name].items.push({{label:String(interval.phase || "phase").replace(/_/g," "),start:intervalStart,finish:intervalFinish,type:"bar"}});
+        }});
+      }});
+      var pendingSteps = {{}};
+      (execution.phases || []).forEach(function(item) {{
+        var stamp = Date.parse(item.timestamp || ""), step = item.details && (item.details.step || item.details.source || item.details.phase);
+        if (!Number.isFinite(stamp)) return;
+        var phaseName = String(item.phase || "");
+        var explicitSource = item.details && item.details.source;
+        if (phaseName === "source_phase_start" || phaseName === "source_phase_complete") return;
+        if (phaseName.indexOf("aemet_") === 0) {{
+          if (sourceGroups.AEMET && !sourceGroups.AEMET.items.length) sourceGroups.AEMET.items.push({{label:phaseName.replace(/^aemet_/,"").replace(/_/g," "),start:stamp,finish:stamp,type:"marker"}});
+          return;
+        }}
+        if (explicitSource && sourceGroups[explicitSource]) {{
+          sourceGroups[explicitSource].items.push({{label:phaseName.replace(/_/g," "),start:stamp,finish:stamp,type:"marker"}});
+          return;
+        }}
+        if (item.phase === "before_step" && step) pendingSteps[step] = stamp;
+        else if (item.phase === "after_step" && step && pendingSteps[step] != null) globalItems.push({{label:String(step),start:pendingSteps[step],finish:stamp,type:"bar"}});
+        else if (["start","finish","heartbeat","source_complete"].indexOf(item.phase) < 0) globalItems.push({{label:String(step || item.phase).replace(/_/g," "),start:stamp,finish:stamp,type:"marker"}});
+      }});
+      var ticks = diagnosticGanttTicks(span);
+      var gridHtml = ticks.map(function(tick) {{ return '<span class="diagnostic-gantt-gridline" style="left:' + (100*tick/span).toFixed(2) + '%"></span>'; }}).join('');
+      var axisHtml = '<div class="diagnostic-gantt-row"><span class="diagnostic-gantt-label">Elapsed</span><div class="diagnostic-gantt-axis-track">' + ticks.map(function(tick,index) {{
+        var position = 100*tick/span, transform = index === 0 ? "translateX(0)" : index === ticks.length-1 ? "translateX(-100%)" : "translateX(-50%)";
+        return '<span class="diagnostic-gantt-axis-tick" style="left:' + position.toFixed(2) + '%"></span><span class="diagnostic-gantt-axis-label" style="left:' + position.toFixed(2) + '%;transform:' + transform + '">' + diagnosticEscape(diagnosticElapsedLabel(tick)) + '</span>';
+      }}).join('') + '</div></div>';
+      var renderGanttItem = function(item, summary) {{
+        var left = Math.max(0, Math.min(100, 100 * (item.start-startMs)/span));
+        var width = Math.max(.3, Math.min(100-left, 100 * (item.finish-item.start)/span));
+        var title = item.label + ' · +' + ((item.start-startMs)/1000).toFixed(1) + 's' + (item.type === "bar" ? ' → +' + ((item.finish-startMs)/1000).toFixed(1) + 's' : '');
+        var content = '<span class="diagnostic-gantt-label" title="' + diagnosticEscape(item.label) + '">' + diagnosticEscape(item.label) + '</span><span class="diagnostic-gantt-track">' + gridHtml + '<span class="diagnostic-gantt-' + item.type + '" style="left:' + left.toFixed(2) + '%;' + (item.type === "bar" ? 'width:'+width.toFixed(2)+'%;' : '') + '" title="' + diagnosticEscape(title) + '"></span></span>';
+        return summary ? '<span class="diagnostic-gantt-summary-row">' + content + '</span>' : '<div class="diagnostic-gantt-row">' + content + '</div>';
+      }};
+      var groupHtml = sourceNames.map(function(name) {{
+        var group = sourceGroups[name], items = group.items || [], parent = group.parent;
+        if (!parent && items.length) parent = {{label:name,start:Math.min.apply(null,items.map(function(item) {{ return item.start; }})),finish:Math.max.apply(null,items.map(function(item) {{ return item.finish; }})),type:"bar"}};
+        if (!parent) return "";
+        return '<details class="diagnostic-gantt-group"><summary>' + renderGanttItem(parent,true) + '</summary><div class="diagnostic-gantt-group-children">' + (items.length ? items.slice(0,30).map(function(item) {{ return renderGanttItem(item,false); }}).join('') : '<p class="meta">No retained subphases.</p>') + '</div></details>';
+      }}).join('');
+      if (globalItems.length) {{
+        var globalParent = {{label:"Global phases",start:Math.min.apply(null,globalItems.map(function(item) {{ return item.start; }})),finish:Math.max.apply(null,globalItems.map(function(item) {{ return item.finish; }})),type:"bar"}};
+        groupHtml += '<details class="diagnostic-gantt-group"><summary>' + renderGanttItem(globalParent,true) + '</summary><div class="diagnostic-gantt-group-children">' + globalItems.slice(0,30).map(function(item) {{ return renderGanttItem(item,false); }}).join('') + '</div></details>';
+      }}
+      var schema = execution.diagnostic_schema || "legacy";
+      var schemaNote = execution.capabilities && execution.capabilities.source_phase_intervals ? '' : '<p class="diagnostic-schema-note">Legacy/limited detail · diagnostic schema ' + diagnosticEscape(schema) + '. Metrics remain valid; complete source intervals were not recorded.</p>';
+      var ganttHtml = groupHtml ? schemaNote + '<div class="diagnostic-gantt">' + groupHtml + axisHtml + '</div><p class="meta">Observed window: ' + diagnosticEscape(diagnosticElapsedLabel(observedSpan)) + ' · shared A/B scale: ' + diagnosticEscape(diagnosticElapsedLabel(span)) + '</p>' : schemaNote + '<p class="meta">No retained intervals for a graphical timeline.</p>';
+      var sourceHtml = "";
+      if (execution.operation === "runner_action" || execution.operation === "runner_update") {{
+        sourceHtml = sourceNames.map(function(name) {{
+          var source = sources[name];
+          if (!source) return '<details class="diagnostic-source"><summary><strong>' + diagnosticEscape(name) + '</strong> <span class="meta">· No retained detail</span></summary><p class="meta">This execution predates retained source summaries or the source was unavailable.</p></details>';
+          var timingEntries = Object.entries(source.timings || {{}}).filter(function(item) {{ return typeof item[1] === "number"; }});
+          var timings = timingEntries.length ? timingEntries.map(function(item) {{
+            return diagnosticEscape(item[0].replace(/_seconds$/, "").replace(/_/g, " ")) + ": " + diagnosticFormat(item[1], "s", 1);
+          }}).join(" · ") : "No internal phase timings";
+          var intervalCount = Array.isArray(source.phase_intervals) ? source.phase_intervals.length : 0;
+          var intervalHtml = intervalCount ? '<div class="diagnostic-phase-list">' + source.phase_intervals.map(function(interval) {{ return '<div><strong>' + diagnosticEscape(String(interval.phase || "phase").replace(/_/g," ")) + '</strong><span class="meta">' + diagnosticEscape(interval.started_at || "") + ' → ' + diagnosticEscape(interval.finished_at || "") + ' · ' + diagnosticFormat(Number(interval.duration_seconds), "s", 1) + '</span></div>'; }}).join('') + '</div>' : '';
+          return '<details class="diagnostic-source"><summary><strong>' + diagnosticEscape(name) + '</strong> <span class="status-pill ' + (String(source.status).toUpperCase() === "OK" ? "ok" : "danger") + '">' + diagnosticEscape(source.status || "unknown") + '</span><span class="meta"> · ' + diagnosticFormat(Number(source.duration_seconds), "s", 1) + '</span></summary>' +
+            '<div class="meta">' + diagnosticFormat(Number(source.duration_seconds), "s", 1) + ' · ' + diagnosticEscape(source.rows || 0) + ' rows · ' + diagnosticEscape(source.stations || 0) + ' stations</div>' +
+            '<div class="meta">' + diagnosticEscape(source.started_at || "Start not retained") + ' → ' + diagnosticEscape(source.finished_at || "finish not retained") + '</div>' +
+            '<div class="diagnostic-timing-list">' + timings + '</div><div class="meta">' + diagnosticEscape(intervalCount) + ' retained phase interval(s)</div>' + intervalHtml + '</details>';
+        }}).join("");
+      }}
+      var phases = (execution.phases || []).filter(function(item) {{
+        if (["start","finish","source_complete","source_phase_start","source_phase_complete"].indexOf(item.phase) >= 0) return false;
+        if (String(item.phase || "").indexOf("aemet_") === 0 && sources.AEMET && Array.isArray(sources.AEMET.phase_intervals) && sources.AEMET.phase_intervals.length) return false;
+        return true;
+      }}).slice(-30);
+      var phaseHtml = phases.length ? '<details class="diagnostic-operation-phases"><summary><strong>Retained operation phases</strong></summary><p class="meta">Independent execution events; they do not belong to the last source listed above.</p><div class="diagnostic-phase-list">' + phases.map(function(item) {{
+        var seconds = item.details && typeof item.details.elapsed_seconds === "number" ? " · " + diagnosticFormat(item.details.elapsed_seconds, "s", 1) : "";
+        var operation = item.operation && item.operation !== execution.operation ? diagnosticOperationLabel(item.operation) + " · " : "";
+        return '<div><strong>' + diagnosticEscape(operation + item.phase.replace(/_/g, " ")) + '</strong><span class="meta">' + diagnosticEscape(item.timestamp || "") + diagnosticEscape(seconds) + '</span></div>';
+      }}).join("") + '</div></details>' : '<details class="diagnostic-operation-phases"><summary><strong>Retained operation phases</strong></summary><p class="meta">Detailed phase events have rotated or were not recorded by this version.</p></details>';
+      target.innerHTML = ganttHtml + '<details><summary>Source and phase detail</summary>' + sourceHtml + phaseHtml + '</details>';
+    }}
+    function renderDiagnosticComparison() {{
+      var executions = diagnosticDataset();
+      var selectA = document.querySelector('[data-diagnostic-select="a"]');
+      var selectB = document.querySelector('[data-diagnostic-select="b"]');
+      if (!selectA || !selectB) return;
+      var findExecution = function(key) {{ return executions.find(function(item) {{ return item.key === key; }}); }};
+      var executionA = findExecution(selectA.value);
+      var executionB = findExecution(selectB.value);
+      var warning = document.getElementById("diagnostic-comparison-warning");
+      var warningParts = [];
+      if (executionA && executionB && executionA.operation !== executionB.operation) warningParts.push("Different operation types");
+      if (executionA && executionB && executionA.details.action !== executionB.details.action) warningParts.push("Different runner actions");
+      if (executionA && executionB && executionA.details.view !== executionB.details.view) warningParts.push("Different Predictor views");
+      if (executionA && executionB && Boolean(executionA.details.cold_request) !== Boolean(executionB.details.cold_request)) warningParts.push("Cold and warm Predictor requests");
+      if (warning) {{
+        warning.textContent = warningParts.length ? "Not a like-for-like comparison: " + warningParts.join("; ") + "." : "";
+        warning.hidden = !warningParts.length;
+      }}
+      var heads = document.getElementById("diagnostic-execution-heads");
+      if (heads) {{
+        heads.innerHTML = [executionA, executionB].map(function(item, index) {{
+          var executionRole = index ? "B · candidate" : "A · baseline";
+          if (!item) return '<div class="card"><span class="label">Execution ' + executionRole + '</span><span class="value">Not selected</span></div>';
+          return '<div class="card"><span class="label">Execution ' + executionRole + '</span><span class="value">' + diagnosticEscape(diagnosticOperationLabel(item.operation)) + ' · ' + diagnosticEscape(item.status) + '</span><span class="meta">' + diagnosticEscape(item.display_timestamp) + ' · v' + diagnosticEscape(item.details.app_version || "unknown") + ' · ' + diagnosticDetailLabel(item) + '</span></div>';
+        }}).join("");
+      }}
+      var metrics = [
+        ["Duration", "details.wall_seconds", "s", 1, "lower"],
+        ["Process peak RSS", "details.max_process_rss_mib", "MiB", 1, "lower"],
+        ["Peak cgroup usage", "details.max_cgroup_memory_current_mib", "MiB", 1, "lower"],
+        ["Minimum host memory available", "details.min_host_mem_available_mib", "MiB", 1, "higher"],
+        ["Maximum CPU temperature", "details.max_cpu_temperature_c", "°C", 1, "lower"],
+        ["CPU (one core)", "details.cpu_percent_one_core", "%", 1, "lower"],
+        ["OOM events", "details.cgroup_oom_delta", "count", 0, "lower"],
+        ["Source rows (context)", "details.source_rows_total", "count", 0, "neutral"],
+        ["Source stations (context)", "details.source_stations_total", "count", 0, "neutral"],
+        ["Cgroup after 60 s", "snapshots.recovery_60s.cgroup_memory_current_mib", "MiB", 1, "lower"],
+        ["Cgroup after 600 s", "snapshots.recovery_600s.cgroup_memory_current_mib", "MiB", 1, "lower"]
+      ];
+      var body = document.getElementById("diagnostic-comparison-body");
+      if (body) body.innerHTML = metrics.map(function(metric) {{
+        var a = executionA ? diagnosticValue(executionA, metric[1]) : null;
+        var b = executionB ? diagnosticValue(executionB, metric[1]) : null;
+        var delta = a != null && b != null ? b - a : null;
+        var percent = delta != null && a !== 0 ? 100 * delta / Math.abs(a) : null;
+        var quality = "neutral";
+        if (metric[4] !== "neutral" && delta != null && Math.abs(delta) > 0.0001) quality = (metric[4] === "lower" ? delta < 0 : delta > 0) ? "better" : "worse";
+        var deltaText = delta == null ? "—" : (delta > 0 ? "+" : "") + diagnosticFormat(delta, metric[2], metric[3]) + (percent == null ? "" : " (" + (percent > 0 ? "+" : "") + percent.toFixed(1) + "%)");
+        var assessment = a == null || b == null || metric[4] === "neutral" ? "Not assessed" : delta == null || Math.abs(delta) <= 0.0001 ? "No change" : quality === "better" ? "B is better" : "A is better";
+        return '<tr><td><strong>' + diagnosticEscape(metric[0]) + '</strong></td><td>' + diagnosticFormat(a, metric[2], metric[3]) + '</td><td>' + diagnosticFormat(b, metric[2], metric[3]) + '</td><td class="diagnostic-delta-' + quality + '">' + diagnosticEscape(deltaText) + '</td><td class="diagnostic-delta-' + quality + '"><strong>' + diagnosticEscape(assessment) + '</strong></td></tr>';
+      }}).join("");
+      var commonTimelineSpan = Math.max(diagnosticTimelineBounds(executionA).span, diagnosticTimelineBounds(executionB).span);
+      renderDiagnosticTimeline(executionA, "diagnostic-timeline-a", commonTimelineSpan);
+      renderDiagnosticTimeline(executionB, "diagnostic-timeline-b", commonTimelineSpan);
+      var historyBody = document.getElementById("diagnostic-history-body");
+      if (historyBody) historyBody.innerHTML = executions.slice(0, 20).map(function(item) {{
+        return '<tr><td>' + diagnosticEscape(item.display_timestamp) + '</td><td>' + diagnosticEscape(diagnosticOperationLabel(item.operation)) + '</td><td>' + diagnosticEscape(item.details.app_version || "unknown") + '</td><td>' + diagnosticEscape(item.status) + '</td><td>' + diagnosticFormat(diagnosticValue(item, "details.wall_seconds"), "s", 1) + '</td><td>' + diagnosticFormat(diagnosticValue(item, "details.max_cgroup_memory_current_mib"), "MiB", 1) + '</td></tr>';
+      }}).join("");
+      var versionBody = document.getElementById("diagnostic-version-body");
+      if (versionBody) {{
+        var aggregates = diagnosticVersionDataset();
+        versionBody.innerHTML = aggregates.length ? aggregates.map(function(item) {{
+          var averages = item.averages || {{}};
+          return '<tr><td><strong>' + diagnosticEscape(item.version) + '</strong><div class="meta">Latest: ' + diagnosticEscape(item.display_timestamp || "-") + '</div></td>' +
+            '<td>' + diagnosticEscape(diagnosticOperationLabel(item.operation)) + '</td><td>' + diagnosticEscape(item.workload || "unknown") + '</td><td>' + diagnosticEscape(item.sample_count) + '</td><td>' + diagnosticEscape(item.ok_count) + '</td><td>' + diagnosticEscape(item.anomaly_count) + '</td>' +
+            '<td>' + diagnosticFormat(averages.wall_seconds, "s", 1) + '</td><td>' + diagnosticFormat(averages.max_cgroup_memory_current_mib, "MiB", 1) + '</td>' +
+            '<td>' + diagnosticFormat(averages.max_process_rss_mib, "MiB", 1) + '</td><td>' + diagnosticFormat(averages.min_host_mem_available_mib, "MiB", 1) + '</td>' +
+            '<td>' + diagnosticFormat(averages.max_cpu_temperature_c, "°C", 1) + '</td></tr>';
+        }}).join("") : '<tr><td colspan="11">No version summaries recorded.</td></tr>';
+      }}
+    }}
+    function initializeDiagnosticComparison() {{
+      var selectA = document.querySelector('[data-diagnostic-select="a"]');
+      var selectB = document.querySelector('[data-diagnostic-select="b"]');
+      var panel = document.querySelector('[data-control-panel="diagnostics"]');
+      if (!selectA || !selectB || !panel || panel.hidden) return;
+      restoreDiagnosticChartControls();
+      if (diagnosticDashboardCache) {{ populateDiagnosticSelectors(); populateDiagnosticChartControls(true); renderDiagnosticComparison(); renderDiagnosticEvolution(); }}
+      var periodControl = diagnosticChartControl("period");
+      loadDiagnosticDashboard(periodControl ? periodControl.value : "30").then(function() {{
+        populateDiagnosticSelectors();
+        populateDiagnosticChartControls(true);
+        renderDiagnosticComparison();
+        renderDiagnosticEvolution();
+      }}).catch(function(error) {{
+        selectA.innerHTML = selectB.innerHTML = '<option value="">Cannot load diagnostic history</option>';
+        var warning = document.getElementById("diagnostic-comparison-warning");
+        if (warning) {{ warning.textContent = "Cannot load diagnostic history: " + error.message; warning.hidden = false; }}
+      }});
     }}
     function activeProfileTabId() {{
       var checked = document.querySelector(".profile-tabs input[name='profile_tab']:checked");
@@ -8184,6 +8702,35 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (event.target && event.target.name === "observation_exif_images") {{
         updateObservationExifPreview(event.target);
       }}
+      var diagnosticSelect = event.target && event.target.closest ? event.target.closest("[data-diagnostic-select]") : null;
+      if (diagnosticSelect) {{
+        try {{
+          window.sessionStorage.setItem(
+            diagnosticSelect.getAttribute("data-diagnostic-select") === "a" ? "rainmapperDiagnosticA" : "rainmapperDiagnosticB",
+            diagnosticSelect.value
+          );
+        }} catch (error) {{}}
+        renderDiagnosticComparison();
+      }}
+      var chartControl = event.target && event.target.closest ? event.target.closest("[data-diagnostic-chart-control]") : null;
+      if (chartControl) {{
+        var chartControlName = chartControl.getAttribute("data-diagnostic-chart-control");
+        try {{ window.sessionStorage.setItem("rainmapperDiagnosticChart_" + chartControlName, chartControl.value); }} catch (error) {{}}
+        if (chartControlName === "operation") populateDiagnosticChartControls(false);
+        if (chartControlName === "period") {{
+          loadDiagnosticDashboard(chartControl.value, true).then(function() {{
+            populateDiagnosticSelectors();
+            populateDiagnosticChartControls(true);
+            renderDiagnosticComparison();
+            renderDiagnosticEvolution();
+          }}).catch(function(error) {{
+            var chartTarget = document.getElementById("diagnostic-evolution-chart");
+            if (chartTarget) chartTarget.innerHTML = '<p class="diagnostic-warning">Cannot load evolution: ' + diagnosticEscape(error.message) + '</p>';
+          }});
+        }} else {{
+          renderDiagnosticEvolution();
+        }}
+      }}
     }});
     document.addEventListener("submit", function(event) {{
       if(observationDraftFullState.unsaved&&observationDraftFullState.modal&&event.target.matches&&event.target.matches(".observation-coordinate-form")&&observationDraftFullState.modal.contains(event.target)){{
@@ -8314,6 +8861,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       revealActiveProfileListItem();
       fitCatalogTableToViewport();
       revealSelectedCatalogRow();
+      if (diagnosticDashboardCache && document.getElementById("diagnostic-evolution-chart")) renderDiagnosticEvolution();
     }});
     window.addEventListener("popstate", function() {{
       if (modalLayerForHash(window.location.hash)) {{
@@ -8349,6 +8897,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       applyUsersFilter();
       collapseUserCards();
       restoreControlTab();
+      initializeDiagnosticComparison();
       restoreProfileTab();
       restoreEcologyTab();
       fitProfileListToViewport();
@@ -8470,6 +9019,110 @@ def diagnostic_record_text(value: object) -> str:
     status = str(value.get("status", "unknown"))
     timestamp = format_local_iso_datetime(value.get("timestamp"))
     return f"{operation} · {status} · {timestamp}"
+
+
+def diagnostic_dashboard_payload(period: str = "30") -> dict[str, object]:
+    """Return detailed comparisons plus one compact evolution window."""
+    executions: list[dict[str, object]] = []
+    for raw_execution in runtime_diagnostics.diagnostic_history(limit=500):
+        execution = dict(raw_execution)
+        execution["display_timestamp"] = format_local_iso_datetime(execution.get("timestamp"))
+        details = dict(execution.get("details")) if isinstance(execution.get("details"), dict) else {}
+        details.setdefault("app_version", "unknown")
+        execution["details"] = details
+        executions.append(execution)
+    version_averages = runtime_diagnostics.diagnostic_version_averages()
+    for aggregate in version_averages:
+        aggregate["display_timestamp"] = format_local_iso_datetime(aggregate.get("last_timestamp"))
+    normalized_period = period if period in {"7", "30", "90", "all"} else "30"
+    evolution_days = None if normalized_period == "all" else int(normalized_period)
+    evolution_series = runtime_diagnostics.diagnostic_evolution_series(days=evolution_days)
+    for point in evolution_series:
+        point["display_timestamp"] = format_local_iso_datetime(point.get("timestamp"))
+    return {
+        "ok": True,
+        "history_limit": 500,
+        "evolution_period": normalized_period,
+        "version_limit": 5,
+        "executions": executions,
+        "evolution_series": evolution_series,
+        "version_averages": version_averages,
+    }
+
+
+def render_diagnostics_history_panel(
+    diagnostics: dict[str, object],
+    recent_cgroup_peak_text: str,
+) -> str:
+    return f"""
+    <div class="control-section">
+      <div class="section-header">
+        <div><h2>Runtime diagnostics</h2><p class="meta">Live state and comparison-ready execution history.</p></div>
+        <a class="button-link" href="./diagnostics/download">Download diagnostics</a>
+      </div>
+      <div class="summary-grid">
+        <div class="card"><span class="label">Last diagnostic success</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_success")))}</span></div>
+        <div class="card"><span class="label">Last failure or interruption</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_failure")))}</span></div>
+        <div class="card"><span class="label">Last OOM</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_oom")))}</span></div>
+        <div class="card"><span class="label">Recent max cgroup</span><span class="value">{html.escape(recent_cgroup_peak_text)}</span></div>
+        <div class="card"><span class="label">Pending operations</span><span class="value">{int(diagnostics.get("pending_operation_count") or 0)}</span></div>
+      </div>
+    </div>
+    <div class="control-section">
+      <h2>Evolution</h2>
+      <p class="meta">Explore comparable workloads over time or compare their mean and range across the five most recent retained versions.</p>
+      <div class="diagnostic-chart-controls">
+        <label><span>View</span><select data-diagnostic-chart-control="mode"><option value="time">Timeline</option><option value="version">By version</option></select></label>
+        <label id="diagnostic-period-field"><span>Period</span><select data-diagnostic-chart-control="period"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="all">All retained</option></select></label>
+        <label><span>Operation</span><select data-diagnostic-chart-control="operation"><option value="runner_action">Runner</option><option value="predictor_request">Predictor</option></select></label>
+        <label><span>Comparable workload</span><select data-diagnostic-chart-control="workload"><option value="">All (separate series)</option></select></label>
+        <label><span>Metric</span><select data-diagnostic-chart-control="metric"><option value="wall_seconds">Duration</option><option value="max_cgroup_memory_current_mib">Peak cgroup</option><option value="max_process_rss_mib">Peak process RSS</option><option value="min_host_mem_available_mib">Minimum host available</option><option value="max_cpu_temperature_c">Maximum CPU temperature</option><option value="cpu_percent_one_core">CPU (one core)</option></select></label>
+      </div>
+      <div id="diagnostic-evolution-chart" class="diagnostic-chart"><p class="meta">Open Diagnostics to load evolution.</p></div>
+    </div>
+    <div class="control-section">
+      <h2>Compare executions</h2>
+      <div class="diagnostic-selectors">
+        <label><span>Execution A · baseline</span><select data-diagnostic-select="a"><option value="">Open Diagnostics to load history</option></select></label>
+        <label><span>Execution B · candidate</span><select data-diagnostic-select="b"><option value="">Open Diagnostics to load history</option></select></label>
+      </div>
+      <p id="diagnostic-comparison-warning" class="diagnostic-warning" hidden></p>
+      <div id="diagnostic-execution-heads" class="diagnostic-execution-heads"></div>
+      <div class="control-table-wrap">
+        <table class="control-table diagnostic-comparison-table">
+          <thead><tr><th>Metric</th><th>Execution A (baseline)</th><th>Execution B (candidate)</th><th>Difference B − A</th><th>Assessment</th></tr></thead>
+          <tbody id="diagnostic-comparison-body"><tr><td colspan="5">Select two executions.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="control-section">
+      <h2>Execution Gantt and sources</h2>
+      <div class="diagnostic-timeline-grid">
+        <div class="card"><h3>Execution A</h3><div id="diagnostic-timeline-a"></div></div>
+        <div class="card"><h3>Execution B</h3><div id="diagnostic-timeline-b"></div></div>
+      </div>
+    </div>
+    <div class="control-section">
+      <h2>Recent history</h2>
+      <p class="meta">The 20 most recent rows are shown here; A/B can select up to 500 reconstructed executions. Detailed phases may rotate before their compact summaries.</p>
+      <div class="control-table-wrap">
+        <table class="control-table diagnostic-history-table">
+          <thead><tr><th>Date</th><th>Type</th><th>Version</th><th>Status</th><th>Duration</th><th>Peak cgroup</th></tr></thead>
+          <tbody id="diagnostic-history-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="control-section">
+      <h2>Version averages</h2>
+      <p class="meta">Runner and Predictor are averaged separately for the five most recent Rainmapper versions.</p>
+      <div class="control-table-wrap">
+        <table class="control-table diagnostic-version-table">
+          <thead><tr><th>Version</th><th>Type</th><th>Comparable workload</th><th>Samples</th><th>OK</th><th>Anomalies</th><th>Avg duration</th><th>Avg cgroup</th><th>Avg RSS</th><th>Avg available</th><th>Avg temperature</th></tr></thead>
+          <tbody id="diagnostic-version-body"></tbody>
+        </table>
+      </div>
+    </div>
+    """
 
 
 def get_timezone() -> ZoneInfo:
@@ -9529,9 +10182,12 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
                 RUN_STATE.update({"current_step": f"Running {step_label}", **clear_progress()})
             log_file.write(f"=== running step {step_label} ===\n")
             log_file.flush()
+            child_environment = os.environ.copy()
+            child_environment[runtime_diagnostics.PARENT_OPERATION_ENV] = action_monitor.operation_id
             process = subprocess.Popen(
                 command,
                 cwd="/app",
+                env=child_environment,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -10625,6 +11281,92 @@ def mushroom_worker_candidate_results_path() -> Path:
     return mushroom_paths.mushroom_data_dir() / ".worker-candidate-results"
 
 
+def mushroom_worker_supports(payload: object, capability: str) -> bool:
+    worker = payload if isinstance(payload, dict) else {}
+    capabilities = worker.get("capabilities", [])
+    return isinstance(capabilities, list) and capability in capabilities
+
+
+def reconcile_mushroom_worker_storage_for_launch(worker_id: str) -> dict[str, object]:
+    """Run visible, conservative storage maintenance before queuing external work."""
+    with RUN_LOCK:
+        queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+        jobs = queue["jobs"]
+        bundle_report = mushroom_worker_transport.cleanup_coordinator_bundles(
+            mushroom_worker_input_bundles_path(),
+            jobs,
+        )
+        result_report = mushroom_worker_results.cleanup_promoted_results(
+            mushroom_worker_candidate_results_path(),
+            jobs,
+        )
+        pending_worker = mushroom_worker_jobs.pending_worker_job_cleanups(
+            mushroom_worker_jobs_path(),
+            worker_id=worker_id,
+        )
+    removed = sum(
+        len(bundle_report.get(key, []))
+        for key in ("discarded_terminal", "discarded_orphan", "discarded_staging")
+    ) + len(result_report.get("discarded", []))
+    errors = [
+        *(str(value) for value in bundle_report.get("errors", [])),
+        *(str(value) for value in result_report.get("errors", [])),
+    ]
+    return {
+        "removed": removed,
+        "pending_worker": len(pending_worker),
+        "errors": errors,
+        "bundle_report": bundle_report,
+        "result_report": result_report,
+    }
+
+
+def mushroom_worker_maintenance_notice(report: object) -> str:
+    row = report if isinstance(report, dict) else {}
+    removed = int(row.get("removed", 0) or 0)
+    pending = int(row.get("pending_worker", 0) or 0)
+    errors = row.get("errors", [])
+    error_count = len(errors) if isinstance(errors, list) else 0
+    if not (removed or pending or error_count):
+        return ""
+    return (
+        mushroom_profiles_ui.ui_label("ui.worker_storage_maintenance_notice")
+        .replace("{removed}", str(removed))
+        .replace("{pending}", str(pending))
+        .replace("{errors}", str(error_count))
+    )
+
+
+def discard_mushroom_worker_input_bundle(job: dict[str, object]) -> None:
+    """Best-effort lifecycle cleanup after a terminal job transition."""
+    if not mushroom_worker_transport.coordinator_bundle_is_discardable(job):
+        return
+    job_id = str(job.get("job_id", ""))
+    try:
+        mushroom_worker_transport.discard_coordinator_bundle(
+            mushroom_worker_input_bundles_path(),
+            job_id,
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"WARNING: could not discard worker input bundle {job_id}: {exc}", flush=True)
+
+
+def discard_promoted_mushroom_worker_result(job: dict[str, object]) -> str:
+    """Remove a promoted private result and return a user-visible warning on failure."""
+    if job.get("promotion_status") != "promoted":
+        return ""
+    try:
+        mushroom_worker_results.discard_promoted_result(
+            mushroom_worker_candidate_results_path(),
+            job_id=str(job.get("job_id", "")),
+            job_type=str(job.get("job_type", "")),
+        )
+        return ""
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"WARNING: could not discard promoted worker result: {exc}", flush=True)
+        return mushroom_profiles_ui.ui_label("ui.worker_storage_cleanup_failed")
+
+
 def authenticate_mushroom_worker(worker_id: str, token: str) -> bool:
     if not mushroom_worker_auth_required():
         return True
@@ -10761,6 +11503,11 @@ def register_mushroom_worker_heartbeat(
     seen_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
     worker_id = str(heartbeat["worker_id"])
     with RUN_LOCK:
+        mushroom_worker_jobs.acknowledge_worker_job_cleanups(
+            mushroom_worker_jobs_path(),
+            worker_id=worker_id,
+            job_ids=[str(job_id) for job_id in heartbeat.get("cleaned_job_ids", [])],
+        )
         mushroom_worker_jobs.acknowledge_candidate_discards(
             mushroom_worker_jobs_path(),
             worker_id=worker_id,
@@ -10779,6 +11526,10 @@ def register_mushroom_worker_heartbeat(
         "worker_id": worker_id,
         "heartbeat_interval_seconds": 2,
         "discard_job_ids": mushroom_worker_jobs.pending_candidate_discards(
+            mushroom_worker_jobs_path(),
+            worker_id=worker_id,
+        ),
+        "cleanup_job_ids": mushroom_worker_jobs.pending_worker_job_cleanups(
             mushroom_worker_jobs_path(),
             worker_id=worker_id,
         ),
@@ -10866,6 +11617,7 @@ def create_mushroom_worker_claim_probe(worker_id: str) -> tuple[int, dict[str, o
     payload = worker["payload"]
     display_name = str(payload.get("display_name", worker_id))
     try:
+        maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
         with RUN_LOCK:
             job = mushroom_worker_jobs.create_claim_probe(
                 mushroom_worker_jobs_path(),
@@ -10876,7 +11628,12 @@ def create_mushroom_worker_claim_probe(worker_id: str) -> tuple[int, dict[str, o
         return 409, {"ok": False, "error": str(exc)}
     except ValueError as exc:
         return 400, {"ok": False, "error": str(exc)}
-    return 201, {"ok": True, "job": job}
+    return 201, {
+        "ok": True,
+        "job": job,
+        "maintenance": maintenance,
+        "maintenance_notice": mushroom_worker_maintenance_notice(maintenance),
+    }
 
 
 def create_mushroom_worker_snapshot_transport_probe(
@@ -10908,6 +11665,7 @@ def create_mushroom_worker_snapshot_transport_probe(
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
     try:
         try:
+            maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
             with RUN_LOCK:
                 active_probe = next(
                     (
@@ -10934,6 +11692,10 @@ def create_mushroom_worker_snapshot_transport_probe(
                 gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
                 weather_data_dir=mushroom_paths.weather_data_dir(),
                 gis_root=mushroom_gis_lab.gis_root(),
+                prefer_weather_parquet=mushroom_worker_supports(
+                    payload,
+                    mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
+                ),
             )
             try:
                 with RUN_LOCK:
@@ -10957,7 +11719,12 @@ def create_mushroom_worker_snapshot_transport_probe(
         return 409, {"ok": False, "error": str(exc)}
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         return 400, {"ok": False, "error": str(exc)}
-    return 201, {"ok": True, "job": job}
+    return 201, {
+        "ok": True,
+        "job": job,
+        "maintenance": maintenance,
+        "maintenance_notice": mushroom_worker_maintenance_notice(maintenance),
+    }
 
 
 def start_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int, dict[str, object]]:
@@ -10978,7 +11745,8 @@ def start_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int,
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_transport_queued").replace("{worker}", target),
+                    mushroom_profiles_ui.ui_label("ui.worker_transport_queued").replace("{worker}", target)
+                    + (f" {response['maintenance_notice']}" if response.get("maintenance_notice") else ""),
                     clear_when_idle=True,
                 )
             else:
@@ -11028,6 +11796,7 @@ def create_mushroom_worker_candidate_rebuild(
     display_name = str(payload.get("display_name", worker_id))
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
     try:
+        maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
         store = default_store()
         store.ensure_seeded()
         observations_payload = store.load("observations")
@@ -11091,6 +11860,10 @@ def create_mushroom_worker_candidate_rebuild(
                 reconstruction_scope=scope,
                 selected_observation_ids=selected_observation_ids,
                 pending_species_ids=scope_species_ids,
+                prefer_weather_parquet=mushroom_worker_supports(
+                    payload,
+                    mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
+                ),
             )
             try:
                 with RUN_LOCK:
@@ -11119,7 +11892,12 @@ def create_mushroom_worker_candidate_rebuild(
         return 409, {"ok": False, "error": str(exc)}
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         return 400, {"ok": False, "error": str(exc)}
-    return 201, {"ok": True, "job": job}
+    return 201, {
+        "ok": True,
+        "job": job,
+        "maintenance": maintenance,
+        "maintenance_notice": mushroom_worker_maintenance_notice(maintenance),
+    }
 
 
 def create_mushroom_ml_train_job(
@@ -11139,9 +11917,11 @@ def create_mushroom_ml_train_job(
     )
     if worker is None:
         return 409, {"ok": False, "error": "The selected worker is not connected."}
-    display_name = str((worker.get("payload") or {}).get("display_name", worker_id))
+    payload = worker.get("payload") or {}
+    display_name = str(payload.get("display_name", worker_id))
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
     try:
+        maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
         store = default_store()
         store.ensure_seeded()
         features_path = mushroom_paths.mushroom_observation_features_json_path()
@@ -11207,7 +11987,12 @@ def create_mushroom_ml_train_job(
         return 409, {"ok": False, "error": str(exc)}
     except (FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         return 400, {"ok": False, "error": str(exc)}
-    return 201, {"ok": True, "job": job}
+    return 201, {
+        "ok": True,
+        "job": job,
+        "maintenance": maintenance,
+        "maintenance_notice": mushroom_worker_maintenance_notice(maintenance),
+    }
 
 
 def start_mushroom_ml_train_job(worker_id: str) -> tuple[int, dict[str, object]]:
@@ -11225,7 +12010,8 @@ def start_mushroom_ml_train_job(worker_id: str) -> tuple[int, dict[str, object]]
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_ml_train_queued").replace("{worker}", target),
+                    mushroom_profiles_ui.ui_label("ui.worker_ml_train_queued").replace("{worker}", target)
+                    + (f" {response['maintenance_notice']}" if response.get("maintenance_notice") else ""),
                     clear_when_idle=True,
                 )
             else:
@@ -11275,7 +12061,8 @@ def start_mushroom_worker_candidate_rebuild(
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
                 label_key = "ui.worker_operational_queued" if promotion_eligible else "ui.worker_candidate_queued"
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label(label_key).replace("{worker}", target),
+                    mushroom_profiles_ui.ui_label(label_key).replace("{worker}", target)
+                    + (f" {response['maintenance_notice']}" if response.get("maintenance_notice") else ""),
                     clear_when_idle=True,
                 )
             else:
@@ -11348,8 +12135,12 @@ def _run_mushroom_worker_candidate_promotion(job_id: str) -> None:
                 promoted=True,
                 result={**promotion, "state_warning": state_warning},
             )
+        discard_mushroom_worker_input_bundle(promoted_job)
+        cleanup_warning = discard_promoted_mushroom_worker_result(promoted_job)
         set_mushroom_workers_flash(
-            mushroom_profiles_ui.ui_label("ui.worker_promotion_complete") + state_warning
+            mushroom_profiles_ui.ui_label("ui.worker_promotion_complete")
+            + state_warning
+            + (f" {cleanup_warning}" if cleanup_warning else "")
         )
     except Exception as exc:
         try:
@@ -11555,6 +12346,7 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     mushroom_worker_candidate_results_path(),
                     str(payload.get("job_id", "")),
                 )
+        discard_mushroom_worker_input_bundle(job)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {"ok": True, "job": job}
@@ -11714,14 +12506,17 @@ def _run_mushroom_worker_ml_train_promotion(job_id: str) -> None:
             )
             report_progress(99, "ML models promoted", "Trained models are now live.")
         with RUN_LOCK:
-            mushroom_worker_jobs.finish_candidate_promotion(
+            promoted_job = mushroom_worker_jobs.finish_candidate_promotion(
                 mushroom_worker_jobs_path(),
                 job_id=job_id,
                 promoted=True,
                 result=promotion,
             )
+        discard_mushroom_worker_input_bundle(promoted_job)
+        cleanup_warning = discard_promoted_mushroom_worker_result(promoted_job)
         set_mushroom_workers_flash(
             mushroom_profiles_ui.ui_label("ui.worker_ml_train_promoted")
+            + (f" {cleanup_warning}" if cleanup_warning else "")
         )
     except Exception as exc:
         try:
@@ -11882,6 +12677,7 @@ def cancel_mushroom_worker_job(job_id: str, *, force: bool = False) -> tuple[int
                 job_id=job_id,
                 force=force,
             )
+        discard_mushroom_worker_input_bundle(job)
     except ValueError as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {"ok": True, "job": job}
@@ -11938,6 +12734,22 @@ def reassign_mushroom_worker_job(job_id: str, worker_id: str) -> tuple[int, dict
     payload = target["payload"]
     try:
         with RUN_LOCK:
+            current_job = mushroom_worker_jobs.get_job(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+            )
+            input_bundle = current_job.get("input_bundle")
+            input_bundle = input_bundle if isinstance(input_bundle, dict) else {}
+            if (
+                input_bundle.get("weather_transport") == "parquet"
+                and not mushroom_worker_supports(
+                    payload,
+                    mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
+                )
+            ):
+                raise ValueError(
+                    "The selected worker cannot read this Parquet input bundle."
+                )
             job = mushroom_worker_jobs.reassign_job(
                 mushroom_worker_jobs_path(),
                 job_id=job_id,
@@ -12001,7 +12813,10 @@ def worker_job_elapsed_seconds(
     return max(0, (current.astimezone(UTC) - started.astimezone(UTC)).total_seconds())
 
 
-def mushroom_workers_recent_jobs(*, limit: int = 10) -> list[dict[str, object]]:
+def mushroom_workers_recent_jobs(
+    *,
+    limit: int = mushroom_worker_jobs.MAX_JOBS,
+) -> list[dict[str, object]]:
     cleanup_mushroom_rebuild_jobs()
     with RUN_LOCK:
         rebuild_jobs = [mushroom_rebuild_job_payload(dict(job)) for job in MUSHROOM_REBUILD_JOBS.values()]
@@ -12046,7 +12861,7 @@ def mushroom_workers_recent_jobs(*, limit: int = 10) -> list[dict[str, object]]:
         jobs,
         key=lambda job: float(job.get("sort_timestamp", 0) or 0),
         reverse=True,
-    )[:limit]
+    )[: limit + len(rebuild_jobs)]
 
 
 def mushroom_worker_activity_active(jobs: list[dict[str, object]]) -> bool:
@@ -16564,6 +17379,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.serve_control_panel_fragment()
             return
 
+        if path == "/api/diagnostics/history":
+            self.serve_diagnostic_history(parse_qs(parsed.query))
+            return
+
         if path == "/":
             self.render_index()
             return
@@ -17294,7 +18113,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else ""
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_probe_queued").replace("{worker}", target),
+                    mushroom_profiles_ui.ui_label("ui.worker_probe_queued").replace("{worker}", target)
+                    + (f" {response['maintenance_notice']}" if response.get("maintenance_notice") else ""),
                     clear_when_idle=True,
                 )
             else:
@@ -18850,7 +19670,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./mushrooms/known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
           <a class="button-link" href="./mushrooms/workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
           <a class="button-link" href="./mushrooms/predictor">{html.escape(mushroom_profiles_ui.ui_label('ui.predictor'))}</a>
-          <a class="button-link" href="./diagnostics/download">Download diagnostics</a>
         </div>
         """
         head_controls = f"""
@@ -18924,15 +19743,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         </div>
         """
 
-        diagnostics_cards = f"""
-        <div class="summary-grid">
-          <div class="card"><span class="label">Last diagnostic success</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_success")))}</span></div>
-          <div class="card"><span class="label">Last failure or interruption</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_failure")))}</span></div>
-          <div class="card"><span class="label">Last OOM</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_oom")))}</span></div>
-          <div class="card"><span class="label">Recent max cgroup</span><span class="value">{html.escape(recent_cgroup_peak_text)}</span></div>
-          <div class="card"><span class="label">Pending diagnostic operations</span><span class="value">{int(diagnostics.get("pending_operation_count") or 0)}</span></div>
-        </div>
-        """
+        diagnostics_panel = render_diagnostics_history_panel(
+            diagnostics,
+            recent_cgroup_peak_text,
+        )
 
         run_status_cards = f"""
         <div class="summary-grid">
@@ -18960,6 +19774,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <button type="button" class="control-tab" data-control-tab="sources" role="tab" aria-selected="false">Data sources</button>
           <button type="button" class="control-tab" data-control-tab="viewers" role="tab" aria-selected="false">Viewers</button>
           <button type="button" class="control-tab" data-control-tab="maps" role="tab" aria-selected="false">Maps</button>
+          <button type="button" class="control-tab" data-control-tab="diagnostics" role="tab" aria-selected="false">Diagnostics</button>
           <button type="button" class="control-tab" data-control-tab="logs" role="tab" aria-selected="false">Logs</button>
           <button type="button" class="control-tab" data-control-tab="errors" role="tab" aria-selected="false">Errors</button>
         </div>
@@ -18979,8 +19794,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             '<div class="control-section"><h2>Summary</h2>'
             f"{summary_cards}"
             f"{run_status_cards}"
-            '<h2>Runtime black box</h2>'
-            f"{diagnostics_cards}"
             "</div>"
             '<div class="control-section"><h2>Data sources</h2>'
             f"{source_table}"
@@ -19022,11 +19835,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             '<div class="control-section"><h2>Maps</h2>'
             f"{self.render_map_list()}"
             "</div></section>"
+            '<section class="control-tab-panel" data-control-panel="diagnostics" hidden>'
+            f"{diagnostics_panel}"
+            "</section>"
             '<section class="control-tab-panel" data-control-panel="logs" hidden>'
             '<div class="section-header">'
             "<h2>Logs</h2>"
             '<a class="button-link" href="./log" target="_blank" rel="noopener">Open full log</a>'
-            '<a class="button-link" href="./diagnostics/download">Download diagnostics</a>'
             "</div>"
             f"<pre>{html.escape(read_log())}</pre>"
             "</section>"
@@ -19060,7 +19875,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
               if(!payload.ok||typeof payload.html!=='string')throw new Error(payload.error||'Invalid Control Panel response');
               if(livePanel.dataset.controlSignature!==payload.signature){{
                 const tab=activeTab();const scrollX=window.scrollX,scrollY=window.scrollY;
-                livePanel.innerHTML=payload.html;livePanel.dataset.controlSignature=payload.signature;setControlTab(tab);
+                livePanel.innerHTML=payload.html;livePanel.dataset.controlSignature=payload.signature;setControlTab(tab);initializeDiagnosticComparison();
                 window.requestAnimationFrame(()=>window.scrollTo(scrollX,scrollY));
               }}
             }}catch(error){{console.warn('Cannot refresh Rainmapper Control Panel',error);}}
@@ -19092,6 +19907,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 "signature": hashlib.sha256(body.encode("utf-8")).hexdigest(),
             },
         )
+
+    def serve_diagnostic_history(self, query: dict[str, list[str]] | None = None) -> None:
+        """Return lazy-loaded comparison data without bloating panel polling."""
+        try:
+            period = ((query or {}).get("period") or ["30"])[0]
+            payload = diagnostic_dashboard_payload(period)
+        except Exception as exc:
+            self.send_json(500, {"ok": False, "error": f"Cannot load diagnostic history: {exc}"})
+            return
+        self.send_json(200, payload)
 
     def render_log(self) -> None:
         body = (

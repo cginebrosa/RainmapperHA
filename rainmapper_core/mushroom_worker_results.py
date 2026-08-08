@@ -604,6 +604,62 @@ def discard_candidate(
     }
 
 
+def discard_promoted_result(
+    result_root: Path,
+    *,
+    job_id: str,
+    job_type: str,
+) -> bool:
+    """Remove a promoted private result after validating its durable receipt."""
+    resolved_job_id = mushroom_worker_transport.validate_job_id(job_id)
+    if job_type == "worker_candidate_rebuild":
+        candidate = _job_dir(result_root, resolved_job_id)
+        expected_kind = "rainmapper_worker_candidate_promotion"
+    elif job_type == "worker_ml_train_v0":
+        candidate = _ml_train_job_dir(result_root, resolved_job_id)
+        expected_kind = "rainmapper_worker_ml_train_promotion"
+    else:
+        raise ValueError("Only promoted rebuild or ML results can be discarded.")
+    if not candidate.exists():
+        return False
+    if not candidate.is_dir() or candidate.is_symlink():
+        raise ValueError("Refusing to discard an unsafe promoted result path.")
+    receipt = _json_object(candidate / PROMOTION_RECEIPT_NAME, "promotion receipt")
+    if (
+        receipt.get("kind") != expected_kind
+        or receipt.get("status") != "promoted"
+        or receipt.get("job_id") != resolved_job_id
+    ):
+        raise ValueError("Refusing to discard a result without its matching promotion receipt.")
+    shutil.rmtree(candidate)
+    return True
+
+
+def cleanup_promoted_results(
+    result_root: Path,
+    jobs: list[dict[str, Any]],
+) -> dict[str, list[str]]:
+    """Reconcile legacy promoted results while preserving pending candidates."""
+    report: dict[str, list[str]] = {"discarded": [], "errors": []}
+    for job in jobs:
+        if not isinstance(job, dict) or job.get("promotion_status") != "promoted":
+            continue
+        job_id = str(job.get("job_id", ""))
+        job_type = str(job.get("job_type", ""))
+        if job_type not in {"worker_candidate_rebuild", "worker_ml_train_v0"}:
+            continue
+        try:
+            if discard_promoted_result(
+                result_root,
+                job_id=job_id,
+                job_type=job_type,
+            ):
+                report["discarded"].append(job_id)
+        except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+            report["errors"].append(f"{job_id}: {exc}")
+    return report
+
+
 def prune_promotion_backups(
     live_artifact_root: Path,
     *,

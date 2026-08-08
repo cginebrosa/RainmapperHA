@@ -26,6 +26,7 @@ REQUIRED_INPUT_KEYS = {
     "gis_mappings",
     "weather_data_dir",
 }
+WEATHER_DAILY_PARQUET_NAME = "weather_daily.parquet"
 
 
 def _safe_relative_path(value: object, *, label: str) -> Path:
@@ -232,6 +233,7 @@ def create_snapshot(
     weather_data_dir: Path,
     gis_root: Path,
     gis_hash_cache_path: Path | None = None,
+    prefer_weather_parquet: bool = True,
 ) -> dict[str, Any]:
     target = snapshot_dir.resolve()
     if target.exists():
@@ -268,15 +270,24 @@ def create_snapshot(
                     required=True,
                 )
             )
-        for source_id, filename in mushroom_observation_context.DAILY_INCREMENTAL_FILES:
+        weather_root = weather_data_dir.resolve()
+        weather_parquet = weather_root / WEATHER_DAILY_PARQUET_NAME
+        if prefer_weather_parquet and weather_parquet.is_file():
+            weather_inputs = (("daily_parquet", WEATHER_DAILY_PARQUET_NAME, True),)
+        else:
+            weather_inputs = (
+                (source_id, filename, False)
+                for source_id, filename in mushroom_observation_context.DAILY_INCREMENTAL_FILES
+            )
+        for source_id, filename, required in weather_inputs:
             relative = f"inputs/weather/{filename}"
             snapshot_files.append(
                 _copy_snapshot_file(
-                    weather_data_dir.resolve() / filename,
+                    weather_root / filename,
                     staging / relative,
                     logical_path=relative,
                     role=f"weather:{source_id}",
-                    required=False,
+                    required=required,
                 )
             )
 

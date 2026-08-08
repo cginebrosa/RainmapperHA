@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import time
 import uuid
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Callable
@@ -29,6 +30,11 @@ MAX_DATASET_FILE_BYTES = 8 * 1024 * 1024 * 1024
 MAX_DATASET_BYTES = 16 * 1024 * 1024 * 1024
 DATASET_PROGRESS_BYTES = 64 * 1024 * 1024
 _JOB_ID_RE = re.compile(r"^worker_job_[a-zA-Z0-9_-]{8,80}$")
+_STAGING_DIR_RE = re.compile(
+    r"^\.worker_job_[a-zA-Z0-9_-]{8,80}\.staging-[0-9a-f]{32}$"
+)
+DEFAULT_STAGING_GRACE_SECONDS = 60 * 60
+DEFAULT_ORPHAN_GRACE_SECONDS = 24 * 60 * 60
 
 
 def safe_relative_path(value: object) -> Path:
@@ -60,6 +66,11 @@ def _bundle_metadata(job_spec: dict[str, Any], manifest: dict[str, Any]) -> dict
         if isinstance(row.get("size_bytes"), int)
     )
     dataset = mushroom_worker_dataset_cache.dataset_contract(manifest)
+    weather_transport = (
+        "parquet"
+        if any(row.get("role") == "weather:daily_parquet" for row in existing_files)
+        else "csv"
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "rainmapper_worker_input_bundle",
@@ -68,6 +79,7 @@ def _bundle_metadata(job_spec: dict[str, Any], manifest: dict[str, Any]) -> dict
         "snapshot_id": manifest.get("snapshot_id"),
         "input_file_count": len(existing_files),
         "input_size_bytes": input_size,
+        "weather_transport": weather_transport,
         "dataset_id": dataset["dataset_id"],
         "dataset_fingerprint": dataset["fingerprint"],
         "dataset_file_count": len(dataset["files"]),
@@ -87,6 +99,7 @@ def prepare_coordinator_bundle(
     reconstruction_scope: str = "all",
     selected_observation_ids: list[str] | tuple[str, ...] | None = None,
     pending_species_ids: list[str] | tuple[str, ...] | None = None,
+    prefer_weather_parquet: bool = True,
 ) -> dict[str, Any]:
     """Create one immutable coordinator-side bundle without changing live inputs."""
     resolved_job_id = validate_job_id(job_id)
@@ -107,6 +120,7 @@ def prepare_coordinator_bundle(
             weather_data_dir=weather_data_dir,
             gis_root=gis_root,
             gis_hash_cache_path=root / ".gis-hash-cache.json",
+            prefer_weather_parquet=prefer_weather_parquet,
         )
         job_spec = mushroom_rebuild_contracts.create_job_spec(
             snapshot_dir,
@@ -141,8 +155,11 @@ def discard_coordinator_bundle(bundle_root: Path, job_id: str) -> bool:
         return False
     if bundle.is_symlink():
         raise ValueError("Refusing to discard a symlinked worker bundle.")
-    spec = mushroom_rebuild_contracts.load_job_spec(bundle / JOB_SPEC_LOGICAL_PATH)
-    if spec.get("job_id") != job_id:
+    try:
+        spec = json.loads((bundle / JOB_SPEC_LOGICAL_PATH).read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        raise ValueError("Refusing to discard a worker bundle without a valid job spec.") from exc
+    if not isinstance(spec, dict) or spec.get("job_id") != job_id:
         raise ValueError("Refusing to discard a worker bundle with a different job identity.")
     shutil.rmtree(bundle)
     return True
@@ -151,6 +168,85 @@ def discard_coordinator_bundle(bundle_root: Path, job_id: str) -> bool:
 def discard_unqueued_bundle(bundle_root: Path, job_id: str) -> None:
     """Roll back only a bundle created for a job that was not queued."""
     discard_coordinator_bundle(bundle_root, job_id)
+
+
+def coordinator_bundle_is_discardable(job: dict[str, Any]) -> bool:
+    """Return whether a job no longer needs its immutable input bundle."""
+    status = str(job.get("status", ""))
+    if status in {"failed", "cancelled"}:
+        return True
+    if status != "complete":
+        return False
+    if str(job.get("job_type", "")) == "worker_snapshot_transport_probe":
+        return True
+    return str(job.get("promotion_status", "")) == "promoted"
+
+
+def cleanup_coordinator_bundles(
+    bundle_root: Path,
+    jobs: list[dict[str, Any]],
+    *,
+    now: float | None = None,
+    staging_grace_seconds: int = DEFAULT_STAGING_GRACE_SECONDS,
+    orphan_grace_seconds: int = DEFAULT_ORPHAN_GRACE_SECONDS,
+) -> dict[str, object]:
+    """Reconcile private input copies without touching active or undecided jobs."""
+    root = bundle_root.resolve()
+    report: dict[str, object] = {
+        "discarded_terminal": [],
+        "discarded_orphan": [],
+        "discarded_staging": [],
+        "retained": [],
+        "errors": [],
+    }
+    if not root.exists():
+        return report
+    if not root.is_dir() or root.is_symlink():
+        raise ValueError("Worker input bundle root must be a real directory.")
+    timestamp = time.time() if now is None else float(now)
+    jobs_by_id = {
+        str(job.get("job_id", "")): job
+        for job in jobs
+        if isinstance(job, dict) and _JOB_ID_RE.fullmatch(str(job.get("job_id", "")))
+    }
+    for child in root.iterdir():
+        name = child.name
+        if child.is_symlink():
+            cast_errors = report["errors"]
+            assert isinstance(cast_errors, list)
+            cast_errors.append(f"refused symlink: {name}")
+            continue
+        age_seconds = max(0.0, timestamp - child.stat().st_mtime)
+        try:
+            if _STAGING_DIR_RE.fullmatch(name):
+                if child.is_dir() and age_seconds >= max(0, staging_grace_seconds):
+                    shutil.rmtree(child)
+                    cast_staging = report["discarded_staging"]
+                    assert isinstance(cast_staging, list)
+                    cast_staging.append(name)
+                continue
+            if not child.is_dir() or not _JOB_ID_RE.fullmatch(name):
+                continue
+            job = jobs_by_id.get(name)
+            if job is not None and coordinator_bundle_is_discardable(job):
+                discard_coordinator_bundle(root, name)
+                cast_terminal = report["discarded_terminal"]
+                assert isinstance(cast_terminal, list)
+                cast_terminal.append(name)
+            elif job is None and age_seconds >= max(0, orphan_grace_seconds):
+                discard_coordinator_bundle(root, name)
+                cast_orphan = report["discarded_orphan"]
+                assert isinstance(cast_orphan, list)
+                cast_orphan.append(name)
+            else:
+                cast_retained = report["retained"]
+                assert isinstance(cast_retained, list)
+                cast_retained.append(name)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            cast_errors = report["errors"]
+            assert isinstance(cast_errors, list)
+            cast_errors.append(f"{name}: {exc}")
+    return report
 
 
 def discard_worker_job(worker_data_dir: Path, job_id: str) -> bool:
@@ -164,8 +260,11 @@ def discard_worker_job(worker_data_dir: Path, job_id: str) -> bool:
         raise ValueError("Worker job path is not a directory.")
     if job_dir.is_symlink():
         raise ValueError("Refusing to discard a symlinked worker job.")
-    spec = mushroom_rebuild_contracts.load_job_spec(job_dir / JOB_SPEC_LOGICAL_PATH)
-    if spec.get("job_id") != resolved_job_id:
+    try:
+        spec = json.loads((job_dir / JOB_SPEC_LOGICAL_PATH).read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        raise ValueError("Refusing to discard a worker job without a valid job spec.") from exc
+    if not isinstance(spec, dict) or spec.get("job_id") != resolved_job_id:
         raise ValueError("Refusing to discard a worker job with a different identity.")
     shutil.rmtree(job_dir)
     return True
