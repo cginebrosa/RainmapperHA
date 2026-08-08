@@ -28,11 +28,34 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
   `0.2`, preparar las imágenes worker M1/M5 y verificar `amd64` + `arm64` en
   GHCR. El informe ya viaja, se verifica y se promociona con los `.joblib`;
   smoke local: 469 tests (2026-08-08).
-- [ ] Instalar `0.2.228` en HA real y cargar/arrancar la imagen preparada en el
-  worker que vaya a ejecutar los jobs.
-- [ ] Reconstruir features y reentrenar/promover los modelos antes de abrir
-  Predictor. Completar después los ensayos B/C, esperar 10 minutos y descargar
-  el segundo ZIP según `docs/runtime-diagnostics.md` antes de cerrar el P0.
+- [x] Instalar `0.2.228` en HA real; confirmado por el manifest del ZIP del
+  Ensayo B (2026-08-08).
+- [x] Cargar/arrancar la imagen preparada del worker `0.2.228` para ejecutar los
+  jobs; confirmado por el usuario el 2026-08-08.
+- [x] Reconstruir features, reentrenar con el worker actualizado y promover los
+  modelos junto con `ml_train_report.json`; confirmado por el usuario el
+  2026-08-08.
+- [x] Completar Ensayo B del Predictor: 8,667 s para la subfase meteorológica,
+  pico cgroup 423,2 MiB, retención estable a 600 s y cero OOM. La apertura
+  extremo a extremo percibida fue de al menos unos 30 s (2026-08-08).
+- [ ] Instrumentar la petición completa del Predictor para separar carga de
+  Parquet, cálculos/renderizado del servidor, HA Ingress y navegador; no usar
+  los 8,667 s de `predictor_weather_load` como tiempo total de apertura. Distinguir
+  explícitamente peticiones frías y calientes.
+- [ ] Después de A–C, convertir el diagnóstico en caja negra persistente con dos
+  niveles: detalle reciente circular e histórico resumido por operación.
+- [ ] Persistir operaciones/snapshots pendientes y reconciliarlos al arrancar,
+  marcando interrupciones sin atribuir OOM si no hay evidencia; añadir eventos
+  de arranque/parada e identificador de boot.
+- [ ] Conservar logs acotados de operaciones fallidas por `operation_id`, añadir
+  resumen/anomalías al ZIP y permitir backup externo del histórico de largo plazo.
+- [x] Confirmar en HA real que Predictor muestra el aviso de indisponibilidad
+  cuando el runner programado está activo (parte funcional del Ensayo C).
+- [x] Completar la parte de recursos del Ensayo C: 4 instancias liberadas antes
+  del hijo, runner `all` correcto en 6:43, pico cgroup 1.477,2 MiB, mínimo
+  `MemAvailable` 780,2 MiB, recuperación a 600 s y cero OOM (2026-08-08).
+- [x] Cerrar el P0 de memoria para la RPi4 en el escenario monousuario probado;
+  mantener como trabajos separados la latencia total y la caja negra persistente.
 - [ ] Revisar observaciones `review` en Docker local (`http://127.0.0.1:8101`):
   confirmar especie, rellenar `flush_abundance`, pasar a `calibration_use=include`
   las validas. Paso mas impactante para mejorar modelos.

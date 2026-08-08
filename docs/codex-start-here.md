@@ -102,12 +102,16 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Último release HA instalado: `0.2.227`. El runner `all` real pasó el 2026-08-08
-  y regeneró 625.529 filas en 1.222 row groups y el catálogo. Release publicada
-  y pendiente de instalar: `0.2.228`.
-- **P0 Predictor/RPi4 todavía abierto:** el Ensayo A del runner pasó sin OOM;
-  falta instalar `0.2.228`, reconstruir/reentrenar y ejecutar los ensayos B/C.
-  No abrir aún el Predictor.
+- Último release HA instalado y publicado: `0.2.228`.
+- **P0 Predictor/RPi4 cerrado en el escenario monousuario probado:** A–C pasaron
+  sin OOM. El Predictor retuvo memoria de forma estable; el runner posterior
+  liberó 4 instancias antes del hijo, terminó en 6:43 con pico cgroup
+  1.477,2 MiB, mínimo `MemAvailable` 780,2 MiB y recuperación correcta.
+- Pendientes separados del P0: instrumentar los ≥30 s de apertura extremo a
+  extremo y evolucionar el diagnóstico a caja negra persistente.
+- Rebuild de features, entrenamiento con el worker actualizado y promoción de
+  modelos más `ml_train_report.json`: completados en HA real y confirmados por
+  el usuario el 2026-08-08.
 - Version HA del repo: `0.2.228` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.

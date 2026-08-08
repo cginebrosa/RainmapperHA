@@ -6,11 +6,9 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Instalada y ejecutada en HA real: `0.2.227` (runner `all` validado el
-  2026-08-08). Predictor todavía no se ha abierto.
-- Publicada y pendiente de instalar en HA real: `0.2.228` (`amd64` + `arm64`,
-  digest multiarquitectura
-  `sha256:763f5eab1a6a47ce9d35963caf71ed6d553de0482cca7b3236f2ad1ba3990206`).
+- Instalada y ejecutada en HA real: `0.2.228`; el manifest del ZIP del Ensayo B
+  lo confirma. Publicada para `amd64` + `arm64`, digest multiarquitectura
+  `sha256:763f5eab1a6a47ce9d35963caf71ed6d553de0482cca7b3236f2ad1ba3990206`.
 - La imagen anterior `0.2.226` conservaba el Parquet monolítico; queda sustituida
   operativamente por `0.2.227`.
 - No hay versión de desarrollo/sideload.
@@ -20,7 +18,17 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   El runner ya regeneró 625.529 filas en 1.222 row groups y creó el catálogo.
 - `0.2.228` añade el transporte, verificación y promoción atómica de
   `ml_train_report.json`, coherencia de especies e invalidación de caché.
-  **No abrir Predictor hasta reconstruir features y reentrenar/promover modelos.**
+- Ensayo B del Predictor completado sin OOM: la subfase meteorológica tardó
+  8,667 s y retuvo 337,8 MiB RSS a los 600 s de forma estable. El usuario observó
+  al menos unos 30 s desde el clic hasta la pantalla; falta instrumentar esa
+  latencia extremo a extremo.
+- Ensayo C completado: aviso correcto durante el runner, 4 instancias liberadas
+  antes del hijo, pico cgroup 1.477,2 MiB, mínimo `MemAvailable` 780,2 MiB,
+  recuperación a 600 s y cero OOM. P0 de memoria cerrado para el escenario
+  monousuario probado.
+- Rebuild de features, entrenamiento con el worker `0.2.228` y promoción de los
+  modelos y `ml_train_report.json` completados y confirmados por el usuario el
+  2026-08-08.
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
@@ -44,27 +52,31 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   40 válidas sin `micro_area_id`.
 
 **Prioridad inmediata:**
-1. **P0 Predictor / memoria RPi4:** Ensayo A del runner completado con `0.2.227`:
-   7:02, pico cgroup 1.348 MiB, mínimo `MemAvailable` 670 MiB, máximo 52,58 °C,
-   sin OOM y con recuperación correcta. Resultado detallado en
-   `docs/runtime-diagnostics.md`.
+1. **P0 Predictor / memoria RPi4 cerrado en el alcance probado:** A–C completos
+   sin OOM. Runner aislado: 7:02 y pico cgroup 1.347,8 MiB. Predictor: subfase
+   meteorológica 8,667 s y retención estable. Runner posterior: 6:43, pico cgroup
+   1.477,2 MiB, 780,2 MiB disponibles y recuperación correcta. Apertura manual
+   ≥30 s pendiente como rendimiento. Detalle en `docs/runtime-diagnostics.md`.
 2. **Revisar observaciones `review` en HA real** — 254 pendientes. Es el paso más
    impactante para mejorar los modelos ML. La evidencia observada NO se revisará manualmente:
    se implementará herencia desde micro_area (ver sección "atributos ecológicos" al final).
-3. Antes del rebuild/training: instalar `0.2.228` en HA real. La imagen local
-   del worker M1 ya fue recreada y el paquete ARM64 `0.2.228` para el M5 quedó
-   preparado. Después reconstruir features, reentrenar/promover y seguir los
-   ensayos B/C del Predictor.
+3. **Rebuild/training completado:** features reconstruidas, modelos reentrenados
+   con el worker actualizado y modelos/informe promovidos en HA real; confirmado
+   por el usuario el 2026-08-08.
 4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
-5. Worker: probar descarte con candidato terminal en HA real.
-6. Decidir si meter Tailscale dentro de la imagen del worker.
+5. Después de cerrar A–C, instrumentar la apertura completa del Predictor y
+   evolucionar el diagnóstico a caja negra persistente: histórico resumido,
+   reconciliación tras reinicios, anomalías y backups. Especificación en
+   `docs/runtime-diagnostics.md`.
+6. Worker: probar descarte con candidato terminal en HA real.
+7. Decidir si meter Tailscale dentro de la imagen del worker.
 
 El contrato de instrumentación automática, descarga y ensayo controlado en
 RPi4 está en `docs/runtime-diagnostics.md`. La implementación local ya registra
 JSONL acotado, picos del proceso y del cgroup, recuperación a 60/600 s, carga fría
 del Predictor, libera sus cachés antes del runner, impide solapamientos y añade
-un ZIP descargable desde el panel. El Ensayo A real del runner pasó con
-`0.2.227`; siguen pendientes el reentrenamiento y los ensayos B/C del Predictor.
+un ZIP descargable desde el panel. Los ensayos A–C reales pasaron y cierran el
+P0 de memoria; queda pendiente instrumentar la latencia total del Predictor.
 Validación local completa: `smoke-test.sh`, 469 tests, PASS el 2026-08-08.
 
 **Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de

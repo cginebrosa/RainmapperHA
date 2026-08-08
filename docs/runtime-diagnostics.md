@@ -4,8 +4,9 @@
 
 Especificación e implementación incluidas en la release `0.2.227`, publicada el
 2026-08-07 para validar el runner y el Predictor en la RPi4 antes de cerrar el P0
-de memoria. Sigue pendiente la validación en la RPi4 real. No requiere una imagen
-de desarrollo ni vigilancia manual durante las ejecuciones.
+de memoria. Los ensayos A, B y C reales están completados y el P0 de memoria se
+cierra para el escenario monousuario probado. No requiere una imagen de
+desarrollo ni vigilancia manual durante las ejecuciones.
 
 ## Objetivos
 
@@ -65,6 +66,14 @@ registros y tamaño del filtro. También conserva snapshots a 60 y 600 segundos
 para observar la caché retenida. Las visitas que reutilizan la misma caché no
 duplican una supuesta carga fría.
 
+`predictor_weather_load` mide únicamente la lectura y materialización del
+Parquet meteorológico compartido. No mide la latencia completa desde el clic en
+el panel hasta que el navegador muestra la página: quedan fuera del monitor el
+resto de `render_page()`, los cálculos de la vista, la generación/envío del HTML,
+HA Ingress y el renderizado del navegador. El tiempo extremo a extremo debe
+registrarse por separado hasta que exista instrumentación de la petición
+completa.
+
 ## Cadencia de muestreo y espera de recuperación
 
 La espera de 10 minutos no significa que el sistema escriba métricas de forma
@@ -91,6 +100,62 @@ Una vez guardado `recovery_600s` o `retained_600s`, el registro permanece en
 acotada. El ZIP se puede descargar más tarde; no hay una ventana de descarga de
 solo 10 minutos. Conviene esperar unos segundos adicionales tras los 10 minutos
 antes de pulsar **Download diagnostics**.
+
+## Evolución pendiente después de los ensayos A–C
+
+No modificar la instrumentación actual hasta terminar A–C: cambiarla durante la
+serie impediría comparar los paquetes bajo el mismo contrato. Después deben
+abordarse dos mejoras distintas.
+
+### Afinar la medición de carga fría del Predictor
+
+La operación actual `predictor_weather_load` es una subfase interna y no puede
+usarse como tiempo total de apertura. Añadir una operación correlacionada para
+la petición completa del Predictor que distinga, como mínimo:
+
+1. entrada en el manejador HTTP y carga de perfiles/setales;
+2. inicialización y carga de modelos;
+3. carga o reutilización de la caché meteorológica;
+4. cálculos de la vista solicitada;
+5. generación del HTML y envío de la respuesta;
+6. tiempo de navegación/renderizado del navegador, medido aparte del servidor.
+
+Debe registrar si la petición es fría o caliente y permitir separar tiempo de
+RPi4, HA Ingress/red y cliente. No debe añadir observaciones, ubicaciones ni
+resultados predictivos privados al diagnóstico.
+
+### Convertir el diagnóstico en una caja negra persistente
+
+El JSONL actual sobrevive a reinicios y actualizaciones porque vive en `/share`,
+pero no es un histórico indefinido: rota a 2.000 eventos o 5 MiB, los snapshots
+diferidos solo existen como temporizadores en memoria y `last_run.log` se
+sobrescribe. Una muerte del contenedor puede conservar el inicio de una
+operación, pero perder su cierre y los snapshots pendientes sin explicar la
+interrupción.
+
+La evolución debe mantener bajo el coste de CPU, escrituras y almacenamiento:
+
+- conservar un nivel detallado circular para las operaciones recientes;
+- guardar además un resumen histórico pequeño por operación, con versión,
+  inicio/fin, resultado, duración, picos, OOM y recuperación;
+- persistir atómicamente operaciones y snapshots pendientes; al arrancar,
+  reconciliarlos y marcar como `interrupted` lo que no terminó, sin inventar la
+  causa si no existe evidencia de OOM;
+- registrar arranque/parada e identificador de arranque para correlacionar
+  reinicios del add-on o de la RPi4;
+- agregar un muestreo de fondo ligero en memoria y escribir solo resúmenes
+  periódicos o anomalías, evitando un log continuo de alta frecuencia;
+- conservar por `operation_id` una cola acotada de logs de operaciones fallidas,
+  en lugar de depender únicamente del último runner;
+- incluir detalle reciente, histórico resumido, interrupciones y anomalías en
+  el ZIP, manteniendo la redacción de secretos y el contenido privado fuera;
+- mostrar en el panel la última ejecución correcta, último fallo/interrupción,
+  último OOM y máximos recientes.
+
+La conservación realmente indefinida no puede depender solo del almacenamiento
+de la RPi4: los resúmenes deben poder incluirse en backups o copiarse fuera del
+dispositivo. La retención detallada seguirá siendo acotada; lo que se conserva a
+largo plazo son resúmenes y anomalías suficientes para explicar qué ocurrió.
 
 ## Exclusión runner/Predictor
 
@@ -182,13 +247,88 @@ permitirán comprobar que no exista crecimiento acumulativo.
 Conclusión del Ensayo A: el runner cabe en la RPi4 en esta ejecución, termina con
 margen amplio frente al intervalo de tres horas, regenera el layout filtrable y
 recupera la memoria del proceso hijo sin OOM ni presión térmica preocupante. No
-se cierra todavía el P0 global: faltan reconstruir/reentrenar los modelos y
-completar los ensayos B y C del Predictor.
+se cerró el P0 en ese momento porque todavía faltaban los ensayos B y C.
+
+## Resultado real — Ensayo B en RPi4 (`0.2.228`)
+
+El paquete se exportó el 2026-08-07 a las 23:44:48 UTC, antes de que comenzara
+el siguiente runner programado. Contiene una única carga física del Predictor
+con sus snapshots `retained_60s` y `retained_600s`, sin interferencia del runner:
+
+- evidencia: `rainmapper-diagnostics-20260807T234448Z.zip`, SHA-256
+  `04c1a35006e7d99f7425405f25a175d0ea2f9d184df76ffdcc254af11429d9b4`;
+
+- subfase instrumentada `predictor_weather_load`: 8,667 s;
+- tiempo manual extremo a extremo percibido por el usuario, desde pulsar el
+  botón hasta ver la pantalla: al menos unos 30 s;
+- 115 estaciones y 79.931 registros cargados desde un Parquet de 11,968 MiB;
+- RSS del proceso: 241,4 MiB al inicio, pico observado posterior de 352,5 MiB y
+  337,8 MiB a los 600 s;
+- cgroup: 290,1 MiB al inicio, pico de 423,2 MiB y 409,4 MiB a los 600 s;
+- `MemAvailable`: mínimo de 1.727,8 MiB durante la carga y 1.752,8 MiB a los
+  600 s;
+- temperatura máxima instrumentada: 48,69 °C; 44,79 °C a los 600 s;
+- CPU de la subfase meteorológica: 10,676 s de CPU en 8,667 s de pared,
+  equivalente al 123,2 % de un núcleo;
+- `oom=0` y `oom_kill=0` en todos los eventos.
+
+Entre 60 y 600 s el RSS solo cambió de 337,1 a 337,8 MiB y el cgroup de 407,1 a
+409,4 MiB. La retención es estable y compatible con la caché meteorológica; no
+se observa crecimiento acumulativo en esta ventana. El Ensayo B pasa en memoria,
+temperatura y ausencia de OOM.
+
+Los 8,667 s no representan la experiencia completa del usuario. La diferencia
+respecto a los al menos 30 s observados queda pendiente de desglosar con un
+monitor extremo a extremo de la petición y fases internas de renderizado. No se
+debe presentar la subfase meteorológica como tiempo total de apertura.
+
+## Resultado real — Ensayo C en RPi4 (`0.2.228`)
+
+Durante el siguiente runner programado, el usuario intentó abrir el Predictor y
+la aplicación mostró correctamente el aviso de que no estaba disponible porque
+había un runner activo. Esto valida en HA real la puerta funcional de
+`action_is_running()` y evita iniciar una predicción concurrente.
+
+El paquete se exportó el 2026-08-08 a las 00:04:22 UTC, después de la recuperación
+de 600 s:
+
+- evidencia: `rainmapper-diagnostics-20260808T000422Z.zip`, SHA-256
+  `49a396ae5c9585c4f0b20a01d73a8e22d856ca4e7c5b9a7ed2a38dfb83bd2278`;
+- `predictor_cache_released` registró 4 instancias liberadas, sin error, 725 ms
+  antes de que arrancara el proceso hijo `runner_update`;
+- el runner programado `all` terminó con exit code 0 en 403,4 s (6 min 43 s):
+  `update` 322,7 s y `maps` 56,9 s;
+- pico RSS histórico del hijo: 1.300,7 MiB; máximo RSS actual agregado:
+  1.283,2 MiB;
+- máximo actual del cgroup: 1.432,6 MiB y pico del cgroup: 1.477,2 MiB;
+- mínimo `MemAvailable`: 780,2 MiB; temperatura máxima: 50,15 °C;
+- Parquet: 626.809 filas, 1.225 row groups y 12,004 MiB; catálogo: 79,304 KiB;
+- Meteocat agotó el primer intento de condiciones por timeout, reintentó y
+  completó correctamente; el resto del flujo funcional terminó sin fallos;
+- `oom=0` y `oom_kill=0` en todos los eventos.
+
+La liberación de referencias fue anterior al hijo, pero la memoria física del
+servidor no volvió al sistema de inmediato: justo antes del runner seguía en
+333,7 MiB RSS y el cgroup en 421,1 MiB. Esto elevó el pico del cgroup unos
+129,4 MiB respecto al Ensayo A. Aun así, el margen real fue suficiente y no hubo
+OOM. Al terminar `update`, el RSS del servidor había bajado a 168,6 MiB. En
+`recovery_600s` quedó en 169,1 MiB, el cgroup en 456,2 MiB y `MemAvailable` en
+1.825,8 MiB, solo unos 32 MiB por debajo del estado previo a abrir el Predictor.
+
+Conclusión del Ensayo C: pasan tanto el bloqueo visible como la exclusión y
+recuperación de recursos. El P0 de memoria se cierra para la RPi4 y el uso
+monousuario ensayado, con runner cada tres horas y sin concurrencia deliberada.
+La apertura extremo a extremo de al menos 30 s queda como problema de rendimiento
+separado; la caja negra persistente queda como mejora de observabilidad.
+
+Después de los ensayos, el usuario confirmó el 2026-08-08 que también había
+completado la reconstrucción de features, el entrenamiento con el worker
+actualizado y la promoción de los modelos junto con `ml_train_report.json`. Por
+tanto, no queda una migración de artefactos ML pendiente para cerrar esta serie.
 
 ## Criterio de cierre
 
-El P0 solo se cierra después de revisar los paquetes reales de la RPi4 y
-confirmar que:
+Los paquetes reales A–C confirman que:
 
 - runner y Predictor terminan sin OOM, reinicio ni pérdida de conectividad;
 - el runner finaliza con margen amplio respecto al intervalo de tres horas;
@@ -197,12 +337,13 @@ confirmar que:
 - temperatura y alimentación permanecen estables;
 - el Parquet regenerado usa row groups filtrables.
 
-Los límites numéricos definitivos se fijarán con la primera medición real, no
-por extrapolación desde el Mac.
+El P0 queda cerrado dentro del alcance probado. No constituye una prueba de
+carga multiusuario ni garantiza por sí solo el comportamiento tras futuros
+cambios; el histórico persistente permitirá vigilar su evolución.
 
 ## Validación local
 
-El 2026-08-07 pasó `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh` completo
-para `0.2.227`: 462 tests, compilación Python, parseo JavaScript, fixtures operativas y
-comprobación de whitespace. Esto valida los contratos y la integración local;
-no sustituye los ensayos A–C sobre la RPi4.
+El 2026-08-08 pasó `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh` completo
+para `0.2.228`: 469 tests, compilación Python, parseo JavaScript, fixtures
+operativas y comprobación de whitespace. Esto valida los contratos y la
+integración local; no sustituye los ensayos A–C sobre la RPi4.
