@@ -705,6 +705,24 @@ class AuthDeviceLimitTests(unittest.TestCase):
             },
         )
 
+    def test_diagnostic_record_timestamp_matches_local_summary_format(self) -> None:
+        with mock.patch.dict(
+            self.web_server.os.environ,
+            {"RAINMAPPER_TIMEZONE": "Europe/Madrid"},
+        ):
+            rendered = self.web_server.diagnostic_record_text(
+                {
+                    "operation": "runner_action",
+                    "status": "ok",
+                    "timestamp": "2026-08-08T04:31:46.811Z",
+                }
+            )
+
+        self.assertEqual(
+            rendered,
+            "runner_action · ok · 2026-08-08T06:31:46+02:00",
+        )
+
     def test_mushroom_catalogs_page_renders_reference_catalog_hub(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")

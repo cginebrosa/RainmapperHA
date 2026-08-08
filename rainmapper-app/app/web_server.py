@@ -8448,6 +8448,30 @@ def format_datetime_from_timestamp(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, tz=get_timezone()).isoformat(timespec="seconds")
 
 
+def format_local_iso_datetime(value: object) -> str:
+    """Render one stored ISO timestamp like the local Control Panel timestamps."""
+    text = str(value or "").strip()
+    if not text:
+        return "-"
+    normalized = f"{text[:-1]}+00:00" if text.endswith("Z") else text
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return text
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=get_timezone())
+    return parsed.astimezone(get_timezone()).isoformat(timespec="seconds")
+
+
+def diagnostic_record_text(value: object) -> str:
+    if not isinstance(value, dict):
+        return "None recorded"
+    operation = str(value.get("operation", "unknown"))
+    status = str(value.get("status", "unknown"))
+    timestamp = format_local_iso_datetime(value.get("timestamp"))
+    return f"{operation} · {status} · {timestamp}"
+
+
 def get_timezone() -> ZoneInfo:
     timezone_name = env("RAINMAPPER_TIMEZONE", env("TZ", "Europe/Madrid"))
     try:
@@ -18805,14 +18829,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_text = "Running" if running else "Idle"
         disabled = "disabled" if running else ""
         diagnostics = runtime_diagnostics.diagnostics_status()
-
-        def diagnostic_record_text(value: object) -> str:
-            if not isinstance(value, dict):
-                return "None recorded"
-            operation = str(value.get("operation", "unknown"))
-            status = str(value.get("status", "unknown"))
-            timestamp = str(value.get("timestamp", "-"))
-            return f"{operation} · {status} · {timestamp}"
 
         recent_cgroup_peak = diagnostics.get("recent_max_cgroup_mib")
         recent_cgroup_peak_text = (

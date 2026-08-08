@@ -217,6 +217,13 @@ fallo/interrupción, último OOM, máximo reciente del cgroup y operaciones
 pendientes. Su lectura está cacheada por tamaño/mtime para no releer el histórico
 en cada polling.
 
+Los ficheros técnicos mantienen timestamps UTC con `Z` y milisegundos para poder
+correlacionar eventos. La presentación del Control Panel los convierte a la zona
+`RAINMAPPER_TIMEZONE` y al ISO local de las tarjetas Summary, con offset y
+precisión de segundos. Esta homogeneización de UI se implementó después de
+validar `0.2.232` y queda pendiente de una futura release; no justifica por sí
+sola un nuevo build.
+
 La retención no es literalmente infinita. Descargar el ZIP o incluir `/share` en
 un backup permite sacar el histórico del dispositivo; el detalle reciente rota,
 pero los límites del resumen cubren más de un año del runner cada tres horas aun
@@ -316,6 +323,32 @@ responder, anotar la hora exacta; esperar solo mientras el sistema siga
 accesible y cortar alimentación únicamente si es imprescindible. Tras el
 arranque, descargar el ZIP antes de otra ejecución. Los heartbeats y el log
 archivado sobrevivirán aunque haya comenzado un runner posterior.
+
+### Validación real de `0.2.232` tras el incidente
+
+El usuario instaló `0.2.232` y lanzó manualmente `all` el 2026-08-08 a las
+06:25:31 CEST sin abrir el Predictor. La ejecución terminó correctamente a las
+06:31:46, en 6:15 y con código 0. El ZIP esperado tras el snapshot de 600 s fue
+`rainmapper-diagnostics-20260808T044217Z.zip`, SHA-256
+`932ee6a28aeeb633f41355b1fc8c0654433e722203257bc7e1da8f4365ee4907`.
+
+Resultados:
+
+- actualización 4:53, mapas 58 s y publicación protegida completada;
+- pico cgroup 1.445,4 MiB; pico RSS del hijo de actualización 1.238,0 MiB;
+- mínimo `MemAvailable` 822,6 MiB y temperatura máxima 54,5 °C;
+- cero OOM, OOM-kill, errores, degradaciones, reinicios o anomalías nuevas;
+- recuperación a 60 s: cgroup 634,8 MiB y 2.096,1 MiB disponibles;
+- recuperación a 600 s: cgroup 185,2 MiB y 2.007,8 MiB disponibles;
+- estado final sin operaciones ni snapshots pendientes.
+
+La nueva evidencia persistente quedó validada: 37 heartbeats del
+`runner_action` y 27 del `runner_update`, con separación máxima de 11,9 s y sin
+huecos. AEMET registró todas las fases previstas: descargó el índice en 0,33 s y
+3,25 MB de datos en 0,62 s, parseó 9.754 registros y normalizó 9.459. Su updater
+completo tardó 106,2 s por lectura, combinación y escritura del histórico; el
+deadline de 90 s corresponde a la secuencia de red/decodificación/parseo, no al
+procesamiento posterior. La caja negra `2.1` queda validada en HA real.
 
 ## Exclusión runner/Predictor
 
@@ -514,4 +547,8 @@ validó el Predictor de `0.2.229` en la RPi4. Tras el runner interrumpido y el
 refuerzo diagnóstico, `0.2.232` pasó el smoke completo con 490 tests y se publicó
 con digest
 `sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`;
-queda pendiente instalarla y repetir el runner manual en HA real.
+después quedó instalada y validada con el runner manual descrito arriba.
+
+El ajuste local posterior que presenta los timestamps diagnósticos en la zona
+horaria del Control Panel pasó el smoke completo con 495 tests. Permanece sin
+publicar para agruparlo con una futura release de contenido funcional.

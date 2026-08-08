@@ -6,13 +6,18 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Instalada y ejecutada en HA real: `0.2.229`, confirmada por el usuario tras
-  probar el Predictor y ejecutar el runner programado.
-- Publicada y pendiente de instalar en HA real: `0.2.232`. Conserva los cambios
+- Publicada, instalada y validada en HA real: `0.2.232`. Conserva los cambios
   de `0.2.230`/`0.2.231` y refuerza la caja negra del runner con heartbeat
   persistente cada 10 s, fases AEMET, timeout total de 90 s, boot ID/uptime y
   archivado del log de una ejecución interrumpida. Digest multiarquitectura:
   `sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`.
+- Runner manual real de `0.2.232` completado en 6:15, código 0, pico cgroup
+  1.445,4 MiB, mínimo `MemAvailable` 822,6 MiB, máximo 54,5 °C y cero OOM.
+  Heartbeats, fases AEMET y recuperación 60/600 s validados; detalle y hash del
+  ZIP en `docs/runtime-diagnostics.md`.
+- Cambio local no publicado: los timestamps UTC de la caja negra se convierten
+  al ISO local con offset usado por Summary. Por decisión del usuario no se
+  sube versión HA solo por este ajuste; se incluirá en una futura release.
 - La imagen anterior `0.2.226` conservaba el Parquet monolítico; queda sustituida
   operativamente por `0.2.227`.
 - No hay versión de desarrollo/sideload.
@@ -80,17 +85,12 @@ anteriores. Este documento describe el estado actual, no el historial completo.
    con el worker actualizado y modelos/informe promovidos en HA real; confirmado
    por el usuario el 2026-08-08.
 4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
-5. Instalar `0.2.232` y lanzar manualmente el runner sin abrir el Predictor. Si
-   vuelve a quedar bloqueado, reiniciar solo si resulta imprescindible y
-   descargar después el ZIP: el heartbeat, las fases y el log reconciliado
-   deberían conservar la última evidencia persistida.
-6. Después de cerrar A–C, instrumentar la apertura completa del Predictor y
-   evolucionar el diagnóstico a caja negra persistente: histórico resumido,
-   reconciliación tras reinicios, anomalías y backups. Especificación en
-   `docs/runtime-diagnostics.md`. Implementación publicada en `0.2.229`;
-   pendiente validación completa e instalación en HA real.
-7. Worker: probar descarte con candidato terminal en HA real.
-8. Decidir si meter Tailscale dentro de la imagen del worker.
+5. **Caja negra 2.1 validada en HA real:** runner manual 0.2.232, heartbeats,
+   fases AEMET, cierre y recuperación 60/600 s correctos. Queda pendiente solo
+   afinar la latencia total de apertura del Predictor y enriquecer, si se desea,
+   la visualización en vivo del último heartbeat.
+6. Worker: probar descarte con candidato terminal en HA real.
+7. Decidir si meter Tailscale dentro de la imagen del worker.
 
 El contrato de instrumentación automática, descarga y ensayo controlado en
 RPi4 está en `docs/runtime-diagnostics.md`. La implementación local ya registra
@@ -98,9 +98,10 @@ JSONL acotado, picos del proceso y del cgroup, recuperación a 60/600 s, carga f
 del Predictor, libera sus cachés antes del runner, impide solapamientos y añade
 un ZIP descargable desde el panel. Los ensayos A–C reales pasaron y cierran el
 P0 de memoria; queda pendiente instrumentar la latencia total del Predictor.
-Validación local completa de `0.2.232`: `smoke-test.sh`, 490 tests, PASS el
-2026-08-08. La release instalada en HA real sigue siendo `0.2.229` hasta la
-actualización y prueba manual.
+Validación local de la release `0.2.232`: `smoke-test.sh`, 490 tests, PASS el
+2026-08-08. La release ya está instalada y el runner manual quedó validado en
+HA real; el ajuste visual posterior deliberadamente sin publicar pasa el smoke
+completo con 495 tests.
 
 **Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de
 `docker-data/mushroom-data/` se refresca desde HA para pruebas y comprobaciones; no planificar
@@ -537,7 +538,7 @@ actualizado al introducir cambios estructurales relevantes.
 - Rama: `inicial`.
 - Release HA publicada en GHCR y version del repositorio: `0.2.232` (2026-08-08),
   digest `sha256:bb819e5407f1c685eb75b05955841b3e35554d3467140a3ff56a2708eec721da`.
-  En HA real sigue instalada `0.2.229` hasta completar la actualización.
+  En HA real está instalada y validada `0.2.232`.
   Workers (M1 y M5) probados y funcionales.
 
 ### Histórico: última release validada antes de ML (0.2.214)
