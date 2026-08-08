@@ -2153,7 +2153,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
         observations_path = data_dir / "mushroom-data" / "mushroom_observations.json"
-        observation_id = json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]["observation_id"]
+        observations_payload = json.loads(observations_path.read_text(encoding="utf-8"))
+        observation_id = observations_payload["observations"][0]["observation_id"]
+        media_relative_path = "media/observation-photos/2026/archive-delete-test.jpg"
+        media_path = data_dir / "mushroom-data" / media_relative_path
+        media_path.parent.mkdir(parents=True, exist_ok=True)
+        media_path.write_bytes(b"test-photo")
+        observations_payload["observations"][0]["media"] = [
+            {"kind": "photo", "path": media_relative_path, "stored_filename": media_path.name}
+        ]
+        self.web_server.write_json_atomic(observations_path, observations_payload)
 
         handler.handle_mushroom_profiles_post(
             {
@@ -2165,6 +2174,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual([], json.loads(observations_path.read_text(encoding="utf-8"))["observations"])
         archived_path = data_dir / "mushroom-data" / "archived" / "mushroom_observations_archived.json"
         self.assertEqual(observation_id, json.loads(archived_path.read_text(encoding="utf-8"))["observations"][0]["observation_id"])
+        self.assertTrue(media_path.exists(), "archiving must retain observation media")
 
         handler.handle_mushroom_profiles_post(
             {
@@ -2175,6 +2185,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertEqual(observation_id, json.loads(observations_path.read_text(encoding="utf-8"))["observations"][0]["observation_id"])
         self.assertEqual([], json.loads(archived_path.read_text(encoding="utf-8"))["observations"])
+        self.assertTrue(media_path.exists(), "restoring must retain observation media")
 
         handler.handle_mushroom_profiles_post(
             {
@@ -2192,6 +2203,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
         self.assertEqual(1, len(json.loads(archived_path.read_text(encoding="utf-8"))["observations"]))
+        self.assertTrue(media_path.exists(), "failed confirmation must retain observation media")
         handler.handle_mushroom_profiles_post(
             {
                 "profile_action": ["delete_archived_observation"],
@@ -2201,6 +2213,139 @@ class AuthDeviceLimitTests(unittest.TestCase):
             }
         )
         self.assertEqual([], json.loads(archived_path.read_text(encoding="utf-8"))["observations"])
+        self.assertFalse(media_path.exists(), "permanent deletion must remove unreferenced media")
+        cleanup_queue = json.loads(
+            self.web_server.observation_media_cleanup_queue_path(self.web_server.default_store()).read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual([], cleanup_queue["jobs"])
+
+    def test_observation_media_cleanup_retries_after_unlink_failure(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
+        store = self.web_server.default_store()
+        media_relative_path = "media/observation-photos/2026/retry-delete-test.jpg"
+        media_path = data_dir / "mushroom-data" / media_relative_path
+        media_path.parent.mkdir(parents=True, exist_ok=True)
+        media_path.write_bytes(b"test-photo")
+        self.web_server.queue_observation_media_cleanup(store, "obs_retry", {media_relative_path})
+
+        with mock.patch.object(Path, "unlink", side_effect=PermissionError("read-only share")):
+            deleted, errors = self.web_server.process_observation_media_cleanup_queue(store)
+
+        self.assertEqual([], deleted)
+        self.assertEqual(1, len(errors))
+        self.assertTrue(media_path.exists())
+        queue_payload = self.web_server.load_observation_media_cleanup_queue(store)
+        self.assertEqual([media_relative_path], queue_payload["jobs"][0]["paths"])
+
+        deleted, errors = self.web_server.process_observation_media_cleanup_queue(store)
+        self.assertEqual([media_path.name], deleted)
+        self.assertEqual([], errors)
+        self.assertFalse(media_path.exists())
+        self.assertEqual([], self.web_server.load_observation_media_cleanup_queue(store)["jobs"])
+
+        shared_relative_path = "media/observation-photos/2026/shared-delete-test.jpg"
+        shared_path = data_dir / "mushroom-data" / shared_relative_path
+        shared_path.write_bytes(b"shared-photo")
+        observations_payload = store.load("observations")
+        observations_payload["observations"] = [
+            {
+                "observation_id": "obs_still_references_media",
+                "media": [{"kind": "photo", "path": shared_relative_path}],
+            }
+        ]
+        self.web_server.write_json_atomic(store.persistent_path("observations"), observations_payload)
+        self.web_server.queue_observation_media_cleanup(store, "obs_deleted", {shared_relative_path})
+
+        deleted, errors = self.web_server.process_observation_media_cleanup_queue(store)
+        self.assertEqual([], deleted)
+        self.assertEqual([], errors)
+        self.assertTrue(shared_path.exists(), "referenced media must never be deleted")
+        self.assertEqual([], self.web_server.load_observation_media_cleanup_queue(store)["jobs"])
+
+    def test_archive_transaction_rolls_back_archive_when_active_replace_fails(self) -> None:
+        data_dir = Path(self.temp_dir.name)
+        old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
+        old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
+
+        def restore_env() -> None:
+            if old_defaults is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DEFAULTS_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = old_defaults
+            if old_data is None:
+                os.environ.pop("RAINMAPPER_MUSHROOM_DATA_DIR", None)
+            else:
+                os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = old_data
+
+        self.addCleanup(restore_env)
+        os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
+        os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
+        store = self.web_server.default_store()
+        previous_active = store.load("observations")
+        previous_archived = self.web_server.empty_archived_observations_payload()
+        next_archived = json.loads(json.dumps(previous_archived))
+        next_archived["observations"] = [{"observation_id": "obs_transaction"}]
+
+        with mock.patch.object(store, "replace", return_value=mock.Mock(ok=False)):
+            result = self.web_server.replace_observation_archive_transaction(
+                store,
+                previous_active=previous_active,
+                next_active=previous_active,
+                previous_archived=previous_archived,
+                next_archived=next_archived,
+                archive_first=True,
+            )
+
+        self.assertFalse(result.ok)
+        archived = self.web_server.load_archived_observations(store)
+        self.assertEqual([], archived["observations"])
+
+        next_active = json.loads(json.dumps(previous_active))
+        next_active["observations"] = [{"observation_id": "obs_restore_transaction"}]
+
+        def write_active(_kind: str, payload: dict[str, object]) -> object:
+            self.web_server.write_json_atomic(store.persistent_path("observations"), payload)
+            return mock.Mock(ok=True)
+
+        with (
+            mock.patch.object(store, "replace", side_effect=write_active),
+            mock.patch.object(
+                self.web_server,
+                "write_archived_observations",
+                side_effect=OSError("archive share write failed"),
+            ),
+            self.assertRaises(OSError),
+        ):
+            self.web_server.replace_observation_archive_transaction(
+                store,
+                previous_active=previous_active,
+                next_active=next_active,
+                previous_archived=previous_archived,
+                next_archived=previous_archived,
+                archive_first=False,
+            )
+
+        self.assertEqual(previous_active, store.load("observations"))
 
     def test_mushroom_parameters_render_human_labels_and_host_groups(self) -> None:
         data_dir = Path(self.temp_dir.name)

@@ -157,6 +157,7 @@ RUN_LOCK = threading.Lock()
 PREDICTOR_RUN_LOCK = threading.Lock()
 MUSHROOM_WORKER_PROMOTION_LOCK = threading.Lock()
 MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK = threading.Lock()
+MUSHROOM_OBSERVATION_MUTATION_LOCK = threading.RLock()
 MUSHROOM_WORKER_PROMOTION_THREADS: dict[str, threading.Thread] = {}
 SHUTDOWN_EVENT = threading.Event()
 CURRENT_PROCESS_LOCK = threading.Lock()
@@ -13108,13 +13109,143 @@ def load_archived_observations(store: object) -> dict[str, object]:
 
 
 def write_archived_observations(store: object, payload: dict[str, object]) -> None:
-    from rainmapper_core.mushroom_store import write_json_atomic
-
     metadata = payload.setdefault("metadata", {})
     if isinstance(metadata, dict):
         metadata["updated_at"] = datetime.now(UTC).date().isoformat()
         metadata["updated_by"] = "rainmapper_ui"
     write_json_atomic(archived_observations_path(store), payload)
+
+
+def observation_media_cleanup_queue_path(store: object) -> Path:
+    """Return the persistent retry queue for observation-media cleanup."""
+    data_dir = Path(getattr(store, "data_dir"))
+    return data_dir / "maintenance" / "observation_media_cleanup_queue.json"
+
+
+def load_observation_media_cleanup_queue(store: object) -> dict[str, object]:
+    path = observation_media_cleanup_queue_path(store)
+    if not path.exists():
+        return {"schema_version": "0.1", "jobs": []}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Observation media cleanup queue must be a JSON object: {path}")
+    return payload
+
+
+def write_observation_media_cleanup_queue(store: object, payload: dict[str, object]) -> None:
+    payload["updated_at"] = datetime.now(UTC).isoformat()
+    write_json_atomic(observation_media_cleanup_queue_path(store), payload)
+
+
+def observation_media_paths(rows: list[dict[str, object]]) -> set[str]:
+    paths: set[str] = set()
+    for row in rows:
+        media = row.get("media") if isinstance(row.get("media"), list) else []
+        for item in media:
+            if not isinstance(item, dict):
+                continue
+            media_path = str(item.get("path", "")).strip().lstrip("/")
+            if media_path:
+                paths.add(media_path)
+    return paths
+
+
+def queue_observation_media_cleanup(store: object, observation_id: str, media_paths: set[str]) -> None:
+    """Persist cleanup intent before removing the last database reference."""
+    normalized_paths = sorted({str(path).strip().lstrip("/") for path in media_paths if str(path).strip()})
+    if not normalized_paths:
+        return
+    payload = load_observation_media_cleanup_queue(store)
+    jobs = payload.get("jobs") if isinstance(payload.get("jobs"), list) else []
+    jobs = [job for job in jobs if not (isinstance(job, dict) and str(job.get("observation_id", "")) == observation_id)]
+    jobs.append(
+        {
+            "observation_id": observation_id,
+            "paths": normalized_paths,
+            "queued_at": datetime.now(UTC).isoformat(),
+        }
+    )
+    payload["jobs"] = jobs
+    write_observation_media_cleanup_queue(store, payload)
+
+
+def process_observation_media_cleanup_queue(store: object) -> tuple[list[str], list[str]]:
+    """Delete queued media only after confirming that no live/archive reference remains."""
+    payload = load_observation_media_cleanup_queue(store)
+    jobs = payload.get("jobs") if isinstance(payload.get("jobs"), list) else []
+    if not jobs:
+        return [], []
+
+    active_rows = observation_dicts_from_payload(store.load("observations"))
+    archived_rows = observation_dicts_from_payload(load_archived_observations(store))
+    referenced_paths = observation_media_paths(active_rows + archived_rows)
+    deleted: list[str] = []
+    errors: list[str] = []
+    pending_jobs: list[dict[str, object]] = []
+
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        pending_paths: list[str] = []
+        for raw_path in job.get("paths") if isinstance(job.get("paths"), list) else []:
+            media_path = str(raw_path).strip().lstrip("/")
+            if not media_path or media_path in referenced_paths:
+                continue
+            if not media_path.startswith(("media/observation-photos/", "media/observation-videos/")):
+                pending_paths.append(media_path)
+                errors.append(f"Unsafe observation media path was not deleted: {media_path}")
+                continue
+            file_path = observation_media_file_path(media_path)
+            if file_path is None or not file_path.exists():
+                continue
+            try:
+                file_path.unlink()
+                deleted.append(file_path.name)
+            except OSError as exc:
+                pending_paths.append(media_path)
+                errors.append(f"Could not delete {media_path}: {exc}")
+        if pending_paths:
+            pending_job = dict(job)
+            pending_job["paths"] = pending_paths
+            pending_job["last_attempt_at"] = datetime.now(UTC).isoformat()
+            pending_jobs.append(pending_job)
+
+    payload["jobs"] = pending_jobs
+    write_observation_media_cleanup_queue(store, payload)
+    return deleted, errors
+
+
+def replace_observation_archive_transaction(
+    store: object,
+    *,
+    previous_active: dict[str, object],
+    next_active: dict[str, object],
+    previous_archived: dict[str, object],
+    next_archived: dict[str, object],
+    archive_first: bool,
+) -> object:
+    """Update active/archive files with rollback, preferring duplication over data loss on crashes."""
+    if archive_first:
+        write_archived_observations(store, next_archived)
+        try:
+            result = store.replace("observations", next_active)
+        except Exception:
+            write_archived_observations(store, previous_archived)
+            raise
+        if not result.ok:
+            write_archived_observations(store, previous_archived)
+        return result
+
+    result = store.replace("observations", next_active)
+    if not result.ok:
+        return result
+    try:
+        write_archived_observations(store, next_archived)
+    except Exception:
+        active_path = Path(getattr(store, "data_dir")) / "mushroom_observations.json"
+        write_json_atomic(active_path, previous_active)
+        raise
+    return result
 
 
 def observation_dicts_from_payload(payload: dict[str, object]) -> list[dict[str, object]]:
@@ -17626,12 +17757,27 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         form: dict[str, list[str]],
         files: dict[str, list[dict[str, object]]] | None = None,
     ) -> str:
+        with MUSHROOM_OBSERVATION_MUTATION_LOCK:
+            return self._handle_mushroom_profiles_post_unlocked(form, files)
+
+    def _handle_mushroom_profiles_post_unlocked(
+        self,
+        form: dict[str, list[str]],
+        files: dict[str, list[dict[str, object]]] | None = None,
+    ) -> str:
         action = self.form_action_value(form, "profile_action")
         species_id = self.form_value(form, "species_id")
         files = files or {}
         store = default_store()
         try:
             store.ensure_seeded()
+            _cleanup_deleted, cleanup_retry_errors = process_observation_media_cleanup_queue(store)
+            if cleanup_retry_errors:
+                print(
+                    "WARNING: observation media cleanup remains pending: "
+                    + "; ".join(cleanup_retry_errors[:3]),
+                    flush=True,
+                )
             if action == "backup_profiles_keep":
                 backup_path = store.backup_current("profiles", keep=True)
                 suffix = f" Backup: {backup_path}" if backup_path else ""
@@ -18194,6 +18340,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     )
                     if reference_count != 1:
                         raise ValueError(f"The image is still associated with {reference_count} observations and cannot be deleted.")
+                    queue_observation_media_cleanup(store, observation_id, {media_path})
                 observation["media"] = [
                     item for item in media_rows
                     if not (isinstance(item, dict) and str(item.get("path", "")) == media_path)
@@ -18207,12 +18354,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     raise ValueError("; ".join(message.message for message in result.errors[:3]))
                 deleted_text = ""
                 if action == "delete_observation_media":
-                    file_path = observation_media_file_path(media_path)
-                    if file_path is None or not file_path.exists():
-                        deleted_text = " The media file was already absent."
-                    else:
-                        file_path.unlink()
+                    deleted_media, cleanup_errors = process_observation_media_cleanup_queue(store)
+                    if deleted_media:
                         deleted_text = " The media file was deleted permanently."
+                    elif cleanup_errors:
+                        deleted_text = " Media cleanup is pending and will be retried automatically."
+                    else:
+                        deleted_text = " The media file was already absent."
                 mushroom_model_state.mark_species_pending([str(observation.get("species_id", species_id))])
                 set_mushroom_profiles_flash(f"Image was disassociated from {observation_id}." + deleted_text)
                 return observations_return_url(
@@ -18432,12 +18580,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if action == "archive_observation":
                 observation_id = catalog_form_string(form, "observation_id")
                 observations_payload = store.load("observations")
+                previous_active = json.loads(json.dumps(observations_payload))
                 observations = observation_dicts_from_payload(observations_payload)
                 source = find_observation_by_id(observations, observation_id)
                 if not source:
                     set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
                     return observations_return_url(form, species_id, archive_open=True, obs_id="")
                 archived_payload = load_archived_observations(store)
+                previous_archived = json.loads(json.dumps(archived_payload))
                 archived = [
                     row
                     for row in observation_dicts_from_payload(archived_payload)
@@ -18448,9 +18598,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 observations_payload["observations"] = [
                     row for row in observations if str(row.get("observation_id", "")) != observation_id
                 ]
-                result = store.replace("observations", observations_payload)
+                result = replace_observation_archive_transaction(
+                    store,
+                    previous_active=previous_active,
+                    next_active=observations_payload,
+                    previous_archived=previous_archived,
+                    next_archived=archived_payload,
+                    archive_first=True,
+                )
                 if result.ok:
-                    write_archived_observations(store, archived_payload)
                     mushroom_model_state.mark_species_pending([str(source.get("species_id", species_id))])
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Archived observation {observation_id}." + suffix)
@@ -18466,23 +18622,31 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if action == "restore_observation":
                 observation_id = catalog_form_string(form, "observation_id")
                 observations_payload = store.load("observations")
+                previous_active = json.loads(json.dumps(observations_payload))
                 observations = observation_dicts_from_payload(observations_payload)
                 if find_observation_by_id(observations, observation_id):
                     set_mushroom_profiles_flash(f"Archived observation {observation_id} was not restored: active ID already exists.")
                     return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 archived_payload = load_archived_observations(store)
+                previous_archived = json.loads(json.dumps(archived_payload))
                 archived = observation_dicts_from_payload(archived_payload)
                 source = find_observation_by_id(archived, observation_id)
                 if not source:
                     set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.")
                     return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 observations_payload["observations"] = observations + [json.loads(json.dumps(source))]
-                result = store.replace("observations", observations_payload)
+                archived_payload["observations"] = [
+                    row for row in archived if str(row.get("observation_id", "")) != observation_id
+                ]
+                result = replace_observation_archive_transaction(
+                    store,
+                    previous_active=previous_active,
+                    next_active=observations_payload,
+                    previous_archived=previous_archived,
+                    next_archived=archived_payload,
+                    archive_first=False,
+                )
                 if result.ok:
-                    archived_payload["observations"] = [
-                        row for row in archived if str(row.get("observation_id", "")) != observation_id
-                    ]
-                    write_archived_observations(store, archived_payload)
                     mushroom_model_state.mark_species_pending([str(source.get("species_id", species_id))])
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""
                     set_mushroom_profiles_flash(f"Restored observation {observation_id}." + suffix)
@@ -18502,31 +18666,20 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if len(remaining) == len(archived):
                     set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.")
                     return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
-                archived_payload["observations"] = remaining
-                write_archived_observations(store, archived_payload)
                 deleted_media: list[str] = []
+                cleanup_errors: list[str] = []
                 if source := find_observation_by_id(archived, observation_id):
                     mushroom_model_state.mark_species_pending([str(source.get("species_id", species_id))])
                     active_rows = observation_dicts_from_payload(store.load("observations"))
                     all_remaining = active_rows + remaining
-                    for media_item in (source.get("media") if isinstance(source.get("media"), list) else []):
-                        if not isinstance(media_item, dict):
-                            continue
-                        media_path = str(media_item.get("path", ""))
-                        if not media_path:
-                            continue
-                        reference_count = sum(
-                            1
-                            for row in all_remaining
-                            for item in (row.get("media") if isinstance(row.get("media"), list) else [])
-                            if isinstance(item, dict) and str(item.get("path", "")) == media_path
-                        )
-                        if reference_count == 0:
-                            file_path = observation_media_file_path(media_path)
-                            if file_path is not None and file_path.exists():
-                                file_path.unlink()
-                                deleted_media.append(file_path.name)
+                    cleanup_paths = observation_media_paths([source]) - observation_media_paths(all_remaining)
+                    queue_observation_media_cleanup(store, observation_id, cleanup_paths)
+                archived_payload["observations"] = remaining
+                write_archived_observations(store, archived_payload)
+                deleted_media, cleanup_errors = process_observation_media_cleanup_queue(store)
                 media_suffix = f" Deleted media: {', '.join(deleted_media)}." if deleted_media else ""
+                if cleanup_errors:
+                    media_suffix += " Media cleanup is pending and will be retried automatically."
                 set_mushroom_profiles_flash(f"Deleted archived observation {observation_id} permanently." + media_suffix)
                 return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
             if action == "save_profile_json":
@@ -19059,9 +19212,18 @@ def main() -> None:
     runtime_diagnostics.initialize_runtime(app_version())
     preserve_public_maplibre_data_for_transition()
     try:
-        seeded = default_store().ensure_seeded()
+        startup_store = default_store()
+        seeded = startup_store.ensure_seeded()
         if seeded:
             print(f"Seeded mushroom data defaults: {', '.join(seeded)}", flush=True)
+        deleted_media, cleanup_errors = process_observation_media_cleanup_queue(startup_store)
+        if deleted_media:
+            print(f"Completed pending observation media cleanup: {len(deleted_media)} file(s).", flush=True)
+        if cleanup_errors:
+            print(
+                "WARNING: observation media cleanup remains pending: " + "; ".join(cleanup_errors[:3]),
+                flush=True,
+            )
     except Exception as exc:
         print(f"WARNING: could not seed mushroom data defaults: {exc}", flush=True)
 

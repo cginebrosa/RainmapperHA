@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.2.230
+
+- Make observation archive and restore mutations serialized and rollback-safe,
+  avoiding partial moves and duplicate active/archive records after failures.
+- Persist media cleanup intents before removing the last observation reference,
+  recheck active and archived references before unlinking, and retry interrupted
+  cleanup safely during startup and profile maintenance.
+- Protect media shared by multiple observations and cover delete, archive,
+  restore, unlink-failure and rollback paths with regression tests.
+
 ## 0.2.229
 
 - Evolve runtime diagnostics into a persistent black box with boot IDs,

@@ -240,7 +240,13 @@ Hay varios entry points segun entorno:
   llamada controla acciones y retorno; Google Maps queda como enlace externo.
 - Media de observaciones: el contrato UI actual admite una imagen por
   observacion. La persistencia valida sustitucion, referencias compartidas y
-  borrado defensivo del fichero.
+  borrado defensivo del fichero. Las eliminaciones definitivas registran antes
+  una intención persistente en
+  `maintenance/observation_media_cleanup_queue.json`; la cola vuelve a contar
+  referencias activas y archivadas, borra solo al llegar a cero y conserva los
+  fallos para reintento en el siguiente arranque o acción de mantenimiento.
+  Archivar/restaurar actualiza ambos JSON con rollback y prioriza una posible
+  duplicación recuperable frente a perder una observación.
 - WebUI: `Workers y trabajos` es la entrada unica visible para reconstruir. El
   aviso de modelo desactualizado y las antiguas acciones de Observaciones
   navegan alli con el alcance preseleccionado; HA conserva su launcher local y

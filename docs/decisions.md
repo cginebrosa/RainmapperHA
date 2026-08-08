@@ -3255,3 +3255,36 @@ HTTP.
 - La validacion local no sustituye la prueba real tras proxies de HA.
 - Cambiar dependencias multimedia exige revisar el Dockerfile y ambas
   arquitecturas, no anadir nombres de binarios a `requirements.txt`.
+
+## 2026-08-08 - Ciclo de vida recuperable de observaciones y media
+
+### Estado
+VIGENTE.
+
+### Decision
+Archivar una observacion conserva toda su media. Borrar definitivamente una
+observacion o una imagen registra primero los paths candidatos en
+`maintenance/observation_media_cleanup_queue.json`, guarda el cambio de datos y
+despues vuelve a contar referencias entre observaciones activas y archivadas.
+Un fichero solo se elimina cuando el contador es cero. Si `unlink` falla, el
+trabajo permanece en la cola y se reintenta al arrancar Rainmapper o al ejecutar
+otra accion de mantenimiento de perfiles.
+
+Las mutaciones de perfiles y observaciones se serializan dentro del proceso web.
+El movimiento activa -> archivada escribe primero la copia archivada; la
+restauracion escribe primero la copia activa. Los errores controlados restauran
+el fichero ya escrito. Ante un corte no recuperable se prefiere una posible
+duplicacion a perder la unica copia de una observacion.
+
+### Motivo
+La auditoria del 2026-08-08 encontro 141 fotos sin referencia (558,1 MiB). El
+borrado anterior a 2026-08-02 no limpiaba media y la primera correccion no tenia
+reintento tras fallos parciales. La cola hace visible y recuperable esa ventana
+sin poner en riesgo archivos compartidos.
+
+### Validacion
+- 486 tests unitarios OK.
+- `tests.test_web_server_auth`: 177 tests OK.
+- `./scripts/smoke-test.sh` OK.
+- Cobertura nueva de media fisica, referencias compartidas, fallo/reintento de
+  borrado y rollback de los dos stores.

@@ -6,11 +6,12 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Instalada y ejecutada en HA real: `0.2.228`; el manifest del ZIP del Ensayo B
-  lo confirma.
-- Publicada y pendiente de instalar en HA real: `0.2.229`, para `amd64` +
-  `arm64`, digest multiarquitectura
-  `sha256:8e8e1a0c5fe0d3121c6e9cdf06ce1a6a118e4d619ac3f29c13ca4a86f5a432da`.
+- Instalada y ejecutada en HA real: `0.2.229`, confirmada por el usuario tras
+  probar el Predictor y ejecutar el runner programado.
+- Publicada y pendiente de instalar en HA real: `0.2.230`, con archivado y
+  restauración transaccionales y limpieza persistente/reintentable de medios;
+  digest multiarquitectura
+  `sha256:f5032c9452a5d20ef5b8090914a9a4f817acfad9d47034cb4611a53162ae52a0`.
 - La imagen anterior `0.2.226` conservaba el Parquet monolítico; queda sustituida
   operativamente por `0.2.227`.
 - No hay versión de desarrollo/sideload.
@@ -71,9 +72,9 @@ anteriores. Este documento describe el estado actual, no el historial completo.
    con el worker actualizado y modelos/informe promovidos en HA real; confirmado
    por el usuario el 2026-08-08.
 4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
-5. Instalar y validar conjuntamente `0.2.229`, caja negra v2 y ventana temporal del
-   Predictor: apertura fría/caliente, navegación semanal, consulta histórica y
-   regreso a presente, midiendo registros, latencia y memoria en la RPi4.
+5. Instalar `0.2.230` y comprobar el archivado/borrado/restauración de una
+   observación con foto; la validación inicial de `0.2.229`, caja negra v2 y
+   ventana temporal del Predictor ya se ejecutó en la RPi4.
 6. Después de cerrar A–C, instrumentar la apertura completa del Predictor y
    evolucionar el diagnóstico a caja negra persistente: histórico resumido,
    reconciliación tras reinicios, anomalías y backups. Especificación en
@@ -89,8 +90,8 @@ del Predictor, libera sus cachés antes del runner, impide solapamientos y añad
 un ZIP descargable desde el panel. Los ensayos A–C reales pasaron y cierran el
 P0 de memoria; queda pendiente instrumentar la latencia total del Predictor.
 Validación local completa de la caja negra v2 y la ventana temporal:
-`smoke-test.sh`, 484 tests, PASS el 2026-08-08. La release instalada continúa
-siendo `0.2.228`; `0.2.229` está publicada y pendiente de instalar.
+`smoke-test.sh`, 484 tests, PASS el 2026-08-08. La release instalada es
+`0.2.229`; `0.2.230` incorpora la corrección del ciclo de vida de medios.
 
 **Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de
 `docker-data/mushroom-data/` se refresca desde HA para pruebas y comprobaciones; no planificar
@@ -316,8 +317,23 @@ operativo actual. La revisión posterior pasó a realizarse en HA real.
 
 **Borrado de media al eliminar observación**
 - `delete_archived_observation` no eliminaba los ficheros de media huérfanos.
-- Corregido: al borrar definitivamente una obs archivada, se hace reference counting entre activas + resto de archivadas, y se borran los ficheros con reference_count == 0.
-- Patrón idéntico al ya existente en `delete_observation_media`.
+- La primera corrección hacía reference counting entre activas + resto de
+  archivadas y borraba los ficheros con `reference_count == 0`, pero el borrado
+  físico seguía ocurriendo después del JSON sin reintento persistente.
+- Reforzado el 2026-08-08: `delete_archived_observation` y
+  `delete_observation_media` registran primero una intención en
+  `maintenance/observation_media_cleanup_queue.json`. Tras guardar el JSON se
+  vuelve a contar referencias y solo entonces se borra. Los fallos quedan en la
+  cola y se reintentan al arrancar o al entrar en mantenimiento de perfiles.
+- Todas las mutaciones de perfiles/observaciones están serializadas dentro del
+  proceso web para impedir carreras entre la cola y los JSON.
+- Archivar conserva siempre la media. Archivar escribe primero la copia
+  archivada y después retira la activa; restaurar hace la operación inversa. En
+  errores controlados se aplica rollback, priorizando siempre duplicación
+  recuperable frente a pérdida del registro.
+- Tests físicos: conservar al archivar/restaurar, no borrar si otra observación
+  referencia el fichero, borrar al retirar la última referencia, persistir y
+  reintentar fallos de `unlink`, y rollback si falla cualquiera de los stores.
 
 **Bug de cambio de especie (causa raíz identificada)**
 - El usuario no podía cambiar la especie de una observación importada: el `store.replace` fallaba por los 646 errores de `flush_abundance`. Resuelto al parchear el catálogo.
@@ -453,7 +469,7 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 
 ### Pendiente
 
-- Instalar la app HA `0.2.229`; no requiere reconstruir la imagen worker ni
+- Instalar la app HA `0.2.230`; no requiere reconstruir la imagen worker ni
   reentrenar porque no cambia el contrato ni las features de entrenamiento.
 - Repetir cuando sea necesario el job ml_train_v0 end-to-end ya validado: crear
   job desde UI, worker lo recoge, entrena, sube y promover en HA.
@@ -510,9 +526,9 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y version del repositorio: `0.2.229` (2026-08-08),
-  digest `sha256:8e8e1a0c5fe0d3121c6e9cdf06ce1a6a118e4d619ac3f29c13ca4a86f5a432da`.
-  En HA real sigue instalada `0.2.228` hasta completar la actualización.
+- Release HA publicada en GHCR y version del repositorio: `0.2.230` (2026-08-08),
+  digest `sha256:f5032c9452a5d20ef5b8090914a9a4f817acfad9d47034cb4611a53162ae52a0`.
+  En HA real sigue instalada `0.2.229` hasta completar la actualización.
   Workers (M1 y M5) probados y funcionales.
 
 ### Histórico: última release validada antes de ML (0.2.214)
