@@ -40,6 +40,11 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   36,622 s, 7.728 registros meteorológicos, pico de proceso 420,1 MiB RSS, pico
   de cgroup 576,3 MiB y cero OOM. El detalle está en
   `docs/runtime-diagnostics.md`.
+- Mantenimiento real de fotos completado el 2026-08-08 sobre el share de HA:
+  210 JPEG normalizados a lado máximo 1600/calidad 86 con EXIF, 786.726.936
+  bytes liberados; 422/422 ficheros referenciados, cero faltantes o huérfanos.
+  Originales e informes conservados en `~/Desktop/Fotos Bolets/`. Procedimiento
+  en `docs/mushrooms/observation-photo-maintenance-es.md`.
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
