@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -502,6 +503,48 @@ class StationCatalogTests(unittest.TestCase):
             read_parquet.call_args.kwargs["filters"],
             [[("source", "==", "meteocat"), ("station_code", "==", "ST_A")]],
         )
+
+    def test_station_and_date_filters_are_pushed_into_parquet_read(self) -> None:
+        self._write_parquet()
+        original_read_parquet = mushroom_observation_context.pd.read_parquet
+        with mock.patch.object(
+            mushroom_observation_context.pd,
+            "read_parquet",
+            side_effect=original_read_parquet,
+        ) as read_parquet:
+            stations = mushroom_observation_context.load_daily_weather_parquet(
+                self.data_dir,
+                station_filter={("meteocat", "ST_A")},
+                start_date=date(2026, 1, 2),
+                end_date=date(2026, 1, 2),
+            )
+
+        station = stations[("meteocat", "ST_A")]
+        self.assertEqual(set(station.records_by_day), {date(2026, 1, 2)})
+        self.assertEqual(
+            read_parquet.call_args.kwargs["filters"],
+            [[
+                ("source", "==", "meteocat"),
+                ("station_code", "==", "ST_A"),
+                ("local_date", ">=", "20260102"),
+                ("local_date", "<=", "20260102"),
+            ]],
+        )
+
+    def test_temporal_filter_requires_a_valid_closed_range(self) -> None:
+        with self.assertRaisesRegex(ValueError, "provided together"):
+            mushroom_observation_context.load_daily_weather_parquet(
+                self.data_dir,
+                station_filter={("meteocat", "ST_A")},
+                start_date=date(2026, 1, 1),
+            )
+        with self.assertRaisesRegex(ValueError, "must not be after"):
+            mushroom_observation_context.load_daily_weather_parquet(
+                self.data_dir,
+                station_filter={("meteocat", "ST_A")},
+                start_date=date(2026, 1, 2),
+                end_date=date(2026, 1, 1),
+            )
 
     def test_empty_station_filter_does_not_read_parquet(self) -> None:
         self._write_parquet()

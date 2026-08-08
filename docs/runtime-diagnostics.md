@@ -74,6 +74,42 @@ HA Ingress y el renderizado del navegador. El tiempo extremo a extremo debe
 registrarse por separado hasta que exista instrumentación de la petición
 completa.
 
+### Ventana meteorológica temporal del Predictor (`0.2.229`)
+
+La ruta normal ya no conserva todas las fechas de las estaciones espaciales
+seleccionadas. Mantiene una sola ventana sustituible de 96 días:
+
+- 90 días hasta la fecha objetivo, necesarios para la cobertura y las features
+  existentes;
+- 6 días posteriores precargados, de modo que los siete días de la pantalla
+  semanal reutilizan una única lectura;
+- filtros `local_date` inclusivos enviados junto a fuente/estación al lector
+  Parquet, antes de construir objetos Python.
+
+Predicción, Especies y una consulta de Fechas dentro de la semana actual
+comparten esa ventana. Una fecha histórica fuera de ella se carga bajo demanda y
+sustituye la anterior; volver a una vista actual vuelve a cargar los 96 días y
+vacía explícitamente el diccionario antiguo para que otras instancias cacheadas
+no retengan sus registros.
+
+Historial es deliberadamente distinto: necesita evaluar episodios separados por
+años. Calcula el intervalo mínimo entre el primer y último episodio, incluido el
+lookback, y lo carga una sola vez para evitar una lectura de Parquet por episodio.
+Ese intervalo amplio no se acumula: la siguiente vista actual lo sustituye por
+la ventana de 96 días.
+
+En el Ensayo B se materializaron 79.931 registros de 115 estaciones. Con esas
+mismas estaciones, una ventana de 96 días tiene un máximo teórico de 11.040
+registros, el 13,8 % (unas 7,2 veces menos objetos meteorológicos); faltantes y
+estaciones con menor cobertura pueden reducirlo más. Es una estimación de
+objetos retenidos, no una promesa equivalente de latencia o RSS: Arrow aún puede
+leer row groups parcialmente y las vistas también calculan modelos y HTML.
+
+`predictor_weather_load` v2 registra `window_start`, `window_end`, `window_days`
+y `loaded_record_count`. La validación en RPi4 debe comparar una apertura fría,
+navegación semanal caliente, una fecha histórica y el regreso a la semana
+actual, comprobando tanto tiempos como memoria retenida.
+
 ## Cadencia de muestreo y espera de recuperación
 
 La espera de 10 minutos no significa que el sistema escriba métricas de forma
@@ -101,61 +137,100 @@ acotada. El ZIP se puede descargar más tarde; no hay una ventana de descarga de
 solo 10 minutos. Conviene esperar unos segundos adicionales tras los 10 minutos
 antes de pulsar **Download diagnostics**.
 
-## Evolución pendiente después de los ensayos A–C
+## Evolución v2 publicada en `0.2.229` después de A–C
 
-No modificar la instrumentación actual hasta terminar A–C: cambiarla durante la
-serie impediría comparar los paquetes bajo el mismo contrato. Después deben
-abordarse dos mejoras distintas.
+La implementación posterior a `0.2.228` mantiene el JSONL v1 compatible y añade
+el contrato `schema_version: 2.0`. Está publicada en `0.2.229`, pero todavía
+requiere instalación y validación real antes de considerarla desplegada.
 
-### Afinar la medición de carga fría del Predictor
+### Medición correlacionada del Predictor
 
-La operación actual `predictor_weather_load` es una subfase interna y no puede
-usarse como tiempo total de apertura. Añadir una operación correlacionada para
-la petición completa del Predictor que distinga, como mínimo:
+Cada apertura genera un `operation_id` de `predictor_request` y estas fases del
+servidor:
 
-1. entrada en el manejador HTTP y carga de perfiles/setales;
-2. inicialización y carga de modelos;
-3. carga o reutilización de la caché meteorológica;
-4. cálculos de la vista solicitada;
-5. generación del HTML y envío de la respuesta;
-6. tiempo de navegación/renderizado del navegador, medido aparte del servidor.
+1. `start` y `lock_acquired`;
+2. `inputs_loaded` para perfiles y setales;
+3. `predictor_render_started` y `body_rendered` para la vista;
+4. `html_generated`;
+5. `response_sent` y `finish`.
 
-Debe registrar si la petición es fría o caliente y permitir separar tiempo de
-RPi4, HA Ingress/red y cliente. No debe añadir observaciones, ubicaciones ni
-resultados predictivos privados al diagnóstico.
+Una carga de modelo nueva crea una operación hija `predictor_model_load`. La
+carga física del Parquet conserva `predictor_weather_load` y hereda el padre:
+ambas quedan como suboperaciones de la petición completa. Cada petición
+indica `cold_request` y el número de instancias ya cacheadas, pero no el ID de la
+especie. Así se pueden restar las suboperaciones y distinguir entrada, modelos,
+meteorología, cálculo/render del servidor y envío.
 
-### Convertir el diagnóstico en una caja negra persistente
+Al terminar `load`, el navegador envía una única operación
+`predictor_client_render` con Navigation Timing: inicio/fin de respuesta, DOM
+interactive, DOMContentLoaded, load y tamaños transferidos. El endpoint solo
+acepta campos numéricos predefinidos y un `operation_id` reciente creado por el
+servidor. No recibe especie, área, ubicación ni predicción.
 
-El JSONL actual sobrevive a reinicios y actualizaciones porque vive en `/share`,
-pero no es un histórico indefinido: rota a 2.000 eventos o 5 MiB, los snapshots
-diferidos solo existen como temporizadores en memoria y `last_run.log` se
-sobrescribe. Una muerte del contenedor puede conservar el inicio de una
-operación, pero perder su cierre y los snapshots pendientes sin explicar la
-interrupción.
+`load_event_ms` empieza cuando el navegador inicia la navegación dentro de
+Ingress. No puede medir el tiempo anterior que Home Assistant tarde en crear o
+mostrar el iframe después del clic. La comparación queda así:
 
-La evolución debe mantener bajo el coste de CPU, escrituras y almacenamiento:
+- `predictor_request.wall_seconds`: RPi4 hasta terminar de escribir la respuesta;
+- `response_start_ms`/`response_end_ms`: servidor + Ingress/red vistos por el
+  navegador;
+- `load_event_ms`: navegación y renderizado completos dentro del iframe;
+- diferencia respecto al cronómetro manual desde el clic: trabajo previo de la
+  interfaz de Home Assistant que el iframe no puede observar.
 
-- conservar un nivel detallado circular para las operaciones recientes;
-- guardar además un resumen histórico pequeño por operación, con versión,
-  inicio/fin, resultado, duración, picos, OOM y recuperación;
-- persistir atómicamente operaciones y snapshots pendientes; al arrancar,
-  reconciliarlos y marcar como `interrupted` lo que no terminó, sin inventar la
-  causa si no existe evidencia de OOM;
-- registrar arranque/parada e identificador de arranque para correlacionar
-  reinicios del add-on o de la RPi4;
-- agregar un muestreo de fondo ligero en memoria y escribir solo resúmenes
-  periódicos o anomalías, evitando un log continuo de alta frecuencia;
-- conservar por `operation_id` una cola acotada de logs de operaciones fallidas,
-  en lugar de depender únicamente del último runner;
-- incluir detalle reciente, histórico resumido, interrupciones y anomalías en
-  el ZIP, manteniendo la redacción de secretos y el contenido privado fuera;
-- mostrar en el panel la última ejecución correcta, último fallo/interrupción,
-  último OOM y máximos recientes.
+### Caja negra persistente
 
-La conservación realmente indefinida no puede depender solo del almacenamiento
-de la RPi4: los resúmenes deben poder incluirse en backups o copiarse fuera del
-dispositivo. La retención detallada seguirá siendo acotada; lo que se conserva a
-largo plazo son resúmenes y anomalías suficientes para explicar qué ocurrió.
+Todos los artefactos viven bajo `/share/rainmapper/diagnostics` y sobreviven a
+reinicios, actualizaciones y backups normales de los datos del add-on:
+
+- `runtime_metrics.jsonl`: detalle circular, máximo 2.000 eventos o 5 MiB;
+- `runtime_summary.jsonl`: histórico acotado, máximo 20.000 resúmenes o 20 MiB;
+- `runtime_anomalies.jsonl`: errores, degradaciones, interrupciones y nuevos OOM,
+  máximo 5.000 registros o 10 MiB;
+- `runtime_state.json`: escritura atómica del boot actual, operaciones y
+  snapshots pendientes;
+- `failed_operations/`: hasta 20 colas de log fallidas, redactadas y limitadas a
+  los últimos 2 MiB cada una.
+
+El muestreo de recursos continúa en memoria y no escribe cada 0,5 s. Al cerrar
+una operación solo persiste fases relevantes y un resumen. Los snapshots de 60
+y 600 s se registran en `runtime_state.json`; si el proceso reinicia antes de
+capturarlos, se conservan como `snapshot_interrupted` en vez de desaparecer.
+
+El arranque genera un `boot_id`, registra inicio/parada y reconcilia cualquier
+operación pendiente como `interrupted`. No atribuye OOM sin evidencia: usa
+`oom_attribution: unknown`; un OOM solo se marca cuando los contadores del cgroup
+aumentan durante la operación. Un cierre escrito justo antes de morir no se
+duplica como interrupción porque la reconciliación comprueba los resúmenes y
+fases recientes.
+
+El ZIP añade resumen, anomalías, estado y logs fallidos al detalle y
+`last_run.log` existentes. El Control Panel muestra último éxito, último
+fallo/interrupción, último OOM, máximo reciente del cgroup y operaciones
+pendientes. Su lectura está cacheada por tamaño/mtime para no releer el histórico
+en cada polling.
+
+La retención no es literalmente infinita. Descargar el ZIP o incluir `/share` en
+un backup permite sacar el histórico del dispositivo; el detalle reciente rota,
+pero los límites del resumen cubren más de un año del runner cada tres horas aun
+contando sus snapshots, antes de hacer backups externos.
+
+### Procedimiento de validación de la v2 en HA real
+
+1. Instalar la release que incluya la v2 y comprobar en el panel que aparece
+   **Runtime black box** sin operaciones pendientes inesperadas.
+2. Tras un reinicio o un runner, abrir Predictor una vez en frío y anotar también
+   el cronómetro manual desde el clic.
+3. Abrir la misma vista una segunda vez para obtener una petición caliente.
+4. Descargar el ZIP: las métricas de petición y cliente llegan inmediatamente.
+   Esperar 10 minutos solo si se quieren incluir también los snapshots de
+   retención/recuperación a 600 s.
+5. Comparar por `operation_id` `predictor_request`, `predictor_model_load`,
+   `predictor_weather_load` y `predictor_client_render`.
+6. Reiniciar el add-on durante una prueba controlada y descargar otro ZIP para
+   verificar `runtime_boot`, `interrupted` y `snapshot_interrupted`.
+7. Confirmar que ninguna entrada contiene especie, setal, coordenadas,
+   resultados, credenciales ni tokens.
 
 ## Exclusión runner/Predictor
 
@@ -347,3 +422,9 @@ El 2026-08-08 pasó `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh` comple
 para `0.2.228`: 469 tests, compilación Python, parseo JavaScript, fixtures
 operativas y comprobación de whitespace. Esto valida los contratos y la
 integración local; no sustituye los ensayos A–C sobre la RPi4.
+
+Después de implementar localmente la caja negra v2 y la ventana meteorológica
+temporal, el mismo smoke completo pasó de nuevo el 2026-08-08 con 484 tests. La
+versión publicada es `0.2.229`, digest
+`sha256:8e8e1a0c5fe0d3121c6e9cdf06ce1a6a118e4d619ac3f29c13ca4a86f5a432da`;
+estos cambios aún no están instalados ni validados en HA real.

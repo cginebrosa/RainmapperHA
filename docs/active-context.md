@@ -7,8 +7,10 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 
 **Release HA:**
 - Instalada y ejecutada en HA real: `0.2.228`; el manifest del ZIP del Ensayo B
-  lo confirma. Publicada para `amd64` + `arm64`, digest multiarquitectura
-  `sha256:763f5eab1a6a47ce9d35963caf71ed6d553de0482cca7b3236f2ad1ba3990206`.
+  lo confirma.
+- Publicada y pendiente de instalar en HA real: `0.2.229`, para `amd64` +
+  `arm64`, digest multiarquitectura
+  `sha256:8e8e1a0c5fe0d3121c6e9cdf06ce1a6a118e4d619ac3f29c13ca4a86f5a432da`.
 - La imagen anterior `0.2.226` conservaba el Parquet monolítico; queda sustituida
   operativamente por `0.2.227`.
 - No hay versión de desarrollo/sideload.
@@ -29,6 +31,11 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 - Rebuild de features, entrenamiento con el worker `0.2.228` y promoción de los
   modelos y `ml_train_report.json` completados y confirmados por el usuario el
   2026-08-08.
+- `0.2.229` publica la caja negra v2 y la optimización temporal del Predictor:
+  las vistas actuales
+  comparten una única ventana sustituible de 96 días; fechas históricas se
+  cargan bajo demanda e Historial carga una sola vez el rango de sus episodios.
+  Smoke completo: 484 tests. Pendiente instalar y medir en RPi4.
 
 **Worker M1 / M5 ↔ HA real — qué está hecho y qué queda:**
 - Hecho: emparejamiento LAN, reconstrucción completa candidata, promoción manual al modelo vivo, avisos transitorios, descarte con modal, M1 y M5 probados y funcionales. M5 ~1.5x más rápido que M1 en red local.
@@ -64,12 +71,16 @@ anteriores. Este documento describe el estado actual, no el historial completo.
    con el worker actualizado y modelos/informe promovidos en HA real; confirmado
    por el usuario el 2026-08-08.
 4. **Planificación pendiente:** verificación/comparación de modelos candidatos antes de promoción (ver sección al final).
-5. Después de cerrar A–C, instrumentar la apertura completa del Predictor y
+5. Instalar y validar conjuntamente `0.2.229`, caja negra v2 y ventana temporal del
+   Predictor: apertura fría/caliente, navegación semanal, consulta histórica y
+   regreso a presente, midiendo registros, latencia y memoria en la RPi4.
+6. Después de cerrar A–C, instrumentar la apertura completa del Predictor y
    evolucionar el diagnóstico a caja negra persistente: histórico resumido,
    reconciliación tras reinicios, anomalías y backups. Especificación en
-   `docs/runtime-diagnostics.md`.
-6. Worker: probar descarte con candidato terminal en HA real.
-7. Decidir si meter Tailscale dentro de la imagen del worker.
+   `docs/runtime-diagnostics.md`. Implementación publicada en `0.2.229`;
+   pendiente validación completa e instalación en HA real.
+7. Worker: probar descarte con candidato terminal en HA real.
+8. Decidir si meter Tailscale dentro de la imagen del worker.
 
 El contrato de instrumentación automática, descarga y ensayo controlado en
 RPi4 está en `docs/runtime-diagnostics.md`. La implementación local ya registra
@@ -77,7 +88,9 @@ JSONL acotado, picos del proceso y del cgroup, recuperación a 60/600 s, carga f
 del Predictor, libera sus cachés antes del runner, impide solapamientos y añade
 un ZIP descargable desde el panel. Los ensayos A–C reales pasaron y cierran el
 P0 de memoria; queda pendiente instrumentar la latencia total del Predictor.
-Validación local completa: `smoke-test.sh`, 469 tests, PASS el 2026-08-08.
+Validación local completa de la caja negra v2 y la ventana temporal:
+`smoke-test.sh`, 484 tests, PASS el 2026-08-08. La release instalada continúa
+siendo `0.2.228`; `0.2.229` está publicada y pendiente de instalar.
 
 **Flujo de datos actual:** las observaciones se revisan y guardan en HA real. La copia de
 `docker-data/mushroom-data/` se refresca desde HA para pruebas y comprobaciones; no planificar
@@ -440,10 +453,10 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 
 ### Pendiente
 
-- Instalar la app HA `0.2.228`; las imágenes worker compatibles ya están
-  preparadas para M1 y M5. El contrato de resultado `0.2` falla de forma cerrada
-  si uno de los dos lados conserva la implementación anterior.
-- Probar job ml_train_v0 end-to-end: crear job desde UI, worker lo recoge, entrena, sube, promover en HA.
+- Instalar la app HA `0.2.229`; no requiere reconstruir la imagen worker ni
+  reentrenar porque no cambia el contrato ni las features de entrenamiento.
+- Repetir cuando sea necesario el job ml_train_v0 end-to-end ya validado: crear
+  job desde UI, worker lo recoge, entrena, sube y promover en HA.
 - Implementar chaining automático rebuild → ml_train en el coordinador (campo `triggered_by_job_id`).
 
 ### Cobertura meteorológica por fuente
@@ -497,11 +510,9 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y version del repositorio: `0.2.228` (2026-08-08),
-  digest `sha256:763f5eab1a6a47ce9d35963caf71ed6d553de0482cca7b3236f2ad1ba3990206`.
-  En HA real sigue instalada `0.2.227` hasta completar la actualizacion.
-  No abrir el Predictor hasta instalar `0.2.228`, reconstruir features y
-  reentrenar/promover los modelos.
+- Release HA publicada en GHCR y version del repositorio: `0.2.229` (2026-08-08),
+  digest `sha256:8e8e1a0c5fe0d3121c6e9cdf06ce1a6a118e4d619ac3f29c13ca4a86f5a432da`.
+  En HA real sigue instalada `0.2.228` hasta completar la actualización.
   Workers (M1 y M5) probados y funcionales.
 
 ### Histórico: última release validada antes de ML (0.2.214)

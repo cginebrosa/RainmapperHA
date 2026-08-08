@@ -242,6 +242,25 @@ La implementación publicada cubre el núcleo y sus regresiones unitarias. El P0
 considera cerrado hasta instalar `0.2.227`, regenerar el Parquet en HA y completar los
 puntos 5–8 sin abrir previamente Predictor con `0.2.226`.
 
+### 0.7 Optimización temporal posterior al cierre del P0 (2026-08-08)
+
+Los ensayos A–C en `0.2.228` cerraron el P0 monousuario, pero el Ensayo B todavía
+materializó 79.931 registros de 115 estaciones. La segunda optimización conserva
+el filtro espacial y añade predicate pushdown por `local_date`:
+
+- vistas actuales: una sola ventana de 96 días (90 de lookback hasta el objetivo
+  y 6 futuros para completar la semana);
+- fecha fuera de la ventana: carga bajo demanda que sustituye y libera la
+  anterior, sin LRU ni acumulación ilimitada;
+- Historial/backtest: una sola carga del intervalo mínimo que cubre todos sus
+  episodios y su lookback, evitando una lectura física por episodio; al volver a
+  presente, ese intervalo se sustituye por los 96 días normales.
+
+Con 115 estaciones, el techo de la ventana normal es 11.040 registros frente a
+los 79.931 del Ensayo B. La ganancia de latencia no se da por supuesta: la caja
+negra v2 registra rango, filas y tiempos para medirla en la RPi4, separando
+lectura meteorológica, inferencia/render del servidor e iframe/navegador.
+
 Este documento propone una primera arquitectura funcional para el predictor de floradas de setas de Rainmapper. No define todavía un algoritmo cerrado ni un contrato definitivo de schema. Su objetivo es ordenar las decisiones antes de modificar el modelo de datos o implementar el motor predictivo.
 
 La propuesta se ha contrastado con literatura científica identificada sobre productividad micológica, fructificación, fenología y modelos de distribución de hongos, pero no todos los artículos están disponibles como texto completo local. Por tanto, este documento distingue entre evidencia documental verificable, deducción prudente de diseño y trabajo pendiente. El dataset actual debe seguir considerándose un modelo inicial mantenible y explicable, no un modelo científico calibrado localmente.

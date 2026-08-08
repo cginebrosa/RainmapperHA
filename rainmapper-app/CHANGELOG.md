@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+## 0.2.229
+
+- Evolve runtime diagnostics into a persistent black box with boot IDs,
+  interruption recovery, bounded long-term summaries and anomalies, retained
+  failed-run logs, an expanded ZIP and live Control Panel status.
+- Correlate full Predictor server requests, cold model loads, weather loads and
+  browser Navigation Timing without storing species, areas or predictions.
+- Bound normal Predictor weather materialisation to one replaceable 96-day
+  window (90-day coverage lookback plus the seven-day UI horizon). Historical
+  date queries load their window on demand; History loads its required episode
+  span once and the next current view releases it.
+
 ## 0.2.228
 
 - Include `ml_train_report.json` in external `ml_train_v0` results and validate

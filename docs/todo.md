@@ -38,17 +38,31 @@ Regla UI setas 2026-07-04: la UI debe ser coherente con el resto de Rainmapper, 
 - [x] Completar Ensayo B del Predictor: 8,667 s para la subfase meteorológica,
   pico cgroup 423,2 MiB, retención estable a 600 s y cero OOM. La apertura
   extremo a extremo percibida fue de al menos unos 30 s (2026-08-08).
-- [ ] Instrumentar la petición completa del Predictor para separar carga de
+- [x] Implementar localmente la instrumentación de la petición completa del Predictor para separar carga de
   Parquet, cálculos/renderizado del servidor, HA Ingress y navegador; no usar
   los 8,667 s de `predictor_weather_load` como tiempo total de apertura. Distinguir
-  explícitamente peticiones frías y calientes.
-- [ ] Después de A–C, convertir el diagnóstico en caja negra persistente con dos
+  explícitamente peticiones frías y calientes. Publicado en `0.2.229`;
+  pendiente instalar y validar en HA real.
+- [x] Después de A–C, convertir localmente el diagnóstico en caja negra persistente con dos
   niveles: detalle reciente circular e histórico resumido por operación.
-- [ ] Persistir operaciones/snapshots pendientes y reconciliarlos al arrancar,
+- [x] Persistir operaciones/snapshots pendientes y reconciliarlos al arrancar,
   marcando interrupciones sin atribuir OOM si no hay evidencia; añadir eventos
   de arranque/parada e identificador de boot.
-- [ ] Conservar logs acotados de operaciones fallidas por `operation_id`, añadir
+- [x] Conservar logs acotados de operaciones fallidas por `operation_id`, añadir
   resumen/anomalías al ZIP y permitir backup externo del histórico de largo plazo.
+- [x] Publicar la caja negra v2 y ventana temporal en `0.2.229`, multiarch
+  `amd64` + `arm64`, digest
+  `sha256:8e8e1a0c5fe0d3121c6e9cdf06ce1a6a118e4d619ac3f29c13ca4a86f5a432da`.
+  Smoke local previo: 484 tests (2026-08-08).
+- [ ] Instalar `0.2.229` y ejecutar el procedimiento frío/caliente, reinicio
+  controlado, privacidad y ZIP de `docs/runtime-diagnostics.md`.
+- [x] Acotar localmente la meteorología de las vistas actuales a una ventana
+  sustituible de 96 días, con fecha histórica bajo demanda e Historial en una
+  sola carga de su intervalo requerido; predicate pushdown por fecha y liberación
+  de la ventana anterior cubiertos por tests.
+- [ ] En `0.2.229`, medir en RPi4 apertura fría/caliente, navegación
+  entre Predicción/Especies/Fechas, consulta histórica, Historial y regreso al
+  presente. Comparar `loaded_record_count`, ventanas, RSS/cgroup y tiempos.
 - [x] Confirmar en HA real que Predictor muestra el aviso de indisponibilidad
   cuando el runner programado está activo (parte funcional del Ensayo C).
 - [x] Completar la parte de recursos del Ensayo C: 4 instancias liberadas antes

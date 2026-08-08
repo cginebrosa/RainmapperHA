@@ -240,6 +240,82 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("runner", content)
         self.assertNotIn("Cannot load predictor", content)
 
+    def test_predictor_records_full_server_request_and_embeds_client_timing(self) -> None:
+        self.addCleanup(self.reset_run_state)
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        captured: dict[str, object] = {}
+        handler.send_bytes = lambda status, content, content_type: captured.update(
+            status=status,
+            content=content,
+            content_type=content_type,
+        )
+        store = mock.MagicMock()
+        store.load.return_value = {"species_profiles": []}
+
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
+            with (
+                mock.patch.dict(
+                    self.web_server.os.environ,
+                    {"RAINMAPPER_RUNTIME_DIAGNOSTICS_PATH": str(metrics_path)},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_ui,
+                    "predictor_cache_info",
+                    return_value={
+                        "predictor_instance_count": 0,
+                        "cold_request": True,
+                    },
+                ),
+                mock.patch.object(self.web_server, "default_store", return_value=store),
+                mock.patch.object(
+                    self.web_server.mushroom_known_sites,
+                    "load_payload",
+                    return_value={"known_sites": []},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_ui,
+                    "render_page",
+                    return_value="<div>predictor</div>",
+                ),
+            ):
+                handler.render_mushroom_predictor()
+
+            records = [
+                json.loads(line)
+                for line in metrics_path.read_text(encoding="utf-8").splitlines()
+            ]
+            summaries = [
+                json.loads(line)
+                for line in self.web_server.runtime_diagnostics.summary_path(
+                    metrics_path
+                )
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        phases = [record["phase"] for record in records]
+        self.assertEqual(
+            phases,
+            [
+                "start",
+                "lock_acquired",
+                "inputs_loaded",
+                "predictor_render_started",
+                "body_rendered",
+                "html_generated",
+                "response_sent",
+                "finish",
+            ],
+        )
+        self.assertEqual(summaries[-1]["operation"], "predictor_request")
+        self.assertTrue(summaries[-1]["details"]["cold_request"])
+        content = captured["content"].decode("utf-8")
+        self.assertIn("../../diagnostics/predictor-client", content)
+        self.assertIn(records[0]["operation_id"], content)
+
     def test_diagnostics_download_returns_a_named_zip(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(
             self.web_server.RainmapperHandler

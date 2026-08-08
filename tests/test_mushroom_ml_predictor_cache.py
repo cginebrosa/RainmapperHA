@@ -1,4 +1,5 @@
 """Tests for mushroom_ml_predictor: cache invalidation, label function, predict() contract."""
+import json
 import tempfile
 import unittest
 from datetime import date, timedelta
@@ -22,6 +23,8 @@ def _reset_cache() -> None:
     predictor_mod._shared_weather_data_dir = None
     predictor_mod._shared_weather_parquet_mtime = None
     predictor_mod._shared_weather_station_filter = None
+    predictor_mod._shared_weather_window_start = None
+    predictor_mod._shared_weather_window_end = None
     predictor_mod._shared_stations_catalog = None
     predictor_mod._shared_catalog_data_dir = None
     predictor_mod._shared_catalog_mtime = None
@@ -81,13 +84,54 @@ class ParquetCacheMtimeTests(unittest.TestCase):
         )
         monitor.finish.assert_called_once_with(
             "ok",
-            {"loaded_station_count": 1, "loaded_record_count": 0},
+            {
+                "loaded_station_count": 1,
+                "loaded_record_count": 0,
+                "window_start": None,
+                "window_end": None,
+            },
         )
         self.assertEqual(schedule_snapshot.call_count, 2)
         self.assertEqual(
             [call.args[2] for call in schedule_snapshot.call_args_list],
             ["retained_60s", "retained_600s"],
         )
+
+    def test_lazy_model_load_is_correlated_without_species_in_diagnostics(self) -> None:
+        import joblib
+
+        with tempfile.TemporaryDirectory() as d:
+            data_dir = Path(d)
+            species_id = "private-species"
+            model_path = data_dir / f"mushroom_ml_v0_{species_id}.joblib"
+            joblib.dump({"feature_cols": []}, model_path)
+            metrics_path = data_dir / "runtime_metrics.jsonl"
+            predictor = predictor_mod.MushroomMLPredictor(
+                species_id,
+                models_dir=data_dir,
+            )
+            with (
+                patch.dict(
+                    predictor_mod.runtime_diagnostics.os.environ,
+                    {"RAINMAPPER_RUNTIME_DIAGNOSTICS_PATH": str(metrics_path)},
+                ),
+                predictor_mod.runtime_diagnostics.operation_context(
+                    "parent-predictor-request"
+                ),
+            ):
+                predictor._ensure_model()
+
+            records = [
+                json.loads(line)
+                for line in metrics_path.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(records[0]["operation"], "predictor_model_load")
+        self.assertEqual(
+            records[0]["details"]["parent_operation_id"],
+            "parent-predictor-request",
+        )
+        self.assertNotIn(species_id, json.dumps(records))
 
     def test_cache_not_reloaded_when_mtime_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as d:
@@ -186,7 +230,9 @@ class ParquetCacheMtimeTests(unittest.TestCase):
                 os.utime(parquet, (new_mtime, new_mtime))
                 predictor._ensure_weather_stations()
 
-            self.assertEqual(first, {("meteocat", "ST1"): "first"})
+            # Replaced windows are explicitly emptied so predictor instances do
+            # not retain stale weather histories through old dict references.
+            self.assertEqual(first, {})
             self.assertEqual(
                 predictor._weather_stations,
                 {("meteocat", "ST1"): "second"},
@@ -215,6 +261,137 @@ class ParquetCacheMtimeTests(unittest.TestCase):
                     frozenset({("meteocat", "ST2")}),
                 )
 
+    def test_target_date_loads_bounded_lookback_and_week_prefetch(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            data_dir = Path(d)
+            (data_dir / _PARQUET_FILENAME).write_bytes(b"fake")
+            target = date(2026, 8, 8)
+            loaded = self._fake_load()
+            with patch.object(
+                predictor_mod.ctx,
+                "load_daily_weather_parquet",
+                return_value=loaded,
+            ) as mock_load:
+                result = predictor_mod._get_shared_weather_stations(
+                    data_dir,
+                    station_filter={("meteocat", "ST1")},
+                    target_date=target,
+                )
+
+            self.assertIs(result, loaded)
+            mock_load.assert_called_once_with(
+                data_dir,
+                station_filter={("meteocat", "ST1")},
+                start_date=date(2026, 5, 11),
+                end_date=date(2026, 8, 14),
+            )
+            self.assertEqual(
+                predictor_mod._shared_weather_window_start,
+                date(2026, 5, 11),
+            )
+            self.assertEqual(
+                predictor_mod._shared_weather_window_end,
+                date(2026, 8, 14),
+            )
+
+    def test_prefetched_week_reuses_one_physical_read(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            data_dir = Path(d)
+            (data_dir / _PARQUET_FILENAME).write_bytes(b"fake")
+            with patch.object(
+                predictor_mod.ctx,
+                "load_daily_weather_parquet",
+                return_value=self._fake_load(),
+            ) as mock_load:
+                for offset in range(7):
+                    predictor_mod._get_shared_weather_stations(
+                        data_dir,
+                        station_filter={("meteocat", "ST1")},
+                        target_date=date(2026, 8, 8) + timedelta(days=offset),
+                    )
+
+            self.assertEqual(mock_load.call_count, 1)
+
+    def test_distant_date_replaces_window_and_releases_old_records(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            data_dir = Path(d)
+            (data_dir / _PARQUET_FILENAME).write_bytes(b"fake")
+            first_load = {("meteocat", "ST1"): "present"}
+            second_load = {("meteocat", "ST1"): "historical"}
+            with patch.object(
+                predictor_mod.ctx,
+                "load_daily_weather_parquet",
+                side_effect=[first_load, second_load],
+            ) as mock_load:
+                first_result = predictor_mod._get_shared_weather_stations(
+                    data_dir,
+                    station_filter={("meteocat", "ST1")},
+                    target_date=date(2026, 8, 8),
+                )
+                second_result = predictor_mod._get_shared_weather_stations(
+                    data_dir,
+                    station_filter={("meteocat", "ST1")},
+                    target_date=date(2024, 7, 10),
+                )
+
+            self.assertEqual(mock_load.call_count, 2)
+            self.assertEqual(first_result, {})
+            self.assertIs(second_result, second_load)
+            self.assertEqual(
+                predictor_mod._shared_weather_window_start,
+                date(2024, 4, 12),
+            )
+            self.assertEqual(
+                predictor_mod._shared_weather_window_end,
+                date(2024, 7, 16),
+            )
+
+    def test_explicit_history_range_is_loaded_once_and_reused_by_episodes(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            data_dir = Path(d)
+            (data_dir / _PARQUET_FILENAME).write_bytes(b"fake")
+            with patch.object(
+                predictor_mod.ctx,
+                "load_daily_weather_parquet",
+                return_value=self._fake_load(),
+            ) as mock_load:
+                predictor_mod._get_shared_weather_stations(
+                    data_dir,
+                    station_filter={("meteocat", "ST1")},
+                    target_date=date(2020, 10, 1),
+                    target_end_date=date(2026, 5, 20),
+                )
+                for episode_date in (
+                    date(2020, 10, 1),
+                    date(2023, 11, 15),
+                    date(2026, 5, 20),
+                ):
+                    predictor_mod._get_shared_weather_stations(
+                        data_dir,
+                        station_filter={("meteocat", "ST1")},
+                        target_date=episode_date,
+                    )
+
+            mock_load.assert_called_once_with(
+                data_dir,
+                station_filter={("meteocat", "ST1")},
+                start_date=date(2020, 7, 4),
+                end_date=date(2026, 5, 26),
+            )
+
+    def test_invalid_explicit_target_range_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "requires target_date"):
+            predictor_mod._get_shared_weather_stations(
+                Path("unused"),
+                target_end_date=date(2026, 1, 1),
+            )
+        with self.assertRaisesRegex(ValueError, "must not be after"):
+            predictor_mod._get_shared_weather_stations(
+                Path("unused"),
+                target_date=date(2026, 1, 2),
+                target_end_date=date(2026, 1, 1),
+            )
+
     def test_invalidate_clears_all_cache_state(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             parquet = Path(d) / _PARQUET_FILENAME
@@ -227,6 +404,8 @@ class ParquetCacheMtimeTests(unittest.TestCase):
             self.assertIsNone(predictor_mod._shared_weather_data_dir)
             self.assertIsNone(predictor_mod._shared_weather_parquet_mtime)
             self.assertIsNone(predictor_mod._shared_weather_station_filter)
+            self.assertIsNone(predictor_mod._shared_weather_window_start)
+            self.assertIsNone(predictor_mod._shared_weather_window_end)
 
     def test_cache_reloaded_after_invalidate(self) -> None:
         with tempfile.TemporaryDirectory() as d:

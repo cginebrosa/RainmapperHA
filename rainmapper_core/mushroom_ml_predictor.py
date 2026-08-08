@@ -100,6 +100,8 @@ _shared_weather_stations: dict[tuple[str, str], Any] | None = None
 _shared_weather_data_dir: Path | None = None
 _shared_weather_parquet_mtime: float | None = None
 _shared_weather_station_filter: frozenset[tuple[str, str]] | None = None
+_shared_weather_window_start: date | None = None
+_shared_weather_window_end: date | None = None
 _weather_cache_lock = Lock()
 
 _shared_stations_catalog: Any | None = None   # pd.DataFrame
@@ -112,6 +114,8 @@ _CATALOG_FILENAME = "weather_stations_catalog.parquet"
 
 _STATION_FILTER_MAX_KM = 15.0
 _STATION_FILTER_TOP_N = 5
+_WEATHER_COVERAGE_LOOKBACK_DAYS = 90
+_WEATHER_PREFETCH_FORWARD_DAYS = 6
 
 
 def _get_shared_stations_catalog(weather_data_dir: Path) -> Any:
@@ -170,15 +174,29 @@ def _compute_station_filter(
 def _get_shared_weather_stations(
     weather_data_dir: Path,
     station_filter: set[tuple[str, str]] | None = None,
+    target_date: date | None = None,
+    target_end_date: date | None = None,
 ) -> dict[tuple[str, str], Any]:
-    """Load and cache weather stations; reload automatically if parquet has changed.
+    """Load and cache one bounded weather window for all Predictor instances.
 
-    When station_filter is provided, only the relevant row groups and stations
-    are materialized instead of the full historical dataset.
+    A target range needs the established 90-day station-coverage lookback before
+    its first date. Six forward days are prefetched so the complete seven-day UI
+    reuses one read. A distant historical query replaces the active window
+    instead of retaining the full history or accumulating an unbounded cache.
     """
     global _shared_weather_stations, _shared_weather_data_dir, _shared_weather_parquet_mtime
-    global _shared_weather_station_filter
+    global _shared_weather_station_filter, _shared_weather_window_start, _shared_weather_window_end
+    if target_date is None and target_end_date is not None:
+        raise ValueError("target_end_date requires target_date")
+    if target_date is not None and target_end_date is not None and target_date > target_end_date:
+        raise ValueError("target_date must not be after target_end_date")
     filter_key = frozenset(station_filter) if station_filter is not None else None
+    required_start = (
+        target_date - timedelta(days=_WEATHER_COVERAGE_LOOKBACK_DAYS - 1)
+        if target_date is not None
+        else None
+    )
+    required_end = target_end_date or target_date
     with _weather_cache_lock:
         parquet_path = weather_data_dir / _PARQUET_FILENAME
         current_mtime: float | None = None
@@ -186,15 +204,34 @@ def _get_shared_weather_stations(
             current_mtime = parquet_path.stat().st_mtime if parquet_path.exists() else None
         except OSError:
             pass
-        cache_valid = (
+        same_dataset = (
             _shared_weather_stations is not None
             and _shared_weather_data_dir == weather_data_dir
             and current_mtime is not None
             and current_mtime == _shared_weather_parquet_mtime
             and filter_key == _shared_weather_station_filter
         )
+        if target_date is None:
+            window_valid = (
+                _shared_weather_window_start is None
+                and _shared_weather_window_end is None
+            )
+        else:
+            window_valid = (
+                _shared_weather_window_start is not None
+                and _shared_weather_window_end is not None
+                and _shared_weather_window_start <= required_start
+                and _shared_weather_window_end >= required_end
+            )
+        cache_valid = same_dataset and window_valid
         if cache_valid:
             return _shared_weather_stations  # type: ignore[return-value]
+        load_start = required_start
+        load_end = (
+            required_end + timedelta(days=_WEATHER_PREFETCH_FORWARD_DAYS)
+            if required_end is not None
+            else None
+        )
         parquet_size_mib = (
             round(parquet_path.stat().st_size / (1024 * 1024), 3)
             if parquet_path.exists()
@@ -205,11 +242,22 @@ def _get_shared_weather_stations(
             details={
                 "filter_station_count": len(filter_key or ()),
                 "parquet_size_mib": parquet_size_mib,
+                "window_start": load_start,
+                "window_end": load_end,
+                "window_days": (
+                    (load_end - load_start).days + 1
+                    if load_start is not None and load_end is not None
+                    else None
+                ),
             },
         )
         try:
+            load_kwargs: dict[str, Any] = {"station_filter": station_filter}
+            if load_start is not None and load_end is not None:
+                load_kwargs.update(start_date=load_start, end_date=load_end)
             loaded_stations = ctx.load_daily_weather_parquet(
-                weather_data_dir, station_filter=station_filter
+                weather_data_dir,
+                **load_kwargs,
             )
         except Exception as exc:
             monitor.finish(
@@ -217,10 +265,15 @@ def _get_shared_weather_stations(
                 {"error_type": type(exc).__name__},
             )
             raise
+        previous_stations = _shared_weather_stations
         _shared_weather_stations = loaded_stations
         _shared_weather_data_dir = weather_data_dir
         _shared_weather_parquet_mtime = current_mtime
         _shared_weather_station_filter = filter_key
+        _shared_weather_window_start = load_start
+        _shared_weather_window_end = load_end
+        if previous_stations is not None and previous_stations is not loaded_stations:
+            previous_stations.clear()
         loaded_records = sum(
             len(station.records_by_day)
             for station in loaded_stations.values()
@@ -231,6 +284,8 @@ def _get_shared_weather_stations(
             {
                 "loaded_station_count": len(loaded_stations),
                 "loaded_record_count": loaded_records,
+                "window_start": load_start,
+                "window_end": load_end,
             },
         )
         if monitor.enabled:
@@ -252,13 +307,15 @@ def _get_shared_weather_stations(
 def invalidate_weather_stations_cache() -> None:
     """Invalidate the shared weather stations cache (call after data update)."""
     global _shared_weather_stations, _shared_weather_data_dir, _shared_weather_parquet_mtime
-    global _shared_weather_station_filter
+    global _shared_weather_station_filter, _shared_weather_window_start, _shared_weather_window_end
     global _shared_stations_catalog, _shared_catalog_data_dir, _shared_catalog_mtime
     with _catalog_cache_lock, _weather_cache_lock:
         _shared_weather_stations = None
         _shared_weather_data_dir = None
         _shared_weather_parquet_mtime = None
         _shared_weather_station_filter = None
+        _shared_weather_window_start = None
+        _shared_weather_window_end = None
         _shared_stations_catalog = None
         _shared_catalog_data_dir = None
         _shared_catalog_mtime = None
@@ -321,24 +378,44 @@ class MushroomMLPredictor:
     def _ensure_model(self) -> None:
         if self._model_bundle is not None:
             return
+        monitor = runtime_diagnostics.OperationMonitor(
+            "predictor_model_load",
+            details={"cache_miss": True},
+        )
         try:
-            import joblib  # noqa: PLC0415
-        except ImportError as exc:
-            raise ImportError(
-                "joblib not installed. Run: pip install scikit-learn"
-            ) from exc
-        path = self._models_dir / f"mushroom_ml_v0_{self.species_id}.joblib"
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Model not found: {path}\n"
-                f"Run: python -m rainmapper_core.mushroom_ml_trainer --species {self.species_id}"
-            )
-        self._model_bundle = joblib.load(path)
+            try:
+                import joblib  # noqa: PLC0415
+            except ImportError as exc:
+                raise ImportError(
+                    "joblib not installed. Run: pip install scikit-learn"
+                ) from exc
+            path = self._models_dir / f"mushroom_ml_v0_{self.species_id}.joblib"
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"Model not found: {path}\n"
+                    f"Run: python -m rainmapper_core.mushroom_ml_trainer --species {self.species_id}"
+                )
+            try:
+                model_size_mib = round(path.stat().st_size / (1024 * 1024), 3)
+            except OSError:
+                model_size_mib = None
+            self._model_bundle = joblib.load(path)
+        except Exception as exc:
+            monitor.finish("error", {"error_type": type(exc).__name__})
+            raise
+        monitor.finish(
+            "ok",
+            {"model_size_mib": model_size_mib},
+        )
 
-    def _ensure_weather_stations(self) -> None:
+    def _ensure_weather_stations(
+        self,
+        target_date: date | None = None,
+        target_end_date: date | None = None,
+    ) -> dict[tuple[str, str], Any]:
         if not self._weather_data_dir.exists():
             self._weather_stations = {}
-            return
+            return self._weather_stations
         self._ensure_micro_area_profiles()
         _get_shared_stations_catalog(self._weather_data_dir)
         catalog_mtime = _shared_catalog_mtime
@@ -353,7 +430,10 @@ class MushroomMLPredictor:
         self._weather_stations = _get_shared_weather_stations(
             self._weather_data_dir,
             station_filter=self._weather_station_filter,
+            target_date=target_date,
+            target_end_date=target_end_date,
         )
+        return self._weather_stations
 
     def _ensure_micro_area_profiles(self) -> None:
         if self._micro_area_profiles is not None:
@@ -554,7 +634,7 @@ class MushroomMLPredictor:
         from rainmapper_core.mushroom_ml_trainer import FEATURE_COLS  # noqa: PLC0415
 
         self._ensure_model()
-        self._ensure_weather_stations()
+        self._ensure_weather_stations(target_date)
         self._ensure_micro_area_profiles()
 
         profile = (self._area_profiles or {}).get(area_id)
@@ -650,7 +730,6 @@ class MushroomMLPredictor:
         )
 
         self._ensure_model()
-        self._ensure_weather_stations()
         self._ensure_micro_area_profiles()
 
         path = features_artifact_path or self._features_artifact_path
@@ -662,14 +741,26 @@ class MushroomMLPredictor:
         ma_to_area = load_micro_area_to_area(ks_path)
         episodes = aggregate_to_area_episodes(eligible, ma_to_area)
 
-        results = []
+        dated_episodes: list[tuple[date, dict[str, Any]]] = []
         for ep in episodes:
+            try:
+                dated_episodes.append((date.fromisoformat(ep.get("observed_at", "")), ep))
+            except (TypeError, ValueError):
+                continue
+        dated_episodes.sort(key=lambda item: item[0])
+        if dated_episodes:
+            # History is an explicit broad query. Load its complete required
+            # interval once, then let the next present-day view replace it with
+            # the normal 96-day window.
+            self._ensure_weather_stations(
+                dated_episodes[0][0],
+                dated_episodes[-1][0],
+            )
+
+        results = []
+        for obs_date, ep in dated_episodes:
             area_id = ep.get("area_id", "")
             obs_date_str = ep.get("observed_at", "")
-            try:
-                obs_date = date.fromisoformat(obs_date_str)
-            except ValueError:
-                continue
             pred = self.predict(area_id, obs_date)
             actual = ep.get("prediction_target")
             results.append(

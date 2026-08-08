@@ -100,6 +100,7 @@ MUSHROOM_MEDIA_FILE_MAX_BYTES = 100 * 1024 * 1024
 MUSHROOM_MEDIA_BATCH_MAX_BYTES = 500 * 1024 * 1024
 MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES = 2 * 1024 * 1024
 MUSHROOM_WORKER_JSON_MAX_BYTES = 64 * 1024
+PREDICTOR_CLIENT_TIMING_MAX_BYTES = 16 * 1024
 MUSHROOM_WORKER_PROTOCOL_GET_PATHS = {
     "/api/mushrooms/workers/ping",
     "/api/mushrooms/workers/jobs/input",
@@ -8364,6 +8365,41 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
 """.encode("utf-8")
 
 
+def predictor_client_timing_script(operation_id: str) -> str:
+    """Report allow-listed Navigation Timing values through the Ingress base URL."""
+    encoded_operation_id = json.dumps(operation_id)
+    return f"""
+<script>
+window.addEventListener("load", () => {{
+  window.setTimeout(() => {{
+    const navigation = performance.getEntriesByType("navigation")[0];
+    if (!navigation) return;
+    const payload = {{
+      operation_id: {encoded_operation_id},
+      navigation_type: navigation.type,
+      response_start_ms: navigation.responseStart,
+      response_end_ms: navigation.responseEnd,
+      dom_interactive_ms: navigation.domInteractive,
+      dom_content_loaded_ms: navigation.domContentLoadedEventEnd,
+      load_event_ms: navigation.loadEventEnd || performance.now(),
+      transfer_size_bytes: navigation.transferSize,
+      encoded_body_size_bytes: navigation.encodedBodySize,
+      decoded_body_size_bytes: navigation.decodedBodySize,
+    }};
+    const endpoint = new URL("../../diagnostics/predictor-client", window.location.href);
+    fetch(endpoint, {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify(payload),
+      credentials: "same-origin",
+      keepalive: true,
+    }}).catch(() => {{}});
+  }}, 0);
+}}, {{once: true}});
+</script>
+"""
+
+
 def format_size(size: int) -> str:
     for unit in ("B", "KB", "MB"):
         if size < 1024:
@@ -9448,6 +9484,7 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
             "source": source,
             "app_version": app_version(),
         },
+        failure_log_path=LOG_PATH,
     )
     print(f"Starting Rainmapper action '{action_label}' from {source}.", flush=True)
 
@@ -15244,6 +15281,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def request_body_limit(self) -> int:
         """Return the largest accepted body for the current endpoint."""
         path = urlparse(self.path).path.rstrip("/")
+        if path == "/diagnostics/predictor-client":
+            return PREDICTOR_CLIENT_TIMING_MAX_BYTES
         if path == "/api/mushrooms/workers/jobs/result-file":
             return mushroom_worker_results.MAX_RESULT_FILE_BYTES
         if path == "/api/mushrooms/workers/jobs/ml-result-file":
@@ -15545,40 +15584,101 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def render_mushroom_predictor(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
         page_title = mushroom_profiles_ui.ui_label("ui.predictor_title")
-        status = 200
-        with PREDICTOR_RUN_LOCK:
-            if action_is_running():
-                body = (
-                    '<p><a class="button-link" href="../">← '
-                    f'{html.escape(mushroom_profiles_ui.ui_label("ui.back_to_panel"))}</a></p>'
-                    f'<h1>{html.escape(page_title)}</h1>'
-                    '<div class="catalog-alert warning">'
-                    f'{html.escape(mushroom_profiles_ui.ui_label("ui.predictor_runner_active"))}'
-                    '</div>'
-                )
-            else:
-                try:
-                    store = default_store()
-                    store.ensure_seeded()
-                    profiles_payload = store.load("profiles")
-                    known_sites_payload = mushroom_known_sites.load_payload()
-                    body = mushroom_predictor_ui.render_page(
-                        query,
-                        profiles_payload if isinstance(profiles_payload, dict) else {},
-                        known_sites_payload if isinstance(known_sites_payload, dict) else {},
-                    )
-                except Exception as exc:
-                    status = 500
-                    body = (
-                        '<p><a class="button-link" href="./profiles">Back</a></p>'
-                        f'<h1>{html.escape(page_title)}</h1>'
-                        f'<div class="catalog-alert error"><strong>Cannot load predictor</strong><br>{html.escape(str(exc))}</div>'
-                    )
-        self.send_bytes(
-            status,
-            html_page(page_title, body, auto_refresh=False),
-            "text/html; charset=utf-8",
+        cache_info = mushroom_predictor_ui.predictor_cache_info(
+            (query.get("species") or [""])[0]
         )
+        request_monitor = runtime_diagnostics.OperationMonitor(
+            "predictor_request",
+            details={
+                "app_version": app_version(),
+                "view": (query.get("view") or ["recommender"])[0]
+                if (query.get("view") or ["recommender"])[0]
+                in {"recommender", "week", "query", "history"}
+                else "unknown",
+                **cache_info,
+            },
+        )
+        request_started = time.perf_counter()
+
+        def elapsed() -> float:
+            return round(time.perf_counter() - request_started, 3)
+
+        status = 200
+        unavailable = False
+        try:
+            with runtime_diagnostics.operation_context(request_monitor.operation_id):
+                with PREDICTOR_RUN_LOCK:
+                    request_monitor.mark(
+                        "lock_acquired", {"elapsed_seconds": elapsed()}
+                    )
+                    if action_is_running():
+                        unavailable = True
+                        body = (
+                            '<p><a class="button-link" href="../">← '
+                            f'{html.escape(mushroom_profiles_ui.ui_label("ui.back_to_panel"))}</a></p>'
+                            f'<h1>{html.escape(page_title)}</h1>'
+                            '<div class="catalog-alert warning">'
+                            f'{html.escape(mushroom_profiles_ui.ui_label("ui.predictor_runner_active"))}'
+                            '</div>'
+                        )
+                    else:
+                        try:
+                            store = default_store()
+                            store.ensure_seeded()
+                            profiles_payload = store.load("profiles")
+                            known_sites_payload = mushroom_known_sites.load_payload()
+                            request_monitor.mark(
+                                "inputs_loaded", {"elapsed_seconds": elapsed()}
+                            )
+                            request_monitor.mark(
+                                "predictor_render_started",
+                                {"elapsed_seconds": elapsed()},
+                            )
+                            body = mushroom_predictor_ui.render_page(
+                                query,
+                                profiles_payload
+                                if isinstance(profiles_payload, dict)
+                                else {},
+                                known_sites_payload
+                                if isinstance(known_sites_payload, dict)
+                                else {},
+                            )
+                        except Exception as exc:
+                            status = 500
+                            body = (
+                                '<p><a class="button-link" href="./profiles">Back</a></p>'
+                                f'<h1>{html.escape(page_title)}</h1>'
+                                f'<div class="catalog-alert error"><strong>Cannot load predictor</strong><br>{html.escape(str(exc))}</div>'
+                            )
+                    request_monitor.mark(
+                        "body_rendered",
+                        {"elapsed_seconds": elapsed(), "http_status": status},
+                    )
+                body += predictor_client_timing_script(request_monitor.operation_id)
+                page = html_page(page_title, body, auto_refresh=False)
+                request_monitor.mark(
+                    "html_generated",
+                    {"elapsed_seconds": elapsed(), "response_bytes": len(page)},
+                )
+                self.send_bytes(
+                    status,
+                    page,
+                    "text/html; charset=utf-8",
+                )
+                request_monitor.mark(
+                    "response_sent",
+                    {"elapsed_seconds": elapsed(), "response_bytes": len(page)},
+                )
+            request_monitor.finish(
+                "unavailable" if unavailable else "ok" if status == 200 else "error",
+                {"http_status": status, "response_bytes": len(page)},
+            )
+        except Exception as exc:
+            request_monitor.finish(
+                "error",
+                {"http_status": status, "error_type": type(exc).__name__},
+            )
+            raise
 
     def render_mushroom_workers(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
@@ -16582,6 +16682,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.send_json(exc.status, {"ok": False, "error": str(exc)})
             else:
                 self.send_bytes(exc.status, str(exc).encode("utf-8"), "text/plain; charset=utf-8")
+            return
+        if path == "/diagnostics/predictor-client":
+            payload = self.read_json_payload()
+            operation_id = str(payload.get("operation_id", ""))
+            accepted = runtime_diagnostics.record_predictor_client_timing(
+                operation_id,
+                payload,
+            )
+            self.send_json(
+                200 if accepted else 400,
+                {"ok": accepted},
+            )
             return
         if path == "/api/mushrooms/workers/jobs/result-file":
             worker_token, _device_id = self.auth_credentials()
@@ -18539,6 +18651,22 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_class = "ok" if not running else "danger"
         status_text = "Running" if running else "Idle"
         disabled = "disabled" if running else ""
+        diagnostics = runtime_diagnostics.diagnostics_status()
+
+        def diagnostic_record_text(value: object) -> str:
+            if not isinstance(value, dict):
+                return "None recorded"
+            operation = str(value.get("operation", "unknown"))
+            status = str(value.get("status", "unknown"))
+            timestamp = str(value.get("timestamp", "-"))
+            return f"{operation} · {status} · {timestamp}"
+
+        recent_cgroup_peak = diagnostics.get("recent_max_cgroup_mib")
+        recent_cgroup_peak_text = (
+            f"{float(recent_cgroup_peak):.1f} MiB"
+            if isinstance(recent_cgroup_peak, (int, float))
+            else "No data"
+        )
 
         controls = f"""
         <div class="quick-actions">
@@ -18627,6 +18755,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         </div>
         """
 
+        diagnostics_cards = f"""
+        <div class="summary-grid">
+          <div class="card"><span class="label">Last diagnostic success</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_success")))}</span></div>
+          <div class="card"><span class="label">Last failure or interruption</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_failure")))}</span></div>
+          <div class="card"><span class="label">Last OOM</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_oom")))}</span></div>
+          <div class="card"><span class="label">Recent max cgroup</span><span class="value">{html.escape(recent_cgroup_peak_text)}</span></div>
+          <div class="card"><span class="label">Pending diagnostic operations</span><span class="value">{int(diagnostics.get("pending_operation_count") or 0)}</span></div>
+        </div>
+        """
+
         run_status_cards = f"""
         <div class="summary-grid">
           <div class="card"><span class="label">Action</span><span class="value">{html.escape(action)}</span></div>
@@ -18672,6 +18810,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             '<div class="control-section"><h2>Summary</h2>'
             f"{summary_cards}"
             f"{run_status_cards}"
+            '<h2>Runtime black box</h2>'
+            f"{diagnostics_cards}"
             "</div>"
             '<div class="control-section"><h2>Data sources</h2>'
             f"{source_table}"
@@ -18916,6 +19056,7 @@ def main() -> None:
     if mushroom_worker_api_enabled() and args.worker_host == args.host and args.worker_port == args.port:
         parser.error("the worker coordinator must use a dedicated listener")
 
+    runtime_diagnostics.initialize_runtime(app_version())
     preserve_public_maplibre_data_for_transition()
     try:
         seeded = default_store().ensure_seeded()
@@ -18993,6 +19134,7 @@ def main() -> None:
         if worker_thread is not None:
             worker_thread.join(timeout=5)
         server.server_close()
+        runtime_diagnostics.shutdown_runtime()
         print("Rainmapper server stopped cleanly.", flush=True)
         sys.exit(0)
 

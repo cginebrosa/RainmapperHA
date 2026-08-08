@@ -62,6 +62,19 @@ def release_predictor_cache() -> int:
     return released_instances
 
 
+def predictor_cache_info(species_id: str = "") -> dict[str, int | bool]:
+    """Return non-sensitive cache state for request diagnostics."""
+    with _predictor_cache_lock:
+        instance_count = len(_predictor_cache)
+        cold_request = (
+            species_id not in _predictor_cache if species_id else instance_count == 0
+        )
+    return {
+        "predictor_instance_count": instance_count,
+        "cold_request": cold_request,
+    }
+
+
 def _rel_badge(ep_n: int, acc: float | None = None) -> str:
     if ep_n >= 10:
         square = "🟩"
@@ -577,7 +590,10 @@ def _render_query_result(
     week_cells = ""
     try:
         predictor_w = _get_predictor(species)
-        week_results = predictor_w.week_window(area, date.today())
+        today = date.today()
+        current_week = {today + timedelta(days=offset) for offset in range(7)}
+        week_start = today if target_date in current_week else target_date
+        week_results = predictor_w.week_window(area, week_start)
         for wr in week_results:
             is_active = wr.target_date == target_date
             day_name = ["L", "M", "X", "J", "V", "S", "D"][wr.target_date.weekday()]

@@ -102,22 +102,29 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Último release HA instalado y publicado: `0.2.228`.
+- Último release HA instalado: `0.2.228`. Último publicado: `0.2.229`.
 - **P0 Predictor/RPi4 cerrado en el escenario monousuario probado:** A–C pasaron
   sin OOM. El Predictor retuvo memoria de forma estable; el runner posterior
   liberó 4 instancias antes del hijo, terminó en 6:43 con pico cgroup
   1.477,2 MiB, mínimo `MemAvailable` 780,2 MiB y recuperación correcta.
 - Pendientes separados del P0: instrumentar los ≥30 s de apertura extremo a
-  extremo y evolucionar el diagnóstico a caja negra persistente.
+  extremo y evolucionar el diagnóstico a caja negra persistente. Ambas mejoras
+  están publicadas en `0.2.229` como diagnóstico v2, todavía sin instalación ni
+  validación en HA real; procedimiento en `docs/runtime-diagnostics.md`.
 - Rebuild de features, entrenamiento con el worker actualizado y promoción de
   modelos más `ml_train_report.json`: completados en HA real y confirmados por
   el usuario el 2026-08-08.
-- Version HA del repo: `0.2.228` en `rainmapper-app/config.yaml` y
+- Caja negra/petición Predictor v2 y caché temporal publicada en `0.2.229`:
+  smoke completo de
+  484 tests. Las vistas actuales conservan 96 días; fechas históricas sustituyen
+  la ventana e Historial carga una vez su rango. Pendiente instalación y
+  medición en HA real.
+- Version HA del repo: `0.2.229` en `rainmapper-app/config.yaml` y
   `rainmapper-app/Dockerfile`.
 - No hacer bump de version ni publicar imagen HA salvo peticion explicita.
-- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.228` y `latest`
+- Imagen publicada: `ghcr.io/cginebrosa/rainmapperha:0.2.229` y `latest`
   (`amd64` + `arm64`, digest
-  `sha256:763f5eab1a6a47ce9d35963caf71ed6d553de0482cca7b3236f2ad1ba3990206`).
+  `sha256:8e8e1a0c5fe0d3121c6e9cdf06ce1a6a118e4d619ac3f29c13ca4a86f5a432da`).
 - Corrección publicada: el resultado `ml_train_v0` usa
   schema `0.2`, incluye/verifica/promociona `ml_train_report.json` con los
   `.joblib` e invalida la caché. La imagen M1 ya fue recreada y el paquete ARM64
