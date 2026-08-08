@@ -738,5 +738,40 @@ corrección del evento `change` de los selectores A/B elevaron después la suite
 local a 500 tests. El esquema `2.2`, la persistencia de intervalos para las
 cuatro fuentes, los acordeones del Gantt y la compatibilidad explícita con `2.1`
 elevaron después la suite a 501 tests. El conjunto final de `0.2.233`, incluido
-el transporte y ciclo de vida del worker, pasó 511 tests; la imagen quedó
-publicada y está pendiente de validación en HA real.
+el transporte y ciclo de vida del worker, pasó 511 tests y se publicó con digest
+`sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`.
+
+### Validación real de `0.2.233` y esquema 2.2
+
+El 2026-08-08 se instaló `0.2.233` en la RPi4 y se lanzó manualmente `Run all`.
+La operación padre `runner_action` terminó correctamente en 362,690 s. Su pico
+de cgroup fue 1.372,520 MiB, el mínimo `MemAvailable` 810,484 MiB, la temperatura
+máxima 55,99 °C y no hubo OOM. El proceso hijo `runner_update` terminó en
+279,793 s con un consumo medio equivalente al 91 % de un núcleo; en la RPi4 de
+cuatro núcleos esto representa alrededor del 23 % de la capacidad total y es
+coherente con el 89,4 % medido en `0.2.232`.
+
+El resumen `2.2` conservó intervalos reales independientes para las cuatro
+fuentes:
+
+| Fuente | Duración | Filas | Estaciones |
+|---|---:|---:|---:|
+| AEMET | 91,754 s | 61.327 | 877 |
+| Meteoclimatic | 57,753 s | 151.156 | 750 |
+| Meteocat | 69,266 s | 326.043 | 202 |
+| Wunderground | 17,937 s | 88.581 | 119 |
+
+La recuperación quedó registrada como sigue:
+
+| Momento | Cgroup actual | `MemAvailable` | RSS proceso | Temperatura |
+|---|---:|---:|---:|---:|
+| 60 s | 527,223 MiB | 2.215,707 MiB | 54,273 MiB | 51,12 °C |
+| 600 s | 529,980 MiB | 2.183,270 MiB | 57,137 MiB | 47,71 °C |
+
+No quedaron anomalías, operaciones ni snapshots pendientes. La estabilidad
+entre 60 y 600 segundos confirma que los aproximadamente 530 MiB corresponden
+al reposo recuperado del cgroup y no a una caída transitoria. La UI muestra por
+diseño dos ejecuciones correlacionadas: `Runner` mide el flujo completo y
+`Runner update` aísla el hijo meteorológico. Solo deben compararse operaciones y
+acciones equivalentes; el aviso **Not a like-for-like comparison** impide
+interpretar como regresión una pareja padre/hijo.

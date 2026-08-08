@@ -102,8 +102,7 @@ Para tareas de setas:
 ## Estado general verificado
 
 - Rama activa: `inicial`.
-- Último release HA instalado y validado: `0.2.232`. Último publicado: `0.2.233`,
-  pendiente de instalar y validar en la RPi4.
+- Último release HA instalado, publicado y validado: `0.2.233`.
 - **P0 Predictor/RPi4 cerrado en el escenario monousuario probado:** A–C pasaron
   sin OOM. El Predictor retuvo memoria de forma estable; el runner posterior
   liberó 4 instancias antes del hijo, terminó en 6:43 con pico cgroup

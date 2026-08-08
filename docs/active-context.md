@@ -6,12 +6,21 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Publicada en GHCR y pendiente de instalar/validar en HA real: `0.2.233`.
+- Publicada, instalada y validada en HA real: `0.2.233`.
   Añade Diagnostics con histórico, comparación A/B, evolución y Gantt; caja
   negra `2.2` para las cuatro fuentes; transporte Parquet al worker con fallback
   por capacidades; reconciliación visible previa a cada job y retención de 50
   trabajos. Digest multiarquitectura:
   `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`.
+- Runner manual real de `0.2.233`: 6:02, pico cgroup 1.372,5 MiB, mínimo
+  `MemAvailable` 810,5 MiB, máximo 56,0 °C y cero OOM. Recuperó a 527,2 MiB a
+  los 60 s y 530,0 MiB a los 600 s, sin anomalías ni operaciones pendientes.
+  El esquema 2.2 conservó intervalos completos y separados de AEMET,
+  Meteoclimatic, Meteocat y Wunderground.
+- Preflight del worker validado en HA real con M1 `1.0.0`: eliminó 54 restos sin
+  errores, liberó unos 2,8 GiB, transportó un Parquet de 13.785.070 bytes en 2 s
+  y reutilizó GIS/DEM sin transferirlo. Quedaron 50 filas de historial, dos
+  backups de rollback y solo la caché de hashes en bundles.
 - Publicada, instalada y validada en HA real: `0.2.232`. Conserva los cambios
   de `0.2.230`/`0.2.231` y refuerza la caja negra del runner con heartbeat
   persistente cada 10 s, fases AEMET, timeout total de 90 s, boot ID/uptime y
@@ -29,8 +38,8 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   lanzar cada trabajo externo.
   En la copia real esto evita retener unos 113--116 MB por reconstrucción y
   sustituye el transporte por un Parquet de unos 12 MB (~89 % menos).
-- La app HA y el worker tienen versiones independientes. HA real continúa en
-  `0.2.232` hasta instalar `0.2.233`; el worker local M1 ya fue reconstruido y
+- La app HA y el worker tienen versiones independientes. HA real usa `0.2.233`;
+  el worker local M1 ya fue reconstruido y
   está healthy como `1.0.0`. Instala `pyarrow==25.0.0` y anuncia
   `weather_parquet_v1` y `terminal_job_cleanup_v1`. HA usa fallback CSV con
   workers sin la capacidad Parquet.
@@ -562,9 +571,8 @@ actualizado al introducir cambios estructurales relevantes.
 - Rama: `inicial`.
 - Release HA publicada en GHCR y version del repositorio: `0.2.233` (2026-08-08),
   digest `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`.
-  En HA real sigue instalada y validada `0.2.232`; `0.2.233` está pendiente de
-  instalación. Worker M1 `1.0.0` healthy; M5 conserva su imagen anterior hasta
-  que se decida actualizarlo.
+  En HA real está instalada y validada `0.2.233`. Worker M1 `1.0.0` healthy; M5
+  conserva su imagen anterior hasta que se decida actualizarlo.
 
 ### Histórico: última release validada antes de ML (0.2.214)
 - Release instalada y validada en ese momento: `0.2.214` (`524bf2c`).
