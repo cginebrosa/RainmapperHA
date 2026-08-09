@@ -286,6 +286,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("1.4 s typical", rendered)
         self.assertIn('value="worker:worker_internal123"', rendered)
         self.assertIn('data-display-name="M1 Personal"', rendered)
+        self.assertIn('data-expected-seconds="1.4"', rendered)
 
     def test_current_predictor_policy_keeps_both_capabilities_enabled(self) -> None:
         policy = self.web_server.CURRENT_PREDICTOR_EXECUTION_POLICY
@@ -371,6 +372,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("refreshOptions", script)
         self.assertIn('await refreshOptions("?")', script)
         self.assertIn("form.hidden = true", script)
+        self.assertIn("startExpectation", script)
+        self.assertIn("This is deliberately an ETA animation", script)
+        self.assertNotIn("state.dataset.predictorProgress", script)
 
         page = self.web_server.html_page("Predictor", "", auto_refresh=False).decode()
         self.assertIn(".predictor-launch-dialog form[hidden]", page)

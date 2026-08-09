@@ -42,11 +42,22 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 worker_id="worker_aaaaaaaa",
                 claim_token="claim-secret",
             )
+            started = mushroom_worker_jobs.start_job(
+                path,
+                job_id="worker_job_predict123",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
 
         self.assertIsNotNone(claimed)
         self.assertEqual(
             claimed["message"],
             "The assigned worker claimed the interactive prediction.",
+        )
+        self.assertEqual(started["phase"], "Predictor working")
+        self.assertEqual(
+            started["message"],
+            "The prediction was launched. Please wait for the result.",
         )
 
     def test_discard_candidate_waits_for_the_assigned_worker_acknowledgement(self) -> None:

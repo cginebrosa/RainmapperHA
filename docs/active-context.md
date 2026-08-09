@@ -5,7 +5,22 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 
 ## TL;DR — Estado del proyecto (leer esto primero)
 
+- Publicados HA `0.2.239` y worker `1.0.2`: el worker elimina el progreso HTTP
+  granular del Predictor. Una matriz semanal medida en 2,6 s dentro del M1
+  estaba tardando unos dos minutos porque 56 filas generaban 112 viajes
+  síncronos de control/progreso a HA. El modal pasa a una espera local con
+  ejecutor, tiempo habitual y barra estimada no autoritativa. Las métricas de la
+  caja negra y del resultado (`backend_seconds`, cold/warm y cachés) se
+  conservan.
+
 **Release HA:**
+- Publicada y pendiente de instalación/validación en HA real: `0.2.239`, junto
+  con worker M1 `1.0.2`, ya healthy y con cachés persistentes válidas. Sustituye
+  los callbacks síncronos por una espera estimada únicamente en cliente y
+  conserva las métricas reales en Diagnostics. Los tags HA `0.2.239` y
+  `latest` comparten el digest multi-arquitectura
+  `sha256:10d52bbb18d2c39a48cc8088d0c269e01b4d826d4b836ce287732c2df70f55f3`,
+  verificado para `linux/amd64` y `linux/arm64`.
 - Publicada y pendiente de instalación en HA real: `0.2.238`, junto con worker
   `1.0.1`. Corrige el estado visual del modal, vectoriza la inferencia y añade
   cachés LRU acotadas por runtime; ambas imágenes son necesarias para obtener
@@ -94,13 +109,14 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   lanzar cada trabajo externo.
   En la copia real esto evita retener unos 113--116 MB por reconstrucción y
   sustituye el transporte por un Parquet de unos 12 MB (~89 % menos).
-- La app HA y el worker tienen versiones independientes. La siguiente pareja
-  operativa es HA `0.2.238` y worker `1.0.1`; el worker instala
+- La app HA y el worker tienen versiones independientes. La pareja actualmente
+  publicada es HA `0.2.239` y worker `1.0.2`; elimina la telemetría interactiva
+  síncrona. El worker instala
   `pyarrow==25.0.0` y anuncia
   `weather_parquet_v1` y `terminal_job_cleanup_v1`. HA usa fallback CSV con
   workers sin la capacidad Parquet.
 - `./mushroom_worker_start.sh` construye y arranca la versión declarada en el
-  Dockerfile —actualmente `rainmapper-worker:1.0.1`— y la exporta al Compose;
+  Dockerfile —actualmente `rainmapper-worker:1.0.2`— y la exporta al Compose;
   ya no etiqueta el worker operativo como `local`.
 - La retención incluida en `0.2.233` conserva 50 jobs y los
   muestra todos en una tabla de unas 10 filas con scroll; conserva dos backups,
@@ -626,11 +642,10 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y versión del repositorio: `0.2.236` (2026-08-09),
-  digest `sha256:1f02a833721b793e366b6818db020a9a9d1dbcca174465c00f7d2b09c1e96602`.
-  Está pendiente de instalación en HA real; la última validada allí es
-  `0.2.235`. Worker M1 `1.0.0` healthy; M5 conserva su imagen anterior hasta
-  que se decida actualizarlo.
+- Release HA publicada en GHCR y versión del repositorio: `0.2.239` (2026-08-09),
+  digest `sha256:10d52bbb18d2c39a48cc8088d0c269e01b4d826d4b836ce287732c2df70f55f3`.
+  Está pendiente de instalación y validación en HA real. Worker M1 `1.0.2`
+  healthy; M5 conserva su imagen anterior hasta que se decida actualizarlo.
 
 ### Histórico: última release validada antes de ML (0.2.214)
 - Release instalada y validada en ese momento: `0.2.214` (`524bf2c`).

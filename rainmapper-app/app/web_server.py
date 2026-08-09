@@ -11888,10 +11888,19 @@ def render_predictor_executor_options(executors: list[dict[str, object]], recomm
     """Render the shared Auto/manual executor choices for page and modal."""
     label = mushroom_profiles_ui.ui_label
     auto_current = label("ui.predictor_executor_current").format(executor=recommended_name)
+    recommended = next(
+        (row for row in executors if str(row.get("display_name", "")) == recommended_name),
+        {},
+    )
+    recommended_timing = (
+        recommended.get("timing", {}) if isinstance(recommended.get("timing"), dict) else {}
+    )
+    recommended_seconds = recommended_timing.get("median_seconds")
     cards = [
         '<label class="predictor-executor-card predictor-executor-auto">'
         '<input type="radio" name="executor" value="auto" '
-        f'data-display-name="{html.escape(recommended_name, quote=True)}" checked>'
+        f'data-display-name="{html.escape(recommended_name, quote=True)}" '
+        f'data-expected-seconds="{html.escape(str(recommended_seconds or ""), quote=True)}" checked>'
         '<span><strong>'
         f'{html.escape(label("ui.predictor_executor_auto"))} '
         f'<small>({html.escape(label("ui.predictor_executor_recommended"))})</small>'
@@ -11916,7 +11925,8 @@ def render_predictor_executor_options(executors: list[dict[str, object]], recomm
         cards.append(
             '<label class="predictor-executor-card">'
             f'<input type="radio" name="executor" value="{html.escape(str(row["executor_id"]), quote=True)}" '
-            f'data-display-name="{html.escape(display_name, quote=True)}">'
+            f'data-display-name="{html.escape(display_name, quote=True)}" '
+            f'data-expected-seconds="{html.escape(str(typical or ""), quote=True)}">'
             '<span>'
             f'<strong>{html.escape(display_name)}</strong>'
             f'<span>{html.escape(timing_text)}</span>'
@@ -11950,6 +11960,8 @@ def render_predictor_launch_modal(
          data-auto-open="{'true' if auto_open else 'false'}"
          data-allow-manual-selection="{'true' if policy.allow_manual_selection else 'false'}"
          data-waiting-label="{html.escape(label('ui.predictor_executor_waiting'), quote=True)}"
+         data-working-label="{html.escape(label('ui.predictor_executor_working'), quote=True)}"
+         data-expected-label="{html.escape(label('ui.predictor_executor_expected'), quote=True)}"
          data-opening-label="{html.escape(label('ui.predictor_executor_opening'), quote=True)}"
          data-error-label="{html.escape(label('ui.predictor_executor_error'), quote=True)}">
       <button class="predictor-launch-backdrop" type="button" data-predictor-modal-close tabindex="-1" aria-label="{html.escape(label('ui.predictor_executor_close'), quote=True)}"></button>
@@ -11996,9 +12008,40 @@ def predictor_launch_script() -> str:
       const closeButtons = [...modal.querySelectorAll("[data-predictor-modal-close]")];
       let predictorUrl = "./mushrooms/predictor";
       let running = false;
+      let expectationTimer = null;
 
       const setCloseEnabled = enabled => closeButtons.forEach(button => { button.disabled = !enabled; });
+      const stopExpectation = () => {
+        if (expectationTimer !== null) window.clearInterval(expectationTimer);
+        expectationTimer = null;
+      };
+      const executorOption = executor =>
+        form.querySelector(`input[name='executor'][value="${CSS.escape(executor)}"]`);
+      const expectedSecondsFor = executor => {
+        const seconds = Number(executorOption(executor)?.dataset.expectedSeconds || 0);
+        return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+      };
+      const startExpectation = executor => {
+        stopExpectation();
+        const expectedSeconds = expectedSecondsFor(executor);
+        phase.textContent = modal.dataset.workingLabel;
+        if (!expectedSeconds) {
+          progress.removeAttribute("value");
+          message.textContent = modal.dataset.waitingLabel;
+          return;
+        }
+        const startedAt = performance.now();
+        const update = () => {
+          const elapsedSeconds = (performance.now() - startedAt) / 1000;
+          // This is deliberately an ETA animation, not reported backend progress.
+          progress.value = Math.min(92, 5 + (elapsedSeconds / expectedSeconds) * 75);
+        };
+        progress.value = 5;
+        message.textContent = modal.dataset.expectedLabel.replace("{seconds}", expectedSeconds.toFixed(1));
+        expectationTimer = window.setInterval(update, 200);
+      };
       const reset = () => {
+        stopExpectation();
         running = false;
         form.hidden = false;
         progressStep.hidden = true;
@@ -12056,21 +12099,19 @@ def predictor_launch_script() -> str:
         if (!response.ok) throw new Error(errorText(parsed));
         const state = parsed.querySelector("[data-predictor-job-status='running']");
         if (state) {
-          const percent = Math.max(0, Math.min(100, Number(state.dataset.predictorProgress || 0)));
-          progress.value = percent;
-          phase.textContent = state.dataset.predictorPhase || modal.dataset.waitingLabel;
-          message.textContent = `${percent}% · ${state.dataset.predictorMessage || ""}`;
           executorName.textContent = state.dataset.predictorExecutor || executorName.textContent;
           await wait(600);
           return fetchPredictor(response.url);
         }
+        stopExpectation();
+        progress.value = 100;
         phase.textContent = modal.dataset.openingLabel;
         message.textContent = modal.dataset.openingLabel;
         replaceDocument(markup, response.url);
       };
 
       const selectedExecutorName = executor => {
-        const option = form.querySelector(`input[name='executor'][value="${CSS.escape(executor)}"]`);
+        const option = executorOption(executor);
         return option?.dataset.displayName || executor;
       };
       const runDirect = async url => {
@@ -12083,13 +12124,12 @@ def predictor_launch_script() -> str:
         setCloseEnabled(false);
         form.hidden = true;
         progressStep.hidden = false;
-        progress.removeAttribute("value");
-        phase.textContent = modal.dataset.waitingLabel;
-        message.textContent = modal.dataset.waitingLabel;
         executorName.textContent = selectedExecutorName(executor);
+        startExpectation(executor);
         try {
           await fetchPredictor(target);
         } catch (error) {
+          stopExpectation();
           running = false;
           setCloseEnabled(true);
           progressStep.hidden = true;
@@ -12136,15 +12176,14 @@ def predictor_launch_script() -> str:
         form.hidden = true;
         errorBox.hidden = true;
         progressStep.hidden = false;
-        progress.removeAttribute("value");
-        phase.textContent = modal.dataset.waitingLabel;
-        message.textContent = modal.dataset.waitingLabel;
         executorName.textContent = selected.dataset.displayName || "";
+        startExpectation(selected.value);
         const url = new URL(predictorUrl, window.location.href);
         url.searchParams.set("executor", selected.value);
         try {
           await fetchPredictor(url);
         } catch (error) {
+          stopExpectation();
           running = false;
           setCloseEnabled(true);
           progressStep.hidden = true;
@@ -17299,19 +17338,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.send_bytes(404, html_page(page_title, f'<div class="catalog-alert error">{html.escape(str(exc))}</div>', auto_refresh=False), "text/html; charset=utf-8")
                 return
             if job.get("status") not in mushroom_worker_jobs.TERMINAL_STATUSES:
-                percent = int(job.get("overall_percent", 0) or 0)
-                phase_text = str(job.get("phase", "Working"))
-                message_text = str(job.get("message", ""))
                 executor_text = str(job.get("worker_display_name", "") or executor)
                 body = f"""<div data-predictor-job-status="running"
-                data-predictor-progress="{percent}"
-                data-predictor-phase="{html.escape(phase_text, quote=True)}"
-                data-predictor-message="{html.escape(message_text, quote=True)}"
                 data-predictor-executor="{html.escape(executor_text, quote=True)}">
                 <p><a class="button-link" href="?">← Change executor</a></p>
-                <h1>🍄 {html.escape(page_title)}</h1><h2>{html.escape(str(job.get('phase', 'Working')))}</h2>
-                <progress value="{percent}" max="100" style="width:100%;height:1.5rem"></progress>
-                <p>{percent}% · {html.escape(str(job.get('message', '')))}</p>
+                <h1>🍄 {html.escape(page_title)}</h1>
+                <h2>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_executor_working'))}</h2>
+                <p>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_executor_waiting'))}</p>
                 </div><script>setTimeout(() => location.reload(), 1000);</script>"""
                 self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
                 return

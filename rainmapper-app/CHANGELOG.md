@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.2.239
+
+- Stop relaying fine-grained Predictor progress synchronously through the worker
+  coordinator, avoiding HTTP round trips that dominated fast predictions.
+- Show a client-side estimated waiting indicator from comparable executor
+  timings while preserving real completion metrics in runtime diagnostics.
+- Keep interactive worker job state limited to durable launch and completion
+  transitions, with the full diagnostic response retained by Home Assistant.
+
 ## 0.2.238
 
 - Keep Predictor executor selection and progress as mutually exclusive modal

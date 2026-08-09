@@ -2824,6 +2824,16 @@
     "es": "Esperando al ejecutor…",
     "ca": "Esperant l'executor…"
   },
+  "ui.predictor_executor_working": {
+    "en": "Prediction launched. Please wait…",
+    "es": "Predicción lanzada. Espera, por favor…",
+    "ca": "Predicció iniciada. Espera, si us plau…"
+  },
+  "ui.predictor_executor_expected": {
+    "en": "Usual time: about {seconds} s. It may vary.",
+    "es": "Tiempo habitual: unos {seconds} s. Puede variar.",
+    "ca": "Temps habitual: uns {seconds} s. Pot variar."
+  },
   "ui.predictor_executor_opening": {
     "en": "Opening the Predictor…",
     "es": "Abriendo el Predictor…",

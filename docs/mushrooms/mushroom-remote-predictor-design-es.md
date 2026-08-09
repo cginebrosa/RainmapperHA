@@ -306,3 +306,33 @@ Usuario remoto -> MapLibre/Predictor -> HA -> selector -> worker o HA fallback
 Esta evolución no forma parte de la primera release del Predictor remoto. El
 modal actual y el contrato `predictor_v1` son la base reutilizable; la futura
 integración necesitará su propio modelo de permisos y pruebas de exposición.
+
+## Espera interactiva sin progreso remoto granular
+
+La validación real posterior a `0.2.238` aisló una latencia que no pertenecía al
+modelo. La misma matriz semanal de 56 área/día emplea aproximadamente 2,6 s
+dentro del contenedor M1, pero el job extremo a extremo podía superar dos
+minutos. La causa era el callback de progreso: cada elemento serializado hacía
+sincrónicamente una consulta de cancelación y una escritura de progreso contra
+HA. Eso convertía 56 resultados ya calculados en 112 viajes HTTP.
+
+La política corregida es deliberadamente sencilla:
+
+- un `worker_predictor_v1` publica únicamente sus transiciones duraderas de
+  inicio y final; no publica progreso granular ni consulta cancelación por cada
+  elemento;
+- el modal indica que la predicción se lanzó, muestra el ejecutor y un tiempo
+  habitual obtenido de las estadísticas autoritativas de HA;
+- la barra es una animación local de espera basada en esa estimación, se limita
+  antes del 100 % y no se presenta como porcentaje real completado;
+- cuando llega el resultado, el navegador completa la animación y sustituye la
+  página, cerrando el modal;
+- las métricas diagnósticas no dependen de esos callbacks: el resultado conserva
+  `backend_seconds`, cold/warm, fingerprint y estado de las cachés, mientras HA
+  sigue registrando ejecutor, memoria y duración extremo a extremo.
+
+Si en el futuro se necesitan fases internas del worker, deberán acumularse
+localmente y adjuntarse una sola vez al resultado final. Nunca deben volver a
+transportarse sincrónicamente como mecanismo para animar la UI.
+
+Este cambio se publica conjuntamente como worker `1.0.2` y HA `0.2.239`.

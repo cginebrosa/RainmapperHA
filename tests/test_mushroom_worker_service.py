@@ -9,6 +9,16 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_interactive_prediction_does_not_publish_synchronous_progress(self) -> None:
+        service = mock.Mock()
+        service.execute.return_value = {"metrics": {"backend_seconds": 2.6}}
+        request = {"view": "week", "species_id": "amanita_caesarea"}
+
+        result = mushroom_worker_service.execute_interactive_prediction(service, request)
+
+        self.assertEqual(result["metrics"]["backend_seconds"], 2.6)
+        service.execute.assert_called_once_with(request)
+
     def test_transient_transport_failure_is_retried(self) -> None:
         attempts = 0
 

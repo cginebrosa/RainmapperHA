@@ -343,6 +343,19 @@ def _handler_class(
     return WorkerStatusHandler
 
 
+def execute_interactive_prediction(
+    predictor_service: PredictorService,
+    request: object,
+) -> dict[str, Any]:
+    """Compute without turning local progress into coordinator round trips.
+
+    The web client owns the non-authoritative waiting animation. The worker only
+    publishes durable start and finish transitions for interactive jobs.
+    Diagnostic metrics remain embedded in the returned predictor response.
+    """
+    return predictor_service.execute(request)
+
+
 def serve(
     worker_data_dir: Path,
     *,
@@ -482,46 +495,15 @@ def serve(
                             )
                         predictor_service = predictor_services[fingerprint]
 
-                    def predictor_progress(percent: int, phase: str, message: str) -> None:
-                        control = job_update(
-                            "control",
-                            {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
-                            },
-                        )
-                        if control.get("cancel_requested"):
-                            raise InterruptedError("Worker prediction was cancelled.")
-                        job_update(
-                            "progress",
-                            {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
-                                "phase": phase,
-                                "message": message,
-                                "overall_percent": max(10, min(99, 10 + round(percent * 0.89))),
-                            },
-                        )
-
-                    job_update(
-                        "progress",
-                        {
-                            "job_id": job_id,
-                            "worker_id": identity["worker_id"],
-                            "claim_token": claim_token,
-                            "phase": "Runtime ready",
-                            "message": (
-                                "Predictor runtime reused."
-                                if runtime_sync["status"] == "reused"
-                                else "Predictor runtime synchronized and verified."
-                            ),
-                            "overall_percent": 10,
-                        },
-                    )
-                    response = predictor_service.execute(
-                        job.get("predictor_request"), progress=predictor_progress
+                    # Interactive predictions are intentionally silent while computing.
+                    # PredictorService can emit very fine-grained progress (for example,
+                    # one event per area/day). Relaying every event synchronously through
+                    # the coordinator made a fast local calculation spend most of its time
+                    # waiting for HTTP control/progress round trips. The coordinator already
+                    # knows that the job started and the final response is the only state
+                    # transition the UI needs; its waiting indicator is client-side.
+                    response = execute_interactive_prediction(
+                        predictor_service, job.get("predictor_request")
                     )
                     job_update(
                         "finish",

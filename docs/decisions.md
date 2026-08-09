@@ -3566,3 +3566,20 @@ Validacion local:
   `sha256:90f87d105f08b0061c480dd8168126663cb947d4128771c70179b1379b7e5e0d`.
   El smoke previo pasó 530 tests y validadores; queda pendiente la validación
   funcional de ambas imágenes en HA real y M5.
+
+# 2026-08-09 - El progreso del Predictor es presentación, no protocolo
+
+- Una reproducción dentro del worker calculó la matriz semanal de 56 filas en
+  2,617 s y la repetición cacheada en 0,001 s. Los jobs reales empleaban entre
+  117 y 134 s aun reutilizando runtime y sin transportar archivos.
+- La diferencia provenía de dos llamadas síncronas a HA por callback
+  (cancelación y progreso), con un callback por área/día. El M1 no era más lento
+  que la RPi4; estaba esperando al coordinador.
+- Los jobs interactivos dejan de publicar progreso granular. Conservan inicio y
+  final duraderos; la espera visual y su ETA se calculan exclusivamente en el
+  navegador y no afirman representar porcentaje real del backend.
+- La observabilidad autoritativa permanece en el resultado final y en la caja
+  negra de HA. Cualquier futura traza detallada de fases se agregará en memoria
+  en el worker y se enviará una sola vez al completar.
+- El cambio de runtime se identifica como worker `1.0.2`; HA se versionará al
+  cerrar la siguiente release que incorpore el nuevo modal.

@@ -958,7 +958,11 @@ def start_job(
                 else (
                     "Preparing input transport"
                     if job.get("job_type") == JOB_TYPE_SNAPSHOT_TRANSPORT
-                    else "Running assignment test"
+                    else (
+                        "Predictor working"
+                        if job.get("job_type") == JOB_TYPE_PREDICTOR
+                        else "Running assignment test"
+                    )
                 )
             ),
             "message": (
@@ -967,7 +971,11 @@ def start_job(
                 else (
                     "The worker started downloading the immutable input bundle."
                     if job.get("job_type") == JOB_TYPE_SNAPSHOT_TRANSPORT
-                    else "The worker started the non-destructive assignment test."
+                    else (
+                        "The prediction was launched. Please wait for the result."
+                        if job.get("job_type") == JOB_TYPE_PREDICTOR
+                        else "The worker started the non-destructive assignment test."
+                    )
                 )
             ),
             "overall_percent": 10,
