@@ -2765,9 +2765,9 @@
     "ca": "On vols executar el Predictor?"
   },
   "ui.predictor_executor_choose_help": {
-    "en": "Auto selects the fastest available compatible executor using comparable previous runs.",
-    "es": "Auto elige el ejecutor compatible disponible más rápido usando ejecuciones anteriores comparables.",
-    "ca": "Auto tria l'executor compatible disponible més ràpid usant execucions anteriors comparables."
+    "en": "Auto recommends the fastest compatible executor for opening the Predictor. Later navigation may favor a different executor.",
+    "es": "Auto recomienda el ejecutor compatible más rápido para abrir el Predictor. La navegación posterior puede favorecer a otro ejecutor.",
+    "ca": "Auto recomana l'executor compatible més ràpid per obrir el Predictor. La navegació posterior pot afavorir un altre executor."
   },
   "ui.predictor_executor_auto": {
     "en": "Auto",
@@ -2775,9 +2775,9 @@
     "ca": "Auto"
   },
   "ui.predictor_executor_recommended": {
-    "en": "recommended",
-    "es": "recomendado",
-    "ca": "recomanat"
+    "en": "recommended for opening",
+    "es": "recomendado para abrir",
+    "ca": "recomanat per obrir"
   },
   "ui.predictor_executor_current": {
     "en": "Currently: {executor}",
@@ -2788,6 +2788,21 @@
     "en": "{seconds} s typical",
     "es": "{seconds} s habituales",
     "ca": "{seconds} s habituals"
+  },
+  "ui.predictor_executor_first_opening": {
+    "en": "First opening: about {seconds} s",
+    "es": "Primera apertura: unos {seconds} s",
+    "ca": "Primera obertura: uns {seconds} s"
+  },
+  "ui.predictor_executor_warm_navigation": {
+    "en": "Later navigation: about {seconds} s",
+    "es": "Navegación posterior: unos {seconds} s",
+    "ca": "Navegació posterior: uns {seconds} s"
+  },
+  "ui.predictor_executor_total_not_measured": {
+    "en": "End-to-end time not measured yet",
+    "es": "Tiempo total aún no medido",
+    "ca": "Temps total encara no mesurat"
   },
   "ui.predictor_executor_not_measured": {
     "en": "Not measured yet",

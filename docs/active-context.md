@@ -8,11 +8,11 @@ necesario para continuar; el histórico vive en `docs/decisions.md`,
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Último commit publicado antes de este cierre: `c5a01f0`.
-- HA `0.2.239` está publicada en GHCR y GitHub, pero el usuario todavía no ha
-  confirmado su instalación/validación en la RPi4.
-- Tags `0.2.239` y `latest`: digest multi-arquitectura
-  `sha256:10d52bbb18d2c39a48cc8088d0c269e01b4d826d4b836ce287732c2df70f55f3`,
+- Último commit publicado: release HA `0.2.240` de este cierre.
+- HA `0.2.239` está instalada y validada en la RPi4 real; `0.2.240` está
+  publicada y pendiente de instalación/validación por el usuario.
+- Tags `0.2.240` y `latest`: digest multi-arquitectura
+  `sha256:4efe6b41fa5ab28130590916f3ba033d45add899887b0fe2b610f6c571f20a5c`,
   con manifests `linux/amd64` y `linux/arm64` verificados.
 - Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.2`, conectado
   al coordinador real, healthy/idle y con cachés persistentes GIS/DEM y
@@ -70,28 +70,31 @@ Medición directa dentro del M1:
 - el tiempo de 117–134 s observado antes de `1.0.2` era transporte de progreso,
   no cálculo ML.
 
-No asumir todavía que el M1 extremo a extremo ya consigue esos 2–6 s: falta la
-prueba real conjunta de HA `0.2.239` y worker `1.0.2`.
+La prueba conjunta de HA `0.2.239` y worker `1.0.2` confirmó dos perfiles
+distintos. La primera entrada M1 tardó unos 18,1 s extremo a extremo, con
+`backend_seconds` de 4,861 s y runtime sincronizado; repeticiones calientes
+reales tardaron aproximadamente 5,6–7,3 s aunque el backend cacheado necesitó
+solo 0,001–0,002 s. En HA, la primera entrada tardó 34,45 s, una repetición
+caliente 0,77 s, un cambio de día 1,12 s y una fecha histórica 11,96 s.
+
+Por tanto no existe un único ejecutor «más rápido»: M1 es mejor para abrir y
+obtener una recomendación aislada; HA es mejor para una sesión con mucha
+navegación caliente.
 
 ## Próximo paso inmediato
 
-1. Instalar HA `0.2.239` en la RPi4. No hace falta ejecutar el runner.
-2. Confirmar en `Workers y trabajos` que M1 aparece conectado, idle y versión
-   `1.0.2`.
-3. Abrir el Predictor seleccionando M1 y medir de forma aproximada:
-   - primera entrada/recommender;
-   - cambio a mañana y varios días;
-   - Por especie;
-   - Consultar fecha actual y una fecha histórica;
-   - Historial;
-   - repetición de alguna operación para observar caché caliente.
-4. Verificar que todas las vistas conservan M1 sin volver a preguntar ni caer a
-   HA mientras siga disponible.
-5. Revisar Diagnostics: ejecutor, `backend_seconds`, cold/warm y cachés deben
-   quedar registrados aunque el modal ya no muestre progreso granular.
-6. Comparar con la referencia HA anterior. El objetivo de la prueba no es solo
-   “ganar” a HA, sino confirmar que el worker responde en segundos y no consume
-   recursos de la RPi4.
+1. Instalar y validar HA `0.2.240`. Sustituye el antiguo tiempo típico de
+   backend por dos medianas extremo a extremo: primera apertura y navegación
+   posterior. Auto recomienda por primera apertura; nunca cambia de ejecutor en
+   mitad de la sesión. La misma entrega amplía el Predictor a 1.100 px y aumenta la
+   tipografía de pestañas, tablas, leyendas, formularios y tarjetas; en pantallas
+   estrechas las tablas conservan tamaño legible mediante desplazamiento
+   horizontal.
+2. El siguiente trabajo es revisar Diagnostics para separar explícitamente
+   `backend_seconds`, cola,
+   sincronización, cachés y tiempo total.
+3. No ejecutar el runner, no publicar otra versión y no cambiar red/Tailscale
+   durante este trabajo.
 
 Si sigue tardando mucho, separar inmediatamente:
 

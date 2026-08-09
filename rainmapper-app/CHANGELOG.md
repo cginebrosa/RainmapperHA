@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.2.240
+
+- Rank Predictor Auto choices by median cold opening wall time instead of mixed
+  backend-only samples, while keeping the selected executor for the session.
+- Show separate first-opening and warm-navigation timings and use the matching
+  estimate for initial entry and subsequent Predictor navigation.
+- Record completed Home Assistant and worker Predictor wall times once per
+  operation alongside their backend duration.
+- Increase Predictor typography and usable width while preserving horizontally
+  scrollable tables on narrow screens.
+
 ## 0.2.239
 
 - Stop relaying fine-grained Predictor progress synchronously through the worker

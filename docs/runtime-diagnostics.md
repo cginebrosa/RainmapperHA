@@ -223,6 +223,15 @@ Desde la corrección posterior a `0.2.237`, el resumen conserva además
 que no se retransmitieron artefactos; un `hit` indica que la misma consulta ya
 tenía una respuesta calculada dentro del runtime inmutable del worker.
 
+Las estadísticas usadas por el selector no confunden ese tiempo interno con la
+espera que percibe el usuario. Cada operación finalizada registra por separado
+`backend_seconds` y el tiempo total de `predictor_request` hasta `response_sent`.
+Las tarjetas presentan la mediana total de primera apertura fría y la mediana
+total de navegación caliente. Auto usa la primera para recomendar cómo entrar;
+el ejecutor queda fijado durante la sesión y la ETA de los enlaces y formularios
+internos usa la segunda. Los resultados remotos repetidos por polling se
+deduplican mediante `operation_id`.
+
 Al terminar `load`, el navegador envía una única operación
 `predictor_client_render` con Navigation Timing: inicio/fin de respuesta, DOM
 interactive, DOMContentLoaded, load y tamaños transferidos. El endpoint solo

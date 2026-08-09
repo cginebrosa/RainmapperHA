@@ -11895,12 +11895,16 @@ def render_predictor_executor_options(executors: list[dict[str, object]], recomm
     recommended_timing = (
         recommended.get("timing", {}) if isinstance(recommended.get("timing"), dict) else {}
     )
-    recommended_seconds = recommended_timing.get("median_seconds")
+    recommended_cold_seconds = recommended_timing.get("cold_entry_median_seconds")
+    recommended_warm_seconds = recommended_timing.get("warm_navigation_median_seconds")
+    recommended_selection_seconds = recommended_timing.get("selection_seconds")
     cards = [
         '<label class="predictor-executor-card predictor-executor-auto">'
         '<input type="radio" name="executor" value="auto" '
         f'data-display-name="{html.escape(recommended_name, quote=True)}" '
-        f'data-expected-seconds="{html.escape(str(recommended_seconds or ""), quote=True)}" checked>'
+        f'data-expected-seconds="{html.escape(str(recommended_selection_seconds or ""), quote=True)}" '
+        f'data-cold-seconds="{html.escape(str(recommended_cold_seconds or recommended_selection_seconds or ""), quote=True)}" '
+        f'data-warm-seconds="{html.escape(str(recommended_warm_seconds or ""), quote=True)}" checked>'
         '<span><strong>'
         f'{html.escape(label("ui.predictor_executor_auto"))} '
         f'<small>({html.escape(label("ui.predictor_executor_recommended"))})</small>'
@@ -11910,23 +11914,38 @@ def render_predictor_executor_options(executors: list[dict[str, object]], recomm
     ]
     for row in executors:
         timing = row.get("timing", {}) if isinstance(row.get("timing"), dict) else {}
-        typical = timing.get("median_seconds")
-        timing_text = (
-            label("ui.predictor_executor_typical").format(seconds=f"{float(typical):.1f}")
-            if typical is not None
-            else label("ui.predictor_executor_not_measured")
+        cold_seconds = timing.get("cold_entry_median_seconds")
+        warm_seconds = timing.get("warm_navigation_median_seconds")
+        selection_seconds = timing.get("selection_seconds")
+        timing_lines = []
+        if cold_seconds is not None:
+            timing_lines.append(
+                label("ui.predictor_executor_first_opening").format(
+                    seconds=f"{float(cold_seconds):.1f}"
+                )
+            )
+        if warm_seconds is not None:
+            timing_lines.append(
+                label("ui.predictor_executor_warm_navigation").format(
+                    seconds=f"{float(warm_seconds):.1f}"
+                )
+            )
+        timing_text = " · ".join(timing_lines) or label(
+            "ui.predictor_executor_total_not_measured"
         )
         cache = row.get("cache", {}) if isinstance(row.get("cache"), dict) else {}
         display_name = str(row["display_name"])
         detail = (
-            f'{label("ui.predictor_executor_samples")}: {int(timing.get("sample_count", 0) or 0)}'
+            f'{label("ui.predictor_executor_samples")}: {int(timing.get("total_sample_count", 0) or 0)}'
             f' · {label("ui.predictor_executor_cache")}: {cache.get("status", "unknown")}'
         )
         cards.append(
             '<label class="predictor-executor-card">'
             f'<input type="radio" name="executor" value="{html.escape(str(row["executor_id"]), quote=True)}" '
             f'data-display-name="{html.escape(display_name, quote=True)}" '
-            f'data-expected-seconds="{html.escape(str(typical or ""), quote=True)}">'
+            f'data-expected-seconds="{html.escape(str(selection_seconds or ""), quote=True)}" '
+            f'data-cold-seconds="{html.escape(str(cold_seconds or selection_seconds or ""), quote=True)}" '
+            f'data-warm-seconds="{html.escape(str(warm_seconds or ""), quote=True)}">'
             '<span>'
             f'<strong>{html.escape(display_name)}</strong>'
             f'<span>{html.escape(timing_text)}</span>'
@@ -12017,13 +12036,17 @@ def predictor_launch_script() -> str:
       };
       const executorOption = executor =>
         form.querySelector(`input[name='executor'][value="${CSS.escape(executor)}"]`);
-      const expectedSecondsFor = executor => {
-        const seconds = Number(executorOption(executor)?.dataset.expectedSeconds || 0);
+      const expectedSecondsFor = (executor, timingKind) => {
+        const option = executorOption(executor);
+        const raw = timingKind === "warm"
+          ? option?.dataset.warmSeconds
+          : option?.dataset.coldSeconds;
+        const seconds = Number(raw || option?.dataset.expectedSeconds || 0);
         return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
       };
-      const startExpectation = executor => {
+      const startExpectation = (executor, timingKind = "cold") => {
         stopExpectation();
-        const expectedSeconds = expectedSecondsFor(executor);
+        const expectedSeconds = expectedSecondsFor(executor, timingKind);
         phase.textContent = modal.dataset.workingLabel;
         if (!expectedSeconds) {
           progress.removeAttribute("value");
@@ -12114,7 +12137,7 @@ def predictor_launch_script() -> str:
         const option = executorOption(executor);
         return option?.dataset.displayName || executor;
       };
-      const runDirect = async url => {
+      const runDirect = async (url, timingKind = "warm") => {
         reset();
         const target = new URL(url, window.location.href);
         const executor = target.searchParams.get("executor") || "";
@@ -12125,7 +12148,7 @@ def predictor_launch_script() -> str:
         form.hidden = true;
         progressStep.hidden = false;
         executorName.textContent = selectedExecutorName(executor);
-        startExpectation(executor);
+        startExpectation(executor, timingKind);
         try {
           await fetchPredictor(target);
         } catch (error) {
@@ -12151,7 +12174,10 @@ def predictor_launch_script() -> str:
         const direct = event.target.closest("[data-predictor-direct-run], .pred-page a[href^='?']");
         if (direct && new URL(direct.getAttribute("href") || "", window.location.href).searchParams.has("executor")) {
           event.preventDefault();
-          runDirect(direct.getAttribute("href") || window.location.href);
+          runDirect(
+            direct.getAttribute("href") || window.location.href,
+            direct.closest(".pred-page") ? "warm" : "cold"
+          );
           return;
         }
         if (event.target.closest("[data-predictor-modal-close]")) close();
@@ -12162,7 +12188,7 @@ def predictor_launch_script() -> str:
         event.preventDefault();
         const target = new URL(directForm.getAttribute("action") || window.location.href, window.location.href);
         target.search = new URLSearchParams(new FormData(directForm)).toString();
-        runDirect(target);
+        runDirect(target, "warm");
       });
       document.addEventListener("keydown", event => {
         if (event.key === "Escape" && !modal.hidden) close();
@@ -12177,7 +12203,7 @@ def predictor_launch_script() -> str:
         errorBox.hidden = true;
         progressStep.hidden = false;
         executorName.textContent = selected.dataset.displayName || "";
-        startExpectation(selected.value);
+        startExpectation(selected.value, "cold");
         const url = new URL(predictorUrl, window.location.href);
         url.searchParams.set("executor", selected.value);
         try {
@@ -13005,23 +13031,6 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                 error=str(payload.get("error", "")),
                 result=trusted_result,
             )
-            if (
-                current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR
-                and job.get("status") == "complete"
-                and isinstance(job.get("result"), dict)
-            ):
-                predictor_result = job["result"]
-                response_payload = predictor_result.get("response", {})
-                metrics = response_payload.get("metrics", {}) if isinstance(response_payload, dict) else {}
-                mushroom_predictor_stats.record(
-                    mushroom_predictor_stats_path(),
-                    executor_id=f"worker:{worker_id}",
-                    cold=bool(predictor_result.get("cold")),
-                    backend_seconds=float(metrics.get("backend_seconds", 0.0) or 0.0),
-                    runtime_fingerprint=str(response_payload.get("runtime_fingerprint", "")),
-                    app_version=app_version(),
-                    worker_version=str(current_job.get("worker_version", "")),
-                )
             if (
                 current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD
                 and str(payload.get("status", "")) in {"cancelled", "failed"}
@@ -17396,6 +17405,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             (query.get("species") or [""])[0]
         )
         request_monitor = MUSHROOM_PREDICTOR_MONITORS.pop(job_id, None) if job_id else None
+        has_full_remote_timing = bool(job_id and request_monitor is not None)
         if request_monitor is None:
             request_monitor = runtime_diagnostics.OperationMonitor(
                 "predictor_request",
@@ -17418,6 +17428,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         status = 200
         unavailable = False
+        stats_backend_seconds: float | None = None
         try:
             with runtime_diagnostics.operation_context(request_monitor.operation_id):
                 with PREDICTOR_RUN_LOCK:
@@ -17459,13 +17470,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 allow_executor_change=execution_policy.allow_manual_selection,
                             )
                             if executor == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR:
-                                mushroom_predictor_stats.record(
-                                    mushroom_predictor_stats_path(),
-                                    executor_id=mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR,
-                                    cold=bool(cache_info.get("cold_request")),
-                                    backend_seconds=elapsed(),
-                                    app_version=app_version(),
-                                )
+                                stats_backend_seconds = elapsed()
                         except Exception as exc:
                             status = 500
                             body = (
@@ -17495,6 +17500,47 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     "response_sent",
                     {"elapsed_seconds": elapsed(), "response_bytes": len(page)},
                 )
+            if stats_backend_seconds is None:
+                remote_backend_seconds = remote_diagnostic_details.get(
+                    "worker_backend_seconds"
+                )
+                if isinstance(remote_backend_seconds, (int, float)):
+                    stats_backend_seconds = float(remote_backend_seconds)
+            if (
+                status == 200
+                and not unavailable
+                and stats_backend_seconds is not None
+                and (not job_id or has_full_remote_timing)
+            ):
+                try:
+                    mushroom_predictor_stats.record(
+                        mushroom_predictor_stats_path(),
+                        executor_id=executor
+                        or mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR,
+                        cold=bool(
+                            remote_diagnostic_details.get(
+                                "cold_request", cache_info.get("cold_request")
+                            )
+                        ),
+                        backend_seconds=stats_backend_seconds,
+                        total_seconds=request_monitor.elapsed_seconds(),
+                        operation_id=request_monitor.operation_id,
+                        view=(query.get("view") or ["recommender"])[0],
+                        runtime_fingerprint=str(
+                            prepared_response.get("runtime_fingerprint", "")
+                            if isinstance(prepared_response, dict)
+                            else ""
+                        ),
+                        app_version=app_version(),
+                        worker_version=str(
+                            remote_diagnostic_details.get("worker_version", "")
+                        ),
+                    )
+                except (OSError, ValueError) as exc:
+                    print(
+                        f"WARNING: could not record Predictor executor timing: {exc}",
+                        flush=True,
+                    )
             request_monitor.finish(
                 "unavailable" if unavailable else "ok" if status == 200 else "error",
                 {

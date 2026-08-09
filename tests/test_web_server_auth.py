@@ -201,6 +201,15 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ):
             self.assertEqual(predictor_ui.trained_species_ids(), ["boletus_aereus"])
 
+    def test_predictor_typography_is_readable_and_tables_remain_responsive(self) -> None:
+        css = self.web_server.mushroom_predictor_ui._CSS
+
+        self.assertIn("max-width: 1100px", css)
+        self.assertIn(".pred-week-table {", css)
+        self.assertIn("font-size: 1rem", css)
+        self.assertIn("@media (max-width: 700px)", css)
+        self.assertIn(".pred-week-table { min-width: 980px; }", css)
+
     def test_runner_waits_for_an_active_predictor_lock(self) -> None:
         self.addCleanup(self.reset_run_state)
         entered = threading.Event()
@@ -267,13 +276,23 @@ class AuthDeviceLimitTests(unittest.TestCase):
             {
                 "executor_id": "home_assistant",
                 "display_name": "Home Assistant",
-                "timing": {"median_seconds": None, "sample_count": 0},
+                "timing": {
+                    "selection_seconds": 34.4,
+                    "cold_entry_median_seconds": 34.4,
+                    "warm_navigation_median_seconds": 0.8,
+                    "total_sample_count": 2,
+                },
                 "cache": {"status": "local"},
             },
             {
                 "executor_id": "worker:worker_internal123",
                 "display_name": "M1 Personal",
-                "timing": {"median_seconds": 1.4, "sample_count": 2},
+                "timing": {
+                    "selection_seconds": 18.1,
+                    "cold_entry_median_seconds": 18.1,
+                    "warm_navigation_median_seconds": 6.2,
+                    "total_sample_count": 5,
+                },
                 "cache": {"status": "valid"},
             },
         ]
@@ -283,10 +302,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
 
         self.assertIn("Currently: M1 Personal", rendered)
-        self.assertIn("1.4 s typical", rendered)
+        self.assertIn("First opening: about 18.1 s", rendered)
+        self.assertIn("Later navigation: about 6.2 s", rendered)
         self.assertIn('value="worker:worker_internal123"', rendered)
         self.assertIn('data-display-name="M1 Personal"', rendered)
-        self.assertIn('data-expected-seconds="1.4"', rendered)
+        self.assertIn('data-expected-seconds="18.1"', rendered)
+        self.assertIn('data-cold-seconds="18.1"', rendered)
+        self.assertIn('data-warm-seconds="6.2"', rendered)
 
     def test_current_predictor_policy_keeps_both_capabilities_enabled(self) -> None:
         policy = self.web_server.CURRENT_PREDICTOR_EXECUTION_POLICY
@@ -373,6 +395,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('await refreshOptions("?")', script)
         self.assertIn("form.hidden = true", script)
         self.assertIn("startExpectation", script)
+        self.assertIn('timingKind === "warm"', script)
+        self.assertIn('direct.closest(".pred-page") ? "warm" : "cold"', script)
         self.assertIn("This is deliberately an ETA animation", script)
         self.assertNotIn("state.dataset.predictorProgress", script)
 
@@ -419,7 +443,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "render_page",
                     return_value="<div>predictor</div>",
                 ),
-                mock.patch.object(self.web_server.mushroom_predictor_stats, "record"),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_stats, "record"
+                ) as record_timing,
             ):
                 handler.render_mushroom_predictor({"executor": ["home_assistant"]})
 
@@ -452,6 +478,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertEqual(summaries[-1]["operation"], "predictor_request")
         self.assertTrue(summaries[-1]["details"]["cold_request"])
+        timing = record_timing.call_args.kwargs
+        self.assertEqual(timing["executor_id"], "home_assistant")
+        self.assertTrue(timing["cold"])
+        self.assertEqual(timing["view"], "recommender")
+        self.assertGreaterEqual(timing["total_seconds"], timing["backend_seconds"])
         content = captured["content"].decode("utf-8")
         endpoint_marker = 'new URL("'
         endpoint_reference = content.split(endpoint_marker, 1)[1].split('"', 1)[0]
@@ -542,7 +573,18 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "render_page",
                     return_value="<div>remote predictor</div>",
                 ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_stats,
+                    "record",
+                ) as record_timing,
             ):
+                handler.render_mushroom_predictor(
+                    {
+                        "executor": ["worker:worker_test"],
+                        "job_id": [job_id],
+                        "view": ["recommender"],
+                    }
+                )
                 handler.render_mushroom_predictor(
                     {
                         "executor": ["worker:worker_test"],
@@ -569,6 +611,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(details["worker_response_cache_status"], "hit")
         self.assertEqual(details["worker_version"], "1.0.0")
         self.assertEqual(details["worker_job_id"], job_id)
+        self.assertEqual(record_timing.call_count, 1)
+        timing = record_timing.call_args.kwargs
+        self.assertEqual(timing["executor_id"], "worker:worker_test")
+        self.assertEqual(timing["backend_seconds"], 5.8632)
+        self.assertTrue(timing["cold"])
+        self.assertEqual(timing["view"], "recommender")
+        self.assertGreaterEqual(timing["total_seconds"], 0)
 
     def test_diagnostics_download_returns_a_named_zip(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(

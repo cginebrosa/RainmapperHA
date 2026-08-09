@@ -861,6 +861,10 @@ class OperationMonitor:
                 self.path,
             )
 
+    def elapsed_seconds(self) -> float:
+        """Return current end-to-end wall time for this operation."""
+        return round(time.perf_counter() - self._started_at, 3)
+
     def finish(
         self,
         status: str,

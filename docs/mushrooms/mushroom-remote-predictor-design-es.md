@@ -28,12 +28,16 @@ Al abrir el Predictor se presenta una pantalla con `Auto` recomendado y una
 opción manual por cada ejecutor disponible: HA y workers conectados, libres,
 compatibles y con capacidad `predictor_v1`.
 
-Auto ordena candidatos por tiempo esperado comparable. HA conserva, por
-ejecutor y contexto compatible, la última y la mediana de las muestras frías y
-calientes, el tiempo total observado por el navegador, el número de muestras,
-la versión del worker y el fingerprint del runtime. Una única muestra anómala
-no gobierna la selección. Un worker sin historial participa inicialmente tras
-el worker predeterminado y queda marcado como `Sin mediciones`.
+Auto recomienda el candidato con menor mediana extremo a extremo de primeras
+aperturas frías del recomendador. No intenta predecir una sesión completa ni
+cambia de ejecutor después de entrar. Cada tarjeta separa `Primera apertura` de
+`Navegación posterior`, porque un worker puede ganar la primera y HA las
+consultas calientes siguientes. HA conserva además el tiempo de backend, el
+número de muestras, la versión del worker y el fingerprint del runtime. Una
+única muestra anómala no gobierna la selección. Mientras aún no existan muestras
+totales nuevas se usa la mediana histórica de backend solo como compatibilidad;
+un ejecutor sin historial queda detrás de los medidos y sigue disponible de
+forma manual.
 
 ## Contratos
 
@@ -163,9 +167,12 @@ no el historial autoritativo.
 - Un worker compatible sin muestras históricas sigue siendo elegible. Auto usa
   las mediciones cuando existen y, si no existen, prueba el primer ejecutor
   permitido para poder aprender su tiempo sin introducir un fallback prohibido.
-- HA conserva hasta 40 muestras por ejecutor y muestra última, mediana, fría,
-  caliente y número de muestras. Auto utiliza la mediana; los ejecutores aún no
-  medidos quedan detrás de los medidos y siguen disponibles manualmente.
+- HA conserva hasta 40 muestras por ejecutor. Registra por operación tanto
+  `backend_seconds` como el tiempo total hasta enviar el HTML, además de vista y
+  estado frío/caliente. El selector muestra las medianas totales de primera
+  apertura fría y navegación caliente; Auto ordena exclusivamente por la
+  primera. Los ejecutores aún no medidos quedan detrás de los medidos y siguen
+  disponibles manualmente.
 - La operación remota conserva un único monitor `predictor_request` desde la
   cola hasta el HTML final. El resultado pesado se guarda en HA; la respuesta
   de confirmación al worker se reduce para no superar el límite del protocolo.
@@ -321,8 +328,9 @@ La política corregida es deliberadamente sencilla:
 - un `worker_predictor_v1` publica únicamente sus transiciones duraderas de
   inicio y final; no publica progreso granular ni consulta cancelación por cada
   elemento;
-- el modal indica que la predicción se lanzó, muestra el ejecutor y un tiempo
-  habitual obtenido de las estadísticas autoritativas de HA;
+- el modal indica que la predicción se lanzó, muestra el ejecutor y usa como ETA
+  la mediana de primera apertura al entrar o la de navegación caliente al
+  moverse dentro de la sesión;
 - la barra es una animación local de espera basada en esa estimación, se limita
   antes del 100 % y no se presenta como porcentaje real completado;
 - cuando llega el resultado, el navegador completa la animación y sustituye la
