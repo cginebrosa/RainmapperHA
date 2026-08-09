@@ -3506,3 +3506,14 @@ Validacion local:
   `sha256:1489ab946820d780d8c810c21d02e051427a3cb2cd7e6835574bb71f824598ff`,
   verificado con manifests `linux/amd64` y `linux/arm64`. Queda pendiente su
   instalación y validación visual en la RPi4.
+- Validación real posterior: el job remoto de `0.2.235` guardó correctamente
+  `cold: true`, runtime sincronizado, 12.630.650 bytes y 5,8632 s de backend,
+  pero el resumen diagnóstico omitió esos campos y lo agrupó como `warm` por
+  defecto. La corrección HA propaga al cierre del monitor el estado autoritativo
+  del worker, incluso si el monitor se reconstruye; el contrato y la imagen
+  worker `1.0.0` ya eran suficientes y no se versionan.
+- HA `0.2.236` publica la corrección con 518 tests. Los tags `0.2.236` y
+  `latest` comparten el digest multi-arquitectura
+  `sha256:1f02a833721b793e366b6818db020a9a9d1dbcca174465c00f7d2b09c1e96602`,
+  verificado para `linux/amd64` y `linux/arm64`; queda pendiente comprobar en HA
+  real una apertura remota fría seguida de otra caliente.

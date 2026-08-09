@@ -211,6 +211,13 @@ indica `cold_request` y el número de instancias ya cacheadas, pero no el ID de 
 especie. Así se pueden restar las suboperaciones y distinguir entrada, modelos,
 meteorología, cálculo/render del servidor y envío.
 
+En ejecución remota, `cold_request` procede siempre del resultado autoritativo
+del worker, no de la caché local de HA. El resumen también conserva
+`runtime_cache_status`, bytes sincronizados, tiempo backend y versión del
+worker. Esto importa porque «runtime reutilizado» y «Predictor caliente» no son
+sinónimos: el runtime puede estar ya descargado y aun así el proceso tener que
+cargar modelos o datos por primera vez.
+
 Al terminar `load`, el navegador envía una única operación
 `predictor_client_render` con Navigation Timing: inicio/fin de respuesta, DOM
 interactive, DOMContentLoaded, load y tamaños transferidos. El endpoint solo
@@ -440,6 +447,15 @@ contando sus snapshots, antes de hacer backups externos.
    verificar `runtime_boot`, `interrupted` y `snapshot_interrupted`.
 7. Confirmar que ninguna entrada contiene especie, setal, coordenadas,
    resultados, credenciales ni tokens.
+
+Para validar específicamente un worker después de actualizar HA no hace falta
+regenerar features ni reentrenar modelos. La primera apertura, si cambia el
+runtime/fingerprint o no hay instancias cargadas, debe aparecer bajo la carga
+comparable `recommender · cold`; repetir inmediatamente la misma apertura debe
+aparecer como `recommender · warm`. Confirmar además que la primera conserva el
+estado de sincronización y los bytes transferidos/reutilizados. Borrar cachés a
+mano queda reservado a pruebas controladas: no forma parte del procedimiento
+normal y nunca debe afectar GIS/DEM ni artefactos ML autoritativos.
 
 ### Resultado real de Predictor v2 en `0.2.229`
 

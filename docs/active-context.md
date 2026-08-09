@@ -6,7 +6,13 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Publicada y pendiente de instalación/validación en HA real: `0.2.235`.
+- Publicada y pendiente de instalación/validación en HA real: `0.2.236`.
+  Corrige la clasificación diagnóstica
+  fría/caliente del Predictor remoto usando el valor autoritativo del worker y
+  conserva estado de runtime, bytes, tiempo backend y versión del worker. No
+  requiere nueva imagen del worker. Digest multi-arquitectura:
+  `sha256:1f02a833721b793e366b6818db020a9a9d1dbcca174465c00f7d2b09c1e96602`.
+- Publicada, instalada y validada en HA real: `0.2.235`.
   Hace explícita la diferencia entre duración operativa y ventana diagnóstica,
   presenta tiempos de al menos un minuto como `m:ss`, limita Recent history a
   10 filas visibles con scroll interno y agrupa Version averages por tipo y
@@ -30,6 +36,10 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   Recent history enseña 10 de sus 20 filas con cabecera fija y scroll; Version
   averages se agrupa como Type → carga comparable → versiones, con
   `Runner · all` abierto inicialmente.
+- Validación real de `0.2.235`: una petición remota M1 quedó registrada, pero
+  Diagnostics la agrupó erróneamente como `warm`. El job prueba que fue fría
+  (`cold: true`), sincronizó 12.630.650 bytes y empleó 5,8632 s de backend; el
+  resumen HA midió 9,0 s. La causa y corrección están en `0.2.236`.
 - Publicada, instalada y validada en HA real: `0.2.233`.
   Añade Diagnostics con histórico, comparación A/B, evolución y Gantt; caja
   negra `2.2` para las cuatro fuentes; transporte Parquet al worker con fallback
@@ -536,9 +546,9 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 
 ### Pendiente
 
-- Instalar HA `0.2.235` y validar en la RPi4 la presentación revisada de
-  Diagnostics. El Predictor remoto ya fue validado en `0.2.234`; el worker M1
-  `1.0.0` está construido, arrancado y healthy.
+- Publicar e instalar HA `0.2.236`; abrir el Predictor remoto dos veces y
+  confirmar `recommender · cold` seguido de `recommender · warm`. El worker M1
+  `1.0.0` no necesita cambios.
 - Validar el primer job externo end-to-end con worker `1.0.0`: preflight visible,
   transporte Parquet, ejecución, subida/promoción y acuse de limpieza local.
 - Implementar chaining automático rebuild → ml_train en el coordinador (campo `triggered_by_job_id`).
@@ -594,10 +604,10 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y versión del repositorio: `0.2.235` (2026-08-09),
-  digest `sha256:1489ab946820d780d8c810c21d02e051427a3cb2cd7e6835574bb71f824598ff`.
+- Release HA publicada en GHCR y versión del repositorio: `0.2.236` (2026-08-09),
+  digest `sha256:1f02a833721b793e366b6818db020a9a9d1dbcca174465c00f7d2b09c1e96602`.
   Está pendiente de instalación en HA real; la última validada allí es
-  `0.2.234`. Worker M1 `1.0.0` healthy; M5 conserva su imagen anterior hasta
+  `0.2.235`. Worker M1 `1.0.0` healthy; M5 conserva su imagen anterior hasta
   que se decida actualizarlo.
 
 ### Histórico: última release validada antes de ML (0.2.214)

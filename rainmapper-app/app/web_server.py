@@ -17125,6 +17125,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.redirect_to("./predictor?" + urlencode(params))
             return
         prepared_response = None
+        remote_diagnostic_details: dict[str, object] = {}
         if job_id:
             try:
                 job = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=job_id)
@@ -17161,6 +17162,32 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 return
             result = job.get("result") if isinstance(job.get("result"), dict) else {}
             prepared_response = result.get("response")
+            response_metrics = (
+                prepared_response.get("metrics", {})
+                if isinstance(prepared_response, dict)
+                else {}
+            )
+            if "cold" in result:
+                remote_diagnostic_details["cold_request"] = bool(result.get("cold"))
+            remote_diagnostic_details.update(
+                {
+                    key: value
+                    for key, value in {
+                        "runtime_cache_status": result.get("runtime_cache_status"),
+                        "runtime_transferred_size_bytes": result.get(
+                            "runtime_transferred_size_bytes"
+                        ),
+                        "worker_backend_seconds": response_metrics.get(
+                            "backend_seconds"
+                        )
+                        if isinstance(response_metrics, dict)
+                        else None,
+                        "worker_version": job.get("worker_version"),
+                        "worker_job_id": job_id,
+                    }.items()
+                    if value is not None and value != ""
+                }
+            )
         cache_info = mushroom_predictor_ui.predictor_cache_info(
             (query.get("species") or [""])[0]
         )
@@ -17177,6 +17204,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     else "unknown",
                     "executor": executor or mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR,
                     **cache_info,
+                    **remote_diagnostic_details,
                 },
             )
         request_started = time.perf_counter()
@@ -17261,7 +17289,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 )
             request_monitor.finish(
                 "unavailable" if unavailable else "ok" if status == 200 else "error",
-                {"http_status": status, "response_bytes": len(page)},
+                {
+                    "http_status": status,
+                    "response_bytes": len(page),
+                    **remote_diagnostic_details,
+                },
             )
         except Exception as exc:
             request_monitor.finish(

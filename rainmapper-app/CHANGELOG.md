@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.236
+
+- Preserve the worker's authoritative cold/warm state in remote Predictor
+  diagnostics instead of defaulting completed worker requests to warm.
+- Retain remote runtime cache status, transferred bytes, backend duration, job
+  identity and worker version in the Home Assistant diagnostic summary.
+
 ## 0.2.235
 
 - Distinguish operational duration from the longer diagnostic observation

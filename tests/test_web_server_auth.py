@@ -377,6 +377,103 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertIn(records[0]["operation_id"], content)
 
+    def test_remote_predictor_diagnostics_preserve_worker_cold_state(self) -> None:
+        self.addCleanup(self.reset_run_state)
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        captured: dict[str, object] = {}
+        handler.send_bytes = lambda status, content, content_type: captured.update(
+            status=status,
+            content=content,
+            content_type=content_type,
+        )
+        store = mock.MagicMock()
+        store.load.return_value = {"species_profiles": []}
+        job_id = "worker_job_diagnostic_cold"
+
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
+            monitor = self.web_server.runtime_diagnostics.OperationMonitor(
+                "predictor_request",
+                details={
+                    "app_version": "0.2.test",
+                    "executor": "worker:worker_test",
+                    "view": "recommender",
+                },
+                path=metrics_path,
+            )
+            self.web_server.MUSHROOM_PREDICTOR_MONITORS[job_id] = monitor
+            self.addCleanup(
+                self.web_server.MUSHROOM_PREDICTOR_MONITORS.pop, job_id, None
+            )
+            completed_job = {
+                "job_id": job_id,
+                "status": "complete",
+                "operation_id": monitor.operation_id,
+                "worker_version": "1.0.0",
+                "result": {
+                    "cold": True,
+                    "runtime_cache_status": "synchronized",
+                    "runtime_transferred_size_bytes": 12_630_650,
+                    "response": {
+                        "metrics": {"backend_seconds": 5.8632},
+                    },
+                },
+            }
+            with (
+                mock.patch.dict(
+                    self.web_server.os.environ,
+                    {"RAINMAPPER_RUNTIME_DIAGNOSTICS_PATH": str(metrics_path)},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_worker_jobs,
+                    "get_job",
+                    return_value=completed_job,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_ui,
+                    "predictor_cache_info",
+                    return_value={"cold_request": False},
+                ),
+                mock.patch.object(self.web_server, "default_store", return_value=store),
+                mock.patch.object(
+                    self.web_server.mushroom_known_sites,
+                    "load_payload",
+                    return_value={"known_sites": []},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_ui,
+                    "render_page",
+                    return_value="<div>remote predictor</div>",
+                ),
+            ):
+                handler.render_mushroom_predictor(
+                    {
+                        "executor": ["worker:worker_test"],
+                        "job_id": [job_id],
+                        "view": ["recommender"],
+                    }
+                )
+
+            summaries = [
+                json.loads(line)
+                for line in self.web_server.runtime_diagnostics.summary_path(
+                    metrics_path
+                )
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        details = summaries[-1]["details"]
+        self.assertEqual(captured["status"], 200)
+        self.assertTrue(details["cold_request"])
+        self.assertEqual(details["runtime_cache_status"], "synchronized")
+        self.assertEqual(details["runtime_transferred_size_bytes"], 12_630_650)
+        self.assertEqual(details["worker_backend_seconds"], 5.8632)
+        self.assertEqual(details["worker_version"], "1.0.0")
+        self.assertEqual(details["worker_job_id"], job_id)
+
     def test_diagnostics_download_returns_a_named_zip(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(
             self.web_server.RainmapperHandler
