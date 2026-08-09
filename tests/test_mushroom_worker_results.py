@@ -329,7 +329,7 @@ class MushroomWorkerResultsTests(unittest.TestCase):
                 mushroom_worker_results.mushroom_rebuild_snapshot,
                 "verify_live_inputs",
                 return_value=valid_freshness,
-            ),
+            ) as verify_live_inputs,
         ):
             promotion = mushroom_worker_results.promote_verified_candidate(
                 result_root,
@@ -346,6 +346,10 @@ class MushroomWorkerResultsTests(unittest.TestCase):
         self.assertEqual(promotion["status"], "promoted")
         self.assertEqual(promotion["artifact_count"], 9)
         self.assertEqual(promotion["backup_retention_limit"], 2)
+        self.assertEqual(
+            verify_live_inputs.call_args.kwargs["gis_hash_cache_path"],
+            self.input_root.resolve() / ".gis-hash-cache.json",
+        )
         self.assertTrue((self.live / promotion["backup_path"]).is_dir())
         for relative in mushroom_rebuild_contracts.EXPECTED_ARTIFACT_PATHS:
             self.assertEqual((self.live / relative).read_bytes(), (self.outputs / relative).read_bytes())

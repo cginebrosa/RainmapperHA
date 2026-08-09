@@ -750,6 +750,7 @@ def promote_verified_candidate(
         gis_mappings_path=gis_mappings_path,
         weather_data_dir=weather_data_dir,
         gis_root=gis_root,
+        gis_hash_cache_path=input_bundle_root.resolve() / ".gis-hash-cache.json",
         progress_callback=report_freshness,
     )
     if freshness.get("status") != "valid":

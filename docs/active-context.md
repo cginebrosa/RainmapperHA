@@ -8,18 +8,26 @@ necesario para continuar; el histórico vive en `docs/decisions.md`,
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Último commit publicado: release HA `0.2.240` de este cierre.
-- HA `0.2.239` está instalada y validada en la RPi4 real; `0.2.240` está
+- Último release preparado: HA `0.2.241` y worker `1.0.3`.
+- HA `0.2.239` está instalada y validada en la RPi4 real; `0.2.241` está
   publicada y pendiente de instalación/validación por el usuario.
-- Tags `0.2.240` y `latest`: digest multi-arquitectura
-  `sha256:4efe6b41fa5ab28130590916f3ba033d45add899887b0fe2b610f6c571f20a5c`,
+- Tags `0.2.241` y `latest`: digest multi-arquitectura
+  `sha256:cb33dc2854f51a2a42eb10de93deeabbf12711c9da6282bbe8c9971f7af1f3d5`,
   con manifests `linux/amd64` y `linux/arm64` verificados.
-- Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.2`, conectado
+- Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.3`, conectado
   al coordinador real, healthy/idle y con cachés persistentes GIS/DEM y
   Predictor válidas. Su identidad es `worker_1a9a232c20fe2ee2` / `M1 Personal`.
+- La pareja publicada acelera
+  reconstrucción, promoción y entrenamiento: reconstrucción y entrenamiento
+  coalescen control/progreso remoto a una actualización cada 2 s y conservan
+  solo el evento más reciente; la promoción reutiliza la caché segura de hashes
+  GIS y solo vuelve a calcular por completo los archivos cuya identidad de
+  sistema haya cambiado. Cancelación y estados terminales siguen siendo
+  explícitos.
 - Al reiniciar, el M1 reclamó un entrenamiento ML que ya estaba encolado; acabó
   correctamente en unos 30 s y verificó cuatro especies. No quedó ocupado.
-- Smoke de release: 531 tests, validadores y `git diff --check`, todo correcto.
+- Validación local posterior: smoke completo con 538 tests, validadores y
+  `git diff --check`, todo correcto.
 
 ## Resultado principal de la sesión
 
@@ -83,13 +91,15 @@ navegación caliente.
 
 ## Próximo paso inmediato
 
-1. Instalar y validar HA `0.2.240`. Sustituye el antiguo tiempo típico de
-   backend por dos medianas extremo a extremo: primera apertura y navegación
+1. Instalar y validar HA `0.2.241`. Incluye lo publicado en `0.2.240`: sustituye
+   el antiguo tiempo típico de backend por dos medianas extremo a extremo:
+   primera apertura y navegación
    posterior. Auto recomienda por primera apertura; nunca cambia de ejecutor en
    mitad de la sesión. La misma entrega amplía el Predictor a 1.100 px y aumenta la
    tipografía de pestañas, tablas, leyendas, formularios y tarjetas; en pantallas
    estrechas las tablas conservan tamaño legible mediante desplazamiento
-   horizontal.
+   horizontal. Además acelera la promoción reutilizando hashes GIS seguros y,
+   con worker `1.0.3`, coalesce la telemetría de reconstrucción y entrenamiento.
 2. El siguiente trabajo es revisar Diagnostics para separar explícitamente
    `backend_seconds`, cola,
    sincronización, cachés y tiempo total.
@@ -183,7 +193,7 @@ queda deliberadamente sin decidir. No abrir ese trabajo durante la validación d
   cada fila del cálculo. El job sigue teniendo transiciones duraderas y los
   cálculos deberían durar segundos; revisar cancelación si alguna carga vuelve
   a ser larga.
-- El worker M5 no se ha actualizado a `1.0.2` ni se ha preparado todavía el TAR
+- El worker M5 no se ha actualizado a `1.0.3` ni se ha preparado todavía el TAR
   de esta versión.
 - La futura exposición pública no puede reutilizar la política privada actual
   con fallback HA: debe ser worker-only y limitar carga.
@@ -198,9 +208,9 @@ queda deliberadamente sin decidir. No abrir ese trabajo durante la validación d
 - `rainmapper_core/mushroom_predictor_service.py`: cálculo, cachés y contrato.
 - `rainmapper_core/mushroom_predictor_runtime.py`: runtime/fingerprint.
 - `rainmapper-app/app/mushroom_workers_ui.py`: UI de workers y trabajos.
-- `rainmapper-worker/Dockerfile`: worker `1.0.2`.
+- `rainmapper-worker/Dockerfile`: worker `1.0.3`.
 - `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y
-  `rainmapper-app/CHANGELOG.md`: HA `0.2.239`.
+  `rainmapper-app/CHANGELOG.md`: HA `0.2.241`.
 - `docs/mushrooms/mushroom-remote-predictor-design-es.md`: diseño vinculante.
 - `docs/runtime-diagnostics.md`: caja negra y procedimiento RPi4.
 - `docs/release-flow.md`: publicación HA.

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.241
+
+- Coalesce external rebuild and ML-training progress and cancellation polling
+  to one update every two seconds while preserving the latest and terminal state.
+- Reuse filesystem-identity-bound GIS hashes when validating candidate promotion,
+  rehashing only files whose identity changed instead of rereading the full dataset.
+
 ## 0.2.240
 
 - Rank Predictor Auto choices by median cold opening wall time instead of mixed

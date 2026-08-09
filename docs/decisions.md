@@ -3608,3 +3608,19 @@ Validacion local:
   complejidad, y el panel privado por Ingress no aporta identidad Rainmapper.
 - Hasta abordar la UI pública, no convertir estas políticas en opciones del
   add-on ni abrir un mantenimiento nuevo.
+
+# 2026-08-09 - [VIGENTE] Telemetría acotada y promoción GIS con caché segura
+
+- Reconstrucción y entrenamiento externos conservan solo el evento de progreso
+  más reciente y publican control/progreso como máximo cada 2 s. Antes del
+  cierre fuerzan la última comprobación de cancelación y el progreso pendiente.
+- La promoción sigue verificando inputs autoritativos, pero reutiliza hashes GIS
+  ligados a tamaño, mtime, ctime, dispositivo e inode. Si cambia cualquiera de
+  esos campos, recalcula el SHA-256 completo del archivo afectado.
+- Así se evita releer habitualmente los 5,87 GiB GIS durante la promoción sin
+  aceptar como válida una caché cuya identidad de sistema haya cambiado.
+- Worker M1 `1.0.3` construido y validado healthy/idle con identidad y cachés
+  persistentes conservadas. HA `0.2.241` publicada para `linux/amd64` y
+  `linux/arm64`; `0.2.241` y `latest` comparten el digest
+  `sha256:cb33dc2854f51a2a42eb10de93deeabbf12711c9da6282bbe8c9971f7af1f3d5`.
+- Smoke completo: 538 tests y validadores correctos.

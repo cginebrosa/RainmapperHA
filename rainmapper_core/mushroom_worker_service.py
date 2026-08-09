@@ -33,7 +33,59 @@ from rainmapper_core.mushroom_predictor_service import PredictorService
 SCHEMA_VERSION = "0.1"
 IDENTITY_SCHEMA_VERSION = "0.1"
 IDENTITY_RELATIVE_PATH = Path("identity/worker.json")
+JOB_TELEMETRY_INTERVAL_SECONDS = 2.0
 _T = TypeVar("_T")
+
+
+class _CoalescedJobTelemetry:
+    """Bound remote job telemetry while preserving cancellation and final state."""
+
+    def __init__(
+        self,
+        update: Callable[[str, dict[str, Any]], dict[str, Any]],
+        *,
+        base_payload: dict[str, Any],
+        cancel_message: str,
+        interval_seconds: float = JOB_TELEMETRY_INTERVAL_SECONDS,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._update = update
+        self._base_payload = dict(base_payload)
+        self._cancel_message = cancel_message
+        self._interval_seconds = max(0.0, interval_seconds)
+        self._monotonic = monotonic
+        self._next_control_at = 0.0
+        self._next_progress_at = 0.0
+        self._pending_progress: dict[str, Any] | None = None
+
+    def poll_control(self, *, force: bool = False) -> dict[str, Any]:
+        now = self._monotonic()
+        if not force and now < self._next_control_at:
+            return {}
+        control = self._update("control", dict(self._base_payload))
+        self._next_control_at = now + self._interval_seconds
+        if control.get("cancel_requested"):
+            error = InterruptedError(self._cancel_message)
+            setattr(error, "force_cancel_requested", bool(control.get("force_cancel_requested")))
+            raise error
+        return control
+
+    def publish(self, progress: dict[str, Any], *, force: bool = False) -> None:
+        self._pending_progress = {**self._base_payload, **progress}
+        self.poll_control()
+        now = self._monotonic()
+        if not force and now < self._next_progress_at:
+            return
+        self._update("progress", self._pending_progress)
+        self._pending_progress = None
+        self._next_progress_at = now + self._interval_seconds
+
+    def flush(self) -> None:
+        self.poll_control(force=True)
+        if self._pending_progress is not None:
+            self._update("progress", self._pending_progress)
+            self._pending_progress = None
+            self._next_progress_at = self._monotonic() + self._interval_seconds
 
 
 def retry_transient(
@@ -606,29 +658,25 @@ def serve(
                     )
                     return
                 if job_type == "worker_candidate_rebuild":
+                    telemetry = _CoalescedJobTelemetry(
+                        job_update,
+                        base_payload={
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                        },
+                        cancel_message="Worker candidate rebuild was cancelled.",
+                    )
+
                     def publish_progress(event: dict[str, Any], *, pipeline: bool = False) -> None:
-                        control = job_update(
-                            "control",
-                            {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
-                            },
-                        )
-                        if control.get("cancel_requested"):
-                            raise InterruptedError("Worker candidate rebuild was cancelled.")
                         raw_percent = int(event.get("overall_percent", 10) or 10)
                         percent = 20 + int(raw_percent * 0.68) if pipeline else max(10, min(99, raw_percent))
-                        job_update(
-                            "progress",
+                        telemetry.publish(
                             {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
                                 "phase": event.get("phase", "Candidate rebuild"),
                                 "message": event.get("message", ""),
                                 "overall_percent": percent,
-                            },
+                            }
                         )
 
                     def input_progress(event: dict[str, Any]) -> None:
@@ -680,17 +728,11 @@ def serve(
                         )
                     published_lines = 0
                     while not stop_event.is_set():
-                        control = job_update(
-                            "control",
-                            {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
-                            },
-                        )
-                        if control.get("cancel_requested"):
+                        try:
+                            telemetry.poll_control()
+                        except InterruptedError as exc:
                             if compute_process.poll() is None:
-                                if control.get("force_cancel_requested"):
+                                if bool(getattr(exc, "force_cancel_requested", False)):
                                     compute_process.kill()
                                 else:
                                     compute_process.terminate()
@@ -699,13 +741,16 @@ def serve(
                                     except subprocess.TimeoutExpired:
                                         compute_process.kill()
                                 compute_process.wait(timeout=2.0)
-                            raise InterruptedError("Worker candidate rebuild was cancelled.")
+                            raise
                         if progress_path.is_file():
                             lines = progress_path.read_text(encoding="utf-8").splitlines()
-                            for line in lines[published_lines:]:
-                                event = json.loads(line)
-                                if isinstance(event, dict):
-                                    publish_progress(event, pipeline=True)
+                            pending_events = [
+                                event
+                                for line in lines[published_lines:]
+                                if isinstance((event := json.loads(line)), dict)
+                            ]
+                            if pending_events:
+                                publish_progress(pending_events[-1], pipeline=True)
                             published_lines = len(lines)
                         return_code = compute_process.poll()
                         if return_code is not None:
@@ -731,6 +776,7 @@ def serve(
                             progress_callback=upload_progress,
                         )
                     )
+                    telemetry.flush()
                     job_update(
                         "finish",
                         {
@@ -765,29 +811,25 @@ def serve(
                     )
                     return
                 if job_type == "worker_ml_train_v0":
+                    ml_telemetry = _CoalescedJobTelemetry(
+                        job_update,
+                        base_payload={
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                        },
+                        cancel_message="Worker ML training job was cancelled.",
+                    )
+
                     def ml_publish_progress(event: dict[str, Any], *, pipeline: bool = False) -> None:
-                        control = job_update(
-                            "control",
-                            {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
-                            },
-                        )
-                        if control.get("cancel_requested"):
-                            raise InterruptedError("Worker ML training job was cancelled.")
                         raw_percent = int(event.get("overall_percent", 10) or 10)
                         percent = 20 + int(raw_percent * 0.7) if pipeline else max(10, min(99, raw_percent))
-                        job_update(
-                            "progress",
+                        ml_telemetry.publish(
                             {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
                                 "phase": event.get("phase", "ML training"),
                                 "message": event.get("message", ""),
                                 "overall_percent": percent,
-                            },
+                            }
                         )
 
                     def ml_input_progress(event: dict[str, Any]) -> None:
@@ -834,17 +876,11 @@ def serve(
                         )
                     published_lines = 0
                     while not stop_event.is_set():
-                        control = job_update(
-                            "control",
-                            {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
-                            },
-                        )
-                        if control.get("cancel_requested"):
+                        try:
+                            ml_telemetry.poll_control()
+                        except InterruptedError as exc:
                             if compute_process.poll() is None:
-                                if control.get("force_cancel_requested"):
+                                if bool(getattr(exc, "force_cancel_requested", False)):
                                     compute_process.kill()
                                 else:
                                     compute_process.terminate()
@@ -853,13 +889,16 @@ def serve(
                                     except subprocess.TimeoutExpired:
                                         compute_process.kill()
                                 compute_process.wait(timeout=2.0)
-                            raise InterruptedError("Worker ML training job was cancelled.")
+                            raise
                         if progress_path.is_file():
                             lines = progress_path.read_text(encoding="utf-8").splitlines()
-                            for line in lines[published_lines:]:
-                                event = json.loads(line)
-                                if isinstance(event, dict):
-                                    ml_publish_progress(event, pipeline=True)
+                            pending_events = [
+                                event
+                                for line in lines[published_lines:]
+                                if isinstance((event := json.loads(line)), dict)
+                            ]
+                            if pending_events:
+                                ml_publish_progress(pending_events[-1], pipeline=True)
                             published_lines = len(lines)
                         return_code = compute_process.poll()
                         if return_code is not None:
@@ -885,6 +924,7 @@ def serve(
                             progress_callback=ml_upload_progress,
                         )
                     )
+                    ml_telemetry.flush()
                     job_update(
                         "finish",
                         {

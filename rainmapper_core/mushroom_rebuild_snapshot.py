@@ -470,6 +470,7 @@ def verify_live_inputs(
     gis_mappings_path: Path,
     weather_data_dir: Path,
     gis_root: Path,
+    gis_hash_cache_path: Path | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> dict[str, Any]:
     """Verify that current authoritative inputs still match a frozen manifest."""
@@ -532,7 +533,22 @@ def verify_live_inputs(
         dataset = datasets[0]
     current_gis_records: list[dict[str, object]] = []
     fixed_file_count = len(files)
-    for index, raw_record in enumerate(dataset.get("files", [])):
+    raw_gis_records = dataset.get("files", [])
+    if not isinstance(raw_gis_records, list):
+        raw_gis_records = []
+        errors.append("GIS dataset files must be a list")
+    try:
+        live_gis_by_path = {
+            str(record.get("path", "")): record
+            for record in gis_file_records(
+                gis_root,
+                hash_cache_path=gis_hash_cache_path,
+            )
+        }
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        live_gis_by_path = {}
+        errors.append(str(exc))
+    for index, raw_record in enumerate(raw_gis_records):
         if progress_callback is not None:
             logical_name = str(raw_record.get("path", "")) if isinstance(raw_record, dict) else ""
             progress_callback(fixed_file_count + index, progress_total, logical_name)
@@ -548,7 +564,10 @@ def verify_live_inputs(
         if not source.is_file():
             errors.append(f"live GIS file is missing: {relative}")
             continue
-        current = _stable_file_record(source, logical_path=relative, role="gis")
+        current = live_gis_by_path.get(relative)
+        if current is None:
+            errors.append(f"live GIS file is outside the canonical dataset: {relative}")
+            continue
         current_gis_records.append(current)
         if current.get("size_bytes") != raw_record.get("size_bytes"):
             errors.append(f"live GIS size mismatch: {relative}")
@@ -570,6 +589,7 @@ def verify_live_inputs(
         "current_dataset_fingerprint": current_gis_fingerprint,
         "verified_input_files": len(current_records),
         "verified_gis_files": len(current_gis_records),
+        "gis_validation": "identity-cache" if gis_hash_cache_path is not None else "deep",
         "errors": errors,
     }
 

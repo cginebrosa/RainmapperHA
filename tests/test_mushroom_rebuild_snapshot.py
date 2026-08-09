@@ -264,6 +264,61 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
         self.assertNotIn(str(self.gis.resolve()), cache_path.read_text(encoding="utf-8"))
         self.assertEqual(cache_payload["kind"], "rainmapper_gis_hash_cache")
 
+    def test_live_verification_reuses_gis_hash_cache_and_rehashes_changes(self) -> None:
+        snapshot = self.root / "snapshot-live-cache"
+        cache_path = self.root / "private" / ".gis-hash-cache.json"
+        manifest = mushroom_rebuild_snapshot.create_snapshot(
+            snapshot,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+            gis_hash_cache_path=cache_path,
+        )
+        original_sha256_file = mushroom_rebuild_snapshot.sha256_file
+        hashed_gis_paths: list[Path] = []
+
+        def tracked_sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
+            resolved = path.resolve()
+            if self.gis.resolve() in resolved.parents:
+                hashed_gis_paths.append(resolved)
+            return original_sha256_file(path, chunk_size)
+
+        with mock.patch.object(
+            mushroom_rebuild_snapshot,
+            "sha256_file",
+            side_effect=tracked_sha256_file,
+        ):
+            unchanged = mushroom_rebuild_snapshot.verify_live_inputs(
+                manifest,
+                observations_path=self.observations,
+                reference_catalogs_path=self.catalogs,
+                gis_mappings_path=self.mappings,
+                weather_data_dir=self.weather,
+                gis_root=self.gis,
+                gis_hash_cache_path=cache_path,
+            )
+            self.assertEqual(hashed_gis_paths, [])
+
+            changed_gis = mushroom_rebuild_snapshot.gis_dataset_files(self.gis)[0]
+            original = changed_gis.read_bytes()
+            changed_gis.write_bytes(b"x" * len(original))
+            changed = mushroom_rebuild_snapshot.verify_live_inputs(
+                manifest,
+                observations_path=self.observations,
+                reference_catalogs_path=self.catalogs,
+                gis_mappings_path=self.mappings,
+                weather_data_dir=self.weather,
+                gis_root=self.gis,
+                gis_hash_cache_path=cache_path,
+            )
+
+        self.assertEqual(unchanged["status"], "valid")
+        self.assertEqual(unchanged["gis_validation"], "identity-cache")
+        self.assertIn(changed_gis.resolve(), hashed_gis_paths)
+        self.assertEqual(changed["status"], "stale")
+
     def test_live_inputs_match_frozen_manifest(self) -> None:
         snapshot = self.create_snapshot()
         manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)

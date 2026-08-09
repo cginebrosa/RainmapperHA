@@ -9,6 +9,64 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_job_telemetry_coalesces_progress_and_control_every_two_seconds(self) -> None:
+        now = [10.0]
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        def update(action: str, payload: dict[str, object]) -> dict[str, object]:
+            calls.append((action, payload))
+            return {}
+
+        telemetry = mushroom_worker_service._CoalescedJobTelemetry(
+            update,
+            base_payload={"job_id": "worker_job_test"},
+            cancel_message="cancelled",
+            monotonic=lambda: now[0],
+        )
+        telemetry.publish({"phase": "first", "overall_percent": 10})
+        telemetry.publish({"phase": "intermediate", "overall_percent": 20})
+        now[0] = 11.9
+        telemetry.publish({"phase": "newest pending", "overall_percent": 30})
+        now[0] = 12.0
+        telemetry.publish({"phase": "two seconds", "overall_percent": 40})
+
+        self.assertEqual([action for action, _ in calls], ["control", "progress", "control", "progress"])
+        self.assertEqual(
+            [payload["phase"] for action, payload in calls if action == "progress"],
+            ["first", "two seconds"],
+        )
+
+    def test_job_telemetry_flushes_latest_progress_and_honours_force_cancel(self) -> None:
+        now = [10.0]
+        calls: list[tuple[str, dict[str, object]]] = []
+        cancel = [False]
+
+        def update(action: str, payload: dict[str, object]) -> dict[str, object]:
+            calls.append((action, payload))
+            if action == "control" and cancel[0]:
+                return {"cancel_requested": True, "force_cancel_requested": True}
+            return {}
+
+        telemetry = mushroom_worker_service._CoalescedJobTelemetry(
+            update,
+            base_payload={"job_id": "worker_job_test"},
+            cancel_message="training cancelled",
+            monotonic=lambda: now[0],
+        )
+        telemetry.publish({"phase": "first"})
+        telemetry.publish({"phase": "latest"})
+        telemetry.flush()
+        cancel[0] = True
+
+        with self.assertRaisesRegex(InterruptedError, "training cancelled") as raised:
+            telemetry.poll_control(force=True)
+
+        self.assertTrue(getattr(raised.exception, "force_cancel_requested"))
+        self.assertEqual(
+            [payload["phase"] for action, payload in calls if action == "progress"],
+            ["first", "latest"],
+        )
+
     def test_interactive_prediction_does_not_publish_synchronous_progress(self) -> None:
         service = mock.Mock()
         service.execute.return_value = {"metrics": {"backend_seconds": 2.6}}
