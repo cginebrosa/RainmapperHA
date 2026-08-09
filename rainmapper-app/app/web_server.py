@@ -739,6 +739,53 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .control-table tr:last-child td {{
       border-bottom: 0;
     }}
+    .diagnostic-history-scroll {{
+      max-height: 452px;
+      overflow: auto;
+    }}
+    .diagnostic-history-scroll thead th {{
+      background: var(--card);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }}
+    .diagnostic-version-groups {{
+      display: grid;
+      gap: 10px;
+    }}
+    .diagnostic-version-type {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }}
+    .diagnostic-version-type > summary,
+    .diagnostic-version-workload > summary {{
+      cursor: pointer;
+      list-style-position: inside;
+    }}
+    .diagnostic-version-type > summary {{
+      font-size: 16px;
+      padding: 13px 14px;
+    }}
+    .diagnostic-version-type-body {{
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 8px;
+      padding: 0 14px 14px;
+    }}
+    .diagnostic-version-workload {{
+      border-bottom: 1px solid var(--line);
+      padding: 0 0 8px;
+    }}
+    .diagnostic-version-workload:last-child {{ border-bottom: 0; padding-bottom: 0; }}
+    .diagnostic-version-workload > summary {{ padding: 11px 0 3px; }}
+    .diagnostic-version-summary-meta {{
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: 7px;
+    }}
+    .diagnostic-version-workload-table {{ margin-top: 8px; }}
     .diagnostic-selectors {{
       display: grid;
       gap: 12px;
@@ -8043,10 +8090,21 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     function diagnosticFormat(value, unit, digits) {{
       if (value == null || typeof value !== "number" || !Number.isFinite(value)) return "—";
       if (unit === "count") return String(Math.round(value));
+      if (unit === "s" && Math.abs(value) >= 60) {{
+        var precision = digits == null ? 1 : digits;
+        var sign = value < 0 ? "-" : "";
+        var scale = Math.pow(10, precision);
+        var absolute = Math.round(Math.abs(value) * scale) / scale;
+        var minutes = Math.floor(absolute / 60);
+        var seconds = absolute - minutes * 60;
+        var secondsText = seconds.toFixed(precision);
+        var minimumWidth = precision > 0 ? 3 + precision : 2;
+        return sign + minutes + ":" + secondsText.padStart(minimumWidth, "0");
+      }}
       return value.toFixed(digits == null ? 1 : digits) + (unit ? " " + unit : "");
     }}
     var diagnosticChartMetrics = {{
-      wall_seconds: {{label:"Duration",unit:"s"}},
+      wall_seconds: {{label:"Operational duration",unit:"s"}},
       max_cgroup_memory_current_mib: {{label:"Peak cgroup",unit:"MiB"}},
       max_process_rss_mib: {{label:"Peak process RSS",unit:"MiB"}},
       min_host_mem_available_mib: {{label:"Minimum host available",unit:"MiB"}},
@@ -8155,7 +8213,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     function diagnosticElapsedLabel(milliseconds) {{
       var totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
       var minutes = Math.floor(totalSeconds / 60), seconds = totalSeconds % 60;
-      return minutes ? minutes + "m" + (seconds ? " " + seconds + "s" : "") : totalSeconds + "s";
+      return minutes ? minutes + ":" + String(seconds).padStart(2, "0") : totalSeconds + "s";
     }}
     function diagnosticGanttTicks(span) {{
       var candidates = [10000,30000,60000,120000,300000,600000,900000,1800000,3600000];
@@ -8214,7 +8272,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       var renderGanttItem = function(item, summary) {{
         var left = Math.max(0, Math.min(100, 100 * (item.start-startMs)/span));
         var width = Math.max(.3, Math.min(100-left, 100 * (item.finish-item.start)/span));
-        var title = item.label + ' · +' + ((item.start-startMs)/1000).toFixed(1) + 's' + (item.type === "bar" ? ' → +' + ((item.finish-startMs)/1000).toFixed(1) + 's' : '');
+        var title = item.label + ' · +' + diagnosticFormat((item.start-startMs)/1000, "s", 1) + (item.type === "bar" ? ' → +' + diagnosticFormat((item.finish-startMs)/1000, "s", 1) : '');
         var content = '<span class="diagnostic-gantt-label" title="' + diagnosticEscape(item.label) + '">' + diagnosticEscape(item.label) + '</span><span class="diagnostic-gantt-track">' + gridHtml + '<span class="diagnostic-gantt-' + item.type + '" style="left:' + left.toFixed(2) + '%;' + (item.type === "bar" ? 'width:'+width.toFixed(2)+'%;' : '') + '" title="' + diagnosticEscape(title) + '"></span></span>';
         return summary ? '<span class="diagnostic-gantt-summary-row">' + content + '</span>' : '<div class="diagnostic-gantt-row">' + content + '</div>';
       }};
@@ -8230,7 +8288,8 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
       var schema = execution.diagnostic_schema || "legacy";
       var schemaNote = execution.capabilities && execution.capabilities.source_phase_intervals ? '' : '<p class="diagnostic-schema-note">Legacy/limited detail · diagnostic schema ' + diagnosticEscape(schema) + '. Metrics remain valid; complete source intervals were not recorded.</p>';
-      var ganttHtml = groupHtml ? schemaNote + '<div class="diagnostic-gantt">' + groupHtml + axisHtml + '</div><p class="meta">Observed window: ' + diagnosticEscape(diagnosticElapsedLabel(observedSpan)) + ' · shared A/B scale: ' + diagnosticEscape(diagnosticElapsedLabel(span)) + '</p>' : schemaNote + '<p class="meta">No retained intervals for a graphical timeline.</p>';
+      var operationalDuration = diagnosticValue(execution, "details.wall_seconds");
+      var ganttHtml = groupHtml ? schemaNote + '<div class="diagnostic-gantt">' + groupHtml + axisHtml + '</div><p class="meta">Operational duration: ' + diagnosticEscape(diagnosticFormat(operationalDuration, "s", 1)) + ' · Diagnostic window (includes recovery samples): ' + diagnosticEscape(diagnosticElapsedLabel(observedSpan)) + ' · Shared A/B display scale: ' + diagnosticEscape(diagnosticElapsedLabel(span)) + '</p>' : schemaNote + '<p class="meta">No retained intervals for a graphical timeline.</p>';
       var sourceHtml = "";
       if (execution.operation === "runner_action" || execution.operation === "runner_update") {{
         sourceHtml = sourceNames.map(function(name) {{
@@ -8287,7 +8346,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         }}).join("");
       }}
       var metrics = [
-        ["Duration", "details.wall_seconds", "s", 1, "lower"],
+        ["Operational duration", "details.wall_seconds", "s", 1, "lower"],
         ["Process peak RSS", "details.max_process_rss_mib", "MiB", 1, "lower"],
         ["Peak cgroup usage", "details.max_cgroup_memory_current_mib", "MiB", 1, "lower"],
         ["Minimum host memory available", "details.min_host_mem_available_mib", "MiB", 1, "higher"],
@@ -8318,17 +8377,36 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (historyBody) historyBody.innerHTML = executions.slice(0, 20).map(function(item) {{
         return '<tr><td>' + diagnosticEscape(item.display_timestamp) + '</td><td>' + diagnosticEscape(diagnosticOperationLabel(item.operation)) + '</td><td>' + diagnosticEscape(item.details.app_version || "unknown") + '</td><td>' + diagnosticEscape(item.status) + '</td><td>' + diagnosticFormat(diagnosticValue(item, "details.wall_seconds"), "s", 1) + '</td><td>' + diagnosticFormat(diagnosticValue(item, "details.max_cgroup_memory_current_mib"), "MiB", 1) + '</td></tr>';
       }}).join("");
-      var versionBody = document.getElementById("diagnostic-version-body");
-      if (versionBody) {{
+      var versionGroups = document.getElementById("diagnostic-version-groups");
+      if (versionGroups) {{
         var aggregates = diagnosticVersionDataset();
-        versionBody.innerHTML = aggregates.length ? aggregates.map(function(item) {{
-          var averages = item.averages || {{}};
-          return '<tr><td><strong>' + diagnosticEscape(item.version) + '</strong><div class="meta">Latest: ' + diagnosticEscape(item.display_timestamp || "-") + '</div></td>' +
-            '<td>' + diagnosticEscape(diagnosticOperationLabel(item.operation)) + '</td><td>' + diagnosticEscape(item.workload || "unknown") + '</td><td>' + diagnosticEscape(item.sample_count) + '</td><td>' + diagnosticEscape(item.ok_count) + '</td><td>' + diagnosticEscape(item.anomaly_count) + '</td>' +
-            '<td>' + diagnosticFormat(averages.wall_seconds, "s", 1) + '</td><td>' + diagnosticFormat(averages.max_cgroup_memory_current_mib, "MiB", 1) + '</td>' +
-            '<td>' + diagnosticFormat(averages.max_process_rss_mib, "MiB", 1) + '</td><td>' + diagnosticFormat(averages.min_host_mem_available_mib, "MiB", 1) + '</td>' +
-            '<td>' + diagnosticFormat(averages.max_cpu_temperature_c, "°C", 1) + '</td></tr>';
-        }}).join("") : '<tr><td colspan="11">No version summaries recorded.</td></tr>';
+        var alreadyRendered = versionGroups.getAttribute("data-rendered") === "1";
+        var openKeys = new Set(Array.from(versionGroups.querySelectorAll("details[open][data-diagnostic-version-key]")).map(function(item) {{ return item.getAttribute("data-diagnostic-version-key"); }}));
+        var operations = Array.from(new Set(aggregates.map(function(item) {{ return item.operation; }}))).sort(function(a, b) {{ return (a === "runner_action" ? -1 : 1) - (b === "runner_action" ? -1 : 1); }});
+        versionGroups.innerHTML = aggregates.length ? operations.map(function(operation) {{
+          var operationRows = aggregates.filter(function(item) {{ return item.operation === operation; }});
+          var workloads = Array.from(new Set(operationRows.map(function(item) {{ return item.workload || "unknown"; }})));
+          var typeKey = "type:" + operation;
+          var typeOpen = alreadyRendered ? openKeys.has(typeKey) : operation === "runner_action";
+          var workloadHtml = workloads.map(function(workload) {{
+            var rows = operationRows.filter(function(item) {{ return (item.workload || "unknown") === workload; }});
+            var workloadKey = "workload:" + operation + ":" + workload;
+            var workloadOpen = alreadyRendered ? openKeys.has(workloadKey) : operation === "runner_action" && workload === "all";
+            var sampleCount = rows.reduce(function(total, item) {{ return total + Number(item.sample_count || 0); }}, 0);
+            var rowHtml = rows.map(function(item) {{
+              var averages = item.averages || {{}};
+              return '<tr><td><strong>' + diagnosticEscape(item.version) + '</strong><div class="meta">Latest: ' + diagnosticEscape(item.display_timestamp || "-") + '</div></td>' +
+                '<td>' + diagnosticEscape(item.sample_count) + '</td><td>' + diagnosticEscape(item.ok_count) + '</td><td>' + diagnosticEscape(item.anomaly_count) + '</td>' +
+                '<td>' + diagnosticFormat(averages.wall_seconds, "s", 1) + '</td><td>' + diagnosticFormat(averages.max_cgroup_memory_current_mib, "MiB", 1) + '</td>' +
+                '<td>' + diagnosticFormat(averages.max_process_rss_mib, "MiB", 1) + '</td><td>' + diagnosticFormat(averages.min_host_mem_available_mib, "MiB", 1) + '</td>' +
+                '<td>' + diagnosticFormat(averages.max_cpu_temperature_c, "°C", 1) + '</td></tr>';
+            }}).join("");
+            return '<details class="diagnostic-version-workload" data-diagnostic-version-key="' + diagnosticEscape(workloadKey) + '"' + (workloadOpen ? ' open' : '') + '><summary><strong>' + diagnosticEscape(workload) + '</strong><span class="diagnostic-version-summary-meta">' + diagnosticEscape(rows.length) + ' version(s) · ' + diagnosticEscape(sampleCount) + ' sample(s)</span></summary>' +
+              '<div class="control-table-wrap diagnostic-version-workload-table"><table class="control-table"><thead><tr><th>Version</th><th>Samples</th><th>OK</th><th>Anomalies</th><th>Avg operational duration</th><th>Avg cgroup</th><th>Avg RSS</th><th>Avg available</th><th>Avg temperature</th></tr></thead><tbody>' + rowHtml + '</tbody></table></div></details>';
+          }}).join("");
+          return '<details class="diagnostic-version-type" data-diagnostic-version-key="' + diagnosticEscape(typeKey) + '"' + (typeOpen ? ' open' : '') + '><summary><strong>' + diagnosticEscape(diagnosticOperationLabel(operation)) + '</strong><span class="diagnostic-version-summary-meta">' + diagnosticEscape(workloads.length) + ' comparable workload(s)</span></summary><div class="diagnostic-version-type-body">' + workloadHtml + '</div></details>';
+        }}).join("") : '<p class="meta">No version summaries recorded.</p>';
+        versionGroups.setAttribute("data-rendered", "1");
       }}
     }}
     function initializeDiagnosticComparison() {{
@@ -9177,7 +9255,7 @@ def render_diagnostics_history_panel(
         <label id="diagnostic-period-field"><span>Period</span><select data-diagnostic-chart-control="period"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="all">All retained</option></select></label>
         <label><span>Operation</span><select data-diagnostic-chart-control="operation"><option value="runner_action">Runner</option><option value="predictor_request">Predictor</option></select></label>
         <label><span>Comparable workload</span><select data-diagnostic-chart-control="workload"><option value="">All (separate series)</option></select></label>
-        <label><span>Metric</span><select data-diagnostic-chart-control="metric"><option value="wall_seconds">Duration</option><option value="max_cgroup_memory_current_mib">Peak cgroup</option><option value="max_process_rss_mib">Peak process RSS</option><option value="min_host_mem_available_mib">Minimum host available</option><option value="max_cpu_temperature_c">Maximum CPU temperature</option><option value="cpu_percent_one_core">CPU (one core)</option></select></label>
+        <label><span>Metric</span><select data-diagnostic-chart-control="metric"><option value="wall_seconds">Operational duration</option><option value="max_cgroup_memory_current_mib">Peak cgroup</option><option value="max_process_rss_mib">Peak process RSS</option><option value="min_host_mem_available_mib">Minimum host available</option><option value="max_cpu_temperature_c">Maximum CPU temperature</option><option value="cpu_percent_one_core">CPU (one core)</option></select></label>
       </div>
       <div id="diagnostic-evolution-chart" class="diagnostic-chart"><p class="meta">Open Diagnostics to load evolution.</p></div>
     </div>
@@ -9205,23 +9283,18 @@ def render_diagnostics_history_panel(
     </div>
     <div class="control-section">
       <h2>Recent history</h2>
-      <p class="meta">The 20 most recent rows are shown here; A/B can select up to 500 reconstructed executions. Detailed phases may rotate before their compact summaries.</p>
-      <div class="control-table-wrap">
+      <p class="meta">Showing 20 recent executions; 10 rows are visible and the rest remain available by scrolling. A/B can select up to 500 reconstructed executions. Detailed phases may rotate before their compact summaries.</p>
+      <div class="control-table-wrap diagnostic-history-scroll">
         <table class="control-table diagnostic-history-table">
-          <thead><tr><th>Date</th><th>Type</th><th>Version</th><th>Status</th><th>Duration</th><th>Peak cgroup</th></tr></thead>
+          <thead><tr><th>Date</th><th>Type</th><th>Version</th><th>Status</th><th>Operational duration</th><th>Peak cgroup</th></tr></thead>
           <tbody id="diagnostic-history-body"></tbody>
         </table>
       </div>
     </div>
     <div class="control-section">
       <h2>Version averages</h2>
-      <p class="meta">Runner and Predictor are averaged separately for the five most recent Rainmapper versions.</p>
-      <div class="control-table-wrap">
-        <table class="control-table diagnostic-version-table">
-          <thead><tr><th>Version</th><th>Type</th><th>Comparable workload</th><th>Samples</th><th>OK</th><th>Anomalies</th><th>Avg duration</th><th>Avg cgroup</th><th>Avg RSS</th><th>Avg available</th><th>Avg temperature</th></tr></thead>
-          <tbody id="diagnostic-version-body"></tbody>
-        </table>
-      </div>
+      <p class="meta">Expand a type and comparable workload to compare the same operation across the five most recent retained Rainmapper versions.</p>
+      <div id="diagnostic-version-groups" class="diagnostic-version-groups"><p class="meta">Open Diagnostics to load version summaries.</p></div>
     </div>
     """
 

@@ -146,9 +146,11 @@ no el historial autoritativo.
 
 1. Completado en lab: construir el worker y confirmar `predictor_v1` y caché.
 2. Completado en lab: Manual frío/caliente sin retransmisión redundante.
-3. Pendiente: comparar la misma especie/área/fecha en HA y M1.
-4. Pendiente: comprobar Auto con medidas de ambos ejecutores y el bloqueo
-   durante runner.
+3. Completado en HA real: ejecutar el Predictor tanto en HA como en M1 y
+   conservar mediciones comparables para ambos ejecutores.
+4. Completado en HA real: Auto recomienda el M1 a partir de esas mediciones;
+   el bloqueo del Predictor mientras corre un runner ya se había validado por
+   separado.
 5. Pendiente: descargar la caja negra tras la prueba y verificar tiempos de HA, worker y
    cliente. La telemetría de recursos propia del host worker y las muestras de
    recuperación a 60/600 s quedan como ampliación posterior; el tiempo de
@@ -177,6 +179,43 @@ La entrada modal también se validó manualmente en el mismo laboratorio: abre
 desde el panel, recomienda `M1 Personal` por su nombre público, transforma la
 selección en progreso y entrega la UI completa al terminar. La suite asociada
 queda en 517 tests.
+
+## Validación en HA real (2026-08-09)
+
+HA `0.2.234` quedó instalada en la RPi4 y el mismo acceso modal ejecutó
+correctamente el Predictor tanto en Home Assistant como en `M1 Personal`. La
+estadística autoritativa de HA muestra, tras las primeras muestras comparables:
+
+- Home Assistant: 40,2 s habituales, 1 muestra y caché local;
+- M1 Personal: 3,6 s habituales, 2 muestras y caché válida;
+- Auto recomienda correctamente `M1 Personal` y conserva HA como alternativa
+  manual.
+
+La muestra es todavía pequeña y no constituye un benchmark definitivo, pero
+valida la selección, ejecución, retorno del resultado y persistencia de tiempos
+en el despliegue real.
+
+## Pendiente diferido: endpoint de coordinador portable
+
+No se modifica el despliegue que ya funciona. En una evolución posterior se
+deberá desacoplar la dirección anunciada a los workers de una IP o tecnología de
+red concreta. El diseño deberá servir indistintamente para LAN, Tailscale,
+WireGuard, otra VPN o un proxy HTTPS:
+
+- HA tendrá una URL de coordinador anunciada explícitamente, distinta del
+  listener interno y de su mapeo de puerto en Supervisor;
+- el emparejamiento entregará esa URL lógica al worker y este la persistirá en
+  su volumen, no en la imagen ni en Compose;
+- la UI mostrará la URL anunciada y advertirá si un worker declara otra;
+- el laboratorio usará un perfil separado o un override temporal que nunca
+  sobrescriba el coordinador de producción;
+- se preferirá un nombre DNS estable; el descubrimiento local podrá ayudar,
+  pero no se asumirá que una VPN transporta mDNS;
+- cambiar el puerto publicado requerirá actualizar o reiniciar los workers,
+  salvo que exista previamente un punto estable de descubrimiento.
+
+Hasta abordar esta deuda, `8100` se considera parte estable de la topología
+privada y no debe cambiarse sin reconfigurar los workers emparejados.
 
 ## Evolución futura: Predictor autorizado desde MapLibre
 

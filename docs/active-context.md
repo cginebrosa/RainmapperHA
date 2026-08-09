@@ -6,10 +6,30 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Publicada y pendiente de instalar/validar en HA real: `0.2.234`. Añade el
+- Publicada y pendiente de instalación/validación en HA real: `0.2.235`.
+  Hace explícita la diferencia entre duración operativa y ventana diagnóstica,
+  presenta tiempos de al menos un minuto como `m:ss`, limita Recent history a
+  10 filas visibles con scroll interno y agrupa Version averages por tipo y
+  carga comparable. Digest multi-arquitectura:
+  `sha256:1489ab946820d780d8c810c21d02e051427a3cb2cd7e6835574bb71f824598ff`.
+- Publicada, instalada y validada en HA real: `0.2.234`. Añade el
   Predictor remoto `predictor_v1`, selección Auto/Manual por tiempos comparables,
   runtime inmutable incremental y modal localizado de selección/progreso. Digest:
   `sha256:431338d23b568ffb3671768766075aae52e2326b6d90a64ecf0aafc10af71199`.
+  El Predictor funcionó tanto en la RPi4 como en `M1 Personal`; las primeras
+  medidas muestran 40,2 s habituales en HA (1 muestra) y 3,6 s en M1
+  (2 muestras), por lo que Auto recomienda correctamente el M1.
+- Pendiente diferido, sin cambios operativos ahora: sustituir la dirección de
+  coordinador ligada a IP/puerto por una URL anunciada agnóstica de LAN, VPN o
+  proxy, incluirla en el emparejamiento y aislar la configuración del lab. Hasta
+  entonces `8100` se considera estable y cambiarlo exige reconfigurar workers.
+- Incluido en `0.2.235`: Diagnostics llama
+  **Operational duration** al tiempo real de trabajo y **Diagnostic window** al
+  eje que puede incluir recuperación a 60/600 s. Las duraciones de al menos un
+  minuto se muestran como `m:ss`, sin modificar los segundos numéricos guardados.
+  Recent history enseña 10 de sus 20 filas con cabecera fija y scroll; Version
+  averages se agrupa como Type → carga comparable → versiones, con
+  `Runner · all` abierto inicialmente.
 - Publicada, instalada y validada en HA real: `0.2.233`.
   Añade Diagnostics con histórico, comparación A/B, evolución y Gantt; caja
   negra `2.2` para las cuatro fuentes; transporte Parquet al worker con fallback
@@ -516,8 +536,9 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 
 ### Pendiente
 
-- Instalar HA `0.2.234` y validar el Predictor remoto en la RPi4. El worker M1 `1.0.0` ya
-  está construido, arrancado y healthy.
+- Instalar HA `0.2.235` y validar en la RPi4 la presentación revisada de
+  Diagnostics. El Predictor remoto ya fue validado en `0.2.234`; el worker M1
+  `1.0.0` está construido, arrancado y healthy.
 - Validar el primer job externo end-to-end con worker `1.0.0`: preflight visible,
   transporte Parquet, ejecución, subida/promoción y acuse de limpieza local.
 - Implementar chaining automático rebuild → ml_train en el coordinador (campo `triggered_by_job_id`).
@@ -573,10 +594,11 @@ actualizado al introducir cambios estructurales relevantes.
 - Workspace unico:
   `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release HA publicada en GHCR y version del repositorio: `0.2.233` (2026-08-08),
-  digest `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`.
-  En HA real está instalada y validada `0.2.233`. Worker M1 `1.0.0` healthy; M5
-  conserva su imagen anterior hasta que se decida actualizarlo.
+- Release HA publicada en GHCR y versión del repositorio: `0.2.235` (2026-08-09),
+  digest `sha256:1489ab946820d780d8c810c21d02e051427a3cb2cd7e6835574bb71f824598ff`.
+  Está pendiente de instalación en HA real; la última validada allí es
+  `0.2.234`. Worker M1 `1.0.0` healthy; M5 conserva su imagen anterior hasta
+  que se decida actualizarlo.
 
 ### Histórico: última release validada antes de ML (0.2.214)
 - Release instalada y validada en ese momento: `0.2.214` (`524bf2c`).

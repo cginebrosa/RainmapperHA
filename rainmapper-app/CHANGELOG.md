@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.2.235
+
+- Distinguish operational duration from the longer diagnostic observation
+  window that may include the 60- and 600-second recovery snapshots.
+- Format diagnostic durations of at least one minute as `m:ss`, while retaining
+  numeric seconds in the persistent diagnostic records.
+- Keep twenty recent executions in a ten-row scrollable table with a sticky
+  header, and group version averages by operation and comparable workload.
+
 ## 0.2.234
 
 - Run the Fruiting Predictor on Home Assistant or an idle compatible worker,

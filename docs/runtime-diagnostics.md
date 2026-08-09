@@ -295,7 +295,9 @@ nueva pestaña ofrece:
   desplegar independientemente para ver sus subfases. A y B comparten un eje X
   de tiempo transcurrido desde el inicio basado en la ventana más larga, con
   marcas y rejilla; por tanto, posiciones y longitudes se pueden comparar
-  directamente;
+  directamente. El pie distingue **Operational duration**, que termina cuando
+  acaba el trabajo, de **Diagnostic window**, que puede prolongarse por las
+  muestras de recuperación a 60 y 600 segundos;
 - tabla de medias separadas de Runner y Predictor para las cinco versiones más
   recientes, con muestras, ejecuciones correctas, anomalías, duración, memoria,
   temperatura y `MemAvailable`.
@@ -306,11 +308,12 @@ demanda del conjunto de evidencias. Las selecciones A/B se conservan en
 `sessionStorage` y sobreviven al refresco automático del panel cada cinco
 segundos.
 
-La tabla visible enseña las 20 ejecuciones más recientes y los selectores A/B
-pueden usar hasta las 500 ejecuciones reconstruibles más recientes; siete días
-no es ya un límite de diseño. Los eventos detallados pueden rotar antes que sus
-resúmenes, en cuyo caso la comparación numérica sigue siendo válida y la UI
-indica que no conserva fases suficientes para el Gantt.
+La tabla visible conserva las 20 ejecuciones más recientes dentro de un área con
+cabecera fija, altura de 10 filas y scroll interno para las otras 10. Los
+selectores A/B pueden usar hasta las 500 ejecuciones reconstruibles más
+recientes; siete días no es ya un límite de diseño. Los eventos detallados
+pueden rotar antes que sus resúmenes, en cuyo caso la comparación numérica sigue
+siendo válida y la UI indica que no conserva fases suficientes para el Gantt.
 
 La sección **Evolution** tiene dos modos:
 
@@ -326,6 +329,18 @@ Predictor nunca se mezclan en una misma serie o media porque representan cargas
 distintas; tampoco se fusionan acciones `all`/`update`/`maps` ni vistas del
 Predictor con carga fría/caliente. Elegir «All» muestra líneas independientes,
 no una media conjunta.
+
+**Version averages** se organiza como `Type → Comparable workload → Version`.
+Esta jerarquía impide comparar accidentalmente cargas distintas: `Runner · all`
+queda abierto inicialmente y cada carga fría/caliente o vista del Predictor se
+despliega por separado para mostrar sus versiones. Los acordeones conservan su
+estado durante el refresco periódico del panel.
+
+Las duraciones de Diagnostics se presentan en segundos cuando son inferiores a
+un minuto y como `m:ss` cuando alcanzan un minuto. Las décimas se conservan en
+comparaciones y detalles (`5:05.4`), mientras que el eje y la ventana temporal
+usan segundos enteros (`5:05`). Este formato solo afecta a la presentación: los
+JSONL siguen almacenando segundos numéricos y los históricos no se migran.
 
 Los resúmenes compactos siguen bajo el límite circular de 20.000 registros/20
 MiB. Las agregaciones por versión se calculan al leer el histórico y se cachean

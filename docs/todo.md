@@ -320,6 +320,14 @@ flujo funcional contra `0.2.207` porque no contiene el coordinador.
 - [ ] Comparar Tailscale del host con sidecar dentro de Docker usando la URL
   fija de HA, tokens/ACL e identidad propia por despliegue; no asumir que un
   contenedor evita las politicas de un Mac de trabajo.
+- [ ] Diseñar, sin alterar el despliegue operativo actual, un endpoint de
+  coordinador anunciado y agnostico de red para los workers. Debe admitir LAN,
+  cualquier VPN o proxy HTTPS; persistir la URL lógica en el volumen del
+  worker; incorporar la URL al emparejamiento; detectar discrepancias en HA y
+  separar el perfil de laboratorio para que no sobrescriba producción. El
+  puerto privado `8100` se mantiene estable hasta implementar y validar esta
+  migración. Diseño detallado en
+  `docs/mushrooms/mushroom-remote-predictor-design-es.md`.
 - [x] Habilitar solo en el laboratorio local el destino externo operativo para
   una reconstruccion completa, despues de probar descarga GIS real a volumen
   vacio, cancelacion cooperativa/forzada, corte y recuperacion de red, rechazo

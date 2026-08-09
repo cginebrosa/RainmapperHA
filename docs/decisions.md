@@ -3482,5 +3482,27 @@ Validacion local:
   caché en el documento de diseño.
 - HA `0.2.234` publicada para `linux/amd64` y `linux/arm64`, tag de versión y
   `latest` con digest
-  `sha256:431338d23b568ffb3671768766075aae52e2326b6d90a64ecf0aafc10af71199`;
-  pendiente de instalación y validación en HA real.
+  `sha256:431338d23b568ffb3671768766075aae52e2326b6d90a64ecf0aafc10af71199`.
+- Validación HA real: ejecución correcta tanto en HA como en M1, con 40,2 s
+  habituales para HA (1 muestra) y 3,6 s para M1 (2 muestras); Auto recomienda
+  M1 y mantiene HA como alternativa manual.
+- Se difiere expresamente cualquier cambio de topología de red. En una fase
+  posterior se diseñará una URL de coordinador anunciada y agnóstica de LAN,
+  VPN o proxy, entregada durante el emparejamiento y separada del perfil de lab.
+  Hasta entonces el puerto privado `8100` es estable: cambiar su publicación
+  requiere reconfigurar los workers existentes.
+- La duración comparable se denomina **Operational duration** y conserva
+  `wall_seconds`; no incluye las muestras posteriores. El Gantt separa esa cifra
+  de **Diagnostic window (includes recovery samples)**. Los segundos se
+  presentan como `m:ss` a partir de un minuto, conservando décimas donde el dato
+  las tiene, sin migrar ni redondear los JSONL autoritativos.
+- Recent history mantiene 20 ejecuciones pero limita el viewport a 10 filas con
+  cabecera fija y scroll. Version averages usa la jerarquía Type → carga
+  comparable → versiones, porque la comparación primaria debe ser entre la
+  misma operación/carga en distintas releases; `Runner · all` se abre por
+  defecto y el estado de los acordeones sobrevive al refresco del panel.
+- Esta presentación se publica en HA `0.2.235`. Los tags `0.2.235` y `latest`
+  comparten el digest multi-arquitectura
+  `sha256:1489ab946820d780d8c810c21d02e051427a3cb2cd7e6835574bb71f824598ff`,
+  verificado con manifests `linux/amd64` y `linux/arm64`. Queda pendiente su
+  instalación y validación visual en la RPi4.
