@@ -255,6 +255,14 @@ Hay varios entry points segun entorno:
   claim, bloqueo de trabajos solapados, cancelacion cooperativa/forzada y
   rechazo de resultados stale. La reconstruccion local HA permanece como
   fallback independiente.
+- Predictor remoto: el diseño vinculante vive en
+  `docs/mushrooms/mushroom-remote-predictor-design-es.md`. El motor ya reside en
+  `rainmapper_core`; HA conserva UI, selección y diagnóstico, mientras un
+  worker con `predictor_v1` actúa únicamente como ejecutor. Auto usa estadísticas
+  comparables guardadas en HA y Manual permite elegir entre ejecutores aptos.
+  El panel abre selección y progreso en un modal, pero la ruta completa continúa
+  siendo el fallback accesible. Una integración futura desde MapLibre reutilizará
+  este gateway; nunca conectará el navegador directamente con un worker.
 
 ### Flujo de setas v0
 - Rutas principales:

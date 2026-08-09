@@ -2759,6 +2759,81 @@
     "es": "Predictor de Floradas",
     "ca": "Predictor de Florades"
   },
+  "ui.predictor_executor_choose_title": {
+    "en": "Where should the Predictor run?",
+    "es": "¿Dónde quieres ejecutar el Predictor?",
+    "ca": "On vols executar el Predictor?"
+  },
+  "ui.predictor_executor_choose_help": {
+    "en": "Auto selects the fastest available compatible executor using comparable previous runs.",
+    "es": "Auto elige el ejecutor compatible disponible más rápido usando ejecuciones anteriores comparables.",
+    "ca": "Auto tria l'executor compatible disponible més ràpid usant execucions anteriors comparables."
+  },
+  "ui.predictor_executor_auto": {
+    "en": "Auto",
+    "es": "Auto",
+    "ca": "Auto"
+  },
+  "ui.predictor_executor_recommended": {
+    "en": "recommended",
+    "es": "recomendado",
+    "ca": "recomanat"
+  },
+  "ui.predictor_executor_current": {
+    "en": "Currently: {executor}",
+    "es": "Actualmente: {executor}",
+    "ca": "Actualment: {executor}"
+  },
+  "ui.predictor_executor_typical": {
+    "en": "{seconds} s typical",
+    "es": "{seconds} s habituales",
+    "ca": "{seconds} s habituals"
+  },
+  "ui.predictor_executor_not_measured": {
+    "en": "Not measured yet",
+    "es": "Aún no medido",
+    "ca": "Encara no mesurat"
+  },
+  "ui.predictor_executor_samples": {
+    "en": "Samples",
+    "es": "Muestras",
+    "ca": "Mostres"
+  },
+  "ui.predictor_executor_cache": {
+    "en": "cache",
+    "es": "caché",
+    "ca": "memòria cau"
+  },
+  "ui.predictor_executor_start": {
+    "en": "Open Predictor",
+    "es": "Abrir Predictor",
+    "ca": "Obrir Predictor"
+  },
+  "ui.predictor_executor_close": {
+    "en": "Close",
+    "es": "Cerrar",
+    "ca": "Tancar"
+  },
+  "ui.predictor_executor_running": {
+    "en": "Preparing Predictor",
+    "es": "Preparando el Predictor",
+    "ca": "Preparant el Predictor"
+  },
+  "ui.predictor_executor_waiting": {
+    "en": "Waiting for the executor…",
+    "es": "Esperando al ejecutor…",
+    "ca": "Esperant l'executor…"
+  },
+  "ui.predictor_executor_opening": {
+    "en": "Opening the Predictor…",
+    "es": "Abriendo el Predictor…",
+    "ca": "Obrint el Predictor…"
+  },
+  "ui.predictor_executor_error": {
+    "en": "The Predictor could not be opened.",
+    "es": "No se ha podido abrir el Predictor.",
+    "ca": "No s'ha pogut obrir el Predictor."
+  },
   "ui.predictor_tab_recommender": {
     "en": "This week",
     "es": "Esta semana",

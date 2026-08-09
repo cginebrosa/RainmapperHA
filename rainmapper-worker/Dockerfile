@@ -36,6 +36,9 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_observation_features.py \
      rainmapper_core/mushroom_observations.py \
      rainmapper_core/mushroom_paths.py \
+     rainmapper_core/mushroom_ml_predictor.py \
+     rainmapper_core/mushroom_predictor_runtime.py \
+     rainmapper_core/mushroom_predictor_service.py \
      rainmapper_core/mushroom_rebuild_contracts.py \
      rainmapper_core/mushroom_rebuild_comparison.py \
      rainmapper_core/mushroom_rebuild_pipeline.py \
@@ -47,6 +50,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_worker_transport.py \
      rainmapper_core/mushroom_worker_results.py \
      rainmapper_core/mushroom_ml_trainer.py \
+     rainmapper_core/runtime_diagnostics.py \
      /app/rainmapper_core/
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
 COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py
@@ -66,6 +70,10 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_worker_service.py \
         /app/rainmapper_core/mushroom_worker_transport.py \
         /app/rainmapper_core/mushroom_worker_results.py \
+        /app/rainmapper_core/mushroom_ml_predictor.py \
+        /app/rainmapper_core/mushroom_predictor_runtime.py \
+        /app/rainmapper_core/mushroom_predictor_service.py \
+        /app/rainmapper_core/runtime_diagnostics.py \
         /app/scripts/manage-mushroom-worker-datasets.py \
         /app/scripts/manage-mushroom-worker-config.py \
         /app/scripts/run-mushroom-worker-service.py \

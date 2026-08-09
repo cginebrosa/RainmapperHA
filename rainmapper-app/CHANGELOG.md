@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.2.234
+
+- Run the Fruiting Predictor on Home Assistant or an idle compatible worker,
+  with capability-based compatibility, immutable runtime synchronization and
+  coordinator-owned results and diagnostics.
+- Recommend the fastest comparable executor from retained cold/warm timings,
+  while preserving explicit manual selection and Home Assistant fallback.
+- Open executor selection and live job progress in a localized Control Panel
+  modal, retaining the direct full-page flow as a no-JavaScript fallback.
+- Reuse verified worker runtime files by SHA-256, retain predictor instances for
+  warm requests and avoid retransmitting unchanged models and weather data.
+
 ## 0.2.233
 
 - Move runtime observability into a dedicated Diagnostics tab with retained

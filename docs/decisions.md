@@ -3450,3 +3450,37 @@ Validacion local:
 - HA `0.2.233` publicada para `linux/amd64` y `linux/arm64` con digest
   `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`;
   pendiente de instalación y validación en la RPi4.
+# 2026-08-09 - Predictor remoto con selección informada y diagnóstico en HA
+
+- `MushroomMLPredictor` permanece como motor único en `rainmapper_core`.
+- Se añade una fachada sin HTML compartida por HA y worker; no se duplica la
+  inferencia en la aplicación ni se ejecuta Python en el navegador.
+- HA es la autoridad de selección, progreso, resultados y caja negra. El worker
+  solo sincroniza un runtime inmutable, calcula y devuelve telemetría.
+- La entrada al Predictor presenta Auto/Manual. Auto recomienda el ejecutor
+  compatible y libre con menor tiempo típico comparable; también se muestran
+  última/típica fría y caliente y número de muestras.
+- La comunicación continúa siendo saliente y autenticada desde el worker. El
+  navegador no conoce credenciales ni endpoints privados del worker.
+- Las versiones de HA y worker son independientes; la compatibilidad se negocia
+  por capacidad y contratos (`predictor_v1`, features y formato de modelo).
+- Diseño completo: `docs/mushrooms/mushroom-remote-predictor-design-es.md`.
+- Implementación inicial: contratos 1.0, runtime SHA-256 incremental, capacidad
+  `predictor_v1`, trabajo interactivo, selección Auto/Manual, progreso y
+  estadísticas autoritativas en HA. Publicada en HA `0.2.234` sin alinear las
+  versiones independientes de HA y worker.
+- Prueba local real: M1 frío 2,5944 s con 15.808.259 bytes sincronizados; segunda
+  ejecución 0,2505 s, caché reutilizada y cero bytes transferidos. HA conservó y
+  renderizó ambos resultados.
+- La entrada del panel se resuelve en un modal que conserva el enlace directo
+  como fallback, transforma la selección en progreso y navega al Predictor solo
+  cuando la respuesta está lista. El refresco periódico del panel no destruye el
+  modal ni el trabajo en curso.
+- Evolución aprobada para una fase posterior: ofrecer el Predictor como feature
+  autorizable desde MapLibre, manteniendo HA como único gateway y a los workers
+  sin exposición entrante. Ver límites de permisos, privacidad, capacidad y
+  caché en el documento de diseño.
+- HA `0.2.234` publicada para `linux/amd64` y `linux/arm64`, tag de versión y
+  `latest` con digest
+  `sha256:431338d23b568ffb3671768766075aae52e2326b6d90a64ecf0aafc10af71199`;
+  pendiente de instalación y validación en HA real.

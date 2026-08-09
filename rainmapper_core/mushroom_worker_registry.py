@@ -17,6 +17,7 @@ JOB_ID_PATTERN = re.compile(r"^worker_job_[a-zA-Z0-9_-]{8,80}$")
 HOME_ASSISTANT_EXECUTOR = "home_assistant"
 WEATHER_PARQUET_CAPABILITY = "weather_parquet_v1"
 TERMINAL_JOB_CLEANUP_CAPABILITY = "terminal_job_cleanup_v1"
+PREDICTOR_CAPABILITY = "predictor_v1"
 STATIC_FIELDS = (
     "worker_id",
     "display_name",
@@ -56,6 +57,9 @@ def normalize_heartbeat(payload: object) -> dict[str, Any]:
     dataset_cache = payload.get("dataset_cache")
     if not isinstance(dataset_cache, dict):
         raise ValueError("Worker dataset cache summary is invalid.")
+    predictor_cache = payload.get("predictor_cache", {})
+    if not isinstance(predictor_cache, dict):
+        raise ValueError("Worker predictor cache summary is invalid.")
     discarded_job_ids = payload.get("discarded_job_ids", [])
     if (
         not isinstance(discarded_job_ids, list)
@@ -83,6 +87,7 @@ def normalize_heartbeat(payload: object) -> dict[str, Any]:
         "job_api": str(payload.get("job_api", "not_implemented") or "not_implemented").strip()[:80],
         "capabilities": [str(value).strip() for value in capabilities],
         "dataset_cache": dict(dataset_cache),
+        "predictor_cache": dict(predictor_cache),
         "discarded_job_ids": list(dict.fromkeys(discarded_job_ids)),
         "cleaned_job_ids": list(dict.fromkeys(cleaned_job_ids)),
     }

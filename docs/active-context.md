@@ -6,6 +6,10 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
+- Publicada y pendiente de instalar/validar en HA real: `0.2.234`. Añade el
+  Predictor remoto `predictor_v1`, selección Auto/Manual por tiempos comparables,
+  runtime inmutable incremental y modal localizado de selección/progreso. Digest:
+  `sha256:431338d23b568ffb3671768766075aae52e2326b6d90a64ecf0aafc10af71199`.
 - Publicada, instalada y validada en HA real: `0.2.233`.
   Añade Diagnostics con histórico, comparación A/B, evolución y Gantt; caja
   negra `2.2` para las cuatro fuentes; transporte Parquet al worker con fallback
@@ -512,7 +516,7 @@ Y copia `rainmapper_core/mushroom_ml_trainer.py` + `scripts/run-mushroom-ml-trai
 
 ### Pendiente
 
-- Instalar HA `0.2.233` y validar la release en la RPi4. El worker M1 `1.0.0` ya
+- Instalar HA `0.2.234` y validar el Predictor remoto en la RPi4. El worker M1 `1.0.0` ya
   está construido, arrancado y healthy.
 - Validar el primer job externo end-to-end con worker `1.0.0`: preflight visible,
   transporte Parquet, ejecución, subida/promoción y acuse de limpieza local.

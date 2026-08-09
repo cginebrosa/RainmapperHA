@@ -262,6 +262,31 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("runner", content)
         self.assertNotIn("Cannot load predictor", content)
 
+    def test_predictor_executor_options_show_friendly_recommendation(self) -> None:
+        executors = [
+            {
+                "executor_id": "home_assistant",
+                "display_name": "Home Assistant",
+                "timing": {"median_seconds": None, "sample_count": 0},
+                "cache": {"status": "local"},
+            },
+            {
+                "executor_id": "worker:worker_internal123",
+                "display_name": "M1 Personal",
+                "timing": {"median_seconds": 1.4, "sample_count": 2},
+                "cache": {"status": "valid"},
+            },
+        ]
+
+        rendered = self.web_server.render_predictor_executor_options(
+            executors, "M1 Personal"
+        )
+
+        self.assertIn("Currently: M1 Personal", rendered)
+        self.assertIn("1.4 s typical", rendered)
+        self.assertIn('value="worker:worker_internal123"', rendered)
+        self.assertIn('data-display-name="M1 Personal"', rendered)
+
     def test_predictor_records_full_server_request_and_embeds_client_timing(self) -> None:
         self.addCleanup(self.reset_run_state)
         handler = self.web_server.RainmapperHandler.__new__(
@@ -302,8 +327,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "render_page",
                     return_value="<div>predictor</div>",
                 ),
+                mock.patch.object(self.web_server.mushroom_predictor_stats, "record"),
             ):
-                handler.render_mushroom_predictor()
+                handler.render_mushroom_predictor({"executor": ["home_assistant"]})
 
             records = [
                 json.loads(line)
@@ -728,6 +754,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("api/diagnostics/history", page)
         self.assertIn("window.setTimeout(refreshControlPanel,5000)", page)
         self.assertIn("if(livePanel.dataset.controlSignature!==payload.signature)", page)
+        self.assertIn("data-predictor-modal-open", page)
+        self.assertIn('id="predictor-launch-modal"', page)
+        self.assertIn("data-predictor-executor-form", page)
+        self.assertIn("data-predictor-progress-step", page)
+        self.assertIn("fetchPredictor(response.url)", page)
 
     def test_control_panel_fragment_endpoint_returns_live_region(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)

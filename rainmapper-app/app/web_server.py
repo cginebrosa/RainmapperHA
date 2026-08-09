@@ -54,6 +54,10 @@ from rainmapper_core import mushroom_worker_jobs
 from rainmapper_core import mushroom_worker_registry
 from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_worker_results
+from rainmapper_core import mushroom_predictor_runtime
+from rainmapper_core import mushroom_predictor_stats
+from rainmapper_core.mushroom_predictor_service import REQUEST_KIND as PREDICTOR_REQUEST_KIND
+from rainmapper_core.mushroom_predictor_service import SCHEMA_VERSION as PREDICTOR_SCHEMA_VERSION
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
 from rainmapper_core.mushroom_validation import (
     empty_species_profile,
@@ -100,11 +104,13 @@ MUSHROOM_MEDIA_FILE_MAX_BYTES = 100 * 1024 * 1024
 MUSHROOM_MEDIA_BATCH_MAX_BYTES = 500 * 1024 * 1024
 MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES = 2 * 1024 * 1024
 MUSHROOM_WORKER_JSON_MAX_BYTES = 64 * 1024
+MUSHROOM_PREDICTOR_RESULT_MAX_BYTES = 1024 * 1024 + 64 * 1024
 PREDICTOR_CLIENT_TIMING_MAX_BYTES = 16 * 1024
 MUSHROOM_WORKER_PROTOCOL_GET_PATHS = {
     "/api/mushrooms/workers/ping",
     "/api/mushrooms/workers/jobs/input",
     "/api/mushrooms/workers/jobs/dataset",
+    "/api/mushrooms/workers/jobs/predictor-runtime",
 }
 MUSHROOM_WORKER_PROTOCOL_POST_PATHS = {
     "/api/mushrooms/workers/pair",
@@ -186,6 +192,7 @@ RUN_STATE = {
 MUSHROOM_REBUILD_JOBS: dict[str, dict[str, object]] = {}
 MUSHROOM_REBUILD_JOB_TTL_SECONDS = 3600
 MUSHROOM_WORKER_HEARTBEATS: dict[str, dict[str, object]] = {}
+MUSHROOM_PREDICTOR_MONITORS: dict[str, runtime_diagnostics.OperationMonitor] = {}
 MUSHROOM_WORKER_STALE_SECONDS = 5
 MUSHROOM_WORKER_PAIRINGS: dict[str, dict[str, object]] = {}
 MUSHROOM_WORKER_PAIRING_TTL_SECONDS = 600
@@ -6431,6 +6438,100 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       max-width: 980px;
       width: min(980px, 100%);
     }}
+    body.predictor-modal-open {{
+      overflow: hidden;
+    }}
+    .predictor-launch-modal {{
+      align-items: center;
+      display: flex;
+      inset: 0;
+      justify-content: center;
+      padding: 24px;
+      position: fixed;
+      z-index: 1800;
+    }}
+    .predictor-launch-modal[hidden] {{
+      display: none;
+    }}
+    .predictor-launch-backdrop {{
+      background: rgba(0, 0, 0, .72);
+      border: 0;
+      inset: 0;
+      padding: 0;
+      position: absolute;
+    }}
+    .predictor-launch-dialog {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+      display: grid;
+      gap: 16px;
+      max-height: calc(100vh - 48px);
+      max-width: 680px;
+      overflow: auto;
+      padding: 20px;
+      position: relative;
+      width: min(680px, 100%);
+    }}
+    .predictor-launch-dialog .modal-head h2,
+    .predictor-launch-dialog .modal-head p {{
+      margin: 0;
+    }}
+    .predictor-launch-dialog .modal-head p {{
+      color: var(--muted);
+      margin-top: 6px;
+    }}
+    .predictor-launch-close {{
+      font-size: 20px;
+      min-width: 40px;
+    }}
+    .predictor-executor-options {{
+      display: grid;
+      gap: 10px;
+    }}
+    .predictor-executor-card {{
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: auto 1fr;
+      padding: 12px 14px;
+    }}
+    .predictor-executor-card:has(input:checked) {{
+      background: rgba(3, 169, 244, .10);
+      border-color: var(--accent);
+    }}
+    .predictor-executor-card > span {{
+      display: grid;
+      gap: 3px;
+    }}
+    .predictor-executor-card input {{
+      height: 20px;
+      margin: 0;
+      width: 20px;
+    }}
+    .predictor-executor-auto {{
+      margin-bottom: 4px;
+    }}
+    .predictor-launch-progress {{
+      display: grid;
+      gap: 10px;
+      padding: 8px 0;
+    }}
+    .predictor-launch-progress[hidden] {{
+      display: none;
+    }}
+    .predictor-launch-progress h3,
+    .predictor-launch-progress p {{
+      margin: 0;
+    }}
+    .predictor-launch-progress progress {{
+      height: 18px;
+      width: 100%;
+    }}
     .modal-header {{
       align-items: start;
       display: flex;
@@ -11269,6 +11370,10 @@ def mushroom_worker_jobs_path() -> Path:
     return mushroom_paths.mushroom_data_file("mushroom_worker_jobs.json")
 
 
+def mushroom_predictor_stats_path() -> Path:
+    return mushroom_paths.mushroom_data_file("mushroom_predictor_executor_stats.json")
+
+
 def mushroom_worker_credentials_path() -> Path:
     return mushroom_paths.mushroom_data_file("mushroom_worker_credentials.json")
 
@@ -11597,6 +11702,331 @@ def registered_mushroom_worker_statuses(*, now: float | None = None) -> list[dic
             }
         )
     return statuses
+
+
+def available_predictor_executors() -> list[dict[str, object]]:
+    """Return idle compatible executors with coordinator-owned timing summaries."""
+    executors: list[dict[str, object]] = [
+        {
+            "executor_id": mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR,
+            "display_name": "Home Assistant",
+            "worker_id": "",
+            "worker_version": "",
+            "cache": {"status": "local"},
+        }
+    ]
+    for row in registered_mushroom_worker_statuses():
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        if (
+            row.get("reachable")
+            and payload.get("status") == "idle"
+            and mushroom_worker_supports(payload, mushroom_worker_registry.PREDICTOR_CAPABILITY)
+        ):
+            worker_id = str(payload.get("worker_id", ""))
+            executors.append(
+                {
+                    "executor_id": f"worker:{worker_id}",
+                    "display_name": str(payload.get("display_name", worker_id)),
+                    "worker_id": worker_id,
+                    "worker_version": str(payload.get("worker_version", "")),
+                    "cache": dict(payload.get("predictor_cache", {})),
+                }
+            )
+    summaries = {
+        row["executor_id"]: row
+        for row in mushroom_predictor_stats.rank_available(
+            mushroom_predictor_stats_path(),
+            [str(row["executor_id"]) for row in executors],
+        )
+    }
+    for executor in executors:
+        executor["timing"] = summaries[str(executor["executor_id"])]
+    return executors
+
+
+def predictor_executor_selection() -> tuple[list[dict[str, object]], str, str]:
+    """Return available executors plus the recommended id and friendly name."""
+    executors = available_predictor_executors()
+    ranked = mushroom_predictor_stats.rank_available(
+        mushroom_predictor_stats_path(),
+        [str(row["executor_id"]) for row in executors],
+    )
+    recommended_id = str(ranked[0]["executor_id"]) if ranked else mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR
+    recommended_name = next(
+        (
+            str(row["display_name"])
+            for row in executors
+            if str(row["executor_id"]) == recommended_id
+        ),
+        "Home Assistant",
+    )
+    return executors, recommended_id, recommended_name
+
+
+def render_predictor_executor_options(executors: list[dict[str, object]], recommended_name: str) -> str:
+    """Render the shared Auto/manual executor choices for page and modal."""
+    label = mushroom_profiles_ui.ui_label
+    auto_current = label("ui.predictor_executor_current").format(executor=recommended_name)
+    cards = [
+        '<label class="predictor-executor-card predictor-executor-auto">'
+        '<input type="radio" name="executor" value="auto" '
+        f'data-display-name="{html.escape(recommended_name, quote=True)}" checked>'
+        '<span><strong>'
+        f'{html.escape(label("ui.predictor_executor_auto"))} '
+        f'<small>({html.escape(label("ui.predictor_executor_recommended"))})</small>'
+        '</strong>'
+        f'<span class="meta">{html.escape(auto_current)}</span></span>'
+        '</label>'
+    ]
+    for row in executors:
+        timing = row.get("timing", {}) if isinstance(row.get("timing"), dict) else {}
+        typical = timing.get("median_seconds")
+        timing_text = (
+            label("ui.predictor_executor_typical").format(seconds=f"{float(typical):.1f}")
+            if typical is not None
+            else label("ui.predictor_executor_not_measured")
+        )
+        cache = row.get("cache", {}) if isinstance(row.get("cache"), dict) else {}
+        display_name = str(row["display_name"])
+        detail = (
+            f'{label("ui.predictor_executor_samples")}: {int(timing.get("sample_count", 0) or 0)}'
+            f' · {label("ui.predictor_executor_cache")}: {cache.get("status", "unknown")}'
+        )
+        cards.append(
+            '<label class="predictor-executor-card">'
+            f'<input type="radio" name="executor" value="{html.escape(str(row["executor_id"]), quote=True)}" '
+            f'data-display-name="{html.escape(display_name, quote=True)}">'
+            '<span>'
+            f'<strong>{html.escape(display_name)}</strong>'
+            f'<span>{html.escape(timing_text)}</span>'
+            f'<span class="meta">{html.escape(detail)}</span>'
+            '</span></label>'
+        )
+    return '<div class="predictor-executor-options">' + "".join(cards) + "</div>"
+
+
+def render_predictor_launch_modal() -> str:
+    """Render the Control Panel Predictor chooser/progress modal."""
+    label = mushroom_profiles_ui.ui_label
+    executors, _recommended_id, recommended_name = predictor_executor_selection()
+    options = render_predictor_executor_options(executors, recommended_name)
+    return f"""
+    <div id="predictor-launch-modal" class="predictor-launch-modal" hidden
+         data-waiting-label="{html.escape(label('ui.predictor_executor_waiting'), quote=True)}"
+         data-opening-label="{html.escape(label('ui.predictor_executor_opening'), quote=True)}"
+         data-error-label="{html.escape(label('ui.predictor_executor_error'), quote=True)}">
+      <button class="predictor-launch-backdrop" type="button" data-predictor-modal-close tabindex="-1" aria-label="{html.escape(label('ui.predictor_executor_close'), quote=True)}"></button>
+      <section class="predictor-launch-dialog" role="dialog" aria-modal="true" aria-labelledby="predictor-launch-title">
+        <header class="modal-head">
+          <div>
+            <h2 id="predictor-launch-title">🍄 {html.escape(label('ui.predictor_executor_choose_title'))}</h2>
+            <p>{html.escape(label('ui.predictor_executor_choose_help'))}</p>
+          </div>
+          <button class="secondary predictor-launch-close" type="button" data-predictor-modal-close aria-label="{html.escape(label('ui.predictor_executor_close'), quote=True)}">×</button>
+        </header>
+        <form data-predictor-executor-form>
+          {options}
+          <div class="modal-actions">
+            <button type="button" class="secondary" data-predictor-modal-close>{html.escape(label('ui.predictor_executor_close'))}</button>
+            <button type="submit" class="primary">{html.escape(label('ui.predictor_executor_start'))}</button>
+          </div>
+        </form>
+        <div class="predictor-launch-progress" data-predictor-progress-step hidden>
+          <p class="meta" data-predictor-executor-name></p>
+          <h3 data-predictor-phase>{html.escape(label('ui.predictor_executor_running'))}</h3>
+          <progress max="100"></progress>
+          <p data-predictor-message>{html.escape(label('ui.predictor_executor_waiting'))}</p>
+        </div>
+        <div class="catalog-alert error" data-predictor-modal-error hidden></div>
+      </section>
+    </div>
+    """
+
+
+def predictor_launch_script() -> str:
+    """Return the modal controller without coupling it to Control Panel polling."""
+    return r"""<script>
+    (() => {
+      const modal = document.getElementById("predictor-launch-modal");
+      if (!modal) return;
+      const form = modal.querySelector("[data-predictor-executor-form]");
+      const progressStep = modal.querySelector("[data-predictor-progress-step]");
+      const progress = progressStep.querySelector("progress");
+      const phase = modal.querySelector("[data-predictor-phase]");
+      const message = modal.querySelector("[data-predictor-message]");
+      const executorName = modal.querySelector("[data-predictor-executor-name]");
+      const errorBox = modal.querySelector("[data-predictor-modal-error]");
+      const closeButtons = [...modal.querySelectorAll("[data-predictor-modal-close]")];
+      let predictorUrl = "./mushrooms/predictor";
+      let running = false;
+
+      const setCloseEnabled = enabled => closeButtons.forEach(button => { button.disabled = !enabled; });
+      const reset = () => {
+        running = false;
+        form.hidden = false;
+        progressStep.hidden = true;
+        errorBox.hidden = true;
+        errorBox.textContent = "";
+        progress.removeAttribute("value");
+        phase.textContent = modal.dataset.waitingLabel;
+        message.textContent = modal.dataset.waitingLabel;
+        executorName.textContent = "";
+        setCloseEnabled(true);
+      };
+      const open = trigger => {
+        reset();
+        predictorUrl = trigger.getAttribute("href") || predictorUrl;
+        modal.hidden = false;
+        document.body.classList.add("predictor-modal-open");
+        modal.querySelector("input:checked")?.focus();
+      };
+      const close = () => {
+        if (running) return;
+        modal.hidden = true;
+        document.body.classList.remove("predictor-modal-open");
+      };
+      const replaceDocument = (markup, url) => {
+        history.replaceState({}, "", url);
+        document.open();
+        document.write(markup);
+        document.close();
+      };
+      const errorText = doc =>
+        doc.querySelector(".catalog-alert.error")?.textContent.trim() || modal.dataset.errorLabel;
+      const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
+      const fetchPredictor = async url => {
+        const response = await fetch(url, {
+          headers: { Accept: "text/html" },
+          cache: "no-store",
+          credentials: "same-origin"
+        });
+        const markup = await response.text();
+        const parsed = new DOMParser().parseFromString(markup, "text/html");
+        if (!response.ok) throw new Error(errorText(parsed));
+        const state = parsed.querySelector("[data-predictor-job-status='running']");
+        if (state) {
+          const percent = Math.max(0, Math.min(100, Number(state.dataset.predictorProgress || 0)));
+          progress.value = percent;
+          phase.textContent = state.dataset.predictorPhase || modal.dataset.waitingLabel;
+          message.textContent = `${percent}% · ${state.dataset.predictorMessage || ""}`;
+          executorName.textContent = state.dataset.predictorExecutor || executorName.textContent;
+          await wait(600);
+          return fetchPredictor(response.url);
+        }
+        phase.textContent = modal.dataset.openingLabel;
+        message.textContent = modal.dataset.openingLabel;
+        replaceDocument(markup, response.url);
+      };
+
+      document.addEventListener("click", event => {
+        const trigger = event.target.closest("[data-predictor-modal-open]");
+        if (trigger) {
+          event.preventDefault();
+          open(trigger);
+          return;
+        }
+        if (event.target.closest("[data-predictor-modal-close]")) close();
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !modal.hidden) close();
+      });
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        const selected = form.querySelector("input[name='executor']:checked");
+        if (!selected) return;
+        running = true;
+        setCloseEnabled(false);
+        form.hidden = true;
+        errorBox.hidden = true;
+        progressStep.hidden = false;
+        progress.removeAttribute("value");
+        phase.textContent = modal.dataset.waitingLabel;
+        message.textContent = modal.dataset.waitingLabel;
+        executorName.textContent = selected.dataset.displayName || "";
+        const url = new URL(predictorUrl, window.location.href);
+        url.searchParams.set("executor", selected.value);
+        try {
+          await fetchPredictor(url);
+        } catch (error) {
+          running = false;
+          setCloseEnabled(true);
+          progressStep.hidden = true;
+          form.hidden = false;
+          errorBox.textContent = error?.message || modal.dataset.errorLabel;
+          errorBox.hidden = false;
+        }
+      });
+    })();
+    </script>"""
+
+
+def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> dict[str, object]:
+    if action_is_running():
+        raise ValueError("Predictor is unavailable while a runner action is active.")
+    worker = next(
+        (
+            row for row in available_predictor_executors()
+            if row.get("worker_id") == worker_id
+        ),
+        None,
+    )
+    if worker is None:
+        raise ValueError("The selected predictor worker is not available and idle.")
+    trained = mushroom_predictor_ui.trained_species_ids()
+    species = (query.get("species") or [trained[0] if trained else ""])[0]
+    request = {
+        "schema_version": PREDICTOR_SCHEMA_VERSION,
+        "kind": PREDICTOR_REQUEST_KIND,
+        "view": (query.get("view") or ["recommender"])[0],
+        "species_id": species,
+        "area_id": (query.get("area") or [""])[0],
+        "target_date": (query.get("date") or [datetime.now(get_timezone()).date().isoformat()])[0],
+        "filter_mode": (query.get("filter") or [""])[0],
+        "trained_species_ids": trained,
+    }
+    manifest, _sources = mushroom_predictor_runtime.build_manifest()
+    maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
+    monitor = runtime_diagnostics.OperationMonitor(
+        "predictor_request",
+        details={"app_version": app_version(), "executor": f"worker:{worker_id}", "view": request["view"]},
+    )
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.create_predictor_job(
+            mushroom_worker_jobs_path(),
+            worker_id=worker_id,
+            worker_display_name=str(worker["display_name"]),
+            request=request,
+            runtime_manifest=manifest,
+                operation_id=monitor.operation_id,
+                worker_version=str(worker.get("worker_version", "")),
+            )
+            MUSHROOM_PREDICTOR_MONITORS[str(job["job_id"])] = monitor
+        return job
+    except BaseException:
+        monitor.finish("error", {"phase": "queue_failed"})
+        raise
+
+
+def resolve_mushroom_predictor_runtime_download(
+    *, job_id: str, logical_path: str, worker_id: str, claim_token: str, auth_token: str
+) -> tuple[int, Path | dict[str, object]]:
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.authorize_input_download(
+                mushroom_worker_jobs_path(), job_id=job_id, worker_id=worker_id, claim_token=claim_token
+            )
+        if job.get("job_type") != mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
+            raise ValueError("Worker job is not a predictor request.")
+        assigned = mushroom_predictor_runtime.validate_manifest(job.get("runtime_manifest"))
+        current, sources = mushroom_predictor_runtime.build_manifest()
+        if current["fingerprint"] != assigned["fingerprint"]:
+            raise ValueError("Live predictor runtime changed; retry the prediction.")
+        return 200, mushroom_predictor_runtime.resolve_source(assigned, sources, logical_path)
+    except (FileNotFoundError, ValueError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
 
 
 def create_mushroom_worker_claim_probe(worker_id: str) -> tuple[int, dict[str, object]]:
@@ -12339,6 +12769,23 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                 result=trusted_result,
             )
             if (
+                current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR
+                and job.get("status") == "complete"
+                and isinstance(job.get("result"), dict)
+            ):
+                predictor_result = job["result"]
+                response_payload = predictor_result.get("response", {})
+                metrics = response_payload.get("metrics", {}) if isinstance(response_payload, dict) else {}
+                mushroom_predictor_stats.record(
+                    mushroom_predictor_stats_path(),
+                    executor_id=f"worker:{worker_id}",
+                    cold=bool(predictor_result.get("cold")),
+                    backend_seconds=float(metrics.get("backend_seconds", 0.0) or 0.0),
+                    runtime_fingerprint=str(response_payload.get("runtime_fingerprint", "")),
+                    app_version=app_version(),
+                    worker_version=str(current_job.get("worker_version", "")),
+                )
+            if (
                 current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD
                 and str(payload.get("status", "")) in {"cancelled", "failed"}
             ):
@@ -12346,10 +12793,25 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     mushroom_worker_candidate_results_path(),
                     str(payload.get("job_id", "")),
                 )
+        if current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
+            monitor = MUSHROOM_PREDICTOR_MONITORS.get(str(job.get("job_id", "")))
+            if monitor is not None:
+                monitor.mark(
+                    "worker_finished",
+                    {
+                        "executor": f"worker:{worker_id}",
+                        "worker_job_id": str(job.get("job_id", "")),
+                        "worker_phase": str(job.get("phase", "")),
+                        "status": str(job.get("status", "")),
+                    },
+                )
         discard_mushroom_worker_input_bundle(job)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
-    return 200, {"ok": True, "job": job}
+    response_job = dict(job)
+    if response_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
+        response_job["result"] = {"accepted": True}
+    return 200, {"ok": True, "job": response_job}
 
 
 def receive_mushroom_worker_result_file(
@@ -16257,6 +16719,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return mushroom_worker_results.MAX_RESULT_FILE_BYTES
         if path == "/api/mushrooms/workers/jobs/ml-result-file":
             return mushroom_worker_results.MAX_ML_TRAIN_MODEL_BYTES
+        if path == "/api/mushrooms/workers/jobs/finish":
+            return MUSHROOM_PREDICTOR_RESULT_MAX_BYTES
         if path.startswith("/api/mushrooms/workers/"):
             return MUSHROOM_WORKER_JSON_MAX_BYTES
         if path == "/api/mushrooms/observation-exif-preview":
@@ -16554,20 +17018,94 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def render_mushroom_predictor(self, query: dict[str, list[str]] | None = None) -> None:
         query = query or {}
         page_title = mushroom_profiles_ui.ui_label("ui.predictor_title")
+        executor = (query.get("executor") or [""])[0]
+        job_id = (query.get("job_id") or [""])[0]
+        if not executor and not job_id:
+            executors, _recommended_id, recommended_name = predictor_executor_selection()
+            options = render_predictor_executor_options(executors, recommended_name)
+            body = f"""
+            <p><a class="button-link" href="../">← {html.escape(mushroom_profiles_ui.ui_label('ui.back_to_panel'))}</a></p>
+            <h1>🍄 {html.escape(page_title)}</h1>
+            <h2>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_executor_choose_title'))}</h2>
+            <p>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_executor_choose_help'))}</p>
+            <form method="get">{options}
+            <div class="modal-actions"><button class="primary" type="submit">{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_executor_start'))}</button></div></form>
+            """
+            self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+            return
+        if executor == "auto":
+            ranked = mushroom_predictor_stats.rank_available(
+                mushroom_predictor_stats_path(),
+                [str(row["executor_id"]) for row in available_predictor_executors()],
+            )
+            executor = str(ranked[0]["executor_id"]) if ranked else "home_assistant"
+            query["executor"] = [executor]
+        if executor.startswith("worker:") and not job_id:
+            try:
+                job = create_remote_predictor_job(executor.removeprefix("worker:"), query)
+            except Exception as exc:
+                body = f'<h1>{html.escape(page_title)}</h1><div class="catalog-alert error">{html.escape(str(exc))}</div>'
+                self.send_bytes(409, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+                return
+            params = {key: values[0] for key, values in query.items() if values and key != "job_id"}
+            params["job_id"] = str(job["job_id"])
+            self.redirect_to("./predictor?" + urlencode(params))
+            return
+        prepared_response = None
+        if job_id:
+            try:
+                job = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=job_id)
+            except ValueError as exc:
+                self.send_bytes(404, html_page(page_title, f'<div class="catalog-alert error">{html.escape(str(exc))}</div>', auto_refresh=False), "text/html; charset=utf-8")
+                return
+            if job.get("status") not in mushroom_worker_jobs.TERMINAL_STATUSES:
+                percent = int(job.get("overall_percent", 0) or 0)
+                phase_text = str(job.get("phase", "Working"))
+                message_text = str(job.get("message", ""))
+                executor_text = str(job.get("worker_display_name", "") or executor)
+                body = f"""<div data-predictor-job-status="running"
+                data-predictor-progress="{percent}"
+                data-predictor-phase="{html.escape(phase_text, quote=True)}"
+                data-predictor-message="{html.escape(message_text, quote=True)}"
+                data-predictor-executor="{html.escape(executor_text, quote=True)}">
+                <p><a class="button-link" href="?">← Change executor</a></p>
+                <h1>🍄 {html.escape(page_title)}</h1><h2>{html.escape(str(job.get('phase', 'Working')))}</h2>
+                <progress value="{percent}" max="100" style="width:100%;height:1.5rem"></progress>
+                <p>{percent}% · {html.escape(str(job.get('message', '')))}</p>
+                </div><script>setTimeout(() => location.reload(), 1000);</script>"""
+                self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+                return
+            if job.get("status") != "complete":
+                failed_monitor = MUSHROOM_PREDICTOR_MONITORS.pop(job_id, None)
+                if failed_monitor is not None:
+                    failed_monitor.finish(str(job.get("status", "error")), {"worker_job_id": job_id})
+                body = (
+                    '<p><a class="button-link" href="?">← Choose another executor</a></p>'
+                    f'<h1>{html.escape(page_title)}</h1><div class="catalog-alert error">'
+                    f'{html.escape(str(job.get("error") or job.get("phase")))}</div>'
+                )
+                self.send_bytes(500, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+                return
+            result = job.get("result") if isinstance(job.get("result"), dict) else {}
+            prepared_response = result.get("response")
         cache_info = mushroom_predictor_ui.predictor_cache_info(
             (query.get("species") or [""])[0]
         )
-        request_monitor = runtime_diagnostics.OperationMonitor(
-            "predictor_request",
-            details={
-                "app_version": app_version(),
-                "view": (query.get("view") or ["recommender"])[0]
-                if (query.get("view") or ["recommender"])[0]
-                in {"recommender", "week", "query", "history"}
-                else "unknown",
-                **cache_info,
-            },
-        )
+        request_monitor = MUSHROOM_PREDICTOR_MONITORS.pop(job_id, None) if job_id else None
+        if request_monitor is None:
+            request_monitor = runtime_diagnostics.OperationMonitor(
+                "predictor_request",
+                operation_id=(str(job.get("operation_id", "")) if job_id else None) or None,
+                details={
+                    "app_version": app_version(),
+                    "view": (query.get("view") or ["recommender"])[0]
+                    if (query.get("view") or ["recommender"])[0]
+                    in {"recommender", "week", "query", "history"}
+                    else "unknown",
+                    "executor": executor or mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR,
+                    **cache_info,
+                },
+            )
         request_started = time.perf_counter()
 
         def elapsed() -> float:
@@ -16612,7 +17150,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 known_sites_payload
                                 if isinstance(known_sites_payload, dict)
                                 else {},
+                                prepared_response=prepared_response,
                             )
+                            if executor == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR:
+                                mushroom_predictor_stats.record(
+                                    mushroom_predictor_stats_path(),
+                                    executor_id=mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR,
+                                    cold=bool(cache_info.get("cold_request")),
+                                    backend_seconds=elapsed(),
+                                    app_version=app_version(),
+                                )
                         except Exception as exc:
                             status = 500
                             body = (
@@ -17361,6 +17908,25 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 job_id=(query.get("job_id") or [""])[0],
                 dataset_id=(query.get("dataset_id") or [""])[0],
                 fingerprint=(query.get("fingerprint") or [""])[0],
+                logical_path=(query.get("file") or [""])[0],
+                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                auth_token=worker_token,
+            )
+            if status != 200 or not isinstance(response, Path):
+                self.send_json(status, response if isinstance(response, dict) else {"ok": False})
+                return
+            try:
+                self.send_file_path(200, response)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+
+        if path == "/api/mushrooms/workers/jobs/predictor-runtime":
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            status, response = resolve_mushroom_predictor_runtime_download(
+                job_id=(query.get("job_id") or [""])[0],
                 logical_path=(query.get("file") or [""])[0],
                 worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
                 claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
@@ -19669,7 +20235,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./mushrooms/gis-mappings">GIS mappings</a>
           <a class="button-link" href="./mushrooms/known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
           <a class="button-link" href="./mushrooms/workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
-          <a class="button-link" href="./mushrooms/predictor">{html.escape(mushroom_profiles_ui.ui_label('ui.predictor'))}</a>
+          <a class="button-link" href="./mushrooms/predictor" data-predictor-modal-open>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor'))}</a>
         </div>
         """
         head_controls = f"""
@@ -19856,8 +20422,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def render_index(self) -> None:
         control_body = self.render_control_panel_body()
         control_signature = hashlib.sha256(control_body.encode("utf-8")).hexdigest()
+        predictor_modal = render_predictor_launch_modal()
+        predictor_script = predictor_launch_script()
         body = f"""
         <div id="rainmapper-control-panel-live" data-control-signature="{control_signature}">{control_body}</div>
+        {predictor_modal}
         <script>
         (() => {{
           const livePanel=document.getElementById('rainmapper-control-panel-live');
@@ -19885,6 +20454,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           scheduleRefresh();
         }})();
         </script>
+        {predictor_script}
         """
         self.send_bytes(
             200,

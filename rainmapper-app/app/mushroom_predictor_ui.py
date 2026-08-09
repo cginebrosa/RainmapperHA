@@ -6,6 +6,7 @@ import gc
 import html
 import json
 import math
+from contextvars import ContextVar
 from datetime import date, timedelta
 from pathlib import Path
 from threading import RLock
@@ -18,6 +19,7 @@ from rainmapper_core.mushroom_ml_predictor import (
     invalidate_weather_stations_cache,
 )
 from rainmapper_core.mushroom_observation_context import WeatherParquetLayoutError
+from rainmapper_core.mushroom_predictor_service import PreparedPredictor, validate_response
 
 import mushroom_profiles_ui
 
@@ -25,6 +27,10 @@ import mushroom_profiles_ui
 # Module-level predictor cache — lazy-loaded, survives across requests
 _predictor_cache: dict[str, MushroomMLPredictor] = {}
 _predictor_cache_lock = RLock()
+_prepared_response: ContextVar[dict[str, Any] | None] = ContextVar(
+    "mushroom_predictor_prepared_response", default=None
+)
+_executor_query: ContextVar[str] = ContextVar("mushroom_predictor_executor", default="")
 
 # ML report cache — loaded once per process, reset if file changes
 _ml_report_cache: dict[str, Any] | None = None
@@ -46,6 +52,9 @@ def _predictor_error_text(exc: Exception) -> str:
 
 
 def _get_predictor(species_id: str) -> MushroomMLPredictor:
+    prepared = _prepared_response.get()
+    if prepared is not None and species_id in prepared.get("data", {}).get("species", {}):
+        return PreparedPredictor(species_id, prepared)  # type: ignore[return-value]
     with _predictor_cache_lock:
         if species_id not in _predictor_cache:
             _predictor_cache[species_id] = MushroomMLPredictor(species_id)
@@ -199,6 +208,8 @@ def _url(view: str = "recommender", species: str = "", area: str = "", target_da
         params["area"] = area
     if target_date:
         params["date"] = target_date.isoformat()
+    if _executor_query.get():
+        params["executor"] = _executor_query.get()
     params.update({k: v for k, v in extra.items() if v})
     return "?" + urlencode(params)
 
@@ -944,6 +955,23 @@ def _render_errors(errors: list[str]) -> str:
 # ---------------------------------------------------------------------------
 
 def render_page(
+    query: dict[str, list[str]],
+    profiles_payload: dict[str, Any],
+    known_sites_payload: dict[str, Any],
+    prepared_response: dict[str, Any] | None = None,
+) -> str:
+    if prepared_response is not None:
+        prepared_response = validate_response(prepared_response)
+    prepared_token = _prepared_response.set(prepared_response)
+    executor_token = _executor_query.set((query.get("executor") or [""])[0])
+    try:
+        return _render_page_inner(query, profiles_payload, known_sites_payload)
+    finally:
+        _prepared_response.reset(prepared_token)
+        _executor_query.reset(executor_token)
+
+
+def _render_page_inner(
     query: dict[str, list[str]],
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],

@@ -24,6 +24,7 @@ JOB_TYPE_CLAIM_PROBE = "worker_claim_probe"
 JOB_TYPE_SNAPSHOT_TRANSPORT = "worker_snapshot_transport_probe"
 JOB_TYPE_CANDIDATE_REBUILD = "worker_candidate_rebuild"
 JOB_TYPE_ML_TRAIN = "worker_ml_train_v0"
+JOB_TYPE_PREDICTOR = "worker_predictor_v1"
 MAX_JOBS = 50
 DEFAULT_LEASE_SECONDS = 10
 TERMINAL_STATUSES = {"complete", "cancelled", "failed"}
@@ -436,6 +437,66 @@ def create_ml_train_job(
     return dict(job)
 
 
+def create_predictor_job(
+    path: Path,
+    *,
+    worker_id: str,
+    worker_display_name: str,
+    request: dict[str, Any],
+    runtime_manifest: dict[str, Any],
+    job_id: str | None = None,
+    operation_id: str = "",
+    worker_version: str = "",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Queue one interactive prediction without embedding runtime file bytes."""
+    from rainmapper_core.mushroom_predictor_runtime import validate_manifest  # noqa: PLC0415
+    from rainmapper_core.mushroom_predictor_service import normalize_request  # noqa: PLC0415
+
+    target_worker_id = _validate_worker_id(worker_id)
+    display_name = str(worker_display_name or "").strip()[:80]
+    if not display_name:
+        raise ValueError("Worker display name is required.")
+    resolved_job_id = job_id or f"worker_job_{secrets.token_urlsafe(9)}"
+    if not JOB_ID_PATTERN.fullmatch(resolved_job_id):
+        raise ValueError("Worker job ID is invalid.")
+    checked_request = normalize_request(request)
+    checked_manifest = validate_manifest(runtime_manifest)
+    timestamp = created_at or utc_now()
+    job = {
+        "job_id": resolved_job_id,
+        "job_type": JOB_TYPE_PREDICTOR,
+        "work_key": f"predictor:v1:{resolved_job_id}",
+        "target_worker_id": target_worker_id,
+        "target_display_name": display_name,
+        "status": "queued",
+        "phase": "Waiting for worker",
+        "message": "Interactive prediction queued.",
+        "scope": f"predictor {checked_request['view']}",
+        "overall_percent": 0,
+        "created_at": timestamp,
+        "claimed_at": "",
+        "started_at": "",
+        "finished_at": "",
+        "cancel_requested_at": "",
+        "cancel_mode": "",
+        "reassigned_at": "",
+        "lease_expires_at": "",
+        "claim_token": "",
+        "assignment_revision": 1,
+        "operation_id": str(operation_id or "")[:120],
+        "worker_version": str(worker_version or "")[:80],
+        "predictor_request": checked_request,
+        "runtime_manifest": checked_manifest,
+        "runtime_endpoint": "/api/mushrooms/workers/jobs/predictor-runtime",
+    }
+    queue = load_queue(path)
+    queue["jobs"].append(job)
+    queue["jobs"] = queue["jobs"][-MAX_JOBS:]
+    _write_atomic(path, queue)
+    return dict(job)
+
+
 def begin_candidate_promotion(path: Path, *, job_id: str) -> dict[str, Any]:
     queue = load_queue(path)
     job = _find_job(queue, job_id)
@@ -577,6 +638,7 @@ def pending_worker_job_cleanups(path: Path, *, worker_id: str) -> list[str]:
         JOB_TYPE_SNAPSHOT_TRANSPORT,
         JOB_TYPE_CANDIDATE_REBUILD,
         JOB_TYPE_ML_TRAIN,
+        JOB_TYPE_PREDICTOR,
     }
     return [
         str(job.get("job_id", ""))
@@ -701,8 +763,31 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
     if not isinstance(result, dict):
         return {}
     job_type = job.get("job_type")
-    if job_type not in {JOB_TYPE_SNAPSHOT_TRANSPORT, JOB_TYPE_CANDIDATE_REBUILD, JOB_TYPE_ML_TRAIN}:
+    if job_type not in {
+        JOB_TYPE_SNAPSHOT_TRANSPORT,
+        JOB_TYPE_CANDIDATE_REBUILD,
+        JOB_TYPE_ML_TRAIN,
+        JOB_TYPE_PREDICTOR,
+    }:
         return {}
+    if job_type == JOB_TYPE_PREDICTOR:
+        from rainmapper_core.mushroom_predictor_service import validate_response  # noqa: PLC0415
+
+        response = validate_response(result.get("response"))
+        encoded_size = len(json.dumps(response, ensure_ascii=False).encode("utf-8"))
+        if encoded_size > 1024 * 1024:
+            raise ValueError("Worker predictor result exceeds 1 MiB.")
+        cold = result.get("cold")
+        if not isinstance(cold, bool):
+            raise ValueError("Worker predictor cold flag is invalid.")
+        return {
+            "response": response,
+            "cold": cold,
+            "runtime_cache_status": str(result.get("runtime_cache_status", ""))[:40],
+            "runtime_transferred_size_bytes": max(
+                0, int(result.get("runtime_transferred_size_bytes", 0) or 0)
+            ),
+        }
     if job_type == JOB_TYPE_ML_TRAIN:
         normalized: dict[str, Any] = {}
         status = str(result.get("verification_status", "") or "")[:40]
@@ -993,12 +1078,16 @@ def finish_job(
         "Candidate result verified"
         if job.get("job_type") == JOB_TYPE_CANDIDATE_REBUILD
         else (
+            "Prediction completed"
+            if job.get("job_type") == JOB_TYPE_PREDICTOR
+            else (
             "Input bundle verified"
             if job.get("job_type") == JOB_TYPE_SNAPSHOT_TRANSPORT
             else (
                 "ML training completed"
                 if job.get("job_type") == JOB_TYPE_ML_TRAIN
                 else "Assignment test completed"
+            )
             )
         )
     )
@@ -1029,7 +1118,12 @@ def authorize_input_download(
     queue = load_queue(path)
     job = _find_job(queue, job_id)
     _validate_claim(job, worker_id=worker_id, claim_token=claim_token)
-    if job.get("job_type") not in {JOB_TYPE_SNAPSHOT_TRANSPORT, JOB_TYPE_CANDIDATE_REBUILD, JOB_TYPE_ML_TRAIN}:
+    if job.get("job_type") not in {
+        JOB_TYPE_SNAPSHOT_TRANSPORT,
+        JOB_TYPE_CANDIDATE_REBUILD,
+        JOB_TYPE_ML_TRAIN,
+        JOB_TYPE_PREDICTOR,
+    }:
         raise ValueError("Worker job does not have an input bundle.")
     if job.get("status") not in {"claimed", "running", "cancel_requested"}:
         raise ValueError("Worker input bundle is not available in the current job state.")

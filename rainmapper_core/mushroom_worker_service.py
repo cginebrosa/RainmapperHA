@@ -19,13 +19,15 @@ from pathlib import Path
 from typing import Any, Callable, TypeVar
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from rainmapper_core import mushroom_worker_dataset_cache
 from rainmapper_core import mushroom_worker_config
 from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_worker_results
 from rainmapper_core import mushroom_worker_registry
+from rainmapper_core import mushroom_predictor_runtime
+from rainmapper_core.mushroom_predictor_service import PredictorService
 
 
 SCHEMA_VERSION = "0.1"
@@ -121,6 +123,17 @@ def worker_status(
         deep=False,
     )
     cache_ready = cache["status"] == "valid"
+    predictor_runtime = mushroom_predictor_runtime.current_runtime(
+        worker_data_dir / "predictor-runtime"
+    )
+    predictor_manifest: dict[str, Any] = {}
+    if predictor_runtime is not None:
+        try:
+            predictor_manifest = json.loads(
+                (predictor_runtime / "manifest.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            predictor_manifest = {}
     identity = identity or {}
     return {
         "schema_version": SCHEMA_VERSION,
@@ -138,6 +151,7 @@ def worker_status(
             "rebuild_v0",
             mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
             mushroom_worker_registry.TERMINAL_JOB_CLEANUP_CAPABILITY,
+            mushroom_worker_registry.PREDICTOR_CAPABILITY,
         ],
         "dataset_cache": {
             "status": cache["status"],
@@ -147,7 +161,40 @@ def worker_status(
             "file_count": cache["file_count"],
             "size_bytes": cache["size_bytes"],
         },
+        "predictor_cache": {
+            "status": "valid" if predictor_manifest.get("fingerprint") else "empty",
+            "fingerprint": str(predictor_manifest.get("fingerprint", "")),
+            "size_bytes": int(predictor_manifest.get("size_bytes", 0) or 0),
+        },
     }
+
+
+def download_predictor_runtime(
+    ha_url: str,
+    job: dict[str, Any],
+    worker_data_dir: Path,
+    *,
+    worker_id: str,
+    claim_token: str,
+    token: str,
+) -> tuple[Path, dict[str, Any]]:
+    endpoint = str(job.get("runtime_endpoint", ""))
+    if endpoint != "/api/mushrooms/workers/jobs/predictor-runtime":
+        raise ValueError("Worker predictor runtime endpoint is invalid.")
+    manifest = mushroom_predictor_runtime.validate_manifest(job.get("runtime_manifest"))
+    headers = mushroom_worker_transport.request_headers(worker_id, claim_token, token)
+
+    def fetch(logical_path: str, target: Path) -> None:
+        query = urlencode({"job_id": job.get("job_id", ""), "file": logical_path})
+        request = Request(ha_url.rstrip("/") + endpoint + "?" + query, headers=headers, method="GET")
+        with urlopen(request, timeout=120) as response, target.open("xb") as handle:
+            shutil.copyfileobj(response, handle, length=1024 * 1024)
+
+    return mushroom_predictor_runtime.synchronize_runtime(
+        worker_data_dir.resolve() / "predictor-runtime",
+        manifest,
+        fetch,
+    )
 
 
 def heartbeat_payload(
@@ -329,6 +376,8 @@ def serve(
     runtime_state = {"status": "idle", "active_job_id": ""}
     discarded_job_ids_pending: set[str] = set()
     cleaned_job_ids_pending: set[str] = set()
+    predictor_services: dict[str, PredictorService] = {}
+    predictor_services_lock = threading.RLock()
     server = ThreadingHTTPServer(
         (host, port),
         _handler_class(worker_data_dir.resolve(), resolved_version, identity, runtime_state, runtime_lock),
@@ -398,6 +447,7 @@ def serve(
                     "worker_snapshot_transport_probe",
                     "worker_candidate_rebuild",
                     "worker_ml_train_v0",
+                    "worker_predictor_v1",
                 }:
                     raise ValueError("Worker received an unsupported job type.")
                 job_update(
@@ -406,6 +456,104 @@ def serve(
                 )
                 started = True
                 set_runtime("busy", job_id)
+                if job_type == "worker_predictor_v1":
+                    runtime_root, runtime_sync = with_transport_retry(
+                        lambda: download_predictor_runtime(
+                            ha_url,
+                            job,
+                            worker_data_dir.resolve(),
+                            worker_id=identity["worker_id"],
+                            claim_token=claim_token,
+                            token=token,
+                        )
+                    )
+                    manifest = mushroom_predictor_runtime.validate_manifest(
+                        job.get("runtime_manifest")
+                    )
+                    fingerprint = str(manifest["fingerprint"])
+                    with predictor_services_lock:
+                        cold = fingerprint not in predictor_services
+                        if cold:
+                            paths = mushroom_predictor_runtime.service_paths(runtime_root)
+                            predictor_services.clear()
+                            predictor_services[fingerprint] = PredictorService(
+                                **paths,
+                                runtime_fingerprint=fingerprint,
+                            )
+                        predictor_service = predictor_services[fingerprint]
+
+                    def predictor_progress(percent: int, phase: str, message: str) -> None:
+                        control = job_update(
+                            "control",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                            },
+                        )
+                        if control.get("cancel_requested"):
+                            raise InterruptedError("Worker prediction was cancelled.")
+                        job_update(
+                            "progress",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                                "phase": phase,
+                                "message": message,
+                                "overall_percent": max(10, min(99, 10 + round(percent * 0.89))),
+                            },
+                        )
+
+                    job_update(
+                        "progress",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                            "phase": "Runtime ready",
+                            "message": (
+                                "Predictor runtime reused."
+                                if runtime_sync["status"] == "reused"
+                                else "Predictor runtime synchronized and verified."
+                            ),
+                            "overall_percent": 10,
+                        },
+                    )
+                    response = predictor_service.execute(
+                        job.get("predictor_request"), progress=predictor_progress
+                    )
+                    job_update(
+                        "finish",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                            "status": "complete",
+                            "result": {
+                                "response": response,
+                                "cold": cold,
+                                "runtime_cache_status": runtime_sync["status"],
+                                "runtime_transferred_size_bytes": runtime_sync[
+                                    "transferred_size_bytes"
+                                ],
+                            },
+                        },
+                    )
+                    print(
+                        json.dumps(
+                            {
+                                "status": "prediction_complete",
+                                "service": "rainmapper-worker",
+                                "job_id": job_id,
+                                "cold": cold,
+                                "runtime_cache_status": runtime_sync["status"],
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
+                    return
                 if job_type == "worker_snapshot_transport_probe":
                     def report_progress(event: dict[str, Any]) -> None:
                         control = job_update(
