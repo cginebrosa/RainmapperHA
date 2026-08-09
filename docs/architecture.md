@@ -260,6 +260,12 @@ Hay varios entry points segun entorno:
   `rainmapper_core`; HA conserva UI, selección y diagnóstico, mientras un
   worker con `predictor_v1` actúa únicamente como ejecutor. Auto usa estadísticas
   comparables guardadas en HA y Manual permite elegir entre ejecutores aptos.
+  La política se resuelve en el servidor mediante dos capacidades independientes:
+  selección manual y permiso de cálculo en HA. En el panel privado actual ambas
+  son constantes internas con valor `True`; todavía no se aplica una regla por
+  rol porque esa entrada no tiene identidad Rainmapper. La integración pública
+  futura podrá derivarlas del rol o del usuario (previsiblemente Admin con ambas
+  capacidades y el resto en Auto, worker-only).
   El panel abre selección y progreso en un modal, pero la ruta completa continúa
   siendo el fallback accesible. Una integración futura desde MapLibre reutilizará
   este gateway; nunca conectará el navegador directamente con un worker.

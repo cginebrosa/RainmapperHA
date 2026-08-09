@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.2.237
+
+- Preserve the selected Predictor executor across week, species, date and
+  history views, reselecting only when it becomes unavailable.
+- Show executor selection and worker progress in modals for every interactive
+  Predictor navigation instead of replacing the current page.
+- Label `worker_predictor_v1` jobs as interactive predictions in worker history.
+- Centralize manual executor selection and Home Assistant execution as two
+  independent code-level capabilities, both enabled for the current private
+  Home Assistant panel and ready for future authenticated policy resolution.
+
 ## 0.2.236
 
 - Preserve the worker's authoritative cold/warm state in remote Predictor

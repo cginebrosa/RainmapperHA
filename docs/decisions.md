@@ -3476,6 +3476,23 @@ Validacion local:
   como fallback, transforma la selección en progreso y navega al Predictor solo
   cuando la respuesta está lista. El refresco periódico del panel no destruye el
   modal ni el trabajo en curso.
+- La elección del ejecutor forma parte de la sesión de navegación del Predictor:
+  pestañas y formularios la conservan, y sus esperas también usan el modal. Solo
+  se vuelve a elegir por petición expresa o cuando el ejecutor deja de estar
+  disponible; en ese caso HA refresca los candidatos antes de mostrarlos.
+- `worker_predictor_v1` es un trabajo interactivo y se etiqueta como tal en el
+  historial de workers. No representa una reconstrucción ni una promoción del
+  modelo, aunque use la misma infraestructura de cola y transporte.
+- La futura publicación del Predictor adopta una política server-side de dos
+  capacidades: selección manual de ejecutor y permiso para ejecutar en HA. Las
+  dos están fijadas ahora a `True` mediante constantes internas porque el panel
+  privado de HA no proporciona una identidad Rainmapper; no son opciones del
+  add-on y todavía no existe una regla activa por rol. Todo el flujo consume
+  `PredictorExecutionPolicy`, por lo que una integración autenticada futura solo
+  tendrá que obtener esos dos valores del rol o del usuario. El objetivo previsto
+  para usuarios no administrativos es Auto + worker-only, sin fallback silencioso
+  a la RPi: si no hay worker compatible y libre, el Predictor se declarará
+  temporalmente no disponible.
 - Evolución aprobada para una fase posterior: ofrecer el Predictor como feature
   autorizable desde MapLibre, manteniendo HA como único gateway y a los workers
   sin exposición entrante. Ver límites de permisos, privacidad, capacidad y

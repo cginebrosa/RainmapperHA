@@ -6,7 +6,16 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Publicada y pendiente de instalación/validación en HA real: `0.2.236`.
+- Publicada y pendiente de validación en HA real: `0.2.237`. El Predictor
+  conserva el ejecutor entre todas sus vistas, usa modales para
+  selección/progreso, etiqueta `worker_predictor_v1` como predicción interactiva
+  y centraliza la política de ejecución. Sus dos capacidades internas
+  —seleccionar ejecutor y permitir HA— están fijadas actualmente a `True`, porque
+  el panel privado de HA no dispone de identidad Rainmapper. Una futura entrada
+  autenticada podrá obtener esos mismos valores del rol o del usuario sin
+  cambiar el flujo del Predictor. Digest multi-arquitectura:
+  `sha256:792404a0ec512e01d50fea2d51a9c21925628e83dc162fc3448d80cf657bc5d6`.
+- Publicada e instalada en HA real: `0.2.236`.
   Corrige la clasificación diagnóstica
   fría/caliente del Predictor remoto usando el valor autoritativo del worker y
   conserva estado de runtime, bytes, tiempo backend y versión del worker. No
@@ -20,6 +29,7 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   `sha256:1489ab946820d780d8c810c21d02e051427a3cb2cd7e6835574bb71f824598ff`.
 - Publicada, instalada y validada en HA real: `0.2.234`. Añade el
   Predictor remoto `predictor_v1`, selección Auto/Manual por tiempos comparables,
+  persistencia del ejecutor entre vistas y progreso modal para toda la navegación,
   runtime inmutable incremental y modal localizado de selección/progreso. Digest:
   `sha256:431338d23b568ffb3671768766075aae52e2326b6d90a64ecf0aafc10af71199`.
   El Predictor funcionó tanto en la RPi4 como en `M1 Personal`; las primeras

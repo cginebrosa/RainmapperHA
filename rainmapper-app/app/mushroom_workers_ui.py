@@ -244,6 +244,7 @@ def render_recent_jobs(
             "worker_snapshot_transport_probe": _label("ui.worker_transport_probe"),
             "worker_candidate_rebuild": _label("ui.worker_candidate_rebuild"),
             "worker_ml_train_v0": _label("ui.worker_ml_train_job_type"),
+            "worker_predictor_v1": _label("ui.worker_predictor_job_type"),
         }.get(job_type, _label("ui.worker_rebuild_job"))
         status = str(job.get("status", "unknown") or "unknown")
         status_text = {
@@ -293,6 +294,7 @@ def render_recent_jobs(
             "worker_snapshot_transport_probe",
             "worker_candidate_rebuild",
             "worker_ml_train_v0",
+            "worker_predictor_v1",
         }:
             action_parts = []
             if status in {"queued", "claimed", "running"}:

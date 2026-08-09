@@ -287,6 +287,90 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('value="worker:worker_internal123"', rendered)
         self.assertIn('data-display-name="M1 Personal"', rendered)
 
+    def test_current_predictor_policy_keeps_both_capabilities_enabled(self) -> None:
+        policy = self.web_server.CURRENT_PREDICTOR_EXECUTION_POLICY
+
+        self.assertTrue(self.web_server.PREDICTOR_EXECUTOR_SELECTION_ALLOWED)
+        self.assertTrue(self.web_server.PREDICTOR_HOME_ASSISTANT_EXECUTION_ALLOWED)
+        self.assertTrue(policy.allow_manual_selection)
+        self.assertTrue(policy.allow_home_assistant)
+
+    def test_predictor_auto_can_use_an_unmeasured_allowed_worker(self) -> None:
+        worker = {
+            "executor_id": "worker:worker_new",
+            "display_name": "New worker",
+        }
+        with (
+            mock.patch.object(
+                self.web_server,
+                "available_predictor_executors",
+                return_value=[worker],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_stats,
+                "rank_available",
+                return_value=[],
+            ),
+        ):
+            executors, recommended_id, recommended_name = (
+                self.web_server.predictor_executor_selection(
+                    allow_home_assistant=False
+                )
+            )
+
+        self.assertEqual(executors, [worker])
+        self.assertEqual(recommended_id, "worker:worker_new")
+        self.assertEqual(recommended_name, "New worker")
+
+    def test_worker_only_executor_list_has_no_ha_fallback(self) -> None:
+        with mock.patch.object(
+            self.web_server,
+            "registered_mushroom_worker_statuses",
+            return_value=[],
+        ):
+            available = self.web_server.available_predictor_executors(
+                allow_home_assistant=False
+            )
+
+        self.assertEqual(available, [])
+
+    def test_predictor_modal_exposes_effective_selection_policy(self) -> None:
+        policy = self.web_server.PredictorExecutionPolicy(
+            allow_manual_selection=False,
+            allow_home_assistant=False,
+        )
+        with mock.patch.object(
+            self.web_server,
+            "registered_mushroom_worker_statuses",
+            return_value=[],
+        ):
+            rendered = self.web_server.render_predictor_launch_modal(policy=policy)
+
+        self.assertIn('data-allow-manual-selection="false"', rendered)
+        self.assertIn("Predictor is temporarily unavailable", rendered)
+
+    def test_predictor_forms_and_navigation_keep_remote_executor(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        token = predictor_ui._executor_query.set("worker:worker_internal123")
+        try:
+            hidden = predictor_ui._executor_hidden_input()
+            link = predictor_ui._url("history", "boletus_aereus")
+        finally:
+            predictor_ui._executor_query.reset(token)
+
+        self.assertIn('name="executor"', hidden)
+        self.assertIn('value="worker:worker_internal123"', hidden)
+        self.assertIn("executor=worker%3Aworker_internal123", link)
+
+    def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
+        script = self.web_server.predictor_launch_script()
+
+        self.assertIn("data-predictor-direct-run", script)
+        self.assertIn("data-predictor-direct-form", script)
+        self.assertIn("runDirect", script)
+        self.assertIn("refreshOptions", script)
+        self.assertIn('await refreshOptions("?")', script)
+
     def test_predictor_records_full_server_request_and_embeds_client_timing(self) -> None:
         self.addCleanup(self.reset_run_state)
         handler = self.web_server.RainmapperHandler.__new__(
@@ -5273,6 +5357,23 @@ class AuthDeviceLimitTests(unittest.TestCase):
         }], workers)
         self.assertIn('value="force_cancel_worker_job"', running_jobs)
         self.assertIn("Force cancellation", running_jobs)
+
+    def test_workers_page_identifies_interactive_predictor_jobs(self) -> None:
+        rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [
+                {
+                    "job_id": "worker_job_predictor",
+                    "job_type": "worker_predictor_v1",
+                    "worker_display_name": "M1 Personal",
+                    "status": "complete",
+                    "scope": "predictor history",
+                    "overall_percent": 100,
+                }
+            ]
+        )
+
+        self.assertIn("Interactive prediction", rendered)
+        self.assertNotIn("Model reconstruction", rendered)
 
     def test_workers_recent_jobs_show_local_date_time_and_duration(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "worker-jobs.json"

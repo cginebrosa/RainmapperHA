@@ -135,6 +135,34 @@ no el historial autoritativo.
 - La entrada del Predictor presenta Auto y Manual. Solo enumera workers vivos,
   libres y compatibles; HA siempre permanece como alternativa local. Las
   selecciones se conservan al navegar por pestañas, filtros, especies y fechas.
+  La navegación interna reutiliza directamente el ejecutor elegido mientras
+  siga disponible. El selector solo reaparece si el usuario pide cambiarlo o
+  si ese ejecutor deja de estar disponible.
+- El selector y el progreso son estados de un mismo modal superpuesto al
+  Predictor. Cambiar de vista o enviar un filtro no sustituye la pantalla por
+  una página de espera: el trabajo se encola, se consulta y, al completarse,
+  se reemplaza el contenido con la nueva vista. Si el ejecutor ya no está
+  libre, el modal refresca la lista antes de pedir una nueva elección.
+- La política de ejecución tiene dos capacidades independientes en código:
+  `PREDICTOR_EXECUTOR_SELECTION_ALLOWED` permite escoger entre Auto y ejecutores
+  concretos; `PREDICTOR_HOME_ASSISTANT_EXECUTION_ALLOWED` permite que HA aparezca
+  como ejecutor o fallback. No son opciones del add-on y no deben fusionarse:
+  ocultar la elección y proteger la RPi son decisiones distintas.
+- En el panel privado actual las dos constantes valen siempre `True`. Esta entrada
+  se ejecuta bajo Ingress de HA, pero no dispone de una identidad Rainmapper con
+  la que aplicar una regla Admin/no Admin. El flujo completo consume un único
+  `PredictorExecutionPolicy`, de modo que sí respeta cualquiera de las dos
+  capacidades aunque hoy su origen sea deliberadamente fijo.
+- La autorización por usuario es evolución futura, no comportamiento activo. El
+  punto de entrada protegido desde MapLibre deberá construir la misma política a
+  partir del rol o de un atributo del usuario. El objetivo previsto es permitir
+  ambas capacidades a Admin y dejar al resto en Auto + worker-only: sin selector,
+  sin posibilidad de forzar HA por URL y con indisponibilidad temporal si no hay
+  un worker vivo, libre y con `predictor_v1`. También deberá vincular cada job a
+  su usuario/sesión para que un identificador ajeno no pueda consultarse.
+- Un worker compatible sin muestras históricas sigue siendo elegible. Auto usa
+  las mediciones cuando existen y, si no existen, prueba el primer ejecutor
+  permitido para poder aprender su tiempo sin introducir un fallback prohibido.
 - HA conserva hasta 40 muestras por ejecutor y muestra última, mediana, fría,
   caliente y número de muestras. Auto utiliza la mediana; los ejecutores aún no
   medidos quedan detrás de los medidos y siguen disponibles manualmente.
@@ -178,6 +206,9 @@ que se vayan a publicar.
 La entrada modal también se validó manualmente en el mismo laboratorio: abre
 desde el panel, recomienda `M1 Personal` por su nombre público, transforma la
 selección en progreso y entrega la UI completa al terminar. La suite asociada
+incluye además persistencia del ejecutor en enlaces y formularios internos. Los
+trabajos `worker_predictor_v1` se presentan en la cola como predicciones
+interactivas, no como reconstrucciones del modelo.
 queda en 517 tests.
 
 ## Validación en HA real (2026-08-09)

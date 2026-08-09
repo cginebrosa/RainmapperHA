@@ -11777,17 +11777,52 @@ def registered_mushroom_worker_statuses(*, now: float | None = None) -> list[dic
     return statuses
 
 
-def available_predictor_executors() -> list[dict[str, object]]:
-    """Return idle compatible executors with coordinator-owned timing summaries."""
-    executors: list[dict[str, object]] = [
-        {
-            "executor_id": mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR,
-            "display_name": "Home Assistant",
-            "worker_id": "",
-            "worker_version": "",
-            "cache": {"status": "local"},
-        }
-    ]
+class PredictorExecutionPolicy:
+    """Executor capabilities supplied by the Predictor entry surface.
+
+    The source of these booleans is intentionally separate from their use. They
+    are hardcoded on today because the private HA panel has no Rainmapper user
+    identity. A future authenticated entry point can derive the same two values
+    from a role or user record without changing the selection/execution flow.
+    """
+
+    __slots__ = ("allow_manual_selection", "allow_home_assistant")
+
+    def __init__(
+        self, *, allow_manual_selection: bool, allow_home_assistant: bool
+    ) -> None:
+        self.allow_manual_selection = bool(allow_manual_selection)
+        self.allow_home_assistant = bool(allow_home_assistant)
+
+
+# Current policy values. Keep these as explicit code-level capabilities, not HA
+# add-on settings. A future authorization layer may replace the constants with
+# values derived from the authenticated Rainmapper user.
+PREDICTOR_EXECUTOR_SELECTION_ALLOWED = True
+PREDICTOR_HOME_ASSISTANT_EXECUTION_ALLOWED = True
+CURRENT_PREDICTOR_EXECUTION_POLICY = PredictorExecutionPolicy(
+    allow_manual_selection=PREDICTOR_EXECUTOR_SELECTION_ALLOWED,
+    allow_home_assistant=PREDICTOR_HOME_ASSISTANT_EXECUTION_ALLOWED,
+)
+
+
+def available_predictor_executors(
+    *, allow_home_assistant: bool | None = None
+) -> list[dict[str, object]]:
+    """Return idle compatible executors allowed by the effective policy."""
+    if allow_home_assistant is None:
+        allow_home_assistant = True
+    executors: list[dict[str, object]] = []
+    if allow_home_assistant:
+        executors.append(
+            {
+                "executor_id": mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR,
+                "display_name": "Home Assistant",
+                "worker_id": "",
+                "worker_version": "",
+                "cache": {"status": "local"},
+            }
+        )
     for row in registered_mushroom_worker_statuses():
         payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
         if (
@@ -11817,21 +11852,31 @@ def available_predictor_executors() -> list[dict[str, object]]:
     return executors
 
 
-def predictor_executor_selection() -> tuple[list[dict[str, object]], str, str]:
+def predictor_executor_selection(
+    *, allow_home_assistant: bool | None = None
+) -> tuple[list[dict[str, object]], str, str]:
     """Return available executors plus the recommended id and friendly name."""
-    executors = available_predictor_executors()
+    executors = available_predictor_executors(
+        allow_home_assistant=allow_home_assistant
+    )
     ranked = mushroom_predictor_stats.rank_available(
         mushroom_predictor_stats_path(),
         [str(row["executor_id"]) for row in executors],
     )
-    recommended_id = str(ranked[0]["executor_id"]) if ranked else mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR
+    recommended_id = (
+        str(ranked[0]["executor_id"])
+        if ranked
+        else str(executors[0]["executor_id"])
+        if executors
+        else ""
+    )
     recommended_name = next(
         (
             str(row["display_name"])
             for row in executors
             if str(row["executor_id"]) == recommended_id
         ),
-        "Home Assistant",
+        "",
     )
     return executors, recommended_id, recommended_name
 
@@ -11878,13 +11923,29 @@ def render_predictor_executor_options(executors: list[dict[str, object]], recomm
     return '<div class="predictor-executor-options">' + "".join(cards) + "</div>"
 
 
-def render_predictor_launch_modal() -> str:
+def render_predictor_launch_modal(
+    *,
+    auto_open: bool = False,
+    policy: PredictorExecutionPolicy | None = None,
+) -> str:
     """Render the Control Panel Predictor chooser/progress modal."""
     label = mushroom_profiles_ui.ui_label
-    executors, _recommended_id, recommended_name = predictor_executor_selection()
+    policy = policy or CURRENT_PREDICTOR_EXECUTION_POLICY
+    executors, _recommended_id, recommended_name = predictor_executor_selection(
+        allow_home_assistant=policy.allow_home_assistant
+    )
     options = render_predictor_executor_options(executors, recommended_name)
+    no_executor = not executors
+    if no_executor:
+        options = (
+            '<div class="catalog-alert warning">'
+            f'{html.escape(label("ui.predictor_no_worker_available"))}'
+            '</div>'
+        )
     return f"""
     <div id="predictor-launch-modal" class="predictor-launch-modal" hidden
+         data-auto-open="{'true' if auto_open else 'false'}"
+         data-allow-manual-selection="{'true' if policy.allow_manual_selection else 'false'}"
          data-waiting-label="{html.escape(label('ui.predictor_executor_waiting'), quote=True)}"
          data-opening-label="{html.escape(label('ui.predictor_executor_opening'), quote=True)}"
          data-error-label="{html.escape(label('ui.predictor_executor_error'), quote=True)}">
@@ -11901,7 +11962,7 @@ def render_predictor_launch_modal() -> str:
           {options}
           <div class="modal-actions">
             <button type="button" class="secondary" data-predictor-modal-close>{html.escape(label('ui.predictor_executor_close'))}</button>
-            <button type="submit" class="primary">{html.escape(label('ui.predictor_executor_start'))}</button>
+            <button type="submit" class="primary"{' disabled' if no_executor else ''}>{html.escape(label('ui.predictor_executor_start'))}</button>
           </div>
         </form>
         <div class="predictor-launch-progress" data-predictor-progress-step hidden>
@@ -11946,11 +12007,25 @@ def predictor_launch_script() -> str:
         executorName.textContent = "";
         setCloseEnabled(true);
       };
-      const open = trigger => {
+      const refreshOptions = async url => {
+        const response = await fetch(url, {
+          headers: { Accept: "text/html" },
+          cache: "no-store",
+          credentials: "same-origin"
+        });
+        if (!response.ok) return;
+        const markup = await response.text();
+        const parsed = new DOMParser().parseFromString(markup, "text/html");
+        const fresh = parsed.querySelector("[data-predictor-executor-form] .predictor-executor-options");
+        const current = form.querySelector(".predictor-executor-options");
+        if (fresh && current) current.innerHTML = fresh.innerHTML;
+      };
+      const open = async (trigger, refresh = true) => {
         reset();
         predictorUrl = trigger.getAttribute("href") || predictorUrl;
         modal.hidden = false;
         document.body.classList.add("predictor-modal-open");
+        if (refresh) await refreshOptions(predictorUrl);
         modal.querySelector("input:checked")?.focus();
       };
       const close = () => {
@@ -11965,7 +12040,7 @@ def predictor_launch_script() -> str:
         document.close();
       };
       const errorText = doc =>
-        doc.querySelector(".catalog-alert.error")?.textContent.trim() || modal.dataset.errorLabel;
+        doc.querySelector(".catalog-alert.error, .catalog-alert.warning")?.textContent.trim() || modal.dataset.errorLabel;
       const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
       const fetchPredictor = async url => {
         const response = await fetch(url, {
@@ -11991,6 +12066,38 @@ def predictor_launch_script() -> str:
         replaceDocument(markup, response.url);
       };
 
+      const selectedExecutorName = executor => {
+        const option = form.querySelector(`input[name='executor'][value="${CSS.escape(executor)}"]`);
+        return option?.dataset.displayName || executor;
+      };
+      const runDirect = async url => {
+        reset();
+        const target = new URL(url, window.location.href);
+        const executor = target.searchParams.get("executor") || "";
+        modal.hidden = false;
+        document.body.classList.add("predictor-modal-open");
+        running = true;
+        setCloseEnabled(false);
+        form.hidden = true;
+        progressStep.hidden = false;
+        progress.removeAttribute("value");
+        phase.textContent = modal.dataset.waitingLabel;
+        message.textContent = modal.dataset.waitingLabel;
+        executorName.textContent = selectedExecutorName(executor);
+        try {
+          await fetchPredictor(target);
+        } catch (error) {
+          running = false;
+          setCloseEnabled(true);
+          progressStep.hidden = true;
+          const maySelect = modal.dataset.allowManualSelection === "true";
+          form.hidden = !maySelect;
+          if (maySelect) await refreshOptions("?");
+          errorBox.textContent = error?.message || modal.dataset.errorLabel;
+          errorBox.hidden = false;
+        }
+      };
+
       document.addEventListener("click", event => {
         const trigger = event.target.closest("[data-predictor-modal-open]");
         if (trigger) {
@@ -11998,7 +12105,21 @@ def predictor_launch_script() -> str:
           open(trigger);
           return;
         }
+        const direct = event.target.closest("[data-predictor-direct-run], .pred-page a[href^='?']");
+        if (direct && new URL(direct.getAttribute("href") || "", window.location.href).searchParams.has("executor")) {
+          event.preventDefault();
+          runDirect(direct.getAttribute("href") || window.location.href);
+          return;
+        }
         if (event.target.closest("[data-predictor-modal-close]")) close();
+      });
+      document.addEventListener("submit", event => {
+        const directForm = event.target.closest("[data-predictor-direct-form]");
+        if (!directForm || directForm === form) return;
+        event.preventDefault();
+        const target = new URL(directForm.getAttribute("action") || window.location.href, window.location.href);
+        target.search = new URLSearchParams(new FormData(directForm)).toString();
+        runDirect(target);
       });
       document.addEventListener("keydown", event => {
         if (event.key === "Escape" && !modal.hidden) close();
@@ -12029,6 +12150,7 @@ def predictor_launch_script() -> str:
           errorBox.hidden = false;
         }
       });
+      if (modal.dataset.autoOpen === "true") open({ getAttribute: () => "?" }, false);
     })();
     </script>"""
 
@@ -17093,25 +17215,66 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         page_title = mushroom_profiles_ui.ui_label("ui.predictor_title")
         executor = (query.get("executor") or [""])[0]
         job_id = (query.get("job_id") or [""])[0]
+
+        # This route belongs to the private HA panel and has no Rainmapper user
+        # identity. Do not infer a user role from Ingress. The future protected
+        # MapLibre entry point must authenticate its user and supply a separate
+        # worker-only policy when it is implemented.
+        execution_policy = CURRENT_PREDICTOR_EXECUTION_POLICY
+
+        if not job_id and not execution_policy.allow_manual_selection:
+            # A caller without the selection capability cannot pin
+            # infrastructure, including through a hand-crafted query string.
+            # Whether Auto may consider HA is controlled independently below.
+            executor = "auto"
+            query["executor"] = [executor]
+        elif (
+            not job_id
+            and executor == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR
+            and not execution_policy.allow_home_assistant
+        ):
+            executor = ""
+            query.pop("executor", None)
+
         if not executor and not job_id:
-            executors, _recommended_id, recommended_name = predictor_executor_selection()
-            options = render_predictor_executor_options(executors, recommended_name)
             body = f"""
-            <p><a class="button-link" href="../">← {html.escape(mushroom_profiles_ui.ui_label('ui.back_to_panel'))}</a></p>
-            <h1>🍄 {html.escape(page_title)}</h1>
-            <h2>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_executor_choose_title'))}</h2>
-            <p>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_executor_choose_help'))}</p>
-            <form method="get">{options}
-            <div class="modal-actions"><button class="primary" type="submit">{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_executor_start'))}</button></div></form>
+            <div class="pred-page">
+              <p><a class="button-link" href="../">← {html.escape(mushroom_profiles_ui.ui_label('ui.back_to_panel'))}</a></p>
+              <h1>🍄 {html.escape(page_title)}</h1>
+            </div>
+            {render_predictor_launch_modal(auto_open=True, policy=execution_policy)}
+            {predictor_launch_script()}
             """
             self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
             return
         if executor == "auto":
+            available = available_predictor_executors(
+                allow_home_assistant=execution_policy.allow_home_assistant
+            )
             ranked = mushroom_predictor_stats.rank_available(
                 mushroom_predictor_stats_path(),
-                [str(row["executor_id"]) for row in available_predictor_executors()],
+                [str(row["executor_id"]) for row in available],
             )
-            executor = str(ranked[0]["executor_id"]) if ranked else "home_assistant"
+            executor = (
+                str(ranked[0]["executor_id"])
+                if ranked
+                else str(available[0]["executor_id"])
+                if available
+                else ""
+            )
+            if not executor:
+                body = (
+                    f'<h1>🍄 {html.escape(page_title)}</h1>'
+                    '<div class="catalog-alert warning">'
+                    f'{html.escape(mushroom_profiles_ui.ui_label("ui.predictor_no_worker_available"))}'
+                    '</div>'
+                )
+                self.send_bytes(
+                    503,
+                    html_page(page_title, body, auto_refresh=False),
+                    "text/html; charset=utf-8",
+                )
+                return
             query["executor"] = [executor]
         if executor.startswith("worker:") and not job_id:
             try:
@@ -17252,6 +17415,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 if isinstance(known_sites_payload, dict)
                                 else {},
                                 prepared_response=prepared_response,
+                                allow_executor_change=execution_policy.allow_manual_selection,
                             )
                             if executor == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR:
                                 mushroom_predictor_stats.record(
@@ -17272,6 +17436,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         "body_rendered",
                         {"elapsed_seconds": elapsed(), "http_status": status},
                     )
+                if execution_policy.allow_manual_selection:
+                    body += render_predictor_launch_modal(policy=execution_policy)
+                    body += predictor_launch_script()
                 body += predictor_client_timing_script(request_monitor.operation_id)
                 page = html_page(page_title, body, auto_refresh=False)
                 request_monitor.mark(
@@ -20328,6 +20495,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             else "No data"
         )
 
+        predictor_policy = CURRENT_PREDICTOR_EXECUTION_POLICY
+        predictor_href = (
+            "./mushrooms/predictor"
+            if predictor_policy.allow_manual_selection
+            else "./mushrooms/predictor?executor=auto"
+        )
+        predictor_action = (
+            "data-predictor-modal-open"
+            if predictor_policy.allow_manual_selection
+            else "data-predictor-direct-run"
+        )
         controls = f"""
         <div class="quick-actions">
           <form method="post" action=""><input type="hidden" name="run_action" value="all"><button class="primary" {disabled}>Run all</button></form>
@@ -20340,7 +20518,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./mushrooms/gis-mappings">GIS mappings</a>
           <a class="button-link" href="./mushrooms/known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
           <a class="button-link" href="./mushrooms/workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
-          <a class="button-link" href="./mushrooms/predictor" data-predictor-modal-open>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor'))}</a>
+          <a class="button-link" href="{predictor_href}" {predictor_action}>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor'))}</a>
         </div>
         """
         head_controls = f"""
@@ -20527,7 +20705,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def render_index(self) -> None:
         control_body = self.render_control_panel_body()
         control_signature = hashlib.sha256(control_body.encode("utf-8")).hexdigest()
-        predictor_modal = render_predictor_launch_modal()
+        predictor_modal = render_predictor_launch_modal(
+            policy=CURRENT_PREDICTOR_EXECUTION_POLICY
+        )
         predictor_script = predictor_launch_script()
         body = f"""
         <div id="rainmapper-control-panel-live" data-control-signature="{control_signature}">{control_body}</div>

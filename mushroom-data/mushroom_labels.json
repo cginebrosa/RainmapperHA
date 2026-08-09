@@ -2834,6 +2834,16 @@
     "es": "No se ha podido abrir el Predictor.",
     "ca": "No s'ha pogut obrir el Predictor."
   },
+  "ui.predictor_executor_change": {
+    "es": "Cambiar ejecutor",
+    "ca": "Canviar executor",
+    "en": "Change executor"
+  },
+  "ui.predictor_no_worker_available": {
+    "en": "The Predictor is temporarily unavailable. Wait until a compatible worker is available.",
+    "es": "El Predictor no está disponible temporalmente. Espera a que haya un worker compatible disponible.",
+    "ca": "El Predictor no està disponible temporalment. Espera que hi hagi un worker compatible disponible."
+  },
   "ui.predictor_tab_recommender": {
     "en": "This week",
     "es": "Esta semana",
@@ -3923,6 +3933,11 @@
     "en": "ML training v0",
     "es": "Entrenamiento ML v0",
     "ca": "Entrenament ML v0"
+  },
+  "ui.worker_predictor_job_type": {
+    "en": "Interactive prediction",
+    "es": "Predicción interactiva",
+    "ca": "Predicció interactiva"
   },
   "ui.worker_abandon_job": {
     "en": "Abandon job",

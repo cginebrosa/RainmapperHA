@@ -45,12 +45,18 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn("8100/tcp: null", config)
         self.assertIn("external_worker_connections_enabled: false", config)
         self.assertIn("external_worker_rebuilds_enabled: false", config)
+        self.assertNotIn("predictor_executor_selection_enabled", config)
+        self.assertNotIn("predictor_home_assistant_executor_enabled", config)
         self.assertIn('export RAINMAPPER_WORKER_API_ENABLED="$EXTERNAL_WORKER_CONNECTIONS_ENABLED_VALUE"', run_script)
         self.assertIn('export RAINMAPPER_WORKER_AUTH_REQUIRED="true"', run_script)
         self.assertIn('export RAINMAPPER_WORKER_OPERATIONAL_ENABLED="$EXTERNAL_WORKER_REBUILDS_ENABLED_VALUE"', run_script)
+        self.assertNotIn("RAINMAPPER_PREDICTOR_EXECUTOR_SELECTION_ENABLED", run_script)
+        self.assertNotIn("RAINMAPPER_PREDICTOR_HOME_ASSISTANT_ENABLED", run_script)
         self.assertIn("--worker-port 8100", run_script)
         self.assertIn("name: Enable external worker connections", translations)
         self.assertIn("name: Allow external rebuilds and promotion", translations)
+        self.assertNotIn("predictor_executor_selection_enabled", translations)
+        self.assertNotIn("predictor_home_assistant_executor_enabled", translations)
 
     def test_worker_compose_is_offline_read_only_and_persistent(self) -> None:
         compose = (ROOT_DIR / "rainmapper-local/docker-compose.worker-test.yml").read_text(

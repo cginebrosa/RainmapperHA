@@ -31,6 +31,9 @@ _prepared_response: ContextVar[dict[str, Any] | None] = ContextVar(
     "mushroom_predictor_prepared_response", default=None
 )
 _executor_query: ContextVar[str] = ContextVar("mushroom_predictor_executor", default="")
+_allow_executor_change: ContextVar[bool] = ContextVar(
+    "mushroom_predictor_allow_executor_change", default=True
+)
 
 # ML report cache — loaded once per process, reset if file changes
 _ml_report_cache: dict[str, Any] | None = None
@@ -214,6 +217,17 @@ def _url(view: str = "recommender", species: str = "", area: str = "", target_da
     return "?" + urlencode(params)
 
 
+def _executor_hidden_input() -> str:
+    """Keep the selected executor across GET forms inside the Predictor."""
+    executor = _executor_query.get()
+    if not executor:
+        return ""
+    return (
+        '<input type="hidden" name="executor" value="'
+        f'{html.escape(executor, quote=True)}">'
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tab navigation
 # ---------------------------------------------------------------------------
@@ -226,7 +240,10 @@ def _render_tabs(
     def tab(key: str, v: str, extra_params: str = "") -> str:
         href = _url(v, species, target_date=target_date)
         cls = "pred-tab pred-tab-active" if view == v else "pred-tab"
-        return f'<a class="{cls}" href="{html.escape(href)}">{html.escape(_lbl(key))}</a>'
+        return (
+            f'<a class="{cls}" href="{html.escape(href)}" '
+            f'data-predictor-direct-run>{html.escape(_lbl(key))}</a>'
+        )
 
     return f"""
 <nav class="pred-tabs">
@@ -526,15 +543,16 @@ def _render_query(
         species_options_html += f'<option value="{html.escape(sp_id)}"{sel}>{html.escape(sp_name)}</option>'
 
     form_html = f"""
-<form class="pred-form" method="get" action="">
+<form class="pred-form" method="get" action="" data-predictor-direct-form>
   <input type="hidden" name="view" value="query">
+  {_executor_hidden_input()}
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.species"))}</label>
-    <select name="species" onchange="this.form.submit()">{species_options_html}</select>
+    <select name="species" onchange="this.form.requestSubmit()">{species_options_html}</select>
   </div>
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.known_site_area"))}</label>
-    <select name="area" onchange="this.form.submit()">{area_options_html}</select>
+    <select name="area" onchange="this.form.requestSubmit()">{area_options_html}</select>
   </div>
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.date_short"))}</label>
@@ -796,11 +814,12 @@ def _render_history(
         species_options_html += f'<option value="{html.escape(sp_id)}"{sel}>{html.escape(sp_name)}</option>'
 
     form_html = f"""
-<form class="pred-form" method="get" action="">
+<form class="pred-form" method="get" action="" data-predictor-direct-form>
   <input type="hidden" name="view" value="history">
+  {_executor_hidden_input()}
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.species"))}</label>
-    <select name="species" onchange="this.form.submit()">{species_options_html}</select>
+    <select name="species" onchange="this.form.requestSubmit()">{species_options_html}</select>
   </div>
   <button type="submit" class="primary">{html.escape(_lbl("ui.search"))}</button>
 </form>
@@ -959,14 +978,17 @@ def render_page(
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],
     prepared_response: dict[str, Any] | None = None,
+    allow_executor_change: bool = True,
 ) -> str:
     if prepared_response is not None:
         prepared_response = validate_response(prepared_response)
     prepared_token = _prepared_response.set(prepared_response)
     executor_token = _executor_query.set((query.get("executor") or [""])[0])
+    executor_change_token = _allow_executor_change.set(allow_executor_change)
     try:
         return _render_page_inner(query, profiles_payload, known_sites_payload)
     finally:
+        _allow_executor_change.reset(executor_change_token)
         _prepared_response.reset(prepared_token)
         _executor_query.reset(executor_token)
 
@@ -1016,12 +1038,21 @@ def _render_page_inner(
     except Exception as exc:
         content = f'<div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>'
 
+    change_executor = (
+        '<a href="?" data-predictor-modal-open>'
+        f'{html.escape(_lbl("ui.predictor_executor_change"))}</a>'
+        if _allow_executor_change.get()
+        else ""
+    )
     return f"""
 <style>
 {_CSS}
 </style>
 <div class="pred-page">
-  <div class="pred-back"><a href="../">← {html.escape(_lbl("ui.back_to_panel"))}</a></div>
+  <div class="pred-back">
+    <a href="../">← {html.escape(_lbl("ui.back_to_panel"))}</a>
+    {change_executor}
+  </div>
   <h1>🍄 {html.escape(_lbl("ui.predictor_title"))}</h1>
   {tabs}
   {content}
@@ -1036,7 +1067,7 @@ def _render_page_inner(
 _CSS = """
 .pred-page { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
 .pred-page h1 { margin-bottom: 0.5rem; }
-.pred-back { margin-bottom: 0.75rem; }
+.pred-back { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
 .pred-back a { color: #9aa8b2; font-size: 0.85rem; text-decoration: none; }
 .pred-back a:hover { color: #e8eef2; }
 
