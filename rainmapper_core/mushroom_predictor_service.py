@@ -7,6 +7,8 @@ slightly different implementation of the model behaviour.
 
 from __future__ import annotations
 
+import copy
+from collections import OrderedDict
 from dataclasses import asdict
 from datetime import date, timedelta
 from pathlib import Path
@@ -22,6 +24,7 @@ REQUEST_KIND = "rainmapper_mushroom_predictor_request"
 RESPONSE_KIND = "rainmapper_mushroom_predictor_response"
 SUPPORTED_VIEWS = {"recommender", "week", "query", "history"}
 ProgressCallback = Callable[[int, str, str], None]
+_RESPONSE_CACHE_MAX_ENTRIES = 32
 
 
 class PredictorContractError(ValueError):
@@ -122,6 +125,9 @@ class PredictorService:
         self.known_sites_path = Path(known_sites_path)
         self.runtime_fingerprint = str(runtime_fingerprint)
         self._predictors: dict[str, MushroomMLPredictor] = {}
+        self._responses: OrderedDict[tuple[object, ...], dict[str, Any]] = (
+            OrderedDict()
+        )
         self._lock = RLock()
 
     def predictor(self, species_id: str) -> MushroomMLPredictor:
@@ -147,6 +153,27 @@ class PredictorService:
         normalized = normalize_request(request)
         started = monotonic()
         report = progress or (lambda _percent, _phase, _message: None)
+        cache_key: tuple[object, ...] = (
+            normalized["view"],
+            normalized["species_id"],
+            normalized["area_id"],
+            normalized["target_date"],
+            normalized["filter_mode"],
+            tuple(normalized["trained_species_ids"]),
+        )
+        with self._lock:
+            cached = self._responses.get(cache_key)
+            if cached is not None:
+                self._responses.move_to_end(cache_key)
+                response = copy.deepcopy(cached)
+                response["metrics"] = {
+                    **dict(response.get("metrics", {})),
+                    "backend_seconds": round(monotonic() - started, 4),
+                    "response_cache_status": "hit",
+                    "loaded_predictor_count": len(self._predictors),
+                }
+                report(100, "Prediction complete", "Cached results are ready.")
+                return response
         report(2, "Preparing predictor", "Validating the prediction request.")
         view = normalized["view"]
         species_ids = normalized["trained_species_ids"]
@@ -178,19 +205,24 @@ class PredictorService:
             days = [date.today() + timedelta(days=offset) for offset in range(7)]
             predictions: dict[str, dict[str, Any]] = {}
             total = max(1, len(areas) * len(days))
-            completed = 0
-            for current_area in areas:
-                predictions[current_area] = {}
-                for current_date in days:
-                    predictions[current_area][current_date.isoformat()] = serialize_prediction(
-                        predictor.predict(current_area, current_date)
-                    )
-                    completed += 1
-                    report(
-                        5 + round(completed / total * 88),
-                        "Building weekly matrix",
-                        f"{completed}/{total} area-days",
-                    )
+            requests = [
+                (current_area, current_date)
+                for current_area in areas
+                for current_date in days
+            ]
+            report(10, "Building weekly matrix", f"Evaluating {total} area-days.")
+            rows = predictor.predict_many(requests)
+            for completed, ((current_area, current_date), row) in enumerate(
+                zip(requests, rows, strict=True), start=1
+            ):
+                predictions.setdefault(current_area, {})[current_date.isoformat()] = (
+                    serialize_prediction(row)
+                )
+                report(
+                    10 + round(completed / total * 83),
+                    "Building weekly matrix",
+                    f"{completed}/{total} area-days",
+                )
             data["species"][selected_species] = {"areas": areas, "predictions": predictions}
         elif view == "history":
             report(10, "Loading history", f"Backtesting {selected_species}.")
@@ -227,7 +259,7 @@ class PredictorService:
 
         elapsed = round(monotonic() - started, 4)
         report(100, "Prediction complete", "Results are ready.")
-        return {
+        response = {
             "schema_version": SCHEMA_VERSION,
             "kind": RESPONSE_KIND,
             "runtime_fingerprint": self.runtime_fingerprint,
@@ -235,9 +267,16 @@ class PredictorService:
             "data": data,
             "metrics": {
                 "backend_seconds": elapsed,
+                "response_cache_status": "miss",
                 "loaded_predictor_count": len(self._predictors),
             },
         }
+        with self._lock:
+            self._responses[cache_key] = copy.deepcopy(response)
+            self._responses.move_to_end(cache_key)
+            while len(self._responses) > _RESPONSE_CACHE_MAX_ENTRIES:
+                self._responses.popitem(last=False)
+        return response
 
 
 class PreparedPredictor:

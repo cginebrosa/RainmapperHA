@@ -169,6 +169,20 @@ no el historial autoritativo.
 - La operación remota conserva un único monitor `predictor_request` desde la
   cola hasta el HTML final. El resultado pesado se guarda en HA; la respuesta
   de confirmación al worker se reduce para no superar el límite del protocolo.
+- La selección y el progreso comparten modal, pero son estados mutuamente
+  excluyentes. La regla CSS específica para `form[hidden]` prevalece sobre el
+  estilo global de formularios; durante una navegación interna no puede quedar
+  visible una lista recalculada que sugiera HA mientras el job fijado sigue
+  ejecutándose realmente en el worker.
+- Cada runtime inmutable mantiene dos cachés LRU acotadas: hasta 512
+  predicciones especie/área/fecha en cada predictor y hasta 32 respuestas
+  completas por servicio. Cambiar el fingerprint crea otro servicio y, por
+  tanto, invalida ambas sin mezclar artefactos. En HA, el runner libera las
+  instancias locales antes de modificar la meteorología.
+- Las matrices por área y semana, los rankings y el backtest construyen las
+  mismas features que antes, pero agrupan las filas y ejecutan cada modelo de
+  sklearn una sola vez por lote. Esto elimina cientos de llamadas pequeñas sin
+  cambiar el contrato ni el resultado matemático.
 
 ## Matriz de validación antes de publicar
 
@@ -225,6 +239,19 @@ estadística autoritativa de HA muestra, tras las primeras muestras comparables:
 La muestra es todavía pequeña y no constituye un benchmark definitivo, pero
 valida la selección, ejecución, retorno del resultado y persistencia de tiempos
 en el despliegue real.
+
+La corrección de sesión y rendimiento se empaqueta como worker `1.0.1` y HA
+`0.2.238`. Las versiones siguen siendo independientes: ambas cambian en esta
+ocasión porque la presentación modal pertenece a HA y la inferencia por lotes y
+sus cachés se ejecutan en el worker o en el fallback local de HA.
+
+Publicación realizada el 2026-08-09:
+
+- worker `1.0.1` arm64 validado healthy en M1 y exportado para M5 con SHA-256
+  `d7038586920e8e4616588195abe8a837b016c24defe63bcff7479fc80008a35d`;
+- HA `0.2.238` publicada con tags de versión y `latest`, digest
+  `sha256:90f87d105f08b0061c480dd8168126663cb947d4128771c70179b1379b7e5e0d`
+  y manifests `linux/amd64` y `linux/arm64`.
 
 ## Pendiente diferido: endpoint de coordinador portable
 

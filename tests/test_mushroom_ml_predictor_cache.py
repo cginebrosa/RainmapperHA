@@ -635,6 +635,72 @@ class PredictContractTests(unittest.TestCase):
 
         self.assertIsNone(result.features_used["rain_1d_mm"])
 
+    def test_predict_reuses_cached_area_date_result(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            p = self._make_predictor(Path(d))
+            bundle = self._mock_bundle(0.75)
+            p._model_bundle = bundle
+            p._weather_stations = {}
+            p._micro_area_profiles = {}
+            p._area_profiles = {}
+            with patch.object(
+                p,
+                "_build_feature_row",
+                return_value=([0.0] * len(FEATURE_COLS), [], "ST1", 5.0, 30),
+            ) as build:
+                first = p.predict("area_a", date(2024, 10, 15))
+                second = p.predict("area_a", date(2024, 10, 15))
+
+        self.assertIs(first, second)
+        build.assert_called_once()
+        self.assertEqual(bundle["lr"].predict_proba.call_count, 2)
+
+    def test_rank_areas_batches_model_inference(self) -> None:
+        import numpy as np
+
+        with tempfile.TemporaryDirectory() as d:
+            p = self._make_predictor(Path(d))
+            lr = MagicMock()
+            rf = MagicMock()
+            lr.predict_proba.side_effect = lambda rows: np.array(
+                [[0.25, 0.75] for _row in rows]
+            )
+            rf.predict_proba.side_effect = lambda rows: np.array(
+                [[0.35, 0.65] for _row in rows]
+            )
+            imputer = MagicMock()
+            imputer.transform.side_effect = lambda rows: rows
+            scaler = MagicMock()
+            scaler.transform.side_effect = lambda rows: rows
+            p._model_bundle = {
+                "lr": lr,
+                "rf": rf,
+                "imputer": imputer,
+                "scaler": scaler,
+            }
+            p._weather_stations = {}
+            p._micro_area_profiles = {}
+            p._area_profiles = {
+                area_id: predictor_mod.AreaProfile(
+                    area_id=area_id,
+                    lat=None,
+                    lon=None,
+                    observed_species={"test_sp"},
+                )
+                for area_id in ("area_a", "area_b", "area_c")
+            }
+            with patch.object(
+                p,
+                "_build_feature_row",
+                return_value=([0.0] * len(FEATURE_COLS), [], "ST1", 5.0, 30),
+            ):
+                results = p.rank_areas(date(2024, 10, 15))
+
+        self.assertEqual(len(results), 3)
+        lr.predict_proba.assert_called_once()
+        rf.predict_proba.assert_called_once()
+        self.assertEqual(lr.predict_proba.call_args.args[0].shape[0], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -218,6 +218,11 @@ worker. Esto importa porque «runtime reutilizado» y «Predictor caliente» no 
 sinónimos: el runtime puede estar ya descargado y aun así el proceso tener que
 cargar modelos o datos por primera vez.
 
+Desde la corrección posterior a `0.2.237`, el resumen conserva además
+`worker_response_cache_status` (`hit` o `miss`). Un runtime `reused` solo dice
+que no se retransmitieron artefactos; un `hit` indica que la misma consulta ya
+tenía una respuesta calculada dentro del runtime inmutable del worker.
+
 Al terminar `load`, el navegador envía una única operación
 `predictor_client_render` con Navigation Timing: inicio/fin de respuesta, DOM
 interactive, DOMContentLoaded, load y tamaños transferidos. El endpoint solo
@@ -771,6 +776,15 @@ cuatro fuentes, los acordeones del Gantt y la compatibilidad explícita con `2.1
 elevaron después la suite a 501 tests. El conjunto final de `0.2.233`, incluido
 el transporte y ciclo de vida del worker, pasó 511 tests y se publicó con digest
 `sha256:8289ee5bc28983f238a0b7fcc0718f6ad8d40492629699b52157cb3d9e9013c9`.
+
+La release `0.2.238` incorpora la distinción adicional
+`worker_response_cache_status` para separar la reutilización del runtime de la
+reutilización de una respuesta completa. La inferencia por lotes y las cachés
+LRU acotadas pasaron el smoke completo con 530 tests. Los tags `0.2.238` y
+`latest` se publicaron con digest multi-arquitectura
+`sha256:90f87d105f08b0061c480dd8168126663cb947d4128771c70179b1379b7e5e0d`;
+la medición real se documentará después de instalar HA `0.2.238` y worker
+`1.0.1`.
 
 ### Validación real de `0.2.233` y esquema 2.2
 

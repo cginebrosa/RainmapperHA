@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.2.238
+
+- Keep Predictor executor selection and progress as mutually exclusive modal
+  states, avoiding a stale Home Assistant recommendation during worker jobs.
+- Batch model inference for rankings, weekly matrices and history while retaining
+  the same features, probabilities and transport contract.
+- Reuse bounded per-runtime prediction and response caches across interactive
+  navigation, and expose response-cache hits in Home Assistant diagnostics.
+- Describe worker Predictor claims as interactive predictions instead of generic
+  non-destructive tests.
+
 ## 0.2.237
 
 - Preserve the selected Predictor executor across week, species, date and

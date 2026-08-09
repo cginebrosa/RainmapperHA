@@ -370,6 +370,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("runDirect", script)
         self.assertIn("refreshOptions", script)
         self.assertIn('await refreshOptions("?")', script)
+        self.assertIn("form.hidden = true", script)
+
+        page = self.web_server.html_page("Predictor", "", auto_refresh=False).decode()
+        self.assertIn(".predictor-launch-dialog form[hidden]", page)
 
     def test_predictor_records_full_server_request_and_embeds_client_timing(self) -> None:
         self.addCleanup(self.reset_run_state)
@@ -501,7 +505,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "runtime_cache_status": "synchronized",
                     "runtime_transferred_size_bytes": 12_630_650,
                     "response": {
-                        "metrics": {"backend_seconds": 5.8632},
+                        "metrics": {
+                            "backend_seconds": 5.8632,
+                            "response_cache_status": "hit",
+                        },
                     },
                 },
             }
@@ -555,6 +562,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(details["runtime_cache_status"], "synchronized")
         self.assertEqual(details["runtime_transferred_size_bytes"], 12_630_650)
         self.assertEqual(details["worker_backend_seconds"], 5.8632)
+        self.assertEqual(details["worker_response_cache_status"], "hit")
         self.assertEqual(details["worker_version"], "1.0.0")
         self.assertEqual(details["worker_job_id"], job_id)
 

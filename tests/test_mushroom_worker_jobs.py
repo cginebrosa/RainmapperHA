@@ -6,6 +6,49 @@ from rainmapper_core import mushroom_worker_jobs
 
 
 class MushroomWorkerJobsTests(unittest.TestCase):
+    def test_predictor_claim_uses_interactive_prediction_message(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            mushroom_worker_jobs.create_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                request={
+                    "schema_version": "1.0",
+                    "kind": "rainmapper_mushroom_predictor_request",
+                    "view": "recommender",
+                    "species_id": "boletus",
+                    "area_id": "",
+                    "target_date": "2026-08-09",
+                    "trained_species_ids": ["boletus"],
+                },
+                runtime_manifest={
+                    "schema_version": "1.0",
+                    "kind": "rainmapper_mushroom_predictor_runtime",
+                    "fingerprint": "sha256:" + "a" * 64,
+                    "files": [
+                        {
+                            "path": "models/model.joblib",
+                            "sha256": "sha256:" + "b" * 64,
+                            "size_bytes": 0,
+                        }
+                    ],
+                },
+                job_id="worker_job_predict123",
+            )
+
+            claimed = mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+
+        self.assertIsNotNone(claimed)
+        self.assertEqual(
+            claimed["message"],
+            "The assigned worker claimed the interactive prediction.",
+        )
+
     def test_discard_candidate_waits_for_the_assigned_worker_acknowledgement(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"

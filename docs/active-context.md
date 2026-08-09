@@ -6,8 +6,20 @@ anteriores. Este documento describe el estado actual, no el historial completo.
 ## TL;DR — Estado del proyecto (leer esto primero)
 
 **Release HA:**
-- Publicada y pendiente de validación en HA real: `0.2.237`. El Predictor
-  conserva el ejecutor entre todas sus vistas, usa modales para
+- Publicada y pendiente de instalación en HA real: `0.2.238`, junto con worker
+  `1.0.1`. Corrige el estado visual del modal, vectoriza la inferencia y añade
+  cachés LRU acotadas por runtime; ambas imágenes son necesarias para obtener
+  el flujo y el rendimiento completos. Los tags `0.2.238` y `latest` comparten
+  el digest multi-arquitectura
+  `sha256:90f87d105f08b0061c480dd8168126663cb947d4128771c70179b1379b7e5e0d`,
+  verificado para `linux/amd64` y `linux/arm64`.
+- Publicada e instalada en HA real: `0.2.237`. La validación descubrió que el
+  job sí permanecía en M1 y reutilizaba el runtime, pero el modal mostraba a la
+  vez un selector recalculado que sugería HA y el progreso real del worker. La
+  corrección pendiente de release hace mutuamente excluyentes ambos estados,
+  añade cachés LRU acotadas de predicción/respuesta y vectoriza rankings,
+  semanas e historial para reducir el tiempo real de cálculo interno.
+- `0.2.237` conserva el ejecutor entre todas sus vistas, usa modales para
   selección/progreso, etiqueta `worker_predictor_v1` como predicción interactiva
   y centraliza la política de ejecución. Sus dos capacidades internas
   —seleccionar ejecutor y permitir HA— están fijadas actualmente a `True`, porque
@@ -82,13 +94,13 @@ anteriores. Este documento describe el estado actual, no el historial completo.
   lanzar cada trabajo externo.
   En la copia real esto evita retener unos 113--116 MB por reconstrucción y
   sustituye el transporte por un Parquet de unos 12 MB (~89 % menos).
-- La app HA y el worker tienen versiones independientes. HA real usa `0.2.233`;
-  el worker local M1 ya fue reconstruido y
-  está healthy como `1.0.0`. Instala `pyarrow==25.0.0` y anuncia
+- La app HA y el worker tienen versiones independientes. La siguiente pareja
+  operativa es HA `0.2.238` y worker `1.0.1`; el worker instala
+  `pyarrow==25.0.0` y anuncia
   `weather_parquet_v1` y `terminal_job_cleanup_v1`. HA usa fallback CSV con
   workers sin la capacidad Parquet.
 - `./mushroom_worker_start.sh` construye y arranca la versión declarada en el
-  Dockerfile —actualmente `rainmapper-worker:1.0.0`— y la exporta al Compose;
+  Dockerfile —actualmente `rainmapper-worker:1.0.1`— y la exporta al Compose;
   ya no etiqueta el worker operativo como `local`.
 - La retención incluida en `0.2.233` conserva 50 jobs y los
   muestra todos en una tabla de unas 10 filas con scroll; conserva dos backups,

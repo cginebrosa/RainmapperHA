@@ -914,7 +914,11 @@ def claim_next(
                 else (
                     "The assigned worker claimed the immutable input transport test."
                     if job.get("job_type") == JOB_TYPE_SNAPSHOT_TRANSPORT
-                    else "The assigned worker claimed this non-destructive test job."
+                    else (
+                        "The assigned worker claimed the interactive prediction."
+                        if job.get("job_type") == JOB_TYPE_PREDICTOR
+                        else "The assigned worker claimed this non-destructive test job."
+                    )
                 )
             ),
             "overall_percent": 5,

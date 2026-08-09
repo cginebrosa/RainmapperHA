@@ -3534,3 +3534,35 @@ Validacion local:
   `sha256:1f02a833721b793e366b6818db020a9a9d1dbcca174465c00f7d2b09c1e96602`,
   verificado para `linux/amd64` y `linux/arm64`; queda pendiente comprobar en HA
   real una apertura remota fría seguida de otra caliente.
+
+# 2026-08-09 - Sesión de ejecutor y caché de consultas del Predictor
+
+- La validación de HA `0.2.237` demuestra que los enlaces sí conservaron el
+  ejecutor M1 y que el worker reutilizó el runtime sin transferir archivos. La
+  aparente selección de HA era visual: el estilo global de `form` anulaba el
+  atributo HTML `hidden` y superponía una lista recalculada al progreso real.
+- Selección y progreso pasan a ser estados excluyentes del modal. La navegación
+  interna ejecuta directamente con el ejecutor fijado; solo «Cambiar ejecutor»
+  o la indisponibilidad real vuelven a mostrar opciones.
+- Reutilizar el runtime no equivale a reutilizar una respuesta. Se incorporan
+  cachés LRU ligadas al fingerprint: 512 resultados área/fecha por especie y 32
+  respuestas completas por servicio. La caja negra distingue ahora
+  `runtime_cache_status` de `worker_response_cache_status`.
+- Rankings, matriz semanal e historial agrupan sus filas y aplican cada modelo
+  sklearn una vez por lote. No cambian features, probabilidades ni contrato;
+  únicamente eliminan inferencias unitarias repetidas.
+- Medición directa con los datos locales actuales del M1: ranking de 8 áreas,
+  2,7817 s inicial y 0,0002 s repetido; matriz de 56 área/día, 2,6998 s inicial y
+  0,0012 s repetida. Estos tiempos son backend puro y todavía deberán validarse
+  extremo a extremo con la siguiente imagen worker y release HA.
+- Worker `1.0.1` construido y validado healthy en el M1 con capacidad
+  `predictor_v1`, caché GIS/DEM válida y coordinador de producción conservado.
+  La imagen arm64 tiene ID
+  `sha256:cab9d6b76d537f5104b57d1aebce63f8c01df624406b05ea0906cd7207d15103`;
+  el paquete M5 exportado tiene SHA-256
+  `d7038586920e8e4616588195abe8a837b016c24defe63bcff7479fc80008a35d`.
+- HA `0.2.238` publicada para `linux/amd64` y `linux/arm64`. Los tags de
+  versión y `latest` comparten el digest
+  `sha256:90f87d105f08b0061c480dd8168126663cb947d4128771c70179b1379b7e5e0d`.
+  El smoke previo pasó 530 tests y validadores; queda pendiente la validación
+  funcional de ambas imágenes en HA real y M5.

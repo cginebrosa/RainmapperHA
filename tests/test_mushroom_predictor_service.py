@@ -81,3 +81,52 @@ class PredictorServiceTests(TestCase):
             self.assertEqual(len(prepared.week_window("area_one", date(2026, 8, 9))), 7)
             self.assertEqual(progress[-1], 100)
 
+    def test_identical_request_reuses_bounded_response_cache(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            predictor.week_window.return_value = [
+                prediction("boletus", "area_one", date(2026, 8, 9 + offset))
+                for offset in range(7)
+            ]
+            service.predictor = Mock(return_value=predictor)
+
+            first = service.execute(self.request())
+            second = service.execute(self.request())
+
+        self.assertEqual(first["metrics"]["response_cache_status"], "miss")
+        self.assertEqual(second["metrics"]["response_cache_status"], "hit")
+        predictor.week_window.assert_called_once()
+
+    def test_week_view_batches_all_area_days(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = [
+                "area_one",
+                "area_two",
+            ]
+            predictor.predict_many.side_effect = lambda requests: [
+                prediction("boletus", area_id, target_date)
+                for area_id, target_date in requests
+            ]
+            service.predictor = Mock(return_value=predictor)
+
+            response = service.execute(self.request(view="week", area_id=""))
+
+        validate_response(response)
+        predictor.predict_many.assert_called_once()
+        self.assertEqual(len(predictor.predict_many.call_args.args[0]), 14)

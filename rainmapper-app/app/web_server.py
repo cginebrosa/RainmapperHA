@@ -6537,6 +6537,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       display: grid;
       gap: 10px;
     }}
+    .predictor-launch-dialog form[hidden] {{
+      display: none;
+    }}
     .predictor-executor-card {{
       align-items: center;
       border: 1px solid var(--line);
@@ -17342,6 +17345,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         ),
                         "worker_backend_seconds": response_metrics.get(
                             "backend_seconds"
+                        )
+                        if isinstance(response_metrics, dict)
+                        else None,
+                        "worker_response_cache_status": response_metrics.get(
+                            "response_cache_status"
                         )
                         if isinstance(response_metrics, dict)
                         else None,

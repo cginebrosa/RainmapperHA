@@ -24,6 +24,7 @@ import argparse
 import json
 import math
 import sys
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -116,6 +117,7 @@ _STATION_FILTER_MAX_KM = 15.0
 _STATION_FILTER_TOP_N = 5
 _WEATHER_COVERAGE_LOOKBACK_DAYS = 90
 _WEATHER_PREFETCH_FORWARD_DAYS = 6
+_PREDICTION_CACHE_MAX_ENTRIES = 512
 
 
 def _get_shared_stations_catalog(weather_data_dir: Path) -> Any:
@@ -370,6 +372,13 @@ class MushroomMLPredictor:
         self._weather_station_filter_catalog_mtime: float | None = None
         self._micro_area_profiles: dict[str, MicroAreaProfile] | None = None
         self._area_profiles: dict[str, AreaProfile] | None = None
+        # One Predictor instance is tied to one immutable model/runtime.  Keep
+        # the expensive area/day results so navigation between Predictor views
+        # does not repeat feature construction and one-row sklearn inference.
+        self._prediction_cache: OrderedDict[tuple[str, date], PredictionResult] = (
+            OrderedDict()
+        )
+        self._prediction_cache_lock = Lock()
 
     # ------------------------------------------------------------------
     # Lazy loaders
@@ -621,6 +630,144 @@ class MushroomMLPredictor:
             rf_prob = float(bundle["rf"].predict_proba(X_scaled)[0][1])
         return lr_prob, rf_prob
 
+    def _apply_model_many(
+        self, feature_rows: list[list[float]]
+    ) -> list[tuple[float | None, float | None]]:
+        """Apply each fitted model once to a batch of feature rows."""
+        if not feature_rows:
+            return []
+        import numpy as np  # noqa: PLC0415
+
+        bundle = self._model_bundle
+        X = np.array(feature_rows, dtype=float)
+        X_imp = bundle["imputer"].transform(X)
+        X_scaled = bundle["scaler"].transform(X_imp)
+        lr_values: list[float | None] = [None] * len(feature_rows)
+        rf_values: list[float | None] = [None] * len(feature_rows)
+        if "lr" in bundle:
+            probabilities = bundle["lr"].predict_proba(X_scaled)
+            lr_values = [float(row[1]) for row in probabilities]
+        if "rf" in bundle:
+            probabilities = bundle["rf"].predict_proba(X_scaled)
+            rf_values = [float(row[1]) for row in probabilities]
+        return list(zip(lr_values, rf_values, strict=True))
+
+    def _cached_prediction(
+        self, area_id: str, target_date: date
+    ) -> PredictionResult | None:
+        key = (area_id, target_date)
+        with self._prediction_cache_lock:
+            result = self._prediction_cache.get(key)
+            if result is not None:
+                self._prediction_cache.move_to_end(key)
+            return result
+
+    def _cache_prediction(self, result: PredictionResult) -> None:
+        key = (result.area_id, result.target_date)
+        with self._prediction_cache_lock:
+            self._prediction_cache[key] = result
+            self._prediction_cache.move_to_end(key)
+            while len(self._prediction_cache) > _PREDICTION_CACHE_MAX_ENTRIES:
+                self._prediction_cache.popitem(last=False)
+
+    def predict_many(
+        self, requests: list[tuple[str, date]]
+    ) -> list[PredictionResult]:
+        """Predict an ordered area/date collection with bounded result reuse.
+
+        Feature rows are still built with the training-parity code, but model
+        inference is vectorized for all cache misses.  This is especially
+        important for the weekly matrix, which previously called sklearn once
+        for every individual area/day cell.
+        """
+        from rainmapper_core.mushroom_ml_trainer import FEATURE_COLS  # noqa: PLC0415
+
+        if not requests:
+            return []
+        self._ensure_model()
+        self._ensure_micro_area_profiles()
+        target_dates = [target_date for _area_id, target_date in requests]
+        self._ensure_weather_stations(min(target_dates), max(target_dates))
+
+        results_by_key: dict[tuple[str, date], PredictionResult] = {}
+        missing: list[
+            tuple[
+                str,
+                date,
+                list[float],
+                list[str],
+                str | None,
+                float | None,
+                int | None,
+            ]
+        ] = []
+        seen_missing: set[tuple[str, date]] = set()
+        for area_id, target_date in requests:
+            key = (area_id, target_date)
+            cached = self._cached_prediction(area_id, target_date)
+            if cached is not None:
+                results_by_key[key] = cached
+                continue
+            if key in seen_missing:
+                continue
+            seen_missing.add(key)
+            profile = (self._area_profiles or {}).get(area_id)
+            if profile is None:
+                profile = AreaProfile(area_id=area_id, lat=None, lon=None)
+            feature_values, gaps, station_code, station_dist, coverage_days = (
+                self._build_feature_row(target_date, profile)
+            )
+            missing.append(
+                (
+                    area_id,
+                    target_date,
+                    feature_values,
+                    gaps,
+                    station_code,
+                    station_dist,
+                    coverage_days,
+                )
+            )
+
+        probabilities = self._apply_model_many([row[2] for row in missing])
+        for row, (lr_prob, rf_prob) in zip(missing, probabilities, strict=True):
+            (
+                area_id,
+                target_date,
+                feature_values,
+                gaps,
+                station_code,
+                station_dist,
+                coverage_days,
+            ) = row
+            probs = [value for value in (lr_prob, rf_prob) if value is not None]
+            ensemble_prob = round(sum(probs) / len(probs), 4) if probs else None
+            result = PredictionResult(
+                species_id=self.species_id,
+                area_id=area_id,
+                target_date=target_date,
+                lr_probability=round(lr_prob, 4) if lr_prob is not None else None,
+                rf_probability=round(rf_prob, 4) if rf_prob is not None else None,
+                ensemble_probability=ensemble_prob,
+                label=_label(ensemble_prob),
+                weather_station_code=station_code,
+                weather_station_distance_km=(
+                    round(station_dist, 2) if station_dist is not None else None
+                ),
+                weather_coverage_days=coverage_days,
+                feature_gaps=gaps,
+                features_used={
+                    column: value if math.isfinite(value) else None
+                    for column, value in zip(
+                        FEATURE_COLS, feature_values, strict=True
+                    )
+                },
+            )
+            results_by_key[(area_id, target_date)] = result
+            self._cache_prediction(result)
+
+        return [results_by_key[(area_id, target_date)] for area_id, target_date in requests]
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -631,43 +778,7 @@ class MushroomMLPredictor:
         target_date: date,
     ) -> PredictionResult:
         """Predict fruiting probability for a (area, date) pair."""
-        from rainmapper_core.mushroom_ml_trainer import FEATURE_COLS  # noqa: PLC0415
-
-        self._ensure_model()
-        self._ensure_weather_stations(target_date)
-        self._ensure_micro_area_profiles()
-
-        profile = (self._area_profiles or {}).get(area_id)
-        if profile is None:
-            profile = AreaProfile(area_id=area_id, lat=None, lon=None)
-
-        feature_values, gaps, station_code, station_dist, coverage_days = (
-            self._build_feature_row(target_date, profile)
-        )
-
-        lr_prob, rf_prob = self._apply_model(feature_values)
-
-        probs = [p for p in (lr_prob, rf_prob) if p is not None]
-        ensemble_prob = round(sum(probs) / len(probs), 4) if probs else None
-        features_used = {
-            column: value if math.isfinite(value) else None
-            for column, value in zip(FEATURE_COLS, feature_values, strict=True)
-        }
-
-        return PredictionResult(
-            species_id=self.species_id,
-            area_id=area_id,
-            target_date=target_date,
-            lr_probability=round(lr_prob, 4) if lr_prob is not None else None,
-            rf_probability=round(rf_prob, 4) if rf_prob is not None else None,
-            ensemble_probability=ensemble_prob,
-            label=_label(ensemble_prob),
-            weather_station_code=station_code,
-            weather_station_distance_km=round(station_dist, 2) if station_dist is not None else None,
-            weather_coverage_days=coverage_days,
-            feature_gaps=gaps,
-            features_used=features_used,
-        )
+        return self.predict_many([(area_id, target_date)])[0]
 
     def areas_with_species_observations(self) -> list[str]:
         """Return area_ids where this species has been observed (eligible obs only)."""
@@ -699,7 +810,7 @@ class MushroomMLPredictor:
             ids = self.areas_with_species_observations()
         else:
             ids = list((self._area_profiles or {}).keys())
-        results = [self.predict(area_id, target_date) for area_id in ids]
+        results = self.predict_many([(area_id, target_date) for area_id in ids])
         return sorted(
             results,
             key=lambda r: r.ensemble_probability if r.ensemble_probability is not None else -1,
@@ -712,10 +823,9 @@ class MushroomMLPredictor:
         start_date: date,
     ) -> list[PredictionResult]:
         """Predict for each day in a 7-day window starting at start_date."""
-        return [
-            self.predict(area_id, start_date + timedelta(days=i))
-            for i in range(7)
-        ]
+        return self.predict_many(
+            [(area_id, start_date + timedelta(days=i)) for i in range(7)]
+        )
 
     def backtest(
         self,
@@ -757,11 +867,15 @@ class MushroomMLPredictor:
                 dated_episodes[-1][0],
             )
 
+        predictions = self.predict_many(
+            [(str(ep.get("area_id", "")), obs_date) for obs_date, ep in dated_episodes]
+        )
         results = []
-        for obs_date, ep in dated_episodes:
+        for (obs_date, ep), pred in zip(
+            dated_episodes, predictions, strict=True
+        ):
             area_id = ep.get("area_id", "")
             obs_date_str = ep.get("observed_at", "")
-            pred = self.predict(area_id, obs_date)
             actual = ep.get("prediction_target")
             results.append(
                 {
