@@ -3567,12 +3567,13 @@ Validacion local:
   El smoke previo pasó 530 tests y validadores; queda pendiente la validación
   funcional de ambas imágenes en HA real y M5.
 
-# 2026-08-09 - El progreso del Predictor es presentación, no protocolo
+# 2026-08-09 - [VIGENTE] El progreso del Predictor es presentación, no protocolo
 
 - Una reproducción dentro del worker calculó la matriz semanal de 56 filas en
   2,617 s y la repetición cacheada en 0,001 s. Los jobs reales empleaban entre
   117 y 134 s aun reutilizando runtime y sin transportar archivos.
-- La diferencia provenía de dos llamadas síncronas a HA por callback
+- [REEMPLAZADA] La implementación granular anterior hacía dos llamadas
+  síncronas a HA por callback
   (cancelación y progreso), con un callback por área/día. El M1 no era más lento
   que la RPi4; estaba esperando al coordinador.
 - Los jobs interactivos dejan de publicar progreso granular. Conservan inicio y
@@ -3581,5 +3582,29 @@ Validacion local:
 - La observabilidad autoritativa permanece en el resultado final y en la caja
   negra de HA. Cualquier futura traza detallada de fases se agregará en memoria
   en el worker y se enviará una sola vez al completar.
-- El cambio de runtime se identifica como worker `1.0.2`; HA se versionará al
-  cerrar la siguiente release que incorpore el nuevo modal.
+- El cambio de runtime se identifica como worker `1.0.2`; HA `0.2.239` está
+  publicada con el nuevo modal y pendiente de validación conjunta en la RPi4.
+
+# 2026-08-09 - [VIGENTE] El Predictor público será worker-only
+
+- El panel privado de HA conserva por ahora selección manual y ejecución en HA;
+  ambas capacidades de política son constantes internas `True`, no opciones del
+  add-on ni permisos de usuario.
+- Una futura integración autenticada en MapLibre asignará Auto a los usuarios
+  normales y ejecutará exclusivamente en workers `predictor_v1` disponibles.
+- No habrá fallback silencioso a HA/RPi4 cuando falte capacidad externa. Se
+  mostrará indisponibilidad o se usará una cola expresamente acotada.
+- El navegador seguirá hablando con el gateway de HA y nunca con un worker
+  directamente. HA conserva autorización, jobs, resultados y Diagnostics.
+- La exposición multiusuario requiere antes límites de concurrencia, rate
+  limiting y caché compartida de respuestas. El objetivo no es únicamente
+  mejorar latencia, sino proteger la RPi4 al escalar.
+
+# 2026-08-09 - [DUDA] Fuente futura de permisos del Predictor
+
+- Queda deliberadamente sin decidir si la selección manual y el permiso de usar
+  HA se derivarán del rol Admin hardcoded, de campos por usuario o de perfiles.
+- No existe hoy un mantenimiento de tipos de perfil que justifique añadir esa
+  complejidad, y el panel privado por Ingress no aporta identidad Rainmapper.
+- Hasta abordar la UI pública, no convertir estas políticas en opciones del
+  add-on ni abrir un mantenimiento nuevo.

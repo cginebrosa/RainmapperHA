@@ -208,9 +208,10 @@ Hay varios entry points segun entorno:
 
 ### Coordinador y worker externo de setas
 
-- Alcance actual: prototipo operativo solo en el laboratorio local. La release
-  HA `0.2.207` no contiene este coordinador; una prueba M1 ↔ HA real requiere
-  primero una version HA normal nueva. No existe imagen HA de desarrollo.
+- Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
+  HA `0.2.239` contiene el coordinador y el M1 ejecuta worker `1.0.2` conectado
+  mediante su configuración privada actual. El laboratorio usa el mismo
+  contrato; no existe ni hace falta una imagen HA de desarrollo paralela.
 - Coordinador: `web_server.py` conserva autoridad sobre pairing, registro,
   heartbeats, jobs/claims, snapshots, datasets, candidatos y promocion;
   `mushroom_workers_ui.py` renderiza la pagina humana `Workers y trabajos`.
@@ -250,7 +251,8 @@ Hay varios entry points segun entorno:
   heartbeat; GIS/DEM permanece como cache compartida.
 - Compatibilidad: HA y worker tienen secuencias de version independientes. La
   compatibilidad operativa se negocia por capacidades del heartbeat, actualmente
-  `weather_parquet_v1` y `terminal_job_cleanup_v1`, no comparando versiones.
+  `rebuild_v0`, `weather_parquet_v1`, `terminal_job_cleanup_v1` y
+  `predictor_v1`, no comparando versiones.
 - Seguridad operacional: pairing de un uso, Bearer por worker, lease/token por
   claim, bloqueo de trabajos solapados, cancelacion cooperativa/forzada y
   rechazo de resultados stale. La reconstruccion local HA permanece como
@@ -266,9 +268,15 @@ Hay varios entry points segun entorno:
   rol porque esa entrada no tiene identidad Rainmapper. La integración pública
   futura podrá derivarlas del rol o del usuario (previsiblemente Admin con ambas
   capacidades y el resto en Auto, worker-only).
-  El panel abre selección y progreso en un modal, pero la ruta completa continúa
-  siendo el fallback accesible. Una integración futura desde MapLibre reutilizará
-  este gateway; nunca conectará el navegador directamente con un worker.
+  El panel abre selección y espera en un modal. El worker publica únicamente
+  transiciones duraderas de inicio/final; la ETA intermedia es una animación del
+  navegador basada en tiempos comparables y no forma parte del protocolo. El
+  resultado final aporta el diagnóstico autoritativo.
+  Una integración futura desde MapLibre reutilizará este gateway y nunca
+  conectará el navegador directamente con un worker. Para usuarios normales
+  será automática y worker-only: si no hay capacidad disponible no habrá
+  fallback silencioso a HA/RPi4. Antes de exponerla a varios usuarios deberán
+  existir límites de concurrencia, rate limiting y caché compartida.
 
 ### Flujo de setas v0
 - Rutas principales:
