@@ -7,7 +7,7 @@ from rainmapper_core import mushroom_learned_model
 
 
 class MushroomLearnedModelTests(unittest.TestCase):
-    def test_scarce_observation_is_learned_as_unfavorable(self) -> None:
+    def test_operational_threshold_learns_scarce_as_favorable(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             features_path = Path(temp_dir) / "observation_features_v0.json"
             features_path.write_text(
@@ -15,7 +15,7 @@ class MushroomLearnedModelTests(unittest.TestCase):
                     {
                         "prediction_target_policy": {
                             "version": "catalog_prediction_favorable_v1",
-                            "mapping": {"normal": 1, "scarce": 0},
+                            "mapping": {"normal": 1, "scarce": 1, "very_scarce": 0},
                         },
                         "rows": [
                             {
@@ -35,8 +35,19 @@ class MushroomLearnedModelTests(unittest.TestCase):
                                 "micro_area_id": "area_b",
                                 "observed_at": "2023-10-16T10:00:00",
                                 "analysis_result": "present",
-                                "prediction_target": "unfavorable",
+                                "prediction_target": "favorable",
                                 "flush_abundance": "scarce",
+                                "validation_status": "valid",
+                                "calibration_use": "include",
+                            },
+                            {
+                                "observation_id": "obs_very_scarce",
+                                "species_id": "boletus_aereus",
+                                "micro_area_id": "area_c",
+                                "observed_at": "2023-10-17T10:00:00",
+                                "analysis_result": "present",
+                                "prediction_target": "unfavorable",
+                                "flush_abundance": "very_scarce",
                                 "validation_status": "valid",
                                 "calibration_use": "include",
                             },
@@ -49,13 +60,14 @@ class MushroomLearnedModelTests(unittest.TestCase):
             payload = mushroom_learned_model.build_learned_model_v0(features_path)
             model = payload["species_models"][0]
 
-            self.assertEqual(model["favorable_count"], 1)
+            self.assertEqual(model["favorable_count"], 2)
             self.assertEqual(model["unfavorable_count"], 1)
-            self.assertEqual(payload["summary"]["favorable_observations"], 1)
+            self.assertEqual(payload["summary"]["favorable_observations"], 2)
             self.assertEqual(payload["summary"]["unfavorable_observations"], 1)
             self.assertEqual(payload["feature_contract"]["target"], "prediction_target")
             self.assertEqual(payload["prediction_target_policy"]["version"], "catalog_prediction_favorable_v1")
-            self.assertEqual(payload["prediction_target_policy"]["mapping"]["scarce"], 0)
+            self.assertEqual(payload["prediction_target_policy"]["mapping"]["scarce"], 1)
+            self.assertEqual(payload["prediction_target_policy"]["mapping"]["very_scarce"], 0)
 
     def test_build_learned_model_summarizes_observation_features(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

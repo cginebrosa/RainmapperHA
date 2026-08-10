@@ -567,6 +567,64 @@ class PredictContractTests(unittest.TestCase):
         mock_scaler.transform.side_effect = lambda x: x
         return {"lr": mock_clf, "rf": mock_clf, "imputer": mock_imputer, "scaler": mock_scaler}
 
+    def test_species_phenology_distinguishes_main_secondary_and_outside(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            profiles = root / "profiles.json"
+            profiles.write_text(
+                json.dumps({
+                    "species_profiles": [{
+                        "species_id": "test_sp",
+                        "phenology": {
+                            "main_months": [4, 5],
+                            "secondary_months": [1, 2, 3, 6],
+                        },
+                    }]
+                }),
+                encoding="utf-8",
+            )
+            p = predictor_mod.MushroomMLPredictor(
+                "test_sp",
+                profiles_path=profiles,
+            )
+
+            self.assertEqual(p.season_phase(date(2026, 4, 1)), "main")
+            self.assertEqual(p.season_phase(date(2026, 2, 1)), "secondary")
+            self.assertEqual(p.season_phase(date(2026, 8, 1)), "out_of_season")
+
+    def test_out_of_season_prediction_skips_model_and_weather(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            profiles = root / "profiles.json"
+            profiles.write_text(
+                json.dumps({
+                    "species_profiles": [{
+                        "species_id": "test_sp",
+                        "phenology": {
+                            "main_months": [4, 5],
+                            "secondary_months": [6],
+                        },
+                    }]
+                }),
+                encoding="utf-8",
+            )
+            p = predictor_mod.MushroomMLPredictor(
+                "test_sp",
+                profiles_path=profiles,
+            )
+            with (
+                patch.object(p, "_ensure_model") as ensure_model,
+                patch.object(p, "_ensure_weather_stations") as ensure_weather,
+            ):
+                result = p.predict("area_a", date(2026, 8, 10))
+
+        ensure_model.assert_not_called()
+        ensure_weather.assert_not_called()
+        self.assertEqual(result.label, "out_of_season")
+        self.assertEqual(result.season_phase, "out_of_season")
+        self.assertIsNone(result.ensemble_probability)
+        self.assertEqual(result.features_used, {"month": 8.0})
+
     def test_predict_returns_label_field(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             p = self._make_predictor(Path(d))

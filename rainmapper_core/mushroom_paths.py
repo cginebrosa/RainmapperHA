@@ -183,6 +183,16 @@ def mushroom_known_sites_path() -> Path:
     return mushroom_data_file("mushroom_known_sites.json")
 
 
+def mushroom_profiles_path() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_PROFILES_PATH", "").strip()
+    if configured:
+        return Path(configured)
+    persistent_path = mushroom_data_file("mushroom_profiles.json")
+    if persistent_path.exists():
+        return persistent_path
+    return app_mushroom_defaults_dir() / "mushroom_profiles.json"
+
+
 def mushroom_ml_models_dir() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_MODELS_DIR", "").strip()
     if configured:

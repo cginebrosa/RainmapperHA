@@ -43,14 +43,18 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
                     {
                         "job_id": "worker_job_mltrain1234",
                         "species_ids": ["boletus_aereus"],
+                        "min_rows": 10,
+                        "cv_folds": 3,
                     }
                 ),
                 encoding="utf-8",
             )
             features.write_text("{}", encoding="utf-8")
             known_sites.write_text("{}", encoding="utf-8")
+            captured_run_kwargs = {}
 
-            def fake_run(*, models_dir: Path, report_path: Path, **_kwargs):
+            def fake_run(*, models_dir: Path, report_path: Path, **kwargs):
+                captured_run_kwargs.update(kwargs)
                 report = {
                     "schema_version": "0.1",
                     "kind": "mushroom_ml_v0_report",
@@ -99,6 +103,9 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
                 content = (output / logical_path).read_bytes()
                 self.assertEqual(row["size_bytes"], len(content))
                 self.assertEqual(row["sha256"], hashlib.sha256(content).hexdigest())
+
+            self.assertEqual(captured_run_kwargs["min_rows"], 10)
+            self.assertEqual(captured_run_kwargs["cv_folds"], 3)
 
 
 if __name__ == "__main__":

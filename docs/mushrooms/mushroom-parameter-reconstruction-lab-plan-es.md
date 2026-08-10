@@ -747,9 +747,8 @@ entrada de `catalogs.observation_flush_abundance`:
 
 ```text
 prediction_target = favorable    si flush_abundance es normal, abundant,
-                                  very_abundant o exceptional
-prediction_target = unfavorable  si flush_abundance es scarce, very_scarce
-                                  o absent
+                                  very_abundant, exceptional o scarce
+prediction_target = unfavorable  si flush_abundance es very_scarce o absent
 prediction_target = unknown      si falta el valor o no esta reconocido
 ```
 
@@ -886,7 +885,7 @@ Decisiones pendientes antes o durante la implementacion:
 La primera version debe separar claramente:
 
 - observaciones favorables para una salida de recoleccion;
-- observaciones desfavorables, incluidas floradas escasas y ausencias;
+- observaciones desfavorables, incluidas floradas testimoniales y ausencias;
 - observaciones dudosas;
 - observaciones archivadas;
 - observaciones excluidas de calibracion;
@@ -894,8 +893,8 @@ La primera version debe separar claramente:
 
 Configuracion actual del catalogo para el objetivo binario V0:
 
-- `normal` o superior se considera `favorable`;
-- `scarce`, `very_scarce` y `absent` se consideran `unfavorable`;
+- `scarce` o superior se considera `favorable`;
+- `very_scarce` y `absent` se consideran `unfavorable`;
 - la florada original se conserva siempre y permite reconstruir el objetivo si
   el campo `prediction_favorable` del catalogo cambia en el futuro.
 

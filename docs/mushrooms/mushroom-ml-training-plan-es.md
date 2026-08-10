@@ -68,8 +68,11 @@ Bloqueos activos para ampliar el dataset de entrenamiento:
 2. **Asignar `micro_area_id` a 65 obs validas** que aun no tienen setal asignado.
 3. **Revisar las 158 obs en draft**: confirmar especie y florada para que pasen a valid.
 
-Primer objetivo: clasificacion binaria de fructificacion visible:
-`not_detected_with_known_search=0`, `detected=1`.
+Primer objetivo: clasificacion binaria de utilidad operativa de la florada para
+una salida de recoleccion: `unfavorable=0`, `favorable=1`. No es una
+clasificacion de mera presencia: encontrar uno o dos ejemplares puede conservar
+`analysis_result=present` y, a la vez, ser `prediction_target=unfavorable` si la
+florada se registra como `very_scarce`.
 Evolucion posterior: abundancia ordinal desde `absent` hasta `exceptional`.
 
 Las primeras salidas seran experimentales y no se presentaran como predictor
@@ -80,9 +83,12 @@ fabricarse ausencias desde fechas o lugares que no se visitaron. Con el
 dataset actual predominan las observaciones positivas; hay que priorizar el
 registro de no detecciones con esfuerzo conocido.
 
-El objetivo no es predecir presencia biologica o micelio. Una visita sin
-carpoforos visibles es una no deteccion condicionada por el esfuerzo de busqueda,
-no una demostracion de ausencia de la especie.
+El objetivo no es predecir presencia biologica, micelio ni cualquier carpoforo
+aislado. Predice si las condiciones se parecen a episodios con una florada
+minimamente interesante. Una visita sin carpoforos visibles es una no deteccion
+condicionada por el esfuerzo de busqueda, no una demostracion de ausencia de la
+especie; una visita `very_scarce` confirma presencia visible, pero sigue siendo
+desfavorable para recomendar la salida.
 
 ## Unidad de entrenamiento
 
@@ -153,6 +159,13 @@ Mapeo vigente del catalogo (campo `prediction_favorable`):
 | very_scarce     | 0                    | unfavorable       |
 | absent          | 0                    | unfavorable       |
 | pending         | 0 (en catalogo)      | **excluida via calibration_use** |
+
+La frontera operativa se fija entre `very_scarce` y `scarce`: `very_scarce`
+describe hallazgos testimoniales (por ejemplo, uno o dos ejemplares) que no
+justifican recomendar el desplazamiento; `scarce` ya representa una florada
+pequena pero minimamente interesante. Esta decision no convierte
+`unfavorable` en sinonimo de ausencia: `analysis_result` conserva por separado
+si hubo carpoforos visibles.
 
 **Sobre `pending`:** aunque el catalogo define `pending.prediction_favorable=0`,
 estas observaciones nunca llegan al filtro de `prediction_target` porque el
@@ -538,6 +551,20 @@ neuronales ni modelos temporales complejos con la muestra actual.
 La separacion de validacion se hara por `episode_id`, fecha o `micro_area_id`,
 nunca por observacion aleatoria. Observaciones correlacionadas del mismo setal y
 fecha no pueden quedar a ambos lados de la particion.
+
+**Politica implementada de ajuste y evaluacion (2026-08-10):** el corte
+cronologico 70/30 se conserva como una evaluacion adicional: los episodios mas
+antiguos entrenan un modelo temporal efimero y los mas recientes lo validan. Si
+cualquiera de los dos tramos contiene una sola clase, esa evaluacion se marca
+explicitamente como no disponible y no aborta el entrenamiento.
+
+La validacion cruzada estratificada usa todos los episodios elegibles, sin
+separar observaciones del mismo episodio, y reduce automaticamente el numero de
+folds al tamano de la clase minoritaria. Tras calcular las metricas, los modelos
+productivos LR y RF se ajustan de nuevo con todos los episodios elegibles. De
+esta forma las observaciones recientes, incluidas las no detecciones que antes
+no se registraban, participan en el modelo operativo sin presentar una
+comprobacion retrospectiva como si fuera validacion hacia delante.
 
 El primer modelo se validara para setales conocidos. La evaluacion por setal
 completo se incorporara cuando haya suficientes `micro_area_id` diferentes para

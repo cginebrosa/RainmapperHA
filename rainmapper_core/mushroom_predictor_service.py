@@ -92,6 +92,7 @@ def deserialize_prediction(payload: object) -> PredictionResult:
         weather_coverage_days=_optional_int(payload.get("weather_coverage_days")),
         feature_gaps=[str(value) for value in payload.get("feature_gaps", [])],
         features_used=dict(payload.get("features_used", {})),
+        season_phase=str(payload.get("season_phase", "unknown")),
     )
 
 
@@ -118,11 +119,13 @@ class PredictorService:
         features_artifact_path: Path,
         known_sites_path: Path,
         runtime_fingerprint: str,
+        profiles_path: Path | None = None,
     ) -> None:
         self.models_dir = Path(models_dir)
         self.weather_data_dir = Path(weather_data_dir)
         self.features_artifact_path = Path(features_artifact_path)
         self.known_sites_path = Path(known_sites_path)
+        self.profiles_path = Path(profiles_path) if profiles_path is not None else None
         self.runtime_fingerprint = str(runtime_fingerprint)
         self._predictors: dict[str, MushroomMLPredictor] = {}
         self._responses: OrderedDict[tuple[object, ...], dict[str, Any]] = (
@@ -140,6 +143,7 @@ class PredictorService:
                     weather_data_dir=self.weather_data_dir,
                     features_artifact_path=self.features_artifact_path,
                     known_sites_path=self.known_sites_path,
+                    profiles_path=self.profiles_path,
                 )
                 self._predictors[species_id] = predictor
             return predictor
@@ -191,12 +195,20 @@ class PredictorService:
                     f"{index + 1}/{total}: {species_id}",
                 )
                 predictor = self.predictor(species_id)
+                season_phase = predictor.season_phase(target)
                 data["species"][species_id] = {
+                    "season_phase": season_phase,
                     "rankings": {
-                        target.isoformat(): [
-                            serialize_prediction(row)
-                            for row in predictor.rank_areas(target, only_observed=True)
-                        ]
+                        target.isoformat(): (
+                            []
+                            if season_phase == "out_of_season"
+                            else [
+                                serialize_prediction(row)
+                                for row in predictor.rank_areas(
+                                    target, only_observed=True
+                                )
+                            ]
+                        )
                     }
                 }
         elif view == "week":
@@ -288,6 +300,9 @@ class PreparedPredictor:
 
     def areas_with_species_observations(self) -> list[str]:
         return [str(value) for value in self._data.get("areas", [])]
+
+    def season_phase(self, _target_date: date) -> str:
+        return str(self._data.get("season_phase", "unknown"))
 
     def predict(self, area_id: str, target_date: date) -> PredictionResult:
         payload = self._data.get("predictions", {}).get(area_id, {}).get(target_date.isoformat())

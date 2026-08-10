@@ -661,6 +661,26 @@ Estas variables ya pertenecen al perfil de especie:
 - pesos de scoring;
 - confianza y prioridad de calibración.
 
+#### Barrera fenológica del Predictor (implementada 2026-08-10)
+
+La temporada es una precondición biológica, no una probabilidad que el modelo
+deba descubrir únicamente desde observaciones escasas. Antes de cargar modelos
+o meteorología, el Predictor clasifica la fecha consultada contra
+`phenology.main_months` y `phenology.secondary_months` del perfil:
+
+- mes principal: ejecuta la predicción y conserva `season_phase=main`;
+- mes secundario: ejecuta la predicción y conserva
+  `season_phase=secondary`;
+- fuera de ambas listas: no ejecuta LR/RF ni carga meteorología, devuelve
+  `out_of_season` sin probabilidad y excluye la especie del recomendador;
+- perfil sin fenología utilizable: conserva `unknown` como compatibilidad
+  explícita, sin inventar meses ni ausencias.
+
+La regla se aplica en el núcleo compartido a recomendador, semana, consulta de
+fecha e historial. El campo numérico `month` se mantiene como feature dentro de
+la temporada para aprender diferencias entre inicio, máximo y final, pero ya no
+puede habilitar por sí solo una especie fuera de su ventana configurada.
+
 ### 4.4 Entradas de observación
 
 Las observaciones deben servir para calibrar, no sólo para guardar histórico. Deben aportar:

@@ -73,6 +73,7 @@ class PredictionResult:
     weather_coverage_days: int | None
     feature_gaps: list[str] = field(default_factory=list)
     features_used: dict[str, Any] = field(default_factory=dict)
+    season_phase: str = "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +349,10 @@ class MushroomMLPredictor:
         Path to mushroom_known_sites.json.
         Used for micro_area lat/lon and altitude.
         Defaults to mushroom_paths.mushroom_known_sites_path().
+    profiles_path:
+        Path to mushroom_profiles.json. Its phenology defines the allowed
+        calendar months for each species.
+        Defaults to mushroom_paths.mushroom_profiles_path().
     """
 
     def __init__(
@@ -357,6 +362,7 @@ class MushroomMLPredictor:
         weather_data_dir: Path | None = None,
         features_artifact_path: Path | None = None,
         known_sites_path: Path | None = None,
+        profiles_path: Path | None = None,
     ) -> None:
         self.species_id = species_id
         self._models_dir = models_dir or mushroom_paths.mushroom_ml_models_dir()
@@ -365,6 +371,7 @@ class MushroomMLPredictor:
             features_artifact_path or mushroom_paths.mushroom_observation_features_json_path()
         )
         self._known_sites_path = known_sites_path or mushroom_paths.mushroom_known_sites_path()
+        self._profiles_path = profiles_path or mushroom_paths.mushroom_profiles_path()
 
         self._model_bundle: dict[str, Any] | None = None
         self._weather_stations: dict[tuple[str, str], Any] | None = None
@@ -372,6 +379,10 @@ class MushroomMLPredictor:
         self._weather_station_filter_catalog_mtime: float | None = None
         self._micro_area_profiles: dict[str, MicroAreaProfile] | None = None
         self._area_profiles: dict[str, AreaProfile] | None = None
+        self._phenology_loaded = False
+        self._phenology_mtime_ns: int | None = None
+        self._main_months: frozenset[int] = frozenset()
+        self._secondary_months: frozenset[int] = frozenset()
         # One Predictor instance is tied to one immutable model/runtime.  Keep
         # the expensive area/day results so navigation between Predictor views
         # does not repeat feature construction and one-row sklearn inference.
@@ -416,6 +427,79 @@ class MushroomMLPredictor:
             "ok",
             {"model_size_mib": model_size_mib},
         )
+
+    @staticmethod
+    def _valid_months(values: object) -> frozenset[int]:
+        if not isinstance(values, list):
+            return frozenset()
+        months: set[int] = set()
+        for value in values:
+            if isinstance(value, bool):
+                continue
+            try:
+                month = int(value)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= month <= 12:
+                months.add(month)
+        return frozenset(months)
+
+    def _ensure_species_phenology(self) -> None:
+        try:
+            current_mtime_ns = self._profiles_path.stat().st_mtime_ns
+        except OSError:
+            current_mtime_ns = None
+        if self._phenology_loaded and current_mtime_ns == self._phenology_mtime_ns:
+            return
+
+        main_months: frozenset[int] = frozenset()
+        secondary_months: frozenset[int] = frozenset()
+        if current_mtime_ns is not None:
+            try:
+                payload = json.loads(self._profiles_path.read_text(encoding="utf-8"))
+                profiles = payload.get("species_profiles", [])
+                profile = next(
+                    (
+                        row
+                        for row in profiles
+                        if isinstance(row, dict)
+                        and row.get("species_id") == self.species_id
+                    ),
+                    None,
+                )
+                if profile is not None:
+                    phenology = profile.get("phenology") or {}
+                    if isinstance(phenology, dict):
+                        main_months = self._valid_months(phenology.get("main_months"))
+                        secondary_months = self._valid_months(
+                            phenology.get("secondary_months")
+                        ) - main_months
+            except (OSError, ValueError, json.JSONDecodeError):
+                main_months = frozenset()
+                secondary_months = frozenset()
+
+        changed = self._phenology_loaded and (
+            main_months != self._main_months
+            or secondary_months != self._secondary_months
+        )
+        self._main_months = main_months
+        self._secondary_months = secondary_months
+        self._phenology_mtime_ns = current_mtime_ns
+        self._phenology_loaded = True
+        if changed:
+            with self._prediction_cache_lock:
+                self._prediction_cache.clear()
+
+    def season_phase(self, target_date: date) -> str:
+        """Return main, secondary, out_of_season, or unknown for one date."""
+        self._ensure_species_phenology()
+        if target_date.month in self._main_months:
+            return "main"
+        if target_date.month in self._secondary_months:
+            return "secondary"
+        if self._main_months or self._secondary_months:
+            return "out_of_season"
+        return "unknown"
 
     def _ensure_weather_stations(
         self,
@@ -684,10 +768,21 @@ class MushroomMLPredictor:
 
         if not requests:
             return []
-        self._ensure_model()
-        self._ensure_micro_area_profiles()
-        target_dates = [target_date for _area_id, target_date in requests]
-        self._ensure_weather_stations(min(target_dates), max(target_dates))
+
+        phases = {
+            (area_id, target_date): self.season_phase(target_date)
+            for area_id, target_date in requests
+        }
+        in_season_requests = [
+            (area_id, target_date)
+            for area_id, target_date in requests
+            if phases[(area_id, target_date)] != "out_of_season"
+        ]
+        if in_season_requests:
+            self._ensure_model()
+            self._ensure_micro_area_profiles()
+            target_dates = [target_date for _area_id, target_date in in_season_requests]
+            self._ensure_weather_stations(min(target_dates), max(target_dates))
 
         results_by_key: dict[tuple[str, date], PredictionResult] = {}
         missing: list[
@@ -711,6 +806,25 @@ class MushroomMLPredictor:
             if key in seen_missing:
                 continue
             seen_missing.add(key)
+            season_phase = phases[key]
+            if season_phase == "out_of_season":
+                result = PredictionResult(
+                    species_id=self.species_id,
+                    area_id=area_id,
+                    target_date=target_date,
+                    lr_probability=None,
+                    rf_probability=None,
+                    ensemble_probability=None,
+                    label="out_of_season",
+                    weather_station_code=None,
+                    weather_station_distance_km=None,
+                    weather_coverage_days=None,
+                    features_used={"month": float(target_date.month)},
+                    season_phase=season_phase,
+                )
+                results_by_key[key] = result
+                self._cache_prediction(result)
+                continue
             profile = (self._area_profiles or {}).get(area_id)
             if profile is None:
                 profile = AreaProfile(area_id=area_id, lat=None, lon=None)
@@ -762,6 +876,7 @@ class MushroomMLPredictor:
                         FEATURE_COLS, feature_values, strict=True
                     )
                 },
+                season_phase=phases[(area_id, target_date)],
             )
             results_by_key[(area_id, target_date)] = result
             self._cache_prediction(result)
@@ -839,9 +954,6 @@ class MushroomMLPredictor:
             load_micro_area_to_area,
         )
 
-        self._ensure_model()
-        self._ensure_micro_area_profiles()
-
         path = features_artifact_path or self._features_artifact_path
         ks_path = known_sites_path or self._known_sites_path
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -858,15 +970,6 @@ class MushroomMLPredictor:
             except (TypeError, ValueError):
                 continue
         dated_episodes.sort(key=lambda item: item[0])
-        if dated_episodes:
-            # History is an explicit broad query. Load its complete required
-            # interval once, then let the next present-day view replace it with
-            # the normal 96-day window.
-            self._ensure_weather_stations(
-                dated_episodes[0][0],
-                dated_episodes[-1][0],
-            )
-
         predictions = self.predict_many(
             [(str(ep.get("area_id", "")), obs_date) for obs_date, ep in dated_episodes]
         )
@@ -883,11 +986,12 @@ class MushroomMLPredictor:
                     "observed_at": obs_date_str,
                     "n_micro_areas": ep.get("n_micro_areas_in_episode", 1),
                     "actual": actual,
-                    "predicted_label": _label(pred.ensemble_probability),
+                    "predicted_label": pred.label,
+                    "season_phase": pred.season_phase,
                     "lr_probability": pred.lr_probability,
                     "rf_probability": pred.rf_probability,
                     "ensemble_probability": pred.ensemble_probability,
-                    "correct": _label(pred.ensemble_probability) == actual if pred.ensemble_probability is not None else None,
+                    "correct": pred.label == actual if pred.ensemble_probability is not None else None,
                 }
             )
         return results

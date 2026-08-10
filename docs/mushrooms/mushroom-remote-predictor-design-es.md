@@ -62,6 +62,7 @@ HA es autoritativo y manifiesta, con tamaño y SHA-256:
 - `weather_stations_catalog.parquet`;
 - modelos `mushroom_ml_v0_*.joblib`;
 - `mushroom_known_sites.json`;
+- `mushroom_profiles.json`, incluida la fenología autoritativa por especie;
 - `mushroom_observation_features_v0.json`;
 - metadatos necesarios para validar el modelo.
 
@@ -132,7 +133,8 @@ no el historial autoritativo.
 - `mushroom_predictor_runtime.py` crea el manifiesto content-addressed,
   autoriza cada descarga y activa el runtime verificado de forma atómica. El
   worker enlaza o copia desde el runtime anterior los archivos cuyo SHA-256 no
-  cambió.
+  cambió. `mushroom_profiles.json` forma parte del fingerprint para que HA y
+  worker apliquen exactamente la misma barrera fenológica.
 - La cola incorpora `worker_predictor_v1`; el worker anuncia `predictor_v1`,
   mantiene en memoria los predictores del fingerprint activo y publica fases y
   porcentaje mediante el canal de trabajos autenticado.

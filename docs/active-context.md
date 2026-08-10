@@ -4,19 +4,22 @@ Ventana operativa de RainmapperHA. Este documento contiene únicamente el estado
 necesario para continuar; el histórico vive en `docs/decisions.md`,
 `docs/project-archive.md` y los documentos de diseño enlazados.
 
-## Estado a 2026-08-09
+## Estado a 2026-08-10
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Último release preparado: HA `0.2.241` y worker `1.0.3`.
-- HA `0.2.239` está instalada y validada en la RPi4 real; `0.2.241` está
+- Último release preparado: HA `0.2.242` y worker `1.0.4`.
+- HA `0.2.239` está instalada y validada en la RPi4 real; `0.2.242` está
   publicada y pendiente de instalación/validación por el usuario.
-- Tags `0.2.241` y `latest`: digest multi-arquitectura
-  `sha256:cb33dc2854f51a2a42eb10de93deeabbf12711c9da6282bbe8c9971f7af1f3d5`,
+- Tags `0.2.242` y `latest`: digest multi-arquitectura
+  `sha256:3abd516d7aeac7bd4f8bfeacc2d96be2823f339a6c5d31cdc62caaf64ebc562b`,
   con manifests `linux/amd64` y `linux/arm64` verificados.
-- Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.3`, conectado
+- Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.4`, conectado
   al coordinador real, healthy/idle y con cachés persistentes GIS/DEM y
   Predictor válidas. Su identidad es `worker_1a9a232c20fe2ee2` / `M1 Personal`.
+- El paquete privado arm64 del M5 está preparado en
+  `~/Desktop/RainmapperWorker`: TAR `1.0.4`, Compose, scripts e instrucciones
+  actualizados y validados. El TAR `1.0.1` se conserva como rollback.
 - La pareja publicada acelera
   reconstrucción, promoción y entrenamiento: reconstrucción y entrenamiento
   coalescen control/progreso remoto a una actualización cada 2 s y conservan
@@ -26,7 +29,7 @@ necesario para continuar; el histórico vive en `docs/decisions.md`,
   explícitos.
 - Al reiniciar, el M1 reclamó un entrenamiento ML que ya estaba encolado; acabó
   correctamente en unos 30 s y verificó cuatro especies. No quedó ocupado.
-- Validación local posterior: smoke completo con 538 tests, validadores y
+- Validación local posterior: smoke completo con 543 tests, validadores y
   `git diff --check`, todo correcto.
 
 ## Resultado principal de la sesión
@@ -91,19 +94,22 @@ navegación caliente.
 
 ## Próximo paso inmediato
 
-1. Instalar y validar HA `0.2.241`. Incluye lo publicado en `0.2.240`: sustituye
-   el antiguo tiempo típico de backend por dos medianas extremo a extremo:
-   primera apertura y navegación
-   posterior. Auto recomienda por primera apertura; nunca cambia de ejecutor en
-   mitad de la sesión. La misma entrega amplía el Predictor a 1.100 px y aumenta la
-   tipografía de pestañas, tablas, leyendas, formularios y tarjetas; en pantallas
-   estrechas las tablas conservan tamaño legible mediante desplazamiento
-   horizontal. Además acelera la promoción reutilizando hashes GIS seguros y,
-   con worker `1.0.3`, coalesce la telemetría de reconstrucción y entrenamiento.
-2. El siguiente trabajo es revisar Diagnostics para separar explícitamente
+0. Instalar HA `0.2.242`. Después, reconstruir todos los artefactos y reentrenar
+   en el M1 desde la UI de HA. La reconstrucción es necesaria porque el cambio
+   autoritativo `scarce=1` se materializa en el artefacto de features.
+1. Validar que el entrenamiento completa con la política nueva: holdout
+   cronológico solo cuando ambos tramos contienen las dos clases, CV
+   estratificada sobre todos los episodios y ajuste productivo con todos ellos.
+   El objetivo operativo es salida mínimamente interesante: `scarce=1`,
+   `very_scarce=0`, `absent=0`; no equivale a mera presencia/ausencia.
+2. Validar la barrera fenológica general del Predictor: meses principales y
+   secundarios ejecutan ML; fuera de temporada devuelve `out_of_season` sin
+   cargar modelo ni meteorología. `mushroom_profiles.json` forma parte del
+   runtime remoto, por lo que HA y worker aplican la misma regla.
+3. El siguiente trabajo es revisar Diagnostics para separar explícitamente
    `backend_seconds`, cola,
    sincronización, cachés y tiempo total.
-3. No ejecutar el runner, no publicar otra versión y no cambiar red/Tailscale
+4. No ejecutar el runner, no publicar otra versión y no cambiar red/Tailscale
    durante este trabajo.
 
 Si sigue tardando mucho, separar inmediatamente:
@@ -193,8 +199,8 @@ queda deliberadamente sin decidir. No abrir ese trabajo durante la validación d
   cada fila del cálculo. El job sigue teniendo transiciones duraderas y los
   cálculos deberían durar segundos; revisar cancelación si alguna carga vuelve
   a ser larga.
-- El worker M5 no se ha actualizado a `1.0.3` ni se ha preparado todavía el TAR
-  de esta versión.
+- El worker M5 todavía no ha instalado `1.0.4`; el paquete privado ya está
+  preparado en el Escritorio.
 - La futura exposición pública no puede reutilizar la política privada actual
   con fallback HA: debe ser worker-only y limitar carga.
 - `web_server.py` continúa siendo un hotspot grande; evitar ampliar su lógica de
@@ -208,9 +214,9 @@ queda deliberadamente sin decidir. No abrir ese trabajo durante la validación d
 - `rainmapper_core/mushroom_predictor_service.py`: cálculo, cachés y contrato.
 - `rainmapper_core/mushroom_predictor_runtime.py`: runtime/fingerprint.
 - `rainmapper-app/app/mushroom_workers_ui.py`: UI de workers y trabajos.
-- `rainmapper-worker/Dockerfile`: worker `1.0.3`.
+- `rainmapper-worker/Dockerfile`: worker `1.0.4`.
 - `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y
-  `rainmapper-app/CHANGELOG.md`: HA `0.2.241`.
+  `rainmapper-app/CHANGELOG.md`: HA `0.2.242`.
 - `docs/mushrooms/mushroom-remote-predictor-design-es.md`: diseño vinculante.
 - `docs/runtime-diagnostics.md`: caja negra y procedimiento RPi4.
 - `docs/release-flow.md`: publicación HA.

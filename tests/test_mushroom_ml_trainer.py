@@ -160,6 +160,44 @@ class TrainSpeciesBacktestTests(unittest.TestCase):
             self.assertTrue(joblib_path.exists())
             self.assertEqual(joblib_path.name, "mushroom_ml_v0_test_sp.joblib")
 
+    def test_single_class_temporal_prefix_does_not_abort_training(self) -> None:
+        import joblib
+
+        rows = [
+            _make_row(f"2022-01-{i + 1:02d}", favorable=1)
+            for i in range(18)
+        ]
+        rows.extend(
+            _make_row(f"2022-02-{i + 1:02d}", favorable=1 if i < 4 else 0)
+            for i in range(9)
+        )
+        with tempfile.TemporaryDirectory() as d:
+            result = self._train(rows, Path(d))
+            model = joblib.load(result["joblib_path"])
+
+        self.assertFalse(result["temporal_validation"]["available"])
+        self.assertIn("single class", result["temporal_validation"]["reason"])
+        self.assertEqual(result["n_fit"], 27)
+        self.assertEqual(model["n_fit"], 27)
+        self.assertEqual(model["fit_scope"], "all_eligible_area_episodes")
+        self.assertEqual(set(model["lr"].classes_.tolist()), {0, 1})
+        self.assertIsNone(result["backtest_stats"]["holdout_test_accuracy"])
+
+    def test_cross_validation_uses_all_rows_and_caps_folds_to_minority(self) -> None:
+        rows = [
+            _make_row(f"2022-01-{i + 1:02d}", favorable=0 if i < 2 else 1)
+            for i in range(10)
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            result = train_species("test_sp", rows, models_dir=Path(d), cv_folds=5)
+
+        self.assertEqual(result["cv_folds_requested"], 5)
+        self.assertEqual(result["cv_folds_used"], 2)
+        self.assertEqual(
+            len(result["models"]["logistic_regression"]["cv_auc_roc"]),
+            2,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -53,16 +53,19 @@ def build_manifest(
     models_dir: Path | None = None,
     features_artifact_path: Path | None = None,
     known_sites_path: Path | None = None,
+    profiles_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Path]]:
     weather = Path(weather_data_dir or mushroom_paths.weather_data_dir())
     models = Path(models_dir or mushroom_paths.mushroom_ml_models_dir())
     features = Path(features_artifact_path or mushroom_paths.mushroom_observation_features_json_path())
     known_sites = Path(known_sites_path or mushroom_paths.mushroom_known_sites_path())
+    profiles = Path(profiles_path or mushroom_paths.mushroom_profiles_path())
     sources: dict[str, Path] = {
         "weather/weather_daily.parquet": weather / "weather_daily.parquet",
         "weather/weather_stations_catalog.parquet": weather / "weather_stations_catalog.parquet",
         "data/mushroom_observation_features_v0.json": features,
         "data/mushroom_known_sites.json": known_sites,
+        "data/mushroom_profiles.json": profiles,
     }
     for model in sorted(models.glob("mushroom_ml_v0_*.joblib")):
         sources[f"models/{model.name}"] = model
@@ -220,4 +223,5 @@ def service_paths(runtime_root: Path) -> dict[str, Path]:
         "weather_data_dir": root / "weather",
         "features_artifact_path": root / "data/mushroom_observation_features_v0.json",
         "known_sites_path": root / "data/mushroom_known_sites.json",
+        "profiles_path": root / "data/mushroom_profiles.json",
     }

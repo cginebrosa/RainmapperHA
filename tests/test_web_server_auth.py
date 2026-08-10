@@ -2827,7 +2827,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "observation_id": "obs_20260620_0001",
                     "species_id": "boletus_pinophilus",
                     "observed_at": "2026-06-20",
-                    "flush_abundance": "scarce",
+                    "flush_abundance": "very_scarce",
                     "validation_status": "draft",
                     "calibration_use": "review",
                     "source_quality": 0.5,
@@ -3607,7 +3607,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "observed_at": "2025-10-01",
                     "analysis_result": "present",
                     "prediction_target": "unfavorable",
-                    "flush_abundance": "scarce",
+                    "flush_abundance": "very_scarce",
                     "rain_7d_mm": 4.0,
                     "weather_source": "meteocat",
                     "weather_station_code": "X1",
@@ -3618,7 +3618,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         catalogs = {
             "observation_flush_abundance": [
                 {"id": "abundant", "label": {"en": "Abundant", "es": "Abundante", "ca": "Abundant"}, "prediction_favorable": 1},
-                {"id": "scarce", "label": {"en": "Scarce", "es": "Escasa", "ca": "Escassa"}, "prediction_favorable": 0},
+                {"id": "very_scarce", "label": {"en": "Very scarce", "es": "Muy escasa", "ca": "Molt escassa"}, "prediction_favorable": 0},
             ]
         }
         html = self.web_server.mushroom_profiles_ui.render_local_evidence_section(
@@ -3634,7 +3634,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Latest v0 features join: 2026-07-02T14:00:00", html)
         self.assertIn('<span class="evidence-status ok">Favorable</span>', html)
         self.assertIn('<span class="evidence-status muted">Unfavorable</span>', html)
-        self.assertIn("Scarce", html)
+        self.assertIn("Very scarce", html)
         self.assertNotIn("Positive / present", html)
         self.assertNotIn("Negative / absent", html)
         self.assertIn("Abundant", html)
@@ -6886,7 +6886,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "observation_flush_abundance": [
                 {"id": "normal", "prediction_favorable": 1},
                 {"id": "abundant", "prediction_favorable": 1},
-                {"id": "scarce", "prediction_favorable": 0},
+                {"id": "scarce", "prediction_favorable": 1},
             ],
         }
         observations = {

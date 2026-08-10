@@ -130,3 +130,29 @@ class PredictorServiceTests(TestCase):
         validate_response(response)
         predictor.predict_many.assert_called_once()
         self.assertEqual(len(predictor.predict_many.call_args.args[0]), 14)
+
+    def test_recommender_skips_species_outside_configured_season(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.season_phase.return_value = "out_of_season"
+            service.predictor = Mock(return_value=predictor)
+
+            response = service.execute(
+                self.request(
+                    view="recommender",
+                    area_id="",
+                    target_date="2026-08-10",
+                )
+            )
+
+        species_data = response["data"]["species"]["boletus"]
+        self.assertEqual(species_data["season_phase"], "out_of_season")
+        self.assertEqual(species_data["rankings"]["2026-08-10"], [])
+        predictor.rank_areas.assert_not_called()

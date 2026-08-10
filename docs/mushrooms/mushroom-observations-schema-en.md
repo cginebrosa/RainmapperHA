@@ -218,9 +218,14 @@ binary target. The latter is not localized and must always be `0` or `1`.
 | `very_abundant` | 0.85 | 1 |
 | `abundant` | 0.70 | 1 |
 | `normal` | 0.50 | 1 |
-| `scarce` | 0.30 | 0 |
+| `scarce` | 0.30 | 1 |
 | `very_scarce` | 0.15 | 0 |
 | `absent` | 0.00 | 0 |
+
+The binary target is operational: it estimates whether a flush is minimally
+worth an outing, not whether any specimen was found. Therefore `very_scarce`
+may confirm visible fruiting while remaining unfavorable, whereas `scarce` is
+favorable. Strict presence is retained separately in `analysis_result`.
 
 Observation JSON keeps only `flush_abundance` and needs no migration.
 `prediction_target` is calculated during reconstruction and stored in derived

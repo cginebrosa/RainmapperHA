@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.2.242
+
+- Gate Predictor results with each species' configured main and secondary
+  phenology, excluding out-of-season species before loading models or weather.
+- Keep temporal holdout as an optional diagnostic, use stratified cross-validation
+  over all eligible episodes, and refit production models with the complete dataset.
+- Define the operational training target as a worthwhile outing: treat `scarce`
+  as favorable while retaining `very_scarce` and `absent` as unfavorable.
+
 ## 0.2.241
 
 - Coalesce external rebuild and ML-training progress and cancellation polling

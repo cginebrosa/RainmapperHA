@@ -3624,3 +3624,25 @@ Validacion local:
   `linux/arm64`; `0.2.241` y `latest` comparten el digest
   `sha256:cb33dc2854f51a2a42eb10de93deeabbf12711c9da6282bbe8c9971f7af1f3d5`.
 - Smoke completo: 538 tests y validadores correctos.
+
+# 2026-08-10 - [VIGENTE] El target V0 mide una salida minimamente interesante
+
+- `prediction_target` no significa presencia biologica ni hallazgo de cualquier
+  carpoforo. Clasifica si la florada observada alcanza una utilidad minima para
+  recomendar una salida de recoleccion.
+- La frontera autoritativa del catalogo es `scarce=1`, `very_scarce=0` y
+  `absent=0`. Un hallazgo testimonial de uno o dos ejemplares puede conservar
+  `analysis_result=present` y ser, al mismo tiempo, operacionalmente
+  `unfavorable`.
+- El entrenador conserva el holdout cronologico solo cuando ambos tramos tienen
+  las dos clases, evalua con CV estratificada sobre todos los episodios y
+  reajusta los modelos productivos con todos los episodios elegibles.
+- El Predictor aplica la fenologia autoritativa de cada especie antes de cargar
+  modelo o meteorologia y excluye del recomendador las fechas fuera de temporada.
+- HA `0.2.242` y worker `1.0.4` incorporan esta politica. M1 queda healthy/idle
+  con identidad y caches persistentes conservadas; el paquete arm64 privado del
+  M5 queda preparado en el Escritorio.
+- `0.2.242` y `latest` comparten el digest GHCR
+  `sha256:3abd516d7aeac7bd4f8bfeacc2d96be2823f339a6c5d31cdc62caaf64ebc562b`
+  y contienen manifests `linux/amd64` y `linux/arm64` verificados.
+- Smoke completo: 543 tests y validadores correctos.

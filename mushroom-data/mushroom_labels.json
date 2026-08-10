@@ -1490,9 +1490,9 @@
     "ca": "No"
   },
   "ui.prediction_favorable": {
-    "en": "Favorable for prediction",
-    "es": "Favorable para prediccion",
-    "ca": "Favorable per a la prediccio"
+    "en": "Worth recommending an outing",
+    "es": "Salida de recoleccion recomendable",
+    "ca": "Sortida de recol·leccio recomanable"
   },
   "ui.calibration_score": {
     "en": "Calibration score",
@@ -2919,6 +2919,11 @@
     "es": "Poco probable",
     "ca": "Poc probable"
   },
+  "ui.predictor_out_of_season": {
+    "en": "Out of season",
+    "es": "Fuera de temporada",
+    "ca": "Fora de temporada"
+  },
   "ui.predictor_hint_favorable": {
     "en": "Good conditions for fruiting",
     "es": "Buenas condiciones para floradas",
@@ -2933,6 +2938,11 @@
     "en": "Conditions not favorable for fruiting",
     "es": "Condiciones no favorables para floradas",
     "ca": "Condicions no favorables per a florades"
+  },
+  "ui.predictor_hint_out_of_season": {
+    "en": "The species is outside its configured fruiting season",
+    "es": "La especie está fuera de su temporada de fructificación configurada",
+    "ca": "L'espècie és fora de la temporada de fructificació configurada"
   },
   "ui.predictor_probability": {
     "en": "Probability",

@@ -182,6 +182,8 @@ def _area_name(area_id: str, known_sites_payload: dict[str, Any]) -> str:
 
 
 def _status_dot(label: str) -> str:
+    if label == "out_of_season":
+        return "⚪"
     if label == "favorable":
         return "🟢"
     if label == "uncertain":
@@ -196,6 +198,8 @@ def _pct(prob: float | None) -> str:
 
 
 def _status_cls(label: str) -> str:
+    if label == "out_of_season":
+        return "pred-muted"
     if label == "favorable":
         return "pred-green"
     if label == "uncertain":
@@ -295,6 +299,8 @@ def _render_recommender(
     for species_id in trained:
         try:
             predictor = _get_predictor(species_id)
+            if predictor.season_phase(target_date) == "out_of_season":
+                continue
             results = predictor.rank_areas(target_date, only_observed=True)
             for r in results:
                 if r.ensemble_probability is not None:
@@ -375,6 +381,8 @@ def _render_recommender(
 
 
 def _label_hint(label: str) -> str:
+    if label == "out_of_season":
+        return _lbl("ui.predictor_hint_out_of_season")
     if label == "favorable":
         return _lbl("ui.predictor_hint_favorable")
     if label == "uncertain":
@@ -503,7 +511,8 @@ def _render_week(
     <p class="pred-hint-legend pred-hint-legend-right">
       🟢 {html.escape(_lbl("ui.predictor_favorable"))} &nbsp;
       🟡 {html.escape(_lbl("ui.predictor_uncertain"))} &nbsp;
-      🔴 {html.escape(_lbl("ui.predictor_unfavorable"))}
+      🔴 {html.escape(_lbl("ui.predictor_unfavorable"))} &nbsp;
+      ⚪ {html.escape(_lbl("ui.predictor_out_of_season"))}
     </p>
   </div>
 </section>
@@ -681,6 +690,8 @@ def _render_query_all_areas(
 
     if not results:
         return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_no_data"))}</div>'
+    if all(result.label == "out_of_season" for result in results):
+        return f'<div class="pred-empty">⚪ {html.escape(_lbl("ui.predictor_out_of_season"))}</div>'
 
     sp_name = _species_name(species, profiles_payload)
     bt = _get_species_backtest_stats(species)
@@ -730,7 +741,8 @@ def _render_query_all_areas(
   <p class="pred-hint-legend">
     🟢 {html.escape(_lbl("ui.predictor_favorable"))} &nbsp;
     🟡 {html.escape(_lbl("ui.predictor_uncertain"))} &nbsp;
-    🔴 {html.escape(_lbl("ui.predictor_unfavorable"))}
+    🔴 {html.escape(_lbl("ui.predictor_unfavorable"))} &nbsp;
+    ⚪ {html.escape(_lbl("ui.predictor_out_of_season"))}
   </p>
   {_rel_legend_html()}
 </div>
@@ -780,6 +792,8 @@ def _render_feature_bars(features: dict[str, Any]) -> str:
 
 
 def _label_text(label: str) -> str:
+    if label == "out_of_season":
+        return _lbl("ui.predictor_out_of_season")
     if label == "favorable":
         return _lbl("ui.predictor_favorable")
     if label == "uncertain":
@@ -864,10 +878,11 @@ def _render_backtest_stats(records: list[dict[str, Any]], species: str, filter_m
         return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_no_history"))}</div>'
 
     total = len(records)
-    correct = sum(1 for r in records if r.get("correct"))
+    evaluated = [r for r in records if r.get("correct") is not None]
+    correct = sum(1 for r in evaluated if r.get("correct"))
     fn = sum(1 for r in records if r.get("actual") == "favorable" and r.get("predicted_label") != "favorable")
     fp = sum(1 for r in records if r.get("actual") == "unfavorable" and r.get("predicted_label") == "favorable")
-    acc = round(correct / total * 100) if total else 0
+    acc = round(correct / len(evaluated) * 100) if evaluated else 0
 
     def stat_url(flt: str) -> str:
         # Toggle off if already active
@@ -1138,6 +1153,8 @@ _CSS = """
 .pred-yellow .pred-best-prob, .pred-yellow .pred-result-prob { color: #ffd43b; }
 .pred-red { border-color: #ff6b6b !important; }
 .pred-red .pred-best-prob, .pred-red .pred-result-prob { color: #ff6b6b; }
+.pred-muted { border-color: #7f8b94 !important; }
+.pred-muted .pred-best-prob, .pred-muted .pred-result-prob { color: #a8b1b8; }
 
 /* Ranked list */
 .pred-rank-list { display: flex; flex-direction: column; gap: 0.25rem; }

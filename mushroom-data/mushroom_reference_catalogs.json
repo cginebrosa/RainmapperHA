@@ -2148,7 +2148,7 @@
         },
         "sort_order": 50,
         "calibration_score": 0.3,
-        "prediction_favorable": 0
+        "prediction_favorable": 1
       },
       {
         "id": "very_scarce",

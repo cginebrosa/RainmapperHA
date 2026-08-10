@@ -76,6 +76,16 @@ def main() -> None:
         print(f"ERROR: Cannot import mushroom_ml_trainer: {exc}", file=sys.stderr)
         sys.exit(2)
 
+    def positive_int_setting(name: str, default: int, minimum: int) -> int:
+        try:
+            value = int(job_spec.get(name, default))
+        except (TypeError, ValueError):
+            return default
+        return value if value >= minimum else default
+
+    min_rows = positive_int_setting("min_rows", mushroom_ml_trainer.MIN_ROWS_DEFAULT, 1)
+    cv_folds = positive_int_setting("cv_folds", mushroom_ml_trainer.CV_FOLDS_DEFAULT, 2)
+
     emit_progress(10, "Starting training...")
     try:
         report = mushroom_ml_trainer.run(
@@ -84,6 +94,8 @@ def main() -> None:
             known_sites_path=known_sites_path,
             models_dir=models_dir,
             report_path=report_path,
+            min_rows=min_rows,
+            cv_folds=cv_folds,
             progress_callback=emit_progress,
         )
     except Exception as exc:

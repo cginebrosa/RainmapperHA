@@ -218,9 +218,15 @@ el objetivo binario V0. Este ultimo no se traduce y debe ser siempre `0` o `1`.
 | `very_abundant` | 0.85 | 1 |
 | `abundant` | 0.70 | 1 |
 | `normal` | 0.50 | 1 |
-| `scarce` | 0.30 | 0 |
+| `scarce` | 0.30 | 1 |
 | `very_scarce` | 0.15 | 0 |
 | `absent` | 0.00 | 0 |
+
+El objetivo binario es operativo: estima si la florada es minimamente
+interesante para una salida, no si aparecio cualquier ejemplar. Por eso
+`very_scarce` puede implicar presencia visible y seguir siendo desfavorable,
+mientras `scarce` es favorable. La presencia estricta se conserva por separado
+en `analysis_result`.
 
 El JSON de observaciones conserva solo `flush_abundance`; no necesita
 migracion. `prediction_target` se calcula durante la reconstruccion y se guarda

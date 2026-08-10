@@ -110,12 +110,13 @@ class MushroomObservationContextTests(unittest.TestCase):
 
     def test_prediction_target_uses_operational_flush_threshold(self) -> None:
         policy = mushroom_observation_context.load_prediction_target_policy()
-        for abundance in ("normal", "abundant", "very_abundant", "exceptional"):
+        for abundance in ("scarce", "normal", "abundant", "very_abundant", "exceptional"):
             self.assertEqual(mushroom_observation_context.prediction_target(abundance, policy), "favorable")
-        for abundance in ("scarce", "very_scarce", "absent"):
+        for abundance in ("very_scarce", "absent"):
             self.assertEqual(mushroom_observation_context.prediction_target(abundance, policy), "unfavorable")
         self.assertEqual(mushroom_observation_context.prediction_target("", policy), "unknown")
-        self.assertEqual(policy["mapping"]["scarce"], 0)
+        self.assertEqual(policy["mapping"]["scarce"], 1)
+        self.assertEqual(policy["mapping"]["very_scarce"], 0)
 
     def test_prediction_target_policy_rejects_catalog_without_binary_flag(self) -> None:
         catalogs_path = self.root / "catalogs.json"
@@ -211,7 +212,8 @@ class MushroomObservationContextTests(unittest.TestCase):
         self.assertEqual(second["analysis_result"], "absent")
         self.assertEqual(second["prediction_target"], "unfavorable")
         self.assertEqual(payload["prediction_target_policy"]["version"], "catalog_prediction_favorable_v1")
-        self.assertEqual(payload["prediction_target_policy"]["mapping"]["scarce"], 0)
+        self.assertEqual(payload["prediction_target_policy"]["mapping"]["scarce"], 1)
+        self.assertEqual(payload["prediction_target_policy"]["mapping"]["very_scarce"], 0)
         self.assertIn("no_weather_station_with_90d_coverage", second["data_gaps"])
 
     def test_build_weather_features_excludes_suspect_daily_rain(self) -> None:

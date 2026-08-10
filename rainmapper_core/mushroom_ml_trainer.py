@@ -223,6 +223,7 @@ def train_species(
         roc_auc_score,
     )
     from sklearn.model_selection import StratifiedKFold, cross_val_score  # noqa: PLC0415
+    from sklearn.pipeline import Pipeline  # noqa: PLC0415
     from sklearn.preprocessing import StandardScaler  # noqa: PLC0415
 
     def _cb(pct: int, msg: str) -> None:
@@ -235,6 +236,11 @@ def train_species(
     n_total = len(rows)
     n_favorable = int(y.sum())
     n_unfavorable = n_total - n_favorable
+    if n_favorable == 0 or n_unfavorable == 0:
+        raise ValueError(
+            f"{species_id}: training requires favorable and unfavorable episodes "
+            f"({n_favorable} favorable, {n_unfavorable} unfavorable)"
+        )
 
     train_idx, test_idx = _temporal_split(rows)
     X_train_raw = X_raw[train_idx]
@@ -242,33 +248,17 @@ def train_species(
     y_train = y[train_idx]
     y_test = y[test_idx]
 
-    _cb(15, f"{species_id}: imputando valores faltantes")
+    train_classes = len(np.unique(y_train))
+    test_classes = len(np.unique(y_test)) if len(y_test) else 0
+    temporal_validation_available = train_classes >= 2 and test_classes >= 2
+    if train_classes < 2:
+        temporal_validation_reason = "temporal training set has a single class"
+    elif test_classes < 2:
+        temporal_validation_reason = "temporal test set has a single class"
+    else:
+        temporal_validation_reason = ""
 
-    imputer = SimpleImputer(strategy="median")
-    X_train_imp = imputer.fit_transform(X_train_raw)
-    X_test_imp = imputer.transform(X_test_raw) if len(X_test_raw) > 0 else X_test_raw
-
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train_imp)
-    X_test = scaler.transform(X_test_imp) if len(X_test_imp) > 0 else X_test_imp
-
-    _cb(25, f"{species_id}: entrenando regresión logística")
-
-    lr = LogisticRegression(C=1.0, max_iter=2000, random_state=42, class_weight="balanced")
-    lr.fit(X_train, y_train)
-
-    _cb(45, f"{species_id}: entrenando random forest")
-
-    rf = RandomForestClassifier(
-        n_estimators=200,
-        max_depth=None,
-        random_state=42,
-        class_weight="balanced",
-        n_jobs=-1,
-    )
-    rf.fit(X_train, y_train)
-
-    _cb(65, f"{species_id}: calculando métricas holdout")
+    _cb(15, f"{species_id}: evaluando corte temporal")
 
     def _metrics(clf: Any, X: Any, y_true: Any, label: str) -> dict[str, Any]:
         if len(X) == 0 or len(np.unique(y_true)) < 2:
@@ -284,27 +274,109 @@ def train_species(
             "f1": _safe_round(f1_score(y_true, y_pred, zero_division=0)),
         }
 
-    lr_train_metrics = _metrics(lr, X_train, y_train, "train")
-    lr_test_metrics = _metrics(lr, X_test, y_test, "test")
-    rf_train_metrics = _metrics(rf, X_train, y_train, "train")
-    rf_test_metrics = _metrics(rf, X_test, y_test, "test")
+    temporal_imputer = None
+    temporal_scaler = None
+    temporal_lr = None
+    temporal_rf = None
+    X_test_temporal = None
+    unavailable_metrics = {
+        "note": f"temporal validation unavailable: {temporal_validation_reason}"
+    }
+    lr_train_metrics = dict(unavailable_metrics)
+    lr_test_metrics = dict(unavailable_metrics)
+    rf_train_metrics = dict(unavailable_metrics)
+    rf_test_metrics = dict(unavailable_metrics)
 
-    _cb(75, f"{species_id}: cross-validación estratificada ({cv_folds} folds)")
+    if temporal_validation_available:
+        temporal_imputer = SimpleImputer(strategy="median")
+        X_train_imp = temporal_imputer.fit_transform(X_train_raw)
+        X_test_imp = temporal_imputer.transform(X_test_raw)
+        temporal_scaler = StandardScaler()
+        X_train_temporal = temporal_scaler.fit_transform(X_train_imp)
+        X_test_temporal = temporal_scaler.transform(X_test_imp)
+
+        temporal_lr = LogisticRegression(
+            C=1.0,
+            max_iter=2000,
+            random_state=42,
+            class_weight="balanced",
+        )
+        temporal_lr.fit(X_train_temporal, y_train)
+        temporal_rf = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=None,
+            random_state=42,
+            class_weight="balanced",
+            n_jobs=-1,
+        )
+        temporal_rf.fit(X_train_temporal, y_train)
+
+        lr_train_metrics = _metrics(temporal_lr, X_train_temporal, y_train, "train")
+        lr_test_metrics = _metrics(temporal_lr, X_test_temporal, y_test, "test")
+        rf_train_metrics = _metrics(temporal_rf, X_train_temporal, y_train, "train")
+        rf_test_metrics = _metrics(temporal_rf, X_test_temporal, y_test, "test")
+
+    minority_count = min(n_favorable, n_unfavorable)
+    effective_cv_folds = min(cv_folds, minority_count) if cv_folds >= 2 else 0
+    if effective_cv_folds < 2:
+        effective_cv_folds = 0
+
+    _cb(
+        55,
+        f"{species_id}: cross-validación estratificada "
+        f"({effective_cv_folds or 0} folds efectivos)",
+    )
 
     cv_scores_lr: list[float] = []
     cv_scores_rf: list[float] = []
-    if len(np.unique(y_train)) >= 2 and len(y_train) >= cv_folds:
-        skf = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
+    if effective_cv_folds:
+        skf = StratifiedKFold(n_splits=effective_cv_folds, shuffle=True, random_state=42)
         cv_lr_raw = cross_val_score(
-            LogisticRegression(C=1.0, max_iter=2000, random_state=42, class_weight="balanced"),
-            X_train, y_train, cv=skf, scoring="roc_auc",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                ("classifier", LogisticRegression(
+                    C=1.0,
+                    max_iter=2000,
+                    random_state=42,
+                    class_weight="balanced",
+                )),
+            ]),
+            X_raw, y, cv=skf, scoring="roc_auc",
         )
         cv_rf_raw = cross_val_score(
-            RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced", n_jobs=-1),
-            X_train, y_train, cv=skf, scoring="roc_auc",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                ("classifier", RandomForestClassifier(
+                    n_estimators=100,
+                    random_state=42,
+                    class_weight="balanced",
+                    n_jobs=-1,
+                )),
+            ]),
+            X_raw, y, cv=skf, scoring="roc_auc",
         )
         cv_scores_lr = [_safe_round(v) for v in cv_lr_raw]
         cv_scores_rf = [_safe_round(v) for v in cv_rf_raw]
+
+    _cb(78, f"{species_id}: entrenando modelo productivo con todos los episodios")
+
+    imputer = SimpleImputer(strategy="median")
+    X_all_imp = imputer.fit_transform(X_raw)
+    scaler = StandardScaler()
+    X_all_scaled = scaler.fit_transform(X_all_imp)
+
+    lr = LogisticRegression(C=1.0, max_iter=2000, random_state=42, class_weight="balanced")
+    lr.fit(X_all_scaled, y)
+    rf = RandomForestClassifier(
+        n_estimators=200,
+        max_depth=None,
+        random_state=42,
+        class_weight="balanced",
+        n_jobs=-1,
+    )
+    rf.fit(X_all_scaled, y)
 
     _cb(88, f"{species_id}: guardando modelos")
 
@@ -318,6 +390,8 @@ def train_species(
             "scaler": scaler,
             "lr": lr,
             "rf": rf,
+            "fit_scope": "all_eligible_area_episodes",
+            "n_fit": n_total,
             "generated_at": datetime.now(UTC).isoformat(),
         },
         joblib_path,
@@ -349,9 +423,14 @@ def train_species(
     try:
         # Holdout test accuracy (honest — model never saw these during training)
         holdout_test_accuracy: float | None = None
-        if len(X_test) > 0:
-            lr_test_probs = lr.predict_proba(X_test)[:, 1]
-            rf_test_probs = rf.predict_proba(X_test)[:, 1]
+        if (
+            temporal_validation_available
+            and X_test_temporal is not None
+            and temporal_lr is not None
+            and temporal_rf is not None
+        ):
+            lr_test_probs = temporal_lr.predict_proba(X_test_temporal)[:, 1]
+            rf_test_probs = temporal_rf.predict_proba(X_test_temporal)[:, 1]
             ens_test_probs = (lr_test_probs + rf_test_probs) / 2.0
             correct_test = sum(
                 1 for i, yi in enumerate(y_test)
@@ -419,6 +498,9 @@ def train_species(
             "total_episodes": total_bt,
             "n_test": len(test_idx),
             "holdout_test_accuracy": holdout_test_accuracy,
+            "temporal_validation_available": temporal_validation_available,
+            "temporal_validation_reason": temporal_validation_reason or None,
+            "all_episode_fit_scope": "production_model_in_sample",
             "favorable_ratio": _safe_round(n_favorable / total_bt) if total_bt else None,
             "date_range": date_range,
             "by_area": by_area_stats,
@@ -433,8 +515,18 @@ def train_species(
         "n_total": n_total,
         "n_favorable": n_favorable,
         "n_unfavorable": n_unfavorable,
+        "n_fit": n_total,
+        "fit_scope": "all_eligible_area_episodes",
         "n_train": len(train_idx),
         "n_test": len(test_idx),
+        "temporal_validation": {
+            "available": temporal_validation_available,
+            "reason": temporal_validation_reason or None,
+            "train_classes": train_classes,
+            "test_classes": test_classes,
+        },
+        "cv_folds_requested": cv_folds,
+        "cv_folds_used": effective_cv_folds,
         "train_date_range": {
             "first": train_dates[0] if train_dates else None,
             "last": train_dates[-1] if train_dates else None,
@@ -519,6 +611,17 @@ def run(
                 "reason": f"only {len(episodes)} area episodes after aggregation (min={min_rows})",
             })
             continue
+        episode_targets = {episode.get("prediction_target") for episode in episodes}
+        if not {"favorable", "unfavorable"}.issubset(episode_targets):
+            species_results.append({
+                "species_id": sp,
+                "skipped": True,
+                "reason": (
+                    "training requires favorable and unfavorable area episodes "
+                    f"(found: {', '.join(sorted(str(value) for value in episode_targets))})"
+                ),
+            })
+            continue
 
         def _sp_progress(pct: int, msg: str, sp_idx: int = idx, n_sp: int = len(species_ids)) -> None:
             if progress_callback:
@@ -543,6 +646,9 @@ def run(
         "min_rows": min_rows,
         "cv_folds": cv_folds,
         "train_ratio": TRAIN_RATIO,
+        "temporal_validation": "oldest_train_newest_test_when_both_classes_are_present",
+        "production_fit_scope": "all_eligible_area_episodes",
+        "cross_validation_scope": "all_eligible_area_episodes_stratified",
         "feature_cols": FEATURE_COLS,
         "species_results": species_results,
     }
