@@ -3984,6 +3984,376 @@
     "es": "Este trabajo se marcará como cancelado permanentemente. El worker no será notificado. ¿Continuar?",
     "ca": "Aquest treball es marcarà com a cancel·lat permanentment. El worker no serà notificat. Continuar?"
   },
+  "ui.predictor_compare_models": {
+    "en": "Show technical model data",
+    "es": "Mostrar datos técnicos de modelos",
+    "ca": "Mostrar dades tècniques dels models"
+  },
+  "ui.predictor_hide_model_comparison": {
+    "en": "Hide model comparison",
+    "es": "Ocultar comparación de modelos",
+    "ca": "Amagar comparació de models"
+  },
+  "ui.predictor_model_comparison_title": {
+    "en": "Operational and experimental models",
+    "es": "Modelos operativos y experimentales",
+    "ca": "Models operatius i experimentals"
+  },
+  "ui.predictor_model_comparison_help": {
+    "en": "Raw uncalibrated scores remain visible for audit. The operational interpretation uses only estimators that improve the prevalence baseline out of sample.",
+    "es": "Los scores brutos no calibrados siguen visibles para auditoría. La interpretación operativa solo utiliza estimadores que mejoran la prevalencia fuera de muestra.",
+    "ca": "Els scores bruts no calibrats continuen visibles per a auditoria. La interpretació operativa només utilitza estimadors que milloren la prevalença fora de mostra."
+  },
+  "ui.predictor_shadow_model_help": {
+    "en": "ET, HGB, KNN and SVM are shadow models and do not yet change the verdict.",
+    "es": "ET, HGB, KNN y SVM son modelos sombra y todavía no cambian el dictamen.",
+    "ca": "ET, HGB, KNN i SVM són models ombra i encara no canvien el dictamen."
+  },
+  "ui.predictor_estimator_calibration_insufficient_classes": {
+    "en": "Unavailable: calibration requires at least two training examples of each class.",
+    "es": "No disponible: la calibración necesita al menos dos ejemplos de entrenamiento de cada clase.",
+    "ca": "No disponible: el calibratge necessita almenys dos exemples d'entrenament de cada classe."
+  },
+  "ui.predictor_estimator_help_lr": {
+    "en": "LR — Regularized logistic regression. Learns an interpretable linear combination; it may saturate outside its training range.",
+    "es": "LR — Regresión logística regularizada. Aprende una combinación lineal interpretable; puede saturarse fuera de su rango de entrenamiento.",
+    "ca": "LR — Regressió logística regularitzada. Aprèn una combinació lineal interpretable; es pot saturar fora del rang d'entrenament."
+  },
+  "ui.predictor_estimator_help_rf": {
+    "en": "RF — Restricted Random Forest. Averages shallow decision trees to capture nonlinear interactions conservatively.",
+    "es": "RF — Random Forest restringido. Promedia árboles poco profundos para captar interacciones no lineales de forma prudente.",
+    "ca": "RF — Random Forest restringit. Mitjana arbres poc profunds per captar interaccions no lineals de manera prudent."
+  },
+  "ui.predictor_estimator_help_et": {
+    "en": "ET* — Experimental Extra Trees. Uses more randomized trees to test whether the tree-based signal is stable.",
+    "es": "ET* — Extra Trees experimental. Usa árboles más aleatorios para comprobar si la señal basada en árboles es estable.",
+    "ca": "ET* — Extra Trees experimental. Usa arbres més aleatoris per comprovar si el senyal basat en arbres és estable."
+  },
+  "ui.predictor_estimator_help_hgb": {
+    "en": "HGB* — Experimental histogram gradient boosting. Builds small trees sequentially to learn nonlinear interactions.",
+    "es": "HGB* — Gradient boosting experimental. Construye pequeños árboles sucesivos para aprender interacciones no lineales.",
+    "ca": "HGB* — Gradient boosting experimental. Construeix petits arbres successius per aprendre interaccions no lineals."
+  },
+  "ui.predictor_estimator_help_knn": {
+    "en": "KNN* — Experimental nearest neighbours. Changes little while the same neighbours remain closest; far outside the domain it still copies those distant cases.",
+    "es": "KNN* — Vecinos más próximos experimental. Cambia poco mientras conserve los mismos vecinos; fuera del dominio sigue copiando esos casos aunque estén lejos.",
+    "ca": "KNN* — Veïns més propers experimental. Canvia poc mentre conservi els mateixos veïns; fora del domini continua copiant aquests casos encara que siguin lluny."
+  },
+  "ui.predictor_estimator_help_svm": {
+    "en": "SVM* — Experimental calibrated RBF SVM. Learns a nonlinear boundary; far outside its training domain it may flatten to an almost constant score.",
+    "es": "SVM* — SVM RBF calibrada experimental. Aprende una frontera no lineal; muy fuera de su dominio puede quedar casi constante.",
+    "ca": "SVM* — SVM RBF calibrada experimental. Aprèn una frontera no lineal; molt fora del domini pot quedar gairebé constant."
+  },
+  "ui.predictor_unweighted_mean": {
+    "en": "Unweighted mean",
+    "es": "Media sin ponderar",
+    "ca": "Mitjana sense ponderar"
+  },
+  "ui.predictor_interpretation_abstain": {
+    "en": "No reliable recommendation",
+    "es": "Sin recomendación fiable",
+    "ca": "Sense recomanació fiable"
+  },
+  "ui.predictor_conditions_compatible_unconfirmed": {
+    "en": "Uncertain — compatible conditions",
+    "es": "Incierto — condiciones compatibles",
+    "ca": "Incert — condicions compatibles"
+  },
+  "ui.predictor_reference_range": {
+    "en": "Validated reference range",
+    "es": "Rango de referencia validado",
+    "ca": "Rang de referència validat"
+  },
+  "ui.predictor_best_available_signal": {
+    "en": "Best available signal",
+    "es": "Mejor señal disponible",
+    "ca": "Millor senyal disponible"
+  },
+  "ui.predictor_consensus": {
+    "en": "Statistical consensus",
+    "es": "Consenso estadístico",
+    "ca": "Consens estadístic"
+  },
+  "ui.predictor_consensus_high": {"en": "high", "es": "alto", "ca": "alt"},
+  "ui.predictor_consensus_moderate": {"en": "moderate", "es": "moderado", "ca": "moderat"},
+  "ui.predictor_consensus_low": {"en": "low", "es": "bajo", "ca": "baix"},
+  "ui.predictor_consensus_unavailable": {"en": "not available", "es": "no disponible", "ca": "no disponible"},
+  "ui.predictor_ecological_compatibility": {"en": "Ecological compatibility", "es": "Compatibilidad ecológica", "ca": "Compatibilitat ecològica"},
+  "ui.predictor_ecological_compatibility_compatible": {"en": "compatible", "es": "compatible", "ca": "compatible"},
+  "ui.predictor_ecological_compatibility_incompatible": {"en": "incompatible", "es": "incompatible", "ca": "incompatible"},
+  "ui.predictor_ecological_compatibility_unknown": {"en": "not determined", "es": "no determinada", "ca": "no determinada"},
+  "ui.predictor_ecological_compatibility_out_of_season": {"en": "out of season", "es": "fuera de temporada", "ca": "fora de temporada"},
+  "ui.predictor_ecological_evidence": {"en": "Ecological evidence", "es": "Evidencia ecológica", "ca": "Evidència ecològica"},
+  "ui.predictor_ecological_evidence_high": {"en": "high", "es": "alta", "ca": "alta"},
+  "ui.predictor_ecological_evidence_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
+  "ui.predictor_ecological_evidence_low": {"en": "low", "es": "baja", "ca": "baixa"},
+  "ui.predictor_ecological_evidence_unavailable": {"en": "not available", "es": "no disponible", "ca": "no disponible"},
+  "ui.predictor_statistical_support": {"en": "Operational statistical support", "es": "Soporte estadístico operativo", "ca": "Suport estadístic operatiu"},
+  "ui.predictor_statistical_support_unavailable": {"en": "not validated", "es": "no validado", "ca": "no validat"},
+  "ui.predictor_statistical_support_limited": {"en": "limited", "es": "limitado", "ca": "limitat"},
+  "ui.predictor_statistical_support_moderate": {"en": "moderate", "es": "moderado", "ca": "moderat"},
+  "ui.predictor_statistical_support_strong": {"en": "strong", "es": "fuerte", "ca": "fort"},
+  "ui.predictor_experimental_signal": {"en": "Experimental signal", "es": "Señal experimental", "ca": "Senyal experimental"},
+  "ui.predictor_experimental_signal_favorable": {"en": "favorable", "es": "favorable", "ca": "favorable"},
+  "ui.predictor_experimental_signal_unfavorable": {"en": "unfavorable", "es": "desfavorable", "ca": "desfavorable"},
+  "ui.predictor_experimental_signal_uncertain": {"en": "uncertain", "es": "incierta", "ca": "incerta"},
+  "ui.predictor_experimental_signal_mixed": {"en": "conflicting", "es": "contradictoria", "ca": "contradictòria"},
+  "ui.predictor_experimental_ood_short": {"en": "out-of-domain caution", "es": "cautela fuera de dominio", "ca": "cautela fora de domini"},
+  "ui.predictor_confidence": {"en": "Confidence", "es": "Confianza", "ca": "Confiança"},
+  "ui.predictor_confidence_high": {"en": "high", "es": "alta", "ca": "alta"},
+  "ui.predictor_confidence_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
+  "ui.predictor_confidence_low": {"en": "low", "es": "baja", "ca": "baixa"},
+  "ui.predictor_interpretation_weather_recent_event": {
+    "en": "A recent significant rain event has been detected.",
+    "es": "Se ha detectado un episodio reciente de lluvia significativa.",
+    "ca": "S'ha detectat un episodi recent de pluja significativa."
+  },
+  "ui.predictor_interpretation_weather_old_event": {
+    "en": "The detected rain event is older than the species fruiting window.",
+    "es": "El episodio de lluvia detectado queda fuera de la ventana de fructificación de la especie.",
+    "ca": "L'episodi de pluja detectat queda fora de la finestra de fructificació de l'espècie."
+  },
+  "ui.predictor_interpretation_weather_no_event": {
+    "en": "No significant rain event was found in the previous 90 days.",
+    "es": "No se ha encontrado un episodio de lluvia significativa en los 90 días anteriores.",
+    "ca": "No s'ha trobat cap episodi de pluja significativa en els 90 dies anteriors."
+  },
+  "ui.predictor_interpretation_timing_early": {"en": "The biological timing is still early.", "es": "El momento biológico todavía es temprano.", "ca": "El moment biològic encara és primerenc."},
+  "ui.predictor_interpretation_timing_entering": {"en": "The delay is entering the expected fruiting window.", "es": "El retraso está entrando en la ventana esperada de fructificación.", "ca": "El retard està entrant a la finestra esperada de fructificació."},
+  "ui.predictor_interpretation_timing_optimal": {"en": "The delay lies within the species optimal fruiting window.", "es": "El retraso se encuentra dentro de la ventana óptima de fructificación de la especie.", "ca": "El retard es troba dins de la finestra òptima de fructificació de l'espècie."},
+  "ui.predictor_interpretation_timing_late": {"en": "The fruiting window is becoming late.", "es": "La ventana de fructificación empieza a quedar atrás.", "ca": "La finestra de fructificació comença a quedar enrere."},
+  "ui.predictor_interpretation_timing_expired": {"en": "The detected event lies beyond the expected fruiting window.", "es": "El episodio detectado queda más allá de la ventana esperada de fructificación.", "ca": "L'episodi detectat queda més enllà de la finestra esperada de fructificació."},
+  "ui.predictor_interpretation_timing_entering_optimal": {"en": "The models place the target between entry and the optimal fruiting window.", "es": "Los modelos sitúan la fecha entre la entrada y la ventana óptima de fructificación.", "ca": "Els models situen la data entre l'entrada i la finestra òptima de fructificació."},
+  "ui.predictor_interpretation_timing_mixed": {"en": "The two weather cutoffs give different fruiting timings.", "es": "Los dos cortes meteorológicos sitúan la fructificación en momentos distintos.", "ca": "Els dos talls meteorològics situen la fructificació en moments diferents."},
+  "ui.predictor_interpretation_disagreement": {
+    "en": "LR and RF differ by at least 20 points, so statistical consensus is low.",
+    "es": "LR y RF difieren al menos 20 puntos, por lo que el consenso estadístico es bajo.",
+    "ca": "LR i RF difereixen almenys 20 punts, de manera que el consens estadístic és baix."
+  },
+  "ui.predictor_interpretation_different_stations": {
+    "en": "The two weather cutoffs use different stations because the nearest station does not have a complete day for both cutoffs; part of the score difference may come from that change.",
+    "es": "Los dos cortes meteorológicos utilizan estaciones distintas porque la más cercana no tiene completo el día requerido por ambos; parte de la diferencia entre scores puede deberse a ese cambio.",
+    "ca": "Els dos talls meteorològics utilitzen estacions diferents perquè la més propera no té complet el dia requerit per tots dos; una part de la diferència entre scores pot ser deguda a aquest canvi."
+  },
+  "ui.predictor_interpretation_no_trusted_model": {
+    "en": "No operational estimator authorised for the verdict improves the prevalence baseline for this species, so the operational statistical layer abstains. Shadow models remain visible only for evaluation.",
+    "es": "Ningún estimador operativo autorizado para el dictamen mejora la prevalencia de esta especie, por lo que la capa estadística operativa se abstiene. Los modelos sombra permanecen visibles solo para evaluación.",
+    "ca": "Cap estimador operatiu autoritzat per al dictamen millora la prevalença d'aquesta espècie, de manera que la capa estadística operativa s'absté. Els models ombra continuen visibles només per avaluar-los."
+  },
+  "ui.predictor_interpretation_limited_support": {
+    "en": "Only one validated estimator family supports the operational range; there is not enough independent evidence to measure consensus.",
+    "es": "Solo una familia de estimadores validada sustenta el rango operativo; no hay evidencia independiente suficiente para medir consenso.",
+    "ca": "Només una família d'estimadors validada sustenta el rang operatiu; no hi ha prou evidència independent per mesurar consens."
+  },
+  "ui.predictor_interpretation_experimental_favorable": {
+    "en": "The shadow models with the best Brier score in each weather contract provide a favorable experimental signal.",
+    "es": "Los modelos sombra con mejor Brier en cada contrato meteorológico ofrecen una señal experimental favorable.",
+    "ca": "Els models ombra amb millor Brier en cada contracte meteorològic ofereixen un senyal experimental favorable."
+  },
+  "ui.predictor_interpretation_experimental_unfavorable": {
+    "en": "The shadow models with the best Brier score in each weather contract provide an unfavorable experimental signal.",
+    "es": "Los modelos sombra con mejor Brier en cada contrato meteorológico ofrecen una señal experimental desfavorable.",
+    "ca": "Els models ombra amb millor Brier en cada contracte meteorològic ofereixen un senyal experimental desfavorable."
+  },
+  "ui.predictor_interpretation_experimental_uncertain": {
+    "en": "The shadow models with the best Brier score in each weather contract remain in an uncertain range.",
+    "es": "Los modelos sombra con mejor Brier en cada contrato meteorológico permanecen en un rango incierto.",
+    "ca": "Els models ombra amb millor Brier en cada contracte meteorològic es mantenen en un rang incert."
+  },
+  "ui.predictor_interpretation_experimental_mixed": {
+    "en": "The best validated shadow model in each weather contract points in a different direction, so the experimental signal is conflicting.",
+    "es": "El modelo sombra mejor validado de cada contrato meteorológico apunta en una dirección distinta, por lo que la señal experimental es contradictoria.",
+    "ca": "El model ombra millor validat de cada contracte meteorològic apunta en una direcció diferent, de manera que el senyal experimental és contradictori."
+  },
+  "ui.predictor_interpretation_experimental_shadow": {
+    "en": "This evidence remains experimental and does not yet change the operational verdict.",
+    "es": "Esta evidencia continúa siendo experimental y todavía no cambia el dictamen operativo.",
+    "ca": "Aquesta evidència continua sent experimental i encara no canvia el dictamen operatiu."
+  },
+  "ui.predictor_interpretation_experimental_ood_caution": {
+    "en": "It must be interpreted cautiously because at least one feature is far outside the training domain; nonlinear models may flatten or extrapolate unreliably there.",
+    "es": "Debe interpretarse con cautela porque al menos una variable queda muy fuera del dominio de entrenamiento; allí los modelos no lineales pueden aplanarse o extrapolar de forma poco fiable.",
+    "ca": "S'ha d'interpretar amb cautela perquè almenys una variable queda molt fora del domini d'entrenament; allà els models no lineals poden aplanar-se o extrapolar de manera poc fiable."
+  },
+  "ui.predictor_interpretation_rain_guardrail": {
+    "en": "The ecological layer applies a veto because there is no rain event compatible with the species fruiting window; statistical scores cannot override it.",
+    "es": "La capa ecológica aplica un veto porque no existe un episodio de lluvia compatible con la ventana de fructificación de la especie; los scores estadísticos no pueden anularlo.",
+    "ca": "La capa ecològica aplica un veto perquè no hi ha cap episodi de pluja compatible amb la finestra de fructificació de l'espècie; els scores estadístics no poden anul·lar-lo."
+  },
+  "ui.predictor_unvalidated_favorable_signal": {
+    "en": "Unvalidated favorable signal",
+    "es": "Señal favorable no validada",
+    "ca": "Senyal favorable no validat"
+  },
+  "ui.predictor_unvalidated_unfavorable_signal": {
+    "en": "Unvalidated unfavorable signal",
+    "es": "Señal desfavorable no validada",
+    "ca": "Senyal desfavorable no validat"
+  },
+  "ui.predictor_unvalidated_mixed_signal": {
+    "en": "No interpretable statistical signal",
+    "es": "Señal estadística no interpretable",
+    "ca": "Senyal estadístic no interpretable"
+  },
+  "ui.predictor_unvalidated_range": {
+    "en": "Discarded raw scores",
+    "es": "Scores brutos descartados",
+    "ca": "Scores bruts descartats"
+  },
+  "ui.predictor_interpretation_unvalidated_favorable": {
+    "en": "The operational estimators considered by the verdict agree on a favorable signal, but they have not improved the species prevalence outside the training sample.",
+    "es": "Los estimadores operativos considerados por el dictamen coinciden en una señal favorable, pero no han mejorado la prevalencia de la especie fuera de la muestra de entrenamiento.",
+    "ca": "Els estimadors operatius considerats pel dictamen coincideixen en un senyal favorable, però no han millorat la prevalença de l'espècie fora de la mostra d'entrenament."
+  },
+  "ui.predictor_interpretation_unvalidated_unfavorable": {
+    "en": "The operational estimators considered by the verdict agree on an unfavorable signal, but they have not improved the species prevalence outside the training sample.",
+    "es": "Los estimadores operativos considerados por el dictamen coinciden en una señal desfavorable, pero no han mejorado la prevalencia de la especie fuera de la muestra de entrenamiento.",
+    "ca": "Els estimadors operatius considerats pel dictamen coincideixen en un senyal desfavorable, però no han millorat la prevalença de l'espècie fora de la mostra d'entrenament."
+  },
+  "ui.predictor_interpretation_unvalidated_mixed": {
+    "en": "The operational estimators considered by the verdict do not provide a consistent signal and none has demonstrated improvement over prevalence.",
+    "es": "Los estimadores operativos considerados por el dictamen no ofrecen una señal coherente y ninguno ha demostrado mejorar la prevalencia.",
+    "ca": "Els estimadors operatius considerats pel dictamen no ofereixen un senyal coherent i cap ha demostrat millorar la prevalença."
+  },
+  "ui.predictor_interpretation_lr_ood": {
+    "en": "The logistic regression was excluded in at least one weather contract because a variable lies far outside its training range.",
+    "es": "La regresión logística se ha excluido en al menos uno de los contratos meteorológicos porque una variable queda muy fuera de su rango de entrenamiento.",
+    "ca": "La regressió logística s'ha exclòs en almenys un dels contractes meteorològics perquè una variable queda molt fora del seu rang d'entrenament."
+  },
+  "ui.predictor_interpretation_extreme_conflict": {
+    "en": "The validated feature contracts conflict too strongly to form an actionable range.",
+    "es": "Los contratos de variables validados discrepan demasiado para formar un rango utilizable.",
+    "ca": "Els contractes de variables validats discrepen massa per formar un rang utilitzable."
+  },
+  "ui.predictor_historical_held_out": {
+    "en": "This known episode was held out: the displayed scores were calculated without using it for training.",
+    "es": "Este episodio conocido quedó reservado: los scores mostrados se calcularon sin utilizarlo para entrenar.",
+    "ca": "Aquest episodi conegut va quedar reservat: els scores mostrats es van calcular sense utilitzar-lo per entrenar."
+  },
+  "ui.predictor_historical_included_in_fit": {
+    "en": "This known episode was included in the final fit, so these scores are not an independent historical check.",
+    "es": "Este episodio conocido se incluyó en el ajuste final, por lo que estos scores no son una comprobación histórica independiente.",
+    "ca": "Aquest episodi conegut es va incloure en l'ajust final, de manera que aquests scores no són una comprovació històrica independent."
+  },
+  "ui.predictor_probability_source": {"en": "Score source", "es": "Origen de los scores", "ca": "Origen dels scores"},
+  "ui.predictor_probability_source_production_fit": {"en": "final fit", "es": "ajuste final", "ca": "ajust final"},
+  "ui.predictor_probability_source_production_fit_includes_episode": {"en": "final fit including this episode", "es": "ajuste final que incluye este episodio", "ca": "ajust final que inclou aquest episodi"},
+  "ui.predictor_probability_source_held_out_evaluation": {"en": "held-out evaluation", "es": "evaluación fuera de muestra", "ca": "avaluació fora de mostra"},
+  "ui.predictor_observed_result": {"en": "Observed result", "es": "Resultado observado", "ca": "Resultat observat"},
+  "ui.predictor_out_of_domain_features": {"en": "Out-of-domain variables", "es": "Variables fuera de dominio", "ca": "Variables fora de domini"},
+  "ui.predictor_validation_brier": {"en": "Validation Brier", "es": "Brier de validación", "ca": "Brier de validació"},
+  "ui.predictor_validation_auc": {"en": "Validation ROC-AUC", "es": "ROC-AUC de validación", "ca": "ROC-AUC de validació"},
+  "ui.predictor_validation_baseline": {"en": "baseline", "es": "base", "ca": "base"},
+  "ui.predictor_model": {
+    "en": "Model",
+    "es": "Modelo",
+    "ca": "Model"
+  },
+  "ui.predictor_weather_cutoff": {
+    "en": "Weather cutoff",
+    "es": "Corte meteorológico",
+    "ca": "Tall meteorològic"
+  },
+  "ui.predictor_experimental_score": {
+    "en": "Result",
+    "es": "Resultado",
+    "ca": "Resultat"
+  },
+  "ui.predictor_model_operational_v0": {
+    "en": "Current operational model",
+    "es": "Modelo operativo actual",
+    "ca": "Model operatiu actual"
+  },
+  "ui.predictor_model_fixed_gap_7d_v1": {
+    "en": "Fixed 7-day blind gap",
+    "es": "Ventana ciega fija de 7 días",
+    "ca": "Finestra cega fixa de 7 dies"
+  },
+  "ui.predictor_model_lag_event_v1": {
+    "en": "Issue-date lag/event model",
+    "es": "Modelo de retardos/eventos a fecha de emisión",
+    "ca": "Model de retards/esdeveniments a data d'emissió"
+  },
+  "ui.predictor_comparison_unavailable": {
+    "en": "Not available",
+    "es": "No disponible",
+    "ca": "No disponible"
+  },
+  "ui.predictor_future_leak_warning": {
+    "en": "It was trained with weather windows ending on the target date; part of that window is not yet observed.",
+    "es": "Se entrenó con ventanas meteorológicas que terminan en la fecha objetivo; parte de esa ventana aún no está observada.",
+    "ca": "Es va entrenar amb finestres meteorològiques que acaben en la data objectiu; una part encara no està observada."
+  },
+  "ui.predictor_missing_features": {
+    "en": "Missing weather variables: {missing}/{total}.",
+    "es": "Variables meteorológicas ausentes: {missing}/{total}.",
+    "ca": "Variables meteorològiques absents: {missing}/{total}."
+  },
+  "ui.predictor_station_distance": {
+    "en": "Distance",
+    "es": "Distancia",
+    "ca": "Distància"
+  },
+  "ui.predictor_horizon": {
+    "en": "Horizon",
+    "es": "Horizonte",
+    "ca": "Horitzó"
+  },
+  "ui.predictor_station_quality": {
+    "en": "Station quality (rain 21/90 · temperature · humidity)",
+    "es": "Calidad de estación (lluvia 21/90 · temperatura · humedad)",
+    "ca": "Qualitat de l'estació (pluja 21/90 · temperatura · humitat)"
+  },
+  "ui.predictor_station_jump": {
+    "en": "Station jump",
+    "es": "Salto de estación",
+    "ca": "Salt d'estació"
+  },
+  "ui.predictor_station_jump_value": {
+    "en": "{count} nearer station(s) rejected; nearest was {station}",
+    "es": "{count} estación(es) más cercana(s) descartada(s); la primera era {station}",
+    "ca": "{count} estació(ns) més propera(es) descartada(es); la primera era {station}"
+  },
+  "ui.predictor_rain_bands": {
+    "en": "Rain 0–3 / 4–7 / 8–14 / 15–21 days",
+    "es": "Lluvia 0–3 / 4–7 / 8–14 / 15–21 días",
+    "ca": "Pluja 0–3 / 4–7 / 8–14 / 15–21 dies"
+  },
+  "ui.predictor_days_since_rain": {
+    "en": "Days since rain >2 mm",
+    "es": "Días desde lluvia >2 mm",
+    "ca": "Dies des de pluja >2 mm"
+  },
+  "ui.predictor_days_since_significant_rain": {
+    "en": "Days since significant rain",
+    "es": "Días desde lluvia significativa",
+    "ca": "Dies des de pluja significativa"
+  },
+  "ui.predictor_rain_coverage_21": {
+    "en": "Rain coverage 21d (observed / missing / suppressed)",
+    "es": "Cobertura lluvia 21d (observados / ausentes / suprimidos)",
+    "ca": "Cobertura pluja 21d (observats / absents / suprimits)"
+  },
+  "ui.predictor_rain_coverage_90": {
+    "en": "Rain coverage 90d (observed / missing / suppressed)",
+    "es": "Cobertura lluvia 90d (observados / ausentes / suprimidos)",
+    "ca": "Cobertura pluja 90d (observats / absents / suprimits)"
+  },
+  "ui.predictor_post_rain_coverage": {
+    "en": "Post-rain coverage",
+    "es": "Cobertura posterior a lluvia",
+    "ca": "Cobertura posterior a pluja"
+  },
+  "ui.predictor_temporal_validation": {
+    "en": "Temporal validation",
+    "es": "Validación temporal",
+    "ca": "Validació temporal"
+  },
+  "ui.predictor_temporal_validation_unavailable": {
+    "en": "Not available: the chronological training or test partition contains a single class",
+    "es": "No disponible: el tramo cronológico de entrenamiento o prueba contiene una sola clase",
+    "ca": "No disponible: el tram cronològic d'entrenament o prova conté una sola classe"
+  },
   "ui.worker_abandoned_flash": {
     "en": "Job abandoned.",
     "es": "Trabajo abandonado.",

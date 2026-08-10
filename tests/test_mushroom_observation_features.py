@@ -66,6 +66,13 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
                             "humidity_min_14d_pct": 35.0,
                             "humidity_max_14d_pct": 92.0,
                             "humidity_mean_14d_pct": 64.0,
+                            "daily_rain_mm": [0.0, 2.5],
+                            "daily_temp_min_c": [9.0, 10.0],
+                            "daily_temp_max_c": [22.0, 24.0],
+                            "daily_temp_mean_c": [15.5, 17.0],
+                            "daily_humidity_min_pct": [42.0, 40.0],
+                            "daily_humidity_max_pct": [88.0, 90.0],
+                            "daily_humidity_mean_pct": [65.0, 65.0],
                             "humidity_min_pct": 40.0,
                             "humidity_max_pct": 90.0,
                             "humidity_mean_pct": 65.0,
@@ -134,6 +141,9 @@ class MushroomObservationFeaturesTests(unittest.TestCase):
         self.assertEqual(first["rain_7d_mm"], 11.0)
         self.assertEqual(first["temp_min_14d_c"], 9.0)
         self.assertEqual(first["humidity_max_14d_pct"], 92.0)
+        self.assertEqual(first["daily_rain_mm"], [0.0, 2.5])
+        self.assertEqual(first["daily_temp_mean_c"], [15.5, 17.0])
+        self.assertEqual(second["daily_rain_mm"], [])
         self.assertEqual(first["host_ids"], ["host_pinus_sylvestris", "host_quercus_ilex"])
         self.assertEqual(
             first["host_sources"],

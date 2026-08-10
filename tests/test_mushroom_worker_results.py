@@ -695,6 +695,32 @@ class MushroomMLTrainWorkerResultsTests(unittest.TestCase):
                 content=json.dumps(self.manifest).encode("utf-8"),
             )
 
+    def test_ml_train_shadow_model_is_verified_and_promoted(self) -> None:
+        shadow_path = (
+            "ml_models/"
+            "mushroom_ml_experiment_fixed_gap_7d_v1_boletus_aereus.joblib"
+        )
+        shadow_content = b"shadow-joblib-content"
+        (self.candidate / shadow_path).write_bytes(shadow_content)
+        self.manifest["shadow_models"] = [shadow_path]
+        self.manifest["artifacts"].append(
+            self._artifact(shadow_path, shadow_content)
+        )
+
+        verification = self._receive_and_finalize()
+        live_models = self.root / "live" / "ml_models"
+        live_report = self.root / "live" / "mushroom_ml_v0_report.json"
+        promotion = mushroom_worker_results.promote_ml_train_candidate(
+            self.result_root,
+            live_models,
+            job_id=self.job_id,
+            report_path=live_report,
+        )
+
+        self.assertEqual(verification["verified_artifacts"], 3)
+        self.assertEqual((live_models / Path(shadow_path).name).read_bytes(), shadow_content)
+        self.assertIn(Path(shadow_path).name, promotion["promoted_files"])
+
     def test_ml_train_manifest_models_must_match_trained_species(self) -> None:
         self.manifest["trained_species"] = ["amanita_caesarea"]
         with self.assertRaisesRegex(ValueError, "models do not match"):

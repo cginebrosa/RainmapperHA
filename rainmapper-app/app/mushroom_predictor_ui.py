@@ -5,7 +5,6 @@ from __future__ import annotations
 import gc
 import html
 import json
-import math
 from contextvars import ContextVar
 from datetime import date, timedelta
 from pathlib import Path
@@ -14,6 +13,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from rainmapper_core import mushroom_paths
+from rainmapper_core.mushroom_ml_comparison import MushroomModelComparator
 from rainmapper_core.mushroom_ml_predictor import (
     MushroomMLPredictor,
     invalidate_weather_stations_cache,
@@ -26,6 +26,7 @@ import mushroom_profiles_ui
 
 # Module-level predictor cache — lazy-loaded, survives across requests
 _predictor_cache: dict[str, MushroomMLPredictor] = {}
+_comparator_cache: dict[str, MushroomModelComparator] = {}
 _predictor_cache_lock = RLock()
 _prepared_response: ContextVar[dict[str, Any] | None] = ContextVar(
     "mushroom_predictor_prepared_response", default=None
@@ -38,6 +39,27 @@ _allow_executor_change: ContextVar[bool] = ContextVar(
 # ML report cache — loaded once per process, reset if file changes
 _ml_report_cache: dict[str, Any] | None = None
 _ml_report_mtime: float | None = None
+
+_COMPARISON_ESTIMATORS = (
+    ("logistic_regression_reduced_v1", "LR", False),
+    ("random_forest_restricted_v1", "RF", False),
+    ("extra_trees_restricted_v1", "ET*", True),
+    ("hist_gradient_boosting_restricted_v1", "HGB*", True),
+    ("knn_distance_v1", "KNN*", True),
+    ("rbf_svm_calibrated_v1", "SVM*", True),
+)
+_ESTIMATOR_HELP_KEYS = {
+    "logistic_regression_reduced_v1": "ui.predictor_estimator_help_lr",
+    "random_forest_restricted_v1": "ui.predictor_estimator_help_rf",
+    "extra_trees_restricted_v1": "ui.predictor_estimator_help_et",
+    "hist_gradient_boosting_restricted_v1": "ui.predictor_estimator_help_hgb",
+    "knn_distance_v1": "ui.predictor_estimator_help_knn",
+    "rbf_svm_calibrated_v1": "ui.predictor_estimator_help_svm",
+}
+_ESTIMATOR_SHORT_NAMES = {
+    estimator_id: short_name
+    for estimator_id, short_name, _experimental in _COMPARISON_ESTIMATORS
+}
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +91,7 @@ def release_predictor_cache() -> int:
     with _predictor_cache_lock:
         released_instances = len(_predictor_cache)
         _predictor_cache.clear()
+        _comparator_cache.clear()
         invalidate_weather_stations_cache()
     gc.collect()
     return released_instances
@@ -182,6 +205,8 @@ def _area_name(area_id: str, known_sites_payload: dict[str, Any]) -> str:
 
 
 def _status_dot(label: str) -> str:
+    if label == "abstain":
+        return "⚫"
     if label == "out_of_season":
         return "⚪"
     if label == "favorable":
@@ -198,7 +223,7 @@ def _pct(prob: float | None) -> str:
 
 
 def _status_cls(label: str) -> str:
-    if label == "out_of_season":
+    if label in {"out_of_season", "abstain"}:
         return "pred-muted"
     if label == "favorable":
         return "pred-green"
@@ -230,6 +255,252 @@ def _executor_hidden_input() -> str:
         '<input type="hidden" name="executor" value="'
         f'{html.escape(executor, quote=True)}">'
     )
+
+
+def _model_comparison(species_id: str, area_id: str, target_date: date) -> dict[str, Any] | None:
+    predictor = _get_predictor(species_id)
+    if isinstance(predictor, PreparedPredictor):
+        return predictor.model_comparison(area_id, target_date)
+    with _predictor_cache_lock:
+        comparator = _comparator_cache.get(species_id)
+        if comparator is None:
+            comparator = MushroomModelComparator(
+                predictor, mushroom_paths.mushroom_ml_models_dir()
+            )
+            _comparator_cache[species_id] = comparator
+    return comparator.compare(
+        area_id,
+        target_date,
+        issue_date=min(date.today(), target_date),
+    )
+
+
+def _interpretation(comparison: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(comparison, dict):
+        return {}
+    value = comparison.get("interpretation")
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _interpretation_label(interpretation: dict[str, Any]) -> str:
+    verdict = str(interpretation.get("verdict", "abstain"))
+    if verdict == "abstain":
+        if interpretation.get("ecological_compatibility") == "compatible":
+            return _lbl("ui.predictor_conditions_compatible_unconfirmed")
+        unvalidated_signal = str(
+            interpretation.get("unvalidated_signal", "unavailable")
+        )
+        return {
+            "favorable": _lbl("ui.predictor_unvalidated_favorable_signal"),
+            "unfavorable": _lbl("ui.predictor_unvalidated_unfavorable_signal"),
+            "mixed": _lbl("ui.predictor_unvalidated_mixed_signal"),
+        }.get(unvalidated_signal, _lbl("ui.predictor_interpretation_abstain"))
+    return {
+        "favorable": _lbl("ui.predictor_favorable"),
+        "uncertain": _lbl("ui.predictor_uncertain"),
+        "unfavorable": _lbl("ui.predictor_unfavorable"),
+        "out_of_season": _lbl("ui.predictor_out_of_season"),
+        "abstain": _lbl("ui.predictor_interpretation_abstain"),
+    }.get(verdict, _lbl("ui.predictor_interpretation_abstain"))
+
+
+def _interpretation_status(interpretation: dict[str, Any]) -> str:
+    verdict = str(interpretation.get("verdict", "abstain"))
+    if verdict == "abstain" and interpretation.get("unvalidated_signal") in {
+        "favorable",
+        "unfavorable",
+        "mixed",
+    }:
+        return "uncertain"
+    return verdict if verdict in {"favorable", "uncertain", "unfavorable", "out_of_season", "abstain"} else "abstain"
+
+
+def _reference_range(interpretation: dict[str, Any]) -> str:
+    value = interpretation.get("reference_range")
+    if not isinstance(value, dict):
+        return "—"
+    minimum = value.get("min")
+    maximum = value.get("max")
+    if not isinstance(minimum, (int, float)) or not isinstance(maximum, (int, float)):
+        return "—"
+    if round(float(minimum) * 100) == round(float(maximum) * 100):
+        return _pct(float(minimum))
+    return f"{_pct(float(minimum))}–{_pct(float(maximum))}"
+
+
+def _probability_range(value: object) -> str:
+    if not isinstance(value, dict):
+        return "—"
+    minimum = value.get("min")
+    maximum = value.get("max")
+    if not isinstance(minimum, (int, float)) or not isinstance(maximum, (int, float)):
+        return "—"
+    if round(float(minimum) * 100) == round(float(maximum) * 100):
+        return _pct(float(minimum))
+    return f"{_pct(float(minimum))}–{_pct(float(maximum))}"
+
+
+def _compact_interpretation_range(interpretation: dict[str, Any]) -> str:
+    return _reference_range(interpretation)
+
+
+def _interpretation_sort_key(interpretation: dict[str, Any]) -> tuple[int, float]:
+    verdict = str(interpretation.get("verdict", "abstain"))
+    rank = {"favorable": 5, "uncertain": 4, "unfavorable": 1, "abstain": 0}.get(verdict, 0)
+    if verdict == "abstain":
+        rank = 3 if interpretation.get("ecological_compatibility") == "compatible" else 0
+    value = interpretation.get("reference_range")
+    midpoint = value.get("midpoint") if isinstance(value, dict) else None
+    return rank, float(midpoint) if isinstance(midpoint, (int, float)) else -1.0
+
+
+def _render_interpretation_card(
+    comparison: dict[str, Any],
+    species_name: str,
+    area_name: str,
+    target_date: date,
+) -> str:
+    interpretation = _interpretation(comparison)
+    status = _interpretation_status(interpretation)
+    consensus = str(interpretation.get("statistical_consensus", "unavailable"))
+    statistical_support = str(
+        interpretation.get("statistical_support", "unavailable")
+    )
+    ecological_compatibility = str(
+        interpretation.get("ecological_compatibility", "unknown")
+    )
+    ecological_evidence = str(
+        interpretation.get("ecological_evidence", "low")
+    )
+    experimental_signal = str(
+        interpretation.get("experimental_signal", "unavailable")
+    )
+    timing = str(interpretation.get("fruiting_timing", "unknown"))
+    weather = str(interpretation.get("weather_signal", "unknown"))
+    reason_codes = {
+        str(value) for value in interpretation.get("reason_codes", [])
+    }
+    ecological_detail_keys: list[str] = []
+    statistical_detail_keys: list[str] = []
+    if weather in {"recent_event", "old_event", "no_event"}:
+        ecological_detail_keys.append(f"ui.predictor_interpretation_weather_{weather}")
+    ecological_rain_guardrail = "ecological_rain_guardrail" in reason_codes
+    if timing != "unknown" and not (
+        ecological_rain_guardrail and weather in {"old_event", "no_event"}
+    ):
+        ecological_detail_keys.append(f"ui.predictor_interpretation_timing_{timing}")
+    if ecological_rain_guardrail:
+        ecological_detail_keys.append("ui.predictor_interpretation_rain_guardrail")
+    if "estimators_disagree" in reason_codes:
+        statistical_detail_keys.append("ui.predictor_interpretation_disagreement")
+    if "feature_sets_use_different_stations" in reason_codes:
+        ecological_detail_keys.append("ui.predictor_interpretation_different_stations")
+    if "no_estimator_beats_prevalence" in reason_codes:
+        statistical_detail_keys.append("ui.predictor_interpretation_no_trusted_model")
+    elif (
+        "statistical_support_limited" in reason_codes
+        and interpretation.get("validated_estimator_count") == 1
+    ):
+        statistical_detail_keys.append("ui.predictor_interpretation_limited_support")
+    if "logistic_regression_excluded_out_of_domain" in reason_codes:
+        statistical_detail_keys.append("ui.predictor_interpretation_lr_ood")
+    if "feature_sets_conflict_extremely" in reason_codes:
+        statistical_detail_keys.append("ui.predictor_interpretation_extreme_conflict")
+    if "unvalidated_favorable_signal" in reason_codes:
+        statistical_detail_keys.append("ui.predictor_interpretation_unvalidated_favorable")
+    elif "unvalidated_unfavorable_signal" in reason_codes:
+        statistical_detail_keys.append("ui.predictor_interpretation_unvalidated_unfavorable")
+    elif "unvalidated_signal_not_interpretable" in reason_codes:
+        statistical_detail_keys.append("ui.predictor_interpretation_unvalidated_mixed")
+    if experimental_signal != "unavailable":
+        statistical_detail_keys.append(
+            f"ui.predictor_interpretation_experimental_{experimental_signal}"
+        )
+        statistical_detail_keys.append(
+            "ui.predictor_interpretation_experimental_shadow"
+        )
+        if interpretation.get("experimental_out_of_domain_caution"):
+            statistical_detail_keys.append(
+                "ui.predictor_interpretation_experimental_ood_caution"
+            )
+    historical_rows = [
+        result.get("historical_evaluation")
+        for model_id in ("fixed_gap_7d_v1", "lag_event_v1")
+        if isinstance((result := comparison.get(model_id)), dict)
+        and isinstance(result.get("historical_evaluation"), dict)
+    ]
+    if historical_rows and any(row.get("out_of_sample") for row in historical_rows):
+        statistical_detail_keys.append("ui.predictor_historical_held_out")
+    elif historical_rows:
+        statistical_detail_keys.append("ui.predictor_historical_included_in_fit")
+    ecological_details = " ".join(
+        html.escape(_lbl(key)) for key in ecological_detail_keys
+    )
+    statistical_details = " ".join(
+        html.escape(_lbl(key)) for key in statistical_detail_keys
+    )
+    details_html = "".join(
+        f'<p class="pred-interpretation-detail">{details}</p>'
+        for details in (ecological_details, statistical_details)
+        if details
+    )
+    range_html = ""
+    if interpretation.get("reference_range"):
+        range_html = (
+            f'<div class="pred-interpretation-range">'
+            f'<span>{html.escape(_lbl("ui.predictor_reference_range"))}</span>'
+            f'<strong>{html.escape(_reference_range(interpretation))}</strong>'
+            f'</div>'
+        )
+    consensus_html = ""
+    if consensus != "unavailable":
+        consensus_html = (
+            f'<span><strong>{html.escape(_lbl("ui.predictor_consensus"))}:</strong> '
+            f'{html.escape(_lbl(f"ui.predictor_consensus_{consensus}"))}</span>'
+        )
+    experimental_html = ""
+    if experimental_signal != "unavailable":
+        estimator_names = " / ".join(
+            _ESTIMATOR_SHORT_NAMES.get(str(estimator_id), str(estimator_id))
+            for estimator_id in interpretation.get("experimental_estimator_ids", [])
+        )
+        experimental_range = _probability_range(
+            interpretation.get("experimental_range")
+        )
+        experimental_parts = [
+            _lbl(f"ui.predictor_experimental_signal_{experimental_signal}")
+        ]
+        if estimator_names:
+            experimental_parts.append(estimator_names)
+        if experimental_range != "—":
+            experimental_parts.append(experimental_range)
+        if interpretation.get("experimental_out_of_domain_caution"):
+            experimental_parts.append(_lbl("ui.predictor_experimental_ood_short"))
+        experimental_html = (
+            f'<span class="pred-experimental-signal"><strong>'
+            f'{html.escape(_lbl("ui.predictor_experimental_signal"))}:</strong> '
+            f'{html.escape(" · ".join(experimental_parts))}</span>'
+        )
+    return f"""
+<section class="pred-interpretation-card {_status_cls(status)}">
+  <div class="pred-result-header">
+    <span class="pred-result-dot">{_status_dot(status)}</span>
+    <span class="pred-result-species">{html.escape(species_name)}</span>
+    <span class="pred-result-area">{html.escape(area_name)}</span>
+    <span class="pred-result-date">{html.escape(target_date.strftime("%-d %b %Y"))}</span>
+  </div>
+  <div class="pred-interpretation-title">{html.escape(_interpretation_label(interpretation))}</div>
+  {range_html}
+  <div class="pred-interpretation-meta">
+    <span><strong>{html.escape(_lbl("ui.predictor_ecological_compatibility"))}:</strong> {html.escape(_lbl(f"ui.predictor_ecological_compatibility_{ecological_compatibility}"))}</span>
+    <span><strong>{html.escape(_lbl("ui.predictor_ecological_evidence"))}:</strong> {html.escape(_lbl(f"ui.predictor_ecological_evidence_{ecological_evidence}"))}</span>
+    <span><strong>{html.escape(_lbl("ui.predictor_statistical_support"))}:</strong> {html.escape(_lbl(f"ui.predictor_statistical_support_{statistical_support}"))}</span>
+    {consensus_html}
+    {experimental_html}
+  </div>
+  {details_html}
+</section>
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -294,23 +565,24 @@ def _render_recommender(
     today = date.today()
     day_strip = _render_day_strip(target_date, "recommender", "")
 
-    all_results = []
+    all_results: list[tuple[dict[str, Any], str, str]] = []
     errors = []
     for species_id in trained:
         try:
             predictor = _get_predictor(species_id)
             if predictor.season_phase(target_date) == "out_of_season":
                 continue
-            results = predictor.rank_areas(target_date, only_observed=True)
-            for r in results:
-                if r.ensemble_probability is not None:
-                    all_results.append((r, species_id))
+            for area_id in predictor.areas_with_species_observations():
+                comparison = _model_comparison(species_id, area_id, target_date)
+                interpretation = _interpretation(comparison)
+                if interpretation:
+                    all_results.append((interpretation, species_id, area_id))
         except FileNotFoundError:
             pass
         except Exception as exc:
             errors.append(f"{species_id}: {html.escape(_predictor_error_text(exc))}")
 
-    all_results.sort(key=lambda t: t[0].ensemble_probability or 0, reverse=True)
+    all_results.sort(key=lambda row: _interpretation_sort_key(row[0]), reverse=True)
 
     date_label = (
         "Hoy" if target_date == today
@@ -331,31 +603,38 @@ def _render_recommender(
 """
 
     # Best bet card
-    best_r, best_species = all_results[0]
+    best_interpretation, best_species, best_area = all_results[0]
     best_species_name = _species_name(best_species, profiles_payload)
-    best_area_name = _area_name(best_r.area_id, known_sites_payload)
+    best_area_name = _area_name(best_area, known_sites_payload)
+    best_status = _interpretation_status(best_interpretation)
+    best_badge = (
+        _lbl("ui.predictor_best_bet")
+        if best_interpretation.get("verdict") == "favorable"
+        else _lbl("ui.predictor_best_available_signal")
+    )
     best_card = f"""
-<div class="pred-best-card {_status_cls(best_r.label)}">
-  <div class="pred-best-badge">{html.escape(_lbl("ui.predictor_best_bet"))}</div>
-  <div class="pred-best-name">{_status_dot(best_r.label)} {html.escape(best_species_name)}</div>
+<div class="pred-best-card {_status_cls(best_status)}">
+  <div class="pred-best-badge">{html.escape(best_badge)}</div>
+  <div class="pred-best-name">{_status_dot(best_status)} {html.escape(best_species_name)}</div>
   <div class="pred-best-area">{html.escape(best_area_name)}</div>
-  <div class="pred-best-prob">{_pct(best_r.ensemble_probability)}</div>
-  <div class="pred-best-hint">{html.escape(_label_hint(best_r.label))}</div>
+  <div class="pred-best-prob">{html.escape(_compact_interpretation_range(best_interpretation))}</div>
+  <div class="pred-best-hint">{html.escape(_interpretation_label(best_interpretation))}</div>
 </div>
 """
 
     # Ranked list
     rows_html = ""
-    for r, sp_id in all_results[:15]:
+    for interpretation, sp_id, area_id in all_results[:15]:
         sp_name = _species_name(sp_id, profiles_payload)
-        area_n = _area_name(r.area_id, known_sites_payload)
-        href = _url("query", sp_id, r.area_id, target_date)
+        area_n = _area_name(area_id, known_sites_payload)
+        href = _url("query", sp_id, area_id, target_date)
+        status = _interpretation_status(interpretation)
         rows_html += f"""
-<a class="pred-rank-row {_status_cls(r.label)}" href="{html.escape(href)}">
-  <span class="pred-rank-dot">{_status_dot(r.label)}</span>
+<a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}">
+  <span class="pred-rank-dot">{_status_dot(status)}</span>
   <span class="pred-rank-species">{html.escape(sp_name)}</span>
   <span class="pred-rank-area">{html.escape(area_n)}</span>
-  <span class="pred-rank-prob">{_pct(r.ensemble_probability)}</span>
+  <span class="pred-rank-prob">{html.escape(_compact_interpretation_range(interpretation))}</span>
 </a>
 """
 
@@ -372,7 +651,7 @@ def _render_recommender(
       <span></span>
       <span>{html.escape(_lbl("ui.species"))}</span>
       <span>{html.escape(_lbl("ui.known_site_area"))}</span>
-      <span>{html.escape(_lbl("ui.predictor_probability"))}</span>
+      <span>{html.escape(_lbl("ui.predictor_reference_range"))}</span>
     </div>
     {rows_html}
   </div>
@@ -435,15 +714,10 @@ def _render_week(
     # Species-level reliability strip
     if bt and "total_episodes" in bt:
         total_ep = bt["total_episodes"]
-        n_test = bt.get("n_test", 0)
-        holdout = bt.get("holdout_test_accuracy")
-        holdout_str = f"{round(holdout * 100)}%" if holdout is not None else "—"
         reliability_html = (
             f'<div class="pred-reliability-strip">'
             f'<span class="pred-rel-label">{html.escape(_lbl("ui.predictor_reliability"))}</span>'
             f'<span class="pred-rel-episodes">{total_ep} {html.escape(_lbl("ui.predictor_stat_episodes")).lower()}</span>'
-            f'<span class="pred-rel-sep">·</span>'
-            f'<span class="pred-rel-acc">{html.escape(holdout_str)} holdout ({n_test} ep)</span>'
             f'</div>'
         )
     else:
@@ -467,13 +741,14 @@ def _render_week(
         row_cells = f'<td class="pred-area-cell">{html.escape(area_n)}</td>{rel_cell}'
         for d in days:
             try:
-                predictor = _get_predictor(species)
-                r = predictor.predict(area_id, d)
+                comparison = _model_comparison(species, area_id, d)
+                interpretation = _interpretation(comparison)
+                status = _interpretation_status(interpretation)
                 cell_href = _url("query", species, area_id, d)
                 row_cells += (
-                    f'<td class="pred-cell {_status_cls(r.label)}">'
+                    f'<td class="pred-cell {_status_cls(status)}">'
                     f'<a href="{html.escape(cell_href)}">'
-                    f'{_status_dot(r.label)} {_pct(r.ensemble_probability)}'
+                    f'{_status_dot(status)} {html.escape(_compact_interpretation_range(interpretation))}'
                     f'</a></td>'
                 )
             except WeatherParquetLayoutError as exc:
@@ -530,6 +805,7 @@ def _render_query(
     trained: list[str],
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],
+    compare_models: bool = True,
 ) -> str:
     # Area options for selected species
     area_options_html = f'<option value="">{html.escape(_lbl("ui.predictor_all_areas_option"))}</option>'
@@ -551,9 +827,17 @@ def _render_query(
         sel = ' selected' if sp_id == species else ''
         species_options_html += f'<option value="{html.escape(sp_id)}"{sel}>{html.escape(sp_name)}</option>'
 
+    comparison_toggle = (
+        f'<a class="button-link secondary-link" href="{html.escape(_url("query", species, area, target_date, compare="0" if compare_models else "1"))}">'
+        f'{html.escape(_lbl("ui.predictor_hide_model_comparison") if compare_models else _lbl("ui.predictor_compare_models"))}'
+        "</a>"
+        if area
+        else ""
+    )
     form_html = f"""
 <form class="pred-form" method="get" action="" data-predictor-direct-form>
   <input type="hidden" name="view" value="query">
+  <input type="hidden" name="compare" value="{1 if compare_models else 0}">
   {_executor_hidden_input()}
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.species"))}</label>
@@ -568,12 +852,20 @@ def _render_query(
     <input type="date" name="date" value="{html.escape(target_date.isoformat())}">
   </div>
   <button type="submit" class="primary">{html.escape(_lbl("ui.predictor_query_submit"))}</button>
+  {comparison_toggle}
 </form>
 """
 
     result_html = ""
     if area:
-        result_html = _render_query_result(species, area, target_date, profiles_payload, known_sites_payload)
+        result_html = _render_query_result(
+            species,
+            area,
+            target_date,
+            profiles_payload,
+            known_sites_payload,
+            compare_models=compare_models,
+        )
     elif species:
         # Show all areas for the species
         result_html = _render_query_all_areas(species, target_date, profiles_payload, known_sites_payload)
@@ -593,55 +885,50 @@ def _render_query_result(
     target_date: date,
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],
+    *,
+    compare_models: bool = False,
 ) -> str:
     try:
-        predictor = _get_predictor(species)
-        r = predictor.predict(area, target_date)
+        comparison = _model_comparison(species, area, target_date)
     except FileNotFoundError as exc:
         return f'<div class="pred-error">{html.escape(str(exc))}</div>'
     except Exception as exc:
         return f'<div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>'
+    if not comparison:
+        return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_comparison_unavailable"))}</div>'
 
     sp_name = _species_name(species, profiles_payload)
     area_n = _area_name(area, known_sites_payload)
-
-    station_info = ""
-    if r.weather_station_code:
-        dist = f"{r.weather_station_distance_km:.1f} km" if r.weather_station_distance_km is not None else "?"
-        cov = f"{r.weather_coverage_days}d" if r.weather_coverage_days is not None else "?"
-        station_info = f"""
-<div class="pred-station-info">
-  <span>📡 {html.escape(r.weather_station_code)}</span>
-  <span>{html.escape(dist)}</span>
-  <span>{html.escape(_lbl("ui.predictor_coverage"))}: {html.escape(cov)}</span>
-</div>
-"""
-
-    gaps_html = ""
-    if r.feature_gaps:
-        gaps = ", ".join(html.escape(g) for g in r.feature_gaps[:5])
-        if len(r.feature_gaps) > 5:
-            gaps += f", +{len(r.feature_gaps) - 5}"
-        gaps_html = f'<div class="pred-gaps"><small>⚠️ {gaps}</small></div>'
+    interpretation_card = _render_interpretation_card(
+        comparison, sp_name, area_n, target_date
+    )
 
     # 7-day strip for this area
     week_cells = ""
     try:
-        predictor_w = _get_predictor(species)
         today = date.today()
         current_week = {today + timedelta(days=offset) for offset in range(7)}
         week_start = today if target_date in current_week else target_date
-        week_results = predictor_w.week_window(area, week_start)
-        for wr in week_results:
-            is_active = wr.target_date == target_date
-            day_name = ["L", "M", "X", "J", "V", "S", "D"][wr.target_date.weekday()]
-            href = _url("query", species, area, wr.target_date)
+        for offset in range(7):
+            current_date = week_start + timedelta(days=offset)
+            current_comparison = _model_comparison(species, area, current_date)
+            current_interpretation = _interpretation(current_comparison)
+            status = _interpretation_status(current_interpretation)
+            is_active = current_date == target_date
+            day_name = ["L", "M", "X", "J", "V", "S", "D"][current_date.weekday()]
+            href = _url(
+                "query",
+                species,
+                area,
+                current_date,
+                compare="1" if compare_models else "",
+            )
             cls = "pred-week-cell pred-week-active" if is_active else "pred-week-cell"
             week_cells += f"""
-<a class="{cls} {_status_cls(wr.label)}" href="{html.escape(href)}">
-  <small>{day_name} {wr.target_date.day}/{wr.target_date.month}</small>
-  <span>{_status_dot(wr.label)}</span>
-  <small>{_pct(wr.ensemble_probability)}</small>
+<a class="{cls} {_status_cls(status)}" href="{html.escape(href)}">
+  <small>{day_name} {current_date.day}/{current_date.month}</small>
+  <span>{_status_dot(status)}</span>
+  <small>{html.escape(_compact_interpretation_range(current_interpretation))}</small>
 </a>
 """
     except Exception:
@@ -649,29 +936,307 @@ def _render_query_result(
 
     week_strip = f'<div class="pred-week-strip">{week_cells}</div>' if week_cells else ""
 
-    # Feature bars for key indicators
-    feature_bars = _render_feature_bars(r.features_used)
+    comparison_html = _render_model_comparison(species, area, target_date) if compare_models else ""
 
     return f"""
-<div class="pred-result-card {_status_cls(r.label)}">
-  <div class="pred-result-header">
-    <span class="pred-result-dot">{_status_dot(r.label)}</span>
-    <span class="pred-result-species">{html.escape(sp_name)}</span>
-    <span class="pred-result-area">{html.escape(area_n)}</span>
-    <span class="pred-result-date">{html.escape(target_date.strftime("%-d %b %Y"))}</span>
-  </div>
-  <div class="pred-result-prob">{_pct(r.ensemble_probability)}</div>
-  <div class="pred-result-label">{html.escape(_label_text(r.label))}</div>
-  <div class="pred-prob-detail">
-    <span>LR: {_pct(r.lr_probability)}</span>
-    <span>RF: {_pct(r.rf_probability)}</span>
-  </div>
-  {station_info}
-  {gaps_html}
-</div>
+{interpretation_card}
 {week_strip}
-{feature_bars}
+{comparison_html}
 """
+
+
+def _comparison_value(value: object, suffix: str = "") -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, float):
+        rendered = f"{value:.2f}".rstrip("0").rstrip(".")
+    else:
+        rendered = str(value)
+    return f"{rendered}{suffix}"
+
+
+def _render_model_diagnostics(result: dict[str, Any]) -> str:
+    features = result.get("features_used")
+    features = features if isinstance(features, dict) else {}
+    selection = result.get("station_selection")
+    selection = selection if isinstance(selection, dict) else {}
+    quality = selection.get("selected_station_quality")
+    quality = quality if isinstance(quality, dict) else {}
+
+    facts: list[tuple[str, str]] = []
+
+    probability_source = result.get("probability_source")
+    if probability_source:
+        facts.append(
+            (
+                _lbl("ui.predictor_probability_source"),
+                _lbl(f"ui.predictor_probability_source_{probability_source}"),
+            )
+        )
+    historical = result.get("historical_evaluation")
+    historical = historical if isinstance(historical, dict) else {}
+    if historical.get("prediction_target"):
+        facts.append(
+            (
+                _lbl("ui.predictor_observed_result"),
+                _lbl(
+                    "ui.predictor_favorable"
+                    if historical.get("prediction_target") == "favorable"
+                    else "ui.predictor_unfavorable"
+                ),
+            )
+        )
+
+    evaluation = result.get("evaluation")
+    evaluation = evaluation if isinstance(evaluation, dict) else {}
+    baseline = evaluation.get("baseline")
+    baseline = baseline if isinstance(baseline, dict) else {}
+    estimator_metrics = evaluation.get("estimators")
+    estimator_metrics = estimator_metrics if isinstance(estimator_metrics, dict) else {}
+    estimator_availability = result.get("estimator_availability")
+    estimator_availability = (
+        estimator_availability if isinstance(estimator_availability, dict) else {}
+    )
+    for estimator_id, short_name, _is_shadow in _COMPARISON_ESTIMATORS:
+        availability = estimator_availability.get(estimator_id)
+        availability = availability if isinstance(availability, dict) else {}
+        if availability.get("available") is False and availability.get("reason"):
+            reason = str(availability["reason"])
+            value = (
+                _lbl("ui.predictor_estimator_calibration_insufficient_classes")
+                if reason.startswith("calibration requires")
+                else reason
+            )
+            facts.append((short_name, value))
+    if baseline.get("brier_score") is not None:
+        estimator_briers = " · ".join(
+            f'{short_name} {_comparison_value(dict(estimator_metrics.get(estimator_id, {})).get("brier_score"))}'
+            for estimator_id, short_name, _is_shadow in _COMPARISON_ESTIMATORS
+            if estimator_id in estimator_metrics
+        )
+        facts.append(
+            (
+                _lbl("ui.predictor_validation_brier"),
+                (
+                    f'{_lbl("ui.predictor_validation_baseline")} '
+                    f'{_comparison_value(baseline.get("brier_score"))}'
+                    f'{" · " + estimator_briers if estimator_briers else ""}'
+                ),
+            )
+        )
+    estimator_aucs = " · ".join(
+        f'{short_name} {_comparison_value(dict(estimator_metrics.get(estimator_id, {})).get("roc_auc"))}'
+        for estimator_id, short_name, _is_shadow in _COMPARISON_ESTIMATORS
+        if dict(estimator_metrics.get(estimator_id, {})).get("roc_auc") is not None
+    )
+    if estimator_aucs:
+        facts.append(
+            (
+                _lbl("ui.predictor_validation_auc"),
+                estimator_aucs,
+            )
+        )
+
+    temporal_validation = result.get("temporal_validation")
+    if (
+        isinstance(temporal_validation, dict)
+        and temporal_validation.get("available") is False
+    ):
+        facts.append(
+            (
+                _lbl("ui.predictor_temporal_validation"),
+                _lbl("ui.predictor_temporal_validation_unavailable"),
+            )
+        )
+
+    def add(label_key: str, value: object, suffix: str = "") -> None:
+        if value is not None:
+            facts.append((_lbl(label_key), _comparison_value(value, suffix)))
+
+    add("ui.station", result.get("weather_station_code"))
+    add("ui.predictor_station_distance", result.get("weather_station_distance_km"), " km")
+    add("ui.predictor_horizon", result.get("horizon_days"), " d")
+    if quality:
+        facts.append(
+            (
+                _lbl("ui.predictor_station_quality"),
+                (
+                    f'{quality.get("rain_days_21", "—")}/21 · '
+                    f'{quality.get("rain_days_90", "—")}/90 · '
+                    f'T {quality.get("temperature_days_21", "—")}/21 · '
+                    f'H {quality.get("humidity_days_21", "—")}/21'
+                ),
+            )
+        )
+    elif result.get("weather_coverage_days") is not None:
+        add("ui.predictor_coverage", result.get("weather_coverage_days"), " d")
+    skipped = selection.get("skipped_nearer_station_count")
+    if isinstance(skipped, int) and skipped > 0:
+        facts.append(
+            (
+                _lbl("ui.predictor_station_jump"),
+                _lbl("ui.predictor_station_jump_value").format(
+                    count=skipped,
+                    station=selection.get("nearest_station_code") or "—",
+                ),
+            )
+        )
+
+    rain_bands = (
+        features.get("rain_cutoff_0_3d_mm"),
+        features.get("rain_cutoff_4_7d_mm"),
+        features.get("rain_cutoff_8_14d_mm"),
+        features.get("rain_cutoff_15_21d_mm"),
+    )
+    if any(value is not None for value in rain_bands):
+        facts.append(
+            (
+                _lbl("ui.predictor_rain_bands"),
+                " · ".join(_comparison_value(value, " mm") for value in rain_bands),
+            )
+        )
+    add(
+        "ui.predictor_days_since_rain",
+        features.get("days_since_rain_gt_2_at_target"),
+        " d",
+    )
+    add(
+        "ui.predictor_days_since_significant_rain",
+        features.get("days_since_significant_rain_at_target"),
+        " d",
+    )
+    if features.get("rain_observed_days_21") is not None:
+        facts.append(
+            (
+                _lbl("ui.predictor_rain_coverage_21"),
+                f'{_comparison_value(features.get("rain_observed_days_21"))} / '
+                f'{_comparison_value(features.get("rain_missing_days_21"))} / '
+                f'{_comparison_value(features.get("rain_suppressed_days_21"))}',
+            )
+        )
+    if features.get("rain_observed_days_90") is not None:
+        facts.append(
+            (
+                _lbl("ui.predictor_rain_coverage_90"),
+                f'{_comparison_value(features.get("rain_observed_days_90"))} / '
+                f'{_comparison_value(features.get("rain_missing_days_90"))} / '
+                f'{_comparison_value(features.get("rain_suppressed_days_90"))}',
+            )
+        )
+    temp_days = features.get("temp_observed_days_after_significant_rain")
+    humidity_days = features.get("humidity_observed_days_after_significant_rain")
+    if temp_days is not None or humidity_days is not None:
+        facts.append(
+            (
+                _lbl("ui.predictor_post_rain_coverage"),
+                f'T {_comparison_value(temp_days)} d · H {_comparison_value(humidity_days)} d',
+            )
+        )
+    gaps = result.get("feature_gaps")
+    if isinstance(gaps, list) and gaps:
+        facts.append((_lbl("ui.weather_gaps"), ", ".join(str(value) for value in gaps)))
+    severe_ood = result.get("severe_out_of_domain_features")
+    if isinstance(severe_ood, list) and severe_ood:
+        facts.append(
+            (
+                _lbl("ui.predictor_out_of_domain_features"),
+                ", ".join(
+                    str(row.get("feature"))
+                    for row in severe_ood
+                    if isinstance(row, dict) and row.get("feature")
+                ),
+            )
+        )
+
+    if not facts:
+        return ""
+    items = "".join(
+        f'<span><strong>{html.escape(label)}:</strong> {html.escape(value)}</span>'
+        for label, value in facts
+    )
+    return f'<div class="pred-comparison-diagnostics">{items}</div>'
+
+
+def _render_model_comparison(species: str, area: str, target_date: date) -> str:
+    try:
+        comparison = _model_comparison(species, area, target_date)
+    except Exception as exc:
+        return f'<div class="pred-error">{html.escape(_predictor_error_text(exc))}</div>'
+    if not comparison:
+        return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_comparison_unavailable"))}</div>'
+
+    labels = {
+        "fixed_gap_7d_v1": _lbl("ui.predictor_model_fixed_gap_7d_v1"),
+        "lag_event_v1": _lbl("ui.predictor_model_lag_event_v1"),
+    }
+    rows = ""
+    for model_id in ("fixed_gap_7d_v1", "lag_event_v1"):
+        result = comparison.get(model_id)
+        if not isinstance(result, dict):
+            continue
+        if not result.get("available"):
+            outcome = html.escape(_lbl("ui.predictor_comparison_unavailable"))
+            details = html.escape(str(result.get("reason", "")))
+            estimator_probs: dict[str, Any] = {}
+        else:
+            estimator_probs = result.get(
+                "interpretation_estimator_probabilities",
+                result.get("estimator_probabilities", {}),
+            )
+            probability_values = [
+                value
+                for value in estimator_probs.values()
+                if isinstance(value, (int, float))
+            ]
+            outcome = _pct(
+                sum(probability_values) / len(probability_values)
+                if probability_values
+                else None
+            )
+            detail_parts = []
+            missing_count = result.get("missing_feature_count")
+            feature_count = result.get("feature_count")
+            if isinstance(missing_count, int) and missing_count:
+                detail_parts.append(
+                    _lbl("ui.predictor_missing_features").format(
+                        missing=missing_count,
+                        total=feature_count,
+                    )
+                )
+            details = html.escape(" ".join(detail_parts))
+        cutoff = html.escape(str(result.get("cutoff_date", "—")))
+        diagnostics = _render_model_diagnostics(result)
+        estimator_cells = "".join(
+            f'<td>{_pct(estimator_probs.get(estimator_id))}</td>'
+            for estimator_id, _short_name, _is_shadow in _COMPARISON_ESTIMATORS
+        )
+        column_count = 3 + len(_COMPARISON_ESTIMATORS)
+        rows += f"""
+<tr>
+  <td><strong>{html.escape(labels[model_id])}</strong><small>{details}</small></td>
+  <td>{cutoff}</td>{estimator_cells}<td>{outcome}</td>
+</tr>
+<tr class="pred-comparison-diagnostics-row"><td colspan="{column_count}">{diagnostics}</td></tr>"""
+    estimator_headers = "".join(
+        f'<th title="{html.escape(_lbl(_ESTIMATOR_HELP_KEYS[estimator_id]), quote=True)}" '
+        f'aria-label="{html.escape(_lbl(_ESTIMATOR_HELP_KEYS[estimator_id]), quote=True)}">'
+        f'{html.escape(short_name)}</th>'
+        for estimator_id, short_name, _is_shadow in _COMPARISON_ESTIMATORS
+    )
+    return f"""
+<section class="pred-model-comparison">
+  <h3>{html.escape(_lbl("ui.predictor_model_comparison_title"))}</h3>
+  <p>{html.escape(_lbl("ui.predictor_model_comparison_help"))} * {html.escape(_lbl("ui.predictor_shadow_model_help"))}</p>
+  <div class="pred-table-wrap"><table class="pred-comparison-table">
+    <thead><tr>
+      <th>{html.escape(_lbl("ui.predictor_model"))}</th>
+      <th>{html.escape(_lbl("ui.predictor_weather_cutoff"))}</th>
+      {estimator_headers}
+      <th>{html.escape(_lbl("ui.predictor_unweighted_mean"))}</th>
+    </tr></thead>
+    <tbody>{rows}</tbody>
+  </table></div>
+</section>"""
 
 
 def _render_query_all_areas(
@@ -682,15 +1247,26 @@ def _render_query_all_areas(
 ) -> str:
     try:
         predictor = _get_predictor(species)
-        results = predictor.rank_areas(target_date, only_observed=True)
+        area_ids = predictor.areas_with_species_observations()
     except FileNotFoundError as exc:
         return f'<div class="pred-error">{html.escape(str(exc))}</div>'
     except Exception as exc:
         return f'<div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>'
 
-    if not results:
+    if not area_ids:
         return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_no_data"))}</div>'
-    if all(result.label == "out_of_season" for result in results):
+    comparisons = [
+        (area_id, _model_comparison(species, area_id, target_date))
+        for area_id in area_ids
+    ]
+    interpreted = [
+        (area_id, _interpretation(comparison))
+        for area_id, comparison in comparisons
+    ]
+    interpreted.sort(key=lambda row: _interpretation_sort_key(row[1]), reverse=True)
+    if interpreted and all(
+        value.get("verdict") == "out_of_season" for _area_id, value in interpreted
+    ):
         return f'<div class="pred-empty">⚪ {html.escape(_lbl("ui.predictor_out_of_season"))}</div>'
 
     sp_name = _species_name(species, profiles_payload)
@@ -700,33 +1276,29 @@ def _render_query_all_areas(
     # Species-level reliability strip
     if bt and "total_episodes" in bt:
         total_ep = bt["total_episodes"]
-        n_test = bt.get("n_test", 0)
-        holdout = bt.get("holdout_test_accuracy")
-        holdout_str = f"{round(holdout * 100)}%" if holdout is not None else "—"
         reliability_html = (
             f'<div class="pred-reliability-strip">'
             f'<span class="pred-rel-label">{html.escape(_lbl("ui.predictor_reliability"))}</span>'
             f'<span class="pred-rel-episodes">{total_ep} {html.escape(_lbl("ui.predictor_stat_episodes")).lower()}</span>'
-            f'<span class="pred-rel-sep">·</span>'
-            f'<span class="pred-rel-acc">{html.escape(holdout_str)} holdout ({n_test} ep)</span>'
             f'</div>'
         )
     else:
         reliability_html = ""
 
     rows_html = ""
-    for r in results:
-        area_n = _area_name(r.area_id, known_sites_payload)
-        href = _url("query", species, r.area_id, target_date)
-        area_bt = by_area_bt.get(r.area_id, {})
+    for area_id, interpretation in interpreted:
+        area_n = _area_name(area_id, known_sites_payload)
+        href = _url("query", species, area_id, target_date)
+        area_bt = by_area_bt.get(area_id, {})
         ep_n = area_bt.get("episodes", 0) if area_bt else 0
         area_acc = area_bt.get("backtest_accuracy") if area_bt else None
         rel_badge = _rel_badge(ep_n)
+        status = _interpretation_status(interpretation)
         rows_html += f"""
-<a class="pred-rank-row {_status_cls(r.label)}" href="{html.escape(href)}">
-  <span class="pred-rank-dot">{_status_dot(r.label)}</span>
+<a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}">
+  <span class="pred-rank-dot">{_status_dot(status)}</span>
   <span class="pred-rank-area">{html.escape(area_n)}</span>
-  <span class="pred-rank-prob">{_pct(r.ensemble_probability)}</span>
+  <span class="pred-rank-prob">{html.escape(_compact_interpretation_range(interpretation))}</span>
   {rel_badge}
 </a>
 """
@@ -745,48 +1317,6 @@ def _render_query_all_areas(
     ⚪ {html.escape(_lbl("ui.predictor_out_of_season"))}
   </p>
   {_rel_legend_html()}
-</div>
-"""
-
-
-def _render_feature_bars(features: dict[str, Any]) -> str:
-    if not features:
-        return ""
-
-    shown = [
-        ("rain_1d_mm", "ui.predictor_feature_rain_1d", 50),
-        ("rain_7d_mm", "ui.predictor_feature_rain_7d", 150),
-        ("rain_14d_mm", "ui.predictor_feature_rain_14d", 250),
-        ("temp_max_7d_c", "ui.predictor_feature_temp_max_7d", 40),
-        ("temp_min_7d_c", "ui.predictor_feature_temp_min_7d", 30),
-        ("humidity_max_7d_pct", "ui.predictor_feature_humidity_max_7d", 100),
-        ("humidity_min_7d_pct", "ui.predictor_feature_humidity_min_7d", 100),
-    ]
-
-    bars_html = ""
-    for key, label_key, max_val in shown:
-        val = features.get(key)
-        if not isinstance(val, (int, float)) or not math.isfinite(float(val)):
-            continue
-        pct = max(0, min(100, round(float(val) / max_val * 100)))
-        unit = "%" if "pct" in key else ("°C" if "temp" in key else "mm")
-        bars_html += f"""
-<div class="pred-feat-row">
-  <span class="pred-feat-label">{html.escape(_lbl(label_key))}</span>
-  <div class="pred-feat-bar-bg">
-    <div class="pred-feat-bar" style="width:{pct}%"></div>
-  </div>
-  <span class="pred-feat-val">{val:.1f}{html.escape(unit)}</span>
-</div>
-"""
-
-    if not bars_html:
-        return ""
-
-    return f"""
-<div class="pred-features">
-  <h4>{html.escape(_lbl("ui.predictor_weather_factors"))}</h4>
-  {bars_html}
 </div>
 """
 
@@ -841,7 +1371,7 @@ def _render_history(
 
     try:
         predictor = _get_predictor(species)
-        records = predictor.backtest()
+        records = predictor.observed_episodes()
     except FileNotFoundError as exc:
         return f"""
 <section class="pred-section">
@@ -860,8 +1390,49 @@ def _render_history(
 """
 
     sp_name = _species_name(species, profiles_payload)
-    stats_html = _render_backtest_stats(records, species, filter_mode)
-    table_html = _render_backtest_table(records, known_sites_payload, filter_mode)
+    interpreted_records: list[dict[str, Any]] = []
+    for record in records:
+        area_id = str(record.get("area_id", ""))
+        observed_at = str(record.get("observed_at", ""))
+        if not area_id or not observed_at:
+            continue
+        try:
+            comparison = _model_comparison(
+                species, area_id, date.fromisoformat(observed_at)
+            )
+            interpretation = _interpretation(comparison)
+        except Exception:
+            interpretation = {}
+        verdict = str(interpretation.get("verdict", "abstain"))
+        unvalidated_signal = str(
+            interpretation.get("unvalidated_signal", "unavailable")
+        )
+        predicted_label = (
+            unvalidated_signal
+            if verdict == "abstain"
+            and unvalidated_signal in {"favorable", "unfavorable"}
+            else verdict
+        )
+        signal_is_unvalidated = verdict == "abstain" and predicted_label in {
+            "favorable",
+            "unfavorable",
+        }
+        actual = str(record.get("actual", ""))
+        interpreted_records.append(
+            {
+                **record,
+                "predicted_label": predicted_label,
+                "signal_is_unvalidated": signal_is_unvalidated,
+                "reference_range": _compact_interpretation_range(interpretation),
+                "correct": (
+                    predicted_label == actual
+                    if predicted_label in {"favorable", "unfavorable"}
+                    else None
+                ),
+            }
+        )
+    stats_html = _render_backtest_stats(interpreted_records, species, filter_mode)
+    table_html = _render_backtest_table(interpreted_records, known_sites_payload, filter_mode)
 
     return f"""
 <section class="pred-section">
@@ -939,16 +1510,34 @@ def _render_backtest_table(records: list[dict[str, Any]], known_sites_payload: d
     for r in sorted(visible, key=lambda x: x.get("observed_at", ""), reverse=True):
         actual = r.get("actual", "")
         predicted = r.get("predicted_label", "")
-        correct = r.get("correct", False)
-        result_icon = "✅" if correct else ("⚠️" if predicted == "uncertain" else "❌")
+        correct = r.get("correct")
+        result_icon = (
+            "✅"
+            if correct is True
+            else "❌"
+            if correct is False
+            else "⚠️"
+        )
         area_n = _area_name(r.get("area_id", ""), known_sites_payload)
-        prob = r.get("ensemble_probability")
+        reference_range = str(r.get("reference_range", "—"))
+        signal_is_unvalidated = bool(r.get("signal_is_unvalidated"))
+        display_interpretation = (
+            {"verdict": "abstain", "unvalidated_signal": predicted}
+            if signal_is_unvalidated
+            else {"verdict": predicted}
+        )
+        display_prediction = _interpretation_label(display_interpretation)
+        display_status = (
+            "uncertain"
+            if signal_is_unvalidated
+            else _interpretation_status(display_interpretation)
+        )
         rows_html += f"""
 <tr>
   <td>{html.escape(str(r.get("observed_at", "")))}</td>
   <td>{html.escape(area_n)}</td>
   <td>{_status_dot(actual)} {html.escape(_actual_text(actual))}</td>
-  <td>{_status_dot(predicted)} {html.escape(_label_text(predicted) if predicted else "—")} {_pct(prob)}</td>
+  <td>{_status_dot(display_status)} {html.escape(display_prediction)} {html.escape(reference_range)}</td>
   <td>{result_icon}</td>
 </tr>
 """
@@ -1018,6 +1607,8 @@ def _render_page_inner(
     area = (query.get("area") or [""])[0]
     date_str = (query.get("date") or [""])[0]
     filter_mode = (query.get("filter") or [""])[0]
+    compare_value = (query.get("compare") or [None])[0]
+    compare_models = compare_value != "0"
 
     trained = trained_species_ids()
 
@@ -1045,7 +1636,15 @@ def _render_page_inner(
         if view == "week":
             content = _render_week(species, target_date, trained, profiles_payload, known_sites_payload)
         elif view == "query":
-            content = _render_query(species, area, target_date, trained, profiles_payload, known_sites_payload)
+            content = _render_query(
+                species,
+                area,
+                target_date,
+                trained,
+                profiles_payload,
+                known_sites_payload,
+                compare_models=compare_models,
+            )
         elif view == "history":
             content = _render_history(species, area, trained, profiles_payload, known_sites_payload, filter_mode)
         else:
@@ -1160,7 +1759,7 @@ _CSS = """
 .pred-rank-list { display: flex; flex-direction: column; gap: 0.25rem; }
 .pred-rank-header {
   display: grid;
-  grid-template-columns: 1.5rem 1fr 1fr 4rem;
+  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1fr) 13.5rem;
   gap: 0.5rem;
   padding: 0.4rem 0.75rem;
   font-size: 0.92rem;
@@ -1168,9 +1767,13 @@ _CSS = """
   color: #9aa8b2;
   letter-spacing: 0.05em;
 }
+.pred-rank-header > span:last-child {
+  text-align: right;
+  line-height: 1.25;
+}
 .pred-rank-row {
   display: grid;
-  grid-template-columns: 1.5rem 1fr 1fr 4rem;
+  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1fr) 13.5rem;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
   background: #1b2229;
@@ -1184,7 +1787,7 @@ _CSS = """
 }
 .pred-rank-row:hover { background: #243040; }
 .pred-rank-area { color: #9aa8b2; }
-.pred-rank-prob { text-align: right; font-weight: 600; }
+.pred-rank-prob { text-align: right; font-weight: 600; white-space: nowrap; }
 .pred-rank-compact .pred-rank-row {
   grid-template-columns: 1.5rem 1fr 4rem 6rem;
 }
@@ -1280,6 +1883,30 @@ _CSS = """
 .pred-result-dot { font-size: 1.25rem; }
 .pred-result-prob { font-size: 2.5rem; font-weight: 900; margin: 0.25rem 0; }
 .pred-result-label { font-size: 1rem; color: #9aa8b2; margin-bottom: 0.5rem; }
+.pred-interpretation-card {
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #33404a;
+  background: #1b2229;
+  margin-bottom: 1rem;
+}
+.pred-interpretation-title { font-size: 1.8rem; font-weight: 800; color: #e8eef2; }
+.pred-interpretation-range { display: flex; align-items: baseline; gap: 0.65rem; margin-top: 0.45rem; color: #9aa8b2; }
+.pred-interpretation-range strong { font-size: 1.65rem; color: #e8eef2; }
+.pred-interpretation-meta { display: flex; flex-wrap: wrap; gap: 0.55rem 1.25rem; margin-top: 0.65rem; color: #aebbc4; }
+.pred-interpretation-meta strong { color: #dfe8ed; }
+.pred-interpretation-card p { margin: 0.75rem 0 0; color: #c2ccd2; line-height: 1.45; }
+.pred-model-comparison { margin: 1.25rem 0; padding: 1rem; border: 1px solid #344650; border-radius: 10px; background: #172129; }
+.pred-model-comparison h3 { margin: 0 0 0.35rem; color: #e8eef2; }
+.pred-model-comparison p { margin: 0 0 0.85rem; color: #9aa8b2; }
+.pred-comparison-table { width: 100%; border-collapse: collapse; }
+.pred-comparison-table th, .pred-comparison-table td { padding: 0.65rem; text-align: left; border-bottom: 1px solid #344650; }
+.pred-comparison-table th { color: #9aa8b2; }
+.pred-comparison-table td small { display: block; max-width: 25rem; color: #ffcc66; margin-top: 0.2rem; }
+.pred-comparison-diagnostics-row td { padding-top: 0; }
+.pred-comparison-diagnostics { display: flex; flex-wrap: wrap; gap: 0.45rem 1rem; padding: 0.15rem 0 0.7rem; color: #b7c5ce; font-size: 0.94rem; }
+.pred-comparison-diagnostics span { white-space: normal; }
+.pred-comparison-diagnostics strong { color: #dfe8ed; }
 .pred-prob-detail { font-size: 0.94rem; color: #9aa8b2; display: flex; gap: 1rem; }
 .pred-station-info { font-size: 0.94rem; color: #9aa8b2; display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem; }
 .pred-gaps { margin-top: 0.5rem; color: #9aa8b2; }
@@ -1306,15 +1933,6 @@ _CSS = """
 }
 .pred-week-cell:hover { background: #243040; }
 .pred-week-active { border-width: 2px; }
-
-/* Feature bars */
-.pred-features { margin-top: 1rem; background: #1b2229; border-radius: 10px; padding: 1rem 1.25rem; }
-.pred-features h4 { margin: 0 0 0.75rem; color: #9aa8b2; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; }
-.pred-feat-row { display: grid; grid-template-columns: 9rem 1fr 4rem; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
-.pred-feat-label { font-size: 0.94rem; color: #9aa8b2; white-space: nowrap; }
-.pred-feat-bar-bg { background: #33404a; border-radius: 4px; height: 8px; }
-.pred-feat-bar { background: #03a9f4; border-radius: 4px; height: 100%; min-width: 2px; }
-.pred-feat-val { font-size: 0.94rem; color: #e8eef2; text-align: right; }
 
 /* Stats row */
 .pred-stats-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
@@ -1373,5 +1991,10 @@ a.pred-stat-card:hover { background: #243040; }
   .pred-page { padding-inline: 0.5rem; }
   .pred-week-table { min-width: 980px; }
   .pred-history-table { min-width: 720px; }
+  .pred-rank-header,
+  .pred-rank-row {
+    grid-template-columns: 1.25rem minmax(0, 1fr) minmax(0, 1fr) 7.5rem;
+  }
+  .pred-rank-header { font-size: 0.78rem; }
 }
 """

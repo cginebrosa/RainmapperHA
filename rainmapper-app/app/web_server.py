@@ -21,7 +21,7 @@ import tempfile
 import threading
 import time
 import unicodedata
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
@@ -12245,6 +12245,11 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         "area_id": (query.get("area") or [""])[0],
         "target_date": (query.get("date") or [datetime.now(get_timezone()).date().isoformat()])[0],
         "filter_mode": (query.get("filter") or [""])[0],
+        "compare_models": (query.get("compare") or [""])[0] == "1",
+        "issue_date": min(
+            datetime.now(get_timezone()).date(),
+            date.fromisoformat((query.get("date") or [datetime.now(get_timezone()).date().isoformat()])[0]),
+        ).isoformat(),
         "trained_species_ids": trained,
     }
     manifest, _sources = mushroom_predictor_runtime.build_manifest()

@@ -13,7 +13,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from rainmapper_core import mushroom_ml_trainer
+from rainmapper_core import mushroom_ml_experiment_trainer, mushroom_ml_trainer
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -70,6 +70,30 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
                 )
                 return report
 
+            def fake_shadow_run(*, models_dir: Path, report_path: Path, **kwargs):
+                model_path = (
+                    models_dir
+                    / "mushroom_ml_experiment_fixed_gap_7d_v1_boletus_aereus.joblib"
+                )
+                model_path.write_bytes(b"shadow-joblib-model")
+                report = {
+                    "schema_version": "1.0",
+                    "kind": "mushroom_ml_experiment_report",
+                    "feature_sets": [
+                        {
+                            "feature_set_id": "fixed_gap_7d_v1",
+                            "species_results": [
+                                {
+                                    "species_id": "boletus_aereus",
+                                    "model_path": str(model_path),
+                                }
+                            ],
+                        }
+                    ],
+                }
+                report_path.write_text(json.dumps(report), encoding="utf-8")
+                return report
+
             argv = [
                 str(SCRIPT_PATH),
                 "--job-spec",
@@ -85,6 +109,11 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
             with (
                 mock.patch.object(sys, "argv", argv),
                 mock.patch.object(mushroom_ml_trainer, "run", side_effect=fake_run),
+                mock.patch.object(
+                    mushroom_ml_experiment_trainer,
+                    "run",
+                    side_effect=fake_shadow_run,
+                ),
                 redirect_stdout(io.StringIO()),
             ):
                 module.main()
@@ -97,6 +126,7 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
                 {
                     "ml_train_report.json",
                     "ml_models/mushroom_ml_v0_boletus_aereus.joblib",
+                    "ml_models/mushroom_ml_experiment_fixed_gap_7d_v1_boletus_aereus.joblib",
                 },
             )
             for logical_path, row in by_path.items():
@@ -106,6 +136,13 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
 
             self.assertEqual(captured_run_kwargs["min_rows"], 10)
             self.assertEqual(captured_run_kwargs["cv_folds"], 3)
+            merged_report = json.loads(
+                (output / "ml_train_report.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                merged_report["shadow_experiments"]["kind"],
+                "mushroom_ml_experiment_report",
+            )
 
 
 if __name__ == "__main__":

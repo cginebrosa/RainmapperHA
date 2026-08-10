@@ -5,6 +5,12 @@ learning basado en observaciones reales. El `mushroom_model_v0.json` actual es
 descriptivo: resume soporte, rangos y gaps, pero no entrena un estimador ni
 produce probabilidades. El modelo ML sera un artefacto separado.
 
+El diagnóstico real del primer entrenamiento productivo y el plan vigente para
+pulir o sustituir sus estimadores se mantienen en
+`mushroom-ml-model-hardening-plan-es.md`. Ese documento prevalece para la fase
+de comparación con el dataset actual: tratamiento de huecos, reducción de
+variables, abstención, validación y calificación de modelos.
+
 Fuente bibliografica inicial por especie:
 
 - `docs/mushrooms/literature/prediction/boletus_aereus_revision_bibliografica_rainmapper.md`
@@ -582,6 +588,19 @@ Metricas minimas:
 
 La evaluacion debe rechazar o etiquetar claramente como no fiable un modelo sin
 negativos suficientes, sin particion valida o con cobertura meteorologica pobre.
+
+El entrenamiento del 2026-08-10 confirmó que este requisito todavía no se
+cumple en el Predictor operativo. Para Aereus, LR y RF obtuvieron ROC-AUC
+temporal de `0,3818` y `0,4545`; aun así se combinaron al 50% y se mostraron
+como probabilidad normal. El análisis reproducible, las causas y los criterios
+de sustitución están en `mushroom-ml-model-hardening-plan-es.md`.
+
+Desde la fase experimental posterior, el mismo job entrena además bundles
+**shadow** para `fixed_gap_7d_v1` y `lag_event_v1`. Se guardan junto al modelo
+operativo y su informe queda anidado en `shadow_experiments`, pero no alteran la
+recomendación oficial. Su contrato temporal, métricas comunes y uso en el
+laboratorio del Predictor se definen en
+`mushroom-ml-experiment-contract-es.md`.
 
 ## Criterio del primer hito
 

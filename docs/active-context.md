@@ -8,18 +8,21 @@ necesario para continuar; el histórico vive en `docs/decisions.md`,
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Último release preparado: HA `0.2.242` y worker `1.0.4`.
-- HA `0.2.239` está instalada y validada en la RPi4 real; `0.2.242` está
-  publicada y pendiente de instalación/validación por el usuario.
-- Tags `0.2.242` y `latest`: digest multi-arquitectura
-  `sha256:3abd516d7aeac7bd4f8bfeacc2d96be2823f339a6c5d31cdc62caaf64ebc562b`,
+- Release preparado: HA `0.2.243` y worker `1.0.5`.
+- HA `0.2.243` está publicada y pendiente de instalar en la RPi4 real; HA
+  `0.2.242` continúa instalada hasta que el usuario haga la actualización.
+- Tags `0.2.243` y `latest`: digest multi-arquitectura
+  `sha256:39c64c072d57259544a9290d15e117e811c38411cf3044afa5bb2cfd0af107cf`,
   con manifests `linux/amd64` y `linux/arm64` verificados.
-- Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.4`, conectado
+- Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.5`, conectado
   al coordinador real, healthy/idle y con cachés persistentes GIS/DEM y
   Predictor válidas. Su identidad es `worker_1a9a232c20fe2ee2` / `M1 Personal`.
 - El paquete privado arm64 del M5 está preparado en
-  `~/Desktop/RainmapperWorker`: TAR `1.0.4`, Compose, scripts e instrucciones
-  actualizados y validados. El TAR `1.0.1` se conserva como rollback.
+  `~/Desktop/RainmapperWorker`: TAR `1.0.5`, Compose, scripts e instrucciones
+  actualizados y validados. SHA-256 del TAR:
+  `d1c4237cc7fff52430d355deae2ba7022f83347f6b054ac833ec08ce151940ac`.
+  El TAR `1.0.1` se conserva como rollback y `1.0.4` se retiró para no acumular
+  copias.
 - La pareja publicada acelera
   reconstrucción, promoción y entrenamiento: reconstrucción y entrenamiento
   coalescen control/progreso remoto a una actualización cada 2 s y conservan
@@ -29,7 +32,7 @@ necesario para continuar; el histórico vive en `docs/decisions.md`,
   explícitos.
 - Al reiniciar, el M1 reclamó un entrenamiento ML que ya estaba encolado; acabó
   correctamente en unos 30 s y verificó cuatro especies. No quedó ocupado.
-- Validación local posterior: smoke completo con 543 tests, validadores y
+- Validación de release: smoke completo con 572 tests, validadores y
   `git diff --check`, todo correcto.
 
 ## Resultado principal de la sesión
@@ -94,23 +97,92 @@ navegación caliente.
 
 ## Próximo paso inmediato
 
-0. Instalar HA `0.2.242`. Después, reconstruir todos los artefactos y reentrenar
-   en el M1 desde la UI de HA. La reconstrucción es necesaria porque el cambio
-   autoritativo `scarce=1` se materializa en el artefacto de features.
-1. Validar que el entrenamiento completa con la política nueva: holdout
-   cronológico solo cuando ambos tramos contienen las dos clases, CV
-   estratificada sobre todos los episodios y ajuste productivo con todos ellos.
-   El objetivo operativo es salida mínimamente interesante: `scarce=1`,
-   `very_scarce=0`, `absent=0`; no equivale a mera presencia/ausencia.
-2. Validar la barrera fenológica general del Predictor: meses principales y
-   secundarios ejecutan ML; fuera de temporada devuelve `out_of_season` sin
-   cargar modelo ni meteorología. `mushroom_profiles.json` forma parte del
-   runtime remoto, por lo que HA y worker aplican la misma regla.
-3. El siguiente trabajo es revisar Diagnostics para separar explícitamente
-   `backend_seconds`, cola,
-   sincronización, cachés y tiempo total.
-4. No ejecutar el runner, no publicar otra versión y no cambiar red/Tailscale
-   durante este trabajo.
+La posible incorporación de un LLM pequeño en M1/M5 queda acotada en
+`docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`. Sería una
+capacidad opcional de narración local que recibiría el dictamen estructurado ya
+cerrado, sin autoridad para cambiarlo ni inventar datos, con validación estricta
+y fallback al texto determinista. No se descarga ni se incluye ningún modelo en
+la release actual.
+
+1. Instalar HA `0.2.243`, reconstruir los artefactos y reentrenar los modelos
+   con el worker M1 `1.0.5`. Después validar desde HA real la entrada y todas
+   las vistas del Predictor, conservando M1 durante la sesión. La sustitución
+   de la recomendación v0 por la pareja
+   `fixed_gap_7d_v1` + `lag_event_v1`. El motor determinista ya selecciona por
+   especie el estimador con mejor Brier que la prevalencia. La interpretación
+   `1.1` separa compatibilidad/evidencia ecológica, soporte/consenso estadístico
+   y dictamen práctico; una sola familia validada ya no se presenta como
+   consenso, y un veto ecológico oculta de la cabecera los scores brutos que no
+   pueden intervenir. La explicación rica se conserva en dos bloques lógicos y
+   la auditoría técnica sigue completa. Si ningún estimador supera el baseline,
+   conserva una señal bruta explícitamente descartada solo en el detalle. Los
+   shadows ya aportan además una señal experimental genérica: por contrato se
+   elige el que tenga mejor Brier por debajo de prevalencia y se resume como
+   favorable, desfavorable, incierto o contradictorio, con rango, modelos y
+   cautela fuera de dominio. Sigue sin cambiar el dictamen ni rankings. Aereus
+   en Olvan el 2026-08-16 queda como ejemplo: ecología compatible, LR/RF sin
+   soporte operativo y SVM experimental favorable 66–67%, pero con cautela por
+   racha térmica fuera de dominio.
+   Los bundles locales `1.2` guardan soporte de variables y predicciones holdout:
+   la LR se excluye ante extrapolaciones severas e Historial distingue scores
+   fuera de muestra de episodios incluidos en el ajuste final. La UI local
+   retira la tarjeta y los factores meteorológicos v0 y conserva el detalle
+   técnico de ambos contratos. El laboratorio añade ET, HGB, KNN y SVM como
+   modelos sombra; la SVM se omite si train no permite calibrarla (actualmente
+   Marçot/fixed-gap). La primera evaluación local encuentra una señal nueva
+   relevante: SVM mejora la prevalencia de Aereus en fixed (`0,1858` frente a
+   `0,2222`) y lag/event (`0,1778`), mientras LR y RF no lo hacían. Sigue sin
+   autoridad operativa hasta validar episodios, horizontes y salidas futuras.
+   Queda registrada una prueba prospectiva para el 2026-08-15: Pinícola en
+   Guils y Salteguet. El usuario planea visitar ambas; antes del resultado, los
+   mejores shadows dan HGB fixed 98%/88% y SVM lag 71%/62%, respectivamente,
+   mientras el dictamen RF conserva 52–58% y 50–52%.
+   La prueba visual/funcional local está completada y estos cambios ya forman
+   parte de HA `0.2.243` y worker `1.0.5`; falta la validación final en HA real.
+2. Pulir los modelos de aprendizaje actuales y comparar alternativas más
+   manejables con el mismo dataset. No hay por ahora más observaciones de campo
+   ni meteorología histórica: la fase debe mejorar tratamiento de gaps,
+   dimensionalidad, validación, abstención y presentación usando los datos
+   disponibles.
+3. Usar como referencia vinculante
+   `docs/mushrooms/mushroom-ml-model-hardening-plan-es.md`. El caso centinela es
+   Aereus en Coll de la Batalla el 2026-08-14: 71% final por media de LR 98% y
+   RF 44% pese a sequía; cuatro días meteorológicos futuros desconocidos se
+   trataron como valores favorables y la validación temporal fue peor que azar.
+   El contrato reproducible para esta fase está en
+   `docs/mushrooms/mushroom-ml-experiment-contract-es.md`: benchmark congelado,
+   fecha de corte explícita, `fixed_gap_7d_v1` y `lag_event_v1`. Ambos se
+   entrenan con LR reducida y RF restringido. Desde esta iteración local forman
+   la pareja operativa: `mushroom_ml_v0` queda como baseline interno y la UI
+   decide mediante estimadores que superan la prevalencia en Brier. Los scores
+   siguen sin ser probabilidades calibradas.
+   El contrato meteorológico revisado ya está implementado localmente para los
+   shadows: 120 días, eventos hasta 90, lluvia ausente/suprimida como cero
+   efectivo con cobertura, temperatura/humedad sobre días disponibles, corte
+   de `lag_event` en ayer y salto a la siguiente estación elegible hasta 15 km.
+   Entrenamiento y Predictor comparten los constructores de variables y el
+   selector; la iteración está publicada en HA `0.2.243` y worker `1.0.5`, pero
+   HA todavía no la tiene instalada.
+   En el caso centinela ya no falta ninguna variable: `fixed_gap_7d_v1` baja a
+   24,48%, mientras `lag_event_v1` sube a 76,96%. Ambos ven 0 mm recientes y
+   71 días desde lluvia significativa; la discrepancia está ahora en la LR y
+   el horizonte del modelo, no en `null` meteorológicos imputados. Ninguno
+   supera todavía la prevalencia en Brier.
+   La UI local en `http://127.0.0.1:8101/mushrooms/predictor` ya usa una copia
+   fresca de HA reconstruida en `docker-data` (400 observaciones, Parquet de
+   630.449 filas y 1.948 estaciones), con 6 modelos operativos y 12 shadows.
+   El laboratorio muestra estación, distancia, salto, coberturas, bandas,
+   eventos, horizonte y validación temporal. La evaluación principal es ahora
+   70/30 estratificada por clase, agrupada por fecha y reproducible con semilla
+   42; el 70/30 cronológico queda como diagnóstico secundario.
+   En Aereus/Coll/2026-08-14 la prueba local produce 16% operativo, 24%
+   `fixed_gap` y 27% `lag_event`. En Edulis los shadows ya están disponibles,
+   pero muestran que la validación cronológica no existe porque el tramo
+   antiguo sólo contiene favorables.
+4. Después se revisará Diagnostics para separar explícitamente
+   `backend_seconds`, cola, sincronización, cachés y tiempo total.
+5. No ejecutar el runner, no publicar otra versión y no cambiar red/Tailscale
+   durante este trabajo salvo instrucción posterior explícita.
 
 Si sigue tardando mucho, separar inmediatamente:
 
@@ -193,6 +265,15 @@ queda deliberadamente sin decidir. No abrir ese trabajo durante la validación d
 
 ## Riesgos y dudas activas
 
+- Las probabilidades ML actuales son experimentales. En Aereus, el holdout
+  temporal dio ROC-AUC `0,3818` para LR y `0,4545` para RF; el ensemble al 50%
+  no tiene en cuenta esa falta de calidad.
+- Cobertura parcial de lluvia puede aparecer como acumulado cero; además,
+  variables críticas ausentes se imputan sin que el Predictor reduzca confianza
+  o se abstenga. Esto puede invertir el efecto aprendido de la lluvia.
+- El baseline usa 39 variables para solo 51 episodios de Aereus, con ausencias
+  meteorológicas relevantes. La siguiente fase debe empezar por benchmark,
+  huecos y reducción de variables antes de añadir complejidad.
 - La ETA del modal es deliberadamente aproximada; no debe interpretarse como
   porcentaje del backend.
 - Al eliminar callbacks, la cancelación interactiva no se consulta dentro de
@@ -218,6 +299,8 @@ queda deliberadamente sin decidir. No abrir ese trabajo durante la validación d
 - `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y
   `rainmapper-app/CHANGELOG.md`: HA `0.2.242`.
 - `docs/mushrooms/mushroom-remote-predictor-design-es.md`: diseño vinculante.
+- `docs/mushrooms/mushroom-ml-model-hardening-plan-es.md`: diagnóstico real del
+  primer entrenamiento y plan inmediato de comparación/endurecimiento ML.
 - `docs/runtime-diagnostics.md`: caja negra y procedimiento RPi4.
 - `docs/release-flow.md`: publicación HA.
 

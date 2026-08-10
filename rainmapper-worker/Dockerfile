@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.0.4
+ARG RAINMAPPER_WORKER_VERSION=1.0.5
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -36,7 +36,11 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_observation_features.py \
      rainmapper_core/mushroom_observations.py \
      rainmapper_core/mushroom_paths.py \
+     rainmapper_core/mushroom_ml_experiments.py \
+     rainmapper_core/mushroom_ml_experiment_trainer.py \
+     rainmapper_core/mushroom_ml_comparison.py \
      rainmapper_core/mushroom_ml_predictor.py \
+     rainmapper_core/mushroom_prediction_interpretation.py \
      rainmapper_core/mushroom_predictor_runtime.py \
      rainmapper_core/mushroom_predictor_service.py \
      rainmapper_core/mushroom_rebuild_contracts.py \
@@ -70,7 +74,11 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_worker_service.py \
         /app/rainmapper_core/mushroom_worker_transport.py \
         /app/rainmapper_core/mushroom_worker_results.py \
+        /app/rainmapper_core/mushroom_ml_experiments.py \
+        /app/rainmapper_core/mushroom_ml_experiment_trainer.py \
+        /app/rainmapper_core/mushroom_ml_comparison.py \
         /app/rainmapper_core/mushroom_ml_predictor.py \
+        /app/rainmapper_core/mushroom_prediction_interpretation.py \
         /app/rainmapper_core/mushroom_predictor_runtime.py \
         /app/rainmapper_core/mushroom_predictor_service.py \
         /app/rainmapper_core/runtime_diagnostics.py \

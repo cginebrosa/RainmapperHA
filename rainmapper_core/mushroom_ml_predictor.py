@@ -116,7 +116,7 @@ _CATALOG_FILENAME = "weather_stations_catalog.parquet"
 
 _STATION_FILTER_MAX_KM = 15.0
 _STATION_FILTER_TOP_N = 5
-_WEATHER_COVERAGE_LOOKBACK_DAYS = 90
+_WEATHER_COVERAGE_LOOKBACK_DAYS = ctx.DAILY_SERIES_DAYS
 _WEATHER_PREFETCH_FORWARD_DAYS = 6
 _PREDICTION_CACHE_MAX_ENTRIES = 512
 
@@ -655,11 +655,12 @@ class MushroomMLPredictor:
         weather_row: dict[str, Any] = {}
 
         if profile.lat is not None and profile.lon is not None:
+            station_cutoff = min(target_date, date.today() - timedelta(days=1))
             station, station_dist, coverage_days = ctx.select_station(
                 self._weather_stations or {},
                 profile.lat,
                 profile.lon,
-                target_date,
+                station_cutoff,
             )
             if station is not None:
                 records = ctx.records_for_window(
@@ -948,6 +949,40 @@ class MushroomMLPredictor:
         known_sites_path: Path | None = None,
     ) -> list[dict[str, Any]]:
         """Predict on area-level episodes and compare with known labels."""
+        episodes = self.observed_episodes(features_artifact_path, known_sites_path)
+        dated_episodes = [
+            (date.fromisoformat(str(episode["observed_at"])), episode)
+            for episode in episodes
+        ]
+        predictions = self.predict_many(
+            [(str(ep.get("area_id", "")), obs_date) for obs_date, ep in dated_episodes]
+        )
+        results = []
+        for (obs_date, ep), pred in zip(
+            dated_episodes, predictions, strict=True
+        ):
+            area_id = ep.get("area_id", "")
+            obs_date_str = ep.get("observed_at", "")
+            actual = ep.get("actual")
+            results.append(
+                {
+                    **ep,
+                    "predicted_label": pred.label,
+                    "season_phase": pred.season_phase,
+                    "lr_probability": pred.lr_probability,
+                    "rf_probability": pred.rf_probability,
+                    "ensemble_probability": pred.ensemble_probability,
+                    "correct": pred.label == actual if pred.ensemble_probability is not None else None,
+                }
+            )
+        return results
+
+    def observed_episodes(
+        self,
+        features_artifact_path: Path | None = None,
+        known_sites_path: Path | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return eligible area/date labels without running the legacy model."""
         from rainmapper_core.mushroom_ml_trainer import (  # noqa: PLC0415
             aggregate_to_area_episodes,
             filter_eligible,
@@ -963,38 +998,21 @@ class MushroomMLPredictor:
         ma_to_area = load_micro_area_to_area(ks_path)
         episodes = aggregate_to_area_episodes(eligible, ma_to_area)
 
-        dated_episodes: list[tuple[date, dict[str, Any]]] = []
+        results: list[dict[str, Any]] = []
         for ep in episodes:
             try:
-                dated_episodes.append((date.fromisoformat(ep.get("observed_at", "")), ep))
+                observed_at = date.fromisoformat(ep.get("observed_at", ""))
             except (TypeError, ValueError):
                 continue
-        dated_episodes.sort(key=lambda item: item[0])
-        predictions = self.predict_many(
-            [(str(ep.get("area_id", "")), obs_date) for obs_date, ep in dated_episodes]
-        )
-        results = []
-        for (obs_date, ep), pred in zip(
-            dated_episodes, predictions, strict=True
-        ):
-            area_id = ep.get("area_id", "")
-            obs_date_str = ep.get("observed_at", "")
-            actual = ep.get("prediction_target")
             results.append(
                 {
-                    "area_id": area_id,
-                    "observed_at": obs_date_str,
+                    "area_id": ep.get("area_id", ""),
+                    "observed_at": observed_at.isoformat(),
                     "n_micro_areas": ep.get("n_micro_areas_in_episode", 1),
-                    "actual": actual,
-                    "predicted_label": pred.label,
-                    "season_phase": pred.season_phase,
-                    "lr_probability": pred.lr_probability,
-                    "rf_probability": pred.rf_probability,
-                    "ensemble_probability": pred.ensemble_probability,
-                    "correct": pred.label == actual if pred.ensemble_probability is not None else None,
+                    "actual": ep.get("prediction_target"),
                 }
             )
-        return results
+        return sorted(results, key=lambda row: str(row.get("observed_at", "")))
 
 
 # ---------------------------------------------------------------------------

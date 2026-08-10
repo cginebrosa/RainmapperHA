@@ -71,7 +71,7 @@ def main() -> None:
     emit_progress(5, "Importing trainer...")
     try:
         sys.path.insert(0, str(Path(__file__).parent.parent))
-        from rainmapper_core import mushroom_ml_trainer
+        from rainmapper_core import mushroom_ml_experiment_trainer, mushroom_ml_trainer
     except ImportError as exc:
         print(f"ERROR: Cannot import mushroom_ml_trainer: {exc}", file=sys.stderr)
         sys.exit(2)
@@ -87,6 +87,9 @@ def main() -> None:
     cv_folds = positive_int_setting("cv_folds", mushroom_ml_trainer.CV_FOLDS_DEFAULT, 2)
 
     emit_progress(10, "Starting training...")
+    def emit_operational_progress(percent: int, message: str) -> None:
+        emit_progress(10 + int(max(0, min(100, percent)) * 0.7), message)
+
     try:
         report = mushroom_ml_trainer.run(
             species_ids=species_ids or None,
@@ -96,7 +99,7 @@ def main() -> None:
             report_path=report_path,
             min_rows=min_rows,
             cv_folds=cv_folds,
-            progress_callback=emit_progress,
+            progress_callback=emit_operational_progress,
         )
     except Exception as exc:
         print(f"ERROR: Training failed: {exc}", file=sys.stderr)
@@ -108,6 +111,36 @@ def main() -> None:
         for r in (species_results or [])
         if isinstance(r, dict) and not r.get("skipped") and r.get("species_id")
     ]
+
+    emit_progress(82, "Training shadow comparison models...")
+    shadow_report_path = output_dir / "ml_experiment_report.json"
+    try:
+        shadow_report = mushroom_ml_experiment_trainer.run(
+            species_ids=trained_species,
+            features_path=features_path,
+            known_sites_path=known_sites_path,
+            models_dir=models_dir,
+            report_path=shadow_report_path,
+        )
+    except Exception as exc:
+        print(f"ERROR: Shadow model training failed: {exc}", file=sys.stderr)
+        sys.exit(1)
+    report["shadow_experiments"] = shadow_report
+    report_path.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    shadow_report_path.unlink(missing_ok=True)
+
+    shadow_model_paths = sorted(
+        {
+            str(row.get("model_path", ""))
+            for feature_set in shadow_report.get("feature_sets", [])
+            if isinstance(feature_set, dict)
+            for row in feature_set.get("species_results", [])
+            if isinstance(row, dict) and not row.get("skipped") and row.get("model_path")
+        }
+    )
 
     emit_progress(95, f"Building result manifest ({len(trained_species)} models trained)...")
     if not report_path.is_file():
@@ -130,6 +163,19 @@ def main() -> None:
             "size_bytes": size_bytes,
             "sha256": sha256,
         })
+    declared_shadow_models: list[str] = []
+    for raw_path in shadow_model_paths:
+        model_file = Path(raw_path)
+        if not model_file.is_file() or model_file.parent.resolve() != models_dir.resolve():
+            print(f"ERROR: Invalid shadow model path: {model_file}", file=sys.stderr)
+            sys.exit(1)
+        logical_path = f"ml_models/{model_file.name}"
+        declared_shadow_models.append(logical_path)
+        artifacts.append({
+            "path": logical_path,
+            "size_bytes": model_file.stat().st_size,
+            "sha256": _sha256_file(model_file),
+        })
 
     manifest_content = json.dumps(
         {
@@ -137,6 +183,7 @@ def main() -> None:
             "kind": "mushroom_ml_v0_result",
             "job_id": str(job_spec.get("job_id", "") if isinstance(job_spec, dict) else ""),
             "trained_species": trained_species,
+            "shadow_models": declared_shadow_models,
             "artifacts": artifacts,
         },
         indent=2,

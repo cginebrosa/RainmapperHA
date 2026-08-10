@@ -37,15 +37,16 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-09
+## Estado general al cierre de 2026-08-10
 
 - Rama activa: `inicial`.
-- HA `0.2.239` está publicada para `linux/amd64` y `linux/arm64`, pero queda por
+- HA `0.2.243` está publicada para `linux/amd64` y `linux/arm64`, pero queda por
   instalar y validar en la RPi4.
-- Worker M1 `1.0.2` está conectado al coordinador real, healthy/idle y con
+- Worker M1 `1.0.5` está conectado al coordinador real, healthy/idle y con
   capacidad `predictor_v1` y cachés persistentes válidas.
-- La prioridad inmediata es validar la pareja `0.2.239`/`1.0.2`; no hace falta
-  correr el runner ni publicar otra versión.
+- La prioridad inmediata es instalar HA `0.2.243`, reconstruir/reentrenar con
+  M1 y validar la pareja `0.2.243`/`1.0.5`; no hace falta correr el runner ni
+  publicar otra versión.
 - El P0 de memoria RPi4 está cerrado para el escenario probado: uso monousuario
   y sin runner/Predictor simultáneos. Diagnostics sigue vigilando OOM, cgroup,
   memoria disponible, temperatura y recuperación.
@@ -65,6 +66,8 @@ El estado exacto, digest, medidas, prueba siguiente y riesgos están en
 - Predictor remoto/worker: `docs/mushrooms/mushroom-remote-predictor-design-es.md`
 - Plataforma de workers: `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
 - Entrenamiento ML/dataset: `docs/mushrooms/mushroom-ml-training-plan-es.md`
+- Narrador LLM local opcional:
+  `docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`
 - Contrato perfiles: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
 - Observaciones/schema: `docs/mushrooms/mushroom-observations-schema-es.md`
 - GIS: `docs/mushrooms/gis-layer-inventory-es.md`

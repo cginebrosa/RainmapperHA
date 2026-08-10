@@ -1022,7 +1022,11 @@ def _validate_ml_train_manifest(
                 raise ValueError("ML training report exceeds the safety limit.")
         elif (
             Path(safe_path).parent == Path("ml_models")
-            and Path(safe_path).name.startswith("mushroom_ml_v0_")
+            and (
+                Path(safe_path).name.startswith("mushroom_ml_v0_")
+                or Path(safe_path).name.startswith("mushroom_ml_experiment_fixed_gap_7d_v1_")
+                or Path(safe_path).name.startswith("mushroom_ml_experiment_lag_event_v1_")
+            )
             and safe_path.endswith(".joblib")
         ):
             if size_bytes > MAX_ML_TRAIN_MODEL_BYTES:
@@ -1048,13 +1052,32 @@ def _validate_ml_train_manifest(
         f"ml_models/mushroom_ml_v0_{species_id}.joblib"
         for species_id in normalized_species
     }
-    actual_models = {
+    actual_operational_models = {
         str(row["path"])
         for row in normalized
-        if str(row["path"]) != ML_TRAIN_REPORT_NAME
+        if Path(str(row["path"])).name.startswith("mushroom_ml_v0_")
     }
-    if actual_models != expected_models:
+    if actual_operational_models != expected_models:
         raise ValueError("ML training result models do not match trained_species.")
+    shadow_models = manifest.get("shadow_models", [])
+    if not isinstance(shadow_models, list):
+        raise ValueError("ML training result shadow_models is invalid.")
+    normalized_shadow_models = [
+        mushroom_worker_transport.safe_relative_path(str(value)).as_posix()
+        for value in shadow_models
+    ]
+    if len(set(normalized_shadow_models)) != len(normalized_shadow_models):
+        raise ValueError("ML training result shadow_models contains duplicates.")
+    actual_shadow_models = {
+        str(row["path"])
+        for row in normalized
+        if Path(str(row["path"])).name.startswith("mushroom_ml_experiment_")
+    }
+    if actual_shadow_models != set(normalized_shadow_models):
+        raise ValueError("ML training result shadow models do not match the manifest.")
+    for shadow_path in normalized_shadow_models:
+        if not any(shadow_path.endswith(f"_{species_id}.joblib") for species_id in normalized_species):
+            raise ValueError("ML training shadow model does not match trained_species.")
     total_size = sum(int(row["size_bytes"]) for row in normalized)
     if total_size > MAX_ML_TRAIN_BUNDLE_BYTES:
         raise ValueError("ML training result bundle exceeds the coordinator safety limit.")

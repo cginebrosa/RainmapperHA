@@ -16,7 +16,7 @@ from rainmapper_core import mushroom_paths
 SCHEMA_VERSION = "1.0"
 MANIFEST_KIND = "rainmapper_mushroom_predictor_runtime"
 FEATURE_CONTRACT = "mushroom_features_v0"
-MODEL_CONTRACT = "mushroom_ml_v0_joblib"
+MODEL_CONTRACT = "mushroom_ml_v0_plus_shadow_v1_joblib"
 WEATHER_CONTRACT = "weather_parquet_v1"
 _DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
 
@@ -68,6 +68,8 @@ def build_manifest(
         "data/mushroom_profiles.json": profiles,
     }
     for model in sorted(models.glob("mushroom_ml_v0_*.joblib")):
+        sources[f"models/{model.name}"] = model
+    for model in sorted(models.glob("mushroom_ml_experiment_*.joblib")):
         sources[f"models/{model.name}"] = model
     if not any(path.startswith("models/") for path in sources):
         raise FileNotFoundError(f"Predictor runtime has no trained models in {models}.")

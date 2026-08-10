@@ -16,6 +16,9 @@ class PredictorRuntimeTests(TestCase):
         (weather / "weather_daily.parquet").write_bytes(b"daily")
         (weather / "weather_stations_catalog.parquet").write_bytes(b"catalog")
         (models / "mushroom_ml_v0_boletus.joblib").write_bytes(b"model")
+        (models / "mushroom_ml_experiment_fixed_gap_7d_v1_boletus.joblib").write_bytes(
+            b"shadow"
+        )
         features = root / "features.json"
         sites = root / "sites.json"
         profiles = root / "profiles.json"
@@ -50,3 +53,7 @@ class PredictorRuntimeTests(TestCase):
             self.assertEqual(len(fetched), len(manifest["files"]))
             self.assertTrue(service_paths(runtime)["known_sites_path"].is_file())
             self.assertTrue(service_paths(runtime)["profiles_path"].is_file())
+            self.assertIn(
+                "models/mushroom_ml_experiment_fixed_gap_7d_v1_boletus.joblib",
+                sources,
+            )

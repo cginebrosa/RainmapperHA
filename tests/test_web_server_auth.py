@@ -671,18 +671,22 @@ class AuthDeviceLimitTests(unittest.TestCase):
         invalidate_weather.assert_called_once_with()
         collect.assert_called_once_with()
 
-    def test_predictor_feature_bars_use_real_model_features_and_labels(self) -> None:
+    def test_predictor_model_diagnostics_show_weather_contract_features(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
-        features = {
-            "rain_1d_mm": 3.0,
-            "rain_7d_mm": 21.0,
-            "rain_14d_mm": 42.0,
-            "temp_max_7d_c": 24.0,
-            "temp_min_7d_c": -2.0,
-            "humidity_max_7d_pct": 91.0,
-            "humidity_min_7d_pct": 55.0,
-            "rain_15d_mm": 999.0,
-            "temp_max_c": 999.0,
+        result = {
+            "weather_station_code": "IMERAN22",
+            "weather_station_distance_km": 4.15,
+            "horizon_days": 7,
+            "features_used": {
+                "rain_cutoff_0_3d_mm": 26.92,
+                "rain_cutoff_4_7d_mm": 13.21,
+                "rain_cutoff_8_14d_mm": 5.59,
+                "rain_cutoff_15_21d_mm": 5.59,
+                "days_since_significant_rain_at_target": 8,
+                "rain_observed_days_21": 21,
+                "rain_missing_days_21": 0,
+                "rain_suppressed_days_21": 0,
+            },
         }
 
         with mock.patch.object(
@@ -690,15 +694,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "_lbl",
             side_effect=lambda key: key,
         ):
-            rendered = predictor_ui._render_feature_bars(features)
+            rendered = predictor_ui._render_model_diagnostics(result)
 
-        self.assertIn("ui.predictor_feature_rain_14d", rendered)
-        self.assertIn("ui.predictor_feature_temp_max_7d", rendered)
-        self.assertIn("ui.predictor_feature_temp_min_7d", rendered)
-        self.assertIn("42.0mm", rendered)
-        self.assertIn("24.0°C", rendered)
-        self.assertIn('style="width:0%"', rendered)
-        self.assertNotIn("999.0", rendered)
+        self.assertIn("ui.predictor_rain_bands", rendered)
+        self.assertIn("26.92 mm", rendered)
+        self.assertIn("ui.predictor_days_since_significant_rain", rendered)
+        self.assertIn("ui.predictor_rain_coverage_21", rendered)
+        self.assertIn("IMERAN22", rendered)
 
     def seed_empty_mushroom_observations(self, data_dir: Path) -> None:
         self.web_server.default_store().ensure_seeded()

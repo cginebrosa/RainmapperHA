@@ -298,6 +298,16 @@ def build_joined_row(weather_row: dict[str, Any], gis_row: dict[str, Any] | None
         "thermal_trend": weather_row.get("thermal_trend"),
         "heat_stress_days": weather_row.get("heat_stress_days"),
         "high_humidity_days_14d": weather_row.get("high_humidity_days_14d"),
+        # Preserve the ordered daily weather series in the reusable JSON
+        # feature artifact.  They are intentionally excluded from CSV_FIELDS
+        # and from the operational v0 estimator, but are required to build
+        # leakage-free horizon experiments without reading mutable source CSVs.
+        **{
+            field: list(weather_row[field])
+            if isinstance(weather_row.get(field), list)
+            else []
+            for field in mushroom_observation_context.JSON_EXTRA_FIELDS
+        },
         "host_ids": host_ids,
         "host_sources": host_sources,
         "forest_type_ids": forest_type_ids,

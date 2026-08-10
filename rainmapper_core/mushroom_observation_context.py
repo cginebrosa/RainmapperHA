@@ -27,7 +27,15 @@ RAIN_WINDOWS_DAYS = (1, 7, 14, 21, 30)
 TEMPERATURE_WINDOWS_DAYS = (7, 14, 21, 30)
 HUMIDITY_WINDOWS_DAYS = (7, 14, 21, 30)
 SUMMARY_WINDOW_DAYS = 7
-DAILY_SERIES_DAYS = 30
+DAILY_SERIES_DAYS = 120
+DERIVED_LOOKBACK_DAYS = 30
+EVENT_LOOKBACK_DAYS = 90
+WEATHER_CONTRACT_VERSION = "observed_weather_v2"
+STATION_MAX_DISTANCE_KM = 15.0
+STATION_RAIN_MIN_DAYS_21 = 19
+STATION_RAIN_MIN_DAYS_90 = 81
+STATION_TEMP_MIN_DAYS_21 = 19
+STATION_HUMIDITY_MIN_DAYS_21 = 19
 # Data-quality guard only. Values above this are kept out of experimental
 # weather sums and reported as gaps; this is not a mushroom predictor threshold.
 DAILY_RAIN_SANITY_LIMIT_MM = 300.0
@@ -37,6 +45,27 @@ DAILY_INCREMENTAL_FILES = (
     ("meteoclimatic", "Meteoclimatic_incremental.csv"),
     ("wunderground", "Wunderground_incremental.csv"),
 )
+
+
+def weather_contract_metadata() -> dict[str, object]:
+    """Return the shared, serializable weather contract for audit outputs."""
+    return {
+        "version": WEATHER_CONTRACT_VERSION,
+        "daily_series_days": DAILY_SERIES_DAYS,
+        "event_lookback_days": EVENT_LOOKBACK_DAYS,
+        "missing_rain_effective_mm": 0.0,
+        "suppressed_rain_effective_mm": 0.0,
+        "station_max_distance_km": STATION_MAX_DISTANCE_KM,
+        "station_minimum_coverage": {
+            "rain_days_21": STATION_RAIN_MIN_DAYS_21,
+            "rain_days_90": STATION_RAIN_MIN_DAYS_90,
+            "temperature_days_21": STATION_TEMP_MIN_DAYS_21,
+            "humidity_days_21": STATION_HUMIDITY_MIN_DAYS_21,
+        },
+        "lag_desired_cutoff": "issue_date_minus_1_day",
+        "lag_fallback_cutoff": "latest_complete_weather_day",
+        "station_cutoff_preference": "nearest_eligible_with_complete_cutoff_day",
+    }
 CSV_FIELDS = (
     "observation_id",
     "species_id",
@@ -118,6 +147,8 @@ PREDICTION_TARGET_POLICY_VERSION = "catalog_prediction_favorable_v1"
 
 JSON_EXTRA_FIELDS = (
     "daily_rain_mm",
+    "daily_rain_observed",
+    "daily_rain_suppressed",
     "daily_temp_min_c",
     "daily_temp_max_c",
     "daily_temp_mean_c",
@@ -787,46 +818,143 @@ def station_coverage_days(station: WeatherStation, observed_day: date, days: int
     return len(date_window(observed_day, days) & set(station.records_by_day))
 
 
+def station_quality(station: WeatherStation, cutoff_day: date) -> dict[str, int | bool]:
+    """Return the versioned coverage decision used by training and inference."""
+    recent_days = date_window(cutoff_day, 21)
+    long_days = date_window(cutoff_day, EVENT_LOOKBACK_DAYS)
+    records = station.records_by_day
+
+    def rain_present(day: date) -> bool:
+        record = records.get(day)
+        return record is not None and record.rain_mm is not None
+
+    def temperature_present(day: date) -> bool:
+        record = records.get(day)
+        return (
+            record is not None
+            and record.temp_min_c is not None
+            and record.temp_max_c is not None
+        )
+
+    def humidity_present(day: date) -> bool:
+        record = records.get(day)
+        return (
+            record is not None
+            and record.humidity_min_pct is not None
+            and record.humidity_max_pct is not None
+        )
+
+    quality: dict[str, int | bool] = {
+        "rain_days_21": sum(rain_present(day) for day in recent_days),
+        "rain_days_90": sum(rain_present(day) for day in long_days),
+        "temperature_days_21": sum(temperature_present(day) for day in recent_days),
+        "humidity_days_21": sum(humidity_present(day) for day in recent_days),
+    }
+    quality["eligible"] = (
+        quality["rain_days_21"] >= STATION_RAIN_MIN_DAYS_21
+        and quality["rain_days_90"] >= STATION_RAIN_MIN_DAYS_90
+        and quality["temperature_days_21"] >= STATION_TEMP_MIN_DAYS_21
+        and quality["humidity_days_21"] >= STATION_HUMIDITY_MIN_DAYS_21
+    )
+    return quality
+
+
+def latest_complete_weather_day(
+    station: WeatherStation,
+    on_or_before: date,
+    *,
+    max_back_days: int = EVENT_LOOKBACK_DAYS,
+) -> date | None:
+    """Return the latest day with rain, temperature and humidity readings."""
+    for offset in range(max_back_days):
+        day = on_or_before - timedelta(days=offset)
+        record = station.records_by_day.get(day)
+        if (
+            record is not None
+            and record.rain_mm is not None
+            and record.temp_min_c is not None
+            and record.temp_max_c is not None
+            and record.humidity_min_pct is not None
+            and record.humidity_max_pct is not None
+        ):
+            return day
+    return None
+
+
 def select_station(
     stations: dict[tuple[str, str], WeatherStation],
     lat: float,
     lon: float,
     observed_day: date,
+    *,
+    required_complete_day: date | None = None,
 ) -> tuple[WeatherStation | None, float | None, int]:
-    """Choose the best-covered of the five nearest weather stations.
-
-    Coverage quality is measured over the model's existing 30-day feature
-    window, so selection does not introduce a new numeric threshold. Distance
-    breaks coverage ties. The returned coverage remains the established 90-day
-    reporting value used by observation artifacts.
-    """
+    """Choose the nearest eligible station within 15 km of the area centroid."""
     candidates = []
     for station in stations.values():
         distance = haversine_km(lat, lon, station.lat, station.lon)
-        candidates.append((distance, station.source, station.station_code, station))
-    nearest_candidates = sorted(
-        candidates,
-        key=lambda item: (item[0], item[1], item[2]),
-    )[:5]
-    covered_candidates = []
-    for distance, source, station_code, station in nearest_candidates:
-        feature_coverage = station_coverage_days(
-            station,
-            observed_day,
-            DAILY_SERIES_DAYS,
-        )
-        if feature_coverage > 0:
-            covered_candidates.append(
-                (feature_coverage, distance, source, station_code, station)
-            )
-    if not covered_candidates:
-        return None, None, 0
-    _feature_coverage, distance, _source, _code, station = sorted(
-        covered_candidates,
-        key=lambda item: (-item[0], item[1], item[2], item[3]),
-    )[0]
-    reporting_coverage = station_coverage_days(station, observed_day, 90)
-    return station, distance, reporting_coverage
+        if distance <= STATION_MAX_DISTANCE_KM:
+            candidates.append((distance, station.source, station.station_code, station))
+    eligible: list[tuple[float, str, str, WeatherStation, dict[str, int | bool]]] = []
+    for distance, source, station_code, station in sorted(
+        candidates, key=lambda item: (item[0], item[1], item[2])
+    ):
+        quality = station_quality(station, observed_day)
+        if quality["eligible"]:
+            eligible.append((distance, source, station_code, station, quality))
+    if required_complete_day is not None:
+        for distance, _source, _station_code, station, quality in eligible:
+            record = station.records_by_day.get(required_complete_day)
+            if (
+                record is not None
+                and record.rain_mm is not None
+                and record.temp_min_c is not None
+                and record.temp_max_c is not None
+                and record.humidity_min_pct is not None
+                and record.humidity_max_pct is not None
+            ):
+                return station, distance, int(quality["rain_days_90"])
+    if eligible:
+        distance, _source, _station_code, station, quality = eligible[0]
+        return station, distance, int(quality["rain_days_90"])
+    return None, None, 0
+
+
+def station_selection_audit(
+    stations: dict[tuple[str, str], WeatherStation],
+    lat: float,
+    lon: float,
+    cutoff_day: date,
+    selected_station: WeatherStation | None,
+) -> dict[str, object]:
+    """Explain whether station selection skipped nearer, low-quality candidates."""
+    candidates: list[tuple[float, str, str, WeatherStation]] = []
+    for station in stations.values():
+        distance = haversine_km(lat, lon, station.lat, station.lon)
+        if distance <= STATION_MAX_DISTANCE_KM:
+            candidates.append((distance, station.source, station.station_code, station))
+    candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+    selected_index = next(
+        (
+            index
+            for index, (_distance, _source, _code, station) in enumerate(candidates)
+            if station is selected_station
+        ),
+        None,
+    )
+    nearest = candidates[0] if candidates else None
+    return {
+        "candidate_count_within_radius": len(candidates),
+        "nearest_station_code": nearest[3].station_code if nearest else None,
+        "nearest_station_distance_km": round_or_none(nearest[0], 2) if nearest else None,
+        "selected_candidate_rank": selected_index + 1 if selected_index is not None else None,
+        "skipped_nearer_station_count": selected_index or 0,
+        "selected_station_quality": (
+            station_quality(selected_station, cutoff_day)
+            if selected_station is not None
+            else None
+        ),
+    }
 
 
 def mean(values: list[float]) -> float | None:
@@ -920,7 +1048,7 @@ def build_derived_features(
 
     # dry_spell_days: consecutive days without rain immediately before observed_day
     dry_spell = 0
-    for delta in range(1, DAILY_SERIES_DAYS + 1):
+    for delta in range(1, DERIVED_LOOKBACK_DAYS + 1):
         check_day = observed_day - timedelta(days=delta)
         v = rain_of(check_day)
         if v is None:
@@ -931,7 +1059,7 @@ def build_derived_features(
     derived["dry_spell_days"] = dry_spell
 
     # days_since_significant_rain: days since last rain >= 5mm
-    for delta in range(1, DAILY_SERIES_DAYS + 1):
+    for delta in range(1, DERIVED_LOOKBACK_DAYS + 1):
         check_day = observed_day - timedelta(days=delta)
         v = rain_of(check_day)
         if v is not None and v >= 5.0:
@@ -964,7 +1092,7 @@ def build_derived_features(
     recent_temps = [t for d in date_window(observed_day, 7) if (t := day_tmean(d)) is not None]
     older_temps = [
         t
-        for delta in range(8, DAILY_SERIES_DAYS + 1)
+        for delta in range(8, DERIVED_LOOKBACK_DAYS + 1)
         if (t := day_tmean(observed_day - timedelta(days=delta))) is not None
     ]
     if recent_temps and older_temps:
@@ -972,7 +1100,7 @@ def build_derived_features(
 
     # heat_stress_days: consecutive days with temp_max > 28°C immediately before observed_day
     heat_days = 0
-    for delta in range(1, DAILY_SERIES_DAYS + 1):
+    for delta in range(1, DERIVED_LOOKBACK_DAYS + 1):
         check_day = observed_day - timedelta(days=delta)
         if check_day not in recs or recs[check_day].temp_max_c is None:
             break
@@ -999,14 +1127,22 @@ def build_daily_series(
     observed_day: date,
     duplicate_dates: set | None = None,
 ) -> dict[str, list]:
-    """Build daily series arrays for the last DAILY_SERIES_DAYS days (oldest first)."""
+    """Build effective 120-day series while preserving measurement quality."""
     dup = duplicate_dates or set()
     days = sorted(date_window(observed_day, DAILY_SERIES_DAYS))
     recs = station.records_by_day
     daily: dict[str, list] = {k: [] for k in JSON_EXTRA_FIELDS}
     for d in days:
         rec = recs.get(d)
-        daily["daily_rain_mm"].append(rec.rain_mm if (rec and d not in dup) else None)
+        raw_rain = rec.rain_mm if rec else None
+        suppressed = bool(
+            raw_rain is not None
+            and (d in dup or raw_rain > DAILY_RAIN_SANITY_LIMIT_MM)
+        )
+        observed = raw_rain is not None and not suppressed
+        daily["daily_rain_mm"].append(float(raw_rain) if observed else 0.0)
+        daily["daily_rain_observed"].append(1.0 if observed else 0.0)
+        daily["daily_rain_suppressed"].append(1.0 if suppressed else 0.0)
         daily["daily_temp_min_c"].append(rec.temp_min_c if rec else None)
         daily["daily_temp_max_c"].append(rec.temp_max_c if rec else None)
         if rec and rec.temp_min_c is not None and rec.temp_max_c is not None:

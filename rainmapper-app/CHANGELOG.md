@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 0.2.243
+
+- Replace the future-blind Predictor recommendation with the operational
+  `fixed_gap_7d_v1` and `lag_event_v1` contracts, sharing the same feature
+  construction between training, Home Assistant and external workers.
+- Preserve weather-window coverage, tolerate isolated missing rain days, search
+  significant events for 90 days and select the nearest sufficiently complete
+  station within 15 km.
+- Separate ecological compatibility, validated statistical support and the
+  practical verdict, retaining rich deterministic explanations and complete
+  technical audit data without presenting raw scores as calibrated probabilities.
+- Compare Extra Trees, Histogram Gradient Boosting, KNN and calibrated SVM as
+  shadow estimators, exposing their best validated experimental signal without
+  allowing it to change recommendations or rankings.
+- Improve Predictor typography and reference-range presentation, and show model
+  comparison details by default on the date view.
+
 ## 0.2.242
 
 - Gate Predictor results with each species' configured main and secondary

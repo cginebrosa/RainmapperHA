@@ -282,12 +282,12 @@ class ParquetCacheMtimeTests(unittest.TestCase):
             mock_load.assert_called_once_with(
                 data_dir,
                 station_filter={("meteocat", "ST1")},
-                start_date=date(2026, 5, 11),
+                start_date=date(2026, 4, 11),
                 end_date=date(2026, 8, 14),
             )
             self.assertEqual(
                 predictor_mod._shared_weather_window_start,
-                date(2026, 5, 11),
+                date(2026, 4, 11),
             )
             self.assertEqual(
                 predictor_mod._shared_weather_window_end,
@@ -339,7 +339,7 @@ class ParquetCacheMtimeTests(unittest.TestCase):
             self.assertIs(second_result, second_load)
             self.assertEqual(
                 predictor_mod._shared_weather_window_start,
-                date(2024, 4, 12),
+                date(2024, 3, 13),
             )
             self.assertEqual(
                 predictor_mod._shared_weather_window_end,
@@ -375,7 +375,7 @@ class ParquetCacheMtimeTests(unittest.TestCase):
             mock_load.assert_called_once_with(
                 data_dir,
                 station_filter={("meteocat", "ST1")},
-                start_date=date(2020, 7, 4),
+                start_date=date(2020, 6, 4),
                 end_date=date(2026, 5, 26),
             )
 
@@ -501,8 +501,14 @@ class PredictorFeatureParityTests(unittest.TestCase):
             "LOW_COVERAGE", target_date - timedelta(days=1), 42.0, 2.0, 1.0
         )
         covered_records = {
-            day: self._record("COVERED", day, 42.05, 2.05, 5.0)
-            for day in (target_date - timedelta(days=2), target_date - timedelta(days=1))
+            target_date - timedelta(days=offset): self._record(
+                "COVERED",
+                target_date - timedelta(days=offset),
+                42.05,
+                2.05,
+                5.0 if offset in (1, 2) else 0.0,
+            )
+            for offset in range(90)
         }
         nearest = predictor_mod.ctx.WeatherStation(
             source="meteocat",
@@ -537,7 +543,7 @@ class PredictorFeatureParityTests(unittest.TestCase):
         )
 
         self.assertEqual(station_code, "COVERED")
-        self.assertEqual(coverage, 2)
+        self.assertEqual(coverage, 90)
         self.assertEqual(values[FEATURE_COLS.index("rain_7d_mm")], 5.0)
         self.assertTrue(
             any("rain_suspect_consecutive_20260109" in gap for gap in gaps)

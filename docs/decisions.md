@@ -3646,3 +3646,221 @@ Validacion local:
   `sha256:3abd516d7aeac7bd4f8bfeacc2d96be2823f339a6c5d31cdc62caaf64ebc562b`
   y contienen manifests `linux/amd64` y `linux/arm64` verificados.
 - Smoke completo: 543 tests y validadores correctos.
+
+# 2026-08-10 - [VIGENTE] El siguiente hito es endurecer ML con el dataset actual
+
+- La reconstrucción y el reentrenamiento reales de HA `0.2.242` han terminado.
+  El siguiente trabajo no es ampliar el dataset ni Diagnostics: es pulir los
+  modelos actuales y comparar alternativas más gestionables y explicables.
+- No hay por ahora más observaciones de salidas ni más cobertura meteorológica.
+  El benchmark debe trabajar con el snapshot actual sin fabricar negativos ni
+  esperar a que crezca la muestra.
+- El caso centinela Aereus/Coll de la Batalla/2026-08-14 produjo 71% mediante
+  media no ponderada de LR 98% y RF 44%. El Parquet estaba completo hasta la
+  fecha de emisión; cuatro días posteriores aún desconocidos hicieron caer
+  artificialmente a cero `heat_stress_days` y `dry_spell_days`.
+- La evaluación temporal de Aereus fue peor que azar: ROC-AUC `0,3818` para LR,
+  `0,4545` para RF y accuracy `0,1875` para el ensemble. Esos modelos no deben
+  conservar igual peso ni presentarse como probabilidades calibradas.
+- Se priorizan tratamiento explícito de gaps, abstención, reducción a pocas
+  variables, validación temporal reproducible y comparación con baselines. Se
+  evaluarán LR reducida, árboles restringidos y un enfoque híbrido de
+  elegibilidad ecológica más score estadístico antes de modelos más complejos.
+- Diagnóstico y plan vinculante:
+  `docs/mushrooms/mushroom-ml-model-hardening-plan-es.md`.
+
+# 2026-08-10 - [VIGENTE] Los modelos nuevos se compararán sobre un benchmark temporal congelado
+
+- La pregunta común es `P(florada en T | meteorología observada hasta T-h)`.
+  No se utilizan predicciones meteorológicas ni se convierten días futuros en
+  ceros observados.
+- El artefacto unido conserva las series meteorológicas diarias en JSON, pero
+  estas siguen fuera del CSV y del estimador operativo v0.
+- `mushroom_ml_experiments.py` materializa muestras con fecha objetivo, fecha
+  de corte y horizonte 0..6; todos los horizontes de un episodio y todas las
+  áreas de una misma fecha/especie permanecen en una única partición temporal.
+- `lag_event_v1` es la primera hipótesis de variables compactas: bandas de
+  lluvia disjuntas, edad de eventos conocidos, condiciones posteriores y
+  rachas observadas con censura explícita. No se promociona automáticamente.
+- Cualquier comparación futura debe fijar hash del benchmark, feature set,
+  estimador, hiperparámetros, semilla, imputación, calibración y métricas. El
+  contrato completo está en
+  `docs/mushrooms/mushroom-ml-experiment-contract-es.md`.
+
+# 2026-08-10 - [VIGENTE] Fixed-gap y lag-event convivirán como modelos shadow
+
+- `fixed_gap_7d_v1` oculta siempre `T-6..T` y calcula todas sus variables con
+  corte `T-7`; `lag_event_v1` usa el corte de emisión y horizontes 0..6.
+- Ambos usan las mismas familias LR reducida y RF restringido. Sus bundles se
+  generan en el job de entrenamiento, se promocionan junto al modelo operativo
+  y se incluyen en el runtime remoto, pero nunca sustituyen automáticamente
+  `mushroom_ml_v0`.
+- «Consultar fecha» ofrece una comparación opt-in con corte, LR, RF y resultado
+  por contrato. Los scores shadow no son probabilidades calibradas y no cambian
+  la recomendación oficial.
+- La plausibilidad de casos concretos sirve para falsar modelos, no para
+  validarlos. La decisión futura exigirá métricas temporales, casos centinela y
+  predicciones prospectivas contrastadas sobre el terreno.
+
+# 2026-08-10 - [VIGENTE] La lluvia tolera huecos y la estación debe ser elegible
+
+- El artefacto experimental conserva 120 días y busca eventos hasta 90; una
+  edad no encontrada vale 90 («90 o más»), nunca `null`.
+- Lluvia ausente o explícitamente descartada aporta `0 mm` efectivos, pero se
+  conservan días observados, ausentes y suprimidos. Temperatura y humedad se
+  agregan solo sobre valores disponibles y mantienen cobertura propia.
+- `lag_event_v1` corta en ayer o en el último día completo anterior y usa
+  horizontes 1..7.
+- Desde el centroide del área se prueban estaciones por cercanía hasta 15 km.
+  La primera que alcance 19/21 y 81/90 de lluvia y 19/21 de temperatura y
+  humedad es elegible; si ninguna cumple, el Predictor se abstiene.
+- El contrato no pertenece solo al entrenamiento: el Predictor usa los mismos
+  constructores versionados, tratamiento de lluvia, corte efectivo y selector
+  de estación. La salida shadow conserva variables, coberturas y estación para
+  poder auditar esa paridad.
+- Un shadow puede ajustarse con el dataset completo cuando éste contiene las
+  dos clases aunque su partición cronológica train/test no las contenga. En ese
+  caso queda marcado sin validación temporal; la evaluación estratificada puede
+  seguir disponible, pero una promoción deberá considerar expresamente esa
+  limitación. Nunca se divide una misma fecha para fabricar clases a ambos lados.
+
+# 2026-08-10 - [VIGENTE] La evaluación shadow principal es estratificada y la temporal es diagnóstica
+
+- El 70/30 principal aproxima por separado la proporción de favorables y
+  desfavorables, con semilla fija `42` y agrupación indivisible por especie y
+  fecha objetivo.
+- El 70/30 cronológico se conserva como diagnóstico secundario de deriva. Si
+  train o test tienen una sola clase, queda marcado no disponible y no se
+  fuerza un corte que divida episodios de una misma fecha.
+- Los bundles de consulta se reajustan con todos los episodios después de la
+  evaluación. Promoción y calibración deben considerar tanto el resultado
+  estratificado como la disponibilidad del diagnóstico temporal.
+- Esta decisión reemplaza la evaluación shadow exclusivamente cronológica; no
+  cambia el corte meteorológico de `fixed_gap_7d_v1` ni `lag_event_v1`.
+
+# 2026-08-10 - [VIGENTE] Fixed-gap y lag-event sustituyen al v0 en la decisión visible
+
+- `mushroom_ml_v0` no es válido como predictor futuro porque sus ventanas
+  terminan en la fecha objetivo. Se conserva como baseline interno durante la
+  transición, pero deja de decidir tarjetas, rankings, semana, Historial y
+  factores meteorológicos visibles.
+- `fixed_gap_7d_v1` y `lag_event_v1` conviven como pareja operativa. Sus LR, RF
+  y medias no ponderadas permanecen auditables y no se presentan como
+  probabilidades calibradas.
+- Cada bundle incorpora métricas fuera de muestra. Por especie y contrato solo
+  aporta referencia el estimador con menor Brier entre los que superan la
+  prevalencia; si ninguno la supera, el Predictor se abstiene.
+- Una diferencia LR/RF de al menos 20 puntos fuerza consenso bajo. El dictamen
+  combina ese estado estadístico con cobertura, estación, temporada, evento de
+  lluvia y retraso de fructificación mediante reglas deterministas y
+  versionadas, nunca mediante texto libre generado.
+- Un score estadístico no puede producir «favorable» si el perfil de la especie
+  define una ventana de fructificación y no existe lluvia significativa en 90
+  días o el evento queda más allá de su máximo. Esta barrera ecológica es común
+  a todas las especies y deja los scores brutos visibles solo para auditoría.
+- Para cada corte se prefiere la estación elegible más cercana que tenga ese día
+  completo. Una estación globalmente válida pero retrasada se salta en favor de
+  la siguiente elegible dentro de 15 km; solo se retrocede el corte si ninguna
+  candidata dispone del día requerido.
+- «Consultar fecha» conserva el detalle técnico de ambos modelos, elimina las
+  barras meteorológicas del v0 y muestra dictamen resumido arriba y explicación
+  debajo. Las vistas compactas usan el mismo contrato y enlazan al detalle.
+- La implementación se valida primero en local. La publicación posterior exige
+  actualizar juntos HA y workers porque ambos ejecutan el contrato, sin
+  cambiar red, Tailscale ni la autoridad de HA.
+
+# 2026-08-10 - [VIGENTE] El Predictor conserva señales no validadas y audita el dominio
+
+- La prevalencia es un control de calibración sobre salidas seleccionadas por
+  el observador, no la frecuencia real de floradas entre todos los días-área.
+  No silencia por completo una señal útil para el barrido sistemático.
+- Si ningún estimador mejora el Brier de prevalencia, el Predictor distingue
+  señal favorable no validada, desfavorable no validada o no interpretable.
+  Su rango bruto queda visible únicamente en la auditoría técnica: no participa
+  en rankings ni se presenta como recomendación o probabilidad calibrada.
+- Los bundles `1.1` conservan soporte de variables y predicciones holdout. Una
+  LR que recibe una variable fuera del rango y a seis o más desviaciones
+  estándar queda excluida; un conflicto validado de 50 puntos o más fuerza
+  abstención.
+- Para episodios conocidos del 30% test, Predictor e Historial muestran los
+  scores del modelo que no vio el episodio. Para episodios train muestran el
+  ajuste final y advierten que no es una comprobación histórica independiente.
+- Los días no visitados y las especies no buscadas siguen siendo desconocidos,
+  nunca negativas sintéticas. El éxito futuro se medirá también por ranking,
+  recuperación de floradas, precisión top-k y recomendaciones prospectivas.
+
+# 2026-08-10 - [VIGENTE] El laboratorio compara seis estimadores sin promoverlos por votación
+
+- LR y RF mantienen provisionalmente la autoridad del dictamen para no cambiar
+  el contrato operativo mientras se analiza el nuevo laboratorio.
+- ET, HGB, KNN por distancia y SVM RBF calibrada se entrenan como modelos sombra
+  sobre las mismas muestras y particiones. Sus scores, Brier y ROC-AUC aparecen
+  en el detalle técnico, identificados con `*`, pero no votan ni alteran el
+  rango de referencia.
+- La SVM exige al menos dos ejemplos de cada clase en la partición train para
+  poder calibrarse en dos folds. Si no se cumple, se omite para ese contrato y
+  especie y se muestra el motivo; no se cambian particiones ni se sintetizan
+  observaciones. Actualmente ocurre solo en Marçot/`fixed_gap_7d_v1`.
+- Ningún candidato se promociona porque gane una métrica aislada. Se comparan
+  estabilidad entre contratos y horizontes, Brier frente a prevalencia,
+  capacidad de recuperar episodios favorables y falsos avisos prospectivos.
+
+# 2026-08-10 - [VIGENTE] El dictamen separa ecología, estadística y acción
+
+- La compatibilidad ecológica, el soporte estadístico y el dictamen práctico
+  son ejes diferentes del payload de interpretación y de la UI. «Confianza» se
+  sustituye por evidencia ecológica y soporte estadístico para evitar que un
+  veto fiable parezca consenso entre modelos.
+- Una barrera ecológica incompatible decide «poco probable» aunque la capa
+  estadística se abstenga. En ese caso los scores descartados no aparecen en
+  la cabecera; permanecen auditables en la tabla técnica.
+- Solo se muestra rango validado cuando al menos un estimador operativo mejora
+  prevalencia y está dentro de dominio. Una sola familia validada produce
+  soporte limitado; no se calcula consenso aunque aparezca en ambos contratos.
+- La explicación textual rica se conserva y se divide conceptualmente en
+  meteorología/ecología y estadística: evento, momento, estación, dominio,
+  prevalencia, desacuerdo y condición histórica siguen siendo visibles.
+- Las mismas reglas alimentan fecha, semana, especie, recomendador e Historial.
+  Los modelos sombra nunca votan por acumulación ni superan un veto ecológico.
+- La mejor sombra por Brier de cada contrato sí se resume como señal
+  experimental favorable, desfavorable, incierta o contradictoria. Se muestran
+  estimadores, rango y cautela fuera de dominio, pero esa señal no cambia el
+  dictamen ni el orden de las vistas compactas hasta una promoción explícita.
+- Si la ecología es compatible y la capa operativa se abstiene, el título es
+  «Incierto — condiciones compatibles»; la dirección bruta de LR/RF y la señal
+  experimental quedan diferenciadas en la explicación y auditoría.
+# [VIGENTE] El posible LLM del worker será solo un narrador local opcional
+
+- El Predictor determinista conserva toda la autoridad sobre compatibilidad
+  ecológica, soporte estadístico, señales experimentales y dictamen.
+- Un futuro worker podrá anunciar `predictor_narrative_v1` para redactar el
+  resultado estructurado con un LLM pequeño y local, pero no podrá alterar el
+  dictamen, seleccionar modelos, anular vetos ni inventar valores.
+- La capacidad será independiente de la imagen base y siempre tendrá fallback
+  al texto determinista; no se autoriza todavía instalar ni descargar modelos.
+- Contrato y despliegue gradual:
+  `docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`.
+
+## 2026-08-10 - Predictor por contratos e interpretación separada
+
+Estado: PUBLICADO EN HA `0.2.243`; WORKER M1 `1.0.5` ACTUALIZADO; PENDIENTE DE
+INSTALAR Y VALIDAR EN HA REAL.
+
+Decisión:
+
+- Retirar de la recomendación visible el contrato v0 que necesita
+  meteorología hasta la fecha objetivo y usar `fixed_gap_7d_v1` y
+  `lag_event_v1` con los mismos constructores durante entrenamiento e
+  inferencia.
+- Separar dictamen práctico, compatibilidad/evidencia ecológica y soporte
+  estadístico operativo. Los scores brutos permanecen para auditoría, pero no
+  se muestran como probabilidades calibradas ni pueden anular un veto.
+- Mantener ET, HGB, KNN y SVM como shadows. Su mejor señal validada se muestra
+  de forma genérica y explícitamente experimental, sin modificar dictamen ni
+  ranking.
+- Usar el contrato meteorológico documentado: 120 días conservados, búsqueda
+  de eventos hasta 90, cobertura explícita, tolerancia a huecos aislados y
+  salto a una estación suficientemente completa hasta 15 km.
+- Publicación HA verificada con digest
+  `sha256:39c64c072d57259544a9290d15e117e811c38411cf3044afa5bb2cfd0af107cf`
+  para `0.2.243` y `latest`, ambos con `linux/amd64` y `linux/arm64`.

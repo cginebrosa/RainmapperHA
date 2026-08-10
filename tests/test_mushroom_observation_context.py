@@ -1,7 +1,7 @@
 import json
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -94,6 +94,19 @@ class MushroomObservationContextTests(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def build_features_with_relaxed_station_quality(self):
+        with mock.patch.multiple(
+            mushroom_observation_context,
+            STATION_RAIN_MIN_DAYS_21=0,
+            STATION_RAIN_MIN_DAYS_90=0,
+            STATION_TEMP_MIN_DAYS_21=0,
+            STATION_HUMIDITY_MIN_DAYS_21=0,
+        ):
+            return mushroom_observation_context.build_observation_weather_features(
+                observations_path=self.observations_path,
+                weather_data_dir=self.data_dir,
+            )
+
     def test_default_observations_path_prefers_persistent_share_file(self) -> None:
         share_path = Path("/share/rainmapper/mushroom-data/mushroom_observations.json")
 
@@ -174,10 +187,7 @@ class MushroomObservationContextTests(unittest.TestCase):
             ],
         )
 
-        payload = mushroom_observation_context.build_observation_weather_features(
-            observations_path=self.observations_path,
-            weather_data_dir=self.data_dir,
-        )
+        payload = self.build_features_with_relaxed_station_quality()
         rows = payload["rows"]
         first = rows[0]
         second = rows[1]
@@ -248,10 +258,7 @@ class MushroomObservationContextTests(unittest.TestCase):
             ],
         )
 
-        payload = mushroom_observation_context.build_observation_weather_features(
-            observations_path=self.observations_path,
-            weather_data_dir=self.data_dir,
-        )
+        payload = self.build_features_with_relaxed_station_quality()
         first = payload["rows"][0]
 
         self.assertEqual(first["rain_7d_mm"], 4.0)
@@ -344,10 +351,7 @@ class MushroomObservationContextTests(unittest.TestCase):
             ],
         )
 
-        payload = mushroom_observation_context.build_observation_weather_features(
-            observations_path=self.observations_path,
-            weather_data_dir=self.data_dir,
-        )
+        payload = self.build_features_with_relaxed_station_quality()
         first = payload["rows"][0]
 
         # rain_7d should be 3.0 + 8.0 + 2.0 = 13.0 (day 8 nullified, day 7 kept)
@@ -362,6 +366,127 @@ class MushroomObservationContextTests(unittest.TestCase):
             any("rain_7d_coverage_3/7" in g for g in first["data_gaps"]),
             f"Expected coverage gap in {first['data_gaps']}",
         )
+
+    def test_station_selection_skips_nearest_station_with_poor_quality(self) -> None:
+        cutoff = date(2026, 8, 9)
+
+        def station(code: str, lat: float, complete_days: int):
+            records = {}
+            for offset in range(90):
+                day = cutoff - timedelta(days=offset)
+                complete = offset < complete_days
+                records[day] = mushroom_observation_context.DailyWeatherRecord(
+                    source="test",
+                    station_code=code,
+                    station_name=code,
+                    day=day,
+                    lat=lat,
+                    lon=2.0,
+                    rain_mm=0.0 if complete else None,
+                    temp_max_c=25.0 if complete else None,
+                    temp_min_c=15.0 if complete else None,
+                    humidity_max_pct=80.0 if complete else None,
+                    humidity_min_pct=40.0 if complete else None,
+                    wind_avg_kmh=None,
+                    wind_gust_kmh=None,
+                    wind_direction_deg=None,
+                )
+            return mushroom_observation_context.WeatherStation(
+                "test", code, code, lat, 2.0, records
+            )
+
+        nearest_poor = station("NEAR_POOR", 42.01, 10)
+        next_eligible = station("NEXT_GOOD", 42.04, 90)
+        selected, distance, coverage = mushroom_observation_context.select_station(
+            {
+                ("test", "NEAR_POOR"): nearest_poor,
+                ("test", "NEXT_GOOD"): next_eligible,
+            },
+            42.0,
+            2.0,
+            cutoff,
+        )
+
+        self.assertIs(selected, next_eligible)
+        self.assertLess(distance, 15.0)
+        self.assertEqual(coverage, 90)
+
+    def test_station_selection_never_expands_beyond_fifteen_km(self) -> None:
+        cutoff = date(2026, 8, 9)
+        records = {
+            cutoff - timedelta(days=offset): mushroom_observation_context.DailyWeatherRecord(
+                source="test",
+                station_code="TOO_FAR",
+                station_name="Too far",
+                day=cutoff - timedelta(days=offset),
+                lat=42.2,
+                lon=2.0,
+                rain_mm=0.0,
+                temp_max_c=25.0,
+                temp_min_c=15.0,
+                humidity_max_pct=80.0,
+                humidity_min_pct=40.0,
+                wind_avg_kmh=None,
+                wind_gust_kmh=None,
+                wind_direction_deg=None,
+            )
+            for offset in range(90)
+        }
+        too_far = mushroom_observation_context.WeatherStation(
+            "test", "TOO_FAR", "Too far", 42.2, 2.0, records
+        )
+
+        selected, distance, coverage = mushroom_observation_context.select_station(
+            {("test", "TOO_FAR"): too_far}, 42.0, 2.0, cutoff
+        )
+
+        self.assertIsNone(selected)
+        self.assertIsNone(distance)
+        self.assertEqual(coverage, 0)
+
+    def test_station_selection_prefers_complete_cutoff_over_nearer_eligible_station(self) -> None:
+        cutoff = date(2026, 8, 9)
+
+        def station(code: str, lat: float, missing_cutoff: bool):
+            records = {}
+            for offset in range(90):
+                day = cutoff - timedelta(days=offset)
+                complete = not (missing_cutoff and offset == 0)
+                records[day] = mushroom_observation_context.DailyWeatherRecord(
+                    source="test",
+                    station_code=code,
+                    station_name=code,
+                    day=day,
+                    lat=lat,
+                    lon=2.0,
+                    rain_mm=0.0 if complete else None,
+                    temp_max_c=25.0 if complete else None,
+                    temp_min_c=15.0 if complete else None,
+                    humidity_max_pct=80.0 if complete else None,
+                    humidity_min_pct=40.0 if complete else None,
+                    wind_avg_kmh=None,
+                    wind_gust_kmh=None,
+                    wind_direction_deg=None,
+                )
+            return mushroom_observation_context.WeatherStation(
+                "test", code, code, lat, 2.0, records
+            )
+
+        nearer_delayed = station("NEAR_DELAYED", 42.01, True)
+        next_complete = station("NEXT_COMPLETE", 42.02, False)
+        selected, _distance, coverage = mushroom_observation_context.select_station(
+            {
+                ("test", "NEAR_DELAYED"): nearer_delayed,
+                ("test", "NEXT_COMPLETE"): next_complete,
+            },
+            42.0,
+            2.0,
+            cutoff,
+            required_complete_day=cutoff,
+        )
+
+        self.assertIs(selected, next_complete)
+        self.assertEqual(coverage, 90)
 
 
 class StationCatalogTests(unittest.TestCase):

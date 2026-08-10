@@ -16,6 +16,7 @@ from threading import RLock
 from time import monotonic
 from typing import Any, Callable
 
+from rainmapper_core.mushroom_ml_comparison import MushroomModelComparator
 from rainmapper_core.mushroom_ml_predictor import MushroomMLPredictor, PredictionResult
 
 
@@ -58,6 +59,11 @@ def normalize_request(payload: object) -> dict[str, Any]:
     area_id = str(payload.get("area_id", "") or "").strip()
     target_date = _iso_date(payload.get("target_date"), field="target_date")
     filter_mode = str(payload.get("filter_mode", "") or "").strip()[:40]
+    compare_models = payload.get("compare_models") is True
+    issue_date = _iso_date(
+        payload.get("issue_date") or min(date.today(), target_date).isoformat(),
+        field="issue_date",
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": REQUEST_KIND,
@@ -66,6 +72,8 @@ def normalize_request(payload: object) -> dict[str, Any]:
         "area_id": area_id,
         "target_date": target_date.isoformat(),
         "filter_mode": filter_mode,
+        "compare_models": compare_models,
+        "issue_date": issue_date.isoformat(),
         "trained_species_ids": species_ids,
     }
 
@@ -128,6 +136,7 @@ class PredictorService:
         self.profiles_path = Path(profiles_path) if profiles_path is not None else None
         self.runtime_fingerprint = str(runtime_fingerprint)
         self._predictors: dict[str, MushroomMLPredictor] = {}
+        self._comparators: dict[str, MushroomModelComparator] = {}
         self._responses: OrderedDict[tuple[object, ...], dict[str, Any]] = (
             OrderedDict()
         )
@@ -148,6 +157,16 @@ class PredictorService:
                 self._predictors[species_id] = predictor
             return predictor
 
+    def comparator(self, species_id: str) -> MushroomModelComparator:
+        with self._lock:
+            comparator = self._comparators.get(species_id)
+            if comparator is None:
+                comparator = MushroomModelComparator(
+                    self.predictor(species_id), self.models_dir
+                )
+                self._comparators[species_id] = comparator
+            return comparator
+
     def execute(
         self,
         request: object,
@@ -163,6 +182,8 @@ class PredictorService:
             normalized["area_id"],
             normalized["target_date"],
             normalized["filter_mode"],
+            normalized["compare_models"],
+            normalized["issue_date"],
             tuple(normalized["trained_species_ids"]),
         )
         with self._lock:
@@ -186,6 +207,17 @@ class PredictorService:
         area_id = normalized["area_id"]
         data: dict[str, Any] = {"species": {}}
 
+        def comparison_for(
+            species_id: str,
+            current_area: str,
+            current_date: date,
+        ) -> dict[str, Any]:
+            return self.comparator(species_id).compare(
+                current_area,
+                current_date,
+                issue_date=min(date.today(), current_date),
+            )
+
         if view == "recommender":
             total = len(species_ids)
             for index, species_id in enumerate(species_ids):
@@ -196,19 +228,24 @@ class PredictorService:
                 )
                 predictor = self.predictor(species_id)
                 season_phase = predictor.season_phase(target)
+                rankings = (
+                    []
+                    if season_phase == "out_of_season"
+                    else [
+                        serialize_prediction(row)
+                        for row in predictor.rank_areas(target, only_observed=True)
+                    ]
+                )
                 data["species"][species_id] = {
                     "season_phase": season_phase,
-                    "rankings": {
-                        target.isoformat(): (
-                            []
-                            if season_phase == "out_of_season"
-                            else [
-                                serialize_prediction(row)
-                                for row in predictor.rank_areas(
-                                    target, only_observed=True
-                                )
-                            ]
-                        )
+                    "rankings": {target.isoformat(): rankings},
+                    "model_comparisons": {
+                        row["area_id"]: {
+                            target.isoformat(): comparison_for(
+                                species_id, row["area_id"], target
+                            )
+                        }
+                        for row in rankings
                     }
                 }
         elif view == "week":
@@ -216,6 +253,7 @@ class PredictorService:
             areas = predictor.areas_with_species_observations()
             days = [date.today() + timedelta(days=offset) for offset in range(7)]
             predictions: dict[str, dict[str, Any]] = {}
+            comparisons: dict[str, dict[str, Any]] = {}
             total = max(1, len(areas) * len(days))
             requests = [
                 (current_area, current_date)
@@ -230,18 +268,40 @@ class PredictorService:
                 predictions.setdefault(current_area, {})[current_date.isoformat()] = (
                     serialize_prediction(row)
                 )
+                comparisons.setdefault(current_area, {})[current_date.isoformat()] = (
+                    comparison_for(selected_species, current_area, current_date)
+                )
                 report(
                     10 + round(completed / total * 83),
                     "Building weekly matrix",
                     f"{completed}/{total} area-days",
                 )
-            data["species"][selected_species] = {"areas": areas, "predictions": predictions}
+            data["species"][selected_species] = {
+                "areas": areas,
+                "predictions": predictions,
+                "model_comparisons": comparisons,
+            }
         elif view == "history":
             report(10, "Loading history", f"Backtesting {selected_species}.")
             predictor = self.predictor(selected_species)
+            backtest = predictor.observed_episodes()
+            history_comparisons: dict[str, dict[str, Any]] = {}
+            for row in backtest:
+                history_area = str(row.get("area_id", ""))
+                history_date = str(row.get("observed_at", ""))
+                if not history_area or not history_date:
+                    continue
+                history_comparisons.setdefault(history_area, {})[history_date] = (
+                    comparison_for(
+                        selected_species,
+                        history_area,
+                        date.fromisoformat(history_date),
+                    )
+                )
             data["species"][selected_species] = {
-                "backtest": predictor.backtest(),
+                "backtest": backtest,
                 "areas": predictor.areas_with_species_observations(),
+                "model_comparisons": history_comparisons,
             }
         else:
             predictor = self.predictor(selected_species)
@@ -259,13 +319,33 @@ class PredictorService:
                 if target.isoformat() not in species_data["predictions"][area_id]:
                     row = predictor.predict(area_id, target)
                     species_data["predictions"][area_id][target.isoformat()] = serialize_prediction(row)
+                report(88, "Comparing models", f"Evaluating operational models for {area_id}.")
+                species_data["model_comparisons"] = {
+                    area_id: {
+                        row.target_date.isoformat(): comparison_for(
+                            selected_species, area_id, row.target_date
+                        )
+                        for row in week
+                    }
+                }
+                if target.isoformat() not in species_data["model_comparisons"][area_id]:
+                    species_data["model_comparisons"][area_id][target.isoformat()] = (
+                        comparison_for(selected_species, area_id, target)
+                    )
             else:
                 report(20, "Ranking areas", f"Evaluating {selected_species}.")
-                species_data["rankings"] = {
-                    target.isoformat(): [
-                        serialize_prediction(row)
-                        for row in predictor.rank_areas(target, only_observed=True)
-                    ]
+                ranking_rows = [
+                    serialize_prediction(row)
+                    for row in predictor.rank_areas(target, only_observed=True)
+                ]
+                species_data["rankings"] = {target.isoformat(): ranking_rows}
+                species_data["model_comparisons"] = {
+                    row["area_id"]: {
+                        target.isoformat(): comparison_for(
+                            selected_species, row["area_id"], target
+                        )
+                    }
+                    for row in ranking_rows
                 }
             data["species"][selected_species] = species_data
 
@@ -333,6 +413,17 @@ class PreparedPredictor:
 
     def backtest(self, *_args: object, **_kwargs: object) -> list[dict[str, Any]]:
         return [dict(row) for row in self._data.get("backtest", [])]
+
+    def observed_episodes(self, *_args: object, **_kwargs: object) -> list[dict[str, Any]]:
+        return [dict(row) for row in self._data.get("backtest", [])]
+
+    def model_comparison(self, area_id: str, target_date: date) -> dict[str, Any] | None:
+        payload = (
+            self._data.get("model_comparisons", {})
+            .get(area_id, {})
+            .get(target_date.isoformat())
+        )
+        return dict(payload) if isinstance(payload, dict) else None
 
 
 def validate_response(payload: object) -> dict[str, Any]:
