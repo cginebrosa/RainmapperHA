@@ -399,10 +399,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('timingKind === "warm"', script)
         self.assertIn('direct.closest(".pred-page") ? "warm" : "cold"', script)
         self.assertIn("This is deliberately an ETA animation", script)
+        self.assertIn("cancelRunningJob", script)
+        self.assertIn("./predictor/jobs/cancel", script)
         self.assertNotIn("state.dataset.predictorProgress", script)
 
         page = self.web_server.html_page("Predictor", "", auto_refresh=False).decode()
         self.assertIn(".predictor-launch-dialog form[hidden]", page)
+
+    def test_remote_predictor_cancel_rejects_non_predictor_job(self) -> None:
+        with mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "get_job",
+            return_value={"job_type": "worker_claim_probe"},
+        ):
+            status, response = self.web_server.cancel_remote_predictor_job(
+                "worker_job_test123"
+            )
+
+        self.assertEqual(status, 409)
+        self.assertIn("not an interactive Predictor", response["error"])
 
     def test_predictor_records_full_server_request_and_embeds_client_timing(self) -> None:
         self.addCleanup(self.reset_run_state)

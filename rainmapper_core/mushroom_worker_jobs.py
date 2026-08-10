@@ -7,6 +7,7 @@ HA can queue a job for one exact worker and that this worker can claim it.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import secrets
@@ -30,6 +31,8 @@ DEFAULT_LEASE_SECONDS = 10
 TERMINAL_STATUSES = {"complete", "cancelled", "failed"}
 ACTIVE_STATUSES = {"queued", "claimed", "running", "cancel_requested"}
 WORK_KEY_CLAIM_PROBE = "worker_claim_probe:v0"
+PREDICTOR_RESULT_MAX_BYTES = 8 * 1024 * 1024
+PREDICTOR_RESULTS_DIRNAME = ".worker-predictor-results"
 
 
 class DuplicateActiveWorkError(ValueError):
@@ -73,7 +76,64 @@ def load_queue(path: Path) -> dict[str, Any]:
     return {"schema_version": SCHEMA_VERSION, "jobs": [dict(row) for row in jobs if isinstance(row, dict)]}
 
 
+def _predictor_result_path(queue_path: Path, job_id: str) -> Path:
+    if not JOB_ID_PATTERN.fullmatch(str(job_id)):
+        raise ValueError("Worker job ID is invalid.")
+    return queue_path.parent / PREDICTOR_RESULTS_DIRNAME / f"{job_id}.json"
+
+
+def _externalize_predictor_results(
+    queue_path: Path, payload: dict[str, Any]
+) -> None:
+    jobs = payload.get("jobs")
+    if not isinstance(jobs, list):
+        return
+    for job in jobs:
+        if not isinstance(job, dict) or job.get("job_type") != JOB_TYPE_PREDICTOR:
+            continue
+        result = job.get("result")
+        if not isinstance(result, dict) or not isinstance(result.get("response"), dict):
+            continue
+        response = result.pop("response")
+        encoded = json.dumps(response, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if len(encoded) > PREDICTOR_RESULT_MAX_BYTES:
+            limit_mib = PREDICTOR_RESULT_MAX_BYTES // (1024 * 1024)
+            raise ValueError(f"Worker predictor result exceeds {limit_mib} MiB.")
+        result_path = _predictor_result_path(queue_path, str(job.get("job_id", "")))
+        _write_atomic(
+            result_path,
+            {
+                "schema_version": "1.0",
+                "kind": "rainmapper_worker_predictor_result",
+                "response": response,
+            },
+        )
+        job["predictor_result_ref"] = {
+            "size_bytes": len(encoded),
+            "sha256": "sha256:" + hashlib.sha256(encoded).hexdigest(),
+        }
+
+
+def _cleanup_predictor_result_files(queue_path: Path, payload: dict[str, Any]) -> None:
+    result_dir = queue_path.parent / PREDICTOR_RESULTS_DIRNAME
+    if not result_dir.is_dir():
+        return
+    retained = {
+        f"{job.get('job_id')}.json"
+        for job in payload.get("jobs", [])
+        if isinstance(job, dict) and isinstance(job.get("predictor_result_ref"), dict)
+    }
+    for candidate in result_dir.glob("worker_job_*.json"):
+        if candidate.name not in retained:
+            candidate.unlink(missing_ok=True)
+
+
 def _write_atomic(path: Path, payload: dict[str, Any]) -> None:
+    is_queue = payload.get("schema_version") == SCHEMA_VERSION and isinstance(
+        payload.get("jobs"), list
+    )
+    if is_queue:
+        _externalize_predictor_results(path, payload)
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     temporary_path = Path(temporary_name)
@@ -86,6 +146,31 @@ def _write_atomic(path: Path, payload: dict[str, Any]) -> None:
         os.replace(temporary_path, path)
     finally:
         temporary_path.unlink(missing_ok=True)
+    if is_queue:
+        _cleanup_predictor_result_files(path, payload)
+
+
+def _hydrate_predictor_result(path: Path, job: dict[str, Any]) -> dict[str, Any]:
+    hydrated = dict(job)
+    result = hydrated.get("result")
+    reference = hydrated.get("predictor_result_ref")
+    if not isinstance(result, dict) or not isinstance(reference, dict):
+        return hydrated
+    result_path = _predictor_result_path(path, str(hydrated.get("job_id", "")))
+    try:
+        stored = json.loads(result_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot load worker Predictor result: {exc}") from exc
+    response = stored.get("response") if isinstance(stored, dict) else None
+    if not isinstance(response, dict):
+        raise ValueError("Worker Predictor result file is invalid.")
+    encoded = json.dumps(response, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    expected_size = int(reference.get("size_bytes", -1))
+    expected_sha = str(reference.get("sha256", ""))
+    if len(encoded) != expected_size or "sha256:" + hashlib.sha256(encoded).hexdigest() != expected_sha:
+        raise ValueError("Worker Predictor result file integrity check failed.")
+    hydrated["result"] = {**result, "response": response}
+    return hydrated
 
 
 def _validate_worker_id(worker_id: str) -> str:
@@ -531,7 +616,7 @@ def begin_candidate_promotion(path: Path, *, job_id: str) -> dict[str, Any]:
 
 def get_job(path: Path, *, job_id: str) -> dict[str, Any]:
     queue = load_queue(path)
-    return dict(_find_job(queue, job_id))
+    return _hydrate_predictor_result(path, _find_job(queue, job_id))
 
 
 def validate_candidate_discard(
@@ -775,8 +860,9 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
 
         response = validate_response(result.get("response"))
         encoded_size = len(json.dumps(response, ensure_ascii=False).encode("utf-8"))
-        if encoded_size > 1024 * 1024:
-            raise ValueError("Worker predictor result exceeds 1 MiB.")
+        if encoded_size > PREDICTOR_RESULT_MAX_BYTES:
+            limit_mib = PREDICTOR_RESULT_MAX_BYTES // (1024 * 1024)
+            raise ValueError(f"Worker predictor result exceeds {limit_mib} MiB.")
         cold = result.get("cold")
         if not isinstance(cold, bool):
             raise ValueError("Worker predictor cold flag is invalid.")

@@ -86,8 +86,8 @@ con JavaScript abre un modal compacto que reúne selección y progreso:
 
 1. muestra Auto y los ejecutores compatibles con nombre legible, tiempo típico,
    muestras y estado de caché;
-2. al confirmar, el mismo modal pasa a estado de espera y bloquea su cierre para
-   no perder la referencia al trabajo interactivo;
+2. al confirmar, el mismo modal pasa a estado de espera, conserva el identificador
+   del trabajo y ofrece cancelación cooperativa explícita;
 3. para un worker, sigue el redirect del job y consulta su HTML de estado cada
    600 ms, leyendo fase, mensaje y porcentaje de atributos estables;
 4. para HA local mantiene una barra indeterminada mientras termina la petición;
@@ -98,6 +98,13 @@ El modal está fuera del fragmento del panel que se refresca cada cinco segundos
 por lo que una actualización de estado no interrumpe la operación. La ruta
 directa conserva la pantalla completa de selección/espera para navegadores sin
 JavaScript y para recuperación manual.
+
+Cancelar desde el modal solicita a HA el estado `cancel_requested`, detiene el
+polling del navegador y permite abandonar la espera. El Predictor no recupera
+callbacks granulares: al terminar la unidad de cálculo local, el worker consulta
+una vez el control antes de publicar y confirma `cancelled` en lugar de enviar un
+resultado que ya no se desea. La UI cancela de inmediato y el worker se libera
+en el siguiente punto seguro, después del cálculo indivisible en curso.
 
 ## Diagnóstico
 
@@ -178,6 +185,23 @@ no el historial autoritativo.
 - La operación remota conserva un único monitor `predictor_request` desde la
   cola hasta el HTML final. El resultado pesado se guarda en HA; la respuesta
   de confirmación al worker se reduce para no superar el límite del protocolo.
+- El resultado estructurado del Predictor admite como máximo 8 MiB y el endpoint
+  de finalización reserva 64 KiB adicionales para el envoltorio JSON del job.
+  El límite es único y autoritativo en `mushroom_worker_jobs`; tanto la recepción
+  HTTP como la persistencia lo aplican. En agosto de 2026, las respuestas reales
+  medidas ocupaban aproximadamente 793 KiB para el recomendador, 819 KiB para
+  semana/Aereus y 862 KiB para semana/Pinícola: no causaron el `409` observado,
+  pero dejaban demasiado poco margen bajo el antiguo límite de 1 MiB. Los 8 MiB
+  son un guardarraíl: antes de alcanzarlos se debe compactar la repetición de
+  comparaciones por área/día y registrar el tamaño en Diagnostics.
+- Las respuestas completas no se guardan inline en
+  `mushroom_worker_jobs.json`. Se escriben atómicamente en
+  `.worker-predictor-results/<job_id>.json`, con tamaño y SHA-256 en la cola, y
+  solo se hidrata el job solicitado al renderizar. La limpieza sigue la misma
+  retención de 50 jobs. Esto impide que el polling cada 600 ms tenga que parsear
+  decenas de MiB y que el coste de CPU de la RPi crezca con cada consulta.
+  Cualquier cola antigua con resultados inline se migra automáticamente en la
+  siguiente escritura coordinada, sin perder la respuesta todavía retenida.
 - La selección y el progreso comparten modal, pero son estados mutuamente
   excluyentes. La regla CSS específica para `form[hidden]` prevalece sobre el
   estilo global de formularios; durante una navegación interna no puede quedar
@@ -346,3 +370,23 @@ localmente y adjuntarse una sola vez al resultado final. Nunca deben volver a
 transportarse sincrónicamente como mecanismo para animar la UI.
 
 Este cambio se publica conjuntamente como worker `1.0.2` y HA `0.2.239`.
+
+## Incidencia de validación HA 0.2.244 / worker 1.0.5
+
+Tras reconstruir, entrenar y promover en HA real se observaron dos fallos
+independientes:
+
+- `Esta semana` llegaba correctamente desde M1, pero aparecía vacía porque la
+  respuesta `recommender` no declaraba `areas` y el adaptador preparado solo
+  consultaba ese campo. La corrección incluye `areas` en el contrato y mantiene
+  una derivación defensiva desde `rankings` para respuestas compatibles.
+- varias consultas de Pinícola terminaron con HTTP `409`, mientras Aereus podía
+  completar rápidamente. Los tamaños medidos quedaron por debajo del límite,
+  así que no se atribuye el fallo a 1 MiB. El worker anterior descartaba el cuerpo
+  JSON de los errores HTTP y solo registraba `HTTP Error 409: Conflict`; la
+  corrección conserva ahora el motivo exacto devuelto por HA. La causa concreta
+  queda pendiente de una nueva reproducción controlada con esa instrumentación.
+
+La misma iteración añade cancelación al modal y una última consulta cooperativa
+de control antes de publicar el resultado. Son cambios locales todavía no
+publicados; no implican modificar HA real, su configuración ni Tailscale.

@@ -2829,6 +2829,16 @@
     "es": "Cerrar",
     "ca": "Tancar"
   },
+  "ui.predictor_executor_cancel": {
+    "en": "Cancel prediction",
+    "es": "Cancelar predicción",
+    "ca": "Cancel·lar predicció"
+  },
+  "ui.predictor_executor_cancelled": {
+    "en": "Cancellation requested. The worker will stop at the next safe point.",
+    "es": "Cancelación solicitada. El worker se detendrá en el siguiente punto seguro.",
+    "ca": "Cancel·lació sol·licitada. El worker s'aturarà en el següent punt segur."
+  },
   "ui.predictor_executor_running": {
     "en": "Preparing Predictor",
     "es": "Preparando el Predictor",

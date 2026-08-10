@@ -8,12 +8,14 @@ necesario para continuar; el histórico vive en `docs/decisions.md`,
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release preparado: HA `0.2.244` y worker `1.0.5`.
-- HA `0.2.244` está publicada y pendiente de instalar en la RPi4 real.
-- Tags `0.2.244` y `latest`: digest multi-arquitectura
-  `sha256:491bbbfab09d8d135ae18cd1d62edeb920ad846b6a821edefa640aefec6c87c5`,
+- Release actual: HA `0.2.245` publicada y worker M1 `1.0.6` actualizado.
+- HA `0.2.244` está instalada en la RPi4 real. El usuario reconstruyó todos los
+  artefactos, entrenó los modelos y promovió el candidato con M1 `1.0.5`.
+- HA `0.2.245` está pendiente de instalar por el usuario. Sus tags `0.2.245` y
+  `latest` comparten el digest multi-arquitectura
+  `sha256:3a2a1550102e08b9b7288b0563e9b2d882c98ecc1eb3941378d76b93ec3dc0ba`,
   con manifests `linux/amd64` y `linux/arm64` verificados.
-- Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.5`, conectado
+- Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.6`, conectado
   al coordinador real, healthy/idle y con cachés persistentes GIS/DEM y
   Predictor válidas. Su identidad es `worker_1a9a232c20fe2ee2` / `M1 Personal`.
 - El paquete privado arm64 del M5 está preparado en
@@ -101,6 +103,30 @@ navegación caliente.
 
 ## Próximo paso inmediato
 
+HA `0.2.245` y worker `1.0.6` publican los tres ajustes encontrados durante la
+validación real:
+
+- el recomendador remoto se mostraba vacío porque `recommender` no incluía
+  `areas`; ahora las transporta y el adaptador también las deriva de `rankings`;
+- el modal no permitía cancelar una predicción en curso; ahora solicita
+  cancelación cooperativa, detiene su polling y el worker consulta control una
+  vez antes de publicar;
+- tres consultas Pinícola acabaron en `409`. No fue el límite de tamaño: las
+  respuestas medidas fueron 793/819/862 KiB. El worker ahora conserva el cuerpo
+  exacto del error para identificar la causa en la siguiente reproducción. Aun
+  así, el contrato se amplía de 1 a 8 MiB, más 64 KiB de envoltorio HTTP, y queda
+  documentada la obligación de compactar antes de aproximarse al guardarraíl.
+  Los resultados pesados se externalizan además de la cola caliente a ficheros
+  por job verificados por tamaño/SHA-256. Así, el polling deja de releer hasta
+  50 respuestas de ~0,8 MiB; esta acumulación es una explicación plausible del
+  aumento de CPU observado en la RPi, aunque no explica por sí sola el `409`.
+
+El smoke de release pasa completo con 579 tests. M1 `1.0.6` está healthy/idle y
+conserva identidad, coordinador y cachés. Falta que el usuario instale HA
+`0.2.245` y repita en este orden: resumen inicial, cancelación y Pinícola. Si el
+`409` reaparece, el nuevo detalle del worker permitirá identificar su contrato
+exacto sin conjeturas.
+
 La posible incorporación de un LLM pequeño en M1/M5 queda acotada en
 `docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`. Sería una
 capacidad opcional de narración local que recibiría el dictamen estructurado ya
@@ -108,10 +134,9 @@ cerrado, sin autoridad para cambiarlo ni inventar datos, con validación estrict
 y fallback al texto determinista. No se descarga ni se incluye ningún modelo en
 la release actual.
 
-1. Instalar HA `0.2.244`, reconstruir todos los artefactos elegibles, promover
-   el candidato y reentrenar los modelos
-   con el worker M1 `1.0.5`. Después validar desde HA real la entrada y todas
-   las vistas del Predictor, conservando M1 durante la sesión. La sustitución
+1. Validar localmente y después en HA real las correcciones de transporte del
+   Predictor, conservando M1 durante la sesión. La reconstrucción, promoción y
+   entrenamiento con HA `0.2.244`/M1 `1.0.5` ya están completados. La sustitución
    de la recomendación v0 por la pareja
    `fixed_gap_7d_v1` + `lag_event_v1`. El motor determinista ya selecciona por
    especie el estimador con mejor Brier que la prevalencia. La interpretación
@@ -282,9 +307,9 @@ queda deliberadamente sin decidir. No abrir ese trabajo durante la validación d
 - La ETA del modal es deliberadamente aproximada; no debe interpretarse como
   porcentaje del backend.
 - Al eliminar callbacks, la cancelación interactiva no se consulta dentro de
-  cada fila del cálculo. El job sigue teniendo transiciones duraderas y los
-  cálculos deberían durar segundos; revisar cancelación si alguna carga vuelve
-  a ser larga.
+  cada fila. La UI ya puede solicitarla y abandonar la espera, pero el worker la
+  confirma al terminar la unidad indivisible mediante una única consulta de
+  control; no es una interrupción inmediata del cálculo Python.
 - El worker M5 todavía no ha instalado `1.0.4`; el paquete privado ya está
   preparado en el Escritorio.
 - La futura exposición pública no puede reutilizar la política privada actual

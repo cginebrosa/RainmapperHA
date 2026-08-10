@@ -238,6 +238,7 @@ class PredictorService:
                 )
                 data["species"][species_id] = {
                     "season_phase": season_phase,
+                    "areas": [str(row["area_id"]) for row in rankings],
                     "rankings": {target.isoformat(): rankings},
                     "model_comparisons": {
                         row["area_id"]: {
@@ -379,7 +380,20 @@ class PreparedPredictor:
         self._data = dict(response.get("data", {}).get("species", {}).get(species_id, {}))
 
     def areas_with_species_observations(self) -> list[str]:
-        return [str(value) for value in self._data.get("areas", [])]
+        explicit = [str(value) for value in self._data.get("areas", [])]
+        if explicit:
+            return explicit
+        derived: list[str] = []
+        for rows in self._data.get("rankings", {}).values():
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                area_id = str(row.get("area_id", ""))
+                if area_id and area_id not in derived:
+                    derived.append(area_id)
+        return derived
 
     def season_phase(self, _target_date: date) -> str:
         return str(self._data.get("season_phase", "unknown"))

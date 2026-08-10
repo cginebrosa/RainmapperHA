@@ -342,8 +342,23 @@ def update_job(
         headers=headers,
         method="POST",
     )
-    with urlopen(request, timeout=timeout) as response:
-        raw = response.read(65537)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            raw = response.read(65537)
+    except HTTPError as exc:
+        raw_error = exc.read(65537)
+        detail = ""
+        if len(raw_error) <= 65536:
+            try:
+                error_payload = json.loads(raw_error.decode("utf-8"))
+                if isinstance(error_payload, dict):
+                    detail = str(error_payload.get("error", "") or "")
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                detail = raw_error.decode("utf-8", errors="replace").strip()
+        suffix = f": {detail[:1000]}" if detail else ""
+        raise ValueError(
+            f"HA rejected the worker job {action} request with HTTP {exc.code}{suffix}"
+        ) from exc
     if len(raw) > 65536:
         raise ValueError("Worker job response is too large.")
     result = json.loads(raw.decode("utf-8"))
@@ -557,6 +572,36 @@ def serve(
                     response = execute_interactive_prediction(
                         predictor_service, job.get("predictor_request")
                     )
+                    control = job_update(
+                        "control",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                        },
+                    )
+                    if control.get("cancel_requested"):
+                        job_update(
+                            "finish",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                                "status": "cancelled",
+                            },
+                        )
+                        print(
+                            json.dumps(
+                                {
+                                    "status": "job_cancelled",
+                                    "service": "rainmapper-worker",
+                                    "job_id": job_id,
+                                },
+                                ensure_ascii=False,
+                            ),
+                            flush=True,
+                        )
+                        return
                     job_update(
                         "finish",
                         {

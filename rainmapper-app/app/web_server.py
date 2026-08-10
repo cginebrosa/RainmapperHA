@@ -104,7 +104,10 @@ MUSHROOM_MEDIA_FILE_MAX_BYTES = 100 * 1024 * 1024
 MUSHROOM_MEDIA_BATCH_MAX_BYTES = 500 * 1024 * 1024
 MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES = 2 * 1024 * 1024
 MUSHROOM_WORKER_JSON_MAX_BYTES = 64 * 1024
-MUSHROOM_PREDICTOR_RESULT_MAX_BYTES = 1024 * 1024 + 64 * 1024
+MUSHROOM_PREDICTOR_RESULT_MAX_BYTES = (
+    mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES + 64 * 1024
+)
+MUSHROOM_PREDICTOR_CANCEL_MAX_BYTES = 16 * 1024
 PREDICTOR_CLIENT_TIMING_MAX_BYTES = 16 * 1024
 MUSHROOM_WORKER_PROTOCOL_GET_PATHS = {
     "/api/mushrooms/workers/ping",
@@ -11982,6 +11985,7 @@ def render_predictor_launch_modal(
          data-working-label="{html.escape(label('ui.predictor_executor_working'), quote=True)}"
          data-expected-label="{html.escape(label('ui.predictor_executor_expected'), quote=True)}"
          data-opening-label="{html.escape(label('ui.predictor_executor_opening'), quote=True)}"
+         data-cancelled-label="{html.escape(label('ui.predictor_executor_cancelled'), quote=True)}"
          data-error-label="{html.escape(label('ui.predictor_executor_error'), quote=True)}">
       <button class="predictor-launch-backdrop" type="button" data-predictor-modal-close tabindex="-1" aria-label="{html.escape(label('ui.predictor_executor_close'), quote=True)}"></button>
       <section class="predictor-launch-dialog" role="dialog" aria-modal="true" aria-labelledby="predictor-launch-title">
@@ -12004,6 +12008,9 @@ def render_predictor_launch_modal(
           <h3 data-predictor-phase>{html.escape(label('ui.predictor_executor_running'))}</h3>
           <progress max="100"></progress>
           <p data-predictor-message>{html.escape(label('ui.predictor_executor_waiting'))}</p>
+          <div class="modal-actions">
+            <button type="button" class="secondary" data-predictor-job-cancel disabled>{html.escape(label('ui.predictor_executor_cancel'))}</button>
+          </div>
         </div>
         <div class="catalog-alert error" data-predictor-modal-error hidden></div>
       </section>
@@ -12024,10 +12031,14 @@ def predictor_launch_script() -> str:
       const message = modal.querySelector("[data-predictor-message]");
       const executorName = modal.querySelector("[data-predictor-executor-name]");
       const errorBox = modal.querySelector("[data-predictor-modal-error]");
+      const cancelButton = modal.querySelector("[data-predictor-job-cancel]");
       const closeButtons = [...modal.querySelectorAll("[data-predictor-modal-close]")];
       let predictorUrl = "./mushrooms/predictor";
       let running = false;
       let expectationTimer = null;
+      let currentJobId = "";
+      let cancelled = false;
+      let fetchController = null;
 
       const setCloseEnabled = enabled => closeButtons.forEach(button => { button.disabled = !enabled; });
       const stopExpectation = () => {
@@ -12068,12 +12079,18 @@ def predictor_launch_script() -> str:
         running = false;
         form.hidden = false;
         progressStep.hidden = true;
+        errorBox.classList.add("error");
         errorBox.hidden = true;
         errorBox.textContent = "";
         progress.removeAttribute("value");
         phase.textContent = modal.dataset.waitingLabel;
         message.textContent = modal.dataset.waitingLabel;
         executorName.textContent = "";
+        currentJobId = "";
+        cancelled = false;
+        fetchController?.abort();
+        fetchController = null;
+        cancelButton.disabled = true;
         setCloseEnabled(true);
       };
       const refreshOptions = async url => {
@@ -12112,11 +12129,17 @@ def predictor_launch_script() -> str:
         doc.querySelector(".catalog-alert.error, .catalog-alert.warning")?.textContent.trim() || modal.dataset.errorLabel;
       const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
       const fetchPredictor = async url => {
+        if (cancelled) return;
+        fetchController = new AbortController();
         const response = await fetch(url, {
           headers: { Accept: "text/html" },
           cache: "no-store",
-          credentials: "same-origin"
+          credentials: "same-origin",
+          signal: fetchController.signal
         });
+        const responseUrl = new URL(response.url, window.location.href);
+        currentJobId = responseUrl.searchParams.get("job_id") || currentJobId;
+        cancelButton.disabled = !currentJobId;
         const markup = await response.text();
         const parsed = new DOMParser().parseFromString(markup, "text/html");
         if (!response.ok) throw new Error(errorText(parsed));
@@ -12124,6 +12147,7 @@ def predictor_launch_script() -> str:
         if (state) {
           executorName.textContent = state.dataset.predictorExecutor || executorName.textContent;
           await wait(600);
+          if (cancelled) return;
           return fetchPredictor(response.url);
         }
         stopExpectation();
@@ -12131,6 +12155,36 @@ def predictor_launch_script() -> str:
         phase.textContent = modal.dataset.openingLabel;
         message.textContent = modal.dataset.openingLabel;
         replaceDocument(markup, response.url);
+      };
+
+      const cancelRunningJob = async () => {
+        if (!running || !currentJobId || cancelled) return;
+        cancelButton.disabled = true;
+        try {
+          const response = await fetch("./predictor/jobs/cancel", {
+            method: "POST",
+            headers: { Accept: "application/json", "Content-Type": "application/json" },
+            cache: "no-store",
+            credentials: "same-origin",
+            body: JSON.stringify({ job_id: currentJobId })
+          });
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) throw new Error(payload.error || modal.dataset.errorLabel);
+          cancelled = true;
+          fetchController?.abort();
+          stopExpectation();
+          running = false;
+          setCloseEnabled(true);
+          progressStep.hidden = true;
+          errorBox.textContent = modal.dataset.cancelledLabel;
+          errorBox.classList.remove("error");
+          errorBox.hidden = false;
+          form.hidden = true;
+        } catch (error) {
+          cancelButton.disabled = false;
+          errorBox.textContent = error?.message || modal.dataset.errorLabel;
+          errorBox.hidden = false;
+        }
       };
 
       const selectedExecutorName = executor => {
@@ -12152,6 +12206,7 @@ def predictor_launch_script() -> str:
         try {
           await fetchPredictor(target);
         } catch (error) {
+          if (cancelled && error?.name === "AbortError") return;
           stopExpectation();
           running = false;
           setCloseEnabled(true);
@@ -12165,6 +12220,10 @@ def predictor_launch_script() -> str:
       };
 
       document.addEventListener("click", event => {
+        if (event.target.closest("[data-predictor-job-cancel]")) {
+          cancelRunningJob();
+          return;
+        }
         const trigger = event.target.closest("[data-predictor-modal-open]");
         if (trigger) {
           event.preventDefault();
@@ -12209,6 +12268,7 @@ def predictor_launch_script() -> str:
         try {
           await fetchPredictor(url);
         } catch (error) {
+          if (cancelled && error?.name === "AbortError") return;
           stopExpectation();
           running = false;
           setCloseEnabled(true);
@@ -13394,6 +13454,27 @@ def cancel_mushroom_worker_job(job_id: str, *, force: bool = False) -> tuple[int
     except ValueError as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {"ok": True, "job": job}
+
+
+def cancel_remote_predictor_job(job_id: str) -> tuple[int, dict[str, object]]:
+    """Request cooperative cancellation for one interactive Predictor job."""
+    try:
+        with RUN_LOCK:
+            current = mushroom_worker_jobs.get_job(
+                mushroom_worker_jobs_path(), job_id=job_id
+            )
+            if current.get("job_type") != mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
+                raise ValueError("Worker job is not an interactive Predictor request.")
+            job = mushroom_worker_jobs.request_cancel(
+                mushroom_worker_jobs_path(), job_id=job_id
+            )
+    except ValueError as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {
+        "ok": True,
+        "job_id": str(job.get("job_id", "")),
+        "status": str(job.get("status", "")),
+    }
 
 
 def discard_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, object]]:
@@ -16972,6 +17053,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return mushroom_worker_results.MAX_ML_TRAIN_MODEL_BYTES
         if path == "/api/mushrooms/workers/jobs/finish":
             return MUSHROOM_PREDICTOR_RESULT_MAX_BYTES
+        if path == "/mushrooms/predictor/jobs/cancel":
+            return MUSHROOM_PREDICTOR_CANCEL_MAX_BYTES
         if path.startswith("/api/mushrooms/workers/"):
             return MUSHROOM_WORKER_JSON_MAX_BYTES
         if path == "/api/mushrooms/observation-exif-preview":
@@ -18687,6 +18770,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             status, response = finish_mushroom_worker_job(
                 self.read_json_payload(),
                 auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/mushrooms/predictor/jobs/cancel":
+            payload = self.read_json_payload()
+            status, response = cancel_remote_predictor_job(
+                str(payload.get("job_id", ""))
             )
             self.send_json(status, response)
             return

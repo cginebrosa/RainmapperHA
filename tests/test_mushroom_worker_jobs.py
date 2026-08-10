@@ -1,11 +1,104 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from rainmapper_core import mushroom_worker_jobs
 
 
 class MushroomWorkerJobsTests(unittest.TestCase):
+    def predictor_request(self) -> dict[str, object]:
+        return {
+            "schema_version": "1.0",
+            "kind": "rainmapper_mushroom_predictor_request",
+            "view": "week",
+            "species_id": "boletus",
+            "area_id": "",
+            "target_date": "2026-08-10",
+            "trained_species_ids": ["boletus"],
+        }
+
+    def predictor_response(self, *, padding: int = 0) -> dict[str, object]:
+        return {
+            "schema_version": "1.0",
+            "kind": "rainmapper_mushroom_predictor_response",
+            "request": self.predictor_request(),
+            "data": {"padding": "x" * padding},
+            "metrics": {},
+        }
+
+    def test_predictor_result_is_externalized_from_hot_queue_and_hydrated(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            mushroom_worker_jobs.create_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                request=self.predictor_request(),
+                runtime_manifest={
+                    "schema_version": "1.0",
+                    "kind": "rainmapper_mushroom_predictor_runtime",
+                    "fingerprint": "sha256:" + "a" * 64,
+                    "files": [
+                        {
+                            "path": "models/model.joblib",
+                            "sha256": "sha256:" + "b" * 64,
+                            "size_bytes": 0,
+                        }
+                    ],
+                },
+                job_id="worker_job_predictresult",
+            )
+            mushroom_worker_jobs.claim_next(
+                path, worker_id="worker_aaaaaaaa", claim_token="claim-secret"
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id="worker_job_predictresult",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            mushroom_worker_jobs.finish_job(
+                path,
+                job_id="worker_job_predictresult",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+                status="complete",
+                result={"response": self.predictor_response(padding=2 * 1024 * 1024), "cold": False},
+            )
+
+            queue_bytes = path.stat().st_size
+            stored = json.loads(path.read_text(encoding="utf-8"))["jobs"][0]
+            hydrated = mushroom_worker_jobs.get_job(
+                path, job_id="worker_job_predictresult"
+            )
+
+        self.assertLess(queue_bytes, 100_000)
+        self.assertNotIn("response", stored["result"])
+        self.assertIn("predictor_result_ref", stored)
+        self.assertEqual(len(hydrated["result"]["response"]["data"]["padding"]), 2 * 1024 * 1024)
+
+    def test_predictor_result_limit_allows_growth_beyond_one_mib(self) -> None:
+        response = self.predictor_response(padding=2 * 1024 * 1024)
+
+        normalized = mushroom_worker_jobs._normalized_result(
+            {"job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR},
+            {"response": response, "cold": False},
+        )
+
+        self.assertGreater(len(json.dumps(normalized).encode()), 1024 * 1024)
+
+    def test_predictor_result_limit_rejects_more_than_eight_mib(self) -> None:
+        response = self.predictor_response(
+            padding=mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES + 1
+        )
+
+        with self.assertRaisesRegex(ValueError, "exceeds 8 MiB"):
+            mushroom_worker_jobs._normalized_result(
+                {"job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR},
+                {"response": response, "cold": False},
+            )
+
     def test_predictor_claim_uses_interactive_prediction_message(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"

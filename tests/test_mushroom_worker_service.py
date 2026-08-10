@@ -1,4 +1,5 @@
 import json
+import io
 import tempfile
 import threading
 import unittest
@@ -95,6 +96,24 @@ class MushroomWorkerServiceTests(unittest.TestCase):
 
         self.assertEqual(result, "recovered")
         self.assertEqual(attempts, 3)
+
+    def test_job_update_exposes_coordinator_http_error_detail(self) -> None:
+        rejected = mushroom_worker_service.HTTPError(
+            "http://rainmapper/api/mushrooms/workers/jobs/finish",
+            409,
+            "Conflict",
+            {},
+            io.BytesIO(b'{"ok":false,"error":"exact contract failure"}'),
+        )
+        with mock.patch.object(
+            mushroom_worker_service, "urlopen", side_effect=rejected
+        ):
+            with self.assertRaisesRegex(
+                ValueError, "HTTP 409: exact contract failure"
+            ):
+                mushroom_worker_service.update_job(
+                    "http://rainmapper", "finish", {"job_id": "worker_job_test"}
+                )
 
     def test_transient_transport_retry_stops_at_deadline(self) -> None:
         with self.assertRaises(ConnectionResetError):

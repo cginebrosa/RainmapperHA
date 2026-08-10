@@ -200,3 +200,32 @@ class PredictorServiceTests(TestCase):
         self.assertEqual(species_data["season_phase"], "out_of_season")
         self.assertEqual(species_data["rankings"]["2026-08-10"], [])
         predictor.rank_areas.assert_not_called()
+
+    def test_recommender_prepared_adapter_exposes_ranked_areas(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.season_phase.return_value = "in_season"
+            predictor.rank_areas.return_value = [
+                prediction("boletus", "area_one", date(2026, 8, 10))
+            ]
+            service.predictor = Mock(return_value=predictor)
+            comparator = Mock()
+            comparator.compare.return_value = {"interpretation": {"verdict": "favorable"}}
+            service.comparator = Mock(return_value=comparator)
+
+            response = service.execute(
+                self.request(view="recommender", area_id="", target_date="2026-08-10")
+            )
+            prepared = PreparedPredictor("boletus", response)
+
+        self.assertEqual(
+            response["data"]["species"]["boletus"]["areas"], ["area_one"]
+        )
+        self.assertEqual(prepared.areas_with_species_observations(), ["area_one"])

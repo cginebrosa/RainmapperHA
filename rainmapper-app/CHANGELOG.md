@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.2.245
+
+- Populate remote recommender areas explicitly and derive them defensively from
+  rankings so the initial weekly Predictor summary cannot render empty.
+- Add cooperative cancellation to the remote Predictor modal and preserve
+  terminal cancellation before the worker publishes a completed response.
+- Raise the interactive Predictor response guardrail to 8 MiB and retain the
+  exact Home Assistant rejection detail for worker-side diagnostics.
+- Externalize completed Predictor responses from the hot job queue into
+  size- and SHA-256-verified sidecars, preventing polling from repeatedly
+  parsing tens of megabytes of retained responses.
+
 ## 0.2.244
 
 - Rename the Predictor's ecological and operational reliability indicators so
