@@ -70,6 +70,34 @@ def _lbl(key: str) -> str:
     return mushroom_profiles_ui.ui_label(key)
 
 
+def _tooltip_label(
+    label: str,
+    help_key: str,
+    *,
+    strong: bool = True,
+) -> str:
+    """Render a compact, accessible label with localized browser help."""
+    help_text = _lbl(help_key)
+    escaped_label = html.escape(label)
+    escaped_help = html.escape(help_text, quote=True)
+    escaped_aria = html.escape(f"{label}. {help_text}", quote=True)
+    label_html = f"<strong>{escaped_label}</strong>" if strong else escaped_label
+    return (
+        f'<span class="pred-tooltip" tabindex="0" title="{escaped_help}" '
+        f'aria-label="{escaped_aria}">{label_html}'
+        f'<span class="pred-tooltip-icon" aria-hidden="true">ⓘ</span></span>'
+    )
+
+
+def _tooltip_label_key(
+    label_key: str,
+    help_key: str,
+    *,
+    strong: bool = True,
+) -> str:
+    return _tooltip_label(_lbl(label_key), help_key, strong=strong)
+
+
 def _predictor_error_text(exc: Exception) -> str:
     if isinstance(exc, WeatherParquetLayoutError):
         return _lbl("ui.predictor_weather_refresh_required")
@@ -448,14 +476,14 @@ def _render_interpretation_card(
     if interpretation.get("reference_range"):
         range_html = (
             f'<div class="pred-interpretation-range">'
-            f'<span>{html.escape(_lbl("ui.predictor_reference_range"))}</span>'
+            f'<span>{_tooltip_label_key("ui.predictor_reference_range", "ui.predictor_help_reference_range", strong=False)}</span>'
             f'<strong>{html.escape(_reference_range(interpretation))}</strong>'
             f'</div>'
         )
     consensus_html = ""
     if consensus != "unavailable":
         consensus_html = (
-            f'<span><strong>{html.escape(_lbl("ui.predictor_consensus"))}:</strong> '
+            f'<span>{_tooltip_label_key("ui.predictor_consensus", "ui.predictor_help_consensus")}: '
             f'{html.escape(_lbl(f"ui.predictor_consensus_{consensus}"))}</span>'
         )
     experimental_html = ""
@@ -477,8 +505,8 @@ def _render_interpretation_card(
         if interpretation.get("experimental_out_of_domain_caution"):
             experimental_parts.append(_lbl("ui.predictor_experimental_ood_short"))
         experimental_html = (
-            f'<span class="pred-experimental-signal"><strong>'
-            f'{html.escape(_lbl("ui.predictor_experimental_signal"))}:</strong> '
+            f'<span class="pred-experimental-signal">'
+            f'{_tooltip_label_key("ui.predictor_experimental_signal", "ui.predictor_help_experimental_signal")}: '
             f'{html.escape(" · ".join(experimental_parts))}</span>'
         )
     return f"""
@@ -492,9 +520,9 @@ def _render_interpretation_card(
   <div class="pred-interpretation-title">{html.escape(_interpretation_label(interpretation))}</div>
   {range_html}
   <div class="pred-interpretation-meta">
-    <span><strong>{html.escape(_lbl("ui.predictor_ecological_compatibility"))}:</strong> {html.escape(_lbl(f"ui.predictor_ecological_compatibility_{ecological_compatibility}"))}</span>
-    <span><strong>{html.escape(_lbl("ui.predictor_ecological_evidence"))}:</strong> {html.escape(_lbl(f"ui.predictor_ecological_evidence_{ecological_evidence}"))}</span>
-    <span><strong>{html.escape(_lbl("ui.predictor_statistical_support"))}:</strong> {html.escape(_lbl(f"ui.predictor_statistical_support_{statistical_support}"))}</span>
+    <span>{_tooltip_label_key("ui.predictor_ecological_compatibility", "ui.predictor_help_ecological_compatibility")}: {html.escape(_lbl(f"ui.predictor_ecological_compatibility_{ecological_compatibility}"))}</span>
+    <span>{_tooltip_label_key("ui.predictor_ecological_evidence", "ui.predictor_help_ecological_reliability")}: {html.escape(_lbl(f"ui.predictor_ecological_evidence_{ecological_evidence}"))}</span>
+    <span>{_tooltip_label_key("ui.predictor_statistical_support", "ui.predictor_help_statistical_support")}: {html.escape(_lbl(f"ui.predictor_statistical_support_{statistical_support}"))}</span>
     {consensus_html}
     {experimental_html}
   </div>
@@ -1150,8 +1178,33 @@ def _render_model_diagnostics(result: dict[str, Any]) -> str:
 
     if not facts:
         return ""
+    help_by_label = {
+        _lbl("ui.predictor_probability_source"): "ui.predictor_help_probability_source",
+        _lbl("ui.predictor_observed_result"): "ui.predictor_help_observed_result",
+        _lbl("ui.predictor_validation_brier"): "ui.predictor_help_brier",
+        _lbl("ui.predictor_validation_auc"): "ui.predictor_help_roc_auc",
+        _lbl("ui.predictor_temporal_validation"): "ui.predictor_help_temporal_validation",
+        _lbl("ui.station"): "ui.predictor_help_station",
+        _lbl("ui.predictor_station_distance"): "ui.predictor_help_station_distance",
+        _lbl("ui.predictor_horizon"): "ui.predictor_help_horizon",
+        _lbl("ui.predictor_station_quality"): "ui.predictor_help_station_quality",
+        _lbl("ui.predictor_coverage"): "ui.predictor_help_coverage",
+        _lbl("ui.predictor_station_jump"): "ui.predictor_help_station_jump",
+        _lbl("ui.predictor_rain_bands"): "ui.predictor_help_rain_bands",
+        _lbl("ui.predictor_days_since_rain"): "ui.predictor_help_days_since_rain",
+        _lbl("ui.predictor_days_since_significant_rain"): "ui.predictor_help_days_since_significant_rain",
+        _lbl("ui.predictor_rain_coverage_21"): "ui.predictor_help_rain_coverage",
+        _lbl("ui.predictor_rain_coverage_90"): "ui.predictor_help_rain_coverage",
+        _lbl("ui.predictor_post_rain_coverage"): "ui.predictor_help_post_rain_coverage",
+        _lbl("ui.weather_gaps"): "ui.predictor_help_weather_gaps",
+        _lbl("ui.predictor_out_of_domain_features"): "ui.predictor_help_out_of_domain",
+        **{
+            short_name: _ESTIMATOR_HELP_KEYS[estimator_id]
+            for estimator_id, short_name, _is_shadow in _COMPARISON_ESTIMATORS
+        },
+    }
     items = "".join(
-        f'<span><strong>{html.escape(label)}:</strong> {html.escape(value)}</span>'
+        f'<span>{_tooltip_label(label, help_by_label[label])}: {html.escape(value)}</span>'
         for label, value in facts
     )
     return f'<div class="pred-comparison-diagnostics">{items}</div>'
@@ -1213,14 +1266,12 @@ def _render_model_comparison(species: str, area: str, target_date: date) -> str:
         column_count = 3 + len(_COMPARISON_ESTIMATORS)
         rows += f"""
 <tr>
-  <td><strong>{html.escape(labels[model_id])}</strong><small>{details}</small></td>
+  <td>{_tooltip_label(labels[model_id], f"ui.predictor_help_model_{model_id}")}<small>{details}</small></td>
   <td>{cutoff}</td>{estimator_cells}<td>{outcome}</td>
 </tr>
 <tr class="pred-comparison-diagnostics-row"><td colspan="{column_count}">{diagnostics}</td></tr>"""
     estimator_headers = "".join(
-        f'<th title="{html.escape(_lbl(_ESTIMATOR_HELP_KEYS[estimator_id]), quote=True)}" '
-        f'aria-label="{html.escape(_lbl(_ESTIMATOR_HELP_KEYS[estimator_id]), quote=True)}">'
-        f'{html.escape(short_name)}</th>'
+        f'<th>{_tooltip_label(short_name, _ESTIMATOR_HELP_KEYS[estimator_id], strong=False)}</th>'
         for estimator_id, short_name, _is_shadow in _COMPARISON_ESTIMATORS
     )
     return f"""
@@ -1229,10 +1280,10 @@ def _render_model_comparison(species: str, area: str, target_date: date) -> str:
   <p>{html.escape(_lbl("ui.predictor_model_comparison_help"))} * {html.escape(_lbl("ui.predictor_shadow_model_help"))}</p>
   <div class="pred-table-wrap"><table class="pred-comparison-table">
     <thead><tr>
-      <th>{html.escape(_lbl("ui.predictor_model"))}</th>
-      <th>{html.escape(_lbl("ui.predictor_weather_cutoff"))}</th>
+      <th>{_tooltip_label_key("ui.predictor_model", "ui.predictor_help_model", strong=False)}</th>
+      <th>{_tooltip_label_key("ui.predictor_weather_cutoff", "ui.predictor_help_weather_cutoff", strong=False)}</th>
       {estimator_headers}
-      <th>{html.escape(_lbl("ui.predictor_unweighted_mean"))}</th>
+      <th>{_tooltip_label_key("ui.predictor_unweighted_mean", "ui.predictor_help_unweighted_mean", strong=False)}</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
@@ -1679,7 +1730,7 @@ def _render_page_inner(
 # ---------------------------------------------------------------------------
 
 _CSS = """
-.pred-page { max-width: 1100px; margin: 0 auto; padding: 0 1.25rem 3rem; }
+.pred-page { max-width: 1280px; margin: 0 auto; padding: 0 1.25rem 3rem; }
 .pred-page h1 { margin-bottom: 0.65rem; font-size: 2rem; }
 .pred-back { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
 .pred-back a { color: #9aa8b2; font-size: 0.98rem; text-decoration: none; }
@@ -1895,6 +1946,16 @@ _CSS = """
 .pred-interpretation-range strong { font-size: 1.65rem; color: #e8eef2; }
 .pred-interpretation-meta { display: flex; flex-wrap: wrap; gap: 0.55rem 1.25rem; margin-top: 0.65rem; color: #aebbc4; }
 .pred-interpretation-meta strong { color: #dfe8ed; }
+.pred-tooltip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.22rem;
+  cursor: help;
+  text-decoration: underline dotted rgba(174, 187, 196, 0.55);
+  text-underline-offset: 0.2rem;
+}
+.pred-tooltip:focus { outline: 1px solid #5f7888; outline-offset: 2px; border-radius: 2px; }
+.pred-tooltip-icon { color: #7f919c; font-size: 0.72em; text-decoration: none; }
 .pred-interpretation-card p { margin: 0.75rem 0 0; color: #c2ccd2; line-height: 1.45; }
 .pred-model-comparison { margin: 1.25rem 0; padding: 1rem; border: 1px solid #344650; border-radius: 10px; background: #172129; }
 .pred-model-comparison h3 { margin: 0 0 0.35rem; color: #e8eef2; }

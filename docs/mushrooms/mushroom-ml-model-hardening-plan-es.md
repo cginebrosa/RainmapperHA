@@ -453,6 +453,24 @@ zona, fecha ni estimador.
 - Mostrar score experimental, rango o estado de confianza cuando sea más honesto.
 - Conservar explicación por modelo, features utilizadas, imputaciones y gaps.
 
+La presentación debe ser autoexplicativa sin convertir la vista principal en
+un manual permanente. La cabecera separa explícitamente «Compatibilidad
+ecológica», «Fiabilidad de la compatibilidad ecológica», «Fiabilidad
+estadística del modelo operativo», consenso y señal experimental. Cada término
+y cada campo de auditoría incorpora ayuda localizada al pasar el cursor o
+recibir foco de teclado. Las ayudas cubren también Brier y su base de
+prevalencia, ROC-AUC, origen de scores, corte meteorológico, horizonte,
+coberturas, salto de estación, variables fuera de dominio, estimadores y media
+sin ponderar.
+
+Los nombres de contrato tampoco se presuponen conocidos: `fixed_gap_7d_v1` se
+explica como una predicción que solo ve datos hasta siete días antes de la fecha
+objetivo; `lag_event_v1` usa el último corte completo disponible al emitir la
+consulta y representa explícitamente el retardo hasta la fecha objetivo. El
+ancho útil de escritorio puede crecer para mantener legible esta cabecera, pero
+la disposición conserva el salto de línea y el desplazamiento de tablas en
+pantallas pequeñas.
+
 ## Criterio de salida de la fase
 
 La fase se considerará completada cuando exista una comparación reproducible

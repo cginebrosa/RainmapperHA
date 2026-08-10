@@ -4049,6 +4049,31 @@
     "es": "Media sin ponderar",
     "ca": "Mitjana sense ponderar"
   },
+  "ui.predictor_help_model": {
+    "en": "Weather-feature contract used to train and query the estimators.",
+    "es": "Contrato de variables meteorológicas con el que se entrenan y consultan los estimadores.",
+    "ca": "Contracte de variables meteorològiques amb què s'entrenen i es consulten els estimadors."
+  },
+  "ui.predictor_help_model_fixed_gap_7d_v1": {
+    "en": "Predicts the target date using only weather observed up to exactly seven days earlier. The same blind gap is used in training and prediction.",
+    "es": "Predice la fecha objetivo usando solo meteorología observada hasta exactamente siete días antes. El mismo hueco ciego se usa al entrenar y al predecir.",
+    "ca": "Prediu la data objectiu usant només meteorologia observada fins exactament set dies abans. El mateix buit cec s'usa en entrenar i predir."
+  },
+  "ui.predictor_help_model_lag_event_v1": {
+    "en": "Uses the latest complete weather cutoff available at issue time and explicitly includes the lag between the rain event, the cutoff and the target date.",
+    "es": "Usa el último corte meteorológico completo disponible al emitir la consulta e incluye explícitamente el retardo entre la lluvia, el corte y la fecha objetivo.",
+    "ca": "Usa l'últim tall meteorològic complet disponible en emetre la consulta i inclou explícitament el retard entre la pluja, el tall i la data objectiu."
+  },
+  "ui.predictor_help_weather_cutoff": {
+    "en": "Last weather day visible to this contract. No later observation is used to calculate its score.",
+    "es": "Último día meteorológico visible para este contrato. No utiliza ninguna observación posterior para calcular su score.",
+    "ca": "Últim dia meteorològic visible per a aquest contracte. No usa cap observació posterior per calcular el seu score."
+  },
+  "ui.predictor_help_unweighted_mean": {
+    "en": "Simple average of every score shown in the row, without considering validation quality. It is displayed for audit and does not determine the verdict.",
+    "es": "Media simple de todos los scores mostrados en la fila, sin considerar su calidad de validación. Se muestra para auditoría y no determina el dictamen.",
+    "ca": "Mitjana simple de tots els scores mostrats a la fila, sense considerar-ne la qualitat de validació. Es mostra per a auditoria i no determina el dictamen."
+  },
   "ui.predictor_interpretation_abstain": {
     "en": "No reliable recommendation",
     "es": "Sin recomendación fiable",
@@ -4083,16 +4108,46 @@
   "ui.predictor_ecological_compatibility_incompatible": {"en": "incompatible", "es": "incompatible", "ca": "incompatible"},
   "ui.predictor_ecological_compatibility_unknown": {"en": "not determined", "es": "no determinada", "ca": "no determinada"},
   "ui.predictor_ecological_compatibility_out_of_season": {"en": "out of season", "es": "fuera de temporada", "ca": "fora de temporada"},
-  "ui.predictor_ecological_evidence": {"en": "Ecological evidence", "es": "Evidencia ecológica", "ca": "Evidència ecològica"},
+  "ui.predictor_ecological_evidence": {"en": "Ecological compatibility reliability", "es": "Fiabilidad de la compatibilidad ecológica", "ca": "Fiabilitat de la compatibilitat ecològica"},
   "ui.predictor_ecological_evidence_high": {"en": "high", "es": "alta", "ca": "alta"},
   "ui.predictor_ecological_evidence_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
   "ui.predictor_ecological_evidence_low": {"en": "low", "es": "baja", "ca": "baixa"},
   "ui.predictor_ecological_evidence_unavailable": {"en": "not available", "es": "no disponible", "ca": "no disponible"},
-  "ui.predictor_statistical_support": {"en": "Operational statistical support", "es": "Soporte estadístico operativo", "ca": "Suport estadístic operatiu"},
-  "ui.predictor_statistical_support_unavailable": {"en": "not validated", "es": "no validado", "ca": "no validat"},
-  "ui.predictor_statistical_support_limited": {"en": "limited", "es": "limitado", "ca": "limitat"},
-  "ui.predictor_statistical_support_moderate": {"en": "moderate", "es": "moderado", "ca": "moderat"},
-  "ui.predictor_statistical_support_strong": {"en": "strong", "es": "fuerte", "ca": "fort"},
+  "ui.predictor_statistical_support": {"en": "Operational model statistical reliability", "es": "Fiabilidad estadística del modelo operativo", "ca": "Fiabilitat estadística del model operatiu"},
+  "ui.predictor_statistical_support_unavailable": {"en": "not validated", "es": "no validada", "ca": "no validada"},
+  "ui.predictor_statistical_support_limited": {"en": "limited", "es": "limitada", "ca": "limitada"},
+  "ui.predictor_statistical_support_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
+  "ui.predictor_statistical_support_strong": {"en": "strong", "es": "fuerte", "ca": "forta"},
+  "ui.predictor_help_reference_range": {
+    "en": "Range formed only by operational estimators that beat the species prevalence baseline outside training. It is a comparison score, not a calibrated probability.",
+    "es": "Rango formado solo por estimadores operativos que superan la prevalencia de la especie fuera del entrenamiento. Es un score comparativo, no una probabilidad calibrada.",
+    "ca": "Rang format només per estimadors operatius que superen la prevalença de l'espècie fora de l'entrenament. És un score comparatiu, no una probabilitat calibrada."
+  },
+  "ui.predictor_help_ecological_compatibility": {
+    "en": "Indicates whether season, rain event and elapsed time are biologically compatible with fruiting. It is independent from the machine-learning score.",
+    "es": "Indica si la temporada, el episodio de lluvia y el tiempo transcurrido son biológicamente compatibles con una florada. Es independiente del score de aprendizaje automático.",
+    "ca": "Indica si la temporada, l'episodi de pluja i el temps transcorregut són biològicament compatibles amb una florida. És independent del score d'aprenentatge automàtic."
+  },
+  "ui.predictor_help_ecological_reliability": {
+    "en": "Strength of the ecological conclusion according to weather coverage and agreement between weather contracts. High may support either compatibility or incompatibility.",
+    "es": "Solidez de la conclusión ecológica según la cobertura meteorológica y la concordancia entre contratos. Alta puede respaldar tanto compatibilidad como incompatibilidad.",
+    "ca": "Solidesa de la conclusió ecològica segons la cobertura meteorològica i la concordança entre contractes. Alta pot avalar tant compatibilitat com incompatibilitat."
+  },
+  "ui.predictor_help_statistical_support": {
+    "en": "Reliability demonstrated by the authorized operational estimators: they must beat the species prevalence baseline outside training and remain valid for the current input.",
+    "es": "Fiabilidad demostrada por los estimadores operativos autorizados: deben mejorar la prevalencia de la especie fuera del entrenamiento y seguir siendo válidos para la entrada actual.",
+    "ca": "Fiabilitat demostrada pels estimadors operatius autoritzats: han de millorar la prevalença de l'espècie fora de l'entrenament i continuar sent vàlids per a l'entrada actual."
+  },
+  "ui.predictor_help_consensus": {
+    "en": "Degree of agreement between validated operational estimators and weather contracts. Low may mean disagreement or too little independent validated evidence.",
+    "es": "Grado de acuerdo entre estimadores operativos validados y contratos meteorológicos. Bajo puede indicar discrepancia o poca evidencia validada independiente.",
+    "ca": "Grau d'acord entre estimadors operatius validats i contractes meteorològics. Baix pot indicar discrepància o poca evidència validada independent."
+  },
+  "ui.predictor_help_experimental_signal": {
+    "en": "Best signal among validated shadow models. It is shown for evaluation and still does not change the verdict or ranking.",
+    "es": "Mejor señal entre los modelos sombra validados. Se muestra para evaluarla y todavía no cambia el dictamen ni el ranking.",
+    "ca": "Millor senyal entre els models ombra validats. Es mostra per avaluar-lo i encara no canvia el dictamen ni el rànquing."
+  },
   "ui.predictor_experimental_signal": {"en": "Experimental signal", "es": "Señal experimental", "ca": "Senyal experimental"},
   "ui.predictor_experimental_signal_favorable": {"en": "favorable", "es": "favorable", "ca": "favorable"},
   "ui.predictor_experimental_signal_unfavorable": {"en": "unfavorable", "es": "desfavorable", "ca": "desfavorable"},
@@ -4244,6 +4299,11 @@
   "ui.predictor_validation_brier": {"en": "Validation Brier", "es": "Brier de validación", "ca": "Brier de validació"},
   "ui.predictor_validation_auc": {"en": "Validation ROC-AUC", "es": "ROC-AUC de validación", "ca": "ROC-AUC de validació"},
   "ui.predictor_validation_baseline": {"en": "baseline", "es": "base", "ca": "base"},
+  "ui.predictor_help_probability_source": {"en": "Indicates whether the displayed score comes from the final fitted model or from a held-out evaluation that did not train on that episode.", "es": "Indica si el score mostrado procede del ajuste final o de una evaluación reservada que no entrenó con ese episodio.", "ca": "Indica si el score mostrat procedeix de l'ajust final o d'una avaluació reservada que no va entrenar amb aquell episodi."},
+  "ui.predictor_help_observed_result": {"en": "Actual field result recorded for this historical episode.", "es": "Resultado real de campo registrado para este episodio histórico.", "ca": "Resultat real de camp registrat per a aquest episodi històric."},
+  "ui.predictor_help_brier": {"en": "Mean squared error of probabilistic predictions; lower is better. The baseline is the error obtained by always predicting the species prevalence.", "es": "Error cuadrático medio de las predicciones probabilísticas; cuanto menor, mejor. La base es el error de predecir siempre la prevalencia de la especie.", "ca": "Error quadràtic mitjà de les prediccions probabilístiques; com més baix, millor. La base és l'error de predir sempre la prevalença de l'espècie."},
+  "ui.predictor_help_roc_auc": {"en": "Ability to rank favorable episodes above unfavorable ones; 0.5 is random and 1.0 is perfect. It does not measure probability calibration.", "es": "Capacidad de ordenar episodios favorables por encima de los desfavorables; 0,5 equivale al azar y 1,0 es perfecto. No mide la calibración de la probabilidad.", "ca": "Capacitat d'ordenar episodis favorables per sobre dels desfavorables; 0,5 equival a l'atzar i 1,0 és perfecte. No mesura el calibratge de la probabilitat."},
+  "ui.predictor_help_temporal_validation": {"en": "Chronological check that trains on one time segment and evaluates on another. It may be unavailable when either segment contains only one class.", "es": "Comprobación cronológica que entrena con un tramo temporal y evalúa con otro. Puede no estar disponible si alguno contiene una sola clase.", "ca": "Comprovació cronològica que entrena amb un tram temporal i avalua amb un altre. Pot no estar disponible si algun conté una sola classe."},
   "ui.predictor_model": {
     "en": "Model",
     "es": "Modelo",
@@ -4354,6 +4414,19 @@
     "es": "No disponible: el tramo cronológico de entrenamiento o prueba contiene una sola clase",
     "ca": "No disponible: el tram cronològic d'entrenament o prova conté una sola classe"
   },
+  "ui.predictor_help_station": {"en": "Weather station selected for this contract after checking distance and data quality.", "es": "Estación meteorológica elegida para este contrato después de comprobar distancia y calidad de datos.", "ca": "Estació meteorològica triada per a aquest contracte després de comprovar distància i qualitat de dades."},
+  "ui.predictor_help_station_distance": {"en": "Distance from the area centroid to the selected weather station.", "es": "Distancia desde el centroide del área hasta la estación meteorológica elegida.", "ca": "Distància des del centroide de l'àrea fins a l'estació meteorològica triada."},
+  "ui.predictor_help_horizon": {"en": "Days between the weather cutoff and the target fruiting date.", "es": "Días entre el corte meteorológico y la fecha objetivo de florada.", "ca": "Dies entre el tall meteorològic i la data objectiu de florida."},
+  "ui.predictor_help_station_quality": {"en": "Observed days available for rain in 21/90 days and for temperature and humidity in 21 days.", "es": "Días observados disponibles de lluvia en 21/90 días y de temperatura y humedad en 21 días.", "ca": "Dies observats disponibles de pluja en 21/90 dies i de temperatura i humitat en 21 dies."},
+  "ui.predictor_help_coverage": {"en": "Number of weather days available to build the displayed features.", "es": "Número de días meteorológicos disponibles para construir las variables mostradas.", "ca": "Nombre de dies meteorològics disponibles per construir les variables mostrades."},
+  "ui.predictor_help_station_jump": {"en": "A nearer station was rejected because it did not meet the data-quality contract; the next acceptable station within the allowed radius was used.", "es": "Se descartó una estación más cercana porque no cumplía el contrato de calidad; se usó la siguiente estación aceptable dentro del radio permitido.", "ca": "Es va descartar una estació més propera perquè no complia el contracte de qualitat; es va usar la següent estació acceptable dins del radi permès."},
+  "ui.predictor_help_rain_bands": {"en": "Accumulated observed rain split into four age bands before the weather cutoff. This preserves when the rain occurred, not only the total.", "es": "Lluvia observada acumulada, separada en cuatro franjas anteriores al corte. Conserva cuándo llovió, no solo el total.", "ca": "Pluja observada acumulada, separada en quatre franges anteriors al tall. Conserva quan va ploure, no només el total."},
+  "ui.predictor_help_days_since_rain": {"en": "Days since the most recent observed day above 2 mm, capped at the 90-day search limit.", "es": "Días desde el último día observado con más de 2 mm, limitado al máximo de búsqueda de 90 días.", "ca": "Dies des de l'últim dia observat amb més de 2 mm, limitat al màxim de cerca de 90 dies."},
+  "ui.predictor_help_days_since_significant_rain": {"en": "Days since the most recent rain event that meets the significant-event rule, capped at 90 days.", "es": "Días desde el último episodio que cumple la regla de lluvia significativa, limitado a 90 días.", "ca": "Dies des de l'últim episodi que compleix la regla de pluja significativa, limitat a 90 dies."},
+  "ui.predictor_help_rain_coverage": {"en": "Observed / missing / explicitly suppressed rain days. Missing or suppressed rain contributes 0 mm, while coverage remains visible.", "es": "Días de lluvia observados / ausentes / descartados explícitamente. Los ausentes o descartados aportan 0 mm, pero la cobertura permanece visible.", "ca": "Dies de pluja observats / absents / descartats explícitament. Els absents o descartats aporten 0 mm, però la cobertura continua visible."},
+  "ui.predictor_help_post_rain_coverage": {"en": "Temperature and humidity days observed after the selected significant rain event.", "es": "Días de temperatura y humedad observados después del episodio de lluvia significativa elegido.", "ca": "Dies de temperatura i humitat observats després de l'episodi de pluja significativa triat."},
+  "ui.predictor_help_weather_gaps": {"en": "Warnings about incomplete or suspect weather inputs used by this result.", "es": "Avisos sobre entradas meteorológicas incompletas o sospechosas utilizadas por este resultado.", "ca": "Avisos sobre entrades meteorològiques incompletes o sospitoses utilitzades per aquest resultat."},
+  "ui.predictor_help_out_of_domain": {"en": "Variables far outside the range seen during training. Affected estimators may be excluded or their experimental signal shown with caution.", "es": "Variables muy fuera del rango visto durante el entrenamiento. Los estimadores afectados pueden excluirse o mostrarse con cautela si son experimentales.", "ca": "Variables molt fora del rang vist durant l'entrenament. Els estimadors afectats es poden excloure o mostrar amb cautela si són experimentals."},
   "ui.worker_abandoned_flash": {
     "en": "Job abandoned.",
     "es": "Trabajo abandonado.",

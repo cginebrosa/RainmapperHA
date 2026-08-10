@@ -8,11 +8,10 @@ necesario para continuar; el histórico vive en `docs/decisions.md`,
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release preparado: HA `0.2.243` y worker `1.0.5`.
-- HA `0.2.243` está publicada y pendiente de instalar en la RPi4 real; HA
-  `0.2.242` continúa instalada hasta que el usuario haga la actualización.
-- Tags `0.2.243` y `latest`: digest multi-arquitectura
-  `sha256:39c64c072d57259544a9290d15e117e811c38411cf3044afa5bb2cfd0af107cf`,
+- Release preparado: HA `0.2.244` y worker `1.0.5`.
+- HA `0.2.244` está publicada y pendiente de instalar en la RPi4 real.
+- Tags `0.2.244` y `latest`: digest multi-arquitectura
+  `sha256:491bbbfab09d8d135ae18cd1d62edeb920ad846b6a821edefa640aefec6c87c5`,
   con manifests `linux/amd64` y `linux/arm64` verificados.
 - Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.5`, conectado
   al coordinador real, healthy/idle y con cachés persistentes GIS/DEM y
@@ -32,8 +31,13 @@ necesario para continuar; el histórico vive en `docs/decisions.md`,
   explícitos.
 - Al reiniciar, el M1 reclamó un entrenamiento ML que ya estaba encolado; acabó
   correctamente en unos 30 s y verificó cuatro especies. No quedó ocupado.
-- Validación de release: smoke completo con 572 tests, validadores y
+- Validación de release: smoke completo con 573 tests, validadores y
   `git diff --check`, todo correcto.
+- HA `0.2.244` incorpora la mejora de presentación del Predictor: el
+  Predictor amplía su ancho útil de escritorio, renombra los dos indicadores
+  ambiguos como fiabilidad ecológica y estadística operativa, y añade ayudas
+  localizadas a la cabecera, los contratos meteorológicos y todos los campos
+  técnicos. El usuario completó la validación visual local antes de publicar.
 
 ## Resultado principal de la sesión
 
@@ -104,7 +108,8 @@ cerrado, sin autoridad para cambiarlo ni inventar datos, con validación estrict
 y fallback al texto determinista. No se descarga ni se incluye ningún modelo en
 la release actual.
 
-1. Instalar HA `0.2.243`, reconstruir los artefactos y reentrenar los modelos
+1. Instalar HA `0.2.244`, reconstruir todos los artefactos elegibles, promover
+   el candidato y reentrenar los modelos
    con el worker M1 `1.0.5`. Después validar desde HA real la entrada y todas
    las vistas del Predictor, conservando M1 durante la sesión. La sustitución
    de la recomendación v0 por la pareja

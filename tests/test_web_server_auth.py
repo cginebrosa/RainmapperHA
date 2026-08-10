@@ -204,7 +204,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_predictor_typography_is_readable_and_tables_remain_responsive(self) -> None:
         css = self.web_server.mushroom_predictor_ui._CSS
 
-        self.assertIn("max-width: 1100px", css)
+        self.assertIn("max-width: 1280px", css)
+        self.assertIn(".pred-tooltip {", css)
         self.assertIn(".pred-week-table {", css)
         self.assertIn("font-size: 1rem", css)
         self.assertIn("@media (max-width: 700px)", css)
@@ -701,6 +702,23 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("ui.predictor_days_since_significant_rain", rendered)
         self.assertIn("ui.predictor_rain_coverage_21", rendered)
         self.assertIn("IMERAN22", rendered)
+        self.assertIn('title="ui.predictor_help_station"', rendered)
+        self.assertIn('title="ui.predictor_help_rain_bands"', rendered)
+        self.assertIn("pred-tooltip-icon", rendered)
+
+    def test_predictor_tooltip_label_is_escaped_and_keyboard_focusable(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+
+        with mock.patch.object(
+            predictor_ui,
+            "_lbl",
+            return_value='Help with "quotes" & details',
+        ):
+            rendered = predictor_ui._tooltip_label("Brier & baseline", "help.key")
+
+        self.assertIn('tabindex="0"', rendered)
+        self.assertIn("Brier &amp; baseline", rendered)
+        self.assertIn('title="Help with &quot;quotes&quot; &amp; details"', rendered)
 
     def seed_empty_mushroom_observations(self, data_dir: Path) -> None:
         self.web_server.default_store().ensure_seeded()

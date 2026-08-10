@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.2.244
+
+- Rename the Predictor's ecological and operational reliability indicators so
+  their scope is explicit instead of relying on internal model terminology.
+- Add localized, keyboard-focusable help to verdict fields, weather contracts,
+  estimators and technical diagnostics including Brier, ROC-AUC, score origin,
+  coverage, horizon and out-of-domain variables.
+- Increase the Predictor's desktop width while retaining responsive wrapping
+  and horizontally scrollable technical tables on narrow screens.
+
 ## 0.2.243
 
 - Replace the future-blind Predictor recommendation with the operational
