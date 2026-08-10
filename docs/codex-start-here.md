@@ -37,14 +37,15 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-10
+## Estado general al cierre de 2026-08-11
 
 - Rama activa: `inicial`.
-- HA `0.2.245` está publicada y pendiente de instalar en la RPi4 real; HA
-  `0.2.244` continúa activa hasta que el usuario complete la actualización.
+- HA `0.2.246` está publicada y pendiente de instalar en la RPi4 real; sustituye
+  a `0.2.245`, que no llegó a instalarse. HA `0.2.244` continúa activa hasta que
+  el usuario complete la actualización.
 - Worker M1 `1.0.6` está conectado al coordinador real, healthy/idle y con
   capacidad `predictor_v1` y cachés persistentes válidas.
-- La prioridad inmediata es instalar HA `0.2.245` y validar el Predictor remoto:
+- La prioridad inmediata es instalar HA `0.2.246` y validar el Predictor remoto:
   resumen inicial, cancelación desde el modal y una consulta Pinícola. Si vuelve
   a producirse un HTTP `409`, worker `1.0.6` mostrará su motivo exacto.
 - El P0 de memoria RPi4 está cerrado para el escenario probado: uso monousuario

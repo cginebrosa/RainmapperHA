@@ -4,16 +4,17 @@ Ventana operativa de RainmapperHA. Este documento contiene únicamente el estado
 necesario para continuar; el histórico vive en `docs/decisions.md`,
 `docs/project-archive.md` y los documentos de diseño enlazados.
 
-## Estado a 2026-08-10
+## Estado a 2026-08-11
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`.
 - Rama: `inicial`.
-- Release actual: HA `0.2.245` publicada y worker M1 `1.0.6` actualizado.
+- Release actual: HA `0.2.246` publicada y worker M1 `1.0.6` actualizado.
 - HA `0.2.244` está instalada en la RPi4 real. El usuario reconstruyó todos los
   artefactos, entrenó los modelos y promovió el candidato con M1 `1.0.5`.
-- HA `0.2.245` está pendiente de instalar por el usuario. Sus tags `0.2.245` y
+- HA `0.2.246` está pendiente de instalar por el usuario y sustituye a
+  `0.2.245`, que no llegó a instalarse. Sus tags `0.2.246` y
   `latest` comparten el digest multi-arquitectura
-  `sha256:3a2a1550102e08b9b7288b0563e9b2d882c98ecc1eb3941378d76b93ec3dc0ba`,
+  `sha256:ec443dca611007a2efd8e510e2d9c907ec0e9374267d3974a8ffbb431731f93e`,
   con manifests `linux/amd64` y `linux/arm64` verificados.
 - Worker M1 actualizado y en ejecución con `rainmapper-worker:1.0.6`, conectado
   al coordinador real, healthy/idle y con cachés persistentes GIS/DEM y
@@ -103,8 +104,8 @@ navegación caliente.
 
 ## Próximo paso inmediato
 
-HA `0.2.245` y worker `1.0.6` publican los tres ajustes encontrados durante la
-validación real:
+HA `0.2.246` y worker `1.0.6` reúnen los tres ajustes encontrados durante la
+validación real y la aclaración visual validada posteriormente en local:
 
 - el recomendador remoto se mostraba vacío porque `recommender` no incluía
   `areas`; ahora las transporta y el adaptador también las deriva de `rankings`;
@@ -122,8 +123,11 @@ validación real:
   aumento de CPU observado en la RPi, aunque no explica por sí sola el `409`.
 
 El smoke de release pasa completo con 579 tests. M1 `1.0.6` está healthy/idle y
-conserva identidad, coordinador y cachés. Falta que el usuario instale HA
-`0.2.245` y repita en este orden: resumen inicial, cancelación y Pinícola. Si el
+conserva identidad, coordinador y cachés. HA `0.2.246` aclara además que la señal
+experimental reúne el modelo sombra con menor Brier de cada contrato, y que
+fiabilidad `limitada` no significa que el estimador ganador falle la validación.
+Falta que el usuario instale HA `0.2.246` y repita en este orden: resumen
+inicial, cancelación y Pinícola. Si el
 `409` reaparece, el nuevo detalle del worker permitirá identificar su contrato
 exacto sin conjeturas.
 

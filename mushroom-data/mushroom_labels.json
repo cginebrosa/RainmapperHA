@@ -4144,9 +4144,9 @@
     "ca": "Solidesa de la conclusió ecològica segons la cobertura meteorològica i la concordança entre contractes. Alta pot avalar tant compatibilitat com incompatibilitat."
   },
   "ui.predictor_help_statistical_support": {
-    "en": "Reliability demonstrated by the authorized operational estimators: they must beat the species prevalence baseline outside training and remain valid for the current input.",
-    "es": "Fiabilidad demostrada por los estimadores operativos autorizados: deben mejorar la prevalencia de la especie fuera del entrenamiento y seguir siendo válidos para la entrada actual.",
-    "ca": "Fiabilitat demostrada pels estimadors operatius autoritzats: han de millorar la prevalença de l'espècie fora de l'entrenament i continuar sent vàlids per a l'entrada actual."
+    "en": "Reliability demonstrated by the authorized operational estimators: they must beat the species prevalence baseline outside training and remain valid for the current input. Limited does not mean that the selected estimator fails validation: it means that only one validated family supports the range or that validated families differ by at least 20 points.",
+    "es": "Fiabilidad demostrada por los estimadores operativos autorizados: deben mejorar la prevalencia de la especie fuera del entrenamiento y seguir siendo válidos para la entrada actual. Limitada no significa que el estimador seleccionado falle la validación: significa que solo una familia validada sustenta el rango o que las familias validadas difieren al menos 20 puntos.",
+    "ca": "Fiabilitat demostrada pels estimadors operatius autoritzats: han de millorar la prevalença de l'espècie fora de l'entrenament i continuar sent vàlids per a l'entrada actual. Limitada no significa que l'estimador seleccionat falli la validació: significa que només una família validada sustenta el rang o que les famílies validades difereixen almenys 20 punts."
   },
   "ui.predictor_help_consensus": {
     "en": "Degree of agreement between validated operational estimators and weather contracts. Low may mean disagreement or too little independent validated evidence.",
@@ -4154,11 +4154,11 @@
     "ca": "Grau d'acord entre estimadors operatius validats i contractes meteorològics. Baix pot indicar discrepància o poca evidència validada independent."
   },
   "ui.predictor_help_experimental_signal": {
-    "en": "Best signal among validated shadow models. It is shown for evaluation and still does not change the verdict or ranking.",
-    "es": "Mejor señal entre los modelos sombra validados. Se muestra para evaluarla y todavía no cambia el dictamen ni el ranking.",
-    "ca": "Millor senyal entre els models ombra validats. Es mostra per avaluar-lo i encara no canvia el dictamen ni el rànquing."
+    "en": "Each weather contract selects its validated shadow model with the lowest Brier score. The names and range combine those per-contract winners; they are shown for evaluation and still do not change the verdict or ranking.",
+    "es": "Cada contrato meteorológico selecciona su modelo sombra validado con menor Brier. Los nombres y el rango reúnen esos ganadores por contrato; se muestran para evaluarlos y todavía no cambian el dictamen ni el ranking.",
+    "ca": "Cada contracte meteorològic selecciona el seu model ombra validat amb menor Brier. Els noms i el rang reuneixen aquests guanyadors per contracte; es mostren per avaluar-los i encara no canvien el dictamen ni el rànquing."
   },
-  "ui.predictor_experimental_signal": {"en": "Experimental signal", "es": "Señal experimental", "ca": "Senyal experimental"},
+  "ui.predictor_experimental_signal": {"en": "Experimental signal (best Brier per contract)", "es": "Señal experimental (mejor Brier por contrato)", "ca": "Senyal experimental (millor Brier per contracte)"},
   "ui.predictor_experimental_signal_favorable": {"en": "favorable", "es": "favorable", "ca": "favorable"},
   "ui.predictor_experimental_signal_unfavorable": {"en": "unfavorable", "es": "desfavorable", "ca": "desfavorable"},
   "ui.predictor_experimental_signal_uncertain": {"en": "uncertain", "es": "incierta", "ca": "incerta"},

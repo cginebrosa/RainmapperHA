@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.2.246
+
+- Clarify that the experimental Predictor signal selects the shadow estimator
+  with the lowest valid Brier score independently for each weather contract.
+- Explain that the displayed estimator names and probability range combine
+  those per-contract winners rather than ranking all shadows by raw percentage.
+- Clarify in the statistical-reliability help that `limited` can describe one
+  validated estimator family or a disagreement of at least 20 points; it does
+  not mean that the selected estimator failed validation.
+
 ## 0.2.245
 
 - Populate remote recommender areas explicitly and derive them defensively from

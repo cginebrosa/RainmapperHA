@@ -388,5 +388,26 @@ independientes:
   queda pendiente de una nueva reproducción controlada con esa instrumentación.
 
 La misma iteración añade cancelación al modal y una última consulta cooperativa
-de control antes de publicar el resultado. Son cambios locales todavía no
-publicados; no implican modificar HA real, su configuración ni Tailscale.
+de control antes de publicar el resultado. Estos cambios se publicaron en HA
+`0.2.245` y worker `1.0.6`; no implican modificar la configuración de red ni
+Tailscale.
+
+## Aclaración visual de la señal experimental y la fiabilidad estadística
+
+La cabecera del Predictor hace explícita la regla de selección que ya aplica el
+motor determinista: cada contrato meteorológico elige por separado el modelo
+sombra validado con menor Brier. Por ello, los nombres y el rango de la señal
+experimental reúnen ganadores por contrato y no ordenan los modelos por el
+porcentaje bruto más alto. La señal continúa siendo informativa y no cambia el
+dictamen ni el ranking.
+
+La fiabilidad estadística conserva valores breves para no ensanchar de nuevo la
+UI. Su ayuda aclara que `limitada` no significa que el estimador seleccionado
+haya fallado la validación: puede indicar que solo una familia validada sustenta
+el rango o que dos familias validadas difieren al menos 20 puntos. En el caso
+Pinícola/Molló del 2026-08-15, LR y RF superan la prevalencia en ambos contratos,
+pero RF tiene el menor Brier y forma el rango operativo 61-66 %; la separación
+LR/RF mantiene la fiabilidad limitada por desacuerdo.
+
+Esta aclaración se publica en HA `0.2.246`; no requiere una nueva versión del
+worker porque no modifica cálculo, contratos ni transporte.
