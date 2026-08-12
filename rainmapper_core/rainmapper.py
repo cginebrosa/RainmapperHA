@@ -30,6 +30,7 @@ def _finish_runner_diagnostics_if_needed() -> None:
 atexit.register(_finish_runner_diagnostics_if_needed)
 
 import pandas as pd
+from rainmapper_core.atomic_io import write_csv_atomic
 from rainmapper_core.sources.sodapy_local import Socrata
 from datetime import datetime, date, timedelta, time, timezone
 import pytz
@@ -48,6 +49,7 @@ from rainmapper_core.meteoclimatic_history import (
     OBSERVATION_COLUMNS as METEOCLIMATIC_OBSERVATION_COLUMNS,
     build_meteoclimatic_daily_incremental,
     read_meteoclimatic_observations,
+    retain_meteoclimatic_observations,
     update_meteoclimatic_observations,
 )
 from rainmapper_core.wind import (
@@ -954,7 +956,7 @@ def get_estacions_xema(): # Get estacions data from Meteocat
                 how='outer', indicator=False)
     estacions_incremental.sort_values(by=['Codi Estació'], ascending=[True],inplace=True)
 
-    estacions_incremental.to_csv(_DATA_PATH+'estacions_xema.csv',index=False)
+    write_csv_atomic(estacions_incremental, _DATA_PATH+'estacions_xema.csv')
     return estacions_incremental
 
 def get_variables_xema(): # Get variables data from Meteocat
@@ -968,7 +970,7 @@ def get_variables_xema(): # Get variables data from Meteocat
                                    'decimals':'Decimals',
                                    },inplace=True)
     ###
-    variables_xema.to_csv(_DATA_PATH+'variables_xema.csv',decimal=',',index=False)
+    write_csv_atomic(variables_xema, _DATA_PATH+'variables_xema.csv', decimal=',')
 
     return variables_xema
 
@@ -1265,7 +1267,7 @@ def filter_results(df: pd.DataFrame, _minima_pluja):             # Filter data a
 def save_dataframe(df:pd.DataFrame, _file_name, _save_to_csv=True, _save_to_excel=False, _decimal=','):
     #
     if _save_to_csv:                                                     # Save df to csv
-        df.to_csv(_DATA_PATH+_file_name+'.csv', decimal=_decimal, index=False)
+        write_csv_atomic(df, _DATA_PATH+_file_name+'.csv', decimal=_decimal)
     #
     if _save_to_excel:                                                   # Save df to or excel
         df.to_excel(_DATA_PATH+_file_name+'.xlsx', decimal=_decimal, index=False)
@@ -1282,6 +1284,8 @@ def save_dataframe_tomap(df, _file_name, _save_to_csv=True, _save_to_excel=False
 
 def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel, timings=None):             # Save incremental Dataframe
     csv=csv_param.copy()
+    from rainmapper_core.weather_history_capture import capture_fresh_weather_rows
+    capture_fresh_weather_rows(_DATA_PATH, 'meteocat', csv)
     #
     try:
         # Intentar cargar el archivo CSV
@@ -1306,7 +1310,7 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel, timings=No
     #
 	# Save incremental Dataframe to csv
     step_start_time = start_timing(timings, 'write_incremental_seconds')
-    csv_incremental.to_csv(_DATA_PATH+'Meteocat_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
+    write_csv_atomic(csv_incremental, _DATA_PATH+'Meteocat_incremental.csv', decimal=',')
     record_timing(timings, 'write_incremental_seconds', step_start_time)
     #print('Meteocat incremental salvado:',csv_incremental.info())
     #
@@ -1320,7 +1324,12 @@ def save_incremental_meteocat(csv_param:pd.DataFrame, _save_to_excel, timings=No
 
     return csv_incremental
 
-def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timings=None):        # Save incremental Dataframe
+def save_incremental_meteoclimatic(
+    csv_param: pd.DataFrame,
+    _save_to_excel,
+    timings=None,
+    retention_reference_day=None,
+):        # Save incremental Dataframe
     csv=csv_param.copy()
     #
     try:
@@ -1346,9 +1355,15 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timin
     observations_incremental = update_meteoclimatic_observations(csv, observations_old)
     record_timing(timings, 'upsert_observations_seconds', step_start_time)
 
-    step_start_time = start_timing(timings, 'write_observations_seconds')
-    observations_incremental.to_csv(observations_path, decimal=',', index=False)
-    record_timing(timings, 'write_observations_seconds', step_start_time)
+    # Raw RSS snapshots are only needed to rebuild recent complete daily wind
+    # summaries. Keep seven closed local dates plus the current local date;
+    # the daily incremental below preserves all older station/day history.
+    step_start_time = start_timing(timings, 'retain_observations_seconds')
+    observations_incremental, _retention_metrics = retain_meteoclimatic_observations(
+        observations_incremental,
+        reference_day=retention_reference_day,
+    )
+    record_timing(timings, 'retain_observations_seconds', step_start_time)
 
     step_start_time = start_timing(timings, 'build_daily_seconds')
     csv = build_meteoclimatic_daily_incremental(observations_incremental)
@@ -1378,9 +1393,25 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timin
 
     csv_incremental.reset_index(drop=True, inplace=True)
 
+    # Capture only rebuilt recent days, but use their final station metadata
+    # from the merged dataframe.  Both daily and raw CSV writes happen later.
+    touched_keys = csv[['Codi Estació', 'Data Local']].drop_duplicates()
+    pending_rows = touched_keys.merge(
+        csv_incremental,
+        on=['Codi Estació', 'Data Local'],
+        how='inner',
+    )
+    from rainmapper_core.weather_history_capture import capture_fresh_weather_rows
+    capture_fresh_weather_rows(_DATA_PATH, 'meteoclimatic', pending_rows)
+
+	# Save the retained raw observations only after pending is durable.
+    step_start_time = start_timing(timings, 'write_observations_seconds')
+    write_csv_atomic(observations_incremental, observations_path, decimal=',')
+    record_timing(timings, 'write_observations_seconds', step_start_time)
+
 	# Save incremental Dataframe to csv
     step_start_time = start_timing(timings, 'write_incremental_seconds')
-    csv_incremental.to_csv(_DATA_PATH+'Meteoclimatic_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
+    write_csv_atomic(csv_incremental, _DATA_PATH+'Meteoclimatic_incremental.csv', decimal=',')
     record_timing(timings, 'write_incremental_seconds', step_start_time)
 	#
 	# Save csv_incremental Dataframe to Excel
@@ -1395,6 +1426,8 @@ def save_incremental_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, timin
 
 def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel, timings=None):        # Save incremental Dataframe
     csv=csv_param.copy()
+    from rainmapper_core.weather_history_capture import capture_fresh_weather_rows
+    capture_fresh_weather_rows(_DATA_PATH, 'wunderground', csv)
     #
     try:
         # Intentar cargar el archivo CSV
@@ -1433,7 +1466,7 @@ def save_incremental_wunderground(csv_param:pd.DataFrame, _save_to_excel, timing
 
 	# Save incremental Dataframe to csv
     step_start_time = start_timing(timings, 'write_incremental_seconds')
-    csv_incremental.to_csv(_DATA_PATH+'Wunderground_incremental.csv', decimal=',', index=False) #  Save to csv All incremental rain readings
+    write_csv_atomic(csv_incremental, _DATA_PATH+'Wunderground_incremental.csv', decimal=',')
     record_timing(timings, 'write_incremental_seconds', step_start_time)
 	#
 	# Save csv_incremental Dataframe to Excel
@@ -1796,7 +1829,7 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
     csv_incremental.reset_index(drop=True, inplace=True)
 
     # Save local DB of Stations for Meteoclimatic - Each new station read is added to local DB
-    csv_incremental.to_csv(_DATA_PATH+'estacions_meteoclimatic.csv',decimal=',',index=False)
+    write_csv_atomic(csv_incremental, _DATA_PATH+'estacions_meteoclimatic.csv', decimal=',')
     return csv
 
 def create_meteoclimatic(_save_to_csv, timings=None):
@@ -2178,7 +2211,7 @@ def refresh_estacions_wunderground(wunderground_df:pd.DataFrame):
     csv_incremental.reset_index(drop=True, inplace=True)
 
     # Save local DB of Stations for Meteoclimatic - Each new station read is added to local DB
-    csv_incremental.to_csv(_DATA_PATH+'estacions_wunderground.csv',decimal=',',index=False)
+    write_csv_atomic(csv_incremental, _DATA_PATH+'estacions_wunderground.csv', decimal=',')
     return csv
 
 
@@ -2476,7 +2509,7 @@ def create_wunderground(timings=None):
 
     # Save wunderground_df to csv
     step_start_time = start_timing(timings, 'write_current_seconds')
-    wunderground_df.to_csv(_DATA_PATH+'Wunderground'+'.csv', decimal='.', index=False)
+    write_csv_atomic(wunderground_df, _DATA_PATH+'Wunderground'+'.csv', decimal='.')
     record_timing(timings, 'write_current_seconds', step_start_time)
     return wunderground_df
 
@@ -2900,8 +2933,15 @@ def process_aemet():                                                # FOR MULTIT
                 f"{summary['daily_incremental_rows']} daily row(s), "
                 f"{summary['stations']} station(s)."
             )
-            aemet_incremental = read_incremental('Aemet_incremental')
-            aemet_df = read_incremental('Aemet_incremental', _nrows=0)
+            if summary.get('partitioned_history'):
+                # Only the freshly rebuilt 7 complete days plus current day are
+                # needed in this process.  The isolated archive step applies
+                # them to history and to the bounded live CSV afterwards.
+                aemet_incremental = summary['daily_updates']
+                aemet_df = aemet_incremental.iloc[0:0].copy()
+            else:
+                aemet_incremental = read_incremental('Aemet_incremental')
+                aemet_df = read_incremental('Aemet_incremental', _nrows=0)
             aemet_source.record_rate_limit_result(_DATA_PATH, rate_limited=False)
             end_count(_legend='Finished processing AEMET')
         else:
@@ -3175,13 +3215,23 @@ if _create_googlemaps_files:
     print('Inline Tomap generation is disabled; Tomap rebuild is handled by rainmapper_core.tomap.')
 
 print('')
+_weather_artifacts_ok = False
+class _PartitionedArchiveDeferred(Exception):
+    pass
 try:
+    if os.environ.get('RAINMAPPER_PARTITIONED_WEATHER_HISTORY', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        raise _PartitionedArchiveDeferred()
     import time as _time
     from pathlib import Path as _Path
     from rainmapper_core import mushroom_observation_context as _moc
     _runner_diagnostics.mark("before_weather_parquet")
     _parquet_t0 = _time.time()
+    _parquet_started_ns = _time.time_ns()
     _parquet_path = _moc.generate_weather_daily_parquet(_Path(_DATA_PATH))
+    if _parquet_path is None:
+        raise RuntimeError('weather_daily.parquet was not generated')
+    if _parquet_path.stat().st_mtime_ns < _parquet_started_ns:
+        raise RuntimeError('weather_daily.parquet was not refreshed by the current update run')
     _parquet_elapsed = _time.time() - _parquet_t0
     if _parquet_path:
         import pyarrow.parquet as _pq
@@ -3199,21 +3249,28 @@ try:
             },
         )
         _catalog_path = _moc.generate_stations_catalog_parquet(_Path(_DATA_PATH))
-        if _catalog_path:
-            _catalog_kb = _catalog_path.stat().st_size / 1024
-            print(f'weather_stations_catalog.parquet generated: {_catalog_path} ({_catalog_kb:.0f} KB)')
-            _runner_diagnostics.mark(
-                "after_weather_catalog",
-                {"catalog_size_kib": round(_catalog_kb, 3)},
-            )
+        if _catalog_path is None:
+            raise RuntimeError('weather_stations_catalog.parquet was not generated')
+        _catalog_kb = _catalog_path.stat().st_size / 1024
+        print(f'weather_stations_catalog.parquet generated: {_catalog_path} ({_catalog_kb:.0f} KB)')
+        _runner_diagnostics.mark(
+            "after_weather_catalog",
+            {"catalog_size_kib": round(_catalog_kb, 3)},
+        )
+        _weather_artifacts_ok = True
+except _PartitionedArchiveDeferred:
+    _weather_artifacts_ok = True
+    print('Partitioned weather history pending captured; isolated archive is handled by the wrapper.')
 except Exception as _parquet_exc:
     _runner_diagnostics.mark(
         "weather_parquet_error",
         {"error_type": type(_parquet_exc).__name__},
     )
-    print(f'Warning: could not generate weather_daily.parquet: {_parquet_exc}')
+    print(f'Error: could not generate current weather Parquet artifacts: {_parquet_exc}')
 
 exit_code = source_exit_code()
+if not _weather_artifacts_ok:
+    exit_code = 1
 if exit_code == 2:
     print('Rainmapper finished with degraded source status.')
 elif exit_code == 1:

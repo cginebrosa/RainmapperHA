@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from rainmapper_core import mushroom_observation_context
 from rainmapper_core import tomap as tomap_builder
 
 
@@ -43,7 +44,69 @@ def make_incremental_row(station_code, reading_date, rain):
     }
 
 
+def generate_parquet(data_dir):
+    output = mushroom_observation_context.generate_weather_daily_parquet(data_dir)
+    if output is None:
+        raise AssertionError('weather_daily.parquet was not generated')
+
+
 class TomapBuilderTests(unittest.TestCase):
+    def test_parquet_and_legacy_csv_inputs_produce_all_eight_equivalent_products(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            data_dir = tmp_path / 'Data'
+            csv_maps_dir = tmp_path / 'TomapCSV'
+            parquet_maps_dir = tmp_path / 'TomapParquet'
+            data_dir.mkdir()
+            today = date.today()
+
+            sources = [
+                ('Meteocat_incremental.csv', 'MC', 0, 1.1),
+                ('Meteoclimatic_incremental.csv', 'MCL', 8, 2.2),
+                ('Wunderground_incremental.csv', 'WU', 25, 3.3),
+                ('Aemet_incremental.csv', 'AE', 65, 4.4),
+            ]
+            for filename, station, age_days, rain in sources:
+                rows = [
+                    make_incremental_row(station, today - timedelta(days=age_days), rain),
+                    make_incremental_row(station, today - timedelta(days=min(age_days + 1, 89)), rain / 2),
+                ]
+                pd.DataFrame(rows).to_csv(data_dir / filename, decimal=',', index=False)
+
+            base_date = datetime.combine(today, datetime.min.time())
+            with redirect_stdout(StringIO()):
+                csv_input = tomap_builder.read_recent_incremental_csvs(
+                    data_dir,
+                    include_aemet=True,
+                    base_date=base_date,
+                    max_threads=1,
+                )
+                csv_exit_code = tomap_builder.build_tomap_outputs(
+                    csv_input,
+                    csv_maps_dir,
+                    base_date=base_date,
+                    last_rains_history=3,
+                    minimum_rain_tomap=0,
+                )
+                generate_parquet(data_dir)
+                parquet_exit_code = tomap_builder.build_tomap(
+                    data_dir=data_dir,
+                    maps_dir=parquet_maps_dir,
+                    last_rains_history=3,
+                    minimum_rain_tomap=0,
+                    max_threads=1,
+                    include_aemet=True,
+                )
+
+            self.assertEqual((csv_exit_code, parquet_exit_code), (0, 0))
+            expected_files = {f'{file_name}.csv' for _, file_name, _ in tomap_builder.TOMAP_PERIODS}
+            expected_files.add('Last3_rains.csv')
+            self.assertEqual({path.name for path in parquet_maps_dir.glob('*.csv')}, expected_files)
+            for filename in sorted(expected_files):
+                csv_product = pd.read_csv(csv_maps_dir / filename).sort_values('Codi Estació').reset_index(drop=True)
+                parquet_product = pd.read_csv(parquet_maps_dir / filename).sort_values('Codi Estació').reset_index(drop=True)
+                pd.testing.assert_frame_equal(csv_product, parquet_product, check_dtype=False)
+
     def test_build_tomap_rebuilds_all_periods_and_last_rains_history(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -59,6 +122,7 @@ class TomapBuilderTests(unittest.TestCase):
                 make_incremental_row('TEST_TWO', today - timedelta(days=2), 2.0),
             ]
             pd.DataFrame(rows).to_csv(data_dir / 'Meteocat_incremental.csv', decimal=',', index=False)
+            generate_parquet(data_dir)
 
             with redirect_stdout(StringIO()):
                 exit_code = tomap_builder.build_tomap(
@@ -115,6 +179,7 @@ class TomapBuilderTests(unittest.TestCase):
             second['wind_gust_kmh'] = 30.0
             second['wind_observation_count'] = 1
             pd.DataFrame([first, second]).to_csv(data_dir / 'Meteocat_incremental.csv', decimal=',', index=False)
+            generate_parquet(data_dir)
 
             with redirect_stdout(StringIO()):
                 exit_code = tomap_builder.build_tomap(
@@ -153,6 +218,7 @@ class TomapBuilderTests(unittest.TestCase):
                 make_incremental_row('AEMET:9632X', today, 6.4),
             ]
             pd.DataFrame(rows).to_csv(data_dir / 'Aemet_incremental.csv', decimal=',', index=False)
+            generate_parquet(data_dir)
 
             with redirect_stdout(StringIO()):
                 exit_code = tomap_builder.build_tomap(
@@ -187,6 +253,7 @@ class TomapBuilderTests(unittest.TestCase):
 
             pd.DataFrame([meteocat_row]).to_csv(data_dir / 'Meteocat_incremental.csv', decimal=',', index=False)
             pd.DataFrame([aemet_row]).to_csv(data_dir / 'Aemet_incremental.csv', decimal=',', index=False)
+            generate_parquet(data_dir)
 
             with redirect_stdout(StringIO()):
                 exit_code = tomap_builder.build_tomap(
@@ -218,6 +285,7 @@ class TomapBuilderTests(unittest.TestCase):
                 decimal=',',
                 index=False,
             )
+            generate_parquet(data_dir)
 
             with redirect_stdout(StringIO()):
                 exit_code = tomap_builder.build_tomap(
@@ -248,6 +316,7 @@ class TomapBuilderTests(unittest.TestCase):
                 decimal=',',
                 index=False,
             )
+            generate_parquet(data_dir)
 
             with redirect_stdout(StringIO()):
                 exit_code = tomap_builder.build_tomap(

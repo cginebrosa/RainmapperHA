@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from rainmapper_core.config import const as rainmapper_const
+from rainmapper_core.atomic_io import write_csv_atomic
 from rainmapper_core.geocoding import extract_google_metadata, googlemaps_station_metadata
 from rainmapper_core.wind import (
     WIND_COLUMNS,
@@ -36,6 +37,7 @@ AEMET_DATA_URL_DELAY_SECONDS = 1.0
 AEMET_TOTAL_TIMEOUT_SECONDS = 90.0
 AEMET_RATE_LIMIT_METRICS_FILE = "Aemet_rate_limit_metrics.json"
 LOCAL_TIMEZONE = "Europe/Madrid"
+AEMET_HOURLY_CLOSED_DAYS = 7
 
 HOURLY_COLUMNS = [
     "aemet_id",
@@ -583,6 +585,74 @@ def normalize_hourly_key_columns(df):
     return normalized
 
 
+def retain_hourly_incremental(
+    hourly_df,
+    *,
+    local_timezone=LOCAL_TIMEZONE,
+    reference_day=None,
+    closed_days=AEMET_HOURLY_CLOSED_DAYS,
+):
+    """Keep complete local calendar days plus the current local day.
+
+    The cutoff is a local midnight boundary, not a rolling number of hours. A
+    seven-day policy therefore retains up to eight distinct dates: the seven
+    previous closed dates and the current date in progress. Missing dates or
+    stations are left missing; this function never creates zero-rain rows.
+    """
+    if closed_days < 0:
+        raise ValueError("closed_days must be non-negative")
+
+    normalized = normalize_hourly_key_columns(hourly_df)
+    if normalized.empty:
+        return normalized, {
+            "closed_days": int(closed_days),
+            "reference_local_date": None,
+            "cutoff_local_date": None,
+            "input_rows": 0,
+            "output_rows": 0,
+            "removed_rows": 0,
+            "input_dates": 0,
+            "output_dates": 0,
+            "removed_dates": 0,
+        }
+
+    normalized["local_date"] = normalized["local_date"].str.replace(
+        r"\.0$", "", regex=True
+    )
+    parsed_dates = pd.to_datetime(
+        normalized["local_date"], format="%Y%m%d", errors="coerce"
+    )
+    valid_dates = parsed_dates.dropna()
+
+    if reference_day is None:
+        reference_day = datetime.now(ZoneInfo(local_timezone)).date()
+        if not valid_dates.empty:
+            reference_day = max(reference_day, valid_dates.max().date())
+    elif isinstance(reference_day, datetime):
+        reference_day = reference_day.date()
+
+    cutoff_day = reference_day - timedelta(days=closed_days)
+    keep = parsed_dates.ge(pd.Timestamp(cutoff_day))
+    retained = normalized.loc[keep].copy()
+    retained = retained.sort_values(
+        ["station_code", "reading_utc"], ascending=[True, False]
+    ).reset_index(drop=True)
+
+    input_date_values = set(normalized.loc[parsed_dates.notna(), "local_date"])
+    output_date_values = set(retained["local_date"])
+    return retained, {
+        "closed_days": int(closed_days),
+        "reference_local_date": reference_day.isoformat(),
+        "cutoff_local_date": cutoff_day.strftime("%Y%m%d"),
+        "input_rows": int(len(normalized)),
+        "output_rows": int(len(retained)),
+        "removed_rows": int(len(normalized) - len(retained)),
+        "input_dates": int(len(input_date_values)),
+        "output_dates": int(len(output_date_values)),
+        "removed_dates": int(len(input_date_values - output_date_values)),
+    }
+
+
 def update_hourly_incremental(current_hourly, existing_hourly):
     """Append new AEMET hourly observations and deduplicate by station and UTC time.
 
@@ -879,15 +949,24 @@ def merge_daily_incremental(current_daily, existing_daily):
     return merged.reset_index(drop=True)
 
 
-def write_outputs(data_dir, current_hourly, hourly_incremental, station_catalog, daily_incremental):
+def write_outputs(
+    data_dir,
+    current_hourly,
+    hourly_incremental,
+    station_catalog,
+    daily_incremental,
+    *,
+    write_daily_incremental=True,
+):
     """Write every AEMET CSV artifact expected by local tests, HA and Tomap."""
     data_dir.mkdir(parents=True, exist_ok=True)
     current_daily = build_daily_incremental(current_hourly, station_catalog)
-    current_hourly.to_csv(data_dir / "Aemet.csv", index=False)
-    current_daily.to_csv(data_dir / "Aemet_current_daily.csv", index=False, decimal=",")
-    hourly_incremental.to_csv(data_dir / "Aemet_hourly_incremental.csv", index=False)
-    station_catalog.to_csv(data_dir / "estacions_aemet.csv", index=False, decimal=",")
-    daily_incremental.to_csv(data_dir / "Aemet_incremental.csv", index=False, decimal=",")
+    write_csv_atomic(current_hourly, data_dir / "Aemet.csv")
+    write_csv_atomic(current_daily, data_dir / "Aemet_current_daily.csv", decimal=",")
+    write_csv_atomic(hourly_incremental, data_dir / "Aemet_hourly_incremental.csv")
+    write_csv_atomic(station_catalog, data_dir / "estacions_aemet.csv", decimal=",")
+    if write_daily_incremental:
+        write_csv_atomic(daily_incremental, data_dir / "Aemet_incremental.csv", decimal=",")
 
 
 def run_update(
@@ -900,6 +979,7 @@ def run_update(
     reverse_geocoder=reverse_geocode_station,
     total_timeout=AEMET_TOTAL_TIMEOUT_SECONDS,
     phase_callback=None,
+    retention_reference_day=None,
 ):
     """Fetch AEMET observations and update all AEMET CSV outputs.
 
@@ -940,8 +1020,15 @@ def run_update(
     existing_hourly = read_csv_if_exists(data_dir / "Aemet_hourly_incremental.csv", HOURLY_COLUMNS)
     timings["read_hourly_seconds"] = time.perf_counter() - phase_started
     phase_started = time.perf_counter()
-    hourly_incremental = update_hourly_incremental(current_hourly, existing_hourly)
+    merged_hourly = update_hourly_incremental(current_hourly, existing_hourly)
     timings["merge_hourly_seconds"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
+    hourly_incremental, hourly_retention = retain_hourly_incremental(
+        merged_hourly,
+        local_timezone=local_timezone,
+        reference_day=retention_reference_day,
+    )
+    timings["retain_hourly_seconds"] = time.perf_counter() - phase_started
     phase_started = time.perf_counter()
     existing_stations = read_csv_if_exists(data_dir / "estacions_aemet.csv", STATION_COLUMNS, decimal=",")
     timings["read_stations_seconds"] = time.perf_counter() - phase_started
@@ -962,23 +1049,49 @@ def run_update(
     phase_started = time.perf_counter()
     rebuilt_daily = build_daily_incremental(hourly_incremental, station_catalog)
     timings["build_daily_seconds"] = time.perf_counter() - phase_started
+    from rainmapper_core.weather_history_capture import (
+        capture_fresh_weather_rows,
+        partitioned_history_enabled,
+    )
+
+    partitioned_mode = partitioned_history_enabled()
+    if partitioned_mode:
+        # The archive/CSV close step owns the bounded 180-day merge.  Avoid
+        # loading the former multi-million-row AEMET CSV in this source process.
+        timings["read_daily_seconds"] = 0.0
+        timings["merge_daily_seconds"] = 0.0
+        daily_incremental = rebuilt_daily
+    else:
+        phase_started = time.perf_counter()
+        existing_daily = read_csv_if_exists(data_dir / "Aemet_incremental.csv", DAILY_COLUMNS, decimal=",")
+        timings["read_daily_seconds"] = time.perf_counter() - phase_started
+        phase_started = time.perf_counter()
+        daily_incremental = merge_daily_incremental(rebuilt_daily, existing_daily)
+        timings["merge_daily_seconds"] = time.perf_counter() - phase_started
+    # The reconstructed recent complete days are the touched AEMET rows.  The
+    # pending must be durable before Aemet_incremental.csv is modified.
+    capture_fresh_weather_rows(data_dir, "aemet", rebuilt_daily)
     phase_started = time.perf_counter()
-    existing_daily = read_csv_if_exists(data_dir / "Aemet_incremental.csv", DAILY_COLUMNS, decimal=",")
-    timings["read_daily_seconds"] = time.perf_counter() - phase_started
-    phase_started = time.perf_counter()
-    daily_incremental = merge_daily_incremental(rebuilt_daily, existing_daily)
-    timings["merge_daily_seconds"] = time.perf_counter() - phase_started
-    phase_started = time.perf_counter()
-    write_outputs(data_dir, current_hourly, hourly_incremental, station_catalog, daily_incremental)
+    write_outputs(
+        data_dir,
+        current_hourly,
+        hourly_incremental,
+        station_catalog,
+        daily_incremental,
+        write_daily_incremental=not partitioned_mode,
+    )
     timings["write_outputs_seconds"] = time.perf_counter() - phase_started
     timings["total_seconds"] = time.perf_counter() - total_started
     return {
         "current_hourly_rows": len(current_hourly),
         "hourly_incremental_rows": len(hourly_incremental),
+        "hourly_retention": hourly_retention,
         "station_rows": len(station_catalog),
         "enriched_station_rows": enriched_station_rows,
         "daily_incremental_rows": len(daily_incremental),
         "stations": int(daily_incremental["Codi Estació"].nunique()) if not daily_incremental.empty else 0,
+        "partitioned_history": partitioned_mode,
+        "daily_updates": rebuilt_daily if partitioned_mode else None,
         "timings": timings,
     }
 

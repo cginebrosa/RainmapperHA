@@ -16,7 +16,8 @@ from typing import Any, Callable
 from rainmapper_core import mushroom_gis_lab, mushroom_observation_context
 
 
-SCHEMA_VERSION = "0.1"
+SCHEMA_VERSION = "0.2"
+SUPPORTED_SCHEMA_VERSIONS = {"0.1", SCHEMA_VERSION}
 MANIFEST_NAME = "input_manifest.json"
 GIS_HASH_CACHE_SCHEMA_VERSION = "0.1"
 GIS_HASH_CACHE_KIND = "rainmapper_gis_hash_cache"
@@ -271,8 +272,64 @@ def create_snapshot(
                 )
             )
         weather_root = weather_data_dir.resolve()
+        weather_history_record: dict[str, object] | None = None
+        partitioned_current = weather_root / "weather-history" / "CURRENT.json"
         weather_parquet = weather_root / WEATHER_DAILY_PARQUET_NAME
-        if prefer_weather_parquet and weather_parquet.is_file():
+        if prefer_weather_parquet and partitioned_current.is_file():
+            from rainmapper_core.weather_history_dataset import (
+                pin_weather_generation,
+                write_json_atomic,
+            )
+
+            with pin_weather_generation(weather_root) as generation:
+                history_files = [
+                    ("manifest", generation.manifest_path),
+                    ("catalog", generation.object_path(generation.catalog.path)),
+                    *[
+                        ("partition", generation.object_path(partition.path))
+                        for partition in generation.partitions
+                    ],
+                ]
+                for role_suffix, source in history_files:
+                    relative_under_history = source.relative_to(generation.root).as_posix()
+                    relative = f"inputs/weather/weather-history/{relative_under_history}"
+                    snapshot_files.append(
+                        _copy_snapshot_file(
+                            source,
+                            staging / relative,
+                            logical_path=relative,
+                            role=f"weather-history:{role_suffix}",
+                            required=True,
+                        )
+                    )
+                current_relative = "inputs/weather/weather-history/CURRENT.json"
+                current_destination = staging / current_relative
+                write_json_atomic(
+                    current_destination,
+                    {
+                        "schema_version": "weather_history_current_v1",
+                        "generation_id": generation.generation_id,
+                        "manifest_path": generation.manifest_path.relative_to(
+                            generation.root
+                        ).as_posix(),
+                        "manifest_sha256": generation.manifest_sha256,
+                    },
+                )
+                snapshot_files.append(
+                    _stable_file_record(
+                        current_destination,
+                        logical_path=current_relative,
+                        role="weather-history:current",
+                    )
+                )
+                weather_history_record = {
+                    "root": "inputs/weather/weather-history",
+                    "generation_id": generation.generation_id,
+                    "manifest_sha256": generation.manifest_sha256,
+                    "partition_count": len(generation.partitions),
+                }
+            weather_inputs = ()
+        elif prefer_weather_parquet and weather_parquet.is_file():
             weather_inputs = (("daily_parquet", WEATHER_DAILY_PARQUET_NAME, True),)
         else:
             weather_inputs = (
@@ -322,6 +379,8 @@ def create_snapshot(
                 }
             ],
         }
+        if weather_history_record is not None:
+            manifest["weather_history"] = weather_history_record
         (staging / MANIFEST_NAME).write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
@@ -340,7 +399,7 @@ def load_manifest(snapshot_dir: Path) -> dict[str, Any]:
         raise ValueError(f"snapshot manifest must contain an object: {manifest_path}")
     if payload.get("kind") != "mushroom_rebuild_input_manifest":
         raise ValueError(f"unexpected snapshot manifest kind: {manifest_path}")
-    if payload.get("schema_version") != SCHEMA_VERSION:
+    if payload.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS:
         raise ValueError(f"unsupported snapshot manifest schema: {payload.get('schema_version')}")
     return payload
 
@@ -395,6 +454,29 @@ def verify_snapshot(
             errors.append(f"snapshot hash mismatch: {raw_record.get('path')}")
             continue
         verified_files += 1
+
+    weather_history = manifest.get("weather_history")
+    if weather_history is not None:
+        if not isinstance(weather_history, dict):
+            errors.append("weather_history must be an object")
+        else:
+            try:
+                history_root = _resolve_beneath(
+                    root,
+                    weather_history.get("root"),
+                    label="snapshot weather history",
+                )
+                from rainmapper_core.weather_history_dataset import resolve_weather_generation
+
+                generation = resolve_weather_generation(history_root, verify_hashes=True)
+                if generation.generation_id != weather_history.get("generation_id"):
+                    errors.append("weather history generation identity mismatch")
+                if generation.manifest_sha256 != weather_history.get("manifest_sha256"):
+                    errors.append("weather history manifest identity mismatch")
+                if len(generation.partitions) != weather_history.get("partition_count"):
+                    errors.append("weather history partition count mismatch")
+            except (OSError, RuntimeError, ValueError) as exc:
+                errors.append(f"invalid weather history dataset: {exc}")
 
     datasets = manifest.get("datasets", [])
     if not isinstance(datasets, list) or len(datasets) != 1 or not isinstance(datasets[0], dict):
@@ -504,6 +586,14 @@ def verify_live_inputs(
         role = str(raw_record.get("role", ""))
         logical_path = str(raw_record.get("path", ""))
         source = fixed_sources.get(role)
+        if source is None and role.startswith("weather-history:"):
+            weather_prefix = PurePosixPath("inputs/weather")
+            logical = PurePosixPath(logical_path)
+            try:
+                relative_weather = logical.relative_to(weather_prefix)
+                source = weather_data_dir.resolve().joinpath(*relative_weather.parts)
+            except ValueError:
+                source = None
         if source is None and role.startswith("weather:"):
             source = weather_data_dir.resolve() / Path(logical_path).name
         if source is None:
@@ -628,6 +718,20 @@ def materialize_ha_test_runtime(
             source = paths["weather_data_dir"] / filename
             if source.is_file():
                 shutil.copy2(source, weather_data / filename)
+        for raw_record in manifest.get("files", []):
+            if not isinstance(raw_record, dict):
+                continue
+            if not str(raw_record.get("role", "")).startswith("weather-history:"):
+                continue
+            logical = PurePosixPath(str(raw_record.get("path", "")))
+            try:
+                relative_weather = logical.relative_to(PurePosixPath("inputs/weather"))
+            except ValueError as exc:
+                raise ValueError(f"invalid weather history snapshot path: {logical}") from exc
+            source = _resolve_beneath(snapshot_root, logical.as_posix(), label="weather history file")
+            destination = weather_data.joinpath(*relative_weather.parts)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
         shutil.copy2(snapshot_root / MANIFEST_NAME, share / "rebuild_test_input_manifest.json")
         (staging / "tmp").mkdir()
         (staging / "config-www").mkdir()

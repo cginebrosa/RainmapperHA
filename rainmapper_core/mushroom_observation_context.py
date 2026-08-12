@@ -87,6 +87,7 @@ CSV_FIELDS = (
     "weather_station_code",
     "weather_station_name",
     "weather_station_distance_km",
+    "weather_station_altitude_m",
     "weather_station_coverage_days_90d",
     "weather_summary_window_days",
     "rain_1d_mm",
@@ -184,6 +185,7 @@ class WeatherStation:
     lat: float
     lon: float
     records_by_day: dict[date, DailyWeatherRecord]
+    altitude_m: float | None = None
 
 
 def repo_root() -> Path:
@@ -310,25 +312,41 @@ class WeatherParquetLayoutError(RuntimeError):
 
 _PARQUET_COL_MAP = {
     "Codi Estació": "station_code",
+    "Data Lectura": "reading_datetime",
     "Estació": "station_name",
+    "Comarca": "county",
+    "Municipi": "municipality",
+    "Provincia": "province",
     "Data Local": "local_date",
+    "Hora Local": "local_time",
     "Latitud": "lat",
     "Longitud": "lon",
     "Altitud": "altitude",
+    "Ultima Lectura": "last_reading",
+    "Variable": "variable",
     "Total": "rain_mm",
+    "Unitat": "unit",
     "max_temp_celsius": "max_temp_celsius",
     "min_temp_celsius": "min_temp_celsius",
     "max_humidity_percent": "max_humidity_percent",
     "min_humidity_percent": "min_humidity_percent",
     "wind_avg_kmh": "wind_avg_kmh",
+    "wind_min_kmh": "wind_min_kmh",
+    "wind_max_kmh": "wind_max_kmh",
     "wind_gust_kmh": "wind_gust_kmh",
+    "wind_direction_deg": "wind_direction_deg",
+    "wind_gust_direction_deg": "wind_gust_direction_deg",
+    "wind_observation_count": "wind_observation_count",
+    "wind_source_height_m": "wind_source_height_m",
 }
 
 _PARQUET_FLOAT_COLS = (
     "lat", "lon", "altitude", "rain_mm",
     "max_temp_celsius", "min_temp_celsius",
     "max_humidity_percent", "min_humidity_percent",
-    "wind_avg_kmh", "wind_gust_kmh",
+    "wind_avg_kmh", "wind_min_kmh", "wind_max_kmh", "wind_gust_kmh",
+    "wind_direction_deg", "wind_gust_direction_deg",
+    "wind_observation_count", "wind_source_height_m",
 )
 
 
@@ -363,6 +381,10 @@ def generate_weather_daily_parquet(
         available = {col: new for col, new in _PARQUET_COL_MAP.items() if col in df.columns}
         df = df[list(available.keys())].copy()
         df.rename(columns=available, inplace=True)
+        for column in _PARQUET_COL_MAP.values():
+            if column not in df.columns:
+                df[column] = pd.NA
+        df = df[list(_PARQUET_COL_MAP.values())]
         for col in _PARQUET_FLOAT_COLS:
             if col in df.columns:
                 df[col] = df[col].apply(lambda v: parse_float(v) if pd.notna(v) else None)
@@ -417,10 +439,13 @@ def generate_stations_catalog_parquet(data_dir: Path) -> Path | None:
     columns = ["source", "station_code", "station_name", "lat", "lon", "altitude"]
     rows_by_station: dict[tuple[str, str], dict[str, Any]] = {}
     parquet_file = pq.ParquetFile(parquet_path)
-    for batch in parquet_file.iter_batches(batch_size=16_384, columns=columns):
+    available_columns = [
+        column for column in columns if column in parquet_file.schema_arrow.names
+    ]
+    for batch in parquet_file.iter_batches(batch_size=16_384, columns=available_columns):
         values = batch.to_pydict()
         for source, station_code, station_name, lat, lon, altitude in zip(
-            *(values[column] for column in columns)
+            *(values.get(column, [None] * batch.num_rows) for column in columns)
         ):
             source_text = str(source or "").strip()
             station_code_text = str(station_code or "").strip()
@@ -463,6 +488,17 @@ def load_stations_catalog(data_dir: Path) -> "pd.DataFrame":
     Creates or refreshes the lightweight catalog from weather_daily.parquet when
     necessary. Returns an empty DataFrame only when neither artifact is available.
     """
+    from rainmapper_core.weather_history_capture import partitioned_history_enabled
+
+    if partitioned_history_enabled():
+        import pyarrow.parquet as pq  # noqa: PLC0415
+        from rainmapper_core.weather_history_dataset import resolve_weather_generation
+
+        generation = resolve_weather_generation(data_dir)
+        return pq.read_table(
+            generation.object_path(generation.catalog.path)
+        ).to_pandas()
+
     catalog_path = data_dir / _CATALOG_FILENAME
     parquet_path = data_dir / _PARQUET_FILENAME
     catalog_stale = (
@@ -477,6 +513,22 @@ def load_stations_catalog(data_dir: Path) -> "pd.DataFrame":
     if not catalog_path.exists():
         return pd.DataFrame(columns=["source", "station_code", "station_name", "lat", "lon", "altitude"])
     return pd.read_parquet(catalog_path)
+
+
+def weather_history_cache_identity(data_dir: Path) -> object | None:
+    """Return immutable generation identity, or the legacy Parquet identity."""
+    from rainmapper_core.weather_history_capture import partitioned_history_enabled
+
+    if partitioned_history_enabled():
+        from rainmapper_core.weather_history_dataset import resolve_weather_generation
+
+        return resolve_weather_generation(data_dir).cache_identity
+    parquet_path = Path(data_dir) / _PARQUET_FILENAME
+    try:
+        stat_result = parquet_path.stat()
+    except OSError:
+        return None
+    return stat_result.st_mtime_ns, stat_result.st_size
 
 
 def nearest_station_codes(
@@ -499,6 +551,21 @@ def nearest_station_codes(
     return [(str(row["source"]), str(row["station_code"])) for _, row in nearby.iterrows()]
 
 
+def station_altitudes_from_catalog(data_dir: Path) -> dict[tuple[str, str], float]:
+    """Return catalogue altitudes keyed exactly like the daily weather index."""
+    catalog = load_stations_catalog(data_dir)
+    if catalog.empty or "altitude" not in catalog.columns:
+        return {}
+    altitudes: dict[tuple[str, str], float] = {}
+    for row in catalog.itertuples(index=False):
+        source = str(getattr(row, "source", "") or "").strip()
+        station_code = str(getattr(row, "station_code", "") or "").strip()
+        altitude = parse_float(getattr(row, "altitude", None))
+        if source and station_code and altitude is not None:
+            altitudes[(source, station_code)] = altitude
+    return altitudes
+
+
 def load_daily_weather_parquet(
     data_dir: Path,
     progress_callback: Any | None = None,
@@ -518,13 +585,10 @@ def load_daily_weather_parquet(
         raise ValueError("start_date and end_date must be provided together")
     if start_date is not None and end_date is not None and start_date > end_date:
         raise ValueError("start_date must not be after end_date")
-    parquet_path = data_dir / _PARQUET_FILENAME
-    if not parquet_path.exists():
-        if station_filter is not None:
-            return {}
-        return _load_daily_weather_from_csv(data_dir, progress_callback)
+    from rainmapper_core.weather_history_capture import partitioned_history_enabled
 
-    emit_progress(progress_callback, 5, "Leyendo weather_daily.parquet...")
+    partitioned_mode = partitioned_history_enabled()
+    normalized_filter = None
     if station_filter is not None:
         normalized_filter = {
             (str(source).strip(), str(station_code).strip())
@@ -534,34 +598,65 @@ def load_daily_weather_parquet(
         if not normalized_filter:
             emit_progress(progress_callback, 100, "No hay estaciones meteorologicas seleccionadas.")
             return {}
-        import pyarrow.parquet as pq  # noqa: PLC0415
 
-        metadata = pq.ParquetFile(parquet_path).metadata
-        if metadata.num_row_groups == 1 and metadata.num_rows > _PARQUET_ROW_GROUP_SIZE:
+    if partitioned_mode:
+        if normalized_filter is None and start_date is None:
             raise WeatherParquetLayoutError(
-                "weather_daily.parquet must be regenerated by the current runner "
-                "before using filtered Predictor reads"
+                "Partitioned weather history requires a bounded station/date read"
             )
-        date_filters = (
-            [
-                ("local_date", ">=", start_date.strftime("%Y%m%d")),
-                ("local_date", "<=", end_date.strftime("%Y%m%d")),
-            ]
-            if start_date is not None and end_date is not None
-            else []
-        )
-        parquet_filters = [
-            [
-                ("source", "==", source),
-                ("station_code", "==", station_code),
-                *date_filters,
-            ]
-            for source, station_code in sorted(normalized_filter)
+        from rainmapper_core.weather_history_dataset import read_weather_history
+
+        emit_progress(progress_callback, 5, "Leyendo histórico meteorológico particionado...")
+        columns = [
+            "source", "station_code", "station_name", "local_date", "lat", "lon",
+            "altitude", "rain_mm", "max_temp_celsius", "min_temp_celsius",
+            "max_humidity_percent", "min_humidity_percent", "wind_avg_kmh",
+            "wind_gust_kmh",
         ]
-        df = pd.read_parquet(parquet_path, filters=parquet_filters)
+        df = read_weather_history(
+            data_dir,
+            columns=columns,
+            station_filter=normalized_filter,
+            start_date=start_date.strftime("%Y%m%d") if start_date else None,
+            end_date=end_date.strftime("%Y%m%d") if end_date else None,
+        )
     else:
-        df = pd.read_parquet(parquet_path)
-    emit_progress(progress_callback, 30, f"Parquet cargado: {len(df)} registros.")
+        parquet_path = data_dir / _PARQUET_FILENAME
+        if not parquet_path.exists():
+            if station_filter is not None:
+                return {}
+            return _load_daily_weather_from_csv(data_dir, progress_callback)
+
+        emit_progress(progress_callback, 5, "Leyendo weather_daily.parquet...")
+        if normalized_filter is not None:
+            import pyarrow.parquet as pq  # noqa: PLC0415
+
+            metadata = pq.ParquetFile(parquet_path).metadata
+            if metadata.num_row_groups == 1 and metadata.num_rows > _PARQUET_ROW_GROUP_SIZE:
+                raise WeatherParquetLayoutError(
+                    "weather_daily.parquet must be regenerated by the current runner "
+                    "before using filtered Predictor reads"
+                )
+            date_filters = (
+                [
+                    ("local_date", ">=", start_date.strftime("%Y%m%d")),
+                    ("local_date", "<=", end_date.strftime("%Y%m%d")),
+                ]
+                if start_date is not None and end_date is not None
+                else []
+            )
+            parquet_filters = [
+                [
+                    ("source", "==", source),
+                    ("station_code", "==", station_code),
+                    *date_filters,
+                ]
+                for source, station_code in sorted(normalized_filter)
+            ]
+            df = pd.read_parquet(parquet_path, filters=parquet_filters)
+        else:
+            df = pd.read_parquet(parquet_path)
+    emit_progress(progress_callback, 30, f"Histórico cargado: {len(df)} registros.")
 
     # Vectorized filtering — drop rows missing required fields before any Python loop
     df = df.copy()
@@ -583,12 +678,13 @@ def load_daily_weather_parquet(
     df = df.dropna(subset=["_day"])
 
     # Ensure float columns are numeric (parquet may carry object dtype on re-read)
-    for col in ["lat", "lon", "rain_mm", "max_temp_celsius", "min_temp_celsius",
+    for col in ["lat", "lon", "altitude", "rain_mm", "max_temp_celsius", "min_temp_celsius",
                 "max_humidity_percent", "min_humidity_percent", "wind_avg_kmh", "wind_gust_kmh"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
     emit_progress(progress_callback, 60, "Construyendo indice de estaciones...")
+    catalog_altitudes = station_altitudes_from_catalog(data_dir)
 
     def _col_list(grp: Any, name: str) -> list:
         return grp[name].tolist() if name in grp.columns else [None] * len(grp)
@@ -610,6 +706,9 @@ def load_daily_weather_parquet(
             continue
         lat_f = float(lat_s)
         lon_f = float(lon_s)
+        altitude_f = _f(grp["altitude"].iloc[0]) if "altitude" in grp.columns else None
+        if altitude_f is None:
+            altitude_f = catalog_altitudes.get((source, station_code))
 
         # Convert whole columns to Python lists once per station (C-level, fast)
         day_dates = grp["_day"].dt.date.tolist()
@@ -648,6 +747,7 @@ def load_daily_weather_parquet(
             lat=lat_f,
             lon=lon_f,
             records_by_day=records_by_day,
+            altitude_m=altitude_f,
         )
 
     emit_progress(progress_callback, 100, f"Estaciones cargadas desde Parquet: {len(stations)}.")
@@ -702,6 +802,7 @@ def _load_daily_weather_from_csv(
             (completed_bytes / total_bytes) * 100 if total_bytes else 100,
             f"Fuente {source} cargada: {rows_read} registros.",
         )
+    catalog_altitudes = station_altitudes_from_catalog(data_dir)
     stations = {}
     for key, station_records in records.items():
         lat, lon = coordinates[key]
@@ -712,6 +813,7 @@ def _load_daily_weather_from_csv(
             lat=lat,
             lon=lon,
             records_by_day=station_records,
+            altitude_m=catalog_altitudes.get(key),
         )
     return stations
 
@@ -1258,6 +1360,7 @@ def build_observation_weather_row(
         "weather_station_code": "",
         "weather_station_name": "",
         "weather_station_distance_km": None,
+        "weather_station_altitude_m": None,
         "weather_station_coverage_days_90d": 0,
         "weather_summary_window_days": SUMMARY_WINDOW_DAYS,
         "observed_host_ids": observed_host_ids(observation),
@@ -1329,6 +1432,7 @@ def build_observation_weather_row(
             "weather_station_code": station.station_code,
             "weather_station_name": station.station_name,
             "weather_station_distance_km": round_or_none(distance_km, 2),
+            "weather_station_altitude_m": station.altitude_m,
             "weather_station_coverage_days_90d": coverage,
             "data_gaps": gaps + weather_gaps,
         }
@@ -1422,6 +1526,49 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(report_markdown(payload), encoding="utf-8")
 
 
+def observation_weather_read_scope(
+    observations: list[dict[str, Any]],
+    data_dir: Path,
+) -> tuple[set[tuple[str, str]], date | None, date | None]:
+    """Bound a rebuild to nearby catalog stations and required 120-day windows."""
+    requests: list[tuple[float, float, date, date]] = []
+    for observation in observations:
+        lat, lon = observation_location(observation)
+        observed_day = parse_day(observation.get("observed_at"))
+        if lat is None or lon is None or observed_day is None:
+            continue
+        requests.append(
+            (lat, lon, observed_day - timedelta(days=DAILY_SERIES_DAYS - 1), observed_day)
+        )
+    if not requests:
+        return set(), None, None
+
+    catalog = load_stations_catalog(data_dir)
+    selected: set[tuple[str, str]] = set()
+    for row in catalog.itertuples(index=False):
+        source = str(getattr(row, "source", "") or "").strip()
+        station_code = str(getattr(row, "station_code", "") or "").strip()
+        lat = parse_float(getattr(row, "lat", None))
+        lon = parse_float(getattr(row, "lon", None))
+        if not source or not station_code or lat is None or lon is None:
+            continue
+        first_day = parse_day(getattr(row, "first_date", None))
+        last_day = parse_day(getattr(row, "last_date", None))
+        for request_lat, request_lon, window_start, window_end in requests:
+            if first_day is not None and first_day > window_end:
+                continue
+            if last_day is not None and last_day < window_start:
+                continue
+            if haversine_km(request_lat, request_lon, lat, lon) <= STATION_MAX_DISTANCE_KM:
+                selected.add((source, station_code))
+                break
+    return (
+        selected,
+        min(request[2] for request in requests),
+        max(request[3] for request in requests),
+    )
+
+
 def build_observation_weather_features(
     observations_path: Path | None = None,
     weather_data_dir: Path | None = None,
@@ -1433,6 +1580,18 @@ def build_observation_weather_features(
     emit_progress(progress_callback, 1, "Cargando observaciones.")
     observations = load_observations(observations_path)
     emit_progress(progress_callback, 4, f"Cargadas {len(observations)} observaciones.")
+    from rainmapper_core.weather_history_capture import partitioned_history_enabled
+
+    load_kwargs: dict[str, Any] = {}
+    if partitioned_history_enabled():
+        station_filter, start_date, end_date = observation_weather_read_scope(
+            observations, weather_data_dir
+        )
+        load_kwargs = {
+            "station_filter": station_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
     stations = load_daily_weather_parquet(
         weather_data_dir,
         progress_callback=lambda percent, message: emit_progress(
@@ -1440,6 +1599,7 @@ def build_observation_weather_features(
             5 + percent * 0.35,
             message,
         ),
+        **load_kwargs,
     )
     emit_progress(progress_callback, 41, "Cargando politica de prediccion del catalogo.")
     prediction_policy = load_prediction_target_policy(catalogs_path)

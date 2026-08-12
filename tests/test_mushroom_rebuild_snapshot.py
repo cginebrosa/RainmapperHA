@@ -5,8 +5,15 @@ from pathlib import Path
 from unittest import mock
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
-from rainmapper_core import mushroom_rebuild_comparison, mushroom_rebuild_snapshot
+from rainmapper_core import (
+    mushroom_rebuild_comparison,
+    mushroom_rebuild_snapshot,
+    weather_history_contract,
+    weather_history_dataset,
+)
 
 
 class MushroomRebuildSnapshotTests(unittest.TestCase):
@@ -53,6 +60,84 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
             gis_root=self.gis,
         )
         return snapshot
+
+    def create_partitioned_weather(self) -> str:
+        root = self.weather / "weather-history"
+        row = weather_history_contract.normalize_mapping(
+            {
+                "source": "meteocat",
+                "station_code": "X1",
+                "station_name": "Test",
+                "local_date": "20260808",
+                "lat": 42.0,
+                "lon": 2.0,
+                "altitude": 700.0,
+                "rain_mm": 1.0,
+            },
+            "meteocat",
+        )
+        frame = pd.DataFrame(
+            [row], columns=weather_history_contract.WEATHER_HISTORY_COLUMNS
+        )
+        part = root / "parts/source=meteocat/year=2026/data.parquet"
+        part.parent.mkdir(parents=True)
+        pq.write_table(
+            pa.Table.from_pandas(
+                frame[weather_history_contract.WEATHER_HISTORY_COLUMNS],
+                schema=weather_history_contract.WEATHER_HISTORY_SCHEMA,
+                preserve_index=False,
+            ),
+            part,
+        )
+        part_sha = weather_history_dataset.sha256_file(part)
+        immutable_part = part.with_name(f"data-{part_sha}.parquet")
+        part.replace(immutable_part)
+        catalog = root / "catalogs/catalog.parquet"
+        catalog.parent.mkdir(parents=True)
+        pd.DataFrame(
+            [["meteocat", "X1", "Test", 42.0, 2.0, 700.0, "20260808", "20260808", "20260808"]],
+            columns=weather_history_dataset.CATALOG_COLUMNS,
+        ).to_parquet(catalog, index=False)
+        catalog_sha = weather_history_dataset.sha256_file(catalog)
+        immutable_catalog = catalog.with_name(f"stations-{catalog_sha}.parquet")
+        catalog.replace(immutable_catalog)
+        generation_id = "20260812T120000Z-snapshot"
+        manifest = {
+            "schema_version": weather_history_dataset.MANIFEST_SCHEMA_VERSION,
+            "generation_id": generation_id,
+            "previous_generation_id": None,
+            "created_at": "2026-08-12T12:00:00+00:00",
+            "data_schema_version": weather_history_dataset.DATA_SCHEMA_VERSION,
+            "key": ["source", "station_code", "local_date"],
+            "partitions": [{
+                "source": "meteocat", "year": 2026,
+                "path": immutable_part.relative_to(root).as_posix(),
+                "sha256": part_sha, "size_bytes": immutable_part.stat().st_size,
+                "rows": 1, "min_local_date": "20260808", "max_local_date": "20260808",
+            }],
+            "catalog": {
+                "path": immutable_catalog.relative_to(root).as_posix(),
+                "sha256": catalog_sha, "size_bytes": immutable_catalog.stat().st_size,
+                "rows": 1,
+            },
+            "totals": {
+                "rows": 1,
+                "size_bytes": immutable_part.stat().st_size + immutable_catalog.stat().st_size,
+            },
+            "update_report": {},
+        }
+        manifest_path = root / "manifests" / f"{generation_id}.json"
+        weather_history_dataset.write_json_atomic(manifest_path, manifest)
+        weather_history_dataset.write_json_atomic(
+            root / "CURRENT.json",
+            {
+                "schema_version": weather_history_dataset.CURRENT_SCHEMA_VERSION,
+                "generation_id": generation_id,
+                "manifest_path": manifest_path.relative_to(root).as_posix(),
+                "manifest_sha256": weather_history_dataset.sha256_file(manifest_path),
+            },
+        )
+        return generation_id
 
     def test_create_and_verify_snapshot(self) -> None:
         snapshot = self.create_snapshot()
@@ -102,6 +187,36 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
         self.assertEqual(weather_records[0]["path"], "inputs/weather/weather_daily.parquet")
         self.assertFalse(any(str(row.get("path", "")).endswith(".csv") for row in manifest["files"]))
         self.assertEqual(live["status"], "valid")
+
+    def test_snapshot_freezes_and_materializes_partitioned_weather_generation(self) -> None:
+        generation_id = self.create_partitioned_weather()
+        snapshot = self.create_snapshot()
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+
+        self.assertEqual(manifest["weather_history"]["generation_id"], generation_id)
+        self.assertEqual(manifest["weather_history"]["partition_count"], 1)
+        self.assertFalse(any(
+            str(row.get("path", "")).endswith("weather_daily.parquet")
+            for row in manifest["files"]
+        ))
+        self.assertEqual(
+            mushroom_rebuild_snapshot.verify_snapshot(snapshot)["status"], "valid"
+        )
+        live = mushroom_rebuild_snapshot.verify_live_inputs(
+            manifest,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+        )
+        self.assertEqual(live["status"], "valid")
+        runtime = self.root / "partitioned-runtime"
+        mushroom_rebuild_snapshot.materialize_ha_test_runtime(snapshot, runtime)
+        restored = weather_history_dataset.resolve_weather_generation(
+            runtime / "share/Data", verify_hashes=True
+        )
+        self.assertEqual(restored.generation_id, generation_id)
 
     def test_snapshot_uses_csv_fallback_for_worker_without_parquet_capability(self) -> None:
         pd.DataFrame(

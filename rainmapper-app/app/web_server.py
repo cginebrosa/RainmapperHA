@@ -65,6 +65,12 @@ from rainmapper_core.mushroom_validation import (
     validate_profile_semantics,
     validate_profiles_semantics,
 )
+from rainmapper_core.weather_history_run_lock import (
+    WeatherRunBusy,
+    acquire_run_lock as acquire_weather_run_lock,
+    release_run_lock as release_weather_run_lock,
+)
+from rainmapper_core.weather_history_pipeline import combine_update_exit_codes
 
 
 PLOTS_PATH = Path("/app/Plots")
@@ -10330,6 +10336,45 @@ def run_action(action: str, source: str, only_source: str | None = None) -> bool
 
 
 def _run_action_thread(action: str, source: str, only_source: str | None = None) -> None:
+    weather_run_lock_handle = None
+    if bool_env("RAINMAPPER_PARTITIONED_WEATHER_HISTORY", False) and action in {"update", "all"}:
+        try:
+            weather_run_lock_handle = acquire_weather_run_lock(
+                DATA_PATH / "weather-history" / "locks" / "run.lock",
+                float(env("RAINMAPPER_RUN_LOCK_TIMEOUT_SECONDS", "30")),
+            )
+        except WeatherRunBusy as exc:
+            message = str(exc)
+            with RUN_LOCK:
+                RUN_STATE.update(
+                    {
+                        "running": False,
+                        "finished_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+                        "exit_code": "1",
+                        "last_message": message,
+                        "current_step": "Weather update busy",
+                    }
+                )
+            STATUS_PATH.write_text(message + "\n", encoding="utf-8")
+            return
+    try:
+        _run_action_thread_impl(
+            action,
+            source,
+            only_source,
+            weather_run_lock_held=weather_run_lock_handle is not None,
+        )
+    finally:
+        release_weather_run_lock(weather_run_lock_handle)
+
+
+def _run_action_thread_impl(
+    action: str,
+    source: str,
+    only_source: str | None = None,
+    *,
+    weather_run_lock_held: bool = False,
+) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     exit_code = 0
     final_exit_code = 0
@@ -10346,6 +10391,7 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
     )
     print(f"Starting Rainmapper action '{action_label}' from {source}.", flush=True)
 
+    weather_run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ") + f"-pid{os.getpid()}"
     with LOG_PATH.open("w", encoding="utf-8") as log_file:
         log_file.write(f"=== {started.isoformat(timespec='seconds')} - {action_label} ({source}) ===\n")
         log_file.flush()
@@ -10364,6 +10410,9 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
             log_file.flush()
             child_environment = os.environ.copy()
             child_environment[runtime_diagnostics.PARENT_OPERATION_ENV] = action_monitor.operation_id
+            child_environment["RAINMAPPER_WEATHER_RUN_ID"] = weather_run_id
+            if weather_run_lock_held:
+                child_environment["RAINMAPPER_RUN_LOCK_HELD"] = "true"
             process = subprocess.Popen(
                 command,
                 cwd="/app",
@@ -10403,9 +10452,24 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
             )
             return exit_code, elapsed
 
+        archive_command = [
+            "python", "-m", "rainmapper_core.weather_history_archive",
+            "--data-dir", "/app/Data",
+        ]
+        weather_preflight_command = [
+            "python", "-m", "rainmapper_core.weather_history_pipeline",
+            "download-preflight", "--data-dir", "/app/Data",
+        ]
+        partitioned_history = bool_env("RAINMAPPER_PARTITIONED_WEATHER_HISTORY", False)
         actions = ["update", "maps"] if action == "all" else [action]
         for current_action in actions:
             step_started = time.perf_counter()
+            if current_action == "update" and partitioned_history:
+                exit_code, _ = execute_command_step(
+                    "update", archive_command, "archive pending before update"
+                )
+                if exit_code != 0:
+                    break
             if current_action == "update" and monthly_backfill_enabled():
                 backup_message = backup_incrementals_for_backfill()
                 print(backup_message, flush=True)
@@ -10429,6 +10493,15 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
                         log_file.flush()
                         if pause_seconds:
                             time.sleep(pause_seconds)
+                    if partitioned_history:
+                        preflight_exit_code, _ = execute_command_step(
+                            "update",
+                            weather_preflight_command,
+                            f"weather disk preflight {window_index}/{len(windows)}",
+                        )
+                        if preflight_exit_code != 0:
+                            exit_code = 1
+                            break
                     step_label = (
                         f"update backfill {window_index}/{len(windows)} "
                         f"months {window['months_init']}..{window['months_end']} "
@@ -10446,12 +10519,38 @@ def _run_action_thread(action: str, source: str, only_source: str | None = None)
                     exit_code, _ = execute_command_step("update", command, step_label)
                     if exit_code not in {0, 2}:
                         break
+                    if partitioned_history:
+                        archive_exit_code, _ = execute_command_step(
+                            "update",
+                            archive_command,
+                            f"archive backfill {window_index}/{len(windows)}",
+                        )
+                        exit_code = combine_update_exit_codes(
+                            exit_code, archive_exit_code
+                        )
+                        if exit_code not in {0, 2}:
+                            break
                 step_duration = format_seconds_duration(time.perf_counter() - step_started)
                 log_file.write(f"=== step update monthly backfill total duration {step_duration} ===\n")
                 log_file.flush()
             else:
+                if current_action == "update" and partitioned_history:
+                    preflight_exit_code, _ = execute_command_step(
+                        "update", weather_preflight_command, "weather disk preflight"
+                    )
+                    if preflight_exit_code != 0:
+                        exit_code = 1
+                        break
                 command = command_for(current_action, only_source=only_source if current_action == "update" else None)
                 exit_code, _ = execute_command_step(current_action, command, current_action)
+                if current_action == "update" and partitioned_history:
+                    source_exit_code = exit_code
+                    archive_exit_code, _ = execute_command_step(
+                        "update", archive_command, "archive pending after update"
+                    )
+                    exit_code = combine_update_exit_codes(
+                        source_exit_code, archive_exit_code
+                    )
             if exit_code not in {0, 2}:
                 break
             if current_action == "maps":

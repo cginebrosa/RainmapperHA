@@ -126,7 +126,8 @@ ln -s "$SHARE_ROOT/PublicData" /app/PublicData
 ln -s "$SHARE_ROOT/stations.txt" /app/stations.txt
 ln -s "$IGNORE_STATIONS_TOMAP_FILE" /app/ignore_stations_tomap.txt
 
-MODE="$(option mode serve)"
+MODE="${RAINMAPPER_LOCKED_MODE:-$(option mode serve)}"
+PARTITIONED_WEATHER_HISTORY_VALUE="${RAINMAPPER_PARTITIONED_WEATHER_HISTORY:-$(option partitioned_weather_history false)}"
 TIMEZONE="$(option timezone Europe/Madrid)"
 UI_LANGUAGE_VALUE="$(option ui_language en)"
 SCHEDULE_ENABLED_VALUE="$(option schedule_enabled false)"
@@ -246,7 +247,23 @@ export RAINMAPPER_WORKER_AUTH_REQUIRED="true"
 export RAINMAPPER_WORKER_OPERATIONAL_ENABLED="$EXTERNAL_WORKER_REBUILDS_ENABLED_VALUE"
 export RAINMAPPER_AEMET_API_KEY="$AEMET_API_KEY_VALUE"
 export RAINMAPPER_BACKFILL_STATION_FILTER="$BACKFILL_STATION_FILTER_VALUE"
+export RAINMAPPER_PARTITIONED_WEATHER_HISTORY="$PARTITIONED_WEATHER_HISTORY_VALUE"
 cd /app
+
+if [ "$PARTITIONED_WEATHER_HISTORY_VALUE" = "true" ] && \
+   [ "${RAINMAPPER_RUN_LOCK_HELD:-false}" != "true" ]; then
+  case "$MODE" in
+    update|once|all)
+      export RAINMAPPER_RUN_LOCK_HELD="true"
+      export RAINMAPPER_LOCKED_MODE="$MODE"
+      export RAINMAPPER_WEATHER_RUN_ID="${RAINMAPPER_WEATHER_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
+      exec python -m rainmapper_core.weather_history_run_lock \
+        --lock /app/Data/weather-history/locks/run.lock \
+        --timeout "${RAINMAPPER_RUN_LOCK_TIMEOUT_SECONDS:-30}" \
+        -- /app/run.sh
+      ;;
+  esac
+fi
 
 print_startup_banner
 
@@ -291,6 +308,49 @@ run_update() {
   set -e
   echo "Rainmapper update finished with exit code ${update_exit_code}."
   return "$update_exit_code"
+}
+
+run_archive_pending() {
+  if [ "$PARTITIONED_WEATHER_HISTORY_VALUE" != "true" ]; then
+    return 0
+  fi
+  echo "Archiving partitioned weather pending batches..."
+  python -m rainmapper_core.weather_history_archive --data-dir /app/Data
+}
+
+run_weather_download_preflight() {
+  if [ "$PARTITIONED_WEATHER_HISTORY_VALUE" != "true" ]; then
+    return 0
+  fi
+  echo "Checking weather download disk budget..."
+  python -m rainmapper_core.weather_history_pipeline \
+    download-preflight --data-dir /app/Data
+}
+
+run_update_transaction() {
+  set +e
+  run_archive_pending
+  archive_code="$?"
+  if [ "$archive_code" -ne 0 ]; then
+    set -e
+    return 1
+  fi
+  run_weather_download_preflight
+  preflight_code="$?"
+  if [ "$preflight_code" -ne 0 ]; then
+    set -e
+    return 1
+  fi
+  run_update "$@"
+  source_code="$?"
+  run_archive_pending
+  archive_code="$?"
+  set +e
+  python -m rainmapper_core.weather_history_pipeline combine-exit-codes \
+    --source "$source_code" --archive "$archive_code"
+  combined_code="$?"
+  set -e
+  return "$combined_code"
 }
 
 month_backfill_windows() {
@@ -352,7 +412,7 @@ backup_incrementals_for_backfill() {
 
 run_update_windows() {
   if [ "$BACKFILL_MONTHS_ENABLED_VALUE" != "true" ]; then
-    run_update
+    run_update_transaction
     return "$?"
   fi
 
@@ -368,7 +428,7 @@ run_update_windows() {
     fi
     first_window=0
     echo "Running monthly backfill window months ${window_months_init}..${window_months_end} as ${window_start_date}..${window_end_date}."
-    run_update "$window_days_init" "$window_days_end" true "$window_start_date" "$window_end_date"
+    run_update_transaction "$window_days_init" "$window_days_end" true "$window_start_date" "$window_end_date"
     window_code="$?"
     if [ "$window_code" -eq 1 ]; then
       return 1

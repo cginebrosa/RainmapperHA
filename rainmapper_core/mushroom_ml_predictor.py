@@ -100,7 +100,7 @@ def _label(prob: float | None) -> str:
 
 _shared_weather_stations: dict[tuple[str, str], Any] | None = None
 _shared_weather_data_dir: Path | None = None
-_shared_weather_parquet_mtime: float | None = None
+_shared_weather_parquet_mtime: object | None = None
 _shared_weather_station_filter: frozenset[tuple[str, str]] | None = None
 _shared_weather_window_start: date | None = None
 _shared_weather_window_end: date | None = None
@@ -108,7 +108,7 @@ _weather_cache_lock = Lock()
 
 _shared_stations_catalog: Any | None = None   # pd.DataFrame
 _shared_catalog_data_dir: Path | None = None
-_shared_catalog_mtime: float | None = None
+_shared_catalog_mtime: object | None = None
 _catalog_cache_lock = Lock()
 
 _PARQUET_FILENAME = "weather_daily.parquet"
@@ -125,12 +125,7 @@ def _get_shared_stations_catalog(weather_data_dir: Path) -> Any:
     """Load and cache the stations catalog; reload if the catalog file has changed."""
     global _shared_stations_catalog, _shared_catalog_data_dir, _shared_catalog_mtime
     with _catalog_cache_lock:
-        catalog_path = weather_data_dir / _CATALOG_FILENAME
-        current_mtime: float | None = None
-        try:
-            current_mtime = catalog_path.stat().st_mtime if catalog_path.exists() else None
-        except OSError:
-            pass
+        current_mtime = ctx.weather_history_cache_identity(weather_data_dir)
         cache_valid = (
             _shared_stations_catalog is not None
             and _shared_catalog_data_dir == weather_data_dir
@@ -141,12 +136,7 @@ def _get_shared_stations_catalog(weather_data_dir: Path) -> Any:
             return _shared_stations_catalog
         _shared_stations_catalog = ctx.load_stations_catalog(weather_data_dir)
         _shared_catalog_data_dir = weather_data_dir
-        try:
-            _shared_catalog_mtime = (
-                catalog_path.stat().st_mtime if catalog_path.exists() else None
-            )
-        except OSError:
-            _shared_catalog_mtime = None
+        _shared_catalog_mtime = current_mtime
         return _shared_stations_catalog
 
 
@@ -202,11 +192,7 @@ def _get_shared_weather_stations(
     required_end = target_end_date or target_date
     with _weather_cache_lock:
         parquet_path = weather_data_dir / _PARQUET_FILENAME
-        current_mtime: float | None = None
-        try:
-            current_mtime = parquet_path.stat().st_mtime if parquet_path.exists() else None
-        except OSError:
-            pass
+        current_mtime = ctx.weather_history_cache_identity(weather_data_dir)
         same_dataset = (
             _shared_weather_stations is not None
             and _shared_weather_data_dir == weather_data_dir

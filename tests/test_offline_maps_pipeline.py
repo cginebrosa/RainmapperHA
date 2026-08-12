@@ -10,6 +10,7 @@ import pandas as pd
 
 from rainmapper_core.incremental_upsert import upsert_incremental
 from rainmapper_core import geojson as tomap_to_geojson
+from rainmapper_core import mushroom_observation_context
 from rainmapper_core import tomap as tomap_builder
 
 
@@ -78,6 +79,7 @@ class OfflineMapsPipelineTests(unittest.TestCase):
                 make_incremental_row('IGUILS3', yesterday, 1.1, max_temp=16.0),
             ]).to_csv(data_dir / 'Wunderground_incremental.csv', decimal=',', index=False)
             ignore_file.write_text('', encoding='utf-8')
+            mushroom_observation_context.generate_weather_daily_parquet(data_dir)
 
             with redirect_stdout(StringIO()):
                 build_exit_code = tomap_builder.build_tomap(

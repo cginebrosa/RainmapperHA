@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.2.247
+
+- Store canonical daily weather history in bounded source/year Parquet
+  partitions and update only the partitions touched by each scheduled run.
+- Keep the four live incremental CSV files to a 180-day operational window and
+  retain complete recent intraday days for AEMET and Meteoclimatic rebuilding.
+- Capture source updates in replay-safe pending batches and publish generations,
+  live CSV files and catalogs atomically under a single run lock.
+- Build Tomap from a bounded Parquet window, preserve missing-rain semantics and
+  stop map publication when weather archiving cannot close successfully.
+- Reduce Tomap memory pressure by avoiding full-frame metadata copies and keep
+  Predictor reads bounded to the requested stations and dates.
+
 ## 0.2.246
 
 - Clarify that the experimental Predictor signal selects the shadow estimator

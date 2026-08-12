@@ -6,11 +6,16 @@ earlier same-day wind observations. This module stores raw observations first
 and then rebuilds daily rows with computed wind summaries.
 """
 
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
 import numpy as np
 import pandas as pd
 
 
 OBSERVATION_KEY = ["Codi Estació", "Data Lectura"]
+LOCAL_TIMEZONE = "Europe/Madrid"
+METEOCLIMATIC_OBSERVATION_CLOSED_DAYS = 7
 
 OBSERVATION_COLUMNS = [
     "Codi Estació",
@@ -93,6 +98,64 @@ def update_meteoclimatic_observations(current_df, existing_df):
     combined = combined.drop_duplicates(subset=OBSERVATION_KEY, keep="last")
     combined = combined.sort_values(["Codi Estació", "Data Lectura"], ascending=[True, False])
     return combined.reset_index(drop=True)
+
+
+def retain_meteoclimatic_observations(
+    observations_df,
+    *,
+    local_timezone=LOCAL_TIMEZONE,
+    reference_day=None,
+    closed_days=METEOCLIMATIC_OBSERVATION_CLOSED_DAYS,
+):
+    """Keep recent raw snapshots without truncating partial local days.
+
+    The retained window is the current local calendar date plus ``closed_days``
+    complete preceding dates. Rows with an invalid local date are retained so
+    malformed metadata is never interpreted as permission to discard a real
+    observation.
+    """
+    if closed_days < 0:
+        raise ValueError("closed_days must be non-negative")
+
+    observations = normalize_observation_frame(observations_df)
+    local_dates = pd.to_datetime(
+        observations["Data Local"].str.replace(r"\.0$", "", regex=True),
+        format="%Y%m%d",
+        errors="coerce",
+    )
+
+    if reference_day is None:
+        reference_day = datetime.now(ZoneInfo(local_timezone)).date()
+        if local_dates.notna().any():
+            reference_day = max(reference_day, local_dates.max().date())
+    elif isinstance(reference_day, datetime):
+        reference_day = reference_day.date()
+    elif not isinstance(reference_day, date):
+        reference_day = pd.Timestamp(reference_day).date()
+
+    cutoff_day = reference_day - timedelta(days=closed_days)
+    keep_mask = local_dates.ge(pd.Timestamp(cutoff_day)) | local_dates.isna()
+    retained = observations.loc[keep_mask].copy()
+    retained = retained.sort_values(
+        ["Codi Estació", "Data Lectura"], ascending=[True, False]
+    ).reset_index(drop=True)
+
+    input_valid_dates = set(local_dates.dropna().dt.date)
+    retained_dates = local_dates.loc[keep_mask]
+    output_valid_dates = set(retained_dates.dropna().dt.date)
+    metrics = {
+        "closed_days": closed_days,
+        "reference_day": reference_day.isoformat(),
+        "cutoff_day_inclusive": cutoff_day.isoformat(),
+        "input_rows": len(observations),
+        "output_rows": len(retained),
+        "removed_rows": len(observations) - len(retained),
+        "input_valid_dates": len(input_valid_dates),
+        "output_valid_dates": len(output_valid_dates),
+        "removed_valid_dates": len(input_valid_dates - output_valid_dates),
+        "invalid_date_rows_retained": int(local_dates.isna().sum()),
+    }
+    return retained, metrics
 
 
 def _numeric_series(series):

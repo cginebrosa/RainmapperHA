@@ -8,6 +8,7 @@ from unittest import mock
 import pandas as pd
 
 from rainmapper_core import create_aemet
+from rainmapper_core.weather_history_pending import list_pending_batches
 
 
 def observation(station, fint, rain, name="Test Station", lat=41.5, lon=2.1, temp=None, humidity=None, **extra):
@@ -262,6 +263,49 @@ class CreateAemetTests(unittest.TestCase):
         self.assertEqual(rows["2026-06-22T10:00:00+0000"], 1.0)
         self.assertEqual(rows["2026-06-22T11:00:00+0000"], 2.5)
         self.assertEqual(rows["2026-06-22T12:00:00+0000"], 3.0)
+
+    def test_retain_hourly_incremental_keeps_seven_closed_dates_plus_current(self):
+        hourly = create_aemet.normalize_observations([
+            observation(
+                "9632X",
+                f"2026-06-{day:02d}T00:30:00+0000",
+                float(day),
+            )
+            for day in range(13, 23)
+        ])
+
+        result, summary = create_aemet.retain_hourly_incremental(
+            hourly,
+            reference_day=datetime(2026, 6, 22).date(),
+        )
+
+        self.assertEqual(sorted(result["local_date"].unique()), [
+            "20260615",
+            "20260616",
+            "20260617",
+            "20260618",
+            "20260619",
+            "20260620",
+            "20260621",
+            "20260622",
+        ])
+        self.assertEqual(summary["cutoff_local_date"], "20260615")
+        self.assertEqual(summary["removed_dates"], 2)
+        self.assertEqual(summary["removed_rows"], 2)
+
+    def test_retain_hourly_incremental_does_not_fill_missing_dates(self):
+        hourly = create_aemet.normalize_observations([
+            observation("9632X", "2026-06-15T00:30:00+0000", 1.0),
+            observation("9632X", "2026-06-22T00:30:00+0000", 2.0),
+        ])
+
+        result, summary = create_aemet.retain_hourly_incremental(
+            hourly,
+            reference_day=datetime(2026, 6, 22).date(),
+        )
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(summary["output_dates"], 2)
 
     def test_build_daily_incremental_aggregates_from_full_hourly_history(self):
         morning = create_aemet.normalize_observations([
@@ -633,6 +677,7 @@ class CreateAemetTests(unittest.TestCase):
                     api_key="test",
                     local_timezone="Europe/Madrid",
                     enrich_stations=False,
+                    retention_reference_day=datetime(2026, 6, 22).date(),
                 )
             finally:
                 create_aemet.fetch_observations = original_fetch
@@ -644,6 +689,7 @@ class CreateAemetTests(unittest.TestCase):
                 "normalize_seconds",
                 "read_hourly_seconds",
                 "merge_hourly_seconds",
+                "retain_hourly_seconds",
                 "read_stations_seconds",
                 "station_catalog_seconds",
                 "station_enrichment_seconds",
@@ -663,6 +709,47 @@ class CreateAemetTests(unittest.TestCase):
             self.assertEqual(daily.iloc[0]["Total"], 3.0)
             stations = pd.read_csv(Path(tmp_dir) / "estacions_aemet.csv", decimal=",")
             self.assertEqual(stations.iloc[0]["Codi Estació"], "AEMET:9632X")
+            self.assertEqual(summary["hourly_retention"]["output_dates"], 1)
+
+    def test_partitioned_run_captures_recent_daily_without_reading_or_writing_live_csv(self):
+        rows = [
+            observation("9632X", "2026-06-22T07:00:00+0000", 1.0),
+            observation("9632X", "2026-06-22T08:00:00+0000", 2.0),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            data_dir = Path(tmp_dir)
+            live_path = data_dir / "Aemet_incremental.csv"
+            original = b"legacy,content\nthat,must-not-be-read-or-overwritten\n"
+            live_path.write_bytes(original)
+            with (
+                mock.patch.object(create_aemet, "fetch_observations", return_value=rows),
+                mock.patch.dict(
+                    "os.environ",
+                    {
+                        "RAINMAPPER_PARTITIONED_WEATHER_HISTORY": "true",
+                        "RAINMAPPER_WEATHER_RUN_ID": "aemet-partitioned-test",
+                    },
+                    clear=False,
+                ),
+            ):
+                summary = create_aemet.run_update(
+                    data_dir=data_dir,
+                    api_key="test",
+                    local_timezone="Europe/Madrid",
+                    enrich_stations=False,
+                    retention_reference_day=datetime(2026, 6, 22).date(),
+                )
+
+            self.assertTrue(summary["partitioned_history"])
+            self.assertEqual(summary["daily_incremental_rows"], 1)
+            self.assertEqual(summary["daily_updates"].iloc[0]["Total"], 3.0)
+            self.assertEqual(summary["timings"]["read_daily_seconds"], 0.0)
+            self.assertEqual(summary["timings"]["merge_daily_seconds"], 0.0)
+            self.assertEqual(live_path.read_bytes(), original)
+            pending = list_pending_batches(data_dir)
+            self.assertEqual(len(pending), 1)
+            self.assertEqual(pending[0].source, "aemet")
 
 
     def test_run_update_enriches_existing_station_catalog_when_requested(self):
@@ -696,6 +783,7 @@ class CreateAemetTests(unittest.TestCase):
                     local_timezone="Europe/Madrid",
                     enrich_stations=True,
                     gmap_api_key="gmap-test",
+                    retention_reference_day=datetime(2026, 6, 22).date(),
                     reverse_geocoder=lambda lat, lon, api_key: {
                         "Comarca": "Alt Urgell",
                         "Municipi": "Tuixent",

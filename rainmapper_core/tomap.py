@@ -57,8 +57,39 @@ TOMAP_PERIODS = [
     (0, '01_Tomap_Last_day', '1 day'),
 ]
 
+PARQUET_TO_INCREMENTAL_COLUMNS = {
+    'station_code': 'Codi Estació',
+    'reading_datetime': 'Data Lectura',
+    'station_name': 'Estació',
+    'county': 'Comarca',
+    'municipality': 'Municipi',
+    'province': 'Provincia',
+    'altitude': 'Altitud',
+    'lat': 'Latitud',
+    'lon': 'Longitud',
+    'last_reading': 'Ultima Lectura',
+    'variable': 'Variable',
+    'rain_mm': 'Total',
+    'unit': 'Unitat',
+    'local_date': 'Data Local',
+    'local_time': 'Hora Local',
+    'max_temp_celsius': 'max_temp_celsius',
+    'min_temp_celsius': 'min_temp_celsius',
+    'max_humidity_percent': 'max_humidity_percent',
+    'min_humidity_percent': 'min_humidity_percent',
+    **{column: column for column in WIND_COLUMNS},
+}
 
-def _apply_rain_quality_filters(df: pd.DataFrame) -> pd.DataFrame:
+
+class TomapParquetSchemaError(RuntimeError):
+    """Raised when weather_daily.parquet cannot satisfy the Tomap contract."""
+
+
+def _apply_rain_quality_filters(
+    df: pd.DataFrame,
+    *,
+    copy_input: bool = True,
+) -> pd.DataFrame:
     """Nullify daily rain totals that are clearly erroneous before aggregation.
 
     Two filters applied per station sorted by date:
@@ -68,7 +99,8 @@ def _apply_rain_quality_filters(df: pd.DataFrame) -> pd.DataFrame:
     """
     if df.empty:
         return df
-    df = df.copy()
+    if copy_input:
+        df = df.copy()
     df['Total'] = pd.to_numeric(df['Total'], errors='coerce')
 
     # 1. Outlier filter
@@ -76,24 +108,28 @@ def _apply_rain_quality_filters(df: pd.DataFrame) -> pd.DataFrame:
 
     # 2. Consecutive duplicate filter — per station, sorted by date
     dates = pd.to_datetime(df['Data Local'], format='%Y%m%d', errors='coerce')
-    df_sorted = df.assign(_date=dates).sort_values(['Codi Estació', '_date'])
-
-    for _, grp in df_sorted.groupby('Codi Estació', sort=False):
-        original_total = grp['Total'].values.copy()
-        indices = grp.index.tolist()
-        grp_dates = grp['_date'].values
-        for i in range(1, len(grp)):
-            val = original_total[i]
-            prev_val = original_total[i - 1]
-            cur_date = grp_dates[i]
-            prev_date = grp_dates[i - 1]
-            if (
-                pd.notna(val) and val > 0
-                and pd.notna(prev_val) and val == prev_val
-                and pd.notna(cur_date) and pd.notna(prev_date)
-                and (cur_date - prev_date) == pd.Timedelta(days=1)
-            ):
-                df.at[indices[i], 'Total'] = pd.NA
+    # Sort only the three quality columns. Sorting the complete 28-column frame
+    # created a second ~130k-row metadata copy for every Tomap period.
+    quality = pd.DataFrame(
+        {
+            '_station': df['Codi Estació'],
+            '_date': dates,
+            '_total': df['Total'],
+        },
+        index=df.index,
+    ).sort_values(['_station', '_date'])
+    grouped = quality.groupby('_station', sort=False, observed=True)
+    previous_total = grouped['_total'].shift(1)
+    previous_date = grouped['_date'].shift(1)
+    duplicate = (
+        quality['_total'].notna()
+        & quality['_total'].gt(0)
+        & quality['_total'].eq(previous_total)
+        & quality['_date'].notna()
+        & previous_date.notna()
+        & quality['_date'].sub(previous_date).eq(pd.Timedelta(days=1))
+    )
+    df.loc[quality.index[duplicate], 'Total'] = pd.NA
 
     return df
 
@@ -132,9 +168,105 @@ def read_incremental(data_dir: Path, name: str, nrows=None):
     return df
 
 
-def ensure_incremental_columns(df: pd.DataFrame):
+def read_weather_daily_parquet(
+    data_dir: Path,
+    *,
+    include_aemet: bool,
+    base_date: datetime,
+    days_backward: int = 90,
+    days_forward: int = 1,
+) -> pd.DataFrame:
+    """Read only Tomap's date window from the active canonical weather store."""
+    start_date = (base_date - timedelta(days=days_backward)).strftime('%Y%m%d')
+    end_date = (base_date + timedelta(days=days_forward)).strftime('%Y%m%d')
+    from rainmapper_core.weather_history_capture import partitioned_history_enabled
+
+    if partitioned_history_enabled():
+        from rainmapper_core.weather_history_dataset import read_weather_history
+
+        sources = {'meteoclimatic', 'meteocat', 'wunderground'}
+        if include_aemet:
+            sources.add('aemet')
+        df = read_weather_history(
+            data_dir,
+            columns=['source', *PARQUET_TO_INCREMENTAL_COLUMNS],
+            sources=sources,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        input_label = 'partitioned weather history'
+    else:
+        input_label = 'weather_daily.parquet'
+        parquet_path = data_dir / 'weather_daily.parquet'
+        if not parquet_path.exists():
+            raise FileNotFoundError(f'Required Tomap input does not exist: {parquet_path}')
+
+        import pyarrow.parquet as pq
+
+        required_columns = {'source', *PARQUET_TO_INCREMENTAL_COLUMNS}
+        available_columns = set(pq.ParquetFile(parquet_path).schema_arrow.names)
+        missing_columns = sorted(required_columns - available_columns)
+        if missing_columns:
+            raise TomapParquetSchemaError(
+                'weather_daily.parquet uses an obsolete/incomplete Tomap schema; '
+                f'missing columns: {", ".join(missing_columns)}'
+            )
+
+        df = pd.read_parquet(
+            parquet_path,
+            columns=['source', *PARQUET_TO_INCREMENTAL_COLUMNS],
+            filters=[('local_date', '>=', start_date), ('local_date', '<=', end_date)],
+        )
+        if not include_aemet:
+            df = df.loc[df['source'] != 'aemet'].copy()
+
+    df.rename(columns=PARQUET_TO_INCREMENTAL_COLUMNS, inplace=True)
+    if 'Data Lectura' in df.columns:
+        df['Data Lectura'] = pd.to_datetime(df['Data Lectura'], errors='coerce')
+    df['Data Local'] = pd.to_datetime(df['Data Local'], format='%Y%m%d', errors='coerce')
+    df['Total'] = pd.to_numeric(df['Total'], errors='coerce')
+    for column in ('Altitud', 'Latitud', 'Longitud'):
+        df[column] = df[column].astype(str)
+    df = ensure_incremental_columns(df, copy_input=False)
+    # The partitioned 90-day window contains many repeated station metadata
+    # strings. Python-object strings use roughly three times the useful payload
+    # on ARM64 and made Tomap touch the 384 MiB container gate. Arrow-backed
+    # strings preserve values/CSV formatting while keeping the dataframe
+    # compact through all seven period aggregations.
+    object_columns = list(df.select_dtypes(include='object').columns)
+    if object_columns:
+        df[object_columns] = df[object_columns].astype('string[pyarrow]')
+    df.attrs['weather_input'] = input_label
+    return df
+
+
+def read_recent_incremental_csvs(
+    data_dir: Path,
+    *,
+    include_aemet: bool,
+    base_date: datetime,
+    max_threads: int,
+) -> pd.DataFrame:
+    """Build the former CSV input for migration parity tests only."""
+    names = ['Meteoclimatic_incremental', 'Meteocat_incremental', 'Wunderground_incremental']
+    if include_aemet:
+        names.append('Aemet_incremental')
+    with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix='TomapCSVParity') as executor:
+        frames = list(executor.map(
+            lambda name: create_filtered(read_incremental(data_dir, name), base_date, 90, 1),
+            names,
+        ))
+    frames = [frame for frame in frames if not frame.empty]
+    if not frames:
+        return create_empty_incremental()
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', FutureWarning)
+        return pd.concat(frames, ignore_index=True).drop_duplicates()
+
+
+def ensure_incremental_columns(df: pd.DataFrame, *, copy_input: bool = True):
     """Add optional incremental columns missing from older CSV/dataframe callers."""
-    result = df.copy()
+    result = df.copy() if copy_input else df
     for column in INCREMENTAL_COLUMNS:
         if column not in result.columns:
             result[column] = pd.NA
@@ -262,7 +394,7 @@ def create_filtered(df_to_filter_param: pd.DataFrame, base_date, days_backward, 
     thread_name = threading.current_thread().name
     print(f'[{thread_name}] Starting thread for dataframe filtering')
 
-    df_to_filter = df_to_filter_param.copy()
+    df_to_filter = df_to_filter_param
     start_date = base_date - timedelta(days=days_backward)
     end_date = base_date + timedelta(days=days_forward)
 
@@ -273,12 +405,20 @@ def create_filtered(df_to_filter_param: pd.DataFrame, base_date, days_backward, 
     return df_to_filter.loc[date_mask].copy()
 
 
-def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
+def create_grouped(
+    df_to_group_param: pd.DataFrame,
+    minimum_rain_tomap,
+    *,
+    copy_input: bool = True,
+):
     """Aggregate one row per station for the selected Tomap period."""
-    df_to_group = ensure_incremental_columns(df_to_group_param)
+    df_to_group = ensure_incremental_columns(
+        df_to_group_param,
+        copy_input=copy_input,
+    )
     if df_to_group.empty:
         return df_to_group.head(0)
-    df_to_group = _apply_rain_quality_filters(df_to_group)
+    df_to_group = _apply_rain_quality_filters(df_to_group, copy_input=False)
 
     for column in [
         'max_temp_celsius',
@@ -293,8 +433,8 @@ def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
     ]:
         df_to_group[column] = pd.to_numeric(df_to_group[column], errors='coerce')
 
-    sorted_df = df_to_group.sort_values('Ultima Lectura')
-    latest = sorted_df.groupby('Codi Estació', as_index=True).last()[[
+    latest_columns = [
+        'Codi Estació',
         'Estació',
         'Comarca',
         'Municipi',
@@ -305,7 +445,13 @@ def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
         'Variable',
         'Unitat',
         'wind_source_height_m',
-    ]]
+    ]
+    latest_order = df_to_group['Ultima Lectura'].sort_values().index
+    latest = (
+        df_to_group.loc[latest_order, latest_columns]
+        .groupby('Codi Estació', as_index=True, observed=True)
+        .last()
+    )
 
     grouped = df_to_group.groupby('Codi Estació', as_index=True).agg({
         'Ultima Lectura': 'max',
@@ -360,9 +506,16 @@ def create_grouped(df_to_group_param: pd.DataFrame, minimum_rain_tomap):
     return filter_results(datos_finales, minimum_rain_tomap)
 
 
-def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_tomap):
+def create_last_rains(
+    df: pd.DataFrame,
+    maps_dir: Path,
+    nrecords,
+    minimum_rain_tomap,
+    *,
+    copy_input: bool = True,
+):
     """Build the wide LastXX_rains table consumed by station popups."""
-    df = ensure_incremental_columns(df).copy()
+    df = ensure_incremental_columns(df, copy_input=copy_input)
     df['Total'] = pd.to_numeric(df['Total'], errors='coerce')
     key_columns = ['Codi Estació', 'Data Local']
     grouped = df.groupby(key_columns, sort=False, dropna=True)
@@ -480,95 +633,15 @@ def create_last_rains(df: pd.DataFrame, maps_dir: Path, nrecords, minimum_rain_t
     return result_step3
 
 
-def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain_tomap, max_threads, include_aemet=False):
-    """Rebuild all Tomap period files from existing incremental CSV history."""
-    total_started = time_module.perf_counter()
-    maps_dir.mkdir(parents=True, exist_ok=True)
-
-    load_started = time_module.perf_counter()
-    meteoclimatic_incremental = read_incremental(data_dir, 'Meteoclimatic_incremental')
-    meteocat_incremental = read_incremental(data_dir, 'Meteocat_incremental')
-    wunderground_incremental = read_incremental(data_dir, 'Wunderground_incremental')
-    aemet_incremental = read_incremental(data_dir, 'Aemet_incremental') if include_aemet else create_empty_incremental()
-    print(
-        "Tomap load incrementals duration: "
-        f"{time_module.perf_counter() - load_started:.1f}s "
-        f"(Meteoclimatic {len(meteoclimatic_incremental)}, "
-        f"Meteocat {len(meteocat_incremental)}, "
-        f"Wunderground {len(wunderground_incremental)}, "
-        f"AEMET {len(aemet_incremental)})"
-    )
-
-    if (
-        len(meteoclimatic_incremental) == 0
-        and len(meteocat_incremental) == 0
-        and len(wunderground_incremental) == 0
-        and len(aemet_incremental) == 0
-    ):
-        print('')
-        print('NO RECORDS RETURNED FOR SELECTION -- Exiting program')
-        print('')
-        return 1
-
-    base_date = datetime.combine(date.today(), time())
-    days_forward = 1
-
-    print('')
-    print('Start rebuilding Tomap CSV files from incremental history...')
-    print(f'Data dir: {data_dir}')
-    print(f'Tomap dir: {maps_dir}')
-    print(f'Last rains history: {last_rains_history}')
-    print(f'Include AEMET: {include_aemet}')
-
-    filter_started = time_module.perf_counter()
-    with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix='TomapFilterProcesses') as executor:
-        future_meteoclimatic_df = executor.submit(
-            create_filtered,
-            meteoclimatic_incremental,
-            base_date,
-            90,
-            days_forward,
-        )
-        future_meteocat_df = executor.submit(
-            create_filtered,
-            meteocat_incremental,
-            base_date,
-            90,
-            days_forward,
-        )
-        future_wunderground_df = executor.submit(
-            create_filtered,
-            wunderground_incremental,
-            base_date,
-            90,
-            days_forward,
-        )
-        future_aemet_df = executor.submit(
-            create_filtered,
-            aemet_incremental,
-            base_date,
-            90,
-            days_forward,
-        )
-        meteoclimatic_df = future_meteoclimatic_df.result()
-        meteocat_df = future_meteocat_df.result()
-        wunderground_df = future_wunderground_df.result()
-        aemet_df = future_aemet_df.result()
-    print(
-        "Tomap 90-day source filtering duration: "
-        f"{time_module.perf_counter() - filter_started:.1f}s "
-        f"(Meteoclimatic {len(meteoclimatic_df)}, "
-        f"Meteocat {len(meteocat_df)}, "
-        f"Wunderground {len(wunderground_df)}, "
-        f"AEMET {len(aemet_df)})"
-    )
-
-    merge_started = time_module.perf_counter()
-    df_total = merge_dataframes(data_dir, meteocat_df, wunderground_df)
-    df_total = merge_dataframes(data_dir, df_total, meteoclimatic_df)
-    df_total = merge_dataframes(data_dir, df_total, aemet_df)
-    print(f"Tomap merge duration: {time_module.perf_counter() - merge_started:.1f}s ({len(df_total)} row(s))")
-
+def build_tomap_outputs(
+    df_total: pd.DataFrame,
+    maps_dir: Path,
+    *,
+    base_date: datetime,
+    last_rains_history: int,
+    minimum_rain_tomap: float,
+) -> int:
+    """Write Last rains and the seven Tomap products from a recent dataframe."""
     if df_total.empty:
         print('')
         print('NO RECORDS FOUND IN THE LAST 90 DAYS -- Exiting program')
@@ -581,6 +654,7 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
         maps_dir,
         nrecords=last_rains_history,
         minimum_rain_tomap=minimum_rain_tomap,
+        copy_input=False,
     )
     print(f"Tomap last-rains duration: {time_module.perf_counter() - last_rains_started:.1f}s ({len(df_last_rains)} station row(s))")
 
@@ -590,8 +664,12 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
         if days_backward == 90:
             df_period = df_total
         else:
-            df_period = create_filtered(df_total, base_date, days_backward, days_forward)
-        df_toprint = create_grouped(df_period, minimum_rain_tomap)
+            df_period = create_filtered(df_total, base_date, days_backward, 1)
+        df_toprint = create_grouped(
+            df_period,
+            minimum_rain_tomap,
+            copy_input=days_backward == 90,
+        )
         df_tomap = pd.merge(df_toprint, df_last_rains, how='inner')
         save_dataframe_tomap(df_tomap, maps_dir, file_name, save_to_csv=True)
         print(
@@ -599,8 +677,47 @@ def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain
             f'--> Time elapsed: {time_module.perf_counter() - period_started:.1f}s'
         )
 
-    print(f'Finished rebuilding Tomap CSV files. Total duration: {time_module.perf_counter() - total_started:.1f}s')
     return 0
+
+
+def build_tomap(data_dir: Path, maps_dir: Path, last_rains_history, minimum_rain_tomap, max_threads, include_aemet=False):
+    """Rebuild Tomap products from the filtered weather_daily.parquet window."""
+    total_started = time_module.perf_counter()
+    maps_dir.mkdir(parents=True, exist_ok=True)
+    base_date = datetime.combine(date.today(), time())
+
+    print('')
+    print('Start rebuilding Tomap CSV files from weather_daily.parquet...')
+    print(f'Data dir: {data_dir}')
+    print(f'Tomap dir: {maps_dir}')
+    print(f'Last rains history: {last_rains_history}')
+    print(f'Include AEMET: {include_aemet}')
+
+    load_started = time_module.perf_counter()
+    try:
+        df_total = read_weather_daily_parquet(
+            data_dir,
+            include_aemet=include_aemet,
+            base_date=base_date,
+        )
+    except (FileNotFoundError, TomapParquetSchemaError, OSError, RuntimeError, ValueError) as exc:
+        print(f'Tomap Parquet input error: {exc}')
+        return 1
+
+    source_counts = df_total['source'].value_counts().to_dict() if 'source' in df_total else {}
+    print(
+        f"Tomap filtered Parquet load duration: {time_module.perf_counter() - load_started:.1f}s "
+        f"({len(df_total)} row(s), sources={source_counts})"
+    )
+    exit_code = build_tomap_outputs(
+        df_total,
+        maps_dir,
+        base_date=base_date,
+        last_rains_history=last_rains_history,
+        minimum_rain_tomap=minimum_rain_tomap,
+    )
+    print(f'Finished rebuilding Tomap CSV files. Total duration: {time_module.perf_counter() - total_started:.1f}s')
+    return exit_code
 
 
 def positive_int(value):
