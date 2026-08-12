@@ -87,6 +87,17 @@ class RestoreRepairReport:
     applied: bool
 
 
+@dataclass(frozen=True)
+class GenerationPruneReport:
+    kept_generation_ids: tuple[str, ...]
+    removed_generation_ids: tuple[str, ...]
+    active_lease_generation_ids: tuple[str, ...]
+    expired_leases_removed: int
+    manifests_removed: int
+    objects_removed: int
+    bytes_removed: int
+
+
 class WeatherHistoryWriterError(RuntimeError):
     """Base error for a rejected or failed transactional archive."""
 
@@ -679,6 +690,129 @@ def acknowledge_archived_pending(data_dir: Path, batch_id: str) -> None:
                 f"Expected exactly one pending batch {batch_id}, found {len(matches)}"
             )
         acknowledge_pending_batch(matches[0])
+
+
+def _active_lease_generation_ids(root: Path) -> tuple[set[str], int]:
+    """Return unexpired lease generations and discard only valid expired leases."""
+    active: set[str] = set()
+    expired_removed = 0
+    leases_root = root / "leases"
+    now = datetime.now(UTC)
+    if not leases_root.exists():
+        return active, expired_removed
+    for generation_dir in sorted(path for path in leases_root.iterdir() if path.is_dir()):
+        generation_id = generation_dir.name
+        for lease_path in sorted(generation_dir.glob("*.json")):
+            try:
+                payload = json.loads(lease_path.read_text(encoding="utf-8"))
+                if payload.get("schema_version") != "weather_history_lease_v1":
+                    raise ValueError("unsupported lease schema")
+                if payload.get("generation_id") != generation_id:
+                    raise ValueError("lease generation mismatch")
+                expires_at = datetime.fromisoformat(str(payload["expires_at"]))
+                if expires_at.tzinfo is None:
+                    raise ValueError("lease expiry is not timezone-aware")
+            except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+                # A malformed lease is retained conservatively.  Deleting a
+                # generation possibly held by a reader is worse than leaking it.
+                active.add(generation_id)
+                continue
+            if expires_at <= now:
+                lease_path.unlink(missing_ok=True)
+                expired_removed += 1
+            else:
+                active.add(generation_id)
+        try:
+            generation_dir.rmdir()
+        except OSError:
+            pass
+    return active, expired_removed
+
+
+def prune_weather_generations(
+    data_dir: Path,
+    *,
+    lock_timeout_seconds: float = 30.0,
+) -> GenerationPruneReport:
+    """Keep CURRENT, its immediate predecessor and every leased generation.
+
+    Immutable objects are deleted only after resolving every retained manifest
+    and computing their complete reference set under the exclusive writer lock.
+    """
+    root = weather_history_root(Path(data_dir))
+    with _writer_lock(root, lock_timeout_seconds):
+        current = resolve_weather_generation(root)
+        keep_ids = {current.generation_id}
+        if current.previous_generation_id:
+            keep_ids.add(current.previous_generation_id)
+        lease_ids, expired_removed = _active_lease_generation_ids(root)
+        keep_ids.update(lease_ids)
+
+        manifests_root = root / "manifests"
+        manifests = {path.stem: path for path in manifests_root.glob("*.json")}
+        missing = sorted(keep_ids - set(manifests))
+        if missing:
+            raise WeatherHistoryWriterError(
+                f"Cannot prune: retained generation manifest(s) missing: {missing}"
+            )
+
+        # Compare canonical paths: macOS exposes /var through /private/var, and
+        # lexical Path equality would otherwise misclassify every live object.
+        referenced: set[Path] = set()
+        for generation_id in sorted(keep_ids):
+            generation = resolve_weather_manifest(
+                root,
+                manifests[generation_id],
+                expected_generation_id=generation_id,
+                verify_hashes=False,
+            )
+            referenced.update(
+                generation.object_path(item.path).resolve()
+                for item in generation.partitions
+            )
+            referenced.add(generation.object_path(generation.catalog.path).resolve())
+
+        removed_ids: list[str] = []
+        bytes_removed = 0
+        manifests_removed = 0
+        for generation_id, path in sorted(manifests.items()):
+            if generation_id in keep_ids:
+                continue
+            size = path.stat().st_size
+            path.unlink()
+            bytes_removed += size
+            manifests_removed += 1
+            removed_ids.append(generation_id)
+
+        objects_removed = 0
+        candidates = [
+            *root.glob("parts/source=*/year=*/*.parquet"),
+            *root.glob("catalogs/*.parquet"),
+        ]
+        for path in sorted(set(candidates)):
+            if path.resolve() in referenced:
+                continue
+            size = path.stat().st_size
+            path.unlink()
+            bytes_removed += size
+            objects_removed += 1
+        for directory in sorted(
+            (path for path in (root / "parts").glob("source=*/year=*") if path.is_dir()),
+            reverse=True,
+        ):
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+        return GenerationPruneReport(
+            kept_generation_ids=tuple(sorted(keep_ids)),
+            removed_generation_ids=tuple(removed_ids),
+            active_lease_generation_ids=tuple(sorted(lease_ids)),
+            expired_leases_removed=expired_removed,
+            manifests_removed=manifests_removed,
+            objects_removed=objects_removed,
+            bytes_removed=bytes_removed,
+        )
 
 
 def repair_current_after_restore(

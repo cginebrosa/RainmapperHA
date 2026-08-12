@@ -20,6 +20,7 @@ from rainmapper_core.weather_history_contract import (
     normalize_mapping,
 )
 from rainmapper_core.weather_history_dataset import (
+    pin_weather_generation,
     resolve_weather_generation,
     sha256_file,
     write_json_atomic,
@@ -31,6 +32,7 @@ from rainmapper_core.weather_history_writer import (
     WeatherHistoryWriterBusy,
     acknowledge_archived_pending,
     archive_pending_batches,
+    prune_weather_generations,
     repair_current_after_restore,
 )
 from rainmapper_core.weather_history_archive import archive_and_close_pending
@@ -369,6 +371,49 @@ class WeatherHistoryWriterTests(unittest.TestCase):
         with csv_path.open(encoding="utf-8", newline="") as handle:
             repaired = next(csv.DictReader(handle))
         self.assertEqual(repaired["rain_mm"], "3")
+
+    def test_generation_prune_keeps_current_previous_and_active_lease(self):
+        initial = resolve_weather_generation(self.data_dir)
+        initial_partition = next(
+            value for value in initial.partitions if value.source == "meteocat"
+        )
+        initial_partition_path = initial.object_path(initial_partition.path)
+        with pin_weather_generation(self.data_dir, lease_seconds=3600):
+            first_pending = self._pending(
+                [self.row("meteocat", "A", "20251231", 3.0)]
+            )
+            first = archive_pending_batches(self.data_dir, reserve_bytes=0)
+            acknowledge_archived_pending(self.data_dir, first_pending.batch_id)
+            second_pending = self._pending(
+                [self.row("meteocat", "A", "20251231", 4.0)]
+            )
+            second = archive_pending_batches(self.data_dir, reserve_bytes=0)
+            acknowledge_archived_pending(self.data_dir, second_pending.batch_id)
+            leased = prune_weather_generations(self.data_dir)
+            self.assertEqual(
+                set(leased.kept_generation_ids),
+                {self.initial_generation_id, first.generation_id, second.generation_id},
+            )
+            self.assertTrue(initial_partition_path.exists())
+        pruned = prune_weather_generations(self.data_dir)
+        self.assertEqual(
+            set(pruned.kept_generation_ids),
+            {first.generation_id, second.generation_id},
+        )
+        self.assertEqual(pruned.removed_generation_ids, (self.initial_generation_id,))
+        self.assertFalse(initial_partition_path.exists())
+        self.assertEqual(
+            resolve_weather_generation(self.data_dir, verify_hashes=True).generation_id,
+            second.generation_id,
+        )
+
+    def test_archive_without_pending_still_runs_generation_cleanup(self):
+        report = archive_and_close_pending(self.data_dir)
+        self.assertIn("generation_cleanup", report)
+        self.assertEqual(
+            report["generation_cleanup"]["kept_generation_ids"],
+            [self.initial_generation_id],
+        )
 
 
 if __name__ == "__main__":

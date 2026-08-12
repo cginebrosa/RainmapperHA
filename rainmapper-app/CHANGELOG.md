@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.2.248
+
+- Prune immutable weather generations after every archive while retaining
+  `CURRENT`, its immediate predecessor and every generation with an active
+  reader lease.
+- Delete only manifests and Parquet/catalog objects that are unreferenced by
+  the complete retained set, under the exclusive weather writer lock.
+- Run generation cleanup before downloads even when no pending batch exists,
+  preventing scheduled runs from accumulating obsolete data in `/share`.
+
 ## 0.2.247
 
 - Store canonical daily weather history in bounded source/year Parquet

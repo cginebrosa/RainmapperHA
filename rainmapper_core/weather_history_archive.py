@@ -15,6 +15,7 @@ from rainmapper_core.weather_live_csv import apply_pending_to_live_csv
 from rainmapper_core.weather_history_writer import (
     acknowledge_archived_pending,
     archive_pending_batches,
+    prune_weather_generations,
 )
 
 
@@ -39,10 +40,20 @@ def archive_and_close_pending(data_dir: Path) -> dict[str, Any]:
         csv_reports.append(csv_report.to_dict())
         acknowledge_archived_pending(Path(data_dir), pending.batch_id)
         acknowledged.append(pending.batch_id)
+    cleanup_report = prune_weather_generations(Path(data_dir))
     return {
         **report.to_dict(),
         "acknowledged_batch_ids": acknowledged,
         "live_csv_reports": csv_reports,
+        "generation_cleanup": {
+            "kept_generation_ids": list(cleanup_report.kept_generation_ids),
+            "removed_generation_ids": list(cleanup_report.removed_generation_ids),
+            "active_lease_generation_ids": list(cleanup_report.active_lease_generation_ids),
+            "expired_leases_removed": cleanup_report.expired_leases_removed,
+            "manifests_removed": cleanup_report.manifests_removed,
+            "objects_removed": cleanup_report.objects_removed,
+            "bytes_removed": cleanup_report.bytes_removed,
+        },
     }
 
 
