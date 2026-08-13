@@ -7,17 +7,16 @@ documentos temáticos enlazados.
 ## Estado operativo actual — 2026-08-13
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
-- HA `0.2.252` continúa instalada en la RPi4. La release correctiva `0.2.253`
-  está publicada en GHCR y pendiente de instalación: `0.2.253` y `latest`
+- HA `0.2.253` está instalada y validada en la RPi4. `0.2.253` y `latest`
   comparten `sha256:5b1fad84e76ae80a1144e8f96f8dd54abd708bbcef0e27d27566fd4645ce4e89`
   y contienen `linux/amd64` y `linux/arm64`.
 - El worker M1 sigue en `1.0.7`; no necesita actualización para esta corrección.
-- En HA se ejecutó correctamente `Reconstruir y reentrenar todo`: reconstrucción
-  completa (1 min 43 s), entrenamiento completo (31 s) y promoción conjunta.
-  La UI mostró ambos jobs completados y promovidos.
-- La primera consulta posterior del Predictor fue bloqueada correctamente por
-  una discrepancia de identidad entre el `features.json` vivo y los modelos
-  sombra promovidos. No usar esa generación para validar predicciones.
+- Tras instalarla se repitió `Reconstruir y reentrenar todo`: reconstrucción
+  completa (1 min 29 s), entrenamiento completo (31 s), promoción conjunta y
+  primera consulta fría del Predictor completadas correctamente.
+- El runtime sincronizó la nueva generación sin discrepancia de hash. El
+  artefacto vivo contiene 31 filas Edulis y ninguna microárea de Olvan; la
+  relación contaminada ya no aparece en la UI.
 
 ## Qué corrige HA 0.2.253
 
@@ -33,26 +32,15 @@ documentos temáticos enlazados.
 
 ## Próximos pasos, en orden
 
-1. Instalar HA `0.2.253` y confirmar que arranca. No hace falta cambiar el
-   worker M1 `1.0.7`.
-2. Ejecutar otra vez `Reconstruir y reentrenar todo`. La generación promovida
-   por `0.2.252` no se repara solo instalando el coordinador nuevo.
-3. Cuando ambos jobs terminen, usar exclusivamente la promoción conjunta.
-4. Abrir el Predictor y comprobar un caso actual y uno histórico. Confirmar que
-   no reaparece el error de identidad y que un error largo cabe en el modal.
-5. Revisar `Por especie`: Edulis/Olvan no debe aparecer si la observación
-   corregida ya no está en el store vivo. La UI indicó 350 observaciones
-   elegibles en la reconstrucción reciente; no conservar el antiguo supuesto
-   de 399 sin volver a medirlo.
-6. Con este incidente cerrado, retomar Biology V3 desde su auditoría y
+1. Ejecutar un caso histórico centinela adicional para cerrar también la ruta
+   de carga histórica con la nueva generación.
+2. Con este incidente cerrado, retomar Biology V3 desde su auditoría y
    especificación.
 
 ## Riesgos y restricciones activas
 
-- Hasta reconstruir y promover de nuevo con `0.2.253`, la generación activa es
-  internamente incoherente y el Predictor seguirá rechazándola.
 - No promover candidatos antiguos ni mezclar artefactos y modelos de
-  generaciones distintas.
+  generaciones distintas; la generación activa actual sí es coherente.
 - Biology V3 parte de una muestra pequeña y sesgada por visitas; los scores
   brutos no son probabilidades calibradas.
 - Mantener la RPi4 para coordinación y trabajo incremental acotado. Rebuild,

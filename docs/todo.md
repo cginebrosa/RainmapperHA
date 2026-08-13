@@ -17,11 +17,12 @@ Lista operativa priorizada. El estado inmediato está en
   después del entrenamiento y que el Predictor bloqueaba la mezcla.
 - [x] Corregir la identidad previa al entrenamiento, añadir regresiones, superar
   672 tests/smoke y publicar HA `0.2.253` multiarch.
-- [ ] Instalar HA `0.2.253`; worker M1 permanece en `1.0.7`.
-- [ ] Repetir `Reconstruir y reentrenar todo` y activar mediante la única
+- [x] Instalar HA `0.2.253`; worker M1 permanece en `1.0.7`.
+- [x] Repetir `Reconstruir y reentrenar todo` y activar mediante la única
   promoción conjunta. No reutilizar el candidato generado por `0.2.252`.
-- [ ] Repetir casos centinela actuales e históricos del Predictor y revisar
-  `Por especie`, especialmente Edulis/Olvan.
+- [x] Validar una consulta actual del Predictor: caché fría sincronizada, sin
+  discrepancia de identidad; Edulis tiene 31 filas y 0 microáreas de Olvan.
+- [ ] Repetir un caso centinela histórico del Predictor.
 
 ## P1 — Terminar Biology V3
 
