@@ -12,6 +12,7 @@ import csv
 import hashlib
 import json
 import math
+import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -45,6 +46,14 @@ DAILY_INCREMENTAL_FILES = (
     ("meteoclimatic", "Meteoclimatic_incremental.csv"),
     ("wunderground", "Wunderground_incremental.csv"),
 )
+
+
+def partitioned_weather_history_active(data_dir: Path) -> bool:
+    """Detect the bounded history contract in HA and immutable worker snapshots."""
+    configured = os.environ.get("RAINMAPPER_PARTITIONED_WEATHER_HISTORY", "").strip().lower()
+    return configured in {"1", "true", "yes", "on"} or (
+        Path(data_dir) / "weather-history" / "CURRENT.json"
+    ).is_file()
 
 
 def weather_contract_metadata() -> dict[str, object]:
@@ -243,9 +252,10 @@ def parse_day(value: object) -> date | None:
     return None
 
 
-def date_window(end_day: date, days: int) -> set[date]:
+def date_window(end_day: date, days: int) -> tuple[date, ...]:
+    """Return an ordered window so floating-point aggregates are reproducible."""
     start = end_day - timedelta(days=days - 1)
-    return {start + timedelta(days=offset) for offset in range(days)}
+    return tuple(start + timedelta(days=offset) for offset in range(days))
 
 
 def haversine_km(lat_a: float, lon_a: float, lat_b: float, lon_b: float) -> float:
@@ -488,9 +498,7 @@ def load_stations_catalog(data_dir: Path) -> "pd.DataFrame":
     Creates or refreshes the lightweight catalog from weather_daily.parquet when
     necessary. Returns an empty DataFrame only when neither artifact is available.
     """
-    from rainmapper_core.weather_history_capture import partitioned_history_enabled
-
-    if partitioned_history_enabled():
+    if partitioned_weather_history_active(data_dir):
         import pyarrow.parquet as pq  # noqa: PLC0415
         from rainmapper_core.weather_history_dataset import resolve_weather_generation
 
@@ -517,9 +525,7 @@ def load_stations_catalog(data_dir: Path) -> "pd.DataFrame":
 
 def weather_history_cache_identity(data_dir: Path) -> object | None:
     """Return immutable generation identity, or the legacy Parquet identity."""
-    from rainmapper_core.weather_history_capture import partitioned_history_enabled
-
-    if partitioned_history_enabled():
+    if partitioned_weather_history_active(data_dir):
         from rainmapper_core.weather_history_dataset import resolve_weather_generation
 
         return resolve_weather_generation(data_dir).cache_identity
@@ -585,9 +591,7 @@ def load_daily_weather_parquet(
         raise ValueError("start_date and end_date must be provided together")
     if start_date is not None and end_date is not None and start_date > end_date:
         raise ValueError("start_date must not be after end_date")
-    from rainmapper_core.weather_history_capture import partitioned_history_enabled
-
-    partitioned_mode = partitioned_history_enabled()
+    partitioned_mode = partitioned_weather_history_active(data_dir)
     normalized_filter = None
     if station_filter is not None:
         normalized_filter = {
@@ -1580,10 +1584,8 @@ def build_observation_weather_features(
     emit_progress(progress_callback, 1, "Cargando observaciones.")
     observations = load_observations(observations_path)
     emit_progress(progress_callback, 4, f"Cargadas {len(observations)} observaciones.")
-    from rainmapper_core.weather_history_capture import partitioned_history_enabled
-
     load_kwargs: dict[str, Any] = {}
-    if partitioned_history_enabled():
+    if partitioned_weather_history_active(weather_data_dir):
         station_filter, start_date, end_date = observation_weather_read_scope(
             observations, weather_data_dir
         )

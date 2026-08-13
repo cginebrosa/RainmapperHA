@@ -235,6 +235,7 @@ def create_snapshot(
     gis_root: Path,
     gis_hash_cache_path: Path | None = None,
     prefer_weather_parquet: bool = True,
+    allow_partitioned_weather_history: bool = True,
 ) -> dict[str, Any]:
     target = snapshot_dir.resolve()
     if target.exists():
@@ -275,6 +276,11 @@ def create_snapshot(
         weather_history_record: dict[str, object] | None = None
         partitioned_current = weather_root / "weather-history" / "CURRENT.json"
         weather_parquet = weather_root / WEATHER_DAILY_PARQUET_NAME
+        if partitioned_current.is_file() and not allow_partitioned_weather_history:
+            raise ValueError(
+                "Partitioned weather history is active but the target worker does not "
+                "advertise partitioned_weather_history_v1."
+            )
         if prefer_weather_parquet and partitioned_current.is_file():
             from rainmapper_core.weather_history_dataset import (
                 pin_weather_generation,

@@ -16,6 +16,7 @@ WORKER_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{8,80}$")
 JOB_ID_PATTERN = re.compile(r"^worker_job_[a-zA-Z0-9_-]{8,80}$")
 HOME_ASSISTANT_EXECUTOR = "home_assistant"
 WEATHER_PARQUET_CAPABILITY = "weather_parquet_v1"
+PARTITIONED_WEATHER_HISTORY_CAPABILITY = "partitioned_weather_history_v1"
 TERMINAL_JOB_CLEANUP_CAPABILITY = "terminal_job_cleanup_v1"
 PREDICTOR_CAPABILITY = "predictor_v1"
 STATIC_FIELDS = (

@@ -1,5 +1,6 @@
 import json
 import io
+import hashlib
 import os
 import tempfile
 import unittest
@@ -163,6 +164,51 @@ class MushroomWorkerTransportTests(unittest.TestCase):
             token="coordinator-secret",
         )
         self.assertEqual(reused["status"], "reused")
+
+    def test_partitioned_weather_objects_are_reused_by_hash(self) -> None:
+        content = b"immutable partition bytes"
+        digest = hashlib.sha256(content).hexdigest()
+
+        class Response(io.BytesIO):
+            def __init__(self):
+                super().__init__(content)
+                self.headers = {"Content-Length": str(len(content))}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args: object) -> None:
+                self.close()
+
+        first = self.root / "first.parquet"
+        second = self.root / "second.parquet"
+        with mock.patch.object(
+            mushroom_worker_transport, "urlopen", side_effect=lambda *_args, **_kwargs: Response()
+        ) as urlopen:
+            first_reused = mushroom_worker_transport._materialize_cached_weather_input(
+                "http://rainmapper/input",
+                first,
+                worker_data_dir=self.worker_data,
+                digest=digest,
+                size=len(content),
+                headers={},
+                timeout=1.0,
+            )
+            second_reused = mushroom_worker_transport._materialize_cached_weather_input(
+                "http://rainmapper/input",
+                second,
+                worker_data_dir=self.worker_data,
+                digest=digest,
+                size=len(content),
+                headers={},
+                timeout=1.0,
+            )
+
+        self.assertFalse(first_reused)
+        self.assertTrue(second_reused)
+        self.assertEqual(urlopen.call_count, 1)
+        self.assertEqual(first.read_bytes(), content)
+        self.assertEqual(second.read_bytes(), content)
 
     def test_worker_downloads_missing_gis_dataset_transactionally_over_http(self) -> None:
         seen_dataset_requests: list[tuple[str, str, str]] = []

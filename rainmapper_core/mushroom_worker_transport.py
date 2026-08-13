@@ -35,6 +35,8 @@ _STAGING_DIR_RE = re.compile(
 )
 DEFAULT_STAGING_GRACE_SECONDS = 60 * 60
 DEFAULT_ORPHAN_GRACE_SECONDS = 24 * 60 * 60
+WEATHER_INPUT_CACHE_DIR = "weather-input-cache/objects"
+MAX_WEATHER_INPUT_CACHE_BYTES = 512 * 1024 * 1024
 
 
 def safe_relative_path(value: object) -> Path:
@@ -66,11 +68,15 @@ def _bundle_metadata(job_spec: dict[str, Any], manifest: dict[str, Any]) -> dict
         if isinstance(row.get("size_bytes"), int)
     )
     dataset = mushroom_worker_dataset_cache.dataset_contract(manifest)
-    weather_transport = (
-        "parquet"
-        if any(row.get("role") == "weather:daily_parquet" for row in existing_files)
-        else "csv"
-    )
+    if manifest.get("weather_history") or any(
+        str(row.get("role", "")).startswith("weather-history:")
+        for row in existing_files
+    ):
+        weather_transport = "partitioned_v1"
+    elif any(row.get("role") == "weather:daily_parquet" for row in existing_files):
+        weather_transport = "parquet"
+    else:
+        weather_transport = "csv"
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "rainmapper_worker_input_bundle",
@@ -100,6 +106,7 @@ def prepare_coordinator_bundle(
     selected_observation_ids: list[str] | tuple[str, ...] | None = None,
     pending_species_ids: list[str] | tuple[str, ...] | None = None,
     prefer_weather_parquet: bool = True,
+    allow_partitioned_weather_history: bool = True,
 ) -> dict[str, Any]:
     """Create one immutable coordinator-side bundle without changing live inputs."""
     resolved_job_id = validate_job_id(job_id)
@@ -121,6 +128,7 @@ def prepare_coordinator_bundle(
             gis_root=gis_root,
             gis_hash_cache_path=root / ".gis-hash-cache.json",
             prefer_weather_parquet=prefer_weather_parquet,
+            allow_partitioned_weather_history=allow_partitioned_weather_history,
         )
         job_spec = mushroom_rebuild_contracts.create_job_spec(
             snapshot_dir,
@@ -400,6 +408,70 @@ def _download_file(
     return total, resolved_digest
 
 
+def _materialize_cached_weather_input(
+    url: str,
+    destination: Path,
+    *,
+    worker_data_dir: Path,
+    digest: str,
+    size: int,
+    headers: dict[str, str],
+    timeout: float,
+) -> bool:
+    """Materialize one immutable weather object; return True on cache reuse."""
+    cache_root = worker_data_dir.resolve() / WEATHER_INPUT_CACHE_DIR
+    cache_root.mkdir(parents=True, exist_ok=True)
+    cached = cache_root / digest
+    valid = (
+        cached.is_file()
+        and cached.stat().st_size == size
+        and mushroom_rebuild_snapshot.sha256_file(cached) == digest
+    )
+    if not valid:
+        cached.unlink(missing_ok=True)
+        temporary = cache_root / f".{digest}.{uuid.uuid4().hex}.tmp"
+        try:
+            _download_file(
+                url,
+                temporary,
+                headers=headers,
+                expected_size=size,
+                expected_sha256=digest,
+                max_bytes=MAX_INPUT_FILE_BYTES,
+                timeout=timeout,
+            )
+            os.replace(temporary, cached)
+        finally:
+            temporary.unlink(missing_ok=True)
+    else:
+        os.utime(cached, None)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(cached, destination)
+    except OSError:
+        shutil.copy2(cached, destination)
+    return valid
+
+
+def _prune_weather_input_cache(worker_data_dir: Path, protected: set[str]) -> int:
+    cache_root = worker_data_dir.resolve() / WEATHER_INPUT_CACHE_DIR
+    if not cache_root.is_dir():
+        return 0
+    entries = [path for path in cache_root.iterdir() if path.is_file() and not path.name.startswith(".")]
+    total = sum(path.stat().st_size for path in entries)
+    removed = 0
+    for path in sorted(entries, key=lambda candidate: candidate.stat().st_mtime_ns):
+        if total <= MAX_WEATHER_INPUT_CACHE_BYTES:
+            break
+        if path.name in protected:
+            continue
+        size = path.stat().st_size
+        path.unlink(missing_ok=True)
+        total -= size
+        removed += size
+    return removed
+
+
 def _sync_required_dataset(
     ha_url: str,
     job: dict[str, Any],
@@ -557,6 +629,7 @@ def download_input_bundle(
             "dataset_fingerprint": dataset.get("fingerprint"),
             "dataset_cache_status": dataset_sync.get("status"),
             "dataset_transferred_size_bytes": dataset_sync.get("transferred_size_bytes", 0),
+            "weather_cache_reused_size_bytes": 0,
         }
 
     jobs_root.mkdir(parents=True, exist_ok=True)
@@ -639,6 +712,9 @@ def download_input_bundle(
             raise RuntimeError("Required GIS dataset did not pass cache validation.")
 
         transferred = 0
+        reused_weather_bytes = 0
+        processed = 0
+        protected_weather_digests: set[str] = set()
         for index, raw_record in enumerate(records, start=1):
             relative = safe_relative_path(raw_record.get("path"))
             size = raw_record.get("size_bytes")
@@ -647,22 +723,40 @@ def download_input_bundle(
                 raise ValueError(f"Invalid worker input size: {relative.as_posix()}")
             if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
                 raise ValueError(f"Invalid worker input hash: {relative.as_posix()}")
-            _download_file(
-                file_url(f"{SNAPSHOT_PREFIX}/{relative.as_posix()}"),
-                staging / SNAPSHOT_PREFIX / relative,
-                headers=headers,
-                expected_size=size,
-                expected_sha256=digest,
-                max_bytes=MAX_INPUT_FILE_BYTES,
-                timeout=timeout,
-            )
-            transferred += size
+            role = str(raw_record.get("role", "") or "")
+            if role.startswith("weather-history:"):
+                protected_weather_digests.add(digest)
+                reused = _materialize_cached_weather_input(
+                    file_url(f"{SNAPSHOT_PREFIX}/{relative.as_posix()}"),
+                    staging / SNAPSHOT_PREFIX / relative,
+                    worker_data_dir=worker_data_dir,
+                    digest=digest,
+                    size=size,
+                    headers=headers,
+                    timeout=timeout,
+                )
+                if reused:
+                    reused_weather_bytes += size
+                else:
+                    transferred += size
+            else:
+                _download_file(
+                    file_url(f"{SNAPSHOT_PREFIX}/{relative.as_posix()}"),
+                    staging / SNAPSHOT_PREFIX / relative,
+                    headers=headers,
+                    expected_size=size,
+                    expected_sha256=digest,
+                    max_bytes=MAX_INPUT_FILE_BYTES,
+                    timeout=timeout,
+                )
+                transferred += size
+            processed += size
             if progress_callback is not None:
                 progress_callback(
                     {
                         "phase": "Downloading immutable inputs",
                         "message": f"Verified input file {index}/{len(records)}.",
-                        "overall_percent": 50 + int((transferred / total_bytes) * 40) if total_bytes else 90,
+                        "overall_percent": 50 + int((processed / total_bytes) * 40) if total_bytes else 90,
                     }
                 )
 
@@ -676,6 +770,9 @@ def download_input_bundle(
         if verification["status"] != "valid":
             raise RuntimeError(f"Downloaded worker input bundle is invalid: {verification['errors']}")
         staging.replace(destination)
+        pruned_weather_bytes = _prune_weather_input_cache(
+            worker_data_dir, protected_weather_digests
+        )
         return {
             **verification,
             "status": "verified",
@@ -685,6 +782,9 @@ def download_input_bundle(
             "dataset_fingerprint": cache.get("fingerprint"),
             "dataset_cache_status": dataset_sync.get("status"),
             "dataset_transferred_size_bytes": dataset_sync.get("transferred_size_bytes", 0),
+            "input_transferred_size_bytes": transferred,
+            "weather_cache_reused_size_bytes": reused_weather_bytes,
+            "weather_cache_pruned_size_bytes": pruned_weather_bytes,
         }
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)

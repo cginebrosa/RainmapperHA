@@ -18,6 +18,7 @@ MANIFEST_KIND = "rainmapper_mushroom_predictor_runtime"
 FEATURE_CONTRACT = "mushroom_features_v0"
 MODEL_CONTRACT = "mushroom_ml_v0_plus_shadow_v1_joblib"
 WEATHER_CONTRACT = "weather_parquet_v1"
+PARTITIONED_WEATHER_CONTRACT = "partitioned_weather_history_v1"
 _DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
 
 
@@ -61,12 +62,36 @@ def build_manifest(
     known_sites = Path(known_sites_path or mushroom_paths.mushroom_known_sites_path())
     profiles = Path(profiles_path or mushroom_paths.mushroom_profiles_path())
     sources: dict[str, Path] = {
-        "weather/weather_daily.parquet": weather / "weather_daily.parquet",
-        "weather/weather_stations_catalog.parquet": weather / "weather_stations_catalog.parquet",
         "data/mushroom_observation_features_v0.json": features,
         "data/mushroom_known_sites.json": known_sites,
         "data/mushroom_profiles.json": profiles,
     }
+    partitioned_current = weather / "weather-history" / "CURRENT.json"
+    weather_contract = WEATHER_CONTRACT
+    if partitioned_current.is_file():
+        from rainmapper_core.weather_history_dataset import resolve_weather_generation
+
+        generation = resolve_weather_generation(weather)
+        history_root = generation.root.resolve()
+        history_files = [
+            partitioned_current,
+            generation.manifest_path,
+            generation.object_path(generation.catalog.path),
+            *(generation.object_path(partition.path) for partition in generation.partitions),
+        ]
+        for source in history_files:
+            source = source.resolve()
+            relative = source.relative_to(history_root).as_posix()
+            sources[f"weather/weather-history/{relative}"] = source
+        weather_contract = PARTITIONED_WEATHER_CONTRACT
+    else:
+        sources.update(
+            {
+                "weather/weather_daily.parquet": weather / "weather_daily.parquet",
+                "weather/weather_stations_catalog.parquet": weather
+                / "weather_stations_catalog.parquet",
+            }
+        )
     for model in sorted(models.glob("mushroom_ml_v0_*.joblib")):
         sources[f"models/{model.name}"] = model
     for model in sorted(models.glob("mushroom_ml_experiment_*.joblib")):
@@ -84,7 +109,7 @@ def build_manifest(
         "contracts": {
             "features": FEATURE_CONTRACT,
             "models": MODEL_CONTRACT,
-            "weather": WEATHER_CONTRACT,
+            "weather": weather_contract,
         },
         "files": files,
     }
@@ -187,7 +212,12 @@ def synchronize_runtime(
             shutil.rmtree(destination)
         os.replace(staging, destination)
         _set_current(root, destination)
-        return destination, {"status": "synchronized", "transferred_size_bytes": transferred}
+        pruned = _prune_runtime_versions(versions, keep={destination, current})
+        return destination, {
+            "status": "synchronized",
+            "transferred_size_bytes": transferred,
+            "pruned_versions": pruned,
+        }
     finally:
         if staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
@@ -199,6 +229,18 @@ def _set_current(root: Path, destination: Path) -> None:
     temporary.unlink(missing_ok=True)
     temporary.symlink_to(destination.relative_to(root), target_is_directory=True)
     os.replace(temporary, current)
+
+
+def _prune_runtime_versions(versions: Path, *, keep: set[Path | None]) -> int:
+    """Keep current and immediate predecessor; all files are reconstructible."""
+    retained = {path.resolve() for path in keep if path is not None}
+    removed = 0
+    for candidate in versions.iterdir():
+        if not candidate.is_dir() or candidate.resolve() in retained:
+            continue
+        shutil.rmtree(candidate)
+        removed += 1
+    return removed
 
 
 def current_runtime(root: Path) -> Path | None:

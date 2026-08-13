@@ -555,6 +555,14 @@ class StationCatalogTests(unittest.TestCase):
         metadata = pq.ParquetFile(output_path).metadata
         self.assertEqual(metadata.num_rows, 513)
         self.assertEqual(metadata.num_row_groups, 2)
+        schema_columns = set(pq.ParquetFile(output_path).schema_arrow.names)
+        self.assertTrue({
+            "reading_datetime", "county", "municipality", "province",
+            "local_time", "last_reading", "variable", "unit",
+            "wind_avg_kmh", "wind_min_kmh", "wind_max_kmh", "wind_gust_kmh",
+            "wind_direction_deg", "wind_gust_direction_deg",
+            "wind_observation_count", "wind_source_height_m",
+        }.issubset(schema_columns))
         self.assertFalse(list(self.data_dir.glob(".weather_daily.parquet.*.tmp")))
 
     def test_generate_catalog_returns_none_when_no_parquet(self) -> None:
@@ -626,9 +634,14 @@ class StationCatalogTests(unittest.TestCase):
             )
         self.assertIn(("meteocat", "ST_A"), stations)
         self.assertNotIn(("wunderground", "ST_B"), stations)
+        filtered_calls = [
+            call.kwargs["filters"]
+            for call in read_parquet.call_args_list
+            if "filters" in call.kwargs
+        ]
         self.assertEqual(
-            read_parquet.call_args.kwargs["filters"],
-            [[("source", "==", "meteocat"), ("station_code", "==", "ST_A")]],
+            filtered_calls,
+            [[[("source", "==", "meteocat"), ("station_code", "==", "ST_A")]]],
         )
 
     def test_station_and_date_filters_are_pushed_into_parquet_read(self) -> None:
@@ -648,14 +661,19 @@ class StationCatalogTests(unittest.TestCase):
 
         station = stations[("meteocat", "ST_A")]
         self.assertEqual(set(station.records_by_day), {date(2026, 1, 2)})
+        filtered_calls = [
+            call.kwargs["filters"]
+            for call in read_parquet.call_args_list
+            if "filters" in call.kwargs
+        ]
         self.assertEqual(
-            read_parquet.call_args.kwargs["filters"],
-            [[
+            filtered_calls,
+            [[[
                 ("source", "==", "meteocat"),
                 ("station_code", "==", "ST_A"),
                 ("local_date", ">=", "20260102"),
                 ("local_date", "<=", "20260102"),
-            ]],
+            ]]],
         )
 
     def test_temporal_filter_requires_a_valid_closed_range(self) -> None:
@@ -735,6 +753,43 @@ class StationCatalogTests(unittest.TestCase):
         )
         self.assertIn(("meteocat", "ST_A"), stations)
         self.assertIn(("wunderground", "ST_B"), stations)
+
+    def test_daily_loader_recovers_altitude_from_separate_catalog(self) -> None:
+        import pandas as pd
+
+        pd.DataFrame(
+            [
+                {
+                    "source": "meteocat",
+                    "station_code": "ST_A",
+                    "station_name": "Alpha",
+                    "local_date": "20260101",
+                    "lat": 42.0,
+                    "lon": 2.0,
+                    "rain_mm": 1.0,
+                }
+            ]
+        ).to_parquet(self.data_dir / "weather_daily.parquet", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "source": "meteocat",
+                    "station_code": "ST_A",
+                    "station_name": "Alpha",
+                    "lat": 42.0,
+                    "lon": 2.0,
+                    "altitude": 800.0,
+                }
+            ]
+        ).to_parquet(
+            self.data_dir / "weather_stations_catalog.parquet", index=False
+        )
+
+        stations = mushroom_observation_context.load_daily_weather_parquet(
+            self.data_dir, station_filter=None
+        )
+
+        self.assertEqual(stations[("meteocat", "ST_A")].altitude_m, 800.0)
 
 
 if __name__ == "__main__":

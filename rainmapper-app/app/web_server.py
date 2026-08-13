@@ -12553,6 +12553,10 @@ def create_mushroom_worker_snapshot_transport_probe(
                     payload,
                     mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
                 ),
+                allow_partitioned_weather_history=mushroom_worker_supports(
+                    payload,
+                    mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
+                ),
             )
             try:
                 with RUN_LOCK:
@@ -12720,6 +12724,10 @@ def create_mushroom_worker_candidate_rebuild(
                 prefer_weather_parquet=mushroom_worker_supports(
                     payload,
                     mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
+                ),
+                allow_partitioned_weather_history=mushroom_worker_supports(
+                    payload,
+                    mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
                 ),
             )
             try:

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.2.250
+
+- Require `partitioned_weather_history_v1` before creating external-worker
+  snapshots from the active partitioned weather archive.
+- Transfer immutable weather generations as bounded, hash-verified snapshots
+  and let worker `1.0.7` reuse unchanged objects from its persistent cache.
+- Make weather feature windows deterministic across hosts and architectures.
+- Cache the complete immutable partitioned weather generation in Predictor
+  workers so historical queries read bounded station/date windows locally.
+- Retain only the current and immediately previous Predictor runtime versions,
+  reusing unchanged historical partitions by hash.
+- Retain only 30 days of Wunderground diagnostic metrics using atomic writes.
+
 ## 0.2.248
 
 - Prune immutable weather generations after every archive while retaining

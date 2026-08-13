@@ -189,6 +189,7 @@ class MushroomWorkerServiceTests(unittest.TestCase):
         self.assertEqual(result["host_name"], "macbook-m1-test")
         self.assertEqual(result["job_api"], "candidate_rebuild_v0")
         self.assertIn("weather_parquet_v1", result["capabilities"])
+        self.assertIn("partitioned_weather_history_v1", result["capabilities"])
         self.assertIn("terminal_job_cleanup_v1", result["capabilities"])
         self.assertEqual(result["dataset_cache"]["file_count"], 10)
 

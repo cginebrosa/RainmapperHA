@@ -58,6 +58,7 @@ from rainmapper_core.wind import (
     optional_round,
     xema_daily_wind_fields,
 )
+from rainmapper_core.wunderground_metrics import save_metrics as save_bounded_wunderground_metrics
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -2237,30 +2238,11 @@ def save_wunderground_metrics(results):
 
     metrics_path = os.path.join(_DATA_PATH, 'metricas_wunderground.csv')
     os.makedirs(_DATA_PATH, exist_ok=True)
-    fieldnames = [
-        'id_ejecucion',
-        'timestamp_lectura',
-        'fecha_lectura',
-        'hora_lectura',
-        'codi_estacio',
-        'estacion',
-        'url',
-        'tiempo_lectura_s',
-        'ok',
-        'filas',
-        'ultimo_error',
-    ]
-    write_header = not os.path.exists(metrics_path) or os.path.getsize(metrics_path) == 0
-
-    with open(metrics_path, 'a', newline='', encoding='utf-8') as metrics_file:
-        writer = csv.DictWriter(metrics_file, fieldnames=fieldnames)
-        if write_header:
-            writer.writeheader()
-
-        for result in results:
-            errors = result.get('errors') or []
-            duration_seconds = result.get('duration_seconds')
-            writer.writerow({
+    rows = []
+    for result in results:
+        errors = result.get('errors') or []
+        duration_seconds = result.get('duration_seconds')
+        rows.append({
                 'timestamp_lectura': result.get('timestamp_lectura', ''),
                 'id_ejecucion': result.get('id_ejecucion', ''),
                 'fecha_lectura': result.get('fecha_lectura', ''),
@@ -2272,7 +2254,14 @@ def save_wunderground_metrics(results):
                 'ok': result.get('ok', False),
                 'filas': result.get('rows', 0),
                 'ultimo_error': errors[-1] if errors else '',
-            })
+        })
+    report = save_bounded_wunderground_metrics(metrics_path, rows)
+    print(
+        'Wunderground metrics retention: '
+        f'{report["retained_rows"]} row(s), '
+        f'{report["dropped_rows"]} old/malformed row(s) removed, '
+        f'{report["retention_days"]} day(s) retained.'
+    )
 
 def print_wunderground_summary(results):
     global WUNDERGROUND_API_FALLBACK_ERRORS

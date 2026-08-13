@@ -9,6 +9,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from rainmapper_core import (
+    mushroom_observation_context,
     mushroom_rebuild_comparison,
     mushroom_rebuild_snapshot,
     weather_history_contract,
@@ -217,6 +218,32 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
             runtime / "share/Data", verify_hashes=True
         )
         self.assertEqual(restored.generation_id, generation_id)
+        with mock.patch.dict("os.environ", {}, clear=True):
+            stations = mushroom_observation_context.load_daily_weather_parquet(
+                runtime / "share/Data",
+                station_filter={("meteocat", "X1")},
+                start_date=pd.Timestamp("2026-08-08").date(),
+                end_date=pd.Timestamp("2026-08-08").date(),
+            )
+        self.assertIn(("meteocat", "X1"), stations)
+
+    def test_snapshot_rejects_partitioned_history_for_incompatible_worker(self) -> None:
+        self.create_partitioned_weather()
+        snapshot = self.root / "snapshot-incompatible-worker"
+
+        with self.assertRaisesRegex(ValueError, "partitioned_weather_history_v1"):
+            mushroom_rebuild_snapshot.create_snapshot(
+                snapshot,
+                observations_path=self.observations,
+                reference_catalogs_path=self.catalogs,
+                gis_mappings_path=self.mappings,
+                weather_data_dir=self.weather,
+                gis_root=self.gis,
+                prefer_weather_parquet=True,
+                allow_partitioned_weather_history=False,
+            )
+
+        self.assertFalse(snapshot.exists())
 
     def test_snapshot_uses_csv_fallback_for_worker_without_parquet_capability(self) -> None:
         pd.DataFrame(

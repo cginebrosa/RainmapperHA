@@ -202,6 +202,7 @@ def worker_status(
         "capabilities": [
             "rebuild_v0",
             mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
+            mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
             mushroom_worker_registry.TERMINAL_JOB_CLEANUP_CAPABILITY,
             mushroom_worker_registry.PREDICTOR_CAPABILITY,
         ],
