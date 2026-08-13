@@ -330,6 +330,7 @@ def create_candidate_rebuild(
     scope_key: str = "all",
     scope_species_ids: list[str] | tuple[str, ...] | None = None,
     promotion_eligible: bool = False,
+    full_update: bool = False,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     target_worker_id = _validate_worker_id(worker_id)
@@ -408,6 +409,7 @@ def create_candidate_rebuild(
         "claim_token": "",
         "assignment_revision": 1,
         "promotion_eligible": bool(promotion_eligible),
+        "full_update": bool(full_update),
         "promotion_status": "",
         "promotion_percent": 0,
         "promotion_error": "",
@@ -587,6 +589,13 @@ def begin_candidate_promotion(path: Path, *, job_id: str) -> dict[str, Any]:
     job = _find_job(queue, job_id)
     if job.get("job_type") not in {JOB_TYPE_CANDIDATE_REBUILD, JOB_TYPE_ML_TRAIN}:
         raise ValueError("Only candidate rebuilds and ML training jobs can be promoted.")
+    if (
+        job.get("job_type") == JOB_TYPE_CANDIDATE_REBUILD
+        and str(job.get("reconstruction_scope", "all")) != "all"
+    ):
+        raise ValueError(
+            "Partial reconstruction candidates cannot be promoted; run a full rebuild."
+        )
     result_payload = job.get("result")
     if (
         job.get("status") != "complete"
@@ -612,6 +621,53 @@ def begin_candidate_promotion(path: Path, *, job_id: str) -> dict[str, Any]:
     )
     _write_atomic(path, queue)
     return dict(job)
+
+
+def begin_full_update_promotion(
+    path: Path,
+    *,
+    rebuild_job_id: str,
+    training_job_id: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Atomically reserve promotion of one full rebuild and its linked training."""
+    queue = load_queue(path)
+    rebuild = _find_job(queue, rebuild_job_id)
+    training = _find_job(queue, training_job_id)
+    if (
+        rebuild.get("job_type") != JOB_TYPE_CANDIDATE_REBUILD
+        or str(rebuild.get("reconstruction_scope", "")) != "all"
+        or not rebuild.get("full_update")
+    ):
+        raise ValueError("Reconstruction job is not a complete update.")
+    if (
+        training.get("job_type") != JOB_TYPE_ML_TRAIN
+        or training.get("triggered_by_job_id") != rebuild_job_id
+    ):
+        raise ValueError("Training job is not linked to the complete reconstruction.")
+    for job in (rebuild, training):
+        result = job.get("result")
+        if (
+            job.get("status") != "complete"
+            or not isinstance(result, dict)
+            or result.get("verification_status") != "verified"
+        ):
+            raise ValueError("The complete generation is not fully verified.")
+        if not job.get("promotion_eligible"):
+            raise ValueError("The complete generation is not eligible for promotion.")
+        if str(job.get("promotion_status", "") or "") in {"promoting", "promoted"}:
+            raise ValueError("The complete generation is already being promoted or is active.")
+    for job in (rebuild, training):
+        job.update(
+            {
+                "promotion_status": "promoting",
+                "promotion_percent": 1,
+                "promotion_error": "",
+                "phase": "Validating complete generation",
+                "message": "Validating linked reconstruction and training before promotion.",
+            }
+        )
+    _write_atomic(path, queue)
+    return dict(rebuild), dict(training)
 
 
 def get_job(path: Path, *, job_id: str) -> dict[str, Any]:

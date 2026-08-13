@@ -1026,6 +1026,8 @@ def _validate_ml_train_manifest(
                 Path(safe_path).name.startswith("mushroom_ml_v0_")
                 or Path(safe_path).name.startswith("mushroom_ml_experiment_fixed_gap_7d_v1_")
                 or Path(safe_path).name.startswith("mushroom_ml_experiment_lag_event_v1_")
+                or Path(safe_path).name.startswith("mushroom_ml_experiment_fixed_gap_7d_altitude_v2_")
+                or Path(safe_path).name.startswith("mushroom_ml_experiment_lag_event_altitude_v2_")
             )
             and safe_path.endswith(".joblib")
         ):
@@ -1248,35 +1250,104 @@ def promote_ml_train_candidate(
         else:
             destination = ml_models_dir / source.name
         promotion_sources.append((source, destination))
-    for source, destination in promotion_sources:
-        temporary = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.tmp"
-        try:
-            shutil.copy2(source, temporary)
-            os.replace(temporary, destination)
-        finally:
-            temporary.unlink(missing_ok=True)
-        promoted_files.append(destination.name)
-    receipt = {
-        "schema_version": SCHEMA_VERSION,
-        "kind": "rainmapper_worker_ml_train_promotion",
-        "status": "promoted",
-        "job_id": job_id,
-        "result_manifest_id": verification.get("result_manifest_id"),
-        "promoted_files": promoted_files,
-        "trained_species": verification.get("trained_species", []),
-        "trained_species_count": len(verification.get("trained_species", [])),
-    }
-    temporary_receipt = final / f".{PROMOTION_RECEIPT_NAME}.{uuid.uuid4().hex}.tmp"
+    rollback_root = final / ".promotion-rollback"
+    backups: dict[Path, Path | None] = {}
+    promoted_destinations: list[Path] = []
+    if rollback_root.exists():
+        raise FileExistsError("ML promotion rollback staging already exists.")
     try:
-        with temporary_receipt.open("x", encoding="utf-8") as handle:
-            json.dump(receipt, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary_receipt.replace(receipt_path)
+        for _source, destination in promotion_sources:
+            if destination.is_file():
+                backup = rollback_root / destination.name
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(destination, backup)
+                backups[destination] = backup
+            else:
+                backups[destination] = None
+        for source, destination in promotion_sources:
+            temporary = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.tmp"
+            try:
+                shutil.copy2(source, temporary)
+                os.replace(temporary, destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+            promoted_destinations.append(destination)
+            promoted_files.append(destination.name)
+        receipt = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": "rainmapper_worker_ml_train_promotion",
+            "status": "promoted",
+            "job_id": job_id,
+            "result_manifest_id": verification.get("result_manifest_id"),
+            "promoted_files": promoted_files,
+            "trained_species": verification.get("trained_species", []),
+            "trained_species_count": len(verification.get("trained_species", [])),
+        }
+        temporary_receipt = final / f".{PROMOTION_RECEIPT_NAME}.{uuid.uuid4().hex}.tmp"
+        try:
+            with temporary_receipt.open("x", encoding="utf-8") as handle:
+                json.dump(receipt, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            temporary_receipt.replace(receipt_path)
+        finally:
+            temporary_receipt.unlink(missing_ok=True)
+    except BaseException:
+        rollback_errors: list[str] = []
+        for destination in reversed(promoted_destinations):
+            backup = backups[destination]
+            try:
+                if backup is None:
+                    destination.unlink(missing_ok=True)
+                else:
+                    os.replace(backup, destination)
+            except OSError as exc:
+                rollback_errors.append(f"{destination.name}: {exc}")
+        if rollback_errors:
+            raise RuntimeError(
+                "ML promotion failed and rollback was incomplete: "
+                + "; ".join(rollback_errors)
+            )
+        raise
     finally:
-        temporary_receipt.unlink(missing_ok=True)
+        shutil.rmtree(rollback_root, ignore_errors=True)
     return receipt
+
+
+def rollback_promoted_candidate(
+    result_root: Path,
+    live_artifact_root: Path,
+    *,
+    job_id: str,
+) -> dict[str, Any]:
+    """Restore the retained pre-promotion artifact set for a linked failure."""
+    resolved_job_id = mushroom_worker_transport.validate_job_id(job_id)
+    candidate = _job_dir(result_root, resolved_job_id)
+    receipt_path = candidate / PROMOTION_RECEIPT_NAME
+    receipt = _json_object(receipt_path, "candidate promotion receipt")
+    if receipt.get("status") != "promoted" or receipt.get("job_id") != resolved_job_id:
+        raise ValueError("Candidate promotion receipt cannot be rolled back.")
+    live_root = live_artifact_root.resolve()
+    backup = (live_root / str(receipt.get("backup_path", ""))).resolve()
+    backup.relative_to(live_root)
+    if not backup.is_dir():
+        raise FileNotFoundError("Candidate promotion backup is missing.")
+    final_outputs = mushroom_rebuild_pipeline.RebuildOutputPaths.under(live_root)
+    restored: list[str] = []
+    for field in reversed(mushroom_rebuild_pipeline.ACCEPTED_OUTPUT_FIELDS):
+        destination = Path(getattr(final_outputs, field))
+        relative = destination.relative_to(live_root)
+        previous = backup / relative
+        if previous.is_file():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(previous, destination)
+        else:
+            destination.unlink(missing_ok=True)
+        restored.append(relative.as_posix())
+    shutil.rmtree(backup, ignore_errors=True)
+    receipt_path.unlink(missing_ok=True)
+    return {"status": "rolled_back", "job_id": resolved_job_id, "restored": restored}
 
 
 def upload_ml_train_result(

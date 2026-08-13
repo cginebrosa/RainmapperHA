@@ -3425,14 +3425,24 @@
     "ca": "Predeterminat"
   },
   "ui.worker_default_executor": {
-    "en": "Default rebuild executor",
-    "es": "Ejecutor predeterminado de reconstrucciones",
-    "ca": "Executor predeterminat de reconstruccions"
+    "en": "Default complete-update worker",
+    "es": "Worker predeterminado para la actualizacion completa",
+    "ca": "Worker predeterminat per a l'actualitzacio completa"
   },
   "ui.worker_default_executor_help": {
-    "en": "Preselects Home Assistant or one exact worker. It never falls back silently.",
-    "es": "Preselecciona Home Assistant o un worker concreto. Nunca cambia silenciosamente al fallback.",
-    "ca": "Preselecciona Home Assistant o un worker concret. Mai canvia silenciosament al fallback."
+    "en": "Preselects one exact external worker. It never falls back to Home Assistant.",
+    "es": "Preselecciona un worker externo concreto. Nunca cambia silenciosamente a Home Assistant.",
+    "ca": "Preselecciona un worker extern concret. Mai canvia silenciosament a Home Assistant."
+  },
+  "ui.worker_coordinator": {
+    "en": "Coordinator",
+    "es": "Coordinador",
+    "ca": "Coordinador"
+  },
+  "ui.worker_coordinator_help": {
+    "en": "Coordinates jobs; complete reconstruction and training run on an external worker.",
+    "es": "Coordina los trabajos; la reconstruccion y el entrenamiento completos se ejecutan en un worker externo.",
+    "ca": "Coordina els treballs; la reconstruccio i l'entrenament complets s'executen en un worker extern."
   },
   "ui.worker_default_save": {
     "en": "Save default",
@@ -3485,9 +3495,9 @@
     "ca": "Obrir Workers i treballs"
   },
   "ui.worker_new_rebuild": {
-    "en": "New rebuild",
-    "es": "Nueva reconstruccion",
-    "ca": "Nova reconstruccio"
+    "en": "Rebuild and retrain everything",
+    "es": "Reconstruir y reentrenar todo",
+    "ca": "Reconstruir i reentrenar-ho tot"
   },
   "ui.worker_eligible_observations": {
     "en": "Eligible observations",
@@ -3530,14 +3540,24 @@
     "ca": "Una especie"
   },
   "ui.worker_scope_help": {
-    "en": "Choose which model data should be rebuilt.",
-    "es": "Elige que datos del modelo deben reconstruirse.",
-    "ca": "Tria quines dades del model s'han de reconstruir."
+    "en": "A complete artifact rebuild will be followed by complete model training.",
+    "es": "La reconstruccion completa de artefactos ira seguida del entrenamiento completo de los modelos.",
+    "ca": "La reconstruccio completa d'artefactes anira seguida de l'entrenament complet dels models."
   },
   "ui.start_rebuild": {
-    "en": "Start rebuild",
-    "es": "Iniciar reconstruccion",
-    "ca": "Iniciar reconstruccio"
+    "en": "Rebuild and retrain everything",
+    "es": "Reconstruir y reentrenar todo",
+    "ca": "Reconstruir i reentrenar-ho tot"
+  },
+  "ui.worker_promote_full_update": {
+    "en": "Activate complete generation",
+    "es": "Activar generacion completa",
+    "ca": "Activar generacio completa"
+  },
+  "ui.worker_promote_full_update_confirm": {
+    "en": "Activate the complete reconstructed and retrained generation?",
+    "es": "¿Activar la generacion completa reconstruida y reentrenada?",
+    "ca": "Activar la generacio completa reconstruida i reentrenada?"
   },
   "ui.worker_recent_jobs": {
     "en": "Recent jobs",
@@ -4306,6 +4326,36 @@
   "ui.predictor_probability_source_held_out_evaluation": {"en": "held-out evaluation", "es": "evaluación fuera de muestra", "ca": "avaluació fora de mostra"},
   "ui.predictor_observed_result": {"en": "Observed result", "es": "Resultado observado", "ca": "Resultat observat"},
   "ui.predictor_out_of_domain_features": {"en": "Out-of-domain variables", "es": "Variables fuera de dominio", "ca": "Variables fora de domini"},
+  "ui.predictor_training_range": {"en": "training", "es": "entrenamiento", "ca": "entrenament"},
+  "ui.predictor_out_of_domain_delta": {"en": "Δ", "es": "Δ", "ca": "Δ"},
+  "ui.predictor_out_of_domain_severe": {"en": "severe extrapolation", "es": "extrapolación severa", "ca": "extrapolació severa"},
+  "ui.predictor_feature_horizon_days": {"en": "Forecast horizon", "es": "Horizonte de predicción", "ca": "Horitzó de predicció"},
+  "ui.predictor_feature_target_month_sin": {"en": "Monthly seasonality (sine)", "es": "Estacionalidad mensual (seno)", "ca": "Estacionalitat mensual (sinus)"},
+  "ui.predictor_feature_target_month_cos": {"en": "Monthly seasonality (cosine)", "es": "Estacionalidad mensual (coseno)", "ca": "Estacionalitat mensual (cosinus)"},
+  "ui.predictor_feature_gis_altitude": {"en": "GIS altitude", "es": "Altitud GIS", "ca": "Altitud GIS"},
+  "ui.predictor_feature_rain_0_3d": {"en": "Rain 0–3 days", "es": "Lluvia 0–3 días", "ca": "Pluja 0–3 dies"},
+  "ui.predictor_feature_rain_4_7d": {"en": "Rain 4–7 days", "es": "Lluvia 4–7 días", "ca": "Pluja 4–7 dies"},
+  "ui.predictor_feature_rain_8_14d": {"en": "Rain 8–14 days", "es": "Lluvia 8–14 días", "ca": "Pluja 8–14 dies"},
+  "ui.predictor_feature_rain_15_21d": {"en": "Rain 15–21 days", "es": "Lluvia 15–21 días", "ca": "Pluja 15–21 dies"},
+  "ui.predictor_feature_days_since_rain": {"en": "Days since rain >2 mm", "es": "Días desde lluvia >2 mm", "ca": "Dies des de pluja >2 mm"},
+  "ui.predictor_feature_days_since_significant_rain": {"en": "Days since significant rain", "es": "Días desde lluvia significativa", "ca": "Dies des de pluja significativa"},
+  "ui.predictor_feature_significant_rain_found": {"en": "Significant rain found in 90 days", "es": "Lluvia significativa encontrada en 90 días", "ca": "Pluja significativa trobada en 90 dies"},
+  "ui.predictor_feature_rain_observed_21": {"en": "Observed rain days (21 days)", "es": "Días de lluvia observados (21 días)", "ca": "Dies de pluja observats (21 dies)"},
+  "ui.predictor_feature_rain_missing_21": {"en": "Missing rain days (21 days)", "es": "Días de lluvia ausentes (21 días)", "ca": "Dies de pluja absents (21 dies)"},
+  "ui.predictor_feature_rain_suppressed_21": {"en": "Suppressed rain days (21 days)", "es": "Días de lluvia suprimidos (21 días)", "ca": "Dies de pluja suprimits (21 dies)"},
+  "ui.predictor_feature_rain_observed_90": {"en": "Observed rain days (90 days)", "es": "Días de lluvia observados (90 días)", "ca": "Dies de pluja observats (90 dies)"},
+  "ui.predictor_feature_rain_missing_90": {"en": "Missing rain days (90 days)", "es": "Días de lluvia ausentes (90 días)", "ca": "Dies de pluja absents (90 dies)"},
+  "ui.predictor_feature_rain_suppressed_90": {"en": "Suppressed rain days (90 days)", "es": "Días de lluvia suprimidos (90 días)", "ca": "Dies de pluja suprimits (90 dies)"},
+  "ui.predictor_feature_dry_spell": {"en": "Dry spell at cutoff", "es": "Racha seca en el corte", "ca": "Ratxa seca al tall"},
+  "ui.predictor_feature_dry_spell_censored": {"en": "Dry spell limited by history", "es": "Racha seca limitada por el histórico", "ca": "Ratxa seca limitada per l'històric"},
+  "ui.predictor_feature_heat_stress": {"en": "Heat-stress streak at cutoff", "es": "Racha de estrés térmico en el corte", "ca": "Ratxa d'estrès tèrmic al tall"},
+  "ui.predictor_feature_heat_stress_censored": {"en": "Heat-stress streak limited by history", "es": "Racha de estrés térmico limitada por el histórico", "ca": "Ratxa d'estrès tèrmic limitada per l'històric"},
+  "ui.predictor_feature_temp_after_rain": {"en": "Mean temperature after significant rain", "es": "Temperatura media tras lluvia significativa", "ca": "Temperatura mitjana després de pluja significativa"},
+  "ui.predictor_feature_temp_max_cutoff_7d": {"en": "Corrected mean maximum temperature (7 days)", "es": "Temperatura máxima media corregida (7 días)", "ca": "Temperatura màxima mitjana corregida (7 dies)"},
+  "ui.predictor_feature_temp_mean_cutoff_7d": {"en": "Corrected mean temperature (7 days)", "es": "Temperatura media corregida (7 días)", "ca": "Temperatura mitjana corregida (7 dies)"},
+  "ui.predictor_feature_humidity_after_rain": {"en": "Mean humidity after significant rain", "es": "Humedad media tras lluvia significativa", "ca": "Humitat mitjana després de pluja significativa"},
+  "ui.predictor_feature_temp_coverage_after_rain": {"en": "Temperature coverage after rain", "es": "Cobertura de temperatura tras lluvia", "ca": "Cobertura de temperatura després de pluja"},
+  "ui.predictor_feature_humidity_coverage_after_rain": {"en": "Humidity coverage after rain", "es": "Cobertura de humedad tras lluvia", "ca": "Cobertura d'humitat després de pluja"},
   "ui.predictor_validation_brier": {"en": "Validation Brier", "es": "Brier de validación", "ca": "Brier de validació"},
   "ui.predictor_validation_auc": {"en": "Validation ROC-AUC", "es": "ROC-AUC de validación", "ca": "ROC-AUC de validació"},
   "ui.predictor_validation_baseline": {"en": "baseline", "es": "base", "ca": "base"},
@@ -4364,6 +4414,9 @@
     "es": "Distancia",
     "ca": "Distància"
   },
+  "ui.predictor_station_altitude": {"en": "Station altitude", "es": "Altitud de estación", "ca": "Altitud de l'estació"},
+  "ui.predictor_area_representative_altitude": {"en": "Representative area altitude", "es": "Altitud representativa del área", "ca": "Altitud representativa de l'àrea"},
+  "ui.predictor_temperature_altitude_correction": {"en": "Temperature altitude correction", "es": "Corrección térmica por altitud", "ca": "Correcció tèrmica per altitud"},
   "ui.predictor_horizon": {
     "en": "Horizon",
     "es": "Horizonte",
@@ -4426,6 +4479,9 @@
   },
   "ui.predictor_help_station": {"en": "Weather station selected for this contract after checking distance and data quality.", "es": "Estación meteorológica elegida para este contrato después de comprobar distancia y calidad de datos.", "ca": "Estació meteorològica triada per a aquest contracte després de comprovar distància i qualitat de dades."},
   "ui.predictor_help_station_distance": {"en": "Distance from the area centroid to the selected weather station.", "es": "Distancia desde el centroide del área hasta la estación meteorológica elegida.", "ca": "Distància des del centroide de l'àrea fins a l'estació meteorològica triada."},
+  "ui.predictor_help_station_altitude": {"en": "Altitude recorded in the weather-station catalogue for the selected station.", "es": "Altitud registrada en el catálogo meteorológico para la estación elegida.", "ca": "Altitud registrada al catàleg meteorològic per a l'estació triada."},
+  "ui.predictor_help_area_representative_altitude": {"en": "Mean of the materialized DEM mean altitudes of every microarea belonging to the area. It is not the DEM value at the coordinate centroid and is not queried live.", "es": "Media de las altitudes DEM medias materializadas de todas las microáreas del área. No es el valor DEM del centroide de coordenadas ni se consulta en vivo.", "ca": "Mitjana de les altituds DEM mitjanes materialitzades de totes les microàrees de l'àrea. No és el valor DEM del centroide de coordenades ni es consulta en viu."},
+  "ui.predictor_help_temperature_altitude_correction": {"en": "Offset added to every station temperature before training or predicting: (station altitude − representative area altitude) × 0.65 °C per 100 m. Raw station readings are preserved.", "es": "Ajuste añadido a cada temperatura de estación antes de entrenar o predecir: (altitud de estación − altitud representativa del área) × 0,65 °C por 100 m. Las lecturas originales se conservan.", "ca": "Ajust afegit a cada temperatura d'estació abans d'entrenar o predir: (altitud de l'estació − altitud representativa de l'àrea) × 0,65 °C per 100 m. Les lectures originals es conserven."},
   "ui.predictor_help_horizon": {"en": "Days between the weather cutoff and the target fruiting date.", "es": "Días entre el corte meteorológico y la fecha objetivo de florada.", "ca": "Dies entre el tall meteorològic i la data objectiu de florida."},
   "ui.predictor_help_station_quality": {"en": "Observed days available for rain in 21/90 days and for temperature and humidity in 21 days.", "es": "Días observados disponibles de lluvia en 21/90 días y de temperatura y humedad en 21 días.", "ca": "Dies observats disponibles de pluja en 21/90 dies i de temperatura i humitat en 21 dies."},
   "ui.predictor_help_coverage": {"en": "Number of weather days available to build the displayed features.", "es": "Número de días meteorológicos disponibles para construir las variables mostradas.", "ca": "Nombre de dies meteorològics disponibles per construir les variables mostrades."},
@@ -4436,7 +4492,7 @@
   "ui.predictor_help_rain_coverage": {"en": "Observed / missing / explicitly suppressed rain days. Missing or suppressed rain contributes 0 mm, while coverage remains visible.", "es": "Días de lluvia observados / ausentes / descartados explícitamente. Los ausentes o descartados aportan 0 mm, pero la cobertura permanece visible.", "ca": "Dies de pluja observats / absents / descartats explícitament. Els absents o descartats aporten 0 mm, però la cobertura continua visible."},
   "ui.predictor_help_post_rain_coverage": {"en": "Temperature and humidity days observed after the selected significant rain event.", "es": "Días de temperatura y humedad observados después del episodio de lluvia significativa elegido.", "ca": "Dies de temperatura i humitat observats després de l'episodi de pluja significativa triat."},
   "ui.predictor_help_weather_gaps": {"en": "Warnings about incomplete or suspect weather inputs used by this result.", "es": "Avisos sobre entradas meteorológicas incompletas o sospechosas utilizadas por este resultado.", "ca": "Avisos sobre entrades meteorològiques incompletes o sospitoses utilitzades per aquest resultat."},
-  "ui.predictor_help_out_of_domain": {"en": "Variables far outside the range seen during training. Affected estimators may be excluded or their experimental signal shown with caution.", "es": "Variables muy fuera del rango visto durante el entrenamiento. Los estimadores afectados pueden excluirse o mostrarse con cautela si son experimentales.", "ca": "Variables molt fora del rang vist durant l'entrenament. Els estimadors afectats es poden excloure o mostrar amb cautela si són experimentals."},
+  "ui.predictor_help_out_of_domain": {"en": "Variables outside the range seen during training. The current value is the input being predicted; training is the minimum–maximum range learned by that model; Δ is the signed physical distance to the exceeded limit (+ above the maximum, − below the minimum); and σ is the distance from the learned mean in standard deviations. Severe extrapolations may exclude estimators or add caution to experimental signals.", "es": "Variables fuera del rango visto durante el entrenamiento. El valor actual es la entrada que se está prediciendo; entrenamiento es el rango mínimo–máximo aprendido por ese modelo; Δ es la distancia física con signo hasta el límite rebasado (+ por encima del máximo, − por debajo del mínimo); y σ es la distancia respecto a la media aprendida en desviaciones estándar. Las extrapolaciones severas pueden excluir estimadores o añadir cautela a las señales experimentales.", "ca": "Variables fora del rang vist durant l'entrenament. El valor actual és l'entrada que s'està predient; entrenament és el rang mínim–màxim après per aquell model; Δ és la distància física amb signe fins al límit superat (+ per sobre del màxim, − per sota del mínim); i σ és la distància respecte de la mitjana apresa en desviacions estàndard. Les extrapolacions severes poden excloure estimadors o afegir cautela als senyals experimentals."},
   "ui.worker_abandoned_flash": {
     "en": "Job abandoned.",
     "es": "Trabajo abandonado.",

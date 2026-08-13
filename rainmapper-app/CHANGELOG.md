@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.2.252
+
+- Replace partial artifact rebuild and separate training controls with one
+  explicit full rebuild-and-retrain workflow executed by the external worker.
+- Automatically chain verified reconstructed artifacts into full model
+  training, keeping both jobs independently diagnosable.
+- Activate reconstructed artifacts and trained models as one coordinated
+  generation, with rollback on promotion failure and pending observations
+  cleared only after the complete update succeeds.
+
 ## 0.2.251
 
 - Reset current-week Predictor views when leaving historical queries so their

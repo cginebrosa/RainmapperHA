@@ -734,6 +734,86 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 )
             self.assertFalse(path.exists())
 
+    def test_full_update_reserves_linked_rebuild_and_training_together(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            rebuild_id = "worker_job_rebuildfull"
+            training_id = "worker_job_trainingfull"
+            mushroom_worker_jobs.create_candidate_rebuild(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle={
+                    "job_id": rebuild_id,
+                    "job_spec_id": "sha256:" + "a" * 64,
+                    "snapshot_id": "sha256:" + "b" * 64,
+                    "input_file_count": 7,
+                    "input_size_bytes": 1234,
+                },
+                job_id=rebuild_id,
+                promotion_eligible=True,
+                full_update=True,
+            )
+            mushroom_worker_jobs.claim_next(
+                path, worker_id="worker_aaaaaaaa", claim_token="rebuild-secret"
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=rebuild_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="rebuild-secret",
+            )
+            mushroom_worker_jobs.finish_job(
+                path,
+                job_id=rebuild_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="rebuild-secret",
+                status="complete",
+                result={
+                    "verification_status": "verified",
+                    "comparison_status": "equivalent",
+                    "verified_artifacts": 9,
+                },
+            )
+            mushroom_worker_jobs.create_ml_train_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle={
+                    "job_id": training_id,
+                    "features_digest": "sha256:" + "c" * 64,
+                    "job_spec_id": "sha256:" + "d" * 64,
+                },
+                job_id=training_id,
+                triggered_by_job_id=rebuild_id,
+            )
+            mushroom_worker_jobs.claim_next(
+                path, worker_id="worker_aaaaaaaa", claim_token="training-secret"
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=training_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="training-secret",
+            )
+            mushroom_worker_jobs.finish_job(
+                path,
+                job_id=training_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="training-secret",
+                status="complete",
+                result={"verification_status": "verified"},
+            )
+
+            rebuild, training = mushroom_worker_jobs.begin_full_update_promotion(
+                path,
+                rebuild_job_id=rebuild_id,
+                training_job_id=training_id,
+            )
+
+            self.assertEqual(rebuild["promotion_status"], "promoting")
+            self.assertEqual(training["promotion_status"], "promoting")
+
 
 if __name__ == "__main__":
     unittest.main()

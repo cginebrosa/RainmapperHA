@@ -3567,8 +3567,7 @@ def render_learned_model_section(
           <p class="meta">{html.escape(ui_label("ui.learned_model_note"))} · {html.escape(generated_at or '-')}</p>
         </div>
         <div class="learned-model-actions">
-          <a class="button-link secondary" href="./workers?scope=species&amp;species_id={html.escape(species_id, quote=True)}">{html.escape(ui_label("ui.rebuild_selected_learned_model"))}</a>
-          <a class="button-link secondary" href="./workers?scope=all">{html.escape(ui_label("ui.rebuild_all_learned_model"))}</a>
+          <a class="button-link secondary" href="./workers">{html.escape(ui_label("ui.worker_new_rebuild"))}</a>
         </div>
       </div>
       <div class="profile-calibration-cards evidence-summary-cards learned-model-summary">

@@ -67,6 +67,38 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 }
             )
 
+    def test_all_stops_before_maps_when_update_artifacts_fail(self) -> None:
+        class FailedUpdateProcess:
+            stdout = iter(())
+
+            @staticmethod
+            def wait():
+                return 1
+
+        data_dir = Path(self.temp_dir.name)
+        self.web_server.LOG_PATH = data_dir / "runner.log"
+        self.web_server.STATUS_PATH = data_dir / "runner.status"
+        self.web_server.RUN_STATE["started_at"] = datetime.now(
+            self.web_server.get_timezone()
+        ).isoformat(timespec="seconds")
+        monitor = mock.MagicMock()
+        monitor.enabled = False
+        monitor.operation_id = "test-operation"
+
+        with (
+            mock.patch.object(self.web_server, "monthly_backfill_enabled", return_value=False),
+            mock.patch.object(self.web_server, "command_for", return_value=["fake"]) as command_for,
+            mock.patch.object(self.web_server.subprocess, "Popen", return_value=FailedUpdateProcess()),
+            mock.patch.object(self.web_server, "set_current_process"),
+            mock.patch.object(self.web_server, "publish_maps") as publish_maps,
+            mock.patch.object(self.web_server.runtime_diagnostics, "OperationMonitor", return_value=monitor),
+        ):
+            self.web_server._run_action_thread("all", "unit-test")
+
+        command_for.assert_called_once_with("update", only_source=None)
+        publish_maps.assert_not_called()
+        self.assertEqual(self.web_server.RUN_STATE["exit_code"], "1")
+
     def test_runner_releases_predictor_cache_before_starting(self) -> None:
         fake_runner_thread = mock.MagicMock()
         self.addCleanup(self.reset_run_state)
@@ -1582,7 +1614,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         page = str(captured["content"])
         self.assertEqual(captured["status"], 200)
-        self.assertIn('./workers?scope=pending&amp;source=outdated', page)
+        self.assertIn('href="./workers"', page)
+        self.assertNotIn('scope=pending', page)
         self.assertNotIn('name="profile_action" value="rebuild_pending_model_v0"', page)
 
     def test_mushroom_profiles_defaults_to_v0_view(self) -> None:
@@ -3892,14 +3925,14 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("rain_14d_mm", html)
         self.assertIn("25 mm", html)
         self.assertIn("2026-07-02T15:00:00", html)
-        self.assertIn('./workers?scope=species&amp;species_id=boletus_aereus', html)
-        self.assertIn('./workers?scope=all', html)
+        self.assertIn('href="./workers"', html)
+        self.assertNotIn('scope=species', html)
+        self.assertNotIn('scope=all', html)
         self.assertNotIn('name="profile_action" value="rebuild_learned_model_v0_species"', html)
         self.assertNotIn('name="profile_action" value="rebuild_learned_model_v0_all"', html)
-        self.assertIn("Rebuild this species", html)
-        self.assertIn("Rebuild all species", html)
+        self.assertIn("Rebuild and retrain everything", html)
 
-    def test_mushroom_learned_model_rebuild_all_post_starts_background_job(self) -> None:
+    def test_mushroom_learned_model_rebuild_all_post_redirects_to_complete_workflow(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
         old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
@@ -3933,19 +3966,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 }
             )
 
-        start_job.assert_called_once()
-        call_kwargs = start_job.call_args.kwargs
-        self.assertTrue(call_kwargs["selected_observation_ids"])
-        self.assertEqual("all", call_kwargs["reconstruction_scope"])
-        self.assertNotIn("pending_species_ids", call_kwargs)
-        self.assertIn(
-            "?id=amanita_caesarea&section=evidence&view=v0&evidence_view=learned_model&rebuild_job=job_123",
-            redirect,
-        )
-        self.assertTrue(redirect.endswith("#mushroom-profile-message"))
-        self.assertIn("Global Modelo v0 rebuild started", self.web_server.RUN_STATE["mushroom_profiles_flash"])
+        start_job.assert_not_called()
+        self.assertIn("?id=amanita_caesarea", redirect)
+        self.assertIn("Artifact-only and partial rebuilds are disabled", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
-    def test_mushroom_learned_model_rebuild_selected_species_starts_background_job(self) -> None:
+    def test_mushroom_learned_model_rebuild_selected_species_is_disabled(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
         old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
@@ -3979,19 +4004,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 }
             )
 
-        start_job.assert_called_once()
-        call_kwargs = start_job.call_args.kwargs
-        self.assertTrue(call_kwargs["selected_observation_ids"])
-        self.assertEqual("species", call_kwargs["reconstruction_scope"])
-        self.assertEqual(["amanita_caesarea"], call_kwargs["pending_species_ids"])
-        self.assertIn(
-            "?id=amanita_caesarea&section=evidence&view=v0&evidence_view=learned_model&rebuild_job=job_456",
-            redirect,
-        )
-        self.assertTrue(redirect.endswith("#mushroom-profile-message"))
-        self.assertIn("selected species", self.web_server.RUN_STATE["mushroom_profiles_flash"])
+        start_job.assert_not_called()
+        self.assertIn("?id=amanita_caesarea", redirect)
+        self.assertIn("Artifact-only and partial rebuilds are disabled", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
-    def test_mushroom_observation_model_rebuild_post_runs_full_v0_chain(self) -> None:
+    def test_mushroom_observation_model_rebuild_post_is_disabled(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")
         old_data = os.environ.get("RAINMAPPER_MUSHROOM_DATA_DIR")
@@ -4039,24 +4056,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 }
             )
 
-        gis_builder.assert_called_once()
-        self.assertEqual(["obs_20250930_0001"], gis_builder.call_args.args[1])
-        self.assertIn("progress_callback", gis_builder.call_args.kwargs)
-        weather_builder.assert_called_once()
-        self.assertTrue(callable(weather_builder.call_args.kwargs.get("progress_callback")))
-        features_builder.assert_called_once()
-        self.assertTrue(callable(features_builder.call_args.kwargs.get("progress_callback")))
-        model_builder.assert_called_once()
-        self.assertTrue(callable(model_builder.call_args.kwargs.get("progress_callback")))
-        self.assertIn("?section=observations&id=amanita_caesarea&rebuild_job=", redirect)
-        self.assertTrue(redirect.endswith("#gis-reconstruction-lab"))
-        job_id = redirect.split("rebuild_job=", 1)[1].split("#", 1)[0]
-        status = self.web_server.get_mushroom_rebuild_job_status(job_id)
-        self.assertIsNotNone(status)
-        self.assertEqual("complete", status["status"])
-        self.assertEqual(100, status["overall_percent"])
-        self.assertIn("elapsed", status)
-        self.assertIn("Modelo v0 rebuilt", self.web_server.RUN_STATE["mushroom_profiles_flash"])
+        gis_builder.assert_not_called()
+        weather_builder.assert_not_called()
+        features_builder.assert_not_called()
+        model_builder.assert_not_called()
+        self.assertIn("?id=amanita_caesarea", redirect)
+        self.assertIn("Artifact-only and partial rebuilds are disabled", self.web_server.RUN_STATE["mushroom_profiles_flash"])
 
     def test_shared_mushroom_rebuild_pipeline_is_opt_in_and_reports_completion(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -4645,15 +4650,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('value="worker:worker_12345678" disabled', page)
         self.assertIn("M1 personal", page)
         self.assertIn("macbook-m1-test", page)
-        self.assertIn('value="home_assistant" checked', page)
+        self.assertNotIn('name="executor" value="home_assistant"', page)
         self.assertIn("Local worker tests available", page)
         self.assertIn('name="worker_action" value="probe_worker_claim"', page)
         self.assertIn('name="worker_action" value="probe_worker_snapshot_transport"', page)
         self.assertIn("Test input delivery", page)
         self.assertIn('name="worker_action" value="run_worker_candidate_rebuild"', page)
         self.assertIn("Run candidate rebuild", page)
-        self.assertIn('class="worker-scope-grid"', page)
-        self.assertIn('class="worker-species-field" hidden', page)
+        self.assertNotIn('name="scope" value="pending"', page)
+        self.assertNotIn('name="scope" value="species"', page)
+        self.assertNotIn('name="species_id"', page)
         self.assertIn('input[type="radio"]{position:absolute!important;width:1px!important', page)
         self.assertIn("window.location.pathname.replace(/\\/mushrooms\\/workers\\/?$/,'')", page)
         self.assertIn("${appBasePath}/api/mushrooms/workers/status", page)
@@ -4827,7 +4833,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(initial_signature, later_signature)
         self.assertNotEqual(initial_signature, busy_signature)
 
-    def test_workers_page_disables_empty_pending_scope_but_keeps_species_selectable(self) -> None:
+    def test_workers_page_exposes_only_one_complete_update_action(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
             profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
@@ -4837,12 +4843,14 @@ class AuthDeviceLimitTests(unittest.TestCase):
             pipeline="legacy",
         )
 
-        self.assertIn('name="scope" value="pending" disabled', page)
-        self.assertIn('name="scope" value="species"><span>', page)
-        self.assertIn('id="worker-species-id" name="species_id" disabled', page)
-        self.assertIn('field.hidden=!show', page)
+        self.assertIn('name="scope" value="all"', page)
+        self.assertNotIn('name="scope" value="pending"', page)
+        self.assertNotIn('name="scope" value="species"', page)
+        self.assertNotIn('name="species_id"', page)
+        self.assertNotIn('value="run_worker_ml_train"', page)
+        self.assertIn("Rebuild and retrain everything", page)
 
-    def test_workers_page_preselects_species_for_home_assistant(self) -> None:
+    def test_workers_page_does_not_offer_home_assistant_or_species_scope(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
             profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
@@ -4854,12 +4862,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
             selected_species_id="boletus_pinophilus",
         )
 
-        self.assertIn('name="scope" value="species" checked', page)
-        self.assertIn('class="worker-species-field"><label', page)
-        self.assertIn('name="species_id"><option value="boletus_pinophilus" selected', page)
-        self.assertIn('value="home_assistant" checked', page)
+        self.assertNotIn('name="scope" value="species"', page)
+        self.assertNotIn('name="species_id"', page)
+        self.assertNotIn('name="executor" value="home_assistant"', page)
 
-    def test_workers_page_uses_operational_default_worker_for_partial_rebuild(self) -> None:
+    def test_workers_page_uses_operational_default_worker_for_complete_update(self) -> None:
         worker = {
             "configured": True,
             "reachable": True,
@@ -4890,11 +4897,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn('name="executor" value="worker:worker_12345678" checked', page)
         self.assertNotIn('value="home_assistant" checked', page)
-        self.assertIn("Default rebuild executor", page)
+        self.assertIn("Default complete-update worker", page)
         self.assertIn("Default", page)
         self.assertNotIn('class="catalog-alert error worker-default-issue"', page)
 
-        species_page = self.web_server.mushroom_workers_ui.render_page(
+        legacy_query_page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[worker],
             profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
             eligible_observation_count=125,
@@ -4907,12 +4914,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
             selected_species_id="boletus_pinophilus",
         )
 
-        self.assertIn('name="scope" value="species" checked', species_page)
-        self.assertNotIn("does not yet support this rebuild scope", species_page)
-        self.assertIn('name="executor" value="worker:worker_12345678" checked', species_page)
-        self.assertNotIn('value="home_assistant" checked', species_page)
-        self.assertIn('name="species_id"><option value="boletus_pinophilus" selected', species_page)
-        self.assertNotIn('class="primary" type="submit" disabled', species_page)
+        self.assertNotIn('name="scope" value="species"', legacy_query_page)
+        self.assertIn('name="executor" value="worker:worker_12345678" checked', legacy_query_page)
+        self.assertNotIn('name="executor" value="home_assistant"', legacy_query_page)
+        self.assertNotIn('name="species_id"', legacy_query_page)
+        self.assertNotIn('class="primary" type="submit" disabled', legacy_query_page)
 
     def test_workers_page_does_not_fall_back_silently_when_default_worker_is_offline(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
@@ -4979,25 +4985,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('value="worker:worker_aaaaaaaa" disabled', page)
         self.assertIn('value="worker:worker_bbbbbbbb" disabled', page)
 
-    def test_workers_post_reuses_home_assistant_rebuild_action(self) -> None:
+    def test_workers_post_rejects_home_assistant_for_full_update(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
-        captured: dict[str, object] = {}
-
-        def handle_profiles(form: dict[str, list[str]]) -> str:
-            captured.update(form)
-            self.web_server.set_mushroom_profiles_flash("Global Modelo v0 rebuild started for 126 observation(s).")
-            return "?section=evidence&rebuild_job=job_123"
-
-        handler.handle_mushroom_profiles_post = handle_profiles
         redirect = handler.handle_mushroom_workers_post(
             {"worker_action": ["start_rebuild"], "executor": ["home_assistant"], "scope": ["all"]}
         )
 
-        self.assertEqual(captured["profile_action"], ["rebuild_learned_model_v0_all"])
-        self.assertEqual(redirect, "./workers?rebuild_job=job_123")
+        self.assertEqual(redirect, "./workers")
         message, is_error = self.web_server.mushroom_workers_flash()
-        self.assertIn("rebuild started", message)
-        self.assertFalse(is_error)
+        self.assertIn("must run on an external worker", message)
+        self.assertTrue(is_error)
 
     def test_workers_post_persists_registered_default_executor(self) -> None:
         registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
@@ -5163,6 +5160,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("already active", duplicate["error"])
         self.assertEqual(prepare_bundle.call_count, 1)
         self.assertFalse(prepare_bundle.call_args.kwargs["prefer_weather_parquet"])
+        self.assertFalse(
+            prepare_bundle.call_args.kwargs["allow_partitioned_weather_history"]
+        )
         self.assertEqual(response["job"]["job_type"], "worker_snapshot_transport_probe")
         self.assertEqual(claim_status, 200)
         self.assertEqual(claimed["job"]["input_bundle"]["endpoint"], "/api/mushrooms/workers/jobs/input")
@@ -5289,10 +5289,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.web_server.mushroom_rebuild_contracts,
             "load_job_spec",
             return_value={"dataset_requirements": [{"fingerprint": "sha256:" + "c" * 64}]},
-        ):
+        ), mock.patch.object(
+            self.web_server,
+            "start_mushroom_ml_train_job",
+            return_value=(202, {"ok": True, "preparing": True}),
+        ) as start_training:
             self.web_server.register_mushroom_worker_heartbeat(heartbeat)
             create_status, created = self.web_server.create_mushroom_worker_candidate_rebuild(
-                "worker_12345678"
+                "worker_12345678",
+                promotion_eligible=True,
+                full_update=True,
             )
             claim_status, claimed = self.web_server.claim_mushroom_worker_job(
                 {"worker_id": "worker_12345678"}
@@ -5343,6 +5349,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(finish_status, 200)
         self.assertEqual(finished["job"]["phase"], "Candidate result verified")
         self.assertEqual(finished["job"]["result"]["comparison_status"], "equivalent")
+        start_training.assert_called_once_with(
+            "worker_12345678",
+            features_path=result_root / job_id / "mushroom_observation_features_v0.json",
+            triggered_by_job_id=job_id,
+        )
 
     def test_worker_dataset_download_is_authenticated_and_claim_bound(self) -> None:
         dataset_file = Path(self.temp_dir.name) / "dataset.dat"
@@ -6085,21 +6096,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("cannot receive rebuild jobs yet", message)
         self.assertTrue(is_error)
 
-    def test_workers_post_maps_pending_and_species_scopes_to_existing_actions(self) -> None:
-        for scope, expected_action in (
-            ("pending", "rebuild_pending_model_v0"),
-            ("species", "rebuild_learned_model_v0_species"),
-        ):
+    def test_workers_post_rejects_home_assistant_for_complete_update(self) -> None:
+        for scope in ("pending", "species"):
             with self.subTest(scope=scope):
                 handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
-                captured: dict[str, object] = {}
-
-                def handle_profiles(form: dict[str, list[str]]) -> str:
-                    captured.update(form)
-                    self.web_server.set_mushroom_profiles_flash("Rebuild request processed.")
-                    return "?rebuild_job=job_scope"
-
-                handler.handle_mushroom_profiles_post = handle_profiles
                 redirect = handler.handle_mushroom_workers_post(
                     {
                         "worker_action": ["start_rebuild"],
@@ -6109,12 +6109,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     }
                 )
 
-                self.assertEqual(captured["profile_action"], [expected_action])
-                self.assertEqual(captured["species_id"], ["boletus_pinophilus"])
-                self.assertEqual(redirect, "./workers?rebuild_job=job_scope")
-                self.web_server.mushroom_workers_flash()
+                self.assertEqual(redirect, "./workers")
+                message, is_error = self.web_server.mushroom_workers_flash()
+                self.assertIn("must run on an external worker", message)
+                self.assertTrue(is_error)
 
-    def test_workers_post_sends_partial_scope_to_operational_external_worker(self) -> None:
+    def test_workers_post_maps_legacy_scopes_to_full_external_rebuild(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         for scope, species_id in (("pending", ""), ("species", "boletus_pinophilus")):
             with self.subTest(scope=scope), mock.patch.dict(
@@ -6141,8 +6141,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 start.assert_called_once_with(
                     "worker_12345678",
                     promotion_eligible=True,
-                    reconstruction_scope=scope,
-                    species_id=species_id,
+                    reconstruction_scope="all",
+                    species_id="",
+                    full_update=True,
                 )
                 message, is_error = self.web_server.mushroom_workers_flash()
                 self.assertEqual(message, "")
@@ -7023,6 +7024,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn('UI_LANGUAGE_VALUE="$(option ui_language en)"', run_script)
         self.assertIn('export RAINMAPPER_MUSHROOM_UI_LANGUAGE="$UI_LANGUAGE_VALUE"', run_script)
+
+    def test_run_script_wraps_partitioned_updates_and_archives_each_window(self) -> None:
+        run_script = (ROOT_DIR / "rainmapper-app" / "run.sh").read_text(encoding="utf-8")
+        self.assertIn("rainmapper_core.weather_history_run_lock", run_script)
+        self.assertIn("run_update_transaction", run_script)
+        self.assertIn("rainmapper_core.weather_history_archive", run_script)
+        self.assertIn("download-preflight", run_script)
+        self.assertIn("combine-exit-codes", run_script)
+        self.assertIn("option partitioned_weather_history false", run_script)
+        self.assertIn(
+            'run_update_transaction "$window_days_init" "$window_days_end"',
+            run_script,
+        )
 
     def test_mushroom_parameters_phenology_uses_observed_evidence(self) -> None:
         profile = {

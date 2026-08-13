@@ -340,6 +340,11 @@ queda deliberadamente sin decidir. No abrir ese trabajo durante la validación d
 
 ## Validación habitual
 
+Regla de autorización confirmada por el usuario: una tarea explícita incluye
+permiso para sus ediciones, consultas, pruebas y demás acciones no destructivas.
+No solicitar confirmaciones redundantes. Preguntar solo ante destrucción,
+escritura en HA fuera de lo autorizado o ampliación material de alcance.
+
 ```bash
 PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh
 .venv/bin/python -m unittest discover -s tests

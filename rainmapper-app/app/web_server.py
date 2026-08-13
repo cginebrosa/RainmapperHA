@@ -12644,6 +12644,7 @@ def create_mushroom_worker_candidate_rebuild(
     promotion_eligible: bool = False,
     reconstruction_scope: str = "all",
     species_id: str = "",
+    full_update: bool = False,
     _preparation_lock_acquired: bool = False,
 ) -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
@@ -12673,43 +12674,18 @@ def create_mushroom_worker_candidate_rebuild(
         observations = observation_dicts_from_payload(
             observations_payload if isinstance(observations_payload, dict) else {}
         )
-        scope = str(reconstruction_scope or "all").strip().lower()
         eligible_species = eligible_model_species_ids(observations)
-        if scope == "all":
-            scope_species_ids: list[str] = []
-            selected_observation_ids = eligible_observation_ids_for_species(
-                observations,
-                eligible_species,
-            )
-            scope_label = "all eligible (candidate)"
-            scope_key = "all"
-        elif scope == "species":
-            selected_species = str(species_id or "").strip()
-            if selected_species not in eligible_species:
-                return 400, {"ok": False, "error": "Select an eligible species for the external rebuild."}
-            scope_species_ids = [selected_species]
-            selected_observation_ids = eligible_observation_ids_for_species(
-                observations,
-                scope_species_ids,
-            )
-            scope_label = f"species: {selected_species}"
-            scope_key = f"species:{selected_species}"
-        elif scope == "pending":
-            scope_species_ids = pending_model_species_ids(
-                mushroom_model_state.load_state(),
-                observations,
-                learned_model_payload=mushroom_learned_model.load_latest_model(),
-            )
-            if not scope_species_ids:
-                return 409, {"ok": False, "error": "There are no pending species to rebuild."}
-            selected_observation_ids = eligible_observation_ids_for_species(
-                observations,
-                scope_species_ids,
-            )
-            scope_label = f"pending species ({len(scope_species_ids)})"
-            scope_key = "pending:" + ",".join(scope_species_ids)
-        else:
-            return 400, {"ok": False, "error": "External rebuild scope is invalid."}
+        # Operational rebuilds are deliberately full.  With the current dataset
+        # they are cheap on the worker, and avoiding partial artifact merges keeps
+        # deletions and species corrections authoritative.
+        scope = "all"
+        scope_species_ids: list[str] = []
+        selected_observation_ids = eligible_observation_ids_for_species(
+            observations,
+            eligible_species,
+        )
+        scope_label = "all eligible (candidate)"
+        scope_key = "all"
         if not selected_observation_ids:
             return 409, {"ok": False, "error": "The selected external rebuild has no eligible observations."}
         acquired_here = not _preparation_lock_acquired
@@ -12752,6 +12728,7 @@ def create_mushroom_worker_candidate_rebuild(
                         scope_key=scope_key,
                         scope_species_ids=scope_species_ids,
                         promotion_eligible=promotion_eligible,
+                        full_update=full_update,
                     )
             except BaseException:
                 mushroom_worker_transport.discard_unqueued_bundle(
@@ -12776,6 +12753,9 @@ def create_mushroom_worker_candidate_rebuild(
 
 def create_mushroom_ml_train_job(
     worker_id: str,
+    *,
+    features_path: Path | None = None,
+    triggered_by_job_id: str = "",
 ) -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
         return 404, {"ok": False, "error": "Worker API is not enabled."}
@@ -12798,7 +12778,11 @@ def create_mushroom_ml_train_job(
         maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
         store = default_store()
         store.ensure_seeded()
-        features_path = mushroom_paths.mushroom_observation_features_json_path()
+        features_path = (
+            features_path.resolve()
+            if features_path is not None
+            else mushroom_paths.mushroom_observation_features_json_path()
+        )
         known_sites_path = mushroom_paths.mushroom_known_sites_path()
         if not features_path.exists():
             return 409, {"ok": False, "error": "Features artifact not found. Run a candidate rebuild first."}
@@ -12852,6 +12836,7 @@ def create_mushroom_ml_train_job(
                     input_bundle=input_bundle,
                     job_id=job_id,
                     species_ids=eligible_species_ids,
+                    triggered_by_job_id=triggered_by_job_id,
                 )
         except BaseException:
             import shutil as _shutil
@@ -12869,7 +12854,12 @@ def create_mushroom_ml_train_job(
     }
 
 
-def start_mushroom_ml_train_job(worker_id: str) -> tuple[int, dict[str, object]]:
+def start_mushroom_ml_train_job(
+    worker_id: str,
+    *,
+    features_path: Path | None = None,
+    triggered_by_job_id: str = "",
+) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
     set_mushroom_workers_flash(
@@ -12879,7 +12869,11 @@ def start_mushroom_ml_train_job(worker_id: str) -> tuple[int, dict[str, object]]
 
     def prepare() -> None:
         try:
-            status, response = create_mushroom_ml_train_job(worker_id)
+            status, response = create_mushroom_ml_train_job(
+                worker_id,
+                features_path=features_path,
+                triggered_by_job_id=triggered_by_job_id,
+            )
             if status == 201:
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
@@ -12913,6 +12907,7 @@ def start_mushroom_worker_candidate_rebuild(
     promotion_eligible: bool = False,
     reconstruction_scope: str = "all",
     species_id: str = "",
+    full_update: bool = False,
 ) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
@@ -12926,8 +12921,9 @@ def start_mushroom_worker_candidate_rebuild(
             status, response = create_mushroom_worker_candidate_rebuild(
                 worker_id,
                 promotion_eligible=promotion_eligible,
-                reconstruction_scope=reconstruction_scope,
-                species_id=species_id,
+                reconstruction_scope="all",
+                species_id="",
+                full_update=full_update,
                 _preparation_lock_acquired=True,
             )
             if status == 201:
@@ -13220,6 +13216,27 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     mushroom_worker_candidate_results_path(),
                     str(payload.get("job_id", "")),
                 )
+        if (
+            current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD
+            and str(payload.get("status", "")) == "complete"
+            and bool(current_job.get("full_update"))
+        ):
+            rebuild_job_id = str(job.get("job_id", ""))
+            training_status, training_response = start_mushroom_ml_train_job(
+                worker_id,
+                features_path=(
+                    mushroom_worker_candidate_results_path()
+                    / rebuild_job_id
+                    / "mushroom_observation_features_v0.json"
+                ),
+                triggered_by_job_id=rebuild_job_id,
+            )
+            if training_status != 202:
+                set_mushroom_workers_flash(
+                    "Full reconstruction completed, but its chained training could not be queued: "
+                    + str(training_response.get("error", "unknown error")),
+                    error=True,
+                )
         if current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
             monitor = MUSHROOM_PREDICTOR_MONITORS.get(str(job.get("job_id", "")))
             if monitor is not None:
@@ -13450,6 +13467,131 @@ def promote_mushroom_ml_train_candidate_job(job_id: str) -> tuple[int, dict[str,
         clear_when_idle=True,
     )
     return 202, {"ok": True, "job": job, "promoting": True}
+
+
+def _run_mushroom_full_update_promotion(
+    rebuild_job_id: str,
+    training_job_id: str,
+) -> None:
+    """Publish one verified reconstruction and its linked trained models."""
+    try:
+        with MUSHROOM_WORKER_PROMOTION_LOCK:
+            def report_progress(percent: int, phase: str, message: str) -> None:
+                with RUN_LOCK:
+                    mushroom_worker_jobs.update_candidate_promotion_progress(
+                        mushroom_worker_jobs_path(),
+                        job_id=training_job_id,
+                        percent=percent,
+                        phase=phase,
+                        message=message,
+                    )
+
+            report_progress(5, "Promoting full generation", "Publishing verified reconstructed artifacts.")
+            rebuild_promotion = mushroom_worker_results.promote_verified_candidate(
+                mushroom_worker_candidate_results_path(),
+                mushroom_worker_input_bundles_path(),
+                mushroom_paths.mushroom_data_dir(),
+                job_id=rebuild_job_id,
+                observations_path=mushroom_paths.mushroom_observations_path(),
+                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                weather_data_dir=mushroom_paths.weather_data_dir(),
+                gis_root=mushroom_gis_lab.gis_root(),
+                progress_callback=lambda percent, phase, message: report_progress(
+                    min(70, 5 + int(percent * 0.65)), phase, message
+                ),
+            )
+            report_progress(72, "Promoting full generation", "Publishing models trained from the same candidate.")
+            try:
+                training_promotion = mushroom_worker_results.promote_ml_train_candidate(
+                    mushroom_worker_candidate_results_path(),
+                    mushroom_paths.mushroom_ml_models_dir(),
+                    job_id=training_job_id,
+                    report_path=mushroom_paths.mushroom_ml_report_json_path(),
+                )
+            except BaseException:
+                mushroom_worker_results.rollback_promoted_candidate(
+                    mushroom_worker_candidate_results_path(),
+                    mushroom_paths.mushroom_data_dir(),
+                    job_id=rebuild_job_id,
+                )
+                raise
+            released = mushroom_predictor_ui.release_predictor_cache()
+            mushroom_model_state.clear_all_pending(full_rebuild=True)
+            report_progress(99, "Full generation promoted", "Artifacts and trained models are now active.")
+        with RUN_LOCK:
+            rebuild_job = mushroom_worker_jobs.finish_candidate_promotion(
+                mushroom_worker_jobs_path(),
+                job_id=rebuild_job_id,
+                promoted=True,
+                result=rebuild_promotion,
+            )
+            training_job = mushroom_worker_jobs.finish_candidate_promotion(
+                mushroom_worker_jobs_path(),
+                job_id=training_job_id,
+                promoted=True,
+                result={**training_promotion, "released_predictor_instances": released},
+            )
+        discard_mushroom_worker_input_bundle(rebuild_job)
+        discard_mushroom_worker_input_bundle(training_job)
+        rebuild_cleanup = discard_promoted_mushroom_worker_result(rebuild_job)
+        training_cleanup = discard_promoted_mushroom_worker_result(training_job)
+        warnings = " ".join(value for value in (rebuild_cleanup, training_cleanup) if value)
+        set_mushroom_workers_flash(
+            "Complete artifacts and their trained models were promoted as one generation."
+            + (f" {warnings}" if warnings else "")
+        )
+    except Exception as exc:
+        for job_id in (rebuild_job_id, training_job_id):
+            try:
+                with RUN_LOCK:
+                    mushroom_worker_jobs.finish_candidate_promotion(
+                        mushroom_worker_jobs_path(),
+                        job_id=job_id,
+                        promoted=False,
+                        error=str(exc),
+                    )
+            except ValueError:
+                pass
+        set_mushroom_workers_flash(str(exc), error=True)
+    finally:
+        with RUN_LOCK:
+            MUSHROOM_WORKER_PROMOTION_THREADS.pop(training_job_id, None)
+
+
+def promote_mushroom_full_update(training_job_id: str) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_operational_enabled():
+        return 404, {"ok": False, "error": "External worker promotion is not enabled."}
+    try:
+        with RUN_LOCK:
+            training_job = mushroom_worker_jobs.get_job(
+                mushroom_worker_jobs_path(), job_id=training_job_id
+            )
+            rebuild_job_id = str(training_job.get("triggered_by_job_id", "") or "")
+            if training_job.get("job_type") != mushroom_worker_jobs.JOB_TYPE_ML_TRAIN or not rebuild_job_id:
+                raise ValueError("Training job is not linked to a complete reconstruction.")
+            rebuild_job = mushroom_worker_jobs.get_job(
+                mushroom_worker_jobs_path(), job_id=rebuild_job_id
+            )
+            if not rebuild_job.get("full_update"):
+                raise ValueError("Reconstruction job is not a complete update.")
+            rebuild_job, training_job = mushroom_worker_jobs.begin_full_update_promotion(
+                mushroom_worker_jobs_path(),
+                rebuild_job_id=rebuild_job_id,
+                training_job_id=training_job_id,
+            )
+            promotion_thread = threading.Thread(
+                target=_run_mushroom_full_update_promotion,
+                args=(rebuild_job_id, training_job_id),
+                daemon=True,
+                name=f"rainmapper-full-update-promotion-{training_job_id[-12:]}",
+            )
+            MUSHROOM_WORKER_PROMOTION_THREADS[training_job_id] = promotion_thread
+            promotion_thread.start()
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    set_mushroom_workers_flash("Promoting the complete verified generation.", clear_when_idle=True)
+    return 202, {"ok": True, "job": training_job, "promoting": True}
 
 
 def resolve_mushroom_worker_input_download(
@@ -18128,7 +18270,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             species_count_label = mushroom_profiles_ui.ui_label("ui.species").lower()
             pending_rebuild_button = f"""
           <div class="mushroom-model-stale-form">
-            <a class="mushroom-model-stale-button" href="./workers?scope=pending&amp;source=outdated" title="{html.escape(mushroom_profiles_ui.ui_label("ui.model_outdated_workers_help"), quote=True)}">
+            <a class="mushroom-model-stale-button" href="./workers" title="{html.escape(mushroom_profiles_ui.ui_label("ui.model_outdated_workers_help"), quote=True)}">
               {html.escape(mushroom_profiles_ui.ui_label("ui.model_v0_outdated"))}
               <span>{pending_count} {html.escape(species_count_label)} · {html.escape(mushroom_profiles_ui.ui_label("ui.manage_in_workers"))}</span>
             </a>
@@ -19336,6 +19478,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     error=True,
                 )
             return "./workers"
+        if action == "promote_full_update":
+            status, response = promote_mushroom_full_update(
+                self.form_value(form, "job_id")
+            )
+            if status != 202:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot promote the complete generation.")),
+                    error=True,
+                )
+            return "./workers"
         if action != "start_rebuild":
             set_mushroom_workers_flash("Unknown worker action.", error=True)
             return "./workers"
@@ -19353,12 +19505,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     error=True,
                 )
                 return "./workers"
-            scope = self.form_value(form, "scope") or "all"
             status, response = start_mushroom_worker_candidate_rebuild(
                 executor.removeprefix("worker:"),
                 promotion_eligible=True,
-                reconstruction_scope=scope,
-                species_id=self.form_value(form, "species_id"),
+                reconstruction_scope="all",
+                species_id="",
+                full_update=True,
             )
             if status != 202:
                 set_mushroom_workers_flash(
@@ -19367,35 +19519,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
-        scope = self.form_value(form, "scope") or "all"
-        action_by_scope = {
-            "all": "rebuild_learned_model_v0_all",
-            "pending": "rebuild_pending_model_v0",
-            "species": "rebuild_learned_model_v0_species",
-        }
-        profile_action = action_by_scope.get(scope)
-        species_id = self.form_value(form, "species_id")
-        if not profile_action or (scope == "species" and not species_id):
-            set_mushroom_workers_flash("Select a valid rebuild scope and species.", error=True)
-            return "./workers"
-        profile_form = {
-            "profile_action": [profile_action],
-            "species_id": [species_id],
-            "section": ["parameters"],
-            "view": ["v0"],
-            "evidence_view": ["learned_model"],
-        }
-        profile_redirect = self.handle_mushroom_profiles_post(profile_form)
-        profile_message = mushroom_profiles_flash()
-        parsed_redirect = urlparse(profile_redirect)
-        job_id = (parse_qs(parsed_redirect.query).get("rebuild_job") or [""])[0]
-        is_error = " was not " in profile_message or " failed" in profile_message.lower()
         set_mushroom_workers_flash(
-            profile_message or "Rebuild request processed.",
-            error=is_error,
-            clear_when_idle=bool(job_id) and not is_error,
+            "The complete reconstruction and training operation must run on an external worker.",
+            error=True,
         )
-        return append_query_param("./workers", "rebuild_job", job_id) if job_id else "./workers"
+        return "./workers"
 
     def handle_mushroom_known_sites_post(self, form: dict[str, list[str]]) -> str:
         action = self.form_action_value(form, "known_site_action")
@@ -19761,6 +19889,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     + "; ".join(cleanup_retry_errors[:3]),
                     flush=True,
                 )
+            if action in {
+                "rebuild_learned_model_v0_species",
+                "rebuild_learned_model_v0",
+                "rebuild_learned_model_v0_all",
+                "rebuild_pending_model_v0",
+                "rebuild_observation_model_v0",
+            }:
+                set_mushroom_profiles_flash(
+                    "Artifact-only and partial rebuilds are disabled. Use "
+                    "‘Rebuild and retrain everything’ in Workers and jobs."
+                )
+                return profile_query_url(
+                    species_id,
+                    section=catalog_form_string(form, "section") or "parameters",
+                    profile_view=mushroom_profiles_ui.normalize_profile_view(
+                        catalog_form_string(form, "view")
+                    ),
+                )
             if action == "backup_profiles_keep":
                 backup_path = store.backup_current("profiles", keep=True)
                 suffix = f" Backup: {backup_path}" if backup_path else ""
@@ -19781,7 +19927,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 observations = observation_dicts_from_payload(
                     observations_payload if isinstance(observations_payload, dict) else {}
                 )
-                selected_observation_ids = eligible_observation_ids_for_species(observations, [species_id])
+                eligible_species = eligible_model_species_ids(observations)
+                selected_observation_ids = eligible_observation_ids_for_species(
+                    observations, eligible_species
+                )
                 return_url = evidence_return_url(
                     species_id,
                     profile_view=profile_view,
@@ -19789,17 +19938,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 )
                 if not selected_observation_ids:
                     set_mushroom_profiles_flash(
-                        "Modelo v0 was not rebuilt: the selected species has no eligible observations with coordinates."
+                        "Modelo v0 was not rebuilt: no eligible observations with coordinates were found."
                     )
                     return return_url
                 set_mushroom_profiles_flash(
-                    f"Modelo v0 rebuild started for the selected species ({len(selected_observation_ids)} observation(s))."
+                    f"Global Modelo v0 rebuild started for {len(selected_observation_ids)} observation(s)."
                 )
                 job_id = start_mushroom_model_rebuild_job(
                     selected_observation_ids=selected_observation_ids,
-                    reconstruction_scope="species",
+                    reconstruction_scope="all",
                     return_url=return_url,
-                    pending_species_ids=[species_id],
                 )
                 return append_query_param(return_url, "rebuild_job", job_id)
             if action in {"rebuild_learned_model_v0", "rebuild_learned_model_v0_all"}:
@@ -19842,18 +19990,22 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if not pending_species:
                     set_mushroom_profiles_flash("Modelo v0 is already up to date.")
                     return profile_query_url(species_id, section=catalog_form_string(form, "section") or "parameters", profile_view=profile_view)
-                selected_observation_ids = eligible_observation_ids_for_species(observations, pending_species)
+                eligible_species = eligible_model_species_ids(observations)
+                selected_observation_ids = eligible_observation_ids_for_species(
+                    observations, eligible_species
+                )
                 if not selected_observation_ids:
-                    mushroom_model_state.clear_species_pending(pending_species)
+                    mushroom_model_state.clear_all_pending(full_rebuild=True)
                     set_mushroom_profiles_flash("Modelo v0 pending state cleared: no eligible observations with coordinates were found.")
                     return profile_query_url(species_id, section=catalog_form_string(form, "section") or "parameters", profile_view=profile_view)
                 return_url = profile_query_url(species_id, section=catalog_form_string(form, "section") or "parameters", profile_view=profile_view)
-                set_mushroom_profiles_flash(f"Modelo v0 pending rebuild started for {len(pending_species)} species.")
+                set_mushroom_profiles_flash(
+                    f"Global Modelo v0 rebuild started for {len(selected_observation_ids)} observation(s)."
+                )
                 job_id = start_mushroom_model_rebuild_job(
                     selected_observation_ids=selected_observation_ids,
-                    reconstruction_scope="pending",
+                    reconstruction_scope="all",
                     return_url=return_url,
-                    pending_species_ids=pending_species,
                 )
                 return append_query_param(return_url, "rebuild_job", job_id)
             if action == "create_profile":

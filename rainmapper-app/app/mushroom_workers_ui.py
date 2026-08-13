@@ -330,6 +330,7 @@ def render_recent_jobs(
                 and job_type == "worker_candidate_rebuild"
                 and status == "complete"
                 and job.get("promotion_eligible")
+                and not job.get("full_update")
                 and promotion_status not in {"promoting", "promoted"}
             ):
                 action_parts.append(
@@ -347,13 +348,14 @@ def render_recent_jobs(
                 and job.get("promotion_eligible")
                 and promotion_status not in {"promoting", "promoted"}
             ):
+                full_update = bool(job.get("triggered_by_job_id"))
                 action_parts.append(
                     '<form class="worker-job-action" method="post" action="">'
-                    '<input type="hidden" name="worker_action" value="promote_ml_train_candidate">'
+                    f'<input type="hidden" name="worker_action" value="{"promote_full_update" if full_update else "promote_ml_train_candidate"}">'
                     f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
-                    f'<button type="submit" data-confirm="{_text(_label("ui.worker_ml_train_promote_confirm"))}" '
+                    f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_full_update_confirm") if full_update else _label("ui.worker_ml_train_promote_confirm"))}" '
                     'onclick="return confirm(this.dataset.confirm)">'
-                    f'{_text(_label("ui.worker_ml_train_promote"))}</button></form>'
+                    f'{_text(_label("ui.worker_promote_full_update") if full_update else _label("ui.worker_ml_train_promote"))}</button></form>'
                 )
             elif promotion_status == "promoting":
                 action_parts.append(
@@ -418,42 +420,6 @@ def render_recent_jobs(
     )
 
 
-def _render_ml_train_panel(
-    worker_statuses: list[dict[str, object]],
-    *,
-    operational_enabled: bool = False,
-    default_executor: str = "",
-) -> str:
-    available_workers = [
-        row
-        for row in worker_statuses
-        if row.get("reachable")
-        and isinstance(row.get("payload"), dict)
-        and row["payload"].get("paired")
-        and row["payload"].get("job_api") == "candidate_rebuild_v0"
-    ]
-    if not available_workers:
-        return ""
-    default_worker_id = default_executor.removeprefix("worker:") if default_executor.startswith("worker:") else ""
-    worker_options = "".join(
-        f'<option value="{_text(str(row["payload"].get("worker_id", "")))}"{" selected" if str(row["payload"].get("worker_id", "")) == default_worker_id else ""}>'
-        f'{_text(str(row["payload"].get("display_name", "") or row["payload"].get("worker_id", "")))}'
-        f'</option>'
-        for row in available_workers
-    )
-    if not operational_enabled:
-        note = f'<p style="margin:6px 0 0;color:var(--muted);font-size:11px">{_text(_label("ui.worker_job_api_pending_help"))}</p>'
-        return f'<section class="workers-panel"><div class="worker-panel-head"><h2>{_text(_label("ui.worker_ml_train"))}</h2></div>{note}</section>'
-    return f"""<section class="workers-panel">
-      <div class="worker-panel-head"><h2>{_text(_label('ui.worker_ml_train'))}</h2><div class="worker-metrics"><span>{_text(_label('ui.worker_ml_train_help'))}</span></div></div>
-      <form method="post" action="" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px">
-        <input type="hidden" name="worker_action" value="run_worker_ml_train">
-        <select name="worker_id" style="height:32px;padding:5px 8px;font-size:11px">{worker_options}</select>
-        <button class="primary" type="submit" style="height:32px;padding:6px 12px;font-size:11px">{_text(_label('ui.worker_ml_train_start'))}</button>
-      </form>
-    </section>"""
-
-
 def render_page(
     *,
     worker_statuses: list[dict[str, object]],
@@ -471,10 +437,7 @@ def render_page(
     flash_error: bool = False,
     flash_clear_when_idle: bool = False,
 ) -> str:
-    if selected_scope not in {"all", "pending", "species"}:
-        selected_scope = "all"
-    if selected_scope == "pending" and pending_species_count == 0:
-        selected_scope = "all"
+    del profiles, selected_scope, selected_species_id
     default_worker_status = next(
         (
             row
@@ -484,7 +447,7 @@ def render_page(
         ),
         None,
     )
-    selected_executor = default_executor
+    selected_executor = default_executor if default_executor.startswith("worker:") else ""
     default_issue = ""
     if default_executor != "home_assistant":
         payload = (
@@ -514,19 +477,20 @@ def render_page(
         default_executor=default_executor,
         selected_executor=selected_executor,
     )
-    species_options = []
-    for profile in sorted(profiles, key=lambda row: str(row.get("scientific_name", "")).casefold()):
-        species_id = str(profile.get("species_id", "") or "").strip()
-        if not species_id:
-            continue
-        scientific_name = str(profile.get("scientific_name", "") or species_id)
-        species_options.append(
-            f'<option value="{_text(species_id)}"{" selected" if species_id == selected_species_id else ""}>{_text(scientific_name)}</option>'
-        )
+    if not selected_executor:
+        for worker_status in worker_statuses:
+            payload = worker_status.get("payload")
+            payload = payload if isinstance(payload, dict) else {}
+            if (
+                operational_enabled
+                and worker_status.get("reachable")
+                and payload.get("paired")
+                and payload.get("job_api") == "candidate_rebuild_v0"
+            ):
+                selected_executor = f'worker:{payload.get("worker_id", "")}'
+                break
 
-    default_options = [
-        f'<option value="home_assistant"{" selected" if default_executor == "home_assistant" else ""}>{_text(_label("ui.home_assistant"))}</option>'
-    ]
+    default_options = []
     for worker_status in worker_statuses:
         payload = worker_status.get("payload")
         payload = payload if isinstance(payload, dict) else {}
@@ -559,7 +523,6 @@ def render_page(
             <button type="submit">{_text(_label("ui.worker_pairing_button"))}</button>
           </form>
         '''
-    show_species = bool(selected_executor) and selected_scope == "species"
     return f"""
     <style>
       .maintenance-top-toolbar{{margin:0 0 8px!important;gap:6px!important}}.maintenance-top-toolbar .button-link{{padding:6px 10px!important;font-size:10px!important}}
@@ -639,37 +602,29 @@ def render_page(
     {f'<div class="catalog-alert error worker-default-issue"><strong>{_text(_label("ui.worker_default_attention"))}</strong><br>{_text(default_issue)}<br>{_text(_label("ui.worker_choose_available"))}</div>' if default_issue else ''}
     <div class="workers-grid">
       <article class="worker-card">
-        <header><div><span class="worker-kicker">rainmapper-ha-ui</span><h2>{_text(_label('ui.home_assistant'))}{f' <span class="worker-default-badge">{_text(_label("ui.worker_default_badge"))}</span>' if default_executor == 'home_assistant' else ''}</h2></div><span class="worker-state ok">{_text(_label('ui.worker_available'))}</span></header>
+        <header><div><span class="worker-kicker">rainmapper-ha-ui</span><h2>{_text(_label('ui.home_assistant'))}</h2></div><span class="worker-state ok">{_text(_label('ui.worker_available'))}</span></header>
         <dl>
           <div><dt>Pipeline</dt><dd>{_text(pipeline)}</dd></div>
-          <div><dt>{_text(_label('ui.worker_role'))}</dt><dd>{_text(_label('ui.worker_fallback'))}</dd></div>
+          <div><dt>{_text(_label('ui.worker_role'))}</dt><dd>{_text(_label('ui.worker_coordinator'))}</dd></div>
         </dl>
-        <p class="worker-local-note">{_text(_label('ui.worker_ha_fallback_help'))}</p>
+        <p class="worker-local-note">{_text(_label('ui.worker_coordinator_help'))}</p>
       </article>
       <div id="worker-status-cards" class="worker-status-cards" data-refresh-signature="{worker_cards_signature}">{worker_cards}</div>
     </div>
     <section id="new-worker-rebuild" class="workers-panel">
-      <div class="worker-panel-head"><h2>{_text(_label('ui.worker_new_rebuild'))}</h2><div class="worker-metrics"><span>{_text(_label('ui.worker_eligible_observations'))}: <strong>{eligible_observation_count}</strong></span><span>{_text(_label('ui.worker_pending_species'))}: <strong>{pending_species_count}</strong></span></div></div>
+      <div class="worker-panel-head"><h2>{_text(_label('ui.worker_new_rebuild'))}</h2><div class="worker-metrics"><span>{_text(_label('ui.worker_eligible_observations'))}: <strong>{eligible_observation_count}</strong></span></div></div>
       <form class="worker-rebuild-form" method="post" action="">
         <input type="hidden" name="worker_action" value="start_rebuild">
+        <input type="hidden" name="scope" value="all">
         <div class="worker-form-section"><div class="worker-form-heading"><strong>1 · {_text(_label('ui.execute_on'))}</strong><small>{_text(_label('ui.worker_destination_help'))}</small></div>
           <div class="worker-destination-grid">
-            <label class="worker-choice"><input type="radio" name="executor" value="home_assistant"{" checked" if selected_executor == "home_assistant" else ""}><span class="worker-choice-surface"><span class="worker-choice-icon">HA</span><span class="worker-choice-copy"><strong>{_text(_label('ui.home_assistant'))}{f' <span class="worker-default-badge">{_text(_label("ui.worker_default_badge"))}</span>' if default_executor == 'home_assistant' else ''}</strong><small>{_text(_label('ui.worker_ha_fallback_help'))}</small></span><span class="worker-choice-mark">✓</span></span></label>
             <div id="worker-destination-choices" class="worker-destination-choices" data-refresh-signature="{worker_choices_signature}">{worker_choices}</div>
           </div>
         </div>
-        <div class="worker-form-section"><div class="worker-form-heading"><strong>2 · {_text(_label('ui.rebuild_scope'))}</strong><small>{_text(_label('ui.worker_scope_help'))}</small></div>
-          <div class="worker-scope-grid">
-            <label class="worker-scope-choice"><input type="radio" name="scope" value="all"{" checked" if selected_scope == "all" else ""}><span><strong>{_text(_label('ui.rebuild_scope_all'))}</strong><small>{eligible_observation_count} {_text(_label('ui.worker_eligible_observations')).lower()}</small></span></label>
-            <label class="worker-scope-choice"><input type="radio" name="scope" value="pending"{" checked" if selected_scope == "pending" else ""}{' disabled' if pending_species_count == 0 else ''} data-base-disabled="{'1' if pending_species_count == 0 else '0'}"><span><strong>{_text(_label('ui.rebuild_scope_pending'))}</strong><small>{pending_species_count} {_text(_label('ui.worker_pending_species')).lower()}</small></span></label>
-            <label class="worker-scope-choice"><input type="radio" name="scope" value="species"{" checked" if selected_scope == "species" else ""}><span><strong>{_text(_label('ui.rebuild_scope_species'))}</strong><small>{_text(_label('ui.worker_species'))}</small></span></label>
-          </div>
-          <div class="worker-species-field"{"" if show_species else " hidden"}><label for="worker-species-id">{_text(_label('ui.worker_species'))}</label><select id="worker-species-id" name="species_id"{"" if show_species else " disabled"}>{''.join(species_options)}</select></div>
-        </div>
+        <div class="worker-form-section"><div class="worker-form-heading"><strong>2 · {_text(_label('ui.rebuild_scope_all'))}</strong><small>{eligible_observation_count} {_text(_label('ui.worker_eligible_observations')).lower()}. {_text(_label('ui.worker_scope_help'))}</small></div></div>
         <div class="worker-submit-row"><button class="primary" type="submit"{" disabled" if not selected_executor else ""}>{_text(_label('ui.start_rebuild'))}</button></div>
       </form>
     </section>
-    {_render_ml_train_panel(worker_statuses, operational_enabled=operational_enabled, default_executor=default_executor)}
     <section class="workers-panel"><h2>{_text(_label('ui.worker_recent_jobs'))}</h2><div id="worker-recent-jobs" data-refresh-signature="{recent_jobs_signature}">{recent_jobs}</div></section>
     <dialog id="worker-discard-candidate-dialog" class="worker-discard-dialog">
       <form method="post" action="">
@@ -685,7 +640,7 @@ def render_page(
       </form>
     </dialog>
     <script>
-    (()=>{{const form=document.querySelector('.worker-rebuild-form');if(!form)return;const select=form.querySelector('select[name="species_id"]');const field=form.querySelector('.worker-species-field');const submit=form.querySelector('button[type="submit"]');const sync=()=>{{const executor=form.querySelector('input[name="executor"]:checked');const scopes=Array.from(form.querySelectorAll('input[name="scope"]'));scopes.forEach(item=>{{item.disabled=item.dataset.baseDisabled==='1';}});const scope=form.querySelector('input[name="scope"]:checked');const show=Boolean(executor&&scope&&scope.value==="species");select.disabled=!show;field.hidden=!show;submit.disabled=!executor||executor.disabled||(show&&!select.value);}};form.addEventListener('change',sync);sync();}})();
+    (()=>{{const form=document.querySelector('.worker-rebuild-form');if(!form)return;const submit=form.querySelector('button[type="submit"]');const sync=()=>{{const executor=form.querySelector('input[name="executor"]:checked');submit.disabled=!executor||executor.disabled;}};form.addEventListener('change',sync);sync();}})();
     (()=>{{
       const dialog=document.getElementById('worker-discard-candidate-dialog');if(!dialog)return;
       const jobInput=dialog.querySelector('input[name="job_id"]');const jobLabel=dialog.querySelector('[data-discard-job-label]');

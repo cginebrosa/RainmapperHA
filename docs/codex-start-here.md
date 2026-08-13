@@ -78,6 +78,13 @@ El estado exacto, digest, medidas, prueba siguiente y riesgos están en
 
 ## Reglas operativas críticas
 
+- Una tarea explícitamente encargada autoriza sus ediciones, consultas,
+  pruebas, empaquetado y demás pasos no destructivos dentro del alcance. No
+  pedir confirmación adicional por acciones inocuas, tampoco durante una
+  release ya autorizada. Consultar únicamente antes de una acción destructiva,
+  una escritura en HA que no esté expresamente autorizada o una ampliación
+  material del alcance; ante una duda real sobre cualquiera de esos tres casos,
+  preguntar.
 - No hacer bump, build ni publicación HA sin petición explícita. Antes de una
   release, leer y seguir `docs/release-flow.md`.
 - Durante un build/push HA, vigilar la misma sesión cada 20–30 s e informar al
