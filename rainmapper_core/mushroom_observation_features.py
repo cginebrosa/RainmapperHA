@@ -251,6 +251,7 @@ def build_joined_row(weather_row: dict[str, Any], gis_row: dict[str, Any] | None
         "weather_source": weather_row.get("weather_source"),
         "weather_station_code": weather_row.get("weather_station_code"),
         "weather_station_distance_km": weather_row.get("weather_station_distance_km"),
+        "weather_station_altitude_m": weather_row.get("weather_station_altitude_m"),
         "weather_station_coverage_days_90d": weather_row.get("weather_station_coverage_days_90d"),
         "rain_1d_mm": weather_row.get("rain_1d_mm"),
         "rain_7d_mm": weather_row.get("rain_7d_mm"),

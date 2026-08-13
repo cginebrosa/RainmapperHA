@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.253
+
+- Train chained shadow models against the exact live metadata identity that is
+  published by coordinated full-generation promotion.
+- Wrap long Predictor worker errors inside the executor modal so internal paths
+  and hashes remain readable without overflowing the dialog.
+
 ## 0.2.252
 
 - Replace partial artifact rebuild and separate training controls with one

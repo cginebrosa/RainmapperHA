@@ -13,6 +13,64 @@ honestidad y utilidad del Predictor usando los datos actuales. Nuevas
 observaciones permitirán recalibrarlo en el futuro, pero no son un requisito
 para empezar esta fase.
 
+## Auditoría estructural del sucesor (2026-08-11)
+
+Antes de elegir otro algoritmo se han cerrado los tres primeros pasos de
+diseño: target, muestra y roles de variables. La auditoría reproducible está en
+`mushroom-ml-v3-data-audit-es.md` y su especificación de código en
+`mushroom-ml-v3-implementation-spec-es.md`.
+
+Resultados que condicionan cualquier entrenamiento posterior:
+
+- el target significa «la salida merecía la pena», por lo que `very_scarce` es
+  desfavorable operativo y `pending/no visitado/no buscado` es desconocido;
+- 399 observaciones producen 350 filas incluibles y 275 episodios área/fecha,
+  pero solo 122 episodios del corte fijo conservan meteorología utilizable con
+  el conjunto completo de candidatas;
+- hay 11 episodios mixtos donde microáreas favorables y desfavorables se
+  colapsan hoy en un positivo de área sin conservar el reparto;
+- Edulis queda en solo 6 episodios meteorológicos utilizables (2 favorables y 4
+  desfavorables); un modelo independiente que produzca 100% no tiene soporte
+  suficiente;
+- nueve contadores/indicadores de cobertura y censura están actualmente dentro
+  de `feature_cols`; deben pasar a quality/metadata para que el modelo no
+  aprenda el pipeline o la época de cobertura;
+- temperaturas, relojes de lluvia y medias posteriores al episodio presentan
+  correlaciones de 0,85–0,97 y requieren ablación por familias.
+
+Los contratos altitude v2 se conservan sin mutarlos. El paso siguiente no es
+reentrenarlos ni promocionarlos: es implementar el benchmark sucesor con target
+y episodio versionados, canonicalización de microáreas, quality gate y espacios
+separados para `predictive_features`, `quality` y `metadata`.
+
+## Revisión térmica por altitud (2026-08-11)
+
+La temperatura procede de una estación que puede estar a una cota muy distinta
+de la zona micológica. Usar esa lectura sin corrección mezcla señal térmica con
+la geometría accidental de la red de estaciones. La siguiente ablación
+versionada corrige todas las temperaturas antes de entrenar y predecir con un
+gradiente de `0,65 °C/100 m`.
+
+La cota objetivo no es el DEM puntual del centroide. Es la media estable de las
+altitudes DEM medias ya materializadas para todas las microáreas del área. Así
+se representa mejor la superficie realmente buscada, no se añade una consulta
+DEM por predicción y el resultado no cambia según las microáreas observadas ese
+día. Estación, área, offset y gradiente quedan visibles en la auditoría.
+
+Esta revisión introduce `fixed_gap_7d_altitude_v2` y
+`lag_event_altitude_v2`. Ambos eliminan la racha derivada de temperatura por
+encima de 28 °C: era una hipótesis global no aprendida y no resulta coherente
+para especies y estaciones térmicas tan diferentes como Marçot, Edulis, Aereus
+o Ou de reig. No se sustituye por otro umbral manual. Los modelos reciben
+temperatura máxima media y temperatura media de siete días, corregidas, además
+de la temperatura posterior al episodio significativo, y aprenden por especie
+la asociación que permitan los datos.
+
+La prueba debe comparar v2 contra v1 sobre exactamente las mismas observaciones
+y particiones. No se considerará mejora que un único caso parezca más plausible:
+deben revisarse Brier frente a prevalencia, ROC-AUC, estabilidad por horizonte,
+salidas fuera de dominio y los casos prospectivos de campo.
+
 El muestreo tampoco es aleatorio. Las salidas se realizan principalmente
 cuando el observador experto ya considera probable encontrar setas; los días
 que parecen claramente desfavorables normalmente no se visitan. En

@@ -343,6 +343,61 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('data-cold-seconds="18.1"', rendered)
         self.assertIn('data-warm-seconds="6.2"', rendered)
 
+    def test_predictor_modal_wraps_long_worker_errors(self) -> None:
+        rendered = self.web_server.html_page("Predictor", "").decode("utf-8")
+
+        self.assertIn(
+            ".predictor-launch-dialog [data-predictor-modal-error]",
+            rendered,
+        )
+        self.assertIn("overflow-wrap: anywhere", rendered)
+
+    def test_chained_training_features_use_eventual_live_identity(self) -> None:
+        root = Path(self.temp_dir.name)
+        candidate = root / "candidate-features.json"
+        candidate.write_text(
+            json.dumps(
+                {
+                    "input_paths": {
+                        "weather_features": "/worker/weather.json",
+                        "gis_reconstruction": "/worker/gis.json",
+                    },
+                    "output_paths": {
+                        "json": "/worker/features.json",
+                        "csv": "/worker/features.csv",
+                        "report": "/worker/features.md",
+                    },
+                    "prediction_target_policy": {
+                        "catalog_path": "/worker/catalogs.json"
+                    },
+                    "rows": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        live_root = root / "live"
+        catalogs = live_root / "mushroom_reference_catalogs.json"
+        with mock.patch.object(
+            self.web_server.mushroom_paths,
+            "mushroom_data_dir",
+            return_value=live_root,
+        ), mock.patch.object(
+            self.web_server.mushroom_paths,
+            "mushroom_reference_catalogs_path",
+            return_value=catalogs,
+        ):
+            content, payload = self.web_server.prepare_mushroom_ml_training_features(
+                candidate,
+                linked_rebuild=True,
+            )
+
+        live_outputs = self.web_server.mushroom_rebuild_pipeline.RebuildOutputPaths.under(
+            live_root
+        )
+        self.assertEqual(str(live_outputs.features_json), payload["output_paths"]["json"])
+        self.assertEqual(str(catalogs.resolve()), payload["prediction_target_policy"]["catalog_path"])
+        self.assertEqual(payload, json.loads(content.decode("utf-8")))
+
     def test_current_predictor_policy_keeps_both_capabilities_enabled(self) -> None:
         policy = self.web_server.CURRENT_PREDICTOR_EXECUTION_POLICY
 
@@ -886,6 +941,98 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('title="ui.predictor_help_station"', rendered)
         self.assertIn('title="ui.predictor_help_rain_bands"', rendered)
         self.assertIn("pred-tooltip-icon", rendered)
+
+    def test_predictor_model_diagnostics_show_altitude_temperature_contract(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        result = {
+            "weather_station_altitude_m": 1379.0,
+            "area_representative_altitude_m": 1977.654,
+            "temperature_altitude_correction_c": -3.891251,
+            "temperature_lapse_rate_c_per_100m": 0.65,
+        }
+
+        with mock.patch.object(
+            predictor_ui,
+            "_lbl",
+            side_effect=lambda key: key,
+        ):
+            rendered = predictor_ui._render_model_diagnostics(result)
+
+        self.assertIn("ui.predictor_station_altitude", rendered)
+        self.assertIn("1379 m", rendered)
+        self.assertIn("ui.predictor_area_representative_altitude", rendered)
+        self.assertIn("1977.65 m", rendered)
+        self.assertIn("ui.predictor_temperature_altitude_correction", rendered)
+        self.assertIn("-3.89 °C", rendered)
+        self.assertIn("0.65 °C/100 m", rendered)
+        self.assertIn(
+            'title="ui.predictor_help_temperature_altitude_correction"',
+            rendered,
+        )
+
+    def test_predictor_model_diagnostics_explain_all_out_of_domain_values(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        result = {
+            "out_of_domain_features": [
+                {
+                    "feature": "heat_stress_observed_at_cutoff",
+                    "value": 14.0,
+                    "training_min": 0.0,
+                    "training_max": 12.0,
+                    "standard_deviations_from_mean": 6.484,
+                },
+                {
+                    "feature": "rain_cutoff_0_3d_mm",
+                    "value": 85.5,
+                    "training_min": 0.0,
+                    "training_max": 60.0,
+                    "standard_deviations_from_mean": 2.1,
+                },
+            ],
+            "severe_out_of_domain_features": [
+                {
+                    "feature": "heat_stress_observed_at_cutoff",
+                    "value": 14.0,
+                    "training_min": 0.0,
+                    "training_max": 12.0,
+                    "standard_deviations_from_mean": 6.484,
+                }
+            ],
+        }
+
+        with mock.patch.object(
+            predictor_ui,
+            "_lbl",
+            side_effect=lambda key: key,
+        ):
+            rendered = predictor_ui._render_model_diagnostics(result)
+
+        self.assertIn("ui.predictor_feature_heat_stress: 14 d", rendered)
+        self.assertIn("ui.predictor_training_range 0 d–12 d", rendered)
+        self.assertIn("ui.predictor_out_of_domain_delta +2 d", rendered)
+        self.assertIn("6.48 σ", rendered)
+        self.assertIn("ui.predictor_out_of_domain_severe", rendered)
+        self.assertIn("ui.predictor_feature_rain_0_3d: 85.5 mm", rendered)
+        self.assertIn("ui.predictor_training_range 0 mm–60 mm", rendered)
+        self.assertIn("ui.predictor_out_of_domain_delta +25.5 mm", rendered)
+        self.assertEqual(rendered.count("ui.predictor_out_of_domain_severe"), 1)
+        self.assertIn('title="ui.predictor_help_out_of_domain"', rendered)
+
+    def test_predictor_out_of_domain_delta_is_negative_below_training_range(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        with mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key):
+            rendered = predictor_ui._out_of_domain_feature_value(
+                {
+                    "feature": "humidity_observed_days_after_significant_rain",
+                    "value": 1.0,
+                    "training_min": 3.0,
+                    "training_max": 12.0,
+                    "standard_deviations_from_mean": 2.5,
+                },
+                severe_features=set(),
+            )
+
+        self.assertIn("ui.predictor_out_of_domain_delta -2 d", rendered)
 
     def test_predictor_tooltip_label_is_escaped_and_keyboard_focusable(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui

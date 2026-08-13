@@ -209,9 +209,9 @@ Hay varios entry points segun entorno:
 ### Coordinador y worker externo de setas
 
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
-  HA `0.2.239` contiene el coordinador y el M1 ejecuta worker `1.0.2` conectado
-  mediante su configuración privada actual. El laboratorio usa el mismo
-  contrato; no existe ni hace falta una imagen HA de desarrollo paralela.
+  HA `0.2.252` contiene el coordinador y el M1 ejecuta worker `1.0.7`. El
+  laboratorio usa el mismo contrato; no existe ni hace falta una imagen HA de
+  desarrollo paralela.
 - Coordinador: `web_server.py` conserva autoridad sobre pairing, registro,
   heartbeats, jobs/claims, snapshots, datasets, candidatos y promocion;
   `mushroom_workers_ui.py` renderiza la pagina humana `Workers y trabajos`.
@@ -223,17 +223,19 @@ Hay varios entry points segun entorno:
   incorpora datos pesados ni secretos.
 - Contratos: `InputManifest 0.1`, `JobSpec 0.1` y `ResultManifest 0.1`; todos
   los paths, tamanos y hashes se validan en ambos extremos.
-- Meteorologia transportada: los CSV incrementales permanecen como fuente de
-  verdad en HA, pero el snapshot prefiere `weather_daily.parquet`, artefacto
-  derivado que el runner ya regenera. Si falta, conserva fallback a los cuatro
-  CSV. El worker consume el directorio manifestado y no necesita un protocolo
-  distinto.
-- Pipeline: HA y worker llaman a
-  `rainmapper_core/mushroom_rebuild_pipeline.py`. Los alcances son completo,
-  pendientes y una especie.
-- Publicacion: el worker solo produce candidatos. Rainmapper valida freshness y
-  promociona manual y atomicamente nueve artefactos; los alcances parciales se
-  mezclan con el ultimo modelo vivo y las promociones se serializan.
+- Meteorologia transportada: el histórico canónico es una generación
+  transaccional particionada por fuente/año. El snapshot manifiesta sus objetos
+  inmutables y el worker reutiliza por hash las particiones sin cambios. Los CSV
+  vivos de 180 fechas son colas de ingestión/recuperación, no el histórico ML.
+- Pipeline de actualización: HA y worker llaman a
+  `rainmapper_core/mushroom_rebuild_pipeline.py`, pero el único alcance operativo
+  expuesto es completo. Al verificar el candidato, HA encadena automáticamente
+  `worker_ml_train_v0` usando sus features candidatos.
+- Publicación: el worker solo produce candidatos. Rebuild y training son dos
+  jobs independientes para diagnóstico, pero HA los reserva y activa como una
+  sola generación lógica. Si falla la promoción de modelos se restauran
+  artefactos y modelos previos; los pendientes se limpian únicamente tras éxito
+  completo. No se promocionan ni mezclan candidatos parciales antiguos.
 - Datos semiestaticos: HA/Rainmapper es la fuente autoritativa de GIS/DEM. El
   worker los descarga a staging solo si falta/cambia su fingerprint y activa
   la version validada en el volumen; las ejecuciones siguientes reutilizan la

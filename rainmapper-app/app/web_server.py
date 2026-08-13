@@ -6549,6 +6549,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .predictor-launch-dialog form[hidden] {{
       display: none;
     }}
+    .predictor-launch-dialog [data-predictor-modal-error] {{
+      overflow-wrap: anywhere;
+      white-space: normal;
+      word-break: break-word;
+    }}
     .predictor-executor-card {{
       align-items: center;
       border: 1px solid var(--line);
@@ -12751,6 +12756,30 @@ def create_mushroom_worker_candidate_rebuild(
     }
 
 
+def prepare_mushroom_ml_training_features(
+    features_path: Path,
+    *,
+    linked_rebuild: bool,
+) -> tuple[bytes, dict[str, object]]:
+    """Load features and, for chained jobs, encode their eventual live identity."""
+    features_content = features_path.read_bytes()
+    features_payload = json.loads(features_content.decode("utf-8"))
+    if not isinstance(features_payload, dict):
+        raise ValueError("Features artifact must contain a JSON object.")
+    if linked_rebuild:
+        features_payload = mushroom_worker_results.rebase_features_payload_for_live(
+            features_payload,
+            live_outputs=mushroom_rebuild_pipeline.RebuildOutputPaths.under(
+                mushroom_paths.mushroom_data_dir()
+            ),
+            reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+        )
+        features_content = (
+            json.dumps(features_payload, indent=2, ensure_ascii=False) + "\n"
+        ).encode("utf-8")
+    return features_content, features_payload
+
+
 def create_mushroom_ml_train_job(
     worker_id: str,
     *,
@@ -12786,9 +12815,11 @@ def create_mushroom_ml_train_job(
         known_sites_path = mushroom_paths.mushroom_known_sites_path()
         if not features_path.exists():
             return 409, {"ok": False, "error": "Features artifact not found. Run a candidate rebuild first."}
-        features_content = features_path.read_bytes()
+        features_content, features_payload = prepare_mushroom_ml_training_features(
+            features_path,
+            linked_rebuild=bool(triggered_by_job_id),
+        )
         features_digest = f"sha256:{hashlib.sha256(features_content).hexdigest()}"
-        features_payload = json.loads(features_content.decode("utf-8"))
         rows = features_payload.get("rows") if isinstance(features_payload, dict) else []
         if not isinstance(rows, list):
             rows = []

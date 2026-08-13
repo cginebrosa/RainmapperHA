@@ -358,19 +358,11 @@ def _rebase_promoted_metadata(
 
     features_path = staged_outputs.features_json
     features_before = _json_object(features_path, "staged features artifact")
-    features = json.loads(json.dumps(features_before))
-    if isinstance(features.get("input_paths"), dict):
-        features["input_paths"] = {
-            "weather_features": str(live_outputs.weather_json),
-            "gis_reconstruction": str(live_outputs.gis_reconstruction),
-        }
-    rebase_catalog_policy(features)
-    if isinstance(features.get("output_paths"), dict):
-        features["output_paths"] = {
-            "json": str(live_outputs.features_json),
-            "csv": str(live_outputs.features_csv),
-            "report": str(live_outputs.features_report),
-        }
+    features = rebase_features_payload_for_live(
+        features_before,
+        live_outputs=live_outputs,
+        reference_catalogs_path=reference_catalogs_path,
+    )
     persist_if_changed(features_path, features_before, features)
 
     model_path = staged_outputs.model_json
@@ -386,6 +378,31 @@ def _rebase_promoted_metadata(
         }
     persist_if_changed(model_path, model_before, model)
     return changed
+
+
+def rebase_features_payload_for_live(
+    payload: dict[str, Any],
+    *,
+    live_outputs: mushroom_rebuild_pipeline.RebuildOutputPaths,
+    reference_catalogs_path: Path,
+) -> dict[str, Any]:
+    """Return the exact features metadata representation used after promotion."""
+    features = json.loads(json.dumps(payload))
+    if isinstance(features.get("input_paths"), dict):
+        features["input_paths"] = {
+            "weather_features": str(live_outputs.weather_json),
+            "gis_reconstruction": str(live_outputs.gis_reconstruction),
+        }
+    policy = features.get("prediction_target_policy")
+    if isinstance(policy, dict) and "catalog_path" in policy:
+        policy["catalog_path"] = str(reference_catalogs_path.resolve())
+    if isinstance(features.get("output_paths"), dict):
+        features["output_paths"] = {
+            "json": str(live_outputs.features_json),
+            "csv": str(live_outputs.features_csv),
+            "report": str(live_outputs.features_report),
+        }
+    return features
 
 
 def _job_dir(root: Path, job_id: str) -> Path:

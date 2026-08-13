@@ -13,10 +13,10 @@ from typing import Any
 from rainmapper_core import mushroom_observation_context as ctx
 from rainmapper_core.mushroom_ml_experiment_trainer import model_filename
 from rainmapper_core.mushroom_ml_experiments import (
-    FIXED_GAP_7D_V1,
-    LAG_EVENT_V1,
-    build_fixed_gap_7d_features,
-    build_lag_event_features,
+    FIXED_GAP_7D_ALTITUDE_V2,
+    LAG_EVENT_ALTITUDE_V2,
+    build_fixed_gap_7d_altitude_features,
+    build_lag_event_altitude_features,
 )
 from rainmapper_core.mushroom_ml_predictor import MushroomMLPredictor, _label
 from rainmapper_core.mushroom_prediction_interpretation import build_interpretation
@@ -233,8 +233,8 @@ class MushroomModelComparator:
             "season_phase": season_phase,
         }
         if season_phase == "out_of_season":
-            payload["fixed_gap_7d_v1"] = {"available": False, "reason": "out_of_season"}
-            payload["lag_event_v1"] = {"available": False, "reason": "out_of_season"}
+            payload[FIXED_GAP_7D_ALTITUDE_V2.feature_set_id] = {"available": False, "reason": "out_of_season"}
+            payload[LAG_EVENT_ALTITUDE_V2.feature_set_id] = {"available": False, "reason": "out_of_season"}
             payload["interpretation"] = build_interpretation(
                 payload,
                 season_phase=season_phase,
@@ -246,8 +246,8 @@ class MushroomModelComparator:
         profile = (self.predictor._area_profiles or {}).get(area_id)
         if profile is None or profile.lat is None or profile.lon is None:
             reason = "missing_area_location"
-            payload["fixed_gap_7d_v1"] = {"available": False, "reason": reason}
-            payload["lag_event_v1"] = {"available": False, "reason": reason}
+            payload[FIXED_GAP_7D_ALTITUDE_V2.feature_set_id] = {"available": False, "reason": reason}
+            payload[LAG_EVENT_ALTITUDE_V2.feature_set_id] = {"available": False, "reason": reason}
             payload["interpretation"] = build_interpretation(
                 payload,
                 season_phase=season_phase,
@@ -266,8 +266,8 @@ class MushroomModelComparator:
             ]
         ] = [
             (
-                FIXED_GAP_7D_V1.feature_set_id,
-                build_fixed_gap_7d_features,
+                FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+                build_fixed_gap_7d_altitude_features,
                 7,
                 target_date - timedelta(days=7),
                 None,
@@ -293,15 +293,15 @@ class MushroomModelComparator:
         if horizon is not None and 1 <= horizon <= 7:
             variants.append(
                 (
-                    LAG_EVENT_V1.feature_set_id,
-                    lambda value: build_lag_event_features(value, horizon),
+                    LAG_EVENT_ALTITUDE_V2.feature_set_id,
+                    lambda value: build_lag_event_altitude_features(value, horizon),
                     horizon,
                     effective_lag_cutoff,
                     (lag_station, lag_distance, lag_coverage),
                 )
             )
         else:
-            payload[LAG_EVENT_V1.feature_set_id] = {
+            payload[LAG_EVENT_ALTITUDE_V2.feature_set_id] = {
                 "available": False,
                 "reason": (
                     "no_qualified_weather_station"
@@ -348,6 +348,7 @@ class MushroomModelComparator:
             episode: dict[str, Any] = {
                 "observed_at": target_date.isoformat(),
                 "gis_altitude_m": profile.gis_altitude_m,
+                "weather_station_altitude_m": station.altitude_m,
                 **ctx.build_daily_series(station, target_date, duplicates),
             }
             features, metadata = builder(episode)
@@ -390,6 +391,12 @@ class MushroomModelComparator:
                 "horizon_days": variant_horizon,
                 "weather_station_code": station.station_code,
                 "weather_station_distance_km": round(distance, 2) if distance is not None else None,
+                "weather_station_altitude_m": station.altitude_m,
+                "area_representative_altitude_m": profile.gis_altitude_m,
+                "area_altitude_method": "mean_of_all_materialized_micro_area_dem_means",
+                "temperature_contract": metadata.get("temperature_contract"),
+                "temperature_altitude_correction_c": metadata.get("temperature_altitude_correction_c"),
+                "temperature_lapse_rate_c_per_100m": metadata.get("temperature_lapse_rate_c_per_100m"),
                 "weather_coverage_days": coverage,
                 "station_selection": station_audit,
                 "temporal_validation": bundle.get("temporal_validation"),

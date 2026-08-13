@@ -32,6 +32,54 @@ class ExperimentTrainerTests(unittest.TestCase):
             )
         )
 
+    def test_training_excludes_explicitly_ineligible_samples(self) -> None:
+        samples = []
+        for index in range(30):
+            samples.append(
+                {
+                    "sample_id": f"sp|area|{index}|fixed",
+                    "episode_id": f"sp|area|{index}",
+                    "species_id": "sp",
+                    "prediction_target": "favorable" if index % 2 else "unfavorable",
+                    "partition": "train" if index < 20 else "test",
+                    "chronological_partition": "train" if index < 20 else "test",
+                    "features": {
+                        column: float(index % 2)
+                        for column in FIXED_GAP_7D_V1.feature_cols
+                    },
+                    "metadata": {
+                        "horizon_days": 7,
+                        "enough_history": True,
+                        "training_eligible": index != 0,
+                        "training_ineligibility_reasons": (
+                            [] if index != 0 else ["rain_coverage_below_81_of_90"]
+                        ),
+                    },
+                }
+            )
+        benchmark = {
+            "feature_set": {
+                "id": FIXED_GAP_7D_V1.feature_set_id,
+                "feature_cols": list(FIXED_GAP_7D_V1.feature_cols),
+            },
+            "episode_count": 30,
+            "sample_count": 30,
+            "samples": samples,
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            result = train_benchmark(benchmark, Path(directory), min_episodes=20)
+            bundle = joblib.load(next(Path(directory).glob("*.joblib")))
+
+        self.assertEqual(result["training_eligible_sample_count"], 29)
+        self.assertEqual(result["training_ineligible_sample_count"], 1)
+        self.assertEqual(
+            result["training_ineligibility_reasons"],
+            {"rain_coverage_below_81_of_90": 1},
+        )
+        self.assertEqual(bundle["n_samples"], 29)
+        self.assertEqual(len(bundle["episode_partitions"]), 29)
+
     def test_trains_both_estimators_without_overwriting_v0(self) -> None:
         samples = []
         for index in range(30):

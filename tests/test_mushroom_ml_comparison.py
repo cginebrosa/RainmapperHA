@@ -12,10 +12,10 @@ import numpy as np
 from rainmapper_core.mushroom_ml_comparison import MushroomModelComparator
 from rainmapper_core import mushroom_observation_context as ctx
 from rainmapper_core.mushroom_ml_experiments import (
-    FIXED_GAP_7D_V1,
-    LAG_EVENT_V1,
-    build_fixed_gap_7d_features,
-    build_lag_event_features,
+    FIXED_GAP_7D_ALTITUDE_V2,
+    LAG_EVENT_ALTITUDE_V2,
+    build_fixed_gap_7d_altitude_features,
+    build_lag_event_altitude_features,
 )
 from rainmapper_core.mushroom_ml_predictor import PredictionResult
 from rainmapper_core.mushroom_observation_context import DailyWeatherRecord, WeatherStation
@@ -159,7 +159,9 @@ class MushroomModelComparisonTests(TestCase):
                 wind_gust_kmh=None,
                 wind_direction_deg=None,
             )
-        station = WeatherStation("test", "station", "Station", 42.0, 1.0, records)
+        station = WeatherStation(
+            "test", "station", "Station", 42.0, 1.0, records, altitude_m=500.0
+        )
         operational = PredictionResult(
             species_id="boletus",
             area_id="area",
@@ -181,7 +183,7 @@ class MushroomModelComparisonTests(TestCase):
         }
         predictor._weather_stations = {("test", "station"): station}
         comparator = MushroomModelComparator(predictor, Path("/unused"))
-        for spec in (FIXED_GAP_7D_V1, LAG_EVENT_V1):
+        for spec in (FIXED_GAP_7D_ALTITUDE_V2, LAG_EVENT_ALTITUDE_V2):
             comparator._bundles[spec.feature_set_id] = {
                 "kind": "mushroom_ml_experiment_bundle",
                 "feature_set_id": spec.feature_set_id,
@@ -212,27 +214,29 @@ class MushroomModelComparisonTests(TestCase):
 
         self.assertEqual(result["weather_contract"]["version"], "observed_weather_v2")
         self.assertNotIn("operational_v0", result)
-        self.assertEqual(result["fixed_gap_7d_v1"]["cutoff_date"], "2026-08-07")
-        self.assertEqual(result["lag_event_v1"]["cutoff_date"], "2026-08-09")
-        self.assertEqual(result["lag_event_v1"]["horizon_days"], 5)
-        self.assertEqual(result["lag_event_v1"]["ensemble_probability"], 0.4)
+        fixed_id = FIXED_GAP_7D_ALTITUDE_V2.feature_set_id
+        lag_id = LAG_EVENT_ALTITUDE_V2.feature_set_id
+        self.assertEqual(result[fixed_id]["cutoff_date"], "2026-08-07")
+        self.assertEqual(result[lag_id]["cutoff_date"], "2026-08-09")
+        self.assertEqual(result[lag_id]["horizon_days"], 5)
+        self.assertEqual(result[lag_id]["ensemble_probability"], 0.4)
         self.assertEqual(result["interpretation"]["reference_range"]["min"], 0.5)
         self.assertEqual(
-            result["fixed_gap_7d_v1"]["feature_count"],
-            len(FIXED_GAP_7D_V1.feature_cols),
+            result[fixed_id]["feature_count"],
+            len(FIXED_GAP_7D_ALTITUDE_V2.feature_cols),
         )
         self.assertGreater(
-            result["fixed_gap_7d_v1"]["features_used"]["rain_suppressed_days_90"],
+            result[fixed_id]["features_used"]["rain_suppressed_days_90"],
             0,
         )
         self.assertEqual(
-            result["fixed_gap_7d_v1"]["station_selection"][
+            result[fixed_id]["station_selection"][
                 "skipped_nearer_station_count"
             ],
             0,
         )
         self.assertEqual(
-            result["fixed_gap_7d_v1"]["station_selection"][
+            result[fixed_id]["station_selection"][
                 "selected_station_quality"
             ]["rain_days_90"],
             90,
@@ -244,11 +248,10 @@ class MushroomModelComparisonTests(TestCase):
         episode = {
             "observed_at": target.isoformat(),
             "gis_altitude_m": 1000.0,
+            "weather_station_altitude_m": 500.0,
             **ctx.build_daily_series(station, target, duplicate_dates),
         }
-        expected_fixed, _ = build_fixed_gap_7d_features(episode)
-        expected_lag, _ = build_lag_event_features(episode, 5)
-        self.assertEqual(
-            result["fixed_gap_7d_v1"]["features_used"], expected_fixed
-        )
-        self.assertEqual(result["lag_event_v1"]["features_used"], expected_lag)
+        expected_fixed, _ = build_fixed_gap_7d_altitude_features(episode)
+        expected_lag, _ = build_lag_event_altitude_features(episode, 5)
+        self.assertEqual(result[fixed_id]["features_used"], expected_fixed)
+        self.assertEqual(result[lag_id]["features_used"], expected_lag)

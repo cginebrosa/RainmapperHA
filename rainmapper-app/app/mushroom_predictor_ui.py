@@ -61,6 +61,36 @@ _ESTIMATOR_SHORT_NAMES = {
     for estimator_id, short_name, _experimental in _COMPARISON_ESTIMATORS
 }
 
+_OUT_OF_DOMAIN_FEATURE_LABEL_KEYS = {
+    "horizon_days": "ui.predictor_feature_horizon_days",
+    "target_month_sin": "ui.predictor_feature_target_month_sin",
+    "target_month_cos": "ui.predictor_feature_target_month_cos",
+    "gis_altitude_m": "ui.predictor_feature_gis_altitude",
+    "rain_cutoff_0_3d_mm": "ui.predictor_feature_rain_0_3d",
+    "rain_cutoff_4_7d_mm": "ui.predictor_feature_rain_4_7d",
+    "rain_cutoff_8_14d_mm": "ui.predictor_feature_rain_8_14d",
+    "rain_cutoff_15_21d_mm": "ui.predictor_feature_rain_15_21d",
+    "days_since_rain_gt_2_at_target": "ui.predictor_feature_days_since_rain",
+    "days_since_significant_rain_at_target": "ui.predictor_feature_days_since_significant_rain",
+    "significant_rain_found_90d": "ui.predictor_feature_significant_rain_found",
+    "rain_observed_days_21": "ui.predictor_feature_rain_observed_21",
+    "rain_missing_days_21": "ui.predictor_feature_rain_missing_21",
+    "rain_suppressed_days_21": "ui.predictor_feature_rain_suppressed_21",
+    "rain_observed_days_90": "ui.predictor_feature_rain_observed_90",
+    "rain_missing_days_90": "ui.predictor_feature_rain_missing_90",
+    "rain_suppressed_days_90": "ui.predictor_feature_rain_suppressed_90",
+    "dry_spell_observed_at_cutoff": "ui.predictor_feature_dry_spell",
+    "dry_spell_is_censored": "ui.predictor_feature_dry_spell_censored",
+    "heat_stress_observed_at_cutoff": "ui.predictor_feature_heat_stress",
+    "heat_stress_is_censored": "ui.predictor_feature_heat_stress_censored",
+    "temp_mean_after_significant_rain_c": "ui.predictor_feature_temp_after_rain",
+    "temp_max_mean_cutoff_7d_c": "ui.predictor_feature_temp_max_cutoff_7d",
+    "temp_mean_cutoff_7d_c": "ui.predictor_feature_temp_mean_cutoff_7d",
+    "humidity_mean_after_significant_rain_pct": "ui.predictor_feature_humidity_after_rain",
+    "temp_observed_days_after_significant_rain": "ui.predictor_feature_temp_coverage_after_rain",
+    "humidity_observed_days_after_significant_rain": "ui.predictor_feature_humidity_coverage_after_rain",
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -451,9 +481,17 @@ def _render_interpretation_card(
             statistical_detail_keys.append(
                 "ui.predictor_interpretation_experimental_ood_caution"
             )
+    comparison_model_ids = (
+        ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
+        if any(
+            model_id in comparison
+            for model_id in ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
+        )
+        else ("fixed_gap_7d_v1", "lag_event_v1")
+    )
     historical_rows = [
         result.get("historical_evaluation")
-        for model_id in ("fixed_gap_7d_v1", "lag_event_v1")
+        for model_id in comparison_model_ids
         if isinstance((result := comparison.get(model_id)), dict)
         and isinstance(result.get("historical_evaluation"), dict)
     ]
@@ -998,6 +1036,68 @@ def _comparison_value(value: object, suffix: str = "") -> str:
     return f"{rendered}{suffix}"
 
 
+def _out_of_domain_feature_unit(feature: str) -> str:
+    if feature.endswith("_mm"):
+        return " mm"
+    if feature.endswith("_c"):
+        return " °C"
+    if feature.endswith("_pct"):
+        return " %"
+    if feature == "gis_altitude_m":
+        return " m"
+    if "days" in feature or feature in {
+        "dry_spell_observed_at_cutoff",
+        "heat_stress_observed_at_cutoff",
+    }:
+        return " d"
+    return ""
+
+
+def _out_of_domain_feature_label(feature: str) -> str:
+    label_key = _OUT_OF_DOMAIN_FEATURE_LABEL_KEYS.get(feature)
+    if label_key:
+        return _lbl(label_key)
+    return feature.replace("_", " ").strip().capitalize()
+
+
+def _out_of_domain_feature_value(
+    detail: dict[str, Any], *, severe_features: set[str]
+) -> str:
+    feature = str(detail.get("feature", "") or "")
+    unit = _out_of_domain_feature_unit(feature)
+    value = _comparison_value(detail.get("value"), unit)
+    minimum = _comparison_value(detail.get("training_min"), unit)
+    maximum = _comparison_value(detail.get("training_max"), unit)
+    rendered = (
+        f"{_out_of_domain_feature_label(feature)}: {value} · "
+        f'{_lbl("ui.predictor_training_range")} {minimum}–{maximum}'
+    )
+    try:
+        numeric_value = float(detail.get("value"))
+        numeric_minimum = float(detail.get("training_min"))
+        numeric_maximum = float(detail.get("training_max"))
+    except (TypeError, ValueError):
+        delta = None
+    else:
+        if numeric_value < numeric_minimum:
+            delta = numeric_value - numeric_minimum
+        elif numeric_value > numeric_maximum:
+            delta = numeric_value - numeric_maximum
+        else:
+            delta = None
+    if delta is not None:
+        rendered_delta = _comparison_value(delta, unit)
+        if delta > 0:
+            rendered_delta = f"+{rendered_delta}"
+        rendered += f' · {_lbl("ui.predictor_out_of_domain_delta")} {rendered_delta}'
+    deviations = detail.get("standard_deviations_from_mean")
+    if deviations is not None:
+        rendered += f" · {_comparison_value(deviations)} σ"
+    if feature in severe_features:
+        rendered += f' · {_lbl("ui.predictor_out_of_domain_severe")}'
+    return rendered
+
+
 def _render_model_diagnostics(result: dict[str, Any]) -> str:
     features = result.get("features_used")
     features = features if isinstance(features, dict) else {}
@@ -1098,6 +1198,35 @@ def _render_model_diagnostics(result: dict[str, Any]) -> str:
 
     add("ui.station", result.get("weather_station_code"))
     add("ui.predictor_station_distance", result.get("weather_station_distance_km"), " km")
+    add(
+        "ui.predictor_station_altitude",
+        result.get("weather_station_altitude_m"),
+        " m",
+    )
+    add(
+        "ui.predictor_area_representative_altitude",
+        result.get("area_representative_altitude_m"),
+        " m",
+    )
+    correction = result.get("temperature_altitude_correction_c")
+    if correction is not None:
+        rendered_correction = _comparison_value(correction, " °C")
+        try:
+            if float(correction) > 0:
+                rendered_correction = f"+{rendered_correction}"
+        except (TypeError, ValueError):
+            pass
+        lapse_rate = result.get("temperature_lapse_rate_c_per_100m")
+        if lapse_rate is not None:
+            rendered_correction += (
+                f" · {_comparison_value(lapse_rate, ' °C/100 m')}"
+            )
+        facts.append(
+            (
+                _lbl("ui.predictor_temperature_altitude_correction"),
+                rendered_correction,
+            )
+        )
     add("ui.predictor_horizon", result.get("horizon_days"), " d")
     if quality:
         facts.append(
@@ -1178,14 +1307,23 @@ def _render_model_diagnostics(result: dict[str, Any]) -> str:
     gaps = result.get("feature_gaps")
     if isinstance(gaps, list) and gaps:
         facts.append((_lbl("ui.weather_gaps"), ", ".join(str(value) for value in gaps)))
+    out_of_domain = result.get("out_of_domain_features")
+    out_of_domain = out_of_domain if isinstance(out_of_domain, list) else []
     severe_ood = result.get("severe_out_of_domain_features")
-    if isinstance(severe_ood, list) and severe_ood:
+    severe_ood = severe_ood if isinstance(severe_ood, list) else []
+    severe_features = {
+        str(row.get("feature"))
+        for row in severe_ood
+        if isinstance(row, dict) and row.get("feature")
+    }
+    visible_ood = out_of_domain or severe_ood
+    if visible_ood:
         facts.append(
             (
                 _lbl("ui.predictor_out_of_domain_features"),
-                ", ".join(
-                    str(row.get("feature"))
-                    for row in severe_ood
+                "; ".join(
+                    _out_of_domain_feature_value(row, severe_features=severe_features)
+                    for row in visible_ood
                     if isinstance(row, dict) and row.get("feature")
                 ),
             )
@@ -1201,6 +1339,9 @@ def _render_model_diagnostics(result: dict[str, Any]) -> str:
         _lbl("ui.predictor_temporal_validation"): "ui.predictor_help_temporal_validation",
         _lbl("ui.station"): "ui.predictor_help_station",
         _lbl("ui.predictor_station_distance"): "ui.predictor_help_station_distance",
+        _lbl("ui.predictor_station_altitude"): "ui.predictor_help_station_altitude",
+        _lbl("ui.predictor_area_representative_altitude"): "ui.predictor_help_area_representative_altitude",
+        _lbl("ui.predictor_temperature_altitude_correction"): "ui.predictor_help_temperature_altitude_correction",
         _lbl("ui.predictor_horizon"): "ui.predictor_help_horizon",
         _lbl("ui.predictor_station_quality"): "ui.predictor_help_station_quality",
         _lbl("ui.predictor_coverage"): "ui.predictor_help_coverage",
@@ -1236,9 +1377,19 @@ def _render_model_comparison(species: str, area: str, target_date: date) -> str:
     labels = {
         "fixed_gap_7d_v1": _lbl("ui.predictor_model_fixed_gap_7d_v1"),
         "lag_event_v1": _lbl("ui.predictor_model_lag_event_v1"),
+        "fixed_gap_7d_altitude_v2": _lbl("ui.predictor_model_fixed_gap_7d_v1"),
+        "lag_event_altitude_v2": _lbl("ui.predictor_model_lag_event_v1"),
     }
     rows = ""
-    for model_id in ("fixed_gap_7d_v1", "lag_event_v1"):
+    model_ids = (
+        ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
+        if any(
+            model_id in comparison
+            for model_id in ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
+        )
+        else ("fixed_gap_7d_v1", "lag_event_v1")
+    )
+    for model_id in model_ids:
         result = comparison.get(model_id)
         if not isinstance(result, dict):
             continue

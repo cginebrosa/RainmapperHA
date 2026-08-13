@@ -596,6 +596,48 @@ class MushroomWorkerResultsTests(unittest.TestCase):
         self.assertEqual({"selected_observations": 1, "updated_species": 1, "model_species": 2}, result)
 
 
+class PromotedFeaturesIdentityTests(unittest.TestCase):
+    def test_training_rebase_matches_live_features_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            live_outputs = mushroom_rebuild_pipeline.RebuildOutputPaths.under(
+                root / "live"
+            )
+            catalogs = root / "live" / "mushroom_reference_catalogs.json"
+            candidate = {
+                "input_paths": {
+                    "weather_features": "/worker/output/weather.json",
+                    "gis_reconstruction": "/worker/output/gis.json",
+                },
+                "output_paths": {
+                    "json": "/worker/output/features.json",
+                    "csv": "/worker/output/features.csv",
+                    "report": "/worker/output/features.md",
+                },
+                "prediction_target_policy": {
+                    "catalog_path": "/worker/input/catalogs.json"
+                },
+                "rows": [{"observation_id": "obs_1"}],
+            }
+
+            rebased = mushroom_worker_results.rebase_features_payload_for_live(
+                candidate,
+                live_outputs=live_outputs,
+                reference_catalogs_path=catalogs,
+            )
+
+            self.assertEqual(
+                {
+                    "weather_features": str(live_outputs.weather_json),
+                    "gis_reconstruction": str(live_outputs.gis_reconstruction),
+                },
+                rebased["input_paths"],
+            )
+            self.assertEqual(str(live_outputs.features_json), rebased["output_paths"]["json"])
+            self.assertEqual(str(catalogs.resolve()), rebased["prediction_target_policy"]["catalog_path"])
+            self.assertEqual("/worker/output/features.json", candidate["output_paths"]["json"])
+
+
 class MushroomMLTrainWorkerResultsTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()

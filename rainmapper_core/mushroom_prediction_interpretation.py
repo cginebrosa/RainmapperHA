@@ -11,7 +11,9 @@ from __future__ import annotations
 from typing import Any
 
 
-FEATURE_SET_IDS = ("fixed_gap_7d_v1", "lag_event_v1")
+LEGACY_FEATURE_SET_IDS = ("fixed_gap_7d_v1", "lag_event_v1")
+ALTITUDE_FEATURE_SET_IDS = ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
+FEATURE_SET_IDS = ALTITUDE_FEATURE_SET_IDS
 ESTIMATOR_IDS = (
     "logistic_regression_reduced_v1",
     "random_forest_restricted_v1",
@@ -248,8 +250,13 @@ def build_interpretation(
     phenology: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the stable interpretation payload consumed by every UI view."""
+    active_feature_set_ids = (
+        ALTITUDE_FEATURE_SET_IDS
+        if any(feature_set_id in comparison for feature_set_id in ALTITUDE_FEATURE_SET_IDS)
+        else LEGACY_FEATURE_SET_IDS
+    )
     available_results: list[tuple[str, dict[str, Any]]] = []
-    for feature_set_id in FEATURE_SET_IDS:
+    for feature_set_id in active_feature_set_ids:
         result = comparison.get(feature_set_id)
         if isinstance(result, dict) and result.get("available") is True:
             available_results.append((feature_set_id, result))
@@ -277,7 +284,7 @@ def build_interpretation(
             "trusted_results": [],
             "reason_codes": ["out_of_season"],
         }
-    if len(available_results) < len(FEATURE_SET_IDS):
+    if len(available_results) < len(active_feature_set_ids):
         reason_codes.append("partial_model_availability")
 
     stations_by_feature_set = {
@@ -460,7 +467,7 @@ def build_interpretation(
         ecological_compatibility = "unknown"
     ecological_evidence = (
         "high"
-        if len(available_results) == len(FEATURE_SET_IDS)
+        if len(available_results) == len(active_feature_set_ids)
         else "moderate"
         if available_results
         else "low"

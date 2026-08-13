@@ -1,8 +1,18 @@
 # Contrato de experimentación ML para floradas
 
-Estado: `fixed_gap_7d_v1` y `lag_event_v1` forman la pareja operativa local en
-validación. `mushroom_ml_v0` queda como baseline histórico y ya no participa en
-el dictamen ni en la meteorología visible.
+Estado: `fixed_gap_7d_altitude_v2` y `lag_event_altitude_v2` son la pareja local
+actual, pero quedan congelados como `reference_only` para la siguiente fase: no
+se corregirán cambiando sus columnas o semántica. Conservan los cortes
+temporales de v1, corrigen la temperatura por diferencia de altitud y eliminan
+la racha térmica global de 28 °C. `fixed_gap_7d_v1` y `lag_event_v1` se
+conservan también como referencia reproducible; `mushroom_ml_v0` queda como
+baseline histórico.
+
+La auditoría que fija el target, cuantifica la muestra real y separa variables
+biológicas de calidad está en `mushroom-ml-v3-data-audit-es.md`. El sucesor
+`fixed_gap_7d_biology_v3` / `lag_event_biology_v3` está únicamente especificado
+en `mushroom-ml-v3-implementation-spec-es.md`: todavía no está implementado, no
+entrena modelos y no modifica el Predictor.
 
 Este documento define cómo construir y comparar modelos del Predictor usando
 siempre los mismos datos, particiones y reglas temporales. La finalidad es que
@@ -24,6 +34,59 @@ lluvia cero, cero sequía o cero estrés térmico.
 La fecha objetivo sí es conocida y puede aportar calendario o fenología. La
 edad que tendrá en `T` un episodio de lluvia ya observado también puede
 calcularse sin conocer el tiempo futuro.
+
+## Contrato térmico corregido por altitud
+
+Los contratos v2 no suponen que la temperatura medida en la estación sea la
+temperatura físicamente representativa del área. Antes de construir variables
+térmicas aplican:
+
+```text
+T_area = T_estacion + (altitud_estacion - altitud_area) / 100 * 0,65 °C
+```
+
+Por tanto, una estación 500 m por debajo del área aporta una corrección de
+`-3,25 °C`; una estación más alta aporta una corrección positiva. El gradiente
+`0,65 °C/100 m` es parte explícita y versionada del contrato físico v2. Coincide
+con el valor empleado actualmente en MapLibre, pero no se lee de una preferencia
+de la UI ni se ajusta durante el entrenamiento.
+
+Las fuentes de altitud son auditables:
+
+- la estación usa `altitude` del catálogo meteorológico Parquet;
+- el área usa la media de `derived_context.gis_dem.altitude_mean_m` de **todas**
+  sus microáreas materializadas en `known_sites`;
+- no se usa la cota DEM del centroide de coordenadas;
+- no se consulta el DEM en vivo durante una predicción;
+- la media del área se deriva al cargar el JSON, de modo que no depende de qué
+  microáreas tengan observaciones en una fecha concreta.
+
+Las lecturas originales de estación no se modifican. El benchmark y el
+Predictor construyen una serie corregida en memoria y guardan en metadatos la
+altitud de estación, la altitud representativa del área, el gradiente y el
+offset aplicado. Si falta cualquiera de las dos altitudes, las variables
+térmicas corregidas quedan ausentes; nunca se sustituyen silenciosamente por la
+temperatura cruda.
+
+Los contratos v2 sustituyen:
+
+- `heat_stress_observed_at_cutoff`;
+- `heat_stress_is_censored`;
+
+por variables continuas corregidas:
+
+- `temp_max_mean_cutoff_7d_c`;
+- `temp_mean_cutoff_7d_c`.
+
+También corrigen `temp_mean_after_significant_rain_c`. No existe ya un umbral
+global de 28 °C ni un umbral térmico hardcoded por especie: cada estimador
+aprende de las temperaturas continuas corregidas y de las observaciones de su
+propia especie. El comportamiento de v1 permanece disponible únicamente para
+comparar la migración.
+
+La paridad es vinculante: reconstrucción, entrenamiento, consulta local y
+worker remoto deben invocar los mismos constructores v2. Una mezcla de bundle
+v2 con variables v1 debe rechazarse por `feature_set_id`, no degradarse.
 
 ## Dos capas independientes
 
@@ -173,8 +236,9 @@ el corte:
 - indicador de que esas duraciones están truncadas por el límite del histórico;
 - temperatura y humedad observadas después de la última lluvia significativa.
 
-Los umbrales de 2 mm, 5 mm y 28 °C no son nuevos: se heredan de las derivadas
-v0 y quedan escritos en el benchmark. Las bandas temporales son la primera
+En este contrato legado, los umbrales de 2 mm, 5 mm y 28 °C no son nuevos: se
+heredan de las derivadas v0 y quedan escritos en el benchmark. El umbral térmico
+no existe en los contratos `*_altitude_v2`. Las bandas temporales son la primera
 hipótesis que deberá someterse a ablation y sensibilidad; cualquier variante
 recibirá otro `feature_set_id`.
 

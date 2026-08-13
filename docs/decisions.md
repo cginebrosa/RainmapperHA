@@ -2,14 +2,112 @@
 
 Nota de auditoria 2026-07-20: este fichero es un log cronologico/historico. Las
 entradas antiguas se conservan para trazabilidad y pueden describir fases ya
-reemplazadas; prevalece siempre la decision vigente mas reciente. Estado de
-cierre: rama `inicial`, release HA instalada `0.2.207` y release normal
-`0.2.208` publicada/pusheada en `e2f117d`, pendiente de instalar. El repo GitHub
-continua publico. Datos vivos/privados bajo
+reemplazadas; prevalece siempre la decision vigente mas reciente. Este fichero
+no declara el estado operativo actual: para versiones instaladas, prioridades y
+riesgos hay que leer `docs/active-context.md`. El repo GitHub continúa público.
+Datos vivos/privados bajo
 `docker-data/mushroom-data` en local y `/share/rainmapper/mushroom-data` en HA,
 y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
+
+## 2026-08-13 - [VIGENTE][ML] Toda actualización operativa reconstruye y reentrena globalmente
+
+- Si cambian observaciones y se quiere incorporarlas al Predictor, se
+  reconstruyen todos los artefactos y se reentrenan todos los modelos. La regla
+  no depende de que existan 399 o 39.999 observaciones.
+- La UI no ofrece reconstrucción por especie, solo pendientes ni generación de
+  artefactos aislada. No se mantienen controles cuyo texto no corresponda al
+  efecto real del servidor.
+- Se conserva una única acción humana: `Reconstruir y reentrenar todo`,
+  ejecutada por el worker externo para no cargar la RPi4.
+- Motivo: un artefacto regenerado sin reentrenar no actualiza el modelo; los
+  candidatos parciales pueden mezclar generaciones y conservar relaciones
+  eliminadas, como ocurrió con la observación corregida Edulis/Olvan.
+- Implementado y publicado en HA `0.2.252`, commit `8010b89`.
+
+## 2026-08-13 - [VIGENTE][ARQUITECTURA] Dos jobs diagnósticos, un flujo y una activación conjunta
+
+- La actualización completa conserva `worker_candidate_rebuild` y
+  `worker_ml_train_v0` como jobs separados. Así mantienen diagnósticos, progreso,
+  errores y resultados independientes sin obligar a refactorizar los motores.
+- Al terminar verificado el candidato global, el coordinador crea
+  automáticamente el training y le entrega el `features.json` candidato. No
+  entrena sobre el artefacto vivo anterior.
+- Los dos resultados se activan como una sola generación lógica: el coordinador
+  reserva ambos, promociona artefactos y modelos, invalida la caché y limpia
+  pendientes únicamente tras el éxito completo.
+- Si falla la promoción de modelos, se restauran los artefactos previos; la
+  promoción de modelos también revierte destinos escritos parcialmente.
+- Esta decisión reemplaza el workflow manual sin chaining de 2026-08-03, pero
+  conserva su separación técnica entre rebuild y training.
+
+## 2026-08-13 - [VIGENTE][UX] Las discordancias ecológicas avisan, no prohíben
+
+- Fecha fuera de meses habituales, altitud discordante o primera observación de
+  una especie en un área/microárea deben producir un aviso evidente y
+  confirmable al crear, editar o importar observaciones.
+- El usuario puede aceptar la excepción. El sistema no reclasifica, descarta ni
+  corrige automáticamente: las especies pueden fructificar fuera de los rangos
+  habituales.
+- El Predictor tampoco debe tratar `fuera de temporada` como una verdad absoluta
+  cuando existan condiciones compatibles; debe expresarlo como cautela.
+- Estado de implementación: pendiente. La decisión y el comportamiento deseado
+  son vigentes; los cambios UI pertenecen al bloque posterior a Biology V3 o a
+  una tarea independiente.
+
+## 2026-08-11 - [VIGENTE][DATOS] Backfill histórico completo por fuente, aislado en el lab
+
+- La recuperación meteorológica no se limita a las ventanas concretas de las
+  observaciones ni a estaciones situadas dentro de 15 km. Se descargan todas
+  las estaciones conocidas de cada servicio histórico para no tener que repetir
+  la adquisición al añadir áreas, cambiar el selector o comparar otros modelos.
+- El inicio común es `2012-06-19`, 150 días antes de la primera observación
+  actual (`2012-11-16`). Cada fuente termina el día anterior al inicio de su
+  histórico local ya materializado: Meteocat `2016-12-19`, Wunderground
+  `2023-07-31` y AEMET `2026-05-24`.
+- Meteoclimatic queda excluido de la descarga remota histórica mientras no haya
+  una API o archivo validado. Sus datos locales existentes se conservan.
+- El backfill complementa, no reemplaza, el histórico actual. La unión usa
+  fuente, estación y fecha local; conserva filas y valores útiles previos, y
+  nunca convierte silenciosamente una estación inexistente, un periodo vacío o
+  un error de API en precipitación cero.
+- El radio de 15 km es una regla posterior de selección: sobre el Parquet
+  candidato se elige la estación históricamente utilizable más cercana y se
+  hace fallback hasta ese límite. No es un filtro de adquisición.
+- Descarga, normalización, unión, reconstrucción y benchmark se realizan primero
+  y exclusivamente en
+  `docker-data/audits/mushroom-weather-backfill-20260811/`, con respuestas
+  crudas cacheadas y candidatos separados. HA permanece en solo lectura.
+- Promover CSV a HA será una tarea posterior y explícita: exige backup,
+  comprobación de cero pérdidas/duplicados, validación de unidades y rangos,
+  reconstrucción coherente y comparación antes/después con rollback disponible.
+- Contrato y manifiestos:
+  `docs/mushrooms/mushroom-weather-historical-backfill-handoff-es.md`.
+
+## 2026-08-11 - [VIGENTE][DISEÑO] El sucesor ML predice utilidad de salida y separa calidad
+
+- El target operativo responde a si merecía la pena realizar una salida en el
+  área y fecha: `scarce` o superior es favorable, `very_scarce/absent` es
+  desfavorable y `pending/no visitado/no buscado` es desconocido.
+- La unidad derivada canonicaliza primero especie, microárea y fecha; después
+  agrega a área conservando número de microáreas favorables, desfavorables y
+  desconocidas, conflictos y episodios mixtos. Un área es favorable si alguna
+  microárea comprobada justificó la salida, pero la evidencia local no se
+  elimina.
+- Los contratos altitude v2 se congelan como referencia. Cualquier cambio de
+  target, unidad o lista de columnas recibe nuevos IDs y no puede cargar bundles
+  v2 por fallback.
+- Cobertura, huecos, supresiones y censura son controles de calidad, no señal
+  biológica. Permanecen auditables y deciden elegibilidad, pero no entran en la
+  matriz X.
+- La auditoría del snapshot actual produce 399 observaciones, 350 incluibles,
+  275 episodios y 122 con meteorología utilizable para el corte fijo. Estas
+  cifras son checks ligados a hashes, no constantes del producto.
+- La implementación especificada termina en un benchmark sucesor; no entrena,
+  promociona ni publica modelos. Referencias:
+  `docs/mushrooms/mushroom-ml-v3-data-audit-es.md` y
+  `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`.
 
 ## 2026-08-08 - Esquema diagnóstico 2.2 y Gantt multifuente
 
@@ -164,9 +262,11 @@ Alternativas descartadas para esta fase:
 
 Ver diseño detallado en `docs/mushrooms/mushroom-predictor-design-es.md`, sección 0.4.
 
-## 2026-08-03 - Worker job ml_train_v0: dos jobs separados, no chaining automatico
+## 2026-08-03 - [REEMPLAZADA] Worker job ml_train_v0: dos jobs separados, no chaining automatico
 
-Estado: VIGENTE
+Estado: REEMPLAZADA el 2026-08-13 por chaining automático del coordinador y
+promoción conjunta. Sigue vigente únicamente la separación técnica de los dos
+jobs para diagnóstico.
 
 Decision:
 
@@ -416,6 +516,10 @@ Estado: COMPLETADA
   con HTTP 200 y `docker buildx imagetools inspect` confirmo `amd64`, `arm64` y
   attestations.
 - El repo GitHub continua publico y no se modificaron releases ni versiones.
+- Actualización 2026-08-13: tras validar HA `0.2.252`, se eliminaron 110
+  entradas antiguas. GHCR conserva exactamente 10: `0.2.252/latest`, rollback
+  `0.2.251` y los cuatro manifests auxiliares de cada índice. Ambos tags
+  versionados siguen resolviendo `linux/amd64`, `linux/arm64` y attestations.
 
 ## 2026-07-18 - Objetivo V0 gobernado por el catalogo de abundancia
 
@@ -3841,6 +3945,153 @@ Validacion local:
 - Contrato y despliegue gradual:
   `docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`.
 
+# 2026-08-11 - [VIGENTE] Retención intradía meteorológica y escritura atómica
+
+- `Aemet_hourly_incremental.csv` y
+  `Meteoclimatic_observations_incremental.csv` conservan en producción
+  siete fechas locales cerradas más la fecha actual. Se retienen fechas de
+  calendario completas, no una ventana móvil de 168 horas.
+- El corte ocurre después de fusionar/deduplicar y antes de reconstruir el
+  diario. Una estación, fecha o variable ausente no crea filas ni lluvia cero.
+- Los incrementales diarios preservan todas las claves anteriores: solo se
+  actualizan las fechas realmente reconstruidas.
+- Los CSV meteorológicos críticos se escriben mediante temporal en el mismo
+  directorio y sustitución atómica. Un fallo de serialización conserva el
+  destino anterior.
+- La política fue validada primero en el M1 y después desplegada y comprobada
+  mediante runners ordinarios e idempotencia en HA/RPi4.
+
+## 2026-08-11 - [REEMPLAZADA] Separar cola viva e histórico monolítico
+
+- Los cuatro CSV diarios no deben seguir siendo simultáneamente área de trabajo
+  e histórico canónico. Tras el backfill superarían 5 millones de filas y unos
+  872 MiB, mientras el Parquet equivalente ocupa unos 82 MiB.
+- La propuesta recomendada conserva 180 fechas locales en los CSV vivos como
+  colas de ingestión/recuperación y convierte el `weather_daily.parquet`
+  monolítico actual en histórico canónico con upsert atómico.
+- Predictor, reconstrucción y workers ya consumen ese Parquet; entrenamiento
+  consume los artefactos reconstruidos. Tomap es la excepción actual: debe
+  cambiar de los CSV a una lectura Parquet filtrada a 90 días.
+- El runner `all` ya ejecuta `update` antes de `maps`. Antes del cambio se debe
+  completar el schema de viento y bloquear publicación si la actualización no
+  confirma un Parquet válido/fresco.
+- Particionar por fuente/año queda como alternativa solo si el monolítico no
+  cumple el presupuesto medido de RAM/tiempo.
+- No se autoriza todavía compactar los CSV diarios. Antes deben migrarse y
+  validarse claves/valores, frescura, cruces de año, MapLibre, features,
+  rebuild, entrenamiento, snapshots de workers, backup y rollback.
+- Diseño detallado y puerta de aceptación:
+  `docs/weather-storage-retention-plan-es.md`.
+
+## 2026-08-12 - [VIGENTE] Histórico meteorológico transaccional fuente/año
+
+- Se mantiene la separación entre cuatro CSV vivos de 180 fechas y el
+  histórico canónico, pero se descarta el upsert monolítico para la RPi4 de
+  4 GiB. La prueba conservó los datos, pero su pico de memoria no deja margen
+  operativo seguro a Home Assistant, Docker y los demás servicios.
+- El histórico se organiza en particiones inmutables `source/year` y se publica
+  como una generación completa mediante manifiesto y `CURRENT.json` atómico.
+  Los lectores nunca hacen glob ni observan una mezcla de generaciones.
+- El bootstrap parte de los cuatro CSV completos de un mismo rebase validado.
+  Para el corte actual son los de `rebase-trials/20260811T114432Z/candidate/`,
+  con 5.025.368 filas. Mezclar los `candidate/` originales con `current/`
+  perdería 301 filas del rebase. Los cuatro legacy tienen 27 columnas y se
+  normalizan al schema canónico de 28 con `source`.
+  El Parquet candidato antiguo solo tiene 14 y no puede recuperar
+  metadata/viento.
+- La ruta normal archiva únicamente el lote fresco/corregido, previamente
+  persistido como pending idempotente. Cada partición se fusiona como flujos
+  ordenados, sin cargar el año completo en pandas. La cola de 180 fechas se
+  reaplica solo en reparación explícita.
+- Catálogo temporal, Predictor, reconstrucción, Tomap, snapshots y workers
+  deben migrar al manifiesto; cachés se invalidan por `generation_id`.
+- Revisión Sol-High: el archivador corre aislado después de `update-sources`.
+  Objetivo: menos de 64 MiB RSS adicionales y 192 MiB absolutos; hard gate:
+  menos de 128/256 MiB. Cada proceso normal del pipeline tiene objetivo menor
+  de 256 MiB absolutos y hard gate menor de 384 MiB. Si una partición anual no
+  cumple, se subdivide esa fuente/año por bloques deterministas de estación.
+- No se autoriza compactar CSV reales ni promover el dataset. Especificación:
+  `docs/weather-history-partitioned-implementation-spec-es.md`.
+- El cutover deberá reconciliar una copia fresca y estable de los CSV de HA
+  durante una ventana de mantenimiento autorizada. La generación del lab no se
+  promueve directamente mientras el scheduled runner siga avanzando. Los jobs
+  largos fijan su generación mediante leases y el GC empieza en modo audit-only.
+- Estado local 2026-08-12: fases A–C implementadas con contrato ligero sin
+  pandas, pending por sort externo, merge por cursores/slices, catálogo,
+  receipts, commit, recuperación y reparación post-restore explícita. Benchmark
+  Mac `aemet/2024`, row group 8.192: 3,167 s, +48.398.336 bytes RSS y
+  2.006.676 bytes de salida. El gate arm64/RPi4 continúa siendo obligatorio.
+  La captura por fuente, archivador aislado,
+  pre/post-drain, `run.lock` y compactación streaming de los CSV vivos están
+  integrados detrás de un feature flag desactivado por defecto; falta la
+  validación arm64 antes de considerarlos publicables. Tomap, Predictor,
+  catálogo, reconstrucción acotada y snapshots `0.2` consumen ya la generación
+  por manifiesto en modo particionado. Una simulación local disposable de las
+  cuatro fuentes conservó las 227.406 filas vivas, modificó solo las cuatro
+  particiones 2026, cerró todos los pending y alcanzó 175.013.888 bytes RSS
+  absolutos. No se ejecutó el runner ni se tocó HA.
+- El split y la compactación inicial de los CSV vivos se ejecutan en el M1. El
+  cutover autorizado entregará a HA candidatos de 180 fechas ya ordenados y
+  validados; la RPi4 no cargará con el procesamiento inicial de los históricos
+  completos.
+- Revisión operativa 2026-08-13: el cutover descrito ya se ejecutó. Histórico,
+  CSV vivos y colas intradía están desplegados; consumidores, runner ordinario,
+  idempotencia y recursos de la RPi4 fueron validados y los schedules están
+  activos. Las frases anteriores en futuro se conservan como trazabilidad del
+  diseño, no como trabajo pendiente.
+
+# 2026-08-11 - [VIGENTE] Temperatura corregida a la altitud representativa del área
+
+- Se crean los contratos `fixed_gap_7d_altitude_v2` y
+  `lag_event_altitude_v2`; los v1 se conservan como referencia reproducible.
+- Toda temperatura se transforma antes de construir variables mediante
+  `T_area = T_station + (z_station - z_area) / 100 * 0,65 °C` tanto en
+  entrenamiento como en inferencia. La lectura meteorológica cruda no se
+  modifica.
+- `z_station` procede del catálogo meteorológico. `z_area` es la media de las
+  altitudes DEM medias materializadas de todas las microáreas que pertenecen al
+  área. No se usa el DEM puntual del centroide ni se consulta el DEM en vivo.
+- La altitud representativa se calcula desde el conjunto completo de
+  microáreas, no desde las observadas en el episodio; así no varía con la
+  cobertura de una salida concreta.
+- El gradiente de 0,65 °C/100 m forma parte del contrato versionado y coincide
+  con el valor actual de MapLibre. No es una variable aprendida ni una opción
+  dinámica de la consulta.
+- Si falta la altitud de estación o área, las variables térmicas corregidas son
+  ausentes. Está prohibido usar en silencio la lectura cruda en un bundle v2.
+- Se retiran de v2 `heat_stress_observed_at_cutoff` y su censura, basados en el
+  umbral global hardcoded de 28 °C. Se añaden temperatura máxima media y
+  temperatura media de siete días, continuas y corregidas. Cada modelo aprende
+  el comportamiento térmico por especie sin umbrales manuales por especie.
+- La respuesta técnica conserva altitud de estación, altitud representativa,
+  offset y gradiente para auditar cada predicción.
+
+## 2026-08-11 - [VIGENTE] La auditoría fuera de dominio muestra magnitud y soporte
+
+- El detalle técnico del Predictor no reduce una extrapolación al identificador
+  interno de la variable. Para toda variable fuera de dominio muestra nombre
+  legible, valor consultado, mínimo y máximo observados durante el entrenamiento
+  y distancia respecto a la media aprendida en desviaciones estándar.
+- Las unidades dependen del contrato de la variable: días, milímetros, grados,
+  porcentaje, metros o recuentos. Las variables futuras desconocidas conservan
+  un fallback legible y muestran igualmente sus valores y rango.
+- `heat_stress_observed_at_cutoff` mide una racha de días, no una temperatura.
+  Su umbral de 28 °C no fue aprendido ni procede de una fuente biológica citada:
+  se introdujo como hipótesis experimental en HA 0.2.215 y fue heredado por los
+  contratos v1. No se presenta en la UI como si fuese soporte aprendido. Los
+  contratos `*_altitude_v2` posteriores ya lo sustituyen por variables térmicas
+  continuas corregidas por altitud; v1 permanece solo como referencia.
+- Para cada variable se muestra también `Δ`, calculado contra el límite de
+  entrenamiento rebasado: positivo por encima del máximo y negativo por debajo
+  del mínimo. El tooltip distingue valor actual, rango de entrenamiento, delta
+  físico y distancia estadística en `σ`.
+- Se listan todas las variables fuera de dominio; las que superan el umbral
+  severo quedan marcadas explícitamente. Solo estas últimas activan exclusiones
+  de estimadores o cautela en la interpretación.
+- Caso centinela: Pinícola/Guils, 2026-08-14. `lag_event_v1` observa 14 días
+  consecutivos por encima de 28 °C frente a un rango de entrenamiento 0–12,
+  equivalente a 6,484 desviaciones estándar respecto a su media aprendida.
+
 ## 2026-08-10 - Predictor por contratos e interpretación separada
 
 Estado: PUBLICADO EN HA `0.2.243`; WORKER M1 `1.0.5` ACTUALIZADO; PENDIENTE DE
@@ -3864,3 +4115,16 @@ Decisión:
 - Publicación HA verificada con digest
   `sha256:39c64c072d57259544a9290d15e117e811c38411cf3044afa5bb2cfd0af107cf`
   para `0.2.243` y `latest`, ambos con `linux/amd64` y `linux/arm64`.
+# 2026-08-13 - [VIGENTE] La identidad de una generación se calcula con su forma viva final
+
+- En el flujo reconstrucción → entrenamiento → promoción, el features candidato
+  se serializa antes de entrenar con las mismas rutas y metadata que tendrá al
+  quedar vivo. Los modelos guardan el hash de ese contenido final exacto.
+- Preparación y promoción comparten una única función canónica de rebase. No se
+  permite que la promoción modifique después del entrenamiento ningún byte que
+  forme parte de la identidad verificada por el Predictor.
+- El Predictor conserva la validación estricta: ante una discrepancia de hash
+  bloquea la consulta en lugar de mezclar artefactos y modelos. La corrección es
+  regenerar y promover conjuntamente, no relajar el control.
+- Los errores técnicos completos se conservan para diagnóstico, pero las rutas
+  y hashes largos deben envolver dentro del modal de la UI.

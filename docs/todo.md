@@ -1,82 +1,108 @@
 # TODO
 
-Lista operativa priorizada. El histórico completado se resume en
-`docs/decisions.md` y `docs/project-archive.md`.
+Lista operativa priorizada. El estado inmediato está en
+`docs/active-context.md`; el histórico completado vive en `docs/decisions.md`,
+`docs/project-archive.md` y el laboratorio meteorológico.
 
-## P0 — Validación inmediata
+## P0 — Instalar 0.2.253 y regenerar una generación coherente
 
-- [ ] Instalar HA `0.2.239` en la RPi4.
-- [ ] Confirmar que `M1 Personal` aparece conectado, idle, con worker `1.0.2`,
-  capacidad `predictor_v1` y cachés válidas.
-- [ ] Probar el Predictor completo usando M1: entrada, varios días, Por especie,
-  fecha actual, fecha histórica e Historial.
-- [ ] Confirmar que todas las interacciones mantienen M1 sin nuevo selector ni
-  fallback a HA mientras siga disponible.
-- [ ] Medir aproximadamente primera operación y repeticiones calientes; revisar
-  en Diagnostics `backend_seconds`, cold/warm, ejecutor, cachés y bytes.
-- [ ] Si alguna petición tarda mucho, separar cálculo del worker, cola,
-  sincronización de runtime y tiempo total observado por HA antes de cambiar
-  código.
+- [x] Confirmar que HA terminó de instalar `0.2.252` y que el add-on arranca.
+- [x] Confirmar que el worker M1 `1.0.7` está healthy/idle y conserva identidad,
+  cachés y capacidades.
+- [x] Verificar que `Workers y trabajos` presenta una sola acción completa y no
+  expone scopes parciales ni entrenamiento independiente.
+- [x] Ejecutar una reconstrucción y reentrenamiento completos en el worker y
+  comprobar el encadenado y la promoción conjunta.
+- [x] Detectar que la promoción de `0.2.252` cambiaba el hash del features vivo
+  después del entrenamiento y que el Predictor bloqueaba la mezcla.
+- [x] Corregir la identidad previa al entrenamiento, añadir regresiones, superar
+  672 tests/smoke y publicar HA `0.2.253` multiarch.
+- [ ] Instalar HA `0.2.253`; worker M1 permanece en `1.0.7`.
+- [ ] Repetir `Reconstruir y reentrenar todo` y activar mediante la única
+  promoción conjunta. No reutilizar el candidato generado por `0.2.252`.
+- [ ] Repetir casos centinela actuales e históricos del Predictor y revisar
+  `Por especie`, especialmente Edulis/Olvan.
 
-## P1 — Después de validar 0.2.239
+## P1 — Terminar Biology V3
 
-- [ ] Documentar las medidas reales M1 extremo a extremo y compararlas con HA:
-  apertura fría 30–40 s, navegación caliente casi instantánea y fecha histórica
-  alrededor de 10 s como referencia previa.
-- [ ] Preparar/exportar la imagen worker `1.0.2` para M5 solo si el usuario quiere
-  actualizarlo. M5 no es necesario para validar el M1.
-- [ ] Diseñar la exposición autenticada del Predictor desde MapLibre:
-  - usuarios normales en Auto y exclusivamente sobre workers;
-  - sin fallback silencioso a HA/RPi4;
-  - cola y límites de concurrencia;
-  - rate limiting y caché compartida;
-  - gateway en HA, nunca navegador → worker;
-  - política administrativa de selección pendiente de decidir.
-- [ ] Diseñar una URL de coordinador anunciada y agnóstica de LAN, VPN o proxy;
-  no cambiar la configuración Tailscale que funciona durante la validación.
+- [ ] Regenerar la auditoría ML con el histórico meteorológico ya definitivo y
+  los artefactos completos recién activados.
+- [ ] Confirmar la unidad canónica microárea/fecha, conflictos, favorables,
+  desfavorables y desconocidos; quality/metadata permanece fuera de X.
+- [ ] Terminar `fixed_gap_7d_biology_v3` y `lag_event_biology_v3` según
+  `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`.
+- [ ] Ejecutar benchmark temporal/estratificado reproducible y comparar contra
+  los contratos altitude v2 congelados. No elegir ni promover por capturas.
+- [ ] Revisar calibración, Brier, prevalencia, soporte por especie y dominio
+  antes de proponer una promoción de modelos.
+- [ ] Mantener rebuild, entrenamiento y Predictor pesado en el M1; medir que HA
+  solo coordina y sirve UI/resultados.
 
-## P2 — Mejoras condicionadas por evidencia
+## P2 — Integridad de observaciones y UX ecológica
 
-- [ ] Si hacen falta fases detalladas del Predictor remoto, acumularlas dentro
-  del worker y enviarlas una sola vez con el resultado final.
-- [ ] Añadir checkpoints locales de cancelación únicamente si aparecen cálculos
-  interactivos suficientemente largos para necesitarlos; no restaurar llamadas
-  HTTP por fila.
-- [ ] Afinar la apertura fría de HA/RPi4 solo después de validar la vía worker y
-  disponer de una medida descompuesta fiable.
-- [ ] Seguir reduciendo responsabilidades de `web_server.py` cuando los cambios
-  puedan residir en `rainmapper_core` o módulos de UI específicos.
+- [ ] Añadir sanity checks confirmables al alta, edición e importación masiva:
+  fecha fuera de temporada habitual, altitud discordante y primera observación
+  especie-área/microárea.
+- [ ] Los checks deben mostrarse en un modal evidente y permitir continuar;
+  nunca corregir, descartar ni reclasificar automáticamente una excepción real.
+- [ ] Cambiar el dictamen rígido `fuera de temporada` por una advertencia
+  ecológica prudente cuando el Predictor pueda evaluar condiciones compatibles.
+- [ ] Auditar las identificaciones automáticas antiguas restantes para detectar
+  observaciones que pudieron contaminar artefactos previos.
+- [ ] Investigar la altitud representativa de Ordino y cobertura DEM de Andorra.
 
-## Completado en el ciclo actual
+## Completado — histórico y almacenamiento meteorológico
 
-- [x] Predictor ejecutable en HA o worker `predictor_v1`, con HA como autoridad
-  de UI, jobs, resultados y Diagnostics.
-- [x] Selección de ejecutor fijada durante toda la sesión; solo cambia por orden
-  explícita o indisponibilidad real.
-- [x] Diagnóstico del retraso remoto: 112 viajes síncronos al coordinador para
-  una semana de 56 filas convertían 2,617 s de cálculo en 117–134 s.
-- [x] Eliminados callbacks granulares; worker `1.0.2` publica solo inicio/final y
-  el modal usa una ETA visual no autoritativa.
-- [x] Cachés LRU por fingerprint, inferencia vectorizada y runtime inmutable
-  persistente en worker.
-- [x] HA `0.2.239` publicada multi-arquitectura y worker M1 `1.0.2` healthy/idle.
-- [x] Caja negra persistente con comparativas, evolución, promedios por versión,
-  Gantt de fuentes y recuperación de memoria.
-- [x] P0 de memoria RPi4 cerrado para uso monousuario sin runner y Predictor
-  simultáneos; cero OOM en las pruebas realizadas.
-- [x] Parquet meteorológico filtrable, catálogo de estaciones, paridad
-  train/predict y selección por cobertura.
-- [x] Retención/limpieza de bundles terminales de workers y reconciliación antes
-  de lanzar trabajos.
-- [x] Limpieza de fotos huérfanas y corrección del borrado de media compartida.
+- [x] Backfill cacheado/reanudable de Meteocat, Wunderground y AEMET; ausencia,
+  error o estación inexistente nunca se convirtió en lluvia cero.
+- [x] Merge complementario y deduplicación por fuente/estación/fecha, con
+  candidatos, informes y hashes preservados en el laboratorio.
+- [x] Migración inicial construida y validada en el M1, no en la RPi4.
+- [x] Histórico canónico transaccional particionado por fuente/año instalado y
+  validado en HA, con generaciones inmutables, manifiesto y `CURRENT` atómico.
+- [x] CSV diarios vivos acotados a 180 fechas; colas intradía AEMET y
+  Meteoclimatic a siete días cerrados más el actual.
+- [x] Tomap/MapLibre leen ventanas acotadas; Predictor y workers consumen el
+  histórico particionado mediante snapshots y cachés por hash.
+- [x] Runner ordinario e idempotencia medidos en la RPi4 de 4 GiB; schedules
+  reactivados y generación antigua acotada.
+- [x] Métricas Wunderground con retención acotada; escrituras críticas atómicas.
 
-## Riesgos y dudas abiertas
+## Completado — release 0.2.252
 
-- La ETA del modal es una estimación del cliente, no porcentaje real.
-- El M5 sigue en una versión anterior del worker.
-- La fuente futura de permisos del Predictor público —rol fijo, campo de usuario
-  o perfil— está sin decidir.
-- Escalar el Predictor sin límites podría trasladar la saturación de la RPi4 a
-  los workers; la publicación pública no debe hacerse antes de resolverlo.
-- HA y worker se versionan de forma independiente; nunca inferir compatibilidad
-  por igualdad de números, sino por capacidades y contratos.
+- [x] Eliminados botones y selectores de reconstrucción parcial/especie/
+  pendientes y el entrenamiento independiente de la UI operativa.
+- [x] Implementado chaining coordinador de reconstrucción completa a training
+  completo usando el `features.json` candidato.
+- [x] Implementada promoción conjunta con reservas de ambos jobs, limpieza de
+  pendientes posterior al éxito y rollback de artefactos/modelos.
+- [x] Smoke del paquete aislado: 651 tests. Worktree completo: 669 tests.
+- [x] Publicada HA `0.2.252`, commit `8010b89`, multiarch amd64/arm64, digest
+  común `sha256:c888fce58ba98dd082f56678ea4c18aa73ce43f7421c2e309437e756d204920d`.
+- [x] Confirmado que worker `1.0.7` ya soporta ambos jobs y no necesita `1.0.8`.
+- [x] Documentada la autorización para ejecutar sin consultas redundantes las
+  acciones no destructivas propias de una tarea explícitamente encargada.
+
+## Completado — publicación 0.2.253
+
+- [x] Unificada la transformación de metadata a rutas vivas entre preparación
+  del entrenamiento y promoción.
+- [x] Conservado el diagnóstico completo con wrapping de rutas/hashes en el
+  modal del Predictor.
+- [x] Suite completa: 672 tests; smoke, sintaxis y versiones superados.
+- [x] Publicados `0.2.253` y `latest` con digest común
+  `sha256:5b1fad84e76ae80a1144e8f96f8dd54abd708bbcef0e27d27566fd4645ce4e89`
+  y manifests `linux/amd64` y `linux/arm64`.
+
+## Riesgos y dudas
+
+- Hasta activar una reconstrucción completa, los artefactos/modelos pueden no
+  representar el store corregido de observaciones.
+- Edulis tiene una muestra pequeña: una observación incorrecta puede alterar
+  significativamente soporte, áreas y scores.
+- Los cambios locales Biology V3/altitude v2 no forman parte de `0.2.252`; no
+  limpiar el worktree ni confundir código local con producción.
+- La muestra de salidas está sesgada porque normalmente no se visita cuando se
+  espera un resultado negativo; mantener esta censura explícita.
+- HA y worker se versionan independientemente; compatibilidad por capacidades y
+  contratos, no por igualdad de versión.

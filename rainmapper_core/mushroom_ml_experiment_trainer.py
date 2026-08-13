@@ -10,23 +10,25 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from rainmapper_core.mushroom_ml_experiments import (
     FEATURE_SETS,
-    FIXED_GAP_7D_V1,
-    LAG_EVENT_V1,
+    FIXED_GAP_7D_ALTITUDE_V2,
+    LAG_EVENT_ALTITUDE_V2,
     build_benchmark,
 )
 from rainmapper_core.mushroom_ml_trainer import load_features, load_micro_area_to_area
+from rainmapper_core.mushroom_ml_trainer import load_area_representative_altitudes
 
 
 EXPERIMENT_MODEL_PREFIX = "mushroom_ml_experiment"
 DEFAULT_FEATURE_SET_IDS = (
-    FIXED_GAP_7D_V1.feature_set_id,
-    LAG_EVENT_V1.feature_set_id,
+    FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+    LAG_EVENT_ALTITUDE_V2.feature_set_id,
 )
 EXPERIMENT_ESTIMATOR_IDS = (
     "logistic_regression_reduced_v1",
@@ -278,8 +280,13 @@ def train_benchmark(
     feature_set = dict(benchmark["feature_set"])
     feature_set_id = str(feature_set["id"])
     feature_cols = [str(value) for value in feature_set["feature_cols"]]
-    samples = [dict(value) for value in benchmark.get("samples", [])]
-    species_ids = sorted({str(sample.get("species_id")) for sample in samples})
+    audit_samples = [dict(value) for value in benchmark.get("samples", [])]
+    samples = [
+        sample
+        for sample in audit_samples
+        if bool(sample.get("metadata", {}).get("training_eligible", True))
+    ]
+    species_ids = sorted({str(sample.get("species_id")) for sample in audit_samples})
     species_results: list[dict[str, Any]] = []
     models_dir.mkdir(parents=True, exist_ok=True)
 
@@ -531,6 +538,22 @@ def train_benchmark(
         "feature_cols": feature_cols,
         "episode_count": benchmark.get("episode_count", 0),
         "sample_count": benchmark.get("sample_count", 0),
+        "training_eligible_sample_count": len(samples),
+        "training_ineligible_sample_count": len(audit_samples) - len(samples),
+        "training_ineligibility_reasons": dict(
+            sorted(
+                Counter(
+                    reason
+                    for sample in audit_samples
+                    if not bool(
+                        sample.get("metadata", {}).get("training_eligible", True)
+                    )
+                    for reason in sample.get("metadata", {}).get(
+                        "training_ineligibility_reasons", []
+                    )
+                ).items()
+            )
+        ),
         "species_results": species_results,
     }
 
@@ -550,6 +573,7 @@ def run(
         selected = {str(value) for value in species_ids}
         rows = [row for row in rows if str(row.get("species_id")) in selected]
     mapping = load_micro_area_to_area(known_sites_path)
+    area_altitudes = load_area_representative_altitudes(known_sites_path)
     features_sha256 = hashlib.sha256(features_path.read_bytes()).hexdigest()
     known_sites_sha256 = hashlib.sha256(known_sites_path.read_bytes()).hexdigest()
     results: list[dict[str, Any]] = []
@@ -557,6 +581,7 @@ def run(
         benchmark = build_benchmark(
             rows,
             mapping,
+            area_representative_altitudes=area_altitudes,
             feature_set_id=feature_set_id,
         )
         results.append(

@@ -37,23 +37,25 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-11
+## Estado general al cierre de 2026-08-13
 
 - Rama activa: `inicial`.
-- HA `0.2.246` está publicada y pendiente de instalar en la RPi4 real; sustituye
-  a `0.2.245`, que no llegó a instalarse. HA `0.2.244` continúa activa hasta que
-  el usuario complete la actualización.
-- Worker M1 `1.0.6` está conectado al coordinador real, healthy/idle y con
-  capacidad `predictor_v1` y cachés persistentes válidas.
-- La prioridad inmediata es instalar HA `0.2.246` y validar el Predictor remoto:
-  resumen inicial, cancelación desde el modal y una consulta Pinícola. Si vuelve
-  a producirse un HTTP `409`, worker `1.0.6` mostrará su motivo exacto.
-- El P0 de memoria RPi4 está cerrado para el escenario probado: uso monousuario
-  y sin runner/Predictor simultáneos. Diagnostics sigue vigilando OOM, cgroup,
-  memoria disponible, temperatura y recuperación.
+- El repositorio y GHCR publican HA `0.2.252`; el usuario la está instalando en
+  la RPi4 y falta validar el arranque. El worker M1 vigente es `1.0.7` y no
+  requiere actualización para esta release.
+- El backfill, el histórico meteorológico fuente/año, los CSV vivos acotados y
+  el Predictor histórico ya están migrados y aceptados. No reabrir ese proyecto
+  como objetivo activo; sus evidencias quedan en el audit lab.
+- `0.2.252` deja una única actualización completa en worker: reconstrucción y
+  entrenamiento son dos jobs encadenados y diagnosticables, con activación
+  conjunta y rollback.
+- El siguiente bloque es validar la release, reconstruir/reentrenar con las 399
+  observaciones corregidas y retomar Biology V3.
+- Hay cambios locales no publicados de Biology V3, contratos altitude v2, UI,
+  modelos sombra, pruebas y documentación. No limpiar el worktree.
 - El repositorio GitHub sigue público por decisión explícita del usuario.
 
-El estado exacto, digest, medidas, prueba siguiente y riesgos están en
+El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.
 
 ## Mapa documental
@@ -67,6 +69,14 @@ El estado exacto, digest, medidas, prueba siguiente y riesgos están en
 - Predictor remoto/worker: `docs/mushrooms/mushroom-remote-predictor-design-es.md`
 - Plataforma de workers: `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
 - Entrenamiento ML/dataset: `docs/mushrooms/mushroom-ml-training-plan-es.md`
+- Auditoría ML v3: `docs/mushrooms/mushroom-ml-v3-data-audit-es.md`
+- Especificación ML v3: `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`
+- Backfill histórico y promoción:
+  `docs/mushrooms/mushroom-weather-historical-backfill-handoff-es.md`
+- Almacenamiento y retención meteorológica:
+  `docs/weather-storage-retention-plan-es.md`
+- Implementación del histórico meteorológico particionado:
+  `docs/weather-history-partitioned-implementation-spec-es.md`
 - Narrador LLM local opcional:
   `docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`
 - Contrato perfiles: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`

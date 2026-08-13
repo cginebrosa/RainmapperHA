@@ -125,15 +125,40 @@ def load_micro_area_to_area(known_sites_path: Path) -> dict[str, str]:
     }
 
 
+def load_area_representative_altitudes(known_sites_path: Path) -> dict[str, float]:
+    """Return stable area altitudes from all materialized micro-area DEM means."""
+    if not known_sites_path.exists():
+        return {}
+    payload = json.loads(known_sites_path.read_text(encoding="utf-8"))
+    by_area: dict[str, list[float]] = {}
+    for micro_area in payload.get("micro_areas", []):
+        area_id = str(micro_area.get("area_id") or "")
+        gis_dem = dict((micro_area.get("derived_context") or {}).get("gis_dem") or {})
+        altitude = gis_dem.get("altitude_mean_m")
+        if not area_id or altitude is None:
+            continue
+        try:
+            by_area.setdefault(area_id, []).append(float(altitude))
+        except (TypeError, ValueError):
+            continue
+    return {
+        area_id: sum(values) / len(values)
+        for area_id, values in by_area.items()
+        if values
+    }
+
+
 def aggregate_to_area_episodes(
     rows: list[dict[str, Any]],
     micro_area_to_area: dict[str, str],
+    area_representative_altitudes: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     """Aggregate observation rows to (species, area, date) episodes.
 
     Episode target is favorable if ANY micro_area in the area was favorable
     that day. Weather features come from the row with the fewest gaps.
-    Altitude is averaged across micro_areas present that day.
+    Altitude uses the stable representative DEM altitude of the complete area
+    when supplied, rather than depending on which micro-areas were observed.
     """
     from collections import defaultdict  # noqa: PLC0415
 
@@ -154,9 +179,19 @@ def aggregate_to_area_episodes(
         episode["area_id"] = area_id
         episode["prediction_target"] = "favorable" if any_favorable else "unfavorable"
         episode["n_micro_areas_in_episode"] = len(group)
-        # Average altitude across micro_areas present that day
+        # Compatibility fallback for callers without the materialized area lookup.
         alts = [r["gis_altitude_m"] for r in group if r.get("gis_altitude_m") is not None]
-        episode["gis_altitude_m"] = sum(alts) / len(alts) if alts else best.get("gis_altitude_m")
+        representative_altitude = (area_representative_altitudes or {}).get(area_id)
+        episode["gis_altitude_m"] = (
+            representative_altitude
+            if representative_altitude is not None
+            else (sum(alts) / len(alts) if alts else best.get("gis_altitude_m"))
+        )
+        episode["area_altitude_method"] = (
+            "mean_of_all_materialized_micro_area_dem_means"
+            if representative_altitude is not None
+            else "episode_micro_area_mean_fallback"
+        )
         episodes.append(episode)
 
     return sorted(episodes, key=lambda e: e["observed_at"])

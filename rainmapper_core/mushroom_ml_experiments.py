@@ -22,6 +22,7 @@ from rainmapper_core.mushroom_ml_trainer import (
     TRAIN_RATIO,
     aggregate_to_area_episodes,
     filter_eligible,
+    load_area_representative_altitudes,
     load_features,
     load_micro_area_to_area,
 )
@@ -32,6 +33,7 @@ RAIN_EVENT_THRESHOLD_MM = 2.0
 SIGNIFICANT_RAIN_THRESHOLD_MM = 5.0
 HEAT_STRESS_THRESHOLD_C = 28.0
 EVENT_LOOKBACK_DAYS = 90
+TEMPERATURE_LAPSE_RATE_C_PER_100M = 0.65
 
 
 @dataclass(frozen=True)
@@ -90,9 +92,42 @@ FIXED_GAP_7D_V1 = FeatureSetSpec(
     max_lookback_days=LAG_EVENT_V1.max_lookback_days,
 )
 
+LAG_EVENT_ALTITUDE_V2 = FeatureSetSpec(
+    feature_set_id="lag_event_altitude_v2",
+    description=(
+        "Issue-date lag/event representation with station temperatures adjusted to "
+        "the representative DEM altitude of the complete area. It replaces the global "
+        "28 C heat-stress threshold with continuous thermal variables."
+    ),
+    feature_cols=tuple(
+        column
+        for column in LAG_EVENT_V1.feature_cols
+        if column not in {"heat_stress_observed_at_cutoff", "heat_stress_is_censored"}
+    )
+    + (
+        "temp_max_mean_cutoff_7d_c",
+        "temp_mean_cutoff_7d_c",
+    ),
+    max_lookback_days=EVENT_LOOKBACK_DAYS,
+)
+
+FIXED_GAP_7D_ALTITUDE_V2 = FeatureSetSpec(
+    feature_set_id="fixed_gap_7d_altitude_v2",
+    description=(
+        "Fixed seven-day blind gap with station temperatures adjusted to the "
+        "representative DEM altitude of the complete area and continuous thermal variables."
+    ),
+    feature_cols=tuple(
+        column for column in LAG_EVENT_ALTITUDE_V2.feature_cols if column != "horizon_days"
+    ),
+    max_lookback_days=EVENT_LOOKBACK_DAYS,
+)
+
 FEATURE_SETS = {
     LAG_EVENT_V1.feature_set_id: LAG_EVENT_V1,
     FIXED_GAP_7D_V1.feature_set_id: FIXED_GAP_7D_V1,
+    LAG_EVENT_ALTITUDE_V2.feature_set_id: LAG_EVENT_ALTITUDE_V2,
+    FIXED_GAP_7D_ALTITUDE_V2.feature_set_id: FIXED_GAP_7D_ALTITUDE_V2,
 }
 
 
@@ -164,9 +199,42 @@ def _available_mean(values: Sequence[float | None]) -> tuple[float | None, int]:
     return round(sum(available) / len(available), 3), len(available)
 
 
+def altitude_temperature_correction_c(
+    station_altitude_m: object,
+    area_altitude_m: object,
+) -> float | None:
+    """Return the additive station-to-area temperature correction.
+
+    Positive values warm a lower target area; negative values cool a higher
+    target area. The rate matches MapLibre's current configurable default.
+    """
+    station_altitude = _float_or_none(station_altitude_m)
+    area_altitude = _float_or_none(area_altitude_m)
+    if station_altitude is None or area_altitude is None:
+        return None
+    return round(
+        ((station_altitude - area_altitude) / 100.0)
+        * TEMPERATURE_LAPSE_RATE_C_PER_100M,
+        6,
+    )
+
+
+def _corrected_temperature_series(
+    values: Sequence[float | None], correction_c: float | None
+) -> list[float | None]:
+    if correction_c is None:
+        return [None for _value in values]
+    return [
+        round(float(value) + correction_c, 3) if value is not None else None
+        for value in values
+    ]
+
+
 def build_lag_event_features(
     episode: dict[str, Any],
     horizon_days: int,
+    *,
+    altitude_corrected: bool = False,
 ) -> tuple[dict[str, float | None], dict[str, Any]]:
     """Build features known at target_date - horizon_days, never beyond it."""
     if horizon_days < 0:
@@ -193,6 +261,18 @@ def build_lag_event_features(
     if not raw["daily_rain_suppressed"] and rain_source:
         raw["daily_rain_suppressed"] = [0.0] * len(rain_source)
     raw["daily_rain_mm"] = [float(value or 0.0) for value in rain_source]
+    quality_temp_mean = list(raw["daily_temp_mean_c"])
+    quality_humidity_mean = list(raw["daily_humidity_mean_pct"])
+    temperature_correction_c = None
+    if altitude_corrected:
+        temperature_correction_c = altitude_temperature_correction_c(
+            episode.get("weather_station_altitude_m"),
+            episode.get("gis_altitude_m"),
+        )
+        for field in ("daily_temp_max_c", "daily_temp_mean_c"):
+            raw[field] = _corrected_temperature_series(
+                raw[field], temperature_correction_c
+            )
     lengths = {len(values) for values in raw.values() if values}
     aligned = len(lengths) <= 1
     source_days = max(lengths, default=0)
@@ -223,6 +303,8 @@ def build_lag_event_features(
     heat_run, heat_censored = _continuous_run(
         temp_max_search, lambda value: value > HEAT_STRESS_THRESHOLD_C
     )
+    temp_max_mean_7d, _temp_max_days_7d = _available_mean(temp_max[-7:])
+    temp_mean_7d, _temp_mean_days_7d = _available_mean(temp_mean[-7:])
 
     significant_found = significant_age is not None
     context_days = significant_age + 1 if significant_age is not None else EVENT_LOOKBACK_DAYS
@@ -237,6 +319,10 @@ def build_lag_event_features(
     rain_observed_90 = int(sum(rain_observed_search))
     rain_suppressed_90 = int(sum(rain_suppressed_search))
     rain_missing_90 = max(0, EVENT_LOOKBACK_DAYS - rain_observed_90 - rain_suppressed_90)
+    quality_temp_known = quality_temp_mean[:cutoff_end] if enough_history else []
+    quality_humidity_known = quality_humidity_mean[:cutoff_end] if enough_history else []
+    temperature_observed_21 = sum(value is not None for value in quality_temp_known[-21:])
+    humidity_observed_21 = sum(value is not None for value in quality_humidity_known[-21:])
 
     angle = 2.0 * math.pi * (target_date.month - 1) / 12.0
     features: dict[str, float | None] = {
@@ -274,6 +360,11 @@ def build_lag_event_features(
         "temp_observed_days_after_significant_rain": float(after_rain_temp_days),
         "humidity_observed_days_after_significant_rain": float(after_rain_humidity_days),
     }
+    if altitude_corrected:
+        features.pop("heat_stress_observed_at_cutoff", None)
+        features.pop("heat_stress_is_censored", None)
+        features["temp_max_mean_cutoff_7d_c"] = temp_max_mean_7d
+        features["temp_mean_cutoff_7d_c"] = temp_mean_7d
     metadata = {
         "target_date": target_date.isoformat(),
         "cutoff_date": cutoff_date.isoformat(),
@@ -285,9 +376,44 @@ def build_lag_event_features(
         "rain_lookback_missing_days": rain_missing_90,
         "rain_lookback_suppressed_days": rain_suppressed_90,
         "rain_lookback_expected_days": EVENT_LOOKBACK_DAYS,
+        "temperature_observed_days_21": temperature_observed_21,
+        "humidity_observed_days_21": humidity_observed_21,
         "rain_event_search_complete": enough_history,
         "significant_rain_search_complete": enough_history,
+        "temperature_contract": (
+            "station_temperature_adjusted_to_area_representative_dem_altitude_v1"
+            if altitude_corrected
+            else "raw_station_temperature_v1"
+        ),
+        "weather_station_altitude_m": _float_or_none(
+            episode.get("weather_station_altitude_m")
+        ),
+        "area_representative_altitude_m": _float_or_none(
+            episode.get("gis_altitude_m")
+        ),
+        "temperature_lapse_rate_c_per_100m": (
+            TEMPERATURE_LAPSE_RATE_C_PER_100M if altitude_corrected else None
+        ),
+        "temperature_altitude_correction_c": temperature_correction_c,
+        "temperature_altitude_correction_available": (
+            temperature_correction_c is not None if altitude_corrected else None
+        ),
     }
+    eligibility_reasons = []
+    if not enough_history:
+        eligibility_reasons.append("insufficient_or_unaligned_daily_history")
+    if rain_observed_21 < ctx.STATION_RAIN_MIN_DAYS_21:
+        eligibility_reasons.append("rain_coverage_below_19_of_21")
+    if rain_observed_90 < ctx.STATION_RAIN_MIN_DAYS_90:
+        eligibility_reasons.append("rain_coverage_below_81_of_90")
+    if temperature_observed_21 < ctx.STATION_TEMP_MIN_DAYS_21:
+        eligibility_reasons.append("temperature_coverage_below_19_of_21")
+    if humidity_observed_21 < ctx.STATION_HUMIDITY_MIN_DAYS_21:
+        eligibility_reasons.append("humidity_coverage_below_19_of_21")
+    if altitude_corrected and temperature_correction_c is None:
+        eligibility_reasons.append("station_or_area_altitude_missing")
+    metadata["training_eligible"] = not eligibility_reasons
+    metadata["training_ineligibility_reasons"] = eligibility_reasons
     return features, metadata
 
 
@@ -298,6 +424,26 @@ def build_fixed_gap_7d_features(
     features, metadata = build_lag_event_features(episode, horizon_days=7)
     features.pop("horizon_days", None)
     metadata["feature_set_id"] = FIXED_GAP_7D_V1.feature_set_id
+    metadata["hidden_interval"] = "target_minus_6_days_through_target_inclusive"
+    return features, metadata
+
+
+def build_lag_event_altitude_features(
+    episode: dict[str, Any], horizon_days: int
+) -> tuple[dict[str, float | None], dict[str, Any]]:
+    features, metadata = build_lag_event_features(
+        episode, horizon_days, altitude_corrected=True
+    )
+    metadata["feature_set_id"] = LAG_EVENT_ALTITUDE_V2.feature_set_id
+    return features, metadata
+
+
+def build_fixed_gap_7d_altitude_features(
+    episode: dict[str, Any],
+) -> tuple[dict[str, float | None], dict[str, Any]]:
+    features, metadata = build_lag_event_altitude_features(episode, horizon_days=7)
+    features.pop("horizon_days", None)
+    metadata["feature_set_id"] = FIXED_GAP_7D_ALTITUDE_V2.feature_set_id
     metadata["hidden_interval"] = "target_minus_6_days_through_target_inclusive"
     return features, metadata
 
@@ -420,6 +566,7 @@ def build_benchmark(
     micro_area_to_area: dict[str, str],
     horizons: Iterable[int] = DEFAULT_HORIZONS,
     feature_set_id: str = LAG_EVENT_V1.feature_set_id,
+    area_representative_altitudes: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Return a frozen benchmark payload; no estimator is fitted here."""
     if feature_set_id not in FEATURE_SETS:
@@ -434,7 +581,9 @@ def build_benchmark(
     for species_id in species_ids:
         all_episodes.extend(
             aggregate_to_area_episodes(
-                filter_eligible(rows, species_id), micro_area_to_area
+                filter_eligible(rows, species_id),
+                micro_area_to_area,
+                area_representative_altitudes,
             )
         )
     partitions = _partition_episodes(all_episodes)
@@ -445,15 +594,23 @@ def build_benchmark(
         episode_id = (
             f"{episode.get('species_id')}|{episode.get('area_id')}|{episode.get('observed_at')}"
         )
-        sample_horizons = (
-            (7,)
-            if feature_set_id == FIXED_GAP_7D_V1.feature_set_id
-            else horizon_values
-        )
+        fixed_gap_ids = {
+            FIXED_GAP_7D_V1.feature_set_id,
+            FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+        }
+        sample_horizons = (7,) if feature_set_id in fixed_gap_ids else horizon_values
         for horizon_days in sample_horizons:
             if feature_set_id == FIXED_GAP_7D_V1.feature_set_id:
                 features, metadata = build_fixed_gap_7d_features(episode)
                 sample_suffix = "fixed_gap_7d"
+            elif feature_set_id == FIXED_GAP_7D_ALTITUDE_V2.feature_set_id:
+                features, metadata = build_fixed_gap_7d_altitude_features(episode)
+                sample_suffix = "fixed_gap_7d_altitude_v2"
+            elif feature_set_id == LAG_EVENT_ALTITUDE_V2.feature_set_id:
+                features, metadata = build_lag_event_altitude_features(
+                    episode, horizon_days
+                )
+                sample_suffix = f"altitude_v2_h{horizon_days}"
             else:
                 features, metadata = build_lag_event_features(episode, horizon_days)
                 metadata["feature_set_id"] = LAG_EVENT_V1.feature_set_id
@@ -471,6 +628,27 @@ def build_benchmark(
                     "metadata": metadata,
                 }
             )
+
+    eligible_episode_ids = {
+        str(sample["episode_id"])
+        for sample in samples
+        if bool(sample.get("metadata", {}).get("training_eligible"))
+    }
+    eligible_episodes = [
+        episode
+        for episode in all_episodes
+        if _episode_id(episode) in eligible_episode_ids
+    ]
+    eligible_partitions = _partition_episodes(eligible_episodes)
+    eligible_chronological = _chronological_partitions(eligible_episodes)
+    for sample in samples:
+        episode_id = str(sample["episode_id"])
+        if not bool(sample.get("metadata", {}).get("training_eligible")):
+            sample["partition"] = "excluded"
+            sample["chronological_partition"] = "excluded"
+            continue
+        sample["partition"] = eligible_partitions[episode_id]
+        sample["chronological_partition"] = eligible_chronological[episode_id]
 
     return {
         "schema_version": "1.0",
@@ -492,16 +670,46 @@ def build_benchmark(
             "thresholds_inherited_from_v0": {
                 "rain_event_mm": RAIN_EVENT_THRESHOLD_MM,
                 "significant_rain_mm": SIGNIFICANT_RAIN_THRESHOLD_MM,
-                "heat_stress_c": HEAT_STRESS_THRESHOLD_C,
+                **(
+                    {}
+                    if feature_set_id
+                    in {
+                        FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+                        LAG_EVENT_ALTITUDE_V2.feature_set_id,
+                    }
+                    else {"heat_stress_c": HEAT_STRESS_THRESHOLD_C}
+                ),
             },
+            "temperature_contract": (
+                {
+                    "id": "station_to_area_representative_altitude_v1",
+                    "lapse_rate_c_per_100m": TEMPERATURE_LAPSE_RATE_C_PER_100M,
+                    "area_altitude_method": "mean_of_all_materialized_micro_area_dem_means",
+                    "global_heat_stress_threshold_removed": True,
+                }
+                if feature_set_id
+                in {
+                    FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+                    LAG_EVENT_ALTITUDE_V2.feature_set_id,
+                }
+                else {"id": "raw_station_temperature_v1"}
+            ),
         },
         "horizons": (
             [7]
-            if feature_set_id == FIXED_GAP_7D_V1.feature_set_id
+            if feature_set_id
+            in {
+                FIXED_GAP_7D_V1.feature_set_id,
+                FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+            }
             else list(horizon_values)
         ),
         "episode_count": len(all_episodes),
         "sample_count": len(samples),
+        "training_eligible_sample_count": sum(
+            bool(sample.get("metadata", {}).get("training_eligible"))
+            for sample in samples
+        ),
         "samples": samples,
     }
 
@@ -523,7 +731,7 @@ def main() -> None:
     parser.add_argument(
         "--feature-set",
         choices=sorted(FEATURE_SETS),
-        default=LAG_EVENT_V1.feature_set_id,
+        default=LAG_EVENT_ALTITUDE_V2.feature_set_id,
     )
     args = parser.parse_args()
 
@@ -532,6 +740,7 @@ def main() -> None:
         load_micro_area_to_area(args.known_sites),
         args.horizons,
         args.feature_set,
+        load_area_representative_altitudes(args.known_sites),
     )
     payload["source"] = {
         "features_path": str(args.features),

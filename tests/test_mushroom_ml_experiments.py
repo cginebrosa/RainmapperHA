@@ -2,10 +2,16 @@ import unittest
 from collections import Counter
 
 from rainmapper_core.mushroom_ml_experiments import (
+    FIXED_GAP_7D_ALTITUDE_V2,
     FIXED_GAP_7D_V1,
+    LAG_EVENT_ALTITUDE_V2,
     LAG_EVENT_V1,
+    TEMPERATURE_LAPSE_RATE_C_PER_100M,
+    altitude_temperature_correction_c,
     build_benchmark,
+    build_fixed_gap_7d_altitude_features,
     build_fixed_gap_7d_features,
+    build_lag_event_altitude_features,
     build_lag_event_features,
 )
 
@@ -19,6 +25,7 @@ def _episode(day: str = "2026-08-14") -> dict:
         "observed_at": day,
         "prediction_target": "favorable",
         "gis_altitude_m": 700.0,
+        "weather_station_altitude_m": 200.0,
         "daily_rain_mm": rain,
         "daily_rain_observed": [1.0] * 120,
         "daily_rain_suppressed": [0.0] * 120,
@@ -76,8 +83,103 @@ class LagEventFeaturesTests(unittest.TestCase):
         self.assertNotIn("horizon_days", features)
         self.assertEqual(metadata["feature_set_id"], FIXED_GAP_7D_V1.feature_set_id)
 
+    def test_altitude_contract_corrects_continuous_temperatures(self) -> None:
+        features, metadata = build_lag_event_altitude_features(
+            _episode(), horizon_days=4
+        )
+
+        self.assertEqual(
+            altitude_temperature_correction_c(200.0, 700.0), -3.25
+        )
+        self.assertEqual(features["temp_max_mean_cutoff_7d_c"], 21.75)
+        self.assertEqual(features["temp_mean_cutoff_7d_c"], 14.75)
+        self.assertEqual(features["temp_mean_after_significant_rain_c"], 14.75)
+        self.assertNotIn("heat_stress_observed_at_cutoff", features)
+        self.assertNotIn("heat_stress_is_censored", features)
+        self.assertEqual(
+            metadata["feature_set_id"], LAG_EVENT_ALTITUDE_V2.feature_set_id
+        )
+        self.assertEqual(metadata["weather_station_altitude_m"], 200.0)
+        self.assertEqual(metadata["area_representative_altitude_m"], 700.0)
+        self.assertEqual(
+            metadata["temperature_lapse_rate_c_per_100m"],
+            TEMPERATURE_LAPSE_RATE_C_PER_100M,
+        )
+        self.assertEqual(metadata["temperature_altitude_correction_c"], -3.25)
+        self.assertTrue(metadata["temperature_altitude_correction_available"])
+
+    def test_altitude_contract_does_not_silently_use_raw_temperature(self) -> None:
+        episode = _episode()
+        episode["weather_station_altitude_m"] = None
+
+        features, metadata = build_fixed_gap_7d_altitude_features(episode)
+
+        self.assertIsNone(features["temp_max_mean_cutoff_7d_c"])
+        self.assertIsNone(features["temp_mean_cutoff_7d_c"])
+        self.assertIsNone(features["temp_mean_after_significant_rain_c"])
+        self.assertFalse(metadata["temperature_altitude_correction_available"])
+        self.assertFalse(metadata["training_eligible"])
+        self.assertIn(
+            "station_or_area_altitude_missing",
+            metadata["training_ineligibility_reasons"],
+        )
+        self.assertEqual(metadata["temperature_observed_days_21"], 21)
+        self.assertEqual(
+            metadata["feature_set_id"], FIXED_GAP_7D_ALTITUDE_V2.feature_set_id
+        )
+
+    def test_training_gate_rejects_missing_rain_instead_of_imputing_it(self) -> None:
+        episode = _episode()
+        for index in (-8, -9, -10):
+            episode["daily_rain_observed"][index] = 0.0
+
+        _features, metadata = build_fixed_gap_7d_altitude_features(episode)
+
+        self.assertEqual(metadata["rain_lookback_observed_days"], 87)
+        self.assertFalse(metadata["training_eligible"])
+        self.assertIn(
+            "rain_coverage_below_19_of_21",
+            metadata["training_ineligibility_reasons"],
+        )
+
 
 class BenchmarkContractTests(unittest.TestCase):
+    def test_v2_uses_stable_area_representative_altitude(self) -> None:
+        rows = []
+        for index in range(4):
+            row = _episode(f"2026-08-{index + 1:02d}")
+            row.update(
+                {
+                    "micro_area_id": "micro_a",
+                    "gis_altitude_m": 900.0,
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "prediction_target": "favorable" if index % 2 else "unfavorable",
+                }
+            )
+            rows.append(row)
+
+        payload = build_benchmark(
+            rows,
+            {"micro_a": "area_a"},
+            feature_set_id=FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+            area_representative_altitudes={"area_a": 700.0},
+        )
+
+        self.assertEqual(payload["feature_set"]["id"], FIXED_GAP_7D_ALTITUDE_V2.feature_set_id)
+        self.assertEqual(
+            payload["samples"][0]["metadata"]["area_representative_altitude_m"],
+            700.0,
+        )
+        self.assertEqual(
+            payload["samples"][0]["metadata"]["temperature_altitude_correction_c"],
+            -3.25,
+        )
+        self.assertNotIn(
+            "heat_stress_c",
+            payload["feature_set"]["thresholds_inherited_from_v0"],
+        )
+
     def test_episode_horizons_stay_in_same_partition(self) -> None:
         rows = []
         for index in range(10):
@@ -124,7 +226,31 @@ class BenchmarkContractTests(unittest.TestCase):
         )
         self.assertEqual(payload["episode_count"], 4)
         self.assertEqual(payload["sample_count"], 4)
+        self.assertEqual(payload["training_eligible_sample_count"], 4)
         self.assertEqual(payload["horizons"], [7])
+
+    def test_ineligible_sample_remains_auditable_but_is_excluded(self) -> None:
+        row = _episode("2026-08-01")
+        row.update(
+            {
+                "micro_area_id": "micro_a",
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "prediction_target": "favorable",
+                "daily_rain_observed": [0.0] * 120,
+            }
+        )
+
+        payload = build_benchmark(
+            [row],
+            {"micro_a": "area_a"},
+            feature_set_id=FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+        )
+
+        self.assertEqual(payload["sample_count"], 1)
+        self.assertEqual(payload["training_eligible_sample_count"], 0)
+        self.assertEqual(payload["samples"][0]["partition"], "excluded")
+        self.assertFalse(payload["samples"][0]["metadata"]["training_eligible"])
 
     def test_partition_is_stratified_and_keeps_chronology_as_diagnostic(self) -> None:
         rows = []
