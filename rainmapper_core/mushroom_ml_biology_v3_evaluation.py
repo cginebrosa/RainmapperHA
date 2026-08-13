@@ -8,8 +8,10 @@ cross the train/test boundary.
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from typing import Any
 
+from rainmapper_core import mushroom_ml_experiments
 from rainmapper_core.mushroom_ml_biology_v3 import observation_validation_groups
 
 
@@ -155,10 +157,15 @@ def _metrics(y_true: Any, probabilities: Any) -> dict[str, Any]:
                 "observed_mean": round(observed_mean, 4),
             }
         )
+    balanced_accuracy = (
+        round(float(balanced_accuracy_score(y_true, predicted)), 4)
+        if len(np.unique(y_true)) == 2
+        else None
+    )
     return {
         "n": int(len(y_true)),
         "favorable_ratio": round(float(np.mean(y_true)), 4),
-        "balanced_accuracy": round(float(balanced_accuracy_score(y_true, predicted)), 4),
+        "balanced_accuracy": balanced_accuracy,
         "brier_score": round(float(brier_score_loss(y_true, probabilities)), 4),
         "log_loss": round(float(log_loss(y_true, probabilities, labels=[0, 1])), 4),
         "expected_calibration_error": round(calibration_error, 4),
@@ -200,6 +207,13 @@ def evaluate_benchmark(
     reports: dict[str, Any] = {}
     for family_id, selector in FEATURE_FAMILIES.items():
         feature_cols = [name for name in active_cols if selector(name)]
+        if not feature_cols:
+            reports[family_id] = {
+                "feature_cols": [],
+                "species": {},
+                "pooled_metrics": {"n": 0, "note": "feature family is empty"},
+            }
+            continue
         species_reports: dict[str, Any] = {}
         held_y: list[int] = []
         held_probabilities: list[float] = []
@@ -267,5 +281,177 @@ def evaluate_benchmark(
             "group_overlap_count": len(train_groups & test_groups),
         },
         "families": reports,
+        "model_artifact_written": False,
+    }
+
+
+def build_observation_altitude_v2_benchmark(
+    feature_rows: list[dict[str, Any]],
+    v3_benchmark: dict[str, Any],
+    *,
+    micro_area_to_area: dict[str, str],
+    area_representative_altitudes: dict[str, float],
+) -> dict[str, Any]:
+    """Rebuild altitude V2 features on the exact observation rows used by V3."""
+    rows_by_id = {
+        str(row.get("observation_id") or ""): row
+        for row in feature_rows
+        if row.get("observation_id")
+    }
+    v3_feature_set_id = str((v3_benchmark.get("feature_set") or {}).get("id") or "")
+    fixed = v3_feature_set_id == "fixed_gap_7d_biology_v3"
+    v2_spec = (
+        mushroom_ml_experiments.FIXED_GAP_7D_ALTITUDE_V2
+        if fixed
+        else mushroom_ml_experiments.LAG_EVENT_ALTITUDE_V2
+    )
+    samples: list[dict[str, Any]] = []
+    missing_observation_ids: list[str] = []
+    for v3_sample in v3_benchmark.get("samples", []):
+        v3_metadata = dict(v3_sample.get("metadata") or {})
+        observation_id = str(v3_metadata.get("observation_id") or "")
+        source = rows_by_id.get(observation_id)
+        if source is None:
+            missing_observation_ids.append(observation_id)
+            continue
+        area_id = str(
+            v3_metadata.get("area_id")
+            or micro_area_to_area.get(str(source.get("micro_area_id") or ""))
+            or ""
+        )
+        observation = dict(source)
+        observation["area_id"] = area_id
+        observation["gis_altitude_m"] = area_representative_altitudes.get(area_id)
+        horizon_days = int(v3_metadata.get("horizon_days") or 7)
+        if fixed:
+            features, quality_metadata = (
+                mushroom_ml_experiments.build_fixed_gap_7d_altitude_features(observation)
+            )
+        else:
+            features, quality_metadata = (
+                mushroom_ml_experiments.build_lag_event_altitude_features(
+                    observation, horizon_days
+                )
+            )
+        base_eligible = (
+            source.get("validation_status") == "valid"
+            and source.get("calibration_use") == "include"
+            and source.get("prediction_target") in {"favorable", "unfavorable"}
+            and bool(source.get("micro_area_id"))
+        )
+        reasons = list(quality_metadata.get("training_ineligibility_reasons") or [])
+        if not base_eligible:
+            reasons.append("observation_not_eligible_for_calibration")
+        metadata = {
+            **quality_metadata,
+            "observation_id": observation_id,
+            "species_id": str(v3_metadata.get("species_id") or source.get("species_id") or ""),
+            "area_id": area_id,
+            "micro_area_id": str(source.get("micro_area_id") or ""),
+            "target_date": str(v3_metadata.get("target_date") or source.get("observed_at") or ""),
+            "horizon_days": horizon_days,
+            "validation_group_7d": v3_metadata.get("validation_group_7d"),
+            "validation_group_14d": v3_metadata.get("validation_group_14d"),
+        }
+        samples.append(
+            {
+                "sample_id": f"{observation_id}|{v2_spec.feature_set_id}|h{horizon_days}",
+                "prediction_target": source.get("prediction_target"),
+                "predictive_features": features,
+                "quality": {
+                    "training_eligible": base_eligible and not reasons,
+                    "training_exclusion_reasons": reasons,
+                },
+                "metadata": metadata,
+            }
+        )
+    return {
+        "schema_version": "2.0-observation-comparison",
+        "kind": "mushroom_ml_altitude_v2_observation_benchmark",
+        "feature_set": {
+            "id": v2_spec.feature_set_id,
+            "predictive_feature_cols": list(v2_spec.feature_cols),
+        },
+        "sample_count": len(samples),
+        "training_eligible_sample_count": sum(
+            bool((sample.get("quality") or {}).get("training_eligible"))
+            for sample in samples
+        ),
+        "missing_observation_ids": sorted(set(missing_observation_ids)),
+        "samples": samples,
+    }
+
+
+def _comparison_key(sample: dict[str, Any]) -> tuple[str, int]:
+    metadata = sample.get("metadata") or {}
+    return (
+        str(metadata.get("observation_id") or ""),
+        int(metadata.get("horizon_days") or 7),
+    )
+
+
+def evaluate_matched_benchmarks(
+    altitude_v2_benchmark: dict[str, Any],
+    biology_v3_benchmark: dict[str, Any],
+    *,
+    group_days: int,
+) -> dict[str, Any]:
+    """Evaluate V2 and V3 on the exact same eligible observation/horizon rows."""
+    v2_eligible = {_comparison_key(row): row for row in _eligible_samples(altitude_v2_benchmark)}
+    v3_eligible = {_comparison_key(row): row for row in _eligible_samples(biology_v3_benchmark)}
+    common_keys = sorted(set(v2_eligible) & set(v3_eligible))
+    mismatched_targets = [
+        key
+        for key in common_keys
+        if v2_eligible[key].get("prediction_target")
+        != v3_eligible[key].get("prediction_target")
+    ]
+    if mismatched_targets:
+        raise ValueError("V2 and V3 targets differ for matched observations")
+    if not common_keys:
+        raise ValueError("V2 and V3 have no jointly eligible observation rows")
+    def evaluate_keys(keys: list[tuple[str, int]]) -> tuple[dict[str, Any], dict[str, Any]]:
+        v2_matched = deepcopy(altitude_v2_benchmark)
+        v3_matched = deepcopy(biology_v3_benchmark)
+        v2_matched["samples"] = [v2_eligible[key] for key in keys]
+        v3_matched["samples"] = [v3_eligible[key] for key in keys]
+        v2_report = evaluate_benchmark(v2_matched, group_days=group_days)
+        v3_report = evaluate_benchmark(v3_matched, group_days=group_days)
+        if v2_report["split"] != v3_report["split"]:
+            raise AssertionError("matched V2/V3 rows did not produce the same split")
+        return v2_report, v3_report
+
+    v2_report, v3_report = evaluate_keys(common_keys)
+    horizons = sorted({key[1] for key in common_keys})
+    by_horizon: dict[str, Any] = {}
+    if len(horizons) > 1:
+        for horizon_days in horizons:
+            horizon_keys = [key for key in common_keys if key[1] == horizon_days]
+            horizon_v2, horizon_v3 = evaluate_keys(horizon_keys)
+            by_horizon[str(horizon_days)] = {
+                "jointly_eligible": len(horizon_keys),
+                "split": horizon_v2["split"],
+                "altitude_v2": horizon_v2,
+                "biology_v3": horizon_v3,
+            }
+    return {
+        "schema_version": "1.0",
+        "kind": "biology_v3_matched_altitude_v2_comparison",
+        "coverage": {
+            "v2_eligible": len(v2_eligible),
+            "v3_eligible": len(v3_eligible),
+            "jointly_eligible": len(common_keys),
+            "v2_only": len(set(v2_eligible) - set(v3_eligible)),
+            "v3_only": len(set(v3_eligible) - set(v2_eligible)),
+            "target_mismatch_count": 0,
+        },
+        "split": v2_report["split"],
+        "altitude_v2": v2_report,
+        "biology_v3": v3_report,
+        "by_horizon": by_horizon,
+        "sources": {
+            "altitude_v2": deepcopy(altitude_v2_benchmark.get("source") or {}),
+            "biology_v3": deepcopy(biology_v3_benchmark.get("source") or {}),
+        },
         "model_artifact_written": False,
     }

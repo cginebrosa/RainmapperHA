@@ -160,9 +160,9 @@ def _field(
 
 
 _SHARED_FIELDS = (
-    _field("target_month_sin", "predictive", "active", "Cyclic target month sine."),
-    _field("target_month_cos", "predictive", "active", "Cyclic target month cosine."),
-    _field("gis_altitude_m", "predictive", "active", "Representative DEM altitude."),
+    _field("target_month_sin", "predictive", "inactive", "Retained cyclic target month sine; initially inactive after matched V2/V3 comparison."),
+    _field("target_month_cos", "predictive", "inactive", "Retained cyclic target month cosine; initially inactive after matched V2/V3 comparison."),
+    _field("gis_altitude_m", "predictive", "inactive", "Retained representative DEM altitude; correction remains applied to temperature."),
     _field("rain_cutoff_0_3d_mm", "predictive", "active", "Area IDW rain at ages 0-2 days."),
     _field("rain_cutoff_4_7d_mm", "predictive", "active", "Area IDW rain at ages 3-6 days."),
     _field("rain_cutoff_8_14d_mm", "predictive", "active", "Area IDW rain at ages 7-13 days."),

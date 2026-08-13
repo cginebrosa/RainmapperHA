@@ -382,6 +382,11 @@ class MushroomMLBiologyV3Tests(unittest.TestCase):
         )
         self.assertNotIn("temp_mean_after_significant_rain_c", columns)
         self.assertNotIn("days_since_rain_gt_2_at_target", columns)
+        self.assertNotIn("target_month_sin", columns)
+        self.assertNotIn("target_month_cos", columns)
+        self.assertNotIn("gis_altitude_m", columns)
+        self.assertIn("target_month_sin", sample["predictive_features"])
+        self.assertIn("gis_altitude_m", sample["predictive_features"])
         self.assertIn(
             "rain_cutoff_31_60d_mm",
             registry["experimental_predictive_feature_cols"],

@@ -62,6 +62,54 @@ class BiologyV3EvaluationTests(unittest.TestCase):
         self.assertEqual(report["split"]["group_overlap_count"], 0)
         self.assertFalse(report["model_artifact_written"])
 
+    def test_matched_comparison_uses_identical_rows_and_split(self) -> None:
+        v3_rows = [
+            sample(1, "favorable", "a", "a"),
+            sample(2, "unfavorable", "b", "b"),
+            sample(3, "favorable", "c", "c"),
+            sample(4, "unfavorable", "d", "d"),
+            sample(5, "favorable", "e", "e"),
+            sample(6, "unfavorable", "f", "f"),
+        ]
+        for row in v3_rows:
+            row["metadata"]["observation_id"] = f"obs_{row['sample_id']}"
+            row["metadata"]["horizon_days"] = 7
+        v2_rows = []
+        for row in v3_rows:
+            clone = {
+                **row,
+                "predictive_features": {
+                    "rain_cutoff_0_3d_mm": row["predictive_features"]["rain_cutoff_0_3d_mm"]
+                },
+            }
+            v2_rows.append(clone)
+        v2_rows.append(
+            {
+                **sample(7, "favorable", "g", "g"),
+                "metadata": {
+                    **sample(7, "favorable", "g", "g")["metadata"],
+                    "observation_id": "v2_only",
+                    "horizon_days": 7,
+                },
+            }
+        )
+        v2 = {
+            "feature_set": {"id": "v2", "predictive_feature_cols": ["rain_cutoff_0_3d_mm"]},
+            "samples": v2_rows,
+        }
+        v3 = {
+            "feature_set": {
+                "id": "v3",
+                "predictive_feature_cols": ["rain_cutoff_0_3d_mm", "temp_mean_cutoff_7d_c"],
+            },
+            "samples": v3_rows,
+        }
+        report = evaluation.evaluate_matched_benchmarks(v2, v3, group_days=7)
+        self.assertEqual(report["coverage"]["jointly_eligible"], 6)
+        self.assertEqual(report["coverage"]["v2_only"], 1)
+        self.assertEqual(report["altitude_v2"]["split"], report["biology_v3"]["split"])
+        self.assertFalse(report["model_artifact_written"])
+
 
 if __name__ == "__main__":
     unittest.main()

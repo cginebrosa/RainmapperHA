@@ -101,6 +101,14 @@ materializadas en una copia de known sites resultan 204 y 816 muestras
 elegibles, respectivamente. Los grupos de florada contienen 264 grupos a 7
 días y 244 a 14 días, sin fusionar observaciones. No se entrenó ningún modelo.
 
+La comparación equivalente reconstruye V2 por observación y encuentra 167
+filas semanales comunes. Con mes y altitud directa activados, V3 empeora frente
+a V2; al dejarlos inactivos y conservar lluvia, temperatura, humedad y racha
+seca, V3 mejora Brier, log loss, calibración y acierto equilibrado en grupos de
+7 y 14 días. Ambas variables continúan materializadas; la altitud sigue
+corrigiendo la temperatura. El test evaluable sigue siendo pequeño y no
+autoriza promoción operativa.
+
 La altitud de cada microárea se calcula y cachea al crear o cambiar su geometría;
 no se consulta el DEM durante cada benchmark o predicción. La cadena local
 Catalunya→Andorra→IGN MDT25 hoja 592 cubre las 58 microáreas actuales. Si una

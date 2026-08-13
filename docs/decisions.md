@@ -25,13 +25,19 @@ multiidioma mediante labels `en`, `es` y `ca`.
   borrar variables: cualquier variable inactiva permanece calculada,
   registrada, validada y documentada.
 - La primera ejecución confirma que quitar lluvia o temperatura/humedad empeora
-  Brier. V3 mejora varios scores frente a altitude V2, pero las poblaciones
-  elegibles aún no son idénticas y el log loss empeora por probabilidades
-  extremas. Por tanto no supera el gate operativo y no se entrena ni promociona
-  ningún candidato.
+  Brier. La comparación equivalente posterior reconstruye V2 por observación y
+  usa las mismas 167 filas semanales: V3 cubre 37 más, pero empeora Brier y log
+  loss en las compartidas. V3 mejora en horizontes 1–3 y empeora en 7. Por
+  tanto no supera el gate operativo y no se entrena ni promociona candidato.
 - Una promoción futura exige V2/V3 sobre las mismas filas, mejora de Brier
   repetible con grupos de 7 y 14 días, calibración/log loss no peores y ausencia
   de regresiones graves por especie cuando exista soporte suficiente.
+- La comparación controlada identifica mes y altitud directa como causa del
+  deterioro semanal. Quedan inicialmente inactivos en `X`, pero permanecen
+  materializados, registrados y validados. La altitud continúa aplicándose a
+  la corrección de temperatura. Con esta configuración meteorológica V3 mejora
+  todos los scores agregados semanales frente a V2, aunque 54 casos de test en
+  6 especies no bastan para promoción operativa.
 
 ## 2026-08-13 - [OBSOLETA][GIS] Eliminar la copia local `mushroom-GIS-HA`
 

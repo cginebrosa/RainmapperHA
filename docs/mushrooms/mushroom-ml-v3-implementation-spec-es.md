@@ -279,9 +279,12 @@ decisiones nuevas:
 6. **Gate de promoción — CERRADO y no superado.** Comparar V2/V3 sobre las
    mismas filas y corte predeclarado; exigir mejora repetible de Brier en 7/14
    días, calibración/log loss no peores y ausencia de regresiones graves por
-   especie con soporte suficiente. La evaluación actual mejora varios scores,
-   pero usa poblaciones elegibles distintas y empeora log loss; no autoriza un
-   candidato operativo.
+   especie con soporte suficiente. La evaluación emparejada usa 167 muestras
+   semanales comunes. La configuración final del benchmark —mes y altitud
+   directa inactivos— mejora Brier, log loss, calibración y acierto equilibrado
+   frente a V2 en grupos 7/14 y mejora Brier/log loss en horizontes 1/2/3/7.
+   Solo 54 casos de test de 6 especies son evaluables; este soporte no autoriza
+   por sí solo una promoción operativa.
 7. **Elevación transfronteriza — cadena local cerrada para las áreas actuales.**
    El DEM Catalunya conserva prioridad, el MDE oficial de Andorra 5 m actúa
    como segundo origen y el MDT25 del IGN, hoja MTN50 592, como tercero. Una
@@ -367,11 +370,14 @@ pero permanecen inactivos en X por defecto: son umbrales humanos heredados, no
 gates de fructificación ni cantidades mínimas asumidas.
 
 El registro implementado marca como activas por defecto las ventanas de lluvia
-0–3, 4–7, 8–14 y 15–21 días, estacionalidad, altitud, racha seca observada y
-temperaturas V2 corregidas. Las ventanas largas son experimentales; los relojes
-de 2/5 mm y las medias posteriores al evento están inactivos. Inactivo significa
-que el campo se sigue calculando, validando y documentando, pero no entra en la
-predicción mínima y puede reactivarse sin reconstruir su definición.
+0–3, 4–7, 8–14 y 15–21 días, racha seca observada y temperaturas V2 corregidas.
+Estacionalidad y altitud directa quedan inactivas tras la comparación emparejada:
+la configuración meteorológica mejora los cuatro scores agregados semanales en
+grupos 7/14. La altitud sigue aplicada a la corrección de temperatura. Las
+ventanas largas son experimentales; los relojes de 2/5 mm y las medias
+posteriores al evento están inactivos. Inactivo significa que el campo se sigue
+calculando, validando y documentando, pero no entra en la predicción mínima y
+puede reactivarse sin reconstruir su definición.
 
 ### Quality, nunca X
 

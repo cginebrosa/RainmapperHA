@@ -91,13 +91,22 @@ Lista operativa priorizada. El estado inmediato está en
 - [x] Ejecutar benchmark temporal reproducible y comparar contra
   los contratos altitude v2 congelados. No elegir ni promover por capturas.
 - [x] Revisar calibración, Brier, prevalencia, soporte por especie y dominio.
-  Resultado: V3 no pasa aún el gate operativo porque V2/V3 no comparan las
-  mismas filas y V3 empeora log loss; no entrenar ni promover un candidato.
+  Resultado: V3 no pasa el gate operativo; no entrenar ni promover candidato.
 - [x] Empaquetar benchmark/evaluación V3 en worker `1.0.9` y comprobar dentro de
   la imagen el mismo informe y hash que en local, sin instalarla ni ejecutar un
   job operativo.
-- [ ] Repetir V2/V3 cuando haya más observaciones, sobre exactamente las mismas
-  filas y corte predeclarado. Exigir mejora de Brier repetible en 7/14 días,
+- [x] Comparar V2/V3 sobre exactamente las mismas observaciones, targets,
+  horizontes, corte y grupos 7/14. Resultado semanal: 167 filas compartidas;
+  V3 aporta 37 elegibles adicionales, pero empeora Brier/log loss en las
+  comunes y no pasa el gate.
+- [x] Desactivar inicialmente mes y altitud como entradas directas, sin borrarlas
+  ni dejar de validarlas. La temperatura conserva la corrección por altitud. La
+  configuración meteorológica supera a V2 en los agregados semanales 7/14,
+  pero el soporte por especie aún es insuficiente para promoción.
+- [x] Resolver la pérdida específica del horizonte 7: la causaban mes y altitud
+  directa. Con ambas inactivas, V3 mejora Brier/log loss en 1/2/3/7 y en las
+  agrupaciones 7/14.
+- [ ] Repetir cuando haya más observaciones y exigir mejora de Brier estable,
   calibración/log loss no peores y ausencia de regresiones graves por especie
   con soporte suficiente antes de entrenar un candidato operativo.
 

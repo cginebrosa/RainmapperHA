@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Compare Biology V3 and altitude V2 on identical observation/horizon rows and
+  whole 7/14-day fruiting groups, including per-horizon metrics and coverage.
+- Keep month and direct altitude registered but inactive after matched tests;
+  altitude remains applied through the physical temperature correction.
+
 ## 0.2.255
 
 - Cache DEM altitude when a micro-area is created or its geometry changes, and

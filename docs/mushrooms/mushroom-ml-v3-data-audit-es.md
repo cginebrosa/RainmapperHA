@@ -359,8 +359,20 @@ con mejor cobertura o la estación seleccionada en lugar de la florada.
 5. En la evaluación principal de 14 días, quitar lluvia empeora Brier de
    0,1923 a 0,2643 y quitar temperatura/humedad a 0,2560. La lluvia no está
    añadiendo ruido en esta muestra.
+6. La comparación equivalente reconstruye altitude V2 por observación. Sobre
+   167 filas semanales compartidas, V2 obtiene Brier 0,2219 y V3 0,2358 con
+   grupos de 14 días; con grupos de 7 días son 0,2557 y 0,2609. V3 puede usar
+   37 observaciones adicionales, pero no gana todavía en las comunes.
+7. Por horizonte, V3 mejora Brier/log loss en 1–2 días, mejora ligeramente en
+   3 y empeora en 7. La mejora inmediata no autoriza sustituir el predictor
+   semanal.
+8. El deterioro semanal procede de activar mes y altitud directa junto a la
+   meteorología. Dejándolos inactivos —pero conservados— V3 mejora a V2 en
+   Brier, log loss, calibración y acierto equilibrado tanto con grupos de 14
+   como de 7 días. La altitud sigue corrigiendo físicamente la temperatura.
 
-No se ha elegido un sucesor operativo. V3 mejora varios resultados frente a V2,
-pero la comparación no usa todavía exactamente las mismas filas y empeora log
-loss; hacen falta más observaciones y una repetición comparable antes de
-entrenar o promocionar un candidato.
+No se ha elegido un sucesor operativo. La comparación ya usa las mismas filas y
+la configuración meteorológica supera los scores agregados semanales de V2,
+pero solo son evaluables 54 casos de test en 6 especies. Hay que acumular
+observaciones o autorizar expresamente una fase posterior de candidato no
+promovido; este bloque no entrena ni promociona modelos.
