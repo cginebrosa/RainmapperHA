@@ -1,8 +1,10 @@
 # Especificación de implementación del sucesor de v2
 
-Estado: **ESPECIFICADO, NO IMPLEMENTADO**. Documento de traspaso para ejecutar
-con otro agente/modelo después de la auditoría
-`mushroom-ml-v3-data-audit-es.md`.
+Estado: **BENCHMARK LOCAL IMPLEMENTADO, NO OPERATIVO**. Target, vistas de
+auditoría, IDW diario de área, registro de variables, gates y ambos contratos
+de benchmark están implementados y probados. Entrenamiento, elección de
+variables y promoción siguen pendientes. Altitude V2 permanece como referencia
+operativa inmutable.
 
 La tarea no consiste en retocar v2 hasta que produzca resultados más
 plausibles. Debe crear contratos nuevos, reproducibles y comparables, dejando
@@ -15,7 +17,7 @@ Implementar solamente:
 1. congelación reproducible de los contratos v2;
 2. target operativo y unidad de episodio explícitos;
 3. separación estricta entre variables predictivas y calidad/censura;
-4. benchmark sucesor listo para ablaciones posteriores.
+4. benchmark sucesor listo para comparaciones posteriores de variables.
 
 Fuera de alcance en esta tarea:
 
@@ -32,6 +34,8 @@ Fuera de alcance en esta tarea:
 target_contract_id: outing_value_area_v1
 episode_contract_id: area_microarea_evidence_v1
 quality_contract_id: observed_weather_quality_v1
+rainfall_contract_id: daily_rain_idw_radius15km_power2_v1
+area_rainfall_contract_id: area_daily_mean_microarea_idw_v1
 feature_set_id: fixed_gap_7d_biology_v3
 feature_set_id: lag_event_biology_v3
 ```
@@ -39,6 +43,11 @@ feature_set_id: lag_event_biology_v3
 Si se cambian estos nombres durante la implementación, el cambio debe quedar en
 una ADR/decisión antes de generar el primer benchmark. Nunca se reutiliza un ID
 para otra lista de columnas o semántica.
+
+Las compactaciones de documentación pueden enlazar esta especificación, pero no
+reemplazarla por un resumen que pierda fórmulas, alternativas descartadas,
+resultados de auditoría o condiciones de revisión. El código implementa el
+contrato; no es su única documentación.
 
 ## 1. Congelar v2
 
@@ -152,10 +161,21 @@ source_micro_area_ids
 ```
 
 `mixed_target` no cambia automáticamente el target de «merecía la salida», pero
-permite excluirlo en una ablación de positivos limpios y evita perder evidencia
-local. La auditoría actual debe reproducir exactamente 11 grupos mixtos.
+permite excluirlo en una comparación de positivos limpios y evita perder evidencia
+local. Sobre las 399 observaciones actuales se reproducen 348 unidades canónicas
+y 278 episodios: 188 favorables, 87 desfavorables y 3 desconocidos. Los 275 con
+target conocido coinciden con la auditoría anterior. Hay 9 episodios mixtos
+entre microáreas y 2 conflictos internos de microárea que la vista antigua
+contaba incorrectamente como grupos de área mixtos.
 
-Sustituir en `aggregate_to_area_episodes` la selección «fila con menos
+Estas dos agrupaciones son vistas de auditoría, no unidades de entrenamiento.
+El benchmark construye una muestra por cada observación original y usa el área
+solo para materializar meteorología y relacionar floradas.
+
+El módulo nuevo `rainmapper_core/mushroom_ml_biology_v3.py` ya implementa el
+resolver, la vista canónica de microárea y la evidencia de área sin seleccionar
+una fila meteorológica. Sustituir en el camino completo v3 de benchmark la
+selección «fila con menos
 `weather_gaps`». La meteorología debe construirse una sola vez para el área,
 fecha y corte mediante el mismo selector de estación que usa inferencia. Si por
 compatibilidad se recibe meteorología ya materializada, todas las filas deben
@@ -182,6 +202,115 @@ descartadas, corte y recuentos de calidad efectivos por muestra. Es correcto que
 dos contratos u horizontes elijan estaciones distintas cuando sus cortes
 requieren días diferentes; debe quedar visible en metadatos.
 
+### Lluvia espacial canónica
+
+Biology V3 no usa la lluvia de una única estación como aproximación espacial.
+La lluvia se materializa una sola vez por microárea y fecha mediante el contrato
+`daily_rain_idw_radius15km_power2_v1`:
+
+- punto objetivo: `representative_location` de la microárea; si falta, centroide
+  trazable de su geometría guardada;
+- todas las estaciones activas con observación diaria utilizable dentro de 15
+  km;
+- peso `1 / max(distancia_km, 0,1)^2`;
+- el cero observado participa como cero; ausencia, error, valor negativo,
+  lluvia diaria superior a 300 mm, repetición positiva consecutiva suprimida o
+  estación retirada no participan;
+- si no queda ninguna estación utilizable, el día es ausente, nunca cero;
+- la serie conserva por día valor IDW, número de estaciones contribuyentes,
+  distancia más próxima y contadores de calidad fuera de `X`.
+
+La fórmula es la misma del IDW de MapLibre. No se copia al modelo el gate visual
+de pintura del mapa, porque depende de la escala de color y no es una regla
+meteorológica. La equivalencia se comprobó el 2026-08-13 sobre una copia local
+del histórico vivo: para `42.01333, 1.97155` y la ventana cerrada
+`2026-08-06…2026-08-12`, el IDW diario sumó `46,003 mm` y el IDW directo de los
+acumulados Tomap redondeados `46,059 mm`.
+
+Temperatura y humedad conservan inicialmente el selector sensible al corte y la
+corrección térmica por altitud de V2. Sustituirlas también por un campo espacial
+sería otro contrato y exige una comparación separada.
+
+Al agregar varias microáreas a un episodio de área se aplica el contrato
+`area_daily_mean_microarea_idw_v1`: para cada día se calcula la media aritmética
+de los IDW disponibles de **todas sus microáreas configuradas**. Una microárea
+sin dato no participa; el día del área solo es ausente si ninguna aporta valor.
+No se usa el IDW del centroide del polígono del área: ese punto ya es una
+geometría calculada y no una localización de evidencia.
+
+La decisión quedó comprobada sobre 7.262 días-área de 12 áreas reales con más
+de una microárea: diferencia mediana frente al centroide de 0,001 mm, p95 de
+0,62 mm, p99 de 1,89 mm y máximo de 7,89 mm. El 79,3 % difirió como máximo 0,1
+mm. La dispersión máxima entre microáreas alcanzó 43,94 mm; en Sant Joan el
+centroide dio 34,94 mm mientras las microáreas iban de 34,53 a 54,07 mm y su
+media fue 42,82 mm. Aunque ambos métodos suelen aproximarse, el centroide puede
+ocultar tormentas locales. El modelo acepta la media IDW como lluvia canónica,
+sin penalización, intervalo de incertidumbre ni advertencia operativa.
+
+## Decisiones que faltan para cerrar Biology V3
+
+Esta es la lista canónica; las tareas de implementación no se cuentan como
+decisiones nuevas:
+
+1. **Agregación espacial de lluvia a área — CERRADA.** Media diaria de los IDW
+   disponibles de todas las microáreas configuradas; nunca IDW del centroide
+   calculado del área.
+2. **Unidad de entrenamiento — CERRADA.** La observación original es la muestra
+   de aprendizaje y nunca se elimina por pertenecer a la misma fecha o florada
+   que otra. Las vistas `especie + microárea + fecha` y
+   `especie + área + fecha` resuelven conflictos y resumen evidencia para
+   auditoría, pero no reemplazan las observaciones originales. El área
+   materializa la meteorología y delimita floradas; no entra en X ni segmenta
+   el modelo común de cada especie.
+3. **Corte temporal — CERRADO para evaluación.** `fixed_gap_7d` es la vista
+   principal por corresponder a la salida semanal; `lag_event` permanece como
+   diagnóstico en horizontes 1, 2, 3 y 7. La partición es cronológica 70/30 por
+   especie con grupos completos de 14 días; 7 días es sensibilidad.
+4. **Variables posteriores a lluvia — CERRADO para el benchmark inicial.** Se calculan y conservan con
+   estado inactivo en la predicción mínima mientras no exista un episodio de
+   lluvia. Se activarán si su significado es único y la comparación demuestra
+   que ayudan de forma estable; nunca se borran del registro.
+5. **Validación principal — CERRADA.** Comparar separación cronológica y
+   agrupaciones conservadoras de observaciones relacionadas. Las ventanas de
+   7/14 días representan respectivamente floradas cortas y largas como regla
+   biológica general. Una florada real es de especie+área y su continuidad
+   depende de que se mantengan las condiciones; ninguna observación se fusiona
+   o descarta al agrupar la validación.
+6. **Gate de promoción — CERRADO y no superado.** Comparar V2/V3 sobre las
+   mismas filas y corte predeclarado; exigir mejora repetible de Brier en 7/14
+   días, calibración/log loss no peores y ausencia de regresiones graves por
+   especie con soporte suficiente. La evaluación actual mejora varios scores,
+   pero usa poblaciones elegibles distintas y empeora log loss; no autoriza un
+   candidato operativo.
+7. **Elevación transfronteriza — cadena local cerrada para las áreas actuales.**
+   El DEM Catalunya conserva prioridad, el MDE oficial de Andorra 5 m actúa
+   como segundo origen y el MDT25 del IGN, hoja MTN50 592, como tercero. Una
+   prueba masiva resolvió las 58/58 microáreas actuales.
+
+### Procedencia meteorológica — auditoría interna, no incertidumbre operativa
+
+AEMET y Meteocat son redes oficiales; Meteoclimatic y Wunderground contienen
+observaciones comunitarias sin una auditoría homogénea. Esto no excluye ni
+penaliza las estaciones comunitarias: todas las estaciones válidas participan
+con el mismo peso IDW determinado exclusivamente por distancia. Pueden aportar
+la mejor evidencia disponible de una tormenta local que no alcanzó una estación
+oficial próxima.
+
+El modelo usa el resultado como la lluvia canónica del punto y no muestra un
+«sí, pero» en la predicción. Fuentes, estaciones participantes, número de
+contribuyentes y distancias se conservan solo como procedencia técnica para
+reproducir o investigar el cálculo. No entran en `X`, no alteran el peso por
+fuente, no reducen la probabilidad predicha y no generan advertencias en la UI.
+
+### Regla de incertidumbre operativa
+
+Biology V3 expresa la incertidumbre inevitable de una predicción futura en su
+probabilidad calibrada y su dictamen. No reabre en cada respuesta las asunciones
+de contratos meteorológicos ya aceptados. La UI ordinaria no muestra cautelas
+por interpolación, fuente comunitaria, dispersión o corrección térmica. Esos
+datos son auditoría interna. Solo se muestra un problema si es accionable o si
+falta por completo una entrada obligatoria y el motor debe abstenerse.
+
 ## 3. Separar biología, calidad y metadatos
 
 ### Forma del benchmark
@@ -202,7 +331,7 @@ declarado como quality aparece en `X`.
 
 ### Candidatas predictivas
 
-La primera versión del benchmark conserva como **candidatas para ablación**, no
+La primera versión del benchmark conserva como **candidatas para comparación**, no
 como conjunto ganador:
 
 ```text
@@ -213,6 +342,9 @@ rain_cutoff_0_3d_mm
 rain_cutoff_4_7d_mm
 rain_cutoff_8_14d_mm
 rain_cutoff_15_21d_mm
+rain_cutoff_22_30d_mm       # experimental, se conserva para comparar
+rain_cutoff_31_60d_mm       # experimental, se conserva para comparar
+rain_cutoff_61_90d_mm       # experimental, se conserva para comparar
 days_since_rain_gt_2_at_target
 days_since_significant_rain_at_target
 dry_spell_observed_at_cutoff
@@ -223,10 +355,23 @@ temp_mean_cutoff_7d_c
 horizon_days  # solo lag_event_biology_v3
 ```
 
-Esta lista deliberadamente permite crear benchmarks de ablación. No autoriza
+Esta lista deliberadamente permite crear benchmarks comparativos. No autoriza
 entrenar un modelo final con todas las columnas. El informe debe resaltar las
 familias correlacionadas: temperaturas, relojes de lluvia y variables
 posteriores al evento.
+
+Los acumulados disjuntos permiten aprender cantidad y periodo sin imponer un
+mínimo biológico. Las ventanas 22–30, 31–60 y 61–90 se conservan inicialmente
+como experimentales. Los relojes heredados de 2 y 5 mm se calculan y comparan,
+pero permanecen inactivos en X por defecto: son umbrales humanos heredados, no
+gates de fructificación ni cantidades mínimas asumidas.
+
+El registro implementado marca como activas por defecto las ventanas de lluvia
+0–3, 4–7, 8–14 y 15–21 días, estacionalidad, altitud, racha seca observada y
+temperaturas V2 corregidas. Las ventanas largas son experimentales; los relojes
+de 2/5 mm y las medias posteriores al evento están inactivos. Inactivo significa
+que el campo se sigue calculando, validando y documentando, pero no entra en la
+predicción mínima y puede reactivarse sin reconstruir su definición.
 
 ### Quality, nunca X
 
@@ -252,23 +397,18 @@ station_quality_eligible
 
 `significant_rain_found_90d` se guarda inicialmente en metadata/quality, no en
 X. La edad capada a 90 ya expresa «90 días o más». Solo volverá a ser predictor
-si una ablación demuestra que distingue de forma estable un evento en el borde
+si una comparación demuestra que distingue de forma estable un evento en el borde
 de la ventana de un no-evento.
 
-### Semántica posterior al episodio
+### Variables posteriores al episodio — estado inicial cerrado
 
-No mantener una variable con dos significados. Actualmente, cuando no se
-encuentra lluvia significativa, la «media posterior a lluvia» pasa a ser una
-media de 90 días. v3 debe elegir de forma explícita una de estas opciones:
-
-1. dejar `temp/humidity_after_event` como no aplicable sin episodio y usar un
-   estimador que trate ese estado explícitamente; o
-2. crear otra variable con nombre real, por ejemplo `temp_mean_lookback_90d_c`.
-
-No imputar la ausencia de un evento con la mediana de episodios que sí lo
-tuvieron. Para el benchmark inicial se recomienda conservar ambos valores en
-metadata, pero excluir `*_after_significant_rain` del conjunto mínimo hasta que
-la ablación decida su semántica.
+No se mantiene una variable con dos significados. Cuando no se encuentra lluvia
+significativa, `temp/humidity_after_significant_rain` valen `None`; nunca se
+transforman silenciosamente en una media de 90 días. Permanecen calculadas,
+validadas y documentadas, pero inactivas por defecto hasta que una comparación
+estable justifique reactivarlas. Si se necesita una media general de 90 días se
+creará otra variable con ese nombre y significado. No se imputa la ausencia de
+un evento con la mediana de episodios que sí lo tuvieron.
 
 ### Gate de calidad
 
@@ -280,19 +420,14 @@ materializar `training_eligible` y motivos. Mínimo actual:
 - temperatura y humedad >=19/21;
 - series alineadas e histórico suficiente;
 - altitud de estación y área disponibles para el contrato corregido;
-- variables predictivas requeridas por la ablación disponibles.
+- variables predictivas activas requeridas disponibles.
 
 Una muestra no elegible no entra en entrenamiento ni se convierte en una fila
-de medianas. El informe muestra recuentos antes/después por especie y clase. Con
-el snapshot auditado, la reproducción del artefacto vigente debe mostrar 275
-episodios totales y 122 meteorológicamente utilizables con el conjunto completo
-de candidatas. Tras aplicar el selector sensible al corte y a lluvia depurada,
-18 episodios recientes deben recuperarse mediante otra estación dentro de
-15 km, de modo que el mismo snapshot alcance al menos 140 utilizables sin
-rellenar los episodios históricos sin cobertura.
-
-No fijar 122 ni 140 como constantes de código: son aserciones de reproducción y
-aceptación ligadas a los hashes de esta auditoría. El informe debe explicar las
+de medianas. El informe muestra recuentos antes/después por especie y clase. El
+benchmark local preserva 399 muestras y deja 204 elegibles en `fixed_gap`; para
+los cuatro horizontes de `lag_event` preserva 1.596 y deja 816 elegibles. Estos
+conteos describen el snapshot y sus hashes, no son constantes de código. El
+informe explica las
 transiciones `sin estación elegible`, `estación inicial descartada`, `fallback
 seleccionado`, `sin alternativa` y `altitud ausente`.
 
@@ -328,46 +463,65 @@ actualmente los datasets Socrata públicos, pero el Parquet auditado no contiene
 todo el archivo oficial disponible: el laboratorio debe tratar la recuperación
 histórica como una operación distinta de la actualización incremental normal.
 
-### Cobertura de elevación transfronteriza
+### Materialización y cobertura de elevación
 
 La altitud representativa del área no puede depender únicamente del DEM 5 m de
 Catalunya. El proveedor de elevación debe soportar una cadena de fuentes:
 
 1. DEM principal de Catalunya cuando la celda tenga valor;
-2. DEM secundario trazable con cobertura transfronteriza cuando el principal
-   devuelva `NoData`;
-3. `area_altitude_missing` y muestra no elegible si ninguna fuente responde.
+2. MDE oficial de Andorra 5 m cuando el principal devuelva `NoData`;
+3. MDT25 del IGN, hoja MTN50 592, cuando las dos fuentes anteriores no cubran
+   la geometría;
+4. `area_altitude_missing` y muestra no elegible si ninguna fuente responde.
+
+La altitud se calcula una sola vez al crear o cambiar la geometría de una
+microárea y queda cacheada en `known_sites`; guardar sin cambiar el polígono,
+construir benchmarks o predecir no vuelve a consultar el DEM. La prueba masiva
+sobre copia resolvió las 58/58 microáreas actuales: 396 muestras Catalunya, 9
+Andorra y 15 IGN. Puertomingalvo se resuelve mediante la hoja 592 con medias de
+1.329,6 m y 1.279,9 m para sus dos microáreas. Una microárea futura fuera de las
+tres coberturas seguirá devolviendo `no_data`, sin valores inventados.
 
 Cada valor materializado guardará fuente, versión o fecha, resolución y método
 de agregación sobre el área/microáreas. No inferir altitud desde nombres ni
 añadir excepciones hardcoded por área. Ordino/2026-06-13 es el caso de aceptación:
-el DEM catalán debe fallar de forma explícita y el secundario, cuando exista,
-debe resolver la cota o conservar la abstención explicada.
+el DEM catalán falla de forma explícita y el secundario resuelve 2063,2 m en el
+centro del área. En la observación con GPS independiente devuelve 2073,5 m
+frente a 2080 m del iPhone. El formato, procedencia y hashes están en
+`mushroom-GIS/dem-andorra/README.md`.
 
-## Particiones y dependencia entre salidas
+## Particiones y dependencia entre salidas — contrato aclarado
 
-Conservar la partición 70/30 por fecha ya existente para comparabilidad, pero
-añadir un diagnóstico agrupado por florada:
+Conservar la partición 70/30 por fecha existente para comparabilidad y añadir
+diagnósticos que mantengan juntas observaciones probablemente dependientes:
 
 - mismo `species_id` y `area_id`;
-- fechas consecutivas separadas <=7 días pertenecen al mismo grupo;
+- fechas separadas <=7 días se enlazan en un grupo diagnóstico conservador;
 - ningún grupo cruza train/test;
-- repetir como sensibilidad con 14 días, sin elegir el que dé mejor resultado.
+- repetir como sensibilidad con 14 días, sin elegir el que dé mejor resultado;
+- cada observación permanece como una muestra y conserva su target y abundancia.
 
-La partición principal final se decidirá después de comparar fecha frente a
-grupo de florada. El benchmark materializa ambas; el entrenador no las
-recalcula.
+Los grupos de 7 y 14 días representan la duración general de floradas cortas y
+largas. La continuidad concreta sigue siendo un estado por especie+área que
+depende de la meteorología; una ruptura clara de condiciones puede separar dos
+floradas dentro del máximo temporal. La partición principal final se decidirá
+tras comparar fecha, ambos tipos de florada y continuidad meteorológica. El
+benchmark materializa las relaciones; el entrenador no las recalcula ni agrega
+sus observaciones. Este marco 7/14 es común a las especies objetivo; no se crean
+duraciones distintas por especie sin evidencia posterior suficiente.
 
 ## Suficiencia por especie
 
 Publicar en benchmark e informe:
 
 ```text
-n_episodes_total
-n_episodes_training_eligible
+n_observations_total
+n_observations_training_eligible
+n_area_date_evidence_views
 n_favorable
 n_unfavorable
-n_fruiting_clusters_7d
+n_validation_groups_7d
+n_validation_groups_14d
 minority_class_count
 data_sufficiency_tier
 ```
@@ -414,15 +568,19 @@ mostrar los números que justifican el tier.
 
 ## Secuencia de implementación recomendada
 
-1. Añadir tipos/IDs y pruebas de congelación v2.
-2. Implementar resolver de target y canonicalización de microáreas.
-3. Sustituir `aggregate_to_area_episodes` para producir evidencia de área sin
+1. [Hecho] Mantener V2 congelado y separado por IDs.
+2. [Hecho] Implementar resolver de target y canonicalización de microáreas.
+3. [Hecho en el módulo v3] Producir evidencia de área sin
    elegir la fila con menos gaps.
-4. Separar el payload del benchmark en `predictive_features`, `quality` y
+4. [Hecho como fundamento meteorológico] Materializar IDW diario por microárea,
+   sin ceros inventados y excluyendo estaciones retiradas.
+5. [Hecho] Separar el payload del benchmark en `predictive_features`, `quality` y
    `metadata`.
-5. Añadir gate y recuentos de suficiencia sin entrenar modelos.
-6. Generar el benchmark local y comparar sus conteos contra la auditoría.
-7. Solo después implementar ablaciones/entrenamiento en otra tarea.
+6. [Hecho] Añadir gates y recuentos de suficiencia sin entrenar modelos.
+7. [Hecho] Generar el benchmark local y comparar sus conteos contra la auditoría.
+8. [Hecho sin modelo persistente] Comparar configuraciones y V2/V3 mediante
+   regresión logística efímera; el informe declara
+   `model_artifact_written=false`.
 
 ## Criterio de cierre de esta implementación
 

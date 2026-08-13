@@ -1993,6 +1993,59 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(["aspect_N"], observation["site_context"]["observed_aspect_ids"])
         self.assertNotIn("evidence", observation)
 
+    def test_micro_area_dem_altitude_refreshes_only_when_geometry_changes(self) -> None:
+        old_geometry = {
+            "type": "Polygon",
+            "coordinates": [[[1.0, 42.0], [1.1, 42.0], [1.0, 42.1], [1.0, 42.0]]],
+        }
+        new_geometry = {
+            "type": "Polygon",
+            "coordinates": [[[1.0, 42.0], [1.2, 42.0], [1.0, 42.2], [1.0, 42.0]]],
+        }
+        cached_report = {
+            "dem_status": "ok",
+            "altitude_min_m": 900.0,
+            "altitude_max_m": 1000.0,
+            "altitude_mean_m": 950.0,
+        }
+        existing = {
+            "geometry": old_geometry,
+            "derived_context": {"gis_dem": cached_report},
+            "altitude": {"source": "dem_polygon_grid_5x5"},
+        }
+
+        unchanged = {"geometry": old_geometry, "derived_context": {}, "altitude": {}}
+        with mock.patch.object(
+            self.web_server.mushroom_gis_lab, "materialize_micro_area_dem_altitude"
+        ) as materialize:
+            recalculated = self.web_server.refresh_micro_area_dem_altitude(
+                unchanged, existing
+            )
+        self.assertFalse(recalculated)
+        materialize.assert_not_called()
+        self.assertEqual(950.0, unchanged["altitude"]["mean_m"])
+
+        changed = {"geometry": new_geometry, "derived_context": {}, "altitude": {}}
+        with mock.patch.object(
+            self.web_server.mushroom_gis_lab, "materialize_micro_area_dem_altitude"
+        ) as materialize:
+            recalculated = self.web_server.refresh_micro_area_dem_altitude(
+                changed, existing
+            )
+        self.assertTrue(recalculated)
+        materialize.assert_called_once_with(changed)
+
+        removed = {
+            "geometry": None,
+            "derived_context": {"gis_dem": cached_report},
+            "altitude": {"min_m": 900.0, "max_m": 1000.0, "source": "dem_polygon_grid_5x5"},
+        }
+        self.assertFalse(
+            self.web_server.refresh_micro_area_dem_altitude(removed, existing)
+        )
+        self.assertNotIn("gis_dem", removed["derived_context"])
+        self.assertIsNone(removed["altitude"]["mean_m"])
+
     def test_mushroom_observations_update_replaces_existing_record(self) -> None:
         data_dir = Path(self.temp_dir.name)
         old_defaults = os.environ.get("RAINMAPPER_MUSHROOM_DEFAULTS_DIR")

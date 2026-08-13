@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.2.255
+
+- Cache DEM altitude when a micro-area is created or its geometry changes, and
+  preserve the cached value when geometry is unchanged.
+- Resolve elevation through the Catalunya, Andorra, and IGN MTN50 592 DEM
+  chain while keeping missing coverage explicit.
+- Keep Biology V3 benchmark inputs separated into predictive, quality, and
+  metadata fields, with readable eligibility gates for fixed-gap and lag-event
+  contracts.
+- Preserve area-IDW rainfall and observation-level 7/14-day fruiting groups in
+  the local Biology V3 benchmark contracts.
+- Add a non-operational Biology V3 evaluator with chronological whole-flush
+  splits and explicit feature-family comparisons; it never writes a reusable
+  model artifact.
+
 ## 0.2.254
 
 - Require training results to declare exactly the

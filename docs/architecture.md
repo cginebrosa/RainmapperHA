@@ -228,6 +228,21 @@ Hay varios entry points segun entorno:
   worker. Su registro canónico está en
   `docs/mushrooms/mushroom-ml-contract-versions-es.md`. La promoción valida no
   solo hashes sino también los identificadores de contrato altitude V2.
+- Biology V3 se construye en módulos independientes y todavía no operativos:
+  `mushroom_weather_idw.py` materializa lluvia diaria canónica por microárea
+  (`daily_rain_idw_radius15km_power2_v1`) y
+  `mushroom_ml_biology_v3.py` canonicaliza observaciones/episodios y agrega la
+  lluvia diaria del área como media de los IDW de todas sus microáreas
+  configuradas (`area_daily_mean_microarea_idw_v1`). El centroide calculado del
+  área no es entrada meteorológica. Ninguno de estos contratos sustituye
+  altitude V2 hasta superar benchmark y promoción explícita.
+- El GIS de elevación usa una cadena determinista: DEM ICGC Catalunya 5 m como
+  principal y MDE oficial de Andorra 5 m como fallback ante ausencia/`NoData`.
+  El derivado andorrano operativo está en metros y con EPSG:27563 embebido; se
+  manifiesta junto al resto del dataset GIS y el worker lo reutiliza por hash.
+  Las únicas raíces operativas son `mushroom-GIS/` en el laboratorio y
+  `/media/rainmapper/mushroom-GIS/` en HA (más los fallbacks explícitos del
+  resolver). `mushroom-GIS-HA` no es una capa arquitectónica ni un staging.
 - Meteorologia transportada: el histórico canónico es una generación
   transaccional particionada por fuente/año. El snapshot manifiesta sus objetos
   inmutables y el worker reutiliza por hash las particiones sin cambios. Los CSV

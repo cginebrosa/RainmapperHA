@@ -1,4 +1,5 @@
 import unittest
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -6,6 +7,113 @@ from rainmapper_core import mushroom_gis_lab
 
 
 class MushroomGisLabTests(unittest.TestCase):
+    def test_materialized_micro_area_altitude_is_cached_with_dem_provenance(self):
+        geometry = {
+            "type": "Polygon",
+            "coordinates": [[[1.0, 42.0], [1.1, 42.0], [1.1, 42.1], [1.0, 42.1], [1.0, 42.0]]],
+        }
+        micro_area = {"geometry": geometry, "derived_context": {}, "altitude": {}}
+        dem_values = iter(
+            [
+                {"status": "ok", "elevation_m": 1000.0, "source_id": "dem_5m"},
+                {"status": "ok", "elevation_m": 1100.0, "source_id": "dem_andorra_5m"},
+            ]
+        )
+
+        with (
+            patch.object(mushroom_gis_lab, "polygon_sample_grid", return_value=[(1.0, 42.0, 0, 0), (1.1, 42.1, 1, 1)]),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(mushroom_gis_lab, "sample_dem", side_effect=dem_values),
+        ):
+            report = mushroom_gis_lab.materialize_micro_area_dem_altitude(
+                micro_area, Path("/gis")
+            )
+
+        self.assertEqual("ok", report["dem_status"])
+        self.assertEqual(1050.0, report["altitude_mean_m"])
+        self.assertEqual({"dem_5m": 1, "dem_andorra_5m": 1}, report["dem_source_counts"])
+        self.assertEqual(1050.0, micro_area["altitude"]["mean_m"])
+        self.assertEqual("dem_polygon_grid_5x5", micro_area["altitude"]["source"])
+        self.assertEqual(report, micro_area["derived_context"]["gis_dem"])
+
+    def test_sample_dem_falls_back_to_andorra_and_keeps_source(self):
+        primary = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        fallback = subprocess.CompletedProcess([], 0, stdout="2073.5\n", stderr="")
+
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(mushroom_gis_lab, "run_command", side_effect=[primary, fallback]),
+        ):
+            result = mushroom_gis_lab.sample_dem(
+                1.57271667,
+                42.55009167,
+                {"meters": 2080},
+                Path("/gis"),
+            )
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["source_id"], "dem_andorra_5m")
+        self.assertEqual(result["elevation_m"], 2073.5)
+        self.assertEqual(result["delta_observed_vs_dem_m"], 6.5)
+        self.assertEqual(
+            result["source"],
+            "/gis/dem-andorra/extracted/rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif",
+        )
+
+    def test_sample_dem_keeps_primary_when_catalonia_has_data(self):
+        primary = subprocess.CompletedProcess([], 0, stdout="1420.25\n", stderr="")
+
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(mushroom_gis_lab, "run_command", return_value=primary) as command,
+        ):
+            result = mushroom_gis_lab.sample_dem(2.0, 42.0, None, Path("/gis"))
+
+        self.assertEqual(result["source_id"], "dem_5m")
+        self.assertEqual(result["elevation_m"], 1420.25)
+        command.assert_called_once()
+
+    def test_sample_dem_falls_back_to_ign_sheet_after_catalonia_and_andorra(self):
+        missing = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        ign = subprocess.CompletedProcess([], 0, stdout="1334.348\n", stderr="")
+
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(
+                mushroom_gis_lab,
+                "run_command",
+                side_effect=[missing, missing, ign],
+            ),
+        ):
+            result = mushroom_gis_lab.sample_dem(
+                -0.4001844,
+                40.2740847,
+                None,
+                Path("/gis"),
+            )
+
+        self.assertEqual("ok", result["status"])
+        self.assertEqual("dem_ign_mdt25_mtn50_592", result["source_id"])
+        self.assertEqual(1334.35, result["elevation_m"])
+        self.assertEqual(
+            "/gis/dem-ign-mtn50-592/extracted/PNOA_MDT25_ETRS89_HU30_0592_LID.tif",
+            result["source"],
+        )
+
+    def test_build_gis_context_preserves_dem_source_id(self):
+        context = mushroom_gis_lab.build_gis_context_v0({
+            "layers": {
+                "dem_5m": {
+                    "status": "ok",
+                    "source_id": "dem_andorra_5m",
+                    "elevation_m": 2063.2,
+                }
+            }
+        })
+
+        self.assertEqual(context["altitude_m"], 2063.2)
+        self.assertEqual(context["altitude_source"], "dem_andorra_5m")
+
     def test_gis_root_prefers_explicit_environment_path(self):
         configured_root = "/custom/mushroom-GIS"
 

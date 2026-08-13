@@ -316,14 +316,20 @@ def _rebase_promoted_metadata(
         for layer in mushroom_gis_lab.vector_layers(gis_root.resolve())
     }
     authoritative_sources["dem_5m"] = str(mushroom_gis_lab.dem_path(gis_root.resolve()).resolve())
+    authoritative_sources["dem_andorra_5m"] = str(
+        mushroom_gis_lab.andorra_dem_path(gis_root.resolve()).resolve()
+    )
     results = gis.get("results")
     if isinstance(results, list):
         for result in results:
             if not isinstance(result, dict) or not isinstance(result.get("layers"), dict):
                 continue
             for source_id, layer in result["layers"].items():
-                if isinstance(layer, dict) and "source" in layer and source_id in authoritative_sources:
-                    layer["source"] = authoritative_sources[source_id]
+                if not isinstance(layer, dict) or "source" not in layer:
+                    continue
+                effective_source_id = str(layer.get("source_id") or source_id)
+                if effective_source_id in authoritative_sources:
+                    layer["source"] = authoritative_sources[effective_source_id]
     persist_if_changed(gis_path, gis_before, gis)
 
     weather_path = staged_outputs.weather_json

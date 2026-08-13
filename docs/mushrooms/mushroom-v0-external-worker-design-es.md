@@ -1,10 +1,10 @@
 # Plataforma privada de computo externo para reconstruccion y ML
 
-Estado: **reconstruccion externa completa y parcial con promocion manual validadas en HA real (M1+M5); ml_train_v0 implementado, pendiente de probar end-to-end**
+Estado: **reconstrucción y entrenamiento altitude V2 validados en HA+M1; Biology V3 empaquetado solo para benchmark local, sin job ni modelo operativo**
 
 Fecha inicial: 2026-07-18
 
-Revision: 2026-08-03
+Revision: 2026-08-13
 
 Este documento define una plataforma privada para ejecutar fuera de Home
 Assistant los calculos pesados del dominio de setas. El primer caso de uso sera
@@ -16,16 +16,12 @@ La ruta del fichero conserva el nombre historico `mushroom-v0-external-worker`
 para no romper referencias, pero el alcance vigente ya no se limita al V0 ni a
 un Mac concreto.
 
-La extraccion del pipeline, el CLI/snapshot, los contratos, el adaptador HA
-opt-in, la imagen worker, la cache GIS versionada, el launcher portable y la
-pantalla multi-worker ya existen y se han validado solo entre los dos
-contenedores locales del M1. El protocolo incluye pairing, jobs candidatos,
-inputs/resultados, sincronizacion GIS autenticada y transaccional y promocion
-manual atomica. La ruta operativa solo esta habilitada en el Compose local y
-admite reconstruccion completa, pendientes y una especie. Todavia no existe Tailscale ni se ha
-habilitado el worker en HA real. Antes de continuar hay que releer este
-documento y comprobar el estado del worktree, porque no se ha publicado este
-prototipo en HA ni en ningun registry.
+La plataforma está operativa entre HA y el M1. El worker instalado es `1.0.8` y
+ejecuta la reconstrucción y entrenamiento completos altitude V2. La imagen
+local `1.0.9` añade únicamente los CLI de construcción/evaluación de benchmark
+Biology V3 y el transporte de los nuevos DEM; está validada pero no instalada.
+No anuncia una capacidad operativa V3, no entrena un candidato V3 y no cambia
+el Predictor activo.
 
 ## Resumen para revision rapida
 
@@ -605,8 +601,10 @@ Cada worker anunciara al menos:
 ### 7.1 Dataset actual inspeccionado
 
 HA mantiene la copia autoritativa bajo `/media/rainmapper/mushroom-GIS/`. El
-repositorio de trabajo contiene `mushroom-GIS-HA`, con un tamano aproximado de
-5,9 GB:
+laboratorio local usa `mushroom-GIS/`, fuera de Git salvo su documentacion. La
+antigua copia de preparacion `mushroom-GIS-HA` (5,9 GB) se verifico fichero a
+fichero contra `mushroom-GIS/` y se elimino el 2026-08-13 por ser redundante y
+no formar parte de ninguna ruta operativa. El conjunto inspeccionado contenia:
 
 - DEM ICGC 5 m: 4,8 GB, bajo
   `model-elevacions-terreny-topografic-catalunya-5m-2009-2018/`;

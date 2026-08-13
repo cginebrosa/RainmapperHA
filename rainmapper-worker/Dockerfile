@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.0.8
+ARG RAINMAPPER_WORKER_VERSION=1.0.9
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -31,7 +31,10 @@ RUN pip install --no-cache-dir \
 
 COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_gis_lab.py \
+     rainmapper_core/mushroom_known_sites.py \
      rainmapper_core/mushroom_learned_model.py \
+     rainmapper_core/mushroom_ml_biology_v3.py \
+     rainmapper_core/mushroom_ml_biology_v3_evaluation.py \
      rainmapper_core/mushroom_observation_context.py \
      rainmapper_core/mushroom_observation_features.py \
      rainmapper_core/mushroom_observations.py \
@@ -47,12 +50,14 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_rebuild_comparison.py \
      rainmapper_core/mushroom_rebuild_pipeline.py \
      rainmapper_core/mushroom_rebuild_snapshot.py \
+     rainmapper_core/mushroom_store.py \
      rainmapper_core/mushroom_worker_dataset_cache.py \
      rainmapper_core/mushroom_worker_config.py \
      rainmapper_core/mushroom_worker_registry.py \
      rainmapper_core/mushroom_worker_service.py \
      rainmapper_core/mushroom_worker_transport.py \
      rainmapper_core/mushroom_worker_results.py \
+     rainmapper_core/mushroom_weather_idw.py \
      rainmapper_core/mushroom_ml_trainer.py \
      rainmapper_core/runtime_diagnostics.py \
      rainmapper_core/weather_history_contract.py \
@@ -60,6 +65,8 @@ COPY rainmapper_core/__init__.py \
      /app/rainmapper_core/
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
 COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py
+COPY scripts/build-biology-v3-benchmark.py /app/scripts/build-biology-v3-benchmark.py
+COPY scripts/evaluate-biology-v3-benchmark.py /app/scripts/evaluate-biology-v3-benchmark.py
 COPY scripts/manage-mushroom-worker-datasets.py /app/scripts/manage-mushroom-worker-datasets.py
 COPY scripts/manage-mushroom-worker-config.py /app/scripts/manage-mushroom-worker-config.py
 COPY scripts/run-mushroom-worker-service.py /app/scripts/run-mushroom-worker-service.py
@@ -68,6 +75,8 @@ COPY rainmapper-worker/entrypoint.sh /usr/local/bin/rainmapper-worker
 RUN chmod 0755 /usr/local/bin/rainmapper-worker \
     && python -m py_compile \
         /app/rainmapper_core/mushroom_rebuild_contracts.py \
+        /app/rainmapper_core/mushroom_ml_biology_v3.py \
+        /app/rainmapper_core/mushroom_ml_biology_v3_evaluation.py \
         /app/rainmapper_core/mushroom_rebuild_comparison.py \
         /app/rainmapper_core/mushroom_rebuild_pipeline.py \
         /app/rainmapper_core/mushroom_worker_dataset_cache.py \
@@ -91,6 +100,8 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/scripts/run-mushroom-worker-service.py \
         /app/scripts/run-mushroom-rebuild-job.py \
         /app/scripts/run-mushroom-ml-train-job.py \
+        /app/scripts/build-biology-v3-benchmark.py \
+        /app/scripts/evaluate-biology-v3-benchmark.py \
         /app/rainmapper_core/mushroom_ml_trainer.py
 
 VOLUME ["/var/lib/rainmapper-worker"]

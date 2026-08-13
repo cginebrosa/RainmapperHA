@@ -363,7 +363,13 @@ class MushroomWorkerResultsTests(unittest.TestCase):
                 "result_count": 1,
                 "qgis_points_path": f"{worker_root}/qgis/selected_observations.geojson",
                 "qgis_points_host_path": f"{worker_root}/qgis/selected_observations.geojson",
-                "results": [{"layers": {"mvc50": {"source": "/var/lib/rainmapper-worker/mvc.shp"}, "dem_5m": {"source": "/var/lib/rainmapper-worker/dem.tif"}}}],
+                "results": [{"layers": {
+                    "mvc50": {"source": "/var/lib/rainmapper-worker/mvc.shp"},
+                    "dem_5m": {
+                        "source": "/var/lib/rainmapper-worker/dem-andorra.tif",
+                        "source_id": "dem_andorra_5m",
+                    },
+                }}],
             },
             staged.weather_json: {
                 "summary": {"observations": 1},
@@ -412,6 +418,10 @@ class MushroomWorkerResultsTests(unittest.TestCase):
         self.assertEqual(
             rebased_gis["results"][0]["layers"]["mvc50"]["source"],
             str(mushroom_worker_results.mushroom_gis_lab.vector_layers(gis.resolve())[0].path.resolve()),
+        )
+        self.assertEqual(
+            rebased_gis["results"][0]["layers"]["dem_5m"]["source"],
+            str(mushroom_worker_results.mushroom_gis_lab.andorra_dem_path(gis.resolve()).resolve()),
         )
         self.assertEqual(rebased_weather["input_paths"]["observations"], str(observations.resolve()))
         self.assertEqual(

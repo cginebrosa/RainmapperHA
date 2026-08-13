@@ -9,6 +9,13 @@ for local experiments.
 
 Current local datasets:
 
+- `dem-andorra/`: Model Digital d'Elevacions oficial de Andorra, raster de
+  5 m en NTF / Lambert zona III y elevaciones almacenadas en decímetros. Véase
+  `dem-andorra/README.md` para procedencia, hashes, conversión y validación GPS.
+- `dem-ign-mtn50-592/`: MDT25 oficial IGN/CNIG de la hoja 592 usado como
+  tercer respaldo acotado para Puertomingalvo. Véase su `README.md` para
+  procedencia, licencia, hash y controles puntuales.
+
 - `MVC50mil/`: Mapa de vegetacio de Catalunya 1:50.000, inspected as the
   candidate v0 source for Catalonia vegetation, hosts, habitat and preferred
   substrate. This is the local copy of the unified MVC50 shapefile, not data to

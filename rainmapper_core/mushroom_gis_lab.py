@@ -79,6 +79,24 @@ def dem_path(gis_root_path: Path | None = None) -> Path:
     )
 
 
+def andorra_dem_path(gis_root_path: Path | None = None) -> Path:
+    return (
+        gis_root(gis_root_path)
+        / "dem-andorra"
+        / "extracted"
+        / "rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif"
+    )
+
+
+def ign_mtn50_592_dem_path(gis_root_path: Path | None = None) -> Path:
+    return (
+        gis_root(gis_root_path)
+        / "dem-ign-mtn50-592"
+        / "extracted"
+        / "PNOA_MDT25_ETRS89_HU30_0592_LID.tif"
+    )
+
+
 def vector_layers(gis_root_path: Path | None = None) -> tuple[VectorLayer, ...]:
     root = gis_root(gis_root_path)
     return (
@@ -755,10 +773,41 @@ def build_gis_context_v0(reconstruction: dict[str, Any]) -> dict[str, Any]:
     if isinstance(dem, dict) and dem.get("status") == "ok":
         try:
             context["altitude_m"] = float(dem["elevation_m"])
-            context["altitude_source"] = "dem_5m"
+            context["altitude_source"] = str(dem.get("source_id") or "dem_5m")
         except (KeyError, TypeError, ValueError):
             pass
     return context
+
+
+def _sample_dem_path(path: Path, lon: float, lat: float, *, source_id: str) -> dict[str, Any]:
+    if not path.exists():
+        return {"status": "missing_layer", "source": str(path), "source_id": source_id}
+    result = run_command(["gdallocationinfo", "-wgs84", "-valonly", str(path), str(lon), str(lat)], timeout=30)
+    if result.returncode != 0:
+        return {
+            "status": "query_error",
+            "source": str(path),
+            "source_id": source_id,
+            "error": result.stderr.strip(),
+        }
+    raw = result.stdout.strip()
+    try:
+        elevation = float(raw)
+    except ValueError:
+        return {"status": "no_value", "source": str(path), "source_id": source_id, "raw": raw}
+    if math.isclose(elevation, -9999.0):
+        return {
+            "status": "no_data",
+            "source": str(path),
+            "source_id": source_id,
+            "elevation_m": elevation,
+        }
+    return {
+        "status": "ok",
+        "source": str(path),
+        "source_id": source_id,
+        "elevation_m": round(elevation, 2),
+    }
 
 
 def sample_dem(
@@ -767,34 +816,146 @@ def sample_dem(
     observed_altitude: object,
     gis_root_path: Path | None = None,
 ) -> dict[str, Any]:
-    path = dem_path(gis_root_path)
-    if not path.exists():
-        return {"status": "missing_layer", "source": str(path)}
-    result = run_command(["gdallocationinfo", "-wgs84", "-valonly", str(path), str(lon), str(lat)], timeout=30)
-    if result.returncode != 0:
-        return {"status": "query_error", "source": str(path), "error": result.stderr.strip()}
-    raw = result.stdout.strip()
-    try:
-        elevation = float(raw)
-    except ValueError:
-        return {"status": "no_value", "source": str(path), "raw": raw}
-    if math.isclose(elevation, -9999.0):
-        return {"status": "no_data", "source": str(path), "elevation_m": elevation}
+    primary = _sample_dem_path(dem_path(gis_root_path), lon, lat, source_id="dem_5m")
+    selected = primary
+    if primary.get("status") != "ok":
+        secondary = _sample_dem_path(
+            andorra_dem_path(gis_root_path),
+            lon,
+            lat,
+            source_id="dem_andorra_5m",
+        )
+        if secondary.get("status") == "ok":
+            selected = secondary
+        else:
+            tertiary = _sample_dem_path(
+                ign_mtn50_592_dem_path(gis_root_path),
+                lon,
+                lat,
+                source_id="dem_ign_mdt25_mtn50_592",
+            )
+            if tertiary.get("status") == "ok":
+                selected = tertiary
+            else:
+                primary["fallback"] = {
+                    "status": secondary.get("status"),
+                    "source": secondary.get("source"),
+                    "source_id": secondary.get("source_id"),
+                }
+                primary["fallback_chain"] = [
+                    primary["fallback"],
+                    {
+                        "status": tertiary.get("status"),
+                        "source": tertiary.get("source"),
+                        "source_id": tertiary.get("source_id"),
+                    },
+                ]
+                return primary
     observed_value = None
     if isinstance(observed_altitude, dict):
         try:
             observed_value = float(observed_altitude.get("meters"))
         except (TypeError, ValueError):
             observed_value = None
-    payload: dict[str, Any] = {
-        "status": "ok",
-        "source": str(path),
-        "elevation_m": round(elevation, 2),
-    }
+    payload = dict(selected)
     if observed_value is not None:
         payload["observed_altitude_m"] = observed_value
-        payload["delta_observed_vs_dem_m"] = round(observed_value - elevation, 2)
+        payload["delta_observed_vs_dem_m"] = round(
+            observed_value - float(payload["elevation_m"]),
+            2,
+        )
     return payload
+
+
+def derive_site_dem_altitude(
+    geometry: object,
+    gis_root_path: Path | None = None,
+) -> dict[str, Any]:
+    """Materialize the stable DEM altitude summary for a site polygon.
+
+    This intentionally does not query the vector GIS layers.  It is the cheap,
+    automatic operation used when a micro-area geometry is created or changed;
+    the broader GIS suggestions remain an explicit review workflow.
+    """
+    samples = polygon_sample_grid(geometry)
+    report: dict[str, Any] = {
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "method": "polygon_grid_5x5",
+        "sample_count": len(samples),
+        "dem_source": str(dem_path(gis_root_path)),
+        "dem_fallback_source": str(andorra_dem_path(gis_root_path)),
+        "dem_second_fallback_source": str(ign_mtn50_592_dem_path(gis_root_path)),
+        "dem_status": "missing_layer" if not dem_path(gis_root_path).exists() else "no_data",
+    }
+    values: list[float] = []
+    source_counts: dict[str, int] = {}
+    for lon, lat, _row, _column in samples:
+        result = sample_dem(lon, lat, None, gis_root_path)
+        if result.get("status") != "ok":
+            continue
+        values.append(float(result["elevation_m"]))
+        source_id = str(result.get("source_id") or "unknown")
+        source_counts[source_id] = source_counts.get(source_id, 0) + 1
+    if values:
+        report.update(
+            {
+                "dem_status": "ok",
+                "altitude_min_m": round(min(values), 1),
+                "altitude_max_m": round(max(values), 1),
+                "altitude_mean_m": round(sum(values) / len(values), 1),
+                "dem_sample_count": len(values),
+                "dem_source_counts": dict(sorted(source_counts.items())),
+            }
+        )
+    return report
+
+
+def apply_micro_area_dem_altitude_report(
+    micro_area: dict[str, Any],
+    report: dict[str, Any],
+) -> None:
+    """Persist a DEM report and its canonical altitude in a micro-area row."""
+    derived_context = (
+        dict(micro_area.get("derived_context") or {})
+        if isinstance(micro_area.get("derived_context"), dict)
+        else {}
+    )
+    derived_context["gis_dem"] = report
+    micro_area["derived_context"] = derived_context
+    if report.get("dem_status") == "ok":
+        altitude = (
+            dict(micro_area.get("altitude") or {})
+            if isinstance(micro_area.get("altitude"), dict)
+            else {}
+        )
+        altitude.update(
+            {
+                "min_m": report.get("altitude_min_m"),
+                "max_m": report.get("altitude_max_m"),
+                "mean_m": report.get("altitude_mean_m"),
+                "source": "dem_polygon_grid_5x5",
+            }
+        )
+        micro_area["altitude"] = altitude
+    else:
+        altitude = micro_area.get("altitude")
+        if isinstance(altitude, dict) and str(altitude.get("source") or "").startswith("dem_"):
+            micro_area["altitude"] = {
+                "min_m": None,
+                "max_m": None,
+                "mean_m": None,
+                "source": "",
+            }
+
+
+def materialize_micro_area_dem_altitude(
+    micro_area: dict[str, Any],
+    gis_root_path: Path | None = None,
+) -> dict[str, Any]:
+    """Calculate and persist the canonical DEM altitude inside a micro-area row."""
+    report = derive_site_dem_altitude(micro_area.get("geometry"), gis_root_path)
+    apply_micro_area_dem_altitude_report(micro_area, report)
+    return report
 
 
 def _point_in_ring(lon: float, lat: float, ring: list[object]) -> bool:
@@ -841,6 +1002,8 @@ def derive_site_gis_dem(
         "method": "polygon_grid_5x5",
         "sample_count": len(samples),
         "dem_source": str(dem_path()),
+        "dem_fallback_source": str(andorra_dem_path()),
+        "dem_second_fallback_source": str(ign_mtn50_592_dem_path()),
         "dem_status": "missing_layer" if not dem_path().exists() else "no_data",
         "gis": {},
     }

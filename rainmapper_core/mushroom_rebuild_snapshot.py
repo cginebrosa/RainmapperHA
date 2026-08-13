@@ -195,6 +195,12 @@ def gis_dataset_files(gis_root: Path) -> list[Path]:
         path for path in mvc_path.parent.glob(f"{mvc_path.stem}.*") if path.is_file()
     )
     paths = [*mvc_files, layers[1].path, mushroom_gis_lab.dem_path(root)]
+    andorra_dem = mushroom_gis_lab.andorra_dem_path(root)
+    if andorra_dem.is_file():
+        paths.append(andorra_dem)
+    ign_mtn50_592_dem = mushroom_gis_lab.ign_mtn50_592_dem_path(root)
+    if ign_mtn50_592_dem.is_file():
+        paths.append(ign_mtn50_592_dem)
     unique: dict[str, Path] = {}
     for path in paths:
         resolved = path.resolve()

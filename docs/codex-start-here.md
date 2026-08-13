@@ -40,18 +40,23 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 ## Estado general al cierre de 2026-08-13
 
 - Rama activa: `inicial`.
-- HA `0.2.253` está instalada en la RPi4 y `0.2.254` está publicada, pendiente
-  de instalación. El worker M1 desplegado es `1.0.8`, healthy y conserva
-  identidad/caché; después de instalar HA falta ejecutar y activar una
-  generación completa altitude V2.
+- HA `0.2.254` está instalada y validada en la RPi4. El worker M1 desplegado es
+  `1.0.8`, healthy y conserva identidad/caché. La generación completa altitude
+  V2 fue reconstruida, entrenada y promovida conjuntamente.
+- HA `0.2.255` está publicada pero no instalada; el worker `1.0.9` está
+  construido y validado solo como imagen local. No actualizar ninguno hasta el
+  cierre coordinado decidido por el usuario.
 - El backfill, el histórico meteorológico fuente/año, los CSV vivos acotados y
   el Predictor histórico ya están migrados y aceptados. No reabrir ese proyecto
   como objetivo activo; sus evidencias quedan en el audit lab.
 - `0.2.252` deja una única actualización completa en worker: reconstrucción y
   entrenamiento son dos jobs encadenados y diagnosticables, con activación
   conjunta y rollback.
-- El siguiente bloque es reconstruir/reentrenar y activar una generación
-  altitude V2; después se retoma Biology V3.
+- Altitude V2 queda cerrado funcionalmente. M1 es el ejecutor normal y HA un
+  fallback admin validado pero lento. El benchmark Biology V3 está implementado,
+  probado y evaluado localmente, incluida lluvia IDW de área y separación
+  estricta de variables predictivas/calidad. No existe modelo V3 operativo ni
+  promovido: la comparación actual no supera todavía el gate de promoción.
 - Hay cambios locales no publicados de Biology V3, contratos altitude v2, UI,
   modelos sombra, pruebas y documentación. No limpiar el worktree.
 - El repositorio GitHub sigue público por decisión explícita del usuario.
@@ -94,10 +99,10 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Una tarea explícitamente encargada autoriza sus ediciones, consultas,
   pruebas, empaquetado y demás pasos no destructivos dentro del alcance. No
   pedir confirmación adicional por acciones inocuas, tampoco durante una
-  release ya autorizada. Consultar únicamente antes de una acción destructiva,
-  una escritura en HA que no esté expresamente autorizada o una ampliación
-  material del alcance; ante una duda real sobre cualquiera de esos tres casos,
-  preguntar.
+  release ya autorizada. Consultar el MCP Codebase es siempre lectura y no
+  requiere permiso. Consultar únicamente antes de una acción destructiva, una
+  escritura en HA que no esté expresamente autorizada o una ampliación material
+  del alcance; ante una duda real sobre cualquiera de esos tres casos, preguntar.
 - No hacer bump, build ni publicación HA sin petición explícita. Antes de una
   release, leer y seguir `docs/release-flow.md`.
 - Durante un build/push HA, vigilar la misma sesión cada 20–30 s e informar al
@@ -150,3 +155,11 @@ release requiere el flujo y validación completa definidos en
 - Sustituir contexto obsoleto en `active-context.md`; no acumular sesiones.
 - Registrar decisiones con `[VIGENTE]`, `[REEMPLAZADA]`, `[OBSOLETA]` o `[DUDA]`.
 - Mover historia útil fuera de la ventana activa.
+- La compactación de continuidad **no puede resumir hasta perder** una decisión
+  operativa o científica. `active-context.md` puede conservar solo el estado y
+  el enlace, pero `docs/decisions.md` y la especificación temática deben
+  mantener fórmula/semántica, alternativas descartadas, motivo, evidencia,
+  cifras de validación y condiciones para revisarla en el futuro.
+- La genealogía de contratos ML se preserva en
+  `docs/mushrooms/mushroom-ml-contract-versions-es.md`: nunca deducir V1/V2/V3
+  únicamente del código ni eliminar versiones anteriores al compactar.

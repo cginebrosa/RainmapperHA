@@ -18,7 +18,6 @@ MERGED_*.csv
 /mushroom-GIS/*
 !/mushroom-GIS/.gitignore
 !/mushroom-GIS/README.md
-/mushroom-GIS-HA/
 
 # Trained ML model binaries (scikit-learn joblib artifacts). JSON reports are versioned.
 /mushroom-data/ml_models/

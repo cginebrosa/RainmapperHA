@@ -345,6 +345,34 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
         self.assertEqual(shallow["gis_validation"], "shallow")
         self.assertEqual(deep["status"], "invalid")
 
+    def test_gis_dataset_files_includes_optional_andorra_dem(self) -> None:
+        andorra_dem = (
+            self.gis
+            / "dem-andorra"
+            / "extracted"
+            / "rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif"
+        )
+        andorra_dem.parent.mkdir(parents=True)
+        andorra_dem.write_text("andorra-dem", encoding="utf-8")
+
+        paths = mushroom_rebuild_snapshot.gis_dataset_files(self.gis)
+
+        self.assertIn(andorra_dem.resolve(), paths)
+
+    def test_gis_dataset_files_includes_optional_ign_mtn50_592_dem(self) -> None:
+        ign_dem = (
+            self.gis
+            / "dem-ign-mtn50-592"
+            / "extracted"
+            / "PNOA_MDT25_ETRS89_HU30_0592_LID.tif"
+        )
+        ign_dem.parent.mkdir(parents=True)
+        ign_dem.write_text("ign-dem", encoding="utf-8")
+
+        paths = mushroom_rebuild_snapshot.gis_dataset_files(self.gis)
+
+        self.assertIn(ign_dem.resolve(), paths)
+
     def test_gis_hash_cache_reuses_unchanged_semi_static_files(self) -> None:
         cache_path = self.root / "private" / ".gis-hash-cache.json"
         original_sha256_file = mushroom_rebuild_snapshot.sha256_file

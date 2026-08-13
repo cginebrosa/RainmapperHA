@@ -11311,6 +11311,53 @@ def known_site_micro_area_from_form(form: dict[str, list[str]], existing: dict[s
     return row
 
 
+def refresh_micro_area_dem_altitude(
+    row: dict[str, object],
+    existing: dict[str, object] | None = None,
+    supplied_report: dict[str, object] | None = None,
+) -> bool:
+    """Refresh cached DEM altitude only for new or changed micro-area geometry."""
+    geometry = row.get("geometry")
+    previous_geometry = existing.get("geometry") if isinstance(existing, dict) else None
+    geometry_changed = existing is None or geometry != previous_geometry
+    previous_context = existing.get("derived_context") if isinstance(existing, dict) else None
+    previous_report = (
+        previous_context.get("gis_dem")
+        if isinstance(previous_context, dict)
+        and isinstance(previous_context.get("gis_dem"), dict)
+        else None
+    )
+    cached_report = supplied_report or previous_report
+    if not geometry:
+        if geometry_changed:
+            context = row.get("derived_context")
+            if isinstance(context, dict):
+                context.pop("gis_dem", None)
+            altitude = row.get("altitude")
+            previous_altitude = existing.get("altitude") if isinstance(existing, dict) else None
+            automatic_source = str(
+                (altitude.get("source") if isinstance(altitude, dict) else "")
+                or (previous_altitude.get("source") if isinstance(previous_altitude, dict) else "")
+                or ""
+            ).startswith("dem_")
+            if automatic_source:
+                row["altitude"] = {
+                    "min_m": None,
+                    "max_m": None,
+                    "mean_m": None,
+                    "source": "",
+                }
+        return False
+    if not geometry_changed and isinstance(cached_report, dict):
+        mushroom_gis_lab.apply_micro_area_dem_altitude_report(row, cached_report)
+        return False
+    if geometry_changed and isinstance(supplied_report, dict) and supplied_report.get("dem_status") == "ok":
+        mushroom_gis_lab.apply_micro_area_dem_altitude_report(row, supplied_report)
+        return False
+    mushroom_gis_lab.materialize_micro_area_dem_altitude(row)
+    return True
+
+
 def catalog_form_labels(form: dict[str, list[str]]) -> dict[str, str]:
     return {language: catalog_form_string(form, f"label_{language}") for language in ("es", "ca", "en")}
 
@@ -19679,6 +19726,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     raise ValueError(f"Micro-area {micro_id} was not found.")
                 existing = micro_areas[existing_index] if existing_index is not None and isinstance(micro_areas[existing_index], dict) else None
                 row = known_site_micro_area_from_form(working_form, existing)
+                supplied_report_json = catalog_form_string(working_form, "gis_report_json")
+                supplied_report = json.loads(supplied_report_json) if supplied_report_json else None
+                refresh_micro_area_dem_altitude(row, existing, supplied_report)
                 set_mushroom_known_sites_gis_preview(None)
                 if existing_index is None:
                     micro_areas.append(row)
@@ -20259,6 +20309,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     original_sites_payload = json.loads(json.dumps(sites_payload))
                     micro_rows = sites_payload.get("micro_areas") if isinstance(sites_payload.get("micro_areas"), list) else []
                     micro = next((row for row in micro_rows if isinstance(row, dict) and str(row.get("micro_area_id", "")) == micro_id), None)
+                    original_micro = next(
+                        (
+                            row
+                            for row in original_sites_payload.get("micro_areas", [])
+                            if isinstance(row, dict)
+                            and str(row.get("micro_area_id", "")) == micro_id
+                        ),
+                        None,
+                    )
                     if micro is None or micro.get("archived"):
                         raise ValueError(f"Micro-area {micro_id} was not found or is archived.")
                     derived_context = dict(micro.get("derived_context", {})) if isinstance(micro.get("derived_context"), dict) else {}
@@ -20267,6 +20326,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     micro["geometry"] = geometry
                     micro["derived_context"] = derived_context
                     micro["representative_location"] = derived_context.get("geometry", {}).get("centroid") if isinstance(derived_context.get("geometry"), dict) else {"lat": lat, "lon": lon}
+                    refresh_micro_area_dem_altitude(micro, original_micro)
                     metadata = micro.get("metadata") if isinstance(micro.get("metadata"), dict) else {}
                     metadata["updated_at"] = datetime.now(UTC).date().isoformat()
                     micro["metadata"] = metadata
@@ -20353,6 +20413,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         "derived_context": derived,
                         "representative_location": derived.get("geometry", {}).get("centroid") if isinstance(derived.get("geometry"), dict) else {"lat": lat, "lon": lon},
                     })
+                    refresh_micro_area_dem_altitude(new_micro)
                     micro_rows.append(new_micro)
                     sites_payload["micro_areas"] = micro_rows
                     mushroom_known_sites.save_payload(sites_payload)

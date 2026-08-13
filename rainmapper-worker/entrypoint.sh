@@ -28,5 +28,27 @@ if [ "$1" = "serve" ]; then
         python /app/scripts/run-mushroom-worker-service.py "$@"
 fi
 
+if [ "$1" = "biology-v3" ]; then
+    shift
+    action="${1:-}"
+    if [ -n "$action" ]; then
+        shift
+    fi
+    case "$action" in
+        build)
+            exec gosu rainmapper-worker:rainmapper-worker \
+                python /app/scripts/build-biology-v3-benchmark.py "$@"
+            ;;
+        evaluate)
+            exec gosu rainmapper-worker:rainmapper-worker \
+                python /app/scripts/evaluate-biology-v3-benchmark.py "$@"
+            ;;
+        *)
+            printf 'Usage: rainmapper-worker biology-v3 {build|evaluate} [options]\n' >&2
+            exit 2
+            ;;
+    esac
+fi
+
 exec gosu rainmapper-worker:rainmapper-worker \
     python /app/scripts/run-mushroom-rebuild-job.py "$@"

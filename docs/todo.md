@@ -18,12 +18,15 @@ Lista operativa priorizada. El estado inmediato está en
   `rainmapper-worker:1.0.8`.
 - [x] Instalar worker `1.0.8` preservando el volumen persistente y verificar
   health, identidad, caché GIS y contratos anunciados.
-- [ ] Ejecutar desde HA `Reconstruir y reentrenar todo`, activar conjuntamente
+- [x] Ejecutar desde HA `Reconstruir y reentrenar todo`, activar conjuntamente
   y comprobar que la generación viva contiene altitude V2.
-- [ ] Comparar Predictor HA/M1 para la semana actual y una fecha histórica.
+- [x] Verificar Predictor semanal no vacío en M1 y en HA; HA queda validado como
+  fallback (97,608 s, ~577 MiB, sin OOM). Referencia HA exacta guardada.
+- [x] Comparar HA/M1 para la referencia del 13/08/2026: mismos siete valores
+  puntuados y orden; las diferencias restantes eran solo empates sin score.
 - [x] Publicar la barrera V2 del coordinador en HA `0.2.254`, multiarch y con
   digest común verificado.
-- [ ] Instalar HA `0.2.254` y verificar arranque/worker antes del rebuild.
+- [x] Instalar HA `0.2.254` y verificar arranque/worker antes del rebuild.
 
 ## Completado — coherencia de generación HA 0.2.253
 
@@ -48,18 +51,65 @@ Lista operativa priorizada. El estado inmediato está en
 
 ## P1 — Terminar Biology V3
 
-- [ ] Regenerar la auditoría ML con el histórico meteorológico ya definitivo y
-  los artefactos completos recién activados.
-- [ ] Confirmar la unidad canónica microárea/fecha, conflictos, favorables,
+- [x] Implementar primero el payload de benchmark V3 separado en
+  `predictive_features`, `quality` y `metadata`, con una aserción que impida
+  incorporar quality a `X`.
+- [x] Implementar el contrato IDW diario por microárea (15 km, potencia 2),
+  ceros observados válidos y ausencias/suprimidos/retiradas fuera del promedio;
+  15 pruebas fundacionales superadas y paridad numérica Tomap comprobada.
+- [x] Implementar la unidad canónica microárea/fecha, conflictos, favorables,
   desfavorables y desconocidos; quality/metadata permanece fuera de X.
-- [ ] Terminar `fixed_gap_7d_biology_v3` y `lag_event_biology_v3` según
+- [x] Comprobar y ratificar la agregación espacial: media diaria de
+  los IDW disponibles de todas las microáreas configuradas del área. Comparar
+  con el IDW del centroide calculado, incluyendo p95/p99, máximos y dispersión
+  para no ocultar tormentas locales mediante doble suavizado. Resultado: 7.262
+  días-área, mediana 0,001 mm, p95 0,62 mm, máximo 7,89 mm y dispersión máxima
+  entre microáreas 43,94 mm.
+- [x] Ratificar `especie + área + fecha` como unidad final de entrenamiento:
+  278 episodios auditables, 275 con target conocido, 9 mixtos reales entre
+  microáreas y 2 conflictos internos preservados por separado.
+- [x] Reutilizar inicialmente para temperatura/humedad el selector V2 sensible
+  al corte y la corrección por altitud; las variables posteriores a un evento
+  siguen registradas pero inactivas mientras no exista semántica única.
+- [x] Conservar la procedencia técnica del IDW para reproducción interna:
+  fuentes, estaciones participantes, número y distancias. No mostrarla como
+  incertidumbre, no penalizar estaciones comunitarias y no llevarla a X ni a
+  advertencias de la predicción.
+- [x] Fijar como validación principal el corte cronológico 70/30 por especie con
+  grupos completos de florada de 14 días; repetir con 7 días como sensibilidad,
+  sin eliminar observaciones ni escoger retrospectivamente el mejor resultado.
+- [x] Resolver DEM secundario trazable para Ordino/Andorra: MDE oficial 5 m,
+  EPSG:27563, metros y fallback tras `NoData` del DEM Catalunya; derivado
+  incluido en el dataset GIS cacheado del worker y validado a 6,5 m del GPS.
+- [x] Terminar `fixed_gap_7d_biology_v3` y `lag_event_biology_v3` según
   `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`.
-- [ ] Ejecutar benchmark temporal/estratificado reproducible y comparar contra
+- [x] Materializar gates y motivos de exclusión antes de entrenar: lluvia IDW,
+  cobertura, alineación, historia, temperatura/humedad y altitud disponibles.
+- [x] Regenerar la auditoría/benchmark ML con el snapshot actual y
+  contrastar 399 observaciones, 348 unidades canónicas, 278 episodios y 275
+  targets conocidos; no codificar estos recuentos como constantes.
+- [x] Ejecutar benchmark temporal reproducible y comparar contra
   los contratos altitude v2 congelados. No elegir ni promover por capturas.
-- [ ] Revisar calibración, Brier, prevalencia, soporte por especie y dominio
-  antes de proponer una promoción de modelos.
-- [ ] Mantener rebuild, entrenamiento y Predictor pesado en el M1; medir que HA
-  solo coordina y sirve UI/resultados.
+- [x] Revisar calibración, Brier, prevalencia, soporte por especie y dominio.
+  Resultado: V3 no pasa aún el gate operativo porque V2/V3 no comparan las
+  mismas filas y V3 empeora log loss; no entrenar ni promover un candidato.
+- [x] Empaquetar benchmark/evaluación V3 en worker `1.0.9` y comprobar dentro de
+  la imagen el mismo informe y hash que en local, sin instalarla ni ejecutar un
+  job operativo.
+- [ ] Repetir V2/V3 cuando haya más observaciones, sobre exactamente las mismas
+  filas y corte predeclarado. Exigir mejora de Brier repetible en 7/14 días,
+  calibración/log loss no peores y ausencia de regresiones graves por especie
+  con soporte suficiente antes de entrenar un candidato operativo.
+
+## Completado — saneamiento GIS local
+
+- [x] Verificar que `mushroom-GIS-HA` no era ruta operativa, no estaba
+  versionada ni abierta por procesos.
+- [x] Comparar sus diez ficheros de datos con `mushroom-GIS` y confirmar
+  identidad byte a byte; los otros dos eran `.DS_Store`.
+- [x] Eliminar de forma autorizada la copia redundante de 5,9 GB, conservar
+  intacto `mushroom-GIS` y retirar la regla de ignore que podía ocultar su
+  reaparición.
 
 ## P2 — Integridad de observaciones y UX ecológica
 
@@ -72,7 +122,8 @@ Lista operativa priorizada. El estado inmediato está en
   ecológica prudente cuando el Predictor pueda evaluar condiciones compatibles.
 - [ ] Auditar las identificaciones automáticas antiguas restantes para detectar
   observaciones que pudieron contaminar artefactos previos.
-- [ ] Investigar la altitud representativa de Ordino y cobertura DEM de Andorra.
+- [x] Investigar la altitud representativa de Ordino y cobertura DEM de Andorra:
+  2063,2 m en el centro del área y 2064,2 m en la microárea configurada.
 
 ## Completado — histórico y almacenamiento meteorológico
 

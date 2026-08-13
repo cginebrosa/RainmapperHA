@@ -11,6 +11,198 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-13 - [VIGENTE][BIOLOGY V3] Validación temporal y gate operativo
+
+- La validación principal usa un corte cronológico 70/30 por especie y mantiene
+  enteros los grupos de florada especie+área de hasta 14 días. La repetición con
+  7 días mide sensibilidad; ninguna observación se fusiona, elimina o cruza el
+  corte dentro de su grupo.
+- `fixed_gap_7d_biology_v3` es la vista principal por corresponder a la salida
+  semanal. `lag_event_biology_v3` se conserva como diagnóstico para horizontes
+  1, 2, 3 y 7, no como una competición para escoger el score más favorable.
+- Las comparaciones activan todo, quitan lluvia, quitan temperatura/humedad y
+  usan solo meteorología. Son pruebas de contribución, no instrucciones para
+  borrar variables: cualquier variable inactiva permanece calculada,
+  registrada, validada y documentada.
+- La primera ejecución confirma que quitar lluvia o temperatura/humedad empeora
+  Brier. V3 mejora varios scores frente a altitude V2, pero las poblaciones
+  elegibles aún no son idénticas y el log loss empeora por probabilidades
+  extremas. Por tanto no supera el gate operativo y no se entrena ni promociona
+  ningún candidato.
+- Una promoción futura exige V2/V3 sobre las mismas filas, mejora de Brier
+  repetible con grupos de 7 y 14 días, calibración/log loss no peores y ausencia
+  de regresiones graves por especie cuando exista soporte suficiente.
+
+## 2026-08-13 - [OBSOLETA][GIS] Eliminar la copia local `mushroom-GIS-HA`
+
+- `mushroom-GIS-HA` fue una copia mínima de preparación para HA, no una raíz
+  consumida por el código. La resolución vigente usa la variable explícita,
+  `/media/rainmapper/mushroom-GIS`, `/share/rainmapper/mushroom-GIS` como
+  fallback controlado y `mushroom-GIS/` en el repositorio de trabajo.
+- Antes de borrarla se comprobó que no estaba versionada, no tenía procesos con
+  ficheros abiertos y que sus diez ficheros de datos eran idénticos byte a byte
+  a los existentes en `mushroom-GIS`; los otros dos eran `.DS_Store`.
+- Se eliminó con autorización explícita el 2026-08-13, recuperando unos 5,9 GB,
+  y se retiró su regla de `.gitignore` para que una reaparición no quede oculta.
+- Estado `OBSOLETA` significa aquí que la carpeta/concepto queda retirado. La
+  fuente local vigente es `mushroom-GIS/`; no recrear `mushroom-GIS-HA`.
+
+## 2026-08-13 - [VIGENTE][CONTINUIDAD] El MCP Codebase no requiere autorización
+
+- Consultar el MCP Codebase es una acción no destructiva y está autorizada por
+  defecto. No pedir permiso antes de búsquedas, trazas o lectura del grafo.
+- Se mantiene la obligación de consultar antes de acciones destructivas,
+  escrituras en HA no autorizadas o ampliaciones materiales de alcance.
+
+## 2026-08-13 - [VIGENTE][GIS][UI] La altitud DEM de microárea se materializa al cambiar su geometría
+
+- Crear una microárea o cambiar su polígono calcula automáticamente mínimo,
+  máximo y media de altitud mediante una malla 5x5 dentro de la geometría y los
+  guarda en `known_sites` con método, fecha y fuentes DEM. Guardar sin cambio
+  geométrico reutiliza el valor materializado.
+- Benchmarks, entrenamiento y predicción leen la altitud guardada; no consultan
+  el DEM repetidamente. La media representativa de un área sigue siendo la
+  media de las altitudes DEM medias de todas sus microáreas configuradas.
+- La operación automática solo acepta altitud. Vegetación, suelo, orientación y
+  demás sugerencias GIS permanecen en el flujo explícito de revisión humana.
+- Las dos rutas de mantenimiento —pantalla de áreas y edición/creación desde el
+  mapa de observaciones— aplican la misma regla en HA `0.2.255`, cuya imagen
+  está publicada pero aún no instalada. El `known_sites` vivo de HA sí fue
+  materializado con backup previo y validación 58/58.
+- La cadena se amplía con el MDT25 del IGN, hoja MTN50 592, como tercer
+  respaldo. Una carga masiva sobre copia local resolvió 58/58 microáreas: 396
+  muestras del DEM Catalunya, 9 del DEM Andorra y 15 del IGN.
+  `puertomingalvo_pm_arriba` queda en 1.329,6 m de media y
+  `puertomingalvo_mas_del_sapo` en 1.279,9 m. No se infiere una altitud desde
+  observaciones ni nombres; si ninguna cobertura responde se conserva
+  `no_data`.
+
+## 2026-08-13 - [VIGENTE][GIS][BIOLOGY V3] DEM oficial de Andorra como fallback transfronterizo
+
+- El DEM ICGC de Catalunya conserva prioridad. Si devuelve ausencia o `NoData`,
+  Rainmapper consulta el Model Digital d'Elevacions oficial de Andorra; si
+  tampoco aporta cota, mantiene `area_altitude_missing`.
+- La fuente andorrana es un raster de 5 m del Govern d'Andorra/CREAF, basado en
+  cartografía de 1995, con NTF / Lambert zona III (`EPSG:27563`) y elevaciones
+  originales en decímetros.
+- Para operación se usa un GeoTIFF derivado autocontenido: CRS embebido, metros
+  `Float32`, fondo `32768` convertido en `NoData=-9999`, compresión DEFLATE y
+  hash `10e9a27d97c7e3fb05b9411e8604cdd3674df128d61fbabf6a491a64ed5bbb22`.
+- Validación independiente: en `obs_20260613_0001` el DEM devuelve 2073,5 m y
+  el GPS del iPhone registró 2080 m, una diferencia de 6,5 m. El centro del área
+  Ordino devuelve 2063,2 m.
+- El derivado forma parte del dataset GIS inmutable transportado al worker y se
+  reutiliza por hash en su caché. No se empaqueta en la imagen ni se transporta
+  el RAR. La ausencia de licencia explícita de redistribución obliga a mantener
+  los binarios fuera de Git y de releases.
+- Evidencia y contrato de formato completos en `mushroom-GIS/dem-andorra/README.md`.
+
+## 2026-08-13 - [VIGENTE][BIOLOGY V3] La lluvia es IDW diaria en la microárea
+
+- Biology V3 usa siempre una estimación espacial IDW de lluvia en el punto
+  representativo de la microárea, no la estación más cercana ni un IDW solo
+  cuando discrepan estaciones.
+- Contrato `daily_rain_idw_radius15km_power2_v1`: radio 15 km, potencia 2 y
+  distancia mínima de peso 0,1 km. Participan todas las estaciones activas con
+  valor diario utilizable.
+- Un cero observado es cero. Ausencia, error, valor negativo, más de 300 mm/día,
+  repetición positiva consecutiva suprimida y estación retirada no participan.
+  Sin contribuyentes el día queda ausente; nunca se fabrica lluvia cero.
+- La fórmula coincide con MapLibre, pero el gate visual dependiente de la escala
+  de color no forma parte del modelo. Prueba local real: `46,003 mm` sumando IDW
+  diario y `46,059 mm` con los acumulados Tomap redondeados para la misma
+  ventana/punto.
+- La serie se materializa por microárea/fecha y conserva procedencia técnica
+  fuera de X. Su agregación al área se rige por la decisión siguiente.
+- Implementado en módulos nuevos y cubierto por pruebas; no cambia Altitude
+  V2, HA ni ningún modelo promovido.
+
+## 2026-08-13 - [VIGENTE][BIOLOGY V3] El área contextualiza la florada pero no segmenta el modelo
+
+- Biology V3 aprende un modelo común por especie con observaciones procedentes
+  de todas las áreas. `area_id` identifica el lugar donde se materializa la
+  meteorología y se emite la predicción, pero no entra en X ni crea modelos
+  separados por área.
+- La unidad original de evidencia es la observación. Las vistas canónicas por
+  microárea, fecha o área permanecen para resolver conflictos y auditar el
+  target, pero no sustituyen varias observaciones por una única fila de
+  entrenamiento ni reducen el recuento de evidencia disponible.
+- Una florada pertenece a una especie y un área y puede contener múltiples
+  observaciones. Como regla biológica general, una florada corta puede durar
+  hasta 7 días y una larga hasta 14; su continuidad concreta depende de si se
+  mantienen las condiciones de lluvia, temperatura y humedad. Estas ventanas
+  relacionan muestras y validan ambos tipos de duración, pero no agregan ni
+  eliminan observaciones. El contrato 7/14 es común a las especies objetivo;
+  posibles excepciones por especie se conservarán como evidencia y solo
+  cambiarán el contrato si los datos y la literatura lo justifican.
+- Todas las observaciones se conservan. Las observaciones relacionadas pueden
+  compartir un identificador de grupo para impedir que una misma florada cruce
+  train/test, pero siguen siendo muestras separadas. Los informes publican por
+  separado observaciones, fechas, áreas y grupos de validación.
+- La lluvia es una condición biológica necesaria pero no suficiente. El modelo
+  debe aprender cuánta lluvia, durante qué periodo y bajo qué combinación de
+  temperatura y humedad resulta favorable; no se codifica un umbral biológico
+  fijo como gate. Los gates del benchmark son exclusivamente de disponibilidad
+  y calidad de medición.
+- Una variable deja de participar en la predicción mediante estado de registro,
+  no borrándola. Se sigue calculando, validando, comparando y documentando para
+  que pueda reactivarse sin reconstruir su significado.
+
+## 2026-08-13 - [VIGENTE][BIOLOGY V3] La lluvia del área es la media de sus microáreas
+
+- Contrato `area_daily_mean_microarea_idw_v1`: cada día del área es la media
+  aritmética de los IDW disponibles de todas sus microáreas configuradas. Una
+  microárea ausente se omite; solo queda ausente si ninguna aporta valor.
+- No se usa el IDW del centroide del área porque ese centroide es una geometría
+  calculada y no un punto real de evidencia.
+- El modelo acepta el resultado como lluvia canónica: sin penalización,
+  intervalo de incertidumbre ni advertencia por la procedencia de las
+  estaciones. AEMET, Meteocat, Meteoclimatic y Wunderground participan si sus
+  datos superan las mismas reglas de validez.
+- La procedencia de estaciones se conserva únicamente para reproducción y
+  auditoría técnica; no entra en X ni modifica la predicción.
+- Auditoría reproducible sobre 7.262 días-área: diferencia frente al centroide
+  mediana 0,001 mm, p95 0,62 mm, p99 1,89 mm, máximo 7,89 mm; la dispersión
+  entre microáreas llegó a 43,94 mm.
+- Evidencia:
+  `docker-data/audits/mushroom-weather-backfill-20260811/reports/biology-v3-area-idw-20260813.json`.
+
+## 2026-08-13 - [VIGENTE][BIOLOGY V3] La incertidumbre se expresa en la predicción, no en cautelas operativas
+
+- Una predicción futura siempre contiene incertidumbre. Biology V3 debe
+  expresarla mediante probabilidades calibradas y un dictamen claro, no mediante
+  una sucesión de reservas sobre cada dato ya aceptado por contrato.
+- La lluvia media IDW, la corrección térmica y las demás entradas canónicas se
+  usan como datos del modelo una vez superadas sus reglas de validez. No reciben
+  penalizaciones ni advertencias repetidas por ser estimaciones.
+- Procedencia, estaciones contribuyentes, dispersión y otros diagnósticos se
+  conservan para reproducción y auditoría interna; no debilitan el resultado ni
+  aparecen como un «sí, pero» en la predicción ordinaria.
+- La UI solo muestra una advertencia cuando existe una incidencia accionable o
+  el cálculo no puede realizarse. La ausencia total de un dato obligatorio puede
+  provocar abstención; la mera naturaleza probabilística del futuro, no.
+
+## 2026-08-13 - [REEMPLAZADA][BIOLOGY V3] La unidad operativa era especie, área y fecha
+
+- Un episodio de entrenamiento es `(species_id, area_id, observed_at)` porque
+  responde a «¿merecía la pena ir a algún lugar de esta área para esta especie
+  en esta fecha?».
+- Antes de formar el episodio se canonicalizan duplicados por
+  `(species_id, micro_area_id, observed_at)`. Las filas originales, abundancias,
+  conflictos e IDs se conservan como evidencia.
+- El episodio es favorable si alguna microárea conocida fue favorable;
+  desfavorable si todas las conocidas fueron desfavorables; desconocido si
+  ninguna aportó target conocido. Un episodio mixto conserva sus recuentos y no
+  se presenta como si toda el área hubiera respondido igual.
+- Reconciliación sobre 399 filas: 348 unidades canónicas, 278 episodios (188 F,
+  87 D, 3 desconocidos), 275 entrenables, 9 mixtos reales entre microáreas y 2
+  conflictos internos. Los antiguos 275/11 eran la vista entrenable agrupada
+  antes de canonicalizar; no hubo pérdida ni cambio de datos.
+- Reemplazada el mismo día por la decisión «El área contextualiza la florada
+  pero no segmenta el modelo»: esta agrupación se conserva como vista de
+  evidencia y auditoría, pero las observaciones originales son las muestras de
+  aprendizaje y no se fusionan.
+
 ## 2026-08-13 - [VIGENTE][ML] Toda actualización operativa reconstruye y reentrena globalmente
 
 - Si cambian observaciones y se quiere incorporarlas al Predictor, se
@@ -4148,6 +4340,11 @@ Decisión:
 - La barrera se publica en HA `0.2.254`; `0.2.254` y `latest` comparten
   `sha256:bcc72af6fe60bffd0a75246c5ca6726ef42a9a1852c7fa8fabdcef81b9b8b362`
   con manifests `linux/amd64` y `linux/arm64`.
+- Validación de producción completada: HA `0.2.254` y worker `1.0.8`
+  reconstruyeron, entrenaron y promovieron conjuntamente altitude V2. M1 es el
+  ejecutor ordinario. La RPi4 ejecutó una semana completa en 97,608 s, sin OOM,
+  con máximo aproximado de 577 MiB y 46,25 °C; por tanto HA queda VIGENTE como
+  fallback administrativo lento, no como ruta automática preferida.
 
 # 2026-08-13 - [REEMPLAZADA] Worker 1.0.7 no necesitaba actualización
 

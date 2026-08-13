@@ -1,3 +1,9 @@
 *
 !.gitignore
 !README.md
+!dem-andorra/
+dem-andorra/*
+!dem-andorra/README.md
+!dem-ign-mtn50-592/
+dem-ign-mtn50-592/*
+!dem-ign-mtn50-592/README.md

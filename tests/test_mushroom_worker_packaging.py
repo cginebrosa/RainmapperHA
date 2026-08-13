@@ -12,7 +12,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         dockerignore = (ROOT_DIR / ".dockerignore").read_text(encoding="utf-8")
 
         self.assertIn("FROM python:3.11-slim", dockerfile)
-        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.8", dockerfile)
+        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.9", dockerfile)
         self.assertIn("gdal-bin", dockerfile)
         self.assertIn("gosu", dockerfile)
         self.assertIn("mushroom_rebuild_contracts.py", dockerfile)
@@ -23,6 +23,9 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn("mushroom_ml_experiments.py", dockerfile)
         self.assertIn("mushroom_ml_experiment_trainer.py", dockerfile)
         self.assertIn("mushroom_ml_comparison.py", dockerfile)
+        self.assertIn("mushroom_ml_biology_v3.py", dockerfile)
+        self.assertIn("mushroom_ml_biology_v3_evaluation.py", dockerfile)
+        self.assertIn("mushroom_weather_idw.py", dockerfile)
         self.assertIn("mushroom_prediction_interpretation.py", dockerfile)
         self.assertIn("weather_history_contract.py", dockerfile)
         self.assertIn("weather_history_dataset.py", dockerfile)
@@ -30,6 +33,8 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn("manage-mushroom-worker-datasets.py", dockerfile)
         self.assertIn("manage-mushroom-worker-config.py", dockerfile)
         self.assertIn("run-mushroom-worker-service.py", dockerfile)
+        self.assertIn("build-biology-v3-benchmark.py", dockerfile)
+        self.assertIn("evaluate-biology-v3-benchmark.py", dockerfile)
         self.assertNotIn("COPY mushroom-data", dockerfile)
         self.assertNotIn("web_server.py", dockerfile)
         self.assertNotIn("requirements.txt", dockerfile)
@@ -98,11 +103,11 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         stop = (ROOT_DIR / "mushroom_worker_stop.sh").read_text(encoding="utf-8")
 
         self.assertIn(
-            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.8}",
+            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.9}",
             compose,
         )
         self.assertIn(
-            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.8}",
+            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.9}",
             compose,
         )
         self.assertIn("name: rainmapper-worker-local", compose)

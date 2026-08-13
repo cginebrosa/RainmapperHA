@@ -8,6 +8,28 @@ promociona modelos y no modifica HA.
 La especificación de código derivada de estos resultados está en
 `mushroom-ml-v3-implementation-spec-es.md`.
 
+## Reconciliación posterior a la canonicalización — 2026-08-13
+
+La implementación del contrato `area_microarea_evidence_v1` sobre las mismas
+399 observaciones produce 348 unidades canónicas
+`(especie, microárea, fecha)` y 278 episodios `(especie, área, fecha)`:
+
+- 188 favorables, 87 desfavorables y 3 desconocidos;
+- al excluir los 3 targets desconocidos del entrenamiento quedan exactamente
+  los 275 episodios entrenables citados en esta auditoría;
+- la tabla histórica contó 11 grupos mixtos porque agrupó filas originales
+  directamente a área. Dos eran en realidad conflictos duplicados dentro de
+  una única microárea (`amanita_caesarea/llambilles_arriba/2024-11-20` y
+  `boletus_aereus/llambilles_medio/2024-11-20`);
+- después de canonicalizar primero cada microárea, esos dos permanecen como
+  `target_conflict=true`, pero no aparentan ser dos microáreas distintas. Quedan
+  9 episodios realmente mixtos entre microáreas.
+
+Por tanto, 275/11 y 278/9 no describen datasets distintos ni pérdida de datos:
+el primer par era una vista pre-canónica entrenable y el segundo es la vista
+auditable completa. Los recuentos nuevos reemplazan los anteriores para
+Biology V3, manteniéndolos aquí para explicar la transición.
+
 ## Fuentes auditadas
 
 Se comparó en modo lectura la fuente de producción de HA con la copia de juego
@@ -80,7 +102,9 @@ target operativo, pero la implementación pierde información:
 - una salida mixta se convierte en un positivo limpio;
 - la meteorología del episodio depende de qué fila tenga menos avisos.
 
-Hay 11 grupos área/fecha mixtos:
+La vista pre-canónica detectó 11 grupos área/fecha mixtos; tras la reconciliación
+anterior, Biology V3 conserva 9 mixtos reales entre microáreas y 2 conflictos
+internos de microárea:
 
 | Especie | Grupos mixtos |
 |---|---:|
@@ -282,9 +306,9 @@ muestra correlaciones muy altas:
 | edad lluvia >2 mm / edad lluvia significativa | 0,961 |
 | edad lluvia >2 mm / sequía observada | 0,850 |
 
-Estas relaciones explican la inestabilidad y los extremos de LR. La siguiente
-fase debe hacer ablaciones por familias, no añadir todas las derivadas por
-comodidad.
+Estas relaciones explican la inestabilidad y los extremos de LR. La comparación
+debe activar y desactivar familias completas de variables, no añadir todas las
+derivadas por comodidad.
 
 ### Calidad y censura: metadatos, no predictores
 
@@ -305,11 +329,11 @@ correlacionan 1,000 con la edad del episodio por construcción. Dejarlos como
 features permite que el estimador aprenda la historia del pipeline, la época
 con mejor cobertura o la estación seleccionada en lugar de la florada.
 
-### Campos que requieren redefinición o ablación
+### Campos que requieren redefinición o comparación controlada
 
 - `significant_rain_found_90d` duplica en gran parte una edad ya limitada a
   `90` días. Debe permanecer como metadato de interpretación o demostrar valor
-  en ablación antes de volver a ser predictor.
+  en una comparación controlada antes de volver a ser predictor.
 - temperatura/humedad «después de lluvia» actualmente significan media de 90
   días cuando no se encuentra un episodio. Esa doble semántica debe dividirse
   o eliminarse del conjunto mínimo.
@@ -320,14 +344,23 @@ con mejor cobertura o la estación seleccionada en lugar de la florada.
   entrar en el modelo `lag_event` solo si se valida que un único estimador
   compartido representa correctamente los horizontes 1–7.
 
-## Resultado de los pasos 1–3
+## Resultado del benchmark Biology V3
 
 1. El target queda definido como utilidad de la salida, con `very_scarce`
    desfavorable y `pending/no visitado/no buscado` desconocido.
 2. La muestra real y su sesgo quedan cuantificados; no se puede tratar todas
    las especies como problemas independientes igualmente entrenables.
-3. El próximo benchmark separará `predictive_features`, `quality` y
-   `metadata`; ningún contador de cobertura votará en el modelo.
+3. El benchmark separa `predictive_features`, `quality` y `metadata`; ningún
+   contador de cobertura vota en el modelo y las pruebas bloquean su entrada en
+   `X`.
+4. `fixed_gap` conserva 399 observaciones y deja 204 elegibles. `lag_event`
+   conserva 1.596 filas de horizonte y deja 816 elegibles. Los grupos de
+   florada de 7/14 días solo controlan el corte temporal; no reducen filas.
+5. En la evaluación principal de 14 días, quitar lluvia empeora Brier de
+   0,1923 a 0,2643 y quitar temperatura/humedad a 0,2560. La lluvia no está
+   añadiendo ruido en esta muestra.
 
-No se ha decidido aún qué estimador o familia compartida será el sucesor. Esa
-decisión corresponde a las fases posteriores de ablación y validación.
+No se ha elegido un sucesor operativo. V3 mejora varios resultados frente a V2,
+pero la comparación no usa todavía exactamente las mismas filas y empeora log
+loss; hacen falta más observaciones y una repetición comparable antes de
+entrenar o promocionar un candidato.
