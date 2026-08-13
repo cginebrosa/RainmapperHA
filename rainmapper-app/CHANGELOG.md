@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.2.251
+
+- Reset current-week Predictor views when leaving historical queries so their
+  headings, day cards and remote calculations always use the same effective
+  date, rendered without container-locale month names.
+
 ## 0.2.250
 
 - Require `partitioned_weather_history_v1` before creating external-worker

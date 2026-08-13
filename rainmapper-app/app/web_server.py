@@ -12396,19 +12396,28 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         raise ValueError("The selected predictor worker is not available and idle.")
     trained = mushroom_predictor_ui.trained_species_ids()
     species = (query.get("species") or [trained[0] if trained else ""])[0]
+    current_date = datetime.now(get_timezone()).date()
+    view = (query.get("view") or ["recommender"])[0]
+    raw_target_date = (query.get("date") or [current_date.isoformat()])[0]
+    try:
+        parsed_target_date = date.fromisoformat(raw_target_date)
+    except ValueError:
+        parsed_target_date = current_date
+    target_date = mushroom_predictor_ui.normalize_predictor_target_date(
+        view,
+        parsed_target_date,
+        today=current_date,
+    )
     request = {
         "schema_version": PREDICTOR_SCHEMA_VERSION,
         "kind": PREDICTOR_REQUEST_KIND,
-        "view": (query.get("view") or ["recommender"])[0],
+        "view": view,
         "species_id": species,
         "area_id": (query.get("area") or [""])[0],
-        "target_date": (query.get("date") or [datetime.now(get_timezone()).date().isoformat()])[0],
+        "target_date": target_date.isoformat(),
         "filter_mode": (query.get("filter") or [""])[0],
         "compare_models": (query.get("compare") or [""])[0] == "1",
-        "issue_date": min(
-            datetime.now(get_timezone()).date(),
-            date.fromisoformat((query.get("date") or [datetime.now(get_timezone()).date().isoformat()])[0]),
-        ).isoformat(),
+        "issue_date": min(current_date, target_date).isoformat(),
         "trained_species_ids": trained,
     }
     manifest, _sources = mushroom_predictor_runtime.build_manifest()
@@ -17530,6 +17539,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.send_bytes(409, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
                 return
             params = {key: values[0] for key, values in query.items() if values and key != "job_id"}
+            job_request = job.get("request")
+            if isinstance(job_request, dict) and job_request.get("target_date"):
+                params["date"] = str(job_request["target_date"])
             params["job_id"] = str(job["job_id"])
             self.redirect_to("./predictor?" + urlencode(params))
             return

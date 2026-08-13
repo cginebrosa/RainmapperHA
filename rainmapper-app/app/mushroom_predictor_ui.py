@@ -541,7 +541,8 @@ def _render_tabs(
     target_date: date,
 ) -> str:
     def tab(key: str, v: str, extra_params: str = "") -> str:
-        href = _url(v, species, target_date=target_date)
+        tab_date = date.today() if v in {"recommender", "week"} else target_date
+        href = _url(v, species, target_date=tab_date)
         cls = "pred-tab pred-tab-active" if view == v else "pred-tab"
         return (
             f'<a class="{cls}" href="{html.escape(href)}" '
@@ -556,6 +557,20 @@ def _render_tabs(
   {tab("ui.predictor_tab_history", "history")}
 </nav>
 """
+
+
+def normalize_predictor_target_date(
+    view: str,
+    target_date: date,
+    *,
+    today: date | None = None,
+) -> date:
+    """Keep current-week views inside the dates that they actually display."""
+    current = today or date.today()
+    if view not in {"recommender", "week"}:
+        return target_date
+    offset = (target_date - current).days
+    return target_date if 0 <= offset <= 6 else current
 
 
 # ---------------------------------------------------------------------------
@@ -615,7 +630,7 @@ def _render_recommender(
     date_label = (
         "Hoy" if target_date == today
         else "Mañana" if target_date == today + timedelta(days=1)
-        else target_date.strftime("%-d de %B")
+        else f"{target_date.day}/{target_date.month}/{target_date.year}"
     )
 
     if not all_results:
@@ -1680,6 +1695,7 @@ def _render_page_inner(
         target_date = date.fromisoformat(date_str) if date_str else date.today()
     except ValueError:
         target_date = date.today()
+    target_date = normalize_predictor_target_date(view, target_date)
 
     tabs = _render_tabs(view, species, target_date)
 

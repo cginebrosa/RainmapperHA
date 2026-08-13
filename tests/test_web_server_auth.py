@@ -14,7 +14,7 @@ import tempfile
 import threading
 import time
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urljoin
 from unittest import mock
@@ -385,6 +385,140 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('name="executor"', hidden)
         self.assertIn('value="worker:worker_internal123"', hidden)
         self.assertIn("executor=worker%3Aworker_internal123", link)
+
+    def test_predictor_current_week_views_reject_a_stale_historical_date(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        today = date(2026, 8, 13)
+        historical = date(2024, 10, 12)
+
+        self.assertEqual(
+            predictor_ui.normalize_predictor_target_date(
+                "recommender", historical, today=today
+            ),
+            today,
+        )
+        self.assertEqual(
+            predictor_ui.normalize_predictor_target_date(
+                "week", historical, today=today
+            ),
+            today,
+        )
+        self.assertEqual(
+            predictor_ui.normalize_predictor_target_date(
+                "recommender", date(2026, 8, 16), today=today
+            ),
+            date(2026, 8, 16),
+        )
+        self.assertEqual(
+            predictor_ui.normalize_predictor_target_date(
+                "query", historical, today=today
+            ),
+            historical,
+        )
+
+    def test_predictor_week_tabs_do_not_carry_a_historical_query_date(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        historical = date(2024, 10, 12)
+
+        rendered = predictor_ui._render_tabs(
+            "query", "boletus_aereus", historical
+        )
+
+        self.assertEqual(rendered.count("date=2024-10-12"), 2)
+        self.assertEqual(rendered.count(f"date={date.today().isoformat()}"), 2)
+
+    def test_predictor_page_uses_the_normalized_date_for_week_calculations(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        with (
+            mock.patch.object(
+                predictor_ui,
+                "trained_species_ids",
+                return_value=["boletus_aereus"],
+            ),
+            mock.patch.object(predictor_ui, "_render_tabs", return_value="tabs") as tabs,
+            mock.patch.object(
+                predictor_ui,
+                "_render_recommender",
+                return_value="recommendations",
+            ) as recommender,
+        ):
+            predictor_ui._render_page_inner(
+                {
+                    "view": ["recommender"],
+                    "species": ["boletus_aereus"],
+                    "date": ["2024-10-12"],
+                },
+                {},
+                {},
+            )
+
+        expected_today = date.today()
+        self.assertEqual(tabs.call_args.args[2], expected_today)
+        self.assertEqual(recommender.call_args.args[0], expected_today)
+
+    def test_predictor_week_heading_uses_a_locale_neutral_numeric_date(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        target = date.today() + timedelta(days=2)
+        with mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key):
+            rendered = predictor_ui._render_recommender(target, [], {}, {})
+
+        self.assertIn(f"{target.day}/{target.month}/{target.year}", rendered)
+        self.assertNotIn(target.strftime("%B"), rendered)
+
+    def test_remote_predictor_normalizes_stale_week_date_before_queueing(self) -> None:
+        worker = {
+            "worker_id": "worker_test",
+            "display_name": "Test worker",
+            "worker_version": "1.0.7",
+        }
+        monitor = mock.MagicMock()
+        monitor.operation_id = "predictor-week-date"
+        with (
+            mock.patch.object(self.web_server, "action_is_running", return_value=False),
+            mock.patch.object(
+                self.web_server,
+                "available_predictor_executors",
+                return_value=[worker],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "trained_species_ids",
+                return_value=["boletus_aereus"],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "build_manifest",
+                return_value=({"fingerprint": "sha256:test"}, {}),
+            ),
+            mock.patch.object(
+                self.web_server,
+                "reconcile_mushroom_worker_storage_for_launch",
+                return_value={},
+            ),
+            mock.patch.object(
+                self.web_server.runtime_diagnostics,
+                "OperationMonitor",
+                return_value=monitor,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "create_predictor_job",
+                return_value={"job_id": "worker_job_week"},
+            ) as create_job,
+        ):
+            self.web_server.create_remote_predictor_job(
+                "worker_test",
+                {
+                    "view": ["recommender"],
+                    "species": ["boletus_aereus"],
+                    "date": ["2024-10-12"],
+                },
+            )
+
+        request = create_job.call_args.kwargs["request"]
+        expected_today = datetime.now(self.web_server.get_timezone()).date()
+        self.assertEqual(request["target_date"], expected_today.isoformat())
+        self.assertEqual(request["issue_date"], expected_today.isoformat())
 
     def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
         script = self.web_server.predictor_launch_script()
