@@ -227,8 +227,9 @@ del histórico vivo: para `42.01333, 1.97155` y la ventana cerrada
 `2026-08-06…2026-08-12`, el IDW diario sumó `46,003 mm` y el IDW directo de los
 acumulados Tomap redondeados `46,059 mm`.
 
-Temperatura y humedad conservan inicialmente el selector sensible al corte y la
-corrección térmica por altitud de V2. Sustituirlas también por un campo espacial
+Temperatura y humedad relativa del aire conservan inicialmente el selector
+sensible al corte de V2. La corrección térmica por altitud se aplica solo a la
+temperatura. Sustituirlas también por un campo espacial
 sería otro contrato y exige una comparación separada.
 
 Al agregar varias microáreas a un episodio de área se aplica el contrato
@@ -280,11 +281,10 @@ decisiones nuevas:
    mismas filas y corte predeclarado; exigir mejora repetible de Brier en 7/14
    días, calibración/log loss no peores y ausencia de regresiones graves por
    especie con soporte suficiente. La evaluación emparejada usa 167 muestras
-   semanales comunes. La configuración final del benchmark —mes y altitud
-   directa inactivos— mejora Brier, log loss, calibración y acierto equilibrado
-   frente a V2 en grupos 7/14 y mejora Brier/log loss en horizontes 1/2/3/7.
-   Solo 54 casos de test de 6 especies son evaluables; este soporte no autoriza
-   por sí solo una promoción operativa.
+   semanales comunes. Los Brier combinados entre especies quedan como
+   diagnóstico y nunca deciden el gate; la decisión es por especie, estimador y
+   contrato, frente a la prevalencia de entrenamiento de esa especie. El
+   soporte actual no autoriza una promoción operativa.
 7. **Elevación transfronteriza — cadena local cerrada para las áreas actuales.**
    El DEM Catalunya conserva prioridad, el MDE oficial de Andorra 5 m actúa
    como segundo origen y el MDT25 del IGN, hoja MTN50 592, como tercero. Una
@@ -353,7 +353,18 @@ days_since_significant_rain_at_target
 dry_spell_observed_at_cutoff
 temp_mean_after_significant_rain_c
 humidity_mean_after_significant_rain_pct
+temp_max_cutoff_7d_c
+temp_min_cutoff_7d_c
+humidity_max_cutoff_0_3d_pct
+humidity_min_cutoff_0_3d_pct
+humidity_max_cutoff_4_7d_pct
+humidity_min_cutoff_4_7d_pct
+humidity_max_cutoff_8_14d_pct
+humidity_min_cutoff_8_14d_pct
+humidity_max_cutoff_15_21d_pct
+humidity_min_cutoff_15_21d_pct
 temp_max_mean_cutoff_7d_c
+temp_min_mean_cutoff_7d_c
 temp_mean_cutoff_7d_c
 horizon_days  # solo lag_event_biology_v3
 ```
@@ -370,14 +381,25 @@ pero permanecen inactivos en X por defecto: son umbrales humanos heredados, no
 gates de fructificación ni cantidades mínimas asumidas.
 
 El registro implementado marca como activas por defecto las ventanas de lluvia
-0–3, 4–7, 8–14 y 15–21 días, racha seca observada y temperaturas V2 corregidas.
+0–3, 4–7, 8–14 y 15–21 días, racha seca observada, extremos de temperatura V2
+corregidos en siete días y extremos de humedad relativa en las mismas cuatro
+ventanas temporales que la lluvia.
 Estacionalidad y altitud directa quedan inactivas tras la comparación emparejada:
-la configuración meteorológica mejora los cuatro scores agregados semanales en
-grupos 7/14. La altitud sigue aplicada a la corrección de temperatura. Las
-ventanas largas son experimentales; los relojes de 2/5 mm y las medias
-posteriores al evento están inactivos. Inactivo significa que el campo se sigue
+la altitud sigue aplicada a la corrección de temperatura. Todas las medias de
+temperatura y humedad relativa, las ventanas largas de lluvia y los relojes de
+2/5 mm están inactivos. Inactivo significa que el campo se sigue
 calculando, validando y documentando, pero no entra en la predicción mínima y
 puede reactivarse sin reconstruir su definición.
+
+### Ejes y consenso de la evaluación
+
+La palabra «modelo» no sustituye indistintamente a especie, contrato o
+algoritmo. Un modelo ajustado queda definido por una especie, un contrato
+temporal y un estimador. Los seis estimadores reciben las mismas columnas en
+cada ejecución. Se comparan las 15 parejas por especie sobre las mismas filas
+reservadas, publicando diferencia de probabilidad, coincidencia respecto a 0,5
+y proporciones de consenso alto/moderado/bajo. Coincidir no basta: ambos
+estimadores deben superar el Brier de prevalencia de la especie.
 
 ### Quality, nunca X
 
@@ -584,9 +606,9 @@ mostrar los números que justifican el tier.
    `metadata`.
 6. [Hecho] Añadir gates y recuentos de suficiencia sin entrenar modelos.
 7. [Hecho] Generar el benchmark local y comparar sus conteos contra la auditoría.
-8. [Hecho sin modelo persistente] Comparar configuraciones y V2/V3 mediante
-   regresión logística efímera; el informe declara
-   `model_artifact_written=false`.
+8. [Hecho sin modelo persistente] Comparar configuraciones y V2/V3 mediante los
+   seis estimadores exactos, por especie y con consenso fila a fila; el informe
+   declara `model_artifact_written=false`.
 
 ## Criterio de cierre de esta implementación
 

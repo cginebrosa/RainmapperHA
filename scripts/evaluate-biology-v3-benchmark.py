@@ -32,6 +32,7 @@ def main() -> int:
     parser.add_argument("--benchmark", type=Path, required=True)
     parser.add_argument("--v2-features", type=Path)
     parser.add_argument("--known-sites", type=Path)
+    parser.add_argument("--species", nargs="+")
     parser.add_argument("--group-days", type=int, choices=(7, 14), required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -55,10 +56,17 @@ def main() -> int:
             "known_sites_sha256": sha256(args.known_sites),
         }
         report = evaluate_matched_benchmarks(
-            v2_benchmark, benchmark, group_days=args.group_days
+            v2_benchmark,
+            benchmark,
+            group_days=args.group_days,
+            species_ids=set(args.species) if args.species else None,
         )
     else:
-        report = evaluate_benchmark(benchmark, group_days=args.group_days)
+        report = evaluate_benchmark(
+            benchmark,
+            group_days=args.group_days,
+            species_ids=set(args.species) if args.species else None,
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps({"output": str(args.output), "split": report["split"]}, ensure_ascii=False))

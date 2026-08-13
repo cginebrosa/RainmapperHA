@@ -385,6 +385,29 @@ class MushroomMLBiologyV3Tests(unittest.TestCase):
         self.assertNotIn("target_month_sin", columns)
         self.assertNotIn("target_month_cos", columns)
         self.assertNotIn("gis_altitude_m", columns)
+        for humidity_column in (
+            "humidity_max_cutoff_0_3d_pct",
+            "humidity_min_cutoff_0_3d_pct",
+            "humidity_max_cutoff_4_7d_pct",
+            "humidity_min_cutoff_4_7d_pct",
+            "humidity_max_cutoff_8_14d_pct",
+            "humidity_min_cutoff_8_14d_pct",
+            "humidity_max_cutoff_15_21d_pct",
+            "humidity_min_cutoff_15_21d_pct",
+        ):
+            self.assertIn(humidity_column, columns)
+            self.assertIsNotNone(sample["predictive_features"][humidity_column])
+        self.assertIn(
+            "humidity_mean_cutoff_7d_pct",
+            registry["inactive_predictive_feature_cols"],
+        )
+        self.assertNotIn("humidity_mean_cutoff_7d_pct", columns)
+        self.assertIn("temp_max_cutoff_7d_c", columns)
+        self.assertIn("temp_min_cutoff_7d_c", columns)
+        self.assertNotIn("temp_max_mean_cutoff_7d_c", columns)
+        self.assertNotIn("temp_min_mean_cutoff_7d_c", columns)
+        self.assertNotIn("temp_mean_cutoff_7d_c", columns)
+        self.assertFalse(any("mean" in column for column in columns))
         self.assertIn("target_month_sin", sample["predictive_features"])
         self.assertIn("gis_altitude_m", sample["predictive_features"])
         self.assertIn(

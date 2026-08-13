@@ -92,22 +92,31 @@ canónica sin penalización ni advertencia por la procedencia de las estaciones.
 Los dos feature sets construyen `predictive_features`, `quality` y `metadata`
 por separado. Solo variables predictivas registradas pueden entrar en `X`; el
 área y los contadores de cobertura no entran. La lluvia siempre usa la media
-diaria de IDW de las microáreas configuradas. Temperatura y humedad conservan el
-selector V2 sensible al corte y su corrección por altitud.
+diaria de IDW de las microáreas configuradas. Temperatura y humedad relativa
+del aire conservan el selector V2 sensible al corte; la corrección por altitud
+se aplica a temperatura.
 
 La reproducción local conserva 399 observaciones en `fixed_gap` y genera 1.596
 muestras en `lag_event` para horizontes 1/2/3/7. Con altitudes DEM
 materializadas en una copia de known sites resultan 204 y 816 muestras
 elegibles, respectivamente. Los grupos de florada contienen 264 grupos a 7
-días y 244 a 14 días, sin fusionar observaciones. No se entrenó ningún modelo.
+días y 244 a 14 días, sin fusionar observaciones. Los cuatro horizontes no se
+interpretan como cuatro observaciones independientes. No se persistió ningún
+modelo.
 
 La comparación equivalente reconstruye V2 por observación y encuentra 167
-filas semanales comunes. Con mes y altitud directa activados, V3 empeora frente
-a V2; al dejarlos inactivos y conservar lluvia, temperatura, humedad y racha
-seca, V3 mejora Brier, log loss, calibración y acierto equilibrado en grupos de
-7 y 14 días. Ambas variables continúan materializadas; la altitud sigue
-corrigiendo la temperatura. El test evaluable sigue siendo pequeño y no
-autoriza promoción operativa.
+filas semanales comunes. La evaluación vigente no selecciona por un Brier
+combinado entre especies: compara por separado contrato temporal, estimador y
+especie. Dentro de cada contrato, LR, RF, ET, HGB, KNN y SVM RBF reciben la
+misma `X`. Mes y altitud directa permanecen inactivos; la altitud sigue
+corrigiendo la temperatura.
+
+Las variables activas no contienen medias meteorológicas: lluvia IDW acumulada,
+racha seca, extremos de temperatura y extremos de humedad relativa. Las medias
+se conservan inactivas. El análisis fila a fila de las 15 parejas muestra que
+RF+ET es la pareja más coincidente de forma sistemática, sobre todo en
+`lag_event`, pero no existe un estimador ganador universal y el soporte por
+especie sigue siendo pequeño. No autoriza promoción operativa.
 
 La altitud de cada microárea se calcula y cachea al crear o cambiar su geometría;
 no se consulta el DEM durante cada benchmark o predicción. La cadena local

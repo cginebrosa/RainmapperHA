@@ -31,10 +31,9 @@ documentos temáticos enlazados.
 
 1. No instalar HA `0.2.255` ni el worker `1.0.9`: ambas imágenes son anteriores
    a la comparación emparejada y a la configuración V3 final del benchmark.
-2. La configuración meteorológica V3 mejora los scores agregados V2 en todos
-   los horizontes, incluidos 7 días. El siguiente paso requiere decisión del
-   usuario: acumular más soporte o autorizar en otra fase el entrenamiento de
-   un candidato no promovido. No entrenar ni promoverlo todavía.
+2. Cerrar la matriz local de seis estimadores por especie y contrato, mantener
+   Brier combinado solo como diagnóstico y documentar el consenso fila a fila.
+   No entrenar, persistir ni promover un candidato operativo.
 
 ## Biology V3 — benchmark implementado; promoción operativa bloqueada
 
@@ -87,34 +86,39 @@ documentos temáticos enlazados.
   florada. Catorce días es la referencia principal por cubrir floradas largas;
   siete días es la comprobación de sensibilidad. Ningún grupo cruza train/test
   y ninguna observación se elimina.
+- La nomenclatura separa contrato temporal, estimador y especie. Un modelo
+  ajustado es especie × contrato × estimador. Los seis estimadores —LR, RF, ET,
+  HGB, KNN y SVM RBF calibrada— reciben la misma `X`; activo/experimental es
+  una etiqueta operativa, no un filtro del benchmark.
+- La matriz activa contiene lluvia IDW acumulada, racha seca, temperatura
+  máxima/mínima y humedad relativa máxima/mínima. No contiene medias. Las
+  medias, mes, altitud directa y variables ligadas al umbral heredado de lluvia
+  siguen materializadas y validadas, pero inactivas. La altitud continúa
+  corrigiendo físicamente la temperatura.
 - La comparación mantiene `active_full`, `without_rain`,
-  `without_temperature_humidity` y `weather_only`. En `fixed_gap`/14 días,
-  quitar lluvia empeoró Brier de 0,1923 a 0,2643 y quitar temperatura/humedad a
-  0,2560: con estos datos la lluvia no añade ruido y las tres familias ayudan.
-  `weather_only` obtuvo 0,1713 y motivó la comprobación emparejada posterior;
-  ninguna variable se borra ni deja de validarse.
-- La comparación emparejada confirma esa señal en las mismas 167 filas. La
-  configuración meteorológica mejora a V2 con grupos de 14 días (Brier 0,2082
-  frente a 0,2219) y 7 días (0,2304 frente a 0,2557), además de mejorar log
-  loss, calibración y acierto equilibrado. Por ello mes y altitud directa quedan
-  inicialmente inactivos, pero se siguen calculando, validando y documentando.
-  La altitud continúa interviniendo en la corrección física de temperatura.
-- La comparación corregida reconstruye altitude V2 por observación y obliga a
-  V2/V3 a compartir filas, target, corte y grupos. Con todas las candidatas
-  activadas, en el contrato semanal hay
-  167 observaciones conjuntamente elegibles: V3 cubre además otras 37 y V2
-  ninguna exclusiva. Con grupos de 14 días, V2 supera a V3 en Brier
-  (`0,2219` frente a `0,2358`) y log loss (`0,6567` frente a `0,9172`); con 7
-  días ocurre lo mismo (`0,2557` frente a `0,2609`). V3 sí mejora claramente
-  en horizontes 1–2 y ligeramente en 3, pero vuelve a empeorar en 7. No supera
-  el gate semanal. La configuración meteorológica sí supera esos scores
-  agregados, pero el test evaluable es pequeño (54 observaciones de 6 especies)
-  y Morchella retrocede con solo 5 casos; no basta para una promoción operativa.
-  No se escribió un artefacto reutilizable
-  (`model_artifact_written=false`).
-- Smoke completo: 708 pruebas. Un contenedor worker temporal reproduce
-  exactamente cobertura, corte, columnas y métricas locales (mismo hash del
-  resumen). No se instaló el contenedor ni se modificó el worker activo.
+  `without_temperature`, `without_humidity`,
+  `without_temperature_humidity` y `weather_only`. Brier se decide por especie
+  frente a su prevalencia; el pooled entre especies es diagnóstico y nunca
+  selecciona estimador.
+- El consenso compara las 15 parejas fila a fila sobre el mismo hold-out y
+  publica gap de probabilidad, coincidencia respecto a 0,5 y proporciones
+  alto/moderado/bajo. RF+ET es la pareja más coincidente de forma sistemática,
+  sobre todo en `lag_event`, pero solo se considera útil cuando ambos superan
+  prevalencia.
+- No existe ganador universal. En `fixed_gap` los mejores Brier son LR para
+  Amanita/Lactarius/Morchella, HGB para B. aereus, ET para B. edulis y SVM RBF
+  para B. pinophilus. En `lag_event`: LR para Amanita, KNN para B. aereus y
+  Morchella, RF para B. edulis/B. pinophilus y HGB para Lactarius. La asignación
+  se mantiene al repetir grupos 7/14, pero el soporte por especie es pequeño.
+- La comparación emparejada conserva 167 filas semanales comunes y V3 cubre 37
+  adicionales. Las 674 filas emparejadas de `lag_event` son tareas de horizonte
+  y repiten observaciones; el informe registra también observaciones únicas.
+  No se escribió un artefacto reutilizable (`model_artifact_written=false`).
+- Smoke local completo: 708 pruebas superadas con la matriz extrema y consenso.
+  La imagen temporal `rainmapper-worker:biology-v3-local-test` compila el core y
+  verifica seis estimadores, 15 columnas activas y cero medias activas. La
+  imagen inicial `1.0.9` queda obsoleta. No se instaló ningún contenedor ni se
+  modificó el worker activo.
 - La altitud de microárea queda cacheada al crear o cambiar su geometría en las
   dos rutas locales de mantenimiento; un guardado sin cambio geométrico la
   reutiliza. La cadena Catalunya→Andorra→IGN MTN50 hoja 592 resolvió las 58/58

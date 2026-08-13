@@ -65,9 +65,10 @@ Lista operativa priorizada. El estado inmediato está en
   para no ocultar tormentas locales mediante doble suavizado. Resultado: 7.262
   días-área, mediana 0,001 mm, p95 0,62 mm, máximo 7,89 mm y dispersión máxima
   entre microáreas 43,94 mm.
-- [x] Ratificar `especie + área + fecha` como unidad final de entrenamiento:
-  278 episodios auditables, 275 con target conocido, 9 mixtos reales entre
-  microáreas y 2 conflictos internos preservados por separado.
+- [x] Conservar la observación original como unidad de entrenamiento. Mantener
+  `especie + área + fecha` solo como vista auditable: 278 episodios, 275 con
+  target conocido, 9 mixtos reales entre microáreas y 2 conflictos internos,
+  sin reemplazar ni reducir las observaciones originales.
 - [x] Reutilizar inicialmente para temperatura/humedad el selector V2 sensible
   al corte y la corrección por altitud; las variables posteriores a un evento
   siguen registradas pero inactivas mientras no exista semántica única.
@@ -92,20 +93,26 @@ Lista operativa priorizada. El estado inmediato está en
   los contratos altitude v2 congelados. No elegir ni promover por capturas.
 - [x] Revisar calibración, Brier, prevalencia, soporte por especie y dominio.
   Resultado: V3 no pasa el gate operativo; no entrenar ni promover candidato.
-- [x] Empaquetar benchmark/evaluación V3 en worker `1.0.9` y comprobar dentro de
-  la imagen el mismo informe y hash que en local, sin instalarla ni ejecutar un
-  job operativo.
+- [x] Reempaquetar benchmark/evaluación V3 en
+  `rainmapper-worker:biology-v3-local-test`: compila y verifica seis estimadores,
+  15 columnas activas y cero medias activas. La imagen inicial `1.0.9` quedó
+  obsoleta; no instalar ninguna ni ejecutar un job operativo.
 - [x] Comparar V2/V3 sobre exactamente las mismas observaciones, targets,
   horizontes, corte y grupos 7/14. Resultado semanal: 167 filas compartidas;
   V3 aporta 37 elegibles adicionales, pero empeora Brier/log loss en las
   comunes y no pasa el gate.
 - [x] Desactivar inicialmente mes y altitud como entradas directas, sin borrarlas
   ni dejar de validarlas. La temperatura conserva la corrección por altitud. La
-  configuración meteorológica supera a V2 en los agregados semanales 7/14,
-  pero el soporte por especie aún es insuficiente para promoción.
-- [x] Resolver la pérdida específica del horizonte 7: la causaban mes y altitud
-  directa. Con ambas inactivas, V3 mejora Brier/log loss en 1/2/3/7 y en las
-  agrupaciones 7/14.
+  selección nunca se decide mediante un Brier combinado entre especies.
+- [x] Evaluar los seis estimadores sobre la misma `X` por contrato y especie,
+  incluyendo las 15 parejas de consenso. Resultado: no hay ganador universal;
+  RF+ET es la pareja más coincidente de forma sistemática, sobre todo en
+  `lag_event`, pero coincidencia solo cuenta si ambos superan prevalencia.
+- [x] Activar extremos de temperatura y humedad relativa sin medias en `X`.
+  Conservar todas las medias materializadas, registradas y validadas como
+  inactivas. Añadir pruebas `without_temperature` y `without_humidity`.
+- [x] Registrar explícitamente que una fila por horizonte de `lag_event` no es
+  una nueva observación independiente y publicar ambos recuentos.
 - [ ] Repetir cuando haya más observaciones y exigir mejora de Brier estable,
   calibración/log loss no peores y ausencia de regresiones graves por especie
   con soporte suficiente antes de entrenar un candidato operativo.

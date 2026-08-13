@@ -11,6 +11,41 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-13 - [VIGENTE][BIOLOGY V3] Tres ejes, extremos meteorológicos y consenso entre estimadores
+
+- La nomenclatura canónica separa tres ejes: **contrato temporal**
+  (`fixed_gap_7d_biology_v3` o `lag_event_biology_v3`), **estimador ML**
+  (seis algoritmos) y **especie**. Un modelo ajustado es una combinación
+  especie × contrato × estimador. Las especies no se denominan modelos y los
+  contratos no se denominan algoritmos.
+- Los seis estimadores reciben exactamente las mismas columnas activas dentro
+  de un contrato y una comparación. LR y RF conservan estado operativo; ET,
+  HGB, KNN y SVM RBF calibrada conservan estado experimental, pero los seis se
+  comparan sin filtrar ese estado.
+- El Brier se calcula y decide por especie. Los agregados entre especies son
+  solo diagnósticos y nunca seleccionan estimador. Cada Brier se contrasta con
+  la prevalencia de entrenamiento de esa misma especie.
+- El consenso se mide fila a fila entre las 15 parejas de estimadores sobre el
+  mismo hold-out. Se publican diferencia de probabilidad, coincidencia respecto
+  a 0,5 y proporciones de consenso alto/moderado/bajo con los umbrales ya usados
+  por el Predictor. No se inventa una única etiqueta agregada por especie.
+- La matriz activa no contiene medias meteorológicas. Usa lluvia IDW acumulada,
+  racha seca, temperatura máxima/mínima y humedad relativa máxima/mínima. Las
+  medias continúan materializadas, registradas y validadas, pero quedan
+  inactivas y fuera de `X`.
+- Temperatura usa los extremos de los siete días anteriores al corte, con
+  corrección por altitud. Humedad relativa usa extremos en ventanas 0–3, 4–7,
+  8–14 y 15–21; conserva el selector V2 sensible al corte. Así se mantiene la
+  secuencia conjunta con la lluvia sin imponer un mínimo de milímetros.
+- No aparece un ganador universal. En `lag_event`, el ganador por Brier es
+  estable entre agrupaciones 7/14: LR para Amanita caesarea, KNN para Boletus
+  aereus y Morchella, RF para B. edulis y B. pinophilus, y HGB para Lactarius
+  deliciosus. RF+ET es la pareja que más coincide de forma sistemática, pero
+  el consenso solo se considera útil cuando ambos superan la prevalencia.
+- El soporte sigue siendo pequeño: las filas de `lag_event` repiten cada
+  observación por horizonte y no cuentan como observaciones independientes.
+  Ningún resultado autoriza entrenar o promover un candidato operativo.
+
 ## 2026-08-13 - [VIGENTE][BIOLOGY V3] Validación temporal y gate operativo
 
 - La validación principal usa un corte cronológico 70/30 por especie y mantiene
@@ -20,24 +55,16 @@ multiidioma mediante labels `en`, `es` y `ca`.
 - `fixed_gap_7d_biology_v3` es la vista principal por corresponder a la salida
   semanal. `lag_event_biology_v3` se conserva como diagnóstico para horizontes
   1, 2, 3 y 7, no como una competición para escoger el score más favorable.
-- Las comparaciones activan todo, quitan lluvia, quitan temperatura/humedad y
-  usan solo meteorología. Son pruebas de contribución, no instrucciones para
-  borrar variables: cualquier variable inactiva permanece calculada,
-  registrada, validada y documentada.
-- La primera ejecución confirma que quitar lluvia o temperatura/humedad empeora
-  Brier. La comparación equivalente posterior reconstruye V2 por observación y
-  usa las mismas 167 filas semanales: V3 cubre 37 más, pero empeora Brier y log
-  loss en las compartidas. V3 mejora en horizontes 1–3 y empeora en 7. Por
-  tanto no supera el gate operativo y no se entrena ni promociona candidato.
+- Las comparaciones activan todo, quitan lluvia, temperatura o humedad relativa
+  por separado, quitan temperatura+humedad y usan solo meteorología. Son pruebas
+  de contribución, no instrucciones para borrar variables.
 - Una promoción futura exige V2/V3 sobre las mismas filas, mejora de Brier
   repetible con grupos de 7 y 14 días, calibración/log loss no peores y ausencia
   de regresiones graves por especie cuando exista soporte suficiente.
-- La comparación controlada identifica mes y altitud directa como causa del
-  deterioro semanal. Quedan inicialmente inactivos en `X`, pero permanecen
-  materializados, registrados y validados. La altitud continúa aplicándose a
-  la corrección de temperatura. Con esta configuración meteorológica V3 mejora
-  todos los scores agregados semanales frente a V2, aunque 54 casos de test en
-  6 especies no bastan para promoción operativa.
+- Mes y altitud directa permanecen inactivos en `X`, materializados y
+  validados; la altitud continúa aplicándose a la corrección de temperatura.
+  Las conclusiones preliminares basadas solo en LR y Brier combinado entre
+  especies quedan reemplazadas por la matriz de seis estimadores por especie.
 
 ## 2026-08-13 - [OBSOLETA][GIS] Eliminar la copia local `mushroom-GIS-HA`
 

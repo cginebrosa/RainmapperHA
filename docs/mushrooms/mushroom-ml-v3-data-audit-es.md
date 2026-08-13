@@ -356,23 +356,28 @@ con mejor cobertura o la estación seleccionada en lugar de la florada.
 4. `fixed_gap` conserva 399 observaciones y deja 204 elegibles. `lag_event`
    conserva 1.596 filas de horizonte y deja 816 elegibles. Los grupos de
    florada de 7/14 días solo controlan el corte temporal; no reducen filas.
-5. En la evaluación principal de 14 días, quitar lluvia empeora Brier de
-   0,1923 a 0,2643 y quitar temperatura/humedad a 0,2560. La lluvia no está
-   añadiendo ruido en esta muestra.
-6. La comparación equivalente reconstruye altitude V2 por observación. Sobre
-   167 filas semanales compartidas, V2 obtiene Brier 0,2219 y V3 0,2358 con
-   grupos de 14 días; con grupos de 7 días son 0,2557 y 0,2609. V3 puede usar
-   37 observaciones adicionales, pero no gana todavía en las comunes.
-7. Por horizonte, V3 mejora Brier/log loss en 1–2 días, mejora ligeramente en
-   3 y empeora en 7. La mejora inmediata no autoriza sustituir el predictor
-   semanal.
-8. El deterioro semanal procede de activar mes y altitud directa junto a la
-   meteorología. Dejándolos inactivos —pero conservados— V3 mejora a V2 en
-   Brier, log loss, calibración y acierto equilibrado tanto con grupos de 14
-   como de 7 días. La altitud sigue corrigiendo físicamente la temperatura.
+5. La evaluación vigente ejecuta los seis estimadores exactos sobre las mismas
+   columnas de cada contrato. LR/RF se etiquetan activos y ET/HGB/KNN/SVM RBF
+   experimentales, pero la etiqueta no filtra el análisis.
+6. El Brier se informa por especie frente a su propia prevalencia. Los valores
+   combinados entre especies quedan marcados como diagnósticos y no seleccionan
+   estimadores.
+7. El conjunto activo no contiene medias meteorológicas: usa acumulados IDW de
+   lluvia, racha seca, temperatura máxima/mínima y humedad relativa
+   máxima/mínima. Las medias se siguen materializando y validando, pero no
+   entran en `X`.
+8. No hay un ganador universal. En `fixed_gap`/14 días los mejores Brier por
+   especie evaluable son LR (Amanita, Lactarius y Morchella), HGB (B. aereus),
+   ET (B. edulis) y SVM RBF (B. pinophilus). La misma asignación se mantiene al
+   repetir con grupos de 7 días.
+9. En `lag_event`, también estable entre grupos 7/14, ganan LR (Amanita), KNN
+   (B. aereus y Morchella), RF (B. edulis y B. pinophilus) y HGB (Lactarius).
+   Las filas de horizonte no cuentan como observaciones independientes.
+10. RF+ET es la pareja con mayor coincidencia sistemática, especialmente en
+    `lag_event`. No se confunde coincidencia con calidad: para considerarla útil
+    ambos deben mejorar el Brier de prevalencia de la especie.
 
 No se ha elegido un sucesor operativo. La comparación ya usa las mismas filas y
-la configuración meteorológica supera los scores agregados semanales de V2,
-pero solo son evaluables 54 casos de test en 6 especies. Hay que acumular
-observaciones o autorizar expresamente una fase posterior de candidato no
-promovido; este bloque no entrena ni promociona modelos.
+separa contrato, estimador y especie, pero el soporte por especie continúa
+siendo pequeño. Hay que acumular observaciones antes de un candidato operativo;
+este bloque no persiste ni promociona modelos.

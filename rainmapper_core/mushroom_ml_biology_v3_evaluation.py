@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
+from itertools import combinations
 from typing import Any
 
 from rainmapper_core import mushroom_ml_experiments
+from rainmapper_core import mushroom_ml_experiment_trainer
+from rainmapper_core import mushroom_prediction_interpretation
 from rainmapper_core.mushroom_ml_biology_v3 import observation_validation_groups
 
 
@@ -23,6 +26,8 @@ FEATURE_FAMILIES = {
     "without_temperature_humidity": lambda name: not (
         name.startswith("temp_") or name.startswith("humidity_")
     ),
+    "without_temperature": lambda name: not name.startswith("temp_"),
+    "without_humidity": lambda name: not name.startswith("humidity_"),
     "weather_only": lambda name: name.startswith(
         ("rain_", "days_since_rain", "dry_spell_", "temp_", "humidity_")
     ),
@@ -173,19 +178,68 @@ def _metrics(y_true: Any, probabilities: Any) -> dict[str, Any]:
     }
 
 
+def _pairwise_consensus(
+    probabilities_by_estimator: dict[str, Any],
+    *,
+    held_out_observation_count: int,
+) -> dict[str, dict[str, Any]]:
+    """Compare estimators row by row using the Predictor's existing gaps."""
+    import numpy as np  # noqa: PLC0415
+
+    reports: dict[str, dict[str, Any]] = {}
+    for left_id, right_id in combinations(
+        mushroom_ml_experiment_trainer.EXPERIMENT_ESTIMATOR_IDS, 2
+    ):
+        left = probabilities_by_estimator.get(left_id)
+        right = probabilities_by_estimator.get(right_id)
+        if left is None or right is None:
+            continue
+        left_values = np.asarray(left, dtype=float)
+        right_values = np.asarray(right, dtype=float)
+        if len(left_values) != len(right_values):
+            raise AssertionError("pairwise estimator predictions are not row-aligned")
+        gaps = np.abs(left_values - right_values)
+        high = gaps <= mushroom_prediction_interpretation.HIGH_AGREEMENT_GAP
+        low = gaps >= mushroom_prediction_interpretation.LOW_AGREEMENT_GAP
+        moderate = ~(high | low)
+        same_side = (left_values >= 0.5) == (right_values >= 0.5)
+        pair_id = f"{left_id}__{right_id}"
+        reports[pair_id] = {
+            "left_estimator_id": left_id,
+            "right_estimator_id": right_id,
+            "n": int(len(gaps)),
+            "held_out_observation_count": held_out_observation_count,
+            "mean_absolute_probability_gap": round(float(np.mean(gaps)), 4),
+            "maximum_absolute_probability_gap": round(float(np.max(gaps)), 4),
+            "same_side_of_0_5_rate": round(float(np.mean(same_side)), 4),
+            "prediction_consensus": {
+                "high_count": int(np.sum(high)),
+                "high_rate": round(float(np.mean(high)), 4),
+                "moderate_count": int(np.sum(moderate)),
+                "moderate_rate": round(float(np.mean(moderate)), 4),
+                "low_count": int(np.sum(low)),
+                "low_rate": round(float(np.mean(low)), 4),
+            },
+        }
+    return reports
+
+
 def evaluate_benchmark(
     benchmark: dict[str, Any],
     *,
     group_days: int,
+    species_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Evaluate retained feature families without emitting a reusable model."""
     import numpy as np  # noqa: PLC0415
-    from sklearn.impute import SimpleImputer  # noqa: PLC0415
-    from sklearn.linear_model import LogisticRegression  # noqa: PLC0415
-    from sklearn.pipeline import Pipeline  # noqa: PLC0415
-    from sklearn.preprocessing import StandardScaler  # noqa: PLC0415
 
     samples = _eligible_samples(benchmark)
+    if species_ids is not None:
+        samples = [
+            row
+            for row in samples
+            if str((row.get("metadata") or {}).get("species_id") or "") in species_ids
+        ]
     train, test = chronological_group_split(samples, group_days=group_days)
     train_groups = {
         (row.get("metadata") or {}).get(f"validation_group_{group_days}d") for row in train
@@ -214,13 +268,19 @@ def evaluate_benchmark(
                 "pooled_metrics": {"n": 0, "note": "feature family is empty"},
             }
             continue
-        species_reports: dict[str, Any] = {}
-        held_y: list[int] = []
-        held_probabilities: list[float] = []
-        species_ids = sorted(
+        estimator_ids = mushroom_ml_experiment_trainer.EXPERIMENT_ESTIMATOR_IDS
+        estimator_species: dict[str, dict[str, Any]] = {
+            "train_prevalence_v1": {},
+            **{estimator_id: {} for estimator_id in estimator_ids},
+        }
+        held: dict[str, tuple[list[int], list[float]]] = {
+            estimator_id: ([], []) for estimator_id in estimator_species
+        }
+        evaluated_species_ids = sorted(
             {str((row.get("metadata") or {}).get("species_id") or "") for row in samples}
         )
-        for species_id in species_ids:
+        species_probabilities: dict[str, dict[str, Any]] = {}
+        for species_id in evaluated_species_ids:
             species_train = [
                 row for row in train if (row.get("metadata") or {}).get("species_id") == species_id
             ]
@@ -228,47 +288,168 @@ def evaluate_benchmark(
                 row for row in test if (row.get("metadata") or {}).get("species_id") == species_id
             ]
             if not species_train or not species_test:
-                species_reports[species_id] = {"available": False, "reason": "empty partition"}
+                for reports_by_species in estimator_species.values():
+                    reports_by_species[species_id] = {"available": False, "reason": "empty partition"}
                 continue
             X_train, y_train = _matrix(species_train, feature_cols)
             X_test, y_test = _matrix(species_test, feature_cols)
+            train_observation_count = len(
+                {
+                    str((row.get("metadata") or {}).get("observation_id") or row.get("sample_id"))
+                    for row in species_train
+                }
+            )
+            test_observation_count = len(
+                {
+                    str((row.get("metadata") or {}).get("observation_id") or row.get("sample_id"))
+                    for row in species_test
+                }
+            )
             if len(np.unique(y_train)) < 2:
-                species_reports[species_id] = {
+                unavailable = {
                     "available": False,
                     "reason": "chronological training partition has a single class",
                     "n_train": len(species_train),
                     "n_test": len(species_test),
+                    "n_train_observations": train_observation_count,
+                    "n_test_observations": test_observation_count,
                 }
+                for reports_by_species in estimator_species.values():
+                    reports_by_species[species_id] = dict(unavailable)
                 continue
-            model = Pipeline(
-                [
-                    ("imputer", SimpleImputer(strategy="median")),
-                    ("scale", StandardScaler()),
-                    ("classifier", LogisticRegression(max_iter=2000, class_weight="balanced")),
-                ]
-            )
-            model.fit(X_train, y_train)
-            probabilities = model.predict_proba(X_test)[:, 1]
-            species_reports[species_id] = {
+            baseline_probability = float(np.mean(y_train))
+            baseline_probabilities = np.full(len(y_test), baseline_probability, dtype=float)
+            species_probabilities[species_id] = {}
+            baseline_metrics = _metrics(y_test, baseline_probabilities)
+            estimator_species["train_prevalence_v1"][species_id] = {
                 "available": True,
                 "n_train": len(species_train),
                 "n_test": len(species_test),
-                "metrics": _metrics(y_test, probabilities),
+                "n_train_observations": train_observation_count,
+                "n_test_observations": test_observation_count,
+                "metrics": baseline_metrics,
             }
-            held_y.extend(int(value) for value in y_test)
-            held_probabilities.extend(float(value) for value in probabilities)
+            held["train_prevalence_v1"][0].extend(int(value) for value in y_test)
+            held["train_prevalence_v1"][1].extend(
+                float(value) for value in baseline_probabilities
+            )
+            for estimator_id in estimator_ids:
+                unavailable_reason = (
+                    mushroom_ml_experiment_trainer._estimator_unavailable_reason(
+                        estimator_id, y_train
+                    )
+                )
+                if estimator_id == "knn_distance_v1" and len(y_train) < 7:
+                    unavailable_reason = "KNN requires at least seven training samples"
+                if unavailable_reason is not None:
+                    estimator_species[estimator_id][species_id] = {
+                        "available": False,
+                        "reason": unavailable_reason,
+                        "n_train": len(species_train),
+                        "n_test": len(species_test),
+                        "n_train_observations": train_observation_count,
+                        "n_test_observations": test_observation_count,
+                    }
+                    continue
+                model = mushroom_ml_experiment_trainer._pipeline(estimator_id)
+                model.fit(X_train, y_train)
+                probabilities = model.predict_proba(X_test)[:, 1]
+                species_probabilities[species_id][estimator_id] = probabilities
+                metrics = _metrics(y_test, probabilities)
+                baseline_brier = float(baseline_metrics["brier_score"])
+                model_brier = float(metrics["brier_score"])
+                metrics["brier_delta_vs_prevalence"] = round(
+                    baseline_brier - model_brier, 4
+                )
+                metrics["brier_skill_vs_prevalence"] = round(
+                    1.0 - (model_brier / baseline_brier), 4
+                ) if baseline_brier > 0 else None
+                estimator_species[estimator_id][species_id] = {
+                    "available": True,
+                    "n_train": len(species_train),
+                    "n_test": len(species_test),
+                    "n_train_observations": train_observation_count,
+                    "n_test_observations": test_observation_count,
+                    "metrics": metrics,
+                }
+                held[estimator_id][0].extend(int(value) for value in y_test)
+                held[estimator_id][1].extend(float(value) for value in probabilities)
+        estimator_reports: dict[str, Any] = {}
+        for estimator_id, species_report in estimator_species.items():
+            held_y, held_probabilities = held[estimator_id]
+            estimator_reports[estimator_id] = {
+                "species": species_report,
+                "pooled_metrics_diagnostic_only": (
+                    _metrics(np.asarray(held_y), np.asarray(held_probabilities))
+                    if held_y
+                    else {"n": 0, "note": "no species had an evaluable chronological split"}
+                ),
+            }
+        primary_estimator_id = "logistic_regression_reduced_v1"
+        species_reports = estimator_species[primary_estimator_id]
+        pooled_lr = estimator_reports[primary_estimator_id]["pooled_metrics_diagnostic_only"]
         reports[family_id] = {
             "feature_cols": feature_cols,
             "species": species_reports,
-            "pooled_metrics": (
-                _metrics(np.asarray(held_y), np.asarray(held_probabilities))
-                if held_y
-                else {"n": 0, "note": "no species had an evaluable chronological split"}
-            ),
+            "pooled_metrics": pooled_lr,
+            "estimators": estimator_reports,
+            "estimator_status": {
+                estimator_id: (
+                    "active"
+                    if estimator_id in {"logistic_regression_reduced_v1", "random_forest_restricted_v1"}
+                    else "experimental"
+                )
+                for estimator_id in estimator_ids
+            },
+            "pairwise_consensus_by_species": {
+                species_id: _pairwise_consensus(
+                    probabilities_by_estimator,
+                    held_out_observation_count=len(
+                        {
+                            str(
+                                (row.get("metadata") or {}).get("observation_id")
+                                or row.get("sample_id")
+                            )
+                            for row in test
+                            if (row.get("metadata") or {}).get("species_id") == species_id
+                        }
+                    ),
+                )
+                for species_id, probabilities_by_estimator in species_probabilities.items()
+            },
+            "pairwise_consensus_contract": {
+                "comparison_unit": "same held-out row within species and temporal contract",
+                "high": (
+                    f"absolute probability gap <= "
+                    f"{mushroom_prediction_interpretation.HIGH_AGREEMENT_GAP}"
+                ),
+                "moderate": (
+                    f"absolute probability gap > "
+                    f"{mushroom_prediction_interpretation.HIGH_AGREEMENT_GAP} and < "
+                    f"{mushroom_prediction_interpretation.LOW_AGREEMENT_GAP}"
+                ),
+                "low": (
+                    f"absolute probability gap >= "
+                    f"{mushroom_prediction_interpretation.LOW_AGREEMENT_GAP}"
+                ),
+                "aggregate_policy": "report rates; do not invent one species-wide label",
+            },
+            "pooled_metrics_policy": "diagnostic_only_never_select_across_species",
         }
     return {
         "schema_version": "1.0",
         "kind": "biology_v3_non_operational_evaluation",
+        "evaluation_axes": {
+            "temporal_contract": (benchmark.get("feature_set") or {}).get("id"),
+            "estimators": list(mushroom_ml_experiment_trainer.EXPERIMENT_ESTIMATOR_IDS),
+            "species": sorted(
+                {
+                    str((row.get("metadata") or {}).get("species_id") or "")
+                    for row in samples
+                }
+            ),
+            "fitted_model_definition": "one species x one temporal contract x one estimator",
+        },
         "feature_set_id": (benchmark.get("feature_set") or {}).get("id"),
         "split": {
             "method": "chronological_by_species_whole_fruiting_groups_70_30",
@@ -395,10 +576,20 @@ def evaluate_matched_benchmarks(
     biology_v3_benchmark: dict[str, Any],
     *,
     group_days: int,
+    species_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Evaluate V2 and V3 on the exact same eligible observation/horizon rows."""
     v2_eligible = {_comparison_key(row): row for row in _eligible_samples(altitude_v2_benchmark)}
     v3_eligible = {_comparison_key(row): row for row in _eligible_samples(biology_v3_benchmark)}
+    if species_ids is not None:
+        v2_eligible = {
+            key: row for key, row in v2_eligible.items()
+            if str((row.get("metadata") or {}).get("species_id") or "") in species_ids
+        }
+        v3_eligible = {
+            key: row for key, row in v3_eligible.items()
+            if str((row.get("metadata") or {}).get("species_id") or "") in species_ids
+        }
     common_keys = sorted(set(v2_eligible) & set(v3_eligible))
     mismatched_targets = [
         key
@@ -415,8 +606,12 @@ def evaluate_matched_benchmarks(
         v3_matched = deepcopy(biology_v3_benchmark)
         v2_matched["samples"] = [v2_eligible[key] for key in keys]
         v3_matched["samples"] = [v3_eligible[key] for key in keys]
-        v2_report = evaluate_benchmark(v2_matched, group_days=group_days)
-        v3_report = evaluate_benchmark(v3_matched, group_days=group_days)
+        v2_report = evaluate_benchmark(
+            v2_matched, group_days=group_days, species_ids=species_ids
+        )
+        v3_report = evaluate_benchmark(
+            v3_matched, group_days=group_days, species_ids=species_ids
+        )
         if v2_report["split"] != v3_report["split"]:
             raise AssertionError("matched V2/V3 rows did not produce the same split")
         return v2_report, v3_report

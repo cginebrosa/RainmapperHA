@@ -59,7 +59,43 @@ class BiologyV3EvaluationTests(unittest.TestCase):
         report = evaluation.evaluate_benchmark(benchmark, group_days=7)
         for family in report["families"].values():
             self.assertNotIn("training_eligible", family["feature_cols"])
+            if family["feature_cols"]:
+                self.assertEqual(
+                    set(family["estimator_status"]),
+                    {
+                        "logistic_regression_reduced_v1",
+                        "random_forest_restricted_v1",
+                        "extra_trees_restricted_v1",
+                        "hist_gradient_boosting_restricted_v1",
+                        "knn_distance_v1",
+                        "rbf_svm_calibrated_v1",
+                    },
+                )
+                self.assertEqual(
+                    family["pooled_metrics_policy"],
+                    "diagnostic_only_never_select_across_species",
+                )
+                self.assertEqual(
+                    family["pairwise_consensus_contract"]["aggregate_policy"],
+                    "report rates; do not invent one species-wide label",
+                )
+                active_pair = family["pairwise_consensus_by_species"]["species"][
+                    "logistic_regression_reduced_v1__random_forest_restricted_v1"
+                ]
+                self.assertEqual(active_pair["n"], 2)
+                self.assertEqual(active_pair["held_out_observation_count"], 2)
+                self.assertEqual(
+                    sum(
+                        active_pair["prediction_consensus"][f"{level}_count"]
+                        for level in ("high", "moderate", "low")
+                    ),
+                    active_pair["n"],
+                )
         self.assertEqual(report["split"]["group_overlap_count"], 0)
+        self.assertEqual(
+            report["evaluation_axes"]["fitted_model_definition"],
+            "one species x one temporal contract x one estimator",
+        )
         self.assertFalse(report["model_artifact_written"])
 
     def test_matched_comparison_uses_identical_rows_and_split(self) -> None:

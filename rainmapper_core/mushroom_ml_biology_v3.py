@@ -173,8 +173,32 @@ _SHARED_FIELDS = (
     _field("days_since_rain_gt_2_at_target", "predictive", "inactive", "Retained inherited 2 mm comparison clock; not a biological gate."),
     _field("days_since_significant_rain_at_target", "predictive", "inactive", "Retained inherited 5 mm comparison clock; not a biological gate."),
     _field("dry_spell_observed_at_cutoff", "predictive", "active", "Observed trailing dry run at the cutoff."),
-    _field("temp_max_mean_cutoff_7d_c", "predictive", "active", "Altitude-corrected seven-day maximum-temperature mean."),
-    _field("temp_mean_cutoff_7d_c", "predictive", "active", "Altitude-corrected seven-day mean temperature."),
+    _field("temp_max_cutoff_7d_c", "predictive", "active", "Highest altitude-corrected daily maximum temperature in the latest seven cutoff days."),
+    _field("temp_min_cutoff_7d_c", "predictive", "active", "Lowest altitude-corrected daily minimum temperature in the latest seven cutoff days."),
+    _field("temp_max_mean_cutoff_7d_c", "predictive", "inactive", "Retained mean of daily maximum temperatures over seven days."),
+    _field("temp_min_mean_cutoff_7d_c", "predictive", "inactive", "Retained mean of daily minimum temperatures over seven days."),
+    _field("temp_mean_cutoff_7d_c", "predictive", "inactive", "Retained seven-day mean derived from daily temperature extremes."),
+    _field("humidity_max_cutoff_0_3d_pct", "predictive", "active", "Highest daily maximum relative humidity at ages 0-2 days."),
+    _field("humidity_min_cutoff_0_3d_pct", "predictive", "active", "Lowest daily minimum relative humidity at ages 0-2 days."),
+    _field("humidity_max_cutoff_4_7d_pct", "predictive", "active", "Highest daily maximum relative humidity at ages 3-6 days."),
+    _field("humidity_min_cutoff_4_7d_pct", "predictive", "active", "Lowest daily minimum relative humidity at ages 3-6 days."),
+    _field("humidity_max_cutoff_8_14d_pct", "predictive", "active", "Highest daily maximum relative humidity at ages 7-13 days."),
+    _field("humidity_min_cutoff_8_14d_pct", "predictive", "active", "Lowest daily minimum relative humidity at ages 7-13 days."),
+    _field("humidity_max_cutoff_15_21d_pct", "predictive", "active", "Highest daily maximum relative humidity at ages 14-20 days."),
+    _field("humidity_min_cutoff_15_21d_pct", "predictive", "active", "Lowest daily minimum relative humidity at ages 14-20 days."),
+    _field("humidity_max_mean_cutoff_0_3d_pct", "predictive", "inactive", "Retained mean of daily maximum relative humidity at ages 0-2 days."),
+    _field("humidity_min_mean_cutoff_0_3d_pct", "predictive", "inactive", "Retained mean of daily minimum relative humidity at ages 0-2 days."),
+    _field("humidity_max_mean_cutoff_4_7d_pct", "predictive", "inactive", "Retained mean of daily maximum relative humidity at ages 3-6 days."),
+    _field("humidity_min_mean_cutoff_4_7d_pct", "predictive", "inactive", "Retained mean of daily minimum relative humidity at ages 3-6 days."),
+    _field("humidity_max_mean_cutoff_8_14d_pct", "predictive", "inactive", "Retained mean of daily maximum relative humidity at ages 7-13 days."),
+    _field("humidity_min_mean_cutoff_8_14d_pct", "predictive", "inactive", "Retained mean of daily minimum relative humidity at ages 7-13 days."),
+    _field("humidity_max_mean_cutoff_15_21d_pct", "predictive", "inactive", "Retained mean of daily maximum relative humidity at ages 14-20 days."),
+    _field("humidity_min_mean_cutoff_15_21d_pct", "predictive", "inactive", "Retained mean of daily minimum relative humidity at ages 14-20 days."),
+    _field("humidity_mean_cutoff_0_3d_pct", "predictive", "inactive", "Retained mean humidity at ages 0-2 days."),
+    _field("humidity_mean_cutoff_4_7d_pct", "predictive", "inactive", "Retained mean humidity at ages 3-6 days."),
+    _field("humidity_mean_cutoff_8_14d_pct", "predictive", "inactive", "Retained mean humidity at ages 7-13 days."),
+    _field("humidity_mean_cutoff_15_21d_pct", "predictive", "inactive", "Retained mean humidity at ages 14-20 days."),
+    _field("humidity_mean_cutoff_7d_pct", "predictive", "inactive", "Retained aggregate of the most recent seven cutoff days; superseded by aligned humidity windows."),
     _field("temp_mean_after_significant_rain_c", "predictive", "inactive", "Corrected temperature after a found rain event; not applicable otherwise."),
     _field("humidity_mean_after_significant_rain_pct", "predictive", "inactive", "Humidity after a found rain event; not applicable otherwise."),
     _field("rain_observed_days_21", "quality", "quality_only", "Available area-IDW rain days in 21 days."),
@@ -698,6 +722,16 @@ def _available_mean(values: Sequence[float | None]) -> tuple[float | None, int]:
     return round(statistics.fmean(available), 3), len(available)
 
 
+def _available_min(values: Sequence[float | None]) -> float | None:
+    available = [float(value) for value in values if value is not None]
+    return round(min(available), 3) if available else None
+
+
+def _available_max(values: Sequence[float | None]) -> float | None:
+    available = [float(value) for value in values if value is not None]
+    return round(max(available), 3) if available else None
+
+
 def _last_event_age(
     values: Sequence[float | None], threshold_mm: float
 ) -> int | None:
@@ -762,10 +796,20 @@ def _station_series(
     station: weather_context.WeatherStation | None,
     cutoff_day: date,
     correction_c: float | None,
-) -> tuple[list[float | None], list[float | None], list[float | None]]:
+) -> tuple[
+    list[float | None],
+    list[float | None],
+    list[float | None],
+    list[float | None],
+    list[float | None],
+    list[float | None],
+]:
     days = weather_context.date_window(cutoff_day, EVENT_LOOKBACK_DAYS)
     temp_max: list[float | None] = []
+    temp_min: list[float | None] = []
     temp_mean: list[float | None] = []
+    humidity_max: list[float | None] = []
+    humidity_min: list[float | None] = []
     humidity_mean: list[float | None] = []
     for day in days:
         record = station.records_by_day.get(day) if station is not None else None
@@ -775,6 +819,10 @@ def _station_series(
             temp_max.append(round(float(raw_max) + correction_c, 3))
         else:
             temp_max.append(None)
+        if raw_min is not None and correction_c is not None:
+            temp_min.append(round(float(raw_min) + correction_c, 3))
+        else:
+            temp_min.append(None)
         if raw_min is not None and raw_max is not None and correction_c is not None:
             temp_mean.append(
                 round(((float(raw_min) + float(raw_max)) / 2.0) + correction_c, 3)
@@ -783,13 +831,23 @@ def _station_series(
             temp_mean.append(None)
         raw_humidity_min = record.humidity_min_pct if record is not None else None
         raw_humidity_max = record.humidity_max_pct if record is not None else None
+        humidity_min.append(
+            round(float(raw_humidity_min), 3)
+            if raw_humidity_min is not None
+            else None
+        )
+        humidity_max.append(
+            round(float(raw_humidity_max), 3)
+            if raw_humidity_max is not None
+            else None
+        )
         if raw_humidity_min is not None and raw_humidity_max is not None:
             humidity_mean.append(
                 round((float(raw_humidity_min) + float(raw_humidity_max)) / 2.0, 3)
             )
         else:
             humidity_mean.append(None)
-    return temp_max, temp_mean, humidity_mean
+    return temp_max, temp_min, temp_mean, humidity_max, humidity_min, humidity_mean
 
 
 def _reason(code: str, message: str) -> dict[str, str]:
@@ -965,9 +1023,9 @@ def _build_biology_v3_sample(
     correction_available = correction_c is not None
     if not correction_available:
         reasons.append(_reason("station_or_area_altitude_missing", "Falta la altitud de la estación o del área para corregir la temperatura."))
-    temp_max, temp_mean, humidity_mean = _station_series(
+    temp_max, temp_min, temp_mean, humidity_max, humidity_min, humidity_mean = _station_series(
         selected_station, cutoff_day or date.min, correction_c
-    ) if cutoff_day is not None else ([], [], [])
+    ) if cutoff_day is not None else ([], [], [], [], [], [])
     temperature_observed_21 = sum(value is not None for value in temp_mean[-21:])
     humidity_observed_21 = sum(value is not None for value in humidity_mean[-21:])
     if temperature_observed_21 < weather_context.STATION_TEMP_MIN_DAYS_21:
@@ -989,7 +1047,41 @@ def _build_biology_v3_sample(
             humidity_mean[-context_days:]
         )
     temp_max_7d, _temp_max_days = _available_mean(temp_max[-7:])
+    temp_min_7d, _temp_min_days = _available_mean(temp_min[-7:])
     temp_mean_7d, _temp_mean_days = _available_mean(temp_mean[-7:])
+    temp_max_extreme_7d = _available_max(temp_max[-7:])
+    temp_min_extreme_7d = _available_min(temp_min[-7:])
+    humidity_mean_7d, _humidity_mean_days = _available_mean(humidity_mean[-7:])
+    humidity_mean_0_3d, _humidity_days_0_3d = _available_mean(
+        _age_window(humidity_mean, 0, 2)
+    )
+    humidity_mean_4_7d, _humidity_days_4_7d = _available_mean(
+        _age_window(humidity_mean, 3, 6)
+    )
+    humidity_mean_8_14d, _humidity_days_8_14d = _available_mean(
+        _age_window(humidity_mean, 7, 13)
+    )
+    humidity_mean_15_21d, _humidity_days_15_21d = _available_mean(
+        _age_window(humidity_mean, 14, 20)
+    )
+    humidity_extreme_windows = {
+        "humidity_max_cutoff_0_3d_pct": _available_max(_age_window(humidity_max, 0, 2)),
+        "humidity_min_cutoff_0_3d_pct": _available_min(_age_window(humidity_min, 0, 2)),
+        "humidity_max_cutoff_4_7d_pct": _available_max(_age_window(humidity_max, 3, 6)),
+        "humidity_min_cutoff_4_7d_pct": _available_min(_age_window(humidity_min, 3, 6)),
+        "humidity_max_cutoff_8_14d_pct": _available_max(_age_window(humidity_max, 7, 13)),
+        "humidity_min_cutoff_8_14d_pct": _available_min(_age_window(humidity_min, 7, 13)),
+        "humidity_max_cutoff_15_21d_pct": _available_max(_age_window(humidity_max, 14, 20)),
+        "humidity_min_cutoff_15_21d_pct": _available_min(_age_window(humidity_min, 14, 20)),
+        "humidity_max_mean_cutoff_0_3d_pct": _available_mean(_age_window(humidity_max, 0, 2))[0],
+        "humidity_min_mean_cutoff_0_3d_pct": _available_mean(_age_window(humidity_min, 0, 2))[0],
+        "humidity_max_mean_cutoff_4_7d_pct": _available_mean(_age_window(humidity_max, 3, 6))[0],
+        "humidity_min_mean_cutoff_4_7d_pct": _available_mean(_age_window(humidity_min, 3, 6))[0],
+        "humidity_max_mean_cutoff_8_14d_pct": _available_mean(_age_window(humidity_max, 7, 13))[0],
+        "humidity_min_mean_cutoff_8_14d_pct": _available_mean(_age_window(humidity_min, 7, 13))[0],
+        "humidity_max_mean_cutoff_15_21d_pct": _available_mean(_age_window(humidity_max, 14, 20))[0],
+        "humidity_min_mean_cutoff_15_21d_pct": _available_mean(_age_window(humidity_min, 14, 20))[0],
+    }
     angle = 2.0 * math.pi * ((target_day.month if target_day else 1) - 1) / 12.0
     predictive_features: dict[str, float | None] = {
         "target_month_sin": round(math.sin(angle), 6),
@@ -1011,8 +1103,17 @@ def _build_biology_v3_sample(
             if significant_age is not None else float(EVENT_LOOKBACK_DAYS)
         ),
         "dry_spell_observed_at_cutoff": float(dry_run) if dry_run is not None else None,
+        "temp_max_cutoff_7d_c": temp_max_extreme_7d,
+        "temp_min_cutoff_7d_c": temp_min_extreme_7d,
         "temp_max_mean_cutoff_7d_c": temp_max_7d,
+        "temp_min_mean_cutoff_7d_c": temp_min_7d,
         "temp_mean_cutoff_7d_c": temp_mean_7d,
+        **humidity_extreme_windows,
+        "humidity_mean_cutoff_0_3d_pct": humidity_mean_0_3d,
+        "humidity_mean_cutoff_4_7d_pct": humidity_mean_4_7d,
+        "humidity_mean_cutoff_8_14d_pct": humidity_mean_8_14d,
+        "humidity_mean_cutoff_15_21d_pct": humidity_mean_15_21d,
+        "humidity_mean_cutoff_7d_pct": humidity_mean_7d,
         "temp_mean_after_significant_rain_c": after_temp,
         "humidity_mean_after_significant_rain_pct": after_humidity,
     }
