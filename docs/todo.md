@@ -4,7 +4,28 @@ Lista operativa priorizada. El estado inmediato está en
 `docs/active-context.md`; el histórico completado vive en `docs/decisions.md`,
 `docs/project-archive.md` y el laboratorio meteorológico.
 
-## P0 — Instalar 0.2.253 y regenerar una generación coherente
+## P0 — Cerrar altitude V2 de extremo a extremo
+
+- [x] Diagnosticar el desacople: HA `0.2.253` solicita altitude V2 y worker
+  `1.0.7` produjo features/modelos V1 sin altitud de estación.
+- [x] Añadir al manifiesto los contratos sombra y rechazar una promoción que no
+  declare exactamente los dos contratos altitude V2.
+- [x] Reconstruir en el M1 un snapshot real: 313/399 filas con altitud de
+  estación; 347/399 con altitud GIS; 78,8 s.
+- [x] Entrenar sobre el artefacto reconstruido: 8 modelos operativos y 9 sombra
+  altitude V2; predicción centinela real disponible.
+- [x] Superar 85 pruebas focalizadas, smoke global de 673 tests y construir
+  `rainmapper-worker:1.0.8`.
+- [x] Instalar worker `1.0.8` preservando el volumen persistente y verificar
+  health, identidad, caché GIS y contratos anunciados.
+- [ ] Ejecutar desde HA `Reconstruir y reentrenar todo`, activar conjuntamente
+  y comprobar que la generación viva contiene altitude V2.
+- [ ] Comparar Predictor HA/M1 para la semana actual y una fecha histórica.
+- [x] Publicar la barrera V2 del coordinador en HA `0.2.254`, multiarch y con
+  digest común verificado.
+- [ ] Instalar HA `0.2.254` y verificar arranque/worker antes del rebuild.
+
+## Completado — coherencia de generación HA 0.2.253
 
 - [x] Confirmar que HA terminó de instalar `0.2.252` y que el add-on arranca.
 - [x] Confirmar que el worker M1 `1.0.7` está healthy/idle y conserva identidad,
@@ -22,7 +43,8 @@ Lista operativa priorizada. El estado inmediato está en
   promoción conjunta. No reutilizar el candidato generado por `0.2.252`.
 - [x] Validar una consulta actual del Predictor: caché fría sincronizada, sin
   discrepancia de identidad; Edulis tiene 31 filas y 0 microáreas de Olvan.
-- [ ] Repetir un caso centinela histórico del Predictor.
+- [x] La consulta centinela previa confirmó la coherencia de hashes V1, aunque
+  después se detectó su incompatibilidad semántica con el runtime altitude V2.
 
 ## P1 — Terminar Biology V3
 
@@ -80,7 +102,8 @@ Lista operativa priorizada. El estado inmediato está en
 - [x] Smoke del paquete aislado: 651 tests. Worktree completo: 669 tests.
 - [x] Publicada HA `0.2.252`, commit `8010b89`, multiarch amd64/arm64, digest
   común `sha256:c888fce58ba98dd082f56678ea4c18aa73ce43f7421c2e309437e756d204920d`.
-- [x] Confirmado que worker `1.0.7` ya soporta ambos jobs y no necesita `1.0.8`.
+- [x] REEMPLAZADO: `1.0.7` soporta ambos tipos de job, pero no el contrato
+  altitude V2 completo; se requiere `1.0.8`.
 - [x] Documentada la autorización para ejecutar sin consultas redundantes las
   acciones no destructivas propias de una tarea explícitamente encargada.
 
@@ -101,8 +124,8 @@ Lista operativa priorizada. El estado inmediato está en
   representar el store corregido de observaciones.
 - Edulis tiene una muestra pequeña: una observación incorrecta puede alterar
   significativamente soporte, áreas y scores.
-- Los cambios locales Biology V3/altitude v2 no forman parte de `0.2.252`; no
-  limpiar el worktree ni confundir código local con producción.
+- Altitude V2 requiere coherencia entre reconstrucción, training, modelos y
+  runtime. No confundir soporte genérico de jobs con soporte del contrato.
 - La muestra de salidas está sesgada porque normalmente no se visita cuando se
   espera un resultado negativo; mantener esta censura explícita.
 - HA y worker se versionan independientemente; compatibilidad por capacidades y

@@ -40,17 +40,18 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 ## Estado general al cierre de 2026-08-13
 
 - Rama activa: `inicial`.
-- El repositorio y GHCR publican HA `0.2.252`; el usuario la está instalando en
-  la RPi4 y falta validar el arranque. El worker M1 vigente es `1.0.7` y no
-  requiere actualización para esta release.
+- HA `0.2.253` está instalada en la RPi4 y `0.2.254` está publicada, pendiente
+  de instalación. El worker M1 desplegado es `1.0.8`, healthy y conserva
+  identidad/caché; después de instalar HA falta ejecutar y activar una
+  generación completa altitude V2.
 - El backfill, el histórico meteorológico fuente/año, los CSV vivos acotados y
   el Predictor histórico ya están migrados y aceptados. No reabrir ese proyecto
   como objetivo activo; sus evidencias quedan en el audit lab.
 - `0.2.252` deja una única actualización completa en worker: reconstrucción y
   entrenamiento son dos jobs encadenados y diagnosticables, con activación
   conjunta y rollback.
-- El siguiente bloque es validar la release, reconstruir/reentrenar con las 399
-  observaciones corregidas y retomar Biology V3.
+- El siguiente bloque es reconstruir/reentrenar y activar una generación
+  altitude V2; después se retoma Biology V3.
 - Hay cambios locales no publicados de Biology V3, contratos altitude v2, UI,
   modelos sombra, pruebas y documentación. No limpiar el worktree.
 - El repositorio GitHub sigue público por decisión explícita del usuario.
@@ -69,6 +70,8 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Predictor remoto/worker: `docs/mushrooms/mushroom-remote-predictor-design-es.md`
 - Plataforma de workers: `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
 - Entrenamiento ML/dataset: `docs/mushrooms/mushroom-ml-training-plan-es.md`
+- Versiones canónicas de contratos ML:
+  `docs/mushrooms/mushroom-ml-contract-versions-es.md`
 - Auditoría ML v3: `docs/mushrooms/mushroom-ml-v3-data-audit-es.md`
 - Especificación ML v3: `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`
 - Backfill histórico y promoción:

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.2.254
+
+- Require training results to declare exactly the
+  `fixed_gap_7d_altitude_v2` and `lag_event_altitude_v2` contracts; reject
+  incompatible V1 generations before promotion.
+- Coordinate worker `1.0.8`, which materializes station altitude in rebuilt
+  features and trains the altitude-corrected temperature models.
+
 ## 0.2.253
 
 - Train chained shadow models against the exact live metadata identity that is

@@ -667,6 +667,10 @@ class MushroomMLTrainWorkerResultsTests(unittest.TestCase):
             "kind": "mushroom_ml_v0_result",
             "job_id": self.job_id,
             "trained_species": ["boletus_aereus"],
+            "shadow_feature_set_ids": [
+                "fixed_gap_7d_altitude_v2",
+                "lag_event_altitude_v2",
+            ],
             "artifacts": [
                 self._artifact("ml_train_report.json", self.report_content),
                 self._artifact(
@@ -737,10 +741,23 @@ class MushroomMLTrainWorkerResultsTests(unittest.TestCase):
                 content=json.dumps(self.manifest).encode("utf-8"),
             )
 
+    def test_ml_train_manifest_rejects_incompatible_shadow_contracts(self) -> None:
+        self.manifest["shadow_feature_set_ids"] = [
+            "fixed_gap_7d_v1",
+            "lag_event_v1",
+        ]
+        with self.assertRaisesRegex(ValueError, "incompatible shadow feature contracts"):
+            mushroom_worker_results.receive_ml_train_result_file(
+                self.result_root,
+                job_id=self.job_id,
+                logical_path="ml_train_result.json",
+                content=json.dumps(self.manifest).encode("utf-8"),
+            )
+
     def test_ml_train_shadow_model_is_verified_and_promoted(self) -> None:
         shadow_path = (
             "ml_models/"
-            "mushroom_ml_experiment_fixed_gap_7d_v1_boletus_aereus.joblib"
+            "mushroom_ml_experiment_fixed_gap_7d_altitude_v2_boletus_aereus.joblib"
         )
         shadow_content = b"shadow-joblib-content"
         (self.candidate / shadow_path).write_bytes(shadow_content)

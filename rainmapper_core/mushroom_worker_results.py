@@ -972,6 +972,10 @@ ML_TRAIN_RESULT_SCHEMA_VERSION = "0.2"
 ML_TRAIN_REPORT_NAME = "ml_train_report.json"
 MAX_ML_TRAIN_MODEL_BYTES = 256 * 1024 * 1024
 MAX_ML_TRAIN_BUNDLE_BYTES = 1024 * 1024 * 1024
+REQUIRED_SHADOW_FEATURE_SET_IDS = (
+    "fixed_gap_7d_altitude_v2",
+    "lag_event_altitude_v2",
+)
 
 
 def _ml_train_staging_dir(result_root: Path, job_id: str) -> Path:
@@ -1081,6 +1085,12 @@ def _validate_ml_train_manifest(
     shadow_models = manifest.get("shadow_models", [])
     if not isinstance(shadow_models, list):
         raise ValueError("ML training result shadow_models is invalid.")
+    shadow_feature_set_ids = manifest.get("shadow_feature_set_ids")
+    if shadow_feature_set_ids != list(REQUIRED_SHADOW_FEATURE_SET_IDS):
+        raise ValueError(
+            "ML training result uses incompatible shadow feature contracts; "
+            f"expected {list(REQUIRED_SHADOW_FEATURE_SET_IDS)}."
+        )
     normalized_shadow_models = [
         mushroom_worker_transport.safe_relative_path(str(value)).as_posix()
         for value in shadow_models
@@ -1208,6 +1218,7 @@ def finalize_ml_train_result(result_root: Path, *, job_id: str) -> dict[str, Any
         "verified_artifacts": len(artifacts),
         "trained_species": trained_species,
         "trained_species_count": len(trained_species),
+        "shadow_feature_set_ids": list(REQUIRED_SHADOW_FEATURE_SET_IDS),
     }
     (staging / VERIFICATION_NAME).write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n",

@@ -132,6 +132,23 @@ def main() -> None:
     )
     shadow_report_path.unlink(missing_ok=True)
 
+    shadow_feature_set_ids = [
+        str(feature_set.get("feature_set_id", "")).strip()
+        for feature_set in shadow_report.get("feature_sets", [])
+        if isinstance(feature_set, dict)
+        and str(feature_set.get("feature_set_id", "")).strip()
+    ]
+    expected_shadow_feature_set_ids = list(
+        mushroom_ml_experiment_trainer.DEFAULT_FEATURE_SET_IDS
+    )
+    if shadow_feature_set_ids != expected_shadow_feature_set_ids:
+        print(
+            "ERROR: Shadow model contract mismatch: "
+            f"expected {expected_shadow_feature_set_ids}, got {shadow_feature_set_ids}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     shadow_model_paths = sorted(
         {
             str(row.get("model_path", ""))
@@ -183,6 +200,7 @@ def main() -> None:
             "kind": "mushroom_ml_v0_result",
             "job_id": str(job_spec.get("job_id", "") if isinstance(job_spec, dict) else ""),
             "trained_species": trained_species,
+            "shadow_feature_set_ids": shadow_feature_set_ids,
             "shadow_models": declared_shadow_models,
             "artifacts": artifacts,
         },

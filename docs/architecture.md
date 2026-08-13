@@ -209,7 +209,8 @@ Hay varios entry points segun entorno:
 ### Coordinador y worker externo de setas
 
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
-  HA `0.2.252` contiene el coordinador y el M1 ejecuta worker `1.0.7`. El
+  HA `0.2.253` contiene el coordinador y el M1 ejecuta worker `1.0.8`, compatible
+  con rebuild y training altitude V2. El
   laboratorio usa el mismo contrato; no existe ni hace falta una imagen HA de
   desarrollo paralela.
 - Coordinador: `web_server.py` conserva autoridad sobre pairing, registro,
@@ -223,6 +224,10 @@ Hay varios entry points segun entorno:
   incorpora datos pesados ni secretos.
 - Contratos: `InputManifest 0.1`, `JobSpec 0.1` y `ResultManifest 0.1`; todos
   los paths, tamanos y hashes se validan en ambos extremos.
+- Los contratos ML tienen genealogía independiente de las versiones de HA y
+  worker. Su registro canónico está en
+  `docs/mushrooms/mushroom-ml-contract-versions-es.md`. La promoción valida no
+  solo hashes sino también los identificadores de contrato altitude V2.
 - Meteorologia transportada: el histórico canónico es una generación
   transaccional particionada por fuente/año. El snapshot manifiesta sus objetos
   inmutables y el worker reutiliza por hash las particiones sin cambios. Los CSV

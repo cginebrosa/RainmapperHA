@@ -4128,3 +4128,29 @@ Decisión:
   regenerar y promover conjuntamente, no relajar el control.
 - Los errores técnicos completos se conservan para diagnóstico, pero las rutas
   y hashes largos deben envolver dentro del modal de la UI.
+
+# 2026-08-13 - [VIGENTE] Altitude V2 exige rebuild y training compatibles
+
+- El soporte de los tipos de job no demuestra compatibilidad del contrato ML.
+  Worker `1.0.7` podía reconstruir y entrenar, pero produjo features sin
+  `weather_station_altitude_m` y bundles V1; HA `0.2.253` ya solicitaba V2.
+- Altitude V2 se cierra solo cuando el mismo pipeline materializa altitud de
+  estación, entrena `fixed_gap_7d_altitude_v2` y `lag_event_altitude_v2`, y el
+  Predictor consume esos bundles contra el mismo hash de features.
+- El resultado de training declara `shadow_feature_set_ids`. El coordinador
+  debe rechazar cualquier promoción que no declare exactamente ambos contratos
+  V2, aunque los hashes internos sean coherentes.
+- La corrección requiere worker `1.0.8` y una reconstrucción completa; no se
+  reparan ni renombran bundles V1 y no se mezclan modelos individuales.
+- Las versiones HA, worker y contrato ML son independientes. Su genealogía
+  permanente vive en `docs/mushrooms/mushroom-ml-contract-versions-es.md` y no
+  se elimina al compactar el contexto activo.
+- La barrera se publica en HA `0.2.254`; `0.2.254` y `latest` comparten
+  `sha256:bcc72af6fe60bffd0a75246c5ca6726ef42a9a1852c7fa8fabdcef81b9b8b362`
+  con manifests `linux/amd64` y `linux/arm64`.
+
+# 2026-08-13 - [REEMPLAZADA] Worker 1.0.7 no necesitaba actualización
+
+- La conclusión se basaba en que `1.0.7` anunciaba y ejecutaba rebuild y
+  training. La prueba real demostró que no incluía el contrato altitude V2 de
+  extremo a extremo. Queda reemplazada por la decisión anterior.

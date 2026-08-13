@@ -71,17 +71,17 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
                 return report
 
             def fake_shadow_run(*, models_dir: Path, report_path: Path, **kwargs):
-                model_path = (
-                    models_dir
-                    / "mushroom_ml_experiment_fixed_gap_7d_v1_boletus_aereus.joblib"
-                )
-                model_path.write_bytes(b"shadow-joblib-model")
-                report = {
-                    "schema_version": "1.0",
-                    "kind": "mushroom_ml_experiment_report",
-                    "feature_sets": [
+                model_paths = []
+                feature_sets = []
+                for feature_set_id in mushroom_ml_experiment_trainer.DEFAULT_FEATURE_SET_IDS:
+                    model_path = models_dir / (
+                        f"mushroom_ml_experiment_{feature_set_id}_boletus_aereus.joblib"
+                    )
+                    model_path.write_bytes(f"shadow-{feature_set_id}".encode())
+                    model_paths.append(model_path)
+                    feature_sets.append(
                         {
-                            "feature_set_id": "fixed_gap_7d_v1",
+                            "feature_set_id": feature_set_id,
                             "species_results": [
                                 {
                                     "species_id": "boletus_aereus",
@@ -89,7 +89,11 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
                                 }
                             ],
                         }
-                    ],
+                    )
+                report = {
+                    "schema_version": "1.0",
+                    "kind": "mushroom_ml_experiment_report",
+                    "feature_sets": feature_sets,
                 }
                 report_path.write_text(json.dumps(report), encoding="utf-8")
                 return report
@@ -126,8 +130,13 @@ class RunMushroomMLTrainJobTests(unittest.TestCase):
                 {
                     "ml_train_report.json",
                     "ml_models/mushroom_ml_v0_boletus_aereus.joblib",
-                    "ml_models/mushroom_ml_experiment_fixed_gap_7d_v1_boletus_aereus.joblib",
+                    "ml_models/mushroom_ml_experiment_fixed_gap_7d_altitude_v2_boletus_aereus.joblib",
+                    "ml_models/mushroom_ml_experiment_lag_event_altitude_v2_boletus_aereus.joblib",
                 },
+            )
+            self.assertEqual(
+                manifest["shadow_feature_set_ids"],
+                list(mushroom_ml_experiment_trainer.DEFAULT_FEATURE_SET_IDS),
             )
             for logical_path, row in by_path.items():
                 content = (output / logical_path).read_bytes()
