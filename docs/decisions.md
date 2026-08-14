@@ -745,6 +745,14 @@ Estado: COMPLETADA
   entradas antiguas. GHCR conserva exactamente 10: `0.2.252/latest`, rollback
   `0.2.251` y los cuatro manifests auxiliares de cada índice. Ambos tags
   versionados siguen resolviendo `linux/amd64`, `linux/arm64` y attestations.
+- Actualización 2026-08-14: con `0.2.254` instalada y `0.2.255` publicada pero
+  todavía no instalada, se eliminaron las diez entradas de `0.2.251` y
+  `0.2.252`. Se conservaron 15 entradas: `0.2.255/latest`, la activa `0.2.254`,
+  `0.2.253` como rollback de la activa y los cuatro auxiliares de cada índice.
+  Los cuatro tags consultables se verificaron después del borrado; mantienen
+  índices OCI con `linux/amd64`, `linux/arm64` y attestations, y
+  `0.2.255/latest` comparten el digest
+  `sha256:6f91231bb721d2bdffeb56e05c77573e1f08350ef0e851271b57856c3c782de2`.
 
 ## 2026-07-18 - Objetivo V0 gobernado por el catalogo de abundancia
 

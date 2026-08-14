@@ -13,6 +13,10 @@ documentos temáticos enlazados.
 - La imagen HA `0.2.255` está publicada y verificada, pero **no está instalada**:
   el usuario ha decidido no actualizar HA hasta cerrar Biology V3. No confundir
   una imagen preparada con el estado de la instancia.
+- GHCR quedó limpiado conservadoramente el 2026-08-14: 15 entradas para
+  `0.2.255/latest`, la instalada `0.2.254` y `0.2.253` como rollback, incluidos
+  sus manifests `amd64`, `arm64` y attestations. Se retiraron únicamente las
+  diez entradas de `0.2.251` y `0.2.252`.
 - El worker `1.0.9` está construido y validado solo como imagen local. El worker
   activo continúa siendo `1.0.8`. La imagen inicial `1.0.9`, como HA `0.2.255`,
   es anterior a la comparación emparejada final y debe saltarse. No reiniciar
