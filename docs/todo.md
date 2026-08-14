@@ -117,6 +117,59 @@ Lista operativa priorizada. El estado inmediato está en
   calibración/log loss no peores y ausencia de regresiones graves por especie
   con soporte suficiente antes de entrenar un candidato operativo.
 
+## Diseño futuro — Biology V4: agua disponible y continuidad
+
+- [x] Traducir la revisión científica de fructificación a la especificación
+  `docs/mushrooms/mushroom-ml-biology-v4-implementation-spec-es.md`, sin tocar
+  modelos ni runtime.
+- [x] Auditar cobertura real de CRAD, profundidad y drenaje: 58/58 microáreas
+  cruzadas, 2 con cobertura hidráulica completa, 4 parcial y 52 sin cobertura;
+  8,73 % ponderado por superficie.
+- [x] Localizar otra cobertura edáfica para las 52 microáreas no cubiertas por
+  ICGC: SoilGrids aporta retención volumétrica numérica y la primera prueba
+  cubre 58/58; no se infieren milímetros de etiquetas geológicas ordinales.
+- [x] Auditar parcialmente SoilGrids 2.0: Q0.50 de `wv0010`, `wv0033` y
+  `wv1500` en 0–5 cm cubre 58/58 microáreas mediante intersección ponderada de
+  polígonos; snapshot y hashes persistidos, recortes solo en `/private/tmp`.
+- [ ] Completar SoilGrids con los otros cinco intervalos, Q0.05/Q0.95, textura,
+  SOC, densidad y fragmentos gruesos. Descargar solo recortes reproducibles; no
+  depender del REST beta en runtime. Tratarlo como predicción `inferred`, no
+  dato local.
+- [x] Auditar alternativas GIS: MVC50 cubre 54 microáreas completamente y 1
+  parcialmente; geología cubre 55 completamente. Ordino y las dos microáreas
+  de Puertomingalvo quedan fuera de ambas fuentes.
+- [x] Persistir el cruce auxiliar completo por microárea, con valores brutos,
+  descripciones, fracciones y hashes, en el snapshot de especificación
+  `biology-v4-gis-proxy-audit-2026-08-14.json`.
+- [x] Simplificar el SMI inicial: no modificar reference catalog ni GIS
+  mappings; usar valores hidráulicos numéricos SoilGrids y guardar por
+  microárea propiedades originales, profundidades, cuantiles, cobertura y
+  hashes.
+- [x] Definir caché raster compartida por extensión dinámica común bajo el árbol
+  GIS de `/media`, no por microárea/área ni por Catalunya/España. El worker
+  consume agregados de `known_sites`; una microárea exterior amplía la caché.
+- [x] Documentar el contrato técnico SoilGrids completo en
+  `biology-v4-soilgrids-cache-contract-es.md`, incluidas evidencias actuales,
+  manifest, bloques, staging, UI, `known_sites`, worker, invalidación, fallos,
+  pruebas y orden de implementación.
+- [ ] Deuda GIS no bloqueante para V4: revisar mappings exactos de los 53
+  códigos geológicos y corregir el matching por subcadena —hoy `gres` coincide
+  con `negres`— con límites léxicos y pruebas negativas. El SMI inicial no
+  consume estos mappings.
+- [ ] Auditar entradas históricas para evapotranspiración, validar la fórmula y
+  decidir el calentamiento del balance mediante convergencia 90/180/365 días.
+- [ ] Implementar localmente balance climático y, solo con soporte edáfico,
+  estado hídrico cacheado por microárea con cierre de masa y sin fuga temporal.
+- [ ] Construir V4 por bloques emparejados: lluvia 22–30 días, número de días
+  lluviosos, balance climático y estado hídrico; conservar lluvia, temperatura
+  y humedad relativa como variables distintas.
+- [ ] Evaluar los seis estimadores con la misma `X` por especie/contrato, Brier
+  por especie y grupos 7/14 sin fusionar observaciones.
+- [ ] Medir parpadeo diario por especie+área y comparar continuidad explícita
+  solo si el estado hídrico no basta. No inventar etiquetas intermedias.
+- [ ] Mantener V4 no operativo hasta una autorización y un gate de promoción
+  posteriores.
+
 ## Completado — saneamiento GIS local
 
 - [x] Verificar que `mushroom-GIS-HA` no era ruta operativa, no estaba

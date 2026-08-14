@@ -13,6 +13,7 @@ identificadores siguientes describen el significado de los datos y modelos.
 | `fixed_gap_7d_v1`, `lag_event_v1` | REEMPLAZADO por altitude V2 | Cortes meteorológicos reproducibles y sin fuga temporal. |
 | `fixed_gap_7d_altitude_v2`, `lag_event_altitude_v2` | VIGENTE | Temperatura trasladada de la altitud de estación a la altitud representativa del área. |
 | `fixed_gap_7d_biology_v3`, `lag_event_biology_v3` | BENCHMARK LOCAL, NO OPERATIVO | Observaciones preservadas, targets, IDW de área, separación de calidad y grupos de florada 7/14. |
+| `fixed_gap_7d_biology_v4`, `lag_event_biology_v4` | PROPUESTO, NO IMPLEMENTADO | Memoria de lluvia hasta 30 días, distribución de lluvia, balance climático, estado hídrico del suelo y continuidad auditable. |
 
 ## V0 — modelo inicial
 
@@ -126,6 +127,28 @@ microárea futura queda fuera de las tres coberturas, conserva `no_data`.
 La especificación vive en
 `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`; hasta que pase sus
 gates permanece en diseño y no sustituye altitude V2.
+
+## Biology V4 — agua disponible y continuidad, propuesto
+
+V4 está documentado pero no implementado. Hereda sin cambios el target, la
+unidad de observación, los grupos especie+área, la lluvia IDW y la separación
+`predictive_features`/`quality`/`metadata` de V3.
+
+El cambio propuesto añade:
+
+- ventana de lluvia 22–30 días y número de días lluviosos por ventanas;
+- balance climático entre lluvia y demanda evaporativa;
+- estado hídrico estimado primero por microárea y después resumido al área,
+  únicamente donde retención, profundidad y drenaje tengan soporte trazable;
+- extremos de temperatura y humedad relativa, manteniendo las medias directas
+  fuera de `X`;
+- métricas de continuidad y una posible capa de estado por especie+área, solo
+  si reduce parpadeo sin empeorar Brier o calibración.
+
+La falta de suelo no elimina observaciones del benchmark general. Cada bloque
+se compara sobre filas emparejadas y los seis estimadores reciben la misma `X`
+por especie y contrato. La especificación canónica está en
+`docs/mushrooms/mushroom-ml-biology-v4-implementation-spec-es.md`.
 
 ## Regla de continuidad
 

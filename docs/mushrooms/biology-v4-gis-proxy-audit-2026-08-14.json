@@ -1,0 +1,4032 @@
+{
+  "contract_candidate": "microarea_gis_proxy_context_v1",
+  "known_sites_sha256": "ef9363a1ae3c37cdb8ed72109e925ddd7f2e508cb06e4ac35563b9ac530d2ac7",
+  "known_sites_schema_version": "1.0",
+  "vegetation": {
+    "dataset_sha256": "3407dece45f821cf7f760a46c3c006661cc3cd5e7b761b71f1ab8d9a183e2343",
+    "fields": [
+      "LLVA_Subst",
+      "LLVA_niv2t",
+      "LLVA_niv3t",
+      "LLFISCAT_t",
+      "LLVP_Fisio"
+    ],
+    "layer_name": "MVC50mil_novembre2019",
+    "path": "mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shp"
+  },
+  "geology": {
+    "dataset_sha256": "96a6c320b6754b7a33baee7c10cd93a389527116251d9a68543fc3b85e9124da",
+    "fields": [
+      "Codi",
+      "Descripcio",
+      "Codi_metamorfisme",
+      "Descripcio_metamorfisme",
+      "Codi_protolit",
+      "Descripcio_protolit"
+    ],
+    "layer_name": "_04_unitats_geologiques_50000",
+    "path": "mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg"
+  },
+  "micro_areas_declared": 58,
+  "micro_areas_audited": 58,
+  "summary": {
+    "geology_area_weighted_coverage_fraction": 0.963872,
+    "geology_status_counts": {
+      "full": 55,
+      "none": 3,
+      "partial": 0
+    },
+    "micro_area_total_ha": 3646.4119,
+    "vegetation_area_weighted_coverage_fraction": 0.958322,
+    "vegetation_status_counts": {
+      "full": 54,
+      "none": 3,
+      "partial": 1
+    }
+  },
+  "micro_areas": [
+    {
+      "micro_area_id": "olvan_la_pera",
+      "area_id": "olvan",
+      "name": "La Pera",
+      "geometry_hash": "22f04b39c612c1ba6850f67c76373d59f6b00fb623a321f7742da00cd4330430",
+      "micro_area_ha": 20.9053,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.501523,
+            "covered_layer_fraction": 0.501523
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.458819,
+            "covered_layer_fraction": 0.458819
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.033793,
+            "covered_layer_fraction": 0.033793
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.005735,
+            "covered_layer_fraction": 0.005735
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Brolles de romaní i matollars mediterranis afins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.00013,
+            "covered_layer_fraction": 0.00013
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "olvan_serra_ramons",
+      "area_id": "olvan",
+      "name": "Serra de Ramons",
+      "geometry_hash": "29ddf6e44bdd2f7b47ca58a39e6fd3a45726a50d57bd6608c3b3056e4a31542e",
+      "micro_area_ha": 10.4494,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.530202,
+            "covered_layer_fraction": 0.530202
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.469798,
+            "covered_layer_fraction": 0.469798
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.994967,
+            "covered_layer_fraction": 0.994967
+          },
+          {
+            "code": "POb",
+            "description": "Bretxes i conglomerats. Nivell bretxoide de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.005033,
+            "covered_layer_fraction": 0.005033
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "santa_maria_de_merles_casa_escrigues",
+      "area_id": "santa_maria_de_merles",
+      "name": "Casa Escrigues",
+      "geometry_hash": "20e16e24ff94f0daaf234b45f127e63cbb2ff58053b567a07c38b059641d16c1",
+      "micro_area_ha": 11.5106,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.393935,
+            "covered_layer_fraction": 0.393935
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Brolles de romaní i matollars mediterranis afins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.373177,
+            "covered_layer_fraction": 0.373177
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.231556,
+            "covered_layer_fraction": 0.231556
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació ruderal",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.001331,
+            "covered_layer_fraction": 0.001331
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.914872,
+            "covered_layer_fraction": 0.914872
+          },
+          {
+            "code": "Q",
+            "description": "Còdols més o menys rodats o angulosos en una matriu més o menys abundant de lutites. Dipòsits de fons de vall, riera i peu de mont",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.085128,
+            "covered_layer_fraction": 0.085128
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "olvan_mas_ballaro",
+      "area_id": "olvan",
+      "name": "Mas Ballaró",
+      "geometry_hash": "74e060c1ffd6c91a4ba9feedf98d5786c3fde7ae3dd8d0c81301d61c4489e356",
+      "micro_area_ha": 6.8304,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.383494,
+            "covered_layer_fraction": 0.383494
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Brolles de romaní i matollars mediterranis afins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.316158,
+            "covered_layer_fraction": 0.316158
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.289931,
+            "covered_layer_fraction": 0.289931
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Pinus nigra subsp. salzmannii + Quercus faginea (i híbrids)",
+            "micro_area_fraction": 0.005612,
+            "covered_layer_fraction": 0.005612
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Terrers",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.004023,
+            "covered_layer_fraction": 0.004023
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.000781,
+            "covered_layer_fraction": 0.000781
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "santa_maria_de_merles_la_tor_nova",
+      "area_id": "santa_maria_de_merles",
+      "name": "Bosc de la Tor",
+      "geometry_hash": "0db12152a267b18c6a22697ce47a16b55dd761cfa3c7e0ec79992ad0896cadc1",
+      "micro_area_ha": 7.5873,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.928526,
+            "covered_layer_fraction": 0.928526
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.071474,
+            "covered_layer_fraction": 0.071474
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "espunyola_muntanya",
+      "area_id": "espunyola",
+      "name": "Muntanyà",
+      "geometry_hash": "cce66e0af53c40fc6b7a4edf7147ec7b2ed58895ade750f3b154e2e5e5affa20",
+      "micro_area_ha": 9.4339,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Carrasca (Quercus rotundifolia)",
+            "micro_area_fraction": 0.635793,
+            "covered_layer_fraction": 0.635793
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.357831,
+            "covered_layer_fraction": 0.357831
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.006376,
+            "covered_layer_fraction": 0.006376
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POb",
+            "description": "Bretxes i conglomerats. Nivell bretxoide de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.821863,
+            "covered_layer_fraction": 0.821863
+          },
+          {
+            "code": "Qac",
+            "description": "Graves amb matriu sorrenca i argilosa. Dipòsit al·luvial-col·luvial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.136249,
+            "covered_layer_fraction": 0.136249
+          },
+          {
+            "code": "POgs",
+            "description": "Gresos arcòsics, lutites vermelles i conglomerats. Inclòs en el Sistema Al·luvial superior de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.041888,
+            "covered_layer_fraction": 0.041888
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "olvan_romeros",
+      "area_id": "olvan",
+      "name": "Romeros",
+      "geometry_hash": "229233396a75dffe6bdb2c3b65ad76c8bd2a7788b48c80e4f4c70fe39cb68815",
+      "micro_area_ha": 4.3415,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "la_masella_km11",
+      "area_id": "la_masella",
+      "name": "KM11",
+      "geometry_hash": "5c63878d4f5656a2376551c7857aafeffbb4125c89f7afb30a12e0561c5ce432",
+      "micro_area_ha": 11.4288,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Orgm",
+            "description": "Gresos, microconglomerats, lutites i roques vulcanoclàstiques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.95291,
+            "covered_layer_fraction": 0.95291
+          },
+          {
+            "code": "DCc",
+            "description": "Calcàries noduloses i lutites. Formació Comte",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.042396,
+            "covered_layer_fraction": 0.042396
+          },
+          {
+            "code": "Orst",
+            "description": "Lutites carbonàtiques amb restes de nòduls carbonatats dissolts. Esquists \"troués\". Formacions Estana i Ansovell",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.004694,
+            "covered_layer_fraction": 0.004694
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "bacanella_bacanella",
+      "area_id": "bacanella",
+      "name": "Bacanella",
+      "geometry_hash": "7dcdaea79180cecbd6a7f74df188e28f17e396987bbdb447736319d771e0f58b",
+      "micro_area_ha": 38.0219,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.604459,
+            "covered_layer_fraction": 0.604459
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Prats xeròfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.251684,
+            "covered_layer_fraction": 0.251684
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.143857,
+            "covered_layer_fraction": 0.143857
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "PEcd",
+            "description": "Calcàries i dolomies. Formació Orpí",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.987812,
+            "covered_layer_fraction": 0.987812
+          },
+          {
+            "code": "PPcm",
+            "description": "Lutites vermelles amb intercalacions de calcàries micrítiques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.012188,
+            "covered_layer_fraction": 0.012188
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "sant_joan_coll_de_leix",
+      "area_id": "sant_joan",
+      "name": "Coll de Leix",
+      "geometry_hash": "ad9cbd6c75160342ea1f71c53d0f16e9aa455658afbfd3642779f00bf332efee",
+      "micro_area_ha": 45.0631,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.988667,
+            "covered_layer_fraction": 0.988667
+          },
+          {
+            "substrate": "Inundat",
+            "vegetation_group": "Molleres i torberes de l'alta muntanya",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.011333,
+            "covered_layer_fraction": 0.011333
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.995201,
+            "covered_layer_fraction": 0.995201
+          },
+          {
+            "code": "Qac",
+            "description": "Graves amb matriu sorrenca i argilosa. Dipòsit al·luvial-col·luvial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.004799,
+            "covered_layer_fraction": 0.004799
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "guils_estacio",
+      "area_id": "guils",
+      "name": "Estacio",
+      "geometry_hash": "8d2b8977dcb4ff0fc3c1a1f6973ce9a0bab336ef46138e23c680f6109bda76a8",
+      "micro_area_ha": 47.4041,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.577891,
+            "covered_layer_fraction": 0.577891
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.193609,
+            "covered_layer_fraction": 0.193609
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils i acidòfils de l'alta muntanya",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.15961,
+            "covered_layer_fraction": 0.15961
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.06889,
+            "covered_layer_fraction": 0.06889
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Qgp",
+            "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "guils_la_feixa",
+      "area_id": "guils",
+      "name": "La Feixa",
+      "geometry_hash": "3a7d70952e9aee167a9f66214f6edc29213acb24e7a885b93cf29b5fec53ba4e",
+      "micro_area_ha": 110.8703,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.595789,
+            "covered_layer_fraction": 0.595789
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.211999,
+            "covered_layer_fraction": 0.211999
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats acidòfils dels rasos de l'alta muntanya",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.192211,
+            "covered_layer_fraction": 0.192211
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Qco",
+            "description": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.516275,
+            "covered_layer_fraction": 0.516275
+          },
+          {
+            "code": "Qgmg",
+            "description": "Blocs y graves heteromètriques, de subangulosos a arrodonits, amb una matriu constituïda per llims i sorres. \"Tills\" i cordons morènics de l'últim màxim glacial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.483725,
+            "covered_layer_fraction": 0.483725
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "guils_el_comu",
+      "area_id": "guils",
+      "name": "El Comú",
+      "geometry_hash": "7938b3ff7a4c01bd8406b3e1e879d9f595a2ac2dda6085930adb29daebbe5cfc",
+      "micro_area_ha": 9.9391,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.872172,
+            "covered_layer_fraction": 0.872172
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.127828,
+            "covered_layer_fraction": 0.127828
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Qgp",
+            "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.684967,
+            "covered_layer_fraction": 0.684967
+          },
+          {
+            "code": "mc_EÇOrgl",
+            "description": "Pissarres, cornianes i quarsites . Roques de la unitat EÇOrgl afectades per metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "EÇOrgl",
+            "protolith_description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "micro_area_fraction": 0.315033,
+            "covered_layer_fraction": 0.315033
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "guils_la_socarrada",
+      "area_id": "guils",
+      "name": "La Socarrada",
+      "geometry_hash": "2607486c38c63730fae65c2dc1d219e1ea6143bf38efa94fc4a15e7b465f16d8",
+      "micro_area_ha": 145.8606,
+      "vegetation": {
+        "coverage_fraction": 0.861261,
+        "coverage_status": "partial",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.551113,
+            "covered_layer_fraction": 0.639891
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.301775,
+            "covered_layer_fraction": 0.350387
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Matollars de bàlec, ginebró o boixerola dels solells subalpins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.008373,
+            "covered_layer_fraction": 0.009722
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Qgp",
+            "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.960459,
+            "covered_layer_fraction": 0.960459
+          },
+          {
+            "code": "mc_EÇOrgl",
+            "description": "Pissarres, cornianes i quarsites . Roques de la unitat EÇOrgl afectades per metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "EÇOrgl",
+            "protolith_description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "micro_area_fraction": 0.016281,
+            "covered_layer_fraction": 0.016281
+          },
+          {
+            "code": "Qgpd",
+            "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial degradat",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.013892,
+            "covered_layer_fraction": 0.013892
+          },
+          {
+            "code": "Ggdbhb",
+            "description": "Granodiorita biotítica hornblèndica, fàcies rica en biotita",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.009367,
+            "covered_layer_fraction": 0.009367
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "salteguet_entrada",
+      "area_id": "salteguet",
+      "name": "Entrada",
+      "geometry_hash": "b596bc1899509b8672b3396c304bc4818abfcb5e716055b407495b0c372b99dd",
+      "micro_area_ha": 29.4428,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Avet (Abies alba)",
+            "micro_area_fraction": 0.707749,
+            "covered_layer_fraction": 0.707749
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.144694,
+            "covered_layer_fraction": 0.144694
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pinus uncinata + Abies alba",
+            "micro_area_fraction": 0.074015,
+            "covered_layer_fraction": 0.074015
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.059847,
+            "covered_layer_fraction": 0.059847
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.013695,
+            "covered_layer_fraction": 0.013695
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "la_masella_km9",
+      "area_id": "la_masella",
+      "name": "KM9",
+      "geometry_hash": "d5dec79f5b681edf1d1ad8d6face33da55510a88a6d1d3d4e648ce46e8463a1a",
+      "micro_area_ha": 41.8177,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.536419,
+            "covered_layer_fraction": 0.536419
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.358132,
+            "covered_layer_fraction": 0.358132
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.072731,
+            "covered_layer_fraction": 0.072731
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Abies alba + Pinus sylvestris",
+            "micro_area_fraction": 0.030843,
+            "covered_layer_fraction": 0.030843
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Matollars de bàlec, ginebró o boixerola dels solells subalpins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.001874,
+            "covered_layer_fraction": 0.001874
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Orgm",
+            "description": "Gresos, microconglomerats, lutites i roques vulcanoclàstiques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "sant_joan_baga_de_sant_andreu",
+      "area_id": "sant_joan",
+      "name": "Baga de Sant Andreu",
+      "geometry_hash": "707db66ae342b9e5b5451f0b8db28e40e5bb42b97f89c80fc0c7cfde8d875bdf",
+      "micro_area_ha": 48.2145,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.987476,
+            "covered_layer_fraction": 0.987476
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Prats de dall i altres formacions herbàcies exuberants afins",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.012524,
+            "covered_layer_fraction": 0.012524
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.998854,
+            "covered_layer_fraction": 0.998854
+          },
+          {
+            "code": "Qac",
+            "description": "Graves amb matriu sorrenca i argilosa. Dipòsit al·luvial-col·luvial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.001146,
+            "covered_layer_fraction": 0.001146
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "sant_joan_cota_1400",
+      "area_id": "sant_joan",
+      "name": "Cota 1400",
+      "geometry_hash": "d394b62b8ea67facf392e61b305a7f0bcdbb4dafeba14f3b64fc972687419d5f",
+      "micro_area_ha": 17.0301,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "sant_joan_recta_1700",
+      "area_id": "sant_joan",
+      "name": "Recta 1700",
+      "geometry_hash": "fd286500e9c51df68365130ed47a2b489a1175fe7c0b2204e880aeb4477e8930",
+      "micro_area_ha": 18.4838,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.81396,
+            "covered_layer_fraction": 0.81396
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.18604,
+            "covered_layer_fraction": 0.18604
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "ordino_cota_2100",
+      "area_id": "ordino",
+      "name": "Cota 2100",
+      "geometry_hash": "2711bf14e428402c3601eaefa20b2b7e5acc6f63f1495f6e910e1a5a1cb5a4ce",
+      "micro_area_ha": 45.0194,
+      "vegetation": {
+        "coverage_fraction": 0.0,
+        "coverage_status": "none",
+        "components": []
+      },
+      "geology": {
+        "coverage_fraction": 0.0,
+        "coverage_status": "none",
+        "components": []
+      }
+    },
+    {
+      "micro_area_id": "santa_maria_de_merles_la_coromina",
+      "area_id": "santa_maria_de_merles",
+      "name": "La Coromina",
+      "geometry_hash": "3a28f0ade195fde734d6de8826b8f1784f39946faaab43b71965230a9af380c1",
+      "micro_area_ha": 7.4963,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Brolles de romaní i matollars mediterranis afins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.519704,
+            "covered_layer_fraction": 0.519704
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.289037,
+            "covered_layer_fraction": 0.289037
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.186745,
+            "covered_layer_fraction": 0.186745
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.004513,
+            "covered_layer_fraction": 0.004513
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "rubio_plantacion",
+      "area_id": "rubio",
+      "name": "Plantación",
+      "geometry_hash": "4778446505d7b6580a794fad68bfc2ded40c574253dc6c7577a9ff1709aed387",
+      "micro_area_ha": 72.8452,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.580928,
+            "covered_layer_fraction": 0.580928
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.344179,
+            "covered_layer_fraction": 0.344179
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils i acidòfils de l'alta muntanya",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.073954,
+            "covered_layer_fraction": 0.073954
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.000769,
+            "covered_layer_fraction": 0.000769
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils i acidòfils de l'alta muntanya",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.000171,
+            "covered_layer_fraction": 0.000171
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.913505,
+            "covered_layer_fraction": 0.913505
+          },
+          {
+            "code": "Qac",
+            "description": "Graves amb matriu sorrenca i argilosa. Dipòsit al·luvial-col·luvial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.086495,
+            "covered_layer_fraction": 0.086495
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "la_masella_estacion",
+      "area_id": "la_masella",
+      "name": "Estacion",
+      "geometry_hash": "5403ca78d4751cf866118adaba95a7443c3a085e650912dd3a3e3c72e55ba51e",
+      "micro_area_ha": 23.7371,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.629146,
+            "covered_layer_fraction": 0.629146
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Ambients molt artificialitzats amb vegetació escassa o nul·la",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.223328,
+            "covered_layer_fraction": 0.223328
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.143988,
+            "covered_layer_fraction": 0.143988
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.003538,
+            "covered_layer_fraction": 0.003538
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Orst",
+            "description": "Lutites carbonàtiques amb restes de nòduls carbonatats dissolts. Esquists \"troués\". Formacions Estana i Ansovell",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.343985,
+            "covered_layer_fraction": 0.343985
+          },
+          {
+            "code": "Sl",
+            "description": "Lutites negres amb graptòlits",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.292992,
+            "covered_layer_fraction": 0.292992
+          },
+          {
+            "code": "Orq",
+            "description": "Quarsites",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.130717,
+            "covered_layer_fraction": 0.130717
+          },
+          {
+            "code": "Orgm",
+            "description": "Gresos, microconglomerats, lutites i roques vulcanoclàstiques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.108137,
+            "covered_layer_fraction": 0.108137
+          },
+          {
+            "code": "DCc",
+            "description": "Calcàries noduloses i lutites. Formació Comte",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.101718,
+            "covered_layer_fraction": 0.101718
+          },
+          {
+            "code": "Dcrb",
+            "description": "Calcàries lutítiques, lutites i calcàries massives. Formacions Rueda i Baciver",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.017944,
+            "covered_layer_fraction": 0.017944
+          },
+          {
+            "code": "Dclv",
+            "description": "Alternança de calcàries, lutites i calcàries noduloses",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.004508,
+            "covered_layer_fraction": 0.004508
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "coll_de_la_batalla_principal",
+      "area_id": "coll_de_la_batalla",
+      "name": "Principal",
+      "geometry_hash": "78cbdbc38203381c0a1acb763fb779e5e6add06ba9588c12063489c580d34b8b",
+      "micro_area_ha": 165.8533,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Alzina (Quercus ilex)",
+            "micro_area_fraction": 0.485913,
+            "covered_layer_fraction": 0.485913
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.17948,
+            "covered_layer_fraction": 0.17948
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Pinus halepensis",
+            "micro_area_fraction": 0.154104,
+            "covered_layer_fraction": 0.154104
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Quercus faginea",
+            "micro_area_fraction": 0.096981,
+            "covered_layer_fraction": 0.096981
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.042848,
+            "covered_layer_fraction": 0.042848
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Pinus halepensis + Quercus rotundifolia",
+            "micro_area_fraction": 0.03182,
+            "covered_layer_fraction": 0.03182
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Brolles (estepars, brugueres, ginestars...) dels terrenys silicis de la regió mediterrània",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.008854,
+            "covered_layer_fraction": 0.008854
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Ggd",
+            "description": "Granodiorites i granits alcalins",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.680572,
+            "covered_layer_fraction": 0.680572
+          },
+          {
+            "code": "mc_Capg",
+            "description": "Pissarres pigallades. Roques de la unitat Capg afectades pel metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "Capg",
+            "protolith_description": "Gresos i pissarres amb nivells de conglomerats, i andesites a la base",
+            "micro_area_fraction": 0.319428,
+            "covered_layer_fraction": 0.319428
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "olvan_cercado_vacas",
+      "area_id": "olvan",
+      "name": "Cercado Vacas",
+      "geometry_hash": "ce9bcfcf3f92ec02c570eee520b4cba2a7f061f0cbbec19ece8762b125421e4a",
+      "micro_area_ha": 10.1778,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.668795,
+            "covered_layer_fraction": 0.668795
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.327983,
+            "covered_layer_fraction": 0.327983
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.003222,
+            "covered_layer_fraction": 0.003222
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "olvan_bosquecillo",
+      "area_id": "olvan",
+      "name": "Bosquecillo",
+      "geometry_hash": "966cf3c072ee796dd6a9a883867d94aeca500b6edbd03d7b88e78f92f904c511",
+      "micro_area_ha": 1.9929,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.599649,
+            "covered_layer_fraction": 0.599649
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Brolles de romaní i matollars mediterranis afins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.400351,
+            "covered_layer_fraction": 0.400351
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "selva_del_camp_casa_perros",
+      "area_id": "selva_del_camp",
+      "name": "Casa Perros",
+      "geometry_hash": "509609b24b153bd65e9ddee2c131cef7c84237f7c4b00a8d6d582c2f087d9c4d",
+      "micro_area_ha": 9.626,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Quercus faginea",
+            "micro_area_fraction": 0.947498,
+            "covered_layer_fraction": 0.947498
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació ruderal",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.052502,
+            "covered_layer_fraction": 0.052502
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "mc_Capg",
+            "description": "Pissarres pigallades. Roques de la unitat Capg afectades pel metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "Capg",
+            "protolith_description": "Gresos i pissarres amb nivells de conglomerats, i andesites a la base",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "rectoria_de_la_selva_rectoria",
+      "area_id": "rectoria_de_la_selva",
+      "name": "Rectoria",
+      "geometry_hash": "4886a2958398a4afbe65fbee96494ebe0cc488738275e28ed6cdd14e8d23084f",
+      "micro_area_ha": 58.5643,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.436852,
+            "covered_layer_fraction": 0.436852
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Quercus rotundifolia + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.249416,
+            "covered_layer_fraction": 0.249416
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Pinus sylvestris + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.201336,
+            "covered_layer_fraction": 0.201336
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.087552,
+            "covered_layer_fraction": 0.087552
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Quercus pubescens + Pinus sylvestris",
+            "micro_area_fraction": 0.014877,
+            "covered_layer_fraction": 0.014877
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.00858,
+            "covered_layer_fraction": 0.00858
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.000732,
+            "covered_layer_fraction": 0.000732
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pinus sylvestris + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.000655,
+            "covered_layer_fraction": 0.000655
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.543587,
+            "covered_layer_fraction": 0.543587
+          },
+          {
+            "code": "PEOgs",
+            "description": "Lutites vermelles, gresos i conglomerats. Fàcies distals del Sistema Al·luvial mitjà de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.23154,
+            "covered_layer_fraction": 0.23154
+          },
+          {
+            "code": "POgs",
+            "description": "Gresos arcòsics, lutites vermelles i conglomerats. Inclòs en el Sistema Al·luvial superior de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.156025,
+            "covered_layer_fraction": 0.156025
+          },
+          {
+            "code": "POb",
+            "description": "Bretxes i conglomerats. Nivell bretxoide de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.068848,
+            "covered_layer_fraction": 0.068848
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "la_gavarra_paradell",
+      "area_id": "la_gavarra",
+      "name": "Paradell",
+      "geometry_hash": "6fdd486f68173f03de7c622c75ede57431d733e4c66a8cfd4eee2816a3a87b53",
+      "micro_area_ha": 112.529,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pinus sylvestris + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.462862,
+            "covered_layer_fraction": 0.462862
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Carrasca (Quercus rotundifolia)",
+            "micro_area_fraction": 0.185572,
+            "covered_layer_fraction": 0.185572
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.129965,
+            "covered_layer_fraction": 0.129965
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.084302,
+            "covered_layer_fraction": 0.084302
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Quercus pubescens + Pinus sylvestris",
+            "micro_area_fraction": 0.042618,
+            "covered_layer_fraction": 0.042618
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.036255,
+            "covered_layer_fraction": 0.036255
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Quercus rotundifolia + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.022943,
+            "covered_layer_fraction": 0.022943
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.018789,
+            "covered_layer_fraction": 0.018789
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Landes de bruguerola, eventualment de bruc d'escombres o de nabius",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.013369,
+            "covered_layer_fraction": 0.013369
+          },
+          {
+            "substrate": "Rocós carbonatat",
+            "vegetation_group": "Vegetació de roques i tarteres calcàries muntanyenques",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.001767,
+            "covered_layer_fraction": 0.001767
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.00106,
+            "covered_layer_fraction": 0.00106
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pinus sylvestris + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.000498,
+            "covered_layer_fraction": 0.000498
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "KMga4",
+            "description": "Gresos. Formació Gresos d'Areny",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.738123,
+            "covered_layer_fraction": 0.738123
+          },
+          {
+            "code": "Qr",
+            "description": "Graves, sorres, llims i localment blocs. llits actuals de les rieres i dels torrents",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.217163,
+            "covered_layer_fraction": 0.217163
+          },
+          {
+            "code": "KMma2",
+            "description": "Margues, lutites i gresos turbidítics. Formació Gresos d'Areny",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.02661,
+            "covered_layer_fraction": 0.02661
+          },
+          {
+            "code": "KMgp",
+            "description": "Calcàries, lutites i margocalcàries. Fàcies garumniana",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.018104,
+            "covered_layer_fraction": 0.018104
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "els_ports_la_mola",
+      "area_id": "els_ports",
+      "name": "La Mola",
+      "geometry_hash": "963b64aba81965100f881757ee8c5325ab6bf36bac15895b34bbd48a89ec8b67",
+      "micro_area_ha": 329.1603,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.69768,
+            "covered_layer_fraction": 0.69768
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.250715,
+            "covered_layer_fraction": 0.250715
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boixedes i altres matollars afins, de la muntanya mitjana",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.026237,
+            "covered_layer_fraction": 0.026237
+          },
+          {
+            "substrate": "Rocós carbonatat",
+            "vegetation_group": "Vegetació de roques i tarteres calcàries muntanyenques",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.011835,
+            "covered_layer_fraction": 0.011835
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.011113,
+            "covered_layer_fraction": 0.011113
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Pinassa (Pinus nigra subsp. salzmannii)",
+            "micro_area_fraction": 0.002406,
+            "covered_layer_fraction": 0.002406
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pinus sylvestris + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.000015,
+            "covered_layer_fraction": 0.000015
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "JCd",
+            "description": "Dolomies negres",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "el_perello_lo_burgar",
+      "area_id": "el_perello",
+      "name": "Lo Burgar",
+      "geometry_hash": "e240409ff47fc584053a61c4210086697c535d933fb828110f5680dfc5cbd74f",
+      "micro_area_ha": 90.9723,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Brolles de romaní i matollars mediterranis afins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.514386,
+            "covered_layer_fraction": 0.514386
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi blanc (Pinus halepensis)",
+            "micro_area_fraction": 0.348221,
+            "covered_layer_fraction": 0.348221
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Brolles de romaní i matollars mediterranis afins",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.101477,
+            "covered_layer_fraction": 0.101477
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.035915,
+            "covered_layer_fraction": 0.035915
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "JCc",
+            "description": "Calcàries amb nivells de margues",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.900254,
+            "covered_layer_fraction": 0.900254
+          },
+          {
+            "code": "CBc",
+            "description": "Calcàries, margues i margocalcàries",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.067514,
+            "covered_layer_fraction": 0.067514
+          },
+          {
+            "code": "Qac3",
+            "description": "Bretxes i llims amb graves anguloses disperses. Dipòsit al·luvial-col·luvial correlacionable amb  la terrassa Qt3",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.032232,
+            "covered_layer_fraction": 0.032232
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "ermita_ascensio_obaga_de_la_castellana",
+      "area_id": "ermita_ascensio",
+      "name": "Obaga de la Castellana",
+      "geometry_hash": "5457e706342ca66829c94b22ac083268b98ba5d72bd6120ba2736ca8364e17e2",
+      "micro_area_ha": 207.1772,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Pinassa (Pinus nigra subsp. salzmannii)",
+            "micro_area_fraction": 0.464311,
+            "covered_layer_fraction": 0.464311
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Pinus nigra subsp. salzmannii + Quercus faginea (i híbrids)",
+            "micro_area_fraction": 0.272031,
+            "covered_layer_fraction": 0.272031
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Roure de fulla petita (Quercus faginea)",
+            "micro_area_fraction": 0.099139,
+            "covered_layer_fraction": 0.099139
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.09644,
+            "covered_layer_fraction": 0.09644
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.03743,
+            "covered_layer_fraction": 0.03743
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Pinus nigra subsp. salzmannii + Quercus faginea (i híbrids)",
+            "micro_area_fraction": 0.017445,
+            "covered_layer_fraction": 0.017445
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Quercus faginea + Quercus rotundifolia",
+            "micro_area_fraction": 0.013203,
+            "covered_layer_fraction": 0.013203
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmg",
+            "description": "Margues, calcàries i gresos. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.927844,
+            "covered_layer_fraction": 0.927844
+          },
+          {
+            "code": "POlg",
+            "description": "Limolites amb intercalacions de gresos i conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.072156,
+            "covered_layer_fraction": 0.072156
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "vallcebre_agustinet",
+      "area_id": "vallcebre",
+      "name": "Agustinet",
+      "geometry_hash": "81339ad980a02317a4c10d560e694a34d8f7f6d470ef09e76a7925614966d195",
+      "micro_area_ha": 10.5474,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.764193,
+            "covered_layer_fraction": 0.764193
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Prats de dall i altres formacions herbàcies exuberants afins",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.143098,
+            "covered_layer_fraction": 0.143098
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.052272,
+            "covered_layer_fraction": 0.052272
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.040437,
+            "covered_layer_fraction": 0.040437
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "KMgp",
+            "description": "Calcàries, lutites i margocalcàries. Fàcies garumniana",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "vallcebre_petitons",
+      "area_id": "vallcebre",
+      "name": "Petitons",
+      "geometry_hash": "3b1d61be69b8906e46f86c6c9cc8f0d4b8274454a6056df4920ad8c5222f4f57",
+      "micro_area_ha": 2.791,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Prats de dall i altres formacions herbàcies exuberants afins",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.577032,
+            "covered_layer_fraction": 0.577032
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.422968,
+            "covered_layer_fraction": 0.422968
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "KMgp",
+            "description": "Calcàries, lutites i margocalcàries. Fàcies garumniana",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.662771,
+            "covered_layer_fraction": 0.662771
+          },
+          {
+            "code": "Qvl",
+            "description": "Clasts angulosos, sorres i llims. Ventall al·luvial antic degradat",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.337229,
+            "covered_layer_fraction": 0.337229
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "llambilles_medio",
+      "area_id": "llambilles",
+      "name": "Medio",
+      "geometry_hash": "983450c8e1bfe2da40d4c59f3e214b4edea090a119653a3d4c02b1b3568bbb28",
+      "micro_area_ha": 33.727,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Quercus suber + Pinus pinaster",
+            "micro_area_fraction": 0.81616,
+            "covered_layer_fraction": 0.81616
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pinastre (Pinus pinaster)",
+            "micro_area_fraction": 0.126394,
+            "covered_layer_fraction": 0.126394
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Surera (Quercus suber)",
+            "micro_area_fraction": 0.057447,
+            "covered_layer_fraction": 0.057447
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOgq",
+            "description": "Gresos quarsifeldspàtics, quarsites i lutites",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.965338,
+            "covered_layer_fraction": 0.965338
+          },
+          {
+            "code": "mc_EÇOgq",
+            "description": "Cornianes, esquists i fil·lites pigallades. Roques de la unitat EÇOgq afectades per metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "EÇOgq",
+            "protolith_description": "Gresos quarsifeldspàtics, quarsites i lutites",
+            "micro_area_fraction": 0.024759,
+            "covered_layer_fraction": 0.024759
+          },
+          {
+            "code": "Gggd",
+            "description": "Granits i granodiorites",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.009903,
+            "covered_layer_fraction": 0.009903
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "llambilles_arriba",
+      "area_id": "llambilles",
+      "name": "Arriba",
+      "geometry_hash": "a4e9442583436b9b423903fcd149926057f7837baa14d28d7606cbf3282ae639",
+      "micro_area_ha": 18.1955,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Surera (Quercus suber)",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOgq",
+            "description": "Gresos quarsifeldspàtics, quarsites i lutites",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.67463,
+            "covered_layer_fraction": 0.67463
+          },
+          {
+            "code": "mc_EÇOgq",
+            "description": "Cornianes, esquists i fil·lites pigallades. Roques de la unitat EÇOgq afectades per metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "EÇOgq",
+            "protolith_description": "Gresos quarsifeldspàtics, quarsites i lutites",
+            "micro_area_fraction": 0.200078,
+            "covered_layer_fraction": 0.200078
+          },
+          {
+            "code": "Gggd",
+            "description": "Granits i granodiorites",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.125293,
+            "covered_layer_fraction": 0.125293
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "llambilles_abajo",
+      "area_id": "llambilles",
+      "name": "Abajo",
+      "geometry_hash": "69dfe76275b72bbab69943f44f835b411fcc35f114085ecc03e7f43c0c8baa35",
+      "micro_area_ha": 144.2631,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Quercus suber + Pinus pinaster",
+            "micro_area_fraction": 0.490824,
+            "covered_layer_fraction": 0.490824
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi pinyer (Pinus pinea)",
+            "micro_area_fraction": 0.307787,
+            "covered_layer_fraction": 0.307787
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Quercus suber + Pinus pinea",
+            "micro_area_fraction": 0.17998,
+            "covered_layer_fraction": 0.17998
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Quercus pubescens",
+            "micro_area_fraction": 0.021211,
+            "covered_layer_fraction": 0.021211
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.000198,
+            "covered_layer_fraction": 0.000198
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOgq",
+            "description": "Gresos quarsifeldspàtics, quarsites i lutites",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.959295,
+            "covered_layer_fraction": 0.959295
+          },
+          {
+            "code": "mc_EÇOgq",
+            "description": "Cornianes, esquists i fil·lites pigallades. Roques de la unitat EÇOgq afectades per metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "EÇOgq",
+            "protolith_description": "Gresos quarsifeldspàtics, quarsites i lutites",
+            "micro_area_fraction": 0.01917,
+            "covered_layer_fraction": 0.01917
+          },
+          {
+            "code": "Qac1",
+            "description": "Argiles sorrenques amb clasts de quars i feldspats dispersos situats al peu de relleus positius. Dipòsit al·luvial-col·luvial correlacionable amb la terrassa Qt1",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.008778,
+            "covered_layer_fraction": 0.008778
+          },
+          {
+            "code": "Gggd",
+            "description": "Granits i granodiorites",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.008369,
+            "covered_layer_fraction": 0.008369
+          },
+          {
+            "code": "Fdq",
+            "description": "Filons de pòrfirs de diorítics a quarsdiorítics",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.004388,
+            "covered_layer_fraction": 0.004388
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "breda_arriba",
+      "area_id": "breda",
+      "name": "Arriba",
+      "geometry_hash": "acc650b9d925456a22d760e154f513ed920932e2a3ece72074133d31652ad591",
+      "micro_area_ha": 11.9329,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus suber + Pinus pinaster",
+            "micro_area_fraction": 0.724155,
+            "covered_layer_fraction": 0.724155
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pinastre (Pinus pinaster)",
+            "micro_area_fraction": 0.130523,
+            "covered_layer_fraction": 0.130523
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Quercus suber",
+            "micro_area_fraction": 0.076128,
+            "covered_layer_fraction": 0.076128
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Surera (Quercus suber)",
+            "micro_area_fraction": 0.069195,
+            "covered_layer_fraction": 0.069195
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Qv3",
+            "description": "Graves i blocs amb matriu arenosoargilosa. Ventall al·luvial correlacionable amb la terrassa Qt3",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "sant_jaume_de_boixadera_pla_de_boixadera",
+      "area_id": "sant_jaume_de_boixadera",
+      "name": "Pla de Boixadera",
+      "geometry_hash": "de888ccf2453c8b3e045e5b9cf18be13f658be5a03955d334fa31145a263ca20",
+      "micro_area_ha": 97.5494,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pinus sylvestris + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.36865,
+            "covered_layer_fraction": 0.36865
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.257616,
+            "covered_layer_fraction": 0.257616
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Quercus pubescens + Pinus nigra subsp salzmannii + Quercus rotundifolia",
+            "micro_area_fraction": 0.105826,
+            "covered_layer_fraction": 0.105826
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.067681,
+            "covered_layer_fraction": 0.067681
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Roure martinenc i híbrids (Quercus pubescens, Q. x cerrioides..)",
+            "micro_area_fraction": 0.055696,
+            "covered_layer_fraction": 0.055696
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pinassa (Pinus nigra subsp. salzmannii)",
+            "micro_area_fraction": 0.049184,
+            "covered_layer_fraction": 0.049184
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.034787,
+            "covered_layer_fraction": 0.034787
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Pinus sylvestris + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.032013,
+            "covered_layer_fraction": 0.032013
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació ruderal",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.022192,
+            "covered_layer_fraction": 0.022192
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Pinus nigra subsp salzmannii + Pinus sylvestris + Quercus rotundifolia",
+            "micro_area_fraction": 0.006355,
+            "covered_layer_fraction": 0.006355
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POb",
+            "description": "Bretxes i conglomerats. Nivell bretxoide de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.674524,
+            "covered_layer_fraction": 0.674524
+          },
+          {
+            "code": "PEOgs",
+            "description": "Lutites vermelles, gresos i conglomerats. Fàcies distals del Sistema Al·luvial mitjà de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.231881,
+            "covered_layer_fraction": 0.231881
+          },
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.093595,
+            "covered_layer_fraction": 0.093595
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "sant_joan_serrat_de_la_carbassa",
+      "area_id": "sant_joan",
+      "name": "Serrat de la Carbassa",
+      "geometry_hash": "66361b7ff588e81b24ff33e543d9f3bba7c46ba0b965dc1758a25eef1962e049",
+      "micro_area_ha": 78.5815,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.984721,
+            "covered_layer_fraction": 0.984721
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.01103,
+            "covered_layer_fraction": 0.01103
+          },
+          {
+            "substrate": "Inundat",
+            "vegetation_group": "Molleres i torberes de l'alta muntanya",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.004249,
+            "covered_layer_fraction": 0.004249
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.939648,
+            "covered_layer_fraction": 0.939648
+          },
+          {
+            "code": "Qac",
+            "description": "Graves amb matriu sorrenca i argilosa. Dipòsit al·luvial-col·luvial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.060352,
+            "covered_layer_fraction": 0.060352
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "sant_joan_obaga_de_la_culla",
+      "area_id": "sant_joan",
+      "name": "Obaga de la Culla",
+      "geometry_hash": "fa9baacdeaa4422e49a97d212db79fc620715bb304b8e57e62c373cc0c3b4125",
+      "micro_area_ha": 263.7051,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.528493,
+            "covered_layer_fraction": 0.528493
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.29483,
+            "covered_layer_fraction": 0.29483
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Abies alba + Pinus sylvestris",
+            "micro_area_fraction": 0.166454,
+            "covered_layer_fraction": 0.166454
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.010224,
+            "covered_layer_fraction": 0.010224
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "salteguet_salteguet_fondo",
+      "area_id": "salteguet",
+      "name": "Salteguet Fondo",
+      "geometry_hash": "98fd8b4d43fe080e039182ac2bab9c8f2f4a5b07204139f50a18dc8227cf81a4",
+      "micro_area_ha": 22.3624,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Avet (Abies alba)",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "prats_de_llucanes_bosc_davant_prats_llucanes",
+      "area_id": "prats_de_llucanes",
+      "name": "Bosc davant Prats Llucanes",
+      "geometry_hash": "c9580e7927b896cd4f7dfd46866cd82d6f272863af62556b2c18df0a7aba9589",
+      "micro_area_ha": 16.1585,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Quercus pubescens + Pinus sylvestris",
+            "micro_area_fraction": 0.563562,
+            "covered_layer_fraction": 0.563562
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Quercus pubescens + Pinus sylvestris",
+            "micro_area_fraction": 0.188278,
+            "covered_layer_fraction": 0.188278
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.186697,
+            "covered_layer_fraction": 0.186697
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Alzina (Quercus ilex)",
+            "micro_area_fraction": 0.034035,
+            "covered_layer_fraction": 0.034035
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.027427,
+            "covered_layer_fraction": 0.027427
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "POmlg",
+            "description": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.985325,
+            "covered_layer_fraction": 0.985325
+          },
+          {
+            "code": "POb",
+            "description": "Bretxes i conglomerats. Nivell bretxoide de Berga",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.014675,
+            "covered_layer_fraction": 0.014675
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "selva_del_camp_mas_de_la_cabrera",
+      "area_id": "selva_del_camp",
+      "name": "Mas de la Cabrera",
+      "geometry_hash": "e070131de730d8077ed8c93ea0f07ad9dde9c54d31a04c09d5693bc4fcd2745e",
+      "micro_area_ha": 19.116,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.615371,
+            "covered_layer_fraction": 0.615371
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Quercus faginea",
+            "micro_area_fraction": 0.214781,
+            "covered_layer_fraction": 0.214781
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Quercus pubescens",
+            "micro_area_fraction": 0.169848,
+            "covered_layer_fraction": 0.169848
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "mc_Capg",
+            "description": "Pissarres pigallades. Roques de la unitat Capg afectades pel metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "Capg",
+            "protolith_description": "Gresos i pissarres amb nivells de conglomerats, i andesites a la base",
+            "micro_area_fraction": 0.549288,
+            "covered_layer_fraction": 0.549288
+          },
+          {
+            "code": "Ggd",
+            "description": "Granodiorites i granits alcalins",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.450712,
+            "covered_layer_fraction": 0.450712
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "selva_del_camp_mas_de_sant_josep",
+      "area_id": "selva_del_camp",
+      "name": "Mas de Sant Josep",
+      "geometry_hash": "d3da5655a90c0575c6bf2a72041bfa4fd9673f1385b0cd20b922ffcd8b286753",
+      "micro_area_ha": 9.4687,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Alzinars i suredes",
+            "forest_composition": "Quercus ilex + Quercus pubescens",
+            "micro_area_fraction": 0.983106,
+            "covered_layer_fraction": 0.983106
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.016894,
+            "covered_layer_fraction": 0.016894
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "mc_Capg",
+            "description": "Pissarres pigallades. Roques de la unitat Capg afectades pel metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "Capg",
+            "protolith_description": "Gresos i pissarres amb nivells de conglomerats, i andesites a la base",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "guils_plantacion_pinitos",
+      "area_id": "guils",
+      "name": "Plantacion pinitos",
+      "geometry_hash": "12797ba09085c33efa434e0b3baa4541c49faaf7c0c6c0afcab19ae75c5406ed",
+      "micro_area_ha": 51.4058,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.904417,
+            "covered_layer_fraction": 0.904417
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats acidòfils dels rasos de l'alta muntanya",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.095583,
+            "covered_layer_fraction": 0.095583
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Qgp",
+            "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.914796,
+            "covered_layer_fraction": 0.914796
+          },
+          {
+            "code": "mc_EÇOrgl",
+            "description": "Pissarres, cornianes i quarsites . Roques de la unitat EÇOrgl afectades per metamorfisme de contacte varisc",
+            "metamorphism_code": "MC",
+            "metamorphism_description": "Metamorfisme de contacte varisc",
+            "protolith_code": "EÇOrgl",
+            "protolith_description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "micro_area_fraction": 0.085204,
+            "covered_layer_fraction": 0.085204
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "baga_clot_de_l_infern",
+      "area_id": "baga",
+      "name": "Clot de l'infern",
+      "geometry_hash": "0b638152948d7c826a274c497d71c18f39fa8ce40f3a80cc6dbe9f72b7117d9e",
+      "micro_area_ha": 72.2099,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.411944,
+            "covered_layer_fraction": 0.411944
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.196365,
+            "covered_layer_fraction": 0.196365
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Fagedes, avetoses i altres boscos humits afins",
+            "forest_composition": "Fagus sylvatica + Pinus sylvestris",
+            "micro_area_fraction": 0.152111,
+            "covered_layer_fraction": 0.152111
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.091629,
+            "covered_layer_fraction": 0.091629
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boixedes i altres matollars afins, de la muntanya mitjana",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.068322,
+            "covered_layer_fraction": 0.068322
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.035478,
+            "covered_layer_fraction": 0.035478
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.021133,
+            "covered_layer_fraction": 0.021133
+          },
+          {
+            "substrate": "Al·luvial",
+            "vegetation_group": "Salzedes arbustives fluvials",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.011241,
+            "covered_layer_fraction": 0.011241
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Fagedes, avetoses i altres boscos humits afins",
+            "forest_composition": "Faig (Fagus sylvatica)",
+            "micro_area_fraction": 0.007047,
+            "covered_layer_fraction": 0.007047
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.00345,
+            "covered_layer_fraction": 0.00345
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.001281,
+            "covered_layer_fraction": 0.001281
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Cagl",
+            "description": "Gresos, microconglomerats i lutites. Formació Bellver",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.742438,
+            "covered_layer_fraction": 0.742438
+          },
+          {
+            "code": "Qgpd",
+            "description": "Clasts angulosos, sorres i lutites. Dipòsit periglacial degradat",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.138933,
+            "covered_layer_fraction": 0.138933
+          },
+          {
+            "code": "Cacg1",
+            "description": "Conglomerats",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.118629,
+            "covered_layer_fraction": 0.118629
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "planoles_el_sola",
+      "area_id": "planoles",
+      "name": "El Solà",
+      "geometry_hash": "3246d2a1e3a461cd0d1bc9449949c1396449387d6df832d7f7afb9d56141556e",
+      "micro_area_ha": 33.8823,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boixedes i altres matollars afins, de la muntanya mitjana",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.517518,
+            "covered_layer_fraction": 0.517518
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Boscos caducifolis mixtos i bosquines afins, d'ambients eutròfics i humits de la muntanya mitjana",
+            "forest_composition": "Freixe (Fraxinus excelsior)",
+            "micro_area_fraction": 0.191427,
+            "covered_layer_fraction": 0.191427
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.115835,
+            "covered_layer_fraction": 0.115835
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Roure martinenc i híbrids (Quercus pubescens, Q. x cerrioides..)",
+            "micro_area_fraction": 0.071597,
+            "covered_layer_fraction": 0.071597
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boixedes i altres matollars afins, de la muntanya mitjana",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.049454,
+            "covered_layer_fraction": 0.049454
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Prats de dall i altres formacions herbàcies exuberants afins",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.029256,
+            "covered_layer_fraction": 0.029256
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.014398,
+            "covered_layer_fraction": 0.014398
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.010514,
+            "covered_layer_fraction": 0.010514
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "riu_de_cerdanya_els_plans",
+      "area_id": "riu_de_cerdanya",
+      "name": "Els Plans",
+      "geometry_hash": "c06a055d03ad61934d0f42e2f3e64ee449147d8755be37f13d85b0dbe9818c8f",
+      "micro_area_ha": 60.962,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.44184,
+            "covered_layer_fraction": 0.44184
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.398914,
+            "covered_layer_fraction": 0.398914
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.118491,
+            "covered_layer_fraction": 0.118491
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.040679,
+            "covered_layer_fraction": 0.040679
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.000076,
+            "covered_layer_fraction": 0.000076
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Cagl",
+            "description": "Gresos, microconglomerats i lutites. Formació Bellver",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.589712,
+            "covered_layer_fraction": 0.589712
+          },
+          {
+            "code": "DCc",
+            "description": "Calcàries noduloses i lutites. Formació Comte",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.360717,
+            "covered_layer_fraction": 0.360717
+          },
+          {
+            "code": "Dcgc",
+            "description": "Calcàries noduloses, lutites. Calcàries \"griotte\". Formació Comte B",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.04957,
+            "covered_layer_fraction": 0.04957
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "salteguet_encima_camino",
+      "area_id": "salteguet",
+      "name": "Encima camino",
+      "geometry_hash": "90fb9f12e7ca1a51370a04a20df1f42ec3f9d223773ee1a62584df6d47f1e2d7",
+      "micro_area_ha": 30.1382,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.440014,
+            "covered_layer_fraction": 0.440014
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.33679,
+            "covered_layer_fraction": 0.33679
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.078148,
+            "covered_layer_fraction": 0.078148
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.073414,
+            "covered_layer_fraction": 0.073414
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Avet (Abies alba)",
+            "micro_area_fraction": 0.04748,
+            "covered_layer_fraction": 0.04748
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.019697,
+            "covered_layer_fraction": 0.019697
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils i acidòfils de l'alta muntanya",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.004458,
+            "covered_layer_fraction": 0.004458
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.983844,
+            "covered_layer_fraction": 0.983844
+          },
+          {
+            "code": "EÇOrq",
+            "description": "Gresos quarsítics",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.016156,
+            "covered_layer_fraction": 0.016156
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "puertomingalvo_pm_arriba",
+      "area_id": "puertomingalvo",
+      "name": "PM-Arriba",
+      "geometry_hash": "615ad768c73d71178bb13cb4de48a1db376a9c2a9b6f53e539a56f342a6ead5e",
+      "micro_area_ha": 45.9023,
+      "vegetation": {
+        "coverage_fraction": 0.0,
+        "coverage_status": "none",
+        "components": []
+      },
+      "geology": {
+        "coverage_fraction": 0.0,
+        "coverage_status": "none",
+        "components": []
+      }
+    },
+    {
+      "micro_area_id": "puertomingalvo_mas_del_sapo",
+      "area_id": "puertomingalvo",
+      "name": "Mas del Sapo",
+      "geometry_hash": "ec670de9b348e4f5786e8bb5b7edc8403d6f1fcb4b06b4c46e0063e8a556ee4b",
+      "micro_area_ha": 40.8166,
+      "vegetation": {
+        "coverage_fraction": 0.0,
+        "coverage_status": "none",
+        "components": []
+      },
+      "geology": {
+        "coverage_fraction": 0.0,
+        "coverage_status": "none",
+        "components": []
+      }
+    },
+    {
+      "micro_area_id": "sant_joan_tossal_del_castillo",
+      "area_id": "sant_joan",
+      "name": "Tossal del Castillo",
+      "geometry_hash": "80d272b5ecb1a81b27c8f51438bf3c5963ad9505c4a133059234fdfd152d65dc",
+      "micro_area_ha": 72.316,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.652817,
+            "covered_layer_fraction": 0.652817
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.347183,
+            "covered_layer_fraction": 0.347183
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 1.0,
+            "covered_layer_fraction": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "la_gavarra_carborriu",
+      "area_id": "la_gavarra",
+      "name": "Carborriu",
+      "geometry_hash": "e18829e9f029f63952018294aec199cfc970def7f5dcc1753561389bd867d97a",
+      "micro_area_ha": 109.5367,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Quercus rotundifolia + Pinus nigra subsp. salzmannii",
+            "micro_area_fraction": 0.35643,
+            "covered_layer_fraction": 0.35643
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.245032,
+            "covered_layer_fraction": 0.245032
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.132847,
+            "covered_layer_fraction": 0.132847
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "forest_composition": "Roure martinenc i híbrids (Quercus pubescens, Q. x cerrioides..)",
+            "micro_area_fraction": 0.112721,
+            "covered_layer_fraction": 0.112721
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.057495,
+            "covered_layer_fraction": 0.057495
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Carrascars",
+            "forest_composition": "Carrasca (Quercus rotundifolia)",
+            "micro_area_fraction": 0.050565,
+            "covered_layer_fraction": 0.050565
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.024373,
+            "covered_layer_fraction": 0.024373
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Joncedes i prats emmatats mesoxeròfils submediterranis",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.01777,
+            "covered_layer_fraction": 0.01777
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Vegetació arvense",
+            "forest_composition": "Conreus (herbacis i llenyosos) i prats de dall",
+            "micro_area_fraction": 0.002768,
+            "covered_layer_fraction": 0.002768
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "KCMma",
+            "description": "Margues gris blau, argiles margoses i margocalcàries. Formació Perles",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.525262,
+            "covered_layer_fraction": 0.525262
+          },
+          {
+            "code": "KCMc",
+            "description": "Calcàries bioclàstiques, calcarenites, gresos i bioconstruccions. Formació Bona",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.474738,
+            "covered_layer_fraction": 0.474738
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "mollo_puig_de_sant_joan",
+      "area_id": "mollo",
+      "name": "Puig de Sant Joan",
+      "geometry_hash": "17e0970bf67288c65613fdae5c454445604c61352c897442d193e1b4675367b4",
+      "micro_area_ha": 33.6302,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Matollars montans de bàlec o de gódua",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.422058,
+            "covered_layer_fraction": 0.422058
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.315943,
+            "covered_layer_fraction": 0.315943
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Matollars montans de bàlec o de gódua",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.155101,
+            "covered_layer_fraction": 0.155101
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.077756,
+            "covered_layer_fraction": 0.077756
+          },
+          {
+            "substrate": "Indiferent",
+            "vegetation_group": "Arbredes amb sotabosc no forestal",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.015591,
+            "covered_layer_fraction": 0.015591
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Landes de bruguerola, eventualment de bruc d'escombres o de nabius",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.008345,
+            "covered_layer_fraction": 0.008345
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.005206,
+            "covered_layer_fraction": 0.005206
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "EÇOrgl",
+            "description": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.954785,
+            "covered_layer_fraction": 0.954785
+          },
+          {
+            "code": "EÇOrln",
+            "description": "Lutites negres, fil·lites i pissarres",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.04146,
+            "covered_layer_fraction": 0.04146
+          },
+          {
+            "code": "Qgf",
+            "description": "Clasts estriats, argiles i llims. Dipòsit periglacial de desmantellament glacial i fluvioglacial",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.003755,
+            "covered_layer_fraction": 0.003755
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "riu_de_cerdanya_riu_arriba",
+      "area_id": "riu_de_cerdanya",
+      "name": "Riu Arriba",
+      "geometry_hash": "f5d11e695a197bf3af98f04fe067b08e40481143b6249ce57d7a388983507215",
+      "micro_area_ha": 111.6174,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.779715,
+            "covered_layer_fraction": 0.779715
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Avet (Abies alba)",
+            "micro_area_fraction": 0.126336,
+            "covered_layer_fraction": 0.126336
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.043665,
+            "covered_layer_fraction": 0.043665
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.035502,
+            "covered_layer_fraction": 0.035502
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.013051,
+            "covered_layer_fraction": 0.013051
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Avet (Abies alba)",
+            "micro_area_fraction": 0.001731,
+            "covered_layer_fraction": 0.001731
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Prir",
+            "description": "Laves riolítiques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.565369,
+            "covered_layer_fraction": 0.565369
+          },
+          {
+            "code": "Cagl",
+            "description": "Gresos, microconglomerats i lutites. Formació Bellver",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.334761,
+            "covered_layer_fraction": 0.334761
+          },
+          {
+            "code": "KCMca",
+            "description": "Calcàries sorrenques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.099532,
+            "covered_layer_fraction": 0.099532
+          },
+          {
+            "code": "DCc",
+            "description": "Calcàries noduloses i lutites. Formació Comte",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.000338,
+            "covered_layer_fraction": 0.000338
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "riu_de_cerdanya_riu_en_medio",
+      "area_id": "riu_de_cerdanya",
+      "name": "Riu en medio",
+      "geometry_hash": "97e30d5d8a7cab19f6b037aaa06a49df135a10107d5becf84463f95dd4bab9f7",
+      "micro_area_ha": 447.1318,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.603374,
+            "covered_layer_fraction": 0.603374
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.158726,
+            "covered_layer_fraction": 0.158726
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Avet (Abies alba)",
+            "micro_area_fraction": 0.088076,
+            "covered_layer_fraction": 0.088076
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boixedes i altres matollars afins, de la muntanya mitjana",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.047552,
+            "covered_layer_fraction": 0.047552
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Avet (Abies alba)",
+            "micro_area_fraction": 0.037472,
+            "covered_layer_fraction": 0.037472
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.023762,
+            "covered_layer_fraction": 0.023762
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.021653,
+            "covered_layer_fraction": 0.021653
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Prats xeròfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.00703,
+            "covered_layer_fraction": 0.00703
+          },
+          {
+            "substrate": "Inundat",
+            "vegetation_group": "Molleres i torberes de l'alta muntanya",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.004758,
+            "covered_layer_fraction": 0.004758
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Matollars montans de bàlec o de gódua",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.003636,
+            "covered_layer_fraction": 0.003636
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.002591,
+            "covered_layer_fraction": 0.002591
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boixedes i altres matollars afins, de la muntanya mitjana",
+            "forest_composition": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)",
+            "micro_area_fraction": 0.000761,
+            "covered_layer_fraction": 0.000761
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…",
+            "micro_area_fraction": 0.000609,
+            "covered_layer_fraction": 0.000609
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "Cagl",
+            "description": "Gresos, microconglomerats i lutites. Formació Bellver",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.709063,
+            "covered_layer_fraction": 0.709063
+          },
+          {
+            "code": "Prir",
+            "description": "Laves riolítiques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.157024,
+            "covered_layer_fraction": 0.157024
+          },
+          {
+            "code": "KCMca",
+            "description": "Calcàries sorrenques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.06549,
+            "covered_layer_fraction": 0.06549
+          },
+          {
+            "code": "DCc",
+            "description": "Calcàries noduloses i lutites. Formació Comte",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.064034,
+            "covered_layer_fraction": 0.064034
+          },
+          {
+            "code": "Dcgc",
+            "description": "Calcàries noduloses, lutites. Calcàries \"griotte\". Formació Comte B",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.003564,
+            "covered_layer_fraction": 0.003564
+          },
+          {
+            "code": "Cacg1",
+            "description": "Conglomerats",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.000826,
+            "covered_layer_fraction": 0.000826
+          }
+        ]
+      }
+    },
+    {
+      "micro_area_id": "campelles_pla_dels_avets",
+      "area_id": "campelles",
+      "name": "Pla dels Avets",
+      "geometry_hash": "cb8f4ba3bfd0c07991617e543c9afe00c537dc5244aee7bd6dc3d9ec159ddd54",
+      "micro_area_ha": 38.6779,
+      "vegetation": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Boscos de pi negre subalpins",
+            "forest_composition": "Pi negre (Pinus uncinata)",
+            "micro_area_fraction": 0.580635,
+            "covered_layer_fraction": 0.580635
+          },
+          {
+            "substrate": "Silici",
+            "vegetation_group": "Boscos boreals de pi roig montans i altimontans",
+            "forest_composition": "Pi roig (Pinus sylvestris)",
+            "micro_area_fraction": 0.305122,
+            "covered_layer_fraction": 0.305122
+          },
+          {
+            "substrate": "Carbonatat",
+            "vegetation_group": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "forest_composition": "Pastures (i molleres, i falgars...)",
+            "micro_area_fraction": 0.114244,
+            "covered_layer_fraction": 0.114244
+          }
+        ]
+      },
+      "geology": {
+        "coverage_fraction": 1.0,
+        "coverage_status": "full",
+        "components": [
+          {
+            "code": "KPg",
+            "description": "Conglomerats, gresos, lutites i margues. Fàcies garumniana",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.662325,
+            "covered_layer_fraction": 0.662325
+          },
+          {
+            "code": "Prbig",
+            "description": "Ignimbrites i bretxes piroclàstiques",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.14173,
+            "covered_layer_fraction": 0.14173
+          },
+          {
+            "code": "Sl",
+            "description": "Lutites negres amb graptòlits",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.113176,
+            "covered_layer_fraction": 0.113176
+          },
+          {
+            "code": "Dcrb",
+            "description": "Calcàries lutítiques, lutites i calcàries massives. Formacions Rueda i Baciver",
+            "metamorphism_code": "",
+            "metamorphism_description": "",
+            "protolith_code": "",
+            "protolith_description": "",
+            "micro_area_fraction": 0.082768,
+            "covered_layer_fraction": 0.082768
+          }
+        ]
+      }
+    }
+  ]
+}

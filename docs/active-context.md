@@ -130,8 +130,74 @@ documentos temáticos enlazados.
   DEM están bajo `/media/rainmapper/mushroom-GIS/`; no se empaquetan en Git ni
   en la imagen.
 
+## Biology V4 — especificación creada, sin implementación
+
+- La revisión de `docs/mushrooms/literature/fruiting-phenology/` se ha
+  traducido a una especificación separada. V4 conserva lluvia IDW, observaciones
+  y grupos de área de V3, y propone memoria de lluvia hasta 30 días, días
+  lluviosos, balance climático, estado hídrico por microárea y evaluación de
+  continuidad diaria.
+- El cruce real del mapa ICGC de suelos contra 58/58 microáreas deja solo 2 con
+  cobertura hidráulica completa, 4 parcial y 52 sin cobertura; cobertura
+  ponderada 8,73 %. V4 exige cachear también `no_coverage` dentro de cada
+  microárea y buscar otra fuente antes de un SMI general. La falta de suelo no
+  puede reducir el benchmark general ni convertirse en un valor medio.
+- Como alternativa, MVC50 cubre 54 microáreas completamente y 1 parcialmente;
+  geología cubre 55 completamente. Permiten investigar un proxy hidráulico
+  trazable, no convertir vegetación o roca directamente en humedad medida. Las
+  tres no cubiertas por ambas son Ordino y las dos de Puertomingalvo.
+- El snapshot completo por microárea —valores originales, descripciones y
+  fracciones— queda persistido en
+  `docs/mushrooms/biology-v4-gis-proxy-audit-2026-08-14.json` y se reproduce con
+  `scripts/audit-biology-v4-gis-proxies.py`; no es necesario repetir el cruce
+  para consultarlo.
+- El catálogo persistente de HA se verificó en lectura y coincide exactamente
+  con la copia versionada. Ya contiene 18 tipos de suelo, 18 litologías y
+  mappings de geología/MVC50, pero la decisión V4 simplificada no los modifica
+  ni los usa para el SMI: SoilGrids aporta valores hidráulicos numéricos. El
+  `known_sites` futuro cacheará valores SoilGrids, profundidades, cuantiles,
+  cobertura y hashes; HA no se ha modificado.
+- La prueba de sus mappings con los 53 códigos geológicos locales descubrió un
+  falso positivo de subcadena (`gres` dentro de `negres`). No bloquea el SMI,
+  que usará SoilGrids sin esos mappings. Sigue como deuda del laboratorio GIS:
+  las reglas textuales deben ser solo sugerencias e incorporar límites léxicos
+  y pruebas negativas.
+- SoilGrids 2.0 queda como candidato edáfico global prioritario: ofrece a 250 m
+  agua volumétrica a 10/33/1500 kPa, textura, SOC, densidad, fragmentos gruesos,
+  seis profundidades y cuantiles. El cruce parcial Q0.50 de 0–5 cm cubrió por
+  superficie 58/58 geometrías; el snapshot está en
+  `biology-v4-soilgrids-topsoil-audit-2026-08-14.json`. Faltan cinco
+  profundidades y cuantiles de incertidumbre. Se tratará como inferencia con
+  recorte local, nunca como medición de parcela ni dependencia REST de
+  producción.
+- Los raster SoilGrids se cachearán una sola vez por extensión dinámica común,
+  no por microárea/área ni por fronteras administrativas, bajo el árbol GIS de
+  `/media`. Cada microárea guarda solo sus agregados; el worker no necesita los
+  raster. Una geometría exterior amplía la caché con el bloque necesario.
+- El contrato técnico completo queda en
+  `docs/mushrooms/biology-v4-soilgrids-cache-contract-es.md`: manifiesto,
+  bloques alineados candidatos de 512 px, descarga a staging, normalización,
+  alta/edición UI, schema de `known_sites`, invalidación, worker, fallos, tests
+  y orden local. Es documentación; todavía no existe caché operativa ni cambio
+  en HA.
+- Temperatura/humedad mantienen el selector V2 y sus extremos. Las medias no
+  entran en `X`; una media auxiliar dentro de una ecuación física tampoco se
+  expone como predictor.
+- Estado actual: documento de diseño únicamente. No hay código V4, benchmark
+  V4, modelo, artefacto, cambio de HA/worker ni autorización de promoción.
+
 ## Riesgos y restricciones activas
 
+- El Predictor remoto está temporalmente bloqueado por una incompatibilidad
+  deliberadamente detectada entre los modelos sombra altitude V2 y el
+  `mushroom_known_sites.json` vivo después de materializar las nuevas altitudes
+  DEM. El worker activo sigue siendo `1.0.8`: no es un desajuste de versión.
+  El modelo esperaba la huella `ef9363a1…` y el catálogo actual tiene
+  `c665aa6d…`. No restaurar el catálogo ni desactivar la validación. Al cerrar
+  los cambios se deben reconstruir features y reentrenar desde un único
+  snapshot. Además, una incompatibilidad futura de un modelo sombra debe
+  excluir solo esa comparación con un motivo legible; únicamente una
+  incompatibilidad del modelo activo debe bloquear el Predictor.
 - No promover candidatos antiguos ni mezclar artefactos y modelos de
   generaciones distintas; la generación activa actual sí es coherente.
 - Biology V3 parte de una muestra pequeña y sesgada por visitas; los scores
@@ -180,6 +246,11 @@ documentos temáticos enlazados.
   regresiones de identidad y wrapping.
 - `docs/mushrooms/mushroom-ml-v3-data-audit-es.md` y
   `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`: siguiente bloque.
+- `docs/mushrooms/mushroom-ml-biology-v4-implementation-spec-es.md`: plan no
+  operativo de balance climático, humedad del suelo inferida y continuidad de
+  floradas; no reemplaza ni reabre V3.
+- `scripts/audit-biology-v4-soil-coverage.py`: cruce de solo lectura de
+  polígonos de microárea contra CRAD/profundidad/drenaje; emite JSON por stdout.
 - `docker-data/audits/mushroom-weather-backfill-20260811/PROGRESS.md`: evidencia
   del backfill/migración, no contexto de arranque.
 

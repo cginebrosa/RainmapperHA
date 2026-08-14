@@ -79,6 +79,10 @@ El estado exacto, la prueba siguiente y los riesgos están en
   `docs/mushrooms/mushroom-ml-contract-versions-es.md`
 - Auditoría ML v3: `docs/mushrooms/mushroom-ml-v3-data-audit-es.md`
 - Especificación ML v3: `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`
+- Especificación Biology V4, todavía no implementada:
+  `docs/mushrooms/mushroom-ml-biology-v4-implementation-spec-es.md`
+- Contrato técnico de caché SoilGrids y persistencia por microárea para V4:
+  `docs/mushrooms/biology-v4-soilgrids-cache-contract-es.md`
 - Backfill histórico y promoción:
   `docs/mushrooms/mushroom-weather-historical-backfill-handoff-es.md`
 - Almacenamiento y retención meteorológica:
