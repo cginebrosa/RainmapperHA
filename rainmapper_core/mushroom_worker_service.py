@@ -34,6 +34,7 @@ SCHEMA_VERSION = "0.1"
 IDENTITY_SCHEMA_VERSION = "0.1"
 IDENTITY_RELATIVE_PATH = Path("identity/worker.json")
 JOB_TELEMETRY_INTERVAL_SECONDS = 2.0
+PREDICTOR_RUNTIME_MANIFEST_MAX_BYTES = 8 * 1024 * 1024
 _T = TypeVar("_T")
 
 
@@ -205,6 +206,8 @@ def worker_status(
             mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
             mushroom_worker_registry.TERMINAL_JOB_CLEANUP_CAPABILITY,
             mushroom_worker_registry.PREDICTOR_CAPABILITY,
+            mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY,
+            mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY,
         ],
         "dataset_cache": {
             "status": cache["status"],
@@ -234,8 +237,25 @@ def download_predictor_runtime(
     endpoint = str(job.get("runtime_endpoint", ""))
     if endpoint != "/api/mushrooms/workers/jobs/predictor-runtime":
         raise ValueError("Worker predictor runtime endpoint is invalid.")
-    manifest = mushroom_predictor_runtime.validate_manifest(job.get("runtime_manifest"))
     headers = mushroom_worker_transport.request_headers(worker_id, claim_token, token)
+    manifest_payload = job.get("runtime_manifest")
+    if not isinstance(manifest_payload, dict):
+        manifest_query = urlencode({"job_id": job.get("job_id", ""), "manifest": "1"})
+        manifest_request = Request(
+            ha_url.rstrip("/") + endpoint + "?" + manifest_query,
+            headers=headers,
+            method="GET",
+        )
+        with urlopen(manifest_request, timeout=120) as response:
+            raw_manifest = response.read(PREDICTOR_RUNTIME_MANIFEST_MAX_BYTES + 1)
+        if len(raw_manifest) > PREDICTOR_RUNTIME_MANIFEST_MAX_BYTES:
+            raise ValueError("Worker predictor runtime manifest is too large.")
+        manifest_response = json.loads(raw_manifest.decode("utf-8"))
+        if not isinstance(manifest_response, dict) or not manifest_response.get("ok"):
+            raise ValueError("HA returned an invalid predictor runtime manifest.")
+        manifest_payload = manifest_response.get("manifest")
+    manifest = mushroom_predictor_runtime.validate_manifest(manifest_payload)
+    job["runtime_manifest"] = manifest
 
     def fetch(logical_path: str, target: Path) -> None:
         query = urlencode({"job_id": job.get("job_id", ""), "file": logical_path})
@@ -528,6 +548,7 @@ def serve(
                     "worker_snapshot_transport_probe",
                     "worker_candidate_rebuild",
                     "worker_ml_train_v0",
+                    "worker_ml_multiversion_v1",
                     "worker_predictor_v1",
                 }:
                     raise ValueError("Worker received an unsupported job type.")
@@ -992,6 +1013,183 @@ def serve(
                                 "service": "rainmapper-worker",
                                 "job_id": job_id,
                                 "trained_species_count": verification.get("trained_species_count", 0),
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
+                    return
+                if job_type == "worker_ml_multiversion_v1":
+                    multiversion_telemetry = _CoalescedJobTelemetry(
+                        job_update,
+                        base_payload={
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                        },
+                        cancel_message="Worker V2--V6 training job was cancelled.",
+                    )
+
+                    def multiversion_progress(event: dict[str, Any]) -> None:
+                        multiversion_telemetry.publish(event)
+
+                    input_result = with_transport_retry(
+                        lambda: mushroom_worker_transport.download_ml_multiversion_inputs(
+                            ha_url,
+                            job,
+                            worker_data_dir.resolve(),
+                            worker_id=identity["worker_id"],
+                            claim_token=claim_token,
+                            token=token,
+                            progress_callback=multiversion_progress,
+                        )
+                    )
+                    worker_job_dir = Path(str(input_result["input_dir"])).resolve()
+                    spec = json.loads((worker_job_dir / "job_spec.json").read_text(encoding="utf-8"))
+                    if not isinstance(spec, dict) or spec.get("kind") != "mushroom_ml_multiversion_job":
+                        raise ValueError("Worker multiversion job specification is invalid.")
+                    result_root = worker_job_dir / "multiversion_result"
+                    existing_result = result_root / "multiversion_result.json"
+                    if existing_result.is_file():
+                        multiversion_progress(
+                            {
+                                "phase": "Retrying V2--V6 result delivery",
+                                "message": "Reusing the completed local batch without retraining.",
+                                "overall_percent": 90,
+                            }
+                        )
+                        verification = with_transport_retry(
+                            lambda: mushroom_worker_results.upload_ml_multiversion_result(
+                                ha_url,
+                                job,
+                                worker_job_dir,
+                                worker_id=identity["worker_id"],
+                                claim_token=claim_token,
+                                token=token,
+                                progress_callback=multiversion_progress,
+                            )
+                        )
+                        multiversion_telemetry.flush()
+                        job_update(
+                            "finish",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                                "status": "complete",
+                                "result": {"verification_status": "verified", **verification},
+                            },
+                        )
+                        print(
+                            json.dumps(
+                                {
+                                    "status": "ml_multiversion_result_retried",
+                                    "service": "rainmapper-worker",
+                                    "job_id": job_id,
+                                    "batch_id": verification.get("batch_id", ""),
+                                },
+                                ensure_ascii=False,
+                            ),
+                            flush=True,
+                        )
+                        return
+                    result_root.mkdir(parents=True, exist_ok=False)
+                    multiversion_progress_path = worker_job_dir / "multiversion-progress.jsonl"
+                    command = [
+                        sys.executable,
+                        "/app/scripts/run-mushroom-ml-multiversion-job.py",
+                        "--registry", str(worker_job_dir / str(spec["registry_path"])),
+                        "--snapshot-id", str(spec["snapshot_id"]),
+                        "--batch-id", str(spec["batch_id"]),
+                        "--v3-fixed", str(worker_job_dir / str(spec["inputs"]["v3_fixed"])),
+                        "--v3-lag", str(worker_job_dir / str(spec["inputs"]["v3_lag"])),
+                        "--v4-fixed", str(worker_job_dir / str(spec["inputs"]["v4_fixed"])),
+                        "--v4-lag", str(worker_job_dir / str(spec["inputs"]["v4_lag"])),
+                        "--v5-fixed", str(worker_job_dir / str(spec["inputs"]["v5_fixed"])),
+                        "--v5-lag", str(worker_job_dir / str(spec["inputs"]["v5_lag"])),
+                        "--v2-v5-heldout", str(worker_job_dir / str(spec["inputs"]["v2_v5_heldout"])),
+                        "--v6-heldout", str(worker_job_dir / str(spec["inputs"]["v6_heldout"])),
+                        "--models-root", str(worker_job_dir / "multiversion_models"),
+                        "--summary", str(worker_job_dir / "multiversion-summary.json"),
+                        "--job-id", job_id,
+                        "--result-manifest", str(result_root / "multiversion_result.json"),
+                        "--progress-jsonl", str(multiversion_progress_path),
+                    ]
+                    for version_id, generation_id in dict(spec["generation_ids"]).items():
+                        command.extend(["--generation", f"{version_id}={generation_id}"])
+                    for species_id in list(spec["species_ids"]):
+                        command.extend(["--species", str(species_id)])
+                    multiversion_telemetry.publish(
+                        {
+                            "phase": "Training V2--V6 comparison models",
+                            "message": "Training the isolated non-operational comparison batch.",
+                            "overall_percent": 20,
+                        },
+                        force=True,
+                    )
+                    compute_process = subprocess.Popen(
+                        command,
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.PIPE,
+                    )
+                    published_multiversion_lines = 0
+                    while compute_process.poll() is None:
+                        multiversion_telemetry.poll_control()
+                        if multiversion_progress_path.is_file():
+                            lines = multiversion_progress_path.read_text(encoding="utf-8").splitlines()
+                            if len(lines) > published_multiversion_lines:
+                                event = json.loads(lines[-1])
+                                completed = int(event.get("completed_fit_count", 0) or 0)
+                                planned = max(1, int(event.get("planned_fit_count", 1) or 1))
+                                multiversion_telemetry.publish(
+                                    {
+                                        "phase": "Training V2--V6 comparison models",
+                                        "message": (
+                                            f"{completed}/{planned} fits; "
+                                            f"{event.get('version_id', '')} / {event.get('species_id', '')}."
+                                        ),
+                                        "overall_percent": 20 + int(completed / planned * 68),
+                                    }
+                                )
+                                published_multiversion_lines = len(lines)
+                        stop_event.wait(0.5)
+                    if compute_process.returncode != 0:
+                        detail = (compute_process.stderr.read() if compute_process.stderr else b"").decode(
+                            "utf-8", errors="replace"
+                        )[-2000:]
+                        raise RuntimeError(
+                            f"V2--V6 training process exited with status {compute_process.returncode}: {detail}"
+                        )
+                    verification = with_transport_retry(
+                        lambda: mushroom_worker_results.upload_ml_multiversion_result(
+                            ha_url,
+                            job,
+                            worker_job_dir,
+                            worker_id=identity["worker_id"],
+                            claim_token=claim_token,
+                            token=token,
+                            progress_callback=multiversion_progress,
+                        )
+                    )
+                    multiversion_telemetry.flush()
+                    job_update(
+                        "finish",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                            "status": "complete",
+                            "result": {"verification_status": "verified", **verification},
+                        },
+                    )
+                    print(
+                        json.dumps(
+                            {
+                                "status": "ml_multiversion_result_verified",
+                                "service": "rainmapper-worker",
+                                "job_id": job_id,
+                                "batch_id": verification.get("batch_id", ""),
                             },
                             ensure_ascii=False,
                         ),

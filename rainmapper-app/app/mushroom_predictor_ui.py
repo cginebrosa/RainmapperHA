@@ -13,6 +13,9 @@ from typing import Any
 from urllib.parse import urlencode
 
 from rainmapper_core import mushroom_paths
+from rainmapper_core import mushroom_ml_model_catalog
+from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_ml_multiversion_comparison
 from rainmapper_core.mushroom_ml_comparison import MushroomModelComparator
 from rainmapper_core.mushroom_ml_predictor import (
     MushroomMLPredictor,
@@ -60,6 +63,15 @@ _ESTIMATOR_SHORT_NAMES = {
     estimator_id: short_name
     for estimator_id, short_name, _experimental in _COMPARISON_ESTIMATORS
 }
+_ESTIMATOR_SHORT_NAMES.update(
+    {
+        "elastic_net_logistic_raw365_v1": "Elastic Net",
+        "sparse_group_logistic_raw365_v1": "Sparse Group",
+        "smooth_species_logistic_v1": "Smooth Species",
+        "smooth_shared_logistic_v1": "Smooth Shared",
+        "smooth_partial_pooling_logistic_v1": "Smooth Partial",
+    }
+)
 
 _OUT_OF_DOMAIN_FEATURE_LABEL_KEYS = {
     "horizon_days": "ui.predictor_feature_horizon_days",
@@ -333,6 +345,450 @@ def _model_comparison(species_id: str, area_id: str, target_date: date) -> dict[
     )
 
 
+def _multiversion_catalog_payload() -> dict[str, Any]:
+    prepared = _prepared_response.get()
+    if prepared is not None:
+        payload = prepared.get("data", {}).get("model_catalog")
+        if isinstance(payload, dict):
+            return dict(payload)
+    try:
+        registry = mushroom_ml_version_registry.load_registry(
+            mushroom_paths.mushroom_ml_version_registry_path()
+        )
+    except (OSError, ValueError):
+        return {"available": False, "entries": [], "installed_artifacts": []}
+    result: dict[str, Any] = {
+        "available": True,
+        "active_version_id": registry["active_version_id"],
+        "entries": mushroom_ml_model_catalog.catalog_entries(registry),
+        "runtime_batch_status": "not_installed",
+        "installed_artifacts": [],
+    }
+    manifest_path = mushroom_paths.mushroom_ml_runtime_batch_manifest_path()
+    if not manifest_path.is_file():
+        return result
+    try:
+        manifest = mushroom_ml_model_catalog.validate_batch_manifest(
+            registry, json.loads(manifest_path.read_text(encoding="utf-8"))
+        )
+    except (OSError, ValueError, json.JSONDecodeError):
+        result["runtime_batch_status"] = "invalid"
+        return result
+    result["runtime_batch_status"] = "installed"
+    result["runtime_batch"] = {
+        "batch_id": manifest["batch_id"],
+        "snapshot_id": manifest["snapshot_id"],
+    }
+    result["installed_artifacts"] = [
+        {
+            "artifact_ref": dict(row["artifact_ref"]),
+            "supported_horizons": list(row["supported_horizons"]),
+        }
+        for row in manifest["artifacts"]
+    ]
+    return result
+
+
+def multiversion_tokens_for_versions(species_id: str, version_ids: list[str]) -> list[str]:
+    """Expand the simple V2--V6 choice to exact installed members."""
+    payload = _multiversion_catalog_payload()
+    entries = payload.get("entries") if isinstance(payload, dict) else []
+    artifacts = payload.get("installed_artifacts") if isinstance(payload, dict) else []
+    entries = entries if isinstance(entries, list) else []
+    artifacts = artifacts if isinstance(artifacts, list) else []
+    wanted = set(version_ids)
+    tokens: list[str] = []
+    availability_by_profile: dict[tuple[str, str], bool] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or not entry.get("catalog_visible"):
+            continue
+        version_id = str(entry.get("version_id") or "")
+        profile_id = str(entry.get("profile_id") or "")
+        matching = [
+            row
+            for row in artifacts
+            if isinstance(row, dict)
+            and isinstance(row.get("artifact_ref"), dict)
+            and row["artifact_ref"].get("version_id") == version_id
+            and row["artifact_ref"].get("profile_id") == profile_id
+            and row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+        ]
+        availability_by_profile[(version_id, profile_id)] = bool(matching)
+        for artifact in matching:
+            ref = artifact["artifact_ref"]
+            for horizon in artifact.get("supported_horizons", []):
+                selection = {
+                    "version_id": version_id,
+                    "temporal_contract_id": ref.get("temporal_contract_id"),
+                    "profile_id": profile_id,
+                    "estimator_id": ref.get("estimator_id"),
+                    "horizon_days": horizon,
+                }
+                try:
+                    token = mushroom_ml_model_catalog.selection_token(selection)
+                except ValueError:
+                    continue
+                temporal = "fixed" if str(ref.get("temporal_contract_id")).startswith("fixed_gap_") else "lag"
+                label = " / ".join(
+                    (
+                        str(entry.get("version_display_name") or version_id),
+                        f"{temporal}-h{horizon}",
+                        str(entry.get("profile_display_name") or profile_id),
+                        _ESTIMATOR_SHORT_NAMES.get(
+                            str(ref.get("estimator_id")), str(ref.get("estimator_id"))
+                        ),
+                    )
+                )
+                if not wanted or version_id in wanted:
+                    tokens.append(token)
+    return tokens
+
+
+def _multiversion_controls(
+    species_id: str, selected_tokens: list[str], selected_versions: list[str]
+) -> str:
+    payload = _multiversion_catalog_payload()
+    entries = payload.get("entries") if isinstance(payload, dict) else []
+    artifacts = payload.get("installed_artifacts") if isinstance(payload, dict) else []
+    entries = entries if isinstance(entries, list) else []
+    artifacts = artifacts if isinstance(artifacts, list) else []
+    selected_version_set = set(selected_versions)
+    if not selected_version_set:
+        selected_version_set = {
+            str(mushroom_ml_model_catalog.parse_selection_token(token)["version_id"])
+            for token in selected_tokens
+        }
+    version_rows = []
+    seen_versions: set[str] = set()
+    availability_by_profile: dict[tuple[str, str], bool] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or not entry.get("catalog_visible"):
+            continue
+        version_id = str(entry.get("version_id") or "")
+        profile_id = str(entry.get("profile_id") or "")
+        matching = [
+            row for row in artifacts
+            if isinstance(row, dict) and isinstance(row.get("artifact_ref"), dict)
+            and row["artifact_ref"].get("version_id") == version_id
+            and row["artifact_ref"].get("profile_id") == profile_id
+            and row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+        ]
+        availability_by_profile[(version_id, profile_id)] = bool(matching)
+        if version_id in seen_versions:
+            continue
+        seen_versions.add(version_id)
+        short = {"altitude_v2": "V2", "biology_v3": "V3", "biology_v4": "V4",
+                 "biology_v5_raw_weather_discovery": "V5", "biology_v6_smooth_hierarchical": "V6"}.get(version_id, version_id)
+        compact_name = {
+            "altitude_v2": "Altitud y meteo común",
+            "biology_v3": "Biología base",
+            "biology_v4": "Biología y balance hídrico",
+            "biology_v5_raw_weather_discovery": "Meteo cruda regularizada",
+            "biology_v6_smooth_hierarchical": "Curvas suaves y jerarquía",
+        }.get(version_id, str(entry.get("version_display_name") or version_id))
+        checked = (
+            " checked"
+            if (not selected_versions and not selected_tokens) or version_id in selected_version_set
+            else ""
+        )
+        disabled = "" if any(
+            isinstance(row, dict) and isinstance(row.get("artifact_ref"), dict)
+            and row["artifact_ref"].get("version_id") == version_id
+            and row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+            for row in artifacts
+        ) else " disabled"
+        version_rows.append(
+            f'<label class="pred-version-choice"><input type="checkbox" name="mvv" '
+            f'value="{html.escape(version_id, quote=True)}"{checked}{disabled}> '
+            f'<strong>{html.escape(short)}</strong> '
+            f'<span>{html.escape(compact_name)}</span></label>'
+        )
+    catalog_rows = "".join(
+        f'<li><code>{html.escape(str(entry.get("version_display_name") or entry.get("version_id")))}</code> · '
+        f'{html.escape(str(entry.get("profile_display_name") or entry.get("profile_id")))} · '
+        f'{html.escape(_lbl("ui.predictor_multiversion_installed") if availability_by_profile.get((str(entry.get("version_id")), str(entry.get("profile_id")))) else _lbl("ui.predictor_multiversion_not_installed"))}</li>'
+        for entry in entries
+        if isinstance(entry, dict) and entry.get("catalog_visible")
+    )
+    return f"""
+<div class="pred-multiversion-controls">
+  <label>Versiones experimentales para comparar</label>
+  <div class="pred-version-choices">{''.join(version_rows)}</div>
+  <small>Se evaluarán todos los perfiles, contratos, horizontes y algoritmos disponibles de cada versión.</small>
+  <details><summary>Detalle técnico y disponibilidad</summary><ul>{catalog_rows}</ul></details>
+</div>
+"""
+
+
+def _multiversion_result(
+    species_id: str,
+    area_id: str,
+    target_date: date,
+    selected_tokens: list[str],
+) -> dict[str, Any] | None:
+    if not selected_tokens:
+        return None
+    prepared = _prepared_response.get()
+    if prepared is not None:
+        payload = (
+            prepared.get("data", {})
+            .get("species", {})
+            .get(species_id, {})
+            .get("multiversion_comparison")
+        )
+        return dict(payload) if isinstance(payload, dict) else None
+    registry = mushroom_ml_version_registry.load_registry(
+        mushroom_paths.mushroom_ml_version_registry_path()
+    )
+    manifest_path = mushroom_paths.mushroom_ml_runtime_batch_manifest_path()
+    if not manifest_path.is_file():
+        return {"available": False, "reason": "runtime_batch_not_installed"}
+    selections = []
+    for token in selected_tokens:
+        parsed = mushroom_ml_model_catalog.parse_selection_token(token)
+        parsed.pop("token", None)
+        selections.append(parsed)
+    return {
+        "available": True,
+        **mushroom_ml_multiversion_comparison.compare_selection(
+            registry,
+            json.loads(manifest_path.read_text(encoding="utf-8")),
+            selections,
+            species_id=species_id,
+            area_id=area_id,
+            target_date=target_date,
+            models_root=mushroom_paths.mushroom_ml_models_dir(),
+            known_sites_path=mushroom_paths.mushroom_known_sites_path(),
+            weather_data_dir=mushroom_paths.weather_data_dir(),
+        ),
+    }
+
+
+def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
+    if payload is None:
+        return ""
+    if not payload.get("available"):
+        return (
+            f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_multiversion_unavailable"))}</div>'
+        )
+    members = [row for row in payload.get("members", []) if isinstance(row, dict)]
+    version_names = {
+        "altitude_v2": "V2", "biology_v3": "V3", "biology_v4": "V4",
+        "biology_v5_raw_weather_discovery": "V5", "biology_v6_smooth_hierarchical": "V6",
+    }
+    cautions = payload.get("version_cautions") or {}
+    by_version: dict[str, list[dict[str, Any]]] = {}
+    for member in members:
+        version_id = str((member.get("model_ref") or {}).get("version_id") or "")
+        by_version.setdefault(version_id, []).append(member)
+
+    cards = []
+    for version_id, version_members in by_version.items():
+        available = [row for row in version_members if row.get("available")]
+        probabilities = [
+            float((row.get("prediction") or {}).get("probability"))
+            for row in available
+            if isinstance((row.get("prediction") or {}).get("probability"), (int, float))
+        ]
+        probability_range = (
+            f"{round(min(probabilities) * 100)}%–{round(max(probabilities) * 100)}%"
+            if probabilities else "—"
+        )
+        evaluations = [row.get("evaluation") or {} for row in available]
+        better = sum(row.get("evidence") == "better_than_prevalence" for row in evaluations)
+        worse = sum(row.get("evidence") == "worse_than_prevalence" for row in evaluations)
+        insufficient = len(evaluations) - better - worse
+        applicability = [
+            str(((row.get("prediction") or {}).get("applicability") or {}).get("status") or "")
+            for row in available
+        ]
+        outside = sum(value == "outside_domain" for value in applicability)
+        role = (
+            "Candidata experimental más antigua; no es preferida ni se presupone superior."
+            if version_id == "altitude_v2"
+            else "Candidata experimental; no promocionada ni descartada."
+        )
+        cards.append(f"""
+<article class="pred-version-card">
+  <h4>{html.escape(version_names.get(version_id, version_id))}</h4>
+  <p class="pred-version-role">{html.escape(role)}</p>
+  <dl><div><dt>Rango calculado</dt><dd>{html.escape(probability_range)}</dd></div>
+  <div><dt>Miembros disponibles</dt><dd>{len(available)}/{len(version_members)}</dd></div>
+  <div><dt>Hold-out frente a prevalencia</dt><dd>{better} mejores · {worse} peores · {insufficient} sin evidencia suficiente</dd></div>
+  <div><dt>Fuera de dominio</dt><dd>{outside} miembros</dd></div></dl>
+  <p class="pred-version-caution"><strong>Cautela:</strong> {html.escape(str(cautions.get(version_id) or "Todavía no hay evidencia suficiente para considerarla fiable."))}</p>
+</article>""")
+
+    evidence_labels = {
+        "better_than_prevalence": "mejora",
+        "worse_than_prevalence": "no mejora",
+        "insufficient": "muestra insuficiente",
+        "not_evaluated": "sin evaluación",
+    }
+    applicability_labels = {
+        "within_observed_range": "en rango",
+        "caution": "extrapolación leve",
+        "outside_domain": "fuera de dominio",
+    }
+    breakdowns = []
+    for version_id, version_members in by_version.items():
+        estimator_ids = []
+        grouped: dict[tuple[str, str, int], dict[str, dict[str, Any]]] = {}
+        for member in version_members:
+            ref = member.get("model_ref") or {}
+            estimator_id = str(ref.get("estimator_id") or "")
+            if estimator_id and estimator_id not in estimator_ids:
+                estimator_ids.append(estimator_id)
+            key = (
+                str(ref.get("profile_id") or ""),
+                str(ref.get("temporal_contract_id") or ""),
+                int(ref.get("horizon_days") or 0),
+            )
+            grouped.setdefault(key, {})[estimator_id] = member
+        estimator_ids.sort(
+            key=lambda value: (
+                list(_ESTIMATOR_SHORT_NAMES).index(value)
+                if value in _ESTIMATOR_SHORT_NAMES else len(_ESTIMATOR_SHORT_NAMES),
+                value,
+            )
+        )
+        header = "".join(
+            f'<th>{html.escape(_ESTIMATOR_SHORT_NAMES.get(estimator_id, estimator_id))}</th>'
+            for estimator_id in estimator_ids
+        )
+        body_rows = []
+        for (profile_id, contract_id, horizon), estimators in sorted(grouped.items()):
+            contract_name = "Ventana fija" if contract_id.startswith("fixed_gap_") else "Retardo/evento"
+            cells = []
+            for estimator_id in estimator_ids:
+                member = estimators.get(estimator_id)
+                if not member or not member.get("available"):
+                    reason = str((member or {}).get("reason") or "no disponible")
+                    cells.append(f'<td class="pred-member-unavailable">—<small>{html.escape(reason)}</small></td>')
+                    continue
+                prediction = member.get("prediction") or {}
+                evaluation = member.get("evaluation") or {}
+                evidence = evidence_labels.get(
+                    str(evaluation.get("evidence") or "not_evaluated"), "sin evaluación"
+                )
+                delta = evaluation.get("brier_delta_vs_prevalence")
+                delta_text = f" {float(delta):+.3f}" if isinstance(delta, (int, float)) else ""
+                applicability = applicability_labels.get(
+                    str((prediction.get("applicability") or {}).get("status") or ""), "sin dato de dominio"
+                )
+                cells.append(
+                    '<td class="pred-member-result">'
+                    f'<strong>{html.escape(_pct(prediction.get("probability")))}</strong>'
+                    f'<small>hold-out: {html.escape(evidence + delta_text)}<br>{html.escape(applicability)}</small>'
+                    '</td>'
+                )
+            body_rows.append(
+                f'<tr><td>{html.escape(profile_id)}</td><td>{html.escape(contract_name)}</td>'
+                f'<td>h{horizon}</td>{"".join(cells)}</tr>'
+            )
+        short_version = version_names.get(version_id, version_id)
+        breakdowns.append(f"""
+<details class="pred-version-breakdown" open>
+  <summary>{html.escape(short_version)} · predicción por algoritmo ({len(version_members)} miembros)</summary>
+  <div class="pred-table-scroll"><table class="pred-history-table"><thead><tr>
+    <th>Perfil</th><th>Contrato</th><th>Horizonte</th>{header}
+  </tr></thead><tbody>{''.join(body_rows)}</tbody></table></div>
+</details>""")
+
+    scenario_groups: dict[tuple[str, int], list[dict[str, Any]]] = {}
+    for member in members:
+        ref = member.get("model_ref") or {}
+        contract = str(ref.get("temporal_contract_id") or "")
+        family = "fixed" if contract.startswith("fixed_gap_") else "lag"
+        scenario_groups.setdefault((family, int(ref.get("horizon_days") or 0)), []).append(member)
+    rankings = []
+    evidence_order = {"better_than_prevalence": 0, "worse_than_prevalence": 1,
+                      "insufficient": 2, "not_evaluated": 3}
+    for (family, horizon), scenario_members in sorted(scenario_groups.items()):
+        ordered = sorted(
+            scenario_members,
+            key=lambda row: (
+                evidence_order.get(str((row.get("evaluation") or {}).get("evidence") or "not_evaluated"), 4),
+                -float((row.get("evaluation") or {}).get("brier_delta_vs_prevalence") or -999),
+                float((row.get("evaluation") or {}).get("brier_score") or 999),
+            ),
+        )
+        rank_rows = []
+        for position, member in enumerate(ordered, start=1):
+            ref = member.get("model_ref") or {}
+            evaluation = member.get("evaluation") or {}
+            prediction = member.get("prediction") or {}
+            evidence = {
+                "better_than_prevalence": "mejora la prevalencia",
+                "worse_than_prevalence": "no mejora la prevalencia",
+                "insufficient": "muestra insuficiente",
+                "not_evaluated": "sin hold-out comparable",
+            }.get(str(evaluation.get("evidence") or ""), "sin hold-out comparable")
+            delta = evaluation.get("brier_delta_vs_prevalence")
+            delta_text = f"{float(delta):+.3f}" if isinstance(delta, (int, float)) else "—"
+            applicability = (prediction.get("applicability") or {}).get("status") or "—"
+            applicability = {
+                "within_observed_range": "dentro del rango observado",
+                "caution": "extrapolación leve",
+                "outside_domain": "fuera de dominio",
+            }.get(str(applicability), str(applicability))
+            identity = " / ".join((
+                version_names.get(str(ref.get("version_id") or ""), str(ref.get("version_id") or "")),
+                str(ref.get("profile_id") or ""),
+                _ESTIMATOR_SHORT_NAMES.get(str(ref.get("estimator_id") or ""), str(ref.get("estimator_id") or "")),
+            ))
+            rank_rows.append(
+                f"<tr><td>{position}</td><td>{html.escape(identity)}</td>"
+                f"<td>{html.escape(_pct(prediction.get('probability')) if member.get('available') else '—')}</td>"
+                f"<td>{html.escape(evidence)}</td><td>{html.escape(delta_text)}</td>"
+                f"<td>{html.escape(str(evaluation.get('n_test') or '—'))}</td><td>{html.escape(str(applicability))}</td></tr>"
+            )
+        scenario_name = "ventana fija" if family == "fixed" else "retardo/evento"
+        rankings.append(f"""
+<details class="pred-ranking"><summary>Ranking diagnóstico: {scenario_name}, h{horizon}</summary>
+<div class="pred-table-scroll"><table class="pred-history-table"><thead><tr>
+<th>#</th><th>Miembro</th><th>Predicción actual</th><th>Evidencia hold-out</th>
+<th>Mejora Brier vs prevalencia</th><th>n test</th><th>Aplicabilidad actual</th>
+</tr></thead><tbody>{''.join(rank_rows)}</tbody></table></div></details>""")
+
+    rows = []
+    for member in members:
+        if not isinstance(member, dict):
+            continue
+        ref = member.get("model_ref") or {}
+        identity = " / ".join(
+            str(ref.get(key) or "")
+            for key in ("version_id", "profile_id", "estimator_id")
+        )
+        if member.get("available"):
+            prediction = member.get("prediction") or {}
+            probability = _pct(prediction.get("probability"))
+            status = html.escape(_lbl("ui.predictor_multiversion_available"))
+        else:
+            probability = "—"
+            status = html.escape(str(member.get("reason") or _lbl("ui.predictor_multiversion_unavailable")))
+        rows.append(
+            f'<tr><td>{html.escape(identity)}</td><td>h{html.escape(str(ref.get("horizon_days") or ""))}</td>'
+            f'<td>{html.escape(probability)}</td><td>{status}</td></tr>'
+        )
+    return f"""
+<section class="pred-multiversion-result">
+  <h3>Comparación experimental V2–V6</h3>
+  <p>No hay ninguna versión validada, preferida o ganadora: V2–V6 tienen el mismo rango experimental. V2 aparece en la tarjeta superior únicamente porque fue la primera implementación conectada a ella; ese orden cronológico no le da prioridad estadística. Se ordena la calidad hold-out dentro de cada especie, contrato y horizonte; nunca se promedia el Brier entre especies ni se crea un ensemble.</p>
+  <div class="pred-version-grid">{''.join(cards)}</div>
+  <h4>Predicción actual por versión, contrato y algoritmo</h4>
+  <p>Cada celda muestra la predicción individual, su evidencia hold-out frente a la prevalencia de esa especie y si el escenario actual queda dentro del dominio observado.</p>
+  <div class="pred-version-breakdowns">{''.join(breakdowns)}</div>
+  <div class="pred-rankings">{''.join(rankings)}</div>
+  <details><summary>Todos los miembros y sus resultados técnicos</summary>
+  <div class="pred-table-scroll"><table class="pred-history-table"><thead><tr>
+    <th>{html.escape(_lbl("ui.predictor_multiversion_model"))}</th><th>{html.escape(_lbl("ui.predictor_horizon"))}</th>
+    <th>{html.escape(_lbl("ui.predictor_probability"))}</th><th>{html.escape(_lbl("ui.predictor_multiversion_status"))}</th>
+  </tr></thead><tbody>{''.join(rows)}</tbody></table></div></details>
+</section>
+"""
+
+
 def _interpretation(comparison: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(comparison, dict):
         return {}
@@ -514,7 +970,7 @@ def _render_interpretation_card(
     if interpretation.get("reference_range"):
         range_html = (
             f'<div class="pred-interpretation-range">'
-            f'<span>{_tooltip_label_key("ui.predictor_reference_range", "ui.predictor_help_reference_range", strong=False)}</span>'
+            f'<span>Rango calculado por la referencia histórica V2</span>'
             f'<strong>{html.escape(_reference_range(interpretation))}</strong>'
             f'</div>'
         )
@@ -557,6 +1013,7 @@ def _render_interpretation_card(
   </div>
   <div class="pred-interpretation-title">{html.escape(_interpretation_label(interpretation))}</div>
   {range_html}
+  <p class="pred-version-role">Esta tarjeta muestra V2 únicamente porque fue la primera implementación conectada a ella. Es una herencia cronológica, no una selección por calidad: V2 no es la versión preferida ni está validada como mejor; V2–V6 conservan el mismo rango experimental.</p>
   <div class="pred-interpretation-meta">
     <span>{_tooltip_label_key("ui.predictor_ecological_compatibility", "ui.predictor_help_ecological_compatibility")}: {html.escape(_lbl(f"ui.predictor_ecological_compatibility_{ecological_compatibility}"))}</span>
     <span>{_tooltip_label_key("ui.predictor_ecological_evidence", "ui.predictor_help_ecological_reliability")}: {html.escape(_lbl(f"ui.predictor_ecological_evidence_{ecological_evidence}"))}</span>
@@ -775,6 +1232,8 @@ def _render_week(
     try:
         predictor = _get_predictor(species)
         area_ids = predictor.areas_with_species_observations()
+        if area and area not in area_ids:
+            area = ""
     except FileNotFoundError:
         area_ids = []
     except Exception as exc:
@@ -887,7 +1346,11 @@ def _render_query(
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],
     compare_models: bool = True,
+    selected_multiversion: list[str] | None = None,
+    selected_versions: list[str] | None = None,
 ) -> str:
+    selected_multiversion = list(selected_multiversion or [])
+    selected_versions = list(selected_versions or [])
     # Area options for selected species
     area_options_html = f'<option value="">{html.escape(_lbl("ui.predictor_all_areas_option"))}</option>'
     try:
@@ -915,6 +1378,11 @@ def _render_query(
         if area
         else ""
     )
+    multiversion_controls = (
+        _multiversion_controls(species, selected_multiversion, selected_versions)
+        if compare_models and area
+        else ""
+    )
     form_html = f"""
 <form class="pred-form" method="get" action="" data-predictor-direct-form>
   <input type="hidden" name="view" value="query">
@@ -922,7 +1390,7 @@ def _render_query(
   {_executor_hidden_input()}
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.species"))}</label>
-    <select name="species" onchange="this.form.requestSubmit()">{species_options_html}</select>
+    <select name="species" onchange="this.form.elements.area.value='';this.form.requestSubmit()">{species_options_html}</select>
   </div>
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.known_site_area"))}</label>
@@ -932,6 +1400,7 @@ def _render_query(
     <label>{html.escape(_lbl("ui.date_short"))}</label>
     <input type="date" name="date" value="{html.escape(target_date.isoformat())}">
   </div>
+  {multiversion_controls}
   <button type="submit" class="primary">{html.escape(_lbl("ui.predictor_query_submit"))}</button>
   {comparison_toggle}
 </form>
@@ -946,6 +1415,7 @@ def _render_query(
             profiles_payload,
             known_sites_payload,
             compare_models=compare_models,
+            selected_multiversion=selected_multiversion,
         )
     elif species:
         # Show all areas for the species
@@ -968,7 +1438,9 @@ def _render_query_result(
     known_sites_payload: dict[str, Any],
     *,
     compare_models: bool = False,
+    selected_multiversion: list[str] | None = None,
 ) -> str:
+    selected_multiversion = list(selected_multiversion or [])
     try:
         comparison = _model_comparison(species, area, target_date)
     except FileNotFoundError as exc:
@@ -1018,11 +1490,24 @@ def _render_query_result(
     week_strip = f'<div class="pred-week-strip">{week_cells}</div>' if week_cells else ""
 
     comparison_html = _render_model_comparison(species, area, target_date) if compare_models else ""
+    multiversion_html = ""
+    if compare_models and selected_multiversion:
+        try:
+            multiversion_html = _render_multiversion_result(
+                _multiversion_result(
+                    species, area, target_date, selected_multiversion
+                )
+            )
+        except Exception as exc:
+            multiversion_html = (
+                f'<div class="pred-error">{html.escape(_predictor_error_text(exc))}</div>'
+            )
 
     return f"""
 {interpretation_card}
 {week_strip}
 {comparison_html}
+{multiversion_html}
 """
 
 
@@ -1841,6 +2326,10 @@ def _render_page_inner(
 
     if not species or species not in trained:
         species = trained[0]
+    selected_versions = list(query.get("mvv", []))
+    selected_multiversion = list(query.get("mv", []))
+    if selected_versions:
+        selected_multiversion = multiversion_tokens_for_versions(species, selected_versions)
 
     try:
         target_date = date.fromisoformat(date_str) if date_str else date.today()
@@ -1862,6 +2351,8 @@ def _render_page_inner(
                 profiles_payload,
                 known_sites_payload,
                 compare_models=compare_models,
+                selected_multiversion=selected_multiversion,
+                selected_versions=selected_versions,
             )
         elif view == "history":
             content = _render_history(species, area, trained, profiles_payload, known_sites_payload, filter_mode)
@@ -2079,6 +2570,85 @@ _CSS = """
   border-radius: 6px;
   font-size: 1rem;
 }
+.pred-multiversion-controls { flex: 1 1 100%; display: grid; gap: 0.4rem; }
+.pred-multiversion-controls > label { color: #9aa8b2; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.pred-multiversion-controls select { width: 100%; min-height: 10rem; }
+.pred-multiversion-controls small { color: #9aa8b2; }
+.pred-multiversion-controls details { color: #b8c4cc; }
+.pred-multiversion-result { margin-top: 1.25rem; padding: 1rem; border: 1px solid #34434d; border-radius: 8px; background: #182127; }
+.pred-version-choices {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.55rem;
+  width: 100%;
+}
+.pred-version-choice {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  grid-template-areas: "check title" "check subtitle";
+  column-gap: 0.55rem;
+  row-gap: 0.08rem;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #40515d;
+  border-radius: 7px;
+  background: #202b33;
+  cursor: pointer;
+}
+.pred-version-choice input[type="checkbox"] {
+  grid-area: check;
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  box-sizing: border-box;
+  width: 1.1rem !important;
+  height: 1.1rem !important;
+  min-width: 1.1rem;
+  margin: 0;
+  padding: 0;
+  accent-color: #1685dd;
+}
+.pred-version-choice strong { grid-area: title; line-height: 1.15; }
+.pred-version-choice span {
+  grid-area: subtitle;
+  min-width: 0;
+  color: #aebbc4;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.pred-version-choice:has(input:checked) { border-color: #1685dd; background: #1d303d; }
+.pred-version-choice:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
+@media (max-width: 1050px) {
+  .pred-version-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .pred-version-choices { grid-template-columns: 1fr; }
+}
+.pred-version-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.8rem; margin: 1rem 0; }
+.pred-version-card { border: 1px solid #40515d; border-radius: 8px; padding: 0.85rem; background: #202b33; }
+.pred-version-card h4 { margin: 0 0 0.35rem; font-size: 1.25rem; }
+.pred-version-role, .pred-version-caution { color: #b8c4cc; }
+.pred-version-card dl { margin: 0.7rem 0; display: grid; gap: 0.4rem; }
+.pred-version-card dl div { display: flex; justify-content: space-between; gap: 0.6rem; border-bottom: 1px solid #34434d; }
+.pred-version-card dt { color: #9aa8b2; }
+.pred-version-card dd { margin: 0; text-align: right; }
+.pred-version-breakdowns { display: grid; gap: 0.7rem; margin: 0.8rem 0 1rem; }
+.pred-version-breakdown { border: 1px solid #40515d; border-radius: 7px; padding: 0.7rem; background: #182127; }
+.pred-version-breakdown summary { cursor: pointer; font-weight: 750; }
+.pred-version-breakdown .pred-table-scroll { margin-top: 0.7rem; }
+.pred-member-result { min-width: 9rem; vertical-align: top; }
+.pred-member-result strong { display: block; font-size: 1.05rem; }
+.pred-member-result small, .pred-member-unavailable small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #9aa8b2;
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+.pred-member-unavailable { color: #9aa8b2; vertical-align: top; }
+.pred-ranking { margin: 0.7rem 0; border: 1px solid #34434d; border-radius: 7px; padding: 0.65rem; }
+.pred-ranking summary { cursor: pointer; font-weight: 700; }
 
 /* Result card */
 .pred-result-card {

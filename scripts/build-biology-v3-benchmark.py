@@ -198,22 +198,55 @@ def main() -> int:
         for key, station in stations.items()
     }
 
-    area_rainfall_by_date: dict[tuple[str, str], dict[str, object]] = {}
-    for area_id, observed_day in sorted(requested_area_days):
-        microarea_series = {
-            context.micro_area_id: mushroom_weather_idw.build_daily_rain_idw_series(
+    requested_area_ids = {area_id for area_id, _day in requested_area_days}
+    cache_days = (latest_day - earliest_day).days + 1
+    microarea_weather_cache: dict[str, dict[str, object]] = {}
+    cached_contexts = sorted(
+        (
+            context
+            for context in micro_contexts.values()
+            if context.area_id in requested_area_ids
+        ),
+        key=lambda item: item.micro_area_id,
+    )
+    for index, context in enumerate(cached_contexts, start=1):
+        microarea_weather_cache[context.micro_area_id] = (
+            mushroom_weather_idw.build_daily_weather_idw_series(
                 stations,
                 target_lat=context.lat,
                 target_lon=context.lon,
-                end_day=observed_day,
-                days=weather_context.DAILY_SERIES_DAYS,
+                target_altitude_m=context.altitude_m,
+                end_day=latest_day,
+                days=cache_days,
                 excluded_station_keys=disabled,
                 duplicate_dates_by_station=duplicate_dates,
+            )
+        )
+        if index % 5 == 0 or index == len(cached_contexts):
+            print(
+                json.dumps(
+                    {
+                        "cached_microareas": index,
+                        "total_microareas": len(cached_contexts),
+                        "cached_days_per_microarea": cache_days,
+                    }
+                ),
+                flush=True,
+            )
+
+    area_rainfall_by_date: dict[tuple[str, str], dict[str, object]] = {}
+    for area_id, observed_day in sorted(requested_area_days):
+        microarea_series = {
+            context.micro_area_id: mushroom_weather_idw.slice_daily_weather_idw_series(
+                microarea_weather_cache[context.micro_area_id],
+                end_day=observed_day,
+                days=weather_context.DAILY_SERIES_DAYS,
             )
             for context in sorted(
                 micro_contexts_by_area.get(area_id, []),
                 key=lambda item: item.micro_area_id,
             )
+            if context.micro_area_id in microarea_weather_cache
         }
         if microarea_series:
             area_rainfall_by_date[(area_id, observed_day.isoformat())] = (
@@ -240,6 +273,13 @@ def main() -> int:
         "weather_cache_identity": weather_context.weather_history_cache_identity(
             args.data_dir
         ),
+        "weather_materialization": {
+            "mode": "full_microarea_series_then_exact_window_slice",
+            "cache_start_date": earliest_day.isoformat(),
+            "cache_end_date": latest_day.isoformat(),
+            "cache_days_per_microarea": cache_days,
+            "cached_microarea_count": len(microarea_weather_cache),
+        },
         "loaded_weather_station_count": len(stations),
     }
     if args.observation_features is not None:

@@ -47,6 +47,10 @@ class MushroomPathsTests(unittest.TestCase):
             mushroom_paths.mushroom_model_state_path(),
             share_root / "mushroom-data" / "mushroom_model_v0_state.json",
         )
+        self.assertEqual(
+            mushroom_paths.mushroom_ml_version_archive_dir(),
+            share_root / "mushroom-data" / "ml_version_archive",
+        )
 
     def test_specific_env_overrides_share_root(self) -> None:
         share_root = self.root / "share"

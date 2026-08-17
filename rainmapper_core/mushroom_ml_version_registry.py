@@ -1,0 +1,473 @@
+"""Persistent lifecycle registry for comparable mushroom ML generations.
+
+Biology versions are never deleted by a lifecycle transition.  Exactly one
+implemented version may be active; every other version remains a candidate,
+reference, or proposal and can retain immutable benchmark/model generations.
+"""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+import os
+import shutil
+import tempfile
+from pathlib import Path
+from typing import Any
+
+from rainmapper_core import mushroom_paths
+
+
+SCHEMA_VERSION = "1.0"
+REGISTRY_KIND = "mushroom_ml_version_registry"
+VERSION_STATUSES = frozenset({"active", "candidate", "reference", "proposed"})
+GENERATION_KINDS = frozenset({"benchmark", "trained_model"})
+PROMOTION_GATE_STATUSES = frozenset({"not_evaluated", "passed", "failed"})
+
+
+def _non_empty_string(value: object, label: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise ValueError(f"{label} must be a non-empty string.")
+    return normalized
+
+
+def _version_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = payload.get("versions")
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("ML version registry must contain versions.")
+    return rows
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _safe_relative_path(value: str) -> Path:
+    relative = Path(_non_empty_string(value, "artifact path"))
+    if relative.is_absolute() or ".." in relative.parts or relative == Path("."):
+        raise ValueError(f"Unsafe generation artifact path: {value}")
+    return relative
+
+
+def validate_registry(payload: object) -> dict[str, Any]:
+    """Validate and normalize one registry without changing lifecycle state."""
+    if not isinstance(payload, dict):
+        raise ValueError("ML version registry must be an object.")
+    if payload.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError("Unsupported ML version registry schema.")
+    if payload.get("kind") != REGISTRY_KIND:
+        raise ValueError("Unsupported ML version registry kind.")
+    normalized = copy.deepcopy(payload)
+    rows = _version_rows(normalized)
+    seen_versions: set[str] = set()
+    active_versions: list[str] = []
+    seen_generations: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("ML version registry entries must be objects.")
+        version_id = _non_empty_string(row.get("version_id"), "version_id")
+        if version_id in seen_versions:
+            raise ValueError(f"Duplicate ML version_id: {version_id}")
+        seen_versions.add(version_id)
+        status = _non_empty_string(row.get("status"), f"{version_id}.status")
+        if status not in VERSION_STATUSES:
+            raise ValueError(f"Unsupported status for {version_id}: {status}")
+        if status == "active":
+            active_versions.append(version_id)
+        contracts = row.get("temporal_contract_ids")
+        if not isinstance(contracts, list) or not contracts:
+            raise ValueError(f"{version_id} must declare temporal_contract_ids.")
+        normalized_contracts = [
+            _non_empty_string(value, f"{version_id}.temporal_contract_ids")
+            for value in contracts
+        ]
+        if len(set(normalized_contracts)) != len(normalized_contracts):
+            raise ValueError(f"{version_id} declares duplicate temporal contracts.")
+        row["temporal_contract_ids"] = normalized_contracts
+        generations = row.get("generations", [])
+        if not isinstance(generations, list):
+            raise ValueError(f"{version_id}.generations must be a list.")
+        for generation in generations:
+            if not isinstance(generation, dict):
+                raise ValueError(f"{version_id} generation must be an object.")
+            generation_id = _non_empty_string(
+                generation.get("generation_id"), f"{version_id}.generation_id"
+            )
+            if generation_id in seen_generations:
+                raise ValueError(f"Duplicate generation_id: {generation_id}")
+            seen_generations.add(generation_id)
+            if generation.get("version_id") != version_id:
+                raise ValueError(f"Generation {generation_id} has the wrong version_id.")
+            if generation.get("kind") not in GENERATION_KINDS:
+                raise ValueError(f"Generation {generation_id} has an unsupported kind.")
+            if generation.get("retention") != "permanent":
+                raise ValueError(f"Generation {generation_id} must use permanent retention.")
+            gate_status = generation.get("promotion_gate_status", "not_evaluated")
+            if gate_status not in PROMOTION_GATE_STATUSES:
+                raise ValueError(
+                    f"Generation {generation_id} has an unsupported promotion gate status."
+                )
+            if gate_status == "passed" and generation.get("kind") != "trained_model":
+                raise ValueError(
+                    f"Only a trained_model generation can pass promotion gates: {generation_id}."
+                )
+    if len(active_versions) != 1:
+        raise ValueError("ML version registry must contain exactly one active version.")
+    active_version_id = _non_empty_string(
+        normalized.get("active_version_id"), "active_version_id"
+    )
+    if active_versions != [active_version_id]:
+        raise ValueError("active_version_id does not match the active version entry.")
+    # Runtime declarations are optional for old persisted registries, but when
+    # present they must be internally consistent with the version contracts.
+    from rainmapper_core import mushroom_ml_model_catalog  # noqa: PLC0415
+
+    mushroom_ml_model_catalog.catalog_entries(normalized)
+    return normalized
+
+
+def load_registry(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot load ML version registry: {exc}") from exc
+    return validate_registry(payload)
+
+
+def ensure_seeded(
+    *,
+    default_path: Path | None = None,
+    persistent_path: Path | None = None,
+) -> Path:
+    """Create the persistent registry once without replacing later lifecycle state."""
+    source = Path(
+        default_path
+        or mushroom_paths.app_mushroom_defaults_dir()
+        / "mushroom_ml_version_registry.json"
+    )
+    destination = Path(
+        persistent_path
+        or mushroom_paths.mushroom_data_file("mushroom_ml_version_registry.json")
+    )
+    if destination.is_file():
+        load_registry(destination)
+        return destination
+    checked = load_registry(source)
+    save_registry(destination, checked)
+    return destination
+
+
+def save_registry(path: Path, payload: object) -> None:
+    """Atomically write a validated registry. Existing generations are retained."""
+    destination = Path(path)
+    checked = validate_registry(payload)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(checked, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def register_version(payload: object, definition: dict[str, Any]) -> dict[str, Any]:
+    """Append an arbitrary future version without adding version-specific code."""
+    checked = validate_registry(payload)
+    if not isinstance(definition, dict):
+        raise ValueError("ML version definition must be an object.")
+    candidate = copy.deepcopy(definition)
+    version_id = _non_empty_string(candidate.get("version_id"), "version_id")
+    if any(row["version_id"] == version_id for row in checked["versions"]):
+        raise ValueError(f"Duplicate ML version_id: {version_id}")
+    if candidate.get("status") == "active":
+        raise ValueError("Register a new version as proposed or candidate before activation.")
+    candidate.setdefault("generations", [])
+    checked["versions"].append(candidate)
+    return validate_registry(checked)
+
+
+def transition_non_active_status(
+    payload: object,
+    version_id: str,
+    status: str,
+) -> dict[str, Any]:
+    """Move a non-active version between proposed, candidate, and reference."""
+    checked = validate_registry(payload)
+    target_id = _non_empty_string(version_id, "version_id")
+    resolved_status = _non_empty_string(status, "status")
+    if resolved_status not in VERSION_STATUSES - {"active"}:
+        raise ValueError("Use transition_active to select an active ML version.")
+    target = next(
+        (row for row in checked["versions"] if row["version_id"] == target_id), None
+    )
+    if target is None:
+        raise ValueError(f"Unknown ML version: {target_id}")
+    if target["status"] == "active":
+        raise ValueError("The active version needs a replacement before demotion.")
+    target["status"] = resolved_status
+    return validate_registry(checked)
+
+
+def transition_active(
+    payload: object,
+    version_id: str,
+    *,
+    generation_id: str,
+) -> dict[str, Any]:
+    """Activate one approved model generation and retain the previous version."""
+    checked = validate_registry(payload)
+    target_id = _non_empty_string(version_id, "version_id")
+    target = next(
+        (row for row in checked["versions"] if row["version_id"] == target_id), None
+    )
+    if target is None:
+        raise ValueError(f"Unknown ML version: {target_id}")
+    if target["status"] == "proposed":
+        raise ValueError("A proposed version cannot become active before implementation.")
+    previous_id = checked["active_version_id"]
+    if target_id == previous_id:
+        return checked
+    resolved_generation_id = _non_empty_string(generation_id, "generation_id")
+    generation = next(
+        (
+            row
+            for row in target.get("generations", [])
+            if row.get("generation_id") == resolved_generation_id
+        ),
+        None,
+    )
+    if generation is None:
+        raise ValueError(
+            f"Generation {resolved_generation_id} does not belong to {target_id}."
+        )
+    if generation.get("kind") != "trained_model":
+        raise ValueError("Only a trained_model generation can become active.")
+    if generation.get("promotion_gate_status") != "passed":
+        raise ValueError("The selected generation has not passed its promotion gates.")
+    for row in checked["versions"]:
+        if row["version_id"] == previous_id:
+            row["status"] = "reference"
+        elif row["version_id"] == target_id:
+            row["status"] = "active"
+    checked["active_version_id"] = target_id
+    history = checked.setdefault("activation_history", [])
+    history.append(
+        {
+            "from_version_id": previous_id,
+            "to_version_id": target_id,
+            "generation_id": resolved_generation_id,
+        }
+    )
+    return validate_registry(checked)
+
+
+def append_generation(
+    payload: object,
+    *,
+    version_id: str,
+    generation: dict[str, Any],
+) -> dict[str, Any]:
+    """Append an immutable benchmark/model generation; never replace an older one."""
+    checked = validate_registry(payload)
+    resolved_version_id = _non_empty_string(version_id, "version_id")
+    row = next(
+        (
+            candidate
+            for candidate in checked["versions"]
+            if candidate["version_id"] == resolved_version_id
+        ),
+        None,
+    )
+    if row is None:
+        raise ValueError(f"Unknown ML version: {resolved_version_id}")
+    normalized_generation = copy.deepcopy(generation)
+    normalized_generation["version_id"] = resolved_version_id
+    normalized_generation["retention"] = "permanent"
+    row.setdefault("generations", []).append(normalized_generation)
+    return validate_registry(checked)
+
+
+def persist_generation(
+    registry_path: Path,
+    archive_root: Path,
+    *,
+    version_id: str,
+    kind: str,
+    artifacts: dict[str, Path],
+    input_identities: dict[str, str],
+    metadata: dict[str, Any] | None = None,
+    promotion_gate_status: str = "not_evaluated",
+) -> dict[str, Any]:
+    """Copy one generation into a permanent content-addressed local archive."""
+    if kind not in GENERATION_KINDS:
+        raise ValueError(f"Unsupported generation kind: {kind}")
+    if promotion_gate_status not in PROMOTION_GATE_STATUSES:
+        raise ValueError("Unsupported promotion_gate_status.")
+    if kind != "trained_model" and promotion_gate_status == "passed":
+        raise ValueError("Only a trained_model generation can pass promotion gates.")
+    if not artifacts:
+        raise ValueError("A generation must contain at least one artifact.")
+    checked = load_registry(registry_path)
+    resolved_version_id = _non_empty_string(version_id, "version_id")
+    if Path(resolved_version_id).name != resolved_version_id:
+        raise ValueError("version_id is unsafe for an archive path.")
+    if not any(
+        row["version_id"] == resolved_version_id for row in checked["versions"]
+    ):
+        raise ValueError(f"Unknown ML version: {resolved_version_id}")
+    artifact_rows: list[dict[str, Any]] = []
+    resolved_sources: dict[str, Path] = {}
+    for logical_name, source_value in sorted(artifacts.items()):
+        relative = _safe_relative_path(logical_name)
+        logical_path = relative.as_posix()
+        source = Path(source_value)
+        if not source.is_file():
+            raise FileNotFoundError(f"Generation artifact is missing: {source}")
+        if logical_path in resolved_sources:
+            raise ValueError(f"Duplicate generation artifact path: {logical_path}")
+        resolved_sources[logical_path] = source
+        artifact_rows.append(
+            {
+                "path": logical_path,
+                "size_bytes": source.stat().st_size,
+                "sha256": _sha256(source),
+            }
+        )
+    identity = {
+        "version_id": resolved_version_id,
+        "kind": kind,
+        "promotion_gate_status": promotion_gate_status,
+        "artifacts": artifact_rows,
+        "input_identities": {
+            _non_empty_string(key, "input identity name"): _non_empty_string(
+                value, f"input identity {key}"
+            )
+            for key, value in sorted(input_identities.items())
+        },
+        "metadata": copy.deepcopy(metadata or {}),
+    }
+    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    generation_id = f"{resolved_version_id}-{hashlib.sha256(encoded).hexdigest()[:20]}"
+    version_root = Path(archive_root) / resolved_version_id
+    destination = version_root / generation_id
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "mushroom_ml_preserved_generation",
+        "generation_id": generation_id,
+        "retention": "permanent",
+        **identity,
+    }
+    existing_generation = next(
+        (
+            generation
+            for row in checked["versions"]
+            if row["version_id"] == resolved_version_id
+            for generation in row.get("generations", [])
+            if generation.get("generation_id") == generation_id
+        ),
+        None,
+    )
+    if existing_generation is not None:
+        stored_manifest = destination / "generation_manifest.json"
+        if not stored_manifest.is_file() or json.loads(
+            stored_manifest.read_text(encoding="utf-8")
+        ) != manifest:
+            raise ValueError("Registered ML generation archive is missing or changed.")
+        return {"registry": checked, "generation": existing_generation, "status": "reused"}
+
+    version_root.mkdir(parents=True, exist_ok=True)
+    staging = Path(
+        tempfile.mkdtemp(prefix=f".{generation_id}.", suffix=".tmp", dir=version_root)
+    )
+    try:
+        for artifact in artifact_rows:
+            source = resolved_sources[artifact["path"]]
+            target = staging / artifact["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            if target.stat().st_size != artifact["size_bytes"] or _sha256(target) != artifact["sha256"]:
+                raise ValueError(f"Archived generation artifact changed: {artifact['path']}")
+        (staging / "generation_manifest.json").write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        if destination.exists():
+            raise FileExistsError(f"Generation archive already exists: {destination}")
+        os.replace(staging, destination)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
+    generation = {
+        "generation_id": generation_id,
+        "kind": kind,
+        "retention": "permanent",
+        "version_id": resolved_version_id,
+        "manifest_path": str(
+            (Path(resolved_version_id) / generation_id / "generation_manifest.json")
+        ),
+        "artifact_count": len(artifact_rows),
+        "input_identities": identity["input_identities"],
+        "promotion_gate_status": identity["promotion_gate_status"],
+    }
+    updated = append_generation(
+        checked, version_id=resolved_version_id, generation=generation
+    )
+    save_registry(registry_path, updated)
+    return {"registry": updated, "generation": generation, "status": "created"}
+
+
+def benchmark_version_metadata(
+    payload: object, version_ids: list[str]
+) -> dict[str, Any]:
+    """Return stable version metadata suitable for embedding in a report."""
+    checked = validate_registry(payload)
+    requested = set(version_ids)
+    found = {
+        row["version_id"]: {
+            "version_id": row["version_id"],
+            "status": row["status"],
+            "temporal_contract_ids": list(row["temporal_contract_ids"]),
+            "contract_document": row.get("contract_document"),
+            "generation_count": len(row.get("generations", [])),
+            "retention": "permanent",
+        }
+        for row in checked["versions"]
+        if row["version_id"] in requested
+    }
+    missing = sorted(requested - set(found))
+    if missing:
+        raise ValueError(f"Unknown ML benchmark version: {missing[0]}")
+    return {version_id: found[version_id] for version_id in version_ids}
+
+
+def version_for_temporal_contract(
+    payload: object, temporal_contract_id: str
+) -> dict[str, Any]:
+    """Resolve a contract through registry data, independent of version names."""
+    checked = validate_registry(payload)
+    contract_id = _non_empty_string(temporal_contract_id, "temporal_contract_id")
+    matches = [
+        row
+        for row in checked["versions"]
+        if contract_id in row["temporal_contract_ids"]
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"Temporal contract {contract_id} must belong to exactly one ML version."
+        )
+    return copy.deepcopy(matches[0])

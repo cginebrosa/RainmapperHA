@@ -94,12 +94,22 @@ class MushroomMLBiologyV3Tests(unittest.TestCase):
         days = [target_day - timedelta(days=age) for age in reversed(range(120))]
         return {
             "area_rainfall_contract_id": biology_v3.AREA_RAINFALL_CONTRACT_ID,
+            "area_weather_contract_id": biology_v3.AREA_WEATHER_CONTRACT_ID,
             "source_rainfall_contract_id": "daily_rain_idw_radius15km_power2_v1",
+            "source_weather_contract_id": biology_v3.mushroom_weather_idw.WEATHER_IDW_CONTRACT_ID,
             "daily_dates": [day.isoformat() for day in days],
             "daily_rain_idw_mean_mm": [
                 None if (target_day - day).days in missing else 0.0 for day in days
             ],
             "daily_rain_suppressed_station_count": [0] * len(days),
+            "daily_temp_min_idw_mean_c": [10.0] * len(days),
+            "daily_temp_max_idw_mean_c": [20.0] * len(days),
+            "daily_humidity_min_idw_mean_pct": [60.0] * len(days),
+            "daily_humidity_max_idw_mean_pct": [80.0] * len(days),
+            "daily_temp_min_microareas_available": [1] * len(days),
+            "daily_temp_max_microareas_available": [1] * len(days),
+            "daily_humidity_min_microareas_available": [1] * len(days),
+            "daily_humidity_max_microareas_available": [1] * len(days),
         }
 
     def area_context(self) -> biology_v3.AreaPredictionContext:
@@ -321,28 +331,39 @@ class MushroomMLBiologyV3Tests(unittest.TestCase):
                 requested_cols=["rain_observed_days_21"],
             )
 
-    def test_cutoff_sensitive_selector_falls_back_to_eligible_station(self) -> None:
+    def test_cutoff_sensitive_legacy_selector_remains_reproducible(self) -> None:
         nearest_ages = set(range(22, 90)) | set(range(0, 19))
         nearest = self.complete_station(
             "NEAREST", distance_offset=0.001, included_ages=nearest_ages
         )
         fallback = self.complete_station("FALLBACK", distance_offset=0.01)
+        selected, _distance, audit = biology_v3.select_cutoff_station_biology_v3(
+            {
+                ("test", "NEAREST"): nearest,
+                ("test", "FALLBACK"): fallback,
+            },
+            lat=42.0,
+            lon=2.0,
+            cutoff_day=date(2026, 8, 6),
+            area_altitude_m=1000.0,
+        )
+        self.assertEqual(selected.station_code, "FALLBACK")
+        self.assertEqual(
+            audit["skipped_nearer_station_count"], 1
+        )
+
+    def test_v3_sample_uses_area_weather_idw_not_the_legacy_station_selector(self) -> None:
+        incomplete_station = self.complete_station("INCOMPLETE", included_ages={0})
         sample = biology_v3.build_fixed_gap_7d_biology_v3(
             self.observation("one"),
             area_context=self.area_context(),
             area_rainfall=self.area_rainfall(),
-            stations={
-                ("test", "NEAREST"): nearest,
-                ("test", "FALLBACK"): fallback,
-            },
+            stations={("test", "INCOMPLETE"): incomplete_station},
         )
-
-        selected = sample["metadata"]["selected_station"]
-        self.assertEqual(selected["station_code"], "FALLBACK")
-        self.assertEqual(
-            selected["selection_audit"]["skipped_nearer_station_count"], 1
-        )
-        self.assertTrue(sample["quality"]["station_quality_eligible"])
+        self.assertTrue(sample["quality"]["weather_idw_eligible"])
+        self.assertEqual(sample["predictive_features"]["temp_max_cutoff_7d_c"], 20.0)
+        self.assertEqual(sample["predictive_features"]["humidity_min_cutoff_0_3d_pct"], 60.0)
+        self.assertNotIn("selected_station", sample["metadata"])
 
     def test_low_idw_coverage_excludes_with_readable_reason(self) -> None:
         station = self.complete_station("COMPLETE")

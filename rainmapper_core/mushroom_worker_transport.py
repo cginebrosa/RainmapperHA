@@ -844,3 +844,78 @@ def download_ml_train_inputs(
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+
+
+def download_ml_multiversion_inputs(
+    ha_url: str,
+    job: dict[str, Any],
+    worker_data_dir: Path,
+    *,
+    worker_id: str,
+    claim_token: str,
+    token: str,
+    timeout: float = 120.0,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Download and verify the exact files declared by a multiversion job."""
+    job_id = validate_job_id(str(job.get("job_id", "")))
+    bundle = job.get("input_bundle")
+    if not isinstance(bundle, dict):
+        raise ValueError("Worker multiversion input bundle is missing.")
+    endpoint = str(bundle.get("endpoint", "") or "")
+    files = bundle.get("files")
+    if endpoint != "/api/mushrooms/workers/jobs/input" or not isinstance(files, list) or not files:
+        raise ValueError("Worker multiversion input contract is invalid.")
+    records: list[dict[str, Any]] = []
+    total_expected = 0
+    for raw in files:
+        if not isinstance(raw, dict):
+            raise ValueError("Worker multiversion input file declaration is invalid.")
+        logical_path = safe_relative_path(str(raw.get("path", ""))).as_posix()
+        size = int(raw.get("size_bytes", -1))
+        digest = str(raw.get("sha256", ""))
+        if size < 0 or size > MAX_INPUT_FILE_BYTES or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError(f"Worker multiversion input metadata is invalid: {logical_path}")
+        records.append({"path": logical_path, "size_bytes": size, "sha256": digest})
+        total_expected += size
+    destination = worker_data_dir / job_id
+    if destination.is_dir():
+        return {"status": "reused", "input_dir": str(destination)}
+    staging = worker_data_dir / f".multiversion.{job_id}.staging"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True, exist_ok=True)
+    transferred = 0
+    try:
+        headers = request_headers(worker_id, claim_token, token)
+        for index, record in enumerate(records, start=1):
+            query = urlencode({"job_id": job_id, "file": record["path"]})
+            size, _ = _download_file(
+                ha_url.rstrip("/") + endpoint + "?" + query,
+                staging / record["path"],
+                headers=headers,
+                expected_size=record["size_bytes"],
+                expected_sha256=record["sha256"],
+                max_bytes=MAX_INPUT_FILE_BYTES,
+                timeout=timeout,
+            )
+            transferred += size
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "phase": "Downloading V2--V6 inputs",
+                        "message": f"Downloaded {record['path']} ({index}/{len(records)}).",
+                        "overall_percent": 5 + int(index / len(records) * 10),
+                    }
+                )
+        if transferred != total_expected:
+            raise ValueError("Worker multiversion input bundle size is inconsistent.")
+        staging.replace(destination)
+        return {
+            "status": "verified",
+            "input_dir": str(destination),
+            "input_file_count": len(records),
+            "input_size_bytes": transferred,
+        }
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise

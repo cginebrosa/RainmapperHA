@@ -26,13 +26,17 @@ class WeatherDiskPreflight:
     reserve_bytes: int
 
 
-def combine_update_exit_codes(source_code: int, archive_code: int) -> int:
-    """Persistence failure wins; provider degradation remains exit 2."""
-    if archive_code != 0:
+def combine_update_exit_codes(
+    source_code: int,
+    archive_code: int,
+    maintenance_code: int = 0,
+) -> int:
+    """Persistence failure wins; source/maintenance degradation remains exit 2."""
+    if archive_code != 0 or maintenance_code not in {0, 2}:
         return 1
-    if source_code == 0:
+    if source_code == 0 and maintenance_code == 0:
         return 0
-    if source_code == 2:
+    if source_code in {0, 2} and maintenance_code in {0, 2}:
         return 2
     return 1
 
@@ -73,11 +77,12 @@ def main() -> int:
     combine = subparsers.add_parser("combine-exit-codes")
     combine.add_argument("--source", type=int, required=True)
     combine.add_argument("--archive", type=int, required=True)
+    combine.add_argument("--maintenance", type=int, default=0)
     preflight = subparsers.add_parser("download-preflight")
     preflight.add_argument("--data-dir", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "combine-exit-codes":
-        return combine_update_exit_codes(args.source, args.archive)
+        return combine_update_exit_codes(args.source, args.archive, args.maintenance)
     report = check_download_disk_preflight(
         args.data_dir,
         required_bytes=_env_bytes(

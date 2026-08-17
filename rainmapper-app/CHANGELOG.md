@@ -1,11 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.2.256
 
 - Compare Biology V3 and altitude V2 on identical observation/horizon rows and
   whole 7/14-day fruiting groups, including per-horizon metrics and coverage.
 - Keep month and direct altitude registered but inactive after matched tests;
   altitude remains applied through the physical temperature correction.
+- Expose the V2--V6 mushroom model catalog through one generic registry while
+  keeping unavailable exact generations visible but not selectable.
+- Compare installed contract, temporal and estimator members independently in
+  Predictor, preserving the existing explanations and never averaging member
+  probabilities into an implicit ensemble.
+- Give V2--V6 the same experimental status and show each version by profile,
+  temporal contract, horizon and estimator with hold-out and domain cautions.
+- Reset incompatible areas when the selected species changes so cached or
+  handcrafted requests cannot render an unobserved species-area pair.
+- Package hash-verified immutable runtime batches for local or external-worker
+  inference, with strict generation resolution and no fallback to V2.
+- Add an isolated worker `1.0.10` multiversion training command that writes no
+  operational model and keeps one fitted lag-event artifact for horizons
+  1/2/3/7.
 
 ## 0.2.255
 

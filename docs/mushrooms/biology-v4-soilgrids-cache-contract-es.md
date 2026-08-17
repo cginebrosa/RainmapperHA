@@ -1,6 +1,6 @@
 # Contrato SoilGrids para Biology V4
 
-Estado: **DISEÑO TÉCNICO Y AUDITORÍA PARCIAL; NO IMPLEMENTADO EN HA**.
+Estado: **IMPLEMENTADO Y VALIDADO EN LOCAL; NO INTEGRADO NI DESPLEGADO EN HA**.
 
 Este documento define cómo obtener, cachear, validar y persistir el contexto
 hidráulico estático de SoilGrids para las microáreas. Complementa la
@@ -99,8 +99,26 @@ cada píxel. No usa el centroide. Evidencias:
 - los tres GeoTIFF de prueba permanecieron en `/private/tmp`; no se copiaron a
   HA, M1, Git ni la imagen.
 
-Esta prueba demuestra cobertura espacial del primer horizonte y cuantíl. No
-valida todavía las otras profundidades, incertidumbre, balance diario ni SMI.
+El motor general reprodujo exactamente esta prueba el 2026-08-15: diferencia
+máxima cero en cobertura, número de píxeles y los tres valores Q0.50 de 0–5 cm
+para las 58 microáreas.
+
+La auditoría posterior materializó las 54 coberturas: tres propiedades, seis
+profundidades y tres cuantiles. Resultado: 58/58 microáreas `complete`, cobertura
+1,0 y ningún motivo de exclusión. La evidencia completa está en
+`biology-v4-soilgrids-full-profile-audit-2026-08-15.json`. La copia candidata,
+aislada y no operativa, tiene SHA-256
+`79d6d387fb58b5ec391917c1581960dec315f43eaa3646eac883cd5754cf17d1`.
+
+Esto valida el contexto estático; no valida todavía el balance diario ni el SMI.
+
+Las capacidades WCS oficiales quedaron congeladas con estos SHA-256:
+
+| Servicio | SHA-256 de `GetCapabilities` |
+| --- | --- |
+| `wv0010` | `a4f79b3f757c8aaef8f0eeca47c57831165a4985ebbb1c7c48ff3c7b1fa43b06` |
+| `wv0033` | `09c3a3a07c7143b15605f5a7390e198f2a2d7a39194e1a02cb410da0771a4f9c` |
+| `wv1500` | `ffc27b63032ad55fd168ad81b7539a4ec3b188b1db76871d4681293f95fc1b4b` |
 
 ## 4. Alcance geográfico de la caché
 
@@ -113,25 +131,40 @@ La caché no sigue fronteras administrativas:
 - no se descarga el producto global ni España completa sin necesidad.
 
 La unidad de cobertura es una cuadrícula de bloques alineados con el raster
-nativo. Propuesta a congelar como `soilgrids_tile_512px_v1`:
+nativo. Contrato congelado localmente como `soilgrids_tile_512px_v1`:
 
 ```text
 pixel:       250 x 250 m
 bloque:      512 x 512 píxeles
 lado:        128 km
-clave:       <tile_x>_<tile_y>
-origen:      cuadrícula nativa SoilGrids/Interrupted Goode Homolosine
+clave:       x<tile_x>_y<tile_y>
+origen LL:   X=-19949750 m, Y=-6147500 m
+CRS:         SoilGrids/Interrupted Goode Homolosine
 ```
 
 Un bloque se comparte entre todas las microáreas que lo intersectan. Una
-geometría nueva descarga solo los bloques ausentes. El tamaño de 512 píxeles es
-una decisión de almacenamiento y puede ajustarse antes de implementar; una vez
-publicado el `contract_id` no cambia sin migración.
+geometría nueva descarga solo los bloques ausentes. El tamaño de 512 píxeles
+forma parte del contrato y no cambia sin un nuevo `contract_id` y migración.
 
-La primera extensión rectangular contenía 1.323.960 píxeles por capa. Los
-GeoTIFF comprimidos medían 0,63–0,71 MB cada uno; por eso las 54 capas básicas
-de retención para la cobertura actual se estiman en 35–40 MB. Esa cifra no
-representa toda España.
+La reserva local inicial es conservadora: rectángulo mínimo de las 58
+microáreas más un anillo completo. Abarca `x160..165`, `y82..86`, es decir, 30
+posiciones y una envolvente de 768 × 640 km. La cobertura
+`wv0033_0-5cm_Q0.5` se usa como máscara validada:
+
+| Medida | Resultado |
+| --- | ---: |
+| Teselas ocupadas por las microáreas actuales | 6 |
+| Posiciones de la reserva rectangular | 30 |
+| Teselas terrestres o costeras | 25 |
+| Posiciones completamente vacías/mar | 5 |
+| Coberturas SoilGrids | 54 |
+| Entradas validadas en el manifiesto | 1.355 |
+| Entradas inválidas tras auditoría completa | 0 |
+| Tamaño real de caché | 407 MB |
+
+Las cinco posiciones vacías solo permanecen en la cobertura-máscara como
+evidencia; no se multiplican por las otras 53 coberturas. Las teselas costeras
+se conservan completas. Una geometría exterior amplía la caché.
 
 ## 5. Rutas
 
@@ -153,6 +186,7 @@ Estructura candidata:
 soilgrids/
   manifest.json
   raw-wcs/
+    <source_version>/bulk/<coverage_id>/<batch_id>.tif
     <source_version>/<coverage_id>/<tile_id>.tif
   normalized/
     <source_version>/<coverage_id>/<tile_id>.tif
@@ -160,7 +194,9 @@ soilgrids/
   reports/
 ```
 
-`raw-wcs` conserva opcionalmente la respuesta exacta para auditoría. Los
+`raw-wcs` conserva la respuesta exacta para auditoría. Una petición rectangular
+por cobertura se divide localmente en las teselas normalizadas seleccionadas;
+para la reserva inicial fueron 54 peticiones WCS, no 1.620. Los
 ficheros `normalized` incorporan CRS, geotransformación y compresión validados;
 son los únicos que consulta el mantenimiento de microáreas. `staging` nunca es
 fuente de producción.
@@ -216,7 +252,7 @@ Para una geometría nueva o modificada:
 2. calcular bloques intersectados, incluyendo el borde exacto;
 3. comprobar en el manifiesto las 54 coberturas mínimas;
 4. reutilizar todos los bloques válidos existentes;
-5. descargar a `staging` únicamente los bloques ausentes;
+5. descargar a `staging` un rectángulo por cobertura para los bloques ausentes;
 6. validar cada respuesta antes de normalizarla;
 7. promover ficheros completos y actualizar el manifiesto atómicamente;
 8. calcular el agregado de la microárea;
@@ -243,7 +279,16 @@ la consulta y el grid; nunca inferir otro CRS desde las coordenadas.
 
 Un fallo no reemplaza un bloque anterior válido ni deja un manifiesto parcial.
 
+El código local está en `rainmapper_core/mushroom_soilgrids.py`; la gestión y
+materialización candidata están en `scripts/manage-soilgrids-cache.py` y
+`scripts/materialize-micro-area-soilgrids.py`.
+
 ## 8. Alta y edición en la UI
+
+Estado: **implementado y probado en código local; no desplegado**. Los handlers
+reutilizan el contexto si geometría y contratos siguen vigentes. Al crear o
+cambiar un polígono resuelven el agregado desde caché y amplían únicamente si
+faltan activos. Un fallo persiste como `pending` legible y no borra el DEM.
 
 El guardado de una microárea coordina tres contextos independientes:
 

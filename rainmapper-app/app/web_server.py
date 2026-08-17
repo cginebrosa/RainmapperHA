@@ -46,6 +46,7 @@ from rainmapper_core import mushroom_observation_context
 from rainmapper_core import mushroom_observation_features
 from rainmapper_core import mushroom_observations
 from rainmapper_core import mushroom_paths
+from rainmapper_core import mushroom_soilgrids
 from rainmapper_core import mushroom_rebuild_pipeline
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import runtime_diagnostics
@@ -56,6 +57,8 @@ from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_worker_results
 from rainmapper_core import mushroom_predictor_runtime
 from rainmapper_core import mushroom_predictor_stats
+from rainmapper_core import mushroom_ml_model_catalog
+from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core.mushroom_predictor_service import REQUEST_KIND as PREDICTOR_REQUEST_KIND
 from rainmapper_core.mushroom_predictor_service import SCHEMA_VERSION as PREDICTOR_SCHEMA_VERSION
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
@@ -133,6 +136,8 @@ MUSHROOM_WORKER_PROTOCOL_POST_PATHS = {
     "/api/mushrooms/workers/jobs/result-complete",
     "/api/mushrooms/workers/jobs/ml-result-file",
     "/api/mushrooms/workers/jobs/ml-result-complete",
+    "/api/mushrooms/workers/jobs/multiversion-result-file",
+    "/api/mushrooms/workers/jobs/multiversion-result-complete",
 }
 HOME_ASSISTANT_INGRESS_PROXY_IP = "172.30.32.2"
 MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS = 30
@@ -11358,6 +11363,45 @@ def refresh_micro_area_dem_altitude(
     return True
 
 
+def refresh_micro_area_soilgrids_context(
+    row: dict[str, object],
+    existing: dict[str, object] | None = None,
+    *,
+    cache_root: Path | None = None,
+    ensure_missing: bool = True,
+) -> bool:
+    """Reuse or refresh static SoilGrids context after a geometry change."""
+    geometry = row.get("geometry")
+    previous_geometry = existing.get("geometry") if isinstance(existing, dict) else None
+    geometry_changed = existing is None or geometry != previous_geometry
+    derived_context = row.get("derived_context")
+    if not isinstance(derived_context, dict):
+        derived_context = {}
+        row["derived_context"] = derived_context
+    previous_contexts = existing.get("derived_context") if isinstance(existing, dict) else None
+    previous_soilgrids = (
+        previous_contexts.get("soilgrids_water")
+        if isinstance(previous_contexts, dict)
+        else None
+    )
+    if not geometry:
+        if geometry_changed:
+            derived_context.pop("soilgrids_water", None)
+        return False
+    if not geometry_changed and mushroom_soilgrids.context_is_current(
+        previous_soilgrids, geometry
+    ):
+        mushroom_soilgrids.apply_micro_area_context(row, previous_soilgrids)
+        return False
+    context = mushroom_soilgrids.resolve_geometry_context(
+        cache_root or mushroom_soilgrids.default_cache_root(),
+        geometry,
+        ensure_missing=ensure_missing,
+    )
+    mushroom_soilgrids.apply_micro_area_context(row, context)
+    return True
+
+
 def catalog_form_labels(form: dict[str, list[str]]) -> dict[str, str]:
     return {language: catalog_form_string(form, f"label_{language}") for language in ("es", "ca", "en")}
 
@@ -11994,6 +12038,7 @@ def available_predictor_executors(
                     "display_name": str(payload.get("display_name", worker_id)),
                     "worker_id": worker_id,
                     "worker_version": str(payload.get("worker_version", "")),
+                    "capabilities": list(payload.get("capabilities", [])),
                     "cache": dict(payload.get("predictor_cache", {})),
                 }
             )
@@ -12312,7 +12357,7 @@ def predictor_launch_script() -> str:
         if (!running || !currentJobId || cancelled) return;
         cancelButton.disabled = true;
         try {
-          const response = await fetch("./predictor/jobs/cancel", {
+          const response = await fetch("./mushrooms/predictor/jobs/cancel", {
             method: "POST",
             headers: { Accept: "application/json", "Content-Type": "application/json" },
             cache: "no-store",
@@ -12460,6 +12505,28 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         parsed_target_date,
         today=current_date,
     )
+    multiversion_selection = []
+    multiversion_tokens = list(query.get("mv", []))
+    selected_versions = list(query.get("mvv", []))
+    if selected_versions:
+        multiversion_tokens = mushroom_predictor_ui.multiversion_tokens_for_versions(
+            species, selected_versions
+        )
+    for token in multiversion_tokens:
+        try:
+            parsed = mushroom_ml_model_catalog.parse_selection_token(token)
+        except ValueError as exc:
+            raise ValueError("The multiversion model selection is invalid.") from exc
+        parsed.pop("token", None)
+        multiversion_selection.append(parsed)
+    if (
+        multiversion_selection
+        and mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY
+        not in set(worker.get("capabilities") or [])
+    ):
+        raise ValueError(
+            "The selected worker does not support multiversion prediction."
+        )
     request = {
         "schema_version": PREDICTOR_SCHEMA_VERSION,
         "kind": PREDICTOR_REQUEST_KIND,
@@ -12469,6 +12536,7 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         "target_date": target_date.isoformat(),
         "filter_mode": (query.get("filter") or [""])[0],
         "compare_models": (query.get("compare") or [""])[0] == "1",
+        "multiversion_selection": multiversion_selection,
         "issue_date": min(current_date, target_date).isoformat(),
         "trained_species_ids": trained,
     }
@@ -12497,7 +12565,13 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
 
 
 def resolve_mushroom_predictor_runtime_download(
-    *, job_id: str, logical_path: str, worker_id: str, claim_token: str, auth_token: str
+    *,
+    job_id: str,
+    logical_path: str,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+    manifest_only: bool = False,
 ) -> tuple[int, Path | dict[str, object]]:
     if not authenticate_mushroom_worker(worker_id, auth_token):
         return 401, {"ok": False, "error": "Worker authentication failed."}
@@ -12512,6 +12586,8 @@ def resolve_mushroom_predictor_runtime_download(
         current, sources = mushroom_predictor_runtime.build_manifest()
         if current["fingerprint"] != assigned["fingerprint"]:
             raise ValueError("Live predictor runtime changed; retry the prediction.")
+        if manifest_only:
+            return 200, assigned
         return 200, mushroom_predictor_runtime.resolve_source(assigned, sources, logical_path)
     except (FileNotFoundError, ValueError) as exc:
         return 409, {"ok": False, "error": str(exc)}
@@ -12979,6 +13055,144 @@ def start_mushroom_ml_train_job(
     return 202, {"ok": True, "preparing": True}
 
 
+def create_mushroom_ml_multiversion_job(
+    worker_id: str,
+    *,
+    triggered_by_job_id: str = "",
+) -> tuple[int, dict[str, object]]:
+    worker = next(
+        (
+            row for row in registered_mushroom_worker_statuses()
+            if row.get("reachable")
+            and isinstance(row.get("payload"), dict)
+            and str(row["payload"].get("worker_id", "")) == worker_id
+        ),
+        None,
+    )
+    if worker is None:
+        return 409, {"ok": False, "error": "The selected worker is not connected."}
+    worker_payload = worker.get("payload") or {}
+    if mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY not in set(
+        worker_payload.get("capabilities", [])
+        if isinstance(worker_payload.get("capabilities"), list)
+        else []
+    ):
+        return 409, {"ok": False, "error": "The selected worker cannot train V2--V6 comparison models."}
+    job_id = f"worker_job_{secrets.token_urlsafe(12)}"
+    bundle_dir = mushroom_worker_input_bundles_path() / job_id
+    try:
+        data_root = mushroom_paths.mushroom_data_dir().parent
+        snapshot_root = data_root / "audits" / "mushroom-ml-snapshot-20260816"
+        v5_root = data_root / "audits" / "mushroom-ml-v5-raw-discovery-20260816"
+        v6_root = data_root / "audits" / "mushroom-ml-v6-smooth-hierarchical-20260816"
+        sources = {
+            "registry.json": mushroom_paths.mushroom_ml_version_registry_path(),
+            "v3-fixed.json": snapshot_root / "biology-v3-fixed.json",
+            "v3-lag.json": snapshot_root / "biology-v3-lag.json",
+            "v4-fixed.json": snapshot_root / "biology-v4-fixed.json",
+            "v4-lag.json": snapshot_root / "biology-v4-lag.json",
+            "v5-fixed.json": v5_root / "biology-v5-fixed.json",
+            "v5-lag.json": v5_root / "biology-v5-lag.json",
+            "v2-v5-heldout.jsonl": v5_root / "heldout-predictions.jsonl",
+            "v6-heldout.jsonl": v6_root / "heldout-predictions.jsonl",
+        }
+        missing = [str(path) for path in sources.values() if not path.is_file()]
+        if missing:
+            raise FileNotFoundError(f"Canonical multiversion input is missing: {missing[0]}")
+        snapshot_manifest = snapshot_root / "MANIFEST.json"
+        snapshot_id = "sha256:" + hashlib.sha256(snapshot_manifest.read_bytes()).hexdigest()
+        batch_id = "local_v2_v6_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        v3_payload = json.loads(sources["v3-fixed.json"].read_text(encoding="utf-8"))
+        species_ids = sorted(
+            {
+                str(row["metadata"].get("species_id"))
+                for row in v3_payload.get("samples", [])
+                if isinstance(row, dict)
+                and isinstance(row.get("metadata"), dict)
+                and row["metadata"].get("species_id")
+            }
+        )
+        registry = json.loads(sources["registry.json"].read_text(encoding="utf-8"))
+        generation_ids = {
+            str(row["version_id"]): f"{row['version_id']}_{batch_id}"
+            for row in registry.get("versions", [])
+            if isinstance(row, dict) and row.get("version_id")
+        }
+        spec = {
+            "schema_version": "1.0",
+            "kind": "mushroom_ml_multiversion_job",
+            "job_id": job_id,
+            "snapshot_id": snapshot_id,
+            "batch_id": batch_id,
+            "registry_path": "registry.json",
+            "generation_ids": generation_ids,
+            "species_ids": species_ids,
+            "inputs": {
+                "v3_fixed": "v3-fixed.json", "v3_lag": "v3-lag.json",
+                "v4_fixed": "v4-fixed.json", "v4_lag": "v4-lag.json",
+                "v5_fixed": "v5-fixed.json", "v5_lag": "v5-lag.json",
+                "v2_v5_heldout": "v2-v5-heldout.jsonl",
+                "v6_heldout": "v6-heldout.jsonl",
+            },
+            "operational_candidate_trained": False,
+        }
+        bundle_dir.mkdir(parents=True, exist_ok=False)
+        (bundle_dir / "job_spec.json").write_text(
+            json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        for logical_path, source in sources.items():
+            destination = bundle_dir / logical_path
+            try:
+                os.link(source, destination)
+            except OSError:
+                shutil.copy2(source, destination)
+        files = []
+        for path in sorted(bundle_dir.iterdir()):
+            content_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            files.append({"path": path.name, "size_bytes": path.stat().st_size, "sha256": content_digest})
+        bundle_digest = "sha256:" + hashlib.sha256(
+            json.dumps(files, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        payload = worker_payload
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.create_ml_multiversion_job(
+                mushroom_worker_jobs_path(),
+                worker_id=worker_id,
+                worker_display_name=str(payload.get("display_name", worker_id)),
+                input_bundle={"job_id": job_id, "bundle_digest": bundle_digest, "files": files},
+                job_id=job_id,
+                triggered_by_job_id=triggered_by_job_id,
+            )
+    except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        shutil.rmtree(bundle_dir, ignore_errors=True)
+        return 400, {"ok": False, "error": str(exc)}
+    return 201, {"ok": True, "job": job}
+
+
+def start_mushroom_ml_multiversion_job(
+    worker_id: str,
+    *,
+    triggered_by_job_id: str = "",
+) -> tuple[int, dict[str, object]]:
+    if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
+        return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
+
+    def prepare() -> None:
+        try:
+            status, response = create_mushroom_ml_multiversion_job(
+                worker_id, triggered_by_job_id=triggered_by_job_id
+            )
+            if status != 201:
+                set_mushroom_workers_flash(str(response.get("error", "Cannot queue V2--V6 training.")), error=True)
+        except BaseException as exc:
+            set_mushroom_workers_flash(f"Cannot prepare V2--V6 inputs: {exc}", error=True)
+        finally:
+            MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+
+    threading.Thread(target=prepare, daemon=True, name="rainmapper-worker-v2-v6-preparation").start()
+    return 202, {"ok": True, "preparing": True}
+
+
 def start_mushroom_worker_candidate_rebuild(
     worker_id: str,
     *,
@@ -13133,6 +13347,24 @@ def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, objec
     return 202, {"ok": True, "job": job, "promoting": True}
 
 
+def mushroom_worker_job_wire_payload(job: object) -> object:
+    """Keep worker control responses bounded; large runtime manifests use their GET endpoint."""
+    if not isinstance(job, dict):
+        return job
+    payload = dict(job)
+    manifest = payload.pop("runtime_manifest", None)
+    if payload.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR and isinstance(manifest, dict):
+        files = manifest.get("files")
+        payload["runtime_manifest_ref"] = {
+            "schema_version": manifest.get("schema_version"),
+            "kind": manifest.get("kind"),
+            "fingerprint": manifest.get("fingerprint"),
+            "size_bytes": manifest.get("size_bytes", 0),
+            "file_count": len(files) if isinstance(files, list) else 0,
+        }
+    return payload
+
+
 def claim_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
         return 404, {"ok": False, "error": "Worker API is not enabled."}
@@ -13149,7 +13381,7 @@ def claim_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple
             )
     except ValueError as exc:
         return 400, {"ok": False, "error": str(exc)}
-    return 200, {"ok": True, "job": job}
+    return 200, {"ok": True, "job": mushroom_worker_job_wire_payload(job)}
 
 
 def start_claimed_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
@@ -13170,7 +13402,7 @@ def start_claimed_mushroom_worker_job(payload: object, *, auth_token: str = "") 
             )
     except ValueError as exc:
         return 409, {"ok": False, "error": str(exc)}
-    return 200, {"ok": True, "job": job}
+    return 200, {"ok": True, "job": mushroom_worker_job_wire_payload(job)}
 
 
 def control_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
@@ -13193,7 +13425,7 @@ def control_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tup
         return 409, {"ok": False, "error": str(exc)}
     return 200, {
         "ok": True,
-        "job": job,
+        "job": mushroom_worker_job_wire_payload(job),
         "cancel_requested": job.get("status") == "cancel_requested",
         "force_cancel_requested": (
             job.get("status") == "cancel_requested" and job.get("cancel_mode") == "force"
@@ -13222,7 +13454,7 @@ def progress_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tu
             )
     except (TypeError, ValueError) as exc:
         return 409, {"ok": False, "error": str(exc)}
-    return 200, {"ok": True, "job": job}
+    return 200, {"ok": True, "job": mushroom_worker_job_wire_payload(job)}
 
 
 def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
@@ -13315,6 +13547,21 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     + str(training_response.get("error", "unknown error")),
                     error=True,
                 )
+        if (
+            current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_TRAIN
+            and str(payload.get("status", "")) == "complete"
+            and bool(current_job.get("triggered_by_job_id"))
+        ):
+            comparison_status, comparison_response = start_mushroom_ml_multiversion_job(
+                worker_id,
+                triggered_by_job_id=str(job.get("job_id", "")),
+            )
+            if comparison_status != 202:
+                set_mushroom_workers_flash(
+                    "Operational V2 training completed, but V2--V6 comparison training could not be queued: "
+                    + str(comparison_response.get("error", "unknown error")),
+                    error=True,
+                )
         if current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
             monitor = MUSHROOM_PREDICTOR_MONITORS.get(str(job.get("job_id", "")))
             if monitor is not None:
@@ -13333,7 +13580,7 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
     response_job = dict(job)
     if response_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
         response_job["result"] = {"accepted": True}
-    return 200, {"ok": True, "job": response_job}
+    return 200, {"ok": True, "job": mushroom_worker_job_wire_payload(response_job)}
 
 
 def receive_mushroom_worker_result_file(
@@ -13460,6 +13707,70 @@ def complete_mushroom_ml_train_result(
             mushroom_worker_candidate_results_path(),
             job_id=job_id,
         )
+    except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "verification": verification}
+
+
+def receive_mushroom_ml_multiversion_result_file(
+    *,
+    job_id: str,
+    logical_path: str,
+    content: bytes,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            mushroom_worker_jobs.authorize_ml_multiversion_result_upload(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        result = mushroom_ml_multiversion_transport.receive_result_file(
+            mushroom_worker_candidate_results_path(),
+            job_id=job_id,
+            logical_path=logical_path,
+            content=content,
+        )
+    except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "result": result}
+
+
+def complete_mushroom_ml_multiversion_result(
+    payload: object,
+    *,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Worker result payload must be an object."}
+    worker_id = str(payload.get("worker_id", ""))
+    job_id = str(payload.get("job_id", ""))
+    claim_token = str(payload.get("claim_token", ""))
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            mushroom_worker_jobs.authorize_ml_multiversion_result_upload(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        verification = mushroom_ml_multiversion_transport.finalize_result(
+            mushroom_worker_candidate_results_path(),
+            job_id=job_id,
+            registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+            models_root=mushroom_paths.mushroom_ml_models_dir(),
+        )
+        mushroom_predictor_ui.release_predictor_cache()
     except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {"ok": True, "verification": verification}
@@ -13699,6 +14010,20 @@ def resolve_mushroom_worker_input_download(
             bundle_path = mushroom_worker_input_bundles_path() / job_id / safe_path
             if not bundle_path.is_file():
                 raise FileNotFoundError("ML training input file not found.")
+            return 200, bundle_path
+        if job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION:
+            safe_path = mushroom_worker_transport.safe_relative_path(logical_path)
+            bundle = job.get("input_bundle")
+            declared = {
+                str(row.get("path", ""))
+                for row in (bundle.get("files", []) if isinstance(bundle, dict) else [])
+                if isinstance(row, dict)
+            }
+            if safe_path.as_posix() not in declared:
+                raise ValueError("Requested multiversion input path is not allowed.")
+            bundle_path = mushroom_worker_input_bundles_path() / job_id / safe_path
+            if not bundle_path.is_file():
+                raise FileNotFoundError("Multiversion input file not found.")
             return 200, bundle_path
         metadata = mushroom_worker_transport.load_coordinator_bundle(
             mushroom_worker_input_bundles_path(),
@@ -17387,6 +17712,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return mushroom_worker_results.MAX_RESULT_FILE_BYTES
         if path == "/api/mushrooms/workers/jobs/ml-result-file":
             return mushroom_worker_results.MAX_ML_TRAIN_MODEL_BYTES
+        if path == "/api/mushrooms/workers/jobs/multiversion-result-file":
+            return mushroom_ml_multiversion_transport.MAX_RESULT_FILE_BYTES
         if path == "/api/mushrooms/workers/jobs/finish":
             return MUSHROOM_PREDICTOR_RESULT_MAX_BYTES
         if path == "/mushrooms/predictor/jobs/cancel":
@@ -17758,12 +18085,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 body = f'<h1>{html.escape(page_title)}</h1><div class="catalog-alert error">{html.escape(str(exc))}</div>'
                 self.send_bytes(409, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
                 return
-            params = {key: values[0] for key, values in query.items() if values and key != "job_id"}
+            params = {
+                key: list(values)
+                for key, values in query.items()
+                if values and key != "job_id"
+            }
             job_request = job.get("request")
             if isinstance(job_request, dict) and job_request.get("target_date"):
-                params["date"] = str(job_request["target_date"])
-            params["job_id"] = str(job["job_id"])
-            self.redirect_to("./predictor?" + urlencode(params))
+                params["date"] = [str(job_request["target_date"])]
+            params["job_id"] = [str(job["job_id"])]
+            self.redirect_to("./predictor?" + urlencode(params, doseq=True))
             return
         prepared_response = None
         remote_diagnostic_details: dict[str, object] = {}
@@ -18717,7 +19048,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
                 claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
                 auth_token=worker_token,
+                manifest_only=(query.get("manifest") or [""])[0] == "1",
             )
+            if status == 200 and isinstance(response, dict):
+                self.send_json(200, {"ok": True, "manifest": response})
+                return
             if status != 200 or not isinstance(response, Path):
                 self.send_json(status, response if isinstance(response, dict) else {"ok": False})
                 return
@@ -19058,6 +19393,27 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         if path == "/api/mushrooms/workers/jobs/ml-result-complete":
             worker_token, _device_id = self.auth_credentials()
             status, response = complete_mushroom_ml_train_result(
+                self.read_json_payload(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/multiversion-result-file":
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            status, response = receive_mushroom_ml_multiversion_result_file(
+                job_id=(query.get("job_id") or [""])[0],
+                logical_path=(query.get("file") or [""])[0],
+                content=self.read_request_body(),
+                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/multiversion-result-complete":
+            worker_token, _device_id = self.auth_credentials()
+            status, response = complete_mushroom_ml_multiversion_result(
                 self.read_json_payload(),
                 auth_token=worker_token,
             )
@@ -19546,6 +19902,22 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
+        if action == "run_worker_ml_multiversion":
+            status, response = start_mushroom_ml_multiversion_job(
+                self.form_value(form, "worker_id")
+            )
+            if status != 202:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue V2--V6 comparison training.")),
+                    error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
+                )
+            else:
+                set_mushroom_workers_flash(
+                    "La regeneración comparativa V2--V6 se ha puesto en cola; no modifica V2 operativo.",
+                    clear_when_idle=True,
+                )
+            return "./workers"
         if action == "promote_ml_train_candidate":
             status, response = promote_mushroom_ml_train_candidate_job(
                 self.form_value(form, "job_id")
@@ -19729,6 +20101,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 supplied_report_json = catalog_form_string(working_form, "gis_report_json")
                 supplied_report = json.loads(supplied_report_json) if supplied_report_json else None
                 refresh_micro_area_dem_altitude(row, existing, supplied_report)
+                refresh_micro_area_soilgrids_context(row, existing)
                 set_mushroom_known_sites_gis_preview(None)
                 if existing_index is None:
                     micro_areas.append(row)
@@ -20327,6 +20700,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     micro["derived_context"] = derived_context
                     micro["representative_location"] = derived_context.get("geometry", {}).get("centroid") if isinstance(derived_context.get("geometry"), dict) else {"lat": lat, "lon": lon}
                     refresh_micro_area_dem_altitude(micro, original_micro)
+                    refresh_micro_area_soilgrids_context(micro, original_micro)
                     metadata = micro.get("metadata") if isinstance(micro.get("metadata"), dict) else {}
                     metadata["updated_at"] = datetime.now(UTC).date().isoformat()
                     micro["metadata"] = metadata
@@ -20414,6 +20788,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         "representative_location": derived.get("geometry", {}).get("centroid") if isinstance(derived.get("geometry"), dict) else {"lat": lat, "lon": lon},
                     })
                     refresh_micro_area_dem_altitude(new_micro)
+                    refresh_micro_area_soilgrids_context(new_micro)
                     micro_rows.append(new_micro)
                     sites_payload["micro_areas"] = micro_rows
                     mushroom_known_sites.save_payload(sites_payload)

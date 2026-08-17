@@ -52,6 +52,7 @@ from rainmapper_core.meteoclimatic_history import (
     retain_meteoclimatic_observations,
     update_meteoclimatic_observations,
 )
+from rainmapper_core.meteocat_daily import combine_meteocat_daily_rows
 from rainmapper_core.wind import (
     WIND_COLUMNS,
     compass_to_degrees,
@@ -3055,9 +3056,12 @@ def process_meteocat():                                             # FOR MULTIT
             record_timing(source_timings, 'precipitation_seconds', step_start_time)
 
             step_start_time = start_timing(source_timings, 'merge_seconds')
-            meteocat_df = pd.merge(meteocat_rain_xema, meteocat_conditions_xema.drop_duplicates(),
-                                    on=('Codi Estació','Estació','Data Lectura','Comarca','Municipi','Provincia'),
-                            how='left', indicator=False)
+            # Preserve the union of station/days.  Conditions must not vanish
+            # merely because the precipitation response omitted that date.
+            meteocat_df = combine_meteocat_daily_rows(
+                meteocat_rain_xema,
+                meteocat_conditions_xema.drop_duplicates(),
+            )
             #save_dataframe(meteocat_merge, 'Meteocat_merged_xema.csv',_save_to_csv=True, _save_to_excel=False, _decimal='.')
             #meteocat_df = meteocat_merge
             record_timing(source_timings, 'merge_seconds', step_start_time)

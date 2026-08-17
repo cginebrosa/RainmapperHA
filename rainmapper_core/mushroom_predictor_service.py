@@ -8,15 +8,19 @@ slightly different implementation of the model behaviour.
 from __future__ import annotations
 
 import copy
+import json
 from collections import OrderedDict
 from dataclasses import asdict
 from datetime import date, timedelta
 from pathlib import Path
 from threading import RLock
 from time import monotonic
-from typing import Any, Callable
+from typing import Any, Callable, Mapping, Sequence
 
 from rainmapper_core.mushroom_ml_comparison import MushroomModelComparator
+from rainmapper_core import mushroom_ml_model_catalog
+from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_ml_multiversion_comparison
 from rainmapper_core.mushroom_ml_predictor import MushroomMLPredictor, PredictionResult
 
 
@@ -60,6 +64,31 @@ def normalize_request(payload: object) -> dict[str, Any]:
     target_date = _iso_date(payload.get("target_date"), field="target_date")
     filter_mode = str(payload.get("filter_mode", "") or "").strip()[:40]
     compare_models = payload.get("compare_models") is True
+    raw_selection = payload.get("multiversion_selection", [])
+    if not isinstance(raw_selection, list) or len(raw_selection) > 256:
+        raise PredictorContractError("Multiversion comparison selection is invalid.")
+    multiversion_selection: list[dict[str, Any]] = []
+    for row in raw_selection:
+        if not isinstance(row, dict):
+            raise PredictorContractError("Multiversion comparison member is invalid.")
+        try:
+            horizon_days = int(row.get("horizon_days", 0))
+        except (TypeError, ValueError) as exc:
+            raise PredictorContractError("Comparison horizon is invalid.") from exc
+        normalized_member = {
+            key: str(row.get(key, "") or "").strip()
+            for key in (
+                "version_id",
+                "temporal_contract_id",
+                "profile_id",
+                "estimator_id",
+            )
+        }
+        if not all(normalized_member.values()) or horizon_days not in {1, 2, 3, 7}:
+            raise PredictorContractError("Multiversion comparison member is incomplete.")
+        normalized_member["horizon_days"] = horizon_days
+        if normalized_member not in multiversion_selection:
+            multiversion_selection.append(normalized_member)
     issue_date = _iso_date(
         payload.get("issue_date") or min(date.today(), target_date).isoformat(),
         field="issue_date",
@@ -73,6 +102,7 @@ def normalize_request(payload: object) -> dict[str, Any]:
         "target_date": target_date.isoformat(),
         "filter_mode": filter_mode,
         "compare_models": compare_models,
+        "multiversion_selection": multiversion_selection,
         "issue_date": issue_date.isoformat(),
         "trained_species_ids": species_ids,
     }
@@ -128,12 +158,22 @@ class PredictorService:
         known_sites_path: Path,
         runtime_fingerprint: str,
         profiles_path: Path | None = None,
+        version_registry_path: Path | None = None,
+        runtime_batch_manifest_path: Path | None = None,
     ) -> None:
         self.models_dir = Path(models_dir)
         self.weather_data_dir = Path(weather_data_dir)
         self.features_artifact_path = Path(features_artifact_path)
         self.known_sites_path = Path(known_sites_path)
         self.profiles_path = Path(profiles_path) if profiles_path is not None else None
+        self.version_registry_path = (
+            Path(version_registry_path) if version_registry_path is not None else None
+        )
+        self.runtime_batch_manifest_path = (
+            Path(runtime_batch_manifest_path)
+            if runtime_batch_manifest_path is not None
+            else None
+        )
         self.runtime_fingerprint = str(runtime_fingerprint)
         self._predictors: dict[str, MushroomMLPredictor] = {}
         self._comparators: dict[str, MushroomModelComparator] = {}
@@ -141,6 +181,103 @@ class PredictorService:
             OrderedDict()
         )
         self._lock = RLock()
+
+    def model_catalog(self) -> dict[str, Any]:
+        """Describe catalog and installed batch without claiming absent models."""
+        if self.version_registry_path is None or not self.version_registry_path.is_file():
+            return {"available": False, "reason": "version_registry_missing", "entries": []}
+        try:
+            registry = mushroom_ml_version_registry.load_registry(
+                self.version_registry_path
+            )
+            entries = mushroom_ml_model_catalog.catalog_entries(registry)
+        except (OSError, ValueError) as exc:
+            return {
+                "available": False,
+                "reason": "version_registry_invalid",
+                "message": str(exc),
+                "entries": [],
+            }
+        result: dict[str, Any] = {
+            "available": True,
+            "active_version_id": registry["active_version_id"],
+            "entries": entries,
+            "runtime_batch": None,
+            "installed_artifacts": [],
+        }
+        if (
+            self.runtime_batch_manifest_path is None
+            or not self.runtime_batch_manifest_path.is_file()
+        ):
+            result["runtime_batch_status"] = "not_installed"
+            return result
+        try:
+            batch = mushroom_ml_model_catalog.validate_batch_manifest(
+                registry,
+                json.loads(
+                    self.runtime_batch_manifest_path.read_text(encoding="utf-8")
+                ),
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            result["runtime_batch_status"] = "invalid"
+            result["runtime_batch_error"] = str(exc)
+            return result
+        result["runtime_batch_status"] = "installed"
+        result["runtime_batch"] = {
+            "batch_id": batch["batch_id"],
+            "snapshot_id": batch["snapshot_id"],
+        }
+        result["installed_artifacts"] = [
+            {
+                "artifact_ref": dict(row["artifact_ref"]),
+                "supported_horizons": list(row["supported_horizons"]),
+            }
+            for row in batch["artifacts"]
+        ]
+        return result
+
+    def multiversion_compare(
+        self,
+        *,
+        species_id: str,
+        area_id: str,
+        target_date: date,
+        selections: Sequence[Mapping[str, object]],
+    ) -> dict[str, Any]:
+        if not selections:
+            return {"available": False, "reason": "no_models_selected"}
+        if (
+            self.version_registry_path is None
+            or self.runtime_batch_manifest_path is None
+            or not self.version_registry_path.is_file()
+            or not self.runtime_batch_manifest_path.is_file()
+        ):
+            return {"available": False, "reason": "runtime_batch_not_installed"}
+        try:
+            registry = mushroom_ml_version_registry.load_registry(
+                self.version_registry_path
+            )
+            manifest = json.loads(
+                self.runtime_batch_manifest_path.read_text(encoding="utf-8")
+            )
+            result = mushroom_ml_multiversion_comparison.compare_selection(
+                registry,
+                manifest,
+                selections,
+                species_id=species_id,
+                area_id=area_id,
+                target_date=target_date,
+                models_root=self.models_dir,
+                known_sites_path=self.known_sites_path,
+                weather_data_dir=self.weather_data_dir,
+            )
+            return {"available": True, **result}
+        except (OSError, KeyError, TypeError, ValueError) as exc:
+            return {
+                "available": False,
+                "reason": "multiversion_runtime_error",
+                "message": str(exc),
+            }
 
     def predictor(self, species_id: str) -> MushroomMLPredictor:
         with self._lock:
@@ -176,6 +313,10 @@ class PredictorService:
         normalized = normalize_request(request)
         started = monotonic()
         report = progress or (lambda _percent, _phase, _message: None)
+        if normalized["view"] == "query" and normalized["area_id"]:
+            selected_predictor = self.predictor(normalized["species_id"])
+            if normalized["area_id"] not in selected_predictor.areas_with_species_observations():
+                normalized["area_id"] = ""
         cache_key: tuple[object, ...] = (
             normalized["view"],
             normalized["species_id"],
@@ -185,6 +326,10 @@ class PredictorService:
             normalized["compare_models"],
             normalized["issue_date"],
             tuple(normalized["trained_species_ids"]),
+            tuple(
+                tuple(sorted(row.items()))
+                for row in normalized["multiversion_selection"]
+            ),
         )
         with self._lock:
             cached = self._responses.get(cache_key)
@@ -205,7 +350,10 @@ class PredictorService:
         selected_species = normalized["species_id"]
         target = date.fromisoformat(normalized["target_date"])
         area_id = normalized["area_id"]
-        data: dict[str, Any] = {"species": {}}
+        data: dict[str, Any] = {
+            "species": {},
+            "model_catalog": self.model_catalog(),
+        }
 
         def comparison_for(
             species_id: str,
@@ -332,6 +480,13 @@ class PredictorService:
                 if target.isoformat() not in species_data["model_comparisons"][area_id]:
                     species_data["model_comparisons"][area_id][target.isoformat()] = (
                         comparison_for(selected_species, area_id, target)
+                    )
+                if normalized["compare_models"] and normalized["multiversion_selection"]:
+                    species_data["multiversion_comparison"] = self.multiversion_compare(
+                        species_id=selected_species,
+                        area_id=area_id,
+                        target_date=target,
+                        selections=normalized["multiversion_selection"],
                     )
             else:
                 report(20, "Ranking areas", f"Evaluating {selected_species}.")

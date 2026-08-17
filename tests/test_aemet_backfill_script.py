@@ -47,6 +47,8 @@ class AemetBackfillScriptTests(unittest.TestCase):
                 "prec": "7,5",
                 "tmax": "26,1",
                 "tmin": "14,2",
+                "hrMax": "93",
+                "hrMin": "41",
             },
             {
                 "fecha": "2026-06-20",
@@ -83,6 +85,34 @@ class AemetBackfillScriptTests(unittest.TestCase):
         self.assertEqual(row["Municipi"], "Reus")
         self.assertEqual(row["max_temp_celsius"], 26.1)
         self.assertEqual(row["min_temp_celsius"], 14.2)
+        self.assertEqual(row["max_humidity_percent"], 93.0)
+        self.assertEqual(row["min_humidity_percent"], 41.0)
+
+    def test_build_daily_incremental_keeps_conditions_when_precipitation_is_missing(self):
+        rows = [
+            {
+                "fecha": "2013-09-24",
+                "indicativo": "0092X",
+                "nombre": "BERGA",
+                "provincia": "BARCELONA",
+                "tmax": "24,3",
+                "tmin": "12,5",
+                "hrMax": "90",
+                "hrMin": "54",
+            }
+        ]
+
+        result = aemet_backfill.build_daily_incremental_from_climatology(
+            rows, pd.DataFrame(columns=aemet_backfill.STATION_COLUMNS)
+        )
+
+        self.assertEqual(len(result), 1)
+        row = result.iloc[0]
+        self.assertTrue(pd.isna(row["Total"]))
+        self.assertEqual(row["max_temp_celsius"], 24.3)
+        self.assertEqual(row["min_temp_celsius"], 12.5)
+        self.assertEqual(row["max_humidity_percent"], 90.0)
+        self.assertEqual(row["min_humidity_percent"], 54.0)
 
     def test_merge_station_catalog_preserves_existing_enriched_fields(self):
         inventory = pd.DataFrame(

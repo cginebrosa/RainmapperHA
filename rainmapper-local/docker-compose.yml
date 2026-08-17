@@ -26,12 +26,12 @@ services:
       RAINMAPPER_METEOCLIMATIC_PATTERN: "ESCAT;ESARA;ESCLM"
       RAINMAPPER_IGNORE_STATIONS_TOMAP_FILE: "/rainmapper-data/ignore_stations_tomap.txt"
     volumes:
-      - ../docker-data/Data:/app/Data
-      - ../docker-data/Tomap:/app/Tomap
-      - ../docker-data/Plots:/app/Plots
-      - ../docker-data/PublicData:/app/PublicData
-      - ../docker-data/stations.txt:/app/stations.txt
-      - ../docker-data:/rainmapper-data
+      - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}/Data:/app/Data
+      - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}/Tomap:/app/Tomap
+      - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}/Plots:/app/Plots
+      - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}/PublicData:/app/PublicData
+      - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}/stations.txt:/app/stations.txt
+      - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}:/rainmapper-data
 
   rainmapper-ha-ui:
     build:
@@ -51,7 +51,7 @@ services:
     expose:
       - "8100"
     volumes:
-      - ../docker-data:/share/rainmapper
+      - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}:/share/rainmapper
       - ../mushroom-GIS:/app/mushroom-GIS:ro
       - ../tmp:/app/tmp
       - ./options.local-ha-ui.json:/data/options.json:ro

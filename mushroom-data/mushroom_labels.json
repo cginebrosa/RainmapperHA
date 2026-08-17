@@ -4094,6 +4094,16 @@
     "es": "Usa el último corte meteorológico completo disponible al emitir la consulta e incluye explícitamente el retardo entre la lluvia, el corte y la fecha objetivo.",
     "ca": "Usa l'últim tall meteorològic complet disponible en emetre la consulta i inclou explícitament el retard entre la pluja, el tall i la data objectiu."
   },
+  "ui.predictor_help_model_fixed_gap_7d_altitude_v2": {
+    "en": "Predicts the target date using only weather observed up to exactly seven days earlier. The same blind gap is used in training and prediction.",
+    "es": "Predice la fecha objetivo usando solo meteorología observada hasta exactamente siete días antes. El mismo hueco ciego se usa al entrenar y al predecir.",
+    "ca": "Prediu la data objectiu usant només meteorologia observada fins exactament set dies abans. El mateix buit cec s'usa en entrenar i predir."
+  },
+  "ui.predictor_help_model_lag_event_altitude_v2": {
+    "en": "Uses the latest complete weather cutoff available at issue time and explicitly includes the lag between the rain event, the cutoff and the target date.",
+    "es": "Usa el último corte meteorológico completo disponible al emitir la consulta e incluye explícitamente el retardo entre la lluvia, el corte y la fecha objetivo.",
+    "ca": "Usa l'últim tall meteorològic complet disponible en emetre la consulta i inclou explícitament el retard entre la pluja, el tall i la data objectiu."
+  },
   "ui.predictor_help_weather_cutoff": {
     "en": "Last weather day visible to this contract. No later observation is used to calculate its score.",
     "es": "Último día meteorológico visible para este contrato. No utiliza ninguna observación posterior para calcular su score.",
@@ -4497,5 +4507,65 @@
     "en": "Job abandoned.",
     "es": "Trabajo abandonado.",
     "ca": "Treball abandonat."
+  },
+  "ui.predictor_multiversion_members": {
+    "en": "Models to compare",
+    "es": "Modelos para comparar",
+    "ca": "Models per comparar"
+  },
+  "ui.predictor_multiversion_select_help": {
+    "en": "Select one or more exact members. Each result is shown separately; no average is calculated.",
+    "es": "Selecciona uno o más miembros exactos. Cada resultado se muestra por separado; no se calcula ninguna media.",
+    "ca": "Selecciona un o més membres exactes. Cada resultat es mostra per separat; no es calcula cap mitjana."
+  },
+  "ui.predictor_multiversion_catalog": {
+    "en": "V2–V6 catalogue and availability",
+    "es": "Catálogo V2–V6 y disponibilidad",
+    "ca": "Catàleg V2–V6 i disponibilitat"
+  },
+  "ui.predictor_multiversion_installed": {
+    "en": "installed and comparable",
+    "es": "instalado y comparable",
+    "ca": "instal·lat i comparable"
+  },
+  "ui.predictor_multiversion_not_installed": {
+    "en": "visible, no trained generation installed",
+    "es": "visible, sin generación entrenada instalada",
+    "ca": "visible, sense generació entrenada instal·lada"
+  },
+  "ui.predictor_multiversion_no_models": {
+    "en": "No multiversion model is installed for this species",
+    "es": "No hay ningún modelo multiversión instalado para esta especie",
+    "ca": "No hi ha cap model multiversió instal·lat per a aquesta espècie"
+  },
+  "ui.predictor_multiversion_unavailable": {
+    "en": "The selected multiversion comparison is unavailable.",
+    "es": "La comparación multiversión seleccionada no está disponible.",
+    "ca": "La comparació multiversió seleccionada no està disponible."
+  },
+  "ui.predictor_multiversion_available": {
+    "en": "Available",
+    "es": "Disponible",
+    "ca": "Disponible"
+  },
+  "ui.predictor_multiversion_results": {
+    "en": "V2–V6 member results",
+    "es": "Resultados de los miembros V2–V6",
+    "ca": "Resultats dels membres V2–V6"
+  },
+  "ui.predictor_multiversion_no_ensemble": {
+    "en": "Quality is evaluated before agreement. These probabilities are not averaged and do not change the operational ranking.",
+    "es": "La calidad se evalúa antes que el acuerdo. Estas probabilidades no se promedian ni cambian el ranking operativo.",
+    "ca": "La qualitat s'avalua abans que l'acord. Aquestes probabilitats no es fan una mitjana ni canvien el rànquing operatiu."
+  },
+  "ui.predictor_multiversion_model": {
+    "en": "Version / profile / estimator",
+    "es": "Versión / perfil / estimador",
+    "ca": "Versió / perfil / estimador"
+  },
+  "ui.predictor_multiversion_status": {
+    "en": "Status",
+    "es": "Estado",
+    "ca": "Estat"
   }
 }

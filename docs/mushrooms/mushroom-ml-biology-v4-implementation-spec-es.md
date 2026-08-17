@@ -1,6 +1,12 @@
 # Especificación de Biology V4: agua disponible y continuidad de floradas
 
-Estado: **PLAN TÉCNICO, NO IMPLEMENTADO Y NO OPERATIVO**.
+Estado: **IMPLEMENTACIÓN LOCAL POR FASES; NO OPERATIVO**.
+
+El punto 1 de la fase 1 —contexto estático SoilGrids cacheado por microárea—
+quedó implementado y validado localmente el 2026-08-15. El progreso verificable
+se mantiene en
+[`mushroom-ml-biology-v4-progress-es.md`](mushroom-ml-biology-v4-progress-es.md).
+No hay integración HA/worker, entrenamiento, artefacto ni promoción V4.
 
 Este documento convierte la revisión científica de
 [`literature/fruiting-phenology/`](literature/fruiting-phenology/README.md) en
@@ -16,6 +22,14 @@ V4 no reemplaza todavía a Biology V3. V3 debe permanecer congelado como
 referencia emparejada y sus contratos de lluvia IDW, target, calidad, altitud y
 unidad de observación se heredan sin reinterpretarlos.
 
+V4 se incorporará al registro declarativo
+`mushroom-data/mushroom_ml_version_registry.json`; no reemplazará ni borrará V2
+o V3. Sus benchmarks se compararán mediante el ciclo de vida descrito en
+[`mushroom-ml-version-lifecycle-es.md`](mushroom-ml-version-lifecycle-es.md).
+El paso de `proposed` a `candidate` exigirá implementación y benchmark; el paso
+a `active` exigirá seleccionar una generación de modelos concreta con gates
+superados. Diseñar V4 no cambia por sí solo la versión operativa.
+
 ## Resumen ejecutivo
 
 Biology V4 debe responder a dos carencias concretas:
@@ -28,8 +42,10 @@ Biology V4 debe responder a dos carencias concretas:
 
 Las decisiones de diseño ya cerradas para V4 son:
 
-- la lluvia continúa siendo la serie IDW de todas las microáreas del área; no
-  se reduce a una estación ni al centroide;
+- lluvia, Tmin, Tmax, RHmin y RHmax usan series IDW por microárea y agregación
+  posterior al área; no se reducen a una estación ni al centroide. Para Tmin y
+  Tmax cada lectura se corrige primero a la altitud de la microárea y luego se
+  interpola. La humedad relativa no lleva corrección altitudinal;
 - lluvia, temperatura, humedad relativa y estado hídrico del suelo se
   conservan como variables distintas: ninguna sustituye automáticamente a las
   demás;
@@ -38,6 +54,15 @@ Las decisiones de diseño ya cerradas para V4 son:
 - temperatura y humedad relativa mantienen máximos y mínimos; sus medias se
   materializan si hacen falta para auditoría o para una ecuación física, pero
   no entran directamente en `X`;
+- el histórico oficial conserva observaciones por estación. Los IDW se
+  construyen después, sensibles al corte, al materializar las variables del
+  benchmark o predictor; un backfill no escribe valores interpolados como si
+  fueran observaciones de la fuente;
+- cada IDW combina Meteocat, AEMET, Meteoclimatic y Wunderground cuando la
+  fuente y lectura son elegibles en ese corte. Una estación válida dentro del
+  radio basta para producir valor; cantidad de contribuyentes y distancia son
+  calidad separada. Las reglas visuales de MapLibre —incluido no pintar lluvia
+  formada solo por ceros— no convierten el predictor en ausente;
 - cada observación original continúa siendo una muestra; no se fusiona ni se
   elimina por pertenecer a una misma florada;
 - las floradas y los grupos de validación son de `species_id + area_id`; el
@@ -116,8 +141,8 @@ V4 hereda sin cambios:
 target_contract_id: outing_value_area_v1
 episode_contract_id: area_microarea_evidence_v1
 quality_contract_id: observed_weather_quality_v1
-rainfall_contract_id: daily_rain_idw_radius15km_power2_v1
-area_rainfall_contract_id: area_daily_mean_microarea_idw_v1
+rainfall_contract_id: daily_rain_idw_radius15km_power2_duplicate_zero_v2
+area_rainfall_contract_id: area_daily_mean_microarea_idw_duplicate_zero_v2
 ```
 
 Identificadores propuestos para congelar solo cuando sus fórmulas, fuentes y
@@ -169,11 +194,18 @@ La lluvia mantiene íntegramente los contratos V3:
 
 - IDW diario por cada microárea, radio 15 km y potencia 2;
 - todos los ceros observados participan;
-- ausencias, anomalías, repeticiones positivas suprimidas y estaciones
-  retiradas no participan;
+- un `N/A` cuya causa trazable sea una repetición positiva del día anterior
+  aporta `0 mm`, conforme a la decisión de calidad ya cerrada;
+- otras ausencias, anomalías y estaciones retiradas no participan;
 - media diaria de los IDW disponibles de todas las microáreas configuradas del
   área;
 - sin estación única, sin centroide del área y sin penalizar por red de origen.
+
+Este cambio respecto al primer prototipo queda identificado como
+`daily_rain_idw_radius15km_power2_duplicate_zero_v2` y
+`area_daily_mean_microarea_idw_duplicate_zero_v2`. Calidad conserva por
+separado cuántos días proceden de esa imputación y nunca confunde un ausente
+genérico con lluvia cero.
 
 ### Temperatura y humedad relativa
 
@@ -181,6 +213,13 @@ En la primera versión de V4 reutilizan el selector V2 sensible al corte.
 La temperatura conserva la corrección por altitud; la humedad relativa no se
 corrige por altitud. Sustituirlas por campos espaciales sería un contrato
 posterior y una comparación separada.
+
+Para las series largas necesarias por ET0 y suelo, la estación escogida por el
+selector V2 sigue siendo la primaria. Si un día carece de Tmin o Tmax, se puede
+usar la siguiente estación real a menos de 15 km que supere los mismos gates en
+ese `cutoff_date` y disponga de altitud; su medición se corrige a la altitud del
+área. La fuente diaria queda auditada. No se interpola, no se rellena con medias
+y no se consulta información posterior al corte.
 
 El balance inicial usa la misma temperatura corregida a la altitud
 representativa del área que V2/V3. Corregir una segunda serie a la altitud de
@@ -349,11 +388,12 @@ con `scripts/audit-biology-v4-soilgrids.py`. Los GeoTIFF fueron material
 temporal de auditoría en `/private/tmp`; no se incorporaron al repositorio, HA
 ni M1.
 
-Esto demuestra cobertura para un único horizonte y cuantíl, no valida aún el
-perfil ni el SMI. Faltan los otros cinco intervalos, Q0.05/Q0.95, textura,
-carbono orgánico, densidad y fragmentos gruesos, además del contraste contra
-ICGC. Hasta completarlos, el estado sigue siendo
-`partial_depth_quantile_audit`.
+Esta auditoría 0–5 cm fue posteriormente ampliada: el snapshot del 2026-08-15
+contiene las 54 coberturas de retención (tres tensiones × seis profundidades ×
+tres cuantiles) para 58/58 microáreas. No incluye todavía textura, carbono,
+densidad o fragmentos gruesos. Por ello el primer depósito implementado se
+denomina índice de **tierra fina sin corrección por fragmentos**, nunca
+capacidad total calibrada del suelo.
 
 La European Soil Database v2 ofrece a 1 km clases de capacidad de agua
 disponible, profundidad a roca/capa impermeable, textura y tipo
@@ -596,6 +636,58 @@ no una conclusión de los artículos micológicos. Si dentro de una ecuación
 física se calcula una temperatura media auxiliar, esa media no se expone como
 predictor: `X` recibe el balance o la demanda evaporativa resultante.
 
+#### Decisión cerrada para el contrato inicial — 2026-08-15
+
+El contrato `microarea_climatic_water_balance_v1` usa
+`hargreaves_samani_fao56_temperature_v1`. La elección se apoya en que el
+histórico disponible sí ofrece temperatura mínima/máxima, fecha y latitud, pero
+no radiación y viento homogéneos para todas las redes. Penman-Monteith FAO-56
+continúa siendo la referencia cuando estén disponibles todas sus entradas; no
+se rellenarán radiación o viento inventando climatologías locales.
+
+La implementación sigue las ecuaciones astronómicas FAO-56 para radiación
+extraterrestre diaria y aplica:
+
+```text
+Ra_mm = 0,408 × Ra_MJ_m2_d
+ET0_mm_d = 0,0023 × (Taux + 17,8) × sqrt(Tmax - Tmin) × Ra_mm
+balance_climático_mm_d = lluvia_IDW_mm_d - ET0_mm_d
+```
+
+`Taux = (Tmin + Tmax) / 2` es exclusivamente un término interno de la ecuación;
+no se registra como predictor. La conversión `0,408` es obligatoria: aplicar
+la constante de Hargreaves directamente a `Ra` en MJ/m²/día inflaría ET0 unas
+2,45 veces. Las fuentes de referencia son los capítulos FAO-56 sobre
+[datos meteorológicos](https://www.fao.org/4/X0490E/x0490e06.htm),
+[radiación extraterrestre](https://www.fao.org/4/X0490E/x0490e07.htm) y
+[ET0 con datos limitados](https://www.fao.org/4/X0490E/x0490e08.htm).
+
+La humedad relativa mínima/máxima permanece como entrada predictiva directa de
+V4. Hargreaves-Samani no la consume, pero eso no la desactiva ni la sustituye.
+ET0 y balance son variables derivadas adicionales cuya aportación se decidirá
+en el benchmark emparejado.
+
+Un día sin cualquiera de lluvia IDW, Tmin o Tmax queda ausente, con motivo
+legible; nunca se convierte en cero. Una ventana de balance solo se materializa
+si están presentes todos sus días, evitando comparar sumas parciales con
+soportes temporales distintos. Esta exigencia no elimina la observación: cambia
+su elegibilidad para el bloque `climatic_balance` y conserva la fila y su razón.
+
+La auditoría local reproducible está en
+`biology-v4-climatic-balance-audit-2026-08-15.json`. Sobre 399 filas conservó
+las 399, auditó 362 e identificó 37 sin eje fuente alineado mediante gates V3;
+62 tenían las cuatro ventanas completas, exactamente las elegibles del mismo
+snapshot V3, por lo que el cálculo no añadió pérdidas. No hubo fallos de
+cómputo y el error máximo de cierre fue `4,95e-7 mm`. La ET0 diaria observada
+quedó entre 0,506 y 8,009 mm/día (mediana 4,866). Estas cifras validan unidades,
+cobertura e invariantes, no valor predictivo.
+
+Mientras temperatura sea común al área, el balance es lineal respecto a la
+lluvia: calcularlo sobre la media diaria de los IDW de microárea equivale a
+promediar sus balances diarios. Esto conserva exactamente el contrato de
+lluvia de área V3. El depósito de suelo del punto 3 no es lineal y sí deberá
+calcularse primero por microárea.
+
 ### Depósito de suelo
 
 La forma conceptual, que deberá concretarse y congelarse antes de implementar,
@@ -610,6 +702,57 @@ S[t] = limitar(S[t-1] + lluvia_efectiva[t]
 Cada término debe tener una única semántica y unidad. La implementación debe
 publicar el cierre de masa diario y rechazar estados negativos o superiores a
 la capacidad.
+
+#### Contrato experimental implementado — 2026-08-15
+
+`microarea_soil_water_state_v1` implementa inicialmente
+`bounded_fine_earth_bucket_v1`. Para cada capa SoilGrids calcula:
+
+```text
+capacidad_tierra_fina_mm =
+    (wv0033_mm_m - wv1500_mm_m) × espesor_m
+```
+
+y conserva como variantes explícitas `wv0010-wv1500`, además de los perfiles
+0–30, 0–60 y 0–100 cm. La mediana `Q0.50` es la primera variante computable;
+no se restan cuantiles marginales distintos ni se selecciona aún una variante
+ganadora. La corrección por fragmentos gruesos figura como
+`not_applied_context_unavailable`: deberá versionarse cuando `cfvo` forme parte
+del contexto persistido. Ninguna de estas limitaciones se oculta en `X`.
+
+El paso diario, sin parámetros ajustados, es:
+
+```text
+disponible = S_anterior + lluvia_IDW_microárea
+ET_real = min(ET0, disponible)
+resto = disponible - ET_real
+drenaje = max(0, resto - capacidad)
+S = min(capacidad, resto)
+demanda_no_satisfecha = ET0 - ET_real
+```
+
+Esto conserva masa y acota `S` entre cero y capacidad. No simula todavía
+interceptación forestal, escorrentía, raíces, vegetación o drenaje lateral. Es
+un `uncalibrated_physical_index`, coherente con la literatura como experimento
+pero mucho más sencillo que `medfate`: Karavani et al. usaron capas 0–30 y
+30–150 cm, estructura forestal y distribución de raíces calibrada con sondas.
+
+Cada microárea se simula antes de agregar. El área publica media, mínimo,
+cambio 7/14 días, recarga positiva acumulada 7 días, déficit al corte y secado
+acumulado 7 días. Las microáreas no disponibles siguen presentes en calidad;
+el área usa las disponibles y solo pierde el bloque edáfico cuando ninguna
+tiene un estado válido. Esto no segmenta ni elimina observaciones.
+
+La auditoría `biology-v4-soil-water-state-audit-2026-08-15.json` usa 365 días
+hasta 2026-08-11 y el snapshot combinado de 58 altitudes DEM + 58 contextos
+SoilGrids. En las seis variantes, 45/58 microáreas de 20/28 áreas convergen ya
+con 90 días. Las otras 13, repartidas en ocho áreas, carecen de alguna lluvia o
+ET0 dentro del calentamiento; ninguna variante mostró una no-convergencia real
+con entradas completas. Para `wv0033`, las capacidades de tierra fina fueron
+34,81–55,96 mm en 0–30 cm y 104,11–181,42 mm en 0–100 cm. El resultado valida
+motor, límites, cierre y cobertura actual; no elige profundidad ni demuestra
+valor predictivo. La convergencia deberá repetirse en cada corte histórico del
+benchmark, no generalizarse desde este único día.
 
 La inicialización no puede asumir arbitrariamente suelo seco o saturado. Se
 compararán periodos de calentamiento de 90, 180 y 365 días y se congelará el
@@ -639,6 +782,13 @@ La serie diaria se cachea por microárea, fecha, contrato, hashes de suelo y
 meteorología. El cálculo ordinario añade días incrementalmente; una
 reconstrucción completa debe producir exactamente los mismos estados. Así no se
 recalcula todo el histórico cada vez que se solicita una predicción.
+
+La reconstrucción local ya implementa el primer nivel de esta caché: filtra una
+vez las estaciones a 15 km, materializa por microárea la serie IDW larga y ET0,
+y extrae ventanas exactas para cada corte. La paridad con la reconstrucción
+anterior se verificó por SHA en V3/V4 fixed/lag y en los seis catálogos de
+suelo. La persistencia incremental entre ejecuciones y su invalidación por
+hash siguen perteneciendo a la futura integración operativa.
 
 ### Agregación al área
 
@@ -817,6 +967,13 @@ Se mantienen los dos contratos temporales:
 - `fixed_gap_7d_biology_v4`: vista principal de salida semanal;
 - `lag_event_biology_v4`: diagnóstico en horizontes 1, 2, 3 y 7.
 
+`lag_event` define un solo modelo por especie y estimador. El horizonte forma
+parte de `X`; no crea cuatro modelos independientes. Las métricas y el consenso
+de 1/2/3/7 días se calculan filtrando las predicciones del mismo hold-out del
+modelo completo, sin reentrenar por horizonte. El informe debe declarar este
+método para impedir que una implementación futura multiplique el coste o cambie
+silenciosamente la pregunta científica.
+
 La evaluación mantiene:
 
 - corte cronológico 70/30 por especie;
@@ -928,34 +1085,73 @@ para un depósito de suelo o solo para balance climático.
 
 ### Fase 1 — motor hídrico local
 
-1. implementar contexto estático cacheado por microárea;
-2. implementar balance climático diario;
-3. implementar depósito de suelo solo si la fase 0 lo permite;
-4. añadir quality/metadata y cierre de masa;
-5. ejecutar pruebas sintéticas y con microáreas reales, sin HA ni worker.
+1. implementar contexto estático cacheado por microárea; **completado en local
+   el 2026-08-15**;
+2. implementar balance climático diario; **completado en local el 2026-08-15**;
+3. implementar depósito de suelo solo si la fase 0 lo permite; **motor
+   experimental completado en local el 2026-08-15; selección/calibración
+   permanecen abiertas**;
+4. añadir quality/metadata y cierre de masa; **completado en local el
+   2026-08-15**;
+5. ejecutar pruebas sintéticas y con microáreas reales, sin HA ni worker;
+   **completado en local el 2026-08-15**.
 
 ### Fase 2 — benchmark V4
 
-1. crear registros `fixed_gap` y `lag_event` separados;
+La comparación controlada V2/V3/V4 parte obligatoriamente de una única capa
+meteorológica diaria IDW multifuente. No es válido atribuir a la biología una
+diferencia causada porque V2 use una estación y V3/V4 interpolación. Para la
+comparación, las tres versiones reciben las mismas series de lluvia, Tmin,
+Tmax, RHmin y RHmax, las mismas observaciones, targets, cortes y particiones.
+Cada versión conserva después su transformación propia de esas entradas. La V2
+operativa histórica se reproduce y archiva aparte, sin reescribir su contrato.
+
+1. crear registros `fixed_gap` y `lag_event` separados; **completado**;
 2. conservar todas las observaciones y motivos de elegibilidad por perfil;
-3. materializar las comparaciones por bloques;
+   **completado**;
+3. materializar las comparaciones por bloques; **completado**;
 4. verificar paridad train/inferencia y ausencia de quality en `X`;
-5. generar informe reproducible sin artefacto operativo.
+   **ausencia de fugas cubierta por pruebas y paridad local exacta sobre
+   399/1.596 muestras para core/balance/suelo; paridad de empaquetado operativo
+   pendiente de la futura integración**;
+5. generar informe reproducible sin artefacto operativo; **completado en local
+   el 2026-08-15**.
 
 ### Fase 3 — evaluación científica y estadística
 
-1. ejecutar los seis estimadores sobre filas emparejadas;
-2. comparar por especie, contrato y grupos 7/14;
-3. medir aportación de lluvia 22–30, días lluviosos, balance y suelo;
-4. publicar calibración, Brier, log loss, consenso y soporte;
-5. mantener cada bloque activo, inactivo o experimental según evidencia.
+1. ejecutar los seis estimadores sobre filas emparejadas; **completado para
+   grupos de 7 y 14 días**;
+2. comparar por especie, contrato y grupos 7/14; **completado**;
+3. medir aportación de lluvia 22–30, días lluviosos, balance y suelo; **informe,
+   dirección por especie y perfiles meteorológicos separados completados**;
+4. publicar calibración, Brier, log loss, consenso y soporte; **persistido en el
+   archivo local, no publicado como release**;
+5. mantener cada bloque activo, inactivo o experimental según evidencia;
+   **todas las variantes de suelo permanecen experimentales**.
+
+La comparación genérica V2/V3/V4 se repitió el 2026-08-16 tras reparar el
+histórico y unificar lluvia, Tmin, Tmax, RHmin y RHmax IDW. Usa 350 filas
+`fixed_gap` y 1.400 `lag_event` idénticas por perfil, conserva fuera de la
+intersección todas las filas originales y no escribe modelos. V4 `core`
+reproduce exactamente V3, que actúa como control del procedimiento. Los
+perfiles ampliados muestran efectos por especie: no existe evidencia para
+activar V4 como sustituto universal y no se ha calculado un Brier medio entre
+especies. El consenso y la calidad de los seis algoritmos se detallan en
+`docs/reports/V2_V3_V4_consensus_report001.md`.
 
 ### Fase 4 — continuidad
 
-1. generar secuencias diarias históricas por especie y área;
-2. medir parpadeo del modelo crudo;
+1. generar secuencias diarias históricas por especie y área; **completado para
+   `fixed_gap` y `lag_event` horizontes 1/2/3/7, grupos 7/14 y ventanas ±14
+   días del hold-out**;
+2. medir parpadeo del modelo crudo; **completado para `core` y balance sobre
+   filas idénticas en ambos contratos**;
 3. comprobar cuánto corrige el estado hídrico sin reglas adicionales;
-4. si hace falta, comparar una capa de continuidad aprendida;
+   **completado: el balance reduce la variación y el parpadeo global; el
+   depósito `wv0033_0_30cm` no mejora y queda no seleccionado**;
+4. si hace falta, comparar una capa de continuidad aprendida; **gate no
+   superado: solo 50 etiquetas únicas semanales en las secuencias evaluables;
+   contrato conservado pero desactivado**;
 5. rechazarla si mejora apariencia pero empeora predicción observada.
 
 ### Fase 5 — integración, solo tras nueva decisión
@@ -964,16 +1160,23 @@ Requiere autorización separada y gate superado: empaquetado de datos GIS,
 compatibilidad HA/worker, entrenamiento de candidato, UI, promoción coordinada
 y release. No forma parte del trabajo de diseño o benchmark local de V4.
 
+Evaluación 2026-08-15: **el gate no se supera**. V4 no muestra una mejora de
+Brier consistente frente a V3/V2 por especie y contrato; el balance sí reduce
+parpadeo global, pero el suelo empeora continuidad. `biology_v4` permanece
+`proposed`, sin entrenamiento candidato ni integración. Esta decisión no mata
+la versión: sus contratos, benchmarks, informes y variables se conservan para
+reevaluación.
+
 ## 14. Decisiones pendientes y cómo se resolverán
 
 | Decisión | Quién/base | Criterio |
 | --- | --- | --- |
 | Fuente edáfica suficiente fuera y dentro de Cataluña | Auditoría local de cobertura y metadatos oficiales. | Cobertura real de microáreas, atributos numéricos trazables y licencia. |
 | Conversión de CRAD/profundidad/drenaje a parámetros | Documentación oficial o función de transferencia científica reproducible. | No inventar equivalencias ordinales en milímetros. |
-| Fórmula evaporativa | Ingeniería basada en variables históricas disponibles y referencia validada. | Cobertura, reproducibilidad y error conocido. |
+| Fórmula evaporativa | **Cerrada para V4 inicial:** Hargreaves-Samani con radiación extraterrestre FAO-56 y unidades auditadas. | Reabrir solo si radiación y viento históricos homogéneos permiten comparar Penman-Monteith sobre las mismas filas. |
 | Calentamiento del depósito | Prueba 90/180/365 días. | Convergencia del estado sin usar futuro. |
 | Variables que entran en `X` | Benchmark emparejado. | Brier/calibración/estabilidad por especie y contrato. |
-| Necesidad de continuidad explícita | Métricas de parpadeo después del balance hídrico. | Mejora física sin empeorar predicción observada. |
+| Necesidad de continuidad explícita | **No activada en V4 inicial:** el balance ya reduce la variación; solo existen 50 etiquetas únicas semanales para aprender estados. | Reabrir con más observaciones diarias/episódicas y exigir mejora física sin empeorar Brier o calibración. |
 | Módulo de nieve para *H. marzuolus* | Revisión científica específica y disponibilidad de datos. | No reutilizar el contrato otoñal sin respaldo. |
 
 La implementación puede tomar las decisiones técnicas reproducibles a partir
@@ -996,3 +1199,7 @@ V4 local se considera técnicamente cerrado cuando:
 - no se escribe ni promociona un modelo operativo.
 
 Que una salida parezca micológicamente razonable no sustituye estos gates.
+
+Estos criterios quedaron satisfechos localmente el 2026-08-15. El cierre
+técnico no equivale a candidatura: el gate predictivo falló y V4 permanece no
+operativa.

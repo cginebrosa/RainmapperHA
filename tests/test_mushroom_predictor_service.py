@@ -84,6 +84,34 @@ class PredictorServiceTests(TestCase):
             self.assertEqual(len(prepared.week_window("area_one", date(2026, 8, 9))), 7)
             self.assertEqual(progress[-1], 100)
 
+    def test_query_drops_area_that_does_not_belong_to_selected_species(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            predictor.rank_areas.return_value = [
+                prediction("boletus", "area_one", date(2026, 8, 9))
+            ]
+            service.predictor = Mock(return_value=predictor)
+            comparator = Mock()
+            comparator.compare.return_value = {"interpretation": {"verdict": "uncertain"}}
+            service.comparator = Mock(return_value=comparator)
+
+            response = service.execute(self.request(area_id="area_from_previous_species"))
+
+        self.assertEqual(response["request"]["area_id"], "")
+        self.assertEqual(
+            response["data"]["species"]["boletus"]["areas"], ["area_one"]
+        )
+        predictor.week_window.assert_not_called()
+        predictor.rank_areas.assert_called_once_with(date(2026, 8, 9), only_observed=True)
+
     def test_identical_request_reuses_bounded_response_cache(self) -> None:
         with TemporaryDirectory() as temporary:
             service = PredictorService(

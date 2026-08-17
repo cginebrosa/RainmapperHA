@@ -13,7 +13,9 @@ identificadores siguientes describen el significado de los datos y modelos.
 | `fixed_gap_7d_v1`, `lag_event_v1` | REEMPLAZADO por altitude V2 | Cortes meteorológicos reproducibles y sin fuga temporal. |
 | `fixed_gap_7d_altitude_v2`, `lag_event_altitude_v2` | VIGENTE | Temperatura trasladada de la altitud de estación a la altitud representativa del área. |
 | `fixed_gap_7d_biology_v3`, `lag_event_biology_v3` | BENCHMARK LOCAL, NO OPERATIVO | Observaciones preservadas, targets, IDW de área, separación de calidad y grupos de florada 7/14. |
-| `fixed_gap_7d_biology_v4`, `lag_event_biology_v4` | PROPUESTO, NO IMPLEMENTADO | Memoria de lluvia hasta 30 días, distribución de lluvia, balance climático, estado hídrico del suelo y continuidad auditable. |
+| `fixed_gap_7d_biology_v4`, `lag_event_biology_v4` | PROPUESTO, BENCHMARK LOCAL | Memoria de lluvia hasta 30 días, distribución de lluvia, balance climático, estado hídrico del suelo y continuidad auditable. |
+| `fixed_gap_7d_biology_v5_raw365_v1`, `lag_event_biology_v5_raw365_v1` | PROPUESTO, EXPERIMENTO LOCAL NO OPERATIVO | 365 días causales raw IDW y selección regularizada de variables/retardos. |
+| `fixed_gap_7d_biology_v6_smooth_hierarchical_v1`, `lag_event_biology_v6_smooth_hierarchical_v1` | PROPUESTO, EXPERIMENTO LOCAL NO OPERATIVO | Bases suaves de retardo sobre raw365 y pooling parcial entre especies. |
 
 ## V0 — modelo inicial
 
@@ -82,11 +84,13 @@ amplio que debe comparar sus resultados contra altitude V2 congelado:
 
 La implementación local del 2026-08-13 añade contratos nuevos sin cambiar
 V2: `outing_value_area_v1`, `area_microarea_evidence_v1`,
-`observed_weather_quality_v1` y
-`daily_rain_idw_radius15km_power2_v1`. La lluvia V3 es una serie IDW diaria en
+`observed_weather_quality_v1` y, tras corregir el tratamiento ya acordado de
+duplicados, `daily_rain_idw_radius15km_power2_duplicate_zero_v2`. La lluvia V3 es una serie IDW diaria en
 el punto representativo de cada microárea, radio 15 km y potencia 2. Ausencias,
-errores, repeticiones suprimidas y estaciones retiradas no se convierten en
-cero. El contrato `area_daily_mean_microarea_idw_v1` agrega cada día mediante
+errores y estaciones retiradas no se convierten en cero. Solo un `N/A`
+identificado como repetición positiva del día anterior aporta `0 mm`; se cuenta
+por separado como imputación trazable. El contrato
+`area_daily_mean_microarea_idw_duplicate_zero_v2` agrega cada día mediante
 la media de los IDW disponibles de todas las microáreas configuradas; descarta
 el centroide calculado del área. El modelo acepta esta media como lluvia
 canónica sin penalización ni advertencia por la procedencia de las estaciones.
@@ -126,12 +130,14 @@ microárea futura queda fuera de las tres coberturas, conserva `no_data`.
 
 La especificación vive en
 `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`; hasta que pase sus
-gates permanece en diseño y no sustituye altitude V2.
+gates permanece como candidato de benchmark y no sustituye altitude V2.
 
-## Biology V4 — agua disponible y continuidad, propuesto
+## Biology V4 — agua disponible y continuidad, benchmark local implementado
 
-V4 está documentado pero no implementado. Hereda sin cambios el target, la
-unidad de observación, los grupos especie+área, la lluvia IDW y la separación
+V4 continúa en estado declarativo `proposed` y no es operativo. Ya tiene
+implementados localmente el contexto SoilGrids, el balance climático, el
+depósito edáfico experimental y los dos benchmarks por bloques. Hereda sin cambios el target,
+la unidad de observación, los grupos especie+área, la lluvia IDW y la separación
 `predictive_features`/`quality`/`metadata` de V3.
 
 El cambio propuesto añade:
@@ -150,8 +156,82 @@ se compara sobre filas emparejadas y los seis estimadores reciben la misma `X`
 por especie y contrato. La especificación canónica está en
 `docs/mushrooms/mushroom-ml-biology-v4-implementation-spec-es.md`.
 
+El primer derivado congelado es
+`microarea_climatic_water_balance_v1`, cuya demanda evaporativa usa
+`hargreaves_samani_fao56_temperature_v1`: lluvia del contrato IDW de área,
+Tmin/Tmax corregidas, latitud y fecha. Un hueco no equivale a cero; calidad,
+constantes, series fuente y temperatura media auxiliar quedan fuera de `X`.
+Humedad relativa mínima/máxima continúa como predictor independiente. Este
+contrato está declarado mediante `derived_feature_contract_ids` en el registro
+de versiones, no mediante una condición hardcoded por nombre V4.
+
+El segundo derivado local es `microarea_soil_water_state_v1`. Calcula primero
+un depósito acotado por microárea y después resume al área; conserva como
+variantes los perfiles 0–30/0–60/0–100 cm y capacidad a 10/33 kPa. Su estado es
+`uncalibrated_physical_index`: el contexto actual no incluye corrección `cfvo`
+por fragmentos gruesos ni parámetros forestales calibrados. Las variantes se
+persisten y validan, pero permanecen experimentales hasta la comparación
+emparejada; ninguna se elige por hardcode o intuición.
+
+La entrada térmica diaria conserva como primera opción el selector V2 sensible
+al corte. Si Tmin/Tmax falta en un día, V4 puede usar otra estación real a menos
+de 15 km, elegible en ese mismo corte y corregida a la altitud del área. No
+interpola ni usa el futuro. Esta cobertura elevó las filas con suelo 0–30 cm de
+166 a 191 en `fixed_gap` y de 667 a 765 en `lag_event`, sin borrar las filas que
+siguen incompletas.
+
+La evaluación local emparejada usa los seis estimadores y grupos temporales de
+7 y 14 días. Compara Brier por especie, contrato, algoritmo y bloque; no publica un
+Brier medio entre especies. El balance tiene señal especialmente favorable en
+`lag_event` (30 mejoras frente a 14 empeoramientos en 48 pares
+estimador-especie). El suelo produce resultados mixtos y conserva las seis
+variantes como experimentales. No se escribió ningún modelo.
+
+## Biology V5 raw weather discovery — experimento local no operativo
+
+V5 no reemplaza ni promociona V2/V3/V4. Materializa 365 días causales de
+lluvia, Tmin, Tmax, RHmin y RHmax con el mismo IDW común; una ablación añade
+ET0 y balance climático. Elastic Net y sparse-group logistic reciben los días
+individuales y seleccionan por Brier dentro del train. En `lag_event` hay un
+único ajuste por especie+contrato+estimador+split y los horizontes 1/2/3/7
+filtran las mismas probabilidades hold-out.
+
+El benchmark del 2026-08-16 conserva 8.490 predicciones fila a fila. En 34
+contextos evaluables, el mejor V5 vence dos veces y pierde 32 frente al mejor
+miembro individual V2/V3/V4; las dos victorias corresponden a
+`boletus_edulis`, que solo es evaluable en grupos de 14 días. La ablación sin
+calendario y 25 remuestreos agrupados confirman una selección demasiado densa
+para afirmar ventanas meteorológicas. V5 permanece `proposed`, sin generación,
+modelo ni Predictor operativo. Especificación e informe:
+`docs/mushrooms/mushroom-ml-biology-v5-raw-weather-discovery-spec-es.md` y
+`docs/reports/V2_V3_V4_V5_raw_weather_report001.md`.
+
+## Biology V6 — retardos suaves y pooling parcial
+
+V6 reutiliza los 365 días causales de V5, pero reduce cada canal a diez bases
+B-spline sobre un eje logarítmico de retardo. Compara logística suave por
+especie, coeficientes completamente compartidos y pooling parcial con
+desviaciones específicas más penalizadas.
+
+En 34 comparaciones estrictas contra el mejor miembro V2/V3/V4/V5, V6 gana 4
+y pierde 30. El pooling parcial supera al modelo totalmente compartido con
+frecuencia, pero pierde 19/34 frente al suave por especie. La señal más clara
+es `hygrophorus_latitabundus` en dos comparaciones fixed, con solo cuatro
+observaciones de test. V6 permanece `proposed`, sin generación ni capacidad
+operativa. Especificación e informe:
+`docs/mushrooms/mushroom-ml-biology-v6-smooth-hierarchical-spec-es.md` y
+`docs/reports/V2_V3_V4_V5_V6_smooth_hierarchical_report001.md`.
+
 ## Regla de continuidad
 
 Cada contrato nuevo debe añadir aquí su motivación, entradas, cambio semántico,
 compatibilidad de software, estado y contrato reemplazado. La compactación de
 `active-context.md` nunca debe eliminar esta genealogía.
+
+El estado y las generaciones ya no se deducen de este texto ni se codifican por
+nombre de versión. El registro canónico legible por máquina es
+`mushroom-data/mushroom_ml_version_registry.json`; el procedimiento de
+comparación, retención permanente, promoción y rollback está en
+`docs/mushrooms/mushroom-ml-version-lifecycle-es.md`. V2 deberá seguir
+persistiendo y siendo reejecutable aunque V3, V4 o una versión futura llegue a
+ser operativa.

@@ -1,0 +1,321 @@
+{
+  "schema_version": "1.0",
+  "kind": "mushroom_ml_version_registry",
+  "active_version_id": "altitude_v2",
+  "versions": [
+    {
+      "version_id": "altitude_v2",
+      "display_name": "Altitude V2",
+      "status": "active",
+      "temporal_contract_ids": [
+        "fixed_gap_7d_altitude_v2",
+        "lag_event_altitude_v2"
+      ],
+      "contract_document": "docs/mushrooms/mushroom-ml-contract-versions-es.md",
+      "benchmark_available": true,
+      "operational_prediction_available": true,
+      "catalog_visible": true,
+      "runtime": {
+        "adapter_id": "altitude_v2_runtime_v1",
+        "profiles": [
+          {
+            "profile_id": "common_idw",
+            "display_name": "Altitude V2 common weather",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_altitude_v2",
+              "lag_event_altitude_v2"
+            ],
+            "estimator_ids": [
+              "logistic_regression_reduced_v1",
+              "random_forest_restricted_v1",
+              "extra_trees_restricted_v1",
+              "hist_gradient_boosting_restricted_v1",
+              "knn_distance_v1",
+              "rbf_svm_calibrated_v1"
+            ],
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": true
+          }
+        ]
+      },
+      "known_sites_identity_contract": {
+        "id": "area_weather_location_altitude_v1",
+        "collections": [
+          {
+            "path": "micro_areas",
+            "id_field": "micro_area_id",
+            "group_field": "area_id",
+            "fields": [
+              "micro_area_id",
+              "area_id",
+              "archived",
+              "representative_location.lat",
+              "representative_location.lon",
+              "derived_context.gis_dem.altitude_mean_m"
+            ]
+          }
+        ]
+      },
+      "generations": []
+    },
+    {
+      "version_id": "biology_v3",
+      "display_name": "Biology V3",
+      "status": "candidate",
+      "temporal_contract_ids": [
+        "fixed_gap_7d_biology_v3",
+        "lag_event_biology_v3"
+      ],
+      "contract_document": "docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md",
+      "benchmark_available": true,
+      "operational_prediction_available": false,
+      "catalog_visible": true,
+      "runtime": {
+        "adapter_id": "biology_v3_runtime_v1",
+        "profiles": [
+          {
+            "profile_id": "core",
+            "display_name": "Biology V3 core",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v3",
+              "lag_event_biology_v3"
+            ],
+            "estimator_ids": [
+              "logistic_regression_reduced_v1",
+              "random_forest_restricted_v1",
+              "extra_trees_restricted_v1",
+              "hist_gradient_boosting_restricted_v1",
+              "knn_distance_v1",
+              "rbf_svm_calibrated_v1"
+            ],
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": false
+          }
+        ]
+      },
+      "known_sites_identity_contract": {
+        "id": "area_idw_weather_location_altitude_v1",
+        "collections": [
+          {
+            "path": "micro_areas",
+            "id_field": "micro_area_id",
+            "group_field": "area_id",
+            "fields": [
+              "micro_area_id",
+              "area_id",
+              "archived",
+              "representative_location.lat",
+              "representative_location.lon",
+              "geometry",
+              "derived_context.gis_dem.altitude_mean_m"
+            ]
+          }
+        ]
+      },
+      "generations": []
+    },
+    {
+      "version_id": "biology_v4",
+      "display_name": "Biology V4",
+      "status": "proposed",
+      "temporal_contract_ids": [
+        "fixed_gap_7d_biology_v4",
+        "lag_event_biology_v4"
+      ],
+      "derived_feature_contract_ids": [
+        "microarea_climatic_water_balance_v1",
+        "microarea_soil_water_state_v1"
+      ],
+      "contract_document": "docs/mushrooms/mushroom-ml-biology-v4-implementation-spec-es.md",
+      "benchmark_available": true,
+      "operational_prediction_available": false,
+      "catalog_visible": true,
+      "runtime": {
+        "adapter_id": "biology_v4_runtime_v1",
+        "profiles": [
+          {
+            "profile_id": "extended_weather",
+            "display_name": "Biology V4 extended weather",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v4",
+              "lag_event_biology_v4"
+            ],
+            "estimator_ids": [
+              "logistic_regression_reduced_v1",
+              "random_forest_restricted_v1",
+              "extra_trees_restricted_v1",
+              "hist_gradient_boosting_restricted_v1",
+              "knn_distance_v1",
+              "rbf_svm_calibrated_v1"
+            ],
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": false
+          },
+          {
+            "profile_id": "climatic_balance",
+            "display_name": "Biology V4 climatic balance",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v4",
+              "lag_event_biology_v4"
+            ],
+            "estimator_ids": [
+              "logistic_regression_reduced_v1",
+              "random_forest_restricted_v1",
+              "extra_trees_restricted_v1",
+              "hist_gradient_boosting_restricted_v1",
+              "knn_distance_v1",
+              "rbf_svm_calibrated_v1"
+            ],
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": false
+          }
+        ]
+      },
+      "known_sites_identity_contract": {
+        "id": "area_idw_weather_altitude_soilgrids_v1",
+        "collections": [
+          {
+            "path": "micro_areas",
+            "id_field": "micro_area_id",
+            "group_field": "area_id",
+            "fields": [
+              "micro_area_id",
+              "area_id",
+              "archived",
+              "representative_location.lat",
+              "representative_location.lon",
+              "geometry",
+              "derived_context.gis_dem.altitude_mean_m",
+              "derived_context.soilgrids_water.context_hash"
+            ]
+          }
+        ]
+      },
+      "generations": []
+    },
+    {
+      "version_id": "biology_v5_raw_weather_discovery",
+      "display_name": "Biology V5 Raw Weather Discovery",
+      "status": "proposed",
+      "temporal_contract_ids": [
+        "fixed_gap_7d_biology_v5_raw365_v1",
+        "lag_event_biology_v5_raw365_v1"
+      ],
+      "derived_feature_contract_ids": [
+        "area_daily_raw365_common_idw_v1"
+      ],
+      "contract_document": "docs/mushrooms/mushroom-ml-biology-v5-raw-weather-discovery-spec-es.md",
+      "benchmark_available": true,
+      "operational_prediction_available": false,
+      "catalog_visible": true,
+      "runtime": {
+        "adapter_id": "biology_v5_raw365_runtime_v1",
+        "profiles": [
+          {
+            "profile_id": "raw_primary_no_calendar",
+            "display_name": "Biology V5 raw weather without calendar",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v5_raw365_v1",
+              "lag_event_biology_v5_raw365_v1"
+            ],
+            "estimator_ids": [
+              "elastic_net_logistic_raw365_v1",
+              "sparse_group_logistic_raw365_v1"
+            ],
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": false
+          }
+        ]
+      },
+      "known_sites_identity_contract": {
+        "id": "area_idw_weather_location_altitude_v1",
+        "collections": [
+          {
+            "path": "micro_areas",
+            "id_field": "micro_area_id",
+            "group_field": "area_id",
+            "fields": [
+              "micro_area_id",
+              "area_id",
+              "archived",
+              "representative_location.lat",
+              "representative_location.lon",
+              "geometry",
+              "derived_context.gis_dem.altitude_mean_m"
+            ]
+          }
+        ]
+      },
+      "generations": []
+    },
+    {
+      "version_id": "biology_v6_smooth_hierarchical",
+      "display_name": "Biology V6 Smooth Hierarchical",
+      "status": "proposed",
+      "temporal_contract_ids": [
+        "fixed_gap_7d_biology_v6_smooth_hierarchical_v1",
+        "lag_event_biology_v6_smooth_hierarchical_v1"
+      ],
+      "derived_feature_contract_ids": [
+        "raw365_loglag_bspline10_common_idw_v1",
+        "cross_species_partial_pooling_logistic_v1"
+      ],
+      "contract_document": "docs/mushrooms/mushroom-ml-biology-v6-smooth-hierarchical-spec-es.md",
+      "benchmark_available": true,
+      "operational_prediction_available": false,
+      "catalog_visible": true,
+      "runtime": {
+        "adapter_id": "biology_v6_smooth_runtime_v1",
+        "profiles": [
+          {
+            "profile_id": "smooth_raw",
+            "display_name": "Biology V6 smooth raw weather",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v6_smooth_hierarchical_v1",
+              "lag_event_biology_v6_smooth_hierarchical_v1"
+            ],
+            "estimator_ids": [
+              "smooth_species_logistic_v1",
+              "smooth_shared_logistic_v1",
+              "smooth_partial_pooling_logistic_v1"
+            ],
+            "estimator_scopes": {
+              "smooth_species_logistic_v1": "species",
+              "smooth_shared_logistic_v1": "shared",
+              "smooth_partial_pooling_logistic_v1": "shared"
+            },
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": false
+          }
+        ]
+      },
+      "known_sites_identity_contract": {
+        "id": "area_idw_weather_location_altitude_v1",
+        "collections": [
+          {
+            "path": "micro_areas",
+            "id_field": "micro_area_id",
+            "group_field": "area_id",
+            "fields": [
+              "micro_area_id",
+              "area_id",
+              "archived",
+              "representative_location.lat",
+              "representative_location.lon",
+              "geometry",
+              "derived_context.gis_dem.altitude_mean_m"
+            ]
+          }
+        ]
+      },
+      "generations": []
+    }
+  ],
+  "activation_history": [],
+  "retention_policy": {
+    "versions": "permanent",
+    "benchmark_generations": "permanent",
+    "trained_model_generations": "permanent",
+    "deactivation_action": "change_status_to_reference_never_delete"
+  }
+}

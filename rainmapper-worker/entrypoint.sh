@@ -50,5 +50,11 @@ if [ "$1" = "biology-v3" ]; then
     esac
 fi
 
+if [ "$1" = "ml-multiversion" ]; then
+    shift
+    exec gosu rainmapper-worker:rainmapper-worker \
+        python /app/scripts/run-mushroom-ml-multiversion-job.py "$@"
+fi
+
 exec gosu rainmapper-worker:rainmapper-worker \
     python /app/scripts/run-mushroom-rebuild-job.py "$@"

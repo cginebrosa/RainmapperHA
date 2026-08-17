@@ -24,7 +24,8 @@ from rainmapper_core import mushroom_weather_idw
 TARGET_CONTRACT_ID = "outing_value_area_v1"
 EPISODE_CONTRACT_ID = "area_microarea_evidence_v1"
 QUALITY_CONTRACT_ID = "observed_weather_quality_v1"
-AREA_RAINFALL_CONTRACT_ID = "area_daily_mean_microarea_idw_v1"
+AREA_RAINFALL_CONTRACT_ID = "area_daily_mean_microarea_idw_duplicate_zero_v2"
+AREA_WEATHER_CONTRACT_ID = "area_daily_mean_microarea_weather_idw_v1"
 FIXED_GAP_7D_BIOLOGY_V3_ID = "fixed_gap_7d_biology_v3"
 LAG_EVENT_BIOLOGY_V3_ID = "lag_event_biology_v3"
 
@@ -83,6 +84,8 @@ class MicroAreaContext:
     lat: float
     lon: float
     location_source: str
+    altitude_m: float | None = None
+    altitude_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -204,21 +207,23 @@ _SHARED_FIELDS = (
     _field("rain_observed_days_21", "quality", "quality_only", "Available area-IDW rain days in 21 days."),
     _field("rain_missing_days_21", "quality", "quality_only", "Missing area-IDW rain days in 21 days."),
     _field("rain_suppressed_days_21", "quality", "quality_only", "Days with at least one suppressed gauge in 21 days."),
+    _field("rain_imputed_duplicate_zero_days_21", "quality", "quality_only", "Days using at least one repeated-positive-as-zero gauge in 21 days."),
     _field("rain_observed_days_90", "quality", "quality_only", "Available area-IDW rain days in 90 days."),
     _field("rain_missing_days_90", "quality", "quality_only", "Missing area-IDW rain days in 90 days."),
     _field("rain_suppressed_days_90", "quality", "quality_only", "Days with at least one suppressed gauge in 90 days."),
+    _field("rain_imputed_duplicate_zero_days_90", "quality", "quality_only", "Days using at least one repeated-positive-as-zero gauge in 90 days."),
     _field("dry_spell_is_censored", "quality", "quality_only", "Dry run ended at missing data or the lookback boundary."),
     _field("temp_observed_days_after_significant_rain", "quality", "quality_only", "Temperature support after a found event."),
     _field("humidity_observed_days_after_significant_rain", "quality", "quality_only", "Humidity support after a found event."),
-    _field("temperature_observed_days_21", "quality", "quality_only", "Complete temperature days at the selected station."),
-    _field("humidity_observed_days_21", "quality", "quality_only", "Complete humidity days at the selected station."),
+    _field("temperature_observed_days_21", "quality", "quality_only", "Complete area-IDW Tmin/Tmax days."),
+    _field("humidity_observed_days_21", "quality", "quality_only", "Complete area-IDW RHmin/RHmax days."),
     _field("daily_series_aligned", "quality", "quality_only", "Rain dates and values share one axis."),
     _field("enough_history", "quality", "quality_only", "Ninety cutoff-relative days are materialized."),
     _field("rain_event_search_complete", "quality", "quality_only", "The rain-event search covers the full lookback."),
     _field("significant_rain_search_complete", "quality", "quality_only", "The significant-event search covers the full lookback."),
     _field("significant_rain_found_90d", "quality", "quality_only", "A 5 mm event was found; retained outside X."),
     _field("temperature_altitude_correction_available", "quality", "quality_only", "Both station and area altitude are available."),
-    _field("station_quality_eligible", "quality", "quality_only", "The cutoff-sensitive V2 station selector found a candidate."),
+    _field("weather_idw_eligible", "quality", "quality_only", "All four area-IDW weather channels satisfy the cutoff contract."),
     _field("training_eligible", "quality", "quality_only", "All data-quality and required-feature gates passed."),
     _field("training_exclusion_reasons", "quality", "quality_only", "Stable human-readable gate failures."),
     _field("observation_id", "metadata", "metadata_only", "Original observation identity."),
@@ -228,7 +233,7 @@ _SHARED_FIELDS = (
     _field("target_date", "metadata", "metadata_only", "Observation target date."),
     _field("cutoff_date", "metadata", "metadata_only", "Last meteorological day visible to the sample."),
     _field("horizon_days", "metadata", "metadata_only", "Prediction horizon retained outside X for fixed-gap samples."),
-    _field("selected_station", "metadata", "metadata_only", "Cutoff-sensitive temperature/humidity station audit."),
+    _field("weather_idw", "metadata", "metadata_only", "Multisource IDW contract and daily spatial support audit."),
     _field("weather_series", "metadata", "metadata_only", "Aligned daily source series retained for later comparisons."),
     _field("area_altitude_source", "metadata", "metadata_only", "Auditable source of representative area altitude."),
     _field("validation_group_7d", "metadata", "metadata_only", "Short-fruiting validation group; observations remain separate."),
@@ -450,12 +455,21 @@ def load_micro_area_contexts(path: Path) -> dict[str, MicroAreaContext]:
         if not micro_area_id or not area_id or location is None:
             continue
         lat, lon, source = location
+        derived = row.get("derived_context")
+        gis_dem = derived.get("gis_dem") if isinstance(derived, Mapping) else None
+        altitude = (
+            _float_or_none(gis_dem.get("altitude_mean_m"))
+            if isinstance(gis_dem, Mapping)
+            else None
+        )
         result[micro_area_id] = MicroAreaContext(
             micro_area_id=micro_area_id,
             area_id=area_id,
             lat=lat,
             lon=lon,
             location_source=source,
+            altitude_m=altitude,
+            altitude_source=("derived_context.gis_dem.altitude_mean_m" if altitude is not None else None),
         )
     return result
 
@@ -551,10 +565,11 @@ def materialize_microarea_rainfall(
             continue
         key = (micro_area_id, observed_day)
         if key not in cache:
-            cache[key] = mushroom_weather_idw.build_daily_rain_idw_series(
+            cache[key] = mushroom_weather_idw.build_daily_weather_idw_series(
                 stations,
                 target_lat=context.lat,
                 target_lon=context.lon,
+                target_altitude_m=context.altitude_m,
                 end_day=observed_day,
                 days=series_days,
                 excluded_station_keys=excluded_station_keys,
@@ -586,6 +601,7 @@ def aggregate_area_rainfall_series(
     reference_dates: list[str] | None = None
     values_by_microarea: dict[str, list[float | None]] = {}
     suppressed_by_microarea: dict[str, list[int]] = {}
+    imputed_duplicate_zero_by_microarea: dict[str, list[int]] = {}
     for micro_area_id, series in sorted(microarea_series.items()):
         dates = [str(value) for value in series.get("daily_dates", [])]
         raw_values = list(series.get("daily_rain_idw_mm", []))
@@ -604,6 +620,14 @@ def aggregate_area_rainfall_series(
             if len(raw_suppressed) == len(raw_values)
             else [0] * len(raw_values)
         )
+        raw_imputed = list(
+            series.get("daily_rain_imputed_duplicate_zero_station_count", [])
+        )
+        imputed_duplicate_zero_by_microarea[micro_area_id] = (
+            [int(value or 0) for value in raw_imputed]
+            if len(raw_imputed) == len(raw_values)
+            else [0] * len(raw_values)
+        )
 
     daily_mean: list[float | None] = []
     daily_available: list[int] = []
@@ -611,6 +635,7 @@ def aggregate_area_rainfall_series(
     daily_max: list[float | None] = []
     daily_spread: list[float | None] = []
     daily_suppressed_station_count: list[int] = []
+    daily_imputed_duplicate_zero_station_count: list[int] = []
     for index in range(len(reference_dates or [])):
         values = [
             row[index] for row in values_by_microarea.values() if row[index] is not None
@@ -618,6 +643,9 @@ def aggregate_area_rainfall_series(
         daily_available.append(len(values))
         daily_suppressed_station_count.append(
             sum(row[index] for row in suppressed_by_microarea.values())
+        )
+        daily_imputed_duplicate_zero_station_count.append(
+            sum(row[index] for row in imputed_duplicate_zero_by_microarea.values())
         )
         if not values:
             daily_mean.append(None)
@@ -632,9 +660,11 @@ def aggregate_area_rainfall_series(
         daily_max.append(maximum)
         daily_spread.append(maximum - minimum)
 
-    return {
+    result: dict[str, object] = {
         "area_rainfall_contract_id": AREA_RAINFALL_CONTRACT_ID,
+        "area_weather_contract_id": AREA_WEATHER_CONTRACT_ID,
         "source_rainfall_contract_id": mushroom_weather_idw.RAINFALL_IDW_CONTRACT_ID,
+        "source_weather_contract_id": mushroom_weather_idw.WEATHER_IDW_CONTRACT_ID,
         "daily_dates": reference_dates or [],
         "daily_rain_idw_mean_mm": daily_mean,
         "daily_microareas_available": daily_available,
@@ -643,6 +673,9 @@ def aggregate_area_rainfall_series(
         "daily_microarea_max_mm": daily_max,
         "daily_microarea_spread_mm": daily_spread,
         "daily_rain_suppressed_station_count": daily_suppressed_station_count,
+        "daily_rain_imputed_duplicate_zero_station_count": (
+            daily_imputed_duplicate_zero_station_count
+        ),
         "rain_observed_days": sum(value is not None for value in daily_mean),
         "rain_missing_days": sum(value is None for value in daily_mean),
         "full_microarea_coverage_days": sum(
@@ -652,6 +685,38 @@ def aggregate_area_rainfall_series(
             0 < count < configured for count in daily_available
         ),
     }
+    metric_fields = (
+        ("temp_min", "c"),
+        ("temp_max", "c"),
+        ("humidity_min", "pct"),
+        ("humidity_max", "pct"),
+    )
+    for metric, unit in metric_fields:
+        source_key = f"daily_{metric}_idw_{unit}"
+        area_key = f"daily_{metric}_idw_mean_{unit}"
+        rows_by_microarea: dict[str, list[float | None]] = {}
+        for micro_area_id, series in sorted(microarea_series.items()):
+            raw = list(series.get(source_key, []))
+            if len(raw) != len(reference_dates or []):
+                raw = [None] * len(reference_dates or [])
+            rows_by_microarea[micro_area_id] = [
+                float(value) if value is not None else None for value in raw
+            ]
+        means: list[float | None] = []
+        available_counts: list[int] = []
+        for index in range(len(reference_dates or [])):
+            values = [
+                row[index]
+                for row in rows_by_microarea.values()
+                if row[index] is not None
+            ]
+            available_counts.append(len(values))
+            means.append(statistics.fmean(values) if values else None)
+        result[area_key] = means
+        result[f"daily_{metric}_microareas_available"] = available_counts
+        result[f"{metric}_observed_days"] = sum(value is not None for value in means)
+        result[f"{metric}_missing_days"] = sum(value is None for value in means)
+    return result
 
 
 def biology_v3_feature_registry(feature_set_id: str) -> dict[str, object]:
@@ -755,28 +820,76 @@ def _dry_spell(values: Sequence[float | None]) -> tuple[int | None, bool]:
 def _rainfall_at_cutoff(
     area_rainfall: Mapping[str, object] | None,
     cutoff_day: date,
-) -> tuple[list[float | None], list[int], bool, bool, str | None]:
+) -> tuple[list[float | None], list[int], list[int], bool, bool, str | None]:
     """Return cutoff-relative IDW rain without converting absence to zero."""
     if not isinstance(area_rainfall, Mapping):
-        return [], [], False, False, "area_rainfall_missing"
+        return [], [], [], False, False, "area_rainfall_missing"
     if area_rainfall.get("area_rainfall_contract_id") != AREA_RAINFALL_CONTRACT_ID:
-        return [], [], False, False, "area_rainfall_contract_mismatch"
+        return [], [], [], False, False, "area_rainfall_contract_mismatch"
     raw_dates = list(area_rainfall.get("daily_dates", []))
     raw_values = list(area_rainfall.get("daily_rain_idw_mean_mm", []))
     aligned = len(raw_dates) == len(raw_values)
     if not aligned:
         return [], [], False, False, "area_rainfall_series_unaligned"
     suppressed = list(area_rainfall.get("daily_rain_suppressed_station_count", []))
+    imputed = list(
+        area_rainfall.get("daily_rain_imputed_duplicate_zero_station_count", [])
+    )
     if len(suppressed) != len(raw_values):
         suppressed = [0] * len(raw_values)
-    parsed: list[tuple[date, float | None, int]] = []
-    for raw_day, raw_value, raw_suppressed in zip(
-        raw_dates, raw_values, suppressed, strict=True
+    if len(imputed) != len(raw_values):
+        imputed = [0] * len(raw_values)
+    parsed: list[tuple[date, float | None, int, int]] = []
+    for raw_day, raw_value, raw_suppressed, raw_imputed in zip(
+        raw_dates, raw_values, suppressed, imputed, strict=True
     ):
         day = _parse_observed_day(raw_day)
         if day is None:
-            return [], [], False, False, "area_rainfall_date_invalid"
-        parsed.append((day, _float_or_none(raw_value), int(raw_suppressed or 0)))
+            return [], [], [], False, False, "area_rainfall_date_invalid"
+        parsed.append((day, _float_or_none(raw_value), int(raw_suppressed or 0), int(raw_imputed or 0)))
+    ordered = sorted(parsed, key=lambda item: item[0])
+    unique_axis = len({item[0] for item in ordered}) == len(ordered)
+    cutoff_rows = [item for item in ordered if item[0] <= cutoff_day]
+    expected_axis = list(weather_context.date_window(cutoff_day, EVENT_LOOKBACK_DAYS))
+    actual_axis = [item[0] for item in cutoff_rows[-EVENT_LOOKBACK_DAYS:]]
+    enough_history = unique_axis and actual_axis == expected_axis
+    return (
+        [item[1] for item in cutoff_rows],
+        [item[2] for item in cutoff_rows],
+        [item[3] for item in cutoff_rows],
+        unique_axis,
+        enough_history,
+        None,
+    )
+
+
+def _area_weather_metric_at_cutoff(
+    area_weather: Mapping[str, object] | None,
+    cutoff_day: date,
+    *,
+    value_key: str,
+    availability_key: str,
+) -> tuple[list[float | None], list[int], bool, bool, str | None]:
+    """Read one area-level IDW metric on the same cutoff-relative axis."""
+    if not isinstance(area_weather, Mapping):
+        return [], [], False, False, "area_weather_missing"
+    if area_weather.get("area_weather_contract_id") != AREA_WEATHER_CONTRACT_ID:
+        return [], [], False, False, "area_weather_contract_mismatch"
+    raw_dates = list(area_weather.get("daily_dates", []))
+    raw_values = list(area_weather.get(value_key, []))
+    raw_availability = list(area_weather.get(availability_key, []))
+    if len(raw_dates) != len(raw_values):
+        return [], [], False, False, "area_weather_series_unaligned"
+    if len(raw_availability) != len(raw_values):
+        raw_availability = [0] * len(raw_values)
+    parsed: list[tuple[date, float | None, int]] = []
+    for raw_day, raw_value, raw_count in zip(
+        raw_dates, raw_values, raw_availability, strict=True
+    ):
+        day = _parse_observed_day(raw_day)
+        if day is None:
+            return [], [], False, False, "area_weather_date_invalid"
+        parsed.append((day, _float_or_none(raw_value), int(raw_count or 0)))
     ordered = sorted(parsed, key=lambda item: item[0])
     unique_axis = len({item[0] for item in ordered}) == len(ordered)
     cutoff_rows = [item for item in ordered if item[0] <= cutoff_day]
@@ -790,8 +903,6 @@ def _rainfall_at_cutoff(
         enough_history,
         None,
     )
-
-
 def _station_series(
     station: weather_context.WeatherStation | None,
     cutoff_day: date,
@@ -946,11 +1057,12 @@ def _build_biology_v3_sample(
 
     rain: list[float | None] = []
     suppressed: list[int] = []
+    imputed_duplicate_zero: list[int] = []
     aligned = False
     enough_history = False
     rainfall_error: str | None = None
     if cutoff_day is not None:
-        rain, suppressed, aligned, enough_history, rainfall_error = _rainfall_at_cutoff(
+        rain, suppressed, imputed_duplicate_zero, aligned, enough_history, rainfall_error = _rainfall_at_cutoff(
             area_rainfall, cutoff_day
         )
     if rainfall_error:
@@ -964,74 +1076,72 @@ def _build_biology_v3_sample(
     rain_90 = rain[-EVENT_LOOKBACK_DAYS:]
     suppressed_21 = suppressed[-21:]
     suppressed_90 = suppressed[-EVENT_LOOKBACK_DAYS:]
+    imputed_duplicate_zero_21 = imputed_duplicate_zero[-21:]
+    imputed_duplicate_zero_90 = imputed_duplicate_zero[-EVENT_LOOKBACK_DAYS:]
     rain_observed_21 = sum(value is not None for value in rain_21)
     rain_observed_90 = sum(value is not None for value in rain_90)
     rain_missing_21 = max(0, 21 - rain_observed_21)
     rain_missing_90 = max(0, EVENT_LOOKBACK_DAYS - rain_observed_90)
     rain_suppressed_21 = sum(value > 0 for value in suppressed_21)
     rain_suppressed_90 = sum(value > 0 for value in suppressed_90)
+    rain_imputed_duplicate_zero_21 = sum(value > 0 for value in imputed_duplicate_zero_21)
+    rain_imputed_duplicate_zero_90 = sum(value > 0 for value in imputed_duplicate_zero_90)
     if rain_observed_21 < weather_context.STATION_RAIN_MIN_DAYS_21:
         reasons.append(_reason("rain_coverage_below_19_of_21", f"Cobertura IDW de lluvia insuficiente: {rain_observed_21}/21 días."))
     if rain_observed_90 < weather_context.STATION_RAIN_MIN_DAYS_90:
         reasons.append(_reason("rain_coverage_below_81_of_90", f"Cobertura IDW de lluvia insuficiente: {rain_observed_90}/90 días."))
 
-    selected_station = None
-    station_distance = None
-    station_rain_coverage = 0
-    station_audit: dict[str, object] = {
-        "candidate_count_within_radius": 0,
-        "selected_station_quality": None,
-    }
-    if area_context is not None and area_context.lat is not None and area_context.lon is not None and cutoff_day is not None:
-        selected_station, station_distance, station_audit = select_cutoff_station_biology_v3(
-            stations,
-            lat=area_context.lat,
-            lon=area_context.lon,
-            cutoff_day=cutoff_day,
-            area_altitude_m=area_context.altitude_m,
-        )
-        selected_quality = station_audit.get("selected_station_quality")
-        if isinstance(selected_quality, Mapping):
-            station_rain_coverage = int(selected_quality.get("rain_days_90") or 0)
-    if selected_station is None:
-        if int(station_audit.get("candidate_count_within_radius") or 0) == 0:
-            reasons.append(_reason("no_station_within_15km", "No hay estación de temperatura y humedad dentro de 15 km."))
-        else:
-            candidate_rows = station_audit.get("candidates_considered")
-            quality_eligible_rows = [
-                row
-                for row in candidate_rows or []
-                if isinstance(row, Mapping)
-                and isinstance(row.get("quality"), Mapping)
-                and bool(row["quality"].get("eligible"))
-            ]
-            altitude_blocked = bool(quality_eligible_rows) and all(
-                "station_altitude_missing" in row.get("rejection_reasons", [])
-                or "area_altitude_missing" in row.get("rejection_reasons", [])
-                for row in quality_eligible_rows
-            )
-            if altitude_blocked:
-                reasons.append(_reason("no_cutoff_station_with_altitude", "Ninguna estación con cobertura V2 permite corregir la temperatura por altitud."))
-            else:
-                reasons.append(_reason("no_station_meets_v2_quality_at_cutoff", "Ninguna estación dentro de 15 km supera el selector V2 en la fecha de corte."))
-
     area_altitude = area_context.altitude_m if area_context is not None else None
-    correction_c = altitude_v2.altitude_temperature_correction_c(
-        selected_station.altitude_m if selected_station is not None else None,
-        area_altitude,
+    metric_specs = {
+        "temp_max": ("daily_temp_max_idw_mean_c", "daily_temp_max_microareas_available"),
+        "temp_min": ("daily_temp_min_idw_mean_c", "daily_temp_min_microareas_available"),
+        "humidity_max": ("daily_humidity_max_idw_mean_pct", "daily_humidity_max_microareas_available"),
+        "humidity_min": ("daily_humidity_min_idw_mean_pct", "daily_humidity_min_microareas_available"),
+    }
+    metric_series: dict[str, list[float | None]] = {}
+    metric_availability: dict[str, list[int]] = {}
+    metric_errors: dict[str, str] = {}
+    if cutoff_day is not None:
+        for metric_name, (value_key, availability_key) in metric_specs.items():
+            values, availability, metric_aligned, metric_history, metric_error = _area_weather_metric_at_cutoff(
+                area_rainfall,
+                cutoff_day,
+                value_key=value_key,
+                availability_key=availability_key,
+            )
+            metric_series[metric_name] = values[-EVENT_LOOKBACK_DAYS:]
+            metric_availability[metric_name] = availability[-EVENT_LOOKBACK_DAYS:]
+            if metric_error is not None:
+                metric_errors[metric_name] = metric_error
+            elif not metric_aligned or not metric_history:
+                metric_errors[metric_name] = "area_weather_history_incomplete"
+    for metric_name, error in sorted(metric_errors.items()):
+        reasons.append(_reason(f"{metric_name}_{error}", f"La serie IDW de {metric_name.replace('_', ' ')} no está disponible o no cubre 90 días hasta el corte."))
+    temp_max = metric_series.get("temp_max", [])
+    temp_min = metric_series.get("temp_min", [])
+    humidity_max = metric_series.get("humidity_max", [])
+    humidity_min = metric_series.get("humidity_min", [])
+    temp_mean = [
+        round((float(low) + float(high)) / 2.0, 3)
+        if low is not None and high is not None else None
+        for low, high in zip(temp_min, temp_max)
+    ]
+    humidity_mean = [
+        round((float(low) + float(high)) / 2.0, 3)
+        if low is not None and high is not None else None
+        for low, high in zip(humidity_min, humidity_max)
+    ]
+    correction_available = (
+        area_altitude is not None
+        and area_rainfall is not None
+        and area_rainfall.get("source_weather_contract_id") == mushroom_weather_idw.WEATHER_IDW_CONTRACT_ID
     )
-    correction_available = correction_c is not None
-    if not correction_available:
-        reasons.append(_reason("station_or_area_altitude_missing", "Falta la altitud de la estación o del área para corregir la temperatura."))
-    temp_max, temp_min, temp_mean, humidity_max, humidity_min, humidity_mean = _station_series(
-        selected_station, cutoff_day or date.min, correction_c
-    ) if cutoff_day is not None else ([], [], [], [], [], [])
     temperature_observed_21 = sum(value is not None for value in temp_mean[-21:])
     humidity_observed_21 = sum(value is not None for value in humidity_mean[-21:])
     if temperature_observed_21 < weather_context.STATION_TEMP_MIN_DAYS_21:
-        reasons.append(_reason("temperature_coverage_below_19_of_21", f"Cobertura de temperatura insuficiente: {temperature_observed_21}/21 días."))
+        reasons.append(_reason("temperature_coverage_below_19_of_21", f"Cobertura IDW de temperatura insuficiente: {temperature_observed_21}/21 días."))
     if humidity_observed_21 < weather_context.STATION_HUMIDITY_MIN_DAYS_21:
-        reasons.append(_reason("humidity_coverage_below_19_of_21", f"Cobertura de humedad insuficiente: {humidity_observed_21}/21 días."))
+        reasons.append(_reason("humidity_coverage_below_19_of_21", f"Cobertura IDW de humedad insuficiente: {humidity_observed_21}/21 días."))
 
     rain_age = _last_event_age(rain_90, RAIN_EVENT_THRESHOLD_MM)
     significant_age = _last_event_age(rain_90, SIGNIFICANT_RAIN_THRESHOLD_MM)
@@ -1132,9 +1242,11 @@ def _build_biology_v3_sample(
         "rain_observed_days_21": rain_observed_21,
         "rain_missing_days_21": rain_missing_21,
         "rain_suppressed_days_21": rain_suppressed_21,
+        "rain_imputed_duplicate_zero_days_21": rain_imputed_duplicate_zero_21,
         "rain_observed_days_90": rain_observed_90,
         "rain_missing_days_90": rain_missing_90,
         "rain_suppressed_days_90": rain_suppressed_90,
+        "rain_imputed_duplicate_zero_days_90": rain_imputed_duplicate_zero_90,
         "dry_spell_is_censored": dry_censored,
         "temp_observed_days_after_significant_rain": after_temp_days,
         "humidity_observed_days_after_significant_rain": after_humidity_days,
@@ -1146,16 +1258,9 @@ def _build_biology_v3_sample(
         "significant_rain_search_complete": enough_history,
         "significant_rain_found_90d": significant_found,
         "temperature_altitude_correction_available": correction_available,
-        "station_quality_eligible": selected_station is not None,
+        "weather_idw_eligible": not metric_errors,
         "training_eligible": not reasons,
         "training_exclusion_reasons": reasons,
-    }
-    selected_station_metadata = {
-        "source": selected_station.source if selected_station is not None else None,
-        "station_code": selected_station.station_code if selected_station is not None else None,
-        "distance_km": round(station_distance, 3) if station_distance is not None else None,
-        "rain_coverage_days_90": station_rain_coverage,
-        "selection_audit": station_audit,
     }
     observation_id = str(observation.get("observation_id") or "").strip()
     if not observation_id:
@@ -1172,7 +1277,12 @@ def _build_biology_v3_sample(
         "target_date": target_day.isoformat() if target_day else None,
         "cutoff_date": cutoff_day.isoformat() if cutoff_day else None,
         "horizon_days": horizon_days,
-        "selected_station": selected_station_metadata,
+        "weather_idw": {
+            "contract_id": mushroom_weather_idw.WEATHER_IDW_CONTRACT_ID,
+            "area_contract_id": AREA_WEATHER_CONTRACT_ID,
+            "metric_microareas_available": metric_availability,
+            "errors": metric_errors,
+        },
         "weather_series": {
             "daily_dates": (
                 [day.isoformat() for day in weather_context.date_window(cutoff_day, EVENT_LOOKBACK_DAYS)]
@@ -1180,16 +1290,26 @@ def _build_biology_v3_sample(
             ),
             "daily_area_rain_idw_mean_mm": rain[-EVENT_LOOKBACK_DAYS:],
             "daily_temp_max_corrected_c": temp_max,
+            "daily_temp_min_corrected_c": temp_min,
             "daily_temp_mean_corrected_c": temp_mean,
+            "daily_humidity_max_pct": humidity_max,
+            "daily_humidity_min_pct": humidity_min,
             "daily_humidity_mean_pct": humidity_mean,
         },
-        "temperature_altitude_correction_c": correction_c,
+        "area_representative_location": {
+            "lat": area_context.lat if area_context is not None else None,
+            "lon": area_context.lon if area_context is not None else None,
+            "source": area_context.location_source if area_context is not None else None,
+        },
         "area_altitude_source": (
             area_context.altitude_source if area_context is not None else None
         ),
-        "temperature_contract": "station_temperature_adjusted_to_area_representative_dem_altitude_v1",
+        "temperature_contract": mushroom_weather_idw.WEATHER_IDW_CONTRACT_ID,
+        "humidity_contract": mushroom_weather_idw.WEATHER_IDW_CONTRACT_ID,
         "rainfall_contract_id": mushroom_weather_idw.RAINFALL_IDW_CONTRACT_ID,
         "area_rainfall_contract_id": AREA_RAINFALL_CONTRACT_ID,
+        "weather_idw_contract_id": mushroom_weather_idw.WEATHER_IDW_CONTRACT_ID,
+        "area_weather_contract_id": AREA_WEATHER_CONTRACT_ID,
         "target_contract_id": TARGET_CONTRACT_ID,
         "episode_contract_id": EPISODE_CONTRACT_ID,
         "quality_contract_id": QUALITY_CONTRACT_ID,
@@ -1241,6 +1361,62 @@ def build_fixed_gap_7d_biology_v3(
         area_rainfall=area_rainfall,
         stations=stations,
     )
+
+
+def build_biology_v3_inference_sample(
+    *,
+    species_id: str,
+    area_id: str,
+    target_date: date,
+    horizon_days: int,
+    temporal_contract_id: str,
+    area_context: AreaPredictionContext | None,
+    area_weather: Mapping[str, object] | None,
+    stations: Mapping[tuple[str, str], weather_context.WeatherStation],
+) -> dict[str, object]:
+    """Build a target-free runtime row while retaining every weather gate."""
+    observation = {
+        "observation_id": f"runtime_{species_id}_{area_id}_{target_date.isoformat()}_h{horizon_days}",
+        "species_id": species_id,
+        "area_id": area_id,
+        "observed_at": target_date.isoformat(),
+    }
+    if temporal_contract_id == FIXED_GAP_7D_BIOLOGY_V3_ID:
+        if horizon_days != 7:
+            raise ValueError("Biology V3 fixed inference requires horizon 7")
+        sample = build_fixed_gap_7d_biology_v3(
+            observation,
+            area_context=area_context,
+            area_rainfall=area_weather,
+            stations=stations,
+        )
+    elif temporal_contract_id == LAG_EVENT_BIOLOGY_V3_ID:
+        if horizon_days not in {1, 2, 3, 7}:
+            raise ValueError("Biology V3 lag inference horizon must be 1, 2, 3, or 7")
+        sample = build_lag_event_biology_v3(
+            observation,
+            horizon_days=horizon_days,
+            area_context=area_context,
+            area_rainfall=area_weather,
+            stations=stations,
+        )
+    else:
+        raise ValueError(f"Unknown Biology V3 inference contract: {temporal_contract_id}")
+    quality = dict(sample.get("quality") or {})
+    reasons = [
+        dict(reason)
+        for reason in quality.get("training_exclusion_reasons", [])
+        if isinstance(reason, Mapping) and reason.get("code") != "modeling_target_unknown"
+    ]
+    quality.update(
+        {
+            "inference_eligible": not reasons,
+            "inference_exclusion_reasons": reasons,
+            "target_gate_ignored_for_inference": True,
+        }
+    )
+    sample["quality"] = quality
+    return sample
 
 
 def validate_biology_v3_sample(
@@ -1360,6 +1536,8 @@ def build_biology_v3_benchmark(
         "quality_contract_id": QUALITY_CONTRACT_ID,
         "rainfall_contract_id": mushroom_weather_idw.RAINFALL_IDW_CONTRACT_ID,
         "area_rainfall_contract_id": AREA_RAINFALL_CONTRACT_ID,
+        "weather_idw_contract_id": mushroom_weather_idw.WEATHER_IDW_CONTRACT_ID,
+        "area_weather_contract_id": AREA_WEATHER_CONTRACT_ID,
         "feature_set": biology_v3_feature_registry(feature_set_id),
         "observation_count": len(observations),
         "validation_group_count_7d": len(set(validation_groups_7d)),

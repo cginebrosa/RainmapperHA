@@ -96,6 +96,21 @@ Hay varios entry points segun entorno:
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps y helpers de fuente en `rainmapper_core/sources/`.
 - Relacion: alimenta `rainmapper_core.bokeh_maps` y `rainmapper_core.geojson`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global. Wunderground usa API diaria JSON como fuente primaria y scraper HTML como fallback; el estado de fuente expone `API fallback errors`.
 
+### Autocuración oficial de huecos
+
+- Rutas: `rainmapper_core/weather_official_maintenance.py`,
+  `rainmapper_core/weather_official_repair_state.py`,
+  `rainmapper_core/weather_official_backfill.py` y
+  `scripts/repair-official-weather-history.py`.
+- Responsabilidad: detectar días completos ausentes de AEMET/Meteocat fuera
+  del solape ordinario, persistir una cola durable y reparar primero el
+  histórico particionado y después el CSV vivo.
+- Contrato: bloques máximos de 15 días, backoff 1/2/4/7, máximo un bloque por
+  fuente y runner, cierre automático al recuperarse. El estado degradado es
+  batch y no bloqueante.
+- Estado: implementado y probado solo en local; no forma todavía parte de la
+  instalación HA vigente.
+
 ### Backfill mensual administrativo
 - Rutas: `rainmapper_core/rainmapper.py` y wrappers `run.sh` de HA/local.
 - Responsabilidad: reconstruir historicos por ventanas de meses sin obligar al
@@ -209,7 +224,7 @@ Hay varios entry points segun entorno:
 ### Coordinador y worker externo de setas
 
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
-  HA `0.2.253` contiene el coordinador y el M1 ejecuta worker `1.0.8`, compatible
+  HA `0.2.254` contiene el coordinador y el M1 ejecuta worker `1.0.8`, compatible
   con rebuild y training altitude V2. El
   laboratorio usa el mismo contrato; no existe ni hace falta una imagen HA de
   desarrollo paralela.
@@ -228,14 +243,29 @@ Hay varios entry points segun entorno:
   worker. Su registro canónico está en
   `docs/mushrooms/mushroom-ml-contract-versions-es.md`. La promoción valida no
   solo hashes sino también los identificadores de contrato altitude V2.
-- Biology V3 se construye en módulos independientes y todavía no operativos:
-  `mushroom_weather_idw.py` materializa lluvia diaria canónica por microárea
-  (`daily_rain_idw_radius15km_power2_v1`) y
+- Biology V3/V4 se construye en módulos independientes y todavía no operativos.
+  `mushroom_weather_idw.py` materializa series diarias IDW por microárea para
+  lluvia, Tmin/Tmax y RHmin/RHmax usando las cuatro fuentes; la temperatura se
+  corrige a altitud DEM antes de ponderar. Las series largas se cachean y se
+  cortan en ventanas exactas para benchmark y futuros datasets. Además,
   `mushroom_ml_biology_v3.py` canonicaliza observaciones/episodios y agrega la
   lluvia diaria del área como media de los IDW de todas sus microáreas
-  configuradas (`area_daily_mean_microarea_idw_v1`). El centroide calculado del
+  configuradas (`area_daily_mean_microarea_idw_duplicate_zero_v2`). El centroide calculado del
   área no es entrada meteorológica. Ninguno de estos contratos sustituye
   altitude V2 hasta superar benchmark y promoción explícita.
+- `mushroom_ml_biology_v4.py`, `mushroom_climatic_water_balance.py` y
+  `mushroom_soil_water_state.py` extienden el dataset con memoria meteorológica,
+  balance y estado hídrico experimental. SoilGrids se descarga/cachea por
+  extensión GIS común y sus agregados se materializan en `known_sites`; no se
+  consulta la red durante una predicción.
+- `mushroom_ml_version_registry.py` y `mushroom_ml_input_identity.py` separan
+  versión, generación, estado y compatibilidad. Las versiones se preservan y
+  la identidad nueva es semántica por área; los bundles legacy conservan la
+  validación estricta por hash bruto.
+- `mushroom_ml_biology_v3_evaluation.py` compara cualquier número de versiones
+  sobre filas y particiones idénticas. `lag_event` ajusta un modelo por
+  especie+contrato+estimador; los horizontes 1/2/3/7 filtran las probabilidades
+  del mismo hold-out y nunca provocan reentrenamiento.
 - El GIS de elevación usa una cadena determinista: DEM ICGC Catalunya 5 m como
   principal y MDE oficial de Andorra 5 m como fallback ante ausencia/`NoData`.
   El derivado andorrano operativo está en metros y con EPSG:27563 embebido; se

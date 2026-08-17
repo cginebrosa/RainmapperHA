@@ -11,6 +11,7 @@ from threading import RLock
 from typing import Any
 
 from rainmapper_core import mushroom_observation_context as ctx
+from rainmapper_core import mushroom_ml_input_identity
 from rainmapper_core.mushroom_ml_experiment_trainer import model_filename
 from rainmapper_core.mushroom_ml_experiments import (
     FIXED_GAP_7D_ALTITUDE_V2,
@@ -32,8 +33,27 @@ class MushroomModelComparator:
         self.predictor = predictor
         self.models_dir = Path(models_dir)
         self._bundles: dict[str, dict[str, Any] | None] = {}
+        self._bundle_unavailability: dict[str, dict[str, Any]] = {}
+        self._known_sites_identity_cache: dict[str, dict[str, Any]] = {}
         self._species_profile_cache: dict[str, Any] | None = None
         self._lock = RLock()
+
+    def _exclude_bundle(
+        self,
+        feature_set_id: str,
+        *,
+        reason: str,
+        message: str,
+        **details: Any,
+    ) -> None:
+        """Record why one non-operational comparison bundle cannot be used."""
+        self._bundles[feature_set_id] = None
+        self._bundle_unavailability[feature_set_id] = {
+            "available": False,
+            "reason": reason,
+            "message": message,
+            **details,
+        }
 
     def _bundle(self, feature_set_id: str) -> dict[str, Any] | None:
         with self._lock:
@@ -43,32 +63,144 @@ class MushroomModelComparator:
                 feature_set_id, self.predictor.species_id
             )
             if not path.is_file():
-                self._bundles[feature_set_id] = None
+                self._exclude_bundle(
+                    feature_set_id,
+                    reason="model_not_trained",
+                    message="No trained comparison model is available for this contract.",
+                )
                 return None
             import joblib  # noqa: PLC0415
 
-            bundle = joblib.load(path)
+            try:
+                bundle = joblib.load(path)
+            except Exception as exc:
+                self._exclude_bundle(
+                    feature_set_id,
+                    reason="model_bundle_load_failed",
+                    message="The comparison model could not be loaded and was excluded.",
+                    error_type=type(exc).__name__,
+                )
+                return None
             if (
                 not isinstance(bundle, dict)
                 or bundle.get("kind") != "mushroom_ml_experiment_bundle"
                 or bundle.get("feature_set_id") != feature_set_id
             ):
-                raise ValueError(f"Invalid shadow model bundle: {path}")
-            expected_inputs = {
-                "features_sha256": Path(self.predictor._features_artifact_path),
-                "known_sites_sha256": Path(self.predictor._known_sites_path),
-            }
+                self._exclude_bundle(
+                    feature_set_id,
+                    reason="invalid_model_bundle",
+                    message="The comparison model has an invalid contract and was excluded.",
+                )
+                return None
+            semantic_identity_available = isinstance(
+                bundle.get("known_sites_identity_contract"), dict
+            ) and isinstance(bundle.get("known_sites_area_sha256"), dict) and (
+                bundle.get("training_features_identity_policy")
+                == "artifact_sha256_provenance_only"
+            )
+            expected_inputs: dict[str, Path] = {}
+            if not semantic_identity_available:
+                # Legacy bundles used the whole file hash. New bundles retain
+                # both training-input hashes only as provenance. Runtime
+                # compatibility is instead validated against the feature-set
+                # contract and the known-sites fields that affect this area.
+                expected_inputs = {
+                    "features_sha256": Path(self.predictor._features_artifact_path),
+                    "known_sites_sha256": Path(self.predictor._known_sites_path),
+                }
             for digest_key, source_path in expected_inputs.items():
                 expected = bundle.get(digest_key)
                 if not isinstance(expected, str) or len(expected) != 64:
-                    raise ValueError(f"Shadow model bundle has no input identity: {path}")
+                    self._exclude_bundle(
+                        feature_set_id,
+                        reason="model_input_identity_missing",
+                        message=(
+                            "The comparison model does not declare the identity of "
+                            f"{source_path.name} and was excluded."
+                        ),
+                        input_name=source_path.name,
+                        identity_field=digest_key,
+                    )
+                    return None
+                if not source_path.is_file():
+                    self._exclude_bundle(
+                        feature_set_id,
+                        reason="model_input_missing",
+                        message=(
+                            f"The current {source_path.name} input is missing, so the "
+                            "comparison model was excluded."
+                        ),
+                        input_name=source_path.name,
+                        identity_field=digest_key,
+                    )
+                    return None
                 actual = hashlib.sha256(source_path.read_bytes()).hexdigest()
                 if actual != expected:
-                    raise ValueError(
-                        f"Shadow model bundle does not match current {source_path.name}: {path}"
+                    self._exclude_bundle(
+                        feature_set_id,
+                        reason="model_input_identity_mismatch",
+                        message=(
+                            f"The comparison model was trained with a different "
+                            f"{source_path.name} and was excluded."
+                        ),
+                        input_name=source_path.name,
+                        identity_field=digest_key,
+                        expected_sha256=expected,
+                        actual_sha256=actual,
                     )
+                    return None
             self._bundles[feature_set_id] = bundle
+            self._bundle_unavailability.pop(feature_set_id, None)
             return bundle
+
+    def _area_input_identity(
+        self, bundle: dict[str, Any], area_id: str
+    ) -> dict[str, Any] | None:
+        contract = bundle.get("known_sites_identity_contract")
+        expected_by_area = bundle.get("known_sites_area_sha256")
+        if not isinstance(contract, dict) or not isinstance(expected_by_area, dict):
+            return None
+        cache_key = json.dumps(contract, sort_keys=True, separators=(",", ":"))
+        identity = self._known_sites_identity_cache.get(cache_key)
+        if identity is None:
+            identity = (
+                mushroom_ml_input_identity.known_sites_semantic_identity_from_path(
+                    Path(self.predictor._known_sites_path), contract
+                )
+            )
+            self._known_sites_identity_cache[cache_key] = identity
+        expected = expected_by_area.get(area_id)
+        actual = dict(identity.get("area_sha256") or {}).get(area_id)
+        if expected is None:
+            return {
+                "available": True,
+                "status": "area_not_in_training_snapshot",
+                "message": (
+                    "This area was not present in the training known-sites snapshot; "
+                    "the general model remains available."
+                ),
+                "identity_contract_id": identity.get("contract_id"),
+                "actual_area_sha256": actual,
+            }
+        if actual != expected:
+            return {
+                "available": False,
+                "reason": "model_area_input_identity_mismatch",
+                "message": (
+                    "The comparison model used different prediction-relevant "
+                    "known-sites fields for this area and was excluded."
+                ),
+                "identity_contract_id": identity.get("contract_id"),
+                "expected_area_sha256": expected,
+                "actual_area_sha256": actual,
+            }
+        return {
+            "available": True,
+            "status": "matched",
+            "identity_contract_id": identity.get("contract_id"),
+            "expected_area_sha256": expected,
+            "actual_area_sha256": actual,
+        }
 
     @staticmethod
     def _apply(bundle: dict[str, Any], features: dict[str, float | None]) -> dict[str, Any]:
@@ -320,10 +452,25 @@ class MushroomModelComparator:
         ) in variants:
             bundle = self._bundle(feature_set_id)
             if bundle is None:
-                payload[feature_set_id] = {
-                    "available": False,
-                    "reason": "model_not_trained",
-                }
+                payload[feature_set_id] = dict(
+                    self._bundle_unavailability.get(
+                        feature_set_id,
+                        {
+                            "available": False,
+                            "reason": "model_not_trained",
+                            "message": (
+                                "No trained comparison model is available for this contract."
+                            ),
+                        },
+                    )
+                )
+                continue
+            area_input_identity = self._area_input_identity(bundle, area_id)
+            if (
+                area_input_identity is not None
+                and not area_input_identity.get("available", False)
+            ):
+                payload[feature_set_id] = dict(area_input_identity)
                 continue
             if selected_station is None:
                 station, distance, coverage = ctx.select_station(
@@ -399,6 +546,7 @@ class MushroomModelComparator:
                 "temperature_lapse_rate_c_per_100m": metadata.get("temperature_lapse_rate_c_per_100m"),
                 "weather_coverage_days": coverage,
                 "station_selection": station_audit,
+                "known_sites_input_identity": area_input_identity,
                 "temporal_validation": bundle.get("temporal_validation"),
                 "enough_history": metadata.get("enough_history"),
                 **prediction,

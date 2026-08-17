@@ -200,8 +200,34 @@ def mushroom_ml_models_dir() -> Path:
     return mushroom_data_dir() / "ml_models"
 
 
+def mushroom_ml_runtime_batch_manifest_path() -> Path:
+    configured = os.environ.get(
+        "RAINMAPPER_MUSHROOM_ML_RUNTIME_BATCH_MANIFEST_PATH", ""
+    ).strip()
+    if configured:
+        return Path(configured)
+    return mushroom_ml_models_dir() / "runtime-batch.json"
+
+
 def mushroom_ml_report_json_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_REPORT_PATH", "").strip()
     if configured:
         return Path(configured)
     return mushroom_data_file("mushroom_ml_v0_report.json")
+
+
+def mushroom_ml_version_registry_path() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_VERSION_REGISTRY_PATH", "").strip()
+    if configured:
+        return Path(configured)
+    persistent_path = mushroom_data_file("mushroom_ml_version_registry.json")
+    if persistent_path.exists():
+        return persistent_path
+    return app_mushroom_defaults_dir() / "mushroom_ml_version_registry.json"
+
+
+def mushroom_ml_version_archive_dir() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_VERSION_ARCHIVE_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    return mushroom_data_dir() / "ml_version_archive"

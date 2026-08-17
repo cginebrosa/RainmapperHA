@@ -252,7 +252,21 @@ def build_daily_incremental_from_climatology(rows, station_catalog_df):
         aemet_id = str(row.get("indicativo") or "").strip()
         fecha = str(row.get("fecha") or "").strip()
         total = parse_aemet_precipitation(row.get("prec"))
-        if not aemet_id or not fecha or pd.isna(total):
+        temp_max = parse_optional_float(row.get("tmax"))
+        temp_min = parse_optional_float(row.get("tmin"))
+        humidity_max = parse_optional_float(row.get("hrMax"))
+        humidity_min = parse_optional_float(row.get("hrMin"))
+        if not aemet_id or not fecha:
+            continue
+        # AEMET can publish temperature and humidity for a station/day while
+        # omitting ``prec``.  Rainmapper used to discard the complete day in
+        # that situation and also ignored hrMax/hrMin unconditionally.  Keep
+        # every day with at least one modeled measurement; missing rain stays
+        # missing and is never fabricated as zero.
+        if all(
+            pd.isna(value)
+            for value in (total, temp_max, temp_min, humidity_max, humidity_min)
+        ):
             continue
         try:
             reading_date = parse_yyyymmdd(fecha)
@@ -275,14 +289,14 @@ def build_daily_incremental_from_climatology(rows, station_catalog_df):
                 "Longitud": first_non_empty(station.get("Longitud")),
                 "Ultima Lectura": reading_date.strftime("%Y/%m/%d 23:59:00"),
                 "Variable": "Precipitacion",
-                "Total": round(float(total), 1),
+                "Total": round(float(total), 1) if not pd.isna(total) else pd.NA,
                 "Unitat": "mm",
                 "Data Local": reading_date.strftime("%Y%m%d"),
                 "Hora Local": "23:59:00",
-                "max_temp_celsius": parse_optional_float(row.get("tmax")),
-                "min_temp_celsius": parse_optional_float(row.get("tmin")),
-                "max_humidity_percent": pd.NA,
-                "min_humidity_percent": pd.NA,
+                "max_temp_celsius": temp_max,
+                "min_temp_celsius": temp_min,
+                "max_humidity_percent": humidity_max,
+                "min_humidity_percent": humidity_min,
             }
         )
     if not output:

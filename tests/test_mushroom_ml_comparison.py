@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from copy import deepcopy
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,7 +19,9 @@ from rainmapper_core.mushroom_ml_experiments import (
     build_fixed_gap_7d_altitude_features,
     build_lag_event_altitude_features,
 )
+from rainmapper_core.mushroom_ml_experiment_trainer import model_filename
 from rainmapper_core.mushroom_ml_predictor import PredictionResult
+from rainmapper_core.mushroom_ml_input_identity import known_sites_semantic_identity
 from rainmapper_core.mushroom_observation_context import DailyWeatherRecord, WeatherStation
 
 
@@ -106,7 +110,7 @@ class MushroomModelComparisonTests(TestCase):
             0.84,
         )
 
-    def test_bundle_must_match_current_inputs(self) -> None:
+    def test_stale_comparison_bundle_is_excluded_without_raising(self) -> None:
         import joblib
 
         with TemporaryDirectory() as temporary:
@@ -134,8 +138,204 @@ class MushroomModelComparisonTests(TestCase):
             )
             comparator = MushroomModelComparator(predictor, root)
 
-            with self.assertRaisesRegex(ValueError, "does not match current"):
-                comparator._bundle("fixed_gap_7d_v1")
+            self.assertIsNone(comparator._bundle("fixed_gap_7d_v1"))
+            exclusion = comparator._bundle_unavailability["fixed_gap_7d_v1"]
+            self.assertEqual(exclusion["reason"], "model_input_identity_mismatch")
+            self.assertEqual(exclusion["input_name"], "features.json")
+            self.assertEqual(exclusion["expected_sha256"], "0" * 64)
+            self.assertEqual(len(exclusion["actual_sha256"]), 64)
+
+    def test_missing_comparison_bundle_has_readable_reason(self) -> None:
+        predictor = SimpleNamespace(species_id="boletus")
+        with TemporaryDirectory() as temporary:
+            comparator = MushroomModelComparator(predictor, Path(temporary))
+
+            self.assertIsNone(comparator._bundle("fixed_gap_7d_v1"))
+
+            self.assertEqual(
+                comparator._bundle_unavailability["fixed_gap_7d_v1"],
+                {
+                    "available": False,
+                    "reason": "model_not_trained",
+                    "message": (
+                        "No trained comparison model is available for this contract."
+                    ),
+                },
+            )
+
+    def test_stale_fixed_bundle_does_not_block_valid_lag_comparison(self) -> None:
+        import hashlib
+        import joblib
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            features = root / "features.json"
+            sites = root / "sites.json"
+            profiles = root / "profiles.json"
+            features.write_text("{}", encoding="utf-8")
+            sites.write_text("{}", encoding="utf-8")
+            profiles.write_text('{"species_profiles": []}', encoding="utf-8")
+            target = date(2026, 8, 10)
+            records = {
+                target - timedelta(days=119 - offset): DailyWeatherRecord(
+                    source="test",
+                    station_code="station",
+                    station_name="Station",
+                    day=target - timedelta(days=119 - offset),
+                    lat=42.0,
+                    lon=1.0,
+                    rain_mm=1.0,
+                    temp_max_c=20.0,
+                    temp_min_c=10.0,
+                    humidity_max_pct=80.0,
+                    humidity_min_pct=40.0,
+                    wind_avg_kmh=None,
+                    wind_gust_kmh=None,
+                    wind_direction_deg=None,
+                )
+                for offset in range(120)
+            }
+            station = WeatherStation(
+                "test", "station", "Station", 42.0, 1.0, records, altitude_m=500.0
+            )
+            predictor = Mock()
+            predictor.species_id = "boletus"
+            predictor.season_phase.return_value = "main"
+            predictor._features_artifact_path = features
+            predictor._known_sites_path = sites
+            predictor._profiles_path = profiles
+            predictor._area_profiles = {
+                "area": SimpleNamespace(lat=42.0, lon=1.0, gis_altitude_m=1000.0)
+            }
+            predictor._weather_stations = {("test", "station"): station}
+            stale_path = root / model_filename(
+                FIXED_GAP_7D_ALTITUDE_V2.feature_set_id, "boletus"
+            )
+            joblib.dump(
+                {
+                    "kind": "mushroom_ml_experiment_bundle",
+                    "feature_set_id": FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
+                    "features_sha256": hashlib.sha256(features.read_bytes()).hexdigest(),
+                    "known_sites_sha256": "0" * 64,
+                },
+                stale_path,
+            )
+            comparator = MushroomModelComparator(predictor, root)
+            comparator._bundles[LAG_EVENT_ALTITUDE_V2.feature_set_id] = {
+                "kind": "mushroom_ml_experiment_bundle",
+                "feature_set_id": LAG_EVENT_ALTITUDE_V2.feature_set_id,
+                "feature_cols": list(LAG_EVENT_ALTITUDE_V2.feature_cols),
+                "models": {"random_forest_restricted_v1": ConstantEstimator(0.4)},
+            }
+
+            result = comparator.compare("area", target, issue_date=target)
+
+            fixed = result[FIXED_GAP_7D_ALTITUDE_V2.feature_set_id]
+            lag = result[LAG_EVENT_ALTITUDE_V2.feature_set_id]
+            self.assertFalse(fixed["available"])
+            self.assertEqual(fixed["reason"], "model_input_identity_mismatch")
+            self.assertEqual(fixed["input_name"], "sites.json")
+            self.assertTrue(lag["available"])
+            self.assertEqual(lag["ensemble_probability"], 0.4)
+
+    def test_semantic_area_identity_ignores_name_but_detects_altitude(self) -> None:
+        import hashlib
+        import joblib
+
+        contract = {
+            "id": "fixture_area_altitude_v1",
+            "collections": [
+                {
+                    "path": "micro_areas",
+                    "id_field": "micro_area_id",
+                    "group_field": "area_id",
+                    "fields": [
+                        "micro_area_id",
+                        "area_id",
+                        "derived_context.gis_dem.altitude_mean_m",
+                    ],
+                }
+            ],
+        }
+        known_sites = {
+            "micro_areas": [
+                {
+                    "micro_area_id": "area_1",
+                    "area_id": "area",
+                    "name": "Old name",
+                    "derived_context": {"gis_dem": {"altitude_mean_m": 700.0}},
+                }
+            ]
+        }
+        identity = known_sites_semantic_identity(known_sites, contract)
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            features = root / "features.json"
+            sites = root / "sites.json"
+            features.write_text("{}", encoding="utf-8")
+            sites.write_text(json.dumps(known_sites), encoding="utf-8")
+            feature_set_id = "fixed_gap_7d_v1"
+            joblib.dump(
+                {
+                    "kind": "mushroom_ml_experiment_bundle",
+                    "feature_set_id": feature_set_id,
+                    "features_sha256": hashlib.sha256(features.read_bytes()).hexdigest(),
+                    "training_features_identity_policy": (
+                        "artifact_sha256_provenance_only"
+                    ),
+                    "known_sites_sha256": "0" * 64,
+                    "known_sites_identity_contract": contract,
+                    "known_sites_semantic_sha256": identity["sha256"],
+                    "known_sites_area_sha256": identity["area_sha256"],
+                },
+                root / model_filename(feature_set_id, "boletus"),
+            )
+            predictor = SimpleNamespace(
+                species_id="boletus",
+                _features_artifact_path=features,
+                _known_sites_path=sites,
+            )
+            comparator = MushroomModelComparator(predictor, root)
+
+            bundle = comparator._bundle(feature_set_id)
+            self.assertIsNotNone(bundle)
+            self.assertEqual(
+                comparator._area_input_identity(bundle, "area")["status"],
+                "matched",
+            )
+
+            features.write_text('{"new_area":"training provenance changed"}', encoding="utf-8")
+            comparator = MushroomModelComparator(predictor, root)
+            bundle = comparator._bundle(feature_set_id)
+            self.assertIsNotNone(bundle)
+            self.assertEqual(
+                comparator._area_input_identity(bundle, "area")["status"],
+                "matched",
+            )
+
+            renamed = deepcopy(known_sites)
+            renamed["micro_areas"][0]["name"] = "New name"
+            sites.write_text(json.dumps(renamed), encoding="utf-8")
+            comparator = MushroomModelComparator(predictor, root)
+            bundle = comparator._bundle(feature_set_id)
+            self.assertIsNotNone(bundle)
+            self.assertEqual(
+                comparator._area_input_identity(bundle, "area")["status"],
+                "matched",
+            )
+
+            changed = deepcopy(renamed)
+            changed["micro_areas"][0]["derived_context"]["gis_dem"][
+                "altitude_mean_m"
+            ] = 710.0
+            sites.write_text(json.dumps(changed), encoding="utf-8")
+            comparator = MushroomModelComparator(predictor, root)
+            bundle = comparator._bundle(feature_set_id)
+            mismatch = comparator._area_input_identity(bundle, "area")
+            self.assertFalse(mismatch["available"])
+            self.assertEqual(
+                mismatch["reason"], "model_area_input_identity_mismatch"
+            )
 
     def test_future_comparison_uses_only_declared_cutoffs(self) -> None:
         issue = date(2026, 8, 10)

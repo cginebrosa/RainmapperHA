@@ -191,6 +191,7 @@ class MushroomWorkerServiceTests(unittest.TestCase):
         self.assertIn("weather_parquet_v1", result["capabilities"])
         self.assertIn("partitioned_weather_history_v1", result["capabilities"])
         self.assertIn("terminal_job_cleanup_v1", result["capabilities"])
+        self.assertIn("predictor_multiversion_v1", result["capabilities"])
         self.assertEqual(result["dataset_cache"]["file_count"], 10)
 
         heartbeat = mushroom_worker_service.heartbeat_payload(
@@ -248,6 +249,53 @@ class MushroomWorkerServiceTests(unittest.TestCase):
         self.assertEqual(request.full_url, "http://rainmapper-ha-ui:8099/api/mushrooms/workers/jobs/claim")
         self.assertEqual(request.get_method(), "POST")
         self.assertEqual(json.loads(request.data), {"worker_id": "worker_12345678"})
+
+    def test_predictor_runtime_manifest_is_downloaded_separately_from_compact_claim(self) -> None:
+        manifest = {
+            "schema_version": "1.0",
+            "kind": "rainmapper_mushroom_predictor_runtime",
+            "fingerprint": "sha256:" + "a" * 64,
+            "files": [
+                {
+                    "path": "models/model.joblib",
+                    "sha256": "sha256:" + "b" * 64,
+                    "size_bytes": 0,
+                }
+            ],
+        }
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = json.dumps({"ok": True, "manifest": manifest}).encode()
+        synchronized = (Path("/runtime"), {"status": "valid"})
+        compact_job = {
+            "job_id": "worker_job_predict123",
+            "runtime_endpoint": "/api/mushrooms/workers/jobs/predictor-runtime",
+            "runtime_manifest_ref": {"fingerprint": manifest["fingerprint"]},
+        }
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(mushroom_worker_service, "urlopen", return_value=response) as urlopen,
+            mock.patch.object(
+                mushroom_worker_service.mushroom_predictor_runtime,
+                "synchronize_runtime",
+                return_value=synchronized,
+            ) as synchronize,
+        ):
+            result = mushroom_worker_service.download_predictor_runtime(
+                "http://rainmapper-ha-ui:8099",
+                compact_job,
+                Path(temporary),
+                worker_id="worker_12345678",
+                claim_token="claim-secret",
+                token="coordinator-secret",
+            )
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(result, synchronized)
+        self.assertIn("manifest=1", request.full_url)
+        self.assertNotIn("file=", request.full_url)
+        self.assertEqual(synchronize.call_args.args[1], manifest)
+        self.assertEqual(compact_job["runtime_manifest"], manifest)
 
     def test_worker_updates_job_lifecycle_outbound_to_ha(self) -> None:
         for action in ("start", "progress", "control", "finish"):

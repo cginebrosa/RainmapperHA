@@ -25,6 +25,7 @@ JOB_TYPE_CLAIM_PROBE = "worker_claim_probe"
 JOB_TYPE_SNAPSHOT_TRANSPORT = "worker_snapshot_transport_probe"
 JOB_TYPE_CANDIDATE_REBUILD = "worker_candidate_rebuild"
 JOB_TYPE_ML_TRAIN = "worker_ml_train_v0"
+JOB_TYPE_ML_MULTIVERSION = "worker_ml_multiversion_v1"
 JOB_TYPE_PREDICTOR = "worker_predictor_v1"
 MAX_JOBS = 50
 DEFAULT_LEASE_SECONDS = 10
@@ -524,6 +525,75 @@ def create_ml_train_job(
     return dict(job)
 
 
+def create_ml_multiversion_job(
+    path: Path,
+    *,
+    worker_id: str,
+    worker_display_name: str,
+    input_bundle: dict[str, Any],
+    job_id: str,
+    triggered_by_job_id: str = "",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    target_worker_id = _validate_worker_id(worker_id)
+    display_name = str(worker_display_name or "").strip()[:80]
+    if not display_name or not JOB_ID_PATTERN.fullmatch(str(job_id or "")):
+        raise ValueError("Multiversion worker assignment is invalid.")
+    if not isinstance(input_bundle, dict) or input_bundle.get("job_id") != job_id:
+        raise ValueError("Multiversion input bundle contract is invalid.")
+    bundle_digest = str(input_bundle.get("bundle_digest", ""))
+    files = input_bundle.get("files")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", bundle_digest) or not isinstance(files, list) or not files:
+        raise ValueError("Multiversion input bundle identity is invalid.")
+    queue = load_queue(path)
+    duplicate = next(
+        (
+            row
+            for row in queue["jobs"]
+            if row.get("status") in {"queued", "claimed", "running"}
+            and row.get("job_type") == JOB_TYPE_ML_MULTIVERSION
+            and row.get("work_key") == f"ml_multiversion:v1:{bundle_digest}"
+        ),
+        None,
+    )
+    if duplicate is not None:
+        raise DuplicateActiveWorkError(
+            f"Equivalent multiversion training is already active: {duplicate.get('job_id', '')}."
+        )
+    timestamp = created_at or utc_now()
+    job = {
+        "job_id": job_id,
+        "job_type": JOB_TYPE_ML_MULTIVERSION,
+        "work_key": f"ml_multiversion:v1:{bundle_digest}",
+        "target_worker_id": target_worker_id,
+        "target_display_name": display_name,
+        "status": "queued",
+        "phase": "Waiting for worker",
+        "message": "V2--V6 runtime training queued.",
+        "scope": "V2--V6 comparison batch",
+        "overall_percent": 0,
+        "created_at": timestamp,
+        "claimed_at": "",
+        "started_at": "",
+        "finished_at": "",
+        "cancel_requested_at": "",
+        "cancel_mode": "",
+        "reassigned_at": "",
+        "lease_expires_at": "",
+        "claim_token": "",
+        "assignment_revision": 1,
+        "promotion_eligible": False,
+        "triggered_by_job_id": str(triggered_by_job_id or "")[:100],
+        "input_bundle": {**input_bundle, "endpoint": "/api/mushrooms/workers/jobs/input"},
+        "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
+        "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+    }
+    queue["jobs"].append(job)
+    queue["jobs"] = queue["jobs"][-MAX_JOBS:]
+    _write_atomic(path, queue)
+    return dict(job)
+
+
 def create_predictor_job(
     path: Path,
     *,
@@ -779,6 +849,7 @@ def pending_worker_job_cleanups(path: Path, *, worker_id: str) -> list[str]:
         JOB_TYPE_SNAPSHOT_TRANSPORT,
         JOB_TYPE_CANDIDATE_REBUILD,
         JOB_TYPE_ML_TRAIN,
+        JOB_TYPE_ML_MULTIVERSION,
         JOB_TYPE_PREDICTOR,
     }
     return [
@@ -908,6 +979,7 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
         JOB_TYPE_SNAPSHOT_TRANSPORT,
         JOB_TYPE_CANDIDATE_REBUILD,
         JOB_TYPE_ML_TRAIN,
+        JOB_TYPE_ML_MULTIVERSION,
         JOB_TYPE_PREDICTOR,
     }:
         return {}
@@ -945,6 +1017,32 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
             if not re.fullmatch(r"sha256:[0-9a-f]{64}", result_manifest_id):
                 raise ValueError("Worker ML result result_manifest_id is invalid.")
             normalized["result_manifest_id"] = result_manifest_id
+        return normalized
+    if job_type == JOB_TYPE_ML_MULTIVERSION:
+        normalized = {}
+        status = str(result.get("verification_status", "") or "")[:40]
+        if status:
+            normalized["verification_status"] = status
+        batch_id = str(result.get("batch_id", "") or "")
+        if batch_id:
+            if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}", batch_id):
+                raise ValueError("Worker multiversion batch_id is invalid.")
+            normalized["batch_id"] = batch_id
+        snapshot_id = str(result.get("snapshot_id", "") or "")
+        if snapshot_id:
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot_id):
+                raise ValueError("Worker multiversion snapshot_id is invalid.")
+            normalized["snapshot_id"] = snapshot_id
+        for key in ("planned_fit_count", "successful_fit_count", "failed_fit_count"):
+            value = result.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"Worker multiversion {key} is invalid.")
+            normalized[key] = value
+        if result.get("operational_candidate_trained") is not False:
+            raise ValueError("Worker multiversion result must remain non-operational.")
+        normalized["operational_candidate_trained"] = False
         return normalized
     normalized = {}
     status = str(result.get("verification_status", "") or "")[:40]
@@ -1240,7 +1338,11 @@ def finish_job(
             else (
                 "ML training completed"
                 if job.get("job_type") == JOB_TYPE_ML_TRAIN
-                else "Assignment test completed"
+                else (
+                    "V2--V6 comparison training completed"
+                    if job.get("job_type") == JOB_TYPE_ML_MULTIVERSION
+                    else "Assignment test completed"
+                )
             )
             )
         )
@@ -1276,6 +1378,7 @@ def authorize_input_download(
         JOB_TYPE_SNAPSHOT_TRANSPORT,
         JOB_TYPE_CANDIDATE_REBUILD,
         JOB_TYPE_ML_TRAIN,
+        JOB_TYPE_ML_MULTIVERSION,
         JOB_TYPE_PREDICTOR,
     }:
         raise ValueError("Worker job does not have an input bundle.")
@@ -1315,6 +1418,61 @@ def authorize_ml_train_result_upload(
         raise ValueError("Worker job cannot upload ML training results.")
     if job.get("status") != "running":
         raise ValueError("Worker ML result is not accepted in the current job state.")
+    return dict(job)
+
+
+def authorize_ml_multiversion_result_upload(
+    path: Path,
+    *,
+    job_id: str,
+    worker_id: str,
+    claim_token: str,
+) -> dict[str, Any]:
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    _validate_claim(job, worker_id=worker_id, claim_token=claim_token)
+    if job.get("job_type") != JOB_TYPE_ML_MULTIVERSION:
+        raise ValueError("Worker job cannot upload multiversion results.")
+    if job.get("status") != "running":
+        raise ValueError("Worker multiversion result is not accepted in the current job state.")
+    return dict(job)
+
+
+def retry_ml_multiversion_result(
+    path: Path,
+    *,
+    job_id: str,
+    requested_at: str | None = None,
+) -> dict[str, Any]:
+    """Requeue only a failed multiversion result delivery under the same identity."""
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    if job.get("job_type") != JOB_TYPE_ML_MULTIVERSION or job.get("status") != "failed":
+        raise ValueError("Only a failed multiversion job can retry result delivery.")
+    timestamp = requested_at or utc_now()
+    job.update(
+        {
+            "status": "queued",
+            "phase": "Waiting to retry V2--V6 result delivery",
+            "message": "The completed local result will be reused; training will not run again.",
+            "overall_percent": 90,
+            "claimed_at": "",
+            "started_at": "",
+            "finished_at": "",
+            "lease_expires_at": "",
+            "claim_token": "",
+            "cancel_requested_at": "",
+            "cancel_mode": "",
+            "error": "",
+            "result": {},
+            "result_retry": True,
+            "result_retry_requested_at": timestamp,
+            "worker_cleanup_status": "",
+            "worker_cleaned_at": "",
+            "assignment_revision": int(job.get("assignment_revision", 1) or 1) + 1,
+        }
+    )
+    _write_atomic(path, queue)
     return dict(job)
 
 

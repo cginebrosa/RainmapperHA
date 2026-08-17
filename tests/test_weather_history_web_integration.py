@@ -17,6 +17,9 @@ class WeatherHistoryWebIntegrationTests(unittest.TestCase):
         self.assertIn("rainmapper_core.weather_history_archive", script)
         self.assertIn("download-preflight", script)
         self.assertIn("combine-exit-codes", script)
+        self.assertIn("rainmapper_core.weather_official_maintenance", script)
+        self.assertIn('--source meteocat', script)
+        self.assertIn('--source aemet', script)
         self.assertIn(
             'run_update_transaction "$window_days_init" "$window_days_end"',
             script,

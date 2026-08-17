@@ -15,6 +15,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from rainmapper_core import mushroom_ml_input_identity
+from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_paths
 from rainmapper_core.mushroom_ml_experiments import (
     FEATURE_SETS,
     FIXED_GAP_7D_ALTITUDE_V2,
@@ -272,6 +275,8 @@ def train_benchmark(
     min_episodes: int = 20,
     features_sha256: str | None = None,
     known_sites_sha256: str | None = None,
+    known_sites_identity: dict[str, Any] | None = None,
+    version_id: str | None = None,
 ) -> dict[str, Any]:
     """Fit identical estimator families for every eligible species."""
     import joblib  # noqa: PLC0415
@@ -501,7 +506,26 @@ def train_benchmark(
                 },
                 "generated_at": datetime.now(UTC).isoformat(),
                 "features_sha256": features_sha256,
+                "training_features_identity_policy": (
+                    "artifact_sha256_provenance_only"
+                ),
                 "known_sites_sha256": known_sites_sha256,
+                "known_sites_identity_contract": (
+                    dict(known_sites_identity.get("contract") or {})
+                    if known_sites_identity is not None
+                    else None
+                ),
+                "known_sites_semantic_sha256": (
+                    known_sites_identity.get("sha256")
+                    if known_sites_identity is not None
+                    else None
+                ),
+                "known_sites_area_sha256": (
+                    dict(known_sites_identity.get("area_sha256") or {})
+                    if known_sites_identity is not None
+                    else None
+                ),
+                "version_id": version_id,
             },
             path,
         )
@@ -535,6 +559,7 @@ def train_benchmark(
 
     return {
         "feature_set_id": feature_set_id,
+        "version_id": version_id,
         "feature_cols": feature_cols,
         "episode_count": benchmark.get("episode_count", 0),
         "sample_count": benchmark.get("sample_count", 0),
@@ -567,6 +592,7 @@ def run(
     min_episodes: int = 20,
     feature_set_ids: tuple[str, ...] = DEFAULT_FEATURE_SET_IDS,
     species_ids: list[str] | None = None,
+    version_registry_path: Path | None = None,
 ) -> dict[str, Any]:
     rows = load_features(features_path)
     if species_ids is not None:
@@ -576,8 +602,23 @@ def run(
     area_altitudes = load_area_representative_altitudes(known_sites_path)
     features_sha256 = hashlib.sha256(features_path.read_bytes()).hexdigest()
     known_sites_sha256 = hashlib.sha256(known_sites_path.read_bytes()).hexdigest()
+    registry = mushroom_ml_version_registry.load_registry(
+        version_registry_path or mushroom_paths.mushroom_ml_version_registry_path()
+    )
     results: list[dict[str, Any]] = []
     for feature_set_id in feature_set_ids:
+        version = mushroom_ml_version_registry.version_for_temporal_contract(
+            registry, feature_set_id
+        )
+        identity_contract = version.get("known_sites_identity_contract")
+        if not isinstance(identity_contract, dict):
+            raise ValueError(
+                f"ML version {version['version_id']} has no known_sites identity contract."
+            )
+        semantic_identity = mushroom_ml_input_identity.known_sites_semantic_identity_from_path(
+            known_sites_path, identity_contract
+        )
+        semantic_identity["contract"] = identity_contract
         benchmark = build_benchmark(
             rows,
             mapping,
@@ -591,6 +632,8 @@ def run(
                 min_episodes=min_episodes,
                 features_sha256=features_sha256,
                 known_sites_sha256=known_sites_sha256,
+                known_sites_identity=semantic_identity,
+                version_id=str(version["version_id"]),
             )
         )
     report = {
@@ -599,6 +642,16 @@ def run(
         "generated_at": datetime.now(UTC).isoformat(),
         "features_sha256": features_sha256,
         "known_sites_sha256": known_sites_sha256,
+        "version_registry": mushroom_ml_version_registry.benchmark_version_metadata(
+            registry,
+            list(
+                dict.fromkeys(
+                    str(result["version_id"])
+                    for result in results
+                    if result.get("version_id")
+                )
+            ),
+        ),
         "partition_contract": (
             "deterministic_stratified_70_30_grouped_by_species_and_target_date_seed_42"
         ),

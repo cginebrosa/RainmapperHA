@@ -13,6 +13,8 @@ COMPOSE_FILE="${REPO_ROOT}/rainmapper-local/docker-compose.yml"
 LAB_URL="http://127.0.0.1:8101/mushrooms/profiles?section=observations"
 WORKER_COORDINATOR_URL="http://rainmapper-ha-ui:8100"
 export RAINMAPPER_LOCAL_REPO_ROOT="${REPO_ROOT}"
+RAINMAPPER_LOCAL_DATA_ROOT="${RAINMAPPER_LOCAL_DATA_ROOT:-${REPO_ROOT}/docker-data}"
+export RAINMAPPER_LOCAL_DATA_ROOT
 
 cd "${REPO_ROOT}"
 
@@ -24,5 +26,5 @@ printf 'UI URL for your browser:\n  %s\n\n' "${LAB_URL}"
 printf 'Rainmapper URL for the worker:\n  %s\n' "${WORKER_COORDINATOR_URL}"
 printf '  This internal URL is only for containers on rainmapper-local-compute.\n'
 printf '  Do not open it in the browser or replace it with 127.0.0.1:8101.\n\n'
-printf 'Data directory: %s\n' "${REPO_ROOT}/docker-data/mushroom-data"
+printf 'Data directory: %s\n' "${RAINMAPPER_LOCAL_DATA_ROOT}/mushroom-data"
 printf 'Stop it with: ./mushroom_lab_stop.sh\n'

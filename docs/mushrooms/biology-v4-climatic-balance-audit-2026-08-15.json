@@ -1,0 +1,80 @@
+{
+  "kind": "mushroom_biology_v4_climatic_balance_audit",
+  "schema_version": 1,
+  "status": "pass",
+  "contract_id": "microarea_climatic_water_balance_v1",
+  "evapotranspiration_method": "hargreaves_samani_fao56_temperature_v1",
+  "input": {
+    "benchmark_path": "/private/tmp/biology-v3-fixed-aligned-v4-rain-v2.json",
+    "benchmark_sha256": "8fcba95a88410feacd3bab6b86f48ed89cb7c1752c082fd1e8950afda5e174d1",
+    "feature_set_id": "fixed_gap_7d_biology_v3",
+    "rainfall_contract_id": "area_daily_mean_microarea_idw_duplicate_zero_v2"
+  },
+  "coverage": {
+    "sample_count": 399,
+    "audited_sample_count": 362,
+    "unique_area_cutoff_count": 154,
+    "source_excluded_sample_count": 37,
+    "computational_failure_sample_count": 0,
+    "complete_window_sample_counts": {
+      "0_7d": 203,
+      "15_21d": 202,
+      "22_30d": 202,
+      "8_14d": 203
+    },
+    "complete_window_sample_fractions": {
+      "0_7d": 0.560773,
+      "8_14d": 0.560773,
+      "15_21d": 0.558011,
+      "22_30d": 0.558011
+    }
+  },
+  "quality": {
+    "missing_input_reason_counts": {
+      "missing_area_idw_rain": 9494,
+      "missing_corrected_temp_max": 14334,
+      "missing_corrected_temp_min": 14334
+    },
+    "source_exclusion_counts": {
+      "source_daily_series_missing_or_unaligned": 37
+    },
+    "source_exclusion_v3_gate_counts": {
+      "area_context_missing": 37,
+      "area_rainfall_missing": 37,
+      "humidity_coverage_below_19_of_21": 37,
+      "insufficient_daily_history": 37,
+      "modeling_target_unknown": 37,
+      "no_station_within_15km": 37,
+      "rain_coverage_below_19_of_21": 37,
+      "rain_coverage_below_81_of_90": 37,
+      "required_predictive_features_missing": 37,
+      "station_or_area_altitude_missing": 37,
+      "temperature_coverage_below_19_of_21": 37
+    },
+    "sample_failure_counts": {},
+    "water_balance_mass_error_max_mm": 4.99e-07
+  },
+  "distributions": {
+    "daily_reference_evapotranspiration_mm": {
+      "count": 18246,
+      "min": 0.0,
+      "p05": 0.806979,
+      "p50": 3.717055,
+      "p95": 6.667056,
+      "max": 8.074958
+    },
+    "daily_climatic_water_balance_mm": {
+      "count": 18246,
+      "min": -8.074958,
+      "p05": -6.459648,
+      "p50": -2.967797,
+      "p95": 11.39445,
+      "max": 113.382383
+    }
+  },
+  "interpretation_limits": [
+    "This audit validates implementation, units, coverage and invariants; it does not prove predictive value.",
+    "Humidity remains a separate V4 predictor and is not removed because Hargreaves-Samani does not consume it.",
+    "With the shared area temperature contract, balance(mean microarea IDW rain) equals mean(microarea balances); the nonlinear soil reservoir must still be calculated per microarea."
+  ]
+}

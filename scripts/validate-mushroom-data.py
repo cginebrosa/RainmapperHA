@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from rainmapper_core import mushroom_known_sites
+from rainmapper_core import mushroom_known_sites, mushroom_ml_version_registry
 from rainmapper_core.mushroom_validation import validate_profile_semantics
 
 DEFAULT_DATA_DIR = REPO_ROOT / "mushroom-data"
@@ -34,6 +34,7 @@ CATALOG_FILE = "mushroom_reference_catalogs.json"
 GIS_FILE = "mushroom_gis_mappings.json"
 OBSERVATIONS_FILE = "mushroom_observations.json"
 KNOWN_SITES_FILE = "mushroom_known_sites.json"
+ML_VERSION_REGISTRY_FILE = "mushroom_ml_version_registry.json"
 
 REQUIRED_PROFILE_ROOT_KEYS = {
     "schema_version",
@@ -1318,6 +1319,15 @@ def validate_mushroom_data(data_dir: Path = DEFAULT_DATA_DIR) -> list[Validation
                                 f"unknown micro-area ID {micro_area_id!r}",
                             )
                         )
+    registry_path = data_dir / ML_VERSION_REGISTRY_FILE
+    if registry_path.exists():
+        registry_payload, registry_messages = load_json(registry_path)
+        messages.extend(registry_messages)
+        if registry_payload is not None:
+            try:
+                mushroom_ml_version_registry.validate_registry(registry_payload)
+            except ValueError as exc:
+                messages.append(error("ml_version_registry", str(exc)))
     add_unused_catalog_warnings(ids_by_catalog, used_ids, messages)
     return messages
 

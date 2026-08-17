@@ -34,8 +34,8 @@ Fuera de alcance en esta tarea:
 target_contract_id: outing_value_area_v1
 episode_contract_id: area_microarea_evidence_v1
 quality_contract_id: observed_weather_quality_v1
-rainfall_contract_id: daily_rain_idw_radius15km_power2_v1
-area_rainfall_contract_id: area_daily_mean_microarea_idw_v1
+rainfall_contract_id: daily_rain_idw_radius15km_power2_duplicate_zero_v2
+area_rainfall_contract_id: area_daily_mean_microarea_idw_duplicate_zero_v2
 feature_set_id: fixed_gap_7d_biology_v3
 feature_set_id: lag_event_biology_v3
 ```
@@ -206,15 +206,16 @@ requieren días diferentes; debe quedar visible en metadatos.
 
 Biology V3 no usa la lluvia de una única estación como aproximación espacial.
 La lluvia se materializa una sola vez por microárea y fecha mediante el contrato
-`daily_rain_idw_radius15km_power2_v1`:
+`daily_rain_idw_radius15km_power2_duplicate_zero_v2`:
 
 - punto objetivo: `representative_location` de la microárea; si falta, centroide
   trazable de su geometría guardada;
 - todas las estaciones activas con observación diaria utilizable dentro de 15
   km;
 - peso `1 / max(distancia_km, 0,1)^2`;
-- el cero observado participa como cero; ausencia, error, valor negativo,
-  lluvia diaria superior a 300 mm, repetición positiva consecutiva suprimida o
+- el cero observado participa como cero; un `N/A` identificado específicamente
+  como repetición positiva consecutiva aporta `0 mm` y queda contado como tal;
+  otras ausencias, error, valor negativo, lluvia diaria superior a 300 mm o
   estación retirada no participan;
 - si no queda ninguna estación utilizable, el día es ausente, nunca cero;
 - la serie conserva por día valor IDW, número de estaciones contribuyentes,
@@ -233,7 +234,7 @@ temperatura. Sustituirlas también por un campo espacial
 sería otro contrato y exige una comparación separada.
 
 Al agregar varias microáreas a un episodio de área se aplica el contrato
-`area_daily_mean_microarea_idw_v1`: para cada día se calcula la media aritmética
+`area_daily_mean_microarea_idw_duplicate_zero_v2`: para cada día se calcula la media aritmética
 de los IDW disponibles de **todas sus microáreas configuradas**. Una microárea
 sin dato no participa; el día del área solo es ausente si ninguna aporta valor.
 No se usa el IDW del centroide del polígono del área: ese punto ya es una

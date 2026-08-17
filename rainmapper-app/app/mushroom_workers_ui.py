@@ -126,6 +126,13 @@ def _worker_card(
                 if payload.get("job_api") == "candidate_rebuild_v0"
                 else ""
             )
+            + (
+                '<form method="post" action=""><input type="hidden" name="worker_action" value="run_worker_ml_multiversion">'
+                f'<input type="hidden" name="worker_id" value="{_text(worker_id)}">'
+                '<button type="submit">Regenerar solo comparación V2–V6</button></form>'
+                if "ml_multiversion_training_v1" in set(payload.get("capabilities") or [])
+                else ""
+            )
             + "</div>"
         )
     else:
@@ -244,6 +251,7 @@ def render_recent_jobs(
             "worker_snapshot_transport_probe": _label("ui.worker_transport_probe"),
             "worker_candidate_rebuild": _label("ui.worker_candidate_rebuild"),
             "worker_ml_train_v0": _label("ui.worker_ml_train_job_type"),
+            "worker_ml_multiversion_v1": "V2–V6 · Comparar",
             "worker_predictor_v1": _label("ui.worker_predictor_job_type"),
         }.get(job_type, _label("ui.worker_rebuild_job"))
         status = str(job.get("status", "unknown") or "unknown")
@@ -294,6 +302,7 @@ def render_recent_jobs(
             "worker_snapshot_transport_probe",
             "worker_candidate_rebuild",
             "worker_ml_train_v0",
+            "worker_ml_multiversion_v1",
             "worker_predictor_v1",
         }:
             action_parts = []

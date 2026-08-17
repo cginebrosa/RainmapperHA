@@ -17,6 +17,7 @@ SCHEMA_VERSION = "1.0"
 MANIFEST_KIND = "rainmapper_mushroom_predictor_runtime"
 FEATURE_CONTRACT = "mushroom_features_v0"
 MODEL_CONTRACT = "mushroom_ml_v0_plus_shadow_v1_joblib"
+MULTIVERSION_MODEL_CONTRACT = "mushroom_ml_v0_plus_multiversion_v1_joblib"
 WEATHER_CONTRACT = "weather_parquet_v1"
 PARTITIONED_WEATHER_CONTRACT = "partitioned_weather_history_v1"
 _DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
@@ -55,12 +56,23 @@ def build_manifest(
     features_artifact_path: Path | None = None,
     known_sites_path: Path | None = None,
     profiles_path: Path | None = None,
+    version_registry_path: Path | None = None,
+    runtime_batch_manifest_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Path]]:
     weather = Path(weather_data_dir or mushroom_paths.weather_data_dir())
     models = Path(models_dir or mushroom_paths.mushroom_ml_models_dir())
     features = Path(features_artifact_path or mushroom_paths.mushroom_observation_features_json_path())
     known_sites = Path(known_sites_path or mushroom_paths.mushroom_known_sites_path())
     profiles = Path(profiles_path or mushroom_paths.mushroom_profiles_path())
+    version_registry = Path(
+        version_registry_path or mushroom_paths.mushroom_ml_version_registry_path()
+    )
+    if runtime_batch_manifest_path is not None:
+        runtime_batch_manifest = Path(runtime_batch_manifest_path)
+    elif models_dir is not None:
+        runtime_batch_manifest = models / "runtime-batch.json"
+    else:
+        runtime_batch_manifest = mushroom_paths.mushroom_ml_runtime_batch_manifest_path()
     sources: dict[str, Path] = {
         "data/mushroom_observation_features_v0.json": features,
         "data/mushroom_known_sites.json": known_sites,
@@ -96,6 +108,38 @@ def build_manifest(
         sources[f"models/{model.name}"] = model
     for model in sorted(models.glob("mushroom_ml_experiment_*.joblib")):
         sources[f"models/{model.name}"] = model
+    model_contract = MODEL_CONTRACT
+    if runtime_batch_manifest.is_file():
+        from rainmapper_core import mushroom_ml_model_catalog
+        from rainmapper_core import mushroom_ml_version_registry
+
+        registry = mushroom_ml_version_registry.load_registry(version_registry)
+        batch = mushroom_ml_model_catalog.validate_batch_manifest(
+            registry,
+            json.loads(runtime_batch_manifest.read_text(encoding="utf-8")),
+        )
+        sources["data/mushroom_ml_version_registry.json"] = version_registry
+        sources["models/runtime-batch.json"] = runtime_batch_manifest
+        quality_ref = batch.get("quality_catalog")
+        if isinstance(quality_ref, dict):
+            relative = Path(str(quality_ref["path"]))
+            source = models / relative
+            if not source.is_file() or _sha256(source) != f"sha256:{quality_ref['sha256']}":
+                raise ValueError("Multiversion quality catalog is missing or has the wrong digest")
+            sources[f"models/{relative.as_posix()}"] = source
+        for artifact in batch["artifacts"]:
+            relative = Path(str(artifact["path"]))
+            source = models / relative
+            if not source.is_file():
+                raise FileNotFoundError(
+                    f"Multiversion model declared by runtime batch is missing: {source}"
+                )
+            if _sha256(source) != f"sha256:{artifact['sha256']}":
+                raise ValueError(
+                    f"Multiversion model digest does not match runtime batch: {source}"
+                )
+            sources[f"models/{relative.as_posix()}"] = source
+        model_contract = MULTIVERSION_MODEL_CONTRACT
     if not any(path.startswith("models/") for path in sources):
         raise FileNotFoundError(f"Predictor runtime has no trained models in {models}.")
 
@@ -108,7 +152,7 @@ def build_manifest(
         "kind": MANIFEST_KIND,
         "contracts": {
             "features": FEATURE_CONTRACT,
-            "models": MODEL_CONTRACT,
+            "models": model_contract,
             "weather": weather_contract,
         },
         "files": files,
@@ -268,4 +312,6 @@ def service_paths(runtime_root: Path) -> dict[str, Path]:
         "features_artifact_path": root / "data/mushroom_observation_features_v0.json",
         "known_sites_path": root / "data/mushroom_known_sites.json",
         "profiles_path": root / "data/mushroom_profiles.json",
+        "version_registry_path": root / "data/mushroom_ml_version_registry.json",
+        "runtime_batch_manifest_path": root / "models/runtime-batch.json",
     }

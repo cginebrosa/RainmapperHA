@@ -327,6 +327,28 @@ run_weather_download_preflight() {
     download-preflight --data-dir /app/Data
 }
 
+run_official_weather_maintenance() {
+  if [ "$PARTITIONED_WEATHER_HISTORY_VALUE" != "true" ]; then
+    return 0
+  fi
+  set --
+  if [ "$CREATE_METEOCAT_VALUE" = "true" ]; then
+    set -- "$@" --source meteocat
+  fi
+  if [ "$CREATE_AEMET_VALUE" = "true" ]; then
+    set -- "$@" --source aemet
+  fi
+  if [ "$#" -eq 0 ]; then
+    return 0
+  fi
+  echo "Checking and repairing persistent gaps in official weather history..."
+  python -m rainmapper_core.weather_official_maintenance \
+    --data-dir /app/Data \
+    --reference-day "$(date +%F)" \
+    --timeout "$METEOCAT_REQUEST_TIMEOUT_VALUE" \
+    "$@"
+}
+
 run_update_transaction() {
   set +e
   run_archive_pending
@@ -345,9 +367,14 @@ run_update_transaction() {
   source_code="$?"
   run_archive_pending
   archive_code="$?"
+  maintenance_code=0
+  if [ "$archive_code" -eq 0 ]; then
+    run_official_weather_maintenance
+    maintenance_code="$?"
+  fi
   set +e
   python -m rainmapper_core.weather_history_pipeline combine-exit-codes \
-    --source "$source_code" --archive "$archive_code"
+    --source "$source_code" --archive "$archive_code" --maintenance "$maintenance_code"
   combined_code="$?"
   set -e
   return "$combined_code"

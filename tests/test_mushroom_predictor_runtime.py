@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest import mock
 
+from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core.mushroom_predictor_runtime import build_manifest, service_paths, synchronize_runtime
 
 
@@ -137,3 +138,68 @@ class PredictorRuntimeTests(TestCase):
                 )
 
             self.assertEqual(len(list((cache / "versions").iterdir())), 2)
+
+    def test_runtime_packages_exact_multiversion_batch(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            registry = (
+                Path(__file__).resolve().parents[1]
+                / "mushroom-data/mushroom_ml_version_registry.json"
+            )
+            model_ref = mushroom_ml_model_catalog.ModelRef.from_mapping(
+                {
+                    "batch_id": "batch-a",
+                    "generation_id": "generation-a",
+                    "version_id": "biology_v5_raw_weather_discovery",
+                    "temporal_contract_id": "lag_event_biology_v5_raw365_v1",
+                    "profile_id": "raw_primary_no_calendar",
+                    "estimator_id": "elastic_net_logistic_raw365_v1",
+                    "species_id": "lactarius_deliciosus",
+                    "horizon_days": 3,
+                }
+            )
+            relative = mushroom_ml_model_catalog.model_relative_path(model_ref)
+            artifact = models / relative
+            artifact.parent.mkdir(parents=True)
+            artifact.write_bytes(b"multiversion-model")
+            import hashlib
+            import json
+
+            batch_path = models / "runtime-batch.json"
+            batch_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "kind": "mushroom_ml_runtime_batch",
+                        "batch_id": "batch-a",
+                        "snapshot_id": "sha256:" + "a" * 64,
+                        "artifacts": [
+                            {
+                                "artifact_ref": model_ref.artifact_ref.as_dict(),
+                                "supported_horizons": [1, 2, 3, 7],
+                                "path": relative.as_posix(),
+                                "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            manifest, sources = build_manifest(
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+                version_registry_path=registry,
+                runtime_batch_manifest_path=batch_path,
+            )
+
+            self.assertEqual(
+                manifest["contracts"]["models"],
+                "mushroom_ml_v0_plus_multiversion_v1_joblib",
+            )
+            self.assertIn("data/mushroom_ml_version_registry.json", sources)
+            self.assertIn(f"models/{relative.as_posix()}", sources)

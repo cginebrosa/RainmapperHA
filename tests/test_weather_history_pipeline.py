@@ -26,6 +26,11 @@ class WeatherHistoryPipelineTests(unittest.TestCase):
             with self.subTest(pair=pair):
                 self.assertEqual(combine_update_exit_codes(*pair), result)
 
+    def test_maintenance_degradation_is_nonfatal_but_failure_is_fatal(self):
+        self.assertEqual(combine_update_exit_codes(0, 0, 2), 2)
+        self.assertEqual(combine_update_exit_codes(2, 0, 2), 2)
+        self.assertEqual(combine_update_exit_codes(0, 0, 1), 1)
+
     def test_disk_preflight_passes_with_budget_and_reports_values(self):
         with tempfile.TemporaryDirectory() as temporary:
             usage = mock.Mock(free=1_000)

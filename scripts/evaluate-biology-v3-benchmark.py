@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rainmapper_core import mushroom_ml_trainer
+from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core.mushroom_ml_biology_v3_evaluation import (
     build_observation_altitude_v2_benchmark,
     evaluate_benchmark,
@@ -33,6 +34,13 @@ def main() -> int:
     parser.add_argument("--v2-features", type=Path)
     parser.add_argument("--known-sites", type=Path)
     parser.add_argument("--species", nargs="+")
+    parser.add_argument(
+        "--version-registry",
+        type=Path,
+        default=Path(__file__).resolve().parents[1]
+        / "mushroom-data"
+        / "mushroom_ml_version_registry.json",
+    )
     parser.add_argument("--group-days", type=int, choices=(7, 14), required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -60,6 +68,9 @@ def main() -> int:
             benchmark,
             group_days=args.group_days,
             species_ids=set(args.species) if args.species else None,
+            version_registry=mushroom_ml_version_registry.load_registry(
+                args.version_registry
+            ),
         )
     else:
         report = evaluate_benchmark(

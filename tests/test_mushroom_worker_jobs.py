@@ -814,6 +814,49 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             self.assertEqual(rebuild["promotion_status"], "promoting")
             self.assertEqual(training["promotion_status"], "promoting")
 
+    def test_failed_multiversion_result_can_retry_without_new_job_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            job_id = "worker_job_multiretry"
+            mushroom_worker_jobs.create_ml_multiversion_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle={
+                    "job_id": job_id,
+                    "bundle_digest": "sha256:" + "a" * 64,
+                    "files": [{"path": "job_spec.json", "size_bytes": 1, "sha256": "b" * 64}],
+                },
+                job_id=job_id,
+            )
+            mushroom_worker_jobs.claim_next(
+                path, worker_id="worker_aaaaaaaa", claim_token="retry-secret"
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=job_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="retry-secret",
+            )
+            mushroom_worker_jobs.finish_job(
+                path,
+                job_id=job_id,
+                worker_id="worker_aaaaaaaa",
+                claim_token="retry-secret",
+                status="failed",
+                error="HTTP Error 404: Not Found",
+            )
+
+            retried = mushroom_worker_jobs.retry_ml_multiversion_result(
+                path, job_id=job_id
+            )
+
+            self.assertEqual(retried["status"], "queued")
+            self.assertTrue(retried["result_retry"])
+            self.assertEqual(retried["overall_percent"], 90)
+            self.assertEqual(retried["assignment_revision"], 2)
+            self.assertEqual(retried["job_id"], job_id)
+
 
 if __name__ == "__main__":
     unittest.main()

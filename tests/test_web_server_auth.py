@@ -445,6 +445,45 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(available, [])
 
+    def test_worker_executor_preserves_multiversion_capability(self) -> None:
+        payload = {
+            "worker_id": "worker_multiversion",
+            "display_name": "Multiversion worker",
+            "worker_version": "1.0.10",
+            "status": "idle",
+            "capabilities": [
+                self.web_server.mushroom_worker_registry.PREDICTOR_CAPABILITY,
+                self.web_server.mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY,
+            ],
+            "predictor_cache": {"status": "valid"},
+        }
+        with (
+            mock.patch.object(
+                self.web_server,
+                "registered_mushroom_worker_statuses",
+                return_value=[{"reachable": True, "payload": payload}],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_stats,
+                "rank_available",
+                return_value=[
+                    {
+                        "executor_id": "worker:worker_multiversion",
+                        "selection_seconds": None,
+                    }
+                ],
+            ),
+        ):
+            available = self.web_server.available_predictor_executors(
+                allow_home_assistant=False
+            )
+
+        self.assertEqual(len(available), 1)
+        self.assertIn(
+            self.web_server.mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY,
+            available[0]["capabilities"],
+        )
+
     def test_predictor_modal_exposes_effective_selection_policy(self) -> None:
         policy = self.web_server.PredictorExecutionPolicy(
             allow_manual_selection=False,
@@ -621,11 +660,39 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('direct.closest(".pred-page") ? "warm" : "cold"', script)
         self.assertIn("This is deliberately an ETA animation", script)
         self.assertIn("cancelRunningJob", script)
-        self.assertIn("./predictor/jobs/cancel", script)
+        self.assertIn("./mushrooms/predictor/jobs/cancel", script)
+        self.assertNotIn('fetch("./predictor/jobs/cancel"', script)
         self.assertNotIn("state.dataset.predictorProgress", script)
 
         page = self.web_server.html_page("Predictor", "", auto_refresh=False).decode()
         self.assertIn(".predictor-launch-dialog form[hidden]", page)
+
+    def test_predictor_worker_wire_job_externalizes_large_runtime_manifest(self) -> None:
+        files = [
+            {
+                "path": f"models/model-{index}.joblib",
+                "sha256": "sha256:" + "a" * 64,
+                "size_bytes": 123,
+            }
+            for index in range(1000)
+        ]
+        wire = self.web_server.mushroom_worker_job_wire_payload(
+            {
+                "job_id": "worker_job_predict123",
+                "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+                "runtime_manifest": {
+                    "schema_version": "1.0",
+                    "kind": "rainmapper_mushroom_predictor_runtime",
+                    "fingerprint": "sha256:" + "b" * 64,
+                    "size_bytes": 123000,
+                    "files": files,
+                },
+            }
+        )
+
+        self.assertNotIn("runtime_manifest", wire)
+        self.assertEqual(wire["runtime_manifest_ref"]["file_count"], 1000)
+        self.assertLess(len(json.dumps({"ok": True, "job": wire}).encode()), 65536)
 
     def test_remote_predictor_cancel_rejects_non_predictor_job(self) -> None:
         with mock.patch.object(
@@ -2045,6 +2112,71 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertNotIn("gis_dem", removed["derived_context"])
         self.assertIsNone(removed["altitude"]["mean_m"])
+
+    def test_micro_area_soilgrids_refreshes_only_when_geometry_changes(self) -> None:
+        old_geometry = {
+            "type": "Polygon",
+            "coordinates": [[[1.0, 42.0], [1.1, 42.0], [1.0, 42.1], [1.0, 42.0]]],
+        }
+        new_geometry = {
+            "type": "Polygon",
+            "coordinates": [[[1.0, 42.0], [1.2, 42.0], [1.0, 42.2], [1.0, 42.0]]],
+        }
+        soilgrids = self.web_server.mushroom_soilgrids
+        cached_context = {
+            "contract_id": soilgrids.CONTEXT_CONTRACT_ID,
+            "geometry_hash": soilgrids.geometry_sha256(old_geometry),
+            "status": "complete",
+            "source": {
+                "source_id": soilgrids.SOURCE_ID,
+                "source_version": soilgrids.SOURCE_VERSION,
+                "cache_contract_id": soilgrids.CACHE_CONTRACT_ID,
+            },
+        }
+        existing = {
+            "geometry": old_geometry,
+            "derived_context": {"soilgrids_water": cached_context},
+        }
+
+        unchanged = {"geometry": old_geometry, "derived_context": {}}
+        with mock.patch.object(soilgrids, "resolve_geometry_context") as resolve:
+            recalculated = self.web_server.refresh_micro_area_soilgrids_context(
+                unchanged, existing, cache_root=Path("/unused")
+            )
+        self.assertFalse(recalculated)
+        resolve.assert_not_called()
+        self.assertEqual(
+            cached_context, unchanged["derived_context"]["soilgrids_water"]
+        )
+
+        refreshed_context = soilgrids.pending_context(
+            new_geometry,
+            tile_ids=["x0_y0"],
+            reasons=["missing_cache_assets"],
+        )
+        changed = {"geometry": new_geometry, "derived_context": {}}
+        with mock.patch.object(
+            soilgrids, "resolve_geometry_context", return_value=refreshed_context
+        ) as resolve:
+            recalculated = self.web_server.refresh_micro_area_soilgrids_context(
+                changed, existing, cache_root=Path("/cache")
+            )
+        self.assertTrue(recalculated)
+        resolve.assert_called_once_with(
+            Path("/cache"), new_geometry, ensure_missing=True
+        )
+        self.assertEqual(
+            "pending", changed["derived_context"]["soilgrids_water"]["status"]
+        )
+
+        removed = {
+            "geometry": None,
+            "derived_context": {"soilgrids_water": cached_context},
+        }
+        self.assertFalse(
+            self.web_server.refresh_micro_area_soilgrids_context(removed, existing)
+        )
+        self.assertNotIn("soilgrids_water", removed["derived_context"])
 
     def test_mushroom_observations_update_replaces_existing_record(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -4725,6 +4857,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(web_response["status"], 404)
         self.assertEqual(worker_response["status"], 404)
 
+    def test_multiversion_result_routes_are_worker_protocol_paths(self) -> None:
+        self.assertIn(
+            "/api/mushrooms/workers/jobs/multiversion-result-file",
+            self.web_server.MUSHROOM_WORKER_PROTOCOL_POST_PATHS,
+        )
+        self.assertIn(
+            "/api/mushrooms/workers/jobs/multiversion-result-complete",
+            self.web_server.MUSHROOM_WORKER_PROTOCOL_POST_PATHS,
+        )
+
     def test_worker_web_controls_require_ingress_or_explicit_local_lab_trust(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         handler.headers = {"X-Remote-User-Id": "admin-user-id"}
@@ -7232,6 +7374,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("rainmapper_core.weather_history_archive", run_script)
         self.assertIn("download-preflight", run_script)
         self.assertIn("combine-exit-codes", run_script)
+        self.assertIn("rainmapper_core.weather_official_maintenance", run_script)
         self.assertIn("option partitioned_weather_history false", run_script)
         self.assertIn(
             'run_update_transaction "$window_days_init" "$window_days_end"',

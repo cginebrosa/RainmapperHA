@@ -82,6 +82,53 @@ diseño preliminar no resolvía:
     estable de HA y hacer el cambio dentro de una ventana de mantenimiento
     explícitamente autorizada, sin perder las filas aparecidas durante el
     backfill.
+12. **Instalación virgen — tarea futura, no prioritaria**. El flujo actual no es
+    autónomo: `partitioned_weather_history` nace desactivado y la primera
+    generación de esta instalación se preparó mediante una migración externa.
+    No existe una fecha de inicio meteorológica universal. El alcance necesario
+    debe derivarse de la observación de setas más antigua que se quiera soportar
+    y del máximo lookback exigido por el contrato biológico. Queda pendiente
+    decidir, cuando el resto del sistema esté cerrado, si el bootstrap usa una
+    semilla verificada, un trabajo separado reanudable o una combinación. Este
+    inciso no forma parte de la reparación ni del benchmark actuales.
+
+## Autorreparación de una instalación existente
+
+En una instalación existente, cada runner conserva el solape normal de siete
+días y además mantiene una cola persistente
+`official-weather-gap-repair.json`:
+
+- agrupa días ausentes en bloques máximos de 15 días;
+- ejecuta como máximo un bloque debido por fuente y runner;
+- persiste intentos, último error y siguiente reintento;
+- aplica espera creciente con máximo de siete días;
+- solo retira un día cuando aparece realmente en la generación archivada;
+- apaga el estado degradado cuando no quedan rangos pendientes;
+- no convierte una respuesta vacía, un error o una estación inexistente en
+  lluvia cero.
+
+La reparación siempre se archiva en el histórico particionado completo. Después
+se reaplica el lote al CSV vivo con su retención normal de 180 días. Por tanto,
+un bloque más antiguo queda corregido en el histórico aunque aporte cero filas
+al CSV vivo; uno reciente actualiza ambos. Si el proceso se interrumpe después
+de archivar y antes de cerrar el CSV, el lote durable permanece pendiente y el
+siguiente runner completa esa segunda fase antes de reconocerlo.
+
+Los adaptadores no son iguales. Meteocat usa el contrato histórico ya probado:
+dos consultas de red por bloque de 15 días —lluvia y condiciones— con pausa de
+cinco segundos. AEMET usa climatología diaria, cuyo máximo de API también es 15
+días; el backfill masivo anterior agrupaba dos peticiones como un lote mensual y
+empleaba una pausa mínima estable de dos segundos. La autocuración será más
+conservadora: como máximo una petición AEMET de 15 días por runner. El flujo
+diario AEMET normal sigue siendo distinto y usa observaciones horarias globales.
+
+El estado batch produce salida degradada no bloqueante y un informe persistente;
+su presentación específica en Diagnostics y Errors queda pendiente. Una
+instalación existente reiniciada reanuda la cola sin intervención.
+AEMET requiere que el usuario haya configurado su API key para descargar nuevos
+datos; Meteocat no requiere token. Si falta la key, el histórico existente
+sigue siendo válido y la cola AEMET permanece pendiente con motivo legible, sin
+degradar ni falsificar los datos de otras fuentes.
 
 ## Arquitectura final
 

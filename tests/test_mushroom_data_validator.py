@@ -74,6 +74,30 @@ class MushroomDataValidatorTests(unittest.TestCase):
 
         self.assertEqual([], [message.format() for message in id_errors])
 
+    def test_validator_checks_optional_ml_version_registry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir)
+            write_dataset(
+                target,
+                copy.deepcopy(self.profiles),
+                copy.deepcopy(self.catalogs),
+                copy.deepcopy(self.gis),
+                copy.deepcopy(self.observations),
+            )
+            (target / "mushroom_ml_version_registry.json").write_text(
+                '{"schema_version":"invalid"}\n', encoding="utf-8"
+            )
+
+            messages = VALIDATOR.validate_mushroom_data(target)
+
+        self.assertTrue(
+            any(
+                message.severity == "ERROR"
+                and message.location == "ml_version_registry"
+                for message in messages
+            )
+        )
+
     def test_validator_requires_prediction_favorable_for_flush_abundance(self) -> None:
         catalogs = copy.deepcopy(self.catalogs)
         del catalogs["catalogs"]["observation_flush_abundance"][0]["prediction_favorable"]

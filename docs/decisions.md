@@ -11,6 +11,132 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-17 - [VIGENTE][RELEASE] HA 0.2.256 y worker privado 1.0.10
+
+- El usuario autorizó publicar la pareja validada localmente. El smoke previo
+  superó 845 pruebas. No se instaló en ningún host real ni se lanzó una
+  regeneración o entrenamiento durante la preparación.
+- `ghcr.io/cginebrosa/rainmapperha:0.2.256` y `latest` comparten el índice OCI
+  `sha256:880c2edb4a384f0e3585d9bb9c82417e988a8d2c48799f5aab2a2c7548e86665`,
+  verificado con manifiestos `linux/amd64`
+  `sha256:aba74127fe736b439b6941f6e786898a6bd702c1c82ca6487cfecec3e7224443`
+  y `linux/arm64`
+  `sha256:ee203b3579e1095beaa38de367db1c34b0c1851a190f9ddbff291fef2c80cb6c`.
+- El worker sigue siendo privado y no se publica en GHCR. La imagen arm64
+  `rainmapper-worker:1.0.10` tiene digest local
+  `sha256:b56d68e5de63b90b120155ab23554390a8e40e6102798c4bb1fd4df18872fdd4`.
+  El TAR del paquete `~/Desktop/RainmapperWorker-1.0.10/` tiene SHA-256
+  `b582120db939a6e5823095b243430119d5cd993d94b57dc0c7962d93d3da2de2`;
+  no contiene el volumen persistente y el paquete anterior no se sobrescribe.
+- Orden de instalación: worker `1.0.10` primero y HA `0.2.256` después. El
+  coordinador HA `0.2.254` ya validaba capacidades como una lista abierta bajo
+  schema `0.1`, por lo que acepta las dos capacidades nuevas del worker. Así,
+  cuando arranque HA `0.2.256`, ya encontrará un ejecutor V2--V6 compatible.
+- Tras instalar se validarán versiones, estado, caché, Predictor y Comparar.
+  La regeneración completa queda como acción posterior y explícita del usuario.
+
+## 2026-08-16 - [VIGENTE][ML] `lag_event` ajusta un modelo y proyecta sus horizontes
+
+- Un modelo ajustado se define por especie, contrato temporal y estimador. En
+  `lag_event`, `horizon_days` es una variable predictiva del contrato, no la
+  identidad de cuatro modelos distintos.
+- Las métricas y el consenso de horizontes 1/2/3/7 se calculan filtrando las
+  probabilidades del mismo hold-out del modelo completo. Está prohibido volver
+  a ajustar por horizonte.
+- El comportamiento anterior —modelo completo más cuatro reentrenamientos—
+  queda **[OBSOLETA]**: multiplicaba el coste aproximadamente por cinco y
+  respondía a otra pregunta científica. Su JSON se conserva como evidencia con
+  `decision_eligible=false`.
+- La corrección mantiene exactamente cobertura, particiones y métricas del
+  modelo completo; `lag/groups7` baja de 650,68 s a unos 157 s. Una prueba
+  cuenta las evaluaciones para impedir la regresión.
+
+## 2026-08-16 - [VIGENTE][ML] Calidad antes que acuerdo y sin Brier medio
+
+- La selección se hace por especie, contrato temporal y estimador. No se usa un
+  Brier medio entre especies ni se escoge un algoritmo por un agregado pooled.
+- El consenso se estudia solo después de identificar algoritmos que superan la
+  prevalencia de entrenamiento en el mismo hold-out. Dos modelos parecidos que
+  predicen peor no forman una combinación útil.
+- RF+ET es la pareja con mayor acuerdo bruto, pero no queda seleccionada. Un
+  ensemble futuro debe materializar su probabilidad y superar al mejor miembro
+  individual antes de poder activarse.
+- El informe vigente es
+  `docs/reports/V2_V3_V4_consensus_report002.md`. El informe 001 queda
+  **[REEMPLAZADA]** para decisiones.
+
+## 2026-08-16 - [VIGENTE][BIOLOGY V3/V4] Meteorología IDW común para comparar versiones
+
+- V2, V3 y V4 se comparan con las mismas filas y la misma meteorología espacial:
+  lluvia, Tmin, Tmax, RHmin y RHmax por IDW diario de todas las fuentes
+  disponibles, radio 15 km, potencia 2 y mínimo una estación válida.
+- Tmin/Tmax se corrigen a la altitud DEM de cada microárea antes de ponderar;
+  RHmin/RHmax no tienen corrección altitudinal. Después se agrega por área.
+- La reproducción V2 operativa de estación única se conserva como referencia,
+  pero no se usa para atribuir a la versión diferencias causadas por otra base
+  meteorológica.
+- Procedencia, cobertura, distancias, estaciones y motivos de descarte son
+  calidad auditable y nunca entran en `X`. Lluvia ausente no equivale de forma
+  general a cero; solo el duplicado positivo suprimido con causa conocida usa
+  la excepción ya acordada.
+
+## 2026-08-16 - [VIGENTE][ML][DATOS] Snapshot canónico, versiones persistentes y huella
+
+- `docker-data/mushroom-data/` contiene los ficheros canónicos de trabajo local;
+  `docker-data/audits/<generación>/` conserva fuentes, derivados, hashes y
+  evidencia inmutable. `/private/tmp` es solo scratch y nunca fuente de una
+  instalación.
+- El snapshot vigente es `mushroom-ml-snapshot-20260816`: 395 observaciones,
+  59 microáreas, 352 filas fixed y 1.408 tareas lag elegibles. Su manifiesto
+  fija los cuatro benchmarks y las cuatro comparaciones canónicas.
+- V2/V3/V4 y futuras versiones se registran de forma genérica y se preservan
+  aunque dejen de ser operativas. Los estados no se codifican con condicionales
+  específicos de versión.
+- Bundles nuevos usan contrato de columnas e identidad semántica por área. Un
+  cambio de nombre/nota no invalida; geometría, pertenencia, posición o altitud
+  invalidan las áreas afectadas. Bundles legacy sin esa identidad mantienen la
+  barrera estricta de hash bruto.
+- Por ello, el Predictor instalado puede bloquearse tras el nuevo
+  `known_sites`. La solución vigente es reconstruir y entrenar desde el mismo
+  snapshot durante una actualización coordinada; queda prohibido relajar la
+  barrera o parchear bundles.
+
+## 2026-08-16 - [VIGENTE][BIOLOGY V4] V4 permanece propuesta, no candidata
+
+- V4 core reproduce V3 y valida el comparador. La meteorología ampliada y el
+  balance no mejoran Brier consistentemente entre especies; SoilGrids empeora
+  generalmente predicción y continuidad.
+- Balance y suelo se conservan, materializan, entrenan y documentan como
+  experimentales, pero quedan desactivados para predicción. Desactivar nunca
+  significa borrar o dejar de validar.
+- Dos observaciones revisadas ya cambian ganadores y dejan `boletus_edulis` sin
+  dos clases en la partición de grupos 7. El soporte no permite promoción.
+- V4 queda `proposed`. No se entrena candidato operativo hasta disponer de más
+  observaciones, analizar errores compartidos y superar los gates por especie.
+
+## 2026-08-16 - [VIGENTE][HISTÓRICO METEO] Autocuración acotada de huecos oficiales
+
+- Una instalación existente conserva el solape diario de siete días y añade un
+  detector de días completos ausentes de Meteocat y AEMET más allá de ese
+  margen. No interpreta el alta o baja de una estación como hueco de red.
+- Los huecos se guardan en una cola persistente, agrupados en bloques máximos de
+  15 días. Cada runner procesa como máximo un bloque debido por fuente y aplica
+  espera de 1/2/4/7 días ante fallos.
+- Meteocat mantiene dos consultas por bloque —lluvia y condiciones— y una pausa
+  de cinco segundos. AEMET usa climatología diaria con una sola petición de
+  hasta 15 días por runner; no se identifica este contrato conservador con el
+  backfill masivo histórico, que agrupaba dos peticiones como un mes.
+- Toda reparación se archiva primero en el histórico particionado. Después se
+  reaplica al CSV vivo de 180 días y solo entonces se reconoce el lote. Un
+  bloque antiguo repara el histórico aunque no altere el CSV; un reinicio entre
+  fases conserva el pendiente y permite terminarlo en el runner siguiente.
+- El resultado pendiente es degradado, no fatal, y queda en estado e informe
+  persistentes. La presentación específica en Diagnostics/Errors queda
+  pendiente. La implementación está validada solo en local y no está desplegada
+  en HA.
+- El bootstrap histórico de una instalación virgen queda fuera de este alcance
+  y continúa como tarea futura no prioritaria.
+
 ## 2026-08-13 - [VIGENTE][BIOLOGY V3] Tres ejes, extremos meteorológicos y consenso entre estimadores
 
 - La nomenclatura canónica separa tres ejes: **contrato temporal**
@@ -130,7 +256,7 @@ multiidioma mediante labels `en`, `es` y `ca`.
   los binarios fuera de Git y de releases.
 - Evidencia y contrato de formato completos en `mushroom-GIS/dem-andorra/README.md`.
 
-## 2026-08-13 - [VIGENTE][BIOLOGY V3] La lluvia es IDW diaria en la microárea
+## 2026-08-13 - [SUSTITUIDA POR V2][BIOLOGY V3] La lluvia es IDW diaria en la microárea
 
 - Biology V3 usa siempre una estimación espacial IDW de lluvia en el punto
   representativo de la microárea, no la estación más cercana ni un IDW solo
@@ -149,6 +275,26 @@ multiidioma mediante labels `en`, `es` y `ca`.
   fuera de X. Su agregación al área se rige por la decisión siguiente.
 - Implementado en módulos nuevos y cubierto por pruebas; no cambia Altitude
   V2, HA ni ningún modelo promovido.
+
+## 2026-08-15 - [VIGENTE][BIOLOGY V3/V4] Un duplicado positivo suprimido representa 0 mm
+
+- Se conserva el IDW diario por microárea, radio 15 km, potencia 2 y agregación
+  posterior por la media diaria de todas las microáreas del área.
+- La decisión de calidad ya adoptada se hace efectiva y versionada: si la
+  lectura de lluvia es `N/A` porque el proceso la identificó específicamente
+  como repetición positiva del día anterior, esa estación aporta `0 mm` ese
+  día. Es más probable que el sensor no registrase nueva lluvia que repetir
+  exactamente un acumulado diario positivo.
+- No se generaliza la regla: `N/A` sin esa causa, errores, negativos, valores
+  mayores de 300 mm/día y estaciones retiradas siguen sin participar. Si no
+  queda ningún contribuyente real o imputado, el día continúa ausente.
+- Nuevos IDs:
+  `daily_rain_idw_radius15km_power2_duplicate_zero_v2` y
+  `area_daily_mean_microarea_idw_duplicate_zero_v2`.
+- Calidad publica por separado días observados, ausentes, suprimidos e
+  imputados por duplicado. Ninguno de esos contadores entra en `X`.
+- El cambio está probado y aplicado solo al código y benchmarks locales; no se
+  ha desplegado en HA/M1 ni se ha reconstruido un modelo operativo.
 
 ## 2026-08-13 - [VIGENTE][BIOLOGY V3] El área contextualiza la florada pero no segmenta el modelo
 
@@ -181,9 +327,34 @@ multiidioma mediante labels `en`, `es` y `ca`.
   no borrándola. Se sigue calculando, validando, comparando y documentando para
   que pueda reactivarse sin reconstruir su significado.
 
-## 2026-08-13 - [VIGENTE][BIOLOGY V3] La lluvia del área es la media de sus microáreas
+## 2026-08-15 - [VIGENTE][BIOLOGY V4] Cierre local sin candidatura operativa
 
-- Contrato `area_daily_mean_microarea_idw_v1`: cada día del área es la media
+- Biology V4 queda técnicamente cerrada y permanece `proposed`: no se elimina,
+  no sustituye V2/V3 y conserva contratos, benchmarks, informes y variables
+  para reevaluación futura.
+- La comparación V2/V3/V4 usa filas idénticas, seis estimadores, especies y
+  contratos separados. No existe Brier medio entre especies. El balance V4 no
+  mejora Brier de forma estable: es desfavorable en fixed y aproximadamente
+  equilibrado en lag, con direcciones distintas por especie.
+- El balance sí reduce el parpadeo global de probabilidades diarias en ambos
+  contratos y particiones 7/14, pero ese beneficio no compensa la ausencia de
+  mejora predictiva consistente.
+- El depósito SoilGrids `wv0033_0_30cm`, reconstruido por microárea y fecha,
+  empeora continuidad en conjunto y tampoco fue ganador en Brier. Se conserva
+  experimental, materializado, entrenable y validable, pero no seleccionado.
+- Solo hay 50 etiquetas especie–área–fecha en las secuencias semanales del
+  hold-out; no se aprende ni activa una capa de continuidad con tan poco
+  soporte. Su contrato permanece desactivado para poder reabrirlo.
+- La paridad local train/inferencia es exacta sobre 399 muestras fixed y 1.596
+  lag para core, balance y suelo. La paridad de empaquetado HA–worker pertenece
+  a una futura integración.
+- Al no superar el gate no se entrena candidato V4, no se promociona nada y no
+  se toca HA, M1, GHCR ni el `known_sites` operativo.
+
+## 2026-08-13 - [VIGENTE CON SEMÁNTICA V2][BIOLOGY V3/V4] La lluvia del área es la media de sus microáreas
+
+- Contrato vigente `area_daily_mean_microarea_idw_duplicate_zero_v2` (sustituye
+  a `area_daily_mean_microarea_idw_v1` solo en el tratamiento de duplicados): cada día del área es la media
   aritmética de los IDW disponibles de todas sus microáreas configuradas. Una
   microárea ausente se omite; solo queda ausente si ninguna aporta valor.
 - No se usa el IDW del centroide del área porque ese centroide es una geometría

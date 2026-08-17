@@ -1448,3 +1448,63 @@ def upload_ml_train_result(
     if not isinstance(verification, dict) or verification.get("status") not in {"verified", "reused"}:
         raise ValueError("Rainmapper did not verify the uploaded ML training result.")
     return dict(verification)
+
+
+def upload_ml_multiversion_result(
+    ha_url: str,
+    job: dict[str, Any],
+    worker_job_dir: Path,
+    *,
+    worker_id: str,
+    claim_token: str,
+    token: str,
+    timeout: float = 120.0,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    from rainmapper_core import mushroom_ml_multiversion_transport  # noqa: PLC0415
+
+    job_id = mushroom_worker_transport.validate_job_id(str(job.get("job_id", "")))
+    endpoint = str(job.get("result_endpoint", "") or "")
+    complete_endpoint = str(job.get("result_complete_endpoint", "") or "")
+    if endpoint != "/api/mushrooms/workers/jobs/multiversion-result-file":
+        raise ValueError("Worker multiversion result endpoint is invalid.")
+    if complete_endpoint != "/api/mushrooms/workers/jobs/multiversion-result-complete":
+        raise ValueError("Worker multiversion completion endpoint is invalid.")
+    result_root = worker_job_dir.resolve() / "multiversion_result"
+    manifest_path = result_root / mushroom_ml_multiversion_transport.RESULT_MANIFEST_NAME
+    manifest = mushroom_ml_multiversion_transport.validate_result_manifest(
+        json.loads(manifest_path.read_text(encoding="utf-8")), job_id=job_id
+    )
+    logical_paths = [mushroom_ml_multiversion_transport.RESULT_MANIFEST_NAME] + [
+        row["path"] for row in manifest["files"]
+    ]
+    headers = mushroom_worker_transport.request_headers(worker_id, claim_token, token)
+    headers["Content-Type"] = "application/octet-stream"
+    for index, logical_path in enumerate(logical_paths, start=1):
+        _post_bytes(
+            ha_url.rstrip("/") + endpoint + "?" + urlencode({"job_id": job_id, "file": logical_path}),
+            (result_root / logical_path).read_bytes(),
+            headers=headers,
+            timeout=timeout,
+        )
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "phase": "Uploading V2--V6 comparison models",
+                    "message": f"Uploaded result file {index}/{len(logical_paths)}.",
+                    "overall_percent": 90 + int(index / len(logical_paths) * 8),
+                }
+            )
+    completed = _post_bytes(
+        ha_url.rstrip("/") + complete_endpoint,
+        json.dumps(
+            {"job_id": job_id, "worker_id": worker_id, "claim_token": claim_token},
+            ensure_ascii=False,
+        ).encode("utf-8"),
+        headers={**headers, "Content-Type": "application/json"},
+        timeout=timeout,
+    )
+    verification = completed.get("verification")
+    if not isinstance(verification, dict) or verification.get("status") != "verified_and_installed":
+        raise ValueError("Rainmapper did not install the multiversion result.")
+    return dict(verification)
