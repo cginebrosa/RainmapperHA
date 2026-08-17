@@ -5,22 +5,31 @@ desde conversaciones, memorias ni informes históricos: revalidar siempre códig
 datos y runtime. Las razones duraderas viven en `docs/decisions.md` y las
 especificaciones temáticas enlazadas.
 
-## Estado al cierre — 2026-08-17
+## Estado al cierre — 2026-08-18
 
 - Workspace verificado:
   `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
-- El worktree es grande y deliberadamente mixto. Contiene la implementación
-  V2–V6, meteorología, UI, worker, pruebas y documentación, además de cinco PDF
-  científicos no rastreados. No limpiar, resetear, sustituir ni borrar nada.
-- Estado de producción observado durante esta sesión en la UI y terminal del
-  usuario: HA `0.2.256` y worker M1 `1.0.10` están instalados; M1 conserva
-  identidad, emparejamiento y caché. Codex no lo ha revalidado directamente
-  contra los hosts al cierre.
+- La línea completa de corrección quedó registrada y enviada a `origin/inicial`
+  en el commit `c5b51e8`. No limpiar, resetear, sustituir ni borrar datos vivos,
+  cachés, artefactos o ficheros locales ajenos a Git.
+- HA `0.2.257` está publicada y pendiente de instalación/validación por el
+  usuario. `0.2.257` y `latest` comparten el índice OCI
+  `sha256:67a4d38890591adbc53bb441ff39ae2c9a544f5d78aefe45f74560daa4d86bc5`,
+  verificado con manifests `linux/amd64`
+  `sha256:7a06463088ee099da9e2c99f4097276f5385dbf11c066de01d2d3f56683613b6`
+  y `linux/arm64`
+  `sha256:d3db4a35f734fe23d36bce42b8f3587ff87fb602cd96b82bf3d12cf8852022fc`.
+- El worker normal fue actualizado in situ a `1.0.11` sin cambiar su volumen
+  persistente `rainmapper-worker-data`. Revalidado en
+  `http://127.0.0.1:8110/health`: `healthy`, `idle`, identidad
+  `worker_1a9a232c20fe2ee2`, caché GIS válida de 6.341.520.039 bytes y caché
+  Predictor válida de 147.194.751 bytes. Imagen local
+  `sha256:94466c8365b729e43df4329eae1702bd76a05bd72340f9372878f963381baa8d`.
 - El worker real usa la dirección Tailscale de HA porque está fuera de la LAN.
   La prohibición operativa es que Codex no use Tailscale ni exponga SMB; no
   significa retirar o cambiar esa URL persistente del worker.
-- La instalación real `0.2.256`/`1.0.10` sigue pendiente de la corrección; no
-  repetir allí la regeneración hasta publicar e instalar una release autorizada.
+- No ejecutar la regeneración real hasta que el usuario instale y valide HA
+  `0.2.257`; la publicación por sí sola no demuestra el runtime en la RPi4.
 - Ninguna V2–V6 está validada como preferida o ganadora. V2 alimenta la tarjeta
   histórica únicamente por orden cronológico. Todas siguen experimentales y
   deben mostrarse con calidad hold-out, aplicabilidad y cautelas propias.

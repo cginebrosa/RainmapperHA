@@ -11,6 +11,26 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-18 - [VIGENTE][RELEASE] HA 0.2.257 publicada y worker privado 1.0.11 actualizado
+
+- El usuario autorizó expresamente la entrega HA+worker después de validar el
+  Predictor local. El gate previo superó 883 pruebas, compilación Python/JS/shell,
+  fixtures y `git diff --check`.
+- `ghcr.io/cginebrosa/rainmapperha:0.2.257` y `latest` comparten el índice OCI
+  `sha256:67a4d38890591adbc53bb441ff39ae2c9a544f5d78aefe45f74560daa4d86bc5`.
+  Se verificaron los manifests `linux/amd64`
+  `sha256:7a06463088ee099da9e2c99f4097276f5385dbf11c066de01d2d3f56683613b6`
+  y `linux/arm64`
+  `sha256:d3db4a35f734fe23d36bce42b8f3587ff87fb602cd96b82bf3d12cf8852022fc`.
+- El worker normal se recreó únicamente con la imagen privada `1.0.11`, imagen
+  local `sha256:94466c8365b729e43df4329eae1702bd76a05bd72340f9372878f963381baa8d`,
+  conservando `rainmapper-worker-data`, identidad y cachés. El endpoint local lo
+  revalidó `healthy`, `idle` y con las capacidades esperadas. No se usó
+  Tailscale ni se modificó HA real.
+- Código, bump y contratos quedaron publicados en `origin/inicial`, commit
+  `c5b51e8`. HA `0.2.257` todavía debe instalarse y validarse en la RPi4; no se
+  considera instalada ni dada por buena por el hecho de estar en GHCR.
+
 ## 2026-08-18 - [VIGENTE][ML][RENDIMIENTO] Ventanas runtime por contrato y experimento físico V2/V3 preservado
 
 - Los 365 días diarios de V5/V6 son el alcance congelado de esos experimentos,
