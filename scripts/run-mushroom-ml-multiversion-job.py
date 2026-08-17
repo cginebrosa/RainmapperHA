@@ -48,6 +48,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--job-id", default="")
     parser.add_argument("--result-manifest", type=Path)
     parser.add_argument("--progress-jsonl", type=Path)
+    parser.add_argument("--training-input-manifest", type=Path)
     return parser.parse_args()
 
 
@@ -64,6 +65,17 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _sanitized_training_manifest(path: Path) -> dict:
+    payload = _load(path)
+    if payload.get("kind") != "mushroom_rebuild_input_manifest":
+        raise ValueError("Training input manifest kind is invalid")
+    sanitized = json.loads(json.dumps(payload))
+    for dataset in sanitized.get("datasets", []):
+        if isinstance(dataset, dict):
+            dataset.pop("root_path", None)
+    return sanitized
 
 
 def main() -> int:
@@ -118,6 +130,23 @@ def main() -> int:
             "path": "batches/" + manifest["batch_id"] + "/quality-catalog.json",
             "sha256": _sha256(quality_path),
         }
+        if args.training_input_manifest:
+            training_input_path = destination / "training-input-manifest.json"
+            training_input_path.write_text(
+                json.dumps(
+                    _sanitized_training_manifest(args.training_input_manifest),
+                    indent=2,
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            manifest["training_input_manifest"] = {
+                "path": "batches/"
+                + manifest["batch_id"]
+                + "/training-input-manifest.json",
+                "sha256": _sha256(training_input_path),
+            }
         (destination / "manifest.json").write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
@@ -160,6 +189,16 @@ def main() -> int:
                 "sha256": _sha256(result_batch / "quality-catalog.json"),
             }
         )
+        training_input_ref = manifest.get("training_input_manifest")
+        if isinstance(training_input_ref, dict):
+            training_input_path = result_batch / "training-input-manifest.json"
+            result_files.append(
+                {
+                    "path": "batch/training-input-manifest.json",
+                    "size_bytes": training_input_path.stat().st_size,
+                    "sha256": _sha256(training_input_path),
+                }
+            )
         for artifact in manifest["artifacts"]:
             relative = Path(str(artifact["path"])).relative_to(
                 Path("batches") / manifest["batch_id"]

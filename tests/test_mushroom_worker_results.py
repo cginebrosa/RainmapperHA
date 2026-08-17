@@ -351,6 +351,7 @@ class MushroomWorkerResultsTests(unittest.TestCase):
             self.input_root.resolve() / ".gis-hash-cache.json",
         )
         self.assertTrue((self.live / promotion["backup_path"]).is_dir())
+        self.assertFalse((self.live / ".worker-promotion-staging").exists())
         for relative in mushroom_rebuild_contracts.EXPECTED_ARTIFACT_PATHS:
             self.assertEqual((self.live / relative).read_bytes(), (self.outputs / relative).read_bytes())
 

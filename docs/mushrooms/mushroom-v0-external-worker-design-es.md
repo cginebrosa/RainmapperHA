@@ -16,6 +16,12 @@ La ruta del fichero conserva el nombre historico `mushroom-v0-external-worker`
 para no romper referencias, pero el alcance vigente ya no se limita al V0 ni a
 un Mac concreto.
 
+La evolución multicoordinador está especificada aparte en
+`docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`. El runtime
+actual descrito en este documento conserva una sola URL/token; la nueva
+especificación permitirá añadir coordinadores sin sustituir el existente,
+manteniendo un único job global y credenciales aisladas.
+
 La plataforma está operativa entre HA y el M1. El worker instalado es `1.0.8` y
 ejecuta la reconstrucción y entrenamiento completos altitude V2. La imagen
 local `1.0.9` añade únicamente los CLI de construcción/evaluación de benchmark

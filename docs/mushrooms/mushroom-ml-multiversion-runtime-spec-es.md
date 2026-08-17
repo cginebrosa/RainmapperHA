@@ -1,6 +1,7 @@
 # Runtime multiversión V2–V6 para Predictor, HA y worker
 
-Estado: **EN IMPLEMENTACIÓN LOCAL; NO DESPLEGADO**.
+Estado: **DESPLEGADO INICIALMENTE EN HA 0.2.256 / WORKER 1.0.10; CORRECCIÓN DE
+REGENERACIÓN Y TRAZABILIDAD EN VALIDACIÓN LOCAL**.
 
 Versiones de software reservadas para esta integración: HA `0.2.256` y worker
 `1.0.10`. Los artefactos anteriores HA `0.2.255` y worker `1.0.9` se saltan y
@@ -68,12 +69,38 @@ es el horizonte de predicción.
 | V2 `altitude_v2` | `common_idw` | LR, RF, ET, HGB, KNN, SVM | sí, mientras sea activa |
 | V3 `biology_v3` | `core` | LR, RF, ET, HGB, KNN, SVM | no sin promoción |
 | V4 `biology_v4` | `extended_weather`, `climatic_balance` | LR, RF, ET, HGB, KNN, SVM | no sin promoción |
-| V5 `biology_v5_raw_weather_discovery` | `raw_primary_no_calendar` | Elastic Net, sparse-group | no sin promoción |
-| V6 `biology_v6_smooth_hierarchical` | `smooth_raw` | suave por especie, compartido, pooling parcial | no sin promoción |
+| V5 `biology_v5_raw_weather_discovery` | `raw_primary_plus_physical_state` | Elastic Net, sparse-group | no sin promoción |
+| V6 `biology_v6_smooth_hierarchical` | `smooth_weather_physical_state` | suave por especie, compartido, pooling parcial | no sin promoción |
 
 V4 `core`, las variantes SoilGrids y las ablaciones V5 quedan reconstruibles en
 el laboratorio, pero no multiplican el catálogo ordinario: V4 core duplica V3
 y las restantes no superaron los benchmarks actuales.
+
+## Paridad meteorológica del Predictor
+
+El Predictor no lee una estación concreta para ninguna V2–V6. Para cada fecha
+de corte materializa el IDW multifuente diario de cada microárea usando las
+fuentes habilitadas. ET0, balance hídrico y SMI se calculan después desde ese
+IDW solo cuando el perfil exacto instalado declara variables físicas: omitir
+trabajo que el bundle no consume no elimina esa capacidad. V2/V3 actuales usan
+90 días IDW sin estado físico; V4 usa 90 días y activa físicos únicamente en
+sus perfiles correspondientes; V5/V6 conservan su eje experimental de 365
+días y consumen estado físico. V5 recibe los ocho canales diarios y los
+resúmenes SMI; V6 aplica sus bases suaves sobre esos mismos ocho canales y
+conserva los escalares físicos. El registro, el entrenador y el adaptador de
+inferencia deben resolver el mismo perfil y el mismo orden exacto de columnas.
+Si el runtime no puede reproducir ese contrato, debe abstenerse: no puede
+sustituir ausencias por cero ni degradar a meteorología de una sola estación.
+El bundle remoto incluye además `stations.txt`; así el worker aplica la misma
+lista de estaciones Wunderground habilitadas/deshabilitadas que HA. Omitir ese
+fichero cambia las fuentes del IDW y rompe la paridad aunque los Parquet sean
+idénticos.
+
+Una variante futura V2/V3 `IDW + balance/SMI` debe registrarse, entrenarse y
+evaluarse como perfil o contrato diferente. La implementación física permanece
+disponible para ese experimento; está prohibido inyectar nuevas columnas en los
+bundles V2/V3 actuales o presentarlas como si hubieran formado parte de su
+entrenamiento.
 
 ## Batch y almacenamiento
 
@@ -86,8 +113,16 @@ batches/<batch>/generations/<generation>/<version>/<temporal>/<profile>/<estimat
 ```
 
 El batch nuevo se escribe en staging, se verifica por hash y contrato y solo
-entonces se activa atómicamente. El batch anterior permanece como rollback. Una
-activación parcial que mezcle snapshots está prohibida.
+entonces se instala atómicamente. El batch anterior permanece como rollback.
+Una activación parcial que mezcle snapshots está prohibida. Tras una instalación
+verificada, la copia temporal recibida desde el worker se elimina; si falla la
+verificación, se conserva para diagnóstico.
+
+El batch conserva además `training-input-manifest.json`, una identidad pequeña
+y verificable de las entradas usadas. Contiene hashes, tamaños, identidad del
+histórico meteorológico y del dataset GIS, pero no incorpora observaciones,
+parquets, predicciones hold-out, modelos ni rutas privadas del host. Su SHA-256
+queda referenciado por el manifiesto del batch.
 
 ## Reconstrucción y entrenamiento
 
@@ -104,6 +139,14 @@ particiones 7/14, campañas, remuestreos y reportes y se ejecuta aparte. Así no
 se recalcula IDW cinco veces ni se convierte cada regeneración de datos en un
 benchmark largo.
 
+En el flujo instalado, «Reconstruir y reentrenar todo» encadena necesariamente
+la reconstrucción común, el entrenamiento ML v0 y el lote V2–V6. Los
+constructores V3/V4/V5 preparan filas y variables; V2 y V6 también consumen la
+misma generación de entradas y todos los estimadores se vuelven a ajustar. No
+se ofrece una regeneración parcial de comparación: mientras todas las versiones
+sigan habilitadas, la coherencia con la última observación y con el histórico
+meteorológico aceptado exige completar la cadena entera.
+
 ## Predictor y explicaciones
 
 El modo normal conserva ranking, semana, consulta e histórico con una única
@@ -118,9 +161,27 @@ Cada resultado conserva dos capas:
   especie/contrato, Brier frente a prevalencia y fenología, dominio de variables
   y motivo de exclusión.
 
+La UI resume antes del detalle cuatro grupos mutuamente excluyentes: miembros
+utilizables (en dominio y mejores que prevalencia), disponibles en dominio con
+evidencia débil, extrapolaciones/no utilizables y abstenciones por entradas
+meteorológicas incompletas. Las tablas por algoritmo quedan como diagnóstico
+plegable. Un `runtime_feature_gates_failed` causado por cobertura no se presenta
+como avería del modelo: muestra el corte meteorológico observado que todavía
+debe completarse. En una consulta futura, h1/h2/h3/h7 son fechas de emisión
+distintas del mismo modelo `lag_event`; la UI no supone que exista meteorología
+observada posterior a hoy.
+
 V5/V6 no fingirán una importancia causal de cada día. Mostrarán resúmenes por
 banda y, cuando proceda, coeficientes o curvas estables con la advertencia de
 que son diagnósticos de asociación.
+
+Antes de renderizar el Predictor, HA compara la identidad del batch instalado
+con las observaciones y entradas históricas actuales. Si cambian, muestra un
+aviso de que las predicciones no incorporan todavía toda la información y pide
+una reconstrucción y reentrenamiento completos. Los lotes antiguos que no
+guardan identidad se muestran como «vigencia no verificable», nunca como
+actuales por suposición. El chequeo no confunde meteorología futura de una
+consulta con datos históricos de entrenamiento.
 
 ## Compatibilidad HA/worker
 
@@ -141,3 +202,14 @@ manifest, no otra implementación.
 - suite completa y smoke test locales;
 - ningún modelo operativo, HA real, GHCR o release se modifica durante esta
   implementación local.
+
+## Regla de empaquetado
+
+Las imágenes HA y worker contienen código, dependencias y defaults públicos.
+HA incluye una plantilla de observaciones vacía para instalaciones nuevas; no
+contiene registros de observación, snapshots canónicos, benchmarks, hold-outs
+ni modelos entrenados. Las entradas reales se congelan en HA al lanzar el trabajo,
+se transfieren al worker mediante el contrato autenticado y se descartan al
+terminar. Reducir la imagen elimina herramientas de compilación o cachés
+innecesarios; no elimina información del dataset, porque esa información nunca
+debe formar parte de la imagen pública.

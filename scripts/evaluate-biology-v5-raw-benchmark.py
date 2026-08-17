@@ -121,6 +121,18 @@ def main() -> int:
             "biology_v5|raw_primary_plus_physical_no_calendar": (
                 source["v5"], "biology_v5_raw_weather_discovery", "raw_primary_plus_physical_no_calendar", "v5",
             ),
+            "biology_v5|raw_primary_plus_physical_state": (
+                source["v5"],
+                "biology_v5_raw_weather_discovery",
+                "raw_primary_plus_physical_state",
+                "v5",
+            ),
+            "biology_v5|raw_primary_plus_physical_state_no_calendar": (
+                source["v5"],
+                "biology_v5_raw_weather_discovery",
+                "raw_primary_plus_physical_state_no_calendar",
+                "v5",
+            ),
         }
         eligible_maps = {
             name: {holdout.comparison_key(row): row for row in holdout.eligible_samples(dataset[0])}
@@ -170,6 +182,8 @@ def main() -> int:
         for profile in (
             "raw_primary_no_calendar", "raw_primary", "raw_primary_plus_physical_no_calendar",
             "raw_primary_plus_physical",
+            "raw_primary_plus_physical_state_no_calendar",
+            "raw_primary_plus_physical_state",
         ):
             report, rows, selections = holdout.evaluate_dataset(
                 source["v5"],

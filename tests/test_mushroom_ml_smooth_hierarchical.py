@@ -4,6 +4,7 @@ import unittest
 
 import numpy as np
 
+from rainmapper_core import mushroom_ml_raw_weather as raw
 from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
 
 
@@ -16,13 +17,20 @@ class SmoothHierarchicalTests(unittest.TestCase):
         self.assertLess(float(np.max(np.abs(np.diff(basis, axis=0)))), 0.4)
 
     def test_train_only_imputation_and_projection_shape(self):
-        X_train = np.ones((3, 5 * 365))
+        width = len(smooth.raw_columns(include_horizon=True))
+        X_train = np.ones((3, width))
         X_train[:, 10] = [1.0, np.nan, 3.0]
-        X_test = np.ones((1, 5 * 365))
+        X_test = np.ones((1, width))
         X_test[:, 10] = 1000.0
         transformer = smooth.SmoothLagPreprocessor().fit(X_train)
-        self.assertEqual(transformer.transform(X_train).shape, (3, 50))
-        self.assertEqual(transformer.transform(X_test).shape, (1, 50))
+        projected_width = (
+            len(raw.DAILY_CHANNELS) * smooth.N_BASIS
+            + len(raw.PHYSICAL_STATE_SCALARS)
+            + 3
+        )
+        self.assertEqual(transformer.transform(X_train).shape, (3, projected_width))
+        self.assertEqual(transformer.transform(X_test).shape, (1, projected_width))
+        self.assertEqual(len(transformer.feature_names()), projected_width)
         self.assertEqual(float(transformer.imputer_.statistics_[10]), 2.0)
 
     def test_partial_pooling_design_contains_shared_and_species_deviations(self):

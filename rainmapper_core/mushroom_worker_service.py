@@ -1033,19 +1033,38 @@ def serve(
                     def multiversion_progress(event: dict[str, Any]) -> None:
                         multiversion_telemetry.publish(event)
 
+                    input_bundle = job.get("input_bundle")
+                    input_bundle = input_bundle if isinstance(input_bundle, dict) else {}
+                    dynamic_inputs = bool(input_bundle.get("snapshot_id"))
                     input_result = with_transport_retry(
-                        lambda: mushroom_worker_transport.download_ml_multiversion_inputs(
-                            ha_url,
-                            job,
-                            worker_data_dir.resolve(),
-                            worker_id=identity["worker_id"],
-                            claim_token=claim_token,
-                            token=token,
-                            progress_callback=multiversion_progress,
+                        lambda: (
+                            mushroom_worker_transport.download_input_bundle(
+                                ha_url,
+                                job,
+                                worker_data_dir.resolve(),
+                                worker_id=identity["worker_id"],
+                                claim_token=claim_token,
+                                token=token,
+                                progress_callback=multiversion_progress,
+                            )
+                            if dynamic_inputs
+                            else mushroom_worker_transport.download_ml_multiversion_inputs(
+                                ha_url,
+                                job,
+                                worker_data_dir.resolve(),
+                                worker_id=identity["worker_id"],
+                                claim_token=claim_token,
+                                token=token,
+                                progress_callback=multiversion_progress,
+                            )
                         )
                     )
                     worker_job_dir = Path(str(input_result["input_dir"])).resolve()
-                    spec = json.loads((worker_job_dir / "job_spec.json").read_text(encoding="utf-8"))
+                    spec = (
+                        input_bundle.get("multiversion_spec")
+                        if dynamic_inputs
+                        else json.loads((worker_job_dir / "job_spec.json").read_text(encoding="utf-8"))
+                    )
                     if not isinstance(spec, dict) or spec.get("kind") != "mushroom_ml_multiversion_job":
                         raise ValueError("Worker multiversion job specification is invalid.")
                     result_root = worker_job_dir / "multiversion_result"
@@ -1094,26 +1113,105 @@ def serve(
                         )
                         return
                     result_root.mkdir(parents=True, exist_ok=False)
+                    prepared_inputs: dict[str, str] | None = None
+                    if dynamic_inputs:
+                        preparation_root = worker_job_dir / "multiversion_inputs"
+                        preparation_progress_path = worker_job_dir / "multiversion-preparation-progress.jsonl"
+                        preparation_command = [
+                            sys.executable,
+                            "/app/scripts/prepare-mushroom-ml-multiversion-inputs.py",
+                            "--data-dir", str(worker_job_dir / str(spec["weather_data_dir"])),
+                            "--observations", str(worker_job_dir / str(spec["observations_path"])),
+                            "--known-sites", str(worker_job_dir / str(spec["known_sites_path"])),
+                            "--observation-features", str(
+                                worker_job_dir / str(spec["observation_features_path"])
+                            ),
+                            "--stations-file", str(worker_job_dir / str(spec["stations_path"])),
+                            "--output-dir", str(preparation_root),
+                            "--source-snapshot-id", str(input_bundle["snapshot_id"]),
+                            "--progress-jsonl", str(preparation_progress_path),
+                        ]
+                        multiversion_telemetry.publish(
+                            {
+                                "phase": "Preparing fresh V2--V6 evaluation inputs",
+                                "message": "Building disposable benchmarks from the current snapshot.",
+                                "overall_percent": 20,
+                            },
+                            force=True,
+                        )
+                        compute_process = subprocess.Popen(
+                            preparation_command,
+                            stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.PIPE,
+                        )
+                        published_preparation_lines = 0
+                        while compute_process.poll() is None:
+                            multiversion_telemetry.poll_control()
+                            if preparation_progress_path.is_file():
+                                lines = preparation_progress_path.read_text(encoding="utf-8").splitlines()
+                                if len(lines) > published_preparation_lines:
+                                    event = json.loads(lines[-1])
+                                    completed = int(event.get("completed_step_count", 0) or 0)
+                                    planned = max(1, int(event.get("planned_step_count", 1) or 1))
+                                    multiversion_telemetry.publish(
+                                        {
+                                            "phase": str(event.get("phase", "Preparing V2--V6 inputs")),
+                                            "message": str(
+                                                event.get("detail")
+                                                or f"Preparation step {completed}/{planned}."
+                                            ),
+                                            "overall_percent": 20 + int(completed / planned * 35),
+                                        }
+                                    )
+                                    published_preparation_lines = len(lines)
+                            stop_event.wait(0.5)
+                        if compute_process.returncode != 0:
+                            detail = (
+                                compute_process.stderr.read() if compute_process.stderr else b""
+                            ).decode("utf-8", errors="replace")[-2000:]
+                            raise RuntimeError(
+                                "V2--V6 input preparation exited with status "
+                                f"{compute_process.returncode}: {detail}"
+                            )
+                        prepared = json.loads(
+                            (preparation_root / "prepared-inputs.json").read_text(encoding="utf-8")
+                        )
+                        if (
+                            not isinstance(prepared, dict)
+                            or prepared.get("kind") != "mushroom_ml_prepared_multiversion_inputs"
+                            or not isinstance(prepared.get("inputs"), dict)
+                        ):
+                            raise ValueError("Prepared multiversion inputs are invalid.")
+                        prepared_inputs = {
+                            str(key): str(value) for key, value in prepared["inputs"].items()
+                        }
                     multiversion_progress_path = worker_job_dir / "multiversion-progress.jsonl"
+                    model_inputs = prepared_inputs or {
+                        key: str(worker_job_dir / str(value))
+                        for key, value in dict(spec["inputs"]).items()
+                    }
                     command = [
                         sys.executable,
                         "/app/scripts/run-mushroom-ml-multiversion-job.py",
                         "--registry", str(worker_job_dir / str(spec["registry_path"])),
-                        "--snapshot-id", str(spec["snapshot_id"]),
+                        "--snapshot-id", str(input_bundle.get("snapshot_id") or spec["snapshot_id"]),
                         "--batch-id", str(spec["batch_id"]),
-                        "--v3-fixed", str(worker_job_dir / str(spec["inputs"]["v3_fixed"])),
-                        "--v3-lag", str(worker_job_dir / str(spec["inputs"]["v3_lag"])),
-                        "--v4-fixed", str(worker_job_dir / str(spec["inputs"]["v4_fixed"])),
-                        "--v4-lag", str(worker_job_dir / str(spec["inputs"]["v4_lag"])),
-                        "--v5-fixed", str(worker_job_dir / str(spec["inputs"]["v5_fixed"])),
-                        "--v5-lag", str(worker_job_dir / str(spec["inputs"]["v5_lag"])),
-                        "--v2-v5-heldout", str(worker_job_dir / str(spec["inputs"]["v2_v5_heldout"])),
-                        "--v6-heldout", str(worker_job_dir / str(spec["inputs"]["v6_heldout"])),
+                        "--v3-fixed", model_inputs["v3_fixed"],
+                        "--v3-lag", model_inputs["v3_lag"],
+                        "--v4-fixed", model_inputs["v4_fixed"],
+                        "--v4-lag", model_inputs["v4_lag"],
+                        "--v5-fixed", model_inputs["v5_fixed"],
+                        "--v5-lag", model_inputs["v5_lag"],
+                        "--v2-v5-heldout", model_inputs["v2_v5_heldout"],
+                        "--v6-heldout", model_inputs["v6_heldout"],
                         "--models-root", str(worker_job_dir / "multiversion_models"),
                         "--summary", str(worker_job_dir / "multiversion-summary.json"),
                         "--job-id", job_id,
                         "--result-manifest", str(result_root / "multiversion_result.json"),
                         "--progress-jsonl", str(multiversion_progress_path),
+                        "--training-input-manifest",
+                        str(worker_job_dir / "snapshot" / "input_manifest.json"),
                     ]
                     for version_id, generation_id in dict(spec["generation_ids"]).items():
                         command.extend(["--generation", f"{version_id}={generation_id}"])
@@ -1123,7 +1221,7 @@ def serve(
                         {
                             "phase": "Training V2--V6 comparison models",
                             "message": "Training the isolated non-operational comparison batch.",
-                            "overall_percent": 20,
+                            "overall_percent": 55 if dynamic_inputs else 20,
                         },
                         force=True,
                     )
@@ -1149,7 +1247,11 @@ def serve(
                                             f"{completed}/{planned} fits; "
                                             f"{event.get('version_id', '')} / {event.get('species_id', '')}."
                                         ),
-                                        "overall_percent": 20 + int(completed / planned * 68),
+                                        "overall_percent": (
+                                            55 + int(completed / planned * 33)
+                                            if dynamic_inputs
+                                            else 20 + int(completed / planned * 68)
+                                        ),
                                     }
                                 )
                                 published_multiversion_lines = len(lines)
@@ -1161,6 +1263,8 @@ def serve(
                         raise RuntimeError(
                             f"V2--V6 training process exited with status {compute_process.returncode}: {detail}"
                         )
+                    if dynamic_inputs:
+                        shutil.rmtree(worker_job_dir / "multiversion_inputs", ignore_errors=True)
                     verification = with_transport_retry(
                         lambda: mushroom_worker_results.upload_ml_multiversion_result(
                             ha_url,

@@ -86,6 +86,7 @@ class MicroAreaContext:
     location_source: str
     altitude_m: float | None = None
     altitude_source: str | None = None
+    soilgrids_water: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -470,6 +471,12 @@ def load_micro_area_contexts(path: Path) -> dict[str, MicroAreaContext]:
             location_source=source,
             altitude_m=altitude,
             altitude_source=("derived_context.gis_dem.altitude_mean_m" if altitude is not None else None),
+            soilgrids_water=(
+                dict(derived.get("soilgrids_water"))
+                if isinstance(derived, Mapping)
+                and isinstance(derived.get("soilgrids_water"), Mapping)
+                else None
+            ),
         )
     return result
 

@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.0.10
+ARG RAINMAPPER_WORKER_VERSION=1.0.11
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -58,6 +58,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_observations.py \
      rainmapper_core/mushroom_paths.py \
      rainmapper_core/mushroom_ml_experiments.py \
+     rainmapper_core/mushroom_ml_error_analysis.py \
      rainmapper_core/mushroom_ml_experiment_trainer.py \
      rainmapper_core/mushroom_ml_comparison.py \
      rainmapper_core/mushroom_ml_predictor.py \
@@ -85,10 +86,12 @@ COPY mushroom-data/mushroom_ml_version_registry.json /app/mushroom-data/mushroom
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
 COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py
 COPY scripts/run-mushroom-ml-multiversion-job.py /app/scripts/run-mushroom-ml-multiversion-job.py
+COPY scripts/prepare-mushroom-ml-multiversion-inputs.py /app/scripts/prepare-mushroom-ml-multiversion-inputs.py
 COPY scripts/build-biology-v3-benchmark.py /app/scripts/build-biology-v3-benchmark.py
 COPY scripts/build-biology-v4-benchmark.py /app/scripts/build-biology-v4-benchmark.py
 COPY scripts/build-biology-v5-raw-benchmark.py /app/scripts/build-biology-v5-raw-benchmark.py
-COPY scripts/evaluate-biology-v3-benchmark.py /app/scripts/evaluate-biology-v3-benchmark.py
+COPY scripts/evaluate-biology-v5-raw-benchmark.py /app/scripts/evaluate-biology-v5-raw-benchmark.py
+COPY scripts/evaluate-biology-v6-smooth-hierarchical.py /app/scripts/evaluate-biology-v6-smooth-hierarchical.py
 COPY scripts/manage-mushroom-worker-datasets.py /app/scripts/manage-mushroom-worker-datasets.py
 COPY scripts/manage-mushroom-worker-config.py /app/scripts/manage-mushroom-worker-config.py
 COPY scripts/run-mushroom-worker-service.py /app/scripts/run-mushroom-worker-service.py
@@ -126,6 +129,7 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_worker_transport.py \
         /app/rainmapper_core/mushroom_worker_results.py \
         /app/rainmapper_core/mushroom_ml_experiments.py \
+        /app/rainmapper_core/mushroom_ml_error_analysis.py \
         /app/rainmapper_core/mushroom_ml_experiment_trainer.py \
         /app/rainmapper_core/mushroom_ml_comparison.py \
         /app/rainmapper_core/mushroom_ml_predictor.py \
@@ -141,11 +145,14 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/scripts/run-mushroom-rebuild-job.py \
         /app/scripts/run-mushroom-ml-train-job.py \
         /app/scripts/run-mushroom-ml-multiversion-job.py \
+        /app/scripts/prepare-mushroom-ml-multiversion-inputs.py \
         /app/scripts/build-biology-v3-benchmark.py \
         /app/scripts/build-biology-v4-benchmark.py \
         /app/scripts/build-biology-v5-raw-benchmark.py \
-        /app/scripts/evaluate-biology-v3-benchmark.py \
-        /app/rainmapper_core/mushroom_ml_trainer.py
+        /app/scripts/evaluate-biology-v5-raw-benchmark.py \
+        /app/scripts/evaluate-biology-v6-smooth-hierarchical.py \
+        /app/rainmapper_core/mushroom_ml_trainer.py \
+    && find /app -type d -name __pycache__ -prune -exec rm -rf '{}' +
 
 VOLUME ["/var/lib/rainmapper-worker"]
 

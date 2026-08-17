@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import math
+from collections import OrderedDict
 from pathlib import Path
+from threading import RLock
 from typing import Any, Mapping
 
 import numpy as np
@@ -14,16 +16,37 @@ from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
 from rainmapper_core.mushroom_ml_predictor import _label
 
 
+_ARTIFACT_CACHE_MAX_ENTRIES = 128
+_artifact_cache: OrderedDict[tuple[str, str, int, int], dict[str, Any]] = (
+    OrderedDict()
+)
+_artifact_cache_lock = RLock()
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def clear_artifact_cache() -> int:
+    """Release hash-verified immutable bundles after a runtime replacement."""
+    with _artifact_cache_lock:
+        released = len(_artifact_cache)
+        _artifact_cache.clear()
+    return released
 
 
 def _artifact_row(
     registry: Mapping[str, object],
     manifest: Mapping[str, object],
     model_ref: catalog.ModelRef,
+    *,
+    checked_manifest: Mapping[str, object] | None = None,
 ) -> dict[str, Any]:
-    checked = catalog.validate_batch_manifest(registry, manifest)
+    checked = (
+        checked_manifest
+        if checked_manifest is not None
+        else catalog.validate_batch_manifest(registry, manifest)
+    )
     wanted = catalog.artifact_ref_for_model_ref(registry, model_ref)
     row = next(
         (
@@ -46,25 +69,60 @@ def load_exact_artifact(
     model_ref: catalog.ModelRef | Mapping[str, object],
     *,
     root: Path,
+    checked_manifest: Mapping[str, object] | None = None,
+    artifact_row: Mapping[str, object] | None = None,
+    validated_model_ref: catalog.ModelRef | None = None,
 ) -> dict[str, Any]:
     """Load one hash-verified artifact and reject identity substitution."""
     import joblib
 
-    wanted = catalog.validate_model_ref(registry, model_ref)
-    row = _artifact_row(registry, manifest, wanted)
+    wanted = validated_model_ref or catalog.validate_model_ref(registry, model_ref)
+    row = (
+        dict(artifact_row)
+        if artifact_row is not None
+        else _artifact_row(
+            registry,
+            manifest,
+            wanted,
+            checked_manifest=checked_manifest,
+        )
+    )
     path = Path(root) / str(row["path"])
     if not path.is_file():
         raise FileNotFoundError(f"Runtime model file is missing: {path}")
-    if _sha256(path) != row["sha256"]:
-        raise ValueError(f"Runtime model digest mismatch: {path}")
-    bundle = joblib.load(path)
-    if not isinstance(bundle, dict):
-        raise ValueError("Runtime model bundle must be an object")
-    actual = catalog.ModelArtifactRef.from_mapping(bundle.get("artifact_ref") or {})
-    expected = catalog.artifact_ref_for_model_ref(registry, wanted)
-    if actual != expected:
-        raise ValueError("Runtime model bundle identity mismatch")
-    return bundle
+    stat = path.stat()
+    resolved_path = str(path.resolve())
+    declared_digest = str(row["sha256"])
+    cache_key = (
+        resolved_path,
+        declared_digest,
+        stat.st_mtime_ns,
+        stat.st_size,
+    )
+    with _artifact_cache_lock:
+        cached = _artifact_cache.get(cache_key)
+        if cached is not None:
+            _artifact_cache.move_to_end(cache_key)
+            return cached
+
+        if _sha256(path) != declared_digest:
+            raise ValueError(f"Runtime model digest mismatch: {path}")
+        bundle = joblib.load(path)
+        if not isinstance(bundle, dict):
+            raise ValueError("Runtime model bundle must be an object")
+        actual = catalog.ModelArtifactRef.from_mapping(bundle.get("artifact_ref") or {})
+        expected = catalog.ModelArtifactRef.from_mapping(row["artifact_ref"])
+        if actual != expected:
+            raise ValueError("Runtime model bundle identity mismatch")
+
+        # A replaced immutable runtime must not retain an older object for the
+        # same pathname. Digest and stat identity still guard every cache hit.
+        for stale_key in [key for key in _artifact_cache if key[0] == resolved_path]:
+            del _artifact_cache[stale_key]
+        _artifact_cache[cache_key] = bundle
+        while len(_artifact_cache) > _ARTIFACT_CACHE_MAX_ENTRIES:
+            _artifact_cache.popitem(last=False)
+        return bundle
 
 
 def predict_bundle(

@@ -31,12 +31,12 @@ class MushroomMLRuntimeFeaturesTests(TestCase):
             horizon_days=horizon,
         )
 
-    def test_v5_lag_keeps_horizon_but_excludes_calendar(self) -> None:
+    def test_v5_lag_uses_complete_idw_physical_state_profile(self) -> None:
         result = runtime_features.build_runtime_features(
             self.ref(
                 version_id="biology_v5_raw_weather_discovery",
                 contract=raw.LAG_CONTRACT_ID,
-                profile="raw_primary_no_calendar",
+                profile="raw_primary_plus_physical_state",
                 estimator="elastic_net_logistic_raw365_v1",
                 horizon=3,
             ),
@@ -48,15 +48,20 @@ class MushroomMLRuntimeFeaturesTests(TestCase):
         )
         features = result["predictive_features"]
         self.assertEqual(features["horizon_days"], 3.0)
-        self.assertNotIn("target_day_sin", features)
+        self.assertIn("target_day_sin", features)
         self.assertEqual(features["rain_mm__lag_000"], float(364 % 17))
+        self.assertEqual(features["eto0_mm__lag_000"], float(364 % 17))
+        self.assertEqual(
+            features["soil_water_fraction__lag_000"], float(364 % 17)
+        )
+        self.assertIn("soil_water_area_mean_at_cutoff", features)
 
     def test_v6_uses_same_raw_series_without_four_horizon_fits(self) -> None:
         result = runtime_features.build_runtime_features(
             self.ref(
                 version_id="biology_v6_smooth_hierarchical",
-                contract="lag_event_biology_v6_smooth_hierarchical_v1",
-                profile="smooth_raw",
+                contract="lag_event_biology_v6_smooth_hierarchical_v2",
+                profile="smooth_weather_physical_state",
                 estimator="smooth_partial_pooling_logistic_v1",
                 horizon=7,
             ),
@@ -67,6 +72,13 @@ class MushroomMLRuntimeFeaturesTests(TestCase):
             stations={},
         )
         features = result["predictive_features"]
-        self.assertEqual(len(features), 5 * 365)
-        self.assertNotIn("horizon_days", features)
+        self.assertEqual(
+            len(features),
+            len(raw.DAILY_CHANNELS) * 365
+            + len(raw.PHYSICAL_STATE_SCALARS)
+            + 3,
+        )
+        self.assertEqual(features["horizon_days"], 7.0)
+        self.assertIn("target_day_sin", features)
+        self.assertIn("soil_water_fraction__lag_000", features)
         self.assertEqual(result["metadata"]["horizon_days"], 7)

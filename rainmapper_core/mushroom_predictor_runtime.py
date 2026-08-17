@@ -58,6 +58,7 @@ def build_manifest(
     profiles_path: Path | None = None,
     version_registry_path: Path | None = None,
     runtime_batch_manifest_path: Path | None = None,
+    stations_file_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Path]]:
     weather = Path(weather_data_dir or mushroom_paths.weather_data_dir())
     models = Path(models_dir or mushroom_paths.mushroom_ml_models_dir())
@@ -78,6 +79,9 @@ def build_manifest(
         "data/mushroom_known_sites.json": known_sites,
         "data/mushroom_profiles.json": profiles,
     }
+    stations_file = Path(stations_file_path or "/app/stations.txt")
+    if stations_file.is_file():
+        sources["data/stations.txt"] = stations_file
     partitioned_current = weather / "weather-history" / "CURRENT.json"
     weather_contract = WEATHER_CONTRACT
     if partitioned_current.is_file():
@@ -314,4 +318,5 @@ def service_paths(runtime_root: Path) -> dict[str, Path]:
         "profiles_path": root / "data/mushroom_profiles.json",
         "version_registry_path": root / "data/mushroom_ml_version_registry.json",
         "runtime_batch_manifest_path": root / "models/runtime-batch.json",
+        "stations_file_path": root / "data/stations.txt",
     }

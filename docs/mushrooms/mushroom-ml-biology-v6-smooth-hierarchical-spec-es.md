@@ -1,6 +1,12 @@
 # Especificación Biology V6 — retardos suaves y pooling parcial
 
-Estado: **EXPERIMENTO LOCAL NO OPERATIVO**. Fecha: 2026-08-16.
+Estado: **CONTRATO CORREGIDO PARA EXPERIMENTO LOCAL NO OPERATIVO**.
+Fecha original: 2026-08-16. Corrección de contrato: 2026-08-17.
+
+Contratos corregidos: `fixed_gap_7d_biology_v6_smooth_hierarchical_v2` y
+`lag_event_biology_v6_smooth_hierarchical_v2`. Los identificadores v1 quedan
+reservados para la ejecución histórica sobre cinco canales y no son
+compatibles con esta matriz.
 
 ## Pregunta
 
@@ -14,8 +20,10 @@ sin imponer ventanas estacionales fijas.
   `docker-data/audits/mushroom-ml-snapshot-20260816`.
 - Matrices V5 raw365 locales del directorio
   `docker-data/audits/mushroom-ml-v5-raw-discovery-20260816`.
-- Solo cinco canales primarios IDW comunes; perfil sin calendario para la
-  comparación principal. ET0/balance quedan fuera para aislar la hipótesis.
+- Matriz canónica V5 completa: cinco canales primarios IDW, ET0, balance
+  climático y SMI diario, más los resúmenes físicos escalares registrados.
+- Los perfiles sin calendario, sin derivados o sin SMI son ablaciones; no
+  definen el runtime canónico V6.
 - Se conservan observaciones, targets, cortes causales y grupos 7/14.
 - En lag existe un ajuste conjunto por contrato+estimador+split; 1/2/3/7
   filtran el mismo hold-out y nunca reentrenan.
@@ -23,10 +31,13 @@ sin imponer ventanas estacionales fijas.
 
 ## Representación temporal suave
 
-Cada canal conserva sus 365 días. El eje `lag_000..lag_364` se transforma de
+Cada uno de los ocho canales diarios conserva sus 365 días. El eje
+`lag_000..lag_364` se transforma de
 forma determinista a `log1p(lag)` y se representa mediante diez bases B-spline
 cúbicas. Los pesos de cada base se normalizan y producen diez exposiciones
-suaves por canal: 50 variables meteorológicas en total.
+suaves por canal: 80 exposiciones temporales en total. Los resúmenes físicos
+SMI de corte se añaden como escalares estandarizados dentro de train y no se
+proyectan sobre bases temporales.
 
 La escala logarítmica concede resolución a días recientes y mantiene capacidad
 para representar señal lenta, sin fijar límites entre micelio y fructificación.
@@ -36,7 +47,8 @@ bases. Se evalúa además una base lineal uniforme como ablación de suavidad.
 ## Estimadores
 
 1. `smooth_species_logistic_v1`: logística regularizada independiente por
-   especie sobre las 50 exposiciones. Controla si la compresión temporal basta.
+   especie sobre las 80 exposiciones y los estados escalares. Controla si la
+   compresión temporal basta.
 2. `smooth_shared_logistic_v1`: un único modelo con coeficientes meteorológicos
    compartidos y un intercepto por especie.
 3. `smooth_partial_pooling_logistic_v1`: coeficientes compartidos más

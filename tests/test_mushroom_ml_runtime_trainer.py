@@ -12,6 +12,46 @@ REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml
 
 
 class MushroomMLRuntimeTrainerTests(TestCase):
+    def test_registry_plan_has_complete_runtime_benchmark_coverage(self) -> None:
+        from rainmapper_core import mushroom_ml_multiversion_plan
+
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        generation_ids = {
+            row["version_id"]: f"generation-{row['version_id']}"
+            for row in registry["versions"]
+        }
+        training_plan = mushroom_ml_multiversion_plan.build_plan(
+            registry,
+            batch_id="coverage-test",
+            snapshot_id="sha256:" + "c" * 64,
+            generation_ids=generation_ids,
+            species_ids=["boletus_edulis"],
+        )
+
+        trainer.validate_benchmark_coverage(
+            training_plan,
+            trainer.supported_runtime_benchmark_keys(),
+        )
+
+    def test_missing_runtime_benchmark_is_rejected_before_fitting(self) -> None:
+        training_plan = {
+            "fits": [
+                {
+                    "artifact_ref": {
+                        "version_id": "biology_v5_raw_weather_discovery",
+                        "temporal_contract_id": "fixed_gap_7d_biology_v5_raw365_v1",
+                        "profile_id": "raw_primary_no_calendar",
+                    }
+                }
+            ]
+        }
+
+        with self.assertRaisesRegex(ValueError, "Runtime registry is incompatible"):
+            trainer.validate_benchmark_coverage(
+                training_plan,
+                trainer.supported_runtime_benchmark_keys(),
+            )
+
     def test_batch_is_immutable_verified_and_not_activated(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
         artifact_ref = catalog.ModelArtifactRef(

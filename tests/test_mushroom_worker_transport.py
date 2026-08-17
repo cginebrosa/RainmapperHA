@@ -91,6 +91,40 @@ class MushroomWorkerTransportTests(unittest.TestCase):
         )
         mushroom_worker_dataset_cache.sync_local(manifest, self.gis, self.worker_data)
 
+    def test_coordinator_bundle_can_carry_small_hashed_extra_inputs(self) -> None:
+        registry = self.source / "registry.json"
+        registry.write_text('{"versions": []}\n', encoding="utf-8")
+        job_id = "worker_job_transportextra"
+
+        metadata = mushroom_worker_transport.prepare_coordinator_bundle(
+            self.bundle_root,
+            job_id=job_id,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+            extra_inputs={"registry.json": registry},
+        )
+        manifest = mushroom_rebuild_snapshot.load_manifest(
+            self.bundle_root / job_id / "snapshot"
+        )
+        record = next(row for row in manifest["files"] if row["role"] == "extra:registry.json")
+
+        self.assertEqual(record["path"], "inputs/extra/registry.json")
+        self.assertEqual(
+            record["sha256"],
+            hashlib.sha256(registry.read_bytes()).hexdigest(),
+        )
+        self.assertEqual(metadata["input_file_count"], len(manifest["files"]))
+
+    def test_complete_multiversion_bundle_is_discardable(self) -> None:
+        self.assertTrue(
+            mushroom_worker_transport.coordinator_bundle_is_discardable(
+                {"status": "complete", "job_type": "worker_ml_multiversion_v1"}
+            )
+        )
+
     def test_worker_downloads_and_verifies_immutable_bundle_over_http(self) -> None:
         seen_headers: list[tuple[str, str, str]] = []
 

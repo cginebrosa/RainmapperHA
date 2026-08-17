@@ -125,6 +125,16 @@ def install_verified_result(
             )
             if not quality_path.is_file() or sha256(quality_path) != quality_ref["sha256"]:
                 raise ValueError("Multiversion quality catalog integrity failed")
+        training_input_ref = batch_manifest.get("training_input_manifest")
+        if isinstance(training_input_ref, Mapping):
+            training_input_path = extracted / Path(
+                str(training_input_ref["path"])
+            ).relative_to(Path("batches") / result["batch_id"])
+            if (
+                not training_input_path.is_file()
+                or sha256(training_input_path) != training_input_ref["sha256"]
+            ):
+                raise ValueError("Multiversion training input manifest integrity failed")
         for artifact in batch_manifest["artifacts"]:
             staged_path = extracted / Path(str(artifact["path"])).relative_to(
                 Path("batches") / result["batch_id"]
@@ -209,10 +219,12 @@ def finalize_result(
     models_root: Path,
 ) -> dict[str, Any]:
     job_root = Path(result_root) / job_id / "multiversion"
-    return install_verified_result(
+    installed = install_verified_result(
         result_manifest_path=job_root / RESULT_MANIFEST_NAME,
         result_root=job_root,
         registry_path=registry_path,
         models_root=models_root,
         job_id=job_id,
     )
+    shutil.rmtree(job_root)
+    return installed

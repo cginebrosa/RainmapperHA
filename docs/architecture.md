@@ -217,17 +217,29 @@ Hay varios entry points segun entorno:
 - Responsabilidad: levantar la WebUI de Home Assistant en local usando `rainmapper-app/Dockerfile` y montando `docker-data/` como `/share/rainmapper`.
 - Puerto local: `http://127.0.0.1:8101`.
 - Relacion: permite cargar observaciones reales/historicas de setas, importar EXIF y probar flujos de mantenimiento sin escribir en la instalacion HA real. Usa `rainmapper-local/options.local-ha-ui.json` como opciones de add-on y `tmp/mushroom-lab/runtime/config-www` como `/config/www`; esa ruta de `tmp/` es runtime local, no fuente operativa del modelo v0.
+- Ejecutor de laboratorio: este compose activa exclusivamente
+  `RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED=true`. La página `Workers y trabajos`
+  ofrece entonces `Home Assistant local`, que usa la CPU del host mediante el
+  contenedor HA y no necesita registrar otro worker. La imagen HA mantiene esta
+  capacidad cerrada por defecto, por lo que el despliegue real sigue siendo
+  coordinador y deriva el cálculo al worker M1.
 - Estado verificado 2026-07-13: `rainmapper-ha-ui` esta reconstruido y en
   ejecucion en `127.0.0.1:8101`. Los datos locales siguen preservados en
   `docker-data/`.
 
 ### Coordinador y worker externo de setas
 
+> Evolución pendiente: el runtime instalado sigue siendo monocoordinador. El
+> diseño para que una sola instalación conserve varias asociaciones aisladas,
+> un límite local configurable y un único job global está en
+> `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`.
+
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
-  HA `0.2.254` contiene el coordinador y el M1 ejecuta worker `1.0.8`, compatible
-  con rebuild y training altitude V2. El
-  laboratorio usa el mismo contrato; no existe ni hace falta una imagen HA de
-  desarrollo paralela.
+  El estado observado el 2026-08-17 es HA `0.2.256` con worker M1 `1.0.10`.
+  La primera regeneración real descubrió una dependencia incorrecta de un JSON
+  del laboratorio en el tercer paso V2–V6; la corrección está implementada y
+  pendiente de validación/release. El laboratorio usa el mismo contrato y datos
+  montados, no una bifurcación funcional del worker normal.
 - Coordinador: `web_server.py` conserva autoridad sobre pairing, registro,
   heartbeats, jobs/claims, snapshots, datasets, candidatos y promocion;
   `mushroom_workers_ui.py` renderiza la pagina humana `Workers y trabajos`.
@@ -280,12 +292,28 @@ Hay varios entry points segun entorno:
 - Pipeline de actualización: HA y worker llaman a
   `rainmapper_core/mushroom_rebuild_pipeline.py`, pero el único alcance operativo
   expuesto es completo. Al verificar el candidato, HA encadena automáticamente
-  `worker_ml_train_v0` usando sus features candidatos.
-- Publicación: el worker solo produce candidatos. Rebuild y training son dos
-  jobs independientes para diagnóstico, pero HA los reserva y activa como una
-  sola generación lógica. Si falla la promoción de modelos se restauran
-  artefactos y modelos previos; los pendientes se limpian únicamente tras éxito
+  `worker_ml_train_v0` usando sus features candidatos y después un job
+  comparativo V2–V6 no operativo. Cada ejecución deriva las entradas
+  multiversión del snapshot fresco del propio job; los snapshots fijos bajo
+  `docker-data/audits/` son evidencia de laboratorio, no dependencias runtime.
+- Trazabilidad multiversión: el batch instalado conserva
+  `training-input-manifest.json`, referenciado por hash desde su manifiesto. El
+  fichero identifica observaciones, catálogos, GIS e histórico usados sin copiar
+  datos brutos ni rutas privadas. `mushroom_ml_training_freshness.py` compara esa
+  identidad con las entradas vivas y clasifica la generación como `current`,
+  `stale`, `unknown` o `invalid` para el aviso del Predictor.
+- Publicación: el worker solo produce candidatos. Reconstrucción, ML v0 y V2–V6
+  son tres jobs enlazados e independientes para diagnóstico. La UI no ofrece y
+  el backend no acepta la promoción completa hasta que los tres terminan. HA
+  realiza una sola promoción de la generación lógica; si falla se restauran los
+  artefactos/modelos previos y los pendientes solo se limpian tras éxito
   completo. No se promocionan ni mezclan candidatos parciales antiguos.
+- Ejecución HA local: `mushroom_local_full_update.py` usa los mismos
+  `InputManifest`, `JobSpec`, `ResultManifest`, verificadores y scripts que el
+  worker. Encadena los tres trabajos dentro del contenedor, instala V2–V6 y
+  publica rebuild+ML v0 en una única fase final con rollback compensatorio. El
+  gate de entorno solo se declara en `rainmapper-local/docker-compose.yml`; no
+  existe fallback silencioso desde un worker desconectado.
 - Datos semiestaticos: HA/Rainmapper es la fuente autoritativa de GIS/DEM. El
   worker los descarga a staging solo si falta/cambia su fingerprint y activa
   la version validada en el volumen; las ejecuciones siguientes reutilizan la
@@ -307,8 +335,9 @@ Hay varios entry points segun entorno:
   `predictor_v1`, no comparando versiones.
 - Seguridad operacional: pairing de un uso, Bearer por worker, lease/token por
   claim, bloqueo de trabajos solapados, cancelacion cooperativa/forzada y
-  rechazo de resultados stale. La reconstruccion local HA permanece como
-  fallback independiente.
+  rechazo de resultados stale. El ejecutor HA local es una capacidad de
+  laboratorio opt-in, no un fallback de producción ni una segunda identidad de
+  worker.
 - Predictor remoto: el diseño vinculante vive en
   `docs/mushrooms/mushroom-remote-predictor-design-es.md`. El motor ya reside en
   `rainmapper_core`; HA conserva UI, selección y diagnóstico, mientras un
@@ -390,7 +419,11 @@ Hay varios entry points segun entorno:
 
 ### Empaquetado HA sin copia de core
 - Ruta: `rainmapper-app/Dockerfile`, `scripts/build-push-ha-image.sh` y checks de empaquetado en `scripts/smoke-test.sh`.
-- Responsabilidad: construir la imagen HA desde la raiz del repositorio, copiando `rainmapper_core/`, `mushroom-data/`, `scripts/validate-mushroom-data.py`, wrappers raiz, configuracion compartida y los modulos HA de `rainmapper-app/app/`.
+- Responsabilidad: construir la imagen HA desde la raiz del repositorio,
+  copiando `rainmapper_core/`, validadores, wrappers, configuracion, módulos HA
+  y solo los defaults micológicos públicos necesarios. No se copia el árbol
+  completo `mushroom-data/`: una instalación nueva recibe una plantilla de
+  observaciones vacía y los datos vivos permanecen en `/share/rainmapper`.
 - Relacion: `rainmapper-app/app` queda reservado para codigo especifico de HA; el smoke test falla si vuelven a aparecer copias de core no permitidas en esa carpeta.
 
 ### Leaflet viewer
@@ -570,6 +603,11 @@ Home Assistant:
 - Proteccion automatica de historicos limitada: existen `scripts/check-history.py`, `scripts/backup-data.sh` y smoke checks, pero no una suite funcional completa de regresion historica.
 - `web_server.py` concentra demasiadas responsabilidades.
 - Gestion de version dispersa entre `config.yaml`, `CHANGELOG.md`, assets y Dockerfile.
+- La regeneración multiversión vuelve a ajustar todas las versiones habilitadas;
+  su coste aumenta con el registro. No introducir un atajo parcial que mezcle
+  identidades de entrenamiento.
+- Los batches legacy sin `training-input-manifest.json` no permiten demostrar
+  vigencia y deben clasificarse como `unknown`, nunca como actuales por defecto.
 - API keys de mapas cliente son visibles en navegador si se usan tiles externos con token.
 - MapLibre protegido es el visor principal recomendado. Bokeh, Leaflet publico y visores publicos antiguos quedan como legacy opcional bajo `publish_to_www`; no asumir que existen en `/config/www` ni en `/local`.
 - La configuracion Cloudflare real no esta versionada. Estado operativo conocido desde 2026-06-22: HTTP redirige a HTTPS, HSTS esta activo con `includeSubDomains`, `rainmap.nomentero.com` sirve la ruta protegida y los subdominios fallback externos `leaflet.nomentero.com`/`maplibre.nomentero.com` quedan protegidos con Cloudflare Access.

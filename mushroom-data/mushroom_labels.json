@@ -3444,6 +3444,31 @@
     "es": "Coordina los trabajos; la reconstruccion y el entrenamiento completos se ejecutan en un worker externo.",
     "ca": "Coordina els treballs; la reconstruccio i l'entrenament complets s'executen en un worker extern."
   },
+  "ui.worker_local_compute": {
+    "en": "Local compute executor",
+    "es": "Ejecutor de calculo local",
+    "ca": "Executor de calcul local"
+  },
+  "ui.worker_local_compute_help": {
+    "en": "Local-lab only: runs reconstruction, ML v0 and V2--V6 in sequence inside this HA container, followed by one full promotion.",
+    "es": "Solo laboratorio local: ejecuta reconstruccion, ML v0 y V2--V6 en cadena dentro de este contenedor HA y realiza una unica promocion completa.",
+    "ca": "Nomes laboratori local: executa reconstruccio, ML v0 i V2--V6 en cadena dins d'aquest contenidor HA i fa una unica promocio completa."
+  },
+  "ui.worker_local_ha_executor": {
+    "en": "Local Home Assistant",
+    "es": "Home Assistant local",
+    "ca": "Home Assistant local"
+  },
+  "ui.worker_local_ha_executor_help": {
+    "en": "Uses this M1 through the local HA container; no worker pairing is required.",
+    "es": "Usa este M1 mediante el contenedor HA local; no requiere emparejar un worker.",
+    "ca": "Usa aquest M1 mitjancant el contenidor HA local; no cal aparellar cap worker."
+  },
+  "ui.worker_local_full_update_job": {
+    "en": "Complete local update",
+    "es": "Actualizacion local completa",
+    "ca": "Actualitzacio local completa"
+  },
   "ui.worker_default_save": {
     "en": "Save default",
     "es": "Guardar predeterminado",
@@ -4567,5 +4592,80 @@
     "en": "Status",
     "es": "Estado",
     "ca": "Estat"
+  },
+  "ui.predictor_multiversion_summary_title": {
+    "en": "What can be trusted in this query",
+    "es": "Qué se puede interpretar en esta consulta",
+    "ca": "Què es pot interpretar en aquesta consulta"
+  },
+  "ui.predictor_multiversion_summary_usable": {
+    "en": "usable members",
+    "es": "miembros utilizables",
+    "ca": "membres utilitzables"
+  },
+  "ui.predictor_multiversion_summary_usable_help": {
+    "en": "In the observed domain and better than species prevalence on hold-out.",
+    "es": "Dentro del dominio observado y mejores que la prevalencia de la especie en hold-out.",
+    "ca": "Dins del domini observat i millors que la prevalença de l'espècie en hold-out."
+  },
+  "ui.predictor_multiversion_summary_weak": {
+    "en": "members with weak evidence",
+    "es": "miembros con evidencia débil",
+    "ca": "membres amb evidència feble"
+  },
+  "ui.predictor_multiversion_summary_weak_help": {
+    "en": "Available and in domain, but they do not improve prevalence or lack sufficient evidence.",
+    "es": "Disponibles y en dominio, pero no mejoran la prevalencia o no tienen evidencia suficiente.",
+    "ca": "Disponibles i en domini, però no milloren la prevalença o no tenen evidència suficient."
+  },
+  "ui.predictor_multiversion_summary_not_usable": {
+    "en": "extrapolations or unusable members",
+    "es": "extrapolaciones o miembros no utilizables",
+    "ca": "extrapolacions o membres no utilitzables"
+  },
+  "ui.predictor_multiversion_summary_not_usable_help": {
+    "en": "Outside the observed domain, under extrapolation caution, or unavailable for another reason.",
+    "es": "Fuera del dominio observado, bajo cautela de extrapolación o no disponibles por otro motivo.",
+    "ca": "Fora del domini observat, sota cautela d'extrapolació o no disponibles per un altre motiu."
+  },
+  "ui.predictor_multiversion_summary_weather_pending": {
+    "en": "weather-data abstentions",
+    "es": "abstenciones por datos meteorológicos",
+    "ca": "abstencions per dades meteorològiques"
+  },
+  "ui.predictor_multiversion_summary_weather_pending_help": {
+    "en": "Not model failures: the required observed weather cutoff is not complete yet.",
+    "es": "No son fallos del modelo: todavía no está completo el corte meteorológico observado necesario.",
+    "ca": "No són fallades del model: encara no està complet el tall meteorològic observat necessari."
+  },
+  "ui.predictor_multiversion_weather_pending": {
+    "en": "Observed weather data are not complete yet",
+    "es": "Los datos meteorológicos observados todavía no están completos",
+    "ca": "Les dades meteorològiques observades encara no estan completes"
+  },
+  "ui.predictor_multiversion_weather_pending_cutoff": {
+    "en": "Requires complete observed weather through {cutoff}",
+    "es": "Requiere meteorología observada completa hasta {cutoff}",
+    "ca": "Requereix meteorologia observada completa fins a {cutoff}"
+  },
+  "ui.predictor_training_warning": {
+    "en": "The predictor is not confirmed to use all currently available training data.",
+    "es": "No está confirmado que el predictor use todos los datos de entrenamiento disponibles actualmente.",
+    "ca": "No està confirmat que el predictor utilitzi totes les dades d'entrenament disponibles actualment."
+  },
+  "ui.predictor_training_stale_help": {
+    "en": "Observations or historical training inputs have changed since this model generation. Run the full reconstruction and retraining before interpreting its predictions as current.",
+    "es": "Las observaciones o las entradas históricas de entrenamiento han cambiado desde esta generación de modelos. Ejecuta la reconstrucción y el reentrenamiento completos antes de interpretar sus predicciones como actuales.",
+    "ca": "Les observacions o les entrades històriques d'entrenament han canviat des d'aquesta generació de models. Executa la reconstrucció i el reentrenament complets abans d'interpretar-ne les prediccions com a actuals."
+  },
+  "ui.predictor_training_unknown_help": {
+    "en": "This model generation does not record enough source identity to verify freshness. A full reconstruction and retraining will add that traceability.",
+    "es": "Esta generación de modelos no registra suficiente identidad de origen para verificar su vigencia. Una reconstrucción y un reentrenamiento completos añadirán esa trazabilidad.",
+    "ca": "Aquesta generació de models no registra prou identitat d'origen per verificar-ne la vigència. Una reconstrucció i un reentrenament complets afegiran aquesta traçabilitat."
+  },
+  "ui.predictor_training_invalid_help": {
+    "en": "The saved training identity could not be verified. Run the full reconstruction and retraining before relying on these predictions.",
+    "es": "No se ha podido verificar la identidad de entrenamiento guardada. Ejecuta la reconstrucción y el reentrenamiento completos antes de confiar en estas predicciones.",
+    "ca": "No s'ha pogut verificar la identitat d'entrenament desada. Executa la reconstrucció i el reentrenament complets abans de confiar en aquestes prediccions."
   }
 }

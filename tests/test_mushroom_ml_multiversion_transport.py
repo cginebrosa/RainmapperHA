@@ -110,3 +110,43 @@ class MushroomMLMultiversionTransportTests(TestCase):
             self.assertFalse(verification["operational_candidate_trained"])
             self.assertTrue((models_root / "runtime-batch.json").is_file())
             self.assertTrue((models_root / "batches" / "batch-transport" / "manifest.json").is_file())
+            self.assertFalse((staging_root / job_id / "multiversion").exists())
+
+    def test_failed_finalization_keeps_staged_result_for_diagnosis(self) -> None:
+        job_id = "worker_job_transportfailed"
+        result = {
+            "schema_version": "1.0",
+            "kind": "mushroom_ml_multiversion_result",
+            "job_id": job_id,
+            "batch_id": "batch-failed",
+            "snapshot_id": "sha256:" + "a" * 64,
+            "files": [
+                {
+                    "path": "batch/manifest.json",
+                    "size_bytes": 2,
+                    "sha256": hashlib.sha256(b"{}").hexdigest(),
+                }
+            ],
+            "batch_manifest_sha256": hashlib.sha256(b"{}").hexdigest(),
+            "planned_fit_count": 1,
+            "successful_fit_count": 1,
+            "failed_fit_count": 0,
+            "operational_candidate_trained": False,
+        }
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            staging_root = root / "staging"
+            transport.receive_result_file(
+                staging_root,
+                job_id=job_id,
+                logical_path=transport.RESULT_MANIFEST_NAME,
+                content=(json.dumps(result) + "\n").encode(),
+            )
+            with self.assertRaises(ValueError):
+                transport.finalize_result(
+                    staging_root,
+                    job_id=job_id,
+                    registry_path=REGISTRY_PATH,
+                    models_root=root / "models",
+                )
+            self.assertTrue((staging_root / job_id / "multiversion").is_dir())

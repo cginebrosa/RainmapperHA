@@ -16,7 +16,7 @@ from rainmapper_core import mushroom_paths
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_ml_multiversion_comparison
-from rainmapper_core.mushroom_ml_comparison import MushroomModelComparator
+from rainmapper_core import mushroom_weather_idw
 from rainmapper_core.mushroom_ml_predictor import (
     MushroomMLPredictor,
     invalidate_weather_stations_cache,
@@ -29,14 +29,22 @@ import mushroom_profiles_ui
 
 # Module-level predictor cache — lazy-loaded, survives across requests
 _predictor_cache: dict[str, MushroomMLPredictor] = {}
-_comparator_cache: dict[str, MushroomModelComparator] = {}
 _predictor_cache_lock = RLock()
 _prepared_response: ContextVar[dict[str, Any] | None] = ContextVar(
     "mushroom_predictor_prepared_response", default=None
 )
+_prepared_weather_cache: ContextVar[dict[tuple[object, ...], Any] | None] = ContextVar(
+    "mushroom_predictor_prepared_weather_cache", default=None
+)
+_comparison_cache: ContextVar[dict[str, Any] | None] = ContextVar(
+    "mushroom_predictor_comparison_cache", default=None
+)
 _executor_query: ContextVar[str] = ContextVar("mushroom_predictor_executor", default="")
 _allow_executor_change: ContextVar[bool] = ContextVar(
     "mushroom_predictor_allow_executor_change", default=True
+)
+_training_freshness: ContextVar[dict[str, Any] | None] = ContextVar(
+    "mushroom_predictor_training_freshness", default=None
 )
 
 # ML report cache — loaded once per process, reset if file changes
@@ -161,7 +169,6 @@ def release_predictor_cache() -> int:
     with _predictor_cache_lock:
         released_instances = len(_predictor_cache)
         _predictor_cache.clear()
-        _comparator_cache.clear()
         invalidate_weather_stations_cache()
     gc.collect()
     return released_instances
@@ -331,17 +338,66 @@ def _model_comparison(species_id: str, area_id: str, target_date: date) -> dict[
     predictor = _get_predictor(species_id)
     if isinstance(predictor, PreparedPredictor):
         return predictor.model_comparison(area_id, target_date)
-    with _predictor_cache_lock:
-        comparator = _comparator_cache.get(species_id)
-        if comparator is None:
-            comparator = MushroomModelComparator(
-                predictor, mushroom_paths.mushroom_ml_models_dir()
-            )
-            _comparator_cache[species_id] = comparator
-    return comparator.compare(
-        area_id,
-        target_date,
+    manifest_path = mushroom_paths.mushroom_ml_runtime_batch_manifest_path()
+    if not manifest_path.is_file():
+        return {
+            "fixed_gap_7d_altitude_v2": {
+                "available": False,
+                "reason": "runtime_batch_not_installed",
+            },
+            "lag_event_altitude_v2": {
+                "available": False,
+                "reason": "runtime_batch_not_installed",
+            },
+        }
+    request_cache = _comparison_cache.get()
+    registry = request_cache.get("registry") if request_cache is not None else None
+    if not isinstance(registry, dict):
+        registry = mushroom_ml_version_registry.load_registry(
+            mushroom_paths.mushroom_ml_version_registry_path()
+        )
+        if request_cache is not None:
+            request_cache["registry"] = registry
+    manifest = request_cache.get("manifest") if request_cache is not None else None
+    if not isinstance(manifest, dict):
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if request_cache is not None:
+            request_cache["manifest"] = manifest
+    profiles = request_cache.get("profiles") if request_cache is not None else None
+    if not isinstance(profiles, dict):
+        profiles = json.loads(
+            mushroom_paths.mushroom_profiles_path().read_text(encoding="utf-8")
+        )
+        if request_cache is not None:
+            request_cache["profiles"] = profiles
+    species_profile = next(
+        (
+            row
+            for row in profiles.get("species_profiles", [])
+            if isinstance(row, dict) and row.get("species_id") == species_id
+        ),
+        {},
+    )
+    stations_file = Path("/app/stations.txt")
+    return mushroom_ml_multiversion_comparison.compare_v2_reference(
+        registry,
+        manifest,
+        species_id=species_id,
+        area_id=area_id,
+        target_date=target_date,
         issue_date=min(date.today(), target_date),
+        season_phase=predictor.season_phase(target_date),
+        phenology=dict(species_profile.get("phenology") or {}),
+        models_root=mushroom_paths.mushroom_ml_models_dir(),
+        known_sites_path=mushroom_paths.mushroom_known_sites_path(),
+        weather_data_dir=mushroom_paths.weather_data_dir(),
+        excluded_station_keys=(
+            mushroom_weather_idw.disabled_wunderground_station_keys(stations_file)
+            if stations_file.is_file()
+            else frozenset()
+        ),
+        prepared_weather_cache=_prepared_weather_cache.get(),
+        comparison_cache=request_cache,
     )
 
 
@@ -537,9 +593,14 @@ def _multiversion_result(
             .get("multiversion_comparison")
         )
         return dict(payload) if isinstance(payload, dict) else None
-    registry = mushroom_ml_version_registry.load_registry(
-        mushroom_paths.mushroom_ml_version_registry_path()
-    )
+    request_cache = _comparison_cache.get()
+    registry = request_cache.get("registry") if request_cache is not None else None
+    if not isinstance(registry, dict):
+        registry = mushroom_ml_version_registry.load_registry(
+            mushroom_paths.mushroom_ml_version_registry_path()
+        )
+        if request_cache is not None:
+            request_cache["registry"] = registry
     manifest_path = mushroom_paths.mushroom_ml_runtime_batch_manifest_path()
     if not manifest_path.is_file():
         return {"available": False, "reason": "runtime_batch_not_installed"}
@@ -548,11 +609,16 @@ def _multiversion_result(
         parsed = mushroom_ml_model_catalog.parse_selection_token(token)
         parsed.pop("token", None)
         selections.append(parsed)
+    manifest = request_cache.get("manifest") if request_cache is not None else None
+    if not isinstance(manifest, dict):
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if request_cache is not None:
+            request_cache["manifest"] = manifest
     return {
         "available": True,
         **mushroom_ml_multiversion_comparison.compare_selection(
             registry,
-            json.loads(manifest_path.read_text(encoding="utf-8")),
+            manifest,
             selections,
             species_id=species_id,
             area_id=area_id,
@@ -560,6 +626,8 @@ def _multiversion_result(
             models_root=mushroom_paths.mushroom_ml_models_dir(),
             known_sites_path=mushroom_paths.mushroom_known_sites_path(),
             weather_data_dir=mushroom_paths.weather_data_dir(),
+            prepared_weather_cache=_prepared_weather_cache.get(),
+            comparison_cache=request_cache,
         ),
     }
 
@@ -581,6 +649,70 @@ def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
     for member in members:
         version_id = str((member.get("model_ref") or {}).get("version_id") or "")
         by_version.setdefault(version_id, []).append(member)
+
+    weather_gate_codes = {
+        "rain_coverage_below_19_of_21",
+        "temperature_coverage_below_19_of_21",
+        "humidity_coverage_below_19_of_21",
+        "required_predictive_features_missing",
+    }
+
+    def unavailable_reason(member: dict[str, Any]) -> str:
+        reason = str(member.get("reason") or "")
+        quality = member.get("quality") or {}
+        exclusions = quality.get("inference_exclusion_reasons") or []
+        codes = {
+            str(row.get("code") or "")
+            for row in exclusions
+            if isinstance(row, dict)
+        }
+        if reason == "runtime_feature_gates_failed" and codes & weather_gate_codes:
+            cutoff = str((member.get("metadata") or {}).get("cutoff_date") or "")
+            if cutoff:
+                return _lbl("ui.predictor_multiversion_weather_pending_cutoff").format(
+                    cutoff=cutoff
+                )
+            return _lbl("ui.predictor_multiversion_weather_pending")
+        return reason or _lbl("ui.predictor_multiversion_unavailable")
+
+    def confidence_tier(member: dict[str, Any]) -> str:
+        if not member.get("available"):
+            if unavailable_reason(member) != str(
+                member.get("reason") or _lbl("ui.predictor_multiversion_unavailable")
+            ):
+                return "weather_pending"
+            return "not_usable"
+        prediction = member.get("prediction") or {}
+        evaluation = member.get("evaluation") or {}
+        applicability = str((prediction.get("applicability") or {}).get("status") or "")
+        evidence = str(evaluation.get("evidence") or "not_evaluated")
+        if applicability == "within_observed_range":
+            return "usable" if evidence == "better_than_prevalence" else "weak"
+        return "not_usable"
+
+    tier_members: dict[str, list[dict[str, Any]]] = {
+        "usable": [],
+        "weak": [],
+        "not_usable": [],
+        "weather_pending": [],
+    }
+    for member in members:
+        tier_members[confidence_tier(member)].append(member)
+
+    summary_cards = []
+    for tier, label_key, help_key in (
+        ("usable", "ui.predictor_multiversion_summary_usable", "ui.predictor_multiversion_summary_usable_help"),
+        ("weak", "ui.predictor_multiversion_summary_weak", "ui.predictor_multiversion_summary_weak_help"),
+        ("not_usable", "ui.predictor_multiversion_summary_not_usable", "ui.predictor_multiversion_summary_not_usable_help"),
+        ("weather_pending", "ui.predictor_multiversion_summary_weather_pending", "ui.predictor_multiversion_summary_weather_pending_help"),
+    ):
+        summary_cards.append(
+            f'<article class="pred-confidence-card pred-confidence-{tier}">'
+            f'<strong>{len(tier_members[tier])}</strong>'
+            f'<span>{html.escape(_lbl(label_key))}</span>'
+            f'<small>{html.escape(_lbl(help_key))}</small>'
+            '</article>'
+        )
 
     cards = []
     for version_id, version_members in by_version.items():
@@ -663,7 +795,7 @@ def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
             for estimator_id in estimator_ids:
                 member = estimators.get(estimator_id)
                 if not member or not member.get("available"):
-                    reason = str((member or {}).get("reason") or "no disponible")
+                    reason = unavailable_reason(member or {})
                     cells.append(f'<td class="pred-member-unavailable">—<small>{html.escape(reason)}</small></td>')
                     continue
                 prediction = member.get("prediction") or {}
@@ -688,7 +820,7 @@ def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
             )
         short_version = version_names.get(version_id, version_id)
         breakdowns.append(f"""
-<details class="pred-version-breakdown" open>
+<details class="pred-version-breakdown">
   <summary>{html.escape(short_version)} · predicción por algoritmo ({len(version_members)} miembros)</summary>
   <div class="pred-table-scroll"><table class="pred-history-table"><thead><tr>
     <th>Perfil</th><th>Contrato</th><th>Horizonte</th>{header}
@@ -766,7 +898,7 @@ def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
             status = html.escape(_lbl("ui.predictor_multiversion_available"))
         else:
             probability = "—"
-            status = html.escape(str(member.get("reason") or _lbl("ui.predictor_multiversion_unavailable")))
+            status = html.escape(unavailable_reason(member))
         rows.append(
             f'<tr><td>{html.escape(identity)}</td><td>h{html.escape(str(ref.get("horizon_days") or ""))}</td>'
             f'<td>{html.escape(probability)}</td><td>{status}</td></tr>'
@@ -775,6 +907,8 @@ def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
 <section class="pred-multiversion-result">
   <h3>Comparación experimental V2–V6</h3>
   <p>No hay ninguna versión validada, preferida o ganadora: V2–V6 tienen el mismo rango experimental. V2 aparece en la tarjeta superior únicamente porque fue la primera implementación conectada a ella; ese orden cronológico no le da prioridad estadística. Se ordena la calidad hold-out dentro de cada especie, contrato y horizonte; nunca se promedia el Brier entre especies ni se crea un ensemble.</p>
+  <h4>{html.escape(_lbl("ui.predictor_multiversion_summary_title"))}</h4>
+  <div class="pred-confidence-grid">{''.join(summary_cards)}</div>
   <div class="pred-version-grid">{''.join(cards)}</div>
   <h4>Predicción actual por versión, contrato y algoritmo</h4>
   <p>Cada celda muestra la predicción individual, su evidencia hold-out frente a la prevalencia de esa especie y si el escenario actual queda dentro del dominio observado.</p>
@@ -1232,8 +1366,6 @@ def _render_week(
     try:
         predictor = _get_predictor(species)
         area_ids = predictor.areas_with_species_observations()
-        if area and area not in area_ids:
-            area = ""
     except FileNotFoundError:
         area_ids = []
     except Exception as exc:
@@ -1246,6 +1378,23 @@ def _render_week(
   <div class="pred-empty">{html.escape(_lbl("ui.predictor_no_data"))}</div>
 </section>
 """
+
+    prepared_weather_cache = _prepared_weather_cache.get()
+    if _prepared_response.get() is None and prepared_weather_cache is not None:
+        stations_file = Path("/app/stations.txt")
+        excluded_station_keys = (
+            mushroom_weather_idw.disabled_wunderground_station_keys(stations_file)
+            if stations_file.is_file()
+            else frozenset()
+        )
+        mushroom_ml_multiversion_comparison.prewarm_v2_week_weather(
+            area_ids=area_ids,
+            target_issue_dates=[(day, min(today, day)) for day in days],
+            known_sites_path=mushroom_paths.mushroom_known_sites_path(),
+            weather_data_dir=mushroom_paths.weather_data_dir(),
+            excluded_station_keys=excluded_station_keys,
+            prepared_weather_cache=prepared_weather_cache,
+        )
 
     sp_name = _species_name(species, profiles_payload)
     bt = _get_species_backtest_stats(species)
@@ -2285,18 +2434,44 @@ def render_page(
     known_sites_payload: dict[str, Any],
     prepared_response: dict[str, Any] | None = None,
     allow_executor_change: bool = True,
+    training_freshness: dict[str, Any] | None = None,
 ) -> str:
     if prepared_response is not None:
         prepared_response = validate_response(prepared_response)
     prepared_token = _prepared_response.set(prepared_response)
+    weather_cache_token = _prepared_weather_cache.set({})
+    comparison_cache_token = _comparison_cache.set({})
     executor_token = _executor_query.set((query.get("executor") or [""])[0])
     executor_change_token = _allow_executor_change.set(allow_executor_change)
+    training_freshness_token = _training_freshness.set(training_freshness)
     try:
         return _render_page_inner(query, profiles_payload, known_sites_payload)
     finally:
         _allow_executor_change.reset(executor_change_token)
+        _comparison_cache.reset(comparison_cache_token)
+        _prepared_weather_cache.reset(weather_cache_token)
         _prepared_response.reset(prepared_token)
         _executor_query.reset(executor_token)
+        _training_freshness.reset(training_freshness_token)
+
+
+def _render_training_freshness_warning() -> str:
+    freshness = _training_freshness.get() or {}
+    status = str(freshness.get("status", ""))
+    if status == "current" or not status:
+        return ""
+    if status == "stale":
+        help_key = "ui.predictor_training_stale_help"
+    elif status == "unknown":
+        help_key = "ui.predictor_training_unknown_help"
+    else:
+        help_key = "ui.predictor_training_invalid_help"
+    return (
+        '<div class="pred-training-warning">'
+        f'<strong>{html.escape(_lbl("ui.predictor_training_warning"))}</strong>'
+        f'<span>{html.escape(_lbl(help_key))}</span>'
+        "</div>"
+    )
 
 
 def _render_page_inner(
@@ -2367,6 +2542,7 @@ def _render_page_inner(
         if _allow_executor_change.get()
         else ""
     )
+    freshness_warning = _render_training_freshness_warning()
     return f"""
 <style>
 {_CSS}
@@ -2377,6 +2553,7 @@ def _render_page_inner(
     {change_executor}
   </div>
   <h1>🍄 {html.escape(_lbl("ui.predictor_title"))}</h1>
+  {freshness_warning}
   {tabs}
   {content}
 </div>
@@ -2393,6 +2570,12 @@ _CSS = """
 .pred-back { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
 .pred-back a { color: #9aa8b2; font-size: 0.98rem; text-decoration: none; }
 .pred-back a:hover { color: #e8eef2; }
+.pred-training-warning {
+  display: grid; gap: 0.3rem; margin: 0 0 1rem; padding: 0.85rem 1rem;
+  border: 1px solid #d69e2e; border-radius: 8px; background: #2a2418;
+  color: #f5d98b;
+}
+.pred-training-warning span { color: #d6c7a0; }
 
 /* Tabs */
 .pred-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
@@ -2626,6 +2809,17 @@ _CSS = """
   .pred-version-choices { grid-template-columns: 1fr; }
 }
 .pred-version-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.8rem; margin: 1rem 0; }
+.pred-confidence-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; margin: 0.7rem 0 1rem; }
+.pred-confidence-card { display: grid; grid-template-columns: auto 1fr; column-gap: 0.65rem; align-items: baseline; border: 1px solid #40515d; border-radius: 8px; padding: 0.75rem; background: #202b33; }
+.pred-confidence-card > strong { grid-row: 1 / span 2; font-size: 1.7rem; line-height: 1; }
+.pred-confidence-card > span { font-weight: 750; }
+.pred-confidence-card > small { color: #aebbc4; line-height: 1.3; }
+.pred-confidence-usable { border-color: #2f8f5b; }
+.pred-confidence-weak { border-color: #8b7a38; }
+.pred-confidence-not_usable { border-color: #9b5555; }
+.pred-confidence-weather_pending { border-color: #4b7897; }
+@media (max-width: 1050px) { .pred-confidence-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .pred-confidence-grid { grid-template-columns: 1fr; } }
 .pred-version-card { border: 1px solid #40515d; border-radius: 8px; padding: 0.85rem; background: #202b33; }
 .pred-version-card h4 { margin: 0 0 0.35rem; font-size: 1.25rem; }
 .pred-version-role, .pred-version-caution { color: #b8c4cc; }

@@ -193,6 +193,8 @@ def build_soil_water_state(
     convergence: dict[str, dict[str, object]] = {}
     selected_days: int | None = None
     selected_run: dict[str, list[float] | float] | None = None
+    longest_converged_days: int | None = None
+    longest_converged_run: dict[str, list[float] | float] | None = None
     missing_reasons: dict[str, int] = {}
 
     for spinup_days in SPINUP_CANDIDATES_DAYS:
@@ -251,6 +253,9 @@ def build_soil_water_state(
         if converged and selected_days is None:
             selected_days = spinup_days
             selected_run = dry
+        if converged:
+            longest_converged_days = spinup_days
+            longest_converged_run = dry
 
     reasons: list[dict[str, str]] = []
     if selected_days is None or selected_run is None:
@@ -307,6 +312,19 @@ def build_soil_water_state(
             "daily_dates": [day.isoformat() for day in dates[-selected_days:]] if selected_days else [],
             "daily_storage_mm": storage_values,
             "daily_storage_fraction": [round(float(value) / capacity, ROUND_DIGITS) for value in storage_values],
+            "longest_converged_daily_dates": (
+                [day.isoformat() for day in dates[-longest_converged_days:]]
+                if longest_converged_days
+                else []
+            ),
+            "longest_converged_daily_storage_fraction": (
+                [
+                    round(float(value) / capacity, ROUND_DIGITS)
+                    for value in longest_converged_run["storage_mm"]
+                ]
+                if longest_converged_run is not None
+                else []
+            ),
             "daily_actual_evapotranspiration_mm": (
                 selected_run["actual_evapotranspiration_mm"] if selected_run is not None else []
             ),

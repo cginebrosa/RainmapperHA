@@ -235,6 +235,64 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "biology_v3",
             )
 
+    def test_seed_migrates_packaged_contracts_and_preserves_lifecycle(self) -> None:
+        packaged = registry.load_registry(DEFAULT_REGISTRY)
+        persistent = json.loads(json.dumps(packaged))
+        packaged_v5 = next(
+            row
+            for row in packaged["versions"]
+            if row["version_id"] == "biology_v5_raw_weather_discovery"
+        )
+        persistent_v5 = next(
+            row
+            for row in persistent["versions"]
+            if row["version_id"] == "biology_v5_raw_weather_discovery"
+        )
+        persistent_v5["temporal_contract_ids"] = [
+            "fixed_gap_7d_biology_v5_raw365_v1",
+            "lag_event_biology_v5_raw365_v1",
+        ]
+        persistent_v5["runtime"]["profiles"][0]["temporal_contract_ids"] = [
+            "fixed_gap_7d_biology_v5_raw365_v1",
+            "lag_event_biology_v5_raw365_v1",
+        ]
+        persistent_v5["generations"] = [
+            {
+                "generation_id": "legacy-v5-generation",
+                "version_id": "biology_v5_raw_weather_discovery",
+                "kind": "trained_model",
+                "retention": "permanent",
+                "promotion_gate_status": "not_evaluated",
+            }
+        ]
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            packaged_path = root / "packaged.json"
+            persistent_path = root / "persistent.json"
+            packaged_path.write_text(json.dumps(packaged), encoding="utf-8")
+            persistent_path.write_text(json.dumps(persistent), encoding="utf-8")
+
+            registry.ensure_seeded(
+                default_path=packaged_path,
+                persistent_path=persistent_path,
+            )
+
+            migrated = registry.load_registry(persistent_path)
+            migrated_v5 = next(
+                row
+                for row in migrated["versions"]
+                if row["version_id"] == "biology_v5_raw_weather_discovery"
+            )
+            self.assertEqual(
+                migrated_v5["temporal_contract_ids"],
+                packaged_v5["temporal_contract_ids"],
+            )
+            self.assertEqual(
+                migrated_v5["generations"][0]["generation_id"],
+                "legacy-v5-generation",
+            )
+            self.assertEqual(migrated["active_version_id"], persistent["active_version_id"])
+
     def test_persist_generation_is_immutable_idempotent_and_additive(self) -> None:
         payload = registry.load_registry(DEFAULT_REGISTRY)
         with TemporaryDirectory() as temporary:

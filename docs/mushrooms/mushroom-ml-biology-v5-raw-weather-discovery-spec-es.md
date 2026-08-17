@@ -1,7 +1,7 @@
 # Especificación Biology V5 candidata — descubrimiento de retardos meteorológicos raw
 
-Estado: **ESPECIFICACIÓN PARA IMPLEMENTACIÓN LOCAL; NO OPERATIVA**.
-Fecha: 2026-08-16.
+Estado: **ESPECIFICACIÓN CORREGIDA PARA IMPLEMENTACIÓN LOCAL; NO OPERATIVA**.
+Fecha original: 2026-08-16. Corrección de contrato: 2026-08-17.
 Nombre de trabajo: `biology_v5_raw_weather_discovery`.
 
 Resultado de la primera ejecución: implementación y benchmark local completos,
@@ -18,6 +18,11 @@ disponible, sin imponer acumulaciones de 1/3/7/21/30 días elegidas de antemano,
 ¿puede descubrir qué variables y qué retardos aportan predicción fuera de
 muestra?
 
+La corrección del 2026-08-17 aclara que «raw» describe la conservación de la
+resolución diaria, no la exclusión de variables físicas calculadas. El perfil
+canónico entrega simultáneamente observaciones IDW, ET0, balance climático y
+estado hídrico/SMI. Los perfiles que omiten esos derivados son ablaciones.
+
 El nombre V5 es provisional. No representa una promoción, un modelo operativo
 ni una decisión sobre versiones de HA o del worker. Solo podrá consolidarse
 como contrato operativo después de superar los gates definidos aquí.
@@ -30,13 +35,15 @@ Biology V5 candidata debe:
 2. materializar una historia meteorológica diaria causal de hasta 365 días;
 3. entregar al estimador valores diarios, no ventanas meteorológicas escogidas
    manualmente;
-4. usar regularización para que el propio estimador seleccione variables y
+4. entregar juntos canales observados y derivados físicos reconstruibles, sin
+   preseleccionar cuál debe dominar;
+5. usar regularización para que el propio estimador seleccione variables y
    retardos;
-5. conservar predicciones hold-out fila a fila;
-6. comparar V5 con V2, V3 y V4 sobre las mismas filas;
-7. analizar falsos positivos y negativos compartidos;
-8. producir únicamente artefactos de benchmark e informes locales;
-9. no escribir modelos, no entrenar un candidato operativo y no cambiar el
+6. conservar predicciones hold-out fila a fila;
+7. comparar V5 con V2, V3 y V4 sobre las mismas filas;
+8. analizar falsos positivos y negativos compartidos;
+9. producir únicamente artefactos de benchmark e informes locales;
+10. no escribir modelos, no entrenar un candidato operativo y no cambiar el
    Predictor desplegado.
 
 La hipótesis biológica de dos procesos —acumulación lenta de potencial
@@ -100,8 +107,12 @@ de ellas no prueba que las demás carezcan de relevancia biológica.
 
 Se añadirán dos identificadores sin reemplazar los existentes:
 
-- `fixed_gap_7d_biology_v5_raw365_v1`;
-- `lag_event_biology_v5_raw365_v1`.
+- `fixed_gap_7d_biology_v5_raw365_v2`;
+- `lag_event_biology_v5_raw365_v2`.
+
+Los identificadores `...raw365_v1` quedan congelados para la ejecución
+histórica incompleta; no se reutilizan porque añadir balance y SMI cambia el
+vector predictivo y su semántica.
 
 Ambos heredan de V3/V4:
 
@@ -135,9 +146,22 @@ biológica afirmada por la literatura. Permite que una especie otoñal encuentre
 señal en meses anteriores y que una especie primaveral alcance el ciclo previo,
 sin entregar años irrelevantes al estimador.
 
+Revisión operativa 2026-08-18: este eje permanece congelado únicamente para
+reproducir y comparar V5/V6. Su longitud canónica es
+`mushroom_ml_raw_weather.LOOKBACK_DAYS`; no es un parámetro de UI y cambiarla
+altera el vector de columnas, por lo que exige otro contrato y reentrenamiento.
+No se hereda como ventana por defecto de V2/V3/V4 ni del Predictor. La
+literatura local revisada concentra los retardos meteorológicos accionables en
+semanas y alrededor de un mes; por ello el runtime ordinario limita V2/V3/V4 a
+90 días. El informe V5 tampoco encontró ventanas estables e interpretables en
+0–364, pero eso no demuestra ausencia de señal en 91–365. V5/V6-365 queda como
+control reproducible; cualquier reducción debe compararlo contra un nuevo
+V5/V6-90 sobre las mismas filas y splits. Reducir o sustituir el eje de V5/V6
+requiere ese experimento versionado, no una mutación de este contrato.
+
 ## 6. Canales que recibe el modelo
 
-### 6.1 Perfil obligatorio `raw_primary`
+### 6.1 Perfil de ablación `raw_primary`
 
 Debe contener las cinco magnitudes primarias reconstruibles hoy con el contrato
 IDW común:
@@ -157,17 +181,28 @@ RHmin/RHmax en este perfil, porque duplican información primaria. No se
 incluirán agregados de lluvia, rachas, días lluviosos ni extremos de ventanas:
 el propósito es que el modelo descubra su estructura temporal.
 
-### 6.2 Perfil obligatorio de ablación `raw_primary_plus_physical`
+### 6.2 Perfil canónico `raw_primary_plus_physical_state`
 
-Debe añadir, cuando puedan reconstruirse con paridad completa:
+Debe añadir, con paridad completa entre entrenamiento e inferencia:
 
 - ET0 diaria Hargreaves-Samani/FAO56 ya versionada en V4;
-- balance climático diario `rain_mm - et0_mm`.
+- balance climático diario `rain_mm - et0_mm`;
+- estado hídrico/SMI diario como fracción de almacenamiento disponible del
+  depósito SoilGrids versionado;
+- resúmenes físicos de corte: SMI medio y mínimo, cambios 7/14 días, recarga,
+  déficit y secado.
 
-Este perfil no sustituye `raw_primary`: se compara con él para saber si los
-derivados físicos aportan información o solo duplican los canales primarios.
-El estado de suelo V4 no entra en esta primera V5; no es un dato meteorológico
-raw y su benchmark vigente no justifica hacerlo obligatorio.
+Este es el perfil completo que define V5. `raw_primary`, las variantes sin
+calendario y una variante intermedia sin SMI se conservan exclusivamente como
+ablaciones para medir qué aporta cada bloque. La falta de una microárea con SMI
+no convierte su estado en cero ni elimina automáticamente la observación: se
+mantiene `None`, se imputa dentro del train y se audita fuera de `X`.
+
+Los canales diarios del perfil completo son, por tanto: `rain_mm`,
+`temp_min_c`, `temp_max_c`, `humidity_min_pct`, `humidity_max_pct`, `eto0_mm`,
+`climatic_balance_mm` y `soil_water_fraction`. Todos comparten el eje causal de
+365 días. Los resúmenes SMI son escalares y no se expanden artificialmente a
+365 duplicados.
 
 ### 6.3 Inventario auditable
 
@@ -183,6 +218,9 @@ solo podrán añadirse a un perfil separado si:
 
 No se inventará un IDW nuevo de viento o radiación durante esta ejecución solo
 para poder decir que se usó «todo».
+
+El inventario debe registrar ET0, balance y SMI como incluidos en el perfil
+canónico. No puede declarar `soil_water` excluido por no ser meteorología raw.
 
 ### 6.4 Controles fenológicos
 
@@ -542,8 +580,9 @@ condiciones por nombre V2/V3/V4. Nombres sugeridos:
 Puede reutilizarse la caché larga por microárea y corte de
 `scripts/build-biology-v4-benchmark.py`, pero V5 debe materializar los 365 días
 de los cinco canales y no limitarse a las series de 90 días guardadas dentro de
-V3/V4. No se debe reconstruir IDW por cada muestra cuando pueda cachearse una
-serie larga por microárea.
+V3/V4. Debe materializar en esa misma pasada ET0, balance y la serie diaria SMI
+por microárea antes de agregar al área. No se debe reconstruir IDW ni el depósito
+por cada muestra cuando pueda cachearse una serie larga por microárea.
 
 El evaluador fila a fila debe ser genérico y extensible mediante el registro.
 Las mejoras necesarias para guardar predicciones de V2/V3/V4 no se duplicarán
@@ -600,6 +639,9 @@ La tarea no está terminada hasta verificar:
 14. tests nuevos y suite relevante verdes;
 15. `git diff --check` correcto;
 16. informe enlazado a artefactos y limitaciones reales.
+17. perfil canónico con los ocho canales diarios, resúmenes SMI y paridad
+    entrenamiento/inferencia;
+18. perfiles sin derivados identificados únicamente como ablaciones.
 
 La suite completa se ejecutará si el tiempo lo permite. Si una prueba ajena al
 alcance falla por el worktree previo, se aislará y documentará con evidencia;

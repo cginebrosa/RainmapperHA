@@ -242,6 +242,7 @@ def create_snapshot(
     gis_hash_cache_path: Path | None = None,
     prefer_weather_parquet: bool = True,
     allow_partitioned_weather_history: bool = True,
+    extra_inputs: dict[str, Path] | None = None,
 ) -> dict[str, Any]:
     target = snapshot_dir.resolve()
     if target.exists():
@@ -275,6 +276,21 @@ def create_snapshot(
                     staging / relative,
                     logical_path=relative,
                     role=role,
+                    required=True,
+                )
+            )
+        for role, source in sorted((extra_inputs or {}).items()):
+            role_name = str(role or "").strip()
+            if not role_name:
+                raise ValueError("extra snapshot input role must not be empty")
+            relative = f"inputs/extra/{role_name}"
+            _safe_relative_path(relative, label="extra snapshot input")
+            snapshot_files.append(
+                _copy_snapshot_file(
+                    Path(source).resolve(),
+                    staging / relative,
+                    logical_path=relative,
+                    role=f"extra:{role_name}",
                     required=True,
                 )
             )
@@ -565,6 +581,7 @@ def verify_live_inputs(
     weather_data_dir: Path,
     gis_root: Path,
     gis_hash_cache_path: Path | None = None,
+    extra_inputs: dict[str, Path] | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> dict[str, Any]:
     """Verify that current authoritative inputs still match a frozen manifest."""
@@ -574,6 +591,10 @@ def verify_live_inputs(
         "observations": observations_path.resolve(),
         "reference_catalogs": reference_catalogs_path.resolve(),
         "gis_mappings": gis_mappings_path.resolve(),
+    }
+    extra_sources = {
+        str(role): Path(path).resolve()
+        for role, path in (extra_inputs or {}).items()
     }
     files = input_manifest.get("files")
     if not isinstance(files, list):
@@ -598,6 +619,8 @@ def verify_live_inputs(
         role = str(raw_record.get("role", ""))
         logical_path = str(raw_record.get("path", ""))
         source = fixed_sources.get(role)
+        if source is None and role.startswith("extra:"):
+            source = extra_sources.get(role.removeprefix("extra:"))
         if source is None and role.startswith("weather-history:"):
             weather_prefix = PurePosixPath("inputs/weather")
             logical = PurePosixPath(logical_path)

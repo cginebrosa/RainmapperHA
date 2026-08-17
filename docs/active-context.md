@@ -1,375 +1,300 @@
 # Active Context
 
-Ventana operativa para continuar RainmapperHA. El histórico y las razones
-duraderas viven en `docs/decisions.md`; los detalles científicos están en los
-informes y especificaciones enlazados. No reconstruir el estado desde mensajes
-de sesiones anteriores.
+Ventana operativa para continuar RainmapperHA. No reconstruir el estado actual
+desde conversaciones, memorias ni informes históricos: revalidar siempre código,
+datos y runtime. Las razones duraderas viven en `docs/decisions.md` y las
+especificaciones temáticas enlazadas.
 
-## Estado operativo actual — release preparada 2026-08-17
+## Estado al cierre — 2026-08-17
 
-- Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
-  El worktree contiene muchos cambios locales y ficheros nuevos de esta línea
-  de trabajo. Son deliberados: preservarlos y no limpiar, resetear ni sustituir.
-- El último estado documentado, no revalidado contra los hosts reales en esta
-  sesión, sitúa HA en `0.2.254` y el worker M1 en `1.0.8`. Altitude
-  V2 es la generación operativa instalada. M1 es el ejecutor ordinario y HA el
-  fallback lento ya validado (~98 s y ~577 MiB en la prueba semanal).
-- HA `0.2.255` está publicada pero no instalada. Worker `1.0.9` existe solo
-  como imagen local. Ambos son anteriores al cierre actual de V3/V4 y deben
-  saltarse; no instalarlos ni reutilizarlos para la actualización final.
-- El Predictor operativo está temporalmente desalineado: los bundles antiguos
-  validan el hash bruto de `mushroom_known_sites.json`, mientras el fichero de
-  HA ya contiene la nueva microárea y los contextos DEM/SoilGrids. El error de
-  huella es real y no se resuelve relajando la barrera. Requiere reconstrucción
-  y entrenamiento coordinados desde el mismo snapshot cuando el usuario
-  autorice la actualización completa.
-- Única escritura realizada en HA durante esta línea: actualización autorizada
-  de `/share/rainmapper/mushroom-data/mushroom_known_sites.json` por SMB, con
-  sustitución atómica y lectura de retorno. Hash instalado `bb96c4c...`;
-  backup `mushroom_known_sites.pre-dem-soilgrids-20260816T0320.json`, hash
-  `e1da0f7e...`. Hay 59/59 microáreas con DEM y 59/59 con SoilGrids completo.
-  `tor_tor` tiene altitud DEM media 1.800,7 m. No se modificaron observaciones,
-  modelos, worker ni releases en HA.
-- Fuente canónica local actual: `docker-data/mushroom-data/`.
-  `mushroom_observations.json` tiene 395 observaciones y SHA
-  `50b189080395...`; `mushroom_known_sites.json` tiene SHA `bb96c4c1a0b...`.
-  El scheduled runner meteorológico no consume ni modifica `known_sites`.
+- Workspace verificado:
+  `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
+- El worktree es grande y deliberadamente mixto. Contiene la implementación
+  V2–V6, meteorología, UI, worker, pruebas y documentación, además de cinco PDF
+  científicos no rastreados. No limpiar, resetear, sustituir ni borrar nada.
+- Estado de producción observado durante esta sesión en la UI y terminal del
+  usuario: HA `0.2.256` y worker M1 `1.0.10` están instalados; M1 conserva
+  identidad, emparejamiento y caché. Codex no lo ha revalidado directamente
+  contra los hosts al cierre.
+- El worker real usa la dirección Tailscale de HA porque está fuera de la LAN.
+  La prohibición operativa es que Codex no use Tailscale ni exponga SMB; no
+  significa retirar o cambiar esa URL persistente del worker.
+- La instalación real `0.2.256`/`1.0.10` sigue pendiente de la corrección; no
+  repetir allí la regeneración hasta publicar e instalar una release autorizada.
+- Ninguna V2–V6 está validada como preferida o ganadora. V2 alimenta la tarjeta
+  histórica únicamente por orden cronológico. Todas siguen experimentales y
+  deben mostrarse con calidad hold-out, aplicabilidad y cautelas propias.
 
-## Resultado local cerrado
+## Corrección implementada localmente
 
-### Integración multiversión local HA 0.2.256 / worker 1.0.10
+- La regeneración ya no depende de JSON del laboratorio. Cada ejecución congela
+  un snapshot fresco de observaciones, catálogos, mapeos GIS, histórico
+  meteorológico y entradas auxiliares; el worker deriva de él V2–V6.
+- La acción única `Reconstruir y reentrenar todo` mantiene tres pasos:
+  reconstrucción común, entrenamiento ML v0 y lote comparativo V2–V6. No se ha
+  añadido una acción parcial para el tercer paso.
+- `lag_event` conserva un solo ajuste por especie + contrato + estimador; los
+  horizontes 1/2/3/7 filtran las probabilidades del mismo hold-out y nunca
+  reentrenan.
+- Cada batch nuevo guarda `training-input-manifest.json`, con hashes e identidad
+  de entrada pero sin datos brutos ni rutas privadas. El Predictor compara esa
+  identidad con las entradas vivas y avisa si la generación está
+  `stale`, `unknown` o `invalid`; solo omite el aviso cuando está `current`.
+- La copia temporal recibida desde el worker se elimina solo después de una
+  instalación íntegra y verificada. Si la instalación falla, queda retenida
+  para diagnóstico.
+- Las imágenes públicas se han reducido a código, dependencias y defaults. HA
+  incluye una plantilla de observaciones vacía; no contiene observaciones,
+  snapshots, hold-outs, benchmarks ni modelos entrenados. El worker tampoco
+  incorpora esos datos.
+- Especificación vinculante:
+  `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`.
 
-- Las fuentes quedan versionadas como HA `0.2.256` y worker `1.0.10`. HA
-  `0.2.256` está publicada en GHCR pero todavía no instalada; el worker
-  `1.0.10` está construido, validado y empaquetado de forma privada, pero no
-  instalado. El último estado documentado de los hosts reales sigue siendo HA
-  `0.2.254` y worker M1 `1.0.8`; `0.2.255`/`1.0.9` siguen descartadas.
-- El registro genérico expone V2--V6 mediante perfiles, contratos temporales,
-  estimadores y ámbito por especie/compartido. Una entrada no es seleccionable
-  hasta que exista su artefacto exacto en una generación inmutable; nunca cae
-  silenciosamente a V2.
-- Predictor conserva las explicaciones existentes y añade comparación de
-  miembros instalados. Cada probabilidad se presenta por separado: no hay
-  promedio, consenso implícito ni cambio del ranking operativo.
-- `fixed_gap` conserva horizonte 7. `lag_event` crea un único artefacto por
-  especie+contrato+estimador y reutiliza ese ajuste en horizontes 1/2/3/7.
-- El flujo completo de HA mantiene dos salidas separadas: primero reconstruye y
-  entrena el V2 operativo promocionable; al terminar encadena un job V2--V6
-  no operativo para Comparar. El segundo consume los seis benchmarks del
-  snapshot canónico, transporta entradas y resultados con tamaño+SHA-256 por
-  fichero, instala el batch de comparación atómicamente y declara
-  `operational_candidate_trained=false`.
-- El worker anuncia `ml_multiversion_training_v1` y HA rechaza asignar el job a
-  un worker que no lo declare. El usuario conserva el control: todavía no se ha
-  lanzado ninguna regeneración ni entrenamiento.
-- Validación local de esta pareja: smoke completo correcto, `845/845` pruebas,
-  compilación y `git diff --check` correctos; HA local responde y worker local
-  `1.0.10` está sano, conectado e inactivo.
-- Especificación: `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`.
-  Implementación principal: `mushroom_ml_model_catalog.py`,
-  `mushroom_ml_runtime_trainer.py`, `mushroom_ml_runtime_inference.py`,
-  `mushroom_ml_runtime_features.py` y
-  `mushroom_ml_multiversion_comparison.py`.
+## Runtime local restaurado y ejecutor HA local
 
-### Meteorología común y reparación oficial
+- El montaje temporal que introducía el worker ficticio `Validación local`, HA
+  en `8103` y worker en `8111` fue retirado. También se eliminó su volumen
+  temporal; el worker normal y su volumen persistente no se modificaron.
+- El HA local ordinario vuelve a ser `http://127.0.0.1:8101/`. Muestra el mismo
+  registro de workers que el HA real, pero `M1 Personal` aparece desconectado
+  porque el proceso normal del worker mantiene una única conexión saliente con
+  el HA real de la RPi4. No se reempareja ni se cambia esa URL para usar el HA
+  local.
+- Se reintroduce una capacidad distinta y explícita para el laboratorio:
+  `RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED=true`. Solo
+  `rainmapper-local/docker-compose.yml` la activa. El default de la imagen HA y
+  el HA real permanece desactivado y coordinador-only.
+- Cuando está activa, la UI ofrece `Home Assistant local`. El cálculo se ejecuta
+  dentro del contenedor HA local sobre la CPU del M1, sin crear ni emparejar un
+  worker. Encadena tres identidades de trabajo —reconstrucción, ML v0 y V2–V6—
+  desde snapshots inmutables y realiza una única promoción del conjunto al
+  final. Un fallo conserva la generación anterior y limpia el staging local.
+- El camino ordinario de producción no cambia: el HA de la RPi4 coordina y el
+  worker M1 ejecuta los mismos tres contratos. La UI y el backend no permiten
+  promocionar la generación completa hasta que el V2–V6 enlazado haya terminado.
+- La regeneración real por el ejecutor HA local terminó correctamente en
+  18m45s. Encadenó las tres fases y activó una sola generación completa; el
+  batch V2–V6 instalado es `local_v2_v6_20260817T171541Z`. La promoción local
+  es automática al final de la cadena, no existe un botón posterior.
+- Después de esa prueba se añadió progreso real dentro del tramo V2–V6 usando
+  los contadores por fit que ya emite el trainer. El 58–90% muestra fits
+  completados/planificados, versión, especie, éxitos y fallos; no simula tiempo.
+- La preparación dinámica ya emitía ocho hitos y el worker remoto los publicaba,
+  pero el ejecutor `Home Assistant local` los descartaba al lanzar el preparador
+  sin `--progress-jsonl`. El camino local queda conectado al mismo JSONL: el
+  50–58% informa paso y fase de V3/V4/V5/V6. Además reenvía los eventos internos
+  ya disponibles: microáreas, cortes de área, comparación/dataset y split V6,
+  aunque varios de esos eventos compartan porcentaje global. Los porcentajes
+  representan fases y unidades terminadas, no una estimación de tiempo
+  transcurrido o restante.
+- La primera reconstrucción posterior al cambio V5/V6 v2 falló a los 23m12s y
+  86%: el registro persistente del laboratorio aún declaraba V5/V6 v1 mientras
+  el runtime solo materializaba v2. No hubo promoción y el descriptor anterior
+  `local_v2_v6_20260817T171541Z` permaneció intacto. En este laboratorio de una
+  sola instalación se alineó `docker-data` con los contratos v2. El runtime
+  valida ahora la cobertura completa del plan antes de ajustar modelos y el
+  ejecutor HA local hace esa prevalidación antes de iniciar la reconstrucción.
+  En arranques posteriores, `ensure_seeded()` actualiza las definiciones de
+  contrato desde la imagen conservando estados, historial y generaciones; una
+  futura revisión contractual no requiere copiar el registro persistente a mano.
+- La repetición posterior terminó y promocionó correctamente el batch
+  `local_v2_v6_20260817T213901Z`, snapshot
+  `sha256:c7e7b4f5e538604737bc4119c2acc7a4a7644c8f87b333d02caaee6bd8c369e3`.
+  El manifiesto instalado valida contra el registro v2, contiene 487 artefactos
+  de 868 fits planificados y conserva 381 fits fallidos: 378 por especies con
+  una sola clase entrenable y tres por no convergencia sparse-group. Edulis
+  dispone de ambos contratos en V2–V6; V5 usa
+  `raw_primary_plus_physical_state` y V6 `smooth_weather_physical_state`.
+  `runtime-batch.json`, catálogo de calidad y manifiesto de entradas quedaron
+  instalados; `.local-full-update` quedó vacío.
+- El desglose posterior corrigió una interpretación inicial: nueve especies
+  aportan artefactos por especie, no tres. Siete especies con solo 1–4 filas
+  elegibles, todas favorables, entraron indebidamente porque V2–V6 usaba la
+  selección general de la UI en vez de `trained_species`; sus 54 fits por
+  especie explican los 378 rechazos. La planificación queda corregida para usar
+  solo especies con al menos diez filas y ambas clases. Las tres no
+  convergencias restantes son únicamente V5 lag sparse-group de Amanita
+  caesarea, Boletus aereus y Lactarius deliciosus; sus demás artefactos existen.
+- El Predictor resume antes del detalle cuatro niveles: utilizables en dominio
+  que mejoran prevalencia, evidencia débil, extrapolaciones/no utilizables y
+  abstenciones meteorológicas. Para la consulta Edulis/Salteguet/2026-08-20 se
+  verificaron 11/7/55/72 miembros respectivamente. Los 72 no son fallos de
+  modelos: h1–h3 requieren cortes meteorológicos 17–19 de agosto aún incompletos
+  en la copia local; h7 dispone de 21/21 días. El texto técnico
+  `runtime_feature_gates_failed` ya no se muestra y el detalle queda plegado.
+- La imagen local final está reconstruida y el contenedor canónico está mapeado
+  en `8101`. El smoke final pasó 863 pruebas; compilación Python/JS/shell,
+  fixtures y `git diff --check` pasaron. La auditoría confirmó cero modelos
+  entrenados y cero datasets generados en las imágenes; HA solo lleva una
+  plantilla de observaciones vacía. No se publicó ni versionó nada.
+- El batch `local_v2_v6_20260817T171541Z` está `current/inputs_match`; su
+  manifiesto coincide con el SHA-256 registrado
+  `53cdbf1dda9ea2d9e56ed155737c79f6047ff38ede36a2f5ab44de580d92de8f`,
+  declara `operational_candidate_trained=false`, no referencia el snapshot
+  antiguo y dejó vacío `docker-data/.local-full-update`.
+- Sus 244 artefactos `lag_event` tienen horizontes `[1,2,3,7]`, sin claves
+  duplicadas por versión, especie, contrato, perfil y estimador.
 
-- La reconstrucción local oficial quedó cerrada con generación
-  `20260815T225412516277Z-b7d0a13766a8` y manifiesto SHA
-  `0e64ac77e322...`. AEMET no conserva días completos de red ausentes;
-  Meteocat solo carece de 2020-02-01, 2020-02-02 y 2020-11-25, fechas cuya API
-  devuelve cero filas incluso aisladas. Este histórico reparado no se ha
-  promovido a HA y deberá rebasarse contra un snapshot fresco antes de hacerlo.
-- El código local de autocuración oficial detecta huecos posteriores al solape
-  ordinario, mantiene cola durable, bloques máximos de 15 días, backoff y cierre
-  automático. Meteocat usa dos consultas por bloque y pausa; AEMET limita una
-  petición de climatología por runner. Está probado localmente, no desplegado.
-- V2/V3/V4 se comparan con la misma capa meteorológica: IDW de área usando
-  AEMET, Meteocat, Meteoclimatic y Wunderground; radio 15 km, potencia 2 y una
-  contribución válida como mínimo. Tmin/Tmax se corrigen a la altitud DEM de la
-  microárea antes de ponderar; RHmin/RHmax no se corrigen. Lluvia vacía no se
-  convierte genéricamente en cero. Calidad/procedencia nunca entra en `X`.
-- El IDW se materializa como serie larga por microárea, prefiltra estaciones a
-  15 km, reutiliza ET0 y corta ventanas exactas. La optimización conserva hashes
-  de muestras y sirve tanto al benchmark como a futuros datasets de training.
+## P0 cerrado localmente — detenerse antes de release
 
-### Biology V3/V4 y comparación
+1. La fila «Ventana ciega fija de 7 días» pertenecía al comparador legado
+   `MushroomModelComparator`, alimentado por
+   `nearest_station_single_source_daily`; no era el miembro V2 `common_idw` del
+   batch. Sus 18 episodios frente a 20 procedían de dos huecos de la estación
+   única; el IDW común recupera ambos. La tarjeta resuelve ahora exclusivamente
+   los artefactos V2 instalados del batch y no degrada al comparador legado.
+2. MapLibre contaba soporte de lluvia por valor truthy y descartaba `0.0`; N/A
+   sí debe excluirse. La corrección cuenta ceros finitos con su peso IDW y
+   mantiene N/A fuera. La prueba de regresión está en `tests/test_maplibre_idw.py`.
+3. V5/V6 anteriores no cumplían la intención de «todas las variables». Los
+   contratos v2 materializan por microárea estaciones habilitadas → IDW → ET0,
+   balance y SMI → agregado de área. V5 usa ocho canales diarios y estados
+   escalares; V6 suaviza los ocho y conserva los escalares. El Predictor usa la
+   misma ruta y el runtime remoto empaqueta `stations.txt` para conservar las
+   fuentes habilitadas.
+4. Validación: 54 pruebas dirigidas, suite completa 871/871, smoke completo y
+   `git diff --check` verdes. Una construcción real desechable materializó V5
+   v2 para 593 área/corte (395 muestras fixed y 1.580 lag); se detuvo la
+   reevaluación exhaustiva posterior para no gastar CPU/tokens innecesarios.
+5. Próximo paso: detenerse e informar. Preparar o publicar una release requiere
+   autorización explícita nueva.
 
-- Biology V3 está implementada localmente: `predictive_features`, `quality` y
-  `metadata` separados; las pruebas impiden que calidad o área entren en `X`.
-  `fixed_gap_7d_biology_v3` y `lag_event_biology_v3` conservan observaciones y
-  publican gates/motivos legibles. No existe candidato V3 entrenado ni promovido.
-- Biology V4 está implementada y cerrada como `proposed`: meteorología
-  ampliada, balance climático, estado hídrico SoilGrids experimental,
-  continuidad y paridad train/inferencia. V4 core reproduce V3; el balance no
-  mejora Brier consistentemente y SoilGrids suele empeorar predicción y
-  continuidad. El suelo se conserva evaluable pero desactivado.
-- Snapshot canónico de evidencia:
-  `docker-data/audits/mushroom-ml-snapshot-20260816/`. Su `MANIFEST.json`
-  registra fuentes, hashes, benchmarks y comparaciones. V3 fixed: 395 muestras,
-  352 elegibles. V3 lag: 1.580 tareas, 1.408 elegibles. V4 core/meteo/balance
-  conserva las mismas filas; las variantes profundas de suelo pierden algunas.
-- Comparaciones canónicas cerradas sobre filas idénticas:
-  `comparison-fixed-groups7.json`, `comparison-fixed-groups14.json`,
-  `comparison-lag-groups7.json` y `comparison-lag-groups14.json`. Incluyen V2,
-  V3 y V4, seis algoritmos, especies y grupos de florada 7/14. No contienen
-  modelos (`operational_model_written=false`).
-- `lag_event` ajusta un único modelo por especie+contrato+estimador. Horizonte
-  1/2/3/7 forma parte de `X`; sus métricas filtran predicciones del mismo
-  hold-out sin reentrenar. El bucle anterior multiplicaba cinco veces el coste
-  y era semánticamente incorrecto. `lag/groups7` completo bajó de 650,68 s a
-  unos 157 s. El artefacto pre-corrección se conserva con
-  `decision_eligible=false` y no puede fundamentar decisiones.
-- Informe canónico: `docs/reports/V2_V3_V4_consensus_report002.md`. El informe
-  001 es histórico. No hay ganador universal ni Brier medio válido. RF+ET es la
-  pareja con más acuerdo bruto, pero pierde fuerza al exigir que ambos superen
-  prevalencia; ningún ensemble está validado contra su mejor miembro.
-- Dos observaciones revisadas ya cambian patrones: RF pasa a 4/4 para
-  `boletus_pinophilus` en V3 y ambas V4; `boletus_edulis` queda sin dos clases en
-  train para grupos 7 y solo es evaluable con grupos 14. El soporte sigue siendo
-  insuficiente para promover V4 o fijar un consenso.
-- Validación final: 801/801 pruebas locales y `git diff --check` correcto.
+La secuencia de entrega acordada separa riesgos:
 
-### Biology V5 raw weather discovery
+1. Primera entrega urgente HA+worker: corrección V2–V6, manifiesto, promoción
+   completa, limpieza, resumen del Predictor y progreso del ejecutor local.
+2. Release posterior solo del worker: multicoordinador completo, probado antes
+   con dos HAs locales aislados.
+3. Release HA posterior únicamente si hace falta añadir la protección `409`
+   durante una revocación con job activo. El resto del worker multicoordinador
+   debe conservar compatibilidad con el HA publicado en el primer paso.
 
-- Se implementó el experimento local no operativo de 365 días raw con los
-  cinco canales IDW comunes y una ablación ET0+balance. Usa Elastic Net y
-  sparse-group logistic; no escribe modelos ni entrena candidato operativo.
-- Artefactos auditables:
-  `docker-data/audits/mushroom-ml-v5-raw-discovery-20260816/`. Conservan 395
-  filas fixed, 1.580 tareas lag, 12.280 predicciones hold-out con clave única y
-  falsos positivos/negativos compartidos. En lag cada ajuste se realiza una
-  vez y 1/2/3/7 son filtros de las mismas probabilidades.
-- En 34 contextos especie+contrato+partición, el mejor V5 vence 2 y pierde 32
-  frente al mejor miembro individual V2/V3/V4. Las victorias son únicamente
-  `boletus_edulis` en grupos de 14 días; no hay mejora general.
-- La sensibilidad por campaña solo supera a la vez prevalencia y fenología en
-  ambos contratos para `amanita_caesarea`, `boletus_pinophilus` y
-  `cantharellus_cibarius_sl`. La selección sigue siendo muy densa y no define
-  ventanas interpretables. La ablación sin calendario está ejecutada y 25/25
-  remuestreos agrupados terminaron en los 32 contextos evaluables; 3.330 celdas
-  estables siguen distribuidas casi uniformemente por retardo.
-- Los 87 errores compartidos deduplicados están dominados por `unknown_phase`;
-  onset/decline/between-visits no justifican todavía un modelo de estado. No se
-  justifica promover GAM/DLNM, estado o jerarquía. Si se hace otro diagnóstico
-  después de cerrar los gates, la jerarquía es la prioridad por el soporte
-  desigual entre especies.
-- Informe: `docs/reports/V2_V3_V4_V5_raw_weather_report001.md`. V5 está en el
-  registro genérico como `proposed`, sin generaciones ni capacidad operativa.
+## Evolución acordada, todavía no implementada
 
-### Biology V6 smooth hierarchical
+- El worker externo evolucionará de una única URL/token a varias asociaciones
+  de coordinador independientes. Esto permitirá que el mismo M1 permanezca
+  emparejado con el HA real y el HA local sin sustituir la URL existente ni
+  crear un worker temporal.
+- Seguirá existiendo un único `worker_id`, volumen, caché y slot global de
+  ejecución. Los heartbeats serán independientes y los claims se arbitrarán de
+  forma justa; cada job y sus resultados permanecerán ligados al coordinador
+  de origen.
+- El máximo se persistirá como parámetro configurable `max_coordinators`, con
+  default 4; no será una constante rígida. Revocar desde un HA eliminará su
+  credencial server-side y el worker purgará solo esa asociación al recibir un
+  `401` inequívoco en el ciclo siguiente. Fallos de red o `5xx` no borrarán
+  credenciales.
+- El diseño completo y sus pruebas de aceptación están en
+  `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`. No está
+  implementado en worker `1.0.10` y no autoriza cambios en el M1 o HA reales.
 
-- Se ejecutó el ensayo posterior con diez bases B-spline sobre el eje
-  `log1p(retardo)` por cada uno de los cinco canales raw: 50 exposiciones en
-  lugar de 1.825 días libres. Compara modelo suave por especie, compartido y
-  pooling parcial, siempre sin calendario en el perfil principal.
-- V6 gana 4 y pierde 30 de 34 comparaciones contra el mejor miembro individual
-  V2/V3/V4/V5. Pooling parcial supera al compartido 44/52, pero frente al suave
-  por especie gana 15 y pierde 19; no justifica jerarquía general.
-- Las victorias son dos de `hygrophorus_latitabundus` fixed mediante pooling
-  parcial (test n=4), y mejoras pequeñas lag/groups7 de `amanita_caesarea` y
-  `cantharellus_cibarius_sl` mediante modelo por especie. Son hipótesis, no
-  gates de promoción.
-- El modelo conjunto puede producir diagnósticos para especies cuyo train
-  individual tiene una sola clase, pero esos casos no se cuentan como
-  victorias sin comparador anterior evaluable.
-- Artefactos:
-  `docker-data/audits/mushroom-ml-v6-smooth-hierarchical-20260816/`; informe:
-  `docs/reports/V2_V3_V4_V5_V6_smooth_hierarchical_report001.md`. V6 está
-  registrada como `proposed`, sin generación ni modelo operativo.
+## Investigación ML ya cerrada para este gate
 
-### Integración local HA/worker V2--V6
+- V5 conserva 12.280 predicciones hold-out fila a fila y el análisis de falsos
+  positivos/negativos compartidos. Gana 2 y pierde 32 de 34 comparaciones contra
+  el mejor miembro V2/V3/V4. No respalda dos ventanas meteorológicas estables ni
+  un estado temporal; queda experimental.
+- V6 probó curvas suaves por especie, una curva compartida y pooling parcial.
+  Gana 4 y pierde 30 de 34 contra el mejor V2/V3/V4/V5. No justifica ahora un
+  jerárquico general ni cambiar el Predictor.
+- No añadir otra familia ni un ensemble en este gate. Un ensemble futuro debe
+  superar al mejor miembro individual por especie y contrato. Nunca usar Brier
+  medio entre especies.
+- Informes vigentes:
+  - `docs/reports/V2_V3_V4_V5_raw_weather_report001.md`;
+  - `docs/reports/V2_V3_V4_V5_V6_smooth_hierarchical_report001.md`;
+  - `docs/reports/V2_V3_V4_consensus_report002.md`.
 
-- El laboratorio local usa HA `0.2.256` y worker `1.0.10`. La imagen HA ya está
-  publicada y el worker está empaquetado de forma privada; no se ha modificado
-  ninguna instalación real. El
-  flujo completo desde `Reconstruir y reentrenar todo` encadena reconstrucción,
-  entrenamiento del V2 operativo y lote comparativo no operativo V2--V6.
-- Segunda prueba completa real: reconstrucción `worker_job_f5MlfHlN64MBz4SD`
-  en 1 min 22 s; V2 `worker_job_hBck2X-aHr8jv4Qa` en 22 s, con 8 especies;
-  comparación `worker_job_kMfaeOPFlPgbU7Ty` en 2 min 15 s. Esta última ejecutó
-  922 combinaciones, instaló 489 modelos válidos y registró 433 combinaciones
-  sin soporte/clases suficientes. El lote
-  `local_v2_v6_20260816T181123Z` conserva `active=false` y
-  `operational_candidate_trained=false`.
-- El usuario promovió manualmente solo la segunda generación completa. La
-  reconstrucción y el V2 quedaron `promoted`; el lote V2--V6 siguió siendo
-  exclusivamente comparativo. Desapareció `model_input_identity_mismatch`.
-- La primera prueba del Predictor descubrió que el claim embebía las 489
-  entradas del manifiesto y excedía 64 KiB. El protocolo ahora devuelve un
-  resumen acotado y descarga el manifiesto completo por el endpoint autenticado
-  de runtime; todas las respuestas de control proyectan también el job compacto.
-  El worker conserva en memoria el manifiesto descargado durante la solicitud.
-- El botón de cancelación del modal apuntaba a `./predictor/jobs/cancel`; ahora
-  usa `./mushrooms/predictor/jobs/cancel`. Se verificó una cancelación real y el
-  coordinador respondió `cancelled`.
-- La ficha simplificada que `available_predictor_executors()` entregaba al
-  selector omitía `capabilities`; por ello el gate rechazaba falsamente V2--V6
-  aunque M1 anunciase `predictor_multiversion_v1`. La ficha conserva ahora esas
-  capacidades. Se verificó Auto -> M1 con V6 `lag-h1 / Smooth Species`: terminó
-  en 3 s y mantuvo la selección multiversión completa.
-- Prueba real posterior: primera solicitud válida en 12 s con caché de ficheros
-  reutilizada y servicio frío; la siguiente terminó en menos de 1 s, con
-  `assignment_revision=1`, `runtime_transferred_size_bytes=0` y sin errores de
-  identidad. Validación actual: 841/841 pruebas locales y `git diff --check`.
+## Riesgos y dudas activos
 
-## Próximos pasos, en orden
+- El Predictor local dejó de repetir la validación del manifiesto de 487
+  artefactos y la carga de bundles dentro de una misma petición. La consulta de
+  referencia medida bajó de 116,011 s en caliente a 13,185 s; el cambio al día
+  siguiente dentro del mismo proceso tardó 12,435 s. El smoke completo pasó
+  881 pruebas y `git diff --check` quedó limpio. La imagen HA local se
+  reconstruyó después sin tocar HA real ni el worker normal: el endpoint en
+  `127.0.0.1:8101` devolvió `200`, con 22,992 s para 2026-08-18 y 16,184 s para
+  2026-08-19 ya en caliente; los logs no mostraron errores de aplicación.
+- La pestaña «Por especie» reveló primero un `UnboundLocalError`: `_render_week`
+  conservaba una referencia copiada a la variable `area`, inexistente en esa
+  vista. Tras retirarla, la cuadrícula aún tardaba unos siete minutos porque
+  reconstruía 14 ventanas solapadas por área. El runtime prepara ahora una sola
+  serie IDW de 96 días por área y corta de ella las 8 fechas de corte únicas de
+  la semana. En el HA local reconstruido, Edulis devolvió tabla HTTP `200` de
+  349.019 bytes en 26,013 s, sin la excepción. El smoke posterior pasó 883
+  pruebas y `git diff --check` quedó limpio.
+- La ventana runtime queda ligada al contrato: V2/V3 actuales 90 días IDW sin
+  estado físico; V4 90 días y físicos solo en perfiles que los declaran; V5/V6
+  mantienen 365 días mediante la constante canónica
+  `mushroom_ml_raw_weather.LOOKBACK_DAYS`. No se ha retirado balance/SMI de
+  V2/V3 como posibilidad: queda preservada y probada la activación por un futuro
+  perfil explícito `IDW + estado físico`, que deberá entrenarse y compararse
+  separadamente.
+- Los resultados actuales no autorizan concluir que 365 días «no sirven».
+  V5/V6-365 queda intacto como control reproducible; queda pendiente un nuevo
+  V5/V6-90 emparejado sobre las mismas filas y splits para medir específicamente
+  la aportación de los días 91–365.
 
-1. Congelar V6 y repetirlo cuando existan nuevas campañas/visitas. No añadir
-   otra familia ahora: V5 pierde 32/34 y V6 30/34; el cuello de botella vuelve
-   a ser soporte independiente por especie y campaña.
-
-2. Mantener V2/V3/V4 vivas mediante el registro genérico. No escoger una pareja
-   por acuerdo: cualquier ensemble debe superar al mejor algoritmo individual
-   por especie y contrato. V4 permanece `proposed` y no pasa el gate actual.
-3. Cuando la plataforma vuelva a estar alineada, el usuario incorporará cuatro
-   salidas negativas recientes en cuatro microáreas y cuatro especies. Crear un
-   snapshot inmutable nuevo, no sobrescribir este, y repetir las comparaciones
-   para medir sensibilidad.
-4. Instalar primero el worker `1.0.10`, comprobar que conserva identidad/caché
-   y queda en espera; después actualizar HA a `0.2.256`. Este orden evita abrir
-   la nueva UI con un worker aún incapaz de ejecutar V2--V6. HA `0.2.254`
-   acepta listas de capacidades adicionales con el mismo schema `0.1`.
-5. Tras instalar ambos, validar versión/capacidades, Predictor normal y
-   Comparar. Solo entonces lanzar desde HA la regeneración completa autorizada;
-   no entrenar ni promover nada durante la instalación.
-
-## Rediseño local de comparación V2--V6 completado
-
-- Decisión semántica: `active` describe únicamente qué generación alimenta el
-  runtime heredado. V2--V6 tienen el mismo estatus experimental: ninguna es
-  válida, aceptada, preferida, promovida o ganadora. V2 aparece en la tarjeta
-  superior únicamente porque fue la primera implementación conectada a ella;
-  ese orden cronológico no aporta prioridad estadística.
-- El selector principal se reduce a V2/V3/V4/V5/V6 y expande internamente todos
-  los perfiles, contratos, horizontes y estimadores instalados. El detalle
-  exacto queda desplegable.
-- Se añade un catálogo de calidad calculado directamente desde las predicciones
-  hold-out fila a fila de los snapshots canónicos. Mantiene separadas especie,
-  contrato, horizonte y estimador; no promedia Brier entre especies.
-- Cada escenario se ordena primero por evidencia frente a la prevalencia y
-  después por Brier. Se muestran `n_test`, ausencia de ambas clases y casos no
-  evaluables; es un ranking diagnóstico, no una promoción.
-- Cada artefacto comparativo conserva soporte min/max/media/desviación de sus
-  variables. La inferencia informa cuántas quedan fuera del dominio observado y
-  las cinco extrapolaciones más extremas. El porcentaje no debe interpretarse
-  como fiable cuando la aplicabilidad es mala.
-- Las tarjetas por versión muestran rango de probabilidades (nunca una media),
-  desacuerdo, evidencia hold-out y cautelas específicas de V2--V6. Debajo se
-  presenta el mismo desglose para todas las versiones: filas por
-  perfil+contrato+horizonte y columnas por algoritmo, con predicción actual,
-  evidencia hold-out frente a prevalencia y aplicabilidad de dominio.
-- La tarjeta principal aclara que muestra V2 solo por herencia cronológica, no
-  porque V2 sea el Predictor preferido o haya ganado la comparación.
-- Al cambiar de especie en `Consultar fecha` se limpia siempre el área anterior.
-  El servicio normaliza además cualquier pareja especie+área no observada a
-  `todas las áreas`, y el render no puede mostrar un resultado para una pareja
-  incompatible. Nunca debe reaparecer un área de la especie anterior por URL,
-  respuesta preparada o caché.
-- Lote instalado: `local_v2_v6_20260816T192516Z`, snapshot canónico
-  `sha256:1ac18a...f9037a9`, 922 ajustes planificados, 489 disponibles y 433 no
-  entrenables. `active=false` y `operational_candidate_trained=false`.
-- El lote tardó 2 min 38 s de extremo a extremo. La primera predicción remota
-  completa transfirió 78.642.346 bytes y sincronizó la caché; la repetición con
-  V2--V6 conservó las cinco selecciones, reutilizó caché y transfirió 0 bytes.
-- Validación visual estructural remota: cinco tarjetas de versión, cinco
-  rankings (`fixed-h7`, `lag-h1/h2/h3/h7`), las cinco casillas seleccionadas,
-  cautelas, evidencia hold-out y aplicabilidad de dominio. El selector se ha
-  corregido a una rejilla adaptable con checkboxes compactos.
-- Validación final local: 845/845 pruebas superadas con las imágenes finales.
-  La reproducción remota de `Aereus` con el área incompatible `Molló` se
-  normaliza a `todas las áreas`, no conserva la opción inválida y no renderiza
-  `Aereus/Molló`. Una consulta válida `Aereus/Olvan` termina correctamente y
-  muestra los cinco desgloses V2--V6 por contrato y algoritmo, con evidencia
-  hold-out y aplicabilidad de dominio. HA responde y el worker está sano.
-
-## Artefactos de release preparados el 2026-08-17
-
-- HA `0.2.256` y `latest` están publicados en
-  `ghcr.io/cginebrosa/rainmapperha` con el mismo índice OCI
-  `sha256:880c2edb4a384f0e3585d9bb9c82417e988a8d2c48799f5aab2a2c7548e86665`.
-  Se verificaron los manifiestos `linux/amd64`
-  `sha256:aba74127fe736b439b6941f6e786898a6bd702c1c82ca6487cfecec3e7224443`
-  y `linux/arm64`
-  `sha256:ee203b3579e1095beaa38de367db1c34b0c1851a190f9ddbff291fef2c80cb6c`.
-- Worker `1.0.10`: imagen privada `linux/arm64`, etiqueta OCI y variable de
-  entorno `1.0.10`, digest local
-  `sha256:b56d68e5de63b90b120155ab23554390a8e40e6102798c4bb1fd4df18872fdd4`.
-  El paquete está en `~/Desktop/RainmapperWorker-1.0.10/`; su TAR ocupa 294 MB
-  y tiene SHA-256
-  `b582120db939a6e5823095b243430119d5cd993d94b57dc0c7962d93d3da2de2`.
-  El paquete anterior del Escritorio no se sobrescribió.
-- El smoke previo a publicación superó 845 pruebas, compilación, validadores y
-  `git diff --check`. El TAR superó su checksum, el Compose se normalizó sin
-  errores y un contenedor efímero importó servicio y registro multiversión.
-- Ningún host real se ha actualizado todavía y no se ha lanzado regeneración.
-
-## Riesgos y dudas activas
-
-- El Predictor local ya está alineado con la reconstrucción promovida. El
-  manifiesto multiversión aumenta el runtime hasta unos 129 MiB/545 ficheros;
-  la primera sincronización puede ser lenta, pero las siguientes deben usar
-  caché y transferir 0 bytes.
-- El soporte por especie es pequeño. Dos revisiones cambiaron ganadores y
-  `boletus_edulis` pierde una partición evaluable. Toda conclusión es provisional.
-- V5 raw pierde 32/34 comparaciones contra el mejor miembro actual y su
-  selección es demasiado densa. Mantenerlo experimental; no usarlo para
-  desbloquear una versión HA o decidir el Predictor.
-- Los cuatro horizontes lag reutilizan observaciones; nunca contarlos como
-  muestras independientes ni entrenar un modelo distinto por horizonte.
-- La continuidad física de una florada no autoriza suavizar etiquetas. Solo hay
-  unas 50 etiquetas semanales útiles para aprender estado; no inventar reglas.
-- El balance V4 ayuda a continuidad pero no al Brier de forma general; SoilGrids
-  empeora habitualmente. Conservar ambos, documentar y mantener desactivados.
-- El histórico reparado y la autocuración están solo en local. Los runners de HA
-  siguen avanzando, por lo que una promoción futura exige rebase fresco.
-- `0.2.255` y worker `1.0.9` son artefactos obsoletos para esta integración.
-- El worktree es grande y mixto. Revisar por alcance antes de cualquier commit;
-  no eliminar ficheros no rastreados ni asumir que todos pertenecen al último
-  bloque.
+- [CERRADA] El falso vacío MapLibre descartaba ceros finitos al contar soporte;
+  N/A se excluye y no propaga `NaN`.
+- [CERRADA] `model_not_trained` pertenecía al bundle legado de estación única,
+  con 18 episodios elegibles; el batch V2 común IDW es otro artefacto.
+- La instalación real sigue sin la corrección V2–V6. No afirmar que su Predictor
+  incorpora toda la información disponible.
+- Los batches anteriores no tienen identidad de entrenamiento; su vigencia debe
+  mostrarse como no verificable, no asumirse actual.
+- La prueba larga puede rondar 20 minutos y el coste crecerá mientras V2–V6
+  sigan activas. Reducir versiones en el futuro reducirá el coste.
+- El soporte por especie/campaña sigue siendo pequeño. V5/V6 y cualquier ranking
+  son diagnósticos, no promoción ni causalidad.
+- El worktree mezcla muchos bloques. Revisar el alcance antes de commit/release
+  y preservar los PDF científicos no rastreados.
+- La imagen ya no copia observaciones, pero el repositorio público sigue
+  rastreando `mushroom-data/mushroom_observations.json` con datos semilla. No se
+  modificó en esta sesión. Revisar privacidad por separado antes de asumir que
+  el repositorio completo carece de observaciones.
+- La autocuración meteorológica y la reparación histórica amplia siguen sin una
+  validación de producción independiente de esta corrección multiversión.
 
 ## Archivos relevantes
 
-- Arranque y prioridades: `docs/codex-start-here.md`, `docs/todo.md`.
-- Decisiones: `docs/decisions.md`.
-- Arquitectura: `docs/architecture.md`.
-- Informe V4: `docs/reports/V4_report001.md`.
-- Consenso canónico: `docs/reports/V2_V3_V4_consensus_report002.md`.
-- Genealogía y ciclo de vida:
-  `docs/mushrooms/mushroom-ml-contract-versions-es.md` y
-  `docs/mushrooms/mushroom-ml-version-lifecycle-es.md`.
-- Especificaciones V3/V4:
-  `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md` y
-  `docs/mushrooms/mushroom-ml-biology-v4-implementation-spec-es.md`.
-- Caché SoilGrids:
-  `docs/mushrooms/biology-v4-soilgrids-cache-contract-es.md`.
-- Núcleo meteorológico: `rainmapper_core/mushroom_weather_idw.py`.
-- Constructores/evaluador: `rainmapper_core/mushroom_ml_biology_v3.py`,
-  `rainmapper_core/mushroom_ml_biology_v4.py` y
-  `rainmapper_core/mushroom_ml_biology_v3_evaluation.py`.
-- Scripts: `scripts/build-biology-v3-benchmark.py`,
-  `scripts/build-biology-v4-benchmark.py` y
-  `scripts/evaluate-biology-v2-v3-v4.py`.
-- Autocuración oficial: `rainmapper_core/weather_official_repair_state.py`,
-  `rainmapper_core/weather_official_maintenance.py` y
-  `scripts/repair-official-weather-history.py`.
+- Continuidad: `docs/codex-start-here.md`, este documento y `docs/todo.md`.
+- Decisiones y arquitectura: `docs/decisions.md`, `docs/architecture.md`.
+- Runtime: `rainmapper-app/app/web_server.py`,
+  `rainmapper_core/mushroom_worker_jobs.py`,
+  `rainmapper_core/mushroom_worker_service.py` y
+  `rainmapper_core/mushroom_worker_transport.py`.
+- Snapshot/training: `rainmapper_core/mushroom_rebuild_snapshot.py`,
+  `scripts/prepare-mushroom-ml-multiversion-inputs.py` y
+  `scripts/run-mushroom-ml-multiversion-job.py`.
+- Instalación/validación del batch:
+  `rainmapper_core/mushroom_ml_model_catalog.py` y
+  `rainmapper_core/mushroom_ml_multiversion_transport.py`.
+- Vigencia/UI: `rainmapper_core/mushroom_ml_training_freshness.py`,
+  `rainmapper-app/app/mushroom_predictor_ui.py`,
+  `mushroom-data/mushroom_labels.json`.
+- Diagnóstico IDW: `rainmapper_core/viewers/maplibre-viewer/app.js`, funciones
+  `estimatedFieldUsableFeatures`, `estimateFieldCellValue`,
+  `estimatedFieldPointMetricValue` y `buildIdwPointValues`.
+- Empaquetado: `rainmapper-app/Dockerfile`, `rainmapper-worker/Dockerfile` y
+  `rainmapper-app/defaults/mushroom_observations.json`.
+- Pruebas principales: `tests/test_mushroom_ml_training_freshness.py`,
+  `tests/test_mushroom_ml_multiversion_transport.py`,
+  `tests/test_mushroom_worker_jobs.py`,
+  `tests/test_mushroom_worker_transport.py` y
+  `tests/test_mushroom_worker_packaging.py`.
 
-## Reglas para la continuación
+## Reglas para continuar
 
-- Leer primero `docs/codex-start-here.md` y este documento; consultar
-  `docs/todo.md` solo para prioridades completas.
-- Consultar MCP Codebase sin pedir permiso. Responder siempre a comentarios del
-  usuario mientras continúa el trabajo.
-- No usar Tailscale; HA está accesible mediante shares SMB montados.
-- Preservar todos los cambios locales. No usar comandos destructivos.
-- La prueba local ya promovió una generación V2 solicitada por el usuario. No
-  modificar HA/worker reales, releases o GHCR sin autorización explícita; el
-  lote V2--V6 nunca se promueve como operativo.
-
-## Validación habitual
-
-```bash
-.venv/bin/python -m unittest discover -s tests
-git diff --check
-```
-
-Una release exige además `docs/release-flow.md` y sus comprobaciones completas.
+- Leer primero `docs/codex-start-here.md` y este documento; `docs/todo.md` solo
+  si hacen falta prioridades completas.
+- Comprobar `pwd`, rama y `git status`; preservar todos los cambios y no usar
+  comandos destructivos.
+- Consultar Codebase Memory MCP antes de descubrir o cambiar código.
+- Responder siempre a los mensajes del usuario mientras se trabaja.
+- Codex no usa Tailscale. No cambiar la URL Tailscale persistida del worker real
+  sin orden explícita.
+- No tocar HA real, worker normal, GHCR ni releases durante la prueba local.
+- Tras superar el gate local, detenerse e informar. Preparar o publicar releases
+  exige una nueva autorización explícita del usuario y seguir
+  `docs/release-flow.md`.

@@ -591,6 +591,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn(f"{target.day}/{target.month}/{target.year}", rendered)
         self.assertNotIn(target.strftime("%B"), rendered)
 
+    def test_predictor_species_tab_does_not_reference_query_area(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor = mock.Mock()
+        predictor.areas_with_species_observations.return_value = []
+        with (
+            mock.patch.object(predictor_ui, "_get_predictor", return_value=predictor),
+            mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
+        ):
+            rendered = predictor_ui._render_week(
+                "boletus_aereus",
+                date.today(),
+                ["boletus_aereus"],
+                {},
+                {},
+            )
+
+        self.assertIn("ui.predictor_no_data", rendered)
+        self.assertNotIn("cannot access local variable", rendered)
+
     def test_remote_predictor_normalizes_stale_week_date_before_queueing(self) -> None:
         worker = {
             "worker_id": "worker_test",
@@ -1114,6 +1133,96 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('tabindex="0"', rendered)
         self.assertIn("Brier &amp; baseline", rendered)
         self.assertIn('title="Help with &quot;quotes&quot; &amp; details"', rendered)
+
+    def test_multiversion_summary_separates_confidence_and_weather_abstentions(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+
+        def member(
+            estimator_id: str,
+            *,
+            available: bool,
+            evidence: str = "not_evaluated",
+            applicability: str = "",
+        ) -> dict:
+            row = {
+                "model_ref": {
+                    "version_id": "biology_v3",
+                    "profile_id": "core",
+                    "temporal_contract_id": "lag_event_biology_v3",
+                    "estimator_id": estimator_id,
+                    "horizon_days": 7,
+                },
+                "available": available,
+            }
+            if available:
+                row.update(
+                    {
+                        "prediction": {
+                            "probability": 0.75,
+                            "applicability": {"status": applicability},
+                        },
+                        "evaluation": {
+                            "evidence": evidence,
+                            "brier_delta_vs_prevalence": 0.1,
+                            "n_test": 12,
+                        },
+                    }
+                )
+            return row
+
+        usable = member(
+            "random_forest_restricted_v1",
+            available=True,
+            evidence="better_than_prevalence",
+            applicability="within_observed_range",
+        )
+        weak = member(
+            "extra_trees_restricted_v1",
+            available=True,
+            evidence="worse_than_prevalence",
+            applicability="within_observed_range",
+        )
+        extrapolation = member(
+            "hist_gradient_boosting_restricted_v1",
+            available=True,
+            evidence="better_than_prevalence",
+            applicability="caution",
+        )
+        weather_pending = member("knn_distance_v1", available=False)
+        weather_pending.update(
+            {
+                "reason": "runtime_feature_gates_failed",
+                "quality": {
+                    "inference_exclusion_reasons": [
+                        {"code": "required_predictive_features_missing"}
+                    ]
+                },
+                "metadata": {"cutoff_date": "2026-08-19"},
+            }
+        )
+        payload = {
+            "available": True,
+            "members": [usable, weak, extrapolation, weather_pending],
+            "version_cautions": {"biology_v3": "Experimental"},
+        }
+
+        labels = {
+            "ui.predictor_multiversion_weather_pending_cutoff": "Weather through {cutoff}",
+        }
+        with mock.patch.object(
+            predictor_ui,
+            "_lbl",
+            side_effect=lambda key: labels.get(key, key),
+        ):
+            rendered = predictor_ui._render_multiversion_result(payload)
+
+        self.assertIn("pred-confidence-usable", rendered)
+        self.assertIn("pred-confidence-weak", rendered)
+        self.assertIn("pred-confidence-not_usable", rendered)
+        self.assertIn("pred-confidence-weather_pending", rendered)
+        self.assertIn("Weather through 2026-08-19", rendered)
+        self.assertNotIn("runtime_feature_gates_failed", rendered)
+        self.assertNotIn('<details class="pred-version-breakdown" open>', rendered)
 
     def seed_empty_mushroom_observations(self, data_dir: Path) -> None:
         self.web_server.default_store().ensure_seeded()
@@ -5208,6 +5317,23 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('name="species_id"', page)
         self.assertNotIn('name="executor" value="home_assistant"', page)
 
+    def test_workers_page_offers_local_ha_only_when_local_compute_is_enabled(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            profiles=[],
+            eligible_observation_count=125,
+            pending_species_count=0,
+            jobs=[],
+            pipeline="shared",
+            local_ha_compute_enabled=True,
+            default_executor="home_assistant",
+        )
+
+        self.assertIn('name="executor" value="home_assistant" checked', page)
+        self.assertIn("Local Home Assistant", page)
+        self.assertIn("Local compute executor", page)
+        self.assertNotIn('class="primary" type="submit" disabled', page)
+
     def test_workers_page_uses_operational_default_worker_for_complete_update(self) -> None:
         worker = {
             "configured": True,
@@ -5335,8 +5461,38 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(redirect, "./workers")
         message, is_error = self.web_server.mushroom_workers_flash()
-        self.assertIn("must run on an external worker", message)
+        self.assertIn("Local Home Assistant compute is not enabled", message)
         self.assertTrue(is_error)
+
+    def test_workers_post_starts_enabled_local_complete_update(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(
+            self.web_server,
+            "start_mushroom_local_full_update",
+            return_value=(202, {"ok": True, "job_id": "local_full_test"}),
+        ) as start:
+            redirect = handler.handle_mushroom_workers_post(
+                {
+                    "worker_action": ["start_rebuild"],
+                    "executor": ["home_assistant"],
+                    "scope": ["all"],
+                }
+            )
+
+        self.assertEqual(redirect, "./workers")
+        start.assert_called_once_with()
+
+    def test_local_full_update_work_root_is_a_share_root_sibling(self) -> None:
+        share_root = Path(self.temp_dir.name) / "docker-data"
+        with mock.patch.object(
+            self.web_server.mushroom_paths,
+            "share_root",
+            return_value=share_root,
+        ):
+            work_root = self.web_server.mushroom_local_full_update_work_root()
+
+        self.assertEqual(work_root, share_root / ".local-full-update")
+        self.assertNotEqual(work_root.parent, share_root / "mushroom-data")
 
     def test_workers_post_persists_registered_default_executor(self) -> None:
         registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
@@ -6424,6 +6580,68 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Claimed", page)
         self.assertNotIn("?rebuild_job=worker_job_12345678", page)
 
+    def test_full_update_promotion_appears_only_after_linked_v2_v6_completes(self) -> None:
+        training = {
+            "job_id": "worker_job_training123",
+            "job_type": "worker_ml_train_v0",
+            "worker_display_name": "M1 personal",
+            "status": "complete",
+            "promotion_eligible": True,
+            "triggered_by_job_id": "worker_job_rebuild123",
+            "overall_percent": 100,
+        }
+        before = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [training], operational_enabled=True
+        )
+        after = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [
+                training,
+                {
+                    "job_id": "worker_job_compare123",
+                    "job_type": "worker_ml_multiversion_v1",
+                    "worker_display_name": "M1 personal",
+                    "status": "complete",
+                    "triggered_by_job_id": "worker_job_training123",
+                    "overall_percent": 100,
+                },
+            ],
+            operational_enabled=True,
+        )
+
+        self.assertNotIn('value="promote_full_update"', before)
+        self.assertIn('value="promote_full_update"', after)
+
+    def test_full_update_backend_rejects_promotion_before_linked_v2_v6_completes(self) -> None:
+        training = {
+            "job_id": "worker_job_training123",
+            "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_ML_TRAIN,
+            "triggered_by_job_id": "worker_job_rebuild123",
+        }
+        rebuild = {
+            "job_id": "worker_job_rebuild123",
+            "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD,
+            "full_update": True,
+        }
+        with mock.patch.object(
+            self.web_server,
+            "mushroom_worker_operational_enabled",
+            return_value=True,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "get_job",
+            side_effect=[training, rebuild],
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "load_queue",
+            return_value={"schema_version": "0.1", "jobs": []},
+        ):
+            status, response = self.web_server.promote_mushroom_full_update(
+                "worker_job_training123"
+            )
+
+        self.assertEqual(status, 409)
+        self.assertIn("V2--V6 comparison job must complete", response["error"])
+
     def test_workers_post_rejects_external_worker_before_job_api(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         handler.handle_mushroom_profiles_post = mock.Mock()
@@ -6453,7 +6671,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
                 self.assertEqual(redirect, "./workers")
                 message, is_error = self.web_server.mushroom_workers_flash()
-                self.assertIn("must run on an external worker", message)
+                self.assertIn("Local Home Assistant compute is not enabled", message)
                 self.assertTrue(is_error)
 
     def test_workers_post_maps_legacy_scopes_to_full_external_rebuild(self) -> None:

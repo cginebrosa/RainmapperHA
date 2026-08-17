@@ -1,3 +1,4 @@
+import json
 import subprocess
 import unittest
 from pathlib import Path
@@ -12,7 +13,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         dockerignore = (ROOT_DIR / ".dockerignore").read_text(encoding="utf-8")
 
         self.assertIn("FROM python:3.11-slim", dockerfile)
-        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.10", dockerfile)
+        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.11", dockerfile)
         self.assertIn("gdal-bin", dockerfile)
         self.assertIn("gosu", dockerfile)
         self.assertIn("mushroom_rebuild_contracts.py", dockerfile)
@@ -37,7 +38,8 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn("manage-mushroom-worker-config.py", dockerfile)
         self.assertIn("run-mushroom-worker-service.py", dockerfile)
         self.assertIn("build-biology-v3-benchmark.py", dockerfile)
-        self.assertIn("evaluate-biology-v3-benchmark.py", dockerfile)
+        self.assertIn("prepare-mushroom-ml-multiversion-inputs.py", dockerfile)
+        self.assertNotIn("evaluate-biology-v3-benchmark.py", dockerfile)
         self.assertNotIn("COPY mushroom-data/ /app/mushroom-data/", dockerfile)
         self.assertNotIn("web_server.py", dockerfile)
         self.assertNotIn("requirements.txt", dockerfile)
@@ -54,6 +56,21 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
 
         self.assertIn("COPY rainmapper_core/ /app/rainmapper_core/", dockerfile)
         self.assertIn("mushroom_workers_ui.py", dockerfile)
+        self.assertIn("run-mushroom-rebuild-job.py", dockerfile)
+        self.assertIn("run-mushroom-ml-train-job.py", dockerfile)
+        self.assertIn("run-mushroom-ml-multiversion-job.py", dockerfile)
+        self.assertIn("prepare-mushroom-ml-multiversion-inputs.py", dockerfile)
+        self.assertNotIn("COPY mushroom-data/ /app/mushroom-data/", dockerfile)
+        self.assertIn(
+            "rainmapper-app/defaults/mushroom_observations.json",
+            dockerfile,
+        )
+        empty_observations = json.loads(
+            (ROOT_DIR / "rainmapper-app/defaults/mushroom_observations.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual([], empty_observations["observations"])
         self.assertNotIn("docker-data", dockerfile)
         self.assertNotIn("mushroom-GIS", dockerfile)
         self.assertIn("8100/tcp: null", config)
@@ -62,10 +79,14 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertNotIn("predictor_executor_selection_enabled", config)
         self.assertNotIn("predictor_home_assistant_executor_enabled", config)
         self.assertIn('export RAINMAPPER_WORKER_API_ENABLED="$EXTERNAL_WORKER_CONNECTIONS_ENABLED_VALUE"', run_script)
-        self.assertIn('export RAINMAPPER_WORKER_AUTH_REQUIRED="true"', run_script)
+        self.assertIn(
+            'export RAINMAPPER_WORKER_AUTH_REQUIRED="${RAINMAPPER_WORKER_AUTH_REQUIRED:-true}"',
+            run_script,
+        )
         self.assertIn('export RAINMAPPER_WORKER_OPERATIONAL_ENABLED="$EXTERNAL_WORKER_REBUILDS_ENABLED_VALUE"', run_script)
         self.assertNotIn("RAINMAPPER_PREDICTOR_EXECUTOR_SELECTION_ENABLED", run_script)
         self.assertNotIn("RAINMAPPER_PREDICTOR_HOME_ASSISTANT_ENABLED", run_script)
+        self.assertNotIn("RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED", run_script)
         self.assertIn("--worker-port 8100", run_script)
         self.assertIn("name: Enable external worker connections", translations)
         self.assertIn("name: Allow external rebuilds and promotion", translations)
@@ -106,11 +127,11 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         stop = (ROOT_DIR / "mushroom_worker_stop.sh").read_text(encoding="utf-8")
 
         self.assertIn(
-            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.10}",
+            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.11}",
             compose,
         )
         self.assertIn(
-            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.10}",
+            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.11}",
             compose,
         )
         self.assertIn("name: rainmapper-worker-local", compose)
@@ -165,6 +186,8 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         dockerfile = (ROOT_DIR / "rainmapper-app/Dockerfile").read_text(encoding="utf-8")
 
         self.assertIn('RAINMAPPER_WORKER_API_ENABLED: "true"', compose)
+        self.assertIn('RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED: "true"', compose)
+        self.assertIn('RAINMAPPER_MUSHROOM_REBUILD_PIPELINE: "shared"', compose)
         self.assertIn("name: rainmapper-local-compute", compose)
         self.assertIn("docker network create rainmapper-local-compute", start)
         self.assertIn("UI URL for your browser", start)

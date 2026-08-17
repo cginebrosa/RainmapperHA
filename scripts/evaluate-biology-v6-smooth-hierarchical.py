@@ -99,7 +99,14 @@ def select_joint_config(
 
 
 def evaluate_split(benchmark: dict, train: list[dict], test: list[dict], *, split_id: str, group_days: int) -> tuple[dict, list[dict]]:
-    columns = smooth.raw_columns()
+    source_contracts = {
+        str((sample.get("metadata") or {}).get("temporal_contract_id") or "")
+        for sample in train + test
+    }
+    columns = smooth.raw_columns(
+        include_phenology=True,
+        include_horizon=any(value.startswith("lag_event") for value in source_contracts),
+    )
     X_train, y_train = holdout.matrix(train, columns)
     X_test, y_test = holdout.matrix(test, columns)
     preprocessor = smooth.SmoothLagPreprocessor().fit(X_train)
@@ -153,9 +160,9 @@ def evaluate_split(benchmark: dict, train: list[dict], test: list[dict], *, spli
             source_sample_id = str(sample.get("sample_id"))
             source_contract = str(metadata.get("temporal_contract_id") or "")
             v6_contract = (
-                "lag_event_biology_v6_smooth_hierarchical_v1"
+                "lag_event_biology_v6_smooth_hierarchical_v2"
                 if source_contract.startswith("lag_event")
-                else "fixed_gap_7d_biology_v6_smooth_hierarchical_v1"
+                else "fixed_gap_7d_biology_v6_smooth_hierarchical_v2"
             )
             sample_id = f"{metadata.get('observation_id')}|{v6_contract}|h{int(metadata.get('horizon_days') or 7)}"
             row_key = "|".join(("biology_v6_smooth_hierarchical", split_id, str(group_days), sample_id))
@@ -165,6 +172,7 @@ def evaluate_split(benchmark: dict, train: list[dict], test: list[dict], *, spli
                 "species_id": value, "area_id": metadata.get("area_id"), "micro_area_id": metadata.get("micro_area_id"),
                 "target_date": metadata.get("target_date"), "cutoff_date": metadata.get("cutoff_date"),
                 "horizon_days": int(metadata.get("horizon_days") or 7),
+                "profile_id": "smooth_weather_physical_state",
                 "temporal_contract_id": v6_contract, "group_days": group_days,
                 "split_id": split_id, "validation_group_id": metadata.get(f"validation_group_{group_days}d"),
                 "campaign_block_id": f"{metadata.get('area_id')}|{str(metadata.get('target_date'))[:4]}" if split_id.startswith("campaign") else None,

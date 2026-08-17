@@ -21,8 +21,8 @@ class MushroomMLModelCatalogTests(TestCase):
             "batch_id": "batch-a",
             "generation_id": "generation-a",
             "version_id": "biology_v5_raw_weather_discovery",
-            "temporal_contract_id": "lag_event_biology_v5_raw365_v1",
-            "profile_id": "raw_primary_no_calendar",
+            "temporal_contract_id": "lag_event_biology_v5_raw365_v2",
+            "profile_id": "raw_primary_plus_physical_state",
             "estimator_id": "elastic_net_logistic_raw365_v1",
             "species_id": "lactarius_deliciosus",
             "horizon_days": 3,
@@ -58,7 +58,7 @@ class MushroomMLModelCatalogTests(TestCase):
             catalog.validate_model_ref(
                 self.registry,
                 self.ref(
-                    temporal_contract_id="fixed_gap_7d_biology_v5_raw365_v1",
+                    temporal_contract_id="fixed_gap_7d_biology_v5_raw365_v2",
                     horizon_days=3,
                 ),
             )

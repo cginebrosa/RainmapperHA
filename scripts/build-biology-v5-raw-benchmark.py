@@ -18,6 +18,7 @@ from rainmapper_core import mushroom_climatic_water_balance as climate
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_raw_weather as raw_weather
 from rainmapper_core import mushroom_observation_context as weather_context
+from rainmapper_core import mushroom_soil_water_state
 from rainmapper_core import mushroom_weather_idw
 
 
@@ -139,26 +140,95 @@ def main() -> int:
     for index, (area_id, cutoff) in enumerate(sorted(requested), start=1):
         sliced: dict[str, dict[str, object]] = {}
         micro_eto: list[list[float | None]] = []
+        micro_balance: list[list[float | None]] = []
+        micro_soil_states: dict[str, dict[str, object]] = {}
+        axis = list(weather_context.date_window(cutoff, raw_weather.LOOKBACK_DAYS))
         slice_start = (cutoff - timedelta(days=raw_weather.LOOKBACK_DAYS - 1) - earliest).days
         slice_end = slice_start + raw_weather.LOOKBACK_DAYS
         for context in micros_by_area.get(area_id, []):
             cached = weather_cache.get(context.micro_area_id)
             if cached is None:
                 continue
-            sliced[context.micro_area_id] = mushroom_weather_idw.slice_daily_weather_idw_series(
+            weather = mushroom_weather_idw.slice_daily_weather_idw_series(
                 cached, end_day=cutoff, days=raw_weather.LOOKBACK_DAYS
             )
-            micro_eto.append(eto_cache[context.micro_area_id][slice_start:slice_end])
+            sliced[context.micro_area_id] = weather
+            eto = eto_cache[context.micro_area_id][slice_start:slice_end]
+            micro_eto.append(eto)
+            micro_balance.append(
+                [
+                    float(rain) - float(eto_value)
+                    if rain is not None and eto_value is not None
+                    else None
+                    for rain, eto_value in zip(
+                        weather["daily_rain_idw_mm"], eto, strict=True
+                    )
+                ]
+            )
+            try:
+                micro_soil_states[context.micro_area_id] = (
+                    mushroom_soil_water_state.build_soil_water_state(
+                        dates=axis,
+                        rain_idw_mm=weather["daily_rain_idw_mm"],
+                        reference_evapotranspiration_mm=eto,
+                        soilgrids_context=context.soilgrids_water or {},
+                    )
+                )
+            except (TypeError, ValueError) as exc:
+                micro_soil_states[context.micro_area_id] = {
+                    "predictive_features": {},
+                    "quality": {
+                        "training_eligible": False,
+                        "training_exclusion_reasons": [
+                            {"code": "soil_state_build_error", "message": str(exc)}
+                        ],
+                    },
+                    "metadata": {"cutoff_date": cutoff.isoformat()},
+                }
         area = biology_v3.aggregate_area_rainfall_series(sliced)
-        eto = _mean_series(micro_eto, raw_weather.LOOKBACK_DAYS)
-        rain = list(area["daily_rain_idw_mean_mm"])
-        area["daily_eto0_mean_mm"] = eto
-        area["daily_climatic_balance_mean_mm"] = [
-            float(rain_value) - float(eto_value)
-            if rain_value is not None and eto_value is not None
-            else None
-            for rain_value, eto_value in zip(rain, eto, strict=True)
+        area["daily_eto0_mean_mm"] = _mean_series(
+            micro_eto, raw_weather.LOOKBACK_DAYS
+        )
+        area["daily_climatic_balance_mean_mm"] = _mean_series(
+            micro_balance, raw_weather.LOOKBACK_DAYS
+        )
+        soil_state = mushroom_soil_water_state.aggregate_area_soil_water_states(
+            micro_soil_states
+        )
+        daily_soil_by_microarea: list[dict[str, float]] = []
+        for state in micro_soil_states.values():
+            quality = state.get("quality")
+            metadata = state.get("metadata")
+            if not isinstance(quality, dict) or not quality.get("training_eligible"):
+                continue
+            if not isinstance(metadata, dict):
+                continue
+            dates = list(metadata.get("longest_converged_daily_dates") or [])
+            values = list(
+                metadata.get("longest_converged_daily_storage_fraction") or []
+            )
+            if len(dates) == len(values):
+                daily_soil_by_microarea.append(
+                    {
+                        str(day): float(value)
+                        for day, value in zip(dates, values, strict=True)
+                    }
+                )
+        area["daily_soil_water_fraction_mean"] = [
+            (
+                statistics.fmean(
+                    row[day.isoformat()]
+                    for row in daily_soil_by_microarea
+                    if day.isoformat() in row
+                )
+                if any(day.isoformat() in row for row in daily_soil_by_microarea)
+                else None
+            )
+            for day in axis
         ]
+        area.update(dict(soil_state.get("predictive_features") or {}))
+        area["soil_water_quality"] = dict(soil_state.get("quality") or {})
+        area["soil_water_metadata"] = dict(soil_state.get("metadata") or {})
         area_cache[f"{area_id}|{cutoff.isoformat()}"] = area
         if index % 50 == 0 or index == len(requested):
             print(json.dumps({"materialized_area_cutoffs": index, "total_area_cutoffs": len(requested)}), flush=True)
@@ -211,11 +281,11 @@ def main() -> int:
     inventory = {
         "kind": "biology_v5_raw_channel_inventory",
         "included_raw_channels": list(raw_weather.RAW_CHANNELS),
-        "included_physical_ablation_channels": list(raw_weather.PHYSICAL_CHANNELS),
+        "included_canonical_daily_channels": list(raw_weather.DAILY_CHANNELS),
+        "included_canonical_state_scalars": list(raw_weather.PHYSICAL_STATE_SCALARS),
         "excluded": {
             "daily_means": "deterministic duplicates of min/max channels",
             "wind": "no common V2/V3/V4 IDW contract with inference parity",
-            "soil_water": "derived experimental V4 state, not raw meteorology",
             "quality_and_provenance": "audit-only and forbidden from X",
         },
         "lookback_days": raw_weather.LOOKBACK_DAYS,

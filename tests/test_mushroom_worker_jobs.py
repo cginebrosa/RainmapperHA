@@ -857,6 +857,29 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             self.assertEqual(retried["assignment_revision"], 2)
             self.assertEqual(retried["job_id"], job_id)
 
+    def test_multiversion_job_accepts_standard_snapshot_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            job_id = "worker_job_multisnapshot"
+            job = mushroom_worker_jobs.create_ml_multiversion_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle={
+                    "job_id": job_id,
+                    "bundle_digest": "sha256:" + "a" * 64,
+                    "snapshot_id": "sha256:" + "b" * 64,
+                    "job_spec_id": "sha256:" + "c" * 64,
+                    "input_file_count": 4,
+                    "multiversion_spec": {
+                        "kind": "mushroom_ml_multiversion_job",
+                    },
+                },
+                job_id=job_id,
+            )
+
+        self.assertEqual(job["input_bundle"]["snapshot_id"], "sha256:" + "b" * 64)
+
 
 if __name__ == "__main__":
     unittest.main()

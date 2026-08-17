@@ -107,6 +107,7 @@ def prepare_coordinator_bundle(
     pending_species_ids: list[str] | tuple[str, ...] | None = None,
     prefer_weather_parquet: bool = True,
     allow_partitioned_weather_history: bool = True,
+    extra_inputs: dict[str, Path] | None = None,
 ) -> dict[str, Any]:
     """Create one immutable coordinator-side bundle without changing live inputs."""
     resolved_job_id = validate_job_id(job_id)
@@ -129,6 +130,7 @@ def prepare_coordinator_bundle(
             gis_hash_cache_path=root / ".gis-hash-cache.json",
             prefer_weather_parquet=prefer_weather_parquet,
             allow_partitioned_weather_history=allow_partitioned_weather_history,
+            extra_inputs=extra_inputs,
         )
         job_spec = mushroom_rebuild_contracts.create_job_spec(
             snapshot_dir,
@@ -185,7 +187,10 @@ def coordinator_bundle_is_discardable(job: dict[str, Any]) -> bool:
         return True
     if status != "complete":
         return False
-    if str(job.get("job_type", "")) == "worker_snapshot_transport_probe":
+    if str(job.get("job_type", "")) in {
+        "worker_snapshot_transport_probe",
+        "worker_ml_multiversion_v1",
+    }:
         return True
     return str(job.get("promotion_status", "")) == "promoted"
 

@@ -10,8 +10,9 @@ from typing import Any
 
 LOOKBACK_DAYS = 365
 VERSION_ID = "biology_v5_raw_weather_discovery"
-FIXED_CONTRACT_ID = "fixed_gap_7d_biology_v5_raw365_v1"
-LAG_CONTRACT_ID = "lag_event_biology_v5_raw365_v1"
+RAW_WEATHER_CONTRACT_ID = "area_daily_raw365_common_idw_physical_state_v2"
+FIXED_CONTRACT_ID = "fixed_gap_7d_biology_v5_raw365_v2"
+LAG_CONTRACT_ID = "lag_event_biology_v5_raw365_v2"
 RAW_CHANNELS = (
     "rain_mm",
     "temp_min_c",
@@ -20,6 +21,17 @@ RAW_CHANNELS = (
     "humidity_max_pct",
 )
 PHYSICAL_CHANNELS = ("eto0_mm", "climatic_balance_mm")
+STATE_CHANNELS = ("soil_water_fraction",)
+DAILY_CHANNELS = RAW_CHANNELS + PHYSICAL_CHANNELS + STATE_CHANNELS
+PHYSICAL_STATE_SCALARS = (
+    "soil_water_area_mean_at_cutoff",
+    "soil_water_area_min_at_cutoff",
+    "soil_water_change_7d",
+    "soil_water_change_14d",
+    "soil_water_recharge_7d",
+    "soil_water_deficit_at_cutoff",
+    "soil_water_drydown_7d",
+)
 AREA_SERIES_KEYS = {
     "rain_mm": "daily_rain_idw_mean_mm",
     "temp_min_c": "daily_temp_min_idw_mean_c",
@@ -28,20 +40,30 @@ AREA_SERIES_KEYS = {
     "humidity_max_pct": "daily_humidity_max_idw_mean_pct",
     "eto0_mm": "daily_eto0_mean_mm",
     "climatic_balance_mm": "daily_climatic_balance_mean_mm",
+    "soil_water_fraction": "daily_soil_water_fraction_mean",
 }
 
 
 def lag_feature_name(channel: str, lag: int) -> str:
-    if channel not in RAW_CHANNELS + PHYSICAL_CHANNELS:
+    if channel not in DAILY_CHANNELS:
         raise ValueError(f"unknown raw-weather channel: {channel}")
     if not 0 <= lag < LOOKBACK_DAYS:
         raise ValueError(f"lag must be in [0, {LOOKBACK_DAYS - 1}]")
     return f"{channel}__lag_{lag:03d}"
 
 
-def feature_columns(*, include_physical: bool, include_phenology: bool = True) -> list[str]:
+def feature_columns(
+    *,
+    include_physical: bool,
+    include_state: bool = False,
+    include_phenology: bool = True,
+) -> list[str]:
     channels = RAW_CHANNELS + (PHYSICAL_CHANNELS if include_physical else ())
+    if include_state:
+        channels += STATE_CHANNELS
     columns = [lag_feature_name(channel, lag) for channel in channels for lag in range(LOOKBACK_DAYS)]
+    if include_state:
+        columns.extend(PHYSICAL_STATE_SCALARS)
     if include_phenology:
         columns.extend(("target_day_sin", "target_day_cos"))
     return columns
@@ -72,12 +94,14 @@ def build_raw_features(
     if any((right - left).days != 1 for left, right in zip(parsed, parsed[1:])):
         raise ValueError("raw daily dates must be consecutive")
     features: dict[str, float | None] = {}
-    for channel in RAW_CHANNELS + PHYSICAL_CHANNELS:
+    for channel in DAILY_CHANNELS:
         values = list(area_series.get(AREA_SERIES_KEYS[channel]) or [])
         if len(values) != LOOKBACK_DAYS:
             values = [None] * LOOKBACK_DAYS
         for lag, value in enumerate(reversed(values)):
             features[lag_feature_name(channel, lag)] = _as_float(value)
+    for name in PHYSICAL_STATE_SCALARS:
+        features[name] = _as_float(area_series.get(name))
     angle = 2.0 * math.pi * ((target_date.timetuple().tm_yday - 1) / 365.2425)
     features["target_day_sin"] = math.sin(angle)
     features["target_day_cos"] = math.cos(angle)
@@ -89,7 +113,7 @@ def build_raw_features(
 def coverage_by_channel(area_series: Mapping[str, object]) -> dict[str, dict[str, int]]:
     bands = ((0, 7), (7, 30), (30, 90), (90, 180), (180, 365))
     result: dict[str, dict[str, int]] = {}
-    for channel in RAW_CHANNELS + PHYSICAL_CHANNELS:
+    for channel in DAILY_CHANNELS:
         chronological = list(area_series.get(AREA_SERIES_KEYS[channel]) or [])
         recent_first = list(reversed(chronological))
         result[channel] = {
@@ -107,7 +131,7 @@ def diagnostic_weather_summary(area_series: Mapping[str, object]) -> dict[str, d
     for start, end in bands:
         key = f"lag_{start:03d}_{end - 1:03d}"
         row: dict[str, float | int | None] = {}
-        for channel in RAW_CHANNELS + PHYSICAL_CHANNELS:
+        for channel in DAILY_CHANNELS:
             recent = [
                 _as_float(item)
                 for item in reversed(list(area_series.get(AREA_SERIES_KEYS[channel]) or []))
@@ -143,7 +167,7 @@ def build_v5_sample(
             "source_sample_id": source.get("sample_id"),
             "temporal_contract_id": temporal_contract_id,
             "feature_set_id": temporal_contract_id,
-            "raw_weather_contract_id": "area_daily_raw365_common_idw_v1",
+            "raw_weather_contract_id": RAW_WEATHER_CONTRACT_ID,
             "daily_lag_orientation": "lag_000_is_cutoff_lag_364_is_oldest",
             "raw_daily_dates": list(area_series.get("daily_dates") or []),
             "diagnostic_weather_summary": diagnostic_weather_summary(area_series),
@@ -165,25 +189,39 @@ def feature_set_contract(temporal_contract_id: str) -> dict[str, Any]:
         raise ValueError(f"unknown V5 temporal contract: {temporal_contract_id}")
     raw = feature_columns(include_physical=False)
     physical = feature_columns(include_physical=True)
+    physical_state = feature_columns(include_physical=True, include_state=True)
     raw_no_calendar = feature_columns(include_physical=False, include_phenology=False)
     physical_no_calendar = feature_columns(include_physical=True, include_phenology=False)
+    physical_state_no_calendar = feature_columns(
+        include_physical=True, include_state=True, include_phenology=False
+    )
     if temporal_contract_id == LAG_CONTRACT_ID:
         raw.append("horizon_days")
         physical.append("horizon_days")
+        physical_state.append("horizon_days")
         raw_no_calendar.append("horizon_days")
         physical_no_calendar.append("horizon_days")
+        physical_state_no_calendar.append("horizon_days")
     return {
         "id": temporal_contract_id,
-        "description": "Non-operational 365-day common-IDW raw weather discovery contract.",
+        "description": (
+            "Non-operational 365-day common-IDW weather, physical balance, "
+            "and soil-state discovery contract."
+        ),
+        "derived_feature_contract_id": RAW_WEATHER_CONTRACT_ID,
         "max_lookback_days": LOOKBACK_DAYS,
         "profiles": {
             "raw_primary_no_calendar": raw_no_calendar,
             "raw_primary": raw,
             "raw_primary_plus_physical_no_calendar": physical_no_calendar,
             "raw_primary_plus_physical": physical,
+            "raw_primary_plus_physical_state_no_calendar": physical_state_no_calendar,
+            "raw_primary_plus_physical_state": physical_state,
         },
         "raw_channels": list(RAW_CHANNELS),
         "physical_channels": list(PHYSICAL_CHANNELS),
+        "state_channels": list(STATE_CHANNELS),
+        "physical_state_scalars": list(PHYSICAL_STATE_SCALARS),
         "quality_never_enters_x": True,
         "model_artifact_written": False,
     }

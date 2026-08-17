@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.257
+
+- Build V2--V6 training inputs from each fresh immutable rebuild snapshot and
+  validate complete runtime benchmark coverage before fitting any member.
+- Promote reconstruction, ML v0, and V2--V6 as one verified generation while
+  retaining failed staging data for diagnosis and preserving the prior batch.
+- Use enabled multi-source IDW weather consistently across V2--V6; count finite
+  zero rainfall as valid support and exclude missing values without coercion.
+- Derive V5/V6 ET0, climatic balance, and soil-moisture state from micro-area
+  IDW weather with matching training and inference contracts.
+- Resolve the historical V2 card exclusively from installed common-IDW batch
+  artifacts instead of the legacy single-station comparator.
+- Report granular preparation and fitting progress for complete local updates,
+  including version, species, completed fits, successes, and failures.
+- Cache validated manifests and immutable model bundles per Predictor request,
+  and limit weather preparation to the exact lookback and physical state used
+  by each installed profile.
+- Reuse one extended IDW series per area in the species-week grid, fixing its
+  unbound area error and reducing repeated overlapping weather calculations.
+- Warn when trained inputs differ from current observations or weather while
+  keeping every V2--V6 member explicitly experimental.
+- Coordinate private worker `1.0.11` with fresh multiversion snapshots,
+  physical-state inference parity, and safe terminal-result cleanup.
+
 ## 0.2.256
 
 - Compare Biology V3 and altitude V2 on identical observation/horizon rows and

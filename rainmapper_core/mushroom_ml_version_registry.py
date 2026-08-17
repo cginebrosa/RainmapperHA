@@ -140,6 +140,38 @@ def load_registry(path: Path) -> dict[str, Any]:
     return validate_registry(payload)
 
 
+def merge_packaged_definitions(
+    packaged: object,
+    persistent: object,
+) -> dict[str, Any]:
+    """Refresh code-owned contracts while retaining persistent lifecycle state."""
+    defaults = validate_registry(packaged)
+    current = validate_registry(persistent)
+    current_by_id = {row["version_id"]: row for row in current["versions"]}
+    merged = copy.deepcopy(defaults)
+    merged_versions: list[dict[str, Any]] = []
+    packaged_ids: set[str] = set()
+    for definition in defaults["versions"]:
+        version_id = definition["version_id"]
+        packaged_ids.add(version_id)
+        row = copy.deepcopy(definition)
+        existing = current_by_id.get(version_id)
+        if existing is not None:
+            row["status"] = existing["status"]
+            row["generations"] = copy.deepcopy(existing.get("generations", []))
+        merged_versions.append(row)
+    merged_versions.extend(
+        copy.deepcopy(row)
+        for row in current["versions"]
+        if row["version_id"] not in packaged_ids
+    )
+    merged["versions"] = merged_versions
+    merged["active_version_id"] = current["active_version_id"]
+    if "activation_history" in current:
+        merged["activation_history"] = copy.deepcopy(current["activation_history"])
+    return validate_registry(merged)
+
+
 def ensure_seeded(
     *,
     default_path: Path | None = None,
@@ -155,11 +187,14 @@ def ensure_seeded(
         persistent_path
         or mushroom_paths.mushroom_data_file("mushroom_ml_version_registry.json")
     )
+    packaged = load_registry(source)
     if destination.is_file():
-        load_registry(destination)
+        persistent = load_registry(destination)
+        merged = merge_packaged_definitions(packaged, persistent)
+        if merged != persistent:
+            save_registry(destination, merged)
         return destination
-    checked = load_registry(source)
-    save_registry(destination, checked)
+    save_registry(destination, packaged)
     return destination
 
 

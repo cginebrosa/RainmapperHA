@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 from rainmapper_core.mushroom_ml_predictor import PredictionResult
 from rainmapper_core.mushroom_predictor_service import (
@@ -139,7 +139,7 @@ class PredictorServiceTests(TestCase):
         self.assertEqual(second["metrics"]["response_cache_status"], "hit")
         predictor.week_window.assert_called_once()
 
-    def test_query_can_attach_shadow_model_comparison(self) -> None:
+    def test_query_attaches_common_idw_v2_reference_comparison(self) -> None:
         with TemporaryDirectory() as temporary:
             service = PredictorService(
                 models_dir=Path(temporary),
@@ -154,23 +154,33 @@ class PredictorServiceTests(TestCase):
                 prediction("boletus", "area_one", date(2026, 8, 9 + offset))
                 for offset in range(7)
             ]
-            comparator = Mock()
-            comparator.compare.return_value = {
-                "fixed_gap_7d_v1": {"available": True},
+            v2_compare = Mock(
+                return_value={
+                "fixed_gap_7d_altitude_v2": {"available": True},
                 "interpretation": {"verdict": "uncertain"},
-            }
+                }
+            )
             service.predictor = Mock(return_value=predictor)
-            service.comparator = Mock(return_value=comparator)
+            service.v2_reference_compare = v2_compare
 
             response = service.execute(
                 self.request(compare_models=True, issue_date="2026-08-09")
             )
 
         comparison = response["data"]["species"]["boletus"]["model_comparisons"]
-        self.assertTrue(comparison["area_one"]["2026-08-09"]["fixed_gap_7d_v1"]["available"])
-        self.assertEqual(comparator.compare.call_count, 7)
-        comparator.compare.assert_any_call(
-            "area_one", date(2026, 8, 9), issue_date=date(2026, 8, 9)
+        self.assertTrue(
+            comparison["area_one"]["2026-08-09"]["fixed_gap_7d_altitude_v2"][
+                "available"
+            ]
+        )
+        self.assertEqual(v2_compare.call_count, 7)
+        v2_compare.assert_any_call(
+            species_id="boletus",
+            area_id="area_one",
+            target_date=date(2026, 8, 9),
+            issue_date=date(2026, 8, 9),
+            prepared_weather_cache=ANY,
+            comparison_cache=ANY,
         )
 
     def test_week_view_batches_all_area_days(self) -> None:
@@ -192,16 +202,17 @@ class PredictorServiceTests(TestCase):
                 for area_id, target_date in requests
             ]
             service.predictor = Mock(return_value=predictor)
-            comparator = Mock()
-            comparator.compare.return_value = {"interpretation": {"verdict": "uncertain"}}
-            service.comparator = Mock(return_value=comparator)
+            v2_compare = Mock(
+                return_value={"interpretation": {"verdict": "uncertain"}}
+            )
+            service.v2_reference_compare = v2_compare
 
             response = service.execute(self.request(view="week", area_id=""))
 
         validate_response(response)
         predictor.predict_many.assert_called_once()
         self.assertEqual(len(predictor.predict_many.call_args.args[0]), 14)
-        self.assertEqual(comparator.compare.call_count, 14)
+        self.assertEqual(v2_compare.call_count, 14)
 
     def test_recommender_skips_species_outside_configured_season(self) -> None:
         with TemporaryDirectory() as temporary:

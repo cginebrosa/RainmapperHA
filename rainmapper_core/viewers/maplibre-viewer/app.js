@@ -1935,9 +1935,9 @@ function estimatedFieldPaintSupport(value, metric) {
   if (!Number.isFinite(value)) {
     return 0;
   }
-  if (metric.id === "rain") {
-    return metricRatio(value);
-  }
+  // Support measures observation coverage, not precipitation intensity.
+  // A finite 0 mm reading is direct evidence of dry weather and must carry
+  // the same spatial support as any other finite measurement.
   return 1;
 }
 

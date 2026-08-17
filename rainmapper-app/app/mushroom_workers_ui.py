@@ -196,8 +196,15 @@ def render_worker_choices(
     operational_enabled: bool = False,
     default_executor: str = "home_assistant",
     selected_executor: str = "",
+    local_ha_compute_enabled: bool = False,
 ) -> str:
     choices = []
+    if local_ha_compute_enabled:
+        choices.append(
+            f'<label class="worker-choice"><input type="radio" name="executor" value="home_assistant"{" checked" if selected_executor == "home_assistant" else ""}>'
+            f'<span class="worker-choice-surface"><span class="worker-choice-icon">HA</span><span class="worker-choice-copy"><strong>{_text(_label("ui.worker_local_ha_executor"))}</strong>'
+            f'<small>{_text(_label("ui.worker_local_ha_executor_help"))}</small></span><span class="worker-choice-mark">✓</span></span></label>'
+        )
     for worker_status in worker_statuses:
         payload = worker_status.get("payload")
         payload = payload if isinstance(payload, dict) else {}
@@ -235,6 +242,13 @@ def render_recent_jobs(
     *,
     operational_enabled: bool = False,
 ) -> str:
+    completed_comparison_parents = {
+        str(job.get("triggered_by_job_id", ""))
+        for job in jobs
+        if job.get("job_type") == "worker_ml_multiversion_v1"
+        and job.get("status") == "complete"
+        and job.get("triggered_by_job_id")
+    }
     workers: list[tuple[str, str]] = []
     for worker_status in worker_statuses or []:
         payload = worker_status.get("payload")
@@ -253,6 +267,7 @@ def render_recent_jobs(
             "worker_ml_train_v0": _label("ui.worker_ml_train_job_type"),
             "worker_ml_multiversion_v1": "V2–V6 · Comparar",
             "worker_predictor_v1": _label("ui.worker_predictor_job_type"),
+            "local_full_update": _label("ui.worker_local_full_update_job"),
         }.get(job_type, _label("ui.worker_rebuild_job"))
         status = str(job.get("status", "unknown") or "unknown")
         status_text = {
@@ -358,14 +373,15 @@ def render_recent_jobs(
                 and promotion_status not in {"promoting", "promoted"}
             ):
                 full_update = bool(job.get("triggered_by_job_id"))
-                action_parts.append(
-                    '<form class="worker-job-action" method="post" action="">'
-                    f'<input type="hidden" name="worker_action" value="{"promote_full_update" if full_update else "promote_ml_train_candidate"}">'
-                    f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
-                    f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_full_update_confirm") if full_update else _label("ui.worker_ml_train_promote_confirm"))}" '
-                    'onclick="return confirm(this.dataset.confirm)">'
-                    f'{_text(_label("ui.worker_promote_full_update") if full_update else _label("ui.worker_ml_train_promote"))}</button></form>'
-                )
+                if not full_update or job_id in completed_comparison_parents:
+                    action_parts.append(
+                        '<form class="worker-job-action" method="post" action="">'
+                        f'<input type="hidden" name="worker_action" value="{"promote_full_update" if full_update else "promote_ml_train_candidate"}">'
+                        f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
+                        f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_full_update_confirm") if full_update else _label("ui.worker_ml_train_promote_confirm"))}" '
+                        'onclick="return confirm(this.dataset.confirm)">'
+                        f'{_text(_label("ui.worker_promote_full_update") if full_update else _label("ui.worker_ml_train_promote"))}</button></form>'
+                    )
             elif promotion_status == "promoting":
                 action_parts.append(
                     f'<span class="meta">{_text(_label("ui.worker_promoting"))}</span>'
@@ -438,6 +454,7 @@ def render_page(
     jobs: list[dict[str, object]],
     pipeline: str,
     operational_enabled: bool = False,
+    local_ha_compute_enabled: bool = False,
     default_executor: str = "home_assistant",
     selected_scope: str = "all",
     selected_species_id: str = "",
@@ -456,7 +473,11 @@ def render_page(
         ),
         None,
     )
-    selected_executor = default_executor if default_executor.startswith("worker:") else ""
+    selected_executor = (
+        "home_assistant"
+        if local_ha_compute_enabled and default_executor == "home_assistant"
+        else default_executor if default_executor.startswith("worker:") else ""
+    )
     default_issue = ""
     if default_executor != "home_assistant":
         payload = (
@@ -485,6 +506,7 @@ def render_page(
         operational_enabled=operational_enabled,
         default_executor=default_executor,
         selected_executor=selected_executor,
+        local_ha_compute_enabled=local_ha_compute_enabled,
     )
     if not selected_executor:
         for worker_status in worker_statuses:
@@ -499,7 +521,13 @@ def render_page(
                 selected_executor = f'worker:{payload.get("worker_id", "")}'
                 break
 
-    default_options = []
+    default_options = (
+        [
+            f'<option value="home_assistant"{" selected" if default_executor == "home_assistant" else ""}>{_text(_label("ui.worker_local_ha_executor"))}</option>'
+        ]
+        if local_ha_compute_enabled
+        else []
+    )
     for worker_status in worker_statuses:
         payload = worker_status.get("payload")
         payload = payload if isinstance(payload, dict) else {}
@@ -614,9 +642,9 @@ def render_page(
         <header><div><span class="worker-kicker">rainmapper-ha-ui</span><h2>{_text(_label('ui.home_assistant'))}</h2></div><span class="worker-state ok">{_text(_label('ui.worker_available'))}</span></header>
         <dl>
           <div><dt>Pipeline</dt><dd>{_text(pipeline)}</dd></div>
-          <div><dt>{_text(_label('ui.worker_role'))}</dt><dd>{_text(_label('ui.worker_coordinator'))}</dd></div>
+          <div><dt>{_text(_label('ui.worker_role'))}</dt><dd>{_text(_label('ui.worker_local_compute') if local_ha_compute_enabled else _label('ui.worker_coordinator'))}</dd></div>
         </dl>
-        <p class="worker-local-note">{_text(_label('ui.worker_coordinator_help'))}</p>
+        <p class="worker-local-note">{_text(_label('ui.worker_local_compute_help') if local_ha_compute_enabled else _label('ui.worker_coordinator_help'))}</p>
       </article>
       <div id="worker-status-cards" class="worker-status-cards" data-refresh-signature="{worker_cards_signature}">{worker_cards}</div>
     </div>

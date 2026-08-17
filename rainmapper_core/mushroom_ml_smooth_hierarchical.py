@@ -10,10 +10,17 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import SplineTransformer, StandardScaler
 
-from rainmapper_core.mushroom_ml_raw_weather import LOOKBACK_DAYS, RAW_CHANNELS
+from rainmapper_core.mushroom_ml_raw_weather import (
+    DAILY_CHANNELS,
+    LOOKBACK_DAYS,
+    PHYSICAL_STATE_SCALARS,
+)
 
 
 N_BASIS = 10
+SMOOTH_FEATURE_CONTRACT_ID = (
+    "raw365_physical_state_loglag_bspline10_common_idw_v2"
+)
 
 
 def smooth_lag_basis(*, n_basis: int = N_BASIS, log_lag: bool = True) -> np.ndarray:
@@ -33,8 +40,19 @@ def smooth_lag_basis(*, n_basis: int = N_BASIS, log_lag: bool = True) -> np.ndar
     return basis
 
 
-def raw_columns() -> list[str]:
-    return [f"{channel}__lag_{lag:03d}" for channel in RAW_CHANNELS for lag in range(LOOKBACK_DAYS)]
+def raw_columns(
+    *, include_phenology: bool = True, include_horizon: bool = False
+) -> list[str]:
+    columns = [
+        f"{channel}__lag_{lag:03d}"
+        for channel in DAILY_CHANNELS
+        for lag in range(LOOKBACK_DAYS)
+    ] + list(PHYSICAL_STATE_SCALARS)
+    if include_phenology:
+        columns.extend(("target_day_sin", "target_day_cos"))
+    if include_horizon:
+        columns.append("horizon_days")
+    return columns
 
 
 @dataclass
@@ -54,9 +72,12 @@ class SmoothLagPreprocessor:
 
     def _project(self, daily: np.ndarray) -> np.ndarray:
         blocks = []
-        for channel_index in range(len(RAW_CHANNELS)):
+        for channel_index in range(len(DAILY_CHANNELS)):
             start = channel_index * LOOKBACK_DAYS
             blocks.append(daily[:, start : start + LOOKBACK_DAYS] @ self.basis_)
+        scalar_start = len(DAILY_CHANNELS) * LOOKBACK_DAYS
+        if daily.shape[1] > scalar_start:
+            blocks.append(daily[:, scalar_start:])
         return np.column_stack(blocks)
 
     def transform(self, X: np.ndarray) -> np.ndarray:
@@ -64,7 +85,23 @@ class SmoothLagPreprocessor:
         return self.scaler_.transform(self._project(daily))
 
     def feature_names(self) -> list[str]:
-        return [f"{channel}__smooth_basis_{index:02d}" for channel in RAW_CHANNELS for index in range(self.n_basis)]
+        names = [
+            f"{channel}__smooth_basis_{index:02d}"
+            for channel in DAILY_CHANNELS
+            for index in range(self.n_basis)
+        ]
+        scalar_count = max(
+            0,
+            int(self.imputer_.n_features_in_)
+            - len(DAILY_CHANNELS) * LOOKBACK_DAYS,
+        )
+        scalar_names = list(PHYSICAL_STATE_SCALARS) + [
+            "target_day_sin",
+            "target_day_cos",
+            "horizon_days",
+        ]
+        names.extend(scalar_names[:scalar_count])
+        return names
 
 
 def pooled_design(

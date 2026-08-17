@@ -10,6 +10,7 @@ from rainmapper_core import mushroom_ml_biology_v3_evaluation as v3_evaluation
 from rainmapper_core import mushroom_ml_biology_v4 as biology_v4
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_raw_weather as raw
+from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
 
 
 def build_runtime_features(
@@ -76,17 +77,16 @@ def build_runtime_features(
             horizon_days=model_ref.horizon_days,
             temporal_contract_id=v5_contract,
         )
-        columns = (
-            raw.feature_columns(include_physical=False, include_phenology=False)
-            if model_ref.version_id == "biology_v5_raw_weather_discovery"
-            else [
-                raw.lag_feature_name(channel, lag)
-                for channel in raw.RAW_CHANNELS
-                for lag in range(raw.LOOKBACK_DAYS)
-            ]
-        )
-        if v5_contract == raw.LAG_CONTRACT_ID and model_ref.version_id.startswith("biology_v5"):
-            columns.append("horizon_days")
+        if model_ref.version_id == "biology_v5_raw_weather_discovery":
+            profiles = raw.feature_set_contract(v5_contract)["profiles"]
+            if model_ref.profile_id not in profiles:
+                raise ValueError(f"Unknown V5 runtime profile: {model_ref.profile_id}")
+            columns = list(profiles[model_ref.profile_id])
+        else:
+            columns = smooth.raw_columns(
+                include_phenology=True,
+                include_horizon=v5_contract == raw.LAG_CONTRACT_ID,
+            )
         return {
             "predictive_features": {column: features.get(column) for column in columns},
             "quality": {

@@ -59,6 +59,9 @@ from rainmapper_core import mushroom_predictor_runtime
 from rainmapper_core import mushroom_predictor_stats
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_multiversion_transport
+from rainmapper_core import mushroom_ml_training_freshness
+from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_local_full_update
 from rainmapper_core.mushroom_predictor_service import REQUEST_KIND as PREDICTOR_REQUEST_KIND
 from rainmapper_core.mushroom_predictor_service import SCHEMA_VERSION as PREDICTOR_SCHEMA_VERSION
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
@@ -11636,6 +11639,16 @@ def mushroom_worker_operational_enabled() -> bool:
     return requested and mushroom_worker_api_enabled() and mushroom_worker_auth_required()
 
 
+def mushroom_local_ha_compute_enabled() -> bool:
+    """Allow complete in-container compute only in an explicitly opted-in local lab."""
+    return env("RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def mushroom_worker_registry_path() -> Path:
     return mushroom_paths.mushroom_data_file("mushroom_workers.json")
 
@@ -13079,39 +13092,48 @@ def create_mushroom_ml_multiversion_job(
     ):
         return 409, {"ok": False, "error": "The selected worker cannot train V2--V6 comparison models."}
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
-    bundle_dir = mushroom_worker_input_bundles_path() / job_id
     try:
-        data_root = mushroom_paths.mushroom_data_dir().parent
-        snapshot_root = data_root / "audits" / "mushroom-ml-snapshot-20260816"
-        v5_root = data_root / "audits" / "mushroom-ml-v5-raw-discovery-20260816"
-        v6_root = data_root / "audits" / "mushroom-ml-v6-smooth-hierarchical-20260816"
+        with RUN_LOCK:
+            queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+        training_job = next(
+            (
+                row
+                for row in queue["jobs"]
+                if str(row.get("job_id", "")) == str(triggered_by_job_id or "")
+                and row.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_TRAIN
+            ),
+            None,
+        )
+        rebuild_job_id = (
+            str(training_job.get("triggered_by_job_id", ""))
+            if isinstance(training_job, dict)
+            else ""
+        )
+        feature_path = (
+            mushroom_worker_candidate_results_path()
+            / rebuild_job_id
+            / "mushroom_observation_features_v0.json"
+        )
         sources = {
             "registry.json": mushroom_paths.mushroom_ml_version_registry_path(),
-            "v3-fixed.json": snapshot_root / "biology-v3-fixed.json",
-            "v3-lag.json": snapshot_root / "biology-v3-lag.json",
-            "v4-fixed.json": snapshot_root / "biology-v4-fixed.json",
-            "v4-lag.json": snapshot_root / "biology-v4-lag.json",
-            "v5-fixed.json": v5_root / "biology-v5-fixed.json",
-            "v5-lag.json": v5_root / "biology-v5-lag.json",
-            "v2-v5-heldout.jsonl": v5_root / "heldout-predictions.jsonl",
-            "v6-heldout.jsonl": v6_root / "heldout-predictions.jsonl",
+            "known-sites.json": mushroom_paths.mushroom_known_sites_path(),
+            "stations.txt": STATIONS_PATH,
+            "observation-features.json": feature_path,
         }
         missing = [str(path) for path in sources.values() if not path.is_file()]
         if missing:
-            raise FileNotFoundError(f"Canonical multiversion input is missing: {missing[0]}")
-        snapshot_manifest = snapshot_root / "MANIFEST.json"
-        snapshot_id = "sha256:" + hashlib.sha256(snapshot_manifest.read_bytes()).hexdigest()
+            raise FileNotFoundError(
+                "Fresh multiversion input is missing after the linked reconstruction: "
+                + missing[0]
+            )
         batch_id = "local_v2_v6_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        v3_payload = json.loads(sources["v3-fixed.json"].read_text(encoding="utf-8"))
-        species_ids = sorted(
-            {
-                str(row["metadata"].get("species_id"))
-                for row in v3_payload.get("samples", [])
-                if isinstance(row, dict)
-                and isinstance(row.get("metadata"), dict)
-                and row["metadata"].get("species_id")
-            }
+        store = default_store()
+        store.ensure_seeded()
+        observations_payload = store.load("observations")
+        observations = observation_dicts_from_payload(
+            observations_payload if isinstance(observations_payload, dict) else {}
         )
+        species_ids = sorted(eligible_model_species_ids(observations))
         registry = json.loads(sources["registry.json"].read_text(encoding="utf-8"))
         generation_ids = {
             str(row["version_id"]): f"{row['version_id']}_{batch_id}"
@@ -13122,49 +13144,65 @@ def create_mushroom_ml_multiversion_job(
             "schema_version": "1.0",
             "kind": "mushroom_ml_multiversion_job",
             "job_id": job_id,
-            "snapshot_id": snapshot_id,
             "batch_id": batch_id,
-            "registry_path": "registry.json",
+            "registry_path": "snapshot/inputs/extra/registry.json",
+            "known_sites_path": "snapshot/inputs/extra/known-sites.json",
+            "stations_path": "snapshot/inputs/extra/stations.txt",
+            "observation_features_path": "snapshot/inputs/extra/observation-features.json",
+            "observations_path": "snapshot/inputs/mushroom-data/mushroom_observations.json",
+            "weather_data_dir": "snapshot/inputs/weather",
             "generation_ids": generation_ids,
             "species_ids": species_ids,
-            "inputs": {
-                "v3_fixed": "v3-fixed.json", "v3_lag": "v3-lag.json",
-                "v4_fixed": "v4-fixed.json", "v4_lag": "v4-lag.json",
-                "v5_fixed": "v5-fixed.json", "v5_lag": "v5-lag.json",
-                "v2_v5_heldout": "v2-v5-heldout.jsonl",
-                "v6_heldout": "v6-heldout.jsonl",
-            },
+            "source_rebuild_job_id": rebuild_job_id,
             "operational_candidate_trained": False,
         }
-        bundle_dir.mkdir(parents=True, exist_ok=False)
-        (bundle_dir / "job_spec.json").write_text(
-            json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
+            mushroom_worker_input_bundles_path(),
+            job_id=job_id,
+            observations_path=mushroom_paths.mushroom_observations_path(),
+            reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+            gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+            weather_data_dir=mushroom_paths.weather_data_dir(),
+            gis_root=mushroom_gis_lab.gis_root(),
+            prefer_weather_parquet=mushroom_worker_supports(
+                worker_payload,
+                mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
+            ),
+            allow_partitioned_weather_history=mushroom_worker_supports(
+                worker_payload,
+                mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
+            ),
+            extra_inputs=sources,
         )
-        for logical_path, source in sources.items():
-            destination = bundle_dir / logical_path
-            try:
-                os.link(source, destination)
-            except OSError:
-                shutil.copy2(source, destination)
-        files = []
-        for path in sorted(bundle_dir.iterdir()):
-            content_digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            files.append({"path": path.name, "size_bytes": path.stat().st_size, "sha256": content_digest})
         bundle_digest = "sha256:" + hashlib.sha256(
-            json.dumps(files, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            json.dumps(
+                {"snapshot_id": input_bundle["snapshot_id"], "spec": spec},
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
         ).hexdigest()
-        payload = worker_payload
+        input_bundle.update(
+            {
+                "bundle_digest": bundle_digest,
+                "multiversion_spec": spec,
+            }
+        )
         with RUN_LOCK:
             job = mushroom_worker_jobs.create_ml_multiversion_job(
                 mushroom_worker_jobs_path(),
                 worker_id=worker_id,
-                worker_display_name=str(payload.get("display_name", worker_id)),
-                input_bundle={"job_id": job_id, "bundle_digest": bundle_digest, "files": files},
+                worker_display_name=str(worker_payload.get("display_name", worker_id)),
+                input_bundle=input_bundle,
                 job_id=job_id,
                 triggered_by_job_id=triggered_by_job_id,
             )
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
-        shutil.rmtree(bundle_dir, ignore_errors=True)
+        try:
+            mushroom_worker_transport.discard_unqueued_bundle(
+                mushroom_worker_input_bundles_path(), job_id
+            )
+        except (FileNotFoundError, ValueError):
+            pass
         return 400, {"ok": False, "error": str(exc)}
     return 201, {"ok": True, "job": job}
 
@@ -13964,6 +14002,20 @@ def promote_mushroom_full_update(training_job_id: str) -> tuple[int, dict[str, o
             )
             if not rebuild_job.get("full_update"):
                 raise ValueError("Reconstruction job is not a complete update.")
+            queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+            comparison_job = next(
+                (
+                    row
+                    for row in queue["jobs"]
+                    if row.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION
+                    and str(row.get("triggered_by_job_id", "")) == training_job_id
+                ),
+                None,
+            )
+            if not isinstance(comparison_job, dict) or comparison_job.get("status") != "complete":
+                raise ValueError(
+                    "The linked V2--V6 comparison job must complete before the full generation can be promoted."
+                )
             rebuild_job, training_job = mushroom_worker_jobs.begin_full_update_promotion(
                 mushroom_worker_jobs_path(),
                 rebuild_job_id=rebuild_job_id,
@@ -13980,7 +14032,12 @@ def promote_mushroom_full_update(training_job_id: str) -> tuple[int, dict[str, o
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     set_mushroom_workers_flash("Promoting the complete verified generation.", clear_when_idle=True)
-    return 202, {"ok": True, "job": training_job, "promoting": True}
+    return 202, {
+        "ok": True,
+        "job": training_job,
+        "comparison_job_id": comparison_job.get("job_id", ""),
+        "promoting": True,
+    }
 
 
 def resolve_mushroom_worker_input_download(
@@ -14012,19 +14069,20 @@ def resolve_mushroom_worker_input_download(
                 raise FileNotFoundError("ML training input file not found.")
             return 200, bundle_path
         if job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION:
-            safe_path = mushroom_worker_transport.safe_relative_path(logical_path)
             bundle = job.get("input_bundle")
-            declared = {
-                str(row.get("path", ""))
-                for row in (bundle.get("files", []) if isinstance(bundle, dict) else [])
-                if isinstance(row, dict)
-            }
-            if safe_path.as_posix() not in declared:
-                raise ValueError("Requested multiversion input path is not allowed.")
-            bundle_path = mushroom_worker_input_bundles_path() / job_id / safe_path
-            if not bundle_path.is_file():
-                raise FileNotFoundError("Multiversion input file not found.")
-            return 200, bundle_path
+            if not isinstance(bundle, dict) or not bundle.get("snapshot_id"):
+                safe_path = mushroom_worker_transport.safe_relative_path(logical_path)
+                declared = {
+                    str(row.get("path", ""))
+                    for row in (bundle.get("files", []) if isinstance(bundle, dict) else [])
+                    if isinstance(row, dict)
+                }
+                if safe_path.as_posix() not in declared:
+                    raise ValueError("Requested multiversion input path is not allowed.")
+                bundle_path = mushroom_worker_input_bundles_path() / job_id / safe_path
+                if not bundle_path.is_file():
+                    raise FileNotFoundError("Multiversion input file not found.")
+                return 200, bundle_path
         metadata = mushroom_worker_transport.load_coordinator_bundle(
             mushroom_worker_input_bundles_path(),
             job_id,
@@ -14348,6 +14406,7 @@ def mushroom_workers_status_refresh_payload() -> dict[str, object]:
         worker_statuses,
         operational_enabled=operational_enabled,
         default_executor=default_executor,
+        local_ha_compute_enabled=mushroom_local_ha_compute_enabled(),
     )
     recent_jobs_html = mushroom_workers_ui.render_recent_jobs(
         jobs,
@@ -14501,9 +14560,9 @@ def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
 
     return {
         "job_id": job.get("job_id", ""),
-        "job_type": "rebuild_v0",
+        "job_type": job.get("job_type", "rebuild_v0"),
         "executor": "home_assistant",
-        "worker_display_name": "Home Assistant",
+        "worker_display_name": job.get("worker_display_name", "Home Assistant"),
         "status": job.get("status", "unknown"),
         "phase": job.get("phase", ""),
         "phase_index": job.get("phase_index", 0),
@@ -14975,6 +15034,154 @@ def safe_profiles_return_to(value: str) -> str:
     if parsed.scheme or parsed.netloc or parsed.path not in {"./known-sites", "known-sites", "/mushrooms/known-sites"}:
         return ""
     return str(value)
+
+
+def mushroom_local_full_update_work_root() -> Path:
+    """Return disposable local compute storage beside, never inside, live data."""
+    return mushroom_paths.share_root() / ".local-full-update"
+
+
+def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
+    """Start the complete three-job chain inside an explicitly enabled local HA."""
+    if not mushroom_local_ha_compute_enabled():
+        return 404, {
+            "ok": False,
+            "error": "Local Home Assistant compute is not enabled for this installation.",
+        }
+    jobs = mushroom_workers_recent_jobs()
+    if mushroom_worker_activity_active(jobs):
+        return 409, {
+            "ok": False,
+            "error": "Another mushroom rebuild or worker operation is already active.",
+        }
+    store = default_store()
+    store.ensure_seeded()
+    observations_payload = store.load("observations")
+    observations = observation_dicts_from_payload(
+        observations_payload if isinstance(observations_payload, dict) else {}
+    )
+    species_ids = eligible_model_species_ids(observations)
+    selected_observation_ids = eligible_observation_ids_for_species(
+        observations,
+        species_ids,
+    )
+    if not selected_observation_ids:
+        return 409, {
+            "ok": False,
+            "error": "The complete local update has no eligible observations.",
+        }
+    operation_id = secrets.token_urlsafe(12)
+    job_id = f"local_full_{operation_id}"
+    now = time.time()
+    with RUN_LOCK:
+        MUSHROOM_REBUILD_JOBS[job_id] = {
+            "job_id": job_id,
+            "job_type": "local_full_update",
+            "worker_display_name": "Home Assistant local",
+            "status": "running",
+            "phase": "Preparing immutable inputs",
+            "phase_index": 0,
+            "phase_count": 4,
+            "phase_percent": 0,
+            "overall_percent": 0,
+            "message": "Queued reconstruction, ML v0 and V2--V6 as one complete local update.",
+            "error": "",
+            "result": {},
+            "started_at_ts": now,
+            "phase_started_at_ts": now,
+            "finished_at_ts": None,
+            "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+            "finished_at": "",
+            "return_url": "./workers",
+            "scope": "all eligible (complete local update)",
+            "pipeline": "local_complete",
+            "cancel_requested": False,
+            "_promotion_started": False,
+        }
+
+    def report_progress(percent: int, phase: str, message: str) -> None:
+        phase_index = 1
+        if "ML v0" in phase:
+            phase_index = 2
+        elif "V2--V6" in phase:
+            phase_index = 3
+        elif "Promoting" in phase or "active" in phase:
+            phase_index = 4
+        with RUN_LOCK:
+            current = MUSHROOM_REBUILD_JOBS.get(job_id)
+            if current is not None and phase_index == 4:
+                current["_promotion_started"] = True
+        set_mushroom_rebuild_progress(
+            job_id,
+            phase=phase,
+            phase_index=phase_index,
+            phase_count=4,
+            phase_percent=100 if percent == 100 else 0,
+            overall_percent=percent,
+            message=message,
+            reset_phase_timer=True,
+        )
+
+    def run() -> None:
+        try:
+            result = mushroom_local_full_update.run_local_full_update(
+                operation_id=operation_id,
+                selected_observation_ids=selected_observation_ids,
+                species_ids=species_ids,
+                paths=mushroom_local_full_update.LocalFullUpdatePaths(
+                    observations=mushroom_paths.mushroom_observations_path(),
+                    reference_catalogs=mushroom_paths.mushroom_reference_catalogs_path(),
+                    gis_mappings=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                    weather_data_dir=mushroom_paths.weather_data_dir(),
+                    gis_root=mushroom_gis_lab.gis_root(),
+                    known_sites=mushroom_paths.mushroom_known_sites_path(),
+                    stations=STATIONS_PATH,
+                    registry=mushroom_paths.mushroom_ml_version_registry_path(),
+                    mushroom_data_dir=mushroom_paths.mushroom_data_dir(),
+                    ml_models_dir=mushroom_paths.mushroom_ml_models_dir(),
+                    ml_report=mushroom_paths.mushroom_ml_report_json_path(),
+                    bundle_root=mushroom_worker_input_bundles_path(),
+                    candidate_results_root=mushroom_worker_candidate_results_path(),
+                    work_root=mushroom_local_full_update_work_root(),
+                ),
+                progress=report_progress,
+            )
+            released = mushroom_predictor_ui.release_predictor_cache()
+            mushroom_model_state.clear_all_pending(full_rebuild=True)
+            result["released_predictor_instances"] = released
+            message = "Complete local generation promoted after reconstruction, ML v0 and V2--V6."
+            set_mushroom_workers_flash(message)
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="complete",
+                phase="Complete generation active",
+                phase_index=4,
+                phase_count=4,
+                phase_percent=100,
+                overall_percent=100,
+                message=message,
+                result=result,
+            )
+        except Exception as exc:
+            error = f"Complete local update failed: {exc}"
+            set_mushroom_workers_flash(error, error=True)
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="failed",
+                error=error,
+                message=error,
+            )
+
+    threading.Thread(
+        target=run,
+        name=f"mushroom-local-full-update-{operation_id}",
+        daemon=True,
+    ).start()
+    set_mushroom_workers_flash(
+        "Complete local update started: reconstruction, ML v0 and V2--V6 will run in sequence.",
+        clear_when_idle=True,
+    )
+    return 202, {"ok": True, "job_id": job_id}
 
 
 def start_mushroom_model_rebuild_job(
@@ -18209,6 +18416,26 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             store.ensure_seeded()
                             profiles_payload = store.load("profiles")
                             known_sites_payload = mushroom_known_sites.load_payload()
+                            training_freshness = mushroom_ml_training_freshness.assess(
+                                runtime_manifest_path=mushroom_paths.mushroom_ml_runtime_batch_manifest_path(),
+                                registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+                                models_root=mushroom_paths.mushroom_ml_models_dir(),
+                                observations_path=mushroom_paths.mushroom_observations_path(),
+                                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+                                gis_mappings_path=mushroom_paths.mushroom_data_file(
+                                    "mushroom_gis_mappings.json"
+                                ),
+                                weather_data_dir=mushroom_paths.weather_data_dir(),
+                                gis_root=mushroom_gis_lab.gis_root(),
+                                gis_hash_cache_path=mushroom_paths.mushroom_ml_models_dir()
+                                / ".training-gis-hash-cache.json",
+                                extra_inputs={
+                                    "registry.json": mushroom_paths.mushroom_ml_version_registry_path(),
+                                    "known-sites.json": mushroom_paths.mushroom_known_sites_path(),
+                                    "stations.txt": STATIONS_PATH,
+                                    "observation-features.json": mushroom_paths.mushroom_observation_features_json_path(),
+                                },
+                            )
                             request_monitor.mark(
                                 "inputs_loaded", {"elapsed_seconds": elapsed()}
                             )
@@ -18226,6 +18453,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 else {},
                                 prepared_response=prepared_response,
                                 allow_executor_change=execution_policy.allow_manual_selection,
+                                training_freshness=training_freshness,
                             )
                             if executor == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR:
                                 stats_backend_seconds = elapsed()
@@ -18368,6 +18596,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 jobs=jobs,
                 pipeline=pipeline,
                 operational_enabled=mushroom_worker_operational_enabled(),
+                local_ha_compute_enabled=mushroom_local_ha_compute_enabled(),
                 default_executor=default_executor,
                 selected_scope=selected_scope,
                 selected_species_id=selected_species_id,
@@ -19969,10 +20198,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
-        set_mushroom_workers_flash(
-            "The complete reconstruction and training operation must run on an external worker.",
-            error=True,
-        )
+        status, response = start_mushroom_local_full_update()
+        if status != 202:
+            set_mushroom_workers_flash(
+                str(response.get("error", "Cannot start the complete local update.")),
+                error=True,
+                clear_when_idle=mushroom_worker_error_tracks_activity(response),
+            )
         return "./workers"
 
     def handle_mushroom_known_sites_post(self, form: dict[str, list[str]]) -> str:
@@ -21833,6 +22065,7 @@ def main() -> None:
     try:
         startup_store = default_store()
         seeded = startup_store.ensure_seeded()
+        mushroom_ml_version_registry.ensure_seeded()
         if seeded:
             print(f"Seeded mushroom data defaults: {', '.join(seeded)}", flush=True)
         deleted_media, cleanup_errors = process_observation_media_cleanup_queue(startup_store)

@@ -11,11 +11,36 @@ identificadores siguientes describen el significado de los datos y modelos.
 | --- | --- | --- |
 | `mushroom_ml_v0` | REFERENCIA | Primer clasificador operativo, sin corte meteorológico causal estricto. |
 | `fixed_gap_7d_v1`, `lag_event_v1` | REEMPLAZADO por altitude V2 | Cortes meteorológicos reproducibles y sin fuga temporal. |
-| `fixed_gap_7d_altitude_v2`, `lag_event_altitude_v2` | VIGENTE | Temperatura trasladada de la altitud de estación a la altitud representativa del área. |
+| `fixed_gap_7d_altitude_v2`, `lag_event_altitude_v2` | VIGENTE | Meteorología diaria IDW multifuente común y temperatura trasladada a la altitud representativa del área. |
 | `fixed_gap_7d_biology_v3`, `lag_event_biology_v3` | BENCHMARK LOCAL, NO OPERATIVO | Observaciones preservadas, targets, IDW de área, separación de calidad y grupos de florada 7/14. |
 | `fixed_gap_7d_biology_v4`, `lag_event_biology_v4` | PROPUESTO, BENCHMARK LOCAL | Memoria de lluvia hasta 30 días, distribución de lluvia, balance climático, estado hídrico del suelo y continuidad auditable. |
-| `fixed_gap_7d_biology_v5_raw365_v1`, `lag_event_biology_v5_raw365_v1` | PROPUESTO, EXPERIMENTO LOCAL NO OPERATIVO | 365 días causales raw IDW y selección regularizada de variables/retardos. |
-| `fixed_gap_7d_biology_v6_smooth_hierarchical_v1`, `lag_event_biology_v6_smooth_hierarchical_v1` | PROPUESTO, EXPERIMENTO LOCAL NO OPERATIVO | Bases suaves de retardo sobre raw365 y pooling parcial entre especies. |
+| `fixed_gap_7d_biology_v5_raw365_v1`, `lag_event_biology_v5_raw365_v1` | HISTÓRICO NO CONFORME | Primera ejecución: cinco canales IDW; ET0/balance solo como ablación y SMI ausente. |
+| `fixed_gap_7d_biology_v5_raw365_v2`, `lag_event_biology_v5_raw365_v2` | PROPUESTO, CORRECCIÓN LOCAL | Ocho canales causales IDW/físicos, incluido estado hídrico, para selección regularizada. |
+| `fixed_gap_7d_biology_v6_smooth_hierarchical_v1`, `lag_event_biology_v6_smooth_hierarchical_v1` | HISTÓRICO NO CONFORME | Suavizó solo los cinco canales primarios de V5 v1. |
+| `fixed_gap_7d_biology_v6_smooth_hierarchical_v2`, `lag_event_biology_v6_smooth_hierarchical_v2` | PROPUESTO, CORRECCIÓN LOCAL | Bases suaves sobre los ocho canales diarios V5 v2, estados físicos escalares y pooling parcial. |
+
+## Tubería meteorológica común V2–V6
+
+La única secuencia válida, tanto para construir el dataset como para predecir,
+es:
+
+`estaciones habilitadas → IDW diario por microárea → [ET0/balance/SMI si el perfil los declara] → agregación de área → variables del modelo`.
+
+Los valores de estación son entradas crudas para la interpolación, nunca
+variables consumidas directamente por V2–V6. Un cero observado participa en el
+IDW con su peso; un valor ausente/N/A se excluye y nunca se convierte en cero.
+ET0 usa Tmin/Tmax IDW corregidas a la altitud de la microárea; el balance es
+`lluvia IDW - ET0` en esa misma microárea; el depósito SMI usa esa lluvia IDW,
+esa ET0 y el contexto SoilGrids. Solo después se agregan las microáreas. La
+paridad incluye fórmulas, orden de columnas, fechas de corte, tratamiento de
+ausencias y perfiles; un artefacto entrenado con otra tubería no es compatible.
+Los V2/V3 actuales no declaran estado físico y usan 90 días; omitir esos
+derivados en inferencia evita calcular columnas descartadas. La capacidad no se
+retira: una futura comparación V2/V3 `IDW + balance/SMI` debe tener perfil o
+contrato propio, entrenarse y medirse contra el perfil original. V4 usa 90 días
+y deriva físicos solo en sus perfiles correspondientes. Los 365 días son una
+constante del contrato V5/V6 (`mushroom_ml_raw_weather.LOOKBACK_DAYS`), no un
+parámetro interactivo; modificarla exige nuevas columnas y reentrenamiento.
 
 ## V0 — modelo inicial
 
@@ -41,6 +66,15 @@ Es un cambio aislado sobre V1, no Biology V3.
 
 - Contratos vigentes: `fixed_gap_7d_altitude_v2` y
   `lag_event_altitude_v2`.
+- Existe una sola base meteorológica válida para ambos contratos: el IDW
+  multifuente común de área, con radio 15 km, potencia 2 y las mismas reglas de
+  cero, ausencia, estación retirada y duplicado positivo que Biology V3. Esta
+  base es obligatoria tanto en entrenamiento como en inferencia.
+- Un bundle construido con `nearest_station_single_source_daily` pertenece a
+  V1 legado aunque incluya corrección térmica. No puede publicarse, cargarse ni
+  mostrarse como `altitude_v2`. La tarjeta operativa y la comparación deben
+  resolver el mismo artefacto V2 instalado; no se permiten dos cálculos V2 con
+  contratos espaciales distintos.
 - Antes de construir variables térmicas se aplica:
 
   `T_area = T_station + (z_station - z_area) / 100 * 0,65 °C`
@@ -187,33 +221,43 @@ Brier medio entre especies. El balance tiene señal especialmente favorable en
 estimador-especie). El suelo produce resultados mixtos y conserva las seis
 variantes como experimentales. No se escribió ningún modelo.
 
-## Biology V5 raw weather discovery — experimento local no operativo
+## Biology V5 raw weather discovery — contrato en corrección local
 
-V5 no reemplaza ni promociona V2/V3/V4. Materializa 365 días causales de
-lluvia, Tmin, Tmax, RHmin y RHmax con el mismo IDW común; una ablación añade
-ET0 y balance climático. Elastic Net y sparse-group logistic reciben los días
-individuales y seleccionan por Brier dentro del train. En `lag_event` hay un
-único ajuste por especie+contrato+estimador+split y los horizontes 1/2/3/7
-filtran las mismas probabilidades hold-out.
+V5 no reemplaza ni promociona V2/V3/V4. Su perfil completo materializa 365 días
+causales de lluvia, Tmin, Tmax, RHmin y RHmax con el mismo IDW común, además de
+ET0, balance climático y estado hídrico/SMI derivados causalmente. Conserva
+también los resúmenes físicos de corte registrados. Las magnitudes observadas y
+calculadas entran juntas para que Elastic Net y sparse-group logistic puedan
+seleccionarlas dentro de train; los contadores de calidad y procedencia quedan
+fuera de `X`. Los perfiles que omiten calendario, derivados físicos o SMI son
+ablaciones, no el perfil canónico de runtime. En `lag_event` hay un único ajuste
+por especie+contrato+estimador+split y los horizontes 1/2/3/7 filtran las mismas
+probabilidades hold-out.
 
-El benchmark del 2026-08-16 conserva 8.490 predicciones fila a fila. En 34
+El benchmark histórico del 2026-08-16 conserva 8.490 predicciones fila a fila. En 34
 contextos evaluables, el mejor V5 vence dos veces y pierde 32 frente al mejor
 miembro individual V2/V3/V4; las dos victorias corresponden a
-`boletus_edulis`, que solo es evaluable en grupos de 14 días. La ablación sin
+`boletus_edulis`, que solo es evaluable en grupos de 14 días. Esa ejecución
+trató ET0/balance como ablación, excluyó SMI y terminó instalando el perfil
+`raw_primary_no_calendar`; por tanto no satisface el contrato completo fijado
+ahora y debe repetirse antes de comparar o instalar V5. La ablación sin
 calendario y 25 remuestreos agrupados confirman una selección demasiado densa
 para afirmar ventanas meteorológicas. V5 permanece `proposed`, sin generación,
 modelo ni Predictor operativo. Especificación e informe:
 `docs/mushrooms/mushroom-ml-biology-v5-raw-weather-discovery-spec-es.md` y
 `docs/reports/V2_V3_V4_V5_raw_weather_report001.md`.
 
-## Biology V6 — retardos suaves y pooling parcial
+## Biology V6 — retardos suaves y pooling parcial, contrato en corrección local
 
-V6 reutiliza los 365 días causales de V5, pero reduce cada canal a diez bases
-B-spline sobre un eje logarítmico de retardo. Compara logística suave por
+V6 reutiliza la matriz completa de V5. Reduce cada canal diario —primario o
+físico— a diez bases B-spline sobre un eje logarítmico de retardo y conserva
+sin suavizar los estados/resúmenes físicos escalares. Compara logística suave por
 especie, coeficientes completamente compartidos y pooling parcial con
 desviaciones específicas más penalizadas.
 
-En 34 comparaciones estrictas contra el mejor miembro V2/V3/V4/V5, V6 gana 4
+La ejecución histórica del 2026-08-16 suavizó únicamente los cinco canales
+primarios y no satisface este contrato completo; debe repetirse después de V5.
+En sus 34 comparaciones estrictas contra el mejor miembro V2/V3/V4/V5, V6 gana 4
 y pierde 30. El pooling parcial supera al modelo totalmente compartido con
 frecuencia, pero pierde 19/34 frente al suave por especie. La señal más clara
 es `hygrophorus_latitabundus` en dos comparaciones fixed, con solo cuatro

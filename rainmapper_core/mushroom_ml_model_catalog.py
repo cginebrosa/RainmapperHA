@@ -424,6 +424,23 @@ def validate_batch_manifest(
     }
     if checked_quality_catalog is not None:
         result["quality_catalog"] = checked_quality_catalog
+    training_input_manifest = payload.get("training_input_manifest")
+    if training_input_manifest is not None:
+        if not isinstance(training_input_manifest, Mapping):
+            raise ValueError("Runtime training input manifest reference must be an object")
+        training_input_path = Path(str(training_input_manifest.get("path") or ""))
+        expected_training_input_path = Path(
+            "batches", batch_id, "training-input-manifest.json"
+        )
+        digest = str(training_input_manifest.get("sha256") or "")
+        if training_input_path != expected_training_input_path or not re.fullmatch(
+            r"[0-9a-f]{64}", digest
+        ):
+            raise ValueError("Runtime training input manifest reference is invalid")
+        result["training_input_manifest"] = {
+            "path": training_input_path.as_posix(),
+            "sha256": digest,
+        }
     return result
 
 

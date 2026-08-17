@@ -42,6 +42,78 @@ def benchmark_key(version_id: str, temporal_contract_id: str, profile_id: str) -
     return "|".join((version_id, temporal_contract_id, profile_id))
 
 
+def supported_runtime_benchmark_keys() -> frozenset[str]:
+    """Return the registry members this runtime can materialize from shared inputs."""
+    keys: set[str] = set()
+    for _temporal, v2_contract, v3_contract, v4_contract, v5_contract, v6_contract in (
+        (
+            "fixed",
+            "fixed_gap_7d_altitude_v2",
+            "fixed_gap_7d_biology_v3",
+            "fixed_gap_7d_biology_v4",
+            "fixed_gap_7d_biology_v5_raw365_v2",
+            "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+        ),
+        (
+            "lag",
+            "lag_event_altitude_v2",
+            "lag_event_biology_v3",
+            "lag_event_biology_v4",
+            "lag_event_biology_v5_raw365_v2",
+            "lag_event_biology_v6_smooth_hierarchical_v2",
+        ),
+    ):
+        keys.add(benchmark_key("altitude_v2", v2_contract, "common_idw"))
+        keys.add(benchmark_key("biology_v3", v3_contract, "core"))
+        for profile_id in ("extended_weather", "climatic_balance"):
+            keys.add(benchmark_key("biology_v4", v4_contract, profile_id))
+        keys.add(
+            benchmark_key(
+                "biology_v5_raw_weather_discovery",
+                v5_contract,
+                "raw_primary_plus_physical_state",
+            )
+        )
+        keys.add(
+            benchmark_key(
+                "biology_v6_smooth_hierarchical",
+                v6_contract,
+                "smooth_weather_physical_state",
+            )
+        )
+    return frozenset(keys)
+
+
+def validate_benchmark_coverage(
+    training_plan: Mapping[str, Any],
+    available_keys: Sequence[str] | set[str] | frozenset[str],
+) -> None:
+    """Reject a registry/runtime mismatch before performing any model fits."""
+    fits = training_plan.get("fits")
+    if not isinstance(fits, Sequence) or not fits:
+        raise ValueError("Multiversion training plan contains no fits")
+    available = set(available_keys)
+    missing: set[str] = set()
+    for fit in fits:
+        if not isinstance(fit, Mapping):
+            raise ValueError("Invalid multiversion fit row")
+        artifact_ref = fit.get("artifact_ref")
+        if not isinstance(artifact_ref, Mapping):
+            raise ValueError("Invalid multiversion artifact reference")
+        key = benchmark_key(
+            str(artifact_ref.get("version_id") or ""),
+            str(artifact_ref.get("temporal_contract_id") or ""),
+            str(artifact_ref.get("profile_id") or ""),
+        )
+        if key not in available:
+            missing.add(key)
+    if missing:
+        raise ValueError(
+            "Runtime registry is incompatible with the available benchmark contracts: "
+            + ", ".join(sorted(missing))
+        )
+
+
 def materialize_runtime_benchmarks(
     *,
     v3_fixed: Mapping[str, Any],
@@ -62,8 +134,8 @@ def materialize_runtime_benchmarks(
             "fixed_gap_7d_altitude_v2",
             "fixed_gap_7d_biology_v3",
             "fixed_gap_7d_biology_v4",
-            "fixed_gap_7d_biology_v5_raw365_v1",
-            "fixed_gap_7d_biology_v6_smooth_hierarchical_v1",
+            "fixed_gap_7d_biology_v5_raw365_v2",
+            "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
         ),
         (
             "lag",
@@ -73,8 +145,8 @@ def materialize_runtime_benchmarks(
             "lag_event_altitude_v2",
             "lag_event_biology_v3",
             "lag_event_biology_v4",
-            "lag_event_biology_v5_raw365_v1",
-            "lag_event_biology_v6_smooth_hierarchical_v1",
+            "lag_event_biology_v5_raw365_v2",
+            "lag_event_biology_v6_smooth_hierarchical_v2",
         ),
     )
     for (
@@ -102,12 +174,14 @@ def materialize_runtime_benchmarks(
             benchmark_key(
                 "biology_v5_raw_weather_discovery",
                 v5_contract,
-                "raw_primary_no_calendar",
+                "raw_primary_plus_physical_state",
             )
         ] = v5
         result[
             benchmark_key(
-                "biology_v6_smooth_hierarchical", v6_contract, "smooth_raw"
+                "biology_v6_smooth_hierarchical",
+                v6_contract,
+                "smooth_weather_physical_state",
             )
         ] = v5
     return result
@@ -118,7 +192,10 @@ def _columns(artifact_ref: catalog.ModelArtifactRef, benchmark: Mapping[str, Any
     if artifact_ref.version_id == "biology_v5_raw_weather_discovery":
         return list((feature_set.get("profiles") or {})[artifact_ref.profile_id])
     if artifact_ref.version_id == "biology_v6_smooth_hierarchical":
-        return smooth.raw_columns()
+        return smooth.raw_columns(
+            include_phenology=True,
+            include_horizon=artifact_ref.temporal_contract_id.startswith("lag_event_"),
+        )
     return list(
         feature_set.get("predictive_feature_cols")
         or feature_set.get("feature_cols")
@@ -289,6 +366,7 @@ def write_batch(
     fits = training_plan.get("fits")
     if not isinstance(fits, Sequence) or not fits:
         raise ValueError("Multiversion training plan contains no fits")
+    validate_benchmark_coverage(training_plan, set(benchmarks))
     root = Path(models_root)
     batches = root / "batches"
     destination = batches / batch_id

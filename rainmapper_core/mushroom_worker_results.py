@@ -880,6 +880,10 @@ def promote_verified_candidate(
         raise
     finally:
         shutil.rmtree(staging, ignore_errors=True)
+        try:
+            staging.parent.rmdir()
+        except OSError:
+            pass
 
 
 def _post_bytes(

@@ -37,38 +37,35 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-16
+## Estado general al cierre de 2026-08-17
 
-- Rama activa: `inicial`.
-- HA `0.2.254` está instalada y validada en la RPi4. El worker M1 desplegado es
-  `1.0.8`, healthy y conserva identidad/caché. La generación completa altitude
-  V2 fue reconstruida, entrenada y promovida conjuntamente.
-- HA `0.2.255` está publicada pero no instalada; el worker `1.0.9` está
-  construido y validado solo como imagen local. Ambos son anteriores al cierre
-  actual y deben saltarse; no instalar ninguno.
-- El histórico meteorológico fuente/año y los CSV vivos acotados siguen
-  operativos. Una reparación amplia AEMET/Meteocat y la autocuración de huecos
-  quedaron cerradas solo en local; requieren rebase fresco y release autorizada
-  antes de desplegarse.
-- `0.2.252` deja una única actualización completa en worker: reconstrucción y
-  entrenamiento son dos jobs encadenados y diagnosticables, con activación
-  conjunta y rollback.
-- Altitude V2 queda cerrado funcionalmente. M1 es el ejecutor normal y HA un
-  fallback admin validado pero lento. El Predictor puede estar bloqueado porque
-  los bundles legacy conservan la huella bruta anterior de `known_sites`; no
-  relajarla ni parchearlos. La futura reconstrucción coordinada debe usar un
-  único snapshot.
-- Biology V3 y V4 están implementadas y comparadas localmente con meteorología
-  IDW común, seis algoritmos y filas idénticas. V4 permanece `proposed`: no hay
-  candidato entrenado/promovido ni integración autorizada. El informe vigente
-  es `docs/reports/V2_V3_V4_consensus_report002.md`.
-- El snapshot canónico local es
-  `docker-data/audits/mushroom-ml-snapshot-20260816/`: 395 observaciones, 59
-  microáreas, 352 fixed y 1.408 tareas lag elegibles. El `known_sites` derivado
-  sí se instaló en HA de forma autorizada y respaldada; el resto permanece local.
-- Hay muchos cambios locales no publicados de V3/V4, meteorología, ciclo de
-  vida, UI, pruebas y documentación. No limpiar el worktree.
-- El repositorio GitHub sigue público por decisión explícita del usuario.
+- Rama activa: `inicial`; el worktree grande y mixto es deliberado. Preservar
+  todos los cambios y ficheros no rastreados.
+- El usuario mostró HA `0.2.256` y worker M1 `1.0.10` instalados y emparejados.
+  La regeneración real completó reconstrucción y ML v0, pero V2–V6 falló porque
+  dependía de un JSON del laboratorio ausente en HA.
+- La corrección local deriva V2–V6 del snapshot fresco de cada job, conserva una
+  identidad de entrenamiento verificable y avisa en el Predictor cuando los
+  modelos no incorporan las entradas actuales.
+- El worker temporal `Validación local` fue retirado. El worker M1 normal sigue
+  emparejado con el HA real y no se cambia de coordinador para probar en local.
+  El HA local canónico usa `8101` y dispone de un ejecutor opt-in dentro de su
+  propio contenedor: encadena reconstrucción, ML v0 y V2–V6 y promociona una
+  sola vez al final. La prueba larga terminó en 18m45s y el smoke final pasó
+  863 pruebas.
+- Los dos diagnósticos P0 quedaron cerrados localmente: la fila fija procedía
+  del comparador legado de estación única, no del V2 del batch, y MapLibre
+  descartaba indebidamente ceros al contar soporte IDW. La tarjeta V2 resuelve
+  ahora el batch común IDW; V5/V6 v2 consumen IDW, ET0, balance y SMI con paridad
+  de inferencia. Preparar releases exige una nueva autorización explícita; no
+  tocar HA/worker reales mientras tanto.
+- V2–V6 tienen el mismo estatus experimental. V2 aparece primero solo por
+  cronología. V5 pierde 32/34 y V6 30/34 frente al mejor miembro anterior; no se
+  añade otra familia ni ensemble durante este gate.
+- El snapshot `mushroom-ml-snapshot-20260816` sigue siendo evidencia científica
+  inmutable, pero ya no es una dependencia de una regeneración operativa.
+- El repositorio GitHub sigue público. Las imágenes no incluyen observaciones,
+  aunque el fichero semilla rastreado debe revisarse por privacidad aparte.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.
@@ -83,11 +80,15 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Diseño Predictor: `docs/mushrooms/mushroom-predictor-design-es.md`
 - Predictor remoto/worker: `docs/mushrooms/mushroom-remote-predictor-design-es.md`
 - Plataforma de workers: `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
+- Evolución pendiente del worker para conservar varios coordinadores:
+  `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`
 - Entrenamiento ML/dataset: `docs/mushrooms/mushroom-ml-training-plan-es.md`
 - Versiones canónicas de contratos ML:
   `docs/mushrooms/mushroom-ml-contract-versions-es.md`
 - Ciclo de vida persistente y comparación de versiones ML:
   `docs/mushrooms/mushroom-ml-version-lifecycle-es.md`
+- Runtime HA/worker y Predictor V2–V6:
+  `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`
 - Auditoría ML v3: `docs/mushrooms/mushroom-ml-v3-data-audit-es.md`
 - Especificación ML v3: `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`
 - Especificación Biology V4, en implementación local por fases:
@@ -112,6 +113,10 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Informe canónico de comparación y consenso V2/V3/V4:
   `docs/reports/V2_V3_V4_consensus_report002.md`. El informe 001 queda
   histórico y no debe guiar decisiones.
+- V5 raw y análisis de errores:
+  `docs/reports/V2_V3_V4_V5_raw_weather_report001.md`.
+- V6 suave y jerárquica:
+  `docs/reports/V2_V3_V4_V5_V6_smooth_hierarchical_report001.md`.
 - Backfill histórico y promoción:
   `docs/mushrooms/mushroom-weather-historical-backfill-handoff-es.md`
 - Almacenamiento y retención meteorológica:
@@ -145,6 +150,9 @@ El estado exacto, la prueba siguiente y los riesgos están en
   capacidades y contratos, no números iguales.
 - No borrar `docker-data/`, `tmp/`, `mushroom-GIS/`, backups, históricos,
   artefactos o imágenes sin autorización explícita.
+- Codex no debe usar Tailscale ni abrir SMB mediante Tailscale. Esta restricción
+  no autoriza a retirar la URL Tailscale persistida que el worker real necesita
+  cuando opera fuera de la red local.
 - No tocar CSV meteorológicos reales sin `docs/history-safety.md`.
 - No inventar features, umbrales, pesos, ventanas o reglas micológicas.
 - Todo texto visible nuevo de setas debe existir en

@@ -198,11 +198,11 @@
       "display_name": "Biology V5 Raw Weather Discovery",
       "status": "proposed",
       "temporal_contract_ids": [
-        "fixed_gap_7d_biology_v5_raw365_v1",
-        "lag_event_biology_v5_raw365_v1"
+        "fixed_gap_7d_biology_v5_raw365_v2",
+        "lag_event_biology_v5_raw365_v2"
       ],
       "derived_feature_contract_ids": [
-        "area_daily_raw365_common_idw_v1"
+        "area_daily_raw365_common_idw_physical_state_v2"
       ],
       "contract_document": "docs/mushrooms/mushroom-ml-biology-v5-raw-weather-discovery-spec-es.md",
       "benchmark_available": true,
@@ -212,11 +212,11 @@
         "adapter_id": "biology_v5_raw365_runtime_v1",
         "profiles": [
           {
-            "profile_id": "raw_primary_no_calendar",
-            "display_name": "Biology V5 raw weather without calendar",
+            "profile_id": "raw_primary_plus_physical_state",
+            "display_name": "Biology V5 IDW weather, balance and soil state",
             "temporal_contract_ids": [
-              "fixed_gap_7d_biology_v5_raw365_v1",
-              "lag_event_biology_v5_raw365_v1"
+              "fixed_gap_7d_biology_v5_raw365_v2",
+              "lag_event_biology_v5_raw365_v2"
             ],
             "estimator_ids": [
               "elastic_net_logistic_raw365_v1",
@@ -228,7 +228,7 @@
         ]
       },
       "known_sites_identity_contract": {
-        "id": "area_idw_weather_location_altitude_v1",
+        "id": "area_idw_weather_location_altitude_soilgrids_v2",
         "collections": [
           {
             "path": "micro_areas",
@@ -241,7 +241,8 @@
               "representative_location.lat",
               "representative_location.lon",
               "geometry",
-              "derived_context.gis_dem.altitude_mean_m"
+              "derived_context.gis_dem.altitude_mean_m",
+              "derived_context.soilgrids_water.context_hash"
             ]
           }
         ]
@@ -253,11 +254,11 @@
       "display_name": "Biology V6 Smooth Hierarchical",
       "status": "proposed",
       "temporal_contract_ids": [
-        "fixed_gap_7d_biology_v6_smooth_hierarchical_v1",
-        "lag_event_biology_v6_smooth_hierarchical_v1"
+        "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+        "lag_event_biology_v6_smooth_hierarchical_v2"
       ],
       "derived_feature_contract_ids": [
-        "raw365_loglag_bspline10_common_idw_v1",
+        "raw365_physical_state_loglag_bspline10_common_idw_v2",
         "cross_species_partial_pooling_logistic_v1"
       ],
       "contract_document": "docs/mushrooms/mushroom-ml-biology-v6-smooth-hierarchical-spec-es.md",
@@ -268,11 +269,11 @@
         "adapter_id": "biology_v6_smooth_runtime_v1",
         "profiles": [
           {
-            "profile_id": "smooth_raw",
-            "display_name": "Biology V6 smooth raw weather",
+            "profile_id": "smooth_weather_physical_state",
+            "display_name": "Biology V6 smooth IDW weather, balance and soil state",
             "temporal_contract_ids": [
-              "fixed_gap_7d_biology_v6_smooth_hierarchical_v1",
-              "lag_event_biology_v6_smooth_hierarchical_v1"
+              "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+              "lag_event_biology_v6_smooth_hierarchical_v2"
             ],
             "estimator_ids": [
               "smooth_species_logistic_v1",
@@ -290,7 +291,7 @@
         ]
       },
       "known_sites_identity_contract": {
-        "id": "area_idw_weather_location_altitude_v1",
+        "id": "area_idw_weather_location_altitude_soilgrids_v2",
         "collections": [
           {
             "path": "micro_areas",
@@ -303,7 +304,8 @@
               "representative_location.lat",
               "representative_location.lon",
               "geometry",
-              "derived_context.gis_dem.altitude_mean_m"
+              "derived_context.gis_dem.altitude_mean_m",
+              "derived_context.soilgrids_water.context_hash"
             ]
           }
         ]

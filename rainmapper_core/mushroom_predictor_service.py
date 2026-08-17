@@ -21,7 +21,9 @@ from rainmapper_core.mushroom_ml_comparison import MushroomModelComparator
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_ml_multiversion_comparison
+from rainmapper_core import mushroom_weather_idw
 from rainmapper_core.mushroom_ml_predictor import MushroomMLPredictor, PredictionResult
+from rainmapper_core.mushroom_prediction_interpretation import build_interpretation
 
 
 SCHEMA_VERSION = "1.0"
@@ -160,6 +162,7 @@ class PredictorService:
         profiles_path: Path | None = None,
         version_registry_path: Path | None = None,
         runtime_batch_manifest_path: Path | None = None,
+        stations_file_path: Path | None = None,
     ) -> None:
         self.models_dir = Path(models_dir)
         self.weather_data_dir = Path(weather_data_dir)
@@ -173,6 +176,9 @@ class PredictorService:
             Path(runtime_batch_manifest_path)
             if runtime_batch_manifest_path is not None
             else None
+        )
+        self.stations_file_path = (
+            Path(stations_file_path) if stations_file_path is not None else None
         )
         self.runtime_fingerprint = str(runtime_fingerprint)
         self._predictors: dict[str, MushroomMLPredictor] = {}
@@ -270,6 +276,14 @@ class PredictorService:
                 models_root=self.models_dir,
                 known_sites_path=self.known_sites_path,
                 weather_data_dir=self.weather_data_dir,
+                excluded_station_keys=(
+                    mushroom_weather_idw.disabled_wunderground_station_keys(
+                        self.stations_file_path
+                    )
+                    if self.stations_file_path is not None
+                    and self.stations_file_path.is_file()
+                    else frozenset()
+                ),
             )
             return {"available": True, **result}
         except (OSError, KeyError, TypeError, ValueError) as exc:
@@ -278,6 +292,109 @@ class PredictorService:
                 "reason": "multiversion_runtime_error",
                 "message": str(exc),
             }
+
+    def v2_reference_compare(
+        self,
+        *,
+        species_id: str,
+        area_id: str,
+        target_date: date,
+        issue_date: date,
+        prepared_weather_cache: dict[tuple[object, ...], Any] | None = None,
+        comparison_cache: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Resolve the card's V2 rows from the installed common-IDW batch only."""
+        predictor = self.predictor(species_id)
+        season_phase = predictor.season_phase(target_date)
+        unavailable = {
+            "available": False,
+            "reason": "runtime_batch_not_installed",
+        }
+        if (
+            self.version_registry_path is None
+            or self.runtime_batch_manifest_path is None
+            or not self.version_registry_path.is_file()
+            or not self.runtime_batch_manifest_path.is_file()
+        ):
+            payload: dict[str, Any] = {
+                "issue_date": issue_date.isoformat(),
+                "target_date": target_date.isoformat(),
+                "season_phase": season_phase,
+                mushroom_ml_multiversion_comparison.V2_FIXED_CONTRACT_ID: dict(
+                    unavailable
+                ),
+                mushroom_ml_multiversion_comparison.V2_LAG_CONTRACT_ID: dict(
+                    unavailable
+                ),
+            }
+            payload["interpretation"] = build_interpretation(
+                payload, season_phase=season_phase, phenology={}
+            )
+            return payload
+        phenology: dict[str, Any] = {}
+        try:
+            if self.profiles_path is None:
+                raise FileNotFoundError("Mushroom profiles are unavailable")
+            profiles = json.loads(self.profiles_path.read_text(encoding="utf-8"))
+            species_profile = next(
+                (
+                    row
+                    for row in profiles.get("species_profiles", [])
+                    if isinstance(row, dict) and row.get("species_id") == species_id
+                ),
+                {},
+            )
+            phenology = dict(species_profile.get("phenology") or {})
+        except (OSError, TypeError, ValueError):
+            phenology = {}
+        try:
+            return mushroom_ml_multiversion_comparison.compare_v2_reference(
+                mushroom_ml_version_registry.load_registry(
+                    self.version_registry_path
+                ),
+                json.loads(
+                    self.runtime_batch_manifest_path.read_text(encoding="utf-8")
+                ),
+                species_id=species_id,
+                area_id=area_id,
+                target_date=target_date,
+                issue_date=issue_date,
+                season_phase=season_phase,
+                phenology=phenology,
+                models_root=self.models_dir,
+                known_sites_path=self.known_sites_path,
+                weather_data_dir=self.weather_data_dir,
+                excluded_station_keys=(
+                    mushroom_weather_idw.disabled_wunderground_station_keys(
+                        self.stations_file_path
+                    )
+                    if self.stations_file_path is not None
+                    and self.stations_file_path.is_file()
+                    else frozenset()
+                ),
+                prepared_weather_cache=prepared_weather_cache,
+                comparison_cache=comparison_cache,
+            )
+        except (OSError, KeyError, TypeError, ValueError) as exc:
+            payload = {
+                "issue_date": issue_date.isoformat(),
+                "target_date": target_date.isoformat(),
+                "season_phase": season_phase,
+                mushroom_ml_multiversion_comparison.V2_FIXED_CONTRACT_ID: {
+                    "available": False,
+                    "reason": "v2_runtime_error",
+                    "message": str(exc),
+                },
+                mushroom_ml_multiversion_comparison.V2_LAG_CONTRACT_ID: {
+                    "available": False,
+                    "reason": "v2_runtime_error",
+                    "message": str(exc),
+                },
+            }
+            payload["interpretation"] = build_interpretation(
+                payload, season_phase=season_phase, phenology=phenology
+            )
+            return payload
 
     def predictor(self, species_id: str) -> MushroomMLPredictor:
         with self._lock:
@@ -354,16 +471,21 @@ class PredictorService:
             "species": {},
             "model_catalog": self.model_catalog(),
         }
+        prepared_weather_cache: dict[tuple[object, ...], Any] = {}
+        comparison_cache: dict[str, Any] = {}
 
         def comparison_for(
             species_id: str,
             current_area: str,
             current_date: date,
         ) -> dict[str, Any]:
-            return self.comparator(species_id).compare(
-                current_area,
-                current_date,
+            return self.v2_reference_compare(
+                species_id=species_id,
+                area_id=current_area,
+                target_date=current_date,
                 issue_date=min(date.today(), current_date),
+                prepared_weather_cache=prepared_weather_cache,
+                comparison_cache=comparison_cache,
             )
 
         if view == "recommender":

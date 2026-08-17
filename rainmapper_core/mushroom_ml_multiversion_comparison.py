@@ -6,15 +6,23 @@ from datetime import date, timedelta
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, MutableMapping, Sequence
 
 from rainmapper_core import mushroom_ml_model_catalog as catalog
+from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
+from rainmapper_core import mushroom_ml_raw_weather
 from rainmapper_core import mushroom_ml_runtime_features
 from rainmapper_core import mushroom_ml_runtime_inference
 from rainmapper_core import mushroom_ml_quality_catalog
 from rainmapper_core import mushroom_ml_area_weather_runtime
 from rainmapper_core import mushroom_observation_context as weather_context
 from rainmapper_core import mushroom_weather_idw
+from rainmapper_core.mushroom_ml_predictor import _label
+from rainmapper_core.mushroom_prediction_interpretation import build_interpretation
+
+
+V2_FIXED_CONTRACT_ID = "fixed_gap_7d_altitude_v2"
+V2_LAG_CONTRACT_ID = "lag_event_altitude_v2"
 
 
 def compare_prepared(
@@ -28,22 +36,60 @@ def compare_prepared(
     area_context: Any,
     area_series_by_horizon: Mapping[int, Mapping[str, object]],
     stations: Mapping[tuple[str, str], Any],
+    checked_manifest: Mapping[str, object] | None = None,
+    comparison_cache: MutableMapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compare individual members; quality precedes output and no mean is made."""
-    checked_manifest = catalog.validate_batch_manifest(registry, manifest)
-    quality_catalog: dict[str, Any] = {}
-    quality_ref = checked_manifest.get("quality_catalog")
-    if isinstance(quality_ref, Mapping):
-        quality_path = Path(models_root) / str(quality_ref.get("path") or "")
-        if quality_path.is_file() and hashlib.sha256(quality_path.read_bytes()).hexdigest() == str(
-            quality_ref.get("sha256") or ""
-        ):
-            loaded = json.loads(quality_path.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                quality_catalog = loaded
+    checked = (
+        checked_manifest
+        if checked_manifest is not None
+        else catalog.validate_batch_manifest(registry, manifest)
+    )
+    quality_catalog = (
+        comparison_cache.get("quality_catalog")
+        if comparison_cache is not None
+        else None
+    )
+    if not isinstance(quality_catalog, dict):
+        quality_catalog = {}
+        quality_ref = checked.get("quality_catalog")
+        if isinstance(quality_ref, Mapping):
+            quality_path = Path(models_root) / str(quality_ref.get("path") or "")
+            if quality_path.is_file() and hashlib.sha256(quality_path.read_bytes()).hexdigest() == str(
+                quality_ref.get("sha256") or ""
+            ):
+                loaded = json.loads(quality_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    quality_catalog = loaded
+        if comparison_cache is not None:
+            comparison_cache["quality_catalog"] = quality_catalog
+    artifact_index = (
+        comparison_cache.get("artifact_index")
+        if comparison_cache is not None
+        else None
+    )
+    if not isinstance(artifact_index, dict):
+        artifact_index = {
+            (
+                row["artifact_ref"]["version_id"],
+                row["artifact_ref"]["temporal_contract_id"],
+                row["artifact_ref"]["profile_id"],
+                row["artifact_ref"]["estimator_id"],
+                row["artifact_ref"]["species_id"],
+                horizon,
+            ): row
+            for row in checked["artifacts"]
+            for horizon in row["supported_horizons"]
+        }
+        if comparison_cache is not None:
+            comparison_cache["artifact_index"] = artifact_index
     results: list[dict[str, Any]] = []
     for raw_ref in model_refs:
-        model_ref = catalog.validate_model_ref(registry, raw_ref)
+        model_ref = (
+            raw_ref
+            if isinstance(raw_ref, catalog.ModelRef)
+            else catalog.validate_model_ref(registry, raw_ref)
+        )
         base = {"model_ref": model_ref.as_dict(), "model_ref_key": model_ref.key}
         area_series = area_series_by_horizon.get(model_ref.horizon_days)
         if area_series is None:
@@ -76,11 +122,30 @@ def compare_prepared(
                     }
                 )
                 continue
+            artifact_key = (
+                model_ref.version_id,
+                model_ref.temporal_contract_id,
+                model_ref.profile_id,
+                model_ref.estimator_id,
+                model_ref.species_id,
+                model_ref.horizon_days,
+            )
+            shared_key = (*artifact_key[:4], "all_species", artifact_key[5])
+            artifact_row = artifact_index.get(artifact_key) or artifact_index.get(
+                shared_key
+            )
+            if artifact_row is None:
+                raise FileNotFoundError(
+                    f"Model is not present in runtime batch: {model_ref.key}"
+                )
             bundle = mushroom_ml_runtime_inference.load_exact_artifact(
                 registry,
-                checked_manifest,
+                checked,
                 model_ref,
                 root=models_root,
+                checked_manifest=checked,
+                artifact_row=artifact_row,
+                validated_model_ref=model_ref,
             )
             prediction = mushroom_ml_runtime_inference.predict_bundle(
                 bundle,
@@ -96,6 +161,15 @@ def compare_prepared(
                     "metadata": dict(sample.get("metadata") or {}),
                     "evaluation": mushroom_ml_quality_catalog.lookup(
                         quality_catalog, model_ref.as_dict()
+                    ),
+                    **(
+                        {
+                            "features_used": dict(
+                                sample.get("predictive_features") or {}
+                            )
+                        }
+                        if model_ref.version_id == "altitude_v2"
+                        else {}
                     ),
                 }
             )
@@ -118,8 +192,8 @@ def compare_prepared(
                 }
             )
     return {
-        "batch_id": checked_manifest["batch_id"],
-        "snapshot_id": checked_manifest["snapshot_id"],
+        "batch_id": checked["batch_id"],
+        "snapshot_id": checked["snapshot_id"],
         "area_id": area_id,
         "target_date": target_date.isoformat(),
         "members": results,
@@ -131,15 +205,198 @@ def compare_prepared(
     }
 
 
+def _v2_contract_result(
+    contract_id: str,
+    members: Sequence[Mapping[str, object]],
+    *,
+    horizon_days: int,
+) -> dict[str, Any]:
+    matching = [
+        row
+        for row in members
+        if str((row.get("model_ref") or {}).get("temporal_contract_id") or "")
+        == contract_id
+    ]
+    available = [row for row in matching if row.get("available") is True]
+    if not available:
+        first = matching[0] if matching else {}
+        return {
+            "available": False,
+            "reason": str(first.get("reason") or "model_not_installed"),
+            "horizon_days": horizon_days,
+        }
+    probabilities: dict[str, float] = {}
+    estimators: dict[str, dict[str, object]] = {}
+    baseline_scores: list[float] = []
+    exclusions: dict[str, dict[str, object]] = {}
+    for row in available:
+        model_ref = row.get("model_ref") or {}
+        estimator_id = str(model_ref.get("estimator_id") or "")
+        prediction = row.get("prediction") or {}
+        probability = prediction.get("probability")
+        if estimator_id and isinstance(probability, (int, float)):
+            probabilities[estimator_id] = float(probability)
+        evaluation = row.get("evaluation") or {}
+        brier = evaluation.get("brier_score")
+        baseline = evaluation.get("prevalence_brier_score")
+        if isinstance(baseline, (int, float)):
+            baseline_scores.append(float(baseline))
+        if estimator_id and isinstance(brier, (int, float)):
+            estimators[estimator_id] = {
+                "brier_score": float(brier),
+                "roc_auc": evaluation.get("roc_auc"),
+                "n": evaluation.get("n_test"),
+            }
+        extreme = list((prediction.get("applicability") or {}).get("most_extreme") or [])
+        if estimator_id == "logistic_regression_reduced_v1" and any(
+            isinstance(item, Mapping)
+            and isinstance(item.get("standard_deviations"), (int, float))
+            and float(item["standard_deviations"]) >= 6.0
+            for item in extreme
+        ):
+            exclusions[estimator_id] = {"reason": "severe_feature_extrapolation"}
+    mean_probability = (
+        sum(probabilities.values()) / len(probabilities) if probabilities else None
+    )
+    first = available[0]
+    metadata = dict(first.get("metadata") or {})
+    return {
+        "available": True,
+        "feature_set_id": contract_id,
+        "cutoff_date": metadata.get("cutoff_date"),
+        "horizon_days": horizon_days,
+        "spatial_weather_contract": "common_multisource_idw_by_microarea",
+        "estimator_probabilities": probabilities,
+        "interpretation_estimator_probabilities": probabilities,
+        "ensemble_probability": (
+            round(mean_probability, 6) if mean_probability is not None else None
+        ),
+        "label": _label(mean_probability),
+        "features_used": dict(first.get("features_used") or {}),
+        "estimator_exclusions": exclusions,
+        "evaluation": {
+            "available": bool(estimators and baseline_scores),
+            "baseline": {
+                "brier_score": min(baseline_scores) if baseline_scores else None
+            },
+            "estimators": estimators,
+        },
+        "member_count": len(available),
+    }
+
+
+def compare_v2_reference(
+    registry: Mapping[str, object],
+    manifest: Mapping[str, object],
+    *,
+    species_id: str,
+    area_id: str,
+    target_date: date,
+    issue_date: date,
+    season_phase: str,
+    phenology: Mapping[str, object] | None,
+    models_root: Path,
+    known_sites_path: Path,
+    weather_data_dir: Path,
+    excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]] = frozenset(),
+    prepared_weather_cache: MutableMapping[
+        tuple[object, ...], tuple[Any, dict[int, dict[str, object]], dict[tuple[str, str], Any]]
+    ]
+    | None = None,
+    comparison_cache: MutableMapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the historical V2 card from the exact installed common-IDW batch."""
+    payload: dict[str, Any] = {
+        "issue_date": issue_date.isoformat(),
+        "target_date": target_date.isoformat(),
+        "season_phase": season_phase,
+    }
+    if season_phase == "out_of_season":
+        for contract_id in (V2_FIXED_CONTRACT_ID, V2_LAG_CONTRACT_ID):
+            payload[contract_id] = {"available": False, "reason": "out_of_season"}
+        payload["interpretation"] = build_interpretation(
+            payload, season_phase=season_phase, phenology=dict(phenology or {})
+        )
+        return payload
+
+    checked = (
+        comparison_cache.get("checked_manifest")
+        if comparison_cache is not None
+        else None
+    )
+    if not isinstance(checked, Mapping):
+        checked = catalog.validate_batch_manifest(registry, manifest)
+        if comparison_cache is not None:
+            comparison_cache["checked_manifest"] = checked
+    lag_horizon = (target_date - (issue_date - timedelta(days=1))).days
+    wanted = ((V2_FIXED_CONTRACT_ID, 7), (V2_LAG_CONTRACT_ID, lag_horizon))
+    selections: list[dict[str, object]] = []
+    for contract_id, horizon in wanted:
+        for row in checked["artifacts"]:
+            artifact_ref = row["artifact_ref"]
+            if (
+                artifact_ref["version_id"] == "altitude_v2"
+                and artifact_ref["temporal_contract_id"] == contract_id
+                and artifact_ref["profile_id"] == "common_idw"
+                and artifact_ref["species_id"] == species_id
+                and horizon in row["supported_horizons"]
+            ):
+                selections.append(
+                    {
+                        "version_id": "altitude_v2",
+                        "temporal_contract_id": contract_id,
+                        "profile_id": "common_idw",
+                        "estimator_id": artifact_ref["estimator_id"],
+                        "horizon_days": horizon,
+                    }
+                )
+    runtime = (
+        compare_selection(
+            registry,
+            checked,
+            selections,
+            species_id=species_id,
+            area_id=area_id,
+            target_date=target_date,
+            models_root=models_root,
+            known_sites_path=known_sites_path,
+            weather_data_dir=weather_data_dir,
+            excluded_station_keys=excluded_station_keys,
+            prepared_weather_cache=prepared_weather_cache,
+            checked_manifest=checked,
+            comparison_cache=comparison_cache,
+        )
+        if selections
+        else {"members": []}
+    )
+    members = list(runtime.get("members") or [])
+    for contract_id, horizon in wanted:
+        payload[contract_id] = _v2_contract_result(
+            contract_id, members, horizon_days=horizon
+        )
+    payload["runtime_batch_id"] = checked["batch_id"]
+    payload["spatial_weather_contract"] = "common_multisource_idw_by_microarea"
+    payload["interpretation"] = build_interpretation(
+        payload, season_phase=season_phase, phenology=dict(phenology or {})
+    )
+    return payload
+
+
 def resolve_selection(
     registry: Mapping[str, object],
     manifest: Mapping[str, object],
     selection: Mapping[str, object],
     *,
     species_id: str,
+    checked_manifest: Mapping[str, object] | None = None,
+    catalog_profiles: Sequence[Mapping[str, object]] | None = None,
 ) -> catalog.ModelRef:
     """Resolve UI selection to the exact installed generation and batch."""
-    checked = catalog.validate_batch_manifest(registry, manifest)
+    checked = (
+        checked_manifest
+        if checked_manifest is not None
+        else catalog.validate_batch_manifest(registry, manifest)
+    )
     version_id = str(selection.get("version_id") or "")
     temporal_contract_id = str(selection.get("temporal_contract_id") or "")
     profile_id = str(selection.get("profile_id") or "")
@@ -151,7 +408,11 @@ def resolve_selection(
     profile = next(
         (
             row
-            for row in catalog.catalog_entries(registry)
+            for row in (
+                catalog_profiles
+                if catalog_profiles is not None
+                else catalog.catalog_entries(registry)
+            )
             if row["version_id"] == version_id and row["profile_id"] == profile_id
         ),
         None,
@@ -179,14 +440,35 @@ def resolve_selection(
     if artifact is None:
         raise FileNotFoundError("Selected comparison model has no installed artifact")
     artifact_ref = catalog.ModelArtifactRef.from_mapping(artifact["artifact_ref"])
-    return catalog.validate_model_ref(
-        registry,
-        {
-            **artifact_ref.as_dict(),
-            "species_id": species_id,
-            "horizon_days": horizon_days,
-        },
+    resolved_ref = artifact_ref.as_dict()
+    resolved_ref["species_id"] = species_id
+    return catalog.ModelRef(**resolved_ref, horizon_days=horizon_days)
+
+
+def _weather_requirements(
+    model_refs: Sequence[catalog.ModelRef],
+) -> tuple[int, bool]:
+    """Return only the weather work required by the selected trained profiles."""
+    long_raw_versions = {
+        "biology_v5_raw_weather_discovery",
+        "biology_v6_smooth_hierarchical",
+    }
+    physical_profile_tokens = (
+        "physical_state",
+        "climatic_balance",
+        "soil_water",
+        "smi",
     )
+    lookback_days = (
+        mushroom_ml_raw_weather.LOOKBACK_DAYS
+        if any(ref.version_id in long_raw_versions for ref in model_refs)
+        else biology_v3.EVENT_LOOKBACK_DAYS
+    )
+    include_physical_state = any(
+        any(token in ref.profile_id.lower() for token in physical_profile_tokens)
+        for ref in model_refs
+    )
+    return lookback_days, include_physical_state
 
 
 def prepare_area_weather(
@@ -196,6 +478,8 @@ def prepare_area_weather(
     area_id: str,
     target_date: date,
     horizons: Sequence[int],
+    lookback_days: int = mushroom_ml_raw_weather.LOOKBACK_DAYS,
+    include_physical_state: bool = True,
     excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]] = frozenset(),
 ) -> tuple[
     Any,
@@ -214,7 +498,9 @@ def prepare_area_weather(
     if not resolved_horizons:
         raise ValueError("At least one comparison horizon is required")
     cutoffs = {horizon: target_date - timedelta(days=horizon) for horizon in resolved_horizons}
-    earliest = min(cutoffs.values()) - timedelta(days=364)
+    if lookback_days <= 0:
+        raise ValueError("lookback_days must be positive")
+    earliest = min(cutoffs.values()) - timedelta(days=lookback_days - 1)
     latest = max(cutoffs.values())
     station_catalog = weather_context.load_stations_catalog(Path(weather_data_dir))
     station_filter: set[tuple[str, str]] = set()
@@ -248,14 +534,114 @@ def prepare_area_weather(
         horizon: mushroom_ml_area_weather_runtime.materialize_area_series(
             area_id=area_id,
             end_day=cutoff,
-            days=365,
+            days=lookback_days,
             microareas_by_area=microareas,
             stations=stations,
             excluded_station_keys=normalized_excluded,
+            include_physical_state=include_physical_state,
         )
         for horizon, cutoff in cutoffs.items()
     }
     return area_context, prepared, stations
+
+
+def _prepared_weather_key(
+    *,
+    known_sites_path: Path,
+    weather_data_dir: Path,
+    area_id: str,
+    target_date: date,
+    horizons: Sequence[int],
+    lookback_days: int,
+    include_physical_state: bool,
+    excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]],
+) -> tuple[object, ...]:
+    normalized_excluded = tuple(
+        sorted(
+            (str(source).lower(), str(code).upper())
+            for source, code in excluded_station_keys
+        )
+    )
+    return (
+        str(Path(known_sites_path).resolve()),
+        str(Path(weather_data_dir).resolve()),
+        area_id,
+        target_date.isoformat(),
+        tuple(sorted({int(value) for value in horizons})),
+        lookback_days,
+        include_physical_state,
+        normalized_excluded,
+    )
+
+
+def prewarm_v2_week_weather(
+    *,
+    area_ids: Sequence[str],
+    target_issue_dates: Sequence[tuple[date, date]],
+    known_sites_path: Path,
+    weather_data_dir: Path,
+    excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]],
+    prepared_weather_cache: MutableMapping[
+        tuple[object, ...], tuple[Any, dict[int, dict[str, object]], dict[tuple[str, str], Any]]
+    ],
+) -> None:
+    """Prepare one extended IDW series per area for the complete V2 week grid."""
+    lookback_days = biology_v3.EVENT_LOOKBACK_DAYS
+    requests: list[tuple[date, tuple[int, ...], dict[int, date]]] = []
+    for target_date, issue_date in target_issue_dates:
+        lag_horizon = (target_date - (issue_date - timedelta(days=1))).days
+        horizons = tuple(sorted({7, lag_horizon}))
+        cutoffs = {
+            horizon: target_date - timedelta(days=horizon)
+            for horizon in horizons
+        }
+        requests.append((target_date, horizons, cutoffs))
+    if not requests:
+        return
+    all_cutoffs = [cutoff for _target, _horizons, rows in requests for cutoff in rows.values()]
+    minimum_cutoff = min(all_cutoffs)
+    maximum_cutoff = max(all_cutoffs)
+    base_days = lookback_days + (maximum_cutoff - minimum_cutoff).days
+    base_start = maximum_cutoff - timedelta(days=base_days - 1)
+
+    for area_id in area_ids:
+        area_context, base_by_horizon, stations = prepare_area_weather(
+            known_sites_path=known_sites_path,
+            weather_data_dir=weather_data_dir,
+            area_id=area_id,
+            target_date=maximum_cutoff,
+            horizons=(0,),
+            lookback_days=base_days,
+            include_physical_state=False,
+            excluded_station_keys=excluded_station_keys,
+        )
+        base = base_by_horizon[0]
+        for target_date, horizons, cutoffs in requests:
+            prepared: dict[int, dict[str, object]] = {}
+            for horizon, cutoff in cutoffs.items():
+                end_index = (cutoff - base_start).days + 1
+                start_index = end_index - lookback_days
+                if start_index < 0 or end_index > base_days:
+                    raise ValueError("Prepared V2 week slice is outside its base series")
+                prepared[horizon] = {
+                    key: (
+                        list(value[start_index:end_index])
+                        if isinstance(value, list) and len(value) == base_days
+                        else value
+                    )
+                    for key, value in base.items()
+                }
+            cache_key = _prepared_weather_key(
+                known_sites_path=known_sites_path,
+                weather_data_dir=weather_data_dir,
+                area_id=area_id,
+                target_date=target_date,
+                horizons=horizons,
+                lookback_days=lookback_days,
+                include_physical_state=False,
+                excluded_station_keys=excluded_station_keys,
+            )
+            prepared_weather_cache[cache_key] = (area_context, prepared, stations)
 
 
 def compare_selection(
@@ -270,22 +656,76 @@ def compare_selection(
     known_sites_path: Path,
     weather_data_dir: Path,
     excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]] = frozenset(),
+    prepared_weather_cache: MutableMapping[
+        tuple[object, ...], tuple[Any, dict[int, dict[str, object]], dict[tuple[str, str], Any]]
+    ]
+    | None = None,
+    checked_manifest: Mapping[str, object] | None = None,
+    comparison_cache: MutableMapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    checked = checked_manifest
+    if checked is None and comparison_cache is not None:
+        cached_checked = comparison_cache.get("checked_manifest")
+        if isinstance(cached_checked, Mapping):
+            checked = cached_checked
+    if checked is None:
+        checked = catalog.validate_batch_manifest(registry, manifest)
+        if comparison_cache is not None:
+            comparison_cache["checked_manifest"] = checked
+    catalog_profiles = (
+        comparison_cache.get("catalog_profiles")
+        if comparison_cache is not None
+        else None
+    )
+    if not isinstance(catalog_profiles, list):
+        catalog_profiles = catalog.catalog_entries(registry)
+        if comparison_cache is not None:
+            comparison_cache["catalog_profiles"] = catalog_profiles
     refs = [
-        resolve_selection(registry, manifest, selection, species_id=species_id)
+        resolve_selection(
+            registry,
+            checked,
+            selection,
+            species_id=species_id,
+            checked_manifest=checked,
+            catalog_profiles=catalog_profiles,
+        )
         for selection in selections
     ]
-    area_context, prepared, stations = prepare_area_weather(
+    horizons = tuple(sorted({model_ref.horizon_days for model_ref in refs}))
+    lookback_days, include_physical_state = _weather_requirements(refs)
+    weather_key = _prepared_weather_key(
         known_sites_path=known_sites_path,
         weather_data_dir=weather_data_dir,
         area_id=area_id,
         target_date=target_date,
-        horizons=[model_ref.horizon_days for model_ref in refs],
+        horizons=horizons,
+        lookback_days=lookback_days,
+        include_physical_state=include_physical_state,
         excluded_station_keys=excluded_station_keys,
     )
+    prepared_tuple = (
+        prepared_weather_cache.get(weather_key)
+        if prepared_weather_cache is not None
+        else None
+    )
+    if prepared_tuple is None:
+        prepared_tuple = prepare_area_weather(
+            known_sites_path=known_sites_path,
+            weather_data_dir=weather_data_dir,
+            area_id=area_id,
+            target_date=target_date,
+            horizons=horizons,
+            lookback_days=lookback_days,
+            include_physical_state=include_physical_state,
+            excluded_station_keys=excluded_station_keys,
+        )
+        if prepared_weather_cache is not None:
+            prepared_weather_cache[weather_key] = prepared_tuple
+    area_context, prepared, stations = prepared_tuple
     return compare_prepared(
         registry,
-        manifest,
+        checked,
         refs,
         models_root=models_root,
         target_date=target_date,
@@ -293,4 +733,6 @@ def compare_selection(
         area_context=area_context,
         area_series_by_horizon=prepared,
         stations=stations,
+        checked_manifest=checked,
+        comparison_cache=comparison_cache,
     )

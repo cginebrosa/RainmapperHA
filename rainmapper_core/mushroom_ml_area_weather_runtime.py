@@ -11,6 +11,7 @@ from typing import Mapping
 from rainmapper_core import mushroom_climatic_water_balance as climate
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_observation_context as weather_context
+from rainmapper_core import mushroom_soil_water_state
 from rainmapper_core import mushroom_weather_idw
 
 
@@ -63,8 +64,9 @@ def materialize_area_series(
     microareas_by_area: Mapping[str, list[biology_v3.MicroAreaContext]],
     stations: Mapping[tuple[str, str], weather_context.WeatherStation],
     excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]] = frozenset(),
+    include_physical_state: bool = True,
 ) -> dict[str, object]:
-    """Build one reusable 365-day area series; missing never becomes zero."""
+    """Build one reusable area series; missing never becomes zero."""
     contexts = list(microareas_by_area.get(area_id, []))
     if not contexts:
         raise ValueError(f"Unknown or empty mushroom area: {area_id}")
@@ -74,6 +76,8 @@ def materialize_area_series(
     }
     micro_weather: dict[str, dict[str, object]] = {}
     micro_eto: list[list[float | None]] = []
+    micro_balance: list[list[float | None]] = []
+    micro_soil_states: dict[str, dict[str, object]] = {}
     axis = list(weather_context.date_window(end_day, days))
     for context in contexts:
         weather = mushroom_weather_idw.build_daily_weather_idw_series(
@@ -87,29 +91,92 @@ def materialize_area_series(
             duplicate_dates_by_station=duplicate_dates,
         )
         micro_weather[context.micro_area_id] = weather
-        micro_eto.append(
+        if not include_physical_state:
+            continue
+        eto = [
+            climate.hargreaves_reference_evapotranspiration_mm(
+                day, context.lat, low, high
+            )
+            if low is not None and high is not None
+            else None
+            for day, low, high in zip(
+                axis,
+                weather["daily_temp_min_idw_c"],
+                weather["daily_temp_max_idw_c"],
+                strict=True,
+            )
+        ]
+        micro_eto.append(eto)
+        micro_balance.append(
             [
-                climate.hargreaves_reference_evapotranspiration_mm(
-                    day, context.lat, low, high
-                )
-                if low is not None and high is not None
+                float(rain) - float(eto_value)
+                if rain is not None and eto_value is not None
                 else None
-                for day, low, high in zip(
-                    axis,
-                    weather["daily_temp_min_idw_c"],
-                    weather["daily_temp_max_idw_c"],
-                    strict=True,
+                for rain, eto_value in zip(
+                    weather["daily_rain_idw_mm"], eto, strict=True
                 )
             ]
         )
+        try:
+            micro_soil_states[context.micro_area_id] = (
+                mushroom_soil_water_state.build_soil_water_state(
+                    dates=axis,
+                    rain_idw_mm=weather["daily_rain_idw_mm"],
+                    reference_evapotranspiration_mm=eto,
+                    soilgrids_context=context.soilgrids_water or {},
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            micro_soil_states[context.micro_area_id] = {
+                "predictive_features": {},
+                "quality": {
+                    "training_eligible": False,
+                    "training_exclusion_reasons": [
+                        {"code": "soil_state_build_error", "message": str(exc)}
+                    ],
+                },
+                "metadata": {"cutoff_date": end_day.isoformat()},
+            }
     area = biology_v3.aggregate_area_rainfall_series(micro_weather)
-    eto = _mean_series(micro_eto, days)
-    rain = list(area["daily_rain_idw_mean_mm"])
-    area["daily_eto0_mean_mm"] = eto
-    area["daily_climatic_balance_mean_mm"] = [
-        float(rain_value) - float(eto_value)
-        if rain_value is not None and eto_value is not None
-        else None
-        for rain_value, eto_value in zip(rain, eto, strict=True)
+    if not include_physical_state:
+        return area
+    area["daily_eto0_mean_mm"] = _mean_series(micro_eto, days)
+    area["daily_climatic_balance_mean_mm"] = _mean_series(micro_balance, days)
+    soil_state = mushroom_soil_water_state.aggregate_area_soil_water_states(
+        micro_soil_states
+    )
+    daily_soil_by_microarea: list[dict[str, float]] = []
+    for state in micro_soil_states.values():
+        quality = state.get("quality")
+        metadata = state.get("metadata")
+        if not isinstance(quality, Mapping) or not quality.get("training_eligible"):
+            continue
+        if not isinstance(metadata, Mapping):
+            continue
+        dates = list(metadata.get("longest_converged_daily_dates") or [])
+        values = list(
+            metadata.get("longest_converged_daily_storage_fraction") or []
+        )
+        if len(dates) == len(values):
+            daily_soil_by_microarea.append(
+                {
+                    str(day): float(value)
+                    for day, value in zip(dates, values, strict=True)
+                }
+            )
+    area["daily_soil_water_fraction_mean"] = [
+        (
+            statistics.fmean(
+                row[day.isoformat()]
+                for row in daily_soil_by_microarea
+                if day.isoformat() in row
+            )
+            if any(day.isoformat() in row for row in daily_soil_by_microarea)
+            else None
+        )
+        for day in axis
     ]
+    area.update(dict(soil_state.get("predictive_features") or {}))
+    area["soil_water_quality"] = dict(soil_state.get("quality") or {})
+    area["soil_water_metadata"] = dict(soil_state.get("metadata") or {})
     return area

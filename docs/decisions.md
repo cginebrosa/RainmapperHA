@@ -11,11 +11,142 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
+## 2026-08-18 - [VIGENTE][ML][RENDIMIENTO] Ventanas runtime por contrato y experimento físico V2/V3 preservado
+
+- Los 365 días diarios de V5/V6 son el alcance congelado de esos experimentos,
+  no una ventana biológica respaldada por la literatura ni el default del
+  Predictor. V2/V3 actuales materializan 90 días IDW; V4 materializa 90 días y
+  solo calcula estado físico para perfiles que lo declaran; únicamente V5/V6
+  conservan 365 días.
+- El runtime decide ET0, balance y SMI por el perfil exacto instalado. Omitir
+  ese cálculo cuando las columnas no forman parte del bundle evita trabajo que
+  se descartaba, pero no elimina la implementación ni su posible uso.
+- Se preserva como experimento futuro una variante explícita V2/V3
+  `IDW + estado físico`, entrenada y comparada como perfil/contrato distinto
+  frente a V2/V3 `common_idw`/`core`. No se puede añadir balance/SMI a un bundle
+  ya entrenado ni sustituir silenciosamente sus variables actuales.
+- La evidencia local revisada concentra retardos meteorológicos de fructificación
+  en semanas y aproximadamente un mes; 90 días es un máximo conservador para
+  meteorología diaria, sujeto a comparación científica. Esto no demuestra que
+  los días 91–365 carezcan de señal: V5/V6-365 se preserva como control y debe
+  compararse en un experimento nuevo, emparejado y con los mismos splits contra
+  V5/V6-90 antes de reducir el contrato. Señales de ciclo previo
+  como NDVI, huésped o fuego deben entrar como variables ecológicas explícitas,
+  no como 275 días meteorológicos extra por defecto.
+- `mushroom_ml_raw_weather.LOOKBACK_DAYS` es la única constante canónica de la
+  longitud V5/V6. No es un ajuste de UI: cambiarla altera columnas y exige un
+  contrato nuevo y reentrenado.
+- El Predictor valida una vez el manifiesto inmutable por petición, reutiliza
+  su índice y los bundles verificados por hash. En la misma consulta local de
+  referencia pasó de 116,011 s en caliente a 13,185 s; cambiar al día siguiente
+  dentro del mismo proceso tardó 12,435 s. Estas cifras son del entorno local,
+  no una garantía para HA real.
+
+## 2026-08-17 - [DUDA][IDW][ML] Vacío IDW en Salteguet y modelo fijo no entrenado
+
+- Salteguet muestra lluvia IDW `-` para 2026-08-17 aunque hay estaciones
+  cercanas con `0.0`; IALP87 aparece `N/A`.
+- El código filtra estaciones con valor no finito antes de interpolar: un
+  `N/A` aislado no entra en la media ni propaga `NaN`. Para lluvia existe además
+  un umbral de soporte ponderado; si no se alcanza, devuelve `null` aun con
+  estaciones finitas. Falta reproducir el punto exacto antes de modificarlo.
+- «Ventana ciega fija de 7 días · model_not_trained» pertenece al bloque
+  operativo/sombra. No está demostrado que sea el miembro V2 del batch, que sí
+  contiene artefactos `altitude_v2`. Edulis tiene 27 episodios, pero el tramo
+  temporal de entrenamiento solo contiene una clase; falta trazar la omisión.
+- Ambas dudas bloquean la release. No hay autorización de publicación.
+
+## 2026-08-17 - [VIGENTE][RELEASES] Separación del arreglo urgente y la migración multicoordinador
+
+- La primera entrega HA+worker incluirá únicamente el cierre urgente ya
+  validable en local: regeneración V2–V6 desde snapshot fresco, manifiesto de
+  entrenamiento, promoción completa única, limpieza de staging, resumen de
+  confianza del Predictor y progreso granular del ejecutor HA local.
+- La migración de credenciales se publicará después en una release independiente
+  del worker, tras probar el mismo worker contra dos coordinadores HA locales
+  aislados. No se mezcla esa migración sensible con la corrección urgente.
+- El HA de la primera entrega debe seguir siendo compatible con ese worker. Una
+  release HA adicional se reserva para la protección `409` al revocar durante
+  un job activo, si la revisión del protocolo confirma que necesita cambio en
+  el coordinador.
+- `0.2.257` y `1.0.11` son candidatos secuenciales, no versiones asumidas ni
+  reservadas. Todo bump, build o publicación requiere primero cerrar las
+  validaciones y recibir autorización explícita del usuario.
+
+## 2026-08-17 - [VIGENTE][DISEÑO PENDIENTE][ARQUITECTURA] Un worker podrá atender varios coordinadores
+
+- El objetivo futuro sustituye la limitación de una sola conexión del worker,
+  no el runtime instalado: worker `1.0.10` continúa siendo monocoordinador.
+- Una instalación conservará un único `worker_id`, volumen, caché y slot global
+  de ejecución, con URL y token aislados por coordinador. El M1 podrá atender
+  al HA real y al laboratorio local sin reemparejar, cambiar la URL real ni
+  crear identidades o volúmenes temporales.
+- Los heartbeats serán independientes; los claims se arbitrarán justamente y
+  cada job se comunicará solo con su coordinador de origen. Reconstrucción, ML
+  v0 y V2–V6 seguirán encadenados con una única promoción completa.
+- El número máximo de asociaciones será el parámetro persistente
+  `max_coordinators`, default 4, configurable desde el arranque/CLI y validado;
+  no una constante rígida. Seguirá habiendo un solo job pesado concurrente.
+- Una revocación desde HA elimina primero la credencial del servidor. Ante el
+  `401` inequívoco del siguiente heartbeat/consulta, el worker eliminará solo
+  la asociación correspondiente. Timeout, DNS, desconexión o `5xx` nunca
+  borrarán credenciales. Con un job de ese HA activo, la revocación se rechazará
+  con `409` hasta cancelarlo o finalizarlo correctamente.
+- El worker no tendrá UI propia. Pairing y revocación normal se inician desde
+  cada coordinador; el script/CLI local permitirá listar y olvidar una
+  asociación inaccesible sin revelar secretos.
+- Especificación y criterios de aceptación:
+  `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`.
+
+## 2026-08-17 - [VIGENTE PARA EL RUNTIME ACTUAL][ARQUITECTURA] Un worker real y un ejecutor HA exclusivo del laboratorio local
+
+- El worker M1 conserva una sola identidad, un solo volumen y una sola conexión
+  saliente al HA real de la RPi4. No se reempareja alternativamente con el HA
+  local ni se mantiene un segundo worker ficticio para pruebas.
+- El montaje temporal `Validación local` y los puertos `8103`/`8111` no forman
+  parte de la arquitectura. El HA local canónico vuelve a `8101` y comparte el
+  registro histórico, aunque vea desconectado el M1 mientras este sirve al HA
+  real.
+- Para poder validar en el M1 sin alterar el worker normal, únicamente el compose
+  local activa `RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED=true`. Esta opción ejecuta
+  dentro del contenedor HA local los mismos contratos y scripts que el worker;
+  la imagen/despliegue HA real permanece coordinador-only por defecto.
+- Tanto el camino del worker como el ejecutor HA local encadenan tres trabajos:
+  reconstrucción, ML v0 y V2–V6. Solo existe una promoción de la generación
+  completa y no se habilita hasta terminar los tres. No se publica un candidato
+  parcial ni se hace fallback silencioso desde un worker desconectado.
+- Preparar o publicar una release requiere una autorización explícita posterior
+  del usuario, incluso si el gate local termina correctamente.
+
+## 2026-08-17 - [VIGENTE][ML][ARQUITECTURA] Regeneración V2–V6 reproducible y aviso de vigencia
+
+- Se elimina la dependencia operativa de los JSON del snapshot de laboratorio
+  `mushroom-ml-snapshot-20260816`. Cada regeneración construye sus entradas
+  V2–V6 desde el snapshot fresco creado por HA y consumido por el worker.
+- No se añade una reconstrucción parcial: la acción existente encadena
+  reconstrucción, ML v0 y V2–V6 para mantener todas las versiones alineadas con
+  la misma información disponible.
+- V2, V3, V4, V5 y V6 tienen el mismo estatus experimental. V2 aparece primero
+  únicamente por cronología y continuidad de UI; no es la versión preferida ni
+  el baseline que deba ganar por defecto.
+- El batch guarda una identidad de entradas con hashes, sin datos brutos ni
+  rutas privadas. El Predictor usa esa identidad para avisar si la generación
+  está desactualizada o no puede verificarse.
+- Las copias temporales de resultados solo se borran tras instalación íntegra;
+  los fallos se conservan para diagnóstico.
+- Las imágenes públicas contienen código, dependencias y defaults. HA incluye
+  una plantilla de observaciones vacía; ninguna imagen incorpora observaciones,
+  snapshots, hold-outs, benchmarks o modelos entrenados.
+- Esta decisión reemplaza únicamente la dependencia runtime del snapshot fijo
+  descrita en entradas anteriores. El snapshot de 2026-08-16 sigue vigente como
+  evidencia científica inmutable para reproducir aquellos informes.
+
 ## 2026-08-17 - [VIGENTE][RELEASE] HA 0.2.256 y worker privado 1.0.10
 
 - El usuario autorizó publicar la pareja validada localmente. El smoke previo
-  superó 845 pruebas. No se instaló en ningún host real ni se lanzó una
-  regeneración o entrenamiento durante la preparación.
+  superó 845 pruebas. Durante esta sesión el usuario mostró HA `0.2.256` y
+  worker M1 `1.0.10` ya instalados y emparejados; esta observación no fue
+  revalidada directamente por Codex contra los hosts al cierre.
 - `ghcr.io/cginebrosa/rainmapperha:0.2.256` y `latest` comparten el índice OCI
   `sha256:880c2edb4a384f0e3585d9bb9c82417e988a8d2c48799f5aab2a2c7548e86665`,
   verificado con manifiestos `linux/amd64`
@@ -32,8 +163,11 @@ multiidioma mediante labels `en`, `es` y `ca`.
   coordinador HA `0.2.254` ya validaba capacidades como una lista abierta bajo
   schema `0.1`, por lo que acepta las dos capacidades nuevas del worker. Así,
   cuando arranque HA `0.2.256`, ya encontrará un ejecutor V2--V6 compatible.
-- Tras instalar se validarán versiones, estado, caché, Predictor y Comparar.
-  La regeneración completa queda como acción posterior y explícita del usuario.
+- La regeneración real completó reconstrucción y ML v0, pero el paso V2–V6
+  falló porque `0.2.256` dependía de un fichero del laboratorio ausente en HA.
+  La release permanece como estado instalado, pero su regeneración multiversión
+  queda corregida solo en local y exige una release posterior antes de repetirla
+  en producción.
 
 ## 2026-08-16 - [VIGENTE][ML] `lag_event` ajusta un modelo y proyecta sus horizontes
 
@@ -86,9 +220,11 @@ multiidioma mediante labels `en`, `es` y `ca`.
   `docker-data/audits/<generación>/` conserva fuentes, derivados, hashes y
   evidencia inmutable. `/private/tmp` es solo scratch y nunca fuente de una
   instalación.
-- El snapshot vigente es `mushroom-ml-snapshot-20260816`: 395 observaciones,
-  59 microáreas, 352 filas fixed y 1.408 tareas lag elegibles. Su manifiesto
-  fija los cuatro benchmarks y las cuatro comparaciones canónicas.
+- El snapshot científico vigente es `mushroom-ml-snapshot-20260816`: 395
+  observaciones, 59 microáreas, 352 filas fixed y 1.408 tareas lag elegibles. Su
+  manifiesto fija los benchmarks y comparaciones de aquellos informes. No es
+  una dependencia de una regeneración instalada; esa parte queda reemplazada
+  por la decisión de snapshot fresco por job del 2026-08-17.
 - V2/V3/V4 y futuras versiones se registran de forma genérica y se preservan
   aunque dejen de ser operativas. Los estados no se codifican con condicionales
   específicos de versión.
@@ -96,10 +232,10 @@ multiidioma mediante labels `en`, `es` y `ca`.
   cambio de nombre/nota no invalida; geometría, pertenencia, posición o altitud
   invalidan las áreas afectadas. Bundles legacy sin esa identidad mantienen la
   barrera estricta de hash bruto.
-- Por ello, el Predictor instalado puede bloquearse tras el nuevo
-  `known_sites`. La solución vigente es reconstruir y entrenar desde el mismo
-  snapshot durante una actualización coordinada; queda prohibido relajar la
-  barrera o parchear bundles.
+- Los bundles legacy pueden bloquearse ante cambios de `known_sites`; queda
+  prohibido relajar la barrera o parchearlos. Los batches nuevos comparan la
+  identidad de entrenamiento del snapshot fresco y muestran su vigencia en la
+  UI.
 
 ## 2026-08-16 - [VIGENTE][BIOLOGY V4] V4 permanece propuesta, no candidata
 

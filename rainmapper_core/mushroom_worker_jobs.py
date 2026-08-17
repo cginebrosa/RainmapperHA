@@ -543,7 +543,17 @@ def create_ml_multiversion_job(
         raise ValueError("Multiversion input bundle contract is invalid.")
     bundle_digest = str(input_bundle.get("bundle_digest", ""))
     files = input_bundle.get("files")
-    if not re.fullmatch(r"sha256:[0-9a-f]{64}", bundle_digest) or not isinstance(files, list) or not files:
+    snapshot_bundle = (
+        re.fullmatch(r"sha256:[0-9a-f]{64}", str(input_bundle.get("snapshot_id", "")))
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", str(input_bundle.get("job_spec_id", "")))
+        and isinstance(input_bundle.get("input_file_count"), int)
+        and int(input_bundle.get("input_file_count", 0)) > 0
+        and isinstance(input_bundle.get("multiversion_spec"), dict)
+    )
+    legacy_bundle = isinstance(files, list) and bool(files)
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", bundle_digest) or not (
+        snapshot_bundle or legacy_bundle
+    ):
         raise ValueError("Multiversion input bundle identity is invalid.")
     queue = load_queue(path)
     duplicate = next(

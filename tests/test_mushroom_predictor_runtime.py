@@ -61,6 +61,29 @@ class PredictorRuntimeTests(TestCase):
                 sources,
             )
 
+    def test_runtime_packages_enabled_station_source_contract(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            stations = root / "stations.txt"
+            stations.write_text("Wunderground;TEST;false\n", encoding="utf-8")
+            manifest, sources = build_manifest(
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+                stations_file_path=stations,
+            )
+
+            self.assertIn("data/stations.txt", sources)
+            self.assertTrue(
+                any(row["path"] == "data/stations.txt" for row in manifest["files"])
+            )
+            self.assertEqual(
+                service_paths(root)["stations_file_path"], root / "data/stations.txt"
+            )
+
     def test_partitioned_weather_generation_is_packaged_as_predictor_runtime(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -152,8 +175,8 @@ class PredictorRuntimeTests(TestCase):
                     "batch_id": "batch-a",
                     "generation_id": "generation-a",
                     "version_id": "biology_v5_raw_weather_discovery",
-                    "temporal_contract_id": "lag_event_biology_v5_raw365_v1",
-                    "profile_id": "raw_primary_no_calendar",
+                    "temporal_contract_id": "lag_event_biology_v5_raw365_v2",
+                    "profile_id": "raw_primary_plus_physical_state",
                     "estimator_id": "elastic_net_logistic_raw365_v1",
                     "species_id": "lactarius_deliciosus",
                     "horizon_days": 3,
