@@ -44,8 +44,9 @@ resultados cerrados que condicionan esas prioridades.
   calcular 16 para V2–V6, causando 436 fits improcedentes y 381 rechazos.
 - [x] Corregir localmente el encadenado para persistir y heredar exactamente
   `trained_species`; 241 pruebas dirigidas y smoke completo 886/886 correctos.
-- [ ] Mantener sin activar el candidato `local_v2_v6_20260817T232733Z` y pedir
-  autorización explícita antes de preparar/publicar la siguiente release HA.
+- [x] Mantener sin activar el candidato `local_v2_v6_20260817T232733Z` y
+  publicar la corrección como HA `0.2.258`, sin cambiar worker `1.0.11`.
+- [ ] Instalar HA `0.2.258` antes de repetir producción.
 - [ ] Tras instalar la corrección, repetir la regeneración completa real y
   comprobar un alcance esperado de 432 fits (429 correctos, 3 sparse-group),
   activar la generación y verificar que el Predictor queda `current`.

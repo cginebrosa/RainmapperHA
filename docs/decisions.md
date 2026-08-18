@@ -11,7 +11,7 @@ y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
 
-## 2026-08-18 - [DEFECTO CONFIRMADO][CORREGIDO LOCAL][RELEASE PENDIENTE] El V2–V6 enlazado debe heredar las especies entrenadas
+## 2026-08-18 - [VIGENTE][CORREGIDO EN HA 0.2.258] El V2–V6 enlazado debe heredar las especies entrenadas
 
 - En la primera regeneración real con HA `0.2.257`, ML v0 recibió 9 especies y
   entrenó 8, pero el coordinador reconstruyó para V2–V6 una lista independiente
@@ -29,9 +29,15 @@ multiidioma mediante labels `en`, `es` y `ca`.
   intentos no debían planificarse.
 - Validación local: 241 pruebas dirigidas y smoke completo con 886 pruebas,
   compilación Python/JS/shell, fixtures y `git diff --check` correctos. La
-  corrección requiere una release HA posterior autorizada; worker `1.0.11` no
-  cambia. No activar el candidato de `0.2.257` ni relanzar producción hasta
-  instalar esa corrección.
+  corrección se publicó en HA `0.2.258`; worker `1.0.11` no cambia. Los tags
+  `0.2.258` y `latest` comparten el índice OCI
+  `sha256:ccf54f9a4596a3bb15d7009fd8d92778874850c445a004d5a6b1db44a4966928`,
+  con `linux/amd64`
+  `sha256:9c45b6b046b2529b7eda5ede51e8d77c2d245572dcd649da5be476632a34ff1b`
+  y `linux/arm64`
+  `sha256:18bc28f384b686b98a3344fcc9ea7f0c9c32485085c38607c30f1c3e5afa623c`.
+  Corrección `bce180d`, release `be674d1`. No activar el candidato de `0.2.257`
+  ni relanzar producción hasta instalar `0.2.258`.
 
 ## 2026-08-18 - [VIGENTE][RELEASE] HA 0.2.257 publicada y worker privado 1.0.11 actualizado
 

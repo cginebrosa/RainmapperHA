@@ -37,11 +37,17 @@ especificaciones temáticas enlazadas.
   487 correctos y 381 fallidos. El alcance exacto de las 8 entrenadas habría
   producido 432 intentos: 429 correctos y las tres no convergencias sparse-group
   conocidas. No promover este candidato ni repetir todavía la regeneración real.
-- Corrección local posterior: el resultado ML guarda `trained_species` validado
+- Corrección publicada en HA `0.2.258`: el resultado ML guarda `trained_species` validado
   por HA y el job V2–V6 enlazado consume exactamente ese conjunto; si falta lo
   rechaza. Gate local: 241 pruebas dirigidas y smoke completo 886/886, incluidos
-  fixtures, sintaxis y `git diff --check`. Requiere una nueva release HA; el
-  worker `1.0.11` es compatible y no necesita otro cambio.
+  fixtures, sintaxis y `git diff --check`. `0.2.258` y `latest` comparten el
+  índice OCI `sha256:ccf54f9a4596a3bb15d7009fd8d92778874850c445a004d5a6b1db44a4966928`,
+  con manifests `linux/amd64`
+  `sha256:9c45b6b046b2529b7eda5ede51e8d77c2d245572dcd649da5be476632a34ff1b`
+  y `linux/arm64`
+  `sha256:18bc28f384b686b98a3344fcc9ea7f0c9c32485085c38607c30f1c3e5afa623c`.
+  Commits publicados: corrección `bce180d`, release `be674d1`. Falta instalar
+  `0.2.258`; el worker `1.0.11` es compatible y no necesita otro cambio.
 - Ninguna V2–V6 está validada como preferida o ganadora. V2 alimenta la tarjeta
   histórica únicamente por orden cronológico. Todas siguen experimentales y
   deben mostrarse con calidad hold-out, aplicabilidad y cautelas propias.
