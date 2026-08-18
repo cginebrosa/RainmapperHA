@@ -1017,10 +1017,28 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
         status = str(result.get("verification_status", "") or "")[:40]
         if status:
             normalized["verification_status"] = status
+        trained_species = result.get("trained_species")
+        if trained_species is not None:
+            if not isinstance(trained_species, list) or len(trained_species) > 256:
+                raise ValueError("Worker ML result trained_species is invalid.")
+            normalized_species = [str(value).strip() for value in trained_species]
+            if (
+                any(
+                    not value
+                    or len(value) > 120
+                    or any(not (character.isalnum() or character in "_-") for character in value)
+                    for value in normalized_species
+                )
+                or len(set(normalized_species)) != len(normalized_species)
+            ):
+                raise ValueError("Worker ML result trained_species is invalid.")
+            normalized["trained_species"] = normalized_species
         trained_species_count = result.get("trained_species_count")
         if trained_species_count is not None:
             if not isinstance(trained_species_count, int) or isinstance(trained_species_count, bool) or trained_species_count < 0:
                 raise ValueError("Worker ML result trained_species_count is invalid.")
+            if trained_species is not None and trained_species_count != len(normalized_species):
+                raise ValueError("Worker ML result trained_species_count does not match trained_species.")
             normalized["trained_species_count"] = trained_species_count
         result_manifest_id = str(result.get("result_manifest_id", "") or "")
         if result_manifest_id:

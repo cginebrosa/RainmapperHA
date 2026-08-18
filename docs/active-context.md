@@ -12,8 +12,10 @@ especificaciones temáticas enlazadas.
 - La línea completa de corrección quedó registrada y enviada a `origin/inicial`
   en el commit `c5b51e8`. No limpiar, resetear, sustituir ni borrar datos vivos,
   cachés, artefactos o ficheros locales ajenos a Git.
-- HA `0.2.257` está publicada y pendiente de instalación/validación por el
-  usuario. `0.2.257` y `latest` comparten el índice OCI
+- HA `0.2.257` fue instalada por el usuario. La primera regeneración real terminó
+  sus tres jobs, pero la generación completa no se activó y no debe activarse:
+  el V2–V6 encadenado volvió a planificar especies no entrenadas por ML v0.
+  `0.2.257` y `latest` comparten el índice OCI
   `sha256:67a4d38890591adbc53bb441ff39ae2c9a544f5d78aefe45f74560daa4d86bc5`,
   verificado con manifests `linux/amd64`
   `sha256:7a06463088ee099da9e2c99f4097276f5385dbf11c066de01d2d3f56683613b6`
@@ -28,8 +30,18 @@ especificaciones temáticas enlazadas.
 - El worker real usa la dirección Tailscale de HA porque está fuera de la LAN.
   La prohibición operativa es que Codex no use Tailscale ni exponga SMB; no
   significa retirar o cambiar esa URL persistente del worker.
-- No ejecutar la regeneración real hasta que el usuario instale y valide HA
-  `0.2.257`; la publicación por sí sola no demuestra el runtime en la RPi4.
+- Candidato real pendiente, sin activar: reconstrucción
+  `worker_job_WhIQATkr6XU_S6nx`, ML v0 `worker_job_QmRb2Se7Gxwpq-FO` y V2–V6
+  `worker_job_lpQr8P_ab4aFsha0`, batch `local_v2_v6_20260817T232733Z`.
+  ML v0 entrenó 8 especies, pero V2–V6 recibió 16 y produjo 868 intentos:
+  487 correctos y 381 fallidos. El alcance exacto de las 8 entrenadas habría
+  producido 432 intentos: 429 correctos y las tres no convergencias sparse-group
+  conocidas. No promover este candidato ni repetir todavía la regeneración real.
+- Corrección local posterior: el resultado ML guarda `trained_species` validado
+  por HA y el job V2–V6 enlazado consume exactamente ese conjunto; si falta lo
+  rechaza. Gate local: 241 pruebas dirigidas y smoke completo 886/886, incluidos
+  fixtures, sintaxis y `git diff --check`. Requiere una nueva release HA; el
+  worker `1.0.11` es compatible y no necesita otro cambio.
 - Ninguna V2–V6 está validada como preferida o ganadora. V2 alimenta la tarjeta
   histórica únicamente por orden cronológico. Todas siguen experimentales y
   deben mostrarse con calidad hold-out, aplicabilidad y cautelas propias.

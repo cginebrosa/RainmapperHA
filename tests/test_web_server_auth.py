@@ -6611,6 +6611,103 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('value="promote_full_update"', before)
         self.assertIn('value="promote_full_update"', after)
 
+    def test_linked_multiversion_scope_uses_only_verified_trained_species(self) -> None:
+        species = self.web_server.linked_ml_trained_species_ids(
+            {
+                "status": "complete",
+                "result": {
+                    "verification_status": "verified",
+                    "trained_species_count": 2,
+                    "trained_species": ["boletus_edulis", "amanita_caesarea"],
+                },
+            }
+        )
+
+        self.assertEqual(species, ["amanita_caesarea", "boletus_edulis"])
+        with self.assertRaisesRegex(ValueError, "verified trained species"):
+            self.web_server.linked_ml_trained_species_ids(
+                {
+                    "status": "complete",
+                    "result": {
+                        "verification_status": "verified",
+                        "trained_species_count": 2,
+                    },
+                }
+            )
+
+    def test_finished_linked_ml_job_persists_server_verified_species_for_v2_v6(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        result_root = Path(self.temp_dir.name) / "results"
+        job_id = "worker_job_training123"
+        self.web_server.mushroom_worker_jobs.create_ml_train_job(
+            jobs_path,
+            worker_id="worker_aaaaaaaa",
+            worker_display_name="M1 personal",
+            input_bundle={
+                "job_id": job_id,
+                "features_digest": "sha256:" + "a" * 64,
+                "job_spec_id": "sha256:" + "b" * 64,
+            },
+            job_id=job_id,
+            triggered_by_job_id="worker_job_rebuild123",
+        )
+        claimed = self.web_server.mushroom_worker_jobs.claim_next(
+            jobs_path,
+            worker_id="worker_aaaaaaaa",
+            claim_token="training-secret",
+        )
+        self.web_server.mushroom_worker_jobs.start_job(
+            jobs_path,
+            job_id=job_id,
+            worker_id="worker_aaaaaaaa",
+            claim_token=str(claimed["claim_token"]),
+        )
+        verification = {
+            "status": "reused",
+            "result_manifest_id": "sha256:" + "c" * 64,
+            "trained_species_count": 2,
+            "trained_species": ["boletus_edulis", "amanita_caesarea"],
+        }
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"},
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_candidate_results_path", return_value=result_root
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_results,
+            "finalize_ml_train_result",
+            return_value=verification,
+        ), mock.patch.object(
+            self.web_server,
+            "start_mushroom_ml_multiversion_job",
+            return_value=(202, {"ok": True, "preparing": True}),
+        ) as start_multiversion, mock.patch.object(
+            self.web_server, "discard_mushroom_worker_input_bundle"
+        ):
+            status, response = self.web_server.finish_mushroom_worker_job(
+                {
+                    "job_id": job_id,
+                    "worker_id": "worker_aaaaaaaa",
+                    "claim_token": "training-secret",
+                    "status": "complete",
+                    "result": {"trained_species_count": 999},
+                },
+                auth_token="",
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            response["job"]["result"]["trained_species"],
+            ["boletus_edulis", "amanita_caesarea"],
+        )
+        self.assertEqual(response["job"]["result"]["trained_species_count"], 2)
+        start_multiversion.assert_called_once_with(
+            "worker_aaaaaaaa",
+            triggered_by_job_id=job_id,
+        )
+
     def test_full_update_backend_rejects_promotion_before_linked_v2_v6_completes(self) -> None:
         training = {
             "job_id": "worker_job_training123",

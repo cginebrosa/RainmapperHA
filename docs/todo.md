@@ -38,11 +38,17 @@ resultados cerrados que condicionan esas prioridades.
   Edulis/Salteguet; no asumir que es el miembro V2 del batch comparativo.
 - [x] Reproducir la lluvia IDW de Salteguet del 17/08 con estaciones finitas,
   fuentes habilitadas, radio y umbral de soporte; verificar ceros y `N/A`.
-- [ ] Tras cerrar esas anomalías, detenerse e informar y pedir autorización
-  explícita. Solo después
-  leer `docs/release-flow.md`, verificar/bump de versiones y preparar/publicar.
-- [ ] Instalar primero el worker corregido y después HA; solo entonces repetir
-  la regeneración completa real y comprobar que el Predictor queda `current`.
+- [x] Publicar HA `0.2.257`, actualizar el worker privado a `1.0.11` e instalar
+  HA. La primera regeneración real terminó sin activar su generación completa.
+- [x] Diagnosticar el alcance real: ML v0 entrenó 8 especies pero HA volvió a
+  calcular 16 para V2–V6, causando 436 fits improcedentes y 381 rechazos.
+- [x] Corregir localmente el encadenado para persistir y heredar exactamente
+  `trained_species`; 241 pruebas dirigidas y smoke completo 886/886 correctos.
+- [ ] Mantener sin activar el candidato `local_v2_v6_20260817T232733Z` y pedir
+  autorización explícita antes de preparar/publicar la siguiente release HA.
+- [ ] Tras instalar la corrección, repetir la regeneración completa real y
+  comprobar un alcance esperado de 432 fits (429 correctos, 3 sparse-group),
+  activar la generación y verificar que el Predictor queda `current`.
 
 ## P1 — Mantener la comparación científica, sin promoción prematura
 

@@ -13068,6 +13068,25 @@ def start_mushroom_ml_train_job(
     return 202, {"ok": True, "preparing": True}
 
 
+def linked_ml_trained_species_ids(training_job: object) -> list[str]:
+    """Return the exact verified species scope produced by linked ML v0 training."""
+    if not isinstance(training_job, dict):
+        raise ValueError("Linked ML training job was not found.")
+    training_result = training_job.get("result")
+    training_result = training_result if isinstance(training_result, dict) else {}
+    trained_species = training_result.get("trained_species")
+    if (
+        training_job.get("status") != "complete"
+        or training_result.get("verification_status") != "verified"
+        or not isinstance(trained_species, list)
+        or not trained_species
+    ):
+        raise ValueError(
+            "Linked ML training result does not declare its verified trained species."
+        )
+    return sorted(str(value) for value in trained_species)
+
+
 def create_mushroom_ml_multiversion_job(
     worker_id: str,
     *,
@@ -13127,13 +13146,16 @@ def create_mushroom_ml_multiversion_job(
                 + missing[0]
             )
         batch_id = "local_v2_v6_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        store = default_store()
-        store.ensure_seeded()
-        observations_payload = store.load("observations")
-        observations = observation_dicts_from_payload(
-            observations_payload if isinstance(observations_payload, dict) else {}
-        )
-        species_ids = sorted(eligible_model_species_ids(observations))
+        if triggered_by_job_id:
+            species_ids = linked_ml_trained_species_ids(training_job)
+        else:
+            store = default_store()
+            store.ensure_seeded()
+            observations_payload = store.load("observations")
+            observations = observation_dicts_from_payload(
+                observations_payload if isinstance(observations_payload, dict) else {}
+            )
+            species_ids = sorted(eligible_model_species_ids(observations))
         registry = json.loads(sources["registry.json"].read_text(encoding="utf-8"))
         generation_ids = {
             str(row["version_id"]): f"{row['version_id']}_{batch_id}"
@@ -13546,6 +13568,20 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     "result_manifest_id": candidate.get("result_manifest_id"),
                     "verified_artifacts": candidate.get("verified_artifacts"),
                     "comparison_status": candidate.get("comparison_status"),
+                }
+            elif (
+                current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_TRAIN
+                and str(payload.get("status", "")) == "complete"
+            ):
+                verification = mushroom_worker_results.finalize_ml_train_result(
+                    mushroom_worker_candidate_results_path(),
+                    job_id=str(payload.get("job_id", "")),
+                )
+                trusted_result = {
+                    "verification_status": "verified",
+                    "result_manifest_id": verification.get("result_manifest_id"),
+                    "trained_species_count": verification.get("trained_species_count"),
+                    "trained_species": verification.get("trained_species"),
                 }
             job = mushroom_worker_jobs.finish_job(
                 mushroom_worker_jobs_path(),

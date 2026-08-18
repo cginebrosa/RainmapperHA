@@ -880,6 +880,30 @@ class MushroomWorkerJobsTests(unittest.TestCase):
 
         self.assertEqual(job["input_bundle"]["snapshot_id"], "sha256:" + "b" * 64)
 
+    def test_ml_training_result_persists_exact_verified_species_scope(self) -> None:
+        normalized = mushroom_worker_jobs._normalized_result(
+            {"job_type": mushroom_worker_jobs.JOB_TYPE_ML_TRAIN},
+            {
+                "verification_status": "verified",
+                "trained_species_count": 2,
+                "trained_species": ["boletus_edulis", "amanita_caesarea"],
+                "result_manifest_id": "sha256:" + "a" * 64,
+            },
+        )
+
+        self.assertEqual(
+            normalized["trained_species"],
+            ["boletus_edulis", "amanita_caesarea"],
+        )
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            mushroom_worker_jobs._normalized_result(
+                {"job_type": mushroom_worker_jobs.JOB_TYPE_ML_TRAIN},
+                {
+                    "trained_species_count": 1,
+                    "trained_species": ["boletus_edulis", "amanita_caesarea"],
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
