@@ -49,14 +49,16 @@ species_id
 horizon_days
 ```
 
-`fixed_gap` solo admite horizonte 7. `lag_event` admite 1/2/3/7, pero cada
-especie+contrato+perfil+estimador tiene un único ajuste: los cuatro horizontes
-seleccionan filas o valores de `horizon_days` del mismo modelo y nunca crean
-cuatro entrenamientos.
+`fixed_gap` solo admite horizonte 7. `lag_event` admite todos los horizontes
+enteros `1..7`, pero cada especie+contrato+perfil+estimador tiene un único
+ajuste: los siete horizontes seleccionan filas o valores de `horizon_days` del
+mismo modelo y nunca crean siete entrenamientos.
 
 Por ello el manifiesto distingue `artifact_ref` (la misma identidad sin
 `horizon_days`) de `model_ref` (una consulta predictiva concreta). Un artefacto
-lag declara `supported_horizons=[1,2,3,7]` y aparece una sola vez en disco.
+lag declara `supported_horizons=[1,2,3,4,5,6,7]` y aparece una sola vez en disco.
+Los cortes `1/2/3/7` pueden conservarse como resumen diagnóstico de calidad,
+pero no limitan las fechas que el Predictor puede resolver durante la semana.
 
 `group_days=7/14` pertenece únicamente a la partición del benchmark. No forma
 parte de `model_ref` ni del runtime. El retardo meteorológico raw 0–364 tampoco
@@ -177,9 +179,9 @@ evidencia débil, extrapolaciones/no utilizables y abstenciones por entradas
 meteorológicas incompletas. Las tablas por algoritmo quedan como diagnóstico
 plegable. Un `runtime_feature_gates_failed` causado por cobertura no se presenta
 como avería del modelo: muestra el corte meteorológico observado que todavía
-debe completarse. En una consulta futura, h1/h2/h3/h7 son fechas de emisión
-distintas del mismo modelo `lag_event`; la UI no supone que exista meteorología
-observada posterior a hoy.
+debe completarse. En una consulta futura, h1..h7 son fechas de emisión distintas
+del mismo modelo `lag_event`; la UI no supone que exista meteorología observada
+posterior a hoy.
 
 V5/V6 no fingirán una importancia causal de cada día. Mostrarán resúmenes por
 banda y, cuando proceda, coeficientes o curvas estables con la advertencia de
@@ -205,7 +207,7 @@ manifest, no otra implementación.
 
 - catálogo y `model_ref` validados sin listas V2–V6 hardcodeadas en la UI;
 - adaptadores train/inferencia con paridad por perfil;
-- un único ajuste lag y proyección 1/2/3/7 comprobados por tests;
+- un único ajuste lag y proyección operativa 1..7 comprobados por tests;
 - batch atómico, hash, incompatibilidad y rollback probados;
 - Comparar mantiene explicaciones y no promedia versiones;
 - worker anuncia capacidades reales y HA las exige;

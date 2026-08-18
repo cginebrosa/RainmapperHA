@@ -131,7 +131,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             "artifacts": [
                 {
                     "artifact_ref": model_ref.artifact_ref.as_dict(),
-                    "supported_horizons": [1, 2, 3, 7],
+                    "supported_horizons": list(range(1, 8)),
                     "path": catalog.model_relative_path(
                         model_ref.artifact_ref
                     ).as_posix(),
@@ -181,7 +181,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         artifacts = []
         for contract_id, horizons in (
             (comparison.V2_FIXED_CONTRACT_ID, [7]),
-            (comparison.V2_LAG_CONTRACT_ID, [1, 2, 3, 7]),
+            (comparison.V2_LAG_CONTRACT_ID, list(range(1, 8))),
         ):
             artifact_ref = catalog.ModelArtifactRef(
                 batch_id="batch-a",
@@ -255,6 +255,94 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             "common_multisource_idw_by_microarea",
         )
 
+    def test_v2_reference_resolves_intermediate_week_horizons(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        artifacts = []
+        for contract_id, horizons in (
+            (comparison.V2_FIXED_CONTRACT_ID, [7]),
+            (comparison.V2_LAG_CONTRACT_ID, list(range(1, 8))),
+        ):
+            artifact_ref = catalog.ModelArtifactRef(
+                batch_id="batch-a",
+                generation_id="generation-v2",
+                version_id="altitude_v2",
+                temporal_contract_id=contract_id,
+                profile_id="common_idw",
+                estimator_id="logistic_regression_reduced_v1",
+                species_id="boletus_edulis",
+            )
+            artifacts.append(
+                {
+                    "artifact_ref": artifact_ref.as_dict(),
+                    "supported_horizons": horizons,
+                    "path": catalog.model_relative_path(artifact_ref).as_posix(),
+                    "sha256": "b" * 64,
+                }
+            )
+        manifest = {
+            "schema_version": "1.0",
+            "kind": "mushroom_ml_runtime_batch",
+            "batch_id": "batch-a",
+            "snapshot_id": "sha256:" + "a" * 64,
+            "artifacts": artifacts,
+        }
+
+        def available_members(_registry, _manifest, selections, **_kwargs):
+            return {
+                "members": [
+                    {
+                        "model_ref": {
+                            **next(
+                                artifact["artifact_ref"]
+                                for artifact in artifacts
+                                if artifact["artifact_ref"]["temporal_contract_id"]
+                                == selection["temporal_contract_id"]
+                            ),
+                            "horizon_days": selection["horizon_days"],
+                        },
+                        "available": True,
+                        "prediction": {"probability": 0.6, "applicability": {}},
+                        "evaluation": None,
+                        "features_used": {},
+                        "metadata": {},
+                    }
+                    for selection in selections
+                ]
+            }
+
+        issue_date = date(2026, 8, 18)
+        with mock.patch.object(
+            comparison, "compare_selection", side_effect=available_members
+        ) as compare_selection:
+            for horizon_days in (4, 5, 6):
+                with self.subTest(horizon_days=horizon_days):
+                    result = comparison.compare_v2_reference(
+                        registry,
+                        manifest,
+                        species_id="boletus_edulis",
+                        area_id="area-a",
+                        target_date=issue_date + timedelta(days=horizon_days - 1),
+                        issue_date=issue_date,
+                        season_phase="in_season",
+                        phenology={},
+                        models_root=Path("/unused"),
+                        known_sites_path=Path("/unused/sites.json"),
+                        weather_data_dir=Path("/unused/weather"),
+                    )
+                    self.assertTrue(
+                        result[comparison.V2_LAG_CONTRACT_ID]["available"]
+                    )
+                    selections = compare_selection.call_args.args[2]
+                    self.assertIn(
+                        horizon_days,
+                        {
+                            row["horizon_days"]
+                            for row in selections
+                            if row["temporal_contract_id"]
+                            == comparison.V2_LAG_CONTRACT_ID
+                        },
+                    )
+
     def test_compare_reports_members_individually_and_never_ensembles(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
         model_ref = catalog.ModelRef(
@@ -276,7 +364,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             "artifacts": [
                 {
                     "artifact_ref": artifact_ref.as_dict(),
-                    "supported_horizons": [1, 2, 3, 7],
+                    "supported_horizons": list(range(1, 8)),
                     "path": catalog.model_relative_path(artifact_ref).as_posix(),
                     "sha256": "b" * 64,
                 }
@@ -345,7 +433,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             "artifacts": [
                 {
                     "artifact_ref": model_ref.artifact_ref.as_dict(),
-                    "supported_horizons": [1, 2, 3, 7],
+                    "supported_horizons": list(range(1, 8)),
                     "path": catalog.model_relative_path(model_ref).as_posix(),
                     "sha256": "b" * 64,
                 }
@@ -388,7 +476,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             "artifacts": [
                 {
                     "artifact_ref": artifact_ref.as_dict(),
-                    "supported_horizons": [1, 2, 3, 7],
+                    "supported_horizons": list(range(1, 8)),
                     "path": catalog.model_relative_path(artifact_ref).as_posix(),
                     "sha256": "b" * 64,
                 }

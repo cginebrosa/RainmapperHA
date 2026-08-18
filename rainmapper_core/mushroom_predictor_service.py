@@ -86,7 +86,7 @@ def normalize_request(payload: object) -> dict[str, Any]:
                 "estimator_id",
             )
         }
-        if not all(normalized_member.values()) or horizon_days not in {1, 2, 3, 7}:
+        if not all(normalized_member.values()) or horizon_days not in range(1, 8):
             raise PredictorContractError("Multiversion comparison member is incomplete.")
         normalized_member["horizon_days"] = horizon_days
         if normalized_member not in multiversion_selection:

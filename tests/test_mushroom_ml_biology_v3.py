@@ -456,6 +456,23 @@ class MushroomMLBiologyV3Tests(unittest.TestCase):
             {"one", "two"},
         )
 
+    def test_lag_benchmark_defaults_to_every_operational_week_horizon(self) -> None:
+        payload = biology_v3.build_biology_v3_benchmark(
+            [self.observation("one")],
+            feature_set_id=biology_v3.LAG_EVENT_BIOLOGY_V3_ID,
+            micro_area_to_area={"site_a": "area"},
+            area_contexts={"area": self.area_context()},
+            area_rainfall_by_date={
+                ("area", "2026-08-13"): self.area_rainfall()
+            },
+            stations={("test", "COMPLETE"): self.complete_station("COMPLETE")},
+        )
+
+        self.assertEqual(
+            {sample["metadata"]["horizon_days"] for sample in payload["samples"]},
+            set(range(1, 8)),
+        )
+
     def test_short_and_long_fruiting_groups_relate_but_do_not_merge_rows(self) -> None:
         observations = [
             self.observation("one", observed_at="2026-08-01"),

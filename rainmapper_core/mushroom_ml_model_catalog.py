@@ -16,7 +16,7 @@ from typing import Any, Mapping
 SCHEMA_VERSION = "1.0"
 BATCH_MANIFEST_KIND = "mushroom_ml_runtime_batch"
 FIXED_HORIZONS = frozenset({7})
-LAG_HORIZONS = frozenset({1, 2, 3, 7})
+LAG_HORIZONS = frozenset(range(1, 8))
 _SAFE_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,159}$")
 
 

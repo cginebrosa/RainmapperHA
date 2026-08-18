@@ -27,7 +27,7 @@ class MushroomMLMultiversionPlanTests(TestCase):
         self.assertEqual(len(keys), len(set(keys)))
         self.assertTrue(
             all(
-                row["supported_horizons"] == [1, 2, 3, 7]
+                row["supported_horizons"] == list(range(1, 8))
                 for row in result["fits"]
                 if row["artifact_ref"]["temporal_contract_id"].startswith("lag_event_")
             )

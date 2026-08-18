@@ -7,6 +7,29 @@ especificaciones temáticas enlazadas.
 
 ## Estado al cierre — 2026-08-18
 
+- P0 corregido y publicado: en la semana del Predictor el modelo `lag_event` aparecía
+  para h1/h2/h3, desaparece en h4/h5/h6 con `model_not_installed` y reaparece en
+  h7. No faltan tres artefactos: el batch real contiene 215 artefactos lag, todos
+  con `supported_horizons=[1,2,3,7]`, aunque el contrato operativo original
+  exige 1..7 y cada combinación tiene un solo ajuste. Corrección local: catálogo,
+  preparación, entrenamiento e inferencia vuelven a 1..7; 1/2/3/7 queda solo
+  como posible resumen diagnóstico. Requiere reconstruir/reentrenar para que el
+  nuevo manifest sustituya al instalado. Gate local: 51 pruebas dirigidas y
+  smoke completo 898/898, incluida regresión explícita para h4/h5/h6. La
+  corrección está publicada en HA `0.2.261` y construida en el worker privado
+  local `1.0.14`; requiere instalar HA y reconstruir/reentrenar para sustituir
+  los manifests anteriores `[1,2,3,7]`.
+
+- HA `0.2.261` y `latest` comparten el índice OCI
+  `sha256:ad0dc1fba3ea7a420b05cc9ca4bcae9d035ebb0aefccd9680dd4892f7467aec2`,
+  con manifests `linux/amd64`
+  `sha256:5a5a2e10fcfa33e0829ec3af5d411b24c8b53ab6cb6cef7c7fc095032a1a209c`
+  y `linux/arm64`
+  `sha256:dd9a1b0c66fa518164c2ee5c12c5c3b28e2fdf75f732022ed8a252cf67def4bf`.
+  Worker arm64 local `rainmapper-worker:1.0.14`, imagen
+  `sha256:a9dda8c58eda5b91087ed651decc777b9f03d0fcf382ec308e90a6c44461606c`;
+  no se publicó en ningún registro.
+
 - Prueba real posterior a instalar `0.2.260` y regenerar: el primer Predictor
   remoto terminó en 31 s (`worker_job_mT-fAwgl9nsH`) y materializó el runtime
   `sha256:5d828e31ef1f3165e5741b82419851dd51d0aaa33016fa5678c86c92fc1c398f`.

@@ -262,7 +262,7 @@ class PredictorRuntimeTests(TestCase):
                         "artifacts": [
                             {
                                 "artifact_ref": model_ref.artifact_ref.as_dict(),
-                                "supported_horizons": [1, 2, 3, 7],
+                                "supported_horizons": list(range(1, 8)),
                                 "path": relative.as_posix(),
                                 "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
                             }

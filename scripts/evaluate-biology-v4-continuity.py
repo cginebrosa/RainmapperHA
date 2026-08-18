@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--profile", default="climatic_balance")
     parser.add_argument("--eligibility-profile")
     parser.add_argument("--group-days", choices=(7, 14), type=int, required=True)
-    parser.add_argument("--horizon-days", choices=(1, 2, 3, 7), type=int)
+    parser.add_argument("--horizon-days", choices=range(1, 8), type=int)
     parser.add_argument("--padding-days", type=int, default=14)
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()

@@ -37,7 +37,9 @@ def parse_args() -> argparse.Namespace:
         choices=sorted(biology_v3.BIOLOGY_V3_FEATURE_SETS),
         required=True,
     )
-    parser.add_argument("--horizons", nargs="+", type=int, default=[1, 2, 3, 7])
+    parser.add_argument(
+        "--horizons", nargs="+", type=int, default=list(range(1, 8))
+    )
     return parser.parse_args()
 
 

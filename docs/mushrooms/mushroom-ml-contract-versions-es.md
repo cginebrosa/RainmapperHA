@@ -231,8 +231,9 @@ calculadas entran juntas para que Elastic Net y sparse-group logistic puedan
 seleccionarlas dentro de train; los contadores de calidad y procedencia quedan
 fuera de `X`. Los perfiles que omiten calendario, derivados físicos o SMI son
 ablaciones, no el perfil canónico de runtime. En `lag_event` hay un único ajuste
-por especie+contrato+estimador+split y los horizontes 1/2/3/7 filtran las mismas
-probabilidades hold-out.
+por especie+contrato+estimador+split. El Predictor admite 1..7; los cortes
+1/2/3/7 siguen siendo un resumen diagnóstico que filtra las mismas
+probabilidades hold-out, no una limitación de disponibilidad del modelo.
 
 El benchmark histórico del 2026-08-16 conserva 8.490 predicciones fila a fila. En 34
 contextos evaluables, el mejor V5 vence dos veces y pierde 32 frente al mejor

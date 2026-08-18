@@ -54,6 +54,12 @@ class MushroomMLModelCatalogTests(TestCase):
 
     def test_fixed_and_lag_horizons_are_not_confused(self) -> None:
         catalog.validate_model_ref(self.registry, self.ref())
+        for horizon_days in range(1, 8):
+            catalog.validate_model_ref(
+                self.registry, self.ref(horizon_days=horizon_days)
+            )
+        with self.assertRaisesRegex(ValueError, "horizon"):
+            catalog.validate_model_ref(self.registry, self.ref(horizon_days=8))
         with self.assertRaisesRegex(ValueError, "horizon"):
             catalog.validate_model_ref(
                 self.registry,
@@ -81,7 +87,7 @@ class MushroomMLModelCatalogTests(TestCase):
             "artifacts": [
                 {
                     "artifact_ref": model_ref.artifact_ref.as_dict(),
-                    "supported_horizons": [1, 2, 3, 7],
+                    "supported_horizons": list(range(1, 8)),
                     "path": path.as_posix(),
                     "sha256": "b" * 64,
                 }
@@ -111,7 +117,7 @@ class MushroomMLModelCatalogTests(TestCase):
             "artifacts": [
                 {
                     "artifact_ref": model_ref.artifact_ref.as_dict(),
-                    "supported_horizons": [1, 2, 3, 7],
+                    "supported_horizons": list(range(1, 8)),
                     "path": "models/v2.joblib",
                     "sha256": "b" * 64,
                 }

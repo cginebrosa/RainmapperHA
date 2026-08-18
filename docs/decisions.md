@@ -1,5 +1,30 @@
 # Decisions
 
+## 2026-08-18 - [VIGENTE][RELEASE] HA 0.2.261 y worker privado local 1.0.14
+
+- Publican el contrato operativo `lag_event` con horizontes 1..7, eliminando
+  los falsos `model_not_installed` de h4/h5/h6 sin multiplicar los ajustes.
+- Gate: 51 pruebas dirigidas, smoke completo 898/898 y `git diff --check`.
+- HA `0.2.261` y `latest` comparten
+  `sha256:ad0dc1fba3ea7a420b05cc9ca4bcae9d035ebb0aefccd9680dd4892f7467aec2`,
+  con `linux/amd64` `sha256:5a5a2e10fcfa33e0829ec3af5d411b24c8b53ab6cb6cef7c7fc095032a1a209c`
+  y `linux/arm64` `sha256:dd9a1b0c66fa518164c2ee5c12c5c3b28e2fdf75f732022ed8a252cf67def4bf`.
+  El worker arm64 local `1.0.14` tiene imagen
+  `sha256:a9dda8c58eda5b91087ed651decc777b9f03d0fcf382ec308e90a6c44461606c`
+  y no se publicó en ningún registro.
+
+## 2026-08-18 - [VIGENTE][CONTRATO] Lag operativo cubre toda la semana 1..7
+
+- Los horizontes operativos de `lag_event` son los siete enteros 1..7. Los
+  cortes 1/2/3/7 son diagnósticos de calidad y no pueden crear huecos de modelo
+  en h4/h5/h6.
+- Sigue existiendo un único ajuste por especie+contrato+perfil+estimador; añadir
+  las filas y referencias intermedias no multiplica el número de fits.
+- Evidencia del defecto: el runtime real declaraba 215 artefactos lag y todos
+  llevaban `supported_horizons=[1,2,3,7]`; por eso el Predictor interpretaba los
+  días 4–6 como `model_not_installed` y volvía a encontrar el mismo artefacto en
+  h7.
+
 ## 2026-08-18 - [VIGENTE][RELEASE] Worker privado local 1.0.13
 
 - Despliega la reutilización del runtime actual y el fallback verificado por

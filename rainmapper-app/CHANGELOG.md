@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.261
+
+- Restore operational lag-event coverage for every day of the seven-day
+  Predictor horizon while retaining 1/2/3/7 only as diagnostic cuts.
+- Reuse the same fitted lag-event artifact for horizons 1 through 7 instead of
+  reporting `model_not_installed` on days 4 through 6.
+
 ## 0.2.260
 
 - Reuse models produced by the same worker through a transient SHA-256 object

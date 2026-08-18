@@ -1398,8 +1398,8 @@ def build_biology_v3_inference_sample(
             stations=stations,
         )
     elif temporal_contract_id == LAG_EVENT_BIOLOGY_V3_ID:
-        if horizon_days not in {1, 2, 3, 7}:
-            raise ValueError("Biology V3 lag inference horizon must be 1, 2, 3, or 7")
+        if horizon_days not in range(1, 8):
+            raise ValueError("Biology V3 lag inference horizon must be between 1 and 7")
         sample = build_lag_event_biology_v3(
             observation,
             horizon_days=horizon_days,
@@ -1489,7 +1489,7 @@ def build_biology_v3_benchmark(
     area_contexts: Mapping[str, AreaPredictionContext],
     area_rainfall_by_date: Mapping[tuple[str, str], Mapping[str, object]],
     stations: Mapping[tuple[str, str], weather_context.WeatherStation],
-    horizons: Iterable[int] = (1, 2, 3, 7),
+    horizons: Iterable[int] = tuple(range(1, 8)),
 ) -> dict[str, object]:
     """Build an auditable benchmark without aggregating original observations."""
     try:
