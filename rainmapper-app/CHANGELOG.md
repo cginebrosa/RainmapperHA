@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.258
+
+- Chain V2--V6 training from the exact species set verified as trained by ML v0,
+  instead of recalculating a broader eligibility list from observations.
+
 ## 0.2.257
 
 - Build V2--V6 training inputs from each fresh immutable rebuild snapshot and
