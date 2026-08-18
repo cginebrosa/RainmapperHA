@@ -14,10 +14,10 @@ especificaciones temáticas enlazadas.
   `1.0.12` solo evitaba el tar mientras existía el almacén transitorio de
   modelos recién entrenados; tras consumirlo ignoraba el runtime actual,
   descargaba otra vez el tar completo y este era rechazado por no coincidir
-  con el manifiesto. Corrección local pendiente de nueva versión del worker:
-  usar sincronización delta si existe runtime actual u objetos transitorios y
-  recurrir al protocolo por fichero, con los mismos hashes, si el tar es
-  inválido. Corregido y desplegado localmente en el worker `1.0.13`: está
+  con el manifiesto. La corrección usa sincronización delta si existe runtime
+  actual u objetos transitorios y recurre al protocolo por fichero, con los
+  mismos hashes, si el tar es inválido. Está desplegada en el worker `1.0.13`,
+  que permanece
   `idle`, conserva válidas la caché GIS de 12 ficheros/6.341.520.039 bytes y
   la caché Predictor de 143.696.061 bytes con el mismo fingerprint.
 
@@ -26,6 +26,12 @@ especificaciones temáticas enlazadas.
   `sha256:230737ae0328425997b698d4c830ecf3489c121b5cc241cf394d8042bb634f41`.
   Gate posterior: smoke completo 896/896 y `git diff --check` limpio. No se
   publicó el worker en ningún registro.
+
+- Prueba funcional posterior con `1.0.13`: el recomendador terminó en 20 s y
+  seis consultas por área/fecha terminaron entre 3 s y 12 s. Queda pendiente,
+  sin abordarlo ahora, perfilar el entrenamiento comparativo V2–V6 que tardó
+  27 min 14 s y decidir con medidas por fase si ese coste es necesario o puede
+  reducirse sin cambiar el contrato ni los resultados.
 
 - HA `0.2.260` publicada tras smoke completo de 894 pruebas. `0.2.260` y
   `latest` comparten el índice OCI
