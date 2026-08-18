@@ -13,7 +13,7 @@
   con `linux/amd64` `sha256:35d685d57a7110ed49464f13889b7f1f93c9ea574176e9a4d61d149986b2f2c4`
   y `linux/arm64` `sha256:8667d0ee1f37dba8fc7edf253a7ddbad0956f28e23f2b25b922a88c3aae41cdf`.
   El worker no se publicó en registro: imagen local arm64 `1.0.12`, digest
-  `sha256:87d49a4735b5d1250e1cc10ac766bda1ff6c6759d23214b93edf1e0700068fd3`.
+  `sha256:451f8c9c706af37c527013f946428fe94142b352f79f9a31c1e2fd30112d8056`.
 
 Nota de auditoria 2026-07-20: este fichero es un log cronologico/historico. Las
 entradas antiguas se conservan para trazabilidad y pueden describir fases ya

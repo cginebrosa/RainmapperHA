@@ -16,7 +16,7 @@ especificaciones temáticas enlazadas.
   `sha256:8667d0ee1f37dba8fc7edf253a7ddbad0956f28e23f2b25b922a88c3aae41cdf`.
   El worker privado no se publicó en ningún registro: su imagen local arm64
   `rainmapper-worker:1.0.12` quedó construida y validada con digest
-  `sha256:87d49a4735b5d1250e1cc10ac766bda1ff6c6759d23214b93edf1e0700068fd3`.
+  `sha256:451f8c9c706af37c527013f946428fe94142b352f79f9a31c1e2fd30112d8056`.
 
 - Correcciones locales aún no publicadas tras la prueba real del Predictor
   remoto: (1) la vigencia ignora el hash binario de
