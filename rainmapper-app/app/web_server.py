@@ -12585,6 +12585,7 @@ def resolve_mushroom_predictor_runtime_download(
     claim_token: str,
     auth_token: str,
     manifest_only: bool = False,
+    archive_only: bool = False,
 ) -> tuple[int, Path | dict[str, object]]:
     if not authenticate_mushroom_worker(worker_id, auth_token):
         return 401, {"ok": False, "error": "Worker authentication failed."}
@@ -12601,6 +12602,12 @@ def resolve_mushroom_predictor_runtime_download(
             raise ValueError("Live predictor runtime changed; retry the prediction.")
         if manifest_only:
             return 200, assigned
+        if archive_only:
+            return 200, mushroom_predictor_runtime.build_runtime_archive(
+                mushroom_paths.mushroom_ml_models_dir() / ".predictor-runtime-archives",
+                assigned,
+                sources,
+            )
         return 200, mushroom_predictor_runtime.resolve_source(assigned, sources, logical_path)
     except (FileNotFoundError, ValueError) as exc:
         return 409, {"ok": False, "error": str(exc)}
@@ -13634,6 +13641,23 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                 set_mushroom_workers_flash(
                     "Operational V2 training completed, but V2--V6 comparison training could not be queued: "
                     + str(comparison_response.get("error", "unknown error")),
+                    error=True,
+                )
+        if (
+            current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION
+            and str(payload.get("status", "")) == "complete"
+            and bool(current_job.get("triggered_by_job_id"))
+        ):
+            promotion_status, promotion_response = promote_mushroom_full_update(
+                str(current_job.get("triggered_by_job_id", ""))
+            )
+            if promotion_status != 202:
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label(
+                        "ui.worker_full_update_auto_promotion_failed"
+                    ).replace(
+                        "{error}", str(promotion_response.get("error", "unknown error"))
+                    ),
                     error=True,
                 )
         if current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
@@ -19314,6 +19338,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
                 auth_token=worker_token,
                 manifest_only=(query.get("manifest") or [""])[0] == "1",
+                archive_only=(query.get("archive") or [""])[0] == "1",
             )
             if status == 200 and isinstance(response, dict):
                 self.send_json(200, {"ok": True, "manifest": response})

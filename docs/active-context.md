@@ -7,8 +7,46 @@ especificaciones temáticas enlazadas.
 
 ## Estado al cierre — 2026-08-18
 
+- HA `0.2.260` publicada tras smoke completo de 894 pruebas. `0.2.260` y
+  `latest` comparten el índice OCI
+  `sha256:c9ad3fcc04f47d39f1bb6f9f0e848f34670e0af5c6eeaf9babb54e527f3e281a`,
+  con manifests `linux/amd64`
+  `sha256:35d685d57a7110ed49464f13889b7f1f93c9ea574176e9a4d61d149986b2f2c4`
+  y `linux/arm64`
+  `sha256:8667d0ee1f37dba8fc7edf253a7ddbad0956f28e23f2b25b922a88c3aae41cdf`.
+  El worker privado no se publicó en ningún registro: su imagen local arm64
+  `rainmapper-worker:1.0.12` quedó construida y validada con digest
+  `sha256:87d49a4735b5d1250e1cc10ac766bda1ff6c6759d23214b93edf1e0700068fd3`.
+
+- Correcciones locales aún no publicadas tras la prueba real del Predictor
+  remoto: (1) la vigencia ignora el hash binario de
+  `mushroom_observation_features_v0.json`, porque es una salida derivada cuya
+  promoción rebasa rutas privadas a rutas vivas, pero sigue comprobando sus
+  entradas autoritativas; (2) la comprobación UI usa la identidad inmutable de
+  la generación `weather-history` y no relee todos sus parquet; (3) el runtime
+  remoto se transporta en un único tar verificado, con fallback al protocolo
+  antiguo; (4) el worker conserva por SHA-256 los modelos v0/sombra/V2–V6 que
+  acaba de producir y los enlaza a la caché Predictor antes de descargar.
+  Evidencia real que motivó el cambio: runtime de 518 ficheros/143.698.035
+  bytes; 464 modelos/96.055.695 bytes y transferencia redundante de 96.018.385
+  bytes. El job frío tardó 607,695 s, con solo 16,831 s de backend Predictor;
+  la consulta caliente posterior tardó 19,120 s.
+- Estas correcciones no formaban parte de `0.2.259`; quedaron publicadas en HA
+  `0.2.260` y construidas en el worker privado local `1.0.12` tras autorización
+  explícita del usuario.
 - Workspace verificado:
   `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
+- HA `0.2.258` está instalada. La regeneración real posterior confirmó la
+  corrección de alcance: ML v0 entrenó 8 especies y el V2–V6 enlazado planificó
+  436 fits, con 433 artefactos y únicamente las 3 no convergencias sparse-group
+  conocidas.
+- La activación manual de esa generación fue rechazada porque el runner
+  programado `action=all` actualizó `weather-history/CURRENT.json` a las
+  05:04:52 CEST, después de terminar V2–V6 a las 03:12:53 CEST. El control de
+  frescura funcionó; el candidato ya no coincidía con las entradas vivas.
+- Cambio local aún no publicado: al completar un V2–V6 enlazado, el coordinador
+  inicia automáticamente la misma promoción completa, atómica y con rollback
+  que antes exigía el botón. Fallos y trabajos no enlazados no se promocionan.
 - La línea completa de corrección quedó registrada y enviada a `origin/inicial`
   en el commit `c5b51e8`. No limpiar, resetear, sustituir ni borrar datos vivos,
   cachés, artefactos o ficheros locales ajenos a Git.
@@ -37,7 +75,7 @@ especificaciones temáticas enlazadas.
   487 correctos y 381 fallidos. El alcance exacto de las 8 entrenadas habría
   producido 432 intentos: 429 correctos y las tres no convergencias sparse-group
   conocidas. No promover este candidato ni repetir todavía la regeneración real.
-- Corrección publicada en HA `0.2.258`: el resultado ML guarda `trained_species` validado
+- Corrección publicada e instalada en HA `0.2.258`: el resultado ML guarda `trained_species` validado
   por HA y el job V2–V6 enlazado consume exactamente ese conjunto; si falta lo
   rechaza. Gate local: 241 pruebas dirigidas y smoke completo 886/886, incluidos
   fixtures, sintaxis y `git diff --check`. `0.2.258` y `latest` comparten el
@@ -46,8 +84,8 @@ especificaciones temáticas enlazadas.
   `sha256:9c45b6b046b2529b7eda5ede51e8d77c2d245572dcd649da5be476632a34ff1b`
   y `linux/arm64`
   `sha256:18bc28f384b686b98a3344fcc9ea7f0c9c32485085c38607c30f1c3e5afa623c`.
-  Commits publicados: corrección `bce180d`, release `be674d1`. Falta instalar
-  `0.2.258`; el worker `1.0.11` es compatible y no necesita otro cambio.
+  Commits publicados: corrección `bce180d`, release `be674d1`. El worker
+  `1.0.11` es compatible y no necesita otro cambio.
 - Ninguna V2–V6 está validada como preferida o ganadora. V2 alimenta la tarjeta
   histórica únicamente por orden cronológico. Todas siguen experimentales y
   deben mostrarse con calidad hold-out, aplicabilidad y cautelas propias.

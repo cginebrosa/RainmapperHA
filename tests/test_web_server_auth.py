@@ -6739,6 +6739,107 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(status, 409)
         self.assertIn("V2--V6 comparison job must complete", response["error"])
 
+    def test_completed_linked_v2_v6_job_starts_full_update_promotion_automatically(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        comparison_job = {
+            "job_id": "worker_job_comparison123",
+            "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
+            "target_worker_id": "worker_aaaaaaaa",
+            "status": "running",
+            "triggered_by_job_id": "worker_job_training123",
+        }
+        completed_job = {
+            **comparison_job,
+            "status": "complete",
+            "phase": "V2--V6 comparison training completed",
+            "result": {"verification_status": "verified"},
+        }
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_WORKER_API_ENABLED": "true", "RAINMAPPER_WORKER_AUTH_REQUIRED": "false"},
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "load_queue",
+            return_value={"schema_version": "0.1", "jobs": [comparison_job]},
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "finish_job",
+            return_value=completed_job,
+        ), mock.patch.object(
+            self.web_server,
+            "promote_mushroom_full_update",
+            return_value=(202, {"ok": True, "promoting": True}),
+        ) as promote, mock.patch.object(
+            self.web_server, "discard_mushroom_worker_input_bundle"
+        ):
+            status, response = self.web_server.finish_mushroom_worker_job(
+                {
+                    "job_id": comparison_job["job_id"],
+                    "worker_id": "worker_aaaaaaaa",
+                    "claim_token": "claim-secret",
+                    "status": "complete",
+                    "result": {"verification_status": "verified"},
+                },
+                auth_token="",
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["job"]["status"], "complete")
+        promote.assert_called_once_with("worker_job_training123")
+
+    def test_v2_v6_job_does_not_auto_promote_when_failed_or_unlinked(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        for final_status, parent_job_id in (("failed", "worker_job_training123"), ("complete", "")):
+            with self.subTest(final_status=final_status, parent_job_id=parent_job_id):
+                comparison_job = {
+                    "job_id": "worker_job_comparison123",
+                    "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
+                    "target_worker_id": "worker_aaaaaaaa",
+                    "status": "running",
+                    "triggered_by_job_id": parent_job_id,
+                }
+                finished_job = {
+                    **comparison_job,
+                    "status": final_status,
+                    "phase": "Finished",
+                    "result": {},
+                }
+                with mock.patch.dict(
+                    os.environ,
+                    {
+                        "RAINMAPPER_WORKER_API_ENABLED": "true",
+                        "RAINMAPPER_WORKER_AUTH_REQUIRED": "false",
+                    },
+                ), mock.patch.object(
+                    self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+                ), mock.patch.object(
+                    self.web_server.mushroom_worker_jobs,
+                    "load_queue",
+                    return_value={"schema_version": "0.1", "jobs": [comparison_job]},
+                ), mock.patch.object(
+                    self.web_server.mushroom_worker_jobs,
+                    "finish_job",
+                    return_value=finished_job,
+                ), mock.patch.object(
+                    self.web_server, "promote_mushroom_full_update"
+                ) as promote, mock.patch.object(
+                    self.web_server, "discard_mushroom_worker_input_bundle"
+                ):
+                    status, _response = self.web_server.finish_mushroom_worker_job(
+                        {
+                            "job_id": comparison_job["job_id"],
+                            "worker_id": "worker_aaaaaaaa",
+                            "claim_token": "claim-secret",
+                            "status": final_status,
+                        },
+                        auth_token="",
+                    )
+
+                self.assertEqual(status, 200)
+                promote.assert_not_called()
+
     def test_workers_post_rejects_external_worker_before_job_api(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         handler.handle_mushroom_profiles_post = mock.Mock()

@@ -371,6 +371,23 @@ transportarse sincrónicamente como mecanismo para animar la UI.
 
 Este cambio se publica conjuntamente como worker `1.0.2` y HA `0.2.239`.
 
+## Reutilización del runtime producido por el worker
+
+Los modelos generados localmente no deben recorrer worker→HA→worker. Antes de
+la limpieza terminal de ML v0 o V2–V6, el worker conserva cada modelo en un
+almacén transitorio dirigido por SHA-256. Al recibir un manifest Predictor
+nuevo, materializa primero desde la versión anterior y desde esos objetos
+locales mediante hardlinks; solo pide a HA los hashes ausentes. Después elimina
+el almacén transitorio, porque la versión inmutable ya conserva los inodos.
+
+Cuando no hay objetos locales reutilizables, HA sirve todos los ficheros del
+manifest en un único tar content-addressed. Si existen modelos recién creados
+por ese mismo worker, usa la sincronización delta por fichero para no volver a
+descargarlos y solicita únicamente los hashes ausentes. El worker verifica
+lista, tamaños y SHA-256 antes de activar la versión. Si habla con una versión
+HA anterior que no ofrece el tar, conserva
+el protocolo compatible de una petición por fichero.
+
 ## Incidencia de validación HA 0.2.244 / worker 1.0.5
 
 Tras reconstruir, entrenar y promover en HA real se observaron dos fallos

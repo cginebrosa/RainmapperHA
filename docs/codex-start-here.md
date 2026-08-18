@@ -134,6 +134,11 @@ El estado exacto, la prueba siguiente y los riesgos están en
 
 ## Reglas operativas críticas
 
+- Conservar la cuota de tokens del usuario: las actualizaciones de proceso deben
+  ser mínimas y limitarse a estado, resultado o bloqueo. No narrar pasos obvios,
+  repetir contexto ni volcar salidas extensas de comandos; resumirlas y mostrar
+  solo la evidencia necesaria. Ampliar detalles únicamente cuando el usuario
+  los pida o sean imprescindibles para decidir o diagnosticar.
 - Una tarea explícitamente encargada autoriza sus ediciones, consultas,
   pruebas, empaquetado y demás pasos no destructivos dentro del alcance. No
   pedir confirmación adicional por acciones inocuas, tampoco durante una

@@ -118,6 +118,14 @@ def assess(
                 gis_root=gis_root,
                 gis_hash_cache_path=gis_hash_cache_path,
                 extra_inputs=extra_inputs,
+                # This artifact is a derived reconstruction output. Promotion
+                # rebases its private paths to live paths, changing its bytes
+                # without changing the authoritative training observations.
+                ignored_extra_inputs={"observation-features.json"},
+                # Partitioned history is immutable and content-addressed. Its
+                # generation id plus manifest digest is sufficient for this UI
+                # freshness hint; candidate promotion still performs deep hashes.
+                verify_weather_file_hashes=False,
             )
             result = {
                 "status": "current"

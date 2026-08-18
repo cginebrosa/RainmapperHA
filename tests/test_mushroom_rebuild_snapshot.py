@@ -227,6 +227,74 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
             )
         self.assertIn(("meteocat", "X1"), stations)
 
+    def test_live_freshness_can_ignore_rebased_derived_extra(self) -> None:
+        derived = self.source / "features.json"
+        derived.write_text('{"input_paths":{"weather":"/worker/private"}}', encoding="utf-8")
+        snapshot = self.root / "snapshot-derived"
+        mushroom_rebuild_snapshot.create_snapshot(
+            snapshot,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+            extra_inputs={"observation-features.json": derived},
+        )
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+        derived.write_text('{"input_paths":{"weather":"/share/live"}}', encoding="utf-8")
+
+        strict = mushroom_rebuild_snapshot.verify_live_inputs(
+            manifest,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+            extra_inputs={"observation-features.json": derived},
+        )
+        freshness = mushroom_rebuild_snapshot.verify_live_inputs(
+            manifest,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+            extra_inputs={"observation-features.json": derived},
+            ignored_extra_inputs={"observation-features.json"},
+        )
+
+        self.assertEqual(strict["status"], "stale")
+        self.assertEqual(freshness["status"], "valid")
+
+    def test_live_freshness_can_use_partitioned_generation_identity(self) -> None:
+        self.create_partitioned_weather()
+        snapshot = self.create_snapshot()
+        manifest = mushroom_rebuild_snapshot.load_manifest(snapshot)
+        original = mushroom_rebuild_snapshot._stable_file_record
+        hashed_roles: list[str] = []
+
+        def record_hash(path: Path, *, logical_path: str, role: str):
+            hashed_roles.append(role)
+            return original(path, logical_path=logical_path, role=role)
+
+        with mock.patch.object(
+            mushroom_rebuild_snapshot,
+            "_stable_file_record",
+            side_effect=record_hash,
+        ):
+            result = mushroom_rebuild_snapshot.verify_live_inputs(
+                manifest,
+                observations_path=self.observations,
+                reference_catalogs_path=self.catalogs,
+                gis_mappings_path=self.mappings,
+                weather_data_dir=self.weather,
+                gis_root=self.gis,
+                verify_weather_file_hashes=False,
+            )
+
+        self.assertEqual(result["status"], "valid")
+        self.assertFalse(any(role.startswith("weather-history:") for role in hashed_roles))
+
     def test_snapshot_rejects_partitioned_history_for_incompatible_worker(self) -> None:
         self.create_partitioned_weather()
         snapshot = self.root / "snapshot-incompatible-worker"

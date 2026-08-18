@@ -302,6 +302,10 @@ Hay varios entry points segun entorno:
   datos brutos ni rutas privadas. `mushroom_ml_training_freshness.py` compara esa
   identidad con las entradas vivas y clasifica la generación como `current`,
   `stale`, `unknown` o `invalid` para el aviso del Predictor.
+- Runtime Predictor remoto: los modelos producidos por el propio worker se
+  conservan transitoriamente por SHA-256 y se enlazan a la caché de runtime; no
+  se descargan de nuevo desde HA. Los hashes ausentes viajan en un único tar
+  verificado, con fallback compatible al transporte por fichero.
 - Publicación: el worker solo produce candidatos. Reconstrucción, ML v0 y V2–V6
   son tres jobs enlazados e independientes para diagnóstico. La UI no ofrece y
   el backend no acepta la promoción completa hasta que los tres terminan. HA

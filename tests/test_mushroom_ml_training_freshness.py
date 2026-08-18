@@ -79,8 +79,13 @@ class MushroomMLTrainingFreshnessTests(TestCase):
             with patch(
                 "rainmapper_core.mushroom_ml_training_freshness.mushroom_rebuild_snapshot.verify_live_inputs",
                 return_value={"status": "valid", "current_snapshot_id": "sha256:" + "a" * 64, "errors": []},
-            ):
+            ) as verify:
                 self.assertEqual(self._assess(root)["status"], "current")
+                self.assertEqual(
+                    verify.call_args.kwargs["ignored_extra_inputs"],
+                    {"observation-features.json"},
+                )
+                self.assertFalse(verify.call_args.kwargs["verify_weather_file_hashes"])
             with patch(
                 "rainmapper_core.mushroom_ml_training_freshness.mushroom_rebuild_snapshot.verify_live_inputs",
                 return_value={"status": "stale", "current_snapshot_id": "sha256:" + "c" * 64, "errors": ["changed"]},

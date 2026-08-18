@@ -6,7 +6,9 @@ import hashlib
 import json
 import os
 import shutil
+import tarfile
 import tempfile
+import threading
 from pathlib import Path
 from typing import Any, Callable
 
@@ -21,6 +23,7 @@ MULTIVERSION_MODEL_CONTRACT = "mushroom_ml_v0_plus_multiversion_v1_joblib"
 WEATHER_CONTRACT = "weather_parquet_v1"
 PARTITIONED_WEATHER_CONTRACT = "partitioned_weather_history_v1"
 _DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
+_ARCHIVE_LOCK = threading.Lock()
 
 
 def _sha256(path: Path) -> str:
@@ -207,6 +210,95 @@ def resolve_source(manifest: dict[str, Any], sources: dict[str, Path], logical_p
     return source
 
 
+def build_runtime_archive(
+    cache_dir: Path,
+    manifest: object,
+    sources: dict[str, Path],
+) -> Path:
+    """Build one cached, content-addressed tar for low-latency worker transfer."""
+    checked = validate_manifest(manifest)
+    fingerprint = checked["fingerprint"].removeprefix("sha256:")
+    root = Path(cache_dir)
+    destination = root / f"{fingerprint}.tar"
+    with _ARCHIVE_LOCK:
+        if destination.is_file():
+            return destination
+        root.mkdir(parents=True, exist_ok=True)
+        temporary = root / f".{fingerprint}.{os.getpid()}.tmp"
+        temporary.unlink(missing_ok=True)
+        try:
+            with tarfile.open(temporary, mode="w") as archive:
+                for row in checked["files"]:
+                    logical_path = str(row["path"])
+                    source = resolve_source(checked, sources, logical_path)
+                    archive.add(source, arcname=logical_path, recursive=False)
+            os.replace(temporary, destination)
+            for candidate in root.glob("*.tar"):
+                if candidate != destination:
+                    candidate.unlink(missing_ok=True)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return destination
+
+
+def synchronize_runtime_archive(
+    cache_root: Path,
+    manifest: object,
+    archive_path: Path,
+) -> tuple[Path, dict[str, Any]]:
+    """Synchronize a runtime from one verified tar transport."""
+    checked = validate_manifest(manifest)
+    expected = {str(row["path"]) for row in checked["files"]}
+    with tarfile.open(archive_path, mode="r:") as archive:
+        members = {member.name: member for member in archive.getmembers()}
+        if set(members) != expected or any(not member.isfile() for member in members.values()):
+            raise ValueError("Predictor runtime archive contents do not match its manifest.")
+
+        def fetch(logical_path: str, target: Path) -> None:
+            source = archive.extractfile(members[logical_path])
+            if source is None:
+                raise ValueError(f"Predictor runtime archive file is missing: {logical_path}")
+            with source, target.open("xb") as handle:
+                shutil.copyfileobj(source, handle, length=1024 * 1024)
+
+        return synchronize_runtime(cache_root, checked, fetch)
+
+
+def cache_runtime_objects(
+    cache_root: Path,
+    records: list[tuple[Path, str, int]],
+) -> dict[str, int]:
+    """Retain worker-produced files by digest until a runtime can link them."""
+    objects = Path(cache_root) / "objects"
+    objects.mkdir(parents=True, exist_ok=True)
+    cached = 0
+    cached_size = 0
+    for source_value, digest_value, size_value in records:
+        source = Path(source_value)
+        digest = str(digest_value)
+        if not digest.startswith("sha256:"):
+            digest = f"sha256:{digest}"
+        size = int(size_value)
+        if not source.is_file() or source.stat().st_size != size or _sha256(source) != digest:
+            raise ValueError(f"Worker-produced predictor object is invalid: {source}")
+        destination = objects / digest.removeprefix("sha256:")
+        if destination.is_file() and destination.stat().st_size == size and _sha256(destination) == digest:
+            continue
+        temporary = objects / f".{destination.name}.{os.getpid()}.tmp"
+        temporary.unlink(missing_ok=True)
+        try:
+            try:
+                os.link(source, temporary)
+            except OSError:
+                shutil.copy2(source, temporary)
+            os.replace(temporary, destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+        cached += 1
+        cached_size += size
+    return {"cached_objects": cached, "cached_size_bytes": cached_size}
+
+
 def synchronize_runtime(
     cache_root: Path,
     manifest: object,
@@ -233,6 +325,7 @@ def synchronize_runtime(
     staging = Path(tempfile.mkdtemp(prefix=f".{fingerprint}.", suffix=".tmp", dir=versions))
     transferred = 0
     current = current_runtime(root)
+    objects = root / "objects"
     try:
         for row in checked["files"]:
             relative = Path(row["path"])
@@ -248,6 +341,18 @@ def synchronize_runtime(
                         shutil.copy2(old, target)
                     reused = True
             if not reused:
+                cached_object = objects / str(row["sha256"]).removeprefix("sha256:")
+                if (
+                    cached_object.is_file()
+                    and cached_object.stat().st_size == row["size_bytes"]
+                    and _sha256(cached_object) == row["sha256"]
+                ):
+                    try:
+                        os.link(cached_object, target)
+                    except OSError:
+                        shutil.copy2(cached_object, target)
+                    reused = True
+            if not reused:
                 fetch(row["path"], target)
                 transferred += row["size_bytes"]
             if target.stat().st_size != row["size_bytes"] or _sha256(target) != row["sha256"]:
@@ -261,6 +366,7 @@ def synchronize_runtime(
         os.replace(staging, destination)
         _set_current(root, destination)
         pruned = _prune_runtime_versions(versions, keep={destination, current})
+        shutil.rmtree(objects, ignore_errors=True)
         return destination, {
             "status": "synchronized",
             "transferred_size_bytes": transferred,

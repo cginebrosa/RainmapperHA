@@ -1,5 +1,20 @@
 # Decisions
 
+## 2026-08-18 - [VIGENTE][RELEASE] HA 0.2.260 y worker privado local 1.0.12
+
+- La carga fría del Predictor reutiliza por SHA-256 los modelos creados por el
+  mismo worker y usa sincronización delta cuando existe ese almacén local; el
+  tar único queda para runtimes sin objetos reutilizables.
+- La comprobación UI de vigencia confía en la identidad inmutable de la
+  generación meteorológica y no trata el rebasing de una salida derivada como
+  cambio de sus entradas autoritativas.
+- Gate: smoke completo 894/894 y `git diff --check`. HA `0.2.260` y `latest`
+  comparten `sha256:c9ad3fcc04f47d39f1bb6f9f0e848f34670e0af5c6eeaf9babb54e527f3e281a`,
+  con `linux/amd64` `sha256:35d685d57a7110ed49464f13889b7f1f93c9ea574176e9a4d61d149986b2f2c4`
+  y `linux/arm64` `sha256:8667d0ee1f37dba8fc7edf253a7ddbad0956f28e23f2b25b922a88c3aae41cdf`.
+  El worker no se publicó en registro: imagen local arm64 `1.0.12`, digest
+  `sha256:87d49a4735b5d1250e1cc10ac766bda1ff6c6759d23214b93edf1e0700068fd3`.
+
 Nota de auditoria 2026-07-20: este fichero es un log cronologico/historico. Las
 entradas antiguas se conservan para trazabilidad y pueden describir fases ya
 reemplazadas; prevalece siempre la decision vigente mas reciente. Este fichero
@@ -10,6 +25,50 @@ Datos vivos/privados bajo
 y GIS/DEM bajo `/media/rainmapper/mushroom-GIS`, no deben borrarse,
 sobrescribirse ni versionarse. Toda UI de setas debe ser humana, coherente y
 multiidioma mediante labels `en`, `es` y `ca`.
+
+## 2026-08-18 - [VIGENTE][ARQUITECTURA] El worker reutiliza los modelos que entrena
+
+- Una prueba real posterior a la regeneración produjo un runtime Predictor de
+  518 ficheros y 143.698.035 bytes. Aunque el mismo worker acababa de entrenar
+  los modelos, su limpieza terminal eliminaba los directorios de trabajo y la
+  caché Predictor descargó desde HA 96.018.385 bytes de modelos ya producidos.
+- Antes de limpiar un job ML v0 o V2–V6, el worker conserva sus modelos en un
+  almacén transitorio dirigido por SHA-256. La materialización del runtime busca
+  primero la versión Predictor anterior y después esos objetos locales; solo
+  descarga los hashes ausentes. Tras enlazarlos en una versión inmutable, poda
+  el almacén transitorio para no acumular generaciones.
+- HA ofrece además un único tar content-addressed y verificado por manifest. Es
+  respaldo para ficheros ausentes, resultados creados por otro worker o cachés
+  perdidas; trabajadores antiguos conservan el fallback de una petición por
+  fichero.
+- La vigencia de entrenamiento no considera el JSON derivado de features como
+  entrada autoritativa binaria: la promoción cambia únicamente metadatos de
+  rutas al rebasarlo. Observaciones, catálogos, GIS, estaciones, perfiles,
+  registro y generación meteorológica continúan comprobándose. Para la alerta
+  UI, la meteorología particionada usa su generación y digest de manifest
+  inmutables; las promociones siguen realizando la validación profunda.
+
+## 2026-08-18 - [VIGENTE][ARQUITECTURA] La generación externa completa se promociona automáticamente
+
+- «Reconstruir y reentrenar todo» ya es una única intención del usuario y
+  encadena reconstrucción, ML v0 y V2–V6. Una segunda aprobación al final no
+  aporta una revisión adicional: la promoción ejecuta validaciones automáticas.
+- La regeneración real de HA `0.2.258` terminó V2–V6 a las 03:12:53 CEST. Antes
+  de la activación manual, el runner programado `source=schedule`, `action=all`
+  actualizó `weather-history/CURRENT.json` a las 05:04:52 CEST. La promoción se
+  rechazó correctamente por hash y fingerprint obsoletos, pero se perdió una
+  cadena de cálculo válida por una ventana de espera innecesaria.
+- Tras completar un V2–V6 enlazado, HA inicia inmediatamente la promoción
+  completa usando el ID del ML v0 padre. La propia operación exige que el ML
+  proceda de una reconstrucción `full_update` y que su V2–V6 esté completo.
+- Se conservan el chequeo de frescura, la verificación de manifests, la
+  instalación atómica, el rollback de artefactos si falla ML y la liberación de
+  caché. No se reintenta automáticamente una cadena pesada si las entradas ya
+  cambiaron.
+- Los jobs fallidos, los batches V2–V6 no enlazados, las reconstrucciones
+  parciales y los experimentos quedan fuera de esta automatización. El botón
+  manual puede permanecer como recuperación ante un fallo al iniciar la
+  promoción, no como paso normal del flujo completo.
 
 ## 2026-08-18 - [VIGENTE][CORREGIDO EN HA 0.2.258] El V2–V6 enlazado debe heredar las especies entrenadas
 

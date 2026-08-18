@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import http.client
 import os
 import platform
@@ -257,6 +258,45 @@ def download_predictor_runtime(
     manifest = mushroom_predictor_runtime.validate_manifest(manifest_payload)
     job["runtime_manifest"] = manifest
 
+    runtime_cache_root = worker_data_dir.resolve() / "predictor-runtime"
+    objects_root = runtime_cache_root / "objects"
+    has_local_objects = objects_root.is_dir() and any(objects_root.iterdir())
+    if not has_local_objects:
+        archive_query = urlencode({"job_id": job.get("job_id", ""), "archive": "1"})
+        archive_request = Request(
+            ha_url.rstrip("/") + endpoint + "?" + archive_query,
+            headers=headers,
+            method="GET",
+        )
+        archive_limit = int(manifest.get("size_bytes", 0) or 0) + max(
+            64 * 1024 * 1024,
+            len(manifest["files"]) * 4096,
+        )
+        try:
+            with (
+                urlopen(archive_request, timeout=120) as response,
+                tempfile.NamedTemporaryFile(
+                    prefix="predictor-runtime-",
+                    suffix=".tar",
+                    dir=worker_data_dir.resolve(),
+                ) as archive_handle,
+            ):
+                copied = 0
+                while chunk := response.read(1024 * 1024):
+                    copied += len(chunk)
+                    if copied > archive_limit:
+                        raise ValueError("Worker predictor runtime archive is too large.")
+                    archive_handle.write(chunk)
+                archive_handle.flush()
+                return mushroom_predictor_runtime.synchronize_runtime_archive(
+                    runtime_cache_root,
+                    manifest,
+                    Path(archive_handle.name),
+                )
+        except HTTPError as exc:
+            if exc.code not in {404, 409}:
+                raise
+
     def fetch(logical_path: str, target: Path) -> None:
         query = urlencode({"job_id": job.get("job_id", ""), "file": logical_path})
         request = Request(ha_url.rstrip("/") + endpoint + "?" + query, headers=headers, method="GET")
@@ -264,9 +304,75 @@ def download_predictor_runtime(
             shutil.copyfileobj(response, handle, length=1024 * 1024)
 
     return mushroom_predictor_runtime.synchronize_runtime(
-        worker_data_dir.resolve() / "predictor-runtime",
+        runtime_cache_root,
         manifest,
         fetch,
+    )
+
+
+def cache_ml_train_predictor_objects(worker_data_dir: Path, candidate_dir: Path) -> dict[str, int]:
+    """Preserve locally trained v0/shadow models before terminal job cleanup."""
+    root = Path(candidate_dir)
+    manifest = json.loads((root / "ml_train_result.json").read_text(encoding="utf-8"))
+    artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else None
+    if not isinstance(artifacts, list):
+        raise ValueError("Worker ML result artifact list is invalid.")
+    records: list[tuple[Path, str, int]] = []
+    for row in artifacts:
+        if not isinstance(row, dict) or not str(row.get("path", "")).endswith(".joblib"):
+            continue
+        relative = mushroom_worker_transport.safe_relative_path(row.get("path"))
+        records.append((root / relative, str(row.get("sha256", "")), int(row.get("size_bytes", -1))))
+    return mushroom_predictor_runtime.cache_runtime_objects(
+        worker_data_dir.resolve() / "predictor-runtime",
+        records,
+    )
+
+
+def cache_multiversion_predictor_objects(
+    worker_data_dir: Path,
+    result_root: Path,
+) -> dict[str, int]:
+    """Preserve the locally trained V2--V6 batch by content digest."""
+    batch_root = Path(result_root) / "batch"
+    manifest_path = batch_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    batch_id = str(manifest.get("batch_id", "")) if isinstance(manifest, dict) else ""
+    artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else None
+    if not batch_id or not isinstance(artifacts, list):
+        raise ValueError("Worker multiversion batch manifest is invalid.")
+    prefix = Path("batches") / batch_id
+    records: list[tuple[Path, str, int]] = [
+        (
+            manifest_path,
+            hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            manifest_path.stat().st_size,
+        )
+    ]
+    referenced = list(artifacts)
+    quality = manifest.get("quality_catalog")
+    if isinstance(quality, dict):
+        referenced.append(
+            {
+                "path": quality.get("path"),
+                "sha256": quality.get("sha256"),
+                "size_bytes": None,
+            }
+        )
+    for row in referenced:
+        if not isinstance(row, dict):
+            raise ValueError("Worker multiversion artifact record is invalid.")
+        declared = mushroom_worker_transport.safe_relative_path(row.get("path"))
+        try:
+            relative = declared.relative_to(prefix)
+        except ValueError as exc:
+            raise ValueError("Worker multiversion artifact path is outside its batch.") from exc
+        source = batch_root / relative
+        size = source.stat().st_size if row.get("size_bytes") is None else int(row["size_bytes"])
+        records.append((source, str(row.get("sha256", "")), size))
+    return mushroom_predictor_runtime.cache_runtime_objects(
+        worker_data_dir.resolve() / "predictor-runtime",
+        records,
     )
 
 
@@ -991,6 +1097,20 @@ def serve(
                             progress_callback=ml_upload_progress,
                         )
                     )
+                    try:
+                        model_cache = cache_ml_train_predictor_objects(
+                            worker_data_dir,
+                            ml_candidate_dir,
+                        )
+                    except (OSError, ValueError, json.JSONDecodeError) as exc:
+                        model_cache = {"error": str(exc)}
+                    print(
+                        json.dumps(
+                            {"status": "predictor_model_cache_seeded", **model_cache},
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
                     ml_telemetry.flush()
                     job_update(
                         "finish",
@@ -1087,6 +1207,20 @@ def serve(
                                 token=token,
                                 progress_callback=multiversion_progress,
                             )
+                        )
+                        try:
+                            model_cache = cache_multiversion_predictor_objects(
+                                worker_data_dir,
+                                result_root,
+                            )
+                        except (OSError, ValueError, json.JSONDecodeError) as exc:
+                            model_cache = {"error": str(exc)}
+                        print(
+                            json.dumps(
+                                {"status": "predictor_model_cache_seeded", **model_cache},
+                                ensure_ascii=False,
+                            ),
+                            flush=True,
                         )
                         multiversion_telemetry.flush()
                         job_update(
@@ -1275,6 +1409,20 @@ def serve(
                             token=token,
                             progress_callback=multiversion_progress,
                         )
+                    )
+                    try:
+                        model_cache = cache_multiversion_predictor_objects(
+                            worker_data_dir,
+                            result_root,
+                        )
+                    except (OSError, ValueError, json.JSONDecodeError) as exc:
+                        model_cache = {"error": str(exc)}
+                    print(
+                        json.dumps(
+                            {"status": "predictor_model_cache_seeded", **model_cache},
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
                     )
                     multiversion_telemetry.flush()
                     job_update(

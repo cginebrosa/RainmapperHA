@@ -582,6 +582,8 @@ def verify_live_inputs(
     gis_root: Path,
     gis_hash_cache_path: Path | None = None,
     extra_inputs: dict[str, Path] | None = None,
+    ignored_extra_inputs: set[str] | frozenset[str] | None = None,
+    verify_weather_file_hashes: bool = True,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> dict[str, Any]:
     """Verify that current authoritative inputs still match a frozen manifest."""
@@ -596,6 +598,21 @@ def verify_live_inputs(
         str(role): Path(path).resolve()
         for role, path in (extra_inputs or {}).items()
     }
+    ignored_extras = {str(value) for value in (ignored_extra_inputs or set())}
+    matching_weather_identity = False
+    weather_history = input_manifest.get("weather_history")
+    if not verify_weather_file_hashes and isinstance(weather_history, dict):
+        try:
+            from rainmapper_core.weather_history_dataset import resolve_weather_generation
+
+            generation = resolve_weather_generation(weather_data_dir, verify_hashes=False)
+            matching_weather_identity = (
+                generation.generation_id == weather_history.get("generation_id")
+                and generation.manifest_sha256 == weather_history.get("manifest_sha256")
+                and len(generation.partitions) == weather_history.get("partition_count")
+            )
+        except (OSError, RuntimeError, ValueError):
+            matching_weather_identity = False
     files = input_manifest.get("files")
     if not isinstance(files, list):
         return {"status": "invalid", "errors": ["input manifest files must be a list"]}
@@ -618,6 +635,12 @@ def verify_live_inputs(
             continue
         role = str(raw_record.get("role", ""))
         logical_path = str(raw_record.get("path", ""))
+        if role.startswith("extra:") and role.removeprefix("extra:") in ignored_extras:
+            current_records.append(dict(raw_record))
+            continue
+        if role.startswith("weather-history:") and matching_weather_identity:
+            current_records.append(dict(raw_record))
+            continue
         source = fixed_sources.get(role)
         if source is None and role.startswith("extra:"):
             source = extra_sources.get(role.removeprefix("extra:"))

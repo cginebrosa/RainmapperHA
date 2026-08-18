@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.260
+
+- Reuse models produced by the same worker through a transient SHA-256 object
+  cache, avoiding a redundant round trip through Home Assistant.
+- Transfer a cold Predictor runtime as one verified archive while retaining
+  hash-level delta synchronization whenever reusable local objects exist.
+- Make Predictor freshness checks both accurate for rebased derived features
+  and fast for immutable partitioned weather generations.
+
+## 0.2.259
+
+- Automatically promote a complete external reconstruction, ML v0, and V2--V6
+  generation as soon as its linked comparison job finishes successfully.
+- Preserve freshness validation, atomic installation, rollback, and predictor
+  cache invalidation while keeping failed and unlinked jobs outside automation.
+
 ## 0.2.258
 
 - Chain V2--V6 training from the exact species set verified as trained by ML v0,

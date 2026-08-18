@@ -147,6 +147,16 @@ se ofrece una regeneración parcial de comparación: mientras todas las versione
 sigan habilitadas, la coherencia con la última observación y con el histórico
 meteorológico aceptado exige completar la cadena entera.
 
+Cuando el worker externo termina y HA verifica el lote V2–V6 enlazado, el
+coordinador inicia automáticamente la promoción de la generación completa. No
+existe una espera humana entre cálculo y promoción: esa espera permitía que una
+actualización meteorológica programada invalidase un candidato ya terminado.
+La automatización reutiliza, sin omitirlos, el chequeo de frescura de todas las
+entradas, la instalación atómica, el rollback y la invalidación de caché. Si las
+entradas cambian durante el cálculo, la promoción se rechaza y no se relanza
+automáticamente el trabajo pesado. Las reconstrucciones parciales y los
+experimentos no enlazados conservan su promoción explícita cuando corresponda.
+
 ## Predictor y explicaciones
 
 El modo normal conserva ranking, semana, consulta e histórico con una única

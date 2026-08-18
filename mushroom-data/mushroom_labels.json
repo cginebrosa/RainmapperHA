@@ -3584,6 +3584,11 @@
     "es": "¿Activar la generacion completa reconstruida y reentrenada?",
     "ca": "Activar la generacio completa reconstruida i reentrenada?"
   },
+  "ui.worker_full_update_auto_promotion_failed": {
+    "en": "V2--V6 comparison training completed, but the complete generation could not be promoted automatically: {error}",
+    "es": "El entrenamiento comparativo V2--V6 ha terminado, pero la generacion completa no se ha podido activar automaticamente: {error}",
+    "ca": "L'entrenament comparatiu V2--V6 ha acabat, pero la generacio completa no s'ha pogut activar automaticament: {error}"
+  },
   "ui.worker_recent_jobs": {
     "en": "Recent jobs",
     "es": "Trabajos recientes",

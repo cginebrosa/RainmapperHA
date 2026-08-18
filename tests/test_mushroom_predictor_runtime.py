@@ -7,7 +7,14 @@ from unittest import TestCase
 from unittest import mock
 
 from rainmapper_core import mushroom_ml_model_catalog
-from rainmapper_core.mushroom_predictor_runtime import build_manifest, service_paths, synchronize_runtime
+from rainmapper_core.mushroom_predictor_runtime import (
+    build_manifest,
+    build_runtime_archive,
+    cache_runtime_objects,
+    service_paths,
+    synchronize_runtime,
+    synchronize_runtime_archive,
+)
 
 
 class PredictorRuntimeTests(TestCase):
@@ -60,6 +67,61 @@ class PredictorRuntimeTests(TestCase):
                 "models/mushroom_ml_experiment_fixed_gap_7d_v1_boletus.joblib",
                 sources,
             )
+
+    def test_runtime_archive_transfers_all_files_in_one_verified_container(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            manifest, sources = build_manifest(
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+
+            archive = build_runtime_archive(root / "archives", manifest, sources)
+            runtime, result = synchronize_runtime_archive(
+                root / "cache",
+                manifest,
+                archive,
+            )
+
+            self.assertEqual(result["status"], "synchronized")
+            self.assertEqual(result["transferred_size_bytes"], manifest["size_bytes"])
+            self.assertTrue(service_paths(runtime)["features_artifact_path"].is_file())
+            self.assertEqual(build_runtime_archive(root / "archives", manifest, sources), archive)
+
+    def test_runtime_reuses_worker_produced_objects_by_digest(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            manifest, sources = build_manifest(
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+            model_row = next(row for row in manifest["files"] if row["path"].endswith("boletus.joblib"))
+            cache = root / "cache"
+            cache_runtime_objects(
+                cache,
+                [(sources[model_row["path"]], model_row["sha256"], model_row["size_bytes"])],
+            )
+            fetched: list[str] = []
+
+            synchronize_runtime(
+                cache,
+                manifest,
+                lambda logical_path, target: (
+                    fetched.append(logical_path),
+                    target.write_bytes(sources[logical_path].read_bytes()),
+                ),
+            )
+
+            self.assertNotIn(model_row["path"], fetched)
+            self.assertFalse((cache / "objects").exists())
 
     def test_runtime_packages_enabled_station_source_contract(self) -> None:
         with TemporaryDirectory() as temporary:

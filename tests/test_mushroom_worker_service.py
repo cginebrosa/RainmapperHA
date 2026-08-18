@@ -1,15 +1,53 @@
 import json
+import hashlib
 import io
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 from unittest import mock
+from urllib.error import HTTPError
 
 from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_worker_seeds_predictor_cache_from_its_multiversion_batch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            result = root / "result"
+            batch = result / "batch"
+            model = batch / "generations/g/model.joblib"
+            quality = batch / "quality-catalog.json"
+            model.parent.mkdir(parents=True)
+            model.write_bytes(b"trained-here")
+            quality.write_bytes(b"quality")
+            batch_id = "batch-local"
+            manifest = {
+                "batch_id": batch_id,
+                "artifacts": [{
+                    "path": f"batches/{batch_id}/generations/g/model.joblib",
+                    "sha256": hashlib.sha256(model.read_bytes()).hexdigest(),
+                    "size_bytes": model.stat().st_size,
+                }],
+                "quality_catalog": {
+                    "path": f"batches/{batch_id}/quality-catalog.json",
+                    "sha256": hashlib.sha256(quality.read_bytes()).hexdigest(),
+                },
+            }
+            (batch / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+            cached = mushroom_worker_service.cache_multiversion_predictor_objects(
+                root / "worker",
+                result,
+            )
+
+            self.assertEqual(cached["cached_objects"], 3)
+            self.assertEqual(
+                len(list((root / "worker/predictor-runtime/objects").iterdir())),
+                3,
+            )
+
     def test_job_telemetry_coalesces_progress_and_control_every_two_seconds(self) -> None:
         now = [10.0]
         calls: list[tuple[str, dict[str, object]]] = []
@@ -274,7 +312,20 @@ class MushroomWorkerServiceTests(unittest.TestCase):
         }
         with (
             tempfile.TemporaryDirectory() as temporary,
-            mock.patch.object(mushroom_worker_service, "urlopen", return_value=response) as urlopen,
+            mock.patch.object(
+                mushroom_worker_service,
+                "urlopen",
+                side_effect=[
+                    response,
+                    HTTPError(
+                        "http://rainmapper-ha-ui:8099/api/mushrooms/workers/jobs/predictor-runtime",
+                        409,
+                        "archive unsupported",
+                        {},
+                        None,
+                    ),
+                ],
+            ) as urlopen,
             mock.patch.object(
                 mushroom_worker_service.mushroom_predictor_runtime,
                 "synchronize_runtime",
@@ -290,12 +341,57 @@ class MushroomWorkerServiceTests(unittest.TestCase):
                 token="coordinator-secret",
             )
 
-        request = urlopen.call_args.args[0]
+        request = urlopen.call_args_list[0].args[0]
         self.assertEqual(result, synchronized)
         self.assertIn("manifest=1", request.full_url)
         self.assertNotIn("file=", request.full_url)
+        self.assertIn("archive=1", urlopen.call_args_list[1].args[0].full_url)
         self.assertEqual(synchronize.call_args.args[1], manifest)
         self.assertEqual(compact_job["runtime_manifest"], manifest)
+
+    def test_predictor_runtime_uses_delta_protocol_when_local_objects_exist(self) -> None:
+        manifest = {
+            "schema_version": "1.0",
+            "kind": "rainmapper_mushroom_predictor_runtime",
+            "fingerprint": "sha256:" + "a" * 64,
+            "files": [
+                {
+                    "path": "models/model.joblib",
+                    "sha256": "sha256:" + "b" * 64,
+                    "size_bytes": 0,
+                }
+            ],
+        }
+        synchronized = (Path("/runtime"), {"status": "synchronized"})
+        job = {
+            "job_id": "worker_job_predict123",
+            "runtime_endpoint": "/api/mushrooms/workers/jobs/predictor-runtime",
+            "runtime_manifest": manifest,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            objects = Path(temporary) / "predictor-runtime" / "objects"
+            objects.mkdir(parents=True)
+            (objects / ("b" * 64)).write_bytes(b"")
+            with (
+                mock.patch.object(mushroom_worker_service, "urlopen") as urlopen,
+                mock.patch.object(
+                    mushroom_worker_service.mushroom_predictor_runtime,
+                    "synchronize_runtime",
+                    return_value=synchronized,
+                ) as synchronize,
+            ):
+                result = mushroom_worker_service.download_predictor_runtime(
+                    "http://rainmapper-ha-ui:8099",
+                    job,
+                    Path(temporary),
+                    worker_id="worker_12345678",
+                    claim_token="claim-secret",
+                    token="coordinator-secret",
+                )
+
+        self.assertEqual(result, synchronized)
+        urlopen.assert_not_called()
+        self.assertEqual(synchronize.call_args.args[1], manifest)
 
     def test_worker_updates_job_lifecycle_outbound_to_ha(self) -> None:
         for action in ("start", "progress", "control", "finish"):
