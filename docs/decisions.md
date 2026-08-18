@@ -1,6 +1,19 @@
 # Decisions
 
-## 2026-08-18 - [VIGENTE][FIX PENDIENTE] El runtime actual también fuerza sincronización delta
+## 2026-08-18 - [VIGENTE][RELEASE] Worker privado local 1.0.13
+
+- Despliega la reutilización del runtime actual y el fallback verificado por
+  fichero cuando el tar no concuerda con su manifest.
+- Se recreó el contenedor conservando el volumen: servicio `idle`, caché GIS
+  válida de 12 ficheros/6.341.520.039 bytes y caché Predictor válida de
+  143.696.061 bytes con fingerprint
+  `sha256:5d828e31ef1f3165e5741b82419851dd51d0aaa33016fa5678c86c92fc1c398f`.
+- Gate: smoke completo 896/896 y `git diff --check`. Imagen arm64 local
+  `rainmapper-worker:1.0.13`, digest
+  `sha256:230737ae0328425997b698d4c830ecf3489c121b5cc241cf394d8042bb634f41`;
+  no se publicó en ningún registro.
+
+## 2026-08-18 - [VIGENTE][FIX] El runtime actual también fuerza sincronización delta
 
 - El tar completo solo se intenta cuando el worker no conserva ni una versión
   actual del runtime ni objetos transitorios producidos por entrenamiento.
