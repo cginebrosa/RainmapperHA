@@ -385,8 +385,11 @@ manifest en un único tar content-addressed. Si existen modelos recién creados
 por ese mismo worker, usa la sincronización delta por fichero para no volver a
 descargarlos y solicita únicamente los hashes ausentes. El worker verifica
 lista, tamaños y SHA-256 antes de activar la versión. Si habla con una versión
-HA anterior que no ofrece el tar, conserva
-el protocolo compatible de una petición por fichero.
+HA anterior que no ofrece el tar, conserva el protocolo compatible de una
+petición por fichero. Una versión actual del runtime también se considera
+reutilizable: después de la primera materialización, la navegación posterior
+no debe volver a descargar el tar. Si un tar recibido es inválido, se descarta
+y se reintenta mediante el protocolo por fichero con verificación íntegra.
 
 ## Incidencia de validación HA 0.2.244 / worker 1.0.5
 

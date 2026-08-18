@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-08-18 - [VIGENTE][FIX PENDIENTE] El runtime actual también fuerza sincronización delta
+
+- El tar completo solo se intenta cuando el worker no conserva ni una versión
+  actual del runtime ni objetos transitorios producidos por entrenamiento.
+  Cualquiera de las dos fuentes puede evitar descargas por SHA-256.
+- Si un tar está corrupto o no concuerda con su manifiesto, el Predictor no
+  falla directamente: vuelve al transporte por fichero, que verifica tamaños y
+  hashes mediante el mismo contrato.
+- Evidencia real: tras una primera sincronización correcta en 31 s, dos jobs
+  calientes fallaron al descargar de nuevo 143,7 MB y rechazar el tar. El
+  runtime actual seguía presente en el volumen del worker.
+
 ## 2026-08-18 - [VIGENTE][RELEASE] HA 0.2.260 y worker privado local 1.0.12
 
 - La carga fría del Predictor reutiliza por SHA-256 los modelos creados por el

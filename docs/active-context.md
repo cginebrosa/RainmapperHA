@@ -7,6 +7,18 @@ especificaciones temáticas enlazadas.
 
 ## Estado al cierre — 2026-08-18
 
+- Prueba real posterior a instalar `0.2.260` y regenerar: el primer Predictor
+  remoto terminó en 31 s (`worker_job_mT-fAwgl9nsH`) y materializó el runtime
+  `sha256:5d828e31ef1f3165e5741b82419851dd51d0aaa33016fa5678c86c92fc1c398f`.
+  Las dos consultas siguientes fallaron a los 27 s y 20 s porque el worker
+  `1.0.12` solo evitaba el tar mientras existía el almacén transitorio de
+  modelos recién entrenados; tras consumirlo ignoraba el runtime actual,
+  descargaba otra vez el tar completo y este era rechazado por no coincidir
+  con el manifiesto. Corrección local pendiente de nueva versión del worker:
+  usar sincronización delta si existe runtime actual u objetos transitorios y
+  recurrir al protocolo por fichero, con los mismos hashes, si el tar es
+  inválido. No preparar ni publicar esa release sin autorización explícita.
+
 - HA `0.2.260` publicada tras smoke completo de 894 pruebas. `0.2.260` y
   `latest` comparten el índice OCI
   `sha256:c9ad3fcc04f47d39f1bb6f9f0e848f34670e0af5c6eeaf9babb54e527f3e281a`,

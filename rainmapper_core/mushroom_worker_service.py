@@ -12,6 +12,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tarfile
 import tempfile
 import threading
 import time
@@ -261,7 +262,10 @@ def download_predictor_runtime(
     runtime_cache_root = worker_data_dir.resolve() / "predictor-runtime"
     objects_root = runtime_cache_root / "objects"
     has_local_objects = objects_root.is_dir() and any(objects_root.iterdir())
-    if not has_local_objects:
+    has_current_runtime = (
+        mushroom_predictor_runtime.current_runtime(runtime_cache_root) is not None
+    )
+    if not has_local_objects and not has_current_runtime:
         archive_query = urlencode({"job_id": job.get("job_id", ""), "archive": "1"})
         archive_request = Request(
             ha_url.rstrip("/") + endpoint + "?" + archive_query,
@@ -296,6 +300,10 @@ def download_predictor_runtime(
         except HTTPError as exc:
             if exc.code not in {404, 409}:
                 raise
+        except (ValueError, tarfile.TarError):
+            # A corrupt or incompatible archive must not make prediction
+            # unavailable: the per-file path verifies the same manifest.
+            pass
 
     def fetch(logical_path: str, target: Path) -> None:
         query = urlencode({"job_id": job.get("job_id", ""), "file": logical_path})
