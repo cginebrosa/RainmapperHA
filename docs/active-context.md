@@ -4,89 +4,43 @@ Ventana operativa para continuar RainmapperHA. Revalidar código, datos y runtim
 antes de afirmar estado presente; `docs/decisions.md` conserva la historia y
 las razones duraderas.
 
-## Estado al cierre — 2026-08-19
+## Estado al cierre — 2026-08-19 (release fases 1–4 publicada)
 
-- Workspace comprobado: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama
-  `inicial`. El worktree contiene la fase 1 y cambios documentales locales que
-  deben preservarse; no asumir que está limpio ni descartar ficheros no
-  rastreados.
-- HA `0.2.261` y `latest` fueron publicados con índice OCI
-  `sha256:ad0dc1fba3ea7a420b05cc9ca4bcae9d035ebb0aefccd9680dd4892f7467aec2`.
-  Worker privado local `1.0.14` fue construido, no publicado. El usuario informó
-  después que el Predictor volvió a funcionar tras reiniciar el worker; no se
-  reconsultó el runtime real en este cierre.
-- La corrección `lag_event` 1..7 elimina el falso `model_not_installed` en
-  h4/h5/h6 sin crear fits separados por horizonte. Para que una instalación con
-  manifests antiguos lo refleje necesita reconstruir/reentrenar con el código
-  corregido.
-- El Predictor remoto quedó funcionalmente rápido tras reutilizar el runtime:
-  el usuario mostró un recomendador en 20 s y consultas por área/fecha entre
-  3 s y 12 s. Queda pendiente perfilar la construcción V2–V6, no el Predictor.
-- No se tocó HA real, el worker normal, GHCR ni datos vivos durante este cierre.
-  No se preparó ninguna release.
-
-## Relevo inmediato — publicar en HA y actualizar el worker
-
-El usuario quiere continuar en otra sesión de Claude con la publicación de
-estos cambios en HA y la actualización del worker. En esta sesión **no** se
-hizo bump, build/push de release, commit/push, instalación en HA real ni
-reconstrucción/reinicio del worker normal.
-
-Estado primario revalidado el 2026-08-19:
-
-- release publicada actual: HA `0.2.261`/`latest`, según
-  `rainmapper-app/config.yaml`, `rainmapper-app/Dockerfile` y
-  `docs/decisions.md`;
-- worker normal actual: contenedor `rainmapper-worker`, imagen privada local
-  `rainmapper-worker:1.0.14`, estado `healthy`; su versión está alineada entre
-  `rainmapper-worker/Dockerfile` y
-  `rainmapper-local/docker-compose.worker-local.yml`;
-- HA local de prueba: `rainmapper-local-rainmapper-ha-ui-1`, imagen
-  `rainmapperha:local-ha-ui`, digest
-  `sha256:ed92aa1b2f7ed008324a7010819be65371316da615f5f35d1292d50c6d5f86ec`;
-- gate actual: 949 pruebas con
-  `.venv/bin/python -m unittest discover -s tests` y `git diff --check` limpio;
-  todavía debe ejecutarse el smoke de release canónico
-  `PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh` antes y después del
-  bump;
-- validación real local Edulis/Salteguet, 2026-08-20: los cuatro contratos V4
-  entregan lluvia significativa encontrada, búsqueda completa, 9/4 días desde
-  lluvia, `weather_signal=recent_event` y
-  `ecological_compatibility=compatible`.
-
-Antes de construir el worker hay un bloqueo de empaquetado que debe corregirse
-y probarse: su Dockerfile mantiene una lista `COPY` explícita y todavía no
-incluye `rainmapper_core/mushroom_ml_biology_v3_physical.py` ni
-`rainmapper_core/mushroom_ml_benchmark_reports.py`. Ambos son importados por
-módulos que sí copia (`mushroom_ml_runtime_features`,
-`mushroom_ml_runtime_trainer` y `mushroom_ml_multiversion_transport`), por lo
-que una imagen worker nueva no debe publicarse ni sustituir al contenedor sano
-hasta añadirlos al `COPY` y al `py_compile`, construir una imagen candidata y
-demostrar `/health` y capacidades. `mushroom_ml_version_promotion.py` es
-coordinación HA importada por `web_server.py`; no se ha demostrado que deba ir
-en el worker.
-
-Continuación segura:
-
-1. Leer `docs/release-flow.md` y revalidar versiones/tags presentes; no asumir
-   que `0.2.262` y `1.0.15` siguen libres.
-2. Preservar íntegramente el worktree mixto y todos los no rastreados. La
-   release debe incluir el conjunto coherente de fases 1–4, no solo el último
-   arreglo V4.
-3. Corregir y probar el empaquetado worker antes de tocar el worker normal.
-4. Ejecutar smoke pre-bump, proponer versiones y obtener autorización explícita
-   para bump/build/publicación e instalación real si la nueva petición no la
-   concede inequívocamente.
-5. Para HA seguir literalmente `docs/release-flow.md`: tres versiones,
-   changelog, cache-busters, segundo smoke, un único build/push multiarch,
-   supervisión y verificación de digest/plataformas.
-6. HA y worker se versionan por separado. No existe en la documentación un
-   flujo canónico de publicación del worker a registro: hasta comprobar lo
-   contrario, tratarlo como imagen privada local. Aclarar si «subir al worker»
-   significa actualizar solo el M1 local o preparar además un paquete para M5.
-7. No usar Tailscale, no limpiar GHCR ni imágenes/volúmenes y no tocar datos
-   meteorológicos. Conservar el volumen `rainmapper-worker-data` y un rollback
-   exacto del contenedor `1.0.14` antes de sustituirlo.
+- Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
+  Commit `f679f87` "Release Home Assistant 0.2.262" pusheado a `origin/inicial`;
+  `git status` limpio.
+- HA `0.2.262` y `latest` publicados en GHCR con índice OCI
+  `sha256:4eb81b7ff91d966fce128642e039c7f3af9278a824bb95a38c5774a859a85037`,
+  manifests `linux/amd64` (`sha256:21f5357bf4cbf969e8a9ac7461da6c5813c709c741e72765737236e4e16d2391`)
+  y `linux/arm64` (`sha256:e8f3c072396dfd7956ce16a5cce6a282a30f457136cd1fc342941e48502a1d8c`)
+  verificados con `docker buildx imagetools inspect` para ambas etiquetas.
+  Publica el conjunto coherente de fases 1–4 (separación operativo/benchmark,
+  candidatas/promoción genéricas, Biology V3+ físico, selección de score por
+  menor Brier entre todos los estimadores, y las correcciones de catálogo de
+  calidad/evidencia de lluvia significativa).
+- Bloqueo de empaquetado del worker corregido: `rainmapper-worker/Dockerfile`
+  ahora copia y compila `mushroom_ml_biology_v3_physical.py` y
+  `mushroom_ml_benchmark_reports.py`. `mushroom_ml_version_promotion.py`
+  confirmado como coordinación exclusiva de HA (importado solo por
+  `web_server.py`) y no se incluyó en el worker.
+- Worker privado local reconstruido como `rainmapper-worker:1.0.15` y validado
+  antes de sustituir el contenedor sano: contenedor candidato efímero
+  (volumen y red aislados) respondió `/health` con `worker_version=1.0.15` y
+  anunció `ml_job_purpose_v1` y `ml_benchmark_report_v1` junto al resto de
+  capacidades esperadas. Contenedor real `rainmapper-worker` recreado con
+  `1.0.15` reutilizando el volumen `rainmapper-worker-data`; quedó `healthy`
+  conservando identidad (`worker_1a9a232c20fe2ee2`, "M1 Personal"), dataset
+  cache válido (12 ficheros, ~6,34 GB) y predictor cache válido. Rollback
+  exacto disponible: imagen local `rainmapper-worker:1.0.14` intacta.
+- Gate ejecutado: 949 pruebas (`.venv/bin/python -m unittest discover -s
+  tests`) y smoke canónico (`PYTHON_BIN=.venv/bin/python
+  ./scripts/smoke-test.sh`) pasaron antes y después del bump; `git diff
+  --check` limpio en ambos.
+- No se tocó HA real (instalación en el add-on de producción sigue pendiente
+  de que el usuario la ejecute), GHCR no se limpió, no se usó Tailscale y no
+  se tocaron históricos meteorológicos.
+- Pendiente: el usuario debe instalar/actualizar `0.2.262` en HA real cuando lo
+  decida; no hay bloqueo técnico conocido para ello.
 
 ## Hallazgo de rendimiento que motiva el siguiente trabajo
 
